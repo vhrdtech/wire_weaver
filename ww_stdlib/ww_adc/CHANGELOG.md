@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- Wire `w4.0` (STD-16): `AdcError` lost its `Common` variant and its lifetime (no `AdcErrorOwned`); handlers return `Result<T, wire_weaver::Error<'_, AdcError>>`, clients get a common error as `CallError::Common`.
 - Depends on `ww_api` instead of `wire_weaver` (API-68): the crate no longer pulls the runtime in; `std`/`defmt` forward to `ww_api`.
 - Wire-compatible (`w3.0` unchanged): channel indices, converter resolution, capture/stream byte and
   capture-read offset counts, and sample-set counts are typed instead of bare integers (AGENTS.md "Numbers are typed",

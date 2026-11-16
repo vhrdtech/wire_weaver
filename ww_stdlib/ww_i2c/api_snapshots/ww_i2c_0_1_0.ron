@@ -1,6 +1,6 @@
 // ww_i2c 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: eec5545b8edc727d11e50030ac3150a9e4e92b83bcc439722667b90f93cd5dc0
+// shrink_wrap sha256: cf87954e958ac8abc53273e256f06fc2ab437ad35fb9e2794bd04fe212cee1b7
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "I2C over WireWeaver: a device (a USB adapter, a dev board, an instrument) lets a host talk to the I2C devices on",
     "its bus, get a stuck bus free, or watch the bus.",
@@ -77,8 +77,8 @@
     "",
     "# Errors",
     "",
-    "Every trait returns [I2cError]: the framework\'s `CommonError` (in use, no power, refused, ...) as",
-    "[I2cError::Common], plus what is specific to I2C (`Nack`, `Arbitration`, ...). Each method lists the variants",
+    "Every trait returns [I2cError], what is specific to I2C (`Nack`, `Arbitration`, ...); the common errors (in use,",
+    "no power, refused, ...: `ww_error::CommonError`) come beside it, as every item\'s do. Each method lists the errors",
     "it returns (`#[errors]`).",
 ], crate_idx: 0, trait_name: "ww_i2c", items: [
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "I2c", docs: [], optional: None, meta: None, identity: None),

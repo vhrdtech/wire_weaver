@@ -1,6 +1,6 @@
 // ww_client_server 0.2.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: af65a44b0f292d2710d5e04bd809476eb2dd04af072a5165ebd9da88e3cc02c5
+// shrink_wrap sha256: 859a3a8e23956747fe9cb7fbcefa90716b2d229ca25e17ee71fb71bb464ac72a
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [], crate_idx: 0, trait_name: "ww_client_server", items: [], compact_id: None, meta: None), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "Fixed", signature: [
         226,
@@ -269,7 +269,31 @@
         (docs: [
             "The store of a reliable stream failed (open or resume)",
         ], ident: "StreamStoreFailed", fields: Unit, discriminant: 16, since: None),
+        (docs: [
+            "An error every item can answer with (`ww_error::CommonError`): the handler returned",
+            "`Err(wire_weaver::Error::Common(..))`, or a hub refused the call for a claimed resource (`InUse`)",
+        ], ident: "Common", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 13), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 17, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 3, type_name: "CommonError", signature: [
+        30,
+        18,
+        211,
+        141,
+        253,
+        197,
+        48,
+        184,
+        174,
+        189,
+        31,
+        52,
+        16,
+        18,
+        208,
+        63,
+    ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Asynchronous result with a request ID, sent back from server to client, as a response to a Request or on stream or properties updates.",
     ], ident: "Event", generics: [], fields: Named([
@@ -278,7 +302,7 @@
             "0 for stream data updates.",
             "Serialized as 1 byte if <= 127, 2 bytes if <= 16383, etc.",
         ], slot: None, series_opaque: false),
-        (ident: Some("result"), default: None, since: None, ty: Result(ok_ty: OutOfLine(type_idx: 14), err_ty: OutOfLine(type_idx: 11)), docs: [
+        (ident: Some("result"), default: None, since: None, ty: Result(ok_ty: OutOfLine(type_idx: 15), err_ty: OutOfLine(type_idx: 11)), docs: [
             "Request can be wrong or unsupported, in which case an error is sent back.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -300,7 +324,7 @@
             "Sent by user code whenever a stream has more data or whenever applicable.",
         ], ident: "StreamData", fields: Named([
             (ident: Some("path"), default: None, since: None, ty: Vec(Instance(type_idx: 1, args: [
-                Type(OutOfLine(type_idx: 15)),
+                Type(OutOfLine(type_idx: 16)),
                 Type(NumericAny(Base(UNib32))),
                 Type(OutOfLine(type_idx: 2)),
             ])), docs: [
@@ -314,26 +338,26 @@
             "Optionally sent by in response to RequestKind::StreamSideband or whenever applicable.",
         ], ident: "StreamSideband", fields: Named([
             (ident: Some("path"), default: None, since: None, ty: Vec(Instance(type_idx: 1, args: [
-                Type(OutOfLine(type_idx: 15)),
+                Type(OutOfLine(type_idx: 16)),
                 Type(NumericAny(Base(UNib32))),
                 Type(OutOfLine(type_idx: 2)),
             ])), docs: [
                 "When subscribing through trait interface, this path is used later to match stream updates to an original request.",
             ], slot: None, series_opaque: false),
-            (ident: Some("sideband"), default: None, since: None, ty: OutOfLine(type_idx: 16), docs: [], slot: None, series_opaque: false),
+            (ident: Some("sideband"), default: None, since: None, ty: OutOfLine(type_idx: 17), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
         (docs: [
             "An event of a counted or reliable stream (API-30): the head says where its data sits in the stream, what",
             "the device dropped right before it and when it was made, see [StreamHead]. Feature `streams`.",
         ], ident: "StreamItem", fields: Named([
             (ident: Some("path"), default: None, since: None, ty: Vec(Instance(type_idx: 1, args: [
-                Type(OutOfLine(type_idx: 15)),
+                Type(OutOfLine(type_idx: 16)),
                 Type(NumericAny(Base(UNib32))),
                 Type(OutOfLine(type_idx: 2)),
             ])), docs: [
                 "Same as in [EventKind::StreamData].",
             ], slot: None, series_opaque: false),
-            (ident: Some("head"), default: None, since: None, ty: OutOfLine(type_idx: 17), docs: [], slot: None, series_opaque: false),
+            (ident: Some("head"), default: None, since: None, ty: OutOfLine(type_idx: 18), docs: [], slot: None, series_opaque: false),
             (ident: Some("data"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [
                 "The serialized item.",
             ], slot: None, series_opaque: false),
@@ -342,13 +366,13 @@
             "Observed properties of one trait level (API-38), sent when any of them is due, see [observe].",
         ], ident: "PropertyUpdate", fields: Named([
             (ident: Some("path"), default: None, since: None, ty: Vec(Instance(type_idx: 1, args: [
-                Type(OutOfLine(type_idx: 15)),
+                Type(OutOfLine(type_idx: 16)),
                 Type(NumericAny(Base(UNib32))),
                 Type(OutOfLine(type_idx: 2)),
             ])), docs: [
                 "Path of the trait level, as in its [RequestKind::Observe].",
             ], slot: None, series_opaque: false),
-            (ident: Some("t"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 18, args: [
+            (ident: Some("t"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 19, args: [
                 Type(OutOfLine(type_idx: 9)),
                 Type(OutOfLine(type_idx: 2)),
             ])), docs: [
@@ -362,7 +386,7 @@
             ])), docs: [
                 "Sends of this level\'s properties that were due but did not fit the budget since the previous update.",
             ], slot: None, series_opaque: false),
-            (ident: Some("sample_times"), default: None, since: None, ty: Option(some_ty: Series(Instance(type_idx: 18, args: [
+            (ident: Some("sample_times"), default: None, since: None, ty: Option(some_ty: Series(Instance(type_idx: 19, args: [
                 Type(OutOfLine(type_idx: 9)),
                 Type(OutOfLine(type_idx: 2)),
             ]))), docs: [
@@ -472,19 +496,19 @@
         (ident: Some("lost"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(U64))), docs: [
             "Units the device dropped right before this event; `pos` counts them.",
         ], slot: None, series_opaque: false),
-        (ident: Some("t"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 18, args: [
+        (ident: Some("t"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 19, args: [
             Type(OutOfLine(type_idx: 9)),
             Type(OutOfLine(type_idx: 2)),
         ])), docs: [
             "Device time of the event\'s first unit (`ww_timebase` clock).",
         ], slot: None, series_opaque: false),
-        (ident: Some("ext"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 19)), docs: [
+        (ident: Some("ext"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 20)), docs: [
             "Rare markers.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: Some([
         "stream",
     ]), instance_of: None, extra: None)), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 3, type_name: "Quantity", signature: [
+    SkippedFullVersion(crate_idx: 4, type_name: "Quantity", signature: [
         177,
         199,
         35,
@@ -572,7 +596,7 @@
         ]), discriminant: 0, since: None),
         (docs: [], ident: "List", fields: Unnamed([
             (ident: None, default: None, since: None, ty: Vec(Instance(type_idx: 1, args: [
-                Type(OutOfLine(type_idx: 15)),
+                Type(OutOfLine(type_idx: 16)),
                 Type(NumericAny(Base(UNib32))),
                 Type(OutOfLine(type_idx: 2)),
             ])), docs: [], slot: None, series_opaque: false),
@@ -602,7 +626,7 @@
             "Full path to a resource, regardless of whether it is in a trait or not.",
         ], ident: "Absolute", fields: Named([
             (ident: Some("path"), default: None, since: None, ty: Vec(Instance(type_idx: 1, args: [
-                Type(OutOfLine(type_idx: 15)),
+                Type(OutOfLine(type_idx: 16)),
                 Type(NumericAny(Base(UNib32))),
                 Type(OutOfLine(type_idx: 2)),
             ])), docs: [], slot: None, series_opaque: false),
@@ -611,11 +635,11 @@
             "Request is for a trait implemented anywhere in the API tree, through a global unique ID (manually assigned for",
             "common traits, one per trait).",
         ], ident: "GlobalCompact", fields: Named([
-            (ident: Some("gid"), default: None, since: None, ty: OutOfLine(type_idx: 23), docs: [
+            (ident: Some("gid"), default: None, since: None, ty: OutOfLine(type_idx: 24), docs: [
                 "CompactVersion consists of 3 UNib32\'s, so the smallest additional size of such a call if all numbers are <= 7 is 2 bytes.",
             ], slot: None, series_opaque: false),
             (ident: Some("path_from_trait"), default: None, since: None, ty: Vec(Instance(type_idx: 1, args: [
-                Type(OutOfLine(type_idx: 15)),
+                Type(OutOfLine(type_idx: 16)),
                 Type(NumericAny(Base(UNib32))),
                 Type(OutOfLine(type_idx: 2)),
             ])), docs: [
@@ -627,12 +651,12 @@
             "can be used as is) and the trait\'s name in that crate.",
             "This kind of request is the biggest, because full crate name is used.",
         ], ident: "GlobalFull", fields: Named([
-            (ident: Some("gid"), default: None, since: None, ty: OutOfLine(type_idx: 24), docs: [], slot: None, series_opaque: false),
+            (ident: Some("gid"), default: None, since: None, ty: OutOfLine(type_idx: 25), docs: [], slot: None, series_opaque: false),
             (ident: Some("trait_name"), default: None, since: None, ty: String, docs: [
                 "Name of the trait in the `gid` crate, a crate can define several.",
             ], slot: None, series_opaque: false),
             (ident: Some("path_from_trait"), default: None, since: None, ty: Vec(Instance(type_idx: 1, args: [
-                Type(OutOfLine(type_idx: 15)),
+                Type(OutOfLine(type_idx: 16)),
                 Type(NumericAny(Base(UNib32))),
                 Type(OutOfLine(type_idx: 2)),
             ])), docs: [
@@ -640,7 +664,7 @@
             ], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
     ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 4, type_name: "CompactVersion", signature: [
+    SkippedFullVersion(crate_idx: 5, type_name: "CompactVersion", signature: [
         152,
         89,
         28,
@@ -658,7 +682,7 @@
         146,
         35,
     ]),
-    SkippedFullVersion(crate_idx: 4, type_name: "FullVersion", signature: [
+    SkippedFullVersion(crate_idx: 5, type_name: "FullVersion", signature: [
         115,
         6,
         16,
@@ -701,10 +725,10 @@
         (ident: Some("reserved"), default: None, since: None, ty: Bool, docs: [
             "Kept for a later use beside `priority` (EVO-76): written `false`, ignored on read.",
         ], slot: None, series_opaque: false),
-        (ident: Some("path_kind"), default: None, since: None, ty: OutOfLine(type_idx: 22), docs: [
+        (ident: Some("path_kind"), default: None, since: None, ty: OutOfLine(type_idx: 23), docs: [
             "Specifies whether a resource is addressed explicitly, using a full path to it or through global trait ID.",
         ], slot: None, series_opaque: false),
-        (ident: Some("kind"), default: None, since: None, ty: OutOfLine(type_idx: 26), docs: [
+        (ident: Some("kind"), default: None, since: None, ty: OutOfLine(type_idx: 27), docs: [
             "Action being requested",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -727,17 +751,17 @@
         (docs: [
             "Call the same method over an array of traits or several methods in one request.",
         ], ident: "MultiCall", fields: Named([
-            (ident: Some("multi_idx"), default: None, since: None, ty: OutOfLine(type_idx: 21), docs: [
+            (ident: Some("multi_idx"), default: None, since: None, ty: OutOfLine(type_idx: 22), docs: [
                 "List of resources to call",
             ], slot: None, series_opaque: false),
             (ident: Some("in_each_array_id"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 1, args: [
-                Type(OutOfLine(type_idx: 15)),
+                Type(OutOfLine(type_idx: 16)),
                 Type(NumericAny(Base(UNib32))),
                 Type(OutOfLine(type_idx: 2)),
             ])), docs: [
                 "Some when calling the same method on an array of traits: its resource index in each trait",
             ], slot: None, series_opaque: false),
-            (ident: Some("multi_args"), default: None, since: None, ty: OutOfLine(type_idx: 20), docs: [], slot: None, series_opaque: false),
+            (ident: Some("multi_args"), default: None, since: None, ty: OutOfLine(type_idx: 21), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
         (docs: [
             "Read a property.",
@@ -746,11 +770,11 @@
         (docs: [
             "Read the same property over an array of traits or several properties in one request.",
         ], ident: "MultiRead", fields: Named([
-            (ident: Some("multi_idx"), default: None, since: None, ty: OutOfLine(type_idx: 21), docs: [
+            (ident: Some("multi_idx"), default: None, since: None, ty: OutOfLine(type_idx: 22), docs: [
                 "List of properties to read from",
             ], slot: None, series_opaque: false),
             (ident: Some("in_each_array_id"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 1, args: [
-                Type(OutOfLine(type_idx: 15)),
+                Type(OutOfLine(type_idx: 16)),
                 Type(NumericAny(Base(UNib32))),
                 Type(OutOfLine(type_idx: 2)),
             ])), docs: [
@@ -766,22 +790,22 @@
         (docs: [
             "Write multiple properties or streams in one request.",
         ], ident: "MultiWrite", fields: Named([
-            (ident: Some("multi_idx"), default: None, since: None, ty: OutOfLine(type_idx: 21), docs: [
+            (ident: Some("multi_idx"), default: None, since: None, ty: OutOfLine(type_idx: 22), docs: [
                 "List of resources to write to",
             ], slot: None, series_opaque: false),
             (ident: Some("in_each_array_id"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 1, args: [
-                Type(OutOfLine(type_idx: 15)),
+                Type(OutOfLine(type_idx: 16)),
                 Type(NumericAny(Base(UNib32))),
                 Type(OutOfLine(type_idx: 2)),
             ])), docs: [
                 "Some when addressing the same resource on an array of traits: its resource index in each trait",
             ], slot: None, series_opaque: false),
-            (ident: Some("multi_data"), default: None, since: None, ty: OutOfLine(type_idx: 20), docs: [], slot: None, series_opaque: false),
+            (ident: Some("multi_data"), default: None, since: None, ty: OutOfLine(type_idx: 21), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 5, since: None),
         (docs: [
             "Stream sideband channel (open, close, frame sync, etc.). Optional to use.",
         ], ident: "StreamSideband", fields: Named([
-            (ident: Some("sideband"), default: None, since: None, ty: OutOfLine(type_idx: 16), docs: [], slot: None, series_opaque: false),
+            (ident: Some("sideband"), default: None, since: None, ty: OutOfLine(type_idx: 17), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 6, since: None),
         (docs: [
             "Send serialized AST describing a resource and all related types, see `ww_self` for format.",
@@ -792,7 +816,7 @@
             "`resume` with the arguments the session was opened with. Answered with [EventKind::Value] holding",
             "[stream::StreamOpened].",
         ], ident: "StreamOpen", fields: Named([
-            (ident: Some("resume"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 27)), docs: [
+            (ident: Some("resume"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 28)), docs: [
                 "Resume from this point instead of starting a new session.",
             ], slot: None, series_opaque: false),
             (ident: Some("max_age"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 0, args: [
@@ -821,7 +845,7 @@
             "`cfg` is decoded when it is read ([RefBox::read]), the same bytes as a plain [ObserveRequest]: a server that",
             "observes nothing never links its decoder (SRV-54).",
         ], ident: "Observe", fields: Named([
-            (ident: Some("cfg"), default: None, since: None, ty: Box(OutOfLine(type_idx: 28)), docs: [], slot: None, series_opaque: false),
+            (ident: Some("cfg"), default: None, since: None, ty: Box(OutOfLine(type_idx: 29)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 9, since: None),
         (docs: [
             "Write an item of one unit to a credit sink (API-34): its position in units from the start of the session,",
@@ -866,7 +890,7 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Body of [RequestKind::Observe](crate::RequestKind::Observe), sent to a trait level\'s path.",
     ], ident: "ObserveRequest", generics: [], fields: Named([
-        (ident: Some("entries"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 29)), docs: [
+        (ident: Some("entries"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 30)), docs: [
             "Settings per property, at most one entry per index.",
         ], slot: None, series_opaque: false),
         (ident: Some("patch"), default: None, since: None, ty: Bool, docs: [
@@ -892,13 +916,13 @@
         "One property of a level and how it is (to be) observed.",
     ], ident: "ObserveEntry", generics: [], fields: Named([
         (ident: Some("index"), default: None, since: None, ty: Instance(type_idx: 1, args: [
-            Type(OutOfLine(type_idx: 15)),
+            Type(OutOfLine(type_idx: 16)),
             Type(NumericAny(Base(UNib32))),
             Type(OutOfLine(type_idx: 2)),
         ]), docs: [
             "Resource index of the property within its trait level.",
         ], slot: None, series_opaque: false),
-        (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 30), docs: [], slot: None, series_opaque: false),
+        (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 31), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: Some([
         "observe",
     ]), instance_of: None, extra: None)), crate_idx: 0),
@@ -976,11 +1000,11 @@
         "Answer to [RequestKind::Observe](crate::RequestKind::Observe), in an",
         "[EventKind::Value](crate::EventKind::Value): the level\'s settings as the device applies them now.",
     ], ident: "ObserveGranted", generics: [], fields: Named([
-        (ident: Some("entries"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 29)), docs: [
+        (ident: Some("entries"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 30)), docs: [
             "Every property of the level that is observed now (not `Off`), with its period clamped to what the device can",
             "do, in index order.",
         ], slot: None, series_opaque: false),
-        (ident: Some("refused"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 32)), docs: [
+        (ident: Some("refused"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 33)), docs: [
             "Entries of the request that were not applied, and why.",
         ], slot: None, series_opaque: false),
         (ident: Some("budget"), default: None, since: None, ty: Instance(type_idx: 0, args: [
@@ -1001,11 +1025,11 @@
         "An entry of an [ObserveRequest] the device did not apply.",
     ], ident: "ObserveRefused", generics: [], fields: Named([
         (ident: Some("index"), default: None, since: None, ty: Instance(type_idx: 1, args: [
-            Type(OutOfLine(type_idx: 15)),
+            Type(OutOfLine(type_idx: 16)),
             Type(NumericAny(Base(UNib32))),
             Type(OutOfLine(type_idx: 2)),
         ]), docs: [], slot: None, series_opaque: false),
-        (ident: Some("reason"), default: None, since: None, ty: OutOfLine(type_idx: 33), docs: [], slot: None, series_opaque: false),
+        (ident: Some("reason"), default: None, since: None, ty: OutOfLine(type_idx: 34), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: Some([
         "observe",
     ]), instance_of: None, extra: None)), crate_idx: 0),
@@ -1126,7 +1150,7 @@
             "Batched streams (API-41): the most a batch waits on the device before it is sent, granted for the",
             "`max_age` of [StreamOpen](crate::RequestKind::StreamOpen); `None` for a stream that isn\'t batched.",
         ], slot: None, series_opaque: false),
-        (ident: Some("codec"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 35)), docs: [
+        (ident: Some("codec"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 36)), docs: [
             "Compressed streams (API-55): the codec the device compresses this session\'s events with, `None` for events",
             "sent as they are (the host asked for `raw`, or a stream that doesn\'t compress).",
         ], slot: None, series_opaque: false),
@@ -1162,7 +1186,7 @@
         ]), docs: [
             "Bytes sent and not acknowledged yet (reliable streams).",
         ], slot: None, series_opaque: false),
-        (ident: Some("store"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 34)), docs: [
+        (ident: Some("store"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 35)), docs: [
             "What the store holds, `None` without one (plain and counted streams).",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: Some([
@@ -1172,11 +1196,13 @@
     (crate_id: "ww_client_server", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
     (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "shrink_wrap", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_si", version: (major: 0, minor: 5, patch: 0, pre: None, build: None)),
     (crate_id: "ww_version", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
-], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
-    Some((line: 1, revision: 0)),
+], root_omitted: None, wire: Some((line: 2, revision: 0)), ext_wire: Some([
+    Some((line: 2, revision: 0)),
     None,
+    Some((line: 1, revision: 0)),
     Some((line: 1, revision: 0)),
     Some((line: 5, revision: 0)),
     Some((line: 1, revision: 0)),

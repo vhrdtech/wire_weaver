@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- Wire `w3.0` (STD-16): `ReworkError` lost its `Common` variant and its lifetime (no `ReworkErrorOwned`); handlers return `Result<T, wire_weaver::Error<'_, ReworkError>>`, clients get a common error as `CallError::Common`.
 - Depends on `ww_api` instead of `wire_weaver` (API-68): the crate no longer pulls the runtime in; `std`/`defmt` forward to `ww_api`.
 - Wire line follows `ww_date_time` `w2.0`, EVO-58: `DateTime` has bounded calendar fields (`w1.x` -> `w2.0`).
 * `#[since]` markers are wire revisions (EVO-24): `RevisionSource::Provisional` `w1.1`, `REWORKS` and `set_reworks` `w1.2` (were `0.2.0` and `0.3.0`). The signatures of `BoardInfo` and `RevisionSource` change with the marker bytes; the crate gets its own wire version with EVO-26.

@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- Wire `w4.0` (STD-16): `UserInfoError` lost its `Common` variant and its lifetime (no `UserInfoErrorOwned`); handlers return `Result<T, wire_weaver::Error<'_, UserInfoError>>`, clients get a common error as `CallError::Common`.
 - Depends on `ww_api` instead of `wire_weaver` (API-68): the crate no longer pulls the runtime in; `std`/`defmt` forward to `ww_api`.
 - `NameMax` is `Bytes<u8, Range<0, { MAX_NAME_LEN as i64 }>>` (was a `u16`), `NotesMax` `Bytes<u16, Range<0, { MAX_NOTES_LEN as i64 }>>` (EVO-72, P2401#13nov-0531): the bounds name their consts, and the name cap is in the smallest storage that holds 32. Wire line `w3.0`, as `name_max` is one byte now; never published, the 0.1.0 snapshot saved again in place. `Fixed` and `One` are no longer re-exported (nothing here uses them).
 - Reworked (STD-24, never published): `name` is bounded to 32 bytes, `notes` to 256 and `#[optional]`, writes return

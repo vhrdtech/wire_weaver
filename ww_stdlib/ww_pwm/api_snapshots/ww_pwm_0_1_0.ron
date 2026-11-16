@@ -1,6 +1,6 @@
 // ww_pwm 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 44e148e3a257a7b2489c9e9bc1ac476fead942396c22b4dbf65b650ec1a0aa8b
+// shrink_wrap sha256: 26427ddc412b6a0c147e8f2c005788f81fd581d4356fd4b0616f8759b7f2ff81
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "PWM outputs and pulse measurement over WireWeaver.",
     "",
@@ -40,8 +40,8 @@
     "",
     "# Errors",
     "",
-    "All traits return [PwmError]: the framework\'s `CommonError` as [PwmError::Common], plus `SharedTimer`. Each",
-    "method lists the variants it returns (`#[errors]`).",
+    "All traits return [PwmError] (`SharedTimer`); the common errors (`ww_error::CommonError`) come beside it, as every",
+    "item\'s do. Each method lists the errors it returns (`#[errors]`).",
 ], crate_idx: 0, trait_name: "ww_pwm", items: [
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Pwm", docs: [], optional: None, meta: None, identity: None),
     (id: 1, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "PwmCapture", docs: [], optional: None, meta: None, identity: None),

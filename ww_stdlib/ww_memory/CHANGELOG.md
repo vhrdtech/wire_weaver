@@ -4,6 +4,7 @@ Not published yet, so no version bump.
 
 ### ⚠️ Breaking
 
+- Wire `w2.0` (STD-16): `MemoryError` lost its `Common` variant and its lifetime (no `MemoryErrorOwned`); handlers return `Result<T, wire_weaver::Error<'_, MemoryError>>`, clients get a common error as `CallError::Common`.
 - Depends on `ww_api` instead of `wire_weaver` (API-68): the crate no longer pulls the runtime in; `std`/`defmt` forward to `ww_api`.
 - The crate is renamed from `ww_ll` to `ww_memory`: depend on `ww_memory` and use `ww_memory::{Memory8, Memory32}`.
 - One word type per trait: `Memory32::read` returns `u32` (was `u8`), like its writes, `read_many` and watches; an

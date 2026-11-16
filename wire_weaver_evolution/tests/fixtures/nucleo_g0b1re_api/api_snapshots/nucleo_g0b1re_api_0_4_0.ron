@@ -24,16 +24,6 @@
     (id: 2, kind: Trait(trait_idx: 10, omitted: None), multiplicity: Flat, since: None, ident: "Dfu", docs: [], optional: None, meta: None),
     (id: 3, kind: Trait(trait_idx: 7, omitted: None), multiplicity: Flat, since: None, ident: "Settings", docs: [], optional: None, meta: None),
 ], compact_id: None, meta: None), types: [
-    SkippedFullVersion(crate_idx: 3, type_name: "CommonError", signature: [
-        37,
-        11,
-        183,
-        248,
-        238,
-        96,
-        205,
-        177,
-    ]),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "Silicon revision of an STM32G0B1 / G0C1 as ES0548 lists them, see [`Variant::rev_id`]. A host reads one it",
         "doesn\'t know as [`Other`](SiliconRevision::Other).",
@@ -55,7 +45,7 @@
         (ident: Some("rev_id"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
             "DBGMCU_IDCODE.REV_ID, the raw silicon revision code",
         ], slot: None, series_opaque: false),
-        (ident: Some("revision"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [
+        (ident: Some("revision"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "The silicon revision `rev_id` stands for (ES0548)",
         ], slot: None, series_opaque: false),
         (ident: Some("flash_kib"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
@@ -84,16 +74,16 @@
         82,
     ]),
     SkippedFullVersion(crate_idx: 2, trait_name: "BoardInfo", signature: [
-        242,
-        251,
-        121,
-        59,
-        207,
-        102,
         237,
-        201,
+        49,
+        141,
+        51,
+        17,
+        166,
+        253,
+        85,
     ]),
-    SkippedFullVersion(crate_idx: 4, trait_name: "Uid", signature: [
+    SkippedFullVersion(crate_idx: 3, trait_name: "Uid", signature: [
         248,
         15,
         49,
@@ -103,60 +93,64 @@
         138,
         75,
     ]),
-    SkippedFullVersion(crate_idx: 5, trait_name: "UserInfo", signature: [
-        162,
-        127,
-        221,
-        181,
-        107,
-        168,
-        253,
+    SkippedFullVersion(crate_idx: 4, trait_name: "UserInfo", signature: [
+        120,
+        4,
+        42,
+        101,
+        145,
+        158,
+        83,
+        165,
+        158,
+        200,
+        93,
         234,
-        60,
-        157,
-        185,
-        97,
-        79,
-        130,
-        40,
-        134,
+        25,
+        19,
+        96,
+        229,
     ]),
-    SkippedFullVersion(crate_idx: 6, trait_name: "Counters", signature: [
-        132,
-        253,
-        110,
-        40,
-        102,
-        138,
-        66,
-        137,
+    SkippedFullVersion(crate_idx: 5, trait_name: "Counters", signature: [
+        21,
+        133,
+        63,
+        204,
+        118,
+        189,
+        151,
+        14,
     ]),
-    SkippedFullVersion(crate_idx: 7, trait_name: "LogDefmt", signature: [
-        220,
-        242,
-        22,
-        167,
-        18,
+    SkippedFullVersion(crate_idx: 6, trait_name: "LogDefmt", signature: [
+        90,
+        25,
         210,
-        176,
-        104,
+        248,
+        199,
+        236,
+        140,
+        232,
     ]),
     InLine(level: (docs: [
         "Settings kept in flash across power cycles. A write is in flash before the call answers. The label is",
         "`device.label`, kept the same way.",
     ], crate_idx: 0, trait_name: "Settings", items: [
-        (id: 0, kind: Property(ty: Bool, access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 0)), errors: Some([
-            (ident: "Fault", nested: None),
+        (id: 0, kind: Property(ty: Bool, access: ReadWrite(observe: false), write_err_ty: None, errors: Some([
+            (ident: "CommonError", nested: Some([
+                "Fault",
+            ])),
         ]), batched: None), multiplicity: Flat, since: None, ident: "led_at_boot", docs: [
             "The LED after boot: on (`true`) or off, default off",
         ], optional: None, meta: None),
-        (id: 1, kind: Method(args: [], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 0))), errors: Some([
-            (ident: "Fault", nested: None),
+        (id: 1, kind: Method(args: [], return_ty: None, errors: Some([
+            (ident: "CommonError", nested: Some([
+                "Fault",
+            ])),
         ])), multiplicity: Flat, since: None, ident: "reset", docs: [
             "Every setting back to its default, the label too",
         ], optional: None, meta: None),
     ], compact_id: None, meta: None), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 8, trait_name: "BootControl", signature: [
+    SkippedFullVersion(crate_idx: 7, trait_name: "BootControl", signature: [
         26,
         107,
         188,
@@ -166,7 +160,7 @@
         66,
         79,
     ]),
-    SkippedFullVersion(crate_idx: 8, trait_name: "UpdateNode", signature: [
+    SkippedFullVersion(crate_idx: 7, trait_name: "UpdateNode", signature: [
         131,
         8,
         60,
@@ -208,7 +202,7 @@
         (id: 6, kind: Trait(trait_idx: 6, omitted: None), multiplicity: Flat, since: None, ident: "log", docs: [
             "The defmt log, also kept while no host is connected",
         ], optional: None, meta: None),
-        (id: 7, kind: Property(ty: OutOfLine(type_idx: 2), access: ReadOnly(observe: false), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "variant", docs: [
+        (id: 7, kind: Property(ty: OutOfLine(type_idx: 1), access: ReadOnly(observe: false), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "variant", docs: [
             "The chip on this board, read from the chip itself: device id, silicon revision, flash size",
         ], optional: None, meta: None),
         (id: 8, kind: Trait(trait_idx: 7, omitted: None), multiplicity: Flat, since: None, ident: "settings", docs: [
@@ -222,35 +216,35 @@
             "The update node: the firmware in place, written by the ROM bootloader (`Profile::InPlace`, `device.boot` only)",
         ], optional: None, meta: None),
     ], compact_id: None, meta: None), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 9, trait_name: "PinDiag", signature: [
-        88,
-        5,
-        231,
-        129,
-        55,
-        48,
-        137,
-        208,
-    ]),
-    SkippedFullVersion(crate_idx: 10, trait_name: "Indication", signature: [
-        195,
-        233,
+    SkippedFullVersion(crate_idx: 8, trait_name: "PinDiag", signature: [
+        147,
         201,
-        157,
-        41,
-        111,
-        78,
-        216,
+        107,
+        71,
+        201,
+        15,
+        254,
+        203,
     ]),
-    SkippedFullVersion(crate_idx: 11, trait_name: "Clock", signature: [
-        226,
-        137,
-        17,
-        41,
-        168,
-        89,
-        177,
-        19,
+    SkippedFullVersion(crate_idx: 9, trait_name: "Indication", signature: [
+        155,
+        109,
+        237,
+        9,
+        231,
+        160,
+        112,
+        123,
+    ]),
+    SkippedFullVersion(crate_idx: 10, trait_name: "Clock", signature: [
+        67,
+        53,
+        194,
+        34,
+        175,
+        92,
+        4,
+        208,
     ]),
     InLine(level: (docs: [
         "nucleo_g0b1re device",
@@ -281,7 +275,6 @@
     (crate_id: "nucleo_g0b1re_api", version: (major: 0, minor: 4, patch: 0, pre: None, build: None)),
     (crate_id: "ww_firmware_info", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_board_info", version: (major: 0, minor: 3, patch: 0, pre: None, build: None)),
-    (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_uid", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_user_info", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_counters", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),

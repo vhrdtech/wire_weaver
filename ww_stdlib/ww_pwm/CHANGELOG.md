@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- Wire `w2.0` (STD-16): `PwmError` lost its `Common` variant and its lifetime (no `PwmErrorOwned`); handlers return `Result<T, wire_weaver::Error<'_, PwmError>>`, clients get a common error as `CallError::Common`.
 - Depends on `ww_api` instead of `wire_weaver` (API-68): the crate no longer pulls the runtime in; `std`/`defmt` forward to `ww_api`.
 - `PwmChannel::set_duty`, `PwmOutput::duty`, `PwmActual::duty` and `CaptureValue::DutyCycle` are `Duty16`
   (`exact_units`' "0..=65535 = 0..100 %" alias) instead of a bare `u16` (AGENTS.md "Numbers are typed").

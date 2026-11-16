@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- Wire `w3.0` (STD-16): `OneWireError` lost its `Common` variant and its lifetime (no `OneWireErrorOwned`); handlers return `Result<T, wire_weaver::Error<'_, OneWireError>>`, clients get a common error as `CallError::Common`.
 - Depends on `ww_api` instead of `wire_weaver` (API-68): the crate no longer pulls the runtime in; `std`/`defmt` forward to `ww_api`.
 - New wire line, `w2.0` (STD-113, EVO-61): numbers are typed instead of bare integers (AGENTS.md
   "Numbers are typed"). `SearchState::last_discrepancy` is `IndexFrom1<RomBit, u8, Range<1, 64>>` instead of a plain

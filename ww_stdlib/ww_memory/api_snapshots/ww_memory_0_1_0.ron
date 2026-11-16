@@ -1,6 +1,6 @@
 // ww_memory 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 59501c92cfbc158634733d280c37ba506df0c37c996d03345c40a292e8f37c33
+// shrink_wrap sha256: 4def4a4c52bc71616e2b6e10b5ecaf82dc6273fb959c0f3b355830f75b2c7eec
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Low-level access to memory or registers over WireWeaver: read and write words at addresses, and optionally watch",
     "addresses for changes.",
@@ -14,8 +14,8 @@
     "Watching is `#[optional(watches)]`: a device without it leaves `watch`, `watching` and `changed` out",
     "(`omit = [\"mem.watches\"]`), and a host calling them gets `Unimplemented`.",
     "",
-    "Errors are [MemoryError]: the framework\'s `CommonError` as [MemoryError::Common], plus what is specific to",
-    "memory access. Each method lists the variants it returns (`#[errors]`).",
+    "Errors are [MemoryError], what is specific to memory access; the common errors (`ww_error::CommonError`) come",
+    "beside it, as every item\'s do. Each method lists the errors it returns (`#[errors]`).",
 ], crate_idx: 0, trait_name: "ww_memory", items: [
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Memory32", docs: [], optional: None, meta: None, identity: None),
     (id: 1, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "Memory8", docs: [], optional: None, meta: None, identity: None),

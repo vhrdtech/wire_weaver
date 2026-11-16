@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- Wire `w4.0` (STD-16): `SpiError` lost its `Common` variant and its lifetime (no `SpiErrorOwned`); handlers return `Result<T, wire_weaver::Error<'_, SpiError>>`, clients get a common error as `CallError::Common`.
 - Depends on `ww_api` instead of `wire_weaver` (API-68): the crate no longer pulls the runtime in; `std`/`defmt` forward to `ww_api`.
 - `SpiCapabilities::max_len` is `Bytes<u16, Range<0, { SPI_MAX as i64 }>>` (was `Bytes<u32>`), wire line `w3.0` (EVO-72, P2401#13nov-0531): the limit carries `SPI_MAX` as its bound, refused past it on decode, in the smallest storage that holds 512. Never published, the 0.1.0 snapshot saved again in place.
 - Typed numbers (STD-56), wire line `w2.0` (EVO-57): `word_bits` of `SpiConfig`, `SpiMonitorConfig` and

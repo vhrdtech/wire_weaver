@@ -1,6 +1,6 @@
 // ww_onewire 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 789430926c7a3a60702880381bff29a4868863b0284f89f5c029dcab825c250f
+// shrink_wrap sha256: 4ac70de01cc662e5a48078da7c0629f1ef75deb5eea330d70f611bf156a09500
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "1-Wire over WireWeaver: a device (a USB adapter, a dev board, an instrument) lets a host reset the bus, find the",
     "ROM ids on it, and run addressed transactions against them.",
@@ -42,9 +42,9 @@
     "",
     "# Errors",
     "",
-    "Every method returns [OneWireError]: the framework\'s `CommonError` as [OneWireError::Common], plus what is",
-    "specific to 1-Wire (`NoPresence`, `CrcMismatch`, `ShortCircuit`). Each method lists the variants it returns",
-    "(`#[errors]`).",
+    "Every method returns [OneWireError], what is specific to 1-Wire (`NoPresence`, `CrcMismatch`, `ShortCircuit`);",
+    "the common errors (`ww_error::CommonError`) come beside it, as every item\'s do. Each method lists the errors it",
+    "returns (`#[errors]`).",
 ], crate_idx: 0, trait_name: "ww_onewire", items: [
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "OneWire", docs: [], optional: None, meta: None, identity: None),
 ], compact_id: None, meta: None), types: [

@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- Wire `w2.0` (STD-16): `PgError` and `WgError` lost their `Common` variant and lifetime (no `Owned` types); handlers return `Result<T, wire_weaver::Error<'_, PgError>>`, clients get a common error as `CallError::Common`.
 - Depends on `ww_api` instead of `wire_weaver` (API-68): the crate no longer pulls the runtime in; `std`/`defmt` forward to `ww_api`.
 - `PgError<'i>` and `WgError<'i>`: the first variant is `#[common] Common(CommonError<'i>)` (STD-16): `Unsupported`,
   `InvalidArgument`, `InUse`, `Busy`, `WrongState`, `NoPower`, `Refused`, `Timeout` come from `ww_error::CommonError`;

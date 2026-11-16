@@ -1,6 +1,6 @@
 // ww_timebase 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: dbd80efcb68a061dcce285e72fd8786957162e28c61bc50aba751e01911682dc
+// shrink_wrap sha256: a8efa643d6c4ded268a3c28fe592094a78ea3a3a7ffc24f860b8da8aefc0ecf9
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Device time and synchronisation over WireWeaver.",
     "",
@@ -84,7 +84,7 @@
         (ident: Some("source"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: String), docs: [
             "\"RP2350 TIMER0\", \"DWT cycle counter\".",
         ], slot: None, series_opaque: false),
-        (ident: Some("sync_formats"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 15))), docs: [
+        (ident: Some("sync_formats"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 14))), docs: [
             "Sync formats this device can use; empty without a sync line.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -103,10 +103,10 @@
         ]), docs: [
             "The corresponding shared time (UTC), in the prefix and storage of `local` (wrapping as it does).",
         ], slot: None, series_opaque: false),
-        (ident: Some("state"), default: None, since: None, ty: OutOfLine(type_idx: 16), docs: [
+        (ident: Some("state"), default: None, since: None, ty: OutOfLine(type_idx: 15), docs: [
             "Sync state at the point, so a host can tell a real lock from a stale mapping.",
         ], slot: None, series_opaque: false),
-        (ident: Some("source"), default: Some(Bool(false)), since: None, ty: Option(some_ty: OutOfLine(type_idx: 10)), docs: [
+        (ident: Some("source"), default: Some(Bool(false)), since: None, ty: Option(some_ty: OutOfLine(type_idx: 9)), docs: [
             "The source followed at the point: a change from one point to the next is a seam (slewed, not stepped).",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -119,28 +119,18 @@
         (docs: [
             "This device drives the sync line in `format` from its shared clock, so others can lock to it.",
         ], ident: "Master", fields: Named([
-            (ident: Some("format"), default: None, since: None, ty: OutOfLine(type_idx: 15), docs: [], slot: None, series_opaque: false),
+            (ident: Some("format"), default: None, since: None, ty: OutOfLine(type_idx: 14), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
         (docs: [
             "This device locks its shared clock to a master\'s sync line in `format`.",
         ], ident: "Slave", fields: Named([
-            (ident: Some("format"), default: None, since: None, ty: OutOfLine(type_idx: 15), docs: [], slot: None, series_opaque: false),
+            (ident: Some("format"), default: None, since: None, ty: OutOfLine(type_idx: 14), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
-    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
-        "Errors of `Clock`: the common ones (unsupported sync line or format, invalid configuration, in use, wrong",
-        "state); each method lists the variants it returns.",
-    ], ident: "ClockError", generics: [], variants: [
-        (docs: [
-            "{0}",
-        ], ident: "Common", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 17), docs: [], slot: None, series_opaque: false),
-        ]), discriminant: 0, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Current sync state of a device\'s clock, see `Clock::sync_status`.",
     ], ident: "SyncStatus", generics: [], fields: Named([
-        (ident: Some("state"), default: None, since: None, ty: OutOfLine(type_idx: 16), docs: [
+        (ident: Some("state"), default: None, since: None, ty: OutOfLine(type_idx: 15), docs: [
             "Current state of the sync state machine.",
         ], slot: None, series_opaque: false),
         (ident: Some("offset"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 0, args: [
@@ -155,7 +145,7 @@
         ])), docs: [
             "Local time of the last lock.",
         ], slot: None, series_opaque: false),
-        (ident: Some("source"), default: Some(Bool(false)), since: None, ty: Option(some_ty: OutOfLine(type_idx: 10)), docs: [
+        (ident: Some("source"), default: Some(Bool(false)), since: None, ty: Option(some_ty: OutOfLine(type_idx: 9)), docs: [
             "The source the shared clock follows (`Locked`) or last followed (`Holdover`); `None` while free, and from",
             "devices built before sources were reported.",
         ], slot: None, series_opaque: false),
@@ -166,9 +156,9 @@
             "Estimated bound of the shared clock\'s error against UTC: the source\'s own error, the offset still to slew",
             "in and what holdover adds since. `None` when the device can\'t tell.",
         ], slot: None, series_opaque: false),
-        (ident: Some("slew"), default: Some(Bool(false)), since: None, ty: Option(some_ty: Instance(type_idx: 13, args: [
+        (ident: Some("slew"), default: Some(Bool(false)), since: None, ty: Option(some_ty: Instance(type_idx: 12, args: [
             Type(OutOfLine(type_idx: 1)),
-            Type(OutOfLine(type_idx: 14)),
+            Type(OutOfLine(type_idx: 13)),
             Type(NumericAny(Base(I32))),
             Type(OutOfLine(type_idx: 2)),
         ])), docs: [
@@ -176,12 +166,12 @@
             "it runs fast until it caught up). 0 once it has; `None` from devices that don\'t tell (built before this",
             "field, or not slewing in software).",
         ], slot: None, series_opaque: false),
-        (ident: Some("steerer"), default: Some(Bool(false)), since: None, ty: Option(some_ty: OutOfLine(type_idx: 18)), docs: [
+        (ident: Some("steerer"), default: Some(Bool(false)), since: None, ty: Option(some_ty: OutOfLine(type_idx: 16)), docs: [
             "The host whose steer points the shared clock follows (source `Host`) or last followed (`Holdover`), as its",
             "points named it; `None` for points that name nobody (hosts built before this field), while no host steers,",
             "and from devices that don\'t tell (SRV-31).",
         ], slot: None, series_opaque: false),
-        (ident: Some("noted"), default: Some(Bool(false)), since: None, ty: Option(some_ty: OutOfLine(type_idx: 18)), docs: [
+        (ident: Some("noted"), default: Some(Bool(false)), since: None, ty: Option(some_ty: OutOfLine(type_idx: 16)), docs: [
             "Another host that sent steer points while `steerer` was followed: only noted, not followed (the latest one",
             "within the last few seconds). `None` without one, and from devices that don\'t tell.",
         ], slot: None, series_opaque: false),
@@ -219,36 +209,36 @@
         ]), docs: [
             "Device time at the point, in the prefix and storage of `Clock::now()` (a `U32` wraps as `now()` does).",
         ], slot: None, series_opaque: false),
-        (ident: Some("shared"), default: None, since: None, ty: Instance(type_idx: 11, args: [
-            Type(OutOfLine(type_idx: 12)),
-            Type(Instance(type_idx: 13, args: [
+        (ident: Some("shared"), default: None, since: None, ty: Instance(type_idx: 10, args: [
+            Type(OutOfLine(type_idx: 11)),
+            Type(Instance(type_idx: 12, args: [
                 Type(OutOfLine(type_idx: 1)),
-                Type(OutOfLine(type_idx: 14)),
+                Type(OutOfLine(type_idx: 13)),
                 Type(NumericAny(Base(U64))),
                 Type(OutOfLine(type_idx: 2)),
             ])),
         ]), docs: [
             "Shared time at `local`: UTC.",
         ], slot: None, series_opaque: false),
-        (ident: Some("rate"), default: None, since: None, ty: Instance(type_idx: 13, args: [
-            Type(OutOfLine(type_idx: 19)),
-            Type(OutOfLine(type_idx: 20)),
+        (ident: Some("rate"), default: None, since: None, ty: Instance(type_idx: 12, args: [
+            Type(OutOfLine(type_idx: 17)),
+            Type(OutOfLine(type_idx: 18)),
             Type(NumericAny(Base(I32))),
             Type(OutOfLine(type_idx: 2)),
         ]), docs: [
             "Shared rate minus local rate: shared time advances `1 + rate * 1e-9` s per local second. An HSI clock 1 %",
             "fast is about `Ppb(-9_900_990)`.",
         ], slot: None, series_opaque: false),
-        (ident: Some("error"), default: None, since: None, ty: Instance(type_idx: 13, args: [
+        (ident: Some("error"), default: None, since: None, ty: Instance(type_idx: 12, args: [
             Type(OutOfLine(type_idx: 1)),
-            Type(OutOfLine(type_idx: 14)),
+            Type(OutOfLine(type_idx: 13)),
             Type(NumericAny(Base(U32))),
             Type(OutOfLine(type_idx: 2)),
         ]), docs: [
             "The host\'s estimate of how far `shared` may be off: half the shortest round trip and the scatter of its",
             "samples. Not counting how far the host\'s own wall clock is from UTC.",
         ], slot: None, series_opaque: false),
-        (ident: Some("steerer"), default: Some(Bool(false)), since: None, ty: Option(some_ty: OutOfLine(type_idx: 18)), docs: [
+        (ident: Some("steerer"), default: Some(Bool(false)), since: None, ty: Option(some_ty: OutOfLine(type_idx: 16)), docs: [
             "Who sends the point (SRV-31). A device follows one steerer at a time: the one it follows keeps it while its",
             "points come, another one\'s points are only noted (`SyncStatus::noted`) and taken once the followed one has",
             "been quiet for the device\'s holdover time (bedrock boards: 3 s). Points without one (`None`, hosts built",
@@ -265,7 +255,7 @@
         (docs: [
             "The sync line, as a slave locked to it.",
         ], ident: "Line", fields: Named([
-            (ident: Some("format"), default: None, since: None, ty: OutOfLine(type_idx: 15), docs: [], slot: None, series_opaque: false),
+            (ident: Some("format"), default: None, since: None, ty: OutOfLine(type_idx: 14), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "Point", signature: [
@@ -376,28 +366,10 @@
             "reported until one of them goes. Slaves on that line can\'t tell which one to follow.",
         ], ident: "Conflict", fields: Unit, discriminant: 4, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 4, type_name: "CommonError", signature: [
-        30,
-        18,
-        211,
-        141,
-        253,
-        197,
-        48,
-        184,
-        37,
-        11,
-        183,
-        248,
-        238,
-        96,
-        205,
-        177,
-    ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Who steers a device\'s clock (SRV-31): a program on a host, see `SteerPoint::steerer` and `SyncStatus::steerer`.",
     ], ident: "Steerer", generics: [], fields: Named([
-        (ident: Some("id"), default: None, since: None, ty: OutOfLine(type_idx: 21), docs: [
+        (ident: Some("id"), default: None, since: None, ty: OutOfLine(type_idx: 19), docs: [
             "What the device tells steerers apart by: random per steering program (the instance id of its WireWeaver",
             "client, `ww_link::ClientMeta::instance_id`), never 0.",
         ], slot: None, series_opaque: false),
@@ -480,8 +452,8 @@
         ], optional: None, meta: None, identity: None),
         (id: 3, kind: Method(args: [
             (ident: "config", ty: OutOfLine(type_idx: 5), default: None, flatten: false),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 6))), errors: Some([
-            (ident: "Common", nested: Some([
+        ], return_ty: None, errors: Some([
+            (ident: "CommonError", nested: Some([
                 "Unsupported",
                 "InvalidArgument",
                 "InUse",
@@ -498,14 +470,14 @@
         (id: 4, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 5)), errors: None), multiplicity: Flat, since: None, ident: "sync_config", docs: [
             "Current sync configuration, as last accepted by `configure_sync` (`Off` until configured).",
         ], optional: None, meta: None, identity: None),
-        (id: 5, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 7)), errors: None), multiplicity: Flat, since: None, ident: "sync_status", docs: [
+        (id: 5, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 6)), errors: None), multiplicity: Flat, since: None, ident: "sync_status", docs: [
             "Current sync state, with the source followed, its estimated error and the offset and local time of the",
             "last lock, when known.",
         ], optional: None, meta: None, identity: None),
         (id: 6, kind: Method(args: [
-            (ident: "t", ty: OutOfLine(type_idx: 8), default: None, flatten: false),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 6))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "t", ty: OutOfLine(type_idx: 7), default: None, flatten: false),
+        ], return_ty: None, errors: Some([
+            (ident: "CommonError", nested: Some([
                 "WrongState",
             ])),
         ])), multiplicity: Flat, since: None, ident: "set_time_of_day", docs: [
@@ -513,9 +485,9 @@
             "sync is off: `WrongState` unless `configure_sync` currently has this device set as `Master`.",
         ], optional: None, meta: None, identity: None),
         (id: 7, kind: Method(args: [
-            (ident: "point", ty: OutOfLine(type_idx: 9), default: None, flatten: false),
-        ], return_ty: Some(Result(ok_ty: Option(some_ty: OutOfLine(type_idx: 10)), err_ty: OutOfLine(type_idx: 6))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "point", ty: OutOfLine(type_idx: 8), default: None, flatten: false),
+        ], return_ty: Some(Option(some_ty: OutOfLine(type_idx: 9))), errors: Some([
+            (ident: "CommonError", nested: Some([
                 "InvalidArgument",
             ])),
         ])), multiplicity: Flat, since: None, ident: "steer", docs: [
@@ -535,11 +507,11 @@
             "against its monotonic clock and adds the wall clock\'s offset when it sends, so a step of its wall clock",
             "moves the points without disturbing the fit (the `ww_clock_sync` crate does all this).",
         ], optional: Some((group: Some("host_sync"))), meta: None, identity: None),
-        (id: 8, kind: Method(args: [], return_ty: Some(Option(some_ty: Instance(type_idx: 11, args: [
-            Type(OutOfLine(type_idx: 12)),
-            Type(Instance(type_idx: 13, args: [
+        (id: 8, kind: Method(args: [], return_ty: Some(Option(some_ty: Instance(type_idx: 10, args: [
+            Type(OutOfLine(type_idx: 11)),
+            Type(Instance(type_idx: 12, args: [
                 Type(OutOfLine(type_idx: 1)),
-                Type(OutOfLine(type_idx: 14)),
+                Type(OutOfLine(type_idx: 13)),
                 Type(NumericAny(Base(U64))),
                 Type(OutOfLine(type_idx: 2)),
             ])),
@@ -548,9 +520,9 @@
             "clock to see how well the device follows (the residual offset).",
         ], optional: Some((group: Some("host_sync"))), meta: None, identity: None),
         (id: 9, kind: Method(args: [
-            (ident: "sources", ty: Option(some_ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 10)))), default: Some("None"), flatten: false),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 6))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "sources", ty: Option(some_ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 9)))), default: Some("None"), flatten: false),
+        ], return_ty: None, errors: Some([
+            (ident: "CommonError", nested: Some([
                 "Unsupported",
                 "InvalidArgument",
             ])),
@@ -563,7 +535,7 @@
             "`InvalidArgument` for a source named twice. Switching to another source because of a new list slews, as",
             "any switch does.",
         ], optional: Some((group: Some("host_sync"))), meta: None, identity: None),
-        (id: 10, kind: Method(args: [], return_ty: Some(Option(some_ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 10))))), errors: None), multiplicity: Flat, since: None, ident: "sources", docs: [
+        (id: 10, kind: Method(args: [], return_ty: Some(Option(some_ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 9))))), errors: None), multiplicity: Flat, since: None, ident: "sources", docs: [
             "The source list last accepted by `set_sources`; `None` for the fixed ranking.",
         ], optional: Some((group: Some("host_sync"))), meta: None, identity: None),
     ], compact_id: Some(24), meta: None), crate_idx: 0),
@@ -572,11 +544,9 @@
     (crate_id: "ww_si", version: (major: 0, minor: 5, patch: 0, pre: None, build: None)),
     (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_date_time", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-    (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-], root_omitted: None, wire: Some((line: 2, revision: 0)), ext_wire: Some([
-    Some((line: 2, revision: 0)),
+], root_omitted: None, wire: Some((line: 3, revision: 0)), ext_wire: Some([
+    Some((line: 3, revision: 0)),
     Some((line: 5, revision: 0)),
     None,
     Some((line: 2, revision: 0)),
-    Some((line: 1, revision: 0)),
 ]))

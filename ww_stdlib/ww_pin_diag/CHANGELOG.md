@@ -4,6 +4,7 @@
 
 ### ⚠️ Breaking
 
+- Wire `w2.0` (STD-16): `PinDiagError` lost its `Common` variant; handlers return `Result<T, wire_weaver::Error<'_, PinDiagError<'_>>>`, clients get `InUse` as `CallError::Common`.
 - Depends on `ww_api` instead of `wire_weaver` (API-68): the crate no longer pulls the runtime in; `std`/`defmt` forward to `ww_api`.
 - `PinDiag::set` and `read`'s `point` is `Index<TestPoint, u16>` (new counted marker of this crate, not named `Point`:
   that is the struct describing one entry of `POINTS`) instead of a bare `u16` (AGENTS.md "Numbers are typed").

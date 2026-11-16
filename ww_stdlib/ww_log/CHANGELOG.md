@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- Wire `w2.0` (STD-16): `LogError` is gone, it held only the common errors: `level` is `property!(rw level: LevelFilter)`, a device refuses a write with `CommonError::Unsupported`.
 - Depends on `ww_api` instead of `wire_weaver` (API-68): the crate no longer pulls the runtime in; `std`/`defmt` forward to `ww_api`.
 - Renamed from `ww_log_bare_metal` (STD-26): depend on `ww_log`, `use ww_log::...`. Its global type id 0 goes with
   it (`ww_global::WW_LOG`).

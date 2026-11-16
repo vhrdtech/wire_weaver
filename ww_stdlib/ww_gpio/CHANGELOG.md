@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- Wire `w3.0` (STD-16): `GpioError` lost its `Common` variant and its lifetime (no `GpioErrorOwned`); handlers return `Result<T, wire_weaver::Error<'_, GpioError>>`, clients get a common error as `CallError::Common`.
 - Depends on `ww_api` instead of `wire_weaver` (API-68): the crate no longer pulls the runtime in; `std`/`defmt` forward to `ww_api`.
 - Wire line `w2.0` (EVO-64): `BankConfig::io_level`, `BankCapabilities::io_levels` / `io_level_min` / `io_level_max`
   are `IoLevel` (`Fixed<Volt, Milli, u16>`, new alias) instead of `Quantity<Volt>` (AGENTS.md "Numbers are typed").

@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- Wire `w2.0` (STD-16): `identify(duration)` returns nothing; a device refuses with a `CommonError` (`#[errors(CommonError(Unsupported, Busy))]`).
 - Depends on `ww_api` instead of `wire_weaver` (API-68): the crate no longer pulls the runtime in; `std`/`defmt` forward to `ww_api`.
 - Reworked to a lightweight API (STD-28): `mode: Mode` (`AllOff` / `OnlyEssential` / `Normal`) is the only item a
   device must implement. `brightness: Brightness` (5 levels, one setting for all indicators), `identify(duration)`

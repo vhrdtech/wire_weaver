@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- Wire `w2.0` (STD-16): `CountersError` is gone, it held only the common errors: `read`, `reset` and `watch` have no error type, a device refuses with a `CommonError`; `read_words` returns `Result<_, CommonError<'static>>`, `unsupported()` is gone.
 - Depends on `ww_api` instead of `wire_weaver` (API-68): the crate no longer pulls the runtime in; `std`/`defmt` forward to `ww_api`.
 - `Counters` carries the raw [cnt](https://crates.io/crates/cnt) buffer words, decoded on the host with the
   firmware's ELF (STD-25): `const INFO: CountersInfo` (format version, `ram` / `backup` `BufferInfo { used_words,

@@ -1,6 +1,6 @@
 // ww_spi 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 4108a4e3ca6ddbc70e2a5a282d5f49715758aeede3c39cca272ca24c48c153d1
+// shrink_wrap sha256: bd88c06f5b61253e05ad411d8d01b9930a55b3b53c6682d317058b6eef3b5250
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "SPI over WireWeaver: a device lets a host talk to the SPI devices on its bus, hold CS for several operations in",
     "one transaction, or watch a bus without taking part.",
@@ -52,8 +52,8 @@
     "",
     "# Errors",
     "",
-    "Every method returns [SpiError]: the framework\'s `CommonError` as [SpiError::Common], plus `BufferTooBig`. Each",
-    "method lists the variants it returns (`#[errors]`).",
+    "Every method returns [SpiError] (`BufferTooBig`); the common errors (`ww_error::CommonError`) come beside it, as every",
+    "item\'s do. Each method lists the errors it returns (`#[errors]`).",
 ], crate_idx: 0, trait_name: "ww_spi", items: [
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Spi", docs: [], optional: None, meta: None, identity: None),
 ], compact_id: None, meta: None), types: [

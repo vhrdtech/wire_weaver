@@ -1,6 +1,8 @@
 # nucleo_g0b1re_template's API crate at 0.4.0 (its release 0.1.8), with its snapshots saved by the wire_weaver of
 # 94a6b3a, before ItemEnum::future_version (EVO-10): an old-format snapshot for tests/check.rs (EVO-13). The git
 # dependencies are paths into this repository; the crate is read from source, never built.
+# STD-16 (16 Nov 2026): `Settings::led_at_boot` and `reset` lost their `CommonError` error type in the source, and the
+# 0.4.0 snapshot's two items were edited the same way by hand, keeping its format; no tool writes the old format.
 
 # Wire version of the API (EVO-31): link setup decides on its line, `#[since]` names its revisions
 [package.metadata.wire_weaver]

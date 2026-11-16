@@ -1,6 +1,6 @@
 // ww_can_bus 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 8b5c039011dc7404c23e13853af9098671337a893fa6cdab73a350a40bd57d08
+// shrink_wrap sha256: 9ed891d49c4a998d2cb46b783965a00eaccc60f6347d4e058d1dec8a70108c89
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "CAN bus over WireWeaver: a device (a USB-CAN adapter, a gateway, a node with a CAN port, a bus analyzer or",
     "debugger) lets a host send and receive frames on its CAN buses, configure them and watch their state.",
@@ -48,9 +48,9 @@
     "",
     "# Errors",
     "",
-    "Every method returns [CanError]: the framework\'s `CommonError` (unsupported, in use, wrong state, ...) as",
-    "[CanError::Common], plus what is specific to CAN (`OutOfFilters`, `OutOfMemory`, `BusOff`). Each method lists the",
-    "variants it returns (`#[errors]`). Errors on the bus are not errors of a call: they are counted in [Status] and",
+    "Every method returns [CanError], what is specific to CAN (`OutOfFilters`, `OutOfMemory`, `BusOff`); the common",
+    "errors (unsupported, in use, wrong state, ...: `ww_error::CommonError`) come beside it, as every item\'s do. Each",
+    "method lists the errors it returns (`#[errors]`). Errors on the bus are not errors of a call: they are counted in [Status] and",
     "reported one by one on the optional `bus_errors` stream.",
 ], crate_idx: 0, trait_name: "ww_can_bus", items: [
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Can", docs: [], optional: None, meta: None, identity: None),

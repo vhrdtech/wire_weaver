@@ -1379,6 +1379,7 @@ fn bare_track_round_trips() {
         api: FullVersion::new("ww_tap", Version::new(0, 1, 0)),
         bundle: RefVec::Slice { slice: &[] },
         path: RefVec::Slice { slice: &[] },
+        keys: RefVec::Slice { slice: &[] },
         item: None,
         label: "x",
         sticky: false,

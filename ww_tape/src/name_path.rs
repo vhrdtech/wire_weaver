@@ -6,7 +6,7 @@
 
 use crate::{Segment, api_root_id, track_key};
 use ww_self::keys::{KeysError, item_name, keys_level};
-use ww_self::{ApiBundleOwned, ApiItemKindOwned, ApiLevelOwned, Multiplicity};
+use ww_self::{ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, Multiplicity};
 
 /// Why a numeric path has no name path in a bundle.
 #[derive(Debug)]
@@ -77,46 +77,46 @@ impl Level<'_> {
     }
 }
 
+/// The item of id `id` in `level`, at path position `at`.
+fn find(level: &ApiLevelOwned, at: usize, id: u32) -> Result<&ApiItemOwned, NamePathError> {
+    let found = level.items.iter().find(|item| item.id.0 == id);
+    found.ok_or(NamePathError::NoItem { at, id })
+}
+
 /// The name path of the resource at the numeric `path` in `bundle`: each item's identity name, each array index,
 /// and for an index into a keyed array its key from `keys` (path position and the key's shrink_wrap bytes, as in
 /// [TrackDef::keys](crate::TrackDef::keys)).
 pub fn name_path<'a>(
     bundle: &'a ApiBundleOwned,
     path: &[u32],
-    keys: &[(u32, &'a [u8])],
+    keys: &[(usize, &'a [u8])],
 ) -> Result<Vec<Segment<'a>>, NamePathError> {
     let mut level = Level::Bundle(&bundle.root);
     let mut segments = Vec::with_capacity(path.len());
     let mut keyed_at = Vec::new();
-    let mut at = 0;
-    while let Some(&id) = path.get(at) {
-        let find = |level: &ApiLevelOwned| {
-            level
-                .items
-                .iter()
-                .position(|item| item.id.0 == id)
-                .ok_or(NamePathError::NoItem { at, id })
-        };
+    let mut steps = path.iter().copied().enumerate().peekable();
+    while let Some((at, id)) = steps.next() {
         let name = match &level {
             Level::Bundle(lvl) => {
                 let lvl: &'a ApiLevelOwned = lvl;
-                lvl.items[find(lvl)?].identity_name()
+                find(lvl, at, id)?.identity_name()
             }
             Level::Keys(lvl) => {
-                find(lvl)?;
+                find(lvl, at, id)?;
                 item_name(id).ok_or(NamePathError::NoItem { at, id })?
             }
         };
         segments.push(Segment::Name(name));
         let lvl = level.level();
-        let item = &lvl.items[find(lvl)?];
-        at += 1;
+        let item = find(lvl, at, id)?;
         if let Multiplicity::Array { .. } = item.multiplicity {
-            let index = *path.get(at).ok_or(NamePathError::MissingIndex { at })?;
+            let (at, index) = steps
+                .next()
+                .ok_or(NamePathError::MissingIndex { at: path.len() })?;
             let keyed = lvl.items.iter().any(
                 |other| matches!(&other.kind, ApiItemKindOwned::Keys { of, .. } if of.0 == id),
             );
-            let key = keys.iter().find(|(k, _)| *k as usize == at);
+            let key = keys.iter().find(|(k, _)| *k == at);
             segments.push(match (keyed, key) {
                 (true, Some((_, key))) => {
                     keyed_at.push(at);
@@ -126,7 +126,6 @@ pub fn name_path<'a>(
                 (false, Some(_)) => return Err(NamePathError::StrayKey { at }),
                 (false, None) => Segment::Index(index),
             });
-            at += 1;
         }
         level = match &item.kind {
             ApiItemKindOwned::Trait { trait_idx, .. } => Level::Bundle(
@@ -137,15 +136,14 @@ pub fn name_path<'a>(
             ApiItemKindOwned::Keys { .. } => {
                 Level::Keys(keys_level(lvl, item).map_err(NamePathError::Keys)?)
             }
-            _ if at < path.len() => return Err(NamePathError::TooLong { at }),
-            _ => break,
+            _ => match steps.peek() {
+                Some(&(at, _)) => return Err(NamePathError::TooLong { at }),
+                None => break,
+            },
         };
     }
-    if let Some((at, _)) = keys
-        .iter()
-        .find(|(at, _)| !keyed_at.contains(&(*at as usize)))
-    {
-        return Err(NamePathError::StrayKey { at: *at as usize });
+    if let Some(&(at, _)) = keys.iter().find(|(at, _)| !keyed_at.contains(at)) {
+        return Err(NamePathError::StrayKey { at });
     }
     Ok(segments)
 }
@@ -155,7 +153,7 @@ pub fn name_path<'a>(
 pub fn key_in_bundle(
     bundle: &ApiBundleOwned,
     path: &[u32],
-    keys: &[(u32, &[u8])],
+    keys: &[(usize, &[u8])],
 ) -> Result<u64, NamePathError> {
     let krate = bundle
         .crate_version(bundle.root.crate_idx.0)

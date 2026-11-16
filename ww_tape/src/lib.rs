@@ -392,6 +392,11 @@ impl Segment<'_> {
             }
             Segment::Key(key) => (3, key),
         };
+        #[expect(
+            clippy::as_conversions,
+            clippy::cast_possible_truncation,
+            reason = "a hash input: a name or key over 4 GiB only hashes a shorter length; TryFrom is not const"
+        )]
         let len = bytes.len() as u32;
         fnv1a(fnv1a(fnv1a(h, &[tag]), &len.to_le_bytes()), bytes)
     }
@@ -399,12 +404,11 @@ impl Segment<'_> {
 
 /// Stable key of a track: FNV-1a of `api_root` (u64 LE), then of every segment of the resource's name path (see
 /// [Segment]), so the key survives renumbered ids and indices assigned in another order.
-pub const fn track_key(api_root: u64, segments: &[Segment<'_>]) -> u64 {
+pub const fn track_key(api_root: u64, mut segments: &[Segment<'_>]) -> u64 {
     let mut h = fnv1a(FNV_OFFSET, &api_root.to_le_bytes());
-    let mut i = 0;
-    while i < segments.len() {
-        h = segments[i].hash(h);
-        i += 1;
+    while let [segment, rest @ ..] = segments {
+        h = segment.hash(h);
+        segments = rest;
     }
     h
 }

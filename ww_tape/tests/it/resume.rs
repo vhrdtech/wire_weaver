@@ -192,6 +192,7 @@ fn cut_anywhere(alignment: u32) {
         let (mut w, resumed) = TapeWriter::resume_on(sink, options(alignment)).unwrap();
         assert!(resumed.kept_bytes <= cut as u64);
         assert_eq!(resumed.kept_bytes + resumed.dropped_bytes, cut as u64);
+        assert!(resumed.entries.iter().all(|e| e.offset < resumed.kept_bytes));
         ended += usize::from(resumed.ended.is_some());
         if w.bytes() == 0 {
             // cut inside the head: the piece starts again

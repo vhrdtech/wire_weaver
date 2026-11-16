@@ -292,6 +292,7 @@ impl<S: TapeSink> TapeWriter<S> {
                 .truncate(kept_bytes)
                 .map_err(io_err("truncating the piece to resume"))?;
         }
+        let entries = w.indexer.entries().to_vec();
         if kept.last_counted.is_some() {
             w.after_block()?;
         } else if let Some(prev) =
@@ -304,7 +305,7 @@ impl<S: TapeSink> TapeWriter<S> {
             kept_bytes,
             dropped_bytes: size.saturating_sub(kept_bytes),
             cut,
-            entries: w.indexer.entries().to_vec(),
+            entries,
             ended,
         };
         Ok((w, resumed))

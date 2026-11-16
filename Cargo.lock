@@ -934,7 +934,6 @@ dependencies = [
  "wire_weaver",
  "wire_weaver_core",
  "ww_client_server",
- "ww_global",
  "ww_keyed",
  "ww_link",
  "ww_numeric",
@@ -1041,6 +1040,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f8f80099a98041a3d1622845c271458a2d73e688351bf3cb999266764b81d48"
 
 [[package]]
+name = "counted_stream_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+]
+
+[[package]]
 name = "counters"
 version = "0.1.0"
 dependencies = [
@@ -1144,31 +1150,30 @@ version = "0.1.0"
 dependencies = [
  "cross_version_api",
  "cross_version_old_api",
+ "global_boot_api",
  "tests_common",
  "tokio",
  "tracing-subscriber",
  "wire_weaver",
  "wire_weaver_client",
  "ww_client_server",
- "ww_dfu",
  "ww_global",
- "ww_si",
 ]
 
 [[package]]
 name = "cross_version_api"
 version = "0.4.0"
 dependencies = [
+ "global_boot_api",
  "ww_api",
- "ww_dfu",
 ]
 
 [[package]]
 name = "cross_version_old_api"
 version = "0.3.0"
 dependencies = [
+ "global_boot_api",
  "ww_api",
- "ww_dfu",
 ]
 
 [[package]]
@@ -1633,6 +1638,7 @@ name = "dispatch_golden"
 version = "0.1.0"
 dependencies = [
  "dispatch_golden_api",
+ "global_fixture_api",
  "hex",
  "serde",
  "serde_json",
@@ -1642,15 +1648,14 @@ dependencies = [
  "wire_weaver",
  "wire_weaver_client",
  "ww_client_server",
- "ww_user_info",
 ]
 
 [[package]]
 name = "dispatch_golden_api"
 version = "0.1.0"
 dependencies = [
+ "global_fixture_api",
  "ww_api",
- "ww_user_info",
 ]
 
 [[package]]
@@ -2112,7 +2117,7 @@ name = "follow_reboot"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "dfu_lean_app_api",
+ "follow_reboot_api",
  "picoboot_host",
  "semver",
  "stm32_dfu_host",
@@ -2122,8 +2127,13 @@ dependencies = [
  "wire_weaver_client",
  "ww_client_server",
  "ww_device",
- "ww_dfu",
- "ww_si",
+]
+
+[[package]]
+name = "follow_reboot_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
 ]
 
 [[package]]
@@ -2316,12 +2326,34 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e4eba85ea1d0a966a983acd07deee566e67395d2d96b6fb39e62b5a833f1eb0b"
 
 [[package]]
+name = "global_boot_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+]
+
+[[package]]
+name = "global_fixture_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+]
+
+[[package]]
 name = "global_ids"
 version = "0.1.0"
 dependencies = [
  "syn 3.0.3",
  "toml",
  "ww_global",
+]
+
+[[package]]
+name = "global_paths_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_timebase",
 ]
 
 [[package]]
@@ -2656,6 +2688,15 @@ name = "introspect_compressed_api"
 version = "0.1.0"
 dependencies = [
  "ww_api",
+]
+
+[[package]]
+name = "inventory"
+version = "0.3.25"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6928282826c822ad91bf1c9a1cb90a30ba1c26770749929b4656cd6be829cd7c"
+dependencies = [
+ "rustversion",
 ]
 
 [[package]]
@@ -4856,8 +4897,6 @@ dependencies = [
  "wire_weaver_client",
  "wire_weaver_core",
  "ww_client_server",
- "ww_indication",
- "ww_si",
 ]
 
 [[package]]
@@ -4865,7 +4904,6 @@ name = "shared_sub_level_api"
 version = "0.1.0"
 dependencies = [
  "ww_api",
- "ww_indication",
 ]
 
 [[package]]
@@ -5236,8 +5274,8 @@ checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
 name = "tap_api"
 version = "0.1.0"
 dependencies = [
+ "global_fixture_api",
  "ww_api",
- "ww_user_info",
 ]
 
 [[package]]
@@ -5390,7 +5428,7 @@ name = "thermo"
 version = "0.1.0"
 dependencies = [
  "tests_common",
- "thermo_api 4.0.0",
+ "thermo_api 6.0.0",
  "thermo_devices",
  "thiserror 2.0.20",
  "tokio",
@@ -5400,7 +5438,6 @@ dependencies = [
  "wire_weaver_core",
  "wire_weaver_evolution",
  "ww_client_server",
- "ww_indication",
  "ww_si",
 ]
 
@@ -5424,11 +5461,10 @@ dependencies = [
 
 [[package]]
 name = "thermo_api"
-version = "4.0.0"
+version = "6.0.0"
 dependencies = [
  "wire_weaver_evolution",
  "ww_api",
- "ww_indication",
  "ww_si",
 ]
 
@@ -5439,7 +5475,7 @@ dependencies = [
  "tests_common",
  "thermo_api 1.0.0",
  "thermo_api 2.0.0",
- "thermo_api 4.0.0",
+ "thermo_api 6.0.0",
  "wire_weaver",
  "ww_client_server",
  "ww_hub",
@@ -6356,6 +6392,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "wire_line_fixture_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "wire_weaver_evolution",
+]
+
+[[package]]
 name = "wire_line_old_api"
 version = "0.3.0"
 dependencies = [
@@ -6382,21 +6426,19 @@ dependencies = [
  "clap",
  "clap_complete",
  "cnt_core",
- "cnt_view",
  "console",
  "crossterm",
+ "hex",
  "human-repr",
  "indicatif",
- "nusb",
- "proc-macro2",
- "ratatui",
+ "inventory",
+ "io_timebase_api",
  "ron",
  "rustix",
  "semver",
  "serde",
  "serde_json",
  "shrink_wrap",
- "syn 3.0.3",
  "tap_api",
  "tests_common",
  "tokio",
@@ -6408,23 +6450,15 @@ dependencies = [
  "wire_weaver_client",
  "wire_weaver_core",
  "wire_weaver_evolution",
- "wire_weaver_snapshots",
- "ww_board_info",
  "ww_client_server",
- "ww_counters",
- "ww_dfu",
+ "ww_date_time",
  "ww_hub",
  "ww_hub_api",
- "ww_indication",
- "ww_local_socket",
  "ww_numeric",
- "ww_pin_probe",
- "ww_report",
  "ww_settings",
  "ww_si",
  "ww_stream",
  "ww_timebase",
- "ww_user_info",
 ]
 
 [[package]]
@@ -6561,10 +6595,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "wire_weaver_wheel"
+version = "0.5.0"
+dependencies = [
+ "pyo3",
+ "wire_weaver_py",
+]
+
+[[package]]
 name = "wit-bindgen"
 version = "0.57.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ebf944e87a7c253233ad6766e082e3cd714b5d03812acc24c318f549614536e"
+
+[[package]]
+name = "ww"
+version = "0.5.0"
+dependencies = [
+ "anyhow",
+ "wire_weaver_cli",
+ "ww_std_cli",
+]
 
 [[package]]
 name = "ww_adc"
@@ -6590,9 +6641,9 @@ dependencies = [
 name = "ww_block"
 version = "0.1.0"
 dependencies = [
- "crc",
  "defmt 1.1.1",
  "ww_api",
+ "ww_crc",
  "ww_error",
  "ww_si",
 ]
@@ -6658,6 +6709,13 @@ dependencies = [
  "ww_api",
  "ww_error",
  "ww_si",
+]
+
+[[package]]
+name = "ww_crc"
+version = "0.5.0"
+dependencies = [
+ "crc",
 ]
 
 [[package]]
@@ -6740,9 +6798,9 @@ dependencies = [
 name = "ww_framer"
 version = "0.5.0"
 dependencies = [
- "crc",
  "defmt 1.1.1",
  "shrink_wrap",
+ "ww_crc",
 ]
 
 [[package]]
@@ -6750,10 +6808,8 @@ name = "ww_global"
 version = "0.2.0"
 dependencies = [
  "convert_case 0.11.0",
- "defmt 1.1.1",
- "serde",
  "serde_json",
- "shrink_wrap",
+ "ww_version",
 ]
 
 [[package]]
@@ -6870,7 +6926,6 @@ dependencies = [
  "defmt 1.1.1",
  "shrink_wrap",
  "wire_weaver",
- "ww_block",
  "ww_framer",
  "ww_global",
  "ww_version",
@@ -7062,11 +7117,11 @@ dependencies = [
 name = "ww_settings"
 version = "0.5.0"
 dependencies = [
- "crc",
  "defmt 1.1.1",
  "embassy-futures",
  "embedded-storage-async",
  "shrink_wrap",
+ "ww_crc",
  "ww_settings",
  "ww_settings_derive",
 ]
@@ -7112,18 +7167,53 @@ dependencies = [
 ]
 
 [[package]]
+name = "ww_std_cli"
+version = "0.5.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "clap_complete",
+ "cnt_core",
+ "cnt_view",
+ "console",
+ "crossterm",
+ "indicatif",
+ "inventory",
+ "nusb",
+ "ratatui",
+ "serde",
+ "serde_json",
+ "tests_common",
+ "tokio",
+ "tracing",
+ "user_info_api",
+ "wire_weaver",
+ "wire_weaver_cli",
+ "wire_weaver_client",
+ "ww_board_info",
+ "ww_client_server",
+ "ww_counters",
+ "ww_dfu",
+ "ww_indication",
+ "ww_pin_probe",
+ "ww_report",
+ "ww_si",
+ "ww_user_info",
+]
+
+[[package]]
 name = "ww_stream"
 version = "0.5.0"
 dependencies = [
  "atomic-waker",
  "cnt",
- "crc",
  "defmt 1.1.1",
  "embedded-sdmmc-types",
  "embedded-storage-async",
  "portable-atomic",
  "wire_weaver",
  "ww_client_server",
+ "ww_crc",
  "ww_lz4",
  "ww_si",
 ]
@@ -7221,7 +7311,6 @@ dependencies = [
  "semver",
  "serde",
  "shrink_wrap",
- "ww_global",
 ]
 
 [[package]]

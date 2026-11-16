@@ -12,14 +12,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "all_gpio_api"
-version = "0.1.0"
-dependencies = [
- "ww_api",
- "ww_gpio",
-]
-
-[[package]]
 name = "anyhow"
 version = "1.0.104"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -168,6 +160,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "counted_stream_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+]
+
+[[package]]
 name = "cpufeatures"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -272,14 +271,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dfu_api"
-version = "0.1.0"
-dependencies = [
- "ww_api",
- "ww_dfu",
-]
-
-[[package]]
 name = "digest"
 version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -347,6 +338,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "global_paths_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_timebase",
+]
+
+[[package]]
 name = "hashbrown"
 version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -411,30 +410,30 @@ checksum = "ecbdfe44b1bd960b68170b417450a628c43f7cf56bb3c5317e61cb230ee7f226"
 name = "mcu_qemu"
 version = "0.1.0"
 dependencies = [
- "all_gpio_api",
  "bounded_api",
  "cortex-m",
  "cortex-m-rt",
  "cortex-m-semihosting",
- "dfu_api",
+ "counted_stream_api",
  "flash_budget_api",
  "foc_observe_api",
+ "global_paths_api",
  "panic-semihosting",
  "portable-atomic",
  "static_cell",
  "wire_weaver",
- "ww_block",
  "ww_bus_slave",
  "ww_client_server",
- "ww_dfu",
+ "ww_crc",
+ "ww_date_time",
  "ww_framer",
- "ww_gpio",
  "ww_i2c",
  "ww_keyed",
  "ww_link",
  "ww_si",
  "ww_spi",
  "ww_stream",
+ "ww_timebase",
 ]
 
 [[package]]
@@ -1004,16 +1003,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ww_block"
-version = "0.1.0"
-dependencies = [
- "crc",
- "ww_api",
- "ww_error",
- "ww_si",
-]
-
-[[package]]
 name = "ww_bus_slave"
 version = "0.5.0"
 dependencies = [
@@ -1034,11 +1023,18 @@ dependencies = [
 ]
 
 [[package]]
-name = "ww_dfu"
+name = "ww_crc"
+version = "0.5.0"
+dependencies = [
+ "crc",
+]
+
+[[package]]
+name = "ww_date_time"
 version = "0.1.0"
 dependencies = [
- "ww_api",
- "ww_si",
+ "exact_units",
+ "shrink_wrap",
 ]
 
 [[package]]
@@ -1054,8 +1050,8 @@ dependencies = [
 name = "ww_framer"
 version = "0.5.0"
 dependencies = [
- "crc",
  "shrink_wrap",
+ "ww_crc",
 ]
 
 [[package]]
@@ -1063,18 +1059,8 @@ name = "ww_global"
 version = "0.2.0"
 dependencies = [
  "convert_case",
- "defmt",
- "serde",
  "serde_json",
- "shrink_wrap",
-]
-
-[[package]]
-name = "ww_gpio"
-version = "0.1.0"
-dependencies = [
- "ww_api",
- "ww_si",
+ "ww_version",
 ]
 
 [[package]]
@@ -1098,7 +1084,6 @@ version = "0.5.0"
 dependencies = [
  "shrink_wrap",
  "wire_weaver",
- "ww_block",
  "ww_framer",
  "ww_global",
  "ww_version",
@@ -1164,6 +1149,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ww_timebase"
+version = "0.1.0"
+dependencies = [
+ "ww_api",
+ "ww_date_time",
+ "ww_si",
+]
+
+[[package]]
 name = "ww_version"
 version = "0.2.0"
 dependencies = [
@@ -1172,7 +1166,6 @@ dependencies = [
  "semver 1.0.28",
  "serde",
  "shrink_wrap",
- "ww_global",
 ]
 
 [[package]]

@@ -16,6 +16,7 @@ shrink_wrap_derive = 0
 size_bench = 0
 
 # Layer 2 — base types and identity
+ww_crc = 2
 ww_date_time = 2
 ww_error = 2
 ww_global = 2
@@ -65,7 +66,6 @@ global_fixture_api = 5
 global_paths_api = 5
 tape_identity = 5
 wire_line_fixture_api = 5
-ww_crc = 5
 consts = 5
 consts_api = 5
 credit_sink = 5

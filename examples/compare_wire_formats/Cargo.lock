@@ -849,8 +849,7 @@ dependencies = [
  "exact_units",
  "futures-core",
  "shrink_wrap 0.2.0",
- "wire_weaver_derive",
- "ww_error",
+ "ww_api",
  "ww_version",
 ]
 
@@ -889,6 +888,7 @@ dependencies = [
  "convert_case",
  "darling",
  "pathsearch",
+ "proc-macro-crate",
  "proc-macro2",
  "quote",
  "subprocess",
@@ -903,6 +903,16 @@ version = "0.5.0"
 dependencies = [
  "ron",
  "ww_self",
+ "ww_version",
+]
+
+[[package]]
+name = "ww_api"
+version = "0.5.0"
+dependencies = [
+ "shrink_wrap 0.2.0",
+ "wire_weaver_derive",
+ "ww_error",
  "ww_version",
 ]
 

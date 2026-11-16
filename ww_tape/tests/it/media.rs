@@ -1,6 +1,6 @@
 //! Tapes on media: sessions, stale blocks of earlier lives, blank and torn stretches the data goes on after.
 
-use ww_tape::piece::{PieceHead, PieceId, PieceIdent, ResultId, piece_head_len, write_piece_head};
+use ww_tape::piece::{OwnerId, PieceHead, PieceId, PieceIdent, piece_head_len, write_piece_head};
 use ww_tape::{
     BlockId, BlockKind, BlockWriter, ClockTime, Cut, Describe, DescribeSet, FileBlocks, FileError,
     Layout, Medium, OpenOptions, Producer, Recovery, SessionTag, SyncPolicy, TapeReader,
@@ -24,7 +24,7 @@ fn piece_head(session: SessionTag, prev_session: SessionTag) -> Vec<u8> {
     let head = PieceHead {
         ident: PieceIdent {
             id: PieceId([session.get() as u8; 16]),
-            result: ResultId([1; 32]),
+            owner: OwnerId([1; 32]),
             seq: 0,
         },
         prev: None,
@@ -689,11 +689,11 @@ fn a_raw_piece_is_one_session() {
     for adopt in [false, true] {
         let path = dir.join(format!("{adopt}.wwt"));
         let mut w = TapeWriter::create(&path, SyncPolicy::None).unwrap();
-        let result = ResultId([3; 32]);
+        let owner = OwnerId([3; 32]);
         let head = PieceHead {
             ident: PieceIdent {
-                id: PieceId::first(&result),
-                result,
+                id: PieceId::first(&owner),
+                owner,
                 seq: 0,
             },
             prev: None,

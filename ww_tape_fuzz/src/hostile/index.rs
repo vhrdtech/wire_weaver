@@ -10,7 +10,7 @@ use ww_tape::index::{
     index_len, track_count, write_index,
 };
 use ww_tape::piece::{
-    ContentHash, Finish, FinishState, PieceHead, PieceId, PieceIdent, ResultId, TAIL_LEN, Tail,
+    ContentHash, Finish, FinishState, OwnerId, PieceHead, PieceId, PieceIdent, TAIL_LEN, Tail,
     TrackRange, TrackStart, finish_len, piece_head_len, write_finish, write_piece_head,
 };
 use ww_tape::{BlockId, BlockKind, MAX_BLOCK_LEN, SessionTag};
@@ -168,7 +168,7 @@ pub(crate) fn hit_index(d: &mut Draw<'_>, b: &mut [u8]) {
 fn ident(d: &mut Draw<'_>) -> PieceIdent {
     PieceIdent {
         id: PieceId([d.u8() | 1; 16]),
-        result: ResultId([d.u8(); 32]),
+        owner: OwnerId([d.u8(); 32]),
         seq: u64::from(d.u8()),
     }
 }

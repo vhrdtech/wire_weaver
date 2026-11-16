@@ -211,7 +211,7 @@ make retention simple (delete the oldest piece), and a crash costs only the piec
 The pieces of one recording form a **chain**, checked in both directions. Each piece head names the previous piece by
 the content hash in its finish block. The tail cannot name the next piece's hash, since that piece isn't written yet, so
 it names the next piece's id instead, derived from its own id and hash at the cut. The next head repeats that id. Each
-piece also names the recording it belongs to (the result id), its sequence number in the chain, and for each track where
+piece also names the recording it belongs to (the owner id, opaque to `ww_tape`), its sequence number in the chain, and for each track where
 its items continue.
 
 Pieces written back to back are one valid tape: `cat 00000000.wwt 00000001.wwt` gives a file any reader takes. A reader

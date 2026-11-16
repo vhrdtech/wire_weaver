@@ -8,7 +8,7 @@
 //!
 //! A writer cuts a recording into pieces at chunk boundaries ([PieceChain]). The head names the
 //! previous piece by its content hash and its id; the previous piece's tail names this piece's id, derived at the cut
-//! from the previous piece's id and the content hash in its finish ([PieceId::after]), so the chain is checked both ways ([check_chain]). Each piece carries the result id, its
+//! from the previous piece's id and the content hash in its finish ([PieceId::after]), so the chain is checked both ways ([check_chain]). Each piece carries the owner id, its
 //! sequence number in the chain and, per track, where its items continue (head) and the items and ticks it holds
 //! (finish). A chain whose first piece is gone reads as head cut, not as damage.
 //!
@@ -21,7 +21,7 @@
 //!
 //! ```text
 //! piece head (kind 10)
-//!  32 [16] piece id                 48 [32] result id               80 u64 sequence number in the chain
+//!  32 [16] piece id                 48 [32] owner id                80 u64 sequence number in the chain
 //!  88 u32  flags: bit 0 has a previous piece                        92 u32 previous session tag (0: none or unknown)
 //!  96 [32] previous piece's content hash                           128 [16] previous piece's id
 //! 144 ...  tracks × 32: id u64, number u32, reserved u32, next item u64 (the first item number this piece holds),
@@ -32,7 +32,7 @@
 //!  40 [32] content hash: BLAKE3 of the piece's bytes before this block
 //!  72 u64  newest checkpoint index offset    80 u64 last final index offset    88 u64 describe backup offset
 //!          (u64::MAX for none)
-//!  96 [16] piece id    112 [16] next piece id    128 [32] result id    160 u64 sequence number
+//!  96 [16] piece id    112 [16] next piece id    128 [32] owner id    160 u64 sequence number
 //! 168 u32  flags: bit 0 the piece has a head    172 u32 reserved
 //! 176 ...  tracks × 56: id u64, number u32, chunks u32, first item u64, items u64, first tick i64, last tick i64,
 //!          latest end i64 (of the chunk blocks in the piece)
@@ -40,12 +40,12 @@
 //! tail (kind 9), TAIL_LEN bytes, the last of the piece
 //!  32 u64  piece length, from the piece's start to the end of this block
 //!  40 u64  finish offset    48 u32 finish length    52 u8 state    53 u8 flags (as the finish's)    54 u16 reserved
-//!  56 [32] content hash    88 [16] piece id    104 [16] next piece id    120 [32] result id    152 u64 sequence
+//!  56 [32] content hash    88 [16] piece id    104 [16] next piece id    120 [32] owner id    152 u64 sequence
 //! 160 u32  CRC
 //! ```
 //!
-//! Offsets are from the start of the piece. Ids are opaque: a piece id is 16 bytes, a result id 32 (the producer's,
-//! e.g. a SHA-256 of a run record); all zeros is none.
+//! Offsets are from the start of the piece. Ids are opaque to `ww_tape`, their meaning the application's: a piece id
+//! is 16 bytes, an owner id 32 (e.g. a hash the producer derives); all zeros is none.
 
 use crate::bytes::{array, le_i64, le_u8, le_u32, le_u64, put, put_i64, put_u32, put_u64};
 use crate::index::{IndexError, NONE, seal};
@@ -71,9 +71,9 @@ const FLAG_PIECE: u8 = 1;
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
 pub struct PieceId(pub [u8; 16]);
 
-/// Names the result (producer run) a piece belongs to.
+/// Names the owner of a piece, opaque to `ww_tape`: an application reads it its own way.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
-pub struct ResultId(pub [u8; 32]);
+pub struct OwnerId(pub [u8; 32]);
 
 /// BLAKE3 of a piece's bytes before its finish block.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
@@ -93,16 +93,16 @@ impl PieceId {
         Self::derive("ww_tape piece id", &[&hash.0, &id.0])
     }
 
-    /// The id of the first piece of chain 0 of `result`: [Self::first_of] `(result, 0)`.
-    pub fn first(result: &ResultId) -> PieceId {
-        Self::first_of(result, 0)
+    /// The id of the first piece of chain 0 of `owner`: [Self::first_of] `(owner, 0)`.
+    pub fn first(owner: &OwnerId) -> PieceId {
+        Self::first_of(owner, 0)
     }
 
-    /// The id of the first piece of chain `chain` of `result` (several chains of one result, such as one per
-    /// source): as [Self::after] over the result id and the chain number, u64 little endian ("ww_tape first
+    /// The id of the first piece of chain `chain` of `owner` (several chains of one owner, such as one per
+    /// source): as [Self::after] over the owner id and the chain number, u64 little endian ("ww_tape first
     /// piece").
-    pub fn first_of(result: &ResultId, chain: u64) -> PieceId {
-        Self::derive("ww_tape first piece", &[&result.0, &chain.to_le_bytes()])
+    pub fn first_of(owner: &OwnerId, chain: u64) -> PieceId {
+        Self::derive("ww_tape first piece", &[&owner.0, &chain.to_le_bytes()])
     }
 
     /// The first 16 bytes of BLAKE3 in key derivation mode over `parts`; never all zeros.
@@ -156,7 +156,7 @@ impl FinishState {
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct PieceIdent {
     pub id: PieceId,
-    pub result: ResultId,
+    pub owner: OwnerId,
     /// 0 for the first piece of a chain, +1 per piece.
     pub seq: u64,
 }
@@ -274,19 +274,19 @@ fn fill_piece_head(b: &mut [u8], head: &PieceHead, tracks: &[TrackStart]) -> Opt
 fn put_ident(
     b: &mut [u8],
     id_at: usize,
-    result_at: usize,
+    owner_at: usize,
     seq_at: usize,
     ident: &PieceIdent,
 ) -> Option<()> {
     put(b, id_at, ident.id.0)?;
-    put(b, result_at, ident.result.0)?;
+    put(b, owner_at, ident.owner.0)?;
     put_u64(b, seq_at, ident.seq)
 }
 
-fn get_ident(b: &[u8], id_at: usize, result_at: usize, seq_at: usize) -> Option<PieceIdent> {
+fn get_ident(b: &[u8], id_at: usize, owner_at: usize, seq_at: usize) -> Option<PieceIdent> {
     Some(PieceIdent {
         id: PieceId(array(b, id_at)?),
-        result: ResultId(array(b, result_at)?),
+        owner: OwnerId(array(b, owner_at)?),
         seq: le_u64(b, seq_at)?,
     })
 }

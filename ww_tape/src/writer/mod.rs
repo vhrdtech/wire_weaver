@@ -1159,7 +1159,7 @@ impl NextPiece {
             head: PieceHead {
                 ident: PieceIdent {
                     id: PieceId::after(head.ident.id, &done.hash),
-                    result: head.ident.result,
+                    owner: head.ident.owner,
                     seq,
                 },
                 prev: Some((done.hash, head.ident.id)),

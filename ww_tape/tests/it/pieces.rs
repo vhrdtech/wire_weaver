@@ -8,8 +8,8 @@ use ww_tape::piece::{ChainEnd, ChainLink, PieceId, check_chain};
 use ww_tape::reader::{Found, OpenOptions};
 use ww_tape::{
     BlockId, BlockKind, BlockWriter, ClockTime, Codec, ColumnKind, ColumnSpec, Describe,
-    DescribeSet, EndMode, FileBlocks, FinishState, Layout, PieceChain, Producer, Recovery,
-    ResultId, SessionTag, SyncPolicy, TapeReader, TapeWriter,
+    DescribeSet, EndMode, FileBlocks, FinishState, Layout, OwnerId, PieceChain, Producer, Recovery,
+    SessionTag, SyncPolicy, TapeReader, TapeWriter,
 };
 
 /// A fresh scratch directory.
@@ -276,11 +276,11 @@ fn aligned_file_places_checkpoints_in_gaps() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// Write chain `n` of a result, pieces cut every 4 chunks; the piece files in order.
+/// Write chain `n` of a owner, pieces cut every 4 chunks; the piece files in order.
 fn write_chain(dir: &Path, n: u64) -> Vec<PathBuf> {
     let mut chain = PieceChain::create(
         dir,
-        ResultId([0x42; 32]),
+        OwnerId([0x42; 32]),
         n,
         &[],
         ww_tape::ChainOptions {
@@ -316,7 +316,7 @@ fn write_chain(dir: &Path, n: u64) -> Vec<PathBuf> {
         .collect()
 }
 
-/// Two chains of one result (an events chain and a series chain) have their own piece ids and session tags, so their
+/// Two chains of one owner (an events chain and a series chain) have their own piece ids and session tags, so their
 /// pieces read one after the other.
 #[test]
 fn chains_of_one_result_are_apart() {
@@ -335,8 +335,8 @@ fn chains_of_one_result_are_apart() {
             .0
     };
     let (h0, h1) = (head(&a), head(&b));
-    assert_eq!(h0.ident.id, PieceId::first_of(&ResultId([0x42; 32]), 0));
-    assert_eq!(h1.ident.id, PieceId::first_of(&ResultId([0x42; 32]), 1));
+    assert_eq!(h0.ident.id, PieceId::first_of(&OwnerId([0x42; 32]), 0));
+    assert_eq!(h1.ident.id, PieceId::first_of(&OwnerId([0x42; 32]), 1));
     assert_ne!(
         SessionTag::of_piece(&h0.ident.id),
         SessionTag::of_piece(&h1.ident.id)
@@ -453,7 +453,7 @@ fn index_golden() {
     let dir = scratch("golden");
     let mut chain = PieceChain::create(
         &dir,
-        ResultId([7; 32]),
+        OwnerId([7; 32]),
         0,
         &[],
         ww_tape::ChainOptions {
@@ -516,7 +516,7 @@ fn every_block_of_a_chain_carries_its_session() {
     let dir = scratch("sessions");
     let paths = write_chain(&dir, 0);
     assert!(paths.len() > 1, "the chain was cut");
-    let session = SessionTag::of_piece(&PieceId::first(&ResultId([0x42; 32])));
+    let session = SessionTag::of_piece(&PieceId::first(&OwnerId([0x42; 32])));
     assert!(session.is_session());
     let mut seqs = vec![];
     for (i, p) in paths.iter().enumerate() {
@@ -608,11 +608,11 @@ fn a_damaged_head_describe_set_reads_from_the_next_copy() {
         let dir = scratch(&format!("damaged_describe_{chunks}_{finished}"));
         let path = dir.join("p.wwt");
         let mut w = TapeWriter::create(&path, SyncPolicy::None).unwrap();
-        let result = ResultId([7; 32]);
+        let owner = OwnerId([7; 32]);
         let head = ww_tape::PieceHead {
             ident: ww_tape::PieceIdent {
-                id: PieceId::first(&result),
-                result,
+                id: PieceId::first(&owner),
+                owner,
                 seq: 0,
             },
             prev: None,
@@ -696,11 +696,11 @@ fn the_describe_repeat_carries_over_a_cut() {
     let mut w = TapeWriter::create(&dir.join("a.wwt"), SyncPolicy::None).unwrap();
     w.set_index_policy(IndexPolicy::NONE);
     w.set_describe_repeat(64 << 10);
-    let result = ResultId([8; 32]);
+    let owner = OwnerId([8; 32]);
     let head = ww_tape::PieceHead {
         ident: ww_tape::PieceIdent {
-            id: PieceId::first(&result),
-            result,
+            id: PieceId::first(&owner),
+            owner,
             seq: 0,
         },
         prev: None,
@@ -808,11 +808,11 @@ fn copies_carry_the_whole_describe_set() {
     let mut w = TapeWriter::create(&dir.join("a.wwt"), SyncPolicy::None).unwrap();
     w.set_index_policy(IndexPolicy::NONE);
     w.set_describe_repeat(4 << 10);
-    let result = ResultId([9; 32]);
+    let owner = OwnerId([9; 32]);
     let head = ww_tape::PieceHead {
         ident: ww_tape::PieceIdent {
-            id: PieceId::first(&result),
-            result,
+            id: PieceId::first(&owner),
+            owner,
             seq: 0,
         },
         prev: None,

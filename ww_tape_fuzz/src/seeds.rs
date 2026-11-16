@@ -8,7 +8,7 @@ use std::path::Path;
 use ww_tape::index::{IndexEntry, IndexHead, IndexKind, index_len, write_index};
 use ww_tape::lz4::LZ4_DECODED_MAX;
 use ww_tape::piece::{
-    ContentHash, Finish, FinishState, PieceHead, PieceId, PieceIdent, ResultId, TAIL_LEN, Tail,
+    ContentHash, Finish, FinishState, OwnerId, PieceHead, PieceId, PieceIdent, TAIL_LEN, Tail,
     finish_len, piece_head_len, write_finish, write_piece_head,
 };
 use ww_tape::times::EncodedTimes;
@@ -381,7 +381,7 @@ fn session(layout: Layout, n: u64) -> Vec<u8> {
     let head = PieceHead {
         ident: PieceIdent {
             id: PieceId([2; 16]),
-            result: ResultId([1; 32]),
+            owner: OwnerId([1; 32]),
             seq: 0,
         },
         prev: None,

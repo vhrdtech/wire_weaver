@@ -211,7 +211,7 @@ pub mod piece;
 #[cfg(feature = "std")]
 pub use piece::{ChainOptions, CutPolicy, PieceChain};
 pub use piece::{
-    ContentHash, Finish, FinishState, PieceHead, PieceId, PieceIdent, ResultId, TAIL_LEN, Tail,
+    ContentHash, Finish, FinishState, OwnerId, PieceHead, PieceId, PieceIdent, TAIL_LEN, Tail,
     TrackRange, TrackStart,
 };
 #[cfg(feature = "alloc")]

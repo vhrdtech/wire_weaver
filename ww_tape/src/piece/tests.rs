@@ -4,7 +4,7 @@ use crate::tests::id;
 fn ident(seq: u64) -> PieceIdent {
     PieceIdent {
         id: PieceId([seq as u8 + 1; 16]),
-        result: ResultId([0xaa; 32]),
+        owner: OwnerId([0xaa; 32]),
         seq,
     }
 }
@@ -125,10 +125,10 @@ fn finish_and_tail_round_trip() {
 
 #[test]
 fn piece_ids_follow_the_chain() {
-    let result = ResultId([1; 32]);
-    let a = PieceId::first(&result);
-    assert_eq!(a, PieceId::first(&result));
-    assert_ne!(a, PieceId::first(&ResultId([2; 32])));
+    let owner = OwnerId([1; 32]);
+    let a = PieceId::first(&owner);
+    assert_eq!(a, PieceId::first(&owner));
+    assert_ne!(a, PieceId::first(&OwnerId([2; 32])));
     let b = PieceId::after(a, &ContentHash([3; 32]));
     assert_ne!(b, a);
     assert_ne!(b, PieceId::after(a, &ContentHash([4; 32])));
@@ -137,23 +137,23 @@ fn piece_ids_follow_the_chain() {
 
 #[test]
 fn chains_of_one_result_start_apart() {
-    let result = ResultId([1; 32]);
-    assert_eq!(PieceId::first(&result), PieceId::first_of(&result, 0));
-    let firsts: Vec<PieceId> = (0..4).map(|c| PieceId::first_of(&result, c)).collect();
+    let owner = OwnerId([1; 32]);
+    assert_eq!(PieceId::first(&owner), PieceId::first_of(&owner, 0));
+    let firsts: Vec<PieceId> = (0..4).map(|c| PieceId::first_of(&owner, c)).collect();
     for (i, a) in firsts.iter().enumerate() {
         assert_eq!(
             *a,
-            PieceId::first_of(&result, i as u64),
+            PieceId::first_of(&owner, i as u64),
             "the same chain, the same id"
         );
         assert!(firsts[i + 1..].iter().all(|b| b != a), "chain {i}");
     }
     assert_ne!(
-        PieceId::first_of(&result, 1),
-        PieceId::first_of(&ResultId([2; 32]), 1)
+        PieceId::first_of(&owner, 1),
+        PieceId::first_of(&OwnerId([2; 32]), 1)
     );
     // pinned: a chain's first id is part of the format
-    assert_eq!(PieceId::first_of(&result, 1).0[..4], [241, 163, 28, 235]);
+    assert_eq!(PieceId::first_of(&owner, 1).0[..4], [241, 163, 28, 235]);
 }
 
 fn summary(seq: u64, end: Option<FinishState>) -> PieceSummary {
@@ -162,7 +162,7 @@ fn summary(seq: u64, end: Option<FinishState>) -> PieceSummary {
     PieceSummary {
         ident: PieceIdent {
             id: id(seq),
-            result: ResultId([0xaa; 32]),
+            owner: OwnerId([0xaa; 32]),
             seq,
         },
         prev: (seq > 0).then(|| (hash(seq - 1), id(seq - 1))),
@@ -220,9 +220,9 @@ fn chains_are_checked_both_ways() {
     let r = check_chain(&[summary(0, None), summary(1, Some(Complete))]);
     assert_eq!(r.links, [ChainLink::Unfinished]);
 
-    // the same seq twice, another result
+    // the same seq twice, another owner
     let mut other = summary(1, Some(Complete));
-    other.ident.result = ResultId([1; 32]);
+    other.ident.owner = OwnerId([1; 32]);
     let r = check_chain(&[
         summary(0, Some(Continued)),
         summary(0, Some(Continued)),

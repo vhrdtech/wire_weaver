@@ -3,8 +3,9 @@
 //! allow|disallow` works on a board already in its boot ROM instead, storing or clearing the allowance STD-101's
 //! guard reads at boot (TOOL-30).
 
+use crate::registry::{BoxFuture, CommandDef, Connection, DeviceUse, GlobalFlags, Ran, Run};
 use anyhow::{Result, anyhow, bail};
-use clap::{Args, Subcommand};
+use clap::{Args, FromArgMatches, Subcommand};
 use console::style;
 use wire_weaver::prelude::MaxLen;
 use wire_weaver_client::ww_client_server::ErrorKindOwned;
@@ -422,4 +423,42 @@ mod tests {
                 .dry_run
         );
     }
+}
+
+/// `ww board`.
+fn command() -> clap::Command {
+    BoardCommand::augment_subcommands(clap::Command::new("board"))
+        .subcommand_required(true)
+        .arg_required_else_help(true)
+        .about("Tools around `ww_board_info::BoardInfo` (TOOL-28)")
+        .long_about(
+            "Tools around `ww_board_info::BoardInfo` (TOOL-28)\n\n\
+             Works with any device implementing `BoardInfo` anywhere in its API, whatever its API and version.",
+        )
+}
+
+fn connection(matches: &clap::ArgMatches) -> Result<Connection> {
+    Ok(match BoardCommand::from_arg_matches(matches)? {
+        BoardCommand::Rework(ReworkCommand::Set(_) | ReworkCommand::Clear(_)) => {
+            Connection::Device(DeviceUse::TRAITS_ONLY)
+        }
+        // `allow`/`disallow` work on a board in its boot ROM, found the same way as `dfu rp`/`dfu stm32` (TOOL-30)
+        BoardCommand::Rework(ReworkCommand::Allow(_) | ReworkCommand::Disallow(_)) => {
+            Connection::SELECTION
+        }
+    })
+}
+
+fn run(run: Run<'_>) -> BoxFuture<'_, Result<Ran>> {
+    Box::pin(async move {
+        let cmd = BoardCommand::from_arg_matches(&run.matches)?;
+        board(cmd, run.device.as_ref(), run.selection()).await?;
+        Ok(Ran::DONE)
+    })
+}
+
+inventory::submit! {
+    CommandDef::new("board", 170, command, run)
+        .globals(&[("", GlobalFlags::DeviceAndTap)])
+        .connection(connection)
 }

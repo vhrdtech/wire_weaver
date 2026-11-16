@@ -4,13 +4,15 @@
 //! `ww_self::expr` and encoded first.
 
 use crate::cmd::tap::ViewArgs;
+use crate::registry::{BoxFuture, CommandDef, Connection, DeviceUse, GlobalFlags, Ran, Run};
 use crate::util::display_path;
 use crate::value_fmt::fmt_value;
 use anyhow::{Context, Result, anyhow, bail};
-use clap::Args;
+use clap::{Args, FromArgMatches};
 use console::{Style, style};
 use std::path::PathBuf;
 use std::sync::Arc;
+use tracing::level_filters::LevelFilter;
 use wire_weaver_client::envelope;
 use wire_weaver_client::expr::{self, Call};
 use wire_weaver_client::ww_self::explain::{Explained, Part, PartKind, explain, explain_fields};
@@ -551,4 +553,43 @@ fn raw(part: &Part, bytes: &[u8]) -> String {
         };
     }
     out
+}
+
+/// `ww explain`.
+fn command() -> clap::Command {
+    ExplainArgs::augment_args(clap::Command::new("explain"))
+        .about("Which bits of a buffer hold which value: every field with its bits, raw and decoded (TOOL-9)")
+        .long_about(
+            "Which bits of a buffer hold which value: every field with its bits, raw and decoded (TOOL-9)\n\n\
+             The API comes from the device's introspection, or from --crate / --bundle without a device. Examples:\n\n  \
+             ww explain --crate api Config 0a1b2c\n  \
+             ww explain motor.set_speed 4a00\n  \
+             ww explain --bundle api.ron motor.status --return 01 80 3f\n  \
+             ww explain link.wwtape --layer api      a capture (ww capture), replies explained by their request",
+        )
+}
+
+fn connection(matches: &clap::ArgMatches) -> Result<Connection> {
+    let args = ExplainArgs::from_arg_matches(matches)?;
+    args.check()?;
+    Ok(match args.need_device() {
+        // `ww explain` may connect, but only to look an API up
+        true => Connection::Device(DeviceUse::FULL.untapped()),
+        false => Connection::None,
+    })
+}
+
+fn run(run: Run<'_>) -> BoxFuture<'_, Result<Ran>> {
+    Box::pin(async move {
+        let args = ExplainArgs::from_arg_matches(&run.matches)?;
+        explain_cmd(args, run.device.as_ref())?;
+        Ok(Ran::DONE)
+    })
+}
+
+inventory::submit! {
+    CommandDef::new("explain", 50, command, run)
+        .globals(&[("", GlobalFlags::Device)])
+        .connection(connection)
+        .log_level(|_| LevelFilter::WARN)
 }

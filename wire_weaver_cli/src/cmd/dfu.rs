@@ -3,8 +3,11 @@
 
 use std::ffi::OsString;
 
+use crate::registry::{
+    BoxFuture, CommandDef, Connection, DeviceUse, Forward, GlobalFlags, Ran, Run,
+};
 use anyhow::{Result, anyhow};
-use clap::{Subcommand, ValueEnum};
+use clap::{FromArgMatches, Subcommand, ValueEnum};
 use console::style;
 use wire_weaver_client::ww_client_server::ErrorKindOwned;
 use wire_weaver_client::{CallError, ClientMeta, DynClient, Error};
@@ -308,4 +311,64 @@ mod tests {
     fn versions_format() {
         assert_eq!(version(ImageVersion(0x01_0203)), "66051 (1.2.3)");
     }
+}
+
+/// `ww dfu`.
+fn command() -> clap::Command {
+    DfuCommand::augment_subcommands(clap::Command::new("dfu"))
+        .subcommand_required(true)
+        .arg_required_else_help(true)
+        .about("Firmware updates: ww_dfu steps on any device whatever its API version, and the RP and STM32 boot ROMs")
+}
+
+fn connection(matches: &clap::ArgMatches) -> Result<Connection> {
+    let cmd = DfuCommand::from_arg_matches(matches)?;
+    Ok(match cmd.needs_device() {
+        true => Connection::Device(DeviceUse::TRAITS_ONLY),
+        // the boot ROMs are found by their own USB ids; `flash` hands the selection to the ww-chunky plugin
+        false => Connection::SELECTION,
+    })
+}
+
+fn run_command(run: Run<'_>) -> BoxFuture<'_, Result<Ran>> {
+    Box::pin(async move {
+        let cmd = DfuCommand::from_arg_matches(&run.matches)?;
+        match cmd {
+            DfuCommand::Rp(rp_cmd) => crate::cmd::bootsel::bootsel(rp_cmd, run.selection()).await?,
+            DfuCommand::Stm32(stm32_cmd) => {
+                crate::cmd::stm32dfu::stm32dfu(stm32_cmd, run.selection()).await?
+            }
+            DfuCommand::Device(DeviceDfu::Flash { args }) => {
+                let mut plugin_args = vec!["flash".into()];
+                plugin_args.extend(args);
+                let env = crate::plugin::selection_env(run.selection(), run.no_config);
+                match crate::plugin::run("chunky", &plugin_args, &env, || {
+                    anyhow!(
+                        "`ww dfu flash` runs the ww-chunky plugin, which is not on PATH: install it with `just install` in \
+                         chunky_mcu_updater (or `cargo install --git https://github.com/romixlab/chunky_mcu_updater ww_chunky --locked`)"
+                    )
+                })? {}
+            }
+            DfuCommand::Device(dfu_cmd) => {
+                let resets_device = dfu_cmd.resets_device();
+                let device = run
+                    .device
+                    .take()
+                    .expect("dfu's connection asked for a device");
+                dfu(dfu_cmd, device, run.selection(), run.meta).await?;
+                if resets_device {
+                    // the device is gone or about to, nothing to disconnect from
+                    return Ok(Ran::DEVICE_GONE);
+                }
+            }
+        }
+        Ok(Ran::DONE)
+    })
+}
+
+inventory::submit! {
+    CommandDef::new("dfu", 120, command, run_command)
+        .globals(&[("", GlobalFlags::DeviceAndTap), ("rp", GlobalFlags::Device), ("stm32", GlobalFlags::Device)])
+        .connection(connection)
+        .forwards(&[Forward { path: &["flash"], plugin: "chunky", lead: &["flash"] }])
 }

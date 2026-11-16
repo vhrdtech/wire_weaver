@@ -2,14 +2,16 @@
 //! code, printing each update's present values, the update rate and the link bytes/s it costs. With `--samples`,
 //! `+batched` properties come sample by sample, one line each with its device time (API-39).
 
+use crate::registry::{BoxFuture, CommandDef, Connection, DeviceUse, GlobalFlags, Ran, Run};
 use crate::untrusted::escape;
 use crate::util::display_path;
 use anyhow::{Context, Result, anyhow, bail};
-use clap::Args;
+use clap::{Args, FromArgMatches};
 use console::style;
 use human_repr::HumanCount;
 use std::collections::HashMap;
 use std::time::Instant;
+use tracing::level_filters::LevelFilter;
 use wire_weaver::shrink_wrap::UNib32;
 use wire_weaver_client::observe::{ObserveMode, ObserveRefused};
 use wire_weaver_client::ww_client_server::ww_si::Micros;
@@ -199,4 +201,29 @@ mod tests {
             ["reading: ModeNotSupported", "#7: ModeNotSupported"]
         );
     }
+}
+
+/// `ww observe`.
+fn command() -> clap::Command {
+    ObserveArgs::augment_args(clap::Command::new("observe"))
+        .about("Observe a trait level's `+observe` properties, from introspection alone (TOOL-11)")
+        .long_about(
+            "Observe a trait level's `+observe` properties, from introspection alone (TOOL-11)\n\n\
+             Prints each update's present values, the update rate and the link bytes/s it costs, until Ctrl+C.",
+        )
+}
+
+fn run(run: Run<'_>) -> BoxFuture<'_, Result<Ran>> {
+    Box::pin(async move {
+        let args = ObserveArgs::from_arg_matches(&run.matches)?;
+        observe(args, run.device()).await?;
+        Ok(Ran::DONE)
+    })
+}
+
+inventory::submit! {
+    CommandDef::new("observe", 60, command, run)
+        .globals(&[("", GlobalFlags::DeviceAndTap)])
+        .connection(|_| Ok(Connection::Device(DeviceUse::FULL)))
+        .log_level(|_| LevelFilter::WARN)
 }

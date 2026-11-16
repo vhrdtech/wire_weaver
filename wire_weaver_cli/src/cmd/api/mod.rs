@@ -9,7 +9,8 @@ mod scaffold;
 use anyhow::Result;
 use wire_weaver_core::ServerScaffoldConfig;
 
-use clap::{Subcommand, ValueHint};
+use crate::registry::{BoxFuture, CommandDef, Ran, Run};
+use clap::{FromArgMatches, Subcommand, ValueHint};
 use std::path::PathBuf;
 
 // parsed once from the command line, its size doesn't matter
@@ -326,4 +327,24 @@ pub(crate) fn api(cmd: ApiCommand) -> Result<()> {
         ApiCommand::Line(cmd) => line::line(cmd),
         ApiCommand::Ast { path, name } => ast::print_ast(path, name),
     }
+}
+
+/// `ww api`.
+fn command() -> clap::Command {
+    ApiCommand::augment_subcommands(clap::Command::new("api"))
+        .subcommand_required(true)
+        .arg_required_else_help(true)
+        .about("API-related tools")
+}
+
+fn run(run: Run<'_>) -> BoxFuture<'_, Result<Ran>> {
+    Box::pin(async move {
+        let cmd = ApiCommand::from_arg_matches(&run.matches)?;
+        api(cmd)?;
+        Ok(Ran::DONE)
+    })
+}
+
+inventory::submit! {
+    CommandDef::new("api", 30, command, run)
 }

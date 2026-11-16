@@ -6,11 +6,12 @@
 //! this process opened) or a file ([FileFeed]); a ww server's tap of every client's link (SRV-13) is one more feed.
 
 use crate::cmd::explain;
+use crate::registry::{BoxFuture, CommandDef, Connection, DeviceUse, GlobalFlags, Ran, Run};
 use crate::untrusted::escape;
 use crate::util::StopSignal;
 use crate::value_fmt::fmt_value;
 use anyhow::{Context, Result, anyhow};
-use clap::{Args, ValueEnum, ValueHint};
+use clap::{Args, FromArgMatches, ValueEnum, ValueHint};
 use clap_complete::{ArgValueCandidates, CompletionCandidate};
 use console::style;
 use human_repr::HumanCount;
@@ -22,6 +23,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
+use tracing::level_filters::LevelFilter;
 use wire_weaver_client::DynClient;
 use wire_weaver_client::tap::{
     Check, Decoded, Decoder, DecoderConfig, Dir, FrameInfo, FrameOutcome, FrameReport, Layers,
@@ -36,11 +38,11 @@ use wire_weaver_client::ww_tape::{
 };
 
 mod flags;
-pub(crate) use flags::{Attached, TapFlags};
+pub use flags::{Attached, TapFlags};
 
 /// How deep to look.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, ValueEnum)]
-pub(crate) enum Layer {
+pub enum Layer {
     /// Every frame (USB packet, UDP datagram, RTT chunk) with its pieces, and the messages built from them
     Frame,
     /// Every ww_link message (data, link setup, pings) and link event
@@ -195,13 +197,13 @@ pub(crate) struct CaptureArgs {
 
 /// A live tap on the CLI's own connection: the recorder its client records into and a subscription to it, made
 /// before connecting so the capture starts with the link setup.
-pub(crate) struct LiveTap {
+pub struct LiveTap {
     pub recorder: Recorder,
     subscription: Subscription,
 }
 
 impl LiveTap {
-    pub(crate) fn new(layer: Layer) -> Self {
+    pub fn new(layer: Layer) -> Self {
         let recorder = Recorder::new(RecorderConfig {
             name: "ww".into(),
             ..RecorderConfig::default()
@@ -214,7 +216,7 @@ impl LiveTap {
         }
     }
 
-    pub(crate) fn add_bundles(&self, device: &DynClient) {
+    pub fn add_bundles(&self, device: &DynClient) {
         add_bundles(&self.recorder, device);
     }
 }
@@ -973,3 +975,114 @@ pub(crate) fn replay(
 
 #[cfg(test)]
 mod tests;
+
+/// `ww monitor`.
+fn monitor_command() -> clap::Command {
+    MonitorArgs::augment_args(clap::Command::new("monitor"))
+        .about("What crosses the link, as it happens: frames, link messages or API calls, decoded (TOOL-14)")
+        .long_about(
+            "What crosses the link, as it happens: frames, link messages or API calls, decoded (TOOL-14)\n\n\
+             Shows this command's own connection to the device, from the link setup on, until Ctrl+C. Examples:\n\n  \
+             ww monitor                    every link message and link event\n  \
+             ww monitor --layer frame      every USB packet with its pieces, and the messages built from them\n  \
+             ww monitor --layer api        requests with their arguments, replies paired with their request\n  \
+             ww monitor --layer api --bits each message with its bit map, as `ww explain` shows one",
+        )
+}
+
+fn monitor_run(run: Run<'_>) -> BoxFuture<'_, Result<Ran>> {
+    Box::pin(async move {
+        let args = MonitorArgs::from_arg_matches(&run.matches)?;
+        let (device, tap, stop) = take_tapped(run);
+        // disconnects itself, so the recording ends with the disconnect
+        monitor(args, device, tap, stop).await?;
+        Ok(Ran::DONE)
+    })
+}
+
+/// The device, the command's own tap and the stop signal of a tap command, which the registry set up.
+fn take_tapped(run: Run<'_>) -> (DynClient, LiveTap, StopSignal) {
+    let Run {
+        device, tap, stop, ..
+    } = run;
+    (
+        device.take().expect("a tap command's device is connected"),
+        tap.expect("a tap command's own tap"),
+        stop.expect("a tapped run has a stop signal"),
+    )
+}
+
+inventory::submit! {
+    CommandDef::new("monitor", 80, monitor_command, monitor_run)
+        .globals(&[("", GlobalFlags::Device)])
+        .connection(|_| Ok(Connection::Device(DeviceUse::FULL)))
+        .log_level(|_| LevelFilter::WARN)
+        .own_tap(|m| MonitorArgs::from_arg_matches(m).ok().map(|a| a.layer()))
+}
+
+/// `ww stats`.
+fn stats_command() -> clap::Command {
+    StatsArgs::augment_args(clap::Command::new("stats"))
+        .about("Framer and link statistics: frame fill, overhead, split messages, losses, reply times per method (TOOL-14)")
+        .long_about(
+            "Framer and link statistics: frame fill, overhead, split messages, losses, reply times per method (TOOL-14)\n\n\
+             Printed every --every seconds for the time since the last print, until Ctrl+C; or of a capture. Examples:\n\n  \
+             ww stats --every 5\n  \
+             ww stats --file link.wwtape",
+        )
+}
+
+fn stats_run(run: Run<'_>) -> BoxFuture<'_, Result<Ran>> {
+    Box::pin(async move {
+        let args = StatsArgs::from_arg_matches(&run.matches)?;
+        match &args.file {
+            Some(_) => stats_file(&args)?,
+            None => {
+                let (device, tap, stop) = take_tapped(run);
+                stats(args, device, tap, stop).await?;
+            }
+        }
+        Ok(Ran::DONE)
+    })
+}
+
+inventory::submit! {
+    CommandDef::new("stats", 90, stats_command, stats_run)
+        .globals(&[("", GlobalFlags::Device)])
+        .connection(|m| Ok(match m.contains_id("file") {
+            true => Connection::None,
+            false => Connection::Device(DeviceUse::FULL),
+        }))
+        .log_level(|_| LevelFilter::WARN)
+        .own_tap(|m| (!m.contains_id("file")).then_some(Layer::Frame))
+}
+
+/// `ww capture`.
+fn capture_command() -> clap::Command {
+    CaptureArgs::augment_args(clap::Command::new("capture"))
+        .about("Save what crosses the link into a file, to read later with `ww explain FILE` (TOOL-14)")
+        .long_about(
+            "Save what crosses the link into a file, to read later with `ww explain FILE` (TOOL-14)\n\n\
+             The file carries the device's API, so it is explained without the device. Until Ctrl+C. Examples:\n\n  \
+             ww capture -o link.wwtape\n  \
+             ww capture -o link.wwtape --duration 10 --layer link\n  \
+             ww explain link.wwtape --layer api",
+        )
+}
+
+fn capture_run(run: Run<'_>) -> BoxFuture<'_, Result<Ran>> {
+    Box::pin(async move {
+        let args = CaptureArgs::from_arg_matches(&run.matches)?;
+        let (device, tap, stop) = take_tapped(run);
+        capture(args, device, tap, stop).await?;
+        Ok(Ran::DONE)
+    })
+}
+
+inventory::submit! {
+    CommandDef::new("capture", 100, capture_command, capture_run)
+        .globals(&[("", GlobalFlags::Device)])
+        .connection(|_| Ok(Connection::Device(DeviceUse::FULL)))
+        .log_level(|_| LevelFilter::WARN)
+        .own_tap(|m| CaptureArgs::from_arg_matches(m).ok().map(|a| a.layer()))
+}

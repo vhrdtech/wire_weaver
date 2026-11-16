@@ -1,9 +1,11 @@
 use crate::api_tree;
+use crate::registry::{BoxFuture, CommandDef, Connection, DeviceUse, GlobalFlags, Ran, Run};
 use anyhow::{Result, anyhow};
-use clap::Args;
+use clap::{Args, FromArgMatches};
 use console::style;
 use shrink_wrap::SerializeShrinkWrapOwned;
 use std::collections::HashMap;
+use tracing::level_filters::LevelFilter;
 use wire_weaver_client::ww_self::{ApiItemKindOwned, Multiplicity, PropertyAccess};
 use wire_weaver_client::{DynClient, DynResource};
 
@@ -123,4 +125,25 @@ async fn const_values(device: &DynClient, root: DynResource) -> HashMap<Vec<u32>
         }
     }
     values
+}
+
+/// `ww introspect`.
+fn command() -> clap::Command {
+    IntrospectArgs::augment_args(clap::Command::new("introspect"))
+        .about("Print the resource tree of the selected device's API, using its introspection data")
+}
+
+fn run(run: Run<'_>) -> BoxFuture<'_, Result<Ran>> {
+    Box::pin(async move {
+        let args = IntrospectArgs::from_arg_matches(&run.matches)?;
+        introspect(args, run.device()).await?;
+        Ok(Ran::DONE)
+    })
+}
+
+inventory::submit! {
+    CommandDef::new("introspect", 40, command, run)
+        .globals(&[("", GlobalFlags::DeviceAndTap)])
+        .connection(|_| Ok(Connection::Device(DeviceUse::FULL)))
+        .log_level(|_| LevelFilter::WARN)
 }

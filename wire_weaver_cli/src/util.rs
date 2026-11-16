@@ -1,4 +1,4 @@
-//! Shared helpers across `ww` subcommands that work on a `DynResource` (`observe`, `stream`).
+//! Shared helpers of the commands: a stop signal (Ctrl-C, SIGTERM, `q`), guarding a future with it, paths.
 
 use std::future::Future;
 use std::sync::Arc;
@@ -8,7 +8,7 @@ use std::time::Duration;
 use tokio::sync::watch;
 
 /// `path`, or "API root" when empty, for a message.
-pub(crate) fn display_path(path: &str) -> &str {
+pub fn display_path(path: &str) -> &str {
     if path.is_empty() { "API root" } else { path }
 }
 
@@ -16,11 +16,11 @@ pub(crate) fn display_path(path: &str) -> &str {
 /// `kill`). Installed before connecting so no signal is lost on the way, and so the default action (dying at once,
 /// with a `--capture` file still `.partial`) is off: whoever holds it ends what it does and cleans up.
 #[derive(Clone)]
-pub(crate) struct StopSignal(watch::Receiver<bool>, Arc<watch::Sender<bool>>);
+pub struct StopSignal(watch::Receiver<bool>, Arc<watch::Sender<bool>>);
 
 impl StopSignal {
     /// Must be called inside the tokio runtime.
-    pub(crate) fn install() -> Self {
+    pub fn install() -> Self {
         let (tx, rx) = watch::channel(false);
         let tx = Arc::new(tx);
         let signals = Signals::register();
@@ -33,18 +33,18 @@ impl StopSignal {
     }
 
     /// Asks for a stop, as a signal does: `q` typed in a live view ([QuitKey]).
-    pub(crate) fn stop(&self) {
+    pub fn stop(&self) {
         _ = self.1.send(true);
     }
 
     /// Resolves once a stop was asked for (at once when it already was).
-    pub(crate) async fn wait(&mut self) {
+    pub async fn wait(&mut self) {
         // every clone holds a sender: an error would mean the runtime is going away
         _ = self.0.wait_for(|stopped| *stopped).await;
     }
 
     /// Runs `fut`, or gives up on it when a stop is asked for: `None` then.
-    pub(crate) async fn guard<T>(&mut self, fut: impl Future<Output = T>) -> Option<T> {
+    pub async fn guard<T>(&mut self, fut: impl Future<Output = T>) -> Option<T> {
         tokio::select! {
             r = fut => Some(r),
             _ = self.wait() => None,
@@ -97,7 +97,7 @@ impl Signals {
 }
 
 /// [StopSignal::guard] when there is a signal to watch, else just `fut`.
-pub(crate) async fn guard<T>(stop: Option<StopSignal>, fut: impl Future<Output = T>) -> Option<T> {
+pub async fn guard<T>(stop: Option<StopSignal>, fut: impl Future<Output = T>) -> Option<T> {
     match stop {
         Some(mut stop) => stop.guard(fut).await,
         None => Some(fut.await),
@@ -107,7 +107,7 @@ pub(crate) async fn guard<T>(stop: Option<StopSignal>, fut: impl Future<Output =
 /// `q` typed in the terminal asks the [StopSignal] for a stop, beside Ctrl+C: for live views that run until stopped
 /// (`ww sync`). Keys are read on a thread of their own, without echo or waiting for Enter; output, Ctrl+C and the
 /// other control keys work as before, and the terminal is put back as it was on drop.
-pub(crate) struct QuitKey {
+pub struct QuitKey {
     done: Arc<AtomicBool>,
     thread: Option<JoinHandle<()>>,
     #[cfg(unix)]
@@ -116,7 +116,7 @@ pub(crate) struct QuitKey {
 
 impl QuitKey {
     /// Listens while it lives; `None` when stdin is not a terminal (or on a platform without it).
-    pub(crate) fn listen(stop: &StopSignal) -> Option<Self> {
+    pub fn listen(stop: &StopSignal) -> Option<Self> {
         use std::io::IsTerminal;
         if !std::io::stdin().is_terminal() {
             return None;

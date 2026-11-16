@@ -4,10 +4,12 @@
 
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use crate::registry::{BoxFuture, CommandDef, Ran, Run};
 use anyhow::{Context, Result, bail};
-use clap::{Subcommand, ValueHint};
+use clap::{FromArgMatches, Subcommand, ValueHint};
 use clap_complete::ArgValueCandidates;
 use console::{measure_text_width, style};
+use tracing::level_filters::LevelFilter;
 use wire_weaver_client::holders::{self, DeviceRef, Holder};
 use wire_weaver_client::hub::hub_running;
 use ww_hub::client::HubClient;
@@ -623,4 +625,36 @@ mod tests {
         assert!(!row_matches(&row, "right"));
         assert!(!row_matches(&row, ""));
     }
+}
+
+/// `ww hub`.
+fn command() -> clap::Command {
+    HubCommand::augment_subcommands(clap::Command::new("hub"))
+        .subcommand_required(true)
+        .arg_required_else_help(true)
+        .about(
+            "The ww hub: one process per user that holds devices and serves every program (SRV-13)",
+        )
+}
+
+fn log_level(matches: &clap::ArgMatches) -> LevelFilter {
+    match matches.subcommand_name() {
+        // the hub closes the connection on us by design
+        Some("stop") => LevelFilter::OFF,
+        // the hub's own log is what `serve` is for; the others just talk to it
+        Some("status" | "who" | "keep") => LevelFilter::WARN,
+        _ => LevelFilter::INFO,
+    }
+}
+
+fn run(run: Run<'_>) -> BoxFuture<'_, Result<Ran>> {
+    Box::pin(async move {
+        let cmd = HubCommand::from_arg_matches(&run.matches)?;
+        hub(cmd).await?;
+        Ok(Ran::DONE)
+    })
+}
+
+inventory::submit! {
+    CommandDef::new("hub", 130, command, run).log_level(log_level)
 }

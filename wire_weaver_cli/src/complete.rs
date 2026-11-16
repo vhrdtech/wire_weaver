@@ -14,11 +14,12 @@ use std::io::Write;
 use std::path::Path;
 use wire_weaver_client::DeviceInfo;
 
-/// The command line for completion: `factory`'s, one subcommand per plugin found on `PATH` (`ww-NAME`), and
-/// `dfu flash`, which `ww-chunky flash` answers. A plugin completes its own arguments: it is asked for the words of
-/// the command line being completed, and what it answers is put into the command as its flags and values, which
-/// the completion engine then filters by the word being completed.
-pub fn with_plugins(factory: fn() -> Command) -> Command {
+/// The command line for completion: `factory`'s, one subcommand per plugin found on `PATH` (`ww-NAME`), and the
+/// subcommands that forward to a plugin ([`crate::registry::Forward`]: `dfu flash`, which `ww-chunky flash`
+/// answers). A plugin completes its own arguments: it is asked for the words of the command line being completed,
+/// and what it answers is put into the command as its flags and values, which the completion engine then filters
+/// by the word being completed.
+pub fn with_plugins(factory: impl Fn() -> Command) -> Command {
     let mut cmd = factory();
     // the global flags are the root's: a plugin offering them would be a second flag of the same name
     let taken: Vec<String> = cmd
@@ -26,11 +27,16 @@ pub fn with_plugins(factory: fn() -> Command) -> Command {
         .filter_map(|a| a.get_long().map(str::to_string))
         .chain(["help".into(), "version".into()])
         .collect();
-    cmd = cmd.mut_subcommand("dfu", |dfu| {
-        dfu.mut_subcommand("flash", |flash| {
-            plugin_stub(flash, &["dfu", "flash"], "chunky", &["flash"], &taken)
-        })
-    });
+    for def in crate::registry::commands() {
+        for forward in def.forwards {
+            let prefix: Vec<&str> = std::iter::once(def.name)
+                .chain(forward.path.iter().copied())
+                .collect();
+            cmd = at_path(cmd, &prefix, |stub| {
+                plugin_stub(stub, &prefix, forward.plugin, forward.lead, &taken)
+            });
+        }
+    }
     for (name, path) in crate::plugin::list() {
         if cmd.find_subcommand(&name).is_some() {
             continue;
@@ -43,6 +49,14 @@ pub fn with_plugins(factory: fn() -> Command) -> Command {
         cmd = cmd.subcommand(plugin_stub(stub, &[name], name, &[], &taken));
     }
     cmd
+}
+
+/// `cmd` with the subcommand at `path` (`["dfu", "flash"]`) changed by `f`.
+fn at_path(cmd: Command, path: &[&str], f: impl FnOnce(Command) -> Command) -> Command {
+    match path {
+        [] => f(cmd),
+        [first, rest @ ..] => cmd.mut_subcommand(*first, |sc| at_path(sc, rest, f)),
+    }
 }
 
 /// `stub` (the command a plugin answers for), with the flags and values `plugin` offers for the command line being
@@ -130,7 +144,7 @@ fn words_after(prefix: &[&str]) -> Option<Vec<std::ffi::OsString>> {
 }
 
 /// Answers a shell completion request and exits if there is one, otherwise does nothing.
-pub fn complete(factory: fn() -> Command) {
+pub fn complete(factory: impl Fn() -> Command) {
     CompleteEnv::with_factory(factory)
         .shells(Shells(&[&Bash, &Elvish, &Fish, &Powershell, &Zsh]))
         .complete();
@@ -321,10 +335,7 @@ pub fn pin_points() -> Vec<CompletionCandidate> {
         return vec![];
     };
     let points = rt.block_on(async {
-        let matches = crate::cli::Cli::command_fitted()
-            .try_get_matches_from(["ww", "list"])
-            .ok()?;
-        let selection = crate::device::Selection::resolve(&matches, false).ok()?;
+        let selection = crate::registry::selection_from_env().ok()?;
         let connect =
             wire_weaver_client::DynClient::from_config(selection.client_config()).connect();
         let device = tokio::time::timeout(std::time::Duration::from_secs(3), connect)

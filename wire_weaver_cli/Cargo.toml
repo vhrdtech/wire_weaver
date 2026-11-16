@@ -29,6 +29,7 @@ console.workspace = true
 crossterm.workspace = true
 human-repr = "1.1"
 indicatif = "0.18"
+inventory.workspace = true
 nusb.workspace = true
 proc-macro2.workspace = true
 ratatui.workspace = true

@@ -1,6 +1,7 @@
 use crate::device::{CONFIG_FILE, DEVICE_TABLE, KEYS, NUMERIC_KEYS, Selection, Source, env_var};
+use crate::registry::{BoxFuture, CommandDef, Connection, GlobalFlags, Ran, Run};
 use anyhow::{Context, Result, anyhow, bail};
-use clap::Subcommand;
+use clap::{FromArgMatches, Subcommand};
 use std::path::{Path, PathBuf};
 use toml_edit::{DocumentMut, Table, value};
 
@@ -123,4 +124,26 @@ fn device_table<'a>(doc: &'a mut DocumentMut, path: &Path) -> Result<&'a mut Tab
 
 fn write_doc(path: &Path, doc: &DocumentMut) -> Result<()> {
     std::fs::write(path, doc.to_string()).context(format!("writing {}", path.display()))
+}
+
+/// `ww config`.
+fn command() -> clap::Command {
+    ConfigCommand::augment_subcommands(clap::Command::new("config"))
+        .subcommand_required(true)
+        .arg_required_else_help(true)
+        .about("Show or save device selection in a project ww.toml")
+}
+
+fn run(run: Run<'_>) -> BoxFuture<'_, Result<Ran>> {
+    Box::pin(async move {
+        let cmd = ConfigCommand::from_arg_matches(&run.matches)?;
+        config(cmd, run.selection())?;
+        Ok(Ran::DONE)
+    })
+}
+
+inventory::submit! {
+    CommandDef::new("config", 200, command, run)
+        .globals(&[("", GlobalFlags::Device)])
+        .connection(|m| Ok(Connection::Selection { save_config: m.subcommand_name() == Some("save") }))
 }

@@ -1,4 +1,7 @@
+use crate::registry::{BoxFuture, CommandDef, Connection, DeviceUse, GlobalFlags, Ran, Run};
 use anyhow::{Result, bail};
+use clap::{Args, FromArgMatches};
+use clap_complete::ArgValueCandidates;
 use console::style;
 use human_repr::HumanCount;
 use indicatif::{ProgressBar, ProgressStyle};
@@ -201,4 +204,94 @@ fn print_probable_usb_problems() {
     error!("* Malfunctioning hub");
     error!("* Powered hub used without power");
     error!("* Power issues at device if it is externally powered");
+}
+
+#[derive(Args)]
+pub(crate) struct LoopbackArgs {
+    /// How long to run each stage (loopback, tx_speed, rx_speed), in seconds
+    #[arg(long, default_value = "10")]
+    duration_sec: u32,
+
+    /// Size of each test message in bytes (8 bytes of header and data), or max: the largest message both
+    /// the device and the host accept
+    #[arg(long, default_value = "max", add = ArgValueCandidates::new(crate::complete::packet_sizes))]
+    packet_size: String,
+
+    #[command(flatten)]
+    tuning: LoopbackTuning,
+}
+
+/// Timeouts and flow control of `ww usb-loopback`, defaults from [LoopbackParams::default].
+#[derive(Args)]
+#[command(next_help_heading = "Test tuning")]
+pub(crate) struct LoopbackTuning {
+    /// An echo (round trip, marker or device → host reply) missing for this long is lost
+    #[arg(long, value_name = "MS", default_value_t = LoopbackParams::default().echo_timeout.as_millis() as u64)]
+    pub echo_timeout_ms: u64,
+
+    /// Give up after this many echo timeouts in a row
+    #[arg(long, value_name = "N", default_value_t = LoopbackParams::default().timeouts_in_a_row)]
+    pub timeouts_in_a_row: u32,
+
+    /// Host → device: messages between two echoed markers
+    #[arg(long, value_name = "N", default_value_t = LoopbackParams::default().marker_every)]
+    pub marker_every: u32,
+
+    /// Host → device: markers in flight at most, the host waits for their echoes beyond that
+    #[arg(long, value_name = "N", default_value_t = LoopbackParams::default().markers_in_flight)]
+    pub markers_in_flight: u32,
+
+    /// Device → host: messages the device sends for one request (at least 2)
+    #[arg(long, value_name = "N", default_value_t = LoopbackParams::default().rx_batch)]
+    pub rx_batch: u32,
+
+    /// Device → host: requests in flight at most
+    #[arg(long, value_name = "N", default_value_t = LoopbackParams::default().batches_in_flight)]
+    pub batches_in_flight: u32,
+}
+
+impl LoopbackTuning {
+    pub fn params(&self) -> LoopbackParams {
+        LoopbackParams {
+            echo_timeout: std::time::Duration::from_millis(self.echo_timeout_ms),
+            timeouts_in_a_row: self.timeouts_in_a_row,
+            marker_every: self.marker_every,
+            markers_in_flight: self.markers_in_flight,
+            rx_batch: self.rx_batch,
+            batches_in_flight: self.batches_in_flight,
+        }
+    }
+}
+
+/// `ww usb-loopback`.
+fn command() -> clap::Command {
+    LoopbackArgs::augment_args(clap::Command::new("usb-loopback"))
+        .about("Test the link to a device: round trips, then host → device and device → host speed")
+        .long_about(
+            "Test the link to a device: round trips, then host → device and device → host speed\n\n\
+             Works with any WireWeaver device, whatever its API: the device's link layer answers the loopback \
+             messages. Reports round trips per second with lost and corrupted echoes, then one-way messages and \
+             bytes per second in each direction.",
+        )
+}
+
+fn run(run: Run<'_>) -> BoxFuture<'_, Result<Ran>> {
+    Box::pin(async move {
+        let args = LoopbackArgs::from_arg_matches(&run.matches)?;
+        usb_loopback(
+            run.device(),
+            args.duration_sec,
+            args.packet_size,
+            args.tuning.params(),
+        )
+        .await?;
+        Ok(Ran::DONE)
+    })
+}
+
+inventory::submit! {
+    CommandDef::new("usb-loopback", 20, command, run)
+        .globals(&[("", GlobalFlags::DeviceAndTap)])
+        // the loopback test does not call the API at all, the link layer answers
+        .connection(|_| Ok(Connection::Device(DeviceUse::TRAITS_ONLY)))
 }

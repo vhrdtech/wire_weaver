@@ -7,7 +7,7 @@ use std::thread::JoinHandle;
 
 #[derive(Args, Clone, Default)]
 #[command(next_help_heading = "Link tap (commands that connect to a device)")]
-pub(crate) struct TapFlags {
+pub struct TapFlags {
     /// Print this command's own link traffic to stderr, as `ww monitor` prints it (default layer: link)
     ///
     /// Works on every command that connects: `ww -l blinky --monitor=api info` shows the requests it made and the
@@ -38,12 +38,12 @@ pub(crate) struct TapFlags {
 }
 
 impl TapFlags {
-    pub(crate) fn active(&self) -> bool {
+    pub fn active(&self) -> bool {
         self.monitor.is_some() || self.capture.is_some()
     }
 
     /// `--bytes`/`--bits` only mean something printed.
-    pub(crate) fn check(&self) -> Result<()> {
+    pub fn check(&self) -> Result<()> {
         if self.monitor.is_none() && (self.tap_bytes || self.tap_bits) {
             return Err(anyhow!(
                 "--monitor-bytes and --monitor-bits go with --monitor"
@@ -68,7 +68,7 @@ pub(crate) struct Summary {
 }
 
 /// The running tap of one command: its recorder (for the client's config) and the thread printing and writing.
-pub(crate) struct Attached {
+pub struct Attached {
     recorder: Recorder,
     stop: Arc<AtomicBool>,
     thread: JoinHandle<Result<Summary>>,
@@ -76,7 +76,7 @@ pub(crate) struct Attached {
 
 impl Attached {
     /// Monitor output to stderr.
-    pub(crate) fn start(flags: &TapFlags) -> Result<Self> {
+    pub fn start(flags: &TapFlags) -> Result<Self> {
         Self::start_with(flags, Box::new(std::io::stderr()))
     }
 
@@ -115,17 +115,17 @@ impl Attached {
         })
     }
 
-    pub(crate) fn recorder(&self) -> Recorder {
+    pub fn recorder(&self) -> Recorder {
         self.recorder.clone()
     }
 
     /// The API bundles a capture needs, once connected.
-    pub(crate) fn add_bundles(&self, device: &DynClient) {
+    pub fn add_bundles(&self, device: &DynClient) {
         add_bundles(&self.recorder, device);
     }
 
     /// After the connection ended: let the thread drain what was recorded, print the capture line to stderr.
-    pub(crate) fn finish(self) -> Result<()> {
+    pub fn finish(self) -> Result<()> {
         self.recorder.flush();
         self.stop.store(true, Ordering::Relaxed);
         let summary = self

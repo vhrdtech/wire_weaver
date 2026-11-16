@@ -9,6 +9,9 @@
 
 ### 🚀 Features
 
+- Commands register themselves (TOOL-36): `wire_weaver_cli::registry::CommandDef` with `inventory`, a crate linking the library adds commands, `ww info` and `ww sync` take extensions (`InfoExtension`, `SyncExtension`).
+- `ww info --format json` on an STM32 bootloader that doesn't read its flash prints an object with `readable: false` (was a text line).
+
 - `ww tap` shows a block whose coded body doesn't decode, its records lost (STD-129).
 - `ww api` trees show a keyed array as `flow[] keyed by FlowKey`, its companion as `keyed flow_keys: flow by FlowKey` (API-67, EVO-78).
 - `ww stream` and `ww observe` take an element of a keyed array by its key, `flow[FlowKey { .. }].packets` (CLT-72).
@@ -73,6 +76,8 @@
 - `ww hub serve` runs the per-user hub in the foreground (SRV-28), and `ww` can be started as the hub by a client (`WW_HUB_SERVE`, `ww_hub::main_if_hub`). The hub runs on a thread and runtime of its own (one thread, see `ww_hub::run_blocking`).
 
 ### 🐛 Fixes
+
+- `ww udev` ends with an error saying it is not implemented yet (TOOL-37), not a panic.
 
 - `ww api save` and `ww api line` name `docs/evolution/versions.md` for the design line and several lines in one crate, where the rewritten Evolution chapter has them.
 - `ww introspect` reads the dynamic client's `ResourceIndex` paths (STD-115); its output is unchanged.

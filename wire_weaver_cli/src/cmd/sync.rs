@@ -3,18 +3,20 @@
 
 use crate::complete;
 use crate::device::Selection;
+use crate::registry::{BoxFuture, CommandDef, Connection, GlobalFlags, Ran, Run};
 use crate::untrusted::escape;
 use crate::util::{QuitKey, StopSignal};
 use anyhow::{Context, Result, bail};
-use clap::{Args, ValueEnum};
+use clap::{ArgMatches, Args, FromArgMatches};
 use clap_complete::ArgValueCandidates;
 use console::{Term, measure_text_width, style};
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+use tracing::level_filters::LevelFilter;
 use wire_weaver_client::clock_sync::{ClockSync, Options, RateCache, Status};
 use wire_weaver_client::hub::{HubClient, HubMode};
-use wire_weaver_client::{ClientConfig, Commander, DeviceInfo, DynClient};
+use wire_weaver_client::{ClientConfig, DeviceInfo, DynClient};
 use ww_hub_api::{SyncEntryOwned, SyncPhaseOwned};
 use ww_si::Prefix;
 use ww_timebase::{SteererOwned, SyncSource, SyncState};
@@ -25,10 +27,6 @@ pub(crate) struct SyncArgs {
     /// exactly one connected device. None: every device the device selection matches
     #[arg(value_name = "DEVICE", add = ArgValueCandidates::new(complete::serials_and_labels))]
     devices: Vec<String>,
-
-    /// Also write this indication mode (ww_indication) on every device; their animations line up on UTC
-    #[arg(long, value_enum)]
-    mode: Option<IndicationMode>,
 
     /// Stop after this many seconds (default: until Ctrl+C or q)
     #[arg(long, value_name = "S")]
@@ -47,41 +45,6 @@ pub(crate) struct SyncArgs {
     within_us: u64,
 }
 
-#[derive(Copy, Clone, ValueEnum)]
-pub(crate) enum IndicationMode {
-    /// Every indicator off, alerts included
-    AllOff,
-    /// Only indicators that must stay visible (faults, power)
-    OnlyEssential,
-    /// Every indicator as designed
-    Normal,
-}
-
-impl From<IndicationMode> for ww_indication::Mode {
-    fn from(m: IndicationMode) -> Self {
-        match m {
-            IndicationMode::AllOff => ww_indication::Mode::AllOff,
-            IndicationMode::OnlyEssential => ww_indication::Mode::OnlyEssential,
-            IndicationMode::Normal => ww_indication::Mode::Normal,
-        }
-    }
-}
-
-/// Client of `ww_indication::Indication` wherever the device implements it.
-struct IndicationClient {
-    cmd: Commander,
-}
-
-mod indication_client {
-    use super::*;
-    wire_weaver::ww_codegen!(
-        ww_indication::Indication for IndicationClient,
-        client = "trait_client",
-        no_alloc = false,
-        use_async = true,
-    );
-}
-
 /// One device being synced.
 struct Synced {
     name: String,
@@ -90,7 +53,7 @@ struct Synced {
     sync: Option<ClockSync>,
     /// Steered by the hub: the device's key there
     key: Option<String>,
-    /// Why it isn't synced, or what went wrong with `--mode`.
+    /// Why it isn't synced, or what an extension's step on it (`--mode`) had to say.
     note: Option<String>,
 }
 
@@ -198,6 +161,7 @@ fn steerer_name(s: &SteererOwned) -> String {
 
 pub(crate) async fn sync(
     args: SyncArgs,
+    matches: &ArgMatches,
     selection: &Selection,
     mut stop: StopSignal,
 ) -> Result<()> {
@@ -305,13 +269,11 @@ pub(crate) async fn sync(
         });
     }
 
-    if let Some(mode) = args.mode {
+    // what the standard library adds (`--mode`, the indication mode): a step on every device
+    for ext in inventory::iter::<SyncExtension>() {
         for device in &mut devices {
-            let indication = IndicationClient {
-                cmd: device.client.cmd().clone(),
-            };
-            if let Err(e) = indication.write_mode(mode.into()).write().await {
-                device.note = Some(format!("mode not set: {e}"));
+            if let Some(note) = (ext.on_device)(matches, &device.client).await {
+                device.note = Some(note);
             }
         }
     }
@@ -1093,4 +1055,53 @@ mod tests {
             "Phase: 1.00 ms apart across 2 devices (±100 µs)\n"
         );
     }
+}
+
+/// What a crate linking this one adds to `ww sync` (the standard library's `--mode`, the indication mode on every
+/// device): flags on the command, and a step run on each device once it is connected, before the steering starts.
+pub struct SyncExtension {
+    /// Adds the extension's flags to `ww sync`.
+    pub args: fn(clap::Command) -> clap::Command,
+    /// Runs on a synced device, given `ww sync`'s matches; a note for the device's row in the table when there is
+    /// something to say (`mode not set: ..`).
+    pub on_device: for<'a> fn(&'a ArgMatches, &'a DynClient) -> BoxFuture<'a, Option<String>>,
+}
+
+inventory::collect!(SyncExtension);
+
+/// `ww sync`, with every extension's flags.
+fn command() -> clap::Command {
+    let cmd = SyncArgs::augment_args(clap::Command::new("sync"))
+        .about("Keep several devices' clocks on the host's UTC and show how well they follow (TOOL-16)")
+        .long_about(
+            "Keep several devices' clocks on the host's UTC and show how well they follow (TOOL-16)\n\n\
+             Works with any device serving ww_timebase::Clock with host sync, anywhere in its API: each device's clock is\n\
+             read a few times a second, fitted against the host's (offset and rate) and steered, ten times a second while\n\
+             it is acquiring and once a second once locked. A device locked to a sync line only takes note. Devices with a\n\
+             shared clock run their animations in phase (ww_indication). Shows per device the state, the residual against\n\
+             the host's UTC, error, rate and slew left, a line when each and then all of them have converged, and the\n\
+             phase spread between them. Until q or Ctrl+C; with a ww hub running the hub steers and keeps steering after\n\
+             that, without one ww sync steers and the devices go on in holdover. Examples:\n\n  \
+             ww sync                          every connected device the selection matches\n  \
+             ww sync A1B2 bench-left          two devices by serial or label\n  \
+             ww sync --mode normal            and set their indication mode\n  \
+             ww sync --within-us 500          converged only within 0.5 ms",
+        );
+    inventory::iter::<SyncExtension>().fold(cmd, |cmd, ext| (ext.args)(cmd))
+}
+
+fn run(run: Run<'_>) -> BoxFuture<'_, Result<Ran>> {
+    Box::pin(async move {
+        let args = SyncArgs::from_arg_matches(&run.matches)?;
+        let stop = run.stop.clone().unwrap_or_else(StopSignal::install);
+        sync(args, &run.matches, run.selection(), stop).await?;
+        Ok(Ran::DONE)
+    })
+}
+
+inventory::submit! {
+    CommandDef::new("sync", 110, command, run)
+        .globals(&[("", GlobalFlags::Device)])
+        .connection(|_| Ok(Connection::SELECTION))
+        .log_level(|_| LevelFilter::WARN)
 }

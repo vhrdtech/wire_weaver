@@ -1,4 +1,6 @@
-pub(crate) mod api;
+//! The commands, one module each; every module registers its command with the [`crate::registry`].
+
+pub mod api;
 pub(crate) mod board;
 pub(crate) mod bootsel;
 pub(crate) mod config;
@@ -7,17 +9,21 @@ pub(crate) mod dfu;
 pub(crate) mod elf;
 pub(crate) mod explain;
 pub(crate) mod hub;
-pub(crate) mod info;
+pub(crate) mod indication;
+pub mod info;
 pub(crate) mod introspect;
 pub(crate) mod list;
 pub(crate) mod observe;
 pub(crate) mod pins;
 pub(crate) mod pins_tui;
+pub(crate) mod report;
 pub(crate) mod rework_check;
 pub(crate) mod rom;
 pub(crate) mod settings;
 pub(crate) mod stm32dfu;
 pub(crate) mod stream;
-pub(crate) mod sync;
-pub(crate) mod tap;
+pub mod sync;
+pub mod tap;
+#[cfg(target_os = "linux")]
+pub(crate) mod udev;
 pub(crate) mod usb_loopback;

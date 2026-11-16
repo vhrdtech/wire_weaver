@@ -1,22 +1,17 @@
-//! `ww info` and `ww report`: what a device is and a bug report of it, through the global info traits (CLT-25).
-//! `ww info` also works on a device already in its boot ROM ([info_rom], TOOL-30).
+//! `ww info`: what a device is. The link and API facts come from the connection itself; what the device says
+//! about itself (firmware, board, ids, label, last reset: the standard library's device contract) is an
+//! [`InfoExtension`] of the crate that knows those traits.
 
-use anyhow::{Context, Result};
-use clap::{Args, ValueEnum, ValueHint};
+use crate::device::Selection;
+use crate::registry::{BoxFuture, CommandDef, Connection, DeviceUse, GlobalFlags, Ran, Run};
+use anyhow::Result;
+use clap::{Args, FromArgMatches, ValueEnum};
 use serde::Serialize;
-use std::path::PathBuf;
 use wire_weaver_client::DynClient;
-use ww_board_info::guard::Guard;
-use ww_report::clients::Contract;
-use ww_report::report::{ReportOptions, collect_report, render_info, render_report};
-use ww_report::rework_check::{
-    BoardReworks, ImageReworks, RomFlash, board_guard, guard_line, read_board, scan_installed_image,
-};
 
-use crate::cmd::rom::{self, DfuseRom, PicobootRom, RP_SCAN, STM32_FLASH, STM32_SCAN};
-
-#[derive(Copy, Clone, Default, ValueEnum)]
-pub(crate) enum Format {
+/// `--format` of the commands that print for people or for scripts.
+#[derive(Copy, Clone, Default, PartialEq, Eq, Debug, ValueEnum)]
+pub enum Format {
     /// For people
     #[default]
     Text,
@@ -31,151 +26,121 @@ pub(crate) struct InfoArgs {
     format: Format,
 }
 
-#[derive(Args)]
-pub(crate) struct ReportArgs {
-    /// Firmware ELF to decode counters, log and crash with: the global `--elf` given on the command line. By default
-    /// the one with the build id the device reports: `target/` of the cargo project here, WW_ELF_PATH or
-    /// ~/.cache/ww/elf (`ww elf add` fills it)
-    #[arg(skip)]
-    pub(crate) elf: Option<PathBuf>,
-
-    /// Use the ELF although the device runs other firmware (its build id differs)
-    #[arg(long)]
-    force: bool,
-
-    /// Output format
-    #[arg(long, value_enum, default_value_t)]
-    format: Format,
-
-    /// Write the report to this file instead of stdout
-    #[arg(short, long, value_hint = ValueHint::FilePath)]
-    output: Option<PathBuf>,
+/// One part of `ww info`, for people and for scripts.
+#[derive(Debug, Default)]
+pub struct Section {
+    /// Lines for `--format text`, each ending with a newline.
+    pub text: String,
+    /// Keys for `--format json`, merged into the one object `ww info` prints.
+    pub json: serde_json::Map<String, serde_json::Value>,
 }
 
-pub(crate) async fn info(args: InfoArgs, device: &DynClient) -> Result<()> {
-    let info = ww_report::info::collect_info(&Contract::new(device)).await;
-    match args.format {
-        Format::Text => print!("{}", render_info(&info)),
-        Format::Json => println!("{}", serde_json::to_string_pretty(&info)?),
+impl Section {
+    /// A section from a value that serializes as an object (`#[derive(Serialize)]` struct) and its text.
+    pub fn new<T: Serialize>(text: String, value: &T) -> Result<Self> {
+        let json = match serde_json::to_value(value)? {
+            serde_json::Value::Object(map) => map,
+            other => anyhow::bail!("an info section serializes as an object, not {other}"),
+        };
+        Ok(Section { text, json })
     }
-    Ok(())
 }
 
-/// `ww info` on a device already in its boot ROM: the image in flash, the board's bench record and the verdict a
-/// reboot would reach right now ([ww_report::rework_check], TOOL-30).
-pub(crate) async fn info_rom(args: InfoArgs, target: &rom::RomTarget) -> Result<()> {
-    let (image, board) = match target {
-        rom::RomTarget::Rp { serial } => {
-            let mut pb = rom::open_rp(serial).await?;
-            pb.exclusive_access(true, false).await?;
-            pb.exit_xip().await?;
-            let r = read_rom(
-                &mut PicobootRom(&mut pb),
-                wire_weaver_client::ww_picoboot::proto::FLASH_BASE,
-                RP_SCAN,
-            )
-            .await;
-            pb.exclusive_access(false, false).await?;
-            r?
+/// What a crate linking this one adds to `ww info`.
+pub struct InfoExtension {
+    /// A device sitting in its boot ROM instead of running (`ww info` on a board in BOOTSEL): what to show of it,
+    /// found by the device selection; `None` when there is no such device, so `ww info` connects as usual.
+    pub rom: for<'a> fn(&'a Selection) -> BoxFuture<'a, Result<Option<Section>>>,
+    /// What the connected device says about itself.
+    pub device: for<'a> fn(&'a DynClient) -> BoxFuture<'a, Result<Section>>,
+}
+
+inventory::collect!(InfoExtension);
+
+/// The link and API facts of the connection: the device's API root and wire version, and the hello generations
+/// this connection agreed on.
+#[derive(Debug, Serialize)]
+struct ApiFacts {
+    /// Crate name and version of the device's own API root
+    api: String,
+    /// The device's wire version (EVO-24), apart from the crate version above: `None` from firmware that declares
+    /// neither it nor an introspection-only connection resolves.
+    api_wire: Option<String>,
+    /// Hello generations (EVO-23) this connection agreed on.
+    generations: String,
+}
+
+impl ApiFacts {
+    fn of(device: &DynClient) -> Self {
+        let info = device.device_api_info();
+        ApiFacts {
+            api: format!("{:?}", info.user_api_version),
+            api_wire: info.user_api_wire.map(|w| w.to_string()),
+            generations: info.generations.to_string(),
         }
-        rom::RomTarget::Stm32 { serial } => {
-            let mut dfu = rom::open_stm32(serial).await?;
-            if !dfu.layout().readable(STM32_FLASH, 1) {
-                println!(
-                    "the STM32 bootloader doesn't read its flash (readout protection?): the board's reworks can't be checked"
-                );
-                return Ok(());
+    }
+
+    fn section(&self) -> Result<Section> {
+        let mut text = match &self.api_wire {
+            Some(wire) => format!("API        {} (wire {wire})\n", self.api),
+            None => format!("API        {}\n", self.api),
+        };
+        text += &format!("Hello      {}\n", self.generations);
+        Section::new(text, self)
+    }
+}
+
+fn print(format: Format, sections: Vec<Section>) -> Result<()> {
+    match format {
+        Format::Text => {
+            for s in sections {
+                print!("{}", s.text);
             }
-            read_rom(&mut DfuseRom(&mut dfu), STM32_FLASH, STM32_SCAN).await?
         }
-    };
-    match args.format {
-        Format::Text => print!(
-            "{}",
-            ww_report::rework_check::rom_info_text(&image, board.as_ref())
-        ),
-        Format::Json => println!(
-            "{}",
-            serde_json::to_string_pretty(&RomInfoJson::new(&image, board.as_ref()))?
-        ),
+        Format::Json => {
+            let mut all = serde_json::Map::new();
+            for s in sections {
+                all.extend(s.json);
+            }
+            println!("{}", serde_json::to_string_pretty(&all)?);
+        }
     }
     Ok(())
 }
 
-async fn read_rom(
-    rom: &mut impl RomFlash,
-    flash_base: u32,
-    scan_len: u32,
-) -> Result<(ImageReworks, Option<BoardReworks>)> {
-    let image = scan_installed_image(rom, flash_base, scan_len).await?;
-    let board = read_board(rom, &image, None, None).await?;
-    Ok((image, board))
+/// `ww info`.
+fn command() -> clap::Command {
+    InfoArgs::augment_args(clap::Command::new("info"))
+        .about("What the device is: firmware, board, ids, label and last reset, whatever its API and version")
+        .long_about(
+            "What the device is: firmware, board, ids, label and last reset, whatever its API and version\n\n\
+             Works with any device implementing the `ww_firmware_info`, `ww_board_info`, `ww_uid` and `ww_user_info` \
+             traits anywhere in its API; what it doesn't implement is said so.",
+        )
 }
 
-/// [info_rom]'s `--format json`.
-#[derive(Debug, Serialize)]
-struct RomInfoJson {
-    guards: bool,
-    build_id: Option<String>,
-    boards: String,
-    board: Option<RomBoardJson>,
-}
-
-#[derive(Debug, Serialize)]
-struct RomBoardJson {
-    name: String,
-    revision: String,
-    applied: Vec<u16>,
-    allowance_image: Option<String>,
-    allowance_reworks: Vec<u16>,
-    runs: bool,
-    unknown: Vec<u16>,
-    verdict: String,
-}
-
-impl RomInfoJson {
-    fn new(image: &ImageReworks, board: Option<&BoardReworks>) -> Self {
-        RomInfoJson {
-            guards: image.guards(),
-            build_id: image.id.map(|id| id.to_string()),
-            boards: image.boards(),
-            board: board.map(|b| {
-                let guard = board_guard(image, b);
-                let unknown = guard.unknown().iter().map(|id| id.0).collect();
-                RomBoardJson {
-                    name: b.name.clone(),
-                    revision: b.revision.clone(),
-                    applied: b.applied.iter().map(|id| id.0).collect(),
-                    allowance_image: b.allowance.image_id().map(|id| id.to_string()),
-                    allowance_reworks: b.allowance.reworks.iter().map(|id| id.0).collect(),
-                    runs: matches!(guard, Guard::Run | Guard::RunAllowed { .. }),
-                    unknown,
-                    verdict: guard_line(&guard),
-                }
-            }),
+fn run(mut run: Run<'_>) -> BoxFuture<'_, Result<Ran>> {
+    Box::pin(async move {
+        let args = InfoArgs::from_arg_matches(&run.matches)?;
+        // a device already sitting in its boot ROM (TOOL-30): what an extension reads through the ROM, no connection
+        for ext in inventory::iter::<InfoExtension>() {
+            if let Some(section) = (ext.rom)(run.selection()).await? {
+                print(args.format, vec![section])?;
+                return Ok(Ran::DONE);
+            }
         }
-    }
+        let device = run.connect().await?;
+        let mut sections = vec![ApiFacts::of(device).section()?];
+        for ext in inventory::iter::<InfoExtension>() {
+            sections.push((ext.device)(device).await?);
+        }
+        print(args.format, sections)?;
+        Ok(Ran::DONE)
+    })
 }
 
-pub(crate) async fn report(args: ReportArgs, device: &DynClient) -> Result<()> {
-    let options = ReportOptions {
-        elf: args.elf,
-        force: args.force,
-        defmt_table: None,
-        tool: format!("ww {}", env!("WW_VERSION")),
-    };
-    let report = collect_report(&Contract::new(device), &options).await;
-    let text = match args.format {
-        Format::Text => render_report(&report),
-        Format::Json => serde_json::to_string_pretty(&report)? + "\n",
-    };
-    match args.output {
-        Some(path) => {
-            std::fs::write(&path, text)
-                .with_context(|| format!("Failed to write {}", path.display()))?;
-            eprintln!("Report written to {}", path.display());
-        }
-        None => print!("{text}"),
-    }
-    Ok(())
+inventory::submit! {
+    CommandDef::new("info", 150, command, run)
+        .globals(&[("", GlobalFlags::DeviceAndTap)])
+        .connection(|_| Ok(Connection::Device(DeviceUse::TRAITS_ONLY.on_demand())))
 }

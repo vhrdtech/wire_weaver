@@ -82,6 +82,8 @@ embedded-storage-async = "0.4.2"
 futures-core = { version = "0.3", default-features = false, features = ["alloc"] }
 hex = { version = "0.4", default-features = false }
 hex-literal = "1"
+# commands of the ww command line register themselves from their own crate and module
+inventory = "0.3"
 interprocess = { version = "2.4", features = ["tokio"] }
 # ww_tape_benchmarks: a pure-Rust Vorbis decoder for the speech data set
 lewton = { version = "0.10", default-features = false, features = ["ogg"] }

@@ -4,8 +4,9 @@
 
 use crate::cmd::info::Format;
 use crate::complete;
+use crate::registry::{BoxFuture, CommandDef, Ran, Run};
 use anyhow::{Context, Result, bail};
-use clap::{Args, Subcommand, ValueHint};
+use clap::{Args, FromArgMatches, Subcommand, ValueHint};
 use clap_complete::ArgValueCandidates;
 use console::style;
 use std::path::PathBuf;
@@ -219,4 +220,24 @@ fn render_json(d: &Dump<'_>) -> String {
         "store_mismatch": d.store_mismatch,
     });
     serde_json::to_string_pretty(&value).unwrap()
+}
+
+/// `ww settings`.
+fn command() -> clap::Command {
+    SettingsCommand::augment_subcommands(clap::Command::new("settings"))
+        .subcommand_required(true)
+        .arg_required_else_help(true)
+        .about("Tools around ww_settings::Store, device flash dumps included")
+}
+
+fn run(run: Run<'_>) -> BoxFuture<'_, Result<Ran>> {
+    Box::pin(async move {
+        let cmd = SettingsCommand::from_arg_matches(&run.matches)?;
+        settings(cmd)?;
+        Ok(Ran::DONE)
+    })
+}
+
+inventory::submit! {
+    CommandDef::new("settings", 210, command, run)
 }

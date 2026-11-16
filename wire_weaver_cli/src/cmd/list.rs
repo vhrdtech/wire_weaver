@@ -1,8 +1,10 @@
 use crate::device::Selection;
+use crate::registry::{BoxFuture, CommandDef, Connection, GlobalFlags, Ran, Run};
 use crate::untrusted::{Untrusted, escape};
 use anyhow::Result;
-use clap::Args;
+use clap::{Args, FromArgMatches};
 use console::measure_text_width;
+use tracing::level_filters::LevelFilter;
 use wire_weaver_client::DeviceInfo;
 use ww_hub_api::{DeviceEntryOwned, DeviceStateOwned};
 
@@ -281,4 +283,28 @@ mod tests {
         assert!(!line.contains('\x1b'));
         assert!(!line.contains('\u{202e}'));
     }
+}
+
+/// `ww list`.
+fn command() -> clap::Command {
+    ListArgs::augment_args(clap::Command::new("list"))
+        .about("List connected devices implementing a WireWeaver API, without opening them")
+        .long_about(
+            "List connected devices implementing a WireWeaver API, without opening them\n\nOnly devices matching the device selection (flags, env variables and ww.toml) are shown.",
+        )
+}
+
+fn run(run: Run<'_>) -> BoxFuture<'_, Result<Ran>> {
+    Box::pin(async move {
+        let args = ListArgs::from_arg_matches(&run.matches)?;
+        list(args, run.selection()).await?;
+        Ok(Ran::DONE)
+    })
+}
+
+inventory::submit! {
+    CommandDef::new("list", 10, command, run)
+        .globals(&[("", GlobalFlags::Device)])
+        .connection(|_| Ok(Connection::SELECTION))
+        .log_level(|_| LevelFilter::WARN)
 }

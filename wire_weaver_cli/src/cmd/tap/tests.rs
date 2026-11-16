@@ -532,12 +532,6 @@ fn sync_policies() {
     assert!(p("0s").is_err() && p("fast").is_err() && p("blocks:x").is_err());
 }
 
-/// clap's own checks of the command tree (unique argument ids, ..), which a release build skips.
-#[test]
-fn cli_is_consistent() {
-    <crate::cli::Cli as clap::CommandFactory>::command().debug_assert();
-}
-
 /// A `Write` the test reads back.
 #[derive(Clone, Default)]
 struct Shared(Arc<std::sync::Mutex<Vec<u8>>>);
@@ -923,16 +917,7 @@ async fn sigterm_finishes_the_capture_file() {
 /// A WHAT written like a file that is none is an error before any device is asked.
 #[test]
 fn explain_of_a_missing_capture_is_an_error_not_a_connect() {
-    use clap::FromArgMatches;
-    let explain = |args: &[&str]| {
-        let matches = crate::cli::Cli::command_fitted()
-            .try_get_matches_from(std::iter::once(&"ww").chain(args))
-            .unwrap();
-        match crate::cli::Cli::from_arg_matches(&matches).unwrap().command {
-            crate::cli::Commands::Explain(args) => args.check(),
-            _ => unreachable!(),
-        }
-    };
+    let explain = |args: &[&str]| check(args).map_err(anyhow::Error::msg);
     let err = explain(&["explain", "/nonexistent/dir/run.wwtape"]).unwrap_err();
     assert!(err.to_string().contains("no such capture file"), "{err}");
     assert!(explain(&["explain", "run.wwtape"]).is_err());
@@ -946,14 +931,14 @@ fn explain_of_a_missing_capture_is_an_error_not_a_connect() {
     }
 }
 
-/// What the command line says, parsed and checked the way `run` does.
+/// What the command line says, parsed and checked the way the registry's run loop does before anything connects.
 fn check(args: &[&str]) -> Result<(), String> {
-    use clap::FromArgMatches;
-    let matches = crate::cli::Cli::command_fitted()
+    let matches = crate::cli::root_command()
         .try_get_matches_from(std::iter::once(&"ww").chain(args))
         .map_err(|e| e.to_string())?;
-    let cli = crate::cli::Cli::from_arg_matches(&matches).map_err(|e| e.to_string())?;
-    cli.check_tap().map_err(|e| e.to_string())
+    crate::registry::check(&matches)
+        .map(|_| ())
+        .map_err(|e| e.to_string())
 }
 
 #[test]

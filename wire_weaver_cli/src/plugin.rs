@@ -193,7 +193,7 @@ fn is_executable(path: &std::path::Path) -> bool {
 
 /// The device selection given on `ww`'s command line, as the environment the plugin reads it from. What came from the
 /// environment already is inherited, what is in `ww.toml` the plugin finds itself.
-pub(crate) fn selection_env(selection: &Selection, no_config: bool) -> Vec<(String, String)> {
+pub fn selection_env(selection: &Selection, no_config: bool) -> Vec<(String, String)> {
     let mut env: Vec<(String, String)> = selection
         .settings
         .iter()
@@ -211,7 +211,7 @@ pub(crate) fn selection_env(selection: &Selection, no_config: bool) -> Vec<(Stri
 
 /// Runs `ww-NAME ARGS..` instead of this process (on Unix it replaces it), `missing` is the error when there is no
 /// such program.
-pub(crate) fn run(
+pub fn run(
     name: &str,
     args: &[OsString],
     env: &[(String, String)],

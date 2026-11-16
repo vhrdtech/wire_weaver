@@ -4,10 +4,12 @@
 //! Stream functions with arguments aren't supported yet: the CLI has no value-parsing convention for method or
 //! stream arguments anywhere (CLT-23-adjacent), so this errors out clearly instead of half-building one.
 
+use crate::registry::{BoxFuture, CommandDef, Connection, DeviceUse, GlobalFlags, Ran, Run};
 use crate::util::display_path;
 use anyhow::{Context, Result, anyhow, bail};
-use clap::Args;
+use clap::{Args, FromArgMatches};
 use console::style;
+use tracing::level_filters::LevelFilter;
 use wire_weaver_client::ww_self::{ApiBundleOwned, TypeOwned, ValueOwned};
 use wire_weaver_client::{
     AckMode, Batch, BatchItem, DynClient, DynResource, DynResourceKind, DynStreamOpen, StreamEvent,
@@ -157,4 +159,30 @@ fn print_event(event: StreamEvent<ValueOwned>, ty: &TypeOwned, bundle: &ApiBundl
         StreamEvent::Disconnected => println!("{}", style("disconnected").yellow()),
         StreamEvent::Closed => println!("{}", style("closed").dim()),
     }
+}
+
+/// `ww stream`.
+fn command() -> clap::Command {
+    StreamArgs::augment_args(clap::Command::new("stream"))
+        .about("Stream a plain, counted or reliable stream, from introspection alone (API-41)")
+        .long_about(
+            "Stream a plain, counted or reliable stream, from introspection alone (API-41)\n\n\
+             Prints one item per line (`--batches`: whole batches of a batched stream instead), until Ctrl+C. A stream \
+             function with arguments isn't supported yet.",
+        )
+}
+
+fn run(run: Run<'_>) -> BoxFuture<'_, Result<Ran>> {
+    Box::pin(async move {
+        let args = StreamArgs::from_arg_matches(&run.matches)?;
+        stream(args, run.device()).await?;
+        Ok(Ran::DONE)
+    })
+}
+
+inventory::submit! {
+    CommandDef::new("stream", 70, command, run)
+        .globals(&[("", GlobalFlags::DeviceAndTap)])
+        .connection(|_| Ok(Connection::Device(DeviceUse::FULL)))
+        .log_level(|_| LevelFilter::WARN)
 }

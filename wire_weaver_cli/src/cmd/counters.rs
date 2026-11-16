@@ -1,8 +1,9 @@
 //! `ww counters`: the device's `cnt` counters through `ww_counters::Counters` (STD-25), decoded with the firmware's
 //! ELF found by its build id and shown with the same views as `cnt` over a probe (`cnt_view`).
 
+use crate::registry::{BoxFuture, CommandDef, Connection, DeviceUse, GlobalFlags, Ran, Run};
 use anyhow::{Context, Result, anyhow, bail};
-use clap::{Args, Subcommand};
+use clap::{Args, FromArgMatches, Subcommand};
 use cnt_core::{Counters, Storage, elf};
 use cnt_view::{Format, output};
 use console::style;
@@ -189,4 +190,30 @@ fn print_info(info: &ww_counters::CountersInfoOwned, counters: &Counters) {
             ),
         }
     }
+}
+
+/// `ww counters`.
+fn command() -> clap::Command {
+    CountersArgs::augment_args(clap::Command::new("counters"))
+        .about("The device's cnt counters (ww_counters), decoded with the firmware's ELF found by its build id")
+        .long_about(
+            "The device's cnt counters (ww_counters), decoded with the firmware's ELF found by its build id\n\n\
+             Works with any device implementing `ww_counters::Counters` anywhere in its API. Read once (default), watch \
+             changes, the TUI, reset; the same views as `cnt` shows over a debug probe.",
+        )
+}
+
+fn run(run: Run<'_>) -> BoxFuture<'_, Result<Ran>> {
+    Box::pin(async move {
+        let mut args = CountersArgs::from_arg_matches(&run.matches)?;
+        args.elf = run.selection().elf_flag();
+        counters(args, run.device()).await?;
+        Ok(Ran::DONE)
+    })
+}
+
+inventory::submit! {
+    CommandDef::new("counters", 140, command, run)
+        .globals(&[("", GlobalFlags::DeviceAndTap)])
+        .connection(|_| Ok(Connection::Device(DeviceUse::TRAITS_ONLY)))
 }

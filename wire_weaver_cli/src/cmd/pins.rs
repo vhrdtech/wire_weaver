@@ -3,14 +3,16 @@
 
 use crate::cmd::pins_tui;
 use crate::complete;
+use crate::registry::{BoxFuture, CommandDef, Connection, DeviceUse, GlobalFlags, Ran, Run};
 use crate::untrusted::escape;
 use crate::util::StopSignal;
 use anyhow::{Context, Result, bail};
-use clap::{Args, Subcommand, ValueEnum, ValueHint};
+use clap::{Args, FromArgMatches, Subcommand, ValueEnum, ValueHint};
 use clap_complete::ArgValueCandidates;
 use console::{StyledObject, measure_text_width, style};
 use indicatif::{ProgressBar, ProgressStyle};
 use std::path::PathBuf;
+use tracing::level_filters::LevelFilter;
 use wire_weaver_client::DynClient;
 use ww_pin_probe::bank::BankPins;
 use ww_pin_probe::board::Board;
@@ -631,4 +633,36 @@ P4  LED    mcu    refused                  refused      refused      refused    
             "{list}"
         );
     }
+}
+
+/// `ww pins`.
+fn command() -> clap::Command {
+    PinsCommand::augment_subcommands(clap::Command::new("pins"))
+        .subcommand_required(true)
+        .arg_required_else_help(true)
+        .about("Pin tests on any device serving ww_pin_diag::PinDiag: shorts to GND, the supply and each other, pulls (TOOL-15)")
+        .long_about(
+            "Pin tests on any device serving ww_pin_diag::PinDiag: shorts to GND, the supply and each other, pulls (TOOL-15)\n\n\
+             Works wherever the device's API has PinDiag, found through its introspection data. `ww pins list` shows the \
+             points, `ww pins test` tests them, with a plan file for expectations and rules, `ww pins tui` shows them live \
+             per connector of a board preset (TOOL-21).",
+        )
+}
+
+fn run_command(run: Run<'_>) -> BoxFuture<'_, Result<Ran>> {
+    Box::pin(async move {
+        let cmd = PinsCommand::from_arg_matches(&run.matches)?;
+        let passed = pins(cmd, run.device()).await?;
+        Ok(Ran {
+            disconnect: true,
+            passed,
+        })
+    })
+}
+
+inventory::submit! {
+    CommandDef::new("pins", 180, command, run_command)
+        .globals(&[("", GlobalFlags::DeviceAndTap)])
+        .connection(|_| Ok(Connection::Device(DeviceUse::FULL)))
+        .log_level(|_| LevelFilter::WARN)
 }

@@ -1,8 +1,9 @@
 //! `ww elf`: the ELF directory, where firmware ELFs are found by build id (CLT-25). The lookup and the unpacking
 //! of release archives are `cnt_core::elf`, shared with `cnt`.
 
+use crate::registry::{BoxFuture, CommandDef, Ran, Run};
 use anyhow::{Context, Result};
-use clap::{Subcommand, ValueHint};
+use clap::{FromArgMatches, Subcommand, ValueHint};
 use cnt_core::elf;
 use console::style;
 use std::path::PathBuf;
@@ -79,4 +80,24 @@ pub(crate) fn elf(cmd: ElfCommand) -> Result<()> {
         }
     }
     Ok(())
+}
+
+/// `ww elf`.
+fn command() -> clap::Command {
+    ElfCommand::augment_subcommands(clap::Command::new("elf"))
+        .subcommand_required(true)
+        .arg_required_else_help(true)
+        .about("The ELF directory: firmware ELFs stored by build id, for counters, log and crash decoding")
+}
+
+fn run(run: Run<'_>) -> BoxFuture<'_, Result<Ran>> {
+    Box::pin(async move {
+        let cmd = ElfCommand::from_arg_matches(&run.matches)?;
+        elf(cmd)?;
+        Ok(Ran::DONE)
+    })
+}
+
+inventory::submit! {
+    CommandDef::new("elf", 190, command, run)
 }

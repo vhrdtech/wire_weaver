@@ -17,7 +17,14 @@ flash-async = []
 guard-u64 = ["ww_si/u64"]
 # counted streams and credit sinks (qemu-counted-stream, qemu-global-paths); the flash and dispatch budgets build
 # without it, as a firmware with only plain streams does
-streams = ["ww_client_server/streams", "ww_stream/streams"]
+streams = [
+    "ww_client_server/streams",
+    "ww_stream/streams",
+    "dep:counted_stream_api",
+    "dep:global_paths_api",
+    "dep:ww_timebase",
+    "dep:ww_date_time",
+]
 
 [dependencies]
 cortex-m = "0.7"
@@ -37,14 +44,15 @@ ww_bus_slave = { path = "../../ww_bus_slave" }
 ww_i2c = { path = "../../ww_stdlib/ww_i2c", default-features = false }
 ww_spi = { path = "../../ww_stdlib/ww_spi", default-features = false }
 ww_si = { path = "../../ww_stdlib/ww_si", default-features = false, features = ["electrical", "angle", "dimensionless", "information", "counting", "time", "i32", "u32"] }
-counted_stream_api = { path = "../../tests/counted_stream_api", default-features = false }
+counted_stream_api = { path = "../../tests/counted_stream_api", default-features = false, optional = true }
 bounded_api = { path = "../../tests/bounded_api", default-features = false }
 foc_observe_api = { path = "../../examples/foc_observe_api", default-features = false }
-global_paths_api = { path = "../../tests/global_paths_api", default-features = false }
+global_paths_api = { path = "../../tests/global_paths_api", default-features = false, optional = true }
 flash_budget_api = { path = "../../tests/flash_budget_api", default-features = false }
 # `qemu-global-paths`'s GlobalCompact match case needs a trait with a real ww_global id; ww_timebase is framework (R5)
-ww_timebase = { path = "../../ww_timebase", default-features = false }
-ww_date_time = { path = "../../ww_stdlib/ww_date_time", default-features = false }
+ww_timebase = { path = "../../ww_timebase", default-features = false, optional = true }
+# named by the code qemu-global-paths generates: ww_timebase::Clock's types use it
+ww_date_time = { path = "../../ww_stdlib/ww_date_time", default-features = false, optional = true }
 # KeyEvent of the qemu-flash-keyed server's `keys` stream (SRV-62)
 ww_keyed = { path = "../../ww_stdlib/ww_keyed", default-features = false }
 

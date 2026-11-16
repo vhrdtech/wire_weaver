@@ -1,6 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub mod api_doc;
 pub mod api_id;
 #[cfg(feature = "std")]
 pub mod call;

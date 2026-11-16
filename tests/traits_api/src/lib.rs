@@ -49,7 +49,7 @@ trait Channel {
 #[allow(dead_code)]
 mod doc_trait {
     use super::*;
-    use wire_weaver::api_doc::Property;
+    use wire_weaver::ww_api::api_doc::Property;
 
     fn subgroup<S: Subgroup>(_: fn() -> S) {}
     fn gpio_array<G: Gpio>(_: fn(UNib32) -> G) {}

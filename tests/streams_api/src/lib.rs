@@ -41,7 +41,7 @@ pub struct Odd<'i> {
 #[cfg(test)]
 #[allow(dead_code)]
 fn doc_trait<T: Streams>() {
-    use wire_weaver::api_doc::{Sink, Stream};
+    use wire_weaver::ww_api::api_doc::{Sink, Stream};
     let _: fn() -> Stream<u8> = T::plain_stream;
     let _: fn() -> Sink<u8> = T::plain_sink;
     let _: fn() -> Stream<[u8]> = T::vec_stream;

@@ -7,6 +7,8 @@
 //! prelude includes this one, so a server writes `use wire_weaver::prelude::*;` and sees both.
 #![no_std]
 
+pub mod api_doc;
+
 pub use shrink_wrap;
 pub use shrink_wrap::derive_shrink_wrap;
 pub use wire_weaver_derive::{

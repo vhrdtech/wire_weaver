@@ -80,7 +80,7 @@ impl Default for CustomOwned {
 #[cfg(test)]
 #[allow(dead_code)]
 fn doc_trait<T: Properties>() {
-    use wire_weaver::api_doc::Property;
+    use wire_weaver::ww_api::api_doc::Property;
     let _: fn() -> Property<u8> = T::x;
     let _: fn() -> Property<u8, ModeError> = T::mode;
     let _: fn() -> Property<Custom<'static>> = T::custom;

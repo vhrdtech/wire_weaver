@@ -1,0 +1,16 @@
+[package]
+name = "global_fixture_api"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Test trait of TEST-31 (GlobalFull/GlobalCompact dispatch): used by tests/dispatch_golden instead of ww_user_info, a property with a const next to it, reached on a global path."
+
+[features]
+default = ["std"]
+std = ["wire_weaver/std"]
+
+[dependencies]
+wire_weaver.workspace = true

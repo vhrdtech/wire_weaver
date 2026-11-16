@@ -525,6 +525,7 @@ How WireWeaver is kept working: every change runs through CI, against the real c
 - TEST-34 | A check for the project's own development (bundle and firmware bytes before and after a change), not a feature of WireWeaver.
 - STD-100 | The walker's generic markers catching up with a dependency bump, test maintenance, not a feature.
 - EVO-74 | A crate-walker fix (a `#[ww_trait]` moved into its own `pub mod` kept its root item), test maintenance, not a feature.
+- EVO-79 | `tests/dispatch_golden`'s global trait moving from `ww_user_info::UserInfo` to a local fixture (R7), test maintenance, not a feature.
 - EVO-43 | The wire change behind measured constants in a scale: the user-visible side is NUM-10.
 - EVO-44 | The wire change behind the dimension's shape (any number of distinguished bases, half exponents) and a unit's names: the user-visible sides are exact_units UNIT-10 and IO-9.
 - EVO-45 | The wire change behind quantity specs (a unit names its quantity by id, `MarkerDef::Quantity` and `Of`): the user-visible side is exact_units UNIT-8.

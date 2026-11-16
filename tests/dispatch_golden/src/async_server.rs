@@ -3,7 +3,6 @@
 
 use dispatch_golden_api::GuardedError;
 use wire_weaver::prelude::*;
-use ww_user_info::{NameMax, NotesMax, UserInfoCaps, UserInfoError};
 
 #[derive(Default)]
 pub struct AsyncServer {
@@ -11,7 +10,6 @@ pub struct AsyncServer {
     pub guarded: u8,
     pub channel_level: [u8; 2],
     pub info_name: String,
-    pub info_notes: String,
     pub deferred_reply: Option<ReplyTo>,
 }
 
@@ -142,7 +140,7 @@ impl AsyncServer {
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
         value: MaxLen<&'_ str, 32>,
-    ) -> SetResult<UserInfoError<'_>> {
+    ) -> SetResult<()> {
         self.info_name = value.to_string();
         Set
     }
@@ -150,34 +148,14 @@ impl AsyncServer {
     async fn get_info_name(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-    ) -> GetResult<MaxLen<&'_ str, 32>, UserInfoError<'_>> {
+    ) -> GetResult<MaxLen<&'_ str, 32>, ()> {
         Value(MaxLen::new_unchecked(&self.info_name))
-    }
-
-    async fn set_info_notes(
-        &mut self,
-        _cx: &mut Context<'_, impl EventOut>,
-        value: MaxLen<&'_ str, 256>,
-    ) -> SetResult<UserInfoError<'_>> {
-        self.info_notes = value.to_string();
-        Set
-    }
-
-    async fn get_info_notes(
-        &mut self,
-        _cx: &mut Context<'_, impl EventOut>,
-    ) -> GetResult<MaxLen<&'_ str, 256>, UserInfoError<'_>> {
-        Value(MaxLen::new_unchecked(&self.info_notes))
     }
 }
 
 impl api_impl::DispatchGoldenTestConsts for AsyncServer {
     const LIMIT: u16 = 1000;
-    const INFO_CAPABILITIES: UserInfoCaps = UserInfoCaps {
-        name_max: NameMax::bounded(32),
-        notes_max: NotesMax::bounded(256),
-        persistent: false,
-    };
+    const INFO_CAPABILITIES: u8 = 32;
 }
 
 pub mod api_impl {

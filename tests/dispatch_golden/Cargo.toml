@@ -10,6 +10,7 @@ description = "TEST-31: golden reply bytes of the dispatcher, frozen like the wi
 
 [dependencies]
 dispatch_golden_api = { workspace = true, features = ["std"] }
+global_fixture_api = { workspace = true, features = ["std"] }
 hex.workspace = true
 serde = { workspace = true, features = ["std"] }
 serde_json.workspace = true
@@ -19,4 +20,3 @@ tracing-subscriber.workspace = true
 wire_weaver = { workspace = true, features = ["std"] }
 wire_weaver_client.workspace = true
 ww_client_server = { workspace = true, features = ["std"] }
-ww_user_info = { workspace = true, features = ["std"] }

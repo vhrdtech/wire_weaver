@@ -5,17 +5,17 @@
 //!
 //! Resource indices, by declaration order in `dispatch_golden_api` (0-based, as every nested level starts over):
 //! root: no_args 0, with_args 1, absent 2, deferred 3, answer_deferred 4, plain 5, guarded 6, LIMIT 7, samples 8,
-//! commands 9, channel[] 10, info 11; `Channel`: pulse 0, level 1; `ww_user_info::UserInfo`: CAPABILITIES 0,
-//! name 1, notes 2.
+//! commands 9, channel[] 10, info 11; `Channel`: pulse 0, level 1; `global_fixture_api::GlobalDemo`:
+//! CAPABILITIES 0, name 1.
 
 use dispatch_golden_api::CHANNEL_FULL_GID;
+use global_fixture_api::{GLOBAL_DEMO_COMPACT_GID, GLOBAL_DEMO_FULL_GID};
 use wire_weaver::prelude::*;
 use wire_weaver::shrink_wrap::UVlq32Backfill;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytes;
 use ww_client_server::{
     MultiArgs, MultiIndex, PathKind, Priority, Request, RequestKind, ResourceIndex,
 };
-use ww_user_info::{USER_INFO_COMPACT_GID, USER_INFO_FULL_GID};
 
 /// Arguments of `with_args(a, b)`, in declaration order: a method's arguments are a struct of its own.
 #[derive_shrink_wrap(borrowed)]
@@ -115,8 +115,8 @@ pub fn build(name: &str, step: usize) -> Vec<u8> {
         ("global.full_read_name", 0) => request(
             1,
             PathKind::GlobalFull {
-                gid: USER_INFO_FULL_GID,
-                trait_name: "UserInfo",
+                gid: GLOBAL_DEMO_FULL_GID,
+                trait_name: "GlobalDemo",
                 path_from_trait: RefVec::Slice {
                     slice: &ww_client_server::resource_path([1]),
                 },
@@ -126,7 +126,7 @@ pub fn build(name: &str, step: usize) -> Vec<u8> {
         ("global.compact_write_name", 0) => request(
             1,
             PathKind::GlobalCompact {
-                gid: USER_INFO_COMPACT_GID.expect("ww_user_info::UserInfo has a ww_global id"),
+                gid: GLOBAL_DEMO_COMPACT_GID.expect("global_fixture_api::GlobalDemo has a ww_global id"),
                 path_from_trait: RefVec::Slice {
                     slice: &ww_client_server::resource_path([1]),
                 },
@@ -138,7 +138,7 @@ pub fn build(name: &str, step: usize) -> Vec<u8> {
         ("global.compact_read_const", 0) => request(
             1,
             PathKind::GlobalCompact {
-                gid: USER_INFO_COMPACT_GID.expect("ww_user_info::UserInfo has a ww_global id"),
+                gid: GLOBAL_DEMO_COMPACT_GID.expect("global_fixture_api::GlobalDemo has a ww_global id"),
                 path_from_trait: RefVec::Slice {
                     slice: &ww_client_server::resource_path([0]),
                 },
@@ -146,13 +146,13 @@ pub fn build(name: &str, step: usize) -> Vec<u8> {
             RequestKind::Read,
         ),
         ("global.full_incompatible_version", 0) => {
-            let mut gid = USER_INFO_FULL_GID;
+            let mut gid = GLOBAL_DEMO_FULL_GID;
             gid.version.major = UNib32(gid.version.major.0 + 1);
             request(
                 1,
                 PathKind::GlobalFull {
                     gid,
-                    trait_name: "UserInfo",
+                    trait_name: "GlobalDemo",
                     path_from_trait: RefVec::Slice {
                         slice: &ww_client_server::resource_path([1]),
                     },

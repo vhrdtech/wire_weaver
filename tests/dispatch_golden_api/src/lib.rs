@@ -36,9 +36,9 @@ pub trait DispatchGoldenTest {
     /// An array of a nested trait: an index chain in the path.
     ww_impl!(channel[]: Channel);
 
-    /// A global trait (`ww_global` id 12), reached by `GlobalFull` and `GlobalCompact`: also covers a property
-    /// user error and a const read on a global path.
-    ww_impl!(info: ww_user_info::UserInfo);
+    /// A global trait, reached by `GlobalFull` and `GlobalCompact`: also covers a property write and a const read
+    /// on a global path.
+    ww_impl!(info: global_fixture_api::GlobalDemo);
 }
 
 #[ww_trait]

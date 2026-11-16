@@ -56,7 +56,8 @@
     { "id": 512, "crate": "wire_weaver_usb_link" },
     { "id": 513, "crate": "ww_client_server" },
     { "id": 514, "trait": "global_boot_api::Boot" },
-    { "id": 515, "trait": "global_boot_api::Missing" }
+    { "id": 515, "trait": "global_boot_api::Missing" },
+    { "id": 516, "trait": "global_fixture_api::GlobalDemo" }
   ],
   "no_id": []
 }

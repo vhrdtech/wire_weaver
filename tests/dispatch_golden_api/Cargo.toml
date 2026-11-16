@@ -14,8 +14,8 @@ wire = "w1.0"
 
 [features]
 default = ["std"]
-std = ["wire_weaver/std", "ww_user_info/std"]
+std = ["wire_weaver/std", "global_fixture_api/std"]
 
 [dependencies]
+global_fixture_api.workspace = true
 wire_weaver.workspace = true
-ww_user_info.workspace = true

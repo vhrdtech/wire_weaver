@@ -147,32 +147,34 @@
       "name": "global.full_read_name",
       "steps": [
         {
-          "request": "80808080014277775f757365725f696e666f010055736572496e666f12010949",
+          "request": "808080800142676c6f62616c5f666978747572655f6170690100476c6f62616c44656d6f1201292a",
           "reply": "018000"
         }
       ],
-      "note": "ww_user_info::UserInfo reached by GlobalFull."
+      "note": "global_fixture_api::GlobalDemo reached by GlobalFull.",
+      "wire_change": "EVO-79 / info moves from ww_user_info::UserInfo to global_fixture_api::GlobalDemo (R7)"
     },
     {
       "name": "global.compact_write_name",
       "steps": [
         {
-          "request": "808080800141c101014068690201",
+          "request": "808080800141c88101014068690201",
           "reply": "0181"
         }
       ],
-      "note": "ww_user_info::UserInfo (ww_global id 12) reached by GlobalCompact."
+      "note": "global_fixture_api::GlobalDemo reached by GlobalCompact.",
+      "wire_change": "EVO-79 / info moves from ww_user_info::UserInfo to global_fixture_api::GlobalDemo (R7)"
     },
     {
       "name": "global.compact_read_const",
       "steps": [
         {
-          "request": "808080800141c1010021",
-          "reply": "018020000100"
+          "request": "808080800141c881010021",
+          "reply": "018020"
         }
       ],
-      "note": "UserInfo::CAPABILITIES, a const, read on a GlobalCompact path.",
-      "wire_change": "EVO-72 / UserInfoCaps::name_max is a u8 bounded by MAX_NAME_LEN, one byte shorter"
+      "note": "GlobalDemo::CAPABILITIES, a const, read on a GlobalCompact path.",
+      "wire_change": "EVO-79 / info moves from ww_user_info::UserInfo to global_fixture_api::GlobalDemo (R7)"
     },
     {
       "name": "global.missing_trait",
@@ -188,11 +190,12 @@
       "name": "global.full_incompatible_version",
       "steps": [
         {
-          "request": "80808080014277775f757365725f696e666f110055736572496e666f12010949",
+          "request": "808080800142676c6f62616c5f666978747572655f6170691100476c6f62616c44656d6f1201292a",
           "reply": "0108600e01"
         }
       ],
-      "note": "UserInfo by GlobalFull with another major version of ww_user_info: the trait's hash matches (SRV-53), its version doesn't, so this is TraitNotFound."
+      "note": "GlobalDemo by GlobalFull with another major version: the trait's hash matches (SRV-53), its version doesn't, so this is TraitNotFound.",
+      "wire_change": "EVO-79 / info moves from ww_user_info::UserInfo to global_fixture_api::GlobalDemo (R7)"
     },
     {
       "name": "error.bad_path",

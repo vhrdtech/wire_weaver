@@ -2186,6 +2186,11 @@ Unicast Data0 to one node over the same bus is TR-6.
   prints `keyed!(flow by FlowKey)`; `ww api` trees print `flow[] keyed by FlowKey` on the array line (API-67).
   Tests in `wire_weaver_evolution/src/tests/keyed.rs`, the tree of `tests/keyed_api`.
   [Docs](docs/evolution/rules.md#keyed-arrays).
+- ✅ **EVO-79 `tests/dispatch_golden`'s global trait is a local fixture, not `ww_user_info`** · `v0.5` — R7
+  (framework tests stop using `ww_stdlib` API crates as fixtures): the `info` resource of `dispatch_golden_api`
+  moves from `ww_user_info::UserInfo` to a new `global_fixture_api::GlobalDemo` (one `const` next to one property),
+  with its own `ww_global` id; `tests/dispatch_golden/corpus.json`'s `global.*` cases carry
+  `"wire_change": "EVO-79 / ..."`.
 - ✅ **EVO-14 Priority nibble in `Request`** · `v0.5.x` — **wire break** of `ww_client_server`'s `Request`: a
   `priority: Nibble` after `seq` (CLT-50). A host and a device must both have it; nothing with the old layout was
   released. Conformance cases of `Request` carry the new bytes with `"wire_change": "EVO-14 / ..."`.

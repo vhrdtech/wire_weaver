@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- Generated servers and clients name `CommonError` and the other types of `shrink_wrap`, `ww_error` and `ww_version` an API crate uses without depending on them through `wire_weaver::ww_api::<crate>` (API-68) instead of `wire_weaver::<crate>`, as `wire_weaver` no longer re-exports `ww_error` itself; a server or client crate on the matching `wire_weaver` needs nothing. The walker resolves such a crate through whichever prelude crate the manifest has, `ww_api` or `wire_weaver` (`PRELUDE_CRATES`, `PRELUDE_REEXPORTS` replace `WIRE_WEAVER_REEXPORTS`).
 - `load_crate`, `load_root` and `CrateCache`'s versions of them return the traits, types and crates of a snapshot in canonical order (EVO-77): the trait list by name, then first use, then path. A snapshot no longer changes when code moves between files or is reordered. Snapshots saved before differ in order only; `ww api check` still reads them as `no changes`.
 - The walker fills `ApiItem::identity` from `#[moved_from]` (INT-17): a renamed resource carries its oldest name in bundles and introspection data, so those bundles' bytes change.
 - Server codegen (EVO-76): a multi request's per-item `Request` copies the new `reserved` bit beside `priority`, so generated servers need the matching `ww_client_server`. Handlers and `ww api scaffold` output don't change.

@@ -7,7 +7,7 @@ use ww_numeric::{NumericAnyTypeOwned, NumericBaseType};
 use ww_self::{GenericArgOwned, TypeOwned, ValueOwned};
 
 use crate::codegen::util::maybe_quote_cl;
-use crate::transform::WIRE_WEAVER_REEXPORTS;
+use crate::transform::PRELUDE_REEXPORTS;
 
 #[derive(Copy, Clone)]
 pub(crate) enum TyPos {
@@ -249,10 +249,10 @@ fn source_crate(
         .map(|m| Ident::new(m, Span::call_site()));
     Ok(if let Some(crate_idx) = crate_idx {
         let name = api_bundle.crate_name(crate_idx)?;
-        if WIRE_WEAVER_REEXPORTS.contains(&name) {
-            // `CommonError` without a dependency on `ww_error`, as the API crate itself
+        if PRELUDE_REEXPORTS.contains(&name) {
+            // `CommonError` without a dependency on `ww_error`, through the runtime's `ww_api` re-export
             let name = Ident::new(name, Span::call_site());
-            quote! { wire_weaver::#name #(::#modules)* }
+            quote! { wire_weaver::ww_api::#name #(::#modules)* }
         } else {
             let crate_path = api_bundle.crate_path(name);
             quote! { #crate_path #(::#modules)* }

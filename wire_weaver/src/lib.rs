@@ -31,11 +31,13 @@ use shrink_wrap::prelude::ShrinkWrapError;
 pub use valid_indices::ValidIndices;
 #[cfg(feature = "std")]
 pub use valid_indices::ValidIndicesOwned;
-pub use wire_weaver_derive::{compact_version, full_version, ww_codegen, ww_trait};
-pub use ww_error;
+pub use ww_api;
+pub use ww_api::{compact_version, full_version, ww_codegen, ww_trait};
 pub use ww_version;
 use ww_version::FullVersion;
 
+/// Everything a server or client crate names: the runtime, and the API prelude of [ww_api] (the macros, the
+/// `shrink_wrap` prelude, `CommonError`, `FullVersion`), since handlers speak the API's vocabulary.
 pub mod prelude {
     pub use crate::rpc::GetResult::{GetError, Value};
     pub use crate::rpc::RpcResult::{Deferred, Ready};
@@ -50,17 +52,7 @@ pub mod prelude {
         EventWriter, MessageSink, Priority, ReplyTo, SendError, WireWeaverApiBackend,
         WireWeaverAsyncApiBackend,
     };
-    pub use shrink_wrap;
-    pub use shrink_wrap::prelude::*;
-    pub use wire_weaver_derive::{
-        compact_version, full_version, ww_api_root, ww_codegen, ww_impl, ww_trait,
-    };
-    pub use ww_error;
-    #[cfg(feature = "std")]
-    pub use ww_error::CommonErrorOwned;
-    pub use ww_error::{CommonError, HasCommon};
-    pub use ww_version;
-    pub use ww_version::FullVersion;
+    pub use ww_api::prelude::*;
 }
 
 /// Async server backend, glue between a device event loop (e.g., `ww_device::Server`) and a generated server.

@@ -9,7 +9,7 @@ mod markers;
 mod meta;
 mod moved_from;
 mod projection;
-pub(crate) use crate_walker::WIRE_WEAVER_REEXPORTS;
+pub(crate) use crate_walker::PRELUDE_REEXPORTS;
 mod snapshot;
 mod stamps;
 mod ty;

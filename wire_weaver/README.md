@@ -11,11 +11,13 @@
 
 > WireWeaver is a wire format and API code generator for resource constrained systems.
 
-This is a convenience crate that re-exports several other ones:
+This is the runtime crate: the handler `Context`, events, the server backend traits and `RpcResult`. It re-exports:
 
+* `ww_api` - what an API crate uses to describe an API (the macros, the markers, the `shrink_wrap` prelude, `ww_error`); its prelude is part of this crate's prelude
 * `shrink_wrap` - wire format and derive macros
-* `wire_weaver_derive` - API code generation macros
 * `ww_version` - SemVer for no_std no alloc systems
+
+An API crate depends on `ww_api` alone; server and client crates depend on this crate.
 
 By default, this crate has `std` feature enabled, when using on `no_std`, add `default-features = false`.
 

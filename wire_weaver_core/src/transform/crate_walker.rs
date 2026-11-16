@@ -21,8 +21,13 @@ use syn::{File, Item};
 use ww_self::{ApiBundleOwned, ApiLevelLocationOwned, ApiLevelOwned, TypeLocationOwned, TypeOwned};
 use ww_version::{FullVersionOwned, VersionOwned, WireVersion};
 
-/// Crates re-exported by `wire_weaver`, usable without depending on them directly.
-pub(crate) const WIRE_WEAVER_REEXPORTS: &[&str] = &["shrink_wrap", "ww_error", "ww_version"];
+/// Crates whose prelude re-exports other crates, usable through it without depending on them directly: `ww_api`
+/// (`shrink_wrap`, `ww_error`, `ww_version`) and `wire_weaver`, which re-exports `ww_api`, in the order they are
+/// looked into.
+pub(crate) const PRELUDE_CRATES: &[&str] = &["ww_api", "wire_weaver"];
+
+/// What `PRELUDE_CRATES` re-export, by name.
+pub(crate) const PRELUDE_REEXPORTS: &[&str] = &["shrink_wrap", "ww_api", "ww_error", "ww_version"];
 
 /// Load API definition and all referenced data types from a given crate.
 ///
@@ -1747,14 +1752,17 @@ impl ManifestContext {
         features: &Features,
         scratch: &mut Scratch,
     ) -> Result<(Rc<ManifestContext>, Features)> {
-        // e.g. `use wire_weaver::prelude::*;` brings in `ww_version` without a direct dependency on it
+        // e.g. `use ww_api::prelude::*;` brings in `ww_version` without a direct dependency on it, and a server's
+        // `use wire_weaver::prelude::*;` the same through `ww_api`
         if !self.manifest.dependencies.contains_key(crate_name)
-            && WIRE_WEAVER_REEXPORTS.contains(&crate_name)
-            && self.manifest.dependencies.contains_key("wire_weaver")
+            && PRELUDE_REEXPORTS.contains(&crate_name)
+            && let Some(through) = PRELUDE_CRATES
+                .iter()
+                .find(|prelude_crate| self.manifest.dependencies.contains_key(**prelude_crate))
         {
-            let (wire_weaver, wire_weaver_features) =
-                self.load_dependent_manifest("wire_weaver", features, scratch)?;
-            return wire_weaver.load_dependent_manifest(crate_name, &wire_weaver_features, scratch);
+            let (prelude_crate, prelude_features) =
+                self.load_dependent_manifest(through, features, scratch)?;
+            return prelude_crate.load_dependent_manifest(crate_name, &prelude_features, scratch);
         }
         // a `ww_codegen!` in test code (e.g. a test server) sees dev-dependencies too
         let deps = if !self.manifest.dependencies.contains_key(crate_name)

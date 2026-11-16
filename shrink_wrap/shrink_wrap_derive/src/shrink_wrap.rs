@@ -18,8 +18,9 @@ use crate::{
 
 /// How generated code reaches the `shrink_wrap` crate: `crate_path(..)` if given, else the name it has in the
 /// user's `Cargo.toml` (`::shrink_wrap`, also inside `shrink_wrap` itself thanks to `extern crate self`), else
-/// through `wire_weaver`'s re-export when only that is a dependency. `None` when neither is found: names are left
-/// unqualified, for `use shrink_wrap::prelude::*` in the user's module to resolve, as before.
+/// through the re-export of `ww_api` (an API crate) or of `wire_weaver` (a server or client crate) when only that
+/// is a dependency. `None` when none is found: names are left unqualified, for `use shrink_wrap::prelude::*` in
+/// the user's module to resolve, as before.
 fn crate_path(explicit: Option<TokenStream>) -> CratePath {
     use proc_macro_crate::{FoundCrate, crate_name};
     if let Some(path) = explicit {
@@ -31,14 +32,16 @@ fn crate_path(explicit: Option<TokenStream>) -> CratePath {
             let name = Ident::new(&name, Span::call_site());
             Some(quote::quote! { ::#name })
         }
-        Err(_) => match crate_name("wire_weaver") {
-            Ok(FoundCrate::Itself) => Some(quote::quote! { crate::shrink_wrap }),
-            Ok(FoundCrate::Name(name)) => {
-                let name = Ident::new(&name, Span::call_site());
-                Some(quote::quote! { ::#name::shrink_wrap })
-            }
-            Err(_) => None,
-        },
+        Err(_) => ["ww_api", "wire_weaver"]
+            .into_iter()
+            .find_map(|reexporter| match crate_name(reexporter) {
+                Ok(FoundCrate::Itself) => Some(quote::quote! { crate::shrink_wrap }),
+                Ok(FoundCrate::Name(name)) => {
+                    let name = Ident::new(&name, Span::call_site());
+                    Some(quote::quote! { ::#name::shrink_wrap })
+                }
+                Err(_) => None,
+            }),
     };
     CratePath(found)
 }

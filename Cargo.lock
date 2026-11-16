@@ -6411,8 +6411,7 @@ dependencies = [
  "exact_units",
  "futures-core",
  "shrink_wrap",
- "wire_weaver_derive",
- "ww_error",
+ "ww_api",
  "ww_version",
 ]
 
@@ -6622,6 +6621,16 @@ dependencies = [
  "wire_weaver",
  "ww_numeric",
  "ww_si",
+]
+
+[[package]]
+name = "ww_api"
+version = "0.5.0"
+dependencies = [
+ "shrink_wrap",
+ "wire_weaver_derive",
+ "ww_error",
+ "ww_version",
 ]
 
 [[package]]

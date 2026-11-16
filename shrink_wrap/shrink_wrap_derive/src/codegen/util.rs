@@ -3,7 +3,7 @@ use crate::ast::ty::Type;
 use proc_macro2::{Ident, TokenStream};
 use quote::{ToTokens, quote};
 
-/// How generated code names `shrink_wrap` items: `::shrink_wrap`, `::wire_weaver::shrink_wrap`, whatever
+/// How generated code names `shrink_wrap` items: `::shrink_wrap`, `::ww_api::shrink_wrap`, whatever
 /// `crate_path(..)` says, or `None` to leave the names unqualified and rely on `use shrink_wrap::prelude::*`
 /// in the user's module (when the crate can't be found in the user's `Cargo.toml`).
 #[derive(Clone, Debug, Default)]

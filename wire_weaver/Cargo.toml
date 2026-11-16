@@ -14,17 +14,17 @@ std = [
     "dep:futures-core",
     "exact_units/information",
     "shrink_wrap/std",
-    "ww_error/std",
+    "ww_api/std",
     "ww_version/std",
 ]
 defmt = [
     "dep:defmt",
     "exact_units/defmt",
     "shrink_wrap/defmt",
-    "ww_error/defmt",
+    "ww_api/defmt",
     "ww_version/defmt",
 ]
-serde = ["shrink_wrap/serde"]
+serde = ["shrink_wrap/serde", "ww_api/serde"]
 
 [dependencies]
 defmt = { workspace = true, optional = true }
@@ -32,6 +32,5 @@ defmt = { workspace = true, optional = true }
 exact_units = { workspace = true, features = ["time"] }
 futures-core = { workspace = true, optional = true }
 shrink_wrap = { workspace = true, default-features = false }
-wire_weaver_derive.workspace = true
-ww_error = { workspace = true, default-features = false }
+ww_api = { workspace = true, default-features = false }
 ww_version = { workspace = true, default-features = false }

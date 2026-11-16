@@ -6,26 +6,38 @@ use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
 /// How generated code names the `ww_error` crate: `::ww_error` if it is a dependency (also inside `ww_error`
-/// itself, thanks to `extern crate self`), else through `wire_weaver`'s re-export.
+/// itself, thanks to `extern crate self`), else through the re-export of `ww_api` or of `wire_weaver` (which
+/// re-exports `ww_api`), whichever the user's `Cargo.toml` has.
 fn ww_error_path() -> Result<TokenStream, String> {
     use proc_macro_crate::{FoundCrate, crate_name};
-    match crate_name("ww_error") {
-        Ok(FoundCrate::Itself) => Ok(quote! { ::ww_error }),
+    let reexport = |found: Result<FoundCrate, _>, inside: TokenStream, under: TokenStream| match found {
+        Ok(FoundCrate::Itself) => Some(quote! { crate::#inside }),
         Ok(FoundCrate::Name(name)) => {
             let name = Ident::new(&name, Span::call_site());
-            Ok(quote! { ::#name })
+            Some(quote! { ::#name::#under })
         }
-        Err(_) => match crate_name("wire_weaver") {
-            Ok(FoundCrate::Itself) => Ok(quote! { crate::ww_error }),
-            Ok(FoundCrate::Name(name)) => {
-                let name = Ident::new(&name, Span::call_site());
-                Ok(quote! { ::#name::ww_error })
-            }
-            Err(_) => Err(
-                "#[common] needs `ww_error` or `wire_weaver` as a dependency, for `ww_error::HasCommon`".into(),
-            ),
-        },
+        Err(_) => None,
+    };
+    match crate_name("ww_error") {
+        Ok(FoundCrate::Itself) => return Ok(quote! { ::ww_error }),
+        Ok(FoundCrate::Name(name)) => {
+            let name = Ident::new(&name, Span::call_site());
+            return Ok(quote! { ::#name });
+        }
+        Err(_) => {}
     }
+    reexport(crate_name("ww_api"), quote! { ww_error }, quote! { ww_error })
+        .or_else(|| {
+            reexport(
+                crate_name("wire_weaver"),
+                quote! { ww_api::ww_error },
+                quote! { ww_api::ww_error },
+            )
+        })
+        .ok_or_else(|| {
+            "#[common] needs `ww_error`, `ww_api` or `wire_weaver` as a dependency, for `ww_error::HasCommon`"
+                .into()
+        })
 }
 
 impl CGItemEnum<'_> {

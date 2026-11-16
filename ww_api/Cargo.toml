@@ -1,0 +1,21 @@
+[package]
+name = "ww_api"
+edition.workspace = true
+version.workspace = true
+authors.workspace = true
+description = "What a WireWeaver API crate needs to describe an API: the macros, the markers and the wire format's prelude, without the runtime"
+license.workspace = true
+repository.workspace = true
+documentation = "https://vhrdtech.github.io/wire_weaver"
+
+[features]
+default = ["std"]
+std = ["shrink_wrap/std", "ww_error/std", "ww_version/std"]
+defmt = ["shrink_wrap/defmt", "ww_error/defmt", "ww_version/defmt"]
+serde = ["shrink_wrap/serde", "ww_version/serde"]
+
+[dependencies]
+shrink_wrap = { workspace = true, default-features = false }
+wire_weaver_derive.workspace = true
+ww_error = { workspace = true, default-features = false }
+ww_version = { workspace = true, default-features = false }

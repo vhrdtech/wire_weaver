@@ -26,9 +26,10 @@ test-all:
     cargo nextest run -p ww_si --no-default-features --features time,electrical,u32,i32,f32 --test store --test narrow
     # a server built as a firmware is, without ww_client_server's multi and streams, refuses their requests (SRV-60)
     just test-lean-server
-    # ww_block's crc32/crc32_update, table size other than the default (STD-39)
-    cargo nextest run -p ww_block --features crc-table-256
-    cargo nextest run -p ww_block --features crc-table-slice16
+    # ww_crc and ww_block's crc32/crc32_update without std, at every table size (TR-31)
+    cargo nextest run -p ww_crc -p ww_block --no-default-features
+    cargo nextest run -p ww_crc -p ww_block --no-default-features --features ww_crc/table-256
+    cargo nextest run -p ww_crc --features table-slice16
     # the conformance matrix's Python consumer (TEST-23), the Rust ones run above
     just test-conformance-py
     # the docs site's Markdown extensions (the `bits` fence)

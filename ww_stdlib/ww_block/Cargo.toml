@@ -13,15 +13,12 @@ wire = "w1.0"
 
 [features]
 default = ["std"]
-std = ["wire_weaver/std", "ww_error/std", "ww_si/std"]
+std = ["wire_weaver/std", "ww_crc/table-slice16", "ww_error/std", "ww_si/std"]
 defmt = ["dep:defmt", "wire_weaver/defmt", "ww_error/defmt", "ww_si/defmt"]
-# crc32/crc32_update table size, smallest (bitwise) to fastest; enabling both picks crc-table-slice16.
-crc-table-256 = []
-crc-table-slice16 = []
 
 [dependencies]
-crc.workspace = true
 defmt = { workspace = true, optional = true }
 wire_weaver.workspace = true
+ww_crc.workspace = true
 ww_error = { workspace = true, default-features = false }
 ww_si = { workspace = true, default-features = false, features = ["time", "information", "counting"] }

@@ -1,7 +1,7 @@
 //! `ww_framer` receive path, Cortex-M3: 64-byte frames staged and reassembled by `FramedRx`, as
 //! `ww_device::FramedRx` does on a device, in each `ww_link` framing: USB (`UsbFraming`, no checksum, no prefix),
 //! USB with the frame counter diagnostic (`UsbSeqFraming`) and UDP (`UdpFraming`: frame counter, CRC-32 on every
-//! message; `--features ww_block/crc-table-256` or `crc-table-slice16` for a table, bitwise without). Messages of
+//! message; `--features ww_crc/table-256` or `table-slice16` for a table, bitwise without). Messages of
 //! 3, 20 and 150 bytes in turn, so frames carry several messages, and the long ones are split over three frames.
 //! Run under `qemu_icount`: the first `mark_start`/`mark_end` pair is calibration, then one bracket per framing
 //! (USB, USB seq, UDP) receiving every frame; the bin prints the frames, messages and bytes it got for each. A fault

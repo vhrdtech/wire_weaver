@@ -317,27 +317,15 @@ impl BlockError<'_> {
     }
 }
 
-/// The lookup table [crc32] and [crc32_update] use, picked by cargo feature: `crc-table-slice16` (16 KiB, fastest)
-/// beats `crc-table-256` (1 KiB) beats the default (no table, bitwise, smallest flash) when more than one is
-/// enabled, so `--all-features` builds (lint, docs) pick the fastest instead of failing.
-#[cfg(feature = "crc-table-slice16")]
-type CrcTable = crc::Table<16>;
-#[cfg(all(feature = "crc-table-256", not(feature = "crc-table-slice16")))]
-type CrcTable = crc::Table<1>;
-#[cfg(not(any(feature = "crc-table-256", feature = "crc-table-slice16")))]
-type CrcTable = crc::NoTable;
-
-const CRC32: crc::Crc<u32, CrcTable> = crc::Crc::<u32, CrcTable>::new(&crc::CRC_32_ISO_HDLC);
-
 /// CRC-32 of `data` as [BlockDevice::crc], [BlockDevice::write] and [WriteRun] use it: CRC-32/ISO-HDLC, the one of
 /// zip, PNG and Ethernet (polynomial `0x04c11db7` reflected, init and final xor `0xffffffff`; `crc32(b"123456789")`
 /// is `0xcbf43926`). The same as an STM32 CRC unit set to reflect input and output, with the result inverted.
 ///
-/// Table-driven via the [crc](https://docs.rs/crc) crate, with the table size chosen by cargo feature: none by
-/// default (bitwise, smallest flash), `crc-table-256` (1 KiB) or `crc-table-slice16` (16 KiB, fastest). All three
-/// give identical results, see `docs/std_library/ww_block.md`.
+/// Computed by [ww_crc::CRC32_ISO_HDLC], the table `ww_link`'s UDP framing uses too, its size picked by `ww_crc`'s
+/// `table-*` features: none by default (bitwise, smallest flash), `table-256` (1 KiB) or `table-slice16` (16 KiB,
+/// fastest). All three give identical results, see `docs/std_library/ww_block.md`.
 pub fn crc32(data: &[u8]) -> u32 {
-    CRC32.checksum(data)
+    ww_crc::CRC32_ISO_HDLC.checksum(data)
 }
 
 /// Continues a CRC-32 over more data: start with `!0`, feed every piece, invert the end result. `crc32(a ++ b)` is
@@ -349,7 +337,7 @@ pub fn crc32_update(crc: u32, data: &[u8]) -> u32 {
     // the identity), so it seeds the digest with `crc` unchanged; `finalize()` only XORs with `xorout`
     // (`0xffff_ffff` here, refin == refout for this algorithm so it never reflects), so the outer `!` undoes that
     // and hands back the raw register again, ready for the next call or for [crc32]'s final `!`.
-    let mut digest = CRC32.digest_with_initial(crc.reverse_bits());
+    let mut digest = ww_crc::CRC32_ISO_HDLC.digest_with_initial(crc.reverse_bits());
     digest.update(data);
     !digest.finalize()
 }
@@ -367,11 +355,12 @@ mod tests {
         assert_eq!(!crc32_update(crc32_update(!0, a), b), 0xcbf4_3926);
     }
 
-    /// Whichever table size the active `crc-table-*` feature picks, the result is the same CRC-32/ISO-HDLC bytes
+    /// Whichever table size the active `ww_crc` `table-*` feature picks, the result is the same CRC-32/ISO-HDLC bytes
     /// as a fixed `Table<1>` reference, including lengths that don't land on a slice-by-16 boundary.
     #[test]
     fn crc32_matches_reference_table_at_every_length() {
-        let reference = crc::Crc::<u32, crc::Table<1>>::new(&crc::CRC_32_ISO_HDLC);
+        let reference =
+            ww_crc::crc::Crc::<u32, ww_crc::crc::Table<1>>::new(&ww_crc::crc::CRC_32_ISO_HDLC);
         let data: [u8; 4096] = core::array::from_fn(|i| (i as u32 * 37 + 11) as u8);
         for len in [0, 1, 15, 16, 17, 31, 32, 33, 100, 1000, 4095, 4096] {
             let d = &data[..len];
@@ -383,7 +372,8 @@ mod tests {
     /// slice-by-16 boundary on either side.
     #[test]
     fn crc32_update_continues_at_any_split() {
-        let reference = crc::Crc::<u32, crc::Table<1>>::new(&crc::CRC_32_ISO_HDLC);
+        let reference =
+            ww_crc::crc::Crc::<u32, ww_crc::crc::Table<1>>::new(&ww_crc::crc::CRC_32_ISO_HDLC);
         let data: [u8; 300] = core::array::from_fn(|i| (i as u32 * 7 + 3) as u8);
         for split in [0, 1, 15, 16, 17, 100, 150, 299, 300] {
             let (a, b) = data.split_at(split);

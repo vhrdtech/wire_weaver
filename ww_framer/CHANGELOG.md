@@ -4,6 +4,7 @@
 
 ### ⚠️ Breaking
 
+- The `CrcChecksum` algorithms take their CRC from `ww_crc`'s statics; `crc_of` and `CrcWidth::checksum2` take a `&ww_crc::Crc<W>`. Without `std` they compute bit by bit: turn on `ww_crc/table-256` for the 1 KiB table they had (TR-31).
 - A checksum now covers the frame prefix and the head of its piece (the `Full`, or the `End` of a split message) besides the message, so that a flipped bit in a user kind or a length fails it too (found by the `framer-lossy` fuzz target: a corrupted user kind was delivered under the wrong kind). `Checksum::write` / `read` take a `header: &[u8]` before the message; implementations add the parameter (and may hash it). Wire change: `CrcChecksum` values differ from before for the same message (TR-15).
 - `CrcAlgorithm` is a function now, `fn checksum(header, message) -> Width`, instead of a `const CRC: crc::Crc<Width>`, so a CRC can come from elsewhere (a hardware unit, `ww_block::crc32_update`); `crc::crc_of(&CRC, header, message)` keeps a `crc` crate algorithm a few lines. `CrcWidth::checksum` is replaced by `checksum2` (TR-15).
 - `pieces::verify_split` takes the End's frame prefix and head: `verify_split::<C>(prefix, end_head, message, trailer)`; `PieceErrorKind::TooShort` is new (TR-15).

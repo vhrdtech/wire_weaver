@@ -657,7 +657,7 @@ mod prefixed {
         let n = tx.flush();
         let frame = tx.buf()[..n].to_vec();
         // over prefix, head and message
-        let crc = crc::Crc::<u16>::new(&crc::CRC_16_IBM_SDLC).checksum(&[0x00, 0b0000_0010, 1, 2]);
+        let crc = ww_crc::CRC16_IBM_SDLC.checksum(&[0x00, 0b0000_0010, 1, 2]);
         let [c0, c1] = crc.to_le_bytes();
         assert_eq!(frame, [0x00, 0b0000_0010, 1, 2, c0, c1]);
 

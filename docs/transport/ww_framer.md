@@ -269,20 +269,24 @@ type StreamTx<'a> = Tx<'a, U2Head, CrcChecksum<Crc32IsoHdlc, true>, EndMarker>;
 | `Crc16IbmSdlc` | 2 bytes | CRC-16/X-25 (HDLC, PPP), poly `0x1021`     |
 | `Crc32IsoHdlc` | 4 bytes | CRC-32 (zlib, Ethernet), poly `0x04C11DB7` |
 
+These are statics of `ww_crc`, shared with the rest of the framework: a firmware links each table once (the
+CRC-32 of `ww_link`'s UDP framing and of `ww_block`'s writes are one), and picks its size once with `ww_crc`'s
+`table-256` (1 KiB for a CRC-32) or `table-slice16` (16 KiB) feature; without either the CRC is computed bit by bit,
+the smallest flash. `ww_framer`'s `std` feature turns on `table-slice16` for hosts.
+
 `CrcAlgorithm::checksum(header, message)` is a plain function, so any other algorithm from the `crc` catalog is a
-few lines, and the CRC can also come from elsewhere: a hardware CRC unit, or code shared with the rest of the firmware
-(`ww_link`'s UDP configuration takes its CRC-32 from `ww_block::crc32_update`, whose table size the firmware picks
-once for both):
+few lines, with the same table size, and the CRC can also come from elsewhere, a hardware CRC unit for one:
 
 ```rust
 use ww_framer::crc::{CrcAlgorithm, crc_of};
+
+static CRC8_AUTOSAR: ww_crc::Crc<u8> = ww_crc::Crc::<u8>::new(&ww_crc::crc::CRC_8_AUTOSAR);
 
 struct Crc8Autosar;
 impl CrcAlgorithm for Crc8Autosar {
     type Width = u8;
     fn checksum(header: &[u8], message: &[u8]) -> u8 {
-        const CRC: crc::Crc<u8> = crc::Crc::<u8>::new(&crc::CRC_8_AUTOSAR);
-        crc_of(&CRC, header, message)
+        crc_of(&CRC8_AUTOSAR, header, message)
     }
 }
 type LinkChecksum = CrcChecksum<Crc8Autosar>;

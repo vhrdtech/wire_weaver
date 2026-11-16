@@ -1,4 +1,4 @@
-//! [Checksum] implementation on top of the [crc](https://docs.rs/crc) crate.
+//! [Checksum] implementation on top of [ww_crc], the CRCs shared with the other framework crates.
 //!
 //! Width (u8 / u16 / u32 / u64) and algorithm are selected via a [CrcAlgorithm] type:
 //!
@@ -8,21 +8,22 @@
 //! // pick one of the provided algorithms
 //! type LinkChecksum = CrcChecksum<ww_framer::crc::Crc16Usb>;
 //!
-//! // or define your own, any algorithm from `crc::*` works
+//! // or define your own, any algorithm of the `crc` catalogue works
+//! static CRC8_AUTOSAR: ww_crc::Crc<u8> = ww_crc::Crc::<u8>::new(&ww_crc::crc::CRC_8_AUTOSAR);
 //! struct Crc8Autosar;
 //! impl CrcAlgorithm for Crc8Autosar {
 //!     type Width = u8;
 //!     fn checksum(header: &[u8], message: &[u8]) -> u8 {
-//!         const CRC: crc::Crc<u8> = crc::Crc::<u8>::new(&crc::CRC_8_AUTOSAR);
-//!         ww_framer::crc::crc_of(&CRC, header, message)
+//!         ww_framer::crc::crc_of(&CRC8_AUTOSAR, header, message)
 //!     }
 //! }
 //! type Link8Checksum = CrcChecksum<Crc8Autosar>;
 //! ```
 //!
-//! [CrcAlgorithm::checksum] is a plain function, so the CRC can come from elsewhere: a hardware CRC unit, or one
-//! implementation shared with other code (`ww_link`'s UDP CRC-32 is `ww_block::crc32_update`, whose table size
-//! a firmware picks once for both).
+//! The provided algorithms are [ww_crc]'s statics: a firmware links each table once, also when other crates use
+//! the same algorithm (`ww_link`'s UDP CRC-32 is [Crc32IsoHdlc], as are `ww_block`'s writes), and picks its size
+//! once with `ww_crc`'s `table-*` features (bitwise without one). [CrcAlgorithm::checksum] is a plain function,
+//! so the CRC can also come from elsewhere, a hardware CRC unit for one.
 //!
 //! By default only split messages are checksummed, as frame based media (USB, CAN, etc.) already
 //! protects each frame and a checksum over the whole message only helps to detect lost or
@@ -40,11 +41,11 @@ use shrink_wrap::{BufReader, BufWriter};
 use crate::traits::{Checksum, RdError, WrError};
 
 /// CRC width that can be written to and read from a frame. Implemented for u8, u16, u32 and u64.
-pub trait CrcWidth: crc::Width + Copy + PartialEq {
+pub trait CrcWidth: ww_crc::crc::Width + Copy + PartialEq {
     const LEN_BYTES: usize;
 
     /// CRC of `a` followed by `b`.
-    fn checksum2(crc: &crc::Crc<Self>, a: &[u8], b: &[u8]) -> Self;
+    fn checksum2(crc: &ww_crc::Crc<Self>, a: &[u8], b: &[u8]) -> Self;
     fn write(self, wr: &mut BufWriter<'_>) -> Result<(), WrError>;
     fn read(rd: &mut BufReader<'_>) -> Result<Self, RdError>;
 }
@@ -55,7 +56,7 @@ macro_rules! impl_crc_width {
             const LEN_BYTES: usize = size_of::<$ty>();
 
             #[inline]
-            fn checksum2(crc: &crc::Crc<Self>, a: &[u8], b: &[u8]) -> Self {
+            fn checksum2(crc: &ww_crc::Crc<Self>, a: &[u8], b: &[u8]) -> Self {
                 if a.is_empty() {
                     return crc.checksum(b);
                 }
@@ -93,15 +94,15 @@ pub trait CrcAlgorithm {
     fn checksum(header: &[u8], message: &[u8]) -> Self::Width;
 }
 
-/// CRC of `header` followed by `message` with a [crc](https://docs.rs/crc) crate algorithm, for
-/// [CrcAlgorithm::checksum]. Keep `crc` in a `const`, so that its lookup table is computed at compile time.
+/// CRC of `header` followed by `message` with a [ww_crc::Crc] algorithm, for [CrcAlgorithm::checksum]. Keep
+/// `crc` in a `static`, so that its lookup table is computed at compile time and is in flash once.
 #[inline]
-pub fn crc_of<W: CrcWidth>(crc: &crc::Crc<W>, header: &[u8], message: &[u8]) -> W {
+pub fn crc_of<W: CrcWidth>(crc: &ww_crc::Crc<W>, header: &[u8], message: &[u8]) -> W {
     W::checksum2(crc, header, message)
 }
 
 macro_rules! algorithm {
-    ($(#[$meta:meta])* $name:ident, $ty:ty, $alg:ident) => {
+    ($(#[$meta:meta])* $name:ident, $ty:ty, $crc:ident) => {
         $(#[$meta])*
         pub struct $name;
 
@@ -110,9 +111,7 @@ macro_rules! algorithm {
 
             #[inline]
             fn checksum(header: &[u8], message: &[u8]) -> $ty {
-                // lookup table (256 entries of the width) computed at compile time
-                const CRC: crc::Crc<$ty> = crc::Crc::<$ty>::new(&crc::$alg);
-                crc_of(&CRC, header, message)
+                crc_of(&ww_crc::$crc, header, message)
             }
         }
     };
@@ -122,29 +121,28 @@ algorithm!(
     /// CRC-8/SMBUS (poly 0x07), 1 byte.
     Crc8Smbus,
     u8,
-    CRC_8_SMBUS
+    CRC8_SMBUS
 );
 algorithm!(
     /// CRC-16/USB (poly 0x8005, reflected), 2 bytes.
     Crc16Usb,
     u16,
-    CRC_16_USB
+    CRC16_USB
 );
 algorithm!(
     /// CRC-16/IBM-SDLC aka CRC-16/X-25 (poly 0x1021, reflected), 2 bytes. Used in HDLC / PPP.
     Crc16IbmSdlc,
     u16,
-    CRC_16_IBM_SDLC
+    CRC16_IBM_SDLC
 );
 algorithm!(
-    /// CRC-32/ISO-HDLC, the common "CRC-32" (zlib, Ethernet, PNG), 4 bytes, with a 1 KiB table. `ww_link`'s UDP
-    /// configuration uses the same algorithm through `ww_block::crc32_update` instead, see the [module docs](self).
+    /// CRC-32/ISO-HDLC, the common "CRC-32" (zlib, Ethernet, PNG), 4 bytes; `ww_link`'s UDP framing uses it.
     Crc32IsoHdlc,
     u32,
-    CRC_32_ISO_HDLC
+    CRC32_ISO_HDLC
 );
 
-/// [Checksum] over a whole message using the [crc](https://docs.rs/crc) crate,
+/// [Checksum] over a whole message using a [CrcAlgorithm],
 /// written little endian right after the message payload.
 ///
 /// * `A` - width and algorithm, see [CrcAlgorithm].
@@ -276,7 +274,7 @@ mod tests {
         let mut tx = LinkTx::new(&mut buf);
         let msg = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
         // over the End's head and the whole message
-        let crc = crc::Crc::<u16>::new(&crc::CRC_16_USB)
+        let crc = ww_crc::CRC16_USB
             .checksum(&[END_4, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 
         assert_eq!(tx.write(0, &msg), Ok(false));

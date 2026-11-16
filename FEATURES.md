@@ -2175,6 +2175,15 @@ Unicast Data0 to one node over the same bus is TR-6.
   `fw-z` sync (+260), 13474 → 13778 B async (+304), 16794 → 17106 B / 17614 → 18030 B at `fw-3` (+312 / +416); an
   image that already reads bit fields (4 observed properties) moves by -60..+72 B. No device or host uses the
   format.
+- ✅ **EVO-81 Multi requests with an empty argument list lose a padding byte** · `v0.5` — wire change of
+  `ww_client_server`'s `Request`, no break: since SW-81 the borrowed writer writes an empty `MultiArgs::Same` or
+  `Different` list of a `MultiCall` or `MultiWrite` one byte shorter (no padding), as the owned writer of a std
+  host always did. `MultiArgs` is size-delimited, so the old padding byte sat inside its body: every reader,
+  before and after the fix, borrowed and owned, reads both forms as the same request, and a device answers both the
+  same. Events and replies are unchanged (`ErrorKind::UserBytes` starts on a byte). The line stays `w1.0`, no
+  generation bump. The dispatch golden `multi.multi_call` carries `"wire_change": "EVO-81 / ..."`; tests
+  `dispatch_golden` `multi_empty_args_old_and_new_bytes_read_the_same` (16 old/new pairs from the pre-fix commit),
+  `multi_call_old_request_gets_the_new_reply`, `empty_user_bytes_event_unchanged`.
 - ✅ **EVO-78 Evolution of keyed arrays** · `v0.5` — `keyed!` in the checker: adding one is compatible, removing
   one is a break, the key type is compared both ways, and keying another array is a break. Across a wire break a
   companion is matched by the array it keys, so it follows a moved or `#[moved_from]`-renamed array. `ww api diff`

@@ -4188,6 +4188,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Non-linear codes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#transfer-curves" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Transfer curves
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -6064,6 +6081,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Non-linear codes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#transfer-curves" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Transfer curves
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -6379,9 +6413,40 @@ walker reads every shape from the codec's source: <code>MuLaw</code>, <code>ALaw
 <code>Offset</code> (video's narrow-range quantizers) and <code>MantissaExponent</code> (the streams' scales). A table the definition
 names is the array literal of a <code>const</code> in the codec's module, and its numbers are literals or <code>+</code>, <code>-</code>, <code>*</code> and
 <code>&lt;&lt;</code> of them: the walker evaluates no <code>const</code> code, so a table computed in one is refused, naming it. A codec whose
-shape has no algorithm yet (<code>ALaw</code>) is shown as its code. A generic codec, whose definition is one per instance
-(<code>exact_units::codec::Transfer&lt;Q, C&gt;</code>, a quantizer with a transfer curve), can't be used in an API yet: the walker
-refuses it, naming STD-112.</p>
+shape has no algorithm yet (<code>ALaw</code>) is shown as its code.</p>
+<h3 id="transfer-curves">Transfer curves<a class="headerlink" href="#transfer-curves" title="Permanent link">&para;</a></h3>
+<p>A video code has two layers: a quantizer takes the signal E′ to a code, and a transfer curve says what light E′
+means. <code>codec::Transfer&lt;Q, C&gt;</code> puts them together, the quantizer <code>Q</code> (an <code>Offset</code> codec such as
+<code>video::Narrow10</code>) with the curve <code>C</code> (an <code>impl Curve</code>: <code>video::Pq</code>, <code>video::Hlg</code>, <code>video::Bt709</code>) above it
+(STD-112). On the wire it is still <code>Q</code>'s code; <code>Coded&lt;Transfer&lt;Narrow10, Pq&gt;, ..&gt;</code> is a 10-bit PQ pixel in two
+bytes:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::</span><span class="n">codec</span><span class="p">::{</span><span class="n">Coded</span><span class="p">,</span><span class="w"> </span><span class="n">Transfer</span><span class="p">,</span><span class="w"> </span><span class="n">video</span><span class="p">::{</span><span class="n">Narrow10</span><span class="p">,</span><span class="w"> </span><span class="n">NarrowSignal10</span><span class="p">,</span><span class="w"> </span><span class="n">Pq</span><span class="p">}};</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="cp">#[ww_api_root]</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="k">trait</span><span class="w"> </span><span class="n">Display</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">    </span><span class="sd">/// A pixel&#39;s luma: the signal E′ is `Narrow10`&#39;s, the light it means is PQ&#39;s</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">luma</span><span class="p">:</span><span class="w"> </span><span class="nc">Coded</span><span class="o">&lt;</span><span class="n">Transfer</span><span class="o">&lt;</span><span class="n">Narrow10</span><span class="p">,</span><span class="w"> </span><span class="n">Pq</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">NarrowSignal10</span><span class="p">,</span><span class="w"> </span><span class="kt">u16</span><span class="o">&gt;</span><span class="p">);</span>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="p">}</span>
+</span></code></pre></div>
+<p><code>Transfer</code> is generic, so its definition is one per instance. The model holds three markers: <code>Transfer</code> itself
+(<code>MarkerDef::Transfer</code>, the variant alone), the quantizer's codec (<code>MarkerDef::Codec</code>) and the curve
+(<code>MarkerDef::Curve</code>, exact_units' <code>CurveDef</code>: the light's unit and scale, the signal's domain and the exact
+segments). <code>ww_self::units::codec_of</code> puts an instance together as <code>Transfer</code>'s <code>DEF</code> does, <code>Q</code>'s definition with
+<code>curve</code> set to <code>C</code>'s, so the client reads the code as <code>Q</code>'s signal: code 940 is E′ = 876/876.</p>
+<p>The light a code means comes from the curve. In Rust, <code>CodedType::light(raw)</code> (and <code>ww_self::units::codec_light</code>)
+gives a <code>Light</code>: the unit by its marker (<code>Nit</code> for PQ), scene or display light, the exact value where it is a
+rational, and the curve's float edge. PQ's code 940 is exactly 10 000 cd/m² and 64 exactly 0; every code between
+has an irrational light, only the float edge (<code>exact</code> is <code>None</code>). A code outside the curve's domain (footroom below
+black) has no light. Python's <code>ww.Quantity</code> has <code>light</code> (the float), <code>light_exact</code> (a <code>fractions.Fraction</code>, or
+<code>None</code>) and <code>light_unit</code> (<code>"Nit"</code>). Writing goes through the signal: a quantity is written as its exact code, as
+any <code>Coded</code> is.</p>
+<p>The walker reads a curve from its source, <code>impl Curve for Pq { const DEF: CurveDef&lt;'static&gt; = Pq::DEF; }</code>: the
+constants the definition names (<code>Pq::M1</code>, a module's <code>const PQ_FORM: CurveForm = ..</code>, <code>Self::</code> in an inherent
+<code>impl</code>) are put in, and <code>Fraction</code>'s checked arithmetic (<code>Hlg::A.checked_div_int(3)</code>, through an unwrap helper
+of the module such as <code>known(..)</code>) runs with exact_units' own <code>Fraction</code>, exactly as the compiled <code>DEF</code> computes
+it. Any other call is refused, naming it. A generic <code>impl&lt;..&gt; Codec</code> of another crate, whose definition is put
+together by code the walker doesn't run, is refused where an API uses it; <code>Transfer</code> is the one generic codec the
+model knows.</p>
 <p>The numbers of a curve above a codec (<code>CodecDef::curve</code>, its segments' gains, offsets and exponents) are
 <code>exact_units::Fraction</code>s, <code>±num/den · 10^exp</code> with <code>exp</code> the value's power of 5: one canonical form per value, so
 1/800 is <code>{ neg: false, num: 1, den: 8, exp: -2 }</code>. On the wire a <code>Fraction</code> is its four fields (<code>final_structure</code>),
@@ -6392,7 +6457,7 @@ hold the bytes.</p>
 <p>A codec may name spare codes, codes that mean no value (<code>CodecDef::spare</code>, a list of <code>CodeSpan { low, high }</code>):
 <code>MuLawSingleZero</code> is μ-law with 0x7F spare, where <code>MuLaw</code> reads it as a second zero. A spare code read from the
 wire is refused, by the typed <code>Coded</code> and by every client from the definition in the model, with the code named:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>127 is a spare code of MuLawSingleZero, no value (exact_units::Coded&lt;MuLawSingleZero, Fixed&lt;Ratio, Pow2&lt;-13&gt;, i16, Unbounded&gt;, u8&gt;)
+<div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>127 is a spare code of MuLawSingleZero, no value (exact_units::Coded&lt;MuLawSingleZero, Fixed&lt;Ratio, Pow2&lt;-13&gt;, i16, Unbounded&gt;, u8&gt;)
 </span></code></pre></div>
 <p><code>codec_decode</code> gives <code>None</code> for one, as <code>CodecDef::decode</code> does, and <code>codec_is_spare</code> asks. A spare code is where
 an <code>exact_units::niche::Niched</code> puts its own codes: <code>Niched&lt;Coded&lt;MuLawSingleZero, ..&gt;, Null&lt;0x7F&gt;, u8&gt;</code> is an

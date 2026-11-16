@@ -81,6 +81,9 @@
 //!
 //! A describe set's first block is marked [FLAG_SET_FIRST] and its last [FLAG_SET_LAST]: a set is whole when a block
 //! marked first is followed, back to back, by blocks up to one marked last; part of a set is never taken for one.
+//! A set whose blocks are all marked [FLAG_SET_ADD] is an **addition**: its records join the current set (the newest
+//! whole set before it plus the additions since), replacing records of the same key and sticky records of the same
+//! track. The current set is what a writer copies, merged into one whole set in canonical order.
 //!
 //! **Gaps.** A [Layout] says how far a writer may leave a blank or bad stretch and go on after it ([Layout::gap_max])
 //! and where it resumes ([Layout::resume_align]). A reader's cost per gap is bounded by the format: `gap_max` is at
@@ -215,7 +218,8 @@ pub use piece::{
 pub mod reader;
 #[cfg(feature = "alloc")]
 pub use reader::{
-    ByteSource, DESCRIBE_SEEK_BLOCKS_MAX, OpenOptions, PieceInfo, ReadError, TapeReader,
+    ByteSource, DESCRIBE_LEN_MAX, DESCRIBE_SEEK_BLOCKS_MAX, DescribeBlocks, OpenOptions, PieceInfo,
+    ReadError, TapeReader,
 };
 
 mod event;
@@ -236,7 +240,7 @@ pub use file::{BlockBuf, Cut, FileBlocks, FileError, Recovery};
 #[cfg(feature = "std")]
 mod set;
 #[cfg(feature = "std")]
-pub use set::{DescribeError, DescribeSet, Sticky};
+pub use set::{DescribeError, DescribeReadError, DescribeSet, Sticky, StickyRecord};
 #[cfg(feature = "std")]
 pub mod sink;
 #[cfg(feature = "std")]
@@ -268,6 +272,11 @@ pub const FLAG_COPY: u16 = 1 << 1;
 pub const FLAG_SET_FIRST: u16 = 1 << 2;
 /// Header flag: the last block of a describe set, see [FLAG_SET_FIRST].
 pub const FLAG_SET_LAST: u16 = 1 << 3;
+/// Header flag: every block of a describe set that adds records to the current set instead of being the whole set
+/// (a track added during a run): the records replace those of the same key, the sticky records those of their track,
+/// in canonical order over the union. [DescribeSet::write_addition] marks them. A writer's copies carry the whole
+/// current set, additions merged.
+pub const FLAG_SET_ADD: u16 = 1 << 4;
 /// Header flag: the body of a records or describe block is coded ([body]); on another kind the body is one this
 /// reader doesn't know. Off unless a writer codes the block with [code_body].
 pub const FLAG_BODY_CODED: u16 = 1 << 0;

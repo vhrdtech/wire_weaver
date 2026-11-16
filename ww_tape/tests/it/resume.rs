@@ -3,6 +3,7 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
+use crate::additions::{addition, clock, track, tracks};
 use crate::id;
 use crate::pieces::{chunk, column, describe_blocks_max, records, scratch};
 use ww_tape::index::IndexPolicy;
@@ -18,6 +19,8 @@ use ww_tape::{
 enum Op {
     /// Block `i` of the describe set.
     Describe(usize),
+    /// Block `i` of the describe addition.
+    Add(usize),
     /// A records block with tick `n`.
     Records(i64),
     /// A records block with tick `n`, deferred.
@@ -26,11 +29,14 @@ enum Op {
     Chunk(u64, u64),
 }
 
-/// The calls of a recording: a describe set of three blocks, then rounds of two chunks, a records block and a
-/// deferred one; `chunk_rounds` rounds.
+/// The calls of a recording: a describe set of three blocks, then `rounds` rounds of two chunks, a records block and a
+/// deferred one, the describe addition after half of them.
 fn ops(rounds: u64) -> Vec<Op> {
     let mut out: Vec<Op> = (0..describe().len()).map(Op::Describe).collect();
     for k in 0..rounds {
+        if k == rounds / 2 {
+            out.extend((0..added().len()).map(Op::Add));
+        }
         out.extend([
             Op::Chunk(0, k),
             Op::Records(k as i64),
@@ -48,11 +54,22 @@ fn describe() -> Vec<Vec<u8>> {
     set
 }
 
+/// The describe addition of the tests, in several blocks: a clock and a track on it.
+fn added() -> Vec<Vec<u8>> {
+    let add = addition(&[clock(1), track(1, 1)], id(0), 60);
+    assert!(add.len() >= 2, "an addition of several blocks");
+    add
+}
+
 /// Make the call `op` on `w`.
 fn apply<S: TapeSink>(w: &mut TapeWriter<S>, op: Op) {
     match op {
-        Op::Describe(i) => {
-            let mut b = describe()[i].clone();
+        Op::Describe(_) | Op::Add(_) => {
+            let mut b = match op {
+                Op::Add(i) => added()[i].clone(),
+                Op::Describe(i) => describe()[i].clone(),
+                _ => unreachable!("a describe call"),
+            };
             ww_tape::set_id(&mut b, w.next_id()).unwrap();
             w.write_block(&b).unwrap();
         }
@@ -171,7 +188,7 @@ fn finish_resumed(mut w: TapeWriter<MemSink>, ops: &[Op], seqs: &[u64]) -> Vec<u
 
 /// A piece cut at every block boundary and at bytes in between resumes, takes the calls it lost and ends with the
 /// bytes, and so the content hash, of the piece written without the crash: with deferred blocks, checkpoints,
-/// describe copies and repeats, and cuts inside the end of the piece.
+/// describe copies and repeats, a describe addition, and cuts inside the end of the piece.
 fn cut_anywhere(alignment: u32) {
     let ops = ops(8);
     let (want, seqs) = reference(alignment, &ops);
@@ -185,6 +202,8 @@ fn cut_anywhere(alignment: u32) {
         "head, early, checkpoint, repeat, backup: {copies}"
     );
     assert!(entries.len() >= 40, "{} blocks", entries.len());
+    let set = r.describe_set(0).unwrap();
+    assert_eq!(tracks(set.bytes()), [1], "the backup carries the addition");
     let mut ended = 0;
     for cut in cut_points(&want, 40) {
         let mut sink = MemSink::new(Path::new("p"));
@@ -192,7 +211,12 @@ fn cut_anywhere(alignment: u32) {
         let (mut w, resumed) = TapeWriter::resume_on(sink, options(alignment)).unwrap();
         assert!(resumed.kept_bytes <= cut as u64);
         assert_eq!(resumed.kept_bytes + resumed.dropped_bytes, cut as u64);
-        assert!(resumed.entries.iter().all(|e| e.offset < resumed.kept_bytes));
+        assert!(
+            resumed
+                .entries
+                .iter()
+                .all(|e| e.offset < resumed.kept_bytes)
+        );
         ended += usize::from(resumed.ended.is_some());
         if w.bytes() == 0 {
             // cut inside the head: the piece starts again
@@ -285,7 +309,10 @@ fn a_damaged_head_describe_set_resumes_from_the_next_copy() {
     let r = TapeReader::open(&got[..]).unwrap();
     assert!(r.verify(0).unwrap());
     let set = r.describe_set(0).unwrap();
-    assert!(set[0].0 > describe[0].offset, "the set comes from a copy");
+    assert!(
+        set.base > Some(describe[0].offset),
+        "the set comes from a copy"
+    );
 }
 
 /// A chain written to memory reads through [TapeReader] while it is written and once finished, and its pieces are the

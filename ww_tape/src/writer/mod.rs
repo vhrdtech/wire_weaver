@@ -48,7 +48,9 @@ use crate::piece::{
 use crate::reader::{ReadError, wide};
 pub use crate::sink::partial_name;
 use crate::sink::{FileSink, Files, SinkFactory, TapeSink, io_err};
-use crate::{BlockId, BlockKind, IndexError, RunTag};
+use crate::{
+    BlockId, BlockKind, DescribeReadError, DescribeSet, IndexError, RunTag, Sticky, StickyRecord,
+};
 
 pub mod resume;
 pub use resume::Resumed;
@@ -101,6 +103,8 @@ pub enum WriteError {
     Read(ReadError<io::Error>),
     /// The piece or chain to resume ended already in this state.
     Ended(FinishState),
+    /// A describe addition ([crate::FLAG_SET_ADD]) doesn't join the current set.
+    Describe(DescribeReadError),
 }
 
 impl core::fmt::Display for WriteError {
@@ -121,6 +125,7 @@ impl core::fmt::Display for WriteError {
             WriteError::Run(r) => write!(f, "run tag {r:?} is not one a writer may use"),
             WriteError::Read(e) => write!(f, "reading back the piece to resume: {e}"),
             WriteError::Ended(s) => write!(f, "the piece or chain ended already ({s:?})"),
+            WriteError::Describe(e) => write!(f, "describe addition: {e}"),
         }
     }
 }
@@ -130,6 +135,7 @@ impl std::error::Error for WriteError {
         match self {
             WriteError::Io { error, .. } => Some(error),
             WriteError::Read(e) => Some(e),
+            WriteError::Describe(e) => Some(e),
             _ => None,
         }
     }
@@ -459,6 +465,10 @@ impl<S: TapeSink> TapeWriter<S> {
             }));
         };
         self.end_after(block.len())?;
+        // an addition that doesn't join the current set is refused before it is written
+        let set = self
+            .describe_after(block, header)
+            .map_err(WriteError::Describe)?;
         if let Err(error) = self.sink.write_all(block) {
             self.failed = true;
             return Err(WriteError::Io {
@@ -466,7 +476,7 @@ impl<S: TapeSink> TapeWriter<S> {
                 error,
             });
         }
-        self.account(block, header, *crc)?;
+        self.account_with(block, header, *crc, set)?;
         self.unsynced = self.unsynced.saturating_add(1);
         let due = match self.policy {
             SyncPolicy::None => false,
@@ -493,13 +503,26 @@ impl<S: TapeSink> TapeWriter<S> {
         header: &[u8; crate::HEADER_LEN],
         crc: [u8; crate::CRC_LEN],
     ) -> Result<(), WriteError> {
+        // read back from a file: an addition that doesn't join the set is left out of it
+        let set = self.describe_after(block, header).ok().flatten();
+        self.account_with(block, header, crc, set)
+    }
+
+    /// [Self::account] with `set`, the whole describe set once `block` is placed ([Self::describe_after]).
+    fn account_with(
+        &mut self,
+        block: &[u8],
+        header: &[u8; crate::HEADER_LEN],
+        crc: [u8; crate::CRC_LEN],
+        set: Option<Vec<Vec<u8>>>,
+    ) -> Result<(), WriteError> {
         let bytes = self.end_after(block.len())?;
         self.hash.update(block);
         // blocks the file structure adds are not counted: seq stays the producer's count of its own blocks
         let kind = BlockKind::from_u8(header[5]);
         let counted = !self.replaying && !crate::index::is_structural(kind);
         self.index(block, crc, counted);
-        self.note_describe(block, header);
+        self.note_describe(block, header, set);
         self.bytes = bytes;
         // counts against thresholds: past u64::MAX they stay due
         self.blocks = self.blocks.saturating_add(1);
@@ -543,9 +566,15 @@ impl<S: TapeSink> TapeWriter<S> {
         }
     }
 
-    /// Keep the newest whole describe set: blocks from one marked [crate::FLAG_SET_FIRST] up to one marked
-    /// [crate::FLAG_SET_LAST], back to back. A set another block interrupts is dropped.
-    fn note_describe(&mut self, block: &[u8], header: &[u8; crate::HEADER_LEN]) {
+    /// Keep the current whole describe set: blocks from one marked [crate::FLAG_SET_FIRST] up to one marked
+    /// [crate::FLAG_SET_LAST], back to back, or the set before with such an addition ([crate::FLAG_SET_ADD]) merged;
+    /// `set` is that set when `block` ends one ([Self::describe_after]). A set another block interrupts is dropped.
+    fn note_describe(
+        &mut self,
+        block: &[u8],
+        header: &[u8; crate::HEADER_LEN],
+        set: Option<Vec<Vec<u8>>>,
+    ) {
         if BlockKind::from_u8(header[5]) != BlockKind::Describe {
             self.describe_open.clear();
             return;
@@ -560,6 +589,13 @@ impl<S: TapeSink> TapeWriter<S> {
         } else if self.describe_open.is_empty() {
             return;
         }
+        if flags & crate::FLAG_SET_LAST != 0 {
+            self.describe_open.clear();
+            if let Some(set) = set {
+                self.describe = set;
+            }
+            return;
+        }
         let open: usize = self.describe_open.iter().map(Vec::len).sum();
         if open.saturating_add(block.len()) > DESCRIBE_SET_LEN_MAX {
             // too long to keep: never copied, and a resume reads back no more of it
@@ -567,9 +603,42 @@ impl<S: TapeSink> TapeWriter<S> {
             return;
         }
         self.describe_open.push(block.to_vec());
-        if flags & crate::FLAG_SET_LAST != 0 {
-            self.describe = core::mem::take(&mut self.describe_open);
+    }
+
+    /// The whole describe set once `block` is placed, when it ends a set: the set, or for an addition the current
+    /// set with it merged (canonical order, records replaced by key, sticky records by track). None for a block that
+    /// ends none, or a set longer than [DESCRIBE_SET_LEN_MAX]; an error for an addition that doesn't merge.
+    fn describe_after(
+        &self,
+        block: &[u8],
+        header: &[u8; crate::HEADER_LEN],
+    ) -> Result<Option<Vec<Vec<u8>>>, DescribeReadError> {
+        let flags = u16::from_le_bytes([header[6], header[7]]);
+        let last = flags & crate::FLAG_SET_LAST != 0;
+        if BlockKind::from_u8(header[5]) != BlockKind::Describe || self.replaying || !last {
+            return Ok(None);
         }
+        let first = flags & crate::FLAG_SET_FIRST != 0;
+        if !first && self.describe_open.is_empty() {
+            return Ok(None);
+        }
+        let open = if first {
+            &[][..]
+        } else {
+            &self.describe_open[..]
+        };
+        let len: usize = open.iter().map(Vec::len).sum();
+        if len.saturating_add(block.len()) > DESCRIBE_SET_LEN_MAX {
+            return Ok(None);
+        }
+        let mut set: Vec<Vec<u8>> = open.to_vec();
+        set.push(block.to_vec());
+        if flags & crate::FLAG_SET_ADD == 0 {
+            return Ok(Some(set));
+        }
+        let merged = merge_describe(&self.describe, set.iter().map(Vec::as_slice), self.run)?;
+        let len: usize = merged.iter().map(Vec::len).sum();
+        Ok((len <= DESCRIBE_SET_LEN_MAX).then_some(merged))
     }
 
     /// Write the newest describe blocks again with the seq of the last counted block, not counted themselves; the
@@ -596,7 +665,8 @@ impl<S: TapeSink> TapeWriter<S> {
     /// After every counted block, whoever placed it: a checkpoint when due (in an aligned file, in the gap before
     /// the next chunk), then a describe copy when due.
     fn after_block(&mut self) -> Result<(), WriteError> {
-        if self.checkpoint_due() {
+        // never inside a describe set or addition being written, which would split it: placed after its last block
+        if self.describe_open.is_empty() && self.checkpoint_due() {
             if self.alignment == 0 {
                 self.place_checkpoint()?;
             } else {
@@ -747,6 +817,27 @@ impl<S: TapeSink> TapeWriter<S> {
     pub fn write_block(&mut self, block: &[u8]) -> Result<(), WriteError> {
         self.write_raw(block)?;
         self.after_block()
+    }
+
+    /// A whole describe set or addition: its blocks as [crate::DescribeSet::write_blocks] or
+    /// [crate::DescribeSet::write_addition] made them, numbered from [Self::next_id] on, each written as
+    /// [Self::write_block] writes it. An addition that doesn't join the current set is refused ([WriteError::Describe])
+    /// before any of its blocks is written; [Self::write_block] can refuse only the last block of one.
+    pub fn write_describe<B: AsRef<[u8]>>(&mut self, blocks: &[B]) -> Result<(), WriteError> {
+        self.check()?;
+        let mut add = false;
+        for b in blocks {
+            let b = crate::Block::read(b.as_ref()).map_err(WriteError::Block)?;
+            add |= b.flags & crate::FLAG_SET_ADD != 0;
+        }
+        if add {
+            merge_describe(&self.describe, blocks.iter().map(AsRef::as_ref), self.run)
+                .map_err(WriteError::Describe)?;
+        }
+        for b in blocks {
+            self.write_block(b.as_ref())?;
+        }
+        Ok(())
     }
 
     /// Append a block of any run as the writer's own: renumbered into the writer's run and next seq ([crate::set_id]),
@@ -993,6 +1084,29 @@ impl<S: TapeSink> TapeWriter<S> {
             Ok(())
         }
     }
+}
+
+/// Most bytes of a block of a describe set the writer merges from a set and its additions; a longer record gets a
+/// block of its own.
+pub const MERGED_DESCRIBE_BLOCK_LEN: usize = 64 << 10;
+
+/// The whole set of `current` (blocks of a whole set) with `addition` merged, as describe blocks of run `run`
+/// (renumbered when copied).
+fn merge_describe<'a>(
+    current: &'a [Vec<u8>],
+    addition: impl IntoIterator<Item = &'a [u8]>,
+    run: RunTag,
+) -> Result<Vec<Vec<u8>>, DescribeReadError> {
+    let (set, sticky) =
+        DescribeSet::read_blocks(current.iter().map(Vec::as_slice).chain(addition))?;
+    let sticky: Vec<Sticky<'_>> = sticky.iter().map(StickyRecord::as_sticky).collect();
+    let mut out = Vec::new();
+    let mut id = BlockId::new(run, 0);
+    set.write_blocks(&mut id, MERGED_DESCRIBE_BLOCK_LEN, &sticky, |b| {
+        out.push(b.to_vec());
+    })
+    .map_err(DescribeReadError::Set)?;
+    Ok(out)
 }
 
 /// What the next piece of a chain starts with, from the piece before.

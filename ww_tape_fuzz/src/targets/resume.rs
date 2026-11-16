@@ -7,14 +7,15 @@
 use std::path::Path;
 use std::sync::OnceLock;
 
+use shrink_wrap::prelude::UNib32;
 use ww_tape::chunk::ChunkHead;
 use ww_tape::index::IndexPolicy;
 use ww_tape::piece::{PieceHead, PieceId, PieceIdent, ResultId};
 use ww_tape::reader::Found;
 use ww_tape::{
-    ALIGNMENT, BlockId, BlockKind, BlockWriter, ClockTime, Codec, ColumnKind, ColumnSpec,
-    Describe, DescribeSet, EndMode, Layout, MemSink, Producer, RunTag, SyncPolicy, TapeReader,
-    TapeSink, TapeWriter, WriterOptions,
+    ALIGNMENT, BlockId, BlockKind, BlockWriter, ClockDef, ClockOrigin, ClockTime, Codec,
+    ColumnKind, ColumnSpec, Describe, DescribeSet, EndMode, Layout, Magnitude, MemSink, Producer,
+    RunTag, SyncPolicy, TapeReader, TapeSink, TapeWriter, WriterOptions, clock_key,
 };
 
 /// Rounds of blocks in a template piece.
@@ -73,7 +74,8 @@ fn write_chunk<S: TapeSink>(w: &mut TapeWriter<S>, t: u64, k: u64) {
     w.write_chunk(&h, &[(spec, &c)]).expect("a chunk writes");
 }
 
-/// An unfinished piece: a describe set of several blocks, then rounds of chunks, records and deferred records.
+/// An unfinished piece: a describe set of several blocks, then rounds of chunks, records and deferred records, a
+/// describe addition of several blocks after half of them.
 fn template(aligned: bool, head: bool) -> Vec<u8> {
     let o = options(aligned);
     let mut w = TapeWriter::create_on(MemSink::new(Path::new("t")), o.sync);
@@ -106,6 +108,20 @@ fn template(aligned: bool, head: bool) -> Vec<u8> {
         w.write_block(b).expect("a describe block writes");
     }
     for k in 0..ROUNDS {
+        if k == ROUNDS / 2 {
+            let mut add = DescribeSet::new();
+            add.insert(&Describe::Producer(Producer {
+                name: "fuzz, resumed",
+            }))
+            .expect("a producer");
+            add.insert(&clock()).expect("a clock");
+            let mut id = w.next_id();
+            let mut blocks = vec![];
+            add.write_addition(&mut id, 60, &[], |b| blocks.push(b.to_vec()))
+                .expect("the addition writes");
+            w.write_describe(&blocks)
+                .expect("the addition joins the set");
+        }
         write_chunk(&mut w, 0, k);
         w.write_block(&records(w.next_id(), k))
             .expect("a records block writes");
@@ -115,6 +131,17 @@ fn template(aligned: bool, head: bool) -> Vec<u8> {
     }
     w.flush_deferred().expect("deferred blocks write");
     w.sink().tape().to_vec().expect("the bytes")
+}
+
+fn clock() -> Describe<'static> {
+    Describe::Clock(ClockDef {
+        number: UNib32(1),
+        key: clock_key(0xf2, &[], 1),
+        rate: Magnitude::pow10(9).into(),
+        resolution: Magnitude::pow10(-9).into(),
+        origin: ClockOrigin::Boot,
+        label: "host",
+    })
 }
 
 /// The template pieces by mode, made once.
@@ -133,9 +160,9 @@ pub fn resume(data: &[u8]) {
     };
     bytes.truncate(cut % (bytes.len() + 1));
     if !bytes.is_empty() {
-        for f in flips.chunks_exact(3) {
-            let at = usize::from(u16::from_le_bytes([f[0], f[1]])) % bytes.len();
-            bytes[at] ^= f[2];
+        for [lo, hi, bits] in flips.as_chunks::<3>().0 {
+            let at = usize::from(u16::from_le_bytes([*lo, *hi])) % bytes.len();
+            bytes[at] ^= bits;
         }
     }
     let mut sink = MemSink::new(Path::new("p"));
@@ -145,8 +172,16 @@ pub fn resume(data: &[u8]) {
         return;
     };
     assert!(resumed.kept_bytes <= bytes.len() as u64);
-    assert_eq!(resumed.kept_bytes + resumed.dropped_bytes, bytes.len() as u64);
-    assert!(resumed.entries.iter().all(|e| e.offset < resumed.kept_bytes));
+    assert_eq!(
+        resumed.kept_bytes + resumed.dropped_bytes,
+        bytes.len() as u64
+    );
+    assert!(
+        resumed
+            .entries
+            .iter()
+            .all(|e| e.offset < resumed.kept_bytes)
+    );
     for k in 0..2 {
         w.write_block(&records(w.next_id(), 200 + k))
             .expect("a resumed piece takes blocks");
@@ -158,6 +193,13 @@ pub fn resume(data: &[u8]) {
     let r = TapeReader::open(&out[..]).expect("a finished piece opens");
     let last = r.pieces().len().checked_sub(1).expect("a piece");
     let p = &r.pieces()[last];
-    assert_eq!((p.start, p.found), (0, Found::Tail), "found whole by its tail");
-    assert!(r.verify(last).expect("a finished piece"), "the content hash verifies");
+    assert_eq!(
+        (p.start, p.found),
+        (0, Found::Tail),
+        "found whole by its tail"
+    );
+    assert!(
+        r.verify(last).expect("a finished piece"),
+        "the content hash verifies"
+    );
 }

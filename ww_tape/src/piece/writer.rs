@@ -195,6 +195,11 @@ impl<F: SinkFactory> PieceChain<F> {
         self.writer()?.write_block(block)
     }
 
+    /// A whole describe set or addition ([TapeWriter::write_describe]).
+    pub fn write_describe<B: AsRef<[u8]>>(&mut self, blocks: &[B]) -> Result<(), WriteError> {
+        self.writer()?.write_describe(blocks)
+    }
+
     /// A small block placed in the next gap ([TapeWriter::defer_block]).
     pub fn defer_block(&mut self, block: Vec<u8>) -> Result<(), WriteError> {
         self.writer()?.defer_block(block)

@@ -599,8 +599,8 @@ fn big_chunk(k: u64) -> (ChunkHead, Vec<u8>) {
     (head, starts)
 }
 
-/// A piece with a damaged head describe block still has its describe set: the copy the writer placed after the first
-/// data block, found past the scan's stop in an unfinished 1 MiB piece (no checkpoint yet), through the checkpoints
+/// A piece with a damaged head describe block still has its describe set: the newest copy, the one the writer placed
+/// after the first data block when there is no other, found past the scan's stop in an unfinished 1 MiB piece (no checkpoint yet), through the checkpoints
 /// of an unfinished 10 MiB piece and through the final index of a finished one.
 #[test]
 fn a_damaged_head_describe_set_reads_from_the_next_copy() {
@@ -666,17 +666,19 @@ fn a_damaged_head_describe_set_reads_from_the_next_copy() {
                 // no checkpoint yet: the scan from the start stops at the damaged head set
                 assert_eq!(rd.pieces()[0].cut, Some(describe[0].0));
             }
+            // the newest whole set: the last copy, also when the head's set reads
             let set = rd.describe_set(0).unwrap();
-            assert_eq!(set.len(), originals.len());
-            let at = if copy { describe[1].0 } else { describe[0].0 };
+            assert_eq!(set.blocks.len(), originals.len());
+            assert!(set.lost.is_empty(), "{:?}", set.lost);
             assert_eq!(
-                set[0].0, at,
+                set.base,
+                describe.last().map(|d| d.0),
                 "{chunks} chunks, finished {finished}, damaged {copy}"
             );
-            for ((_, got), want) in set.iter().zip(&originals) {
+            for (got, want) in set.bytes().zip(&originals) {
                 let got = ww_tape::Block::read(got).unwrap();
                 let want = ww_tape::Block::read(want).unwrap();
-                assert_eq!(got.is_copy(), copy);
+                assert!(got.is_copy());
                 assert_eq!(
                     got.records().collect::<Vec<_>>(),
                     want.records().collect::<Vec<_>>()
@@ -866,7 +868,7 @@ fn part_of_a_describe_set_is_not_the_set() {
         let rd = TapeReader::open(&damaged[..]).unwrap();
         assert_eq!(rd.pieces()[0].cut, Some(runs[0][k].0));
         let set = rd.describe_set(0).unwrap();
-        let at: Vec<u64> = set.iter().map(|(o, _)| *o).collect();
+        let at: Vec<u64> = set.blocks.iter().map(|(o, _)| *o).collect();
         assert_eq!(
             at,
             runs[1].iter().map(|r| r.0).collect::<Vec<_>>(),

@@ -15,6 +15,7 @@
 )]
 //! Integration tests of ww_tape, through the public API.
 
+mod additions;
 mod media;
 mod pieces;
 mod reader;

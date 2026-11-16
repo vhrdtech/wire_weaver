@@ -6647,6 +6647,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ww_crc"
+version = "0.5.0"
+dependencies = [
+ "crc",
+]
+
+[[package]]
 name = "ww_date_time"
 version = "0.1.0"
 dependencies = [

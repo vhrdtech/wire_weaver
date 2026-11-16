@@ -18,6 +18,7 @@ members = [
     "ww_bus_slave",
     "ww_client_server",
     "ww_clock_sync",
+    "ww_crc",
     "ww_defmt_logger",
     "ww_device",
     "ww_framer",
@@ -132,6 +133,7 @@ wire_weaver_evolution = { version = "0.5.0", path = "./wire_weaver_evolution", d
 wire_weaver_snapshots = { version = "0.5.0", path = "./wire_weaver_snapshots" }
 ww_bus_slave = { version = "0.5.0", path = "./ww_bus_slave" }
 ww_clock_sync = { version = "0.5.0", path = "./ww_clock_sync" }
+ww_crc = { version = "0.5.0", path = "./ww_crc" }
 ww_defmt_logger = { version = "0.5.0", path = "./ww_defmt_logger" }
 ww_device = { version = "0.5.0", path = "./ww_device" }
 ww_framer = { version = "0.5.0", path = "./ww_framer", default-features = false }

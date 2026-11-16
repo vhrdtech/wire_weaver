@@ -494,6 +494,7 @@ feature tracker.
 - **[Tape ALP float codec](transport/tap.md#sample-codecs)**: Floats that began as decimals stored as bit-packed integers, other floats by their front bits, lossless and read in place.
 - **[Tape summary kernels](transport/tap.md#tape-blocks)**: Series summaries in one vectorised pass: complex i16 at about 5 GB/s on one core, bit for bit the same results.
 - **[Tape hardening](transport/tap.md#tape-blocks)**: Tape readers take damaged or hostile files without a panic, an overflow or an unbounded allocation; every limit is a named cap.
+- **[Tape resume and additions](tape/recovery.md#resuming-after-a-crash)**: A crashed tape piece resumes to the bytes of an uninterrupted write; tracks added mid-piece reach every later describe copy.
 
 <p class="ww-features__more" markdown>Details and what is planned: [Evolution, versioning and compatibility](features.md#evolution-versioning-and-compatibility-evo) in the feature tracker.</p>
 

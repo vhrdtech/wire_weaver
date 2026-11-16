@@ -127,9 +127,17 @@ tracks. A producer writes a describe set at the start, when it adds a track, whe
 blocks were lost. It never repeats one on a timer, so a slow trickle of records costs a block header each, not a
 description each. Its first and last blocks carry flags, so a reader can tell a whole set from part of one.
 
-The writer also writes the newest set again as a **copy**: right after the first data block, then about every 128 MiB,
-and once more before the end of the file. A copy carries a flag and adds nothing for a reader that read the original; it
-keeps a file readable when its first set is damaged. The layout is in the [describe module
+The writer also writes the newest set again as a **copy**: right after the first data block, after the first checkpoint
+index (about 4 MiB in), then about every 128 MiB, and once more before the end of the file. A copy carries a flag and adds
+nothing for a reader that read the original; it keeps a file readable when its first set is damaged.
+
+A producer that adds a track mid-piece writes an **addition**: describe blocks with an extra flag that hold only the new
+records. The additions join the newest whole set before them, and a record replaces the one with the same key, such as
+a track with the same number. The writer keeps the merged set, so every copy after an addition carries the whole set. A
+reader asks `TapeReader::describe_set` for a piece's current set: the newest whole set, the additions after it, and the
+offsets of describe blocks that did not read. For example, a recorder that starts capturing a second camera an hour in
+writes one addition with that track; the 128 MiB repeat after it and the backup before the finish both describe both
+cameras, so the track survives even if the addition block itself is damaged. The layout is in the [describe module
 docs](https://github.com/vhrdtech/wire_weaver/blob/master/ww_tape/src/describe.rs).
 
 ### Record blocks
@@ -160,6 +168,9 @@ top.
                 │ records        (tracks 1,2) │ small tracks, many per block
                 │ series chunk   (track 5)    │
                 │ summary        (track 3)    │
+                │ ...                         │
+                │ index (checkpoint)          │ the first, about 4 MiB in
+                │ describe copy               │ the set again, after it
                 │ ...                         │
                 │ index (checkpoint) ◄──┐     │ every 4 MiB: the blocks placed
                 │ ...                   │     │ since the previous checkpoint,

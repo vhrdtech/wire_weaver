@@ -60,6 +60,24 @@ A failed write or sync ends the file. The writer reports it and refuses every la
 after a failed `fsync` Linux may drop the unwritten pages, and a second `fsync` then succeeds without them. A file that
 still ends in `.partial` was never finished.
 
+### Resuming after a crash
+
+`TapeWriter::resume` reopens `NAME.partial` and continues the same piece. It reads the piece the way `TapeReader` does,
+from the newest checkpoint and then by a scan that stops at the first bad block. It keeps every byte up to the end of the
+last block the producer wrote, and cuts off the rest: a torn block, and the checkpoint, copy or end sequence the writer
+had placed after that block. It then places those again by the same rules, so a resumed piece ends with the same bytes,
+and the same content hash, as one written without the crash. The producer passes the same writer options it wrote the
+piece with, and writes again from the sequence number `next_seq` reports.
+
+For example, a recorder loses power while writing piece 3 of a chain. On restart it calls `PieceChain::resume` with the
+directory and the chain options. The chain reads pieces 0 to 2 back from their tails, reopens `00000003.wwt.partial`,
+and the recorder goes on from the first block the file lacks. A crash between finishing one piece and creating the next
+resumes too: the chain creates the next piece.
+
+A writer writes through a **sink**: a file (`FileSink`) or memory (`MemSink`). A memory sink reads back as a byte source,
+so `TapeReader` reads a piece while it is being written, and tests drive crashes by cutting the bytes anywhere.
+`PieceChain` takes a factory that makes the sink for each piece, `Files` or `MemTapes`.
+
 ### Example: a recorder that lost power
 
 A recorder on a PC writes a tape of several tracks, 50 MiB so far, with the default sync interval of 1 s. The power
@@ -143,8 +161,8 @@ The three cases below cover where damage lands in a file. "Lost" means unreadabl
 **The first 4 KiB are lost.** These hold the piece head, the describe set and perhaps the first data blocks.
 
 - A finished file opens from its tail as usual. The final index lists every block, and every block outside the lost
-  range reads. The describe set comes from the first copy that reads whole: the one after the first data block, a 128
-  MiB repeat, or the backup before the finish. The records and chunks inside the lost range are lost, and the content
+  range reads. The describe set comes from the newest copy that reads whole: the one after the first data block, the
+  one after the first checkpoint, a 128 MiB repeat, or the backup before the finish. The records and chunks inside the lost range are lost, and the content
   hash no longer matches. The link back to the previous piece in a chain can't be checked, since the head named it; the
   link forward still can.
 - An unfinished file with at least one checkpoint opens from its newest checkpoint, and the same holds, without the
@@ -215,11 +233,13 @@ The format does not do everything. These limits follow from the design:
   writes or reads it.
 - **Unfinished small files.** A file without a checkpoint yet, under about 4 MiB, is read by a scan from its start,
   which stops at the first bad block. Only a Resync walk reads past it.
-- **Describe set near the start.** Today the first describe copy follows the first data block. In an event file of
-  small blocks both can sit in the first 4 KiB, and until the 128 MiB repeat one bad sector can take both. A planned
-  writer change also places a copy at the first checkpoint, about 4 MiB in, which shrinks that window. Chunks then still
+- **Describe set near the start.** The first describe copy follows the first data block. In an event file of small
+  blocks the head's set and that copy can both sit in the first 4 KiB, so one bad sector can take both. The next copy
+  follows the first checkpoint, about 4 MiB in; an unfinished file shorter than that has no other. Chunks then still
   place themselves by track id, item number and tick, but without clock rates and item types a reader can't turn ticks
   into seconds or bytes into values.
+- **Lost additions in a scanned stretch.** `describe_set` names a damaged addition only when an index entry or a
+  checkpoint lists it. A damaged block where a scan stopped has no known kind; the piece reports it as its cut.
 - **A damaged chunk head costs the chunk.** The head CRC protects the payload's CRC segments, not itself.
 - **lz4 payload columns.** One bad byte makes every item of the chunk suspect.
 - **32-bit run tags.** Stale data matches the current run by chance with probability 2⁻³² per stale run.

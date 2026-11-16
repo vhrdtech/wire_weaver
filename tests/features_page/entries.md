@@ -475,6 +475,7 @@ feature tracker.
 - STD-130 | Tape ALP float codec | Floats that began as decimals stored as bit-packed integers, other floats by their front bits, lossless and read in place. | transport/tap.md#sample-codecs
 - STD-133 | Tape summary kernels | Series summaries in one vectorised pass: complex i16 at about 5 GB/s on one core, bit for bit the same results. | transport/tap.md#tape-blocks
 - STD-131 | Tape hardening | Tape readers take damaged or hostile files without a panic, an overflow or an unbounded allocation; every limit is a named cap. | transport/tap.md#tape-blocks
+- STD-132 | Tape resume and additions | A crashed tape piece resumes to the bytes of an uninterrupted write; tracks added mid-piece reach every later describe copy. | tape/recovery.md#resuming-after-a-crash
 
 # Examples
 

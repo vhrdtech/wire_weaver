@@ -62,8 +62,8 @@ doctest = false
 bench = false
 
 [[bin]]
-name = "qemu-ww-gpio"
-path = "src/bin/ww_gpio.rs"
+name = "qemu-counted-stream"
+path = "src/bin/counted_stream.rs"
 test = false
 doctest = false
 bench = false

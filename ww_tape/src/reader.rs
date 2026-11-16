@@ -384,7 +384,20 @@ impl<S: ByteSource> TapeReader<S> {
                 rev.push(p);
                 continue;
             }
-            let found = r.recover(hi, options)?;
+            let mut found = r.recover(hi, options)?;
+            // the recovery reached back into finished pieces (an unfinished piece without a checkpoint of its own
+            // found the one before by its final index): those are found by their tails, the rest is unfinished
+            if let Some(k) = found.iter().rposition(|p| p.tail.is_some())
+                && let Some(closed) = found.get(k)
+                && found
+                    .get(k.saturating_add(1))
+                    .is_some_and(|n| closed.end <= n.start)
+                && closed.end < hi
+            {
+                hi = closed.end;
+                rev.extend(found.drain(k.saturating_add(1)..).rev());
+                continue;
+            }
             let Some(first) = found.first().filter(|f| f.start < hi) else {
                 break;
             };

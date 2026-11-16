@@ -447,6 +447,58 @@ fn chain_of_pieces_links_both_ways() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+/// One file of finished pieces with an unfinished one after them (being written, or cut off by a crash): the
+/// finished ones are found by their tails, the last one from its checkpoints and a scan, wherever it was cut.
+#[test]
+fn finished_pieces_then_an_unfinished_one() {
+    let dir = scratch("then_open");
+    let files: Vec<Vec<u8>> = write_chain(&dir, 0)
+        .iter()
+        .map(|p| std::fs::read(p).unwrap())
+        .collect();
+    let done = files[..2].concat();
+    let last = &files[2];
+    let blocks = walk(last);
+    let (finish_at, _, _) = *blocks
+        .iter()
+        .find(|(_, _, k)| *k == BlockKind::Finish)
+        .unwrap();
+    // at every block boundary before the tail, and inside the padded finish
+    let mut cuts: Vec<u64> = blocks.iter().map(|(at, _, _)| *at).filter(|at| *at > 0).collect();
+    cuts.extend([finish_at + 200, last.len() as u64 - 100]);
+    for cut in cuts {
+        let all = [&done[..], &last[..cut as usize]].concat();
+        let r = TapeReader::open(&all[..]).unwrap();
+        let p = r.pieces();
+        assert_eq!(p.len(), 3, "cut at {cut}");
+        assert!(
+            p[..2].iter().all(|p| p.found == Found::Tail && p.tail.is_some()),
+            "cut at {cut}: {:?}",
+            p.iter().map(|p| (p.start, p.found, p.end)).collect::<Vec<_>>()
+        );
+        assert_eq!(p[2].start, done.len() as u64, "cut at {cut}");
+        assert!(p[2].tail.is_none(), "cut at {cut}");
+        // cut inside its tail, the piece has its finish: it ended, and only the tail is lost
+        let ended = cut > finish_at + 200;
+        assert_eq!(p[2].finish.is_some(), ended, "cut at {cut}");
+        let end = if ended { ChainEnd::Complete } else { ChainEnd::Open };
+        assert_eq!(r.chain().end, end, "cut at {cut}");
+        assert!((0..2).all(|i| r.verify(i).unwrap()));
+        let events = r
+            .entries(2)
+            .unwrap()
+            .iter()
+            .filter(|e| e.kind == BlockKind::Events)
+            .count();
+        let written = blocks
+            .iter()
+            .filter(|(at, len, k)| *k == BlockKind::Events && at + u64::from(*len) <= cut)
+            .count();
+        assert_eq!(events, written, "cut at {cut}");
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 /// The golden file: a finished two-piece chain, one block per line in hex (`WW_TAPE_GOLDEN=update` rewrites it).
 #[test]
 fn index_golden() {

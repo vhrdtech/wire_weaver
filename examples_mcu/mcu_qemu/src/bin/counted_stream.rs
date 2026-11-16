@@ -1,3 +1,8 @@
+//! Dispatch cost of a counted stream under a 2-level indexed resource (R10): `tests/counted_stream_api`'s
+//! `group[].item[].event`, a framework-only fixture with the same shape (array under array, one counted event
+//! stream at the leaf) `ww_gpio::Bank`/`Pin` had before this bench moved off the stdlib GPIO API (`qemu-ww-gpio`
+//! before the rename). Smaller too (`just zero-cost`, `streams` feature): `fw-z` .text 17192 -> 15204 B (-1988),
+//! .rodata 1912 -> 1788 B (-124); `fw-3` .text 27116 -> 23176 B (-3940), .rodata 1616 -> 1560 B (-56).
 #![no_main]
 #![no_std]
 
@@ -7,12 +12,7 @@ use core::fmt::Write;
 use cortex_m_rt::entry;
 use cortex_m_semihosting::{debug, hio};
 use wire_weaver::prelude::*;
-use ww_client_server::stream::StreamHead;
-use ww_gpio::IoPinEvent;
-use ww_gpio::{
-    BankCapabilities, BankConfig, GpioError, IoLevel, IoPinEnabledEvents, Level, Mode,
-    PinCapabilities, Pull, Speed,
-};
+use counted_stream_api::Edge;
 use ww_stream::tx::Counted;
 
 #[entry]
@@ -22,15 +22,14 @@ fn main() -> ! {
     let mut scratch = [0u8; 512];
     let mut event_scratch = [0u8; 512];
     let mut server = ServerState {
-        pin_events: Counted::new(),
+        item_events: Counted::new(),
         stream_sessions: 0,
     };
 
-    let r = api_server::stream_data_ser().port(0).pin(7).event(
-        &StreamHead::at(0),
-        &IoPinEvent::RisingEdge,
-        &mut scratch,
-    );
+    let r = api_server::stream_data_ser()
+        .group(0)
+        .item(0)
+        .event(&Edge::Rising, &mut scratch);
     writeln!(stdout, "{r:02x?}").unwrap();
 
     let event = [1u8, 2, 3];
@@ -52,195 +51,71 @@ impl wire_weaver::BlockingMessageSink for DummyTx {
 }
 
 pub struct ServerState {
-    pin_events: Counted,
+    item_events: Counted,
     stream_sessions: u32,
 }
 
 impl ServerState {
-    fn port_capabilities(
-        &mut self,
-        _cx: &mut Context<'_, impl BlockingEventOut>,
-        _index: [ww_client_server::ResourceIndex; 1],
-    ) -> RpcResult<BankCapabilities<'_>> {
-        let cap = BankCapabilities {
-            io_levels: MaxLen::new_unchecked(RefVec::Slice {
-                slice: &const { [IoLevel::new(3300)] },
-            }),
-            io_level_min: None,
-            io_level_max: None,
-            push_pull: true,
-            open_drain: true,
-            input: true,
-            individually_configurable_pins: true,
-            custom_mode: Default::default(),
-            custom_pull: Default::default(),
-            custom_speed: Default::default(),
-        };
-        Ready(cap)
+    /// Valid indices of `group[]`.
+    fn valid_indices_root_group(&mut self) -> ValidIndices<'_> {
+        ValidIndices::range_u32(0..8)
     }
 
-    fn port_configure(
+    /// Valid indices of `group[].item[]`.
+    fn valid_indices_root_group_item(
         &mut self,
-        _cx: &mut Context<'_, impl BlockingEventOut>,
-        _index: [ww_client_server::ResourceIndex; 1],
-        config: BankConfig,
-    ) -> RpcResult<Result<BankConfig, GpioError<'_>>> {
-        // fixed 3.3 V, no level translators
-        if config.io_level.is_some() {
-            return Ready(Err(CommonError::Unsupported.into()));
-        }
-        Ready(Ok(BankConfig { io_level: None }))
+        _index_chain: [ww_client_server::ResourceIndex; 1],
+    ) -> ValidIndices<'_> {
+        ValidIndices::range_u32(0..16)
     }
 
-    fn port_name(
+    /// Opens the stream (a new session): `Ok` / `Ready` starts it.
+    fn group_item_event(
         &mut self,
         _cx: &mut Context<'_, impl BlockingEventOut>,
-        _index: [ww_client_server::ResourceIndex; 1],
-    ) -> RpcResult<&'_ str> {
-        ww_unimplemented!()
-    }
-
-    fn port_pin_set_output_level(
-        &mut self,
-        _cx: &mut Context<'_, impl BlockingEventOut>,
-        _index: [ww_client_server::ResourceIndex; 2],
-        _level: Level,
+        _index_chain: [ww_client_server::ResourceIndex; 2],
     ) -> RpcResult<()> {
-        ww_unimplemented!()
+        RpcResult::Ready(())
     }
 
-    fn port_pin_output_level(
+    /// The host closed the stream.
+    fn close_group_item_event(
         &mut self,
         _cx: &mut Context<'_, impl BlockingEventOut>,
-        _index: [ww_client_server::ResourceIndex; 2],
-    ) -> RpcResult<Level> {
-        ww_unimplemented!()
-    }
-
-    fn port_pin_toggle(
-        &mut self,
-        _cx: &mut Context<'_, impl BlockingEventOut>,
-        _index: [ww_client_server::ResourceIndex; 2],
-    ) -> RpcResult<()> {
-        ww_unimplemented!()
-    }
-
-    fn port_pin_input_level(
-        &mut self,
-        _cx: &mut Context<'_, impl BlockingEventOut>,
-        _index: [ww_client_server::ResourceIndex; 2],
-    ) -> RpcResult<Level> {
-        ww_unimplemented!()
-    }
-
-    /// This board reports no pin events (`PinCapabilities::events` is false), so the stream never opens.
-    fn port_pin_event(
-        &mut self,
-        _cx: &mut Context<'_, impl BlockingEventOut>,
-        _index: [ww_client_server::ResourceIndex; 2],
-        _enabled: IoPinEnabledEvents<'_>,
-    ) -> RpcResult<Result<(), GpioError<'_>>> {
-        Ready(Err(CommonError::Unsupported.into()))
-    }
-
-    fn close_port_pin_event(
-        &mut self,
-        _cx: &mut Context<'_, impl BlockingEventOut>,
-        _index: [ww_client_server::ResourceIndex; 2],
+        _index_chain: [ww_client_server::ResourceIndex; 2],
     ) {
     }
 
-    /// One state for every pin: the stream never opens on this board.
-    fn stream_port_pin_event(
+    fn sideband_group_item_event(
         &mut self,
-        _index: [ww_client_server::ResourceIndex; 2],
+        _cx: &mut Context<'_, impl BlockingEventOut>,
+        _index_chain: [ww_client_server::ResourceIndex; 2],
+        _sideband: ww_client_server::StreamSideband,
+    ) -> Option<ww_client_server::StreamSideband> {
+        // TODO: None sends no reply
+        None
+    }
+
+    /// One state for every item: the stream never opens on this fixture.
+    fn stream_group_item_event(
+        &mut self,
+        _index_chain: [ww_client_server::ResourceIndex; 2],
     ) -> &mut Counted {
-        &mut self.pin_events
+        &mut self.item_events
     }
 
     fn new_stream_session(&mut self) -> u32 {
         self.stream_sessions = self.stream_sessions.wrapping_add(1);
         self.stream_sessions
     }
-
-    fn port_pin_set_mode(
-        &mut self,
-        _cx: &mut Context<'_, impl BlockingEventOut>,
-        _index: [ww_client_server::ResourceIndex; 2],
-        _mode: Mode,
-        _initial: Option<Level>,
-    ) -> RpcResult<Result<(), GpioError<'_>>> {
-        ww_unimplemented!()
-    }
-
-    fn port_pin_mode(
-        &mut self,
-        _cx: &mut Context<'_, impl BlockingEventOut>,
-        _index: [ww_client_server::ResourceIndex; 2],
-    ) -> RpcResult<Mode> {
-        ww_unimplemented!()
-    }
-
-    fn set_port_pin_pull(
-        &mut self,
-        _cx: &mut Context<'_, impl BlockingEventOut>,
-        _index: [ww_client_server::ResourceIndex; 2],
-        _pull: Pull,
-    ) -> SetResult<GpioError<'_>> {
-        ww_unimplemented!()
-    }
-
-    fn get_port_pin_pull(
-        &mut self,
-        _cx: &mut Context<'_, impl BlockingEventOut>,
-        _index: [ww_client_server::ResourceIndex; 2],
-    ) -> GetResult<Pull, GpioError<'_>> {
-        ww_unimplemented!()
-    }
-
-    fn set_port_pin_speed(
-        &mut self,
-        _cx: &mut Context<'_, impl BlockingEventOut>,
-        _index: [ww_client_server::ResourceIndex; 2],
-        _speed: Speed,
-    ) -> SetResult<GpioError<'_>> {
-        ww_unimplemented!()
-    }
-
-    fn get_port_pin_speed(
-        &mut self,
-        _cx: &mut Context<'_, impl BlockingEventOut>,
-        _index: [ww_client_server::ResourceIndex; 2],
-    ) -> GetResult<Speed, GpioError<'_>> {
-        ww_unimplemented!()
-    }
-
-    fn port_pin_capabilities(
-        &mut self,
-        _cx: &mut Context<'_, impl BlockingEventOut>,
-        _index: [ww_client_server::ResourceIndex; 2],
-    ) -> RpcResult<PinCapabilities<'_>> {
-        ww_unimplemented!()
-    }
-
-    fn valid_indices_root_port(&mut self) -> ValidIndices<'_> {
-        ValidIndices::range_u32(0..8)
-    }
-
-    fn valid_indices_root_port_pin(
-        &mut self,
-        _index: [ww_client_server::ResourceIndex; 1],
-    ) -> ValidIndices<'_> {
-        ValidIndices::range_u32(0..16)
-    }
 }
 
 pub mod api_server {
     wire_weaver::ww_codegen!(
-        all_gpio_api :: AllGpioApi for super::ServerState,
+        counted_stream_api :: CountedStreamBench for super::ServerState,
         server = true, no_alloc = true, use_async = false,
         method_model = "_=immediate",
         property_model = "_=get_set",
-        debug_to_file = "./target/generated_mcu_qemu_gpio_server.rs"
+        debug_to_file = "./target/generated_mcu_qemu_counted_stream_server.rs"
     );
 }

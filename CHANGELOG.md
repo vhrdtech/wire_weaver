@@ -107,6 +107,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - `GlobalTypeId` moves from `ww_global` into `ww_version`, which no longer depends on the id ledger. Same wire. See the `ww_version` and `ww_global` changelogs.
 - `ww_crc` (TR-31): one CRC crate with feature-sized tables for `ww_framer`, `ww_link`, `ww_block`, `ww_settings` and `ww_stream`; `ww_link` drops its `ww_block` dependency. See the `ww_crc`, `ww_framer`, `ww_link`, `ww_block`, `ww_settings` and `ww_stream` changelogs.
 - `examples_mcu/mcu_qemu`'s `qemu-global-paths` bench uses a framework-only fixture, `tests/global_paths_api` (`alpha` plus `ww_timebase::Clock`, kept for its real `ww_global` compact id), instead of `ww_dfu` (R10, `architecture-layers.md`).
+- `examples_mcu/mcu_qemu`'s `qemu-counted-stream` bench (renamed from `qemu-ww-gpio`) uses a framework-only fixture, `tests/counted_stream_api` (`group[].item[].event`, a counted stream under a 2-level index), instead of `ww_gpio` (R10, `architecture-layers.md`).
 
 ### Added
 

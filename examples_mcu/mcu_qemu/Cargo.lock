@@ -12,14 +12,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "all_gpio_api"
-version = "0.1.0"
-dependencies = [
- "wire_weaver",
- "ww_gpio",
-]
-
-[[package]]
 name = "anyhow"
 version = "1.0.104"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -165,6 +157,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fb6d409db102d77600a714dfa93744e379d9a7e03cbb175d64f09e14d3e921a2"
 dependencies = [
  "critical-section",
+]
+
+[[package]]
+name = "counted_stream_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
 ]
 
 [[package]]
@@ -411,11 +410,11 @@ checksum = "ecbdfe44b1bd960b68170b417450a628c43f7cf56bb3c5317e61cb230ee7f226"
 name = "mcu_qemu"
 version = "0.1.0"
 dependencies = [
- "all_gpio_api",
  "bounded_api",
  "cortex-m",
  "cortex-m-rt",
  "cortex-m-semihosting",
+ "counted_stream_api",
  "flash_budget_api",
  "foc_observe_api",
  "global_paths_api",
@@ -428,7 +427,6 @@ dependencies = [
  "ww_client_server",
  "ww_date_time",
  "ww_framer",
- "ww_gpio",
  "ww_i2c",
  "ww_keyed",
  "ww_link",
@@ -1058,14 +1056,6 @@ dependencies = [
  "serde",
  "serde_json",
  "shrink_wrap",
-]
-
-[[package]]
-name = "ww_gpio"
-version = "0.1.0"
-dependencies = [
- "wire_weaver",
- "ww_si",
 ]
 
 [[package]]

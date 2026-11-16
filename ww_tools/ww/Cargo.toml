@@ -1,0 +1,16 @@
+[package]
+name = "ww"
+version.workspace = true
+authors.workspace = true
+description = "WireWeaver command line tool: the generic commands and those of the standard library APIs"
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "ww"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+wire_weaver_cli.workspace = true

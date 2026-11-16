@@ -11,13 +11,6 @@ license.workspace = true
 [target.'cfg(unix)'.dependencies]
 rustix.workspace = true
 
-[lib]
-path = "src/lib.rs"
-
-[[bin]]
-name = "ww"
-path = "src/main.rs"
-
 [features]
 # `cmd::tap::test_support`: a tapped in-process session for the tests of crates that register commands
 test-support = ["wire_weaver_client/in_process"]

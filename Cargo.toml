@@ -39,6 +39,7 @@ members = [
     "ww_tape_benchmarks",
     "ww_tape_fuzz",
     "ww_timebase",
+    "ww_tools/*",
 ]
 
 exclude = [

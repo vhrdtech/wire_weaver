@@ -7,7 +7,7 @@ level: advanced
 `ww_version` is SemVer for `no_std` targets: a nibble-packed `Version`/`FullVersion` pair that compiles into every
 `#[ww_trait]`/`#[ww_api_root]` to identify an API's crate and version on the wire, plus `CompactVersion` for
 identifying it even more cheaply once it has a [global type id](../api/addressing.md). It is `no_std` by default
-and depends only on `shrink_wrap` and `ww_global` (for `GlobalTypeId`).
+and depends only on `shrink_wrap`. The `ww_global` ledger assigns the ids and depends on `ww_version` for their type.
 
 Add it to a device API crate with:
 
@@ -26,6 +26,7 @@ ww_version = "0.2"
 * `CompactVersion` - `gid: GlobalTypeId`, `major` / `minor` / `patch: UNib32`; `final_structure`. Stands in for a
   `FullVersion` once the API has a [global type id](../api/addressing.md), for requests made often or over a
   bandwidth-limited link.
+* `GlobalTypeId` - `id: UNib32`; `final_structure`. A crate's or trait's id in the `ww_global` ledger.
 * `VersionTriplet` - plain `major` / `minor` / `patch: UNib32`, no crate name; `final_structure`. For comparing
   versions where a name isn't needed.
 * `WireVersion` - `line` / `revision: UNib32`; `final_structure`. An API's [wire version](../evolution/versions.md#the-wire-version),

@@ -489,21 +489,29 @@ impl Resolver {
     ) -> Vec<PathBuf> {
         let v = &version.version;
         let semver = semver::Version::new(v.major.0.into(), v.minor.0.into(), v.patch.0.into());
-        let mut dirs = vec![];
-        if let Some(workspace) = &scan.workspace {
+        let mut sources = scan.workspace.as_ref().map(|workspace| {
             let mut sources = CargoSources::default();
             sources.entry_dir = Some(workspace.clone());
             sources.cargo_home = scan.cargo_home.clone();
+            sources
+        });
+        let mut dirs = vec![];
+        if let Some(sources) = &mut sources {
             match sources.locate_version(&version.crate_id, &semver) {
                 Ok(found) => dirs.extend(found),
                 Err(e) => debug!("no Cargo.lock to go by: {e:#}"),
             }
         }
-        if dirs.is_empty()
-            && scan.unlocked
-            && let Some(home) = &scan.cargo_home
-        {
-            dirs.extend(self.fetched(index, home).find(&version.crate_id, &semver));
+        if dirs.is_empty() {
+            // an earlier version: the crate's `api_snapshots/` at the version the lock pins keep it
+            if let Some(Ok(found)) = sources.as_mut().map(|s| s.locate_crate(&version.crate_id)) {
+                dirs.extend(found);
+            }
+            if scan.unlocked
+                && let Some(home) = &scan.cargo_home
+            {
+                dirs.extend(self.fetched(index, home).find(&version.crate_id, &semver));
+            }
         }
         dirs.dedup();
         dirs.retain(|dir| Dir::of_crate(dir).exists());

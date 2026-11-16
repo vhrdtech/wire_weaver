@@ -346,12 +346,26 @@ impl CargoSources {
         name: &str,
         version: &semver::Version,
     ) -> Result<Vec<PathBuf>> {
+        self.locate_locked(name, Some(version))
+    }
+
+    /// Directories holding `name` at whichever version the `Cargo.lock` above [Self::entry_dir] pins, as
+    /// [Self::locate_version] places them: a crate's `api_snapshots/` keep its earlier versions too.
+    pub fn locate_crate(&mut self, name: &str) -> Result<Vec<PathBuf>> {
+        self.locate_locked(name, None)
+    }
+
+    fn locate_locked(
+        &mut self,
+        name: &str,
+        version: Option<&semver::Version>,
+    ) -> Result<Vec<PathBuf>> {
         let lock = self.lock()?;
         let mut dirs = vec![];
         for locked in lock
             .package
             .iter()
-            .filter(|p| p.name == name && p.version_is(version))
+            .filter(|p| p.name == name && version.is_none_or(|v| p.version_is(v)))
         {
             match self.package_dir(locked) {
                 Ok(Some(dir)) => dirs.push(dir),
@@ -359,16 +373,17 @@ impl CargoSources {
                     if let Some(dir) = self.patched_dir(&lock.path, name)? {
                         dirs.push(dir);
                     }
+                    let locked_version = semver::Version::parse(&locked.version).ok();
                     let root = lock.path.parent().unwrap_or(Path::new("."));
                     let mut budget = CARGO_TREE_DIRS_MAX;
                     dirs.extend(
                         packages_under(root, &mut budget)?
                             .into_iter()
-                            .filter(|p| p.name == name && p.version.as_ref() == Some(version))
+                            .filter(|p| p.name == name && p.version == locked_version)
                             .map(|p| p.dir),
                     );
                 }
-                Err(e) => tracing::debug!("{name} {version}: {e:#}"),
+                Err(e) => tracing::debug!("{name} {}: {e:#}", locked.version),
             }
         }
         dirs.dedup();
@@ -849,6 +864,12 @@ mod tests {
                 .unwrap()
                 .is_empty()
         );
+        // any locked version: the same directory, where the crate's earlier snapshots are kept
+        assert_eq!(
+            sources.locate_crate("ww_snapshots").unwrap(),
+            vec![root.join("ww_snapshots")]
+        );
+        assert!(sources.locate_crate("no_such_crate").unwrap().is_empty());
         // exact_units comes by git: its checkout under CARGO_HOME, fetched for this workspace to build
         let lock: CargoLock =
             toml::from_str(&fs::read_to_string(root.join("Cargo.lock")).unwrap()).unwrap();

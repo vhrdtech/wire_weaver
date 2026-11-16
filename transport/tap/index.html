@@ -6360,16 +6360,10 @@ the producer added them in.</p>
 <td>24 bits per value</td>
 </tr>
 <tr>
-<td style="text-align: right;">24</td>
-<td><code>GORILLA</code></td>
-<td>floats</td>
-<td>XOR with the lane's previous value, Gorilla's control bits</td>
-</tr>
-<tr>
-<td style="text-align: right;">25</td>
-<td><code>CHIMP</code></td>
-<td>floats</td>
-<td>XOR with the lane's previous value, Chimp's control bits</td>
+<td style="text-align: right;">24, 25</td>
+<td></td>
+<td></td>
+<td>reserved: refused as an unknown codec</td>
 </tr>
 <tr>
 <td style="text-align: right;">26</td>
@@ -6385,9 +6379,9 @@ the producer added them in.</p>
 </tr>
 <tr>
 <td style="text-align: right;">34, 35</td>
-<td><code>FLOAT_DELTA</code>, <code>FLOAT_DELTA2</code></td>
-<td>floats</td>
-<td>the same on the float bits mapped to ordered integers</td>
+<td></td>
+<td></td>
+<td>reserved: refused as an unknown codec</td>
 </tr>
 <tr>
 <td style="text-align: right;">48</td>
@@ -6399,12 +6393,11 @@ the producer added them in.</p>
 </table>
 <ul>
 <li><strong>Raw device formats</strong> (0 to 22) are what a device sends, stored as it is: the reader converts only the samples it reads, and any sample reads in place. An <code>_LSB</code> column holds value <code>i</code> at bits <code>i·w</code> up of the column read as one little-endian number; an <code>_MSB</code> column counts bits from the top of byte 0. A packed value of a signed element is sign-extended.</li>
-<li><strong>XOR codecs</strong> (24, 25) are lossless for every bit pattern, NaN payloads and the sign of zero included. They code groups of 1024 samples, lane by lane.</li>
-<li><strong>Delta codecs</strong> (32 to 35) code groups of 128 samples on the bit-pack primitive the event time codec uses (<code>ww_tape::bitpack</code>). Per lane, a group holds the first value, the minimum difference and a width, then the differences minus that minimum at that width, so a ramp or a constant costs no bits per sample.</li>
+<li><strong>Delta codecs</strong> (32, 33) code groups of 128 samples on the bit-pack primitive the event time codec uses (<code>ww_tape::bitpack</code>). Per lane, a group holds the first value, the minimum difference and a width, then the differences minus that minimum at that width, so a ramp or a constant costs no bits per sample.</li>
 <li><strong>ALP</strong> (26) follows ALP (Afroozeh, Kuffó and Boncz, SIGMOD 2024) in groups of 128 samples. Floats that began as decimals (a reading times 0.1, a price, a value printed and parsed back) are stored as integers: per group and lane one exponent <code>e</code> and factor <code>f</code>, each value <code>d</code> such that <code>d × 10^f × 10^-e</code> gives its bits back exactly, the <code>d</code>s minus their minimum bit-packed. Values that don't come back bit for bit (NaN payloads, <code>-0.0</code>, infinities, more digits) are kept whole as exceptions inside the group. Other floats take ALP's second scheme, <code>rd</code>: up to 16 front bits through a dictionary of up to 8 entries, the rest bit-packed without the low zero bits the group shares. The encoder keeps per group the smallest form, so a group never grows by more than 7 bytes over raw; the layout is in the <code>ww_tape::samples::alp</code> docs.</li>
 <li><strong>Groups.</strong> The grouped codecs start the column with a table of where each group ends, and every group restarts its prediction. A range decodes from its group's start, and damage costs only the groups it touches: <code>Samples::group_bytes</code> names a group's bytes, to check against <code>Chunk::range_damaged</code>.</li>
 </ul>
-<p>For data a device controls, fixed-point numbers are the default (an exact_units <code>Fixed</code> in an integer column with <code>DELTA</code>, see <a href="../../serdes/series/">series</a>): they take the fewest bits and decode fastest. The float codecs are for float sources nobody controls. The codec id is stored per chunk, so a writer may try several on a chunk and keep the smallest.</p>
+<p>For data a device controls, fixed-point numbers are the default (an exact_units <code>Fixed</code> in an integer column with <code>DELTA</code>, see <a href="../../serdes/series/">series</a>): they take the fewest bits and decode fastest. ALP, the one float codec, is for float sources nobody controls. Ids 24, 25, 34 and 35 are reserved; <code>ww_tape_benchmarks</code> keeps Gorilla, Chimp and delta on ordered float bits as bench-only codecs to compare against. The codec id is stored per chunk, so a writer may try several on a chunk and keep the smallest.</p>
 <p><code>just bench-sample-codecs</code> measures every float codec on four kinds of data, each next to the same quantity stored as fixed-point integers with <code>DELTA</code> (first row of each set). Ratio is to the raw floats, in chunks of 4096 samples; times are per value on one core (AMD Ryzen AI 9 HX 370, AVX-512 kernels):</p>
 <ul>
 <li><strong>motor_sim</strong>: every variable of <code>motor_sim</code>'s VESC preset (github.com/vhrdtech/motor_sim at 35eab07, the commit <code>Cargo.lock</code> names) for 1 s at 25 kHz, driven from its rotor angle with a fan load, as <code>f32</code> and as <code>f64</code> (its <code>f32</code> variables widened). Fixed point: <code>i32</code> at the finest power-of-ten step that keeps 24 bits at each variable's peak.</li>

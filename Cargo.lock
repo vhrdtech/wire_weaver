@@ -4879,8 +4879,6 @@ dependencies = [
  "wire_weaver_client",
  "wire_weaver_core",
  "ww_client_server",
- "ww_indication",
- "ww_si",
 ]
 
 [[package]]
@@ -4888,7 +4886,6 @@ name = "shared_sub_level_api"
 version = "0.1.0"
 dependencies = [
  "wire_weaver",
- "ww_indication",
 ]
 
 [[package]]

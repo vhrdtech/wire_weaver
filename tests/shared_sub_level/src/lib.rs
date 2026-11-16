@@ -1,5 +1,5 @@
 //! One sub-level client for a trait two lines share (CLT-68). `shared_sub_level_api` has line 1 (w1.1) and line 2
-//! (w2.1) in one crate; both reach `common::Channel` and `ww_indication::Indication`, at other places: the channel on
+//! (w2.1) in one crate; both reach `common::Channel` and `common::Indication`, at other places: the channel on
 //! line 1's root, under `probe` and as the `aux[]` array on line 2. `ChannelClient` and `IndicationClient` are
 //! generated once (`client = "sub_level"`), and each line's client returns them (`sub_levels = [..]`), so code over
 //! a channel or the indication is written once for both lines. The calls still go by path, through the line's own
@@ -12,7 +12,7 @@ mod tests {
     use wire_weaver::prelude::*;
     use wire_weaver::ww_version::{ApiHash, ApiHashPair, WireVersion};
     use wire_weaver_client::{ClientConfig, Commander, Error, WwClient};
-    use ww_indication::Mode;
+    use shared_sub_level_api::common::Mode;
 
     /// The shared clients, generated once: one `ww_codegen!` per module, as for any client.
     mod channel_client {
@@ -23,7 +23,7 @@ mod tests {
     }
     mod indication_client {
         wire_weaver::ww_codegen!(
-            ww_indication :: Indication for IndicationClient,
+            shared_sub_level_api :: common :: Indication for IndicationClient,
             client = "sub_level",
         );
     }
@@ -83,7 +83,6 @@ mod tests {
                 server = true, no_alloc = true, use_async = false,
                 method_model = "_=immediate",
                 property_model = "_=get_set",
-                omit = ["indication.brightness", "indication.identify", "indication.NAMES"],
             );
         }
 
@@ -176,7 +175,6 @@ mod tests {
                 server = true, no_alloc = true, use_async = false,
                 method_model = "_=immediate",
                 property_model = "_=get_set",
-                omit = ["indication.brightness", "indication.identify", "indication.NAMES"],
             );
         }
 
@@ -219,7 +217,7 @@ mod tests {
                 client = "std_client",
                 sub_levels = [
                     shared_sub_level_api::common::Channel => crate::tests::ChannelClient,
-                    ww_indication::Indication => crate::tests::IndicationClient,
+                    shared_sub_level_api::common::Indication => crate::tests::IndicationClient,
                 ],
             );
         }
@@ -249,7 +247,7 @@ mod tests {
                 client = "std_client",
                 sub_levels = [
                     shared_sub_level_api::common::Channel => crate::tests::ChannelClient,
-                    ww_indication::Indication => crate::tests::IndicationClient,
+                    shared_sub_level_api::common::Indication => crate::tests::IndicationClient,
                 ],
             );
         }

@@ -7,15 +7,14 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
-# Two wire lines in one crate (EVO-37) sharing a sub-trait of their own and a ww_stdlib one (CLT-68)
+# Two wire lines in one crate (EVO-37) sharing two sub-traits of their own (CLT-68)
 [package.metadata.wire_weaver.roots]
 "wire_v1::Thermo" = "w1.1"
 "wire_v2::Thermo" = "w2.1"
 
 [features]
 default = ["std"]
-std = ["wire_weaver/std", "ww_indication/std"]
+std = ["wire_weaver/std"]
 
 [dependencies]
 wire_weaver.workspace = true
-ww_indication.workspace = true

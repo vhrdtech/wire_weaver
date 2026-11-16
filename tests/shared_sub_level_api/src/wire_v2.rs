@@ -8,7 +8,7 @@ pub trait Thermo {
     fn read_once(average: u8) -> Code;
     ww_impl!(probe: Probe);
     ww_impl!(aux[]: super::common::Channel);
-    ww_impl!(indication: ww_indication::Indication);
+    ww_impl!(indication: super::common::Indication);
 }
 
 /// The probe, which has the channel now.

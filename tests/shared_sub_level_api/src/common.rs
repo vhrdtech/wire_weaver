@@ -14,3 +14,21 @@ pub trait Channel {
     #[since = "w1.1, w2.1"]
     fn reset();
 }
+
+/// Stands in for a real indication trait (R7): reached at the same place on both lines, unlike [Channel].
+#[ww_trait]
+pub trait Indication {
+    property!(rw mode: Mode);
+}
+
+/// A device indication mode, see [Indication::mode].
+#[derive_shrink_wrap(
+    borrowed,
+    owned,
+    derive(Debug, Clone, Copy, PartialEq, Eq),
+    ww_repr = nib
+)]
+pub enum Mode {
+    AllOff,
+    Normal,
+}

@@ -7,5 +7,5 @@ use wire_weaver::prelude::*;
 pub trait Thermo {
     fn read_once() -> Code;
     ww_impl!(channel: super::common::Channel);
-    ww_impl!(indication: ww_indication::Indication);
+    ww_impl!(indication: super::common::Indication);
 }

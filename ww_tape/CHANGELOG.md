@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### 🚀 Features
+
+- `SeriesSummaries::push` keeps every statistic in one pass, integers up to 32 bits through AVX-512, AVX2 or portable kernels (STD-133).
+
 ### ⚠️ Breaking
 
 - `bitpack::read`, `pack`, `unpack_u32[_with]`, `unpack_u64` and `decode_line[_with]` are gone: use `bitpack::Width`'s methods (STD-131).

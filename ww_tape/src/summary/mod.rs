@@ -73,6 +73,8 @@ use crate::bytes::{
 };
 use crate::{BlockKind, BoundError, CRC_LEN, HEADER_LEN, MAX_BLOCK_LEN, SeriesError};
 
+#[cfg(feature = "std")]
+mod kernel;
 mod series;
 use crate::Element;
 #[cfg(feature = "alloc")]

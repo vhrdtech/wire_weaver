@@ -104,6 +104,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - Client of a keyed array (CLT-72): `flow_by(&key)` through a key cache per keyed array. See the `wire_weaver_core` and `wire_weaver_client` changelogs.
 - `ww_tape` track identity by name path (STD-125): `track_key` over names, indices and keys, `TrackDef.keys`. See the `ww_tape` and `ww_tap` changelogs.
 - The borrowed derive no longer pads an empty `RefVec<u8>` field to a byte (SW-81): such a value read back corrupt or failed. See the `shrink_wrap` changelog.
+- `ww_tape` series summaries in one pass with typed kernels (STD-133), integers up to 32 bits 5 to 11x faster; `just bench-summaries` measures them. See the `ww_tape` changelog.
 
 ### Added
 

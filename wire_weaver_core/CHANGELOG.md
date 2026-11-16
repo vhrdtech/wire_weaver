@@ -1,5 +1,9 @@
 ## Unreleased
 
+### ⚙️ Miscellaneous Tasks
+
+- Generated servers after STD-16 cost 444 B more flash at `fw-z` sync (the floor, the common error event's writer) and 41 B more per property, nothing more per call or stream; numbers in the `ww_client_server` changelog.
+
 ### ⚠️ Breaking
 
 - Server codegen on the new handler signatures (STD-16, SRV-63): `Result<T, wire_weaver::Error<'_, E>>`, `Result<T, CommonError<'_>>` for plain items, deferred `_send_return(out, reply_to, output)`; a stream function may return plain `T`; `#[errors(..)]` takes `CommonError(Busy, ..)` entries on any item, its own names only with an error type; `Result<T, CommonError>` and a property error type `CommonError` are refused; `ww api scaffold` prints the new signatures.

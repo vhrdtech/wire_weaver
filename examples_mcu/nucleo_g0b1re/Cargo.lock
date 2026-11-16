@@ -445,6 +445,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "252afb9ae5eaa683babdc6a068b3f5726eb19e05070c731f9b2a23a7c3e8ed34"
 
 [[package]]
+name = "elsa"
+version = "1.11.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9abf33c656a7256451ebb7d0082c5a471820c31269e49d807c538c252352186e"
+dependencies = [
+ "stable_deref_trait",
+]
+
+[[package]]
 name = "embassy-embedded-hal"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1883,10 +1892,10 @@ dependencies = [
  "shrink_wrap",
  "syn 3.0.3",
  "toml",
- "wire_weaver_snapshots",
  "ww_global",
  "ww_numeric",
  "ww_self",
+ "ww_snapshots",
  "ww_version",
 ]
 
@@ -1905,15 +1914,6 @@ dependencies = [
  "syn 3.0.3",
  "wire_weaver_core",
  "ww_global",
-]
-
-[[package]]
-name = "wire_weaver_snapshots"
-version = "0.5.0"
-dependencies = [
- "ron",
- "ww_self",
- "ww_version",
 ]
 
 [[package]]
@@ -2066,6 +2066,21 @@ dependencies = [
  "exact_units",
  "shrink_wrap",
  "ww_numeric",
+]
+
+[[package]]
+name = "ww_snapshots"
+version = "0.5.0"
+dependencies = [
+ "anyhow",
+ "elsa",
+ "ron",
+ "semver 1.0.28",
+ "serde",
+ "toml",
+ "tracing",
+ "ww_self",
+ "ww_version",
 ]
 
 [[package]]

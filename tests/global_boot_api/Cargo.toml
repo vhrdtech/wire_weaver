@@ -1,0 +1,16 @@
+[package]
+name = "global_boot_api"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Test traits of CLT-10/API-20/SRV-53 (global trait paths): used by tests/cross_version instead of a ww_stdlib crate, one implemented (Boot), one never implemented (Missing)."
+
+[features]
+default = ["std"]
+std = ["wire_weaver/std"]
+
+[dependencies]
+wire_weaver.workspace = true

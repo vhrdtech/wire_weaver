@@ -1,7 +1,7 @@
 //! Cross-version calls (API-20, CLT-10): a device running an old version of its API (`cross_version_old_api`,
 //! reported as `cross_version_api` 0.3.0) is rebooted by a host built against the new version 0.4.0. The new
 //! generated client can't connect (the user API check refuses it), but a `traits_only` connection can, and its
-//! `ww_dfu::BootControl` calls reach the trait through a global trait path, wherever the old API put it.
+//! `global_boot_api::Boot` calls reach the trait through a global trait path, wherever the old API put it.
 //!
 //! The trait clients send `GlobalCompact` paths (the trait's `ww_global` id): served like `GlobalFull`, and a
 //! device built before the trait had an id (it answers `TraitNotFound` to every compact path) is asked again with
@@ -15,9 +15,9 @@ mod tests {
     use std::sync::{Arc, RwLock};
     use wire_weaver::prelude::*;
     use wire_weaver::ww_version::{CompactVersion, FullVersion, GlobalTypeId, Version};
-    use wire_weaver_client::{Attachment, CallError, Commander, DynClient, Error};
+    use global_boot_api::{BootState, BootTarget};
+    use wire_weaver_client::{Attachment, Commander, DynClient, Error};
     use ww_client_server::ErrorKindOwned;
-    use ww_dfu::{BootState, BootTarget};
 
     /// `#[ww_api_root(wire = ..)]` (EVO-24): each version of the API has its wire version as a const next to its
     /// full version, on different lines here since the tree changed shape.
@@ -89,22 +89,22 @@ mod tests {
             pub(super) fn device_boot_confirm(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> RpcResult<Result<(), ww_dfu::Error>> {
+            ) -> RpcResult<Result<(), global_boot_api::Error>> {
                 RpcResult::Ready(Ok(()))
             }
 
             pub(super) fn device_boot_revert(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> RpcResult<Result<(), ww_dfu::Error>> {
-                RpcResult::Ready(Err(ww_dfu::Error::Unsupported))
+            ) -> RpcResult<Result<(), global_boot_api::Error>> {
+                RpcResult::Ready(Err(global_boot_api::Error::Unsupported))
             }
 
             pub(super) fn device_boot_reboot(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 into: BootTarget,
-            ) -> RpcResult<Result<(), ww_dfu::Error>> {
+            ) -> RpcResult<Result<(), global_boot_api::Error>> {
                 self.calls.write().unwrap().rebooted_into = Some(into);
                 RpcResult::Ready(Ok(()))
             }
@@ -246,14 +246,14 @@ mod tests {
         }
     }
 
-    /// Generic `ww_dfu::BootControl` client, knows nothing about the device's API.
+    /// Generic `global_boot_api::Boot` client, knows nothing about the device's API.
     struct BootControl {
         cmd: Commander,
     }
 
     impl BootControl {
         fn new(attachment: Attachment) -> Self {
-            assert_eq!(attachment.trait_name(), "BootControl");
+            assert_eq!(attachment.trait_name(), "Boot");
             Self {
                 cmd: attachment.cmd_tx_take(),
             }
@@ -263,14 +263,14 @@ mod tests {
     mod boot_control_client {
         use super::*;
         wire_weaver::ww_codegen!(
-            ww_dfu :: BootControl for BootControl,
+            global_boot_api :: Boot for BootControl,
             client = "trait_client",
             no_alloc = false,
             use_async = true,
         );
     }
 
-    /// `ww_dfu::Inventory` client: the old device doesn't implement it.
+    /// `global_boot_api::Missing` client: the old device doesn't implement it.
     struct Inventory {
         cmd: Commander,
     }
@@ -278,7 +278,7 @@ mod tests {
     mod inventory_client {
         use super::*;
         wire_weaver::ww_codegen!(
-            ww_dfu :: Inventory for Inventory,
+            global_boot_api :: Missing for Inventory,
             client = "trait_client",
             no_alloc = false,
             use_async = true,
@@ -364,7 +364,7 @@ mod tests {
         );
 
         let boot = BootControl::new(
-            client.global_attachment(ww_dfu::BOOT_CONTROL_FULL_GID, "BootControl"),
+            client.global_attachment(global_boot_api::BOOT_FULL_GID, "Boot"),
         );
         let state = boot.boot_state().call().await.unwrap();
         assert_eq!(state, BootState::Confirmed);
@@ -382,9 +382,9 @@ mod tests {
         let inventory = Inventory {
             cmd: client.cmd().clone(),
         };
-        let r = inventory.manifest_digest(ww_dfu::Slot::Active).call().await;
+        let r = inventory.ping().call().await;
         assert!(
-            matches!(&r, Err(CallError::Client(Error::RemoteError(e))) if matches!(e.kind, ErrorKindOwned::TraitNotFound)),
+            matches!(&r, Err(Error::RemoteError(e)) if matches!(e.kind, ErrorKindOwned::TraitNotFound)),
             "{r:?}"
         );
     }
@@ -393,15 +393,15 @@ mod tests {
     async fn incompatible_trait_version_not_found() {
         let (_calls, device) = start_old_device("cross_version/trait_version");
         let client = connect_traits_only(&device).await;
-        // a ww_dfu 0.2 host: same trait, a version the device doesn't have
-        let gid = FullVersion::new("ww_dfu", Version::new(0, 2, 0));
+        // a global_boot_api 0.2 host: same trait, a version the device doesn't have
+        let gid = FullVersion::new("global_boot_api", Version::new(0, 2, 0));
         let path = ww_client_server::resource_path([0]); // boot_state
         let r = client
             .cmd()
             .prepare_call::<BootState, Error>(
-                ww_client_server::PathKind::global(gid, None, "BootControl", &path),
+                ww_client_server::PathKind::global(gid, None, "Boot", &path),
                 Ok(vec![]),
-                "BootControl::boot_state",
+                "Boot::boot_state",
             )
             .call()
             .await;
@@ -445,13 +445,13 @@ mod tests {
     async fn compact_trait_path_served() {
         let (calls, device) = start_old_device("cross_version/compact");
         let client = connect_traits_only(&device).await;
-        let id = ww_dfu::BOOT_CONTROL_COMPACT_GID
+        let id = global_boot_api::BOOT_COMPACT_GID
             .expect("BootControl has a ww_global id")
             .gid
             .id
             .0;
         let boot = BootControl::new(
-            client.global_attachment(ww_dfu::BOOT_CONTROL_FULL_GID, "BootControl"),
+            client.global_attachment(global_boot_api::BOOT_FULL_GID, "Boot"),
         );
         assert_eq!(
             boot.boot_state().call().await.unwrap(),
@@ -472,7 +472,7 @@ mod tests {
     async fn compact_trait_path_not_found() {
         let (calls, device) = start_old_device("cross_version/compact_not_found");
         let client = connect_traits_only(&device).await;
-        let boot = ww_dfu::BOOT_CONTROL_COMPACT_GID.unwrap();
+        let boot = global_boot_api::BOOT_COMPACT_GID.unwrap();
         let call = |gid: CompactVersion| {
             let path = ww_client_server::resource_path([0]); // boot_state
             client
@@ -488,7 +488,7 @@ mod tests {
                 .call()
         };
         assert_eq!(call(boot).await.unwrap(), BootState::Confirmed);
-        // an id the registry doesn't have, a crate's id (ww_log), BootControl of an incompatible ww_dfu version
+        // an id the registry doesn't have, a crate's id (ww_log), Boot of an incompatible global_boot_api version
         let unknown = CompactVersion::new(GlobalTypeId::new(4000), 0, 1, 0);
         let crate_id = CompactVersion::new(ww_global::WW_LOG, 0, 1, 0);
         let old_version = CompactVersion::new(boot.gid, 0, 2, 0);
@@ -508,7 +508,7 @@ mod tests {
                 "compact 4000".into(),
                 "compact 0".into(),
                 format!("compact {id}"),
-                "full ww_dfu::BootControl".into(),
+                "full global_boot_api::Boot".into(),
             ]
         );
     }
@@ -517,9 +517,9 @@ mod tests {
     async fn device_without_compact_ids_asked_again_with_full_path() {
         let (calls, device) = start_device("cross_version/pre_compact", true);
         let client = connect_traits_only(&device).await;
-        let id = ww_dfu::BOOT_CONTROL_COMPACT_GID.unwrap().gid.id.0;
+        let id = global_boot_api::BOOT_COMPACT_GID.unwrap().gid.id.0;
         let boot = BootControl::new(
-            client.global_attachment(ww_dfu::BOOT_CONTROL_FULL_GID, "BootControl"),
+            client.global_attachment(global_boot_api::BOOT_FULL_GID, "Boot"),
         );
         assert_eq!(
             boot.boot_state().call().await.unwrap(),
@@ -535,20 +535,20 @@ mod tests {
             paths(&calls),
             [
                 format!("compact {id}"),
-                "full ww_dfu::BootControl".into(),
-                "full ww_dfu::BootControl".into(),
+                "full global_boot_api::Boot".into(),
+                "full global_boot_api::Boot".into(),
             ]
         );
         // a new connection tries the compact path again
         client.cmd().disconnect().asynch().await.unwrap();
         let client = connect_traits_only(&device).await;
         let boot = BootControl::new(
-            client.global_attachment(ww_dfu::BOOT_CONTROL_FULL_GID, "BootControl"),
+            client.global_attachment(global_boot_api::BOOT_FULL_GID, "Boot"),
         );
         boot.boot_state().call().await.unwrap();
         assert_eq!(
             paths(&calls)[3..],
-            [format!("compact {id}"), "full ww_dfu::BootControl".into()]
+            [format!("compact {id}"), "full global_boot_api::Boot".into()]
         );
     }
 
@@ -556,9 +556,9 @@ mod tests {
     async fn global_path_resolved_from_introspection_after_trait_not_found() {
         let (calls, device) = start_introspecting_device("cross_version/srv53_traits_only");
         let client = connect_traits_only(&device).await;
-        let id = ww_dfu::BOOT_CONTROL_COMPACT_GID.unwrap().gid.id.0;
+        let id = global_boot_api::BOOT_COMPACT_GID.unwrap().gid.id.0;
         let boot = BootControl::new(
-            client.global_attachment(ww_dfu::BOOT_CONTROL_FULL_GID, "BootControl"),
+            client.global_attachment(global_boot_api::BOOT_FULL_GID, "Boot"),
         );
         assert_eq!(
             boot.boot_state().call().await.unwrap(),
@@ -575,7 +575,7 @@ mod tests {
             paths(&calls),
             [
                 format!("compact {id}"),
-                "full ww_dfu::BootControl".into(),
+                "full global_boot_api::Boot".into(),
                 "absolute".into(),
                 "absolute".into(),
             ]
@@ -595,7 +595,7 @@ mod tests {
         .await
         .expect("connect");
         let boot = BootControl::new(
-            client.global_attachment(ww_dfu::BOOT_CONTROL_FULL_GID, "BootControl"),
+            client.global_attachment(global_boot_api::BOOT_FULL_GID, "Boot"),
         );
         assert_eq!(
             boot.boot_state().call().await.unwrap(),
@@ -611,16 +611,16 @@ mod tests {
         let inventory = Inventory {
             cmd: client.cmd().clone(),
         };
-        let r = inventory.manifest_digest(ww_dfu::Slot::Active).call().await;
+        let r = inventory.ping().call().await;
         assert!(
-            matches!(&r, Err(CallError::Client(Error::RemoteError(e))) if matches!(e.kind, ErrorKindOwned::TraitNotFound)),
+            matches!(&r, Err(Error::RemoteError(e)) if matches!(e.kind, ErrorKindOwned::TraitNotFound)),
             "{r:?}"
         );
         // asked once by id and once by name, the introspection data has no such trait either
-        let id = ww_global::trait_id("ww_dfu", "Inventory").unwrap().id.0;
+        let id = ww_global::trait_id("global_boot_api", "Missing").unwrap().id.0;
         assert_eq!(
             paths(&calls),
-            [format!("compact {id}"), "full ww_dfu::Inventory".into()]
+            [format!("compact {id}"), "full global_boot_api::Missing".into()]
         );
     }
 }

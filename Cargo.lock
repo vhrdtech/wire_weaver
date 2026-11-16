@@ -1149,31 +1149,30 @@ version = "0.1.0"
 dependencies = [
  "cross_version_api",
  "cross_version_old_api",
+ "global_boot_api",
  "tests_common",
  "tokio",
  "tracing-subscriber",
  "wire_weaver",
  "wire_weaver_client",
  "ww_client_server",
- "ww_dfu",
  "ww_global",
- "ww_si",
 ]
 
 [[package]]
 name = "cross_version_api"
 version = "0.4.0"
 dependencies = [
+ "global_boot_api",
  "wire_weaver",
- "ww_dfu",
 ]
 
 [[package]]
 name = "cross_version_old_api"
 version = "0.3.0"
 dependencies = [
+ "global_boot_api",
  "wire_weaver",
- "ww_dfu",
 ]
 
 [[package]]
@@ -2132,6 +2131,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "follow_reboot_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+]
+
+[[package]]
 name = "funty"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2319,6 +2325,13 @@ name = "glob"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e4eba85ea1d0a966a983acd07deee566e67395d2d96b6fb39e62b5a833f1eb0b"
+
+[[package]]
+name = "global_boot_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+]
 
 [[package]]
 name = "global_ids"

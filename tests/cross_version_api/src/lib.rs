@@ -14,7 +14,13 @@ pub trait CrossVersion {
 /// Everything about the unit that is not an interface
 #[ww_trait]
 pub trait Device {
-    ww_impl!(update: ww_dfu::UpdateNode);
-    ww_impl!(boot: ww_dfu::BootControl);
+    ww_impl!(update: Node);
+    ww_impl!(boot: global_boot_api::Boot);
     fn uptime_ms() -> u64;
+}
+
+/// Stands in for a real update-identity trait: only its presence (and so the API's shape) matters here.
+#[ww_trait]
+pub trait Node {
+    fn node() -> u8;
 }

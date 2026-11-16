@@ -54,7 +54,9 @@
     { "id": 130, "trait": "ww_signal_generator::WaveformChannel" },
     { "id": 136, "trait": "ww_pin_diag::PinDiag" },
     { "id": 512, "crate": "wire_weaver_usb_link" },
-    { "id": 513, "crate": "ww_client_server" }
+    { "id": 513, "crate": "ww_client_server" },
+    { "id": 514, "trait": "global_boot_api::Boot" },
+    { "id": 515, "trait": "global_boot_api::Missing" }
   ],
   "no_id": []
 }

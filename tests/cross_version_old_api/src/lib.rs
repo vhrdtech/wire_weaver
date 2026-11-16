@@ -19,5 +19,5 @@ pub trait CrossVersion {
 #[ww_trait]
 pub trait Device {
     fn uptime_s() -> u32;
-    ww_impl!(boot: ww_dfu::BootControl);
+    ww_impl!(boot: global_boot_api::Boot);
 }

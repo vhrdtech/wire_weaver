@@ -22,8 +22,8 @@ use wire_weaver::prelude::*;
 use wire_weaver::shrink_wrap::SerializeShrinkWrap;
 use ww_tape::{
     Block, BlockId, BlockKind, BlockState, BlockWriter, ClockDef, ClockMap, ClockOrigin, ClockTime,
-    Describe, DescribeSet, FullVersion, Magnitude, MapSegment, Producer, RunTag, Segment, Sticky,
-    TrackDef, Version,
+    Describe, DescribeSet, FullVersion, Magnitude, MapSegment, Producer, Segment, SessionTag,
+    Sticky, TrackDef, Version,
 };
 
 use crate::{Dir, Frame, LinkEvent, Message, Session, Tap, ids};
@@ -213,7 +213,7 @@ struct LinkState {
 struct State {
     pool: Vec<Arc<ChunkBuf>>,
     current: Option<Current>,
-    /// Run and seq of the next block: a random run per recorder
+    /// Session and seq of the next block: a random session per recorder
     next: BlockId,
     links: Vec<LinkState>,
     bundles: Vec<(Vec<u8>, Vec<u8>)>,
@@ -323,7 +323,7 @@ impl Recorder {
             state: Mutex::new(State {
                 pool: Vec::new(),
                 current: None,
-                next: BlockId::new(RunTag::random(), 0),
+                next: BlockId::new(SessionTag::random(), 0),
                 links: Vec::new(),
                 bundles: Vec::new(),
                 sinks: Vec::new(),
@@ -625,11 +625,11 @@ impl Inner {
         let api_root = ww_tape::api_root_id(api.crate_id);
         add(&Describe::Clock(ClockDef {
             number: UNib32(HOST_CLOCK),
-            // a run of the recorder is a clock of its own
+            // a session of the recorder is a clock of its own
             key: ww_tape::clock_key(api_root, &[], st.wall_ns_at_zero),
             rate: Magnitude::pow10(9).into(),
             resolution: Magnitude::pow10(-9).into(),
-            origin: ClockOrigin::RunStart,
+            origin: ClockOrigin::SessionStart,
             label: "tap",
         }));
         add(&Describe::Clock(ClockDef {

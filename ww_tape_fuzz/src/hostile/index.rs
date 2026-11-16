@@ -2,7 +2,9 @@
 //! length and entries; a finish's offsets and track ranges; a piece head's tracks; a tail's piece length and finish
 //! offset.
 
-use super::{Draw, Field, HEADER_FIELDS, LEN_FIELD, RUN, crc32c, get, hit, hit_some, seal, span};
+use super::{
+    Draw, Field, HEADER_FIELDS, LEN_FIELD, SESSION, crc32c, get, hit, hit_some, seal, span,
+};
 use ww_tape::index::{
     CHECKPOINT_ENTRIES_MAX, ENTRY_LEN, INDEX_LEN_MAX, IndexEntry, IndexHead, IndexKind, TRACK_LEN,
     index_len, track_count, write_index,
@@ -11,7 +13,7 @@ use ww_tape::piece::{
     ContentHash, Finish, FinishState, PieceHead, PieceId, PieceIdent, ResultId, TAIL_LEN, Tail,
     TrackRange, TrackStart, finish_len, piece_head_len, write_finish, write_piece_head,
 };
-use ww_tape::{BlockId, BlockKind, MAX_BLOCK_LEN, RunTag};
+use ww_tape::{BlockId, BlockKind, MAX_BLOCK_LEN, SessionTag};
 
 /// Where an index block's directory starts.
 const DIRECTORY: usize = 60;
@@ -243,7 +245,7 @@ pub(crate) fn piece_head_block(d: &mut Draw<'_>, id: BlockId) -> Vec<u8> {
         prev: d
             .bool()
             .then(|| (ContentHash([d.u8(); 32]), PieceId([d.u8() | 1; 16]))),
-        prev_run: RunTag::from_u32(d.u32()),
+        prev_session: SessionTag::from_u32(d.u32()),
     };
     let mut buf = vec![0u8; piece_head_len(tracks.len())];
     let n = write_piece_head(&mut buf, id, &head, &tracks).expect("a valid piece head");
@@ -286,7 +288,7 @@ pub(crate) const TAIL_FIELDS: [Field<'static>; 5] = [
 /// tracks take hostile values.
 pub fn index(data: &[u8]) -> Vec<u8> {
     let mut d = Draw::new(data);
-    let id = BlockId::new(RUN, u64::from(d.u8()));
+    let id = BlockId::new(SESSION, u64::from(d.u8()));
     match d.u8() % 6 {
         0 => {
             let mut b = finish_block(&mut d, id, [Some(0), Some(64), None], ContentHash([7; 32]));

@@ -31,10 +31,10 @@ pub use series::series;
 pub use summary::summary;
 pub use times::times;
 
-use ww_tape::{BlockId, BlockKind, BlockWriter, ClockTime, RunTag};
+use ww_tape::{BlockId, BlockKind, BlockWriter, ClockTime, SessionTag};
 
-/// The run every hostile block is written in.
-pub(crate) const RUN: RunTag = RunTag::writable(0x5eed);
+/// The session every hostile block is written in.
+pub(crate) const SESSION: SessionTag = SessionTag::writable(0x5eed);
 
 const CRC: crc::Crc<u32> = crc::Crc::<u32>::new(&crc::CRC_32_ISCSI);
 
@@ -201,7 +201,7 @@ pub(crate) fn hit_some(d: &mut Draw<'_>, b: &mut [u8], fields: &[Field<'_>]) {
     }
 }
 
-/// The header fields every block has, but the magic and the length: version, kind, flags, count, seq, run.
+/// The header fields every block has, but the magic and the length: version, kind, flags, count, seq, session.
 pub(crate) const HEADER_FIELDS: [Field<'static>; 6] = [
     Field::new(4, 1, &[ww_tape::VERSION as u64]),
     Field::new(5, 1, &[]),

@@ -7,7 +7,7 @@
 //!
 //! ```text
 //! off size field
-//!  24 u32  run tag, as in every block
+//!  24 u32  session tag, as in every block
 //!  28 u32  head CRC: CRC-32C over bytes 0..28, then 32..payload offset
 //!  32 u32  payload offset from the block start (in an aligned file a multiple of the alignment in the file)
 //!  36 u32  track number (TrackDef::number)

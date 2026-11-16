@@ -22,10 +22,10 @@
 //!          reader ignores bits it doesn't know)
 //!   8 u32  len: the whole block, header and CRC included
 //!  12 u32  records in the block
-//!  16 u64  seq: the block number in its run, from 0, +1 per block; a gap is lost blocks. Index, finish, tail and
+//!  16 u64  seq: the block number in its session, from 0, +1 per block; a gap is lost blocks. Index, finish, tail and
 //!          piece head blocks, and describe blocks a writer repeats, carry the seq of the block before them and are
 //!          not counted (index::is_structural)
-//!  24 u32  run tag (RunTag): the same in every block of one writer's unbroken append, never 0 nor FFFFFFFFh
+//!  24 u32  session tag (SessionTag): the same in every block of one writer's unbroken append, never 0 nor FFFFFFFFh
 //!  28 u32  head CRC in chunk and index blocks (their own docs), else 0
 //!  32 ...  body
 //! len-4 u32 crc over bytes 0..len-4
@@ -90,7 +90,7 @@
 //! most [GAP_MAX_MAX] (64 MiB) with at most [GAP_PROBES_MAX] (8192) resume places in it, else the layout record
 //! doesn't decode; a reader reads the first non-blank byte's and each resume place's header one at a time, and checks
 //! at most [GAP_CHECKS_MAX] (4) whole blocks whose header says they go on with the data. On a raw medium ([Medium])
-//! blank space longer than `gap_max` is the end of data; a piece there is one run (`TapeWriter::adopt_block`).
+//! blank space longer than `gap_max` is the end of data; a piece there is one session (`TapeWriter::adopt_block`).
 //!
 //! **Limits.** Every count, length, offset or layout value a reader takes from the bytes is bounded before it sizes
 //! an allocation, a slice or a loop ([FromFile]): by a length already in hand (the block's, a table's) or by one of
@@ -226,8 +226,8 @@ mod event;
 pub use event::{EventRecord, EventRecordError};
 pub mod body;
 pub use body::{BodyCodec, CodeError, code_body, coded_len_max};
-mod run;
-pub use run::{BlockId, Medium, RunTag};
+mod session;
+pub use session::{BlockId, Medium, SessionTag};
 mod varint;
 #[cfg(feature = "alloc")]
 mod walk;
@@ -273,7 +273,7 @@ pub const FLAG_SET_FIRST: u16 = 1 << 2;
 /// Header flag: the last block of a describe set, see [FLAG_SET_FIRST].
 pub const FLAG_SET_LAST: u16 = 1 << 3;
 /// Header flag: every block of a describe set that adds records to the current set instead of being the whole set
-/// (a track added during a run): the records replace those of the same key, the sticky records those of their track,
+/// (a track added during a session): the records replace those of the same key, the sticky records those of their track,
 /// in canonical order over the union. [DescribeSet::write_addition] marks them. A writer's copies carry the whole
 /// current set, additions merged.
 pub const FLAG_SET_ADD: u16 = 1 << 4;
@@ -387,8 +387,8 @@ pub enum Segment<'a> {
     Name(&'a str),
     /// An index into a plain resource array.
     Index(u32),
-    /// The key of an element of a keyed resource array (API-67): the key's shrink_wrap bytes. Two runs that number
-    /// the elements differently give the same key.
+    /// The key of an element of a keyed resource array (API-67): the key's shrink_wrap bytes. Two sessions that
+    /// number the elements differently give the same key.
     Key(&'a [u8]),
 }
 
@@ -811,7 +811,7 @@ pub(crate) fn put_header(
     bytes::put_u32(h, 8, len)?;
     bytes::put_u32(h, 12, count)?;
     bytes::put_u64(h, 16, id.seq)?;
-    bytes::put_u32(h, 24, id.run.get())
+    bytes::put_u32(h, 24, id.session.get())
 }
 
 /// Why a block can't be read.
@@ -842,8 +842,8 @@ pub struct Block<'b> {
     pub version: u8,
     pub kind: BlockKind,
     pub seq: u64,
-    /// The run the block belongs to, as written: a reader decides whether it is the current one.
-    pub run: RunTag,
+    /// The session the block belongs to, as written: a reader decides whether it is the current one.
+    pub session: SessionTag,
     /// Header flags ([FLAG_COPY]); bits this reader doesn't know are kept, not read.
     pub flags: u16,
     pub record_count: u32,
@@ -883,9 +883,9 @@ pub fn block_len(bytes: &[u8]) -> Result<usize, BlockError> {
         .ok_or(BlockError::BadLength(raw))
 }
 
-/// Give the whole, good block `block` the run and seq of `id` and rewrite its CRCs (a chunk or index block's head CRC
-/// too), so a writer that places blocks later than it made them (a summary block filling the gap before an aligned
-/// chunk) keeps seqs ascending in the file and every block in its run.
+/// Give the whole, good block `block` the session and seq of `id` and rewrite its CRCs (a chunk or index block's head
+/// CRC too), so a writer that places blocks later than it made them (a summary block filling the gap before an
+/// aligned chunk) keeps seqs ascending in the file and every block in its session.
 pub fn set_id(block: &mut [u8], id: BlockId) -> Result<(), BlockError> {
     restamp(block, id, 0)
 }
@@ -912,7 +912,7 @@ fn restamp(block: &mut [u8], id: BlockId, set: u16) -> Result<(), BlockError> {
     };
     bytes::put_u16(block, 6, flags).ok_or(short)?;
     bytes::put_u64(block, 16, id.seq).ok_or(short)?;
-    bytes::put_u32(block, 24, id.run.get()).ok_or(short)?;
+    bytes::put_u32(block, 24, id.session.get()).ok_or(short)?;
     if chunk {
         chunk::restamp(block).map_err(BlockError::Chunk)?;
     } else {
@@ -987,7 +987,7 @@ impl<'b> Block<'b> {
             version: self.version,
             kind: self.kind,
             seq: self.seq,
-            run: self.run,
+            session: self.session,
             flags: self.flags,
             record_count: self.record_count,
             bytes: &[],
@@ -1008,7 +1008,7 @@ impl<'b> Block<'b> {
             version: self.version,
             kind: self.kind,
             seq: self.seq,
-            run: self.run,
+            session: self.session,
             flags: self.flags,
             record_count: self.record_count,
             bytes,
@@ -1033,7 +1033,7 @@ impl<'b> Block<'b> {
             record_count: bytes::le_u32(h, 12).ok_or(short)?,
             seq: bytes::le_u64(h, 16).ok_or(short)?,
             flags: bytes::le_u16(h, 6).ok_or(short)?,
-            run: RunTag::from_u32(bytes::le_u32(h, 24).ok_or(short)?),
+            session: SessionTag::from_u32(bytes::le_u32(h, 24).ok_or(short)?),
             bytes: whole,
             covered,
             body,

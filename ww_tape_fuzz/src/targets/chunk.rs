@@ -1,9 +1,10 @@
 //! ww_tape chunk blocks on any bytes, and on chunks built from the input with one byte flipped: reading and salvaging
 //! never panic, a salvaged chunk's head reads back, a byte flipped in the payload of a good chunk costs exactly the
-//! segment it is in, and a block given another run and seq stays good.
+//! segment it is in, and a block given another session and seq stays good.
 use ww_tape::chunk::{chunk_len, write_chunk};
 use ww_tape::{
-    Block, BlockId, BlockKind, ChunkHead, Codec, ColumnKind, ColumnSpec, EndMode, RunTag, set_id,
+    Block, BlockId, BlockKind, ChunkHead, Codec, ColumnKind, ColumnSpec, EndMode, SessionTag,
+    set_id,
 };
 
 /// Look at everything a block read or salvaged from `data` gives.
@@ -27,12 +28,12 @@ pub(crate) fn walk(data: &[u8]) {
     if let Ok(b) = Block::read(data) {
         let mut copy = b.bytes().to_vec();
         let id = BlockId::new(
-            RunTag::from_u32(b.run.get().wrapping_add(1)),
+            SessionTag::from_u32(b.session.get().wrapping_add(1)),
             b.seq.wrapping_add(1),
         );
         set_id(&mut copy, id).expect("a good block renumbers");
         let again = Block::read(&copy).expect("still good");
-        assert_eq!((again.run, again.seq), (id.run, id.seq));
+        assert_eq!((again.session, again.seq), (id.session, id.seq));
     }
 }
 
@@ -89,7 +90,7 @@ pub fn chunk(data: &[u8]) {
     let mut buf = vec![0u8; chunk_len(&specs, 0)];
     let len = write_chunk(
         &mut buf,
-        BlockId::new(RunTag::writable(3), 3),
+        BlockId::new(SessionTag::writable(3), 3),
         &head,
         &cols,
         0,

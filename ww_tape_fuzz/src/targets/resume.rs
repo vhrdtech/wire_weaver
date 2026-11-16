@@ -15,7 +15,7 @@ use ww_tape::reader::Found;
 use ww_tape::{
     ALIGNMENT, BlockId, BlockKind, BlockWriter, ClockDef, ClockOrigin, ClockTime, Codec,
     ColumnKind, ColumnSpec, Describe, DescribeSet, EndMode, Layout, Magnitude, MemSink, Producer,
-    RunTag, SyncPolicy, TapeReader, TapeSink, TapeWriter, WriterOptions, clock_key,
+    SessionTag, SyncPolicy, TapeReader, TapeSink, TapeWriter, WriterOptions, clock_key,
 };
 
 /// Rounds of blocks in a template piece.
@@ -91,7 +91,7 @@ fn template(aligned: bool, head: bool) -> Vec<u8> {
                 seq: 0,
             },
             prev: None,
-            prev_run: RunTag::NONE,
+            prev_session: SessionTag::NONE,
         };
         w.begin_piece(&h, &[]).expect("a head writes");
     }

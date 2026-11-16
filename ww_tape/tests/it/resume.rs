@@ -10,7 +10,7 @@ use ww_tape::index::IndexPolicy;
 use ww_tape::piece::{PieceId, piece_name};
 use ww_tape::{
     ALIGNMENT, BlockKind, ChainOptions, CutPolicy, FileBlocks, Files, Layout, MemSink, MemTapes,
-    PieceChain, PieceHead, PieceIdent, Recovery, ResultId, RunTag, SinkFactory, SyncPolicy,
+    PieceChain, PieceHead, PieceIdent, Recovery, ResultId, SessionTag, SinkFactory, SyncPolicy,
     TapeReader, TapeSink, TapeWriter, WriteError, WriterOptions,
 };
 
@@ -114,7 +114,7 @@ fn head() -> PieceHead {
             seq: 0,
         },
         prev: None,
-        prev_run: RunTag::NONE,
+        prev_session: SessionTag::NONE,
     }
 }
 

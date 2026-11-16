@@ -52,8 +52,8 @@ fn round_trip(b: &Block<'_>) {
         };
         let coded = Block::read(&out[..n]).expect("a coded block reads");
         assert_eq!(
-            (coded.seq, coded.run, coded.record_count),
-            (b.seq, b.run, b.record_count)
+            (coded.seq, coded.session, coded.record_count),
+            (b.seq, b.session, b.record_count)
         );
         let mut plain = Vec::new();
         let decoded = coded.decode(&mut plain).expect("a coded block decodes");

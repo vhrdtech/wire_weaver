@@ -22,12 +22,12 @@ mod reader;
 mod resume;
 mod series;
 
-use ww_tape::{BlockId, RunTag};
+use ww_tape::{BlockId, SessionTag};
 
-/// The run of blocks made by the tests.
-const TEST_RUN: RunTag = RunTag::writable(0x7465_7374);
+/// The session of blocks made by the tests.
+const TEST_SESSION: SessionTag = SessionTag::writable(0x7465_7374);
 
-/// Block `seq` of [TEST_RUN].
+/// Block `seq` of [TEST_SESSION].
 fn id(seq: u64) -> BlockId {
-    BlockId::new(TEST_RUN, seq)
+    BlockId::new(TEST_SESSION, seq)
 }

@@ -1,13 +1,14 @@
-//! Tapes on media: runs, stale blocks of earlier lives, blank and torn stretches the data goes on after.
+//! Tapes on media: sessions, stale blocks of earlier lives, blank and torn stretches the data goes on after.
 
 use ww_tape::piece::{PieceHead, PieceId, PieceIdent, ResultId, piece_head_len, write_piece_head};
 use ww_tape::{
     BlockId, BlockKind, BlockWriter, ClockTime, Cut, Describe, DescribeSet, FileBlocks, FileError,
-    Layout, Medium, OpenOptions, Producer, Recovery, RunTag, SyncPolicy, TapeReader, TapeWriter,
+    Layout, Medium, OpenOptions, Producer, Recovery, SessionTag, SyncPolicy, TapeReader,
+    TapeWriter,
 };
 
-const OLD: RunTag = RunTag::writable(0x0bad_0001);
-const NEW: RunTag = RunTag::writable(0x600d_0002);
+const OLD: SessionTag = SessionTag::writable(0x0bad_0001);
+const NEW: SessionTag = SessionTag::writable(0x600d_0002);
 
 fn records(id: BlockId) -> Vec<u8> {
     let mut buf = [0u8; 256];
@@ -18,30 +19,30 @@ fn records(id: BlockId) -> Vec<u8> {
     buf[..len].to_vec()
 }
 
-fn piece_head(run: RunTag, prev_run: RunTag) -> Vec<u8> {
+fn piece_head(session: SessionTag, prev_session: SessionTag) -> Vec<u8> {
     let mut buf = vec![0u8; piece_head_len(0)];
     let head = PieceHead {
         ident: PieceIdent {
-            id: PieceId([run.get() as u8; 16]),
+            id: PieceId([session.get() as u8; 16]),
             result: ResultId([1; 32]),
             seq: 0,
         },
         prev: None,
-        prev_run,
+        prev_session,
     };
-    let n = write_piece_head(&mut buf, BlockId::new(run, 0), &head, &[]).unwrap();
+    let n = write_piece_head(&mut buf, BlockId::new(session, 0), &head, &[]).unwrap();
     buf.truncate(n);
     buf
 }
 
-/// A run on a medium: its piece head naming `prev_run`, a describe block with `layout`, then `n` records blocks.
-fn run(run: RunTag, prev_run: RunTag, layout: Layout, n: u64) -> Vec<u8> {
-    let mut out = piece_head(run, prev_run);
+/// A session on a medium: its piece head naming `prev_session`, a describe block with `layout`, then `n` records blocks.
+fn session(session: SessionTag, prev_session: SessionTag, layout: Layout, n: u64) -> Vec<u8> {
+    let mut out = piece_head(session, prev_session);
     let mut set = DescribeSet::new();
     set.insert(&Describe::Producer(Producer { name: "media" }))
         .unwrap();
     set.insert(&Describe::Layout(layout)).unwrap();
-    let mut id = BlockId::new(run, 0);
+    let mut id = BlockId::new(session, 0);
     set.write_blocks(&mut id, 4096, &[], |b| out.extend_from_slice(b))
         .unwrap();
     for _ in 0..n {
@@ -51,13 +52,13 @@ fn run(run: RunTag, prev_run: RunTag, layout: Layout, n: u64) -> Vec<u8> {
     out
 }
 
-/// What a walk gives: (run, seq) of each records block, and the errors.
-fn walk(bytes: &[u8], medium: Medium) -> (Vec<(RunTag, u64)>, Vec<FileError>) {
+/// What a walk gives: (session, seq) of each records block, and the errors.
+fn walk(bytes: &[u8], medium: Medium) -> (Vec<(SessionTag, u64)>, Vec<FileError>) {
     let mut rd = FileBlocks::new(bytes).on(medium);
     let (mut got, mut errors) = (vec![], vec![]);
     while let Some(b) = rd.next_block() {
         match b {
-            Ok(b) if b.kind == BlockKind::Records => got.push((b.run, b.seq)),
+            Ok(b) if b.kind == BlockKind::Records => got.push((b.session, b.seq)),
             Ok(_) => {}
             Err(e) => errors.push(e),
         }
@@ -65,18 +66,18 @@ fn walk(bytes: &[u8], medium: Medium) -> (Vec<(RunTag, u64)>, Vec<FileError>) {
     (got, errors)
 }
 
-fn seqs(run: RunTag, seqs: core::ops::Range<u64>) -> Vec<(RunTag, u64)> {
-    seqs.map(|s| (run, s)).collect()
+fn seqs(session: SessionTag, seqs: core::ops::Range<u64>) -> Vec<(SessionTag, u64)> {
+    seqs.map(|s| (session, s)).collect()
 }
 
-/// A card written once to its end, then again from its start by a shorter run: the old blocks behind the new end
-/// of data are never data, whether the new run ends mid-way through an old block or on an old piece head.
+/// A card written once to its end, then again from its start by a shorter session: the old blocks behind the new end
+/// of data are never data, whether the new session ends mid-way through an old block or on an old piece head.
 #[test]
 fn stale_blocks_behind_the_end_are_not_data() {
     let sd = Layout::UNALIGNED.on_sd_card();
-    let old = run(OLD, RunTag::NONE, sd, 200);
-    let new = run(NEW, RunTag::NONE, sd, 20);
-    // the new run overwrote the start of the old one, ending mid-way through an old block
+    let old = session(OLD, SessionTag::NONE, sd, 200);
+    let new = session(NEW, SessionTag::NONE, sd, 20);
+    // the new session overwrote the start of the old one, ending mid-way through an old block
     let mut card = new.clone();
     card.extend_from_slice(&old[new.len() + 13..]);
     let (got, errors) = walk(&card, Medium::Raw);
@@ -85,24 +86,24 @@ fn stale_blocks_behind_the_end_are_not_data() {
         matches!(errors[..], [FileError::Cut { offset, why: Cut::Bad(_) }] if offset == new.len() as u64),
         "{errors:?}"
     );
-    // the old life starts right where the new one ends: its piece head names no run that ended there
+    // the old life starts right where the new one ends: its piece head names no session that ended there
     let card = [new.clone(), old.clone()].concat();
     let (got, errors) = walk(&card, Medium::Raw);
     assert_eq!(got, seqs(NEW, 1..21));
     assert!(
-        matches!(errors[..], [FileError::Cut { offset, why: Cut::Stale { run } }] if offset == new.len() as u64 && run == OLD),
+        matches!(errors[..], [FileError::Cut { offset, why: Cut::Stale { session } }] if offset == new.len() as u64 && session == OLD),
         "{errors:?}"
     );
-    // a file takes any piece head as the start of a run: concatenated pieces
+    // a file takes any piece head as the start of a session: concatenated pieces
     let (got, errors) = walk(&card, Medium::File);
     assert_eq!(got, [seqs(NEW, 1..21), seqs(OLD, 1..201)].concat());
     assert!(errors.is_empty(), "{errors:?}");
-    // on a medium too, a piece head naming the run just ended starts the next run
-    let next = run(OLD, NEW, sd, 3);
+    // on a medium too, a piece head naming the session just ended starts the next session
+    let next = session(OLD, NEW, sd, 3);
     let (got, errors) = walk(&[new.clone(), next].concat(), Medium::Raw);
     assert_eq!(got, [seqs(NEW, 1..21), seqs(OLD, 1..4)].concat());
     assert!(errors.is_empty(), "{errors:?}");
-    // a records block of another run is stale on a file too; the salvage walk reports and skips it
+    // a records block of another session is stale on a file too; the salvage walk reports and skips it
     let file = [
         new.clone(),
         records(BlockId::new(OLD, 99)),
@@ -124,7 +125,7 @@ fn stale_blocks_behind_the_end_are_not_data() {
         match b {
             Ok(b) if b.kind == BlockKind::Records => got.push(b.seq),
             Ok(_) => {}
-            Err(FileError::Stale { run, .. }) if run == OLD => stale += 1,
+            Err(FileError::Stale { session, .. }) if session == OLD => stale += 1,
             Err(e) => panic!("{e}"),
         }
     }
@@ -146,7 +147,7 @@ fn with_stretch(bytes: &[u8], at: usize, stretch: &[u8], align: bool) -> (Vec<u8
     (out, at as u64, len)
 }
 
-/// Where the records block `seq` of a [run] starts.
+/// Where the records block `seq` of a [session] starts.
 fn block_start(bytes: &[u8], seq: u64) -> usize {
     let mut rd = FileBlocks::new(bytes).on(Medium::Raw);
     while let Some(Ok(b)) = rd.next_block() {
@@ -157,13 +158,13 @@ fn block_start(bytes: &[u8], seq: u64) -> usize {
     panic!("no block {seq}");
 }
 
-/// A blank sector (erased or trimmed) followed by the run's next block is a gap, not the end, where the layout
+/// A blank sector (erased or trimmed) followed by the session's next block is a gap, not the end, where the layout
 /// allows gaps; on a file it stays the end.
 #[test]
-fn a_blank_sector_followed_by_the_runs_next_block_is_a_gap() {
+fn a_blank_sector_followed_by_the_sessions_next_block_is_a_gap() {
     let sd = Layout::UNALIGNED.on_sd_card();
     for blank in [0x00u8, 0xFF] {
-        let card = run(NEW, RunTag::NONE, sd, 10);
+        let card = session(NEW, SessionTag::NONE, sd, 10);
         let at = block_start(&card, 5);
         let (card, offset, len) = with_stretch(&card, at, &[blank; 512], false);
         let (got, errors) = walk(&card, Medium::Raw);
@@ -172,7 +173,7 @@ fn a_blank_sector_followed_by_the_runs_next_block_is_a_gap() {
             matches!(errors[..], [FileError::Gap { offset: o, len: l }] if o == offset && l == len),
             "{errors:?}"
         );
-        let file = run(NEW, RunTag::NONE, Layout::UNALIGNED, 10);
+        let file = session(NEW, SessionTag::NONE, Layout::UNALIGNED, 10);
         let (file, offset, _) = with_stretch(&file, block_start(&file, 5), &[blank; 512], false);
         let (got, errors) = walk(&file, Medium::File);
         assert_eq!(got, seqs(NEW, 1..5));
@@ -183,12 +184,12 @@ fn a_blank_sector_followed_by_the_runs_next_block_is_a_gap() {
     }
 }
 
-/// A torn unit (garbage) followed by the run's next block on the next resume boundary is a gap; an older block of
-/// the run there, or one past the gap's reach, is not, and the stretch is the end of data.
+/// A torn unit (garbage) followed by the session's next block on the next resume boundary is a gap; an older block of
+/// the session there, or one past the gap's reach, is not, and the stretch is the end of data.
 #[test]
 fn a_torn_unit_then_the_next_block_on_a_boundary_is_a_gap() {
     let sd = Layout::UNALIGNED.on_sd_card();
-    let card = run(NEW, RunTag::NONE, sd, 10);
+    let card = session(NEW, SessionTag::NONE, sd, 10);
     let at = block_start(&card, 5);
     let (torn, offset, len) = with_stretch(&card, at, &[0x5A; 700], true);
     let (got, errors) = walk(&torn, Medium::Raw);
@@ -197,7 +198,7 @@ fn a_torn_unit_then_the_next_block_on_a_boundary_is_a_gap() {
         matches!(errors[..], [FileError::Gap { offset: o, len: l }] if o == offset && l == len),
         "{errors:?}"
     );
-    // the block on the boundary is an older one of the run: stale, the end of data is the stretch's start
+    // the block on the boundary is an older one of the session: stale, the end of data is the stretch's start
     let mut stale = card[..at].to_vec();
     stale.extend_from_slice(&[0x5A; 300]);
     while !stale.len().is_multiple_of(512) {
@@ -219,18 +220,18 @@ fn a_torn_unit_then_the_next_block_on_a_boundary_is_a_gap() {
     assert!(matches!(errors[..], [FileError::Cut { offset: o, .. }] if o == at as u64));
 }
 
-/// A finished file of run `run` (describe with `layout`, `n` records blocks, final index, finish, tail).
-fn finished(run: RunTag, layout: Layout, n: u64) -> Vec<u8> {
+/// A finished file of session `session` (describe with `layout`, `n` records blocks, final index, finish, tail).
+fn finished(session: SessionTag, layout: Layout, n: u64) -> Vec<u8> {
     let dir = std::env::temp_dir().join(format!(
         "ww_tape_media_{}_{}",
-        run.get(),
+        session.get(),
         std::process::id()
     ));
     _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("old.wwt");
     let mut w = TapeWriter::create(&path, SyncPolicy::None).unwrap();
-    w.set_run(run).unwrap();
+    w.set_session(session).unwrap();
     let mut set = DescribeSet::new();
     set.insert(&Describe::Producer(Producer { name: "media" }))
         .unwrap();
@@ -259,13 +260,13 @@ fn raw() -> OpenOptions {
 }
 
 /// On a raw medium the old life's tail sits at the end; opened as a file it would pass for the newest piece. Opened
-/// as a raw medium, the walk goes forward from the start and ends where the new run ends.
+/// as a raw medium, the walk goes forward from the start and ends where the new session ends.
 #[test]
 fn a_raw_medium_opens_forward_and_never_takes_a_stale_tail() {
     let sd = Layout::UNALIGNED.on_sd_card();
     let old = finished(OLD, sd, 200);
-    let new = run(NEW, RunTag::NONE, sd, 20);
-    // the new run overwrote the start of the old file in place
+    let new = session(NEW, SessionTag::NONE, sd, 20);
+    // the new session overwrote the start of the old file in place
     let mut card = new.clone();
     card.extend_from_slice(&old[new.len()..]);
     let as_file = TapeReader::open(&card[..]).unwrap();
@@ -306,7 +307,7 @@ fn a_raw_medium_opens_forward_and_never_takes_a_stale_tail() {
 #[test]
 fn the_positional_reader_reads_past_a_gap() {
     let sd = Layout::UNALIGNED.on_sd_card();
-    let card = run(NEW, RunTag::NONE, sd, 10);
+    let card = session(NEW, SessionTag::NONE, sd, 10);
     let at = block_start(&card, 5);
     let (card, offset, len) = with_stretch(&card, at, &[0x5A; 700], true);
     let r = TapeReader::open_with(&card[..], raw()).unwrap();
@@ -321,7 +322,7 @@ fn the_positional_reader_reads_past_a_gap() {
 /// positional reader too: the same bytes are dropped, other bytes replace the earlier copy.
 #[test]
 fn a_duplicate_block_is_not_a_cut() {
-    let card = run(NEW, RunTag::NONE, Layout::UNALIGNED, 6);
+    let card = session(NEW, SessionTag::NONE, Layout::UNALIGNED, 6);
     let at = block_start(&card, 4);
     let again = card[block_start(&card, 3)..at].to_vec();
     let dup = [&card[..at], &again, &card[at..]].concat();
@@ -363,7 +364,7 @@ fn a_duplicate_block_is_not_a_cut() {
 #[test]
 fn a_duplicate_after_a_gap_resumes_the_data() {
     let sd = Layout::UNALIGNED.on_sd_card();
-    let card = run(NEW, RunTag::NONE, sd, 10);
+    let card = session(NEW, SessionTag::NONE, sd, 10);
     let (from, at) = (block_start(&card, 3), block_start(&card, 4));
     let other = {
         let mut buf = [0u8; 256];
@@ -470,13 +471,13 @@ impl ww_tape::reader::ByteSource for Counted<'_> {
     }
 }
 
-/// A stretch whose every sector starts with a header of the run's next block, each 1 MiB long by its header but
+/// A stretch whose every sector starts with a header of the session's next block, each 1 MiB long by its header but
 /// none good: a reader reads each header once and checks at most [ww_tape::GAP_CHECKS_MAX] of them whole, then
 /// takes the stretch's start as the end of data.
 #[test]
 fn a_gap_costs_one_header_per_resume_place() {
     let sd = Layout::UNALIGNED.on_sd_card();
-    let card = run(NEW, RunTag::NONE, sd, 6);
+    let card = session(NEW, SessionTag::NONE, sd, 6);
     let mut header = records(BlockId::new(NEW, 100))[..32].to_vec();
     let claimed = 1u32 << 20;
     header[8..12].copy_from_slice(&claimed.to_le_bytes());
@@ -535,7 +536,7 @@ impl std::io::Read for CountedRead<'_> {
 #[test]
 fn erased_space_past_the_gap_ends_a_raw_walk() {
     let sd = Layout::UNALIGNED.on_sd_card();
-    let card = run(NEW, RunTag::NONE, sd, 6);
+    let card = session(NEW, SessionTag::NONE, sd, 6);
     let at = card.len() as u64;
     let mut bytes = card.clone();
     bytes.resize(card.len() + (16 << 20), 0xFF);
@@ -577,23 +578,23 @@ fn erased_space_past_the_gap_ends_a_raw_walk() {
     );
 }
 
-/// On a raw medium a piece whose head describe set is damaged and whose run ends there, with an earlier life's
+/// On a raw medium a piece whose head describe set is damaged and whose session ends there, with an earlier life's
 /// describe set behind it, has no describe set: the stale one is never taken for it.
 #[test]
 fn a_stale_describe_set_is_not_the_pieces() {
-    let set = |run: RunTag| {
+    let set = |session: SessionTag| {
         let mut s = DescribeSet::new();
         s.insert(&Describe::Producer(Producer { name: "media" }))
             .unwrap();
         s.insert(&Describe::Layout(Layout::UNALIGNED)).unwrap();
-        let mut id = BlockId::new(run, 0);
+        let mut id = BlockId::new(session, 0);
         let mut out = vec![];
         s.write_blocks(&mut id, 64, &[], |b| out.push(b.to_vec()))
             .unwrap();
         assert_eq!(out.len(), 2);
         out
     };
-    let mut card = piece_head(NEW, RunTag::NONE);
+    let mut card = piece_head(NEW, SessionTag::NONE);
     let new = set(NEW);
     let damaged_at = card.len() + new[0].len();
     card.extend(new.concat());
@@ -669,15 +670,15 @@ fn a_gap_after_the_newest_checkpoint_is_read_past() {
     );
 }
 
-/// On a raw medium a piece is one run: a producer's blocks of their own run after a writer's piece head read as stale
-/// data, so the piece ends at its head; adopted into the writer's run they read whole, as they do in a file either way.
+/// On a raw medium a piece is one session: a producer's blocks of their own session after a writer's piece head read as stale
+/// data, so the piece ends at its head; adopted into the writer's session they read whole, as they do in a file either way.
 #[test]
-fn a_raw_piece_is_one_run() {
+fn a_raw_piece_is_one_session() {
     let dir = std::env::temp_dir().join(format!("ww_tape_media_adopt_{}", std::process::id()));
     _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
-    // the producer's run: its describe set, then records
-    let producer = run(OLD, RunTag::NONE, Layout::UNALIGNED.on_sd_card(), 10);
+    // the producer's session: its describe set, then records
+    let producer = session(OLD, SessionTag::NONE, Layout::UNALIGNED.on_sd_card(), 10);
     let mut rd = FileBlocks::new(&producer[..]);
     let mut blocks = vec![];
     while let Some(Ok(b)) = rd.next_block() {
@@ -696,7 +697,7 @@ fn a_raw_piece_is_one_run() {
                 seq: 0,
             },
             prev: None,
-            prev_run: RunTag::NONE,
+            prev_session: SessionTag::NONE,
         };
         w.begin_piece(&head, &[]).unwrap();
         for b in &blocks {
@@ -719,7 +720,7 @@ fn a_raw_piece_is_one_run() {
             let head_len = piece_head_len(0) as u64;
             assert!(got.is_empty());
             assert!(
-                matches!(errors[..], [FileError::Cut { offset, why: Cut::Stale { run } }] if offset == head_len && run == OLD),
+                matches!(errors[..], [FileError::Cut { offset, why: Cut::Stale { session } }] if offset == head_len && session == OLD),
                 "{errors:?}"
             );
             assert_eq!(r.pieces()[0].cut, Some(head_len));
@@ -729,7 +730,7 @@ fn a_raw_piece_is_one_run() {
 }
 
 /// Adopting keeps lost blocks visible: two blocks missing from the producer's stream leave a jump of two in the
-/// writer's seqs; a producer restart (another run) leaves none.
+/// writer's seqs; a producer restart (another session) leaves none.
 #[test]
 fn adopting_keeps_lost_blocks_visible() {
     let dir = std::env::temp_dir().join(format!("ww_tape_media_lost_{}", std::process::id()));
@@ -739,7 +740,7 @@ fn adopting_keeps_lost_blocks_visible() {
     for seq in [0, 1, 2, 5, 6] {
         w.adopt_block(&records(BlockId::new(OLD, seq))).unwrap();
     }
-    // the producer restarted: its new run counts from 0 again
+    // the producer restarted: its new session counts from 0 again
     for seq in [0, 1] {
         w.adopt_block(&records(BlockId::new(NEW, seq))).unwrap();
     }

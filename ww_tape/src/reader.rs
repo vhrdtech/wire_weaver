@@ -9,8 +9,8 @@
 //! each. A piece without a tail (being written, or cut off by a crash) is found from its newest checkpoint
 //! [index](crate::index) block, looked for backwards from the end, and the stretch after that checkpoint is scanned;
 //! a piece without any checkpoint is scanned from the start of what is left. Scans stop at the first block that
-//! isn't good or belongs to a run that may not start there, as [Recovery::Prefix](crate::Recovery) does, and say where
-//! ([PieceInfo::cut]); a stretch the run's data goes on after within the layout's gap is read past
+//! isn't good or belongs to a session that may not start there, as [Recovery::Prefix](crate::Recovery) does, and say where
+//! ([PieceInfo::cut]); a stretch the session's data goes on after within the layout's gap is read past
 //! ([PieceInfo::gaps]). A raw medium ([Medium::Raw]) is walked forward from its start or a hint instead
 //! ([OpenOptions::medium]).
 //!
@@ -26,7 +26,7 @@ use crate::piece::{
     ChainReport, Finish, FinishBlock, PieceHead, PieceHeadBlock, PieceSummary, TAIL_LEN, Tail,
     TrackRange, TrackStart, check_chain,
 };
-use crate::walk::{Head, RunState, Verdict, is_free};
+use crate::walk::{Head, SessionState, Verdict, is_free};
 use crate::{
     Block, BlockError, BlockKind, FLAG_SET_ADD, FLAG_SET_FIRST, FLAG_SET_LAST, GAP_CHECKS_MAX,
     HEADER_LEN, Layout, MAGIC, MAX_BLOCK_LEN, Medium, VERSION, block_len,
@@ -220,19 +220,19 @@ pub struct PieceInfo {
     pub tail: Option<Tail>,
     pub found: Found,
     /// Where the bytes stopped being good blocks, when a scan stopped before the end of the piece's stretch: a cut
-    /// last block, damage, something that isn't a block, or a block of another run where no run may start (stale
-    /// data behind the end of data).
+    /// last block, damage, something that isn't a block, or a block of another session where no session may start
+    /// (stale data behind the end of data).
     pub cut: Option<u64>,
-    /// Blank or bad stretches a scan read past, the run's data going on after them within the layout's
+    /// Blank or bad stretches a scan read past, the session's data going on after them within the layout's
     /// [gap](Layout::gap_max): offset and length of each.
     pub gaps: Vec<(u64, u64)>,
-    /// Blocks a scan took in place of the block before them: the same run and seq with other bytes (the later copy
-    /// wins); their offsets. A copy with the same bytes is dropped silently.
+    /// Blocks a scan took in place of the block before them: the same session and seq with other bytes (the later
+    /// copy wins); their offsets. A copy with the same bytes is dropped silently.
     pub replaced: Vec<u64>,
     /// Entries a scan or the checkpoint chain gave, in file order; None for a piece read by its tail
     entries: Option<Vec<IndexEntry>>,
-    /// The walk where a scan was cut: the runs and seqs a block past the cut must go on with
-    cut_walk: Option<RunState>,
+    /// The walk where a scan was cut: the sessions and seqs a block past the cut must go on with
+    cut_walk: Option<SessionState>,
 }
 
 impl PieceInfo {
@@ -361,7 +361,7 @@ impl<S: ByteSource> TapeReader<S> {
             pieces: Vec::new(),
         };
         if options.medium == Medium::Raw {
-            let mut walk = RunState::new(Medium::Raw);
+            let mut walk = SessionState::new(Medium::Raw);
             if let Some(l) = &options.layout {
                 walk.set_layout(l);
             }
@@ -595,7 +595,7 @@ impl<S: ByteSource> TapeReader<S> {
             entries.sort_by_key(|e| e.offset);
         }
         // the stretch after the checkpoint is read with the gap rules the piece's describe blocks state
-        let mut walk = RunState::new(Medium::File);
+        let mut walk = SessionState::new(Medium::File);
         if let Some(layout) = self.layout_of(start, &entries, at)? {
             walk.set_layout(&layout);
         }
@@ -660,16 +660,16 @@ impl<S: ByteSource> TapeReader<S> {
     /// Read blocks one after the other from `from` to `hi` into `piece`, starting a new piece at a piece head and
     /// closing one at a tail; stops at the first block that isn't good.
     fn scan(&self, from: u64, hi: u64, piece: PieceInfo) -> R<Vec<PieceInfo>, S> {
-        self.scan_with(from, hi, piece, RunState::new(Medium::File))
+        self.scan_with(from, hi, piece, SessionState::new(Medium::File))
     }
 
-    /// [Self::scan] keeping to the runs `walk` takes, reading past gaps its layout allows.
+    /// [Self::scan] keeping to the sessions `walk` takes, reading past gaps its layout allows.
     fn scan_with(
         &self,
         from: u64,
         hi: u64,
         mut piece: PieceInfo,
-        mut walk: RunState,
+        mut walk: SessionState,
     ) -> R<Vec<PieceInfo>, S> {
         let mut out = Vec::new();
         let mut at = from;
@@ -780,11 +780,11 @@ impl<S: ByteSource> TapeReader<S> {
         Ok(out)
     }
 
-    /// Where the run's data goes on past the blank or bad stretch at `at` within `walk`'s gap rules: the first
-    /// non-blank byte or a resume boundary holding a block that [resumes](RunState::resumes) the walk; None when
+    /// Where the session's data goes on past the blank or bad stretch at `at` within `walk`'s gap rules: the first
+    /// non-blank byte or a resume boundary holding a block that [resumes](SessionState::resumes) the walk; None when
     /// nothing does (or the layout allows no gaps), so the stretch is the end of data. Each place costs a header
-    /// read; at most [GAP_CHECKS_MAX] whose header [may resume](RunState::may_resume) the walk are read whole.
-    fn past_gap(&self, at: u64, hi: u64, walk: &RunState) -> R<Option<u64>, S> {
+    /// read; at most [GAP_CHECKS_MAX] whose header [may resume](SessionState::may_resume) the walk are read whole.
+    fn past_gap(&self, at: u64, hi: u64, walk: &SessionState) -> R<Option<u64>, S> {
         let reach = walk.gap_max().min(hi.saturating_sub(at));
         if reach == 0 {
             return Ok(None);
@@ -895,7 +895,7 @@ impl<S: ByteSource> TapeReader<S> {
     /// [FLAG_SET_FIRST] followed back to back by blocks up to one marked [FLAG_SET_LAST]) with the whole additions
     /// ([FLAG_SET_ADD]) after it. The newest whole set is the head's or a writer's copy (after the first data block,
     /// at the first checkpoint, the repeats, the backup before the finish), which carries the additions before it.
-    /// When none of the piece's describe blocks makes a whole set and a scan stopped in it, the blocks of its runs
+    /// When none of the piece's describe blocks makes a whole set and a scan stopped in it, the blocks of its sessions
     /// past the stop are looked through too ([DESCRIBE_SEEK_BLOCKS_MAX]). Damage is a reason to look further, never an
     /// error: what didn't read is listed in [DescribeBlocks::lost].
     pub fn describe_set(&self, i: usize) -> R<DescribeBlocks, S> {
@@ -926,13 +926,13 @@ impl<S: ByteSource> TapeReader<S> {
     }
 
     /// Read the describe blocks after `cut` in piece `i` into `set`, the blocks between skipped by the lengths in their
-    /// headers: at most [DESCRIBE_SEEK_BLOCKS_MAX] blocks, only of the runs `walk` goes on with (never an earlier
+    /// headers: at most [DESCRIBE_SEEK_BLOCKS_MAX] blocks, only of the sessions `walk` goes on with (never an earlier
     /// life's behind the end of data), never past the piece's stretch or into the next piece.
     fn describe_past(
         &self,
         i: usize,
         cut: u64,
-        mut walk: RunState,
+        mut walk: SessionState,
         set: &mut SetReader,
     ) -> R<(), S> {
         let p = self.piece(i)?;

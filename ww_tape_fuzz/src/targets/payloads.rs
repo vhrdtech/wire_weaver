@@ -74,7 +74,7 @@ pub fn payloads(data: &[u8]) {
     let mut buf = vec![0u8; chunk_len(&specs, 0)];
     let len = write_chunk(
         &mut buf,
-        ww_tape::BlockId::new(ww_tape::RunTag::writable(1), 1),
+        ww_tape::BlockId::new(ww_tape::SessionTag::writable(1), 1),
         &times.head.chunk_head(1, 1, 0),
         &cols,
         0,

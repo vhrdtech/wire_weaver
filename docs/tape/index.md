@@ -40,7 +40,7 @@ resource path it comes from, and the clock its times count.
 A **clock** is anything that counts time: the host's nanosecond clock, a device's microsecond timer since boot, an audio
 codec's sample clock. Its definition (`ClockDef`) gives an exact rate in ticks per second, an exact resolution, and an
 **origin**: what tick 0 is. The origin is an identity, never a number. It may be a device's boot, the Unix epoch, the
-start of a media file, the start of the producer's run, or nothing known (a free-running counter).
+start of a media file, the start of the producer's session, or nothing known (a free-running counter).
 
 A **tick** is one step of a clock, and every record time is a signed 64-bit count of ticks. Rates are exact fractions,
 so clocks that are not whole numbers of hertz stay exact. A video at 60000/1001 frames per second lives on its stream's
@@ -91,17 +91,17 @@ crystal drifts against the host.
 
 A tape is a sequence of **blocks**. Every block has a 32-byte header, a body and a CRC-32C checksum over everything
 before it. The header starts with the magic `WWTP` and gives the block's version, its kind, its total length, a count
-(records, items or entries, by kind), a sequence number and a run tag. A file is blocks appended back to back, never
+(records, items or entries, by kind), a sequence number and a session tag. A file is blocks appended back to back, never
 padded between them; a live feed sends one block per message.
 
 The header and the trailing CRC are the same in every version of the format. A reader can therefore check any block and
 skip it by its length, even a block of a kind or version it doesn't know. A later version changes only the bodies, and
 an old reader takes a block it doesn't understand as one it skips, not as damage.
 
-The **sequence number** counts a writer's blocks from 0, so a gap in it says how many blocks were lost. The **run tag**
-names one writer's unbroken append: a producer's start, a device's boot. The run tag is how a reader tells current data
-from stale data left on a medium by an earlier recording; [Damage and recovery](recovery.md#runs-and-stale-data)
-explains it.
+The **sequence number** counts a writer's blocks from 0, so a gap in it says how many blocks were lost. The **session
+tag** names one writer's unbroken append: a producer's start, a device's boot. The session tag is how a reader tells
+current data from stale data left on a medium by an earlier recording; [Damage and
+recovery](recovery.md#sessions-and-stale-data) explains it.
 
 The block kinds fall into four groups:
 

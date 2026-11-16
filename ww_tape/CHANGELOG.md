@@ -23,21 +23,21 @@
 - `CodeError` gains `TooLong`: a stored body past `MAX_BLOCK_LEN` is refused instead of written (STD-131).
 - `BlockBuf` no longer derives `PartialEq`; it compares bytes (STD-131).
 - `BlockWriter::new` returns `Result<_, BlockStartError>`; `push` / `push_with` return `PushError` (full, describe track, unknown clock) (STD-131).
-- `TapeWriter::set_alignment` and `set_run` return a `Result`; `WriteError` gains `Alignment` and `Run` (STD-131).
+- `TapeWriter::set_alignment` and `set_session` return a `Result`; `WriteError` gains `Alignment` and `Session` (STD-131).
 - `chunk_padding` returns `Option<usize>`, `ChunkWriter::column_mut` an `Option`; `IndexEntry::decode` takes `&[u8; ENTRY_LEN]` (STD-131).
 - `SeriesSummaries::push` refuses partial frames with `SummaryError::PartialFrame`; `DescribeError` gains `Start` and `Push` (STD-131).
 - Every error enum is `#[non_exhaustive]`: match with a `_` arm (STD-131).
 - `Codec::GORILLA`, `CHIMP`, `FLOAT_DELTA`, `FLOAT_DELTA2` and `XOR_GROUP` are gone; ids 24, 25, 34, 35 are reserved and refused (STD-131).
 - Describe sets mark their first and last block (`FLAG_SET_FIRST`, `FLAG_SET_LAST`); only a whole set counts as one (STD-129).
-- `PieceChain::create` takes the chain number: each chain of a result gets its own piece ids and run tag (STD-129).
+- `PieceChain::create` takes the chain number: each chain of a result gets its own piece ids and session tag (STD-129).
 - `PieceId::first` is `first_of(result, 0)`: its bytes change; `PieceId::first_of` names the first piece of each chain (STD-129).
 - `Block::records` of an lz4-coded body gives `BlockError::Coded`: read the records of `Block::decode` (STD-129).
-- Header bytes 24..28 hold the run tag in every block, 28..32 the head CRC; chunk payload and index entries offsets move to 32..36 (STD-129).
-- `PieceHead` gains `prev_run`: the run before the piece head on the medium, piece head bytes 92..96 (STD-129).
-- Within a run a describe block is in seq order unless marked a copy; `FileError` gains `Replaced` (STD-129).
+- Header bytes 24..28 hold the session tag in every block, 28..32 the head CRC; chunk payload and index entries offsets move to 32..36 (STD-129).
+- `PieceHead` gains `prev_session`: the session before the piece head on the medium, piece head bytes 92..96 (STD-129).
+- Within a session a describe block is in seq order unless marked a copy; `FileError` gains `Replaced` (STD-129).
 - `OpenOptions` gains `medium`, `start` and `layout`; `PieceInfo` gains `gaps` and `replaced` (STD-129).
 - `Layout` gains `gap_max` and `resume_align`, its fields are `Bytes<u32>`; `FileError` gains `Gap` and `Stale`, `Cut` gains `Stale` (STD-129).
-- Block makers take a `BlockId` (run and seq) instead of a seq; `set_seq` is `set_id`; `DescribeSet::write_blocks` counts a `&mut BlockId` (STD-129).
+- Block makers take a `BlockId` (session and seq) instead of a seq; `set_seq` is `set_id`; `DescribeSet::write_blocks` counts a `&mut BlockId` (STD-129).
 - `track_key` and `clock_key` hash a name path of `Segment`s (names, indices, keys' bytes); `api_root_id` takes the crate name only (STD-125).
 - `TrackDef` gains `keys: RefVec<KeySegment>`, the keys of keyed arrays on its path (STD-125).
 - Series summary blocks state their scale (head bytes 52..54, `Magnitude` after the head); `SeriesStart` takes `segment` instead of `first_tick` (STD-128).
@@ -85,19 +85,19 @@
 - The crate docs list every cap in one table; new cap `summary::LEVEL_MAX` (STD-131).
 - `bitpack::Width`, checked once, and `BitpackError`: pack, unpack and decode without a per-value width check (STD-131).
 - No panic, unchecked arithmetic or unchecked cast on file bytes: clippy's panic-class lints deny them (STD-131).
-- `TapeWriter::adopt_block`: a producer's block in the writer's run, seq gaps kept; a raw-medium piece is one run (STD-129).
+- `TapeWriter::adopt_block`: a producer's block in the writer's session, seq gaps kept; a raw-medium piece is one session (STD-129).
 - Reserved, refused until built: `Codec::SERIES` (49), `Codec::RUNS` (36), `Element::LEAVES` (13), `ColumnKind::PAYLOAD_LEAF` (7), summary head bytes 54..56 (STD-129).
 - `TapeWriter` copies the describe set after a piece's first data block; `TapeReader::describe_set` takes the next good copy (STD-129).
 - `EventRecord`: an events track's record item, duration and flags as its `EventsDef` says, then the payload (STD-129).
 - `Codec::OUTER`, `is_outer`, `inner`: bit 7 of a column's codec byte marks an outer-coded column, refused until a codec exists (STD-129).
 - Header flag `FLAG_BODY_CODED`: records and describe bodies coded stored or lz4 (`code_body`, `BodyCodec`, `Block::decode`), off by default (STD-129).
-- The same (run, seq) twice is a duplicate, not a cut: same bytes dropped, other bytes the later wins (STD-129).
+- The same (session, seq) twice is a duplicate, not a cut: same bytes dropped, other bytes the later wins (STD-129).
 - Header flag `FLAG_COPY` marks describe copies a writer makes; `Block::flags`, `is_copy`, `crc`; `mark_copy` (STD-129).
-- `TapeReader` keeps to runs and reads past gaps (`PieceInfo::gaps`); `OpenOptions::medium` walks a raw medium forward from `start` (STD-129).
-- `FileBlocks` keeps to one run: stale blocks of another run end the data; gaps within `Layout::gap_max` are read past (STD-129).
+- `TapeReader` keeps to sessions and reads past gaps (`PieceInfo::gaps`); `OpenOptions::medium` walks a raw medium forward from `start` (STD-129).
+- `FileBlocks` keeps to one session: stale blocks of another session end the data; gaps within `Layout::gap_max` are read past (STD-129).
 - `Medium` (`File`, `Raw`), `FileBlocks::on`, `starting_at`, `with_layout`; `Layout::on_sd_card`, `on_raw_nand` (STD-129).
 - Blank is 0x00 or 0xFF: `is_blank`; `FileBlocks` and `TapeReader` take either after the last block as the end (STD-129).
-- `RunTag` (random, from a seed, of a piece id) and `Block::run`; `TapeWriter::next_id`, `run`, `set_run`; a chain's run is derived (STD-129).
+- `SessionTag` (random, from a seed, of a piece id) and `Block::session`; `TapeWriter::next_id`, `session`, `set_session`; a chain's session is derived (STD-129).
 - `Codec::ALP` (26): lossless floats as decimals stored as bit-packed integers, or front bits through a dictionary; `samples::ALP_GROUP` (STD-130).
 - Feature `bundle`: `name_path` and `key_in_bundle` build a track's name path and key from an API bundle, renames kept (STD-125).
 - Series summaries across prefix changes: nodes at their common scale, exact min and max; `SeriesSummaries::segment`, `SeriesNode::merge` (STD-128).

@@ -9,7 +9,7 @@ use ww_tape::reader::{Found, OpenOptions};
 use ww_tape::{
     BlockId, BlockKind, BlockWriter, ClockTime, Codec, ColumnKind, ColumnSpec, Describe,
     DescribeSet, EndMode, FileBlocks, FinishState, Layout, PieceChain, Producer, Recovery,
-    ResultId, RunTag, SyncPolicy, TapeReader, TapeWriter,
+    ResultId, SessionTag, SyncPolicy, TapeReader, TapeWriter,
 };
 
 /// A fresh scratch directory.
@@ -316,7 +316,7 @@ fn write_chain(dir: &Path, n: u64) -> Vec<PathBuf> {
         .collect()
 }
 
-/// Two chains of one result (an events chain and a series chain) have their own piece ids and run tags, so their
+/// Two chains of one result (an events chain and a series chain) have their own piece ids and session tags, so their
 /// pieces read one after the other.
 #[test]
 fn chains_of_one_result_are_apart() {
@@ -338,8 +338,8 @@ fn chains_of_one_result_are_apart() {
     assert_eq!(h0.ident.id, PieceId::first_of(&ResultId([0x42; 32]), 0));
     assert_eq!(h1.ident.id, PieceId::first_of(&ResultId([0x42; 32]), 1));
     assert_ne!(
-        RunTag::of_piece(&h0.ident.id),
-        RunTag::of_piece(&h1.ident.id)
+        SessionTag::of_piece(&h0.ident.id),
+        SessionTag::of_piece(&h1.ident.id)
     );
     assert!(r.verify(0).unwrap());
     let both = [a.clone(), b.clone()].concat();
@@ -512,26 +512,26 @@ fn index_golden() {
 }
 
 #[test]
-fn every_block_of_a_chain_carries_its_run() {
-    let dir = scratch("runs");
+fn every_block_of_a_chain_carries_its_session() {
+    let dir = scratch("sessions");
     let paths = write_chain(&dir, 0);
     assert!(paths.len() > 1, "the chain was cut");
-    let run = RunTag::of_piece(&PieceId::first(&ResultId([0x42; 32])));
-    assert!(run.is_run());
+    let session = SessionTag::of_piece(&PieceId::first(&ResultId([0x42; 32])));
+    assert!(session.is_session());
     let mut seqs = vec![];
     for (i, p) in paths.iter().enumerate() {
         let bytes = std::fs::read(p).unwrap();
         let r = TapeReader::open(&bytes[..]).unwrap();
         let (head, _) = r.pieces()[0].head.clone().unwrap();
-        // a cut names the run going on; the first piece follows nothing
-        let before = if i == 0 { RunTag::NONE } else { run };
-        assert_eq!(head.prev_run, before);
+        // a cut names the session going on; the first piece follows nothing
+        let before = if i == 0 { SessionTag::NONE } else { session };
+        assert_eq!(head.prev_session, before);
         let mut rd = FileBlocks::new(&bytes[..]);
         while let Some(b) = rd.next_block() {
             let b = b.unwrap();
             assert_eq!(
-                b.run,
-                run,
+                b.session,
+                session,
                 "{:?} at {} of {}",
                 b.kind,
                 rd.offset(),
@@ -616,7 +616,7 @@ fn a_damaged_head_describe_set_reads_from_the_next_copy() {
                 seq: 0,
             },
             prev: None,
-            prev_run: RunTag::NONE,
+            prev_session: SessionTag::NONE,
         };
         w.begin_piece(&head, &[]).unwrap();
         let originals = describe_blocks(Layout::UNALIGNED, w.next_id());
@@ -704,7 +704,7 @@ fn the_describe_repeat_carries_over_a_cut() {
             seq: 0,
         },
         prev: None,
-        prev_run: RunTag::NONE,
+        prev_session: SessionTag::NONE,
     };
     w.begin_piece(&head, &[]).unwrap();
     for b in describe_blocks(Layout::UNALIGNED, w.next_id()) {
@@ -816,7 +816,7 @@ fn copies_carry_the_whole_describe_set() {
             seq: 0,
         },
         prev: None,
-        prev_run: RunTag::NONE,
+        prev_session: SessionTag::NONE,
     };
     w.begin_piece(&head, &[]).unwrap();
     w.write_block(&records(w.next_id(), 0)).unwrap();

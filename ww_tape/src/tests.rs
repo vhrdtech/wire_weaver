@@ -1,12 +1,12 @@
 use super::*;
 use shrink_wrap::prelude::*;
 
-/// The run of blocks made by the tests.
-pub(crate) const TEST_RUN: RunTag = RunTag::writable(0x7465_7374);
+/// The session of blocks made by the tests.
+pub(crate) const TEST_SESSION: SessionTag = SessionTag::writable(0x7465_7374);
 
-/// Block `seq` of [TEST_RUN].
+/// Block `seq` of [TEST_SESSION].
 pub(crate) fn id(seq: u64) -> BlockId {
-    BlockId::new(TEST_RUN, seq)
+    BlockId::new(TEST_SESSION, seq)
 }
 
 const C1: u32 = 1;
@@ -189,7 +189,10 @@ fn tape_writer_refuses_bad_settings() {
         Err(WriteError::Alignment(512))
     ));
     w.set_alignment(ALIGNMENT).unwrap();
-    assert!(matches!(w.set_run(RunTag::NONE), Err(WriteError::Run(_))));
+    assert!(matches!(
+        w.set_session(SessionTag::NONE),
+        Err(WriteError::Session(_))
+    ));
     assert!(matches!(
         w.write_block(&[0; 8]),
         Err(WriteError::Block(BlockError::Short { .. }))
@@ -1014,8 +1017,8 @@ fn blank_at_the_end_is_the_end() {
     }
 }
 
-/// Within a run a data block whose seq goes back is a cut; a describe block of another run starts that run; the same
-/// (run, seq) again is a duplicate, not a cut: dropped with the same bytes, taken and reported with other bytes.
+/// Within a session a data block whose seq goes back is a cut; a describe block of another session starts that session; the same
+/// (session, seq) again is a duplicate, not a cut: dropped with the same bytes, taken and reported with other bytes.
 #[test]
 fn seq_order_and_duplicates() {
     let block = |kind, id, item: &[u8]| {
@@ -1025,7 +1028,7 @@ fn seq_order_and_duplicates() {
         let len = w.finish();
         buf[..len].to_vec()
     };
-    let other = |seq| BlockId::new(RunTag::writable(77), seq);
+    let other = |seq| BlockId::new(SessionTag::writable(77), seq);
     let walk = |file: &[u8]| {
         let mut rd = FileBlocks::new(file);
         let (mut got, mut errors) = (vec![], vec![]);
@@ -1076,7 +1079,7 @@ fn seq_order_and_duplicates() {
         ),
         "{errors:?}"
     );
-    // a records block can't start a run on a file: another run's data block is stale
+    // a records block can't start a session on a file: another session's data block is stale
     let file = [
         block(BlockKind::Records, id(5), b"a"),
         block(BlockKind::Records, other(6), b"b"),
@@ -1118,7 +1121,7 @@ fn writer_partial_then_renamed() {
         TapeWriter::create(&path, SyncPolicy::None),
         Err(WriteError::Exists(_))
     ));
-    // appended: the second run's blocks start with a describe block
+    // appended: the second session's blocks start with a describe block
     let mut w = TapeWriter::append(&path, SyncPolicy::default()).unwrap();
     let mut buf = [0u8; 64];
     let mut d = BlockWriter::new(&mut buf, BlockKind::Describe, w.next_id(), &[]).unwrap();
@@ -1128,7 +1131,7 @@ fn writer_partial_then_renamed() {
     w.tick().unwrap();
     w.finish().unwrap();
     let (seqs, errors) = read_all(&std::fs::read(&path).unwrap(), Recovery::Prefix);
-    // each run ends with its final index, finish and tail, the second also with its describe backup: they carry
+    // each session ends with its final index, finish and tail, the second also with its describe backup: they carry
     // the seq of the last counted block
     assert_eq!(
         (seqs, errors),
@@ -1152,7 +1155,7 @@ fn pass_through_capture_reads_to_the_end() {
     });
     w.set_describe_repeat(2048);
     let mut buf = [0u8; 64];
-    // the producer's run: its describe set of one block, then its records
+    // the producer's session: its describe set of one block, then its records
     let mut d = BlockWriter::new(&mut buf, BlockKind::Describe, id(0), &[]).unwrap();
     d.set_flags(FLAG_SET_FIRST | FLAG_SET_LAST);
     let len = d.finish();

@@ -10,7 +10,7 @@ use crate::sink::{Files, SinkFactory};
 use crate::writer::{
     Finished, NextPiece, Resumed, TapeWriter, WriteError, WriterOptions, block_id,
 };
-use crate::{BlockKind, ChunkHead, ColumnSpec, HEADER_LEN, RunTag};
+use crate::{BlockKind, ChunkHead, ColumnSpec, HEADER_LEN, SessionTag};
 
 /// When a [PieceChain] cuts to a new piece; checked before each chunk. Zero or None turns a limit off.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
@@ -76,7 +76,7 @@ impl PieceChain<Files> {
 impl<F: SinkFactory> PieceChain<F> {
     /// Start chain `chain` of `result` under `dir` with its first piece, on the sink `factory` makes, id
     /// [PieceId::first_of] `(result, chain)`; `tracks` say where items of tracks carried over from elsewhere continue
-    /// (empty for a new recording). Each chain of a result takes its own number, so its pieces and run tag are its own.
+    /// (empty for a new recording). Each chain of a result takes its own number, so its pieces and session tag are its own.
     pub fn create_on(
         mut factory: F,
         dir: &Path,
@@ -274,7 +274,7 @@ fn first_head(result: ResultId, chain: u64) -> PieceHead {
             seq: 0,
         },
         prev: None,
-        prev_run: RunTag::NONE,
+        prev_session: SessionTag::NONE,
     }
 }
 
@@ -285,7 +285,7 @@ fn next_piece(done: &Finished, last: &LastPiece) -> Result<NextPiece, WriteError
         done,
         last.next_tracks.clone(),
         last.describe.clone(),
-        last.run,
+        last.session,
         last.next_seq,
     )
 }
@@ -297,7 +297,7 @@ struct LastPiece {
     next_tracks: Vec<TrackStart>,
     /// The newest describe set: the backup before the finish
     describe: Vec<Vec<u8>>,
-    run: RunTag,
+    session: SessionTag,
     next_seq: u64,
 }
 
@@ -319,7 +319,7 @@ fn read_finished<B: ByteSource<Error = std::io::Error>>(
             "a finished piece of a chain has a head, a finish and a tail",
         ));
     };
-    // the tail carries the run and seq of the last counted block of the piece
+    // the tail carries the session and seq of the last counted block of the piece
     let tail_at = p
         .end
         .checked_sub(crate::reader::wide(TAIL_LEN))
@@ -348,7 +348,7 @@ fn read_finished<B: ByteSource<Error = std::io::Error>>(
             head: *head,
             next_tracks: crate::index::next_starts(starts, ranges),
             describe,
-            run: id.run,
+            session: id.session,
             next_seq,
         },
     ))

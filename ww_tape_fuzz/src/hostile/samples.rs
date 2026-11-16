@@ -4,7 +4,7 @@
 
 use super::chunk::{build, column_start, hit_head, reseal};
 use super::series::track_item;
-use super::{Draw, Field, RUN, describe_block, hit};
+use super::{Draw, Field, SESSION, describe_block, hit};
 use ww_tape::samples::{Element, SampleShape, encode, max_encoded_len};
 use ww_tape::series::SERIES_CHANNELS_MAX;
 use ww_tape::{
@@ -189,7 +189,7 @@ pub fn samples(data: &[u8]) -> Vec<u8> {
         channels: shrink_wrap::prelude::UNib32(channels),
     };
     let item = track_item(def, period, Magnitude::pow10(0));
-    let mut out = describe_block(BlockId::new(RUN, 0), &[&item]);
+    let mut out = describe_block(BlockId::new(SESSION, 0), &[&item]);
     out.extend_from_slice(&b);
     out
 }

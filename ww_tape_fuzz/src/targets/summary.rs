@@ -5,8 +5,8 @@ use ww_tape::summary::{
     EventTree, ItemRun, SeriesStart, SeriesStats, SeriesSummaries, SeriesSummarySpec, Stat,
 };
 use ww_tape::{
-    Block, BlockId, Element, EventFields, Magnitude, Ratio64, RunTag, SampleShape, SeriesSegment,
-    set_id,
+    Block, BlockId, Element, EventFields, Magnitude, Ratio64, SampleShape, SeriesSegment,
+    SessionTag, set_id,
 };
 
 /// Look at everything a summary block read from `data` gives.
@@ -37,7 +37,7 @@ pub(crate) fn walk(data: &[u8]) {
     assert_eq!(s.scale().is_some(), s.event_node(0).is_none());
     let mut copy = b.bytes().to_vec();
     let id = BlockId::new(
-        RunTag::from_u32(b.run.get().wrapping_add(1)),
+        SessionTag::from_u32(b.session.get().wrapping_add(1)),
         b.seq.wrapping_add(1),
     );
     set_id(&mut copy, id).expect("a good block renumbers");

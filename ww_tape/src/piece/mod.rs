@@ -22,7 +22,7 @@
 //! ```text
 //! piece head (kind 10)
 //!  32 [16] piece id                 48 [32] result id               80 u64 sequence number in the chain
-//!  88 u32  flags: bit 0 has a previous piece                        92 u32 previous run tag (0: none or unknown)
+//!  88 u32  flags: bit 0 has a previous piece                        92 u32 previous session tag (0: none or unknown)
 //!  96 [32] previous piece's content hash                           128 [16] previous piece's id
 //! 144 ...  tracks × 32: id u64, number u32, reserved u32, next item u64 (the first item number this piece holds),
 //!          from tick i64 (no item of the track here starts before it)
@@ -49,7 +49,7 @@
 
 use crate::bytes::{array, le_i64, le_u8, le_u32, le_u64, put, put_i64, put_u32, put_u64};
 use crate::index::{IndexError, NONE, seal};
-use crate::{Block, BlockId, BlockKind, CRC_LEN, HEADER_LEN, RunTag, put_header};
+use crate::{Block, BlockId, BlockKind, CRC_LEN, HEADER_LEN, SessionTag, put_header};
 
 /// Bytes of a tail block.
 pub const TAIL_LEN: usize = 164;
@@ -199,11 +199,12 @@ pub struct PieceHead {
     pub ident: PieceIdent,
     /// The previous piece's content hash and id; None for the first piece of a chain.
     pub prev: Option<(ContentHash, PieceId)>,
-    /// The run of the block before this piece head on the medium: the run that ended where a writer appending to
-    /// a medium found the end of data, or the piece's own run at a cut. [RunTag::NONE] when the writer started at
-    /// the medium's start or can't know. On raw media a reader takes a new run only at a piece head naming the run
-    /// just ended, so stale blocks behind the end of data never pass for a new run.
-    pub prev_run: RunTag,
+    /// The session of the block before this piece head on the medium: the session that ended where a writer
+    /// appending to a medium found the end of data, or the piece's own session at a cut. [SessionTag::NONE] when
+    /// the writer started at the medium's start or can't know. On raw media a reader takes a new session only at a
+    /// piece head naming the session just ended, so stale blocks behind the end of data never pass for a new
+    /// session.
+    pub prev_session: SessionTag,
 }
 
 /// Bytes of a block of `fixed` bytes of body and `tracks` rows of `row` bytes; `usize::MAX`, longer than any block,
@@ -250,7 +251,7 @@ pub fn write_piece_head(
 fn fill_piece_head(b: &mut [u8], head: &PieceHead, tracks: &[TrackStart]) -> Option<()> {
     b.get_mut(HEADER_LEN..)?.fill(0);
     put_ident(b, 32, 48, 80, &head.ident)?;
-    put_u32(b, 92, head.prev_run.get())?;
+    put_u32(b, 92, head.prev_session.get())?;
     if let Some((hash, id)) = head.prev {
         put_u32(b, 88, FLAG_HAS_PREV)?;
         put(b, 96, hash.0)?;
@@ -357,7 +358,7 @@ fn read_piece_head(b: &[u8]) -> Option<PieceHead> {
     Some(PieceHead {
         ident: get_ident(b, 32, 48, 80)?,
         prev,
-        prev_run: RunTag::from_u32(le_u32(b, 92)?),
+        prev_session: SessionTag::from_u32(le_u32(b, 92)?),
     })
 }
 

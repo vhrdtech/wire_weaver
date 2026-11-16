@@ -14,7 +14,7 @@ use ww_tape::piece::{
 use ww_tape::times::EncodedTimes;
 use ww_tape::{
     Block, BlockId, BlockKind, BlockWriter, ClockTime, ColumnKind, Describe, Element,
-    FLAG_SET_FIRST, GAP_MAX_MAX, GAP_PROBES_MAX, Layout, Producer, RunTag, SeriesSegment,
+    FLAG_SET_FIRST, GAP_MAX_MAX, GAP_PROBES_MAX, Layout, Producer, SeriesSegment, SessionTag,
     TrackKind,
 };
 
@@ -175,7 +175,7 @@ fn chunk_block(enc: &EncodedTimes) -> Vec<u8> {
     let mut buf = vec![0u8; ww_tape::chunk::chunk_len(&specs, 0)];
     let n = ww_tape::chunk::write_chunk(
         &mut buf,
-        BlockId::new(RunTag::writable(1), 1),
+        BlockId::new(SessionTag::writable(1), 1),
         &enc.head.chunk_head(1, 1, 0),
         &cols,
         0,
@@ -276,8 +276,8 @@ fn lz4_fixes() -> Vec<Seed> {
         .collect()
 }
 
-const RUN: RunTag = RunTag::writable(0x600d_0002);
-const OLD: RunTag = RunTag::writable(0x0bad_0001);
+const SESSION: SessionTag = SessionTag::writable(0x600d_0002);
+const OLD: SessionTag = SessionTag::writable(0x0bad_0001);
 
 fn tail(piece_len: u64, finish_offset: u64, finish_len: u32) -> Vec<u8> {
     let t = Tail {
@@ -290,7 +290,7 @@ fn tail(piece_len: u64, finish_offset: u64, finish_len: u32) -> Vec<u8> {
         next: None,
     };
     let mut b = vec![0u8; TAIL_LEN];
-    t.write(&mut b, BlockId::new(RUN, 0));
+    t.write(&mut b, BlockId::new(SESSION, 0));
     b
 }
 
@@ -306,7 +306,7 @@ fn finish_only(final_index: u64, piece_len: Option<u64>) -> Vec<u8> {
         next: None,
     };
     let mut b = vec![0u8; finish_len(0)];
-    let n = write_finish(&mut b, BlockId::new(RUN, 0), &finish, &[]).expect("a finish");
+    let n = write_finish(&mut b, BlockId::new(SESSION, 0), &finish, &[]).expect("a finish");
     b.truncate(n);
     let len = piece_len.unwrap_or((n + TAIL_LEN) as u64);
     b.extend(tail(len, 0, n as u32));
@@ -375,8 +375,8 @@ fn layout(gap_max: u32, resume_align: u32) -> Layout {
     }
 }
 
-/// A run on a medium: a piece head, a describe block with `layout`, then `n` records blocks.
-fn run(layout: Layout, n: u64) -> Vec<u8> {
+/// A session on a medium: a piece head, a describe block with `layout`, then `n` records blocks.
+fn session(layout: Layout, n: u64) -> Vec<u8> {
     let mut out = vec![0u8; piece_head_len(0)];
     let head = PieceHead {
         ident: PieceIdent {
@@ -385,14 +385,14 @@ fn run(layout: Layout, n: u64) -> Vec<u8> {
             seq: 0,
         },
         prev: None,
-        prev_run: RunTag::NONE,
+        prev_session: SessionTag::NONE,
     };
-    let len = write_piece_head(&mut out, BlockId::new(RUN, 0), &head, &[]).expect("a head");
+    let len = write_piece_head(&mut out, BlockId::new(SESSION, 0), &head, &[]).expect("a head");
     out.truncate(len);
     let first_last = FLAG_SET_FIRST | ww_tape::FLAG_SET_LAST;
-    out.extend(describe(BlockId::new(RUN, 0), layout, first_last));
+    out.extend(describe(BlockId::new(SESSION, 0), layout, first_last));
     for seq in 0..n {
-        out.extend(records(BlockId::new(RUN, seq)));
+        out.extend(records(BlockId::new(SESSION, seq)));
     }
     out
 }
@@ -408,7 +408,7 @@ fn media_fixes() -> Vec<Seed> {
         ("probes-past-max", layout(GAP_PROBES_MAX + 1, 1)),
         ("resume-align-0", layout(512, 0)),
     ] {
-        let mut b = describe(BlockId::new(RUN, 0), l, 0);
+        let mut b = describe(BlockId::new(SESSION, 0), l, 0);
         b.push(0x41);
         out.push(seed(
             "tape-reader",
@@ -416,9 +416,9 @@ fn media_fixes() -> Vec<Seed> {
             b,
         ));
     }
-    // a bad block, then the header of the run's next block, 1 MiB long by its header, on every sector
-    let card = run(layout(32 << 10, 512), 6);
-    let mut header = records(BlockId::new(RUN, 100))[..32].to_vec();
+    // a bad block, then the header of the session's next block, 1 MiB long by its header, on every sector
+    let card = session(layout(32 << 10, 512), 6);
+    let mut header = records(BlockId::new(SESSION, 100))[..32].to_vec();
     header[8..12].copy_from_slice(&(1u32 << 20).to_le_bytes());
     let mut b = card.clone();
     b.extend_from_slice(&[0x5a; 100]);
@@ -430,14 +430,14 @@ fn media_fixes() -> Vec<Seed> {
         }
     }
     out.push(seed("tape-reader", "fix-74e52ec33-a-header-per-sector", b));
-    // erased space longer than the gap, then a stale block of an older run
-    let mut b = run(layout(4096, 512), 6);
+    // erased space longer than the gap, then a stale block of an older session
+    let mut b = session(layout(4096, 512), 6);
     let erased = b.len() + (16 << 10);
     b.resize(erased, 0xff);
     b.extend(records(BlockId::new(OLD, 9)));
     out.push(seed("tape-reader", "fix-23ceb1731-erased-past-the-gap", b));
     // a checkpoint, then a blank sector before the next records block
-    let mut b = run(layout(4096, 512), 20);
+    let mut b = session(layout(4096, 512), 20);
     let mut entries = vec![];
     let mut at = 0;
     while let Ok(len) = ww_tape::block_len(&b[at..]) {
@@ -451,11 +451,11 @@ fn media_fixes() -> Vec<Seed> {
         self_offset: b.len() as u64,
         prev: None,
     };
-    let n = write_index(&mut ix, BlockId::new(RUN, 19), &head, &entries).expect("an index");
+    let n = write_index(&mut ix, BlockId::new(SESSION, 19), &head, &entries).expect("an index");
     b.extend_from_slice(&ix[..n]);
     b.extend_from_slice(&[0; 512]);
     for seq in 20..25 {
-        b.extend(records(BlockId::new(RUN, seq)));
+        b.extend(records(BlockId::new(SESSION, seq)));
     }
     out.push(seed(
         "tape-reader",
@@ -464,18 +464,18 @@ fn media_fixes() -> Vec<Seed> {
     ));
     out.push(seed("tape-index", "fix-4205a405e-gap-after-checkpoint", b));
     // part of a describe set: a block marked first and no block marked last
-    let mut b = describe(BlockId::new(RUN, 0), layout(4096, 512), FLAG_SET_FIRST);
-    b.extend(records(BlockId::new(RUN, 0)));
+    let mut b = describe(BlockId::new(SESSION, 0), layout(4096, 512), FLAG_SET_FIRST);
+    b.extend(records(BlockId::new(SESSION, 0)));
     out.push(seed(
         "tape-reader",
         "fix-47ab14ea2-part-of-a-describe-set",
         b,
     ));
     // a block written again after a gap
-    let mut b = run(layout(4096, 512), 3);
+    let mut b = session(layout(4096, 512), 3);
     b.resize(b.len().next_multiple_of(512) + 512, 0);
-    b.extend(records(BlockId::new(RUN, 2)));
-    b.extend(records(BlockId::new(RUN, 3)));
+    b.extend(records(BlockId::new(SESSION, 2)));
+    b.extend(records(BlockId::new(SESSION, 3)));
     out.push(seed(
         "tape-reader",
         "fix-67e392294-duplicate-after-a-gap",

@@ -487,7 +487,7 @@ feature tracker.
 - **[Positional tape reader](transport/tap.md#reading-by-position)**: Reads tapes by offset from any byte source, also in the browser over HTTP range requests.
 - **[Tape sample codecs](transport/tap.md#sample-codecs)**: Series columns stored as the device sends them, or coded lossless as bit-packed deltas, read in place by any range.
 - **[Tape series tracks](transport/tap.md#series-tracks)**: A series track says its sample type, scale and exact period; segments mark gaps and prefix changes, and a received `Series<Fixed>` batch becomes chunk columns without a float.
-- **[Tape runs and media provisions](transport/tap.md#runs-media-and-damage)**: Tapes on SD cards and raw NAND read past gaps, never take stale blocks for data, and survive a damaged describe set.
+- **[Tape runs and media provisions](transport/tap.md#sessions-media-and-damage)**: Tapes on SD cards and raw NAND read past gaps, never take stale blocks for data, and survive a damaged describe set.
 - **[Tape payload codec](transport/tap.md#payload-codec)**: Event payloads with bit-packed lengths, raw or lz4, salvaged item by item from a damaged chunk.
 - **[Tape track identity by name](transport/tap.md#track-identity)**: A track's key hashes its resource names and the keys of keyed arrays, so two runs that number things differently give the same ids.
 - **[Tape summaries across scales](transport/tap.md#tape-blocks)**: Series summaries stay exact when an autoranging device changes prefix: each block states its scale, nodes merge at a common one.

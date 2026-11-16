@@ -212,10 +212,10 @@ pub struct Decoder {
     bundles: HashMap<Vec<u8>, Arc<ApiBundleOwned>>,
     lookup: Option<BundleLookup>,
     next_seq: Option<u64>,
-    /// Run of the blocks fed last
-    run: Option<ww_tape::RunTag>,
-    /// Run whose own describe blocks were fed: a copy of them adds nothing
-    described: Option<ww_tape::RunTag>,
+    /// Session of the blocks fed last
+    session: Option<ww_tape::SessionTag>,
+    /// Session whose own describe blocks were fed: a copy of them adds nothing
+    described: Option<ww_tape::SessionTag>,
     wall_ns_at_zero: Option<u64>,
     /// Time of the newest record fed, for what has no time of its own (lost blocks).
     last_t: u64,
@@ -237,7 +237,7 @@ impl Decoder {
             bundles: HashMap::new(),
             lookup: None,
             next_seq: None,
-            run: None,
+            session: None,
             described: None,
             wall_ns_at_zero: None,
             last_t: 0,
@@ -276,16 +276,16 @@ impl Decoder {
     pub fn feed(&mut self, block: &Block<'_>) {
         self.stats.blocks += 1;
         // a copy a writer made (a repeat, the backup before the finish, the next piece's start): its sticky records
-        // are the state of the run it copies, older than the records read since that run's own describe blocks; a
+        // are the state of the session it copies, older than the records read since that session's own describe blocks; a
         // reader that starts at the copy takes them
         let copy = block.is_copy();
         if block.kind == BlockKind::Describe && !copy {
-            self.described = Some(block.run);
+            self.described = Some(block.session);
         }
-        let stale_sticky = copy && self.described == Some(block.run);
-        // seq counts per run: a new run starts counting again
-        if self.run != Some(block.run) {
-            self.run = Some(block.run);
+        let stale_sticky = copy && self.described == Some(block.session);
+        // seq counts per session: a new session starts counting again
+        if self.session != Some(block.session) {
+            self.session = Some(block.session);
             self.next_seq = None;
         }
         if let Some(next) = self.next_seq

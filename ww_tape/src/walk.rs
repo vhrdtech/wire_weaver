@@ -1,22 +1,24 @@
-//! What a reader walking blocks in order keeps: the current run, the last seq, the layout's gap rules.
+//! What a reader walking blocks in order keeps: the current session, the last seq, the layout's gap rules.
 
 use core::num::NonZeroU64;
 
 use shrink_wrap::prelude::*;
 
 use crate::piece::PieceHeadBlock;
-use crate::{Block, BlockKind, Describe, FLAG_COPY, HEADER_LEN, Layout, Medium, RunTag, block_len};
+use crate::{
+    Block, BlockKind, Describe, FLAG_COPY, HEADER_LEN, Layout, Medium, SessionTag, block_len,
+};
 
 /// Whether a good block met in a walk belongs to the data.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub(crate) enum Verdict {
-    /// The next block of the current run, or the start of a run that may start there.
+    /// The next block of the current session, or the start of a session that may start there.
     Take,
-    /// A block of another run where no run may start: stale data, never taken.
-    Stale(RunTag),
-    /// A data block of the current run whose seq is before the last one's.
+    /// A block of another session where no session may start: stale data, never taken.
+    Stale(SessionTag),
+    /// A data block of the current session whose seq is before the last one's.
     Backwards { seq: u64, after: u64 },
-    /// The same (run, seq) as the last block taken: a duplicate, not a cut. `same` when its bytes are the same
+    /// The same (session, seq) as the last block taken: a duplicate, not a cut. `same` when its bytes are the same
     /// (dropped); else the later copy wins.
     Duplicate { same: bool },
 }
@@ -32,7 +34,7 @@ pub(crate) struct Head {
     )]
     pub(crate) len: usize,
     kind: BlockKind,
-    run: RunTag,
+    session: SessionTag,
     seq: u64,
     copy: bool,
 }
@@ -44,22 +46,22 @@ impl Head {
         let h: &[u8; HEADER_LEN] = bytes.get(..HEADER_LEN)?.try_into().ok()?;
         let [_, _, _, _, _, kind, f0, f1, ..] = *h;
         let seq = u64::from_le_bytes(h[16..24].try_into().ok()?);
-        let run = u32::from_le_bytes(h[24..28].try_into().ok()?);
+        let session = u32::from_le_bytes(h[24..28].try_into().ok()?);
         Some(Head {
             len,
             kind: BlockKind::from_u8(kind),
-            run: RunTag::from_u32(run),
+            session: SessionTag::from_u32(session),
             seq,
             copy: u16::from_le_bytes([f0, f1]) & FLAG_COPY != 0,
         })
     }
 }
 
-/// The run and seq of the blocks taken so far, and the gap rules of the newest [Layout] read.
+/// The session and seq of the blocks taken so far, and the gap rules of the newest [Layout] read.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub(crate) struct RunState {
+pub(crate) struct SessionState {
     pub(crate) medium: Medium,
-    run: Option<RunTag>,
+    session: Option<SessionTag>,
     last_seq: Option<u64>,
     /// Length and CRC of the last data block taken
     last_bytes: Option<(usize, u32)>,
@@ -67,11 +69,11 @@ pub(crate) struct RunState {
     resume_align: NonZeroU64,
 }
 
-impl RunState {
+impl SessionState {
     pub(crate) fn new(medium: Medium) -> Self {
-        RunState {
+        SessionState {
             medium,
-            run: None,
+            session: None,
             last_seq: None,
             last_bytes: None,
             gap_max: 0,
@@ -101,14 +103,14 @@ impl RunState {
 
     /// What `b` is to the walk. `check_seq` false leaves the seq order out (a salvage walk).
     pub(crate) fn verdict(&self, b: &Block<'_>, check_seq: bool) -> Verdict {
-        let Some(run) = self.run else {
+        let Some(session) = self.session else {
             return Verdict::Take;
         };
-        if b.run != run {
-            return if self.starts_run(b, run) {
+        if b.session != session {
+            return if self.starts_session(b, session) {
                 Verdict::Take
             } else {
-                Verdict::Stale(b.run)
+                Verdict::Stale(b.session)
             };
         }
         if !check_seq || is_free(b) {
@@ -123,23 +125,23 @@ impl RunState {
         }
     }
 
-    /// Whether `b`, of another run than `current`, may start a run here: on a file a describe block (another
-    /// producer run appended) or a piece head (concatenated pieces); on a raw medium only a piece head naming
-    /// `current` as the run before it.
-    fn starts_run(&self, b: &Block<'_>, current: RunTag) -> bool {
+    /// Whether `b`, of another session than `current`, may start a session here: on a file a describe block (another
+    /// producer session appended) or a piece head (concatenated pieces); on a raw medium only a piece head naming
+    /// `current` as the session before it.
+    fn starts_session(&self, b: &Block<'_>, current: SessionTag) -> bool {
         match self.medium {
             Medium::File => matches!(b.kind, BlockKind::Describe | BlockKind::PieceHead),
             Medium::Raw => {
                 b.kind == BlockKind::PieceHead
-                    && PieceHeadBlock::read(b).is_ok_and(|h| h.head().prev_run == current)
+                    && PieceHeadBlock::read(b).is_ok_and(|h| h.head().prev_session == current)
             }
         }
     }
 
-    /// Note `b`, taken: its run and seq, and the layout its describe records say.
+    /// Note `b`, taken: its session and seq, and the layout its describe records say.
     pub(crate) fn take(&mut self, b: &Block<'_>) {
-        if self.run != Some(b.run) {
-            self.run = Some(b.run);
+        if self.session != Some(b.session) {
+            self.session = Some(b.session);
             self.last_seq = None;
             self.last_bytes = None;
         }
@@ -152,9 +154,9 @@ impl RunState {
         }
     }
 
-    /// Whether a good block found past a gap goes on with the data: the current run's next block (a seq after the
+    /// Whether a good block found past a gap goes on with the data: the current session's next block (a seq after the
     /// last, or a block that takes no part in the order), the last block again (a rewrite after a failed program,
-    /// same bytes or not), or a run that may start there.
+    /// same bytes or not), or a session that may start there.
     pub(crate) fn resumes(&self, b: &Block<'_>) -> bool {
         matches!(
             self.verdict(b, true),
@@ -165,10 +167,10 @@ impl RunState {
     /// Whether the block whose header is `h` may go on with the data past a gap: a superset of [Self::resumes], read
     /// from the header alone, so only such a probe is checked whole.
     pub(crate) fn may_resume(&self, h: &Head) -> bool {
-        let Some(run) = self.run else {
+        let Some(session) = self.session else {
             return true;
         };
-        if h.run != run {
+        if h.session != session {
             return match self.medium {
                 Medium::File => matches!(h.kind, BlockKind::Describe | BlockKind::PieceHead),
                 Medium::Raw => h.kind == BlockKind::PieceHead,
@@ -227,8 +229,8 @@ mod tests {
     use super::*;
     use exact_units::Bytes;
 
-    fn walk(gap_max: u32, resume_align: u32) -> RunState {
-        let mut w = RunState::new(Medium::File);
+    fn walk(gap_max: u32, resume_align: u32) -> SessionState {
+        let mut w = SessionState::new(Medium::File);
         w.set_layout(&Layout {
             gap_max: Bytes::new(gap_max),
             resume_align: Bytes::new(resume_align),

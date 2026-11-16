@@ -9,7 +9,7 @@ use ww_tape::index::IndexPolicy;
 use ww_tape::piece::{PieceHead, PieceId, PieceIdent, ResultId};
 use ww_tape::{
     BlockId, BlockKind, ClockDef, ClockOrigin, Describe, DescribeSet, EventsDef, FLAG_SET_ADD,
-    FileBlocks, FullVersion, Layout, Magnitude, MemSink, Producer, Recovery, RunTag, Segment,
+    FileBlocks, FullVersion, Layout, Magnitude, MemSink, Producer, Recovery, Segment, SessionTag,
     SyncPolicy, TapeReader, TapeSink, TapeWriter, TrackDef, TrackKind, Version, WriteError,
     WriterOptions, clock_key, track_key,
 };
@@ -138,7 +138,7 @@ fn begin(o: WriterOptions) -> TapeWriter<MemSink> {
                 seq: 0,
             },
             prev: None,
-            prev_run: RunTag::NONE,
+            prev_session: SessionTag::NONE,
         },
         &[],
     )

@@ -7,14 +7,14 @@ use super::index::{
     TAIL_FIELDS, finish_block, finish_fields, hit_index, index_block, piece_head_block,
     reseal_index, tail_block,
 };
-use super::{Draw, Field, RUN, describe_block, get, hit, hit_some, put, records_block, seal};
+use super::{Draw, Field, SESSION, describe_block, get, hit, hit_some, put, records_block, seal};
 use shrink_wrap::prelude::*;
 use ww_tape::index::{IndexEntry, IndexKind};
 use ww_tape::piece::{ContentHash, TAIL_LEN};
 use ww_tape::times::EncodedTimes;
 use ww_tape::{
-    Block, BlockId, BlockKind, Describe, GAP_MAX_MAX, GAP_PROBES_MAX, Layout, Producer, RunTag,
-    SD_GAP_MAX, SD_RESUME_ALIGN,
+    Block, BlockId, BlockKind, Describe, GAP_MAX_MAX, GAP_PROBES_MAX, Layout, Producer, SD_GAP_MAX,
+    SD_RESUME_ALIGN, SessionTag,
 };
 
 /// A layout from the input: none, an SD card's, or one of hostile gap rules.
@@ -72,7 +72,7 @@ pub fn file(data: &[u8]) -> Vec<u8> {
     };
     let head = d.bool();
     if head {
-        let b = piece_head_block(&mut d, BlockId::new(RUN, 0));
+        let b = piece_head_block(&mut d, BlockId::new(SESSION, 0));
         place(&mut f, &mut placed, &b, BlockKind::PieceHead);
     }
     let mut buf = [0u8; 64];
@@ -88,14 +88,14 @@ pub fn file(data: &[u8]) -> Vec<u8> {
     place(
         &mut f,
         &mut placed,
-        &describe_block(BlockId::new(RUN, 0), &items),
+        &describe_block(BlockId::new(SESSION, 0), &items),
         BlockKind::Describe,
     );
     let mut seq = 0;
     for _ in 0..d.below(4) {
         seq += 1;
         let item = vec![d.u8(); d.below(40)];
-        let b = records_block(BlockId::new(RUN, seq), &[(2, seq as i64, &item)]);
+        let b = records_block(BlockId::new(SESSION, seq), &[(2, seq as i64, &item)]);
         place(&mut f, &mut placed, &b, BlockKind::Records);
     }
     if d.bool() {
@@ -104,7 +104,7 @@ pub fn file(data: &[u8]) -> Vec<u8> {
         let t = EncodedTimes::encode(&starts, None, None).expect("valid times");
         let cols: Vec<_> = t.columns().collect();
         let mut b = build(&t.head.chunk_head(1, 1, 0), &cols);
-        ww_tape::set_id(&mut b, BlockId::new(RUN, seq)).expect("a good chunk renumbers");
+        ww_tape::set_id(&mut b, BlockId::new(SESSION, seq)).expect("a good chunk renumbers");
         place(&mut f, &mut placed, &b, BlockKind::Events);
     }
     // the indexes list every block but the structural ones
@@ -115,7 +115,7 @@ pub fn file(data: &[u8]) -> Vec<u8> {
             IndexEntry::of_block(p.at as u64, &b)
         })
         .collect();
-    let id = BlockId::new(RUN, seq);
+    let id = BlockId::new(SESSION, seq);
     let checkpoint_at = f.len() as u64;
     let mut b = index_block(&mut d, id, IndexKind::Checkpoint, &entries);
     put(&mut b, 40, 8, checkpoint_at);
@@ -156,12 +156,14 @@ pub fn file(data: &[u8]) -> Vec<u8> {
             f.splice(at..at, core::iter::repeat_n(fill, n));
         }
         5 => {
-            // the file cut short, or longer with stale blocks of another run after it
+            // the file cut short, or longer with stale blocks of another session after it
             if d.bool() {
                 f.truncate(d.below(f.len()));
             } else {
-                let stale =
-                    records_block(BlockId::new(RunTag::writable(0xbad), 9), &[(2, 9, &[1; 8])]);
+                let stale = records_block(
+                    BlockId::new(SessionTag::writable(0xbad), 9),
+                    &[(2, 9, &[1; 8])],
+                );
                 f.extend_from_slice(&stale);
             }
         }

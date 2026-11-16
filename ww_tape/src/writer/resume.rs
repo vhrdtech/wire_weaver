@@ -6,7 +6,7 @@
 //! the index lists by its entry, and the writer's state is rebuilt as the writer had it:
 //!
 //! - every block is accounted as a write accounts it: the BLAKE3 content hash, the index entries and
-//!   the track ranges, the newest whole describe set, the counts, the run and the next seq;
+//!   the track ranges, the newest whole describe set, the counts, the session and the next seq;
 //! - what the writer added is read back: a checkpoint index block moves the indexer on as placing it did, a describe
 //!   copy clears the early and checkpoint copies it stood for;
 //! - in an aligned piece a checkpoint due after a block waits for the next chunk, as it did.
@@ -370,7 +370,7 @@ impl<S: TapeSink> TapeWriter<S> {
             BlockKind::PieceHead if at == 0 => {
                 if let Ok(h) = PieceHeadBlock::read(&b) {
                     let head = h.head();
-                    self.run = b.run;
+                    self.session = b.session;
                     // the head carries the seq of the last counted block before it; a first piece starts at 0
                     self.next_seq = match head.prev {
                         Some(_) => b.seq.wrapping_add(1),
@@ -386,7 +386,7 @@ impl<S: TapeSink> TapeWriter<S> {
                 if checkpoint {
                     // moves the indexer on as placing it did; the bytes are the file's
                     self.indexer
-                        .checkpoint(at, crate::BlockId::new(b.run, b.seq))
+                        .checkpoint(at, crate::BlockId::new(b.session, b.seq))
                         .map_err(WriteError::Index)?;
                     self.index_due = false;
                 }

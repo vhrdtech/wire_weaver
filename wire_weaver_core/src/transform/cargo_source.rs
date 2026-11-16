@@ -2,7 +2,6 @@
 //! the crate the walk started from, its source lies under `CARGO_HOME` once Cargo fetched it
 //! (`git/checkouts/<repo>-<hash>/<short rev>/`, `registry/src/<index>/<name>-<version>/`).
 
-use super::stamps;
 use anyhow::{Context, Result, anyhow};
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -11,7 +10,7 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 /// How a manifest asks for a dependency that isn't a path.
-pub(crate) enum DepSpec<'a> {
+pub enum DepSpec<'a> {
     /// `name = "1.2"` or `name = { version = "1.2" }`, from crates.io or another registry.
     Registry {
         version_req: Option<&'a semver::VersionReq>,
@@ -21,21 +20,27 @@ pub(crate) enum DepSpec<'a> {
 }
 
 /// The package a dependency is looked up for.
-pub(crate) struct Dependent<'a> {
-    pub(crate) name: &'a str,
-    pub(crate) version: &'a semver::Version,
+pub struct Dependent<'a> {
+    pub name: &'a str,
+    pub version: &'a semver::Version,
     /// Directory with its `Cargo.toml`, canonical.
-    pub(crate) dir: &'a Path,
+    pub dir: &'a Path,
 }
+
+/// Told every file read and directory listed or looked into, so that a caller caching what a walk depended on knows
+/// when to walk again.
+pub type ReadNote = Box<dyn Fn(&Path)>;
 
 /// Cargo.lock and the fetched sources it points at, loaded once per walk.
 #[derive(Default)]
-pub(crate) struct CargoSources {
+pub struct CargoSources {
     /// Crate the walk started from: the nearest `Cargo.lock` above it pins every git and registry dependency, also
     /// those of dependencies (a git checkout's own `Cargo.lock` isn't the one in use).
-    pub(crate) entry_dir: Option<PathBuf>,
+    pub entry_dir: Option<PathBuf>,
     /// `CARGO_HOME` to use instead of the environment's (tests).
-    pub(crate) cargo_home: Option<PathBuf>,
+    pub cargo_home: Option<PathBuf>,
+    /// Called with every path read or looked into, `None` when nobody cares.
+    pub reads: Option<ReadNote>,
     lock: Option<Rc<CargoLock>>,
     /// Packages in a git checkout, by name, each with its directory.
     git_members: HashMap<PathBuf, Rc<HashMap<String, PathBuf>>>,
@@ -117,8 +122,22 @@ fn same_git_url(a: &str, b: &str) -> bool {
 }
 
 impl CargoSources {
+    /// Tells [Self::reads] that `path` was read, listed or looked for.
+    fn note(&self, path: &Path) {
+        if let Some(reads) = &self.reads {
+            reads(path);
+        }
+    }
+
+    /// [Self::note] of the directory `path` is in: whether a file is there.
+    fn note_parent(&self, path: &Path) {
+        if let Some(dir) = path.parent() {
+            self.note(dir);
+        }
+    }
+
     /// Directory of package `package` that `dependent` asks for with `spec`.
-    pub(crate) fn locate(
+    pub fn locate(
         &mut self,
         dependent: &Dependent,
         package: &str,
@@ -136,7 +155,7 @@ impl CargoSources {
         if let Some(dir) = self.package_dir(locked)? {
             return Ok(dir);
         }
-        patched_dir(&lock.path, package)?.ok_or_else(|| {
+        self.patched_dir(&lock.path, package)?.ok_or_else(|| {
             anyhow!(
                 "{} {} has no source in {}: a path dependency there but not in the manifest, nor a [patch] of \
                  the workspace there",
@@ -250,13 +269,13 @@ impl CargoSources {
         let src = self.cargo_home()?.join("registry").join("src");
         let prefix = format!("{package}-");
         // a version fetched later is listed in an index directory
-        stamps::note(&src);
+        self.note(&src);
         let newest = fs::read_dir(&src)
             .into_iter()
             .flatten()
             .flatten()
             .flat_map(|index| {
-                stamps::note(&index.path());
+                self.note(&index.path());
                 fs::read_dir(index.path()).into_iter().flatten().flatten()
             })
             .filter_map(|dir| {
@@ -287,7 +306,7 @@ impl CargoSources {
             .ancestors()
             .map(|dir| dir.join("Cargo.lock"))
             .find(|path| {
-                stamps::note_parent(path);
+                self.note_parent(path);
                 path.exists()
             })
             .ok_or_else(|| {
@@ -297,7 +316,7 @@ impl CargoSources {
                     entry_dir.display()
                 )
             })?;
-        stamps::note(&path);
+        self.note(&path);
         let contents = fs::read_to_string(&path)
             .with_context(|| format!("Failed to read {}", path.display()))?;
         let mut lock: CargoLock = toml::from_str(&contents)
@@ -346,14 +365,14 @@ impl CargoSources {
     fn registry_dir(&self, locked: &LockedPackage) -> Result<PathBuf> {
         let src = self.cargo_home()?.join("registry").join("src");
         let dir_name = format!("{}-{}", locked.name, locked.version);
-        stamps::note(&src);
+        self.note(&src);
         fs::read_dir(&src)
             .into_iter()
             .flatten()
             .flatten()
             .map(|index| index.path().join(&dir_name))
             .find(|dir| {
-                stamps::note_parent(dir);
+                self.note_parent(dir);
                 dir.join("Cargo.toml").exists()
             })
             .ok_or_else(|| {
@@ -378,7 +397,7 @@ impl CargoSources {
             .trim_end_matches(".git");
         let prefix = format!("{repo}-");
         // a checkout fetched later is a new directory in these; a checkout itself never changes
-        stamps::note(&checkouts);
+        self.note(&checkouts);
         let mut repo_dirs: Vec<PathBuf> = fs::read_dir(&checkouts)
             .into_iter()
             .flatten()
@@ -388,7 +407,7 @@ impl CargoSources {
             .collect();
         repo_dirs.sort();
         for repo_dir in repo_dirs {
-            stamps::note(&repo_dir);
+            self.note(&repo_dir);
             let mut revs: Vec<PathBuf> = fs::read_dir(&repo_dir)
                 .into_iter()
                 .flatten()
@@ -426,48 +445,49 @@ impl CargoSources {
     }
 }
 
-/// Directory of `package` as a `[patch.<source>]` of the workspace whose `Cargo.lock` is `lock_path` puts it: a git
-/// or registry dependency that Cargo resolves to a path there (wire_weaver patches the shrink_wrap that exact_units
-/// takes by git to its own).
-/// Where a `[patch]` of the workspace at `lock_path` puts `package`: the manifest's, then `.cargo/config.toml`'s, whose
-/// paths are relative to the workspace root as well.
-fn patched_dir(lock_path: &Path, package: &str) -> Result<Option<PathBuf>> {
-    let root = lock_path.parent().unwrap_or(Path::new("."));
-    for file in [
-        root.join("Cargo.toml"),
-        root.join(".cargo").join("config.toml"),
-    ] {
-        if let Some(dir) = patch_in(&file, package)? {
-            return Ok(Some(root.join(dir)));
+impl CargoSources {
+    /// Directory of `package` as a `[patch.<source>]` of the workspace whose `Cargo.lock` is `lock_path` puts it: a
+    /// git or registry dependency that Cargo resolves to a path there (wire_weaver patches the shrink_wrap that
+    /// exact_units takes by git to its own). The manifest's `[patch]` tables, then `.cargo/config.toml`'s, whose
+    /// paths are relative to the workspace root as well.
+    fn patched_dir(&self, lock_path: &Path, package: &str) -> Result<Option<PathBuf>> {
+        let root = lock_path.parent().unwrap_or(Path::new("."));
+        for file in [
+            root.join("Cargo.toml"),
+            root.join(".cargo").join("config.toml"),
+        ] {
+            if let Some(dir) = self.patch_in(&file, package)? {
+                return Ok(Some(root.join(dir)));
+            }
         }
+        Ok(None)
     }
-    Ok(None)
-}
 
-/// The path the `[patch]` tables of the TOML file `path` give `package`, if any.
-fn patch_in(path: &Path, package: &str) -> Result<Option<String>> {
-    stamps::note(path);
-    let Ok(contents) = fs::read_to_string(path) else {
-        return Ok(None);
-    };
-    let file: toml::Table =
-        toml::from_str(&contents).with_context(|| format!("Failed to parse {}", path.display()))?;
-    let Some(patch) = file.get("patch").and_then(|p| p.as_table()) else {
-        return Ok(None);
-    };
-    for deps in patch.values().filter_map(|deps| deps.as_table()) {
-        for (name, dep) in deps {
-            let Some(dep) = dep.as_table() else { continue };
-            let renamed = dep.get("package").and_then(|p| p.as_str());
-            if renamed.unwrap_or(name) != package {
-                continue;
-            }
-            if let Some(dir) = dep.get("path").and_then(|p| p.as_str()) {
-                return Ok(Some(dir.to_owned()));
+    /// The path the `[patch]` tables of the TOML file `path` give `package`, if any.
+    fn patch_in(&self, path: &Path, package: &str) -> Result<Option<String>> {
+        self.note(path);
+        let Ok(contents) = fs::read_to_string(path) else {
+            return Ok(None);
+        };
+        let file: toml::Table = toml::from_str(&contents)
+            .with_context(|| format!("Failed to parse {}", path.display()))?;
+        let Some(patch) = file.get("patch").and_then(|p| p.as_table()) else {
+            return Ok(None);
+        };
+        for deps in patch.values().filter_map(|deps| deps.as_table()) {
+            for (name, dep) in deps {
+                let Some(dep) = dep.as_table() else { continue };
+                let renamed = dep.get("package").and_then(|p| p.as_str());
+                if renamed.unwrap_or(name) != package {
+                    continue;
+                }
+                if let Some(dir) = dep.get("path").and_then(|p| p.as_str()) {
+                    return Ok(Some(dir.to_owned()));
+                }
             }
         }
+        Ok(None)
     }
-    Ok(None)
 }
 
 #[derive(Deserialize)]
@@ -521,11 +541,12 @@ mod tests {
     fn patch_of_the_workspace_puts_a_git_dependency_at_a_path() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
         let lock = root.join("Cargo.lock");
+        let sources = CargoSources::default();
         assert_eq!(
-            patched_dir(&lock, "shrink_wrap").unwrap(),
+            sources.patched_dir(&lock, "shrink_wrap").unwrap(),
             Some(root.join("./shrink_wrap/shrink_wrap"))
         );
-        assert_eq!(patched_dir(&lock, "no_such_package").unwrap(), None);
+        assert_eq!(sources.patched_dir(&lock, "no_such_package").unwrap(), None);
     }
 
     #[test]
@@ -539,8 +560,9 @@ mod tests {
         )
         .unwrap();
         let lock = root.join("Cargo.lock");
-        let found = patched_dir(&lock, "units").unwrap();
-        let missing = patched_dir(&lock, "no_such_package").unwrap();
+        let sources = CargoSources::default();
+        let found = sources.patched_dir(&lock, "units").unwrap();
+        let missing = sources.patched_dir(&lock, "no_such_package").unwrap();
         fs::remove_dir_all(&root).unwrap();
         assert_eq!(found, Some(root.join("../units")));
         assert_eq!(missing, None);

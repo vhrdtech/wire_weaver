@@ -165,7 +165,7 @@ fn load_dep_walked(
 ) -> Result<(ApiBundleOwned, CratePaths)> {
     let mut scratch = Scratch::default();
     let current_crate_manifest = ManifestContext::load(&current_crate_path)?;
-    scratch.sources.entry_dir = Some(current_crate_manifest.crate_path.clone());
+    scratch.enter(&current_crate_manifest.crate_path);
     let current_features = current_crate_manifest.default_features();
     let (dep_manifest, dep_features) = current_crate_manifest.load_dependent_manifest(
         dep_name,
@@ -187,7 +187,7 @@ fn load_dep_walked(
 pub fn dependency_dir(crate_path: &Path, dep_name: &str) -> Result<PathBuf> {
     let mut scratch = Scratch::default();
     let manifest = ManifestContext::load(crate_path)?;
-    scratch.sources.entry_dir = Some(manifest.crate_path.clone());
+    scratch.enter(&manifest.crate_path);
     let features = manifest.default_features();
     let (dep, _) = manifest.load_dependent_manifest(dep_name, &features, &mut scratch)?;
     Ok(dep.crate_path.clone())
@@ -738,6 +738,13 @@ impl CrateCache {
 }
 
 impl Scratch {
+    /// The walk starts from the crate at `crate_path`: the `Cargo.lock` above it pins the git and registry
+    /// dependencies, and what finding them reads counts as read by the walk ([stamps]).
+    fn enter(&mut self, crate_path: &Path) {
+        self.sources.entry_dir = Some(crate_path.to_path_buf());
+        self.sources.reads = Some(Box::new(stamps::note));
+    }
+
     /// The crate root of `version`, when the walk has loaded it.
     pub(crate) fn loaded_crate(&self, version: &FullVersionOwned) -> Option<Rc<CrateContext>> {
         self.crates.get(version).cloned()
@@ -955,7 +962,7 @@ impl CrateContext {
         scratch: &mut Scratch,
     ) -> Result<Rc<Self>> {
         if scratch.sources.entry_dir.is_none() {
-            scratch.sources.entry_dir = Some(manifest.crate_path.clone());
+            scratch.enter(&manifest.crate_path);
         }
         let version = manifest.full_version(scratch)?;
         let wire = manifest.wire()?;

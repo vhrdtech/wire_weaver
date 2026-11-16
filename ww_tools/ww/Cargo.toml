@@ -2,7 +2,7 @@
 name = "ww"
 version.workspace = true
 authors.workspace = true
-description = "WireWeaver command line tool: the generic commands and those of the standard library APIs"
+description = "WireWeaver command line tool: the generic commands, those of the standard library APIs, logring's and chunky's"
 edition.workspace = true
 repository.workspace = true
 license.workspace = true
@@ -13,6 +13,8 @@ path = "src/main.rs"
 
 [dependencies]
 anyhow.workspace = true
+chunky_ww_cli.workspace = true
+logring_ww_cli.workspace = true
 wire_weaver_cli.workspace = true
 ww_snapshots.workspace = true
 ww_std_cli.workspace = true

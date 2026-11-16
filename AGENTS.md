@@ -209,7 +209,9 @@ The codegen pipeline (read `wire_weaver_derive`, then `wire_weaver_core`):
   with, `registry::CommandDef`), `ww_stdlib/ww_std_cli` (the standard library's commands), `ww_tools/ww` (the `ww`
   binary, `cargo ww`; plugins `ww NAME` run `ww-NAME` from PATH), `ww_hub`/`ww_hub_api` (the per-user hub),
   `ww_clock_sync`, `ww_tap`, `wire_weaver_py` (Python, a library) with its wheel `ww_tools/wire_weaver_wheel`,
-  `wire_weaver_evolution` (the compatibility checker), `wire_weaver_tool` (egui viewer, `docs/dev_tool.md`). Nothing
+  `wire_weaver_evolution` (the compatibility checker), `wire_weaver_tool` (egui viewer, `docs/dev_tool.md`).
+  `ww_tools/` is its own workspace (layer 7): it links logring's and chunky_mcu_updater's commands by git and patches
+  their wire_weaver crates to the ones here; nothing in the root workspace depends on them. Nothing
   here depends on another repository by path (`just check-clean-clone`); `exact_units` comes by git, with the
   commit tracked in `Cargo.lock`, never pinned in `Cargo.toml`.
 - **`ww_stdlib/`**: reusable API traits and types for unrelated projects (units, time, numeric, GPIO, I2C, SPI, UART,

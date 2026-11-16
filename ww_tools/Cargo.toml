@@ -1,0 +1,54 @@
+# The shipped tools (layer 7): the `ww` binary and the wire_weaver wheel, with every command of every layer and
+# of the repositories built on this one (logring, chunky_mcu_updater). Its own workspace, excluded from the root:
+# those repositories take wire_weaver by git, so the root workspace never depends on them, and a breaking change
+# here leaves only this workspace waiting for them to follow. Their git copies of wire_weaver crates are patched
+# to the crates of this repository, so one registry and one set of types serve all commands.
+[workspace]
+resolver = "3"
+members = ["wire_weaver_wheel", "ww"]
+
+# The same as the root workspace's: one version for the whole repository.
+[workspace.package]
+version = "0.5.0"
+authors = ["Roman Isaikin <romix.lab@gmail.com>"]
+edition = "2024"
+repository = "https://github.com/vhrdtech/wire_weaver"
+license = "MIT"
+
+[workspace.dependencies]
+anyhow = "1"
+# logring and chunky_mcu_updater: by git, Cargo.lock pins the commit (`cargo update -p logring_ww_cli` moves it)
+chunky_ww_cli = { git = "https://github.com/romixlab/chunky_mcu_updater" }
+logring_py = { git = "https://github.com/vhrdtech/logring" }
+logring_ww_cli = { git = "https://github.com/vhrdtech/logring" }
+pyo3 = "0.29"
+wire_weaver_cli = { version = "0.5.0", path = "../wire_weaver_cli" }
+wire_weaver_py = { version = "0.5.0", path = "../wire_weaver_py" }
+ww_snapshots = { version = "0.5.0", path = "../ww_snapshots" }
+ww_std_cli = { version = "0.5.0", path = "../ww_stdlib/ww_std_cli" }
+
+# logring and chunky_mcu_updater take these by git: the crates of this repository instead
+[patch."https://github.com/vhrdtech/wire_weaver"]
+shrink_wrap = { path = "../shrink_wrap/shrink_wrap" }
+shrink_wrap_derive = { path = "../shrink_wrap/shrink_wrap_derive" }
+wire_weaver = { path = "../wire_weaver" }
+wire_weaver_cli = { path = "../wire_weaver_cli" }
+wire_weaver_client = { path = "../wire_weaver_client" }
+ww_client_server = { path = "../ww_client_server" }
+ww_device = { path = "../ww_device" }
+ww_dfu = { path = "../ww_stdlib/ww_dfu" }
+ww_global = { path = "../ww_global" }
+ww_numeric = { path = "../ww_stdlib/ww_numeric" }
+ww_self = { path = "../ww_self" }
+ww_si = { path = "../ww_stdlib/ww_si" }
+ww_snapshots = { path = "../ww_snapshots" }
+ww_stream = { path = "../ww_stream" }
+ww_version = { path = "../ww_stdlib/ww_version" }
+
+[patch.crates-io]
+wire_weaver = { path = "../wire_weaver" }
+wire_weaver_core = { path = "../wire_weaver_core" }
+
+[profile.deploy]
+inherits = "release"
+incremental = true

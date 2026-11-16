@@ -14,13 +14,14 @@ default:
 # (uses our internal tooling when available, otherwise falls back to the full suite).
 test *flags:
     if [ "{{flags}}" = "--changed" ]; then \
-        if command -v tpm >/dev/null 2>&1; then tpm test changed -- cargo nextest run --workspace; \
+        if command -v tpm >/dev/null 2>&1; then tpm test changed -- cargo nextest run --workspace && {{just_executable()}} test-tools; \
         else echo "tpm not found; running the full test suite instead" >&2; {{just_executable()}} test-all; fi; \
     else {{just_executable()}} test-all {{flags}}; fi
 
 # Test everything
 test-all:
     cargo nextest run --workspace --no-fail-fast
+    just test-tools
     # a firmware's SeriesStore sizes, compare and conversions, with the number types up to 32 bits only
     cargo nextest run -p ww_numeric --no-default-features --features u32,i32,f32 --test store --test integer
     cargo nextest run -p ww_si --no-default-features --features time,electrical,u32,i32,f32 --test store --test narrow
@@ -42,6 +43,10 @@ test-all:
     just test-facade-ui
     # no f32, f64 or 128-bit code from ww_si's device operations where a firmware didn't opt into floats (TEST-33)
     just no-float-guard
+
+# The shipped tools, ww_tools/ (its own workspace: ww and the wheel, with logring's and chunky's commands)
+test-tools:
+    cargo nextest run --manifest-path ww_tools/Cargo.toml --workspace --no-fail-fast
 
 # A server with ww_client_server built without `multi` and `streams`, as in a firmware, refusing the corpus's multi,
 # credit sink and Ack requests as not supported (SRV-60); alone, since a workspace build turns the features on
@@ -125,6 +130,11 @@ lint:
     cargo clippy --workspace --all-targets -- -D warnings
     cargo clippy --workspace --all-targets --all-features -- -D warnings
     RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --all-features
+    # ww_tools/, its own workspace
+    cargo fmt --all --check --manifest-path ww_tools/Cargo.toml
+    cargo sort -w -g --check ww_tools
+    cargo clippy --manifest-path ww_tools/Cargo.toml --workspace --all-targets --all-features -- -D warnings
+    RUSTDOCFLAGS="-D warnings" cargo doc --manifest-path ww_tools/Cargo.toml --workspace --no-deps --all-features
     just lint-c
 
 # Build the shrink_wrap C runtime and sw_requantize.c (also with SW_NO_F64) on their own, warnings are errors (SW-43, CLT-54); build and run the generated fixed-layout (SW-45) and head+tail (SW-46) C readers
@@ -255,9 +265,9 @@ upload-examples-mcu-usb-stm32h725ig:
 
 # Build ww and install it
 install:
-    cargo build --profile deploy --locked -p ww
+    cargo build --profile deploy --locked --manifest-path ww_tools/Cargo.toml -p ww
     # With the internal release tool on PATH: install through it (kept-releases stack, one copy on PATH); otherwise: cargo install
-    if command -v tpm >/dev/null; then tpm install target/deploy/ww; else cargo install --locked --path ww_tools/ww; fi
+    if command -v tpm >/dev/null; then tpm install ww_tools/target/deploy/ww; else cargo install --locked --path ww_tools/ww; fi
 
 # Old name of install, kept for people and docs
 install-cli: install
@@ -265,7 +275,7 @@ install-cli: install
 # Build ww from a fresh clone of HEAD with nothing but this repository around (what `cargo install --git` sees)
 check-clean-clone:
     rm -rf /tmp/ww-clean-clone && git clone -q . /tmp/ww-clean-clone
-    cd /tmp/ww-clean-clone && cargo build --locked -p ww
+    cd /tmp/ww-clean-clone && cargo build --locked --manifest-path ww_tools/Cargo.toml -p ww
     rm -rf /tmp/ww-clean-clone
 
 # Bring this PC up to main: pull --ff-only, refuse on local changes, install, check ww --version against main
@@ -282,11 +292,11 @@ deploy:
 # Save API snapshots of ww_global, ww_tap, ww_timebase, ww_link, ww_client_server and the ww_stdlib crates into each crate's api_snapshots/.
 # Pass --force to overwrite snapshots of versions that were never published.
 save-snapshots *args:
-    cargo build -q -p ww
+    cargo build -q --manifest-path ww_tools/Cargo.toml -p ww
     # ww_std_cli, ww_report and ww_pin_probe are host tools without an API
     for crate in ww_global ww_tap ww_timebase ww_link ww_client_server tests/wire_line_fixture_api ww_stdlib/*/; do \
         case "$(basename $crate)" in ww_std_cli|ww_report|ww_pin_probe) continue;; esac; \
-        target/debug/ww api save $crate {{ args }} || exit 1; \
+        ww_tools/target/debug/ww api save $crate {{ args }} || exit 1; \
     done
     # the frozen fixture that follows the stdlib by path: its pins follow too (EVO-70)
     just refresh-fixture-pins
@@ -294,8 +304,8 @@ save-snapshots *args:
 # Refresh the pinned stdlib signatures of the nucleo_g0b1re_api evolution fixture to the stdlib's current source,
 # keeping its old snapshot format (EVO-70). Refused on a wire break, unless --accept-breaking.
 refresh-fixture-pins *args:
-    cargo build -q -p ww
-    target/debug/ww api refresh-pins wire_weaver_evolution/tests/fixtures/nucleo_g0b1re_api {{ args }}
+    cargo build -q --manifest-path ww_tools/Cargo.toml -p ww
+    ww_tools/target/debug/ww api refresh-pins wire_weaver_evolution/tests/fixtures/nucleo_g0b1re_api {{ args }}
 
 pre-commit:
     cargo sort -w -g

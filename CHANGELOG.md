@@ -11,6 +11,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
+- `ww` links logring's and chunky_mcu_updater's commands (`ww logring`, `ww chunky`, `ww dfu flash` in process), the wheel has `wire_weaver.logring`; `ww_tools/` is its own workspace (TOOL-39). See the `ww`, `wire_weaver_wheel`, `wire_weaver_cli` and `ww_std_cli` changelogs.
 - `name_path` and `key_in_bundle` move from `ww_tape`'s `bundle` feature to the new `ww_tape_bundle` crate (R11): the tape format no longer depends on `ww_self`. See the `ww_tape` and `ww_tape_bundle` changelogs.
 - `WIRE_WEAVER_HOME` moves the host's `~/.wire_weaver` (EVO-80); the workspace's tests run on a scratch one with `WW_OFFLINE=1` (a nextest setup script). See the `ww_self`, `ww_snapshots` and `wire_weaver_core` changelogs.
 - Tests read no host state (EVO-80): each test device seeds a scratch cache with its introspection data (`WW_SELF_BYTES`, `cache_introspection`), clients connect through an offline resolver. See the `wire_weaver_core`, `wire_weaver_client` and `wire_weaver_cli` changelogs.

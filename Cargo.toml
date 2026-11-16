@@ -39,7 +39,6 @@ members = [
     "ww_tape_bundle",
     "ww_tape_fuzz",
     "ww_timebase",
-    "ww_tools/*",
 ]
 
 exclude = [
@@ -48,6 +47,8 @@ exclude = [
     "fuzz",
     "tests/thermo_api_old",
     "wire_weaver_tool",
+    # the shipped tools, their own workspace: they link logring and chunky_mcu_updater, which build on this one
+    "ww_tools",
 ]
 
 [workspace.package]

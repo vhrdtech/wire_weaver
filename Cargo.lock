@@ -6721,29 +6721,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "wire_weaver_wheel"
-version = "0.5.0"
-dependencies = [
- "pyo3",
- "wire_weaver_py",
- "ww_snapshots",
-]
-
-[[package]]
 name = "wit-bindgen"
 version = "0.57.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ebf944e87a7c253233ad6766e082e3cd714b5d03812acc24c318f549614536e"
-
-[[package]]
-name = "ww"
-version = "0.5.0"
-dependencies = [
- "anyhow",
- "wire_weaver_cli",
- "ww_snapshots",
- "ww_std_cli",
-]
 
 [[package]]
 name = "ww_adc"

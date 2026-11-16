@@ -1,10 +1,10 @@
 # Layer lint (TEST-36, tests/layers_lint): the target layer, 0 to 6, of every crate in every workspace
-# of this repo: the root workspace, mcu/, examples_mcu/*, fuzz/ and wire_weaver_tool/
+# of this repo: the root workspace, mcu/, examples_mcu/*, fuzz/, wire_weaver_tool/ and ww_tools/
 # (docs/evolution/crate_layers.md). A crate the test finds through `cargo metadata` but not listed
 # here fails it.
 #
 # Layer 1 (exact_units) and layer 7 (applications: logring, eventfull, firmware repos) are not
-# workspace crates of this repo, so they never appear here.
+# workspace crates of this repo; the layer-7 crates of ww_tools/ link some of them ([outside] below).
 #
 # A lower-layer crate may not depend on a higher-layer one (tests/layers_lint fails any such edge,
 # normal, build or dev, that `[[allow]]` below does not name); same-layer edges are fine.
@@ -270,7 +270,8 @@ ww_recorder = 6
 ww_report = 6
 ww_std_cli = 6
 
-# Layer 7: the shipped tools, everything of every layer built in
+# Layer 7: the shipped tools (ww_tools/, their own workspace), everything of every layer built in,
+# with the commands of the repositories built on this one ([outside])
 ww = 7
 wire_weaver_wheel = 7
 ww_sd = 6
@@ -279,6 +280,14 @@ ww_spi = 6
 ww_uart = 6
 ww_uid = 6
 ww_user_info = 6
+
+# Crates of other repositories that build on this one, linked by the shipped tools: only a crate of
+# their layer or above may depend on them (tests/layers_lint). They take wire_weaver by git, which
+# ww_tools/Cargo.toml patches to the crates here.
+[outside]
+chunky_ww_cli = 7
+logring_py = 7
+logring_ww_cli = 7
 
 # API crates (R1): a crate that defines `#[ww_trait]` APIs describes an API and never runs one. Its normal
 # dependencies, direct or transitive, reach no layer-5 crate (`wire_weaver` first of all) beyond what `ww_api`'s

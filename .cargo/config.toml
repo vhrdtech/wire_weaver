@@ -1,2 +1,2 @@
 [alias]
-ww = 'run -p ww --bin ww --'
+ww = 'run --manifest-path ww_tools/Cargo.toml -p ww --bin ww --'

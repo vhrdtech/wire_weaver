@@ -64,6 +64,7 @@ jobs:
           components: clippy
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - run: cargo clippy --manifest-path ww_tools/Cargo.toml --workspace --all-targets --all-features -- -D warnings
 
   doc:
     name: rustdoc
@@ -106,6 +107,8 @@ jobs:
       - run: cargo test --workspace --doc
       # facade!'s compile errors (CLT-64): trybuild, ignored by nextest as it builds the crate again
       - run: cargo test -p wire_weaver_client --test facade_ui -- --ignored
+      # the shipped tools, their own workspace (ww and the wheel with logring's and chunky's commands, TOOL-38)
+      - run: cargo nextest run --manifest-path ww_tools/Cargo.toml --workspace
 
   miri:
     name: miri (observe cells)

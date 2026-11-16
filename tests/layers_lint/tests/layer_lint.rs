@@ -1,7 +1,8 @@
 //! R9: fails on any crate (in any workspace of this repo) missing from `layers.toml`, and on any
 //! normal, build or dev dependency edge from a lower-layer crate to a higher-layer one that
 //! `layers.toml`'s `[[allow]]` list doesn't name; an allow-list line whose edge no longer exists
-//! fails too. R1: an API crate (`[api] crates`) reaches no runtime crate through its normal
+//! fails too. A crate of another repository that this one links (`[outside]`: logring's, chunky's) is depended on only
+//! from its layer or above. R1: an API crate (`[api] crates`) reaches no runtime crate through its normal
 //! dependencies. See `/layers.toml` and `docs/evolution/crate_layers.md`.
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -17,6 +18,9 @@ struct LayersFile {
     allow: Vec<AllowEntry>,
     #[serde(default)]
     api: ApiCrates,
+    /// Crates of other repositories that build on this one and that a crate here links, with the layer they sit at.
+    #[serde(default)]
+    outside: BTreeMap<String, u8>,
 }
 
 /// `[api] crates`: the crates that describe an API and never run one (R1), and `[[api.allow]]`, the runtime
@@ -45,6 +49,8 @@ struct Graph {
     local_crates: BTreeSet<String>,
     edges: BTreeSet<(String, String)>,
     normal_edges: BTreeSet<(String, String)>,
+    /// Edges from a local crate to a crate named in `[outside]`.
+    outside_edges: BTreeSet<(String, String)>,
 }
 
 impl Graph {
@@ -52,6 +58,7 @@ impl Graph {
         self.local_crates.extend(other.local_crates);
         self.edges.extend(other.edges);
         self.normal_edges.extend(other.normal_edges);
+        self.outside_edges.extend(other.outside_edges);
     }
 
     /// Every crate `start`'s normal dependencies reach, `start` excluded.
@@ -85,14 +92,15 @@ fn repo_root() -> PathBuf {
 }
 
 /// Every workspace in the repo: the root (`tests/*`, `examples/*`, `ww_stdlib/*`, ... are members
-/// of it already), `mcu/`, `fuzz/` and `wire_weaver_tool/` (excluded from the root on purpose,
-/// AGENTS.md), and every board under `examples_mcu/`, each its own package outside any workspace.
+/// of it already), `mcu/`, `fuzz/`, `wire_weaver_tool/` and `ww_tools/` (excluded from the root on
+/// purpose, AGENTS.md), and every board under `examples_mcu/`, each its own package outside any workspace.
 fn workspace_manifests(root: &Path) -> Vec<PathBuf> {
     let mut manifests = vec![
         root.join("Cargo.toml"),
         root.join("mcu/Cargo.toml"),
         root.join("fuzz/Cargo.toml"),
         root.join("wire_weaver_tool/Cargo.toml"),
+        root.join("ww_tools/Cargo.toml"),
     ];
     let examples_mcu = root.join("examples_mcu");
     let mut boards: Vec<PathBuf> = std::fs::read_dir(&examples_mcu)
@@ -105,24 +113,30 @@ fn workspace_manifests(root: &Path) -> Vec<PathBuf> {
     manifests
 }
 
-/// Every local (path-sourced, i.e. not registry or git) crate name found in one workspace's
-/// `cargo metadata`, and every normal/build/dev dependency edge between two such crates. A
+/// Every local crate name (path-sourced, i.e. not registry or git, and inside the repo: a `[patch]` to a
+/// sibling checkout is another repository) found in one workspace's `cargo metadata`, every
+/// normal/build/dev dependency edge between two such crates, and every edge to a crate of `outside`. A
 /// dependency the resolver lists more than once (several targets) collapses to one edge: the
 /// layer check only cares whether an edge exists, not how many places it comes from.
-fn local_crates_and_edges_of(manifest: &Path) -> Graph {
+fn local_crates_and_edges_of(root: &Path, manifest: &Path, outside: &BTreeSet<String>) -> Graph {
     // --locked, not --frozen: mcu/, fuzz/ and wire_weaver_tool/ are separate workspaces (AGENTS.md)
     // that CI checks in their own job, so a plain `cargo test` of the root workspace may never have
     // fetched their dependencies; --locked still refuses to re-resolve Cargo.lock, only allowing a
     // fetch of exactly what it already pins.
+    // in the workspace's own directory: its `.cargo/config.toml` applies, as in a build there
+    let dir = manifest.parent().expect("a manifest is in a directory");
     let metadata = MetadataCommand::new()
         .manifest_path(manifest)
+        .current_dir(dir)
         .other_options(["--locked".to_string()])
         .exec()
         .unwrap_or_else(|e| panic!("cargo metadata --manifest-path {}: {e}", manifest.display()));
     let local: BTreeSet<String> = metadata
         .packages
         .iter()
-        .filter(|package| package.source.is_none())
+        .filter(|package| {
+            package.source.is_none() && package.manifest_path.as_std_path().starts_with(root)
+        })
         .map(|package| package.name.to_string())
         .collect();
 
@@ -149,6 +163,10 @@ fn local_crates_and_edges_of(manifest: &Path) -> Graph {
             let Some(dep_name) = id_to_name.get(&dep.pkg) else {
                 continue;
             };
+            if outside.contains(dep_name) {
+                graph.outside_edges.insert((name.clone(), dep_name.clone()));
+                continue;
+            }
             if dep_name == name || !graph.local_crates.contains(dep_name) {
                 continue;
             }
@@ -168,11 +186,11 @@ fn local_crates_and_edges_of(manifest: &Path) -> Graph {
 
 /// `cargo metadata` of every manifest, one per thread (each is its own process spawn and JSON
 /// parse, with nothing shared to synchronize on), merged into one graph.
-fn collect_graph(manifests: &[PathBuf]) -> Graph {
+fn collect_graph(root: &Path, manifests: &[PathBuf], outside: &BTreeSet<String>) -> Graph {
     std::thread::scope(|scope| {
         let handles: Vec<_> = manifests
             .iter()
-            .map(|manifest| scope.spawn(move || local_crates_and_edges_of(manifest)))
+            .map(|manifest| scope.spawn(move || local_crates_and_edges_of(root, manifest, outside)))
             .collect();
         let mut graph = Graph::default();
         for handle in handles {
@@ -195,7 +213,7 @@ fn layers_file(root: &Path) -> LayersFile {
 fn api_crates_are_free_of_the_runtime() {
     let root = repo_root();
     let layers_file = layers_file(&root);
-    let graph = collect_graph(&[root.join("Cargo.toml")]);
+    let graph = collect_graph(&root, &[root.join("Cargo.toml")], &BTreeSet::new());
     let allowed = graph.normal_closure("ww_api");
     assert!(
         allowed.contains("shrink_wrap"),
@@ -272,11 +290,13 @@ fn no_upward_crate_edges() {
     let layers_file = layers_file(&root);
 
     let manifests = workspace_manifests(&root);
+    let outside: BTreeSet<String> = layers_file.outside.keys().cloned().collect();
     let Graph {
         local_crates,
         edges,
+        outside_edges,
         ..
-    } = collect_graph(&manifests);
+    } = collect_graph(&root, &manifests, &outside);
 
     let missing: Vec<&String> = local_crates
         .iter()
@@ -302,6 +322,22 @@ fn no_upward_crate_edges() {
             }
         }
     }
+    for (from, to) in &outside_edges {
+        let (from_layer, to_layer) = (layers_file.layers[from], layers_file.outside[to]);
+        if from_layer < to_layer {
+            violations.push(format!(
+                "{from} (layer {from_layer}) -> {to} (another repository's, layer {to_layer} in [outside])"
+            ));
+        }
+    }
+    let unlinked: Vec<&String> = outside
+        .iter()
+        .filter(|name| !outside_edges.iter().any(|(_, to)| to == *name))
+        .collect();
+    assert!(
+        unlinked.is_empty(),
+        "layers.toml [outside] crate(s) no crate here links any more, drop them: {unlinked:?}"
+    );
     assert!(
         violations.is_empty(),
         "upward crate edge(s), a lower layer depending on a higher one:\n{}",

@@ -16,6 +16,7 @@ crate-type = ["cdylib"]
 rtt = ["wire_weaver_py/rtt"]
 
 [dependencies]
+logring_py.workspace = true
 pyo3.workspace = true
 wire_weaver_py.workspace = true
 ww_snapshots.workspace = true

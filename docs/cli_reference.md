@@ -528,7 +528,7 @@ blinky_api@0.1.0 reboots into the updater
 |------------------------------|-----------|-----------------------------------------------------------------------------|
 | `reboot`                     |           | `ww_dfu::BootControl::reboot`, then exits without waiting for the device    |
 | `reboot --into <TARGET>`     | `updater` | `updater` (bootloader with a transport or recovery app) or `app` (normal reset, applies a staged update) |
-| `flash <FILE>`               |           | A whole update of a [chunky](https://github.com/romixlab/chunky_mcu_updater) device: delta, trial, confirm, run by the `ww-chunky` [plugin](#plugins) (below) |
+| `flash <FILE>`               |           | A whole update of a [chunky](https://github.com/romixlab/chunky_mcu_updater) device: delta, trial, confirm, `ww chunky flash` (below) |
 | `status`                     |           | `UpdateNode::node`: role, profile, product, layout, version, floor, seal, boot state, last update; `Stage` limits |
 | `confirm`                    |           | `BootControl::confirm`: keep the trial image (the firmware normally does this itself after its self-test) |
 | `revert`                     |           | `BootControl::revert`: give up the trial image (the old one runs after the next reset), or withdraw a staged one |
@@ -546,9 +546,9 @@ updater is not done yet (CLT-21). An A/B device whose app takes updates itself h
 
 ### `ww dfu flash`
 
-Runs the `ww-chunky` [plugin](#plugins) (`ww-chunky flash`, from chunky_mcu_updater: `just install` there or `cargo install --git
-https://github.com/romixlab/chunky_mcu_updater ww_chunky --locked`) with the arguments after `flash` and your device
-selection; `ww dfu flash --help` is its help, and without it on PATH `ww` says so. It updates a device whose app serves
+Runs `ww chunky flash` (chunky_mcu_updater's `chunky_ww_cli`, part of `ww`) with the arguments after `flash` and your
+device selection, flags typed before `dfu` or after `flash` alike; `ww dfu flash --help` is its help. A `ww` built
+without it runs the `ww-chunky` [plugin](#plugins) from PATH instead, and says so when there is none. It updates a device whose app serves
 `ww_dfu` with chunky's `chunky_ww` (scenario `2C-APP-STEP`), with the host library `chunky_ww_host`: reads what the device holds (`Inventory::chunks`), plans a delta against it (chunks the device has
 are copied on the device, only the rest goes over the wire), sends the steps with as many in flight as the device
 takes and a progress bar, has the device verify and stage the image, reboots it into a trial, follows it by serial
@@ -1160,14 +1160,19 @@ project files.
 that needs more than `ww` should carry (updates of chunky devices, `ww-chunky`). The device selection given before
 `NAME` reaches the plugin as the `WW_*` environment variables (`ww --serial 4B33 chunky status` runs
 `WW_SERIAL=4B33 ww-chunky status`; [`ww.toml`](#ww-config) is found by the plugin itself), the plugin's exit code is
-`ww`'s, and `ww dfu flash ARGS..` is `ww-chunky flash ARGS..`. A name that is no built-in command and not on `PATH`
-is an error naming `ww-NAME`.
+`ww`'s. A name that is no built-in command and not on `PATH` is an error naming `ww-NAME`. The commands of the
+repositories built on WireWeaver (`ww logring`, `ww chunky`) are part of `ww` and need no plugin; plugins are for
+other tools.
 
-The shell completion lists the plugins found on `PATH` and asks them for the words after their name: `ww chunky <TAB>`
-and `ww dfu flash --<TAB>` give what `ww-chunky` completes, with live values (a plugin completes its device
+The shell completion lists the plugins found on `PATH` and asks them for the words after their name: `ww foo <TAB>`
+gives what `ww-foo` completes, with live values (a plugin completes its device
 selection like `ww` does). A `ww-*` program is run with the typed words only after it answered the probe
 `ww-NAME --ww-plugin` with the line `ww-plugin 1` (remembered per path and modification time, in
 `~/.cache/ww/plugins`); any other program called `ww-something` is listed and never run by the completion. Plugins also complete on their own (`ww-chunky --help`, `COMPLETE=fish ww-chunky`).
+
+A command can forward a subcommand to another command (`registry::Forward`): `ww dfu flash ARGS..` is `ww chunky
+flash ARGS..`. When the binary links that command, it runs in the same process, with the device flags typed before
+and after it, and the completion uses it; otherwise the plugin of that name runs, as above.
 
 Writing one: depend on the `wire_weaver_cli` library crate; `wire_weaver_cli::plugin` is the public plugin API.
 Flatten `DeviceArgs` into the command line, resolve it with `Selection::resolve(&matches, false)` and connect with

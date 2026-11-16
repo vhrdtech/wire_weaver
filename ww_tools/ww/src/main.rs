@@ -1,4 +1,6 @@
-// the standard library commands register themselves when their crate is linked
+// the commands register themselves when their crate is linked: the standard library's, logring's and chunky's
+use chunky_ww_cli as _;
+use logring_ww_cli as _;
 use ww_std_cli as _;
 
 /// The API snapshots of every crate in the build's lock (ww_stdlib, ww_global, ww_tap, exact_units): a device built

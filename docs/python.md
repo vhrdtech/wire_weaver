@@ -170,6 +170,19 @@ Numbers and bools get their dtype, other leaves (strings, lists, `#[series(opaqu
 leaf some items don't have (in another variant, or `None`) is a masked array (`numpy.ma`). See
 [`Series<T>`](serdes/series.md#introspection-and-dynamic-clients).
 
+## Log files: `wire_weaver.logring`
+
+[logring](https://github.com/vhrdtech/logring)'s Python API is part of the wheel: open a card, ring file, image or
+split file written by a device's ring log and read its tracks, the same API as the `logring` wheel and `ww logring`.
+
+```python
+from wire_weaver import logring
+
+log = logring.open("recording.wlr")
+[t.name for t in log.tracks()]
+log.track("sensor_0").to_pandas()
+```
+
 ## More
 
 - [Counted and reliable streams](python_advanced.md#counted-and-reliable-streams): positions, gaps, resuming from a cursor

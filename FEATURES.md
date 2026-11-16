@@ -1636,8 +1636,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   API (`DeviceArgs`, `Selection`, `take_exclusive`, `complete_if_requested`, `escape`), so a plugin has the connection
   options, the config file and the completion of `ww`. `just check-clean-clone` builds `ww` from a fresh clone.
 - 🚧 **CLT-33 `ww dfu flash`: updates of a chunky device** — `ww dfu flash <ELF|sealed image|bin>`, `status`,
-  `confirm`, `revert` (`ww_chunky/src/commands.rs` in chunky_mcu_updater; `ww dfu status | confirm | revert` also run in `wire_weaver_cli/src/cmd/dfu.rs`) on the host library `chunky_ww_host` of chunky_mcu_updater
-  (NET-2), now the `ww-chunky` plugin of chunky_mcu_updater that `ww dfu flash` runs (CLT-47): seals an ELF or a
+  `confirm`, `revert` (`chunky_ww_cli/src/commands.rs` in chunky_mcu_updater; `ww dfu status | confirm | revert` also run in `wire_weaver_cli/src/cmd/dfu.rs`) on the host library `chunky_ww_host` of chunky_mcu_updater
+  (NET-2), now `ww chunky flash` of chunky_mcu_updater's `chunky_ww_cli`, linked into `ww` (TOOL-39), or the
+  `ww-chunky` plugin (CLT-47), that `ww dfu flash` runs: seals an ELF or a
   binary for the device (product and seal scheme from `NodeInfo`, which carries `product_id` and `seal` for it,
   STD-12), plans a delta, sends the steps pipelined up to `StageLimits::in_flight` (`PreparedCall::send` →
   `PendingCall`: requests leave in send order, replies awaited later), a progress bar, reboots into the trial,
@@ -2773,10 +2774,15 @@ Unicast Data0 to one node over the same bus is TR-6.
   `info` and `sync` (`InfoExtension`, `SyncExtension`), and the binary `ww` (`ww_tools/ww`) links both. Tests compare
   the registered commands with the expected list in both crates and in the binary's help.
   [Docs](docs/cli_reference.md#plugins).
-- 🚧 **TOOL-38 `ww` links its own repos' commands** · `v0.5` — the `ww` binary and the wire_weaver wheel compile in
+- 🚧 **TOOL-39 `ww` links its own repos' commands** · `v0.5` — the `ww` binary and the wire_weaver wheel compile in
   the commands of logring and chunky_mcu_updater (`ww logring`, `ww chunky`, `ww dfu flash`), so a debug tool works
   with no plugin; plugins stay for third-party tools. A forward (`dfu flash` to `chunky flash`) runs a registered
-  command in process with the device flags typed before and after it, and completes with it.
+  command in process with the device flags typed before and after it, and completes with it. `ww_tools/` is its own
+  workspace (`ww_tools/Cargo.toml`): logring and chunky take wire_weaver by git, so the root never depends on them,
+  and their wire_weaver crates are patched to this repository's. `layers.toml` `[outside]` names their crates, and
+  the layer lint checks only layer 7 links them. `wire_weaver.logring` in the wheel. Tests: the binary's command
+  list and its help, `ww logring` on an image, `ww dfu flash` help and completion with no plugin on PATH, pytest.
+  Open: `ww_tools/Cargo.lock` once logring and chunky_mcu_updater have these crates on their main.
 - 📋 **TOOL-37 `ww udev` prints the rule** — the command exists and is documented but stops with an error naming
   this item (was a `todo!()` panic): it should print a udev rule for WireWeaver USB devices to pipe into
   `/etc/udev/rules.d/`.

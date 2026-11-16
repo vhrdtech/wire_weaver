@@ -2,7 +2,7 @@
 
 ### 🚀 Features
 
-- A forward runs a registered command of its plugin's name in process (`registry::forward`), with the device flags typed before and after it; the completion uses that command (TOOL-38).
+- A forward runs a registered command of its plugin's name in process (`registry::forward`), with the device flags typed before and after it; the completion uses that command (TOOL-39).
 - `ww` embeds the API snapshots of every crate in its build's lock, and `ww api cache PATH...` / `ww api fetch CRATE VERSION` fill `~/.wire_weaver/snapshots/` (EVO-80).
 - `ww` prints an opaque value with its crate, version and bytes, and names `ww api fetch` (EVO-80).
 

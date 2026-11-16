@@ -19,7 +19,8 @@ pub trait DispatchGoldenTest {
     /// Answers the pending `deferred` call with `value`.
     fn answer_deferred(value: u8);
 
-    /// Plain read/write property.
+    /// Plain read/write property; a write of 255 is refused with the common error `Refused` (STD-16).
+    #[errors(CommonError(Refused))]
     property!(rw plain: u8);
     /// A property whose setter can fail with a user error.
     #[errors(TooBig)]
@@ -39,6 +40,14 @@ pub trait DispatchGoldenTest {
     /// A global trait, reached by `GlobalFull` and `GlobalCompact`: also covers a property write and a const read
     /// on a global path.
     ww_impl!(info: global_fixture_api::GlobalDemo);
+
+    /// `Call` of a method without an error type whose handler refuses: the common error event (STD-16).
+    #[errors(CommonError(Busy))]
+    fn busy();
+    /// `Call` of a method with an error type of its own: `pick` 0 is `Ok(7)`, 1 its own `Err(TooBig)` in the
+    /// value, 2 the common error event `InUse` (STD-16).
+    #[errors(CommonError(InUse), TooBig)]
+    fn checked(pick: u8) -> Result<u8, GuardedError>;
 }
 
 #[ww_trait]
@@ -59,3 +68,5 @@ pub enum GuardedError {
     /// Above 100.
     TooBig,
 }
+
+ww_api::api_error!(GuardedError);

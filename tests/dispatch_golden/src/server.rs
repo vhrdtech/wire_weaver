@@ -53,12 +53,42 @@ impl Server {
         &mut self,
         _cx: &mut Context<'_, impl BlockingEventOut>,
         value: u8,
-    ) -> SetResult<()> {
+    ) -> SetResult<CommonError<'_>> {
+        if value == 255 {
+            return SetError(CommonError::Refused {
+                reason: MaxLen::new_unchecked("255"),
+            });
+        }
         self.plain = value;
         Set
     }
 
-    fn get_plain(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) -> GetResult<u8, ()> {
+    fn busy(
+        &mut self,
+        _cx: &mut Context<'_, impl BlockingEventOut>,
+    ) -> RpcResult<Result<(), CommonError<'_>>> {
+        Ready(Err(CommonError::Busy))
+    }
+
+    fn checked(
+        &mut self,
+        _cx: &mut Context<'_, impl BlockingEventOut>,
+        pick: u8,
+    ) -> RpcResult<Result<u8, wire_weaver::Error<'_, GuardedError>>> {
+        Ready(match pick {
+            0 => Ok(7),
+            1 => Err(GuardedError::TooBig.into()),
+            _ => Err(CommonError::InUse {
+                by: MaxLen::new_unchecked("test"),
+            }
+            .into()),
+        })
+    }
+
+    fn get_plain(
+        &mut self,
+        _cx: &mut Context<'_, impl BlockingEventOut>,
+    ) -> GetResult<u8, CommonError<'_>> {
         Value(self.plain)
     }
 

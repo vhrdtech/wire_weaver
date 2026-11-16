@@ -5,7 +5,8 @@
 //!
 //! Resource indices, by declaration order in `dispatch_golden_api` (0-based, as every nested level starts over):
 //! root: no_args 0, with_args 1, absent 2, deferred 3, answer_deferred 4, plain 5, guarded 6, LIMIT 7, samples 8,
-//! commands 9, channel[] 10, info 11; `Channel`: pulse 0, level 1; `global_fixture_api::GlobalDemo`:
+//! commands 9, channel[] 10, info 11, busy 12, checked 13; `Channel`: pulse 0, level 1;
+//! `global_fixture_api::GlobalDemo`:
 //! CAPABILITIES 0, name 1.
 
 use dispatch_golden_api::CHANNEL_FULL_GID;
@@ -185,6 +186,13 @@ pub fn build(name: &str, step: usize) -> Vec<u8> {
         }
         ("error.seq_zero_read_property", 0) => read(0, &ww_client_server::resource_path([5])),
         ("error.seq_zero_call_no_reply", 0) => call(0, &ww_client_server::resource_path([0]), &[]),
+        ("call.common_error_plain", 0) => call(1, &ww_client_server::resource_path([12]), &[]),
+        ("call.result_ok", 0) => call(1, &ww_client_server::resource_path([13]), &[0]),
+        ("call.result_user_error", 0) => call(1, &ww_client_server::resource_path([13]), &[1]),
+        ("call.result_common_error", 0) => call(1, &ww_client_server::resource_path([13]), &[2]),
+        ("property.write_common_error", 0) => {
+            write(1, &ww_client_server::resource_path([5]), &[255])
+        }
         ("multi.multi_call", 0) => request(
             1,
             absolute(&ww_client_server::resource_path([10])),

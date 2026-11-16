@@ -53,12 +53,42 @@ impl AsyncServer {
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
         value: u8,
-    ) -> SetResult<()> {
+    ) -> SetResult<CommonError<'_>> {
+        if value == 255 {
+            return SetError(CommonError::Refused {
+                reason: MaxLen::new_unchecked("255"),
+            });
+        }
         self.plain = value;
         Set
     }
 
-    async fn get_plain(&mut self, _cx: &mut Context<'_, impl EventOut>) -> GetResult<u8, ()> {
+    async fn busy(
+        &mut self,
+        _cx: &mut Context<'_, impl EventOut>,
+    ) -> RpcResult<Result<(), CommonError<'_>>> {
+        Ready(Err(CommonError::Busy))
+    }
+
+    async fn checked(
+        &mut self,
+        _cx: &mut Context<'_, impl EventOut>,
+        pick: u8,
+    ) -> RpcResult<Result<u8, wire_weaver::Error<'_, GuardedError>>> {
+        Ready(match pick {
+            0 => Ok(7),
+            1 => Err(GuardedError::TooBig.into()),
+            _ => Err(CommonError::InUse {
+                by: MaxLen::new_unchecked("test"),
+            }
+            .into()),
+        })
+    }
+
+    async fn get_plain(
+        &mut self,
+        _cx: &mut Context<'_, impl EventOut>,
+    ) -> GetResult<u8, CommonError<'_>> {
         Value(self.plain)
     }
 

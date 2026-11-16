@@ -258,6 +258,56 @@
       "note": "seq 0 on an ordinary Call means no answer is expected: the direct reply is empty."
     },
     {
+      "name": "call.common_error_plain",
+      "steps": [
+        {
+          "request": "808080800140c10001",
+          "reply": "010211300103"
+        }
+      ],
+      "note": "A method without an error type whose handler answers Err(CommonError::Busy): the common error event at the handler site (STD-16)."
+    },
+    {
+      "name": "call.result_ok",
+      "steps": [
+        {
+          "request": "808080800140d1000001",
+          "reply": "01808007"
+        }
+      ],
+      "note": "A method with an error type of its own answering Ok(7): the Result in the value, as before STD-16."
+    },
+    {
+      "name": "call.result_user_error",
+      "steps": [
+        {
+          "request": "808080800140d1000101",
+          "reply": "0180000001"
+        }
+      ],
+      "note": "A method with an error type of its own answering its own Err(TooBig): the Result in the value, as before STD-16."
+    },
+    {
+      "name": "call.result_common_error",
+      "steps": [
+        {
+          "request": "808080800140d1000201",
+          "reply": "0102112074657374040609"
+        }
+      ],
+      "note": "A method with an error type of its own whose handler answers a common error (InUse { by: \"test\" }): the common error event, not the method's Result (STD-16)."
+    },
+    {
+      "name": "property.write_common_error",
+      "steps": [
+        {
+          "request": "80808080014054ff01",
+          "reply": "01021160323535030507"
+        }
+      ],
+      "note": "A write a plain property's handler refuses with a common error (Refused { reason: \"255\" }): the common error event (STD-16)."
+    },
+    {
       "name": "multi.multi_call",
       "steps": [
         {

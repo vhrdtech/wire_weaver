@@ -58,13 +58,16 @@ fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
 
-/// The crates whose `api_snapshots/` are saved here: ww_global, ww_tap, ww_link and the stdlib.
+/// The crates whose `api_snapshots/` are saved here: ww_global, ww_tap, ww_link, ww_timebase, ww_client_server and
+/// the stdlib.
 fn crate_dirs() -> Vec<PathBuf> {
     let root = root();
     let mut crate_dirs = vec![
         root.join("ww_global"),
         root.join("ww_tap"),
         root.join("ww_link"),
+        root.join("ww_timebase"),
+        root.join("ww_client_server"),
     ];
     for entry in std::fs::read_dir(root.join("ww_stdlib")).unwrap() {
         let path = entry.unwrap().path();
@@ -94,7 +97,7 @@ fn resolver() -> Resolver {
     Resolver::new().with_crate_dirs(crate_dirs().into_iter().chain(exact_units))
 }
 
-/// Consecutive versions in each crate's `api_snapshots/` follow the rules: ww_global, ww_tap, ww_link and the stdlib.
+/// Consecutive versions in each crate's `api_snapshots/` follow the rules: every crate of [crate_dirs].
 #[test]
 fn saved_snapshots_evolve_correctly() {
     for crate_dir in crate_dirs() {

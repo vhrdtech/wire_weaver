@@ -35,6 +35,7 @@ wire_weaver_derive = 4
 wire_weaver_evolution = 4
 wire_weaver_snapshots = 4
 ww_lz4 = 4
+ww_api = 4
 ww_self = 4
 
 # Layer 5 — framework runtime and host (incl. its tests, examples and benches)

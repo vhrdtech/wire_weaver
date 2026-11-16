@@ -34,8 +34,8 @@ ww_tape_fuzz = 3
 wire_weaver_core = 4
 wire_weaver_derive = 4
 wire_weaver_evolution = 4
-wire_weaver_snapshots = 4
 ww_lz4 = 4
+ww_snapshots = 4
 ww_api = 4
 ww_self = 4
 

@@ -1,9 +1,9 @@
 //! Binary form of saved API snapshots (`ww api save`).
 //!
 //! A snapshot is stored in git as RON for people to read, with the SHA-256 of the shrink_wrap bytes it was made from
-//! in its header ([HASH_PREFIX]). Whoever builds with the snapshot (`wire_weaver_snapshots`'s build script) encodes
-//! the RON bundle with [encode], compares [sha256_hex] of the result with [saved_hash] and embeds the bytes only, so
-//! the RON round trip is proven lossless at build time and never parsed at runtime.
+//! in its header ([HASH_PREFIX]). Whoever reads the snapshot (`ww_snapshots`, also at build time when it embeds one)
+//! encodes the RON bundle with [encode], compares [sha256_hex] of the result with [saved_hash] and keeps the bytes
+//! only, so the RON round trip is proven lossless at every read.
 
 use crate::ApiBundleOwned;
 use anyhow::{Result, anyhow};

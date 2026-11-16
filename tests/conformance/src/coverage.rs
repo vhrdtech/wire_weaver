@@ -1,5 +1,5 @@
 //! TEST-25: every wire-relevant `ww_self::Type` variant, and every wire-relevant `shrink_wrap_derive` directive, is
-//! exercised by at least one corpus case. A kind unlisted and unused fails the test; a kind listed as a gap that is
+//! exercised by at least one corpus case; every list-like or string-like field kind has its shape cases (TEST-37). A kind unlisted and unused fails the test; a kind listed as a gap that is
 //! now used fails too, same rules as a case's own [gap marks](crate::corpus::Case::gap).
 //!
 //! `Type` is walked with an exhaustive match (`type_kind`): a new variant there is a compile error, not a
@@ -16,6 +16,7 @@
 use crate::corpus::Corpus;
 use crate::dynamic::{bundle, property_ty};
 use std::collections::BTreeSet;
+use ww_numeric::{NumericAnyTypeOwned, NumericBaseType};
 use ww_self::{ApiBundleOwned, FieldsOwned, GenericArgOwned, TypeLocationOwned, TypeOwned};
 
 /// A gap mark for a kind no case exercises yet: same shape and rules as `Case::gaps` (`docs/serdes/conformance.md`).
@@ -122,11 +123,14 @@ pub const ALL_TYPE_KINDS: &[&str] = &[
     "Series",
 ];
 
+/// What a walk collects of each type it passes: its variant name ([type_kind]) or its field kind ([field_kind]).
+type Classify = fn(&TypeOwned) -> Option<&'static str>;
+
 fn walk_fields(
     fields: &FieldsOwned,
     bundle: &ApiBundleOwned,
     visited: &mut BTreeSet<u32>,
-    out: &mut BTreeSet<&'static str>,
+    out: &mut (Classify, BTreeSet<&'static str>),
 ) {
     match fields {
         FieldsOwned::Named(fs) => fs.iter().for_each(|f| walk(&f.ty, bundle, visited, out)),
@@ -140,7 +144,7 @@ fn resolve(
     idx: u32,
     bundle: &ApiBundleOwned,
     visited: &mut BTreeSet<u32>,
-    out: &mut BTreeSet<&'static str>,
+    out: &mut (Classify, BTreeSet<&'static str>),
 ) {
     if !visited.insert(idx) {
         return;
@@ -150,14 +154,17 @@ fn resolve(
     }
 }
 
-/// Every `ww_self::Type` variant reachable from `ty`, following `OutOfLine`/`Instance` into `bundle.types`.
+/// What `out`'s classifier gives for every type reachable from `ty`, following `OutOfLine`/`Instance` into
+/// `bundle.types`.
 fn walk(
     ty: &TypeOwned,
     bundle: &ApiBundleOwned,
     visited: &mut BTreeSet<u32>,
-    out: &mut BTreeSet<&'static str>,
+    out: &mut (Classify, BTreeSet<&'static str>),
 ) {
-    out.insert(type_kind(ty));
+    if let Some(kind) = (out.0)(ty) {
+        out.1.insert(kind);
+    }
     match ty {
         TypeOwned::Bool
         | TypeOwned::Flag
@@ -197,9 +204,13 @@ fn walk(
 /// `ww_self::Type` variants reachable from the type of some case in `corpus` (cases whose `type` isn't in the API
 /// model, e.g. `head_tail`'s own types, can't be walked and are skipped: they have no `TypeOwned` to start from).
 pub fn used_type_kinds(corpus: &Corpus) -> BTreeSet<&'static str> {
+    collect(corpus, |ty| Some(type_kind(ty)))
+}
+
+fn collect(corpus: &Corpus, classify: Classify) -> BTreeSet<&'static str> {
     let bundle = bundle();
     let mut visited = BTreeSet::new();
-    let mut out = BTreeSet::new();
+    let mut out = (classify, BTreeSet::new());
     let mut seen_tys = BTreeSet::new();
     for case in &corpus.cases {
         if !seen_tys.insert(case.ty.as_str()) {
@@ -209,7 +220,96 @@ pub fn used_type_kinds(corpus: &Corpus) -> BTreeSet<&'static str> {
             walk(ty, bundle, &mut visited, &mut out);
         }
     }
-    out
+    out.1
+}
+
+/// The list-like or string-like field kind of a type, the names of [crate::shapes::KINDS]: exhaustive, so a new
+/// `Type` variant is decided here. A wrapper (`MaxLen`, `Box`) has the kind of what it wraps, which the walk visits.
+fn field_kind(ty: &TypeOwned) -> Option<&'static str> {
+    match ty {
+        TypeOwned::String => Some("str"),
+        TypeOwned::Vec(elem) => Some(match &**elem {
+            TypeOwned::NumericAny(NumericAnyTypeOwned::Base(NumericBaseType::U8)) => "bytes",
+            TypeOwned::Bool => "vec_bool",
+            TypeOwned::String => "vec_str",
+            _ => "vec",
+        }),
+        TypeOwned::Option { .. } => Some("option"),
+        TypeOwned::Array { .. } => Some("array"),
+        TypeOwned::Series(_) => Some("series"),
+        TypeOwned::MaxLen { .. }
+        | TypeOwned::Box(_)
+        | TypeOwned::Bool
+        | TypeOwned::NumericAny(_)
+        | TypeOwned::OutOfLine { .. }
+        | TypeOwned::Flag
+        | TypeOwned::Tuple(_)
+        | TypeOwned::Struct(_)
+        | TypeOwned::Enum(_)
+        | TypeOwned::Result { .. }
+        | TypeOwned::Range(_)
+        | TypeOwned::RangeInclusive(_)
+        | TypeOwned::Instance { .. }
+        | TypeOwned::Param(_) => None,
+    }
+}
+
+/// Field kinds without shape cases yet: same shape and rules as [TYPE_GAPS].
+pub const FIELD_KIND_GAPS: &[Gap] = &[Gap {
+    kind: "series",
+    reason: "a `Series` is written as columns with their own layout, not as one list: no shape cases for it yet \
+        (TEST-38)",
+}];
+
+/// Field kinds outside the API model, which no walk finds: `TailBytes` (INT-9).
+const MODEL_LESS_FIELD_KINDS: &[&str] = &["tail"];
+
+/// TEST-37: every list-like or string-like field kind of some case's type (and `TailBytes`) has its full set of
+/// shape cases in `corpus` (every layout and count of [crate::shapes]), or a gap mark in [FIELD_KIND_GAPS].
+pub fn field_kind_failures(corpus: &Corpus) -> Vec<String> {
+    let mut used = collect(corpus, field_kind);
+    used.extend(MODEL_LESS_FIELD_KINDS);
+    let mut failures = vec![];
+    for kind in &used {
+        let gap = FIELD_KIND_GAPS.iter().find(|g| g.kind == *kind);
+        let missing = missing_shape_cases(corpus, kind);
+        match (gap, missing.is_empty()) {
+            (None, true) => {}
+            (None, false) => failures.push(format!(
+                "field kind '{kind}' lacks shape cases {missing:?}: add it to conformance::shapes::KINDS, or a gap \
+                 mark naming why not"
+            )),
+            (Some(g), true) => failures.push(format!(
+                "field kind '{kind}' has its shape cases now: remove its gap mark and close what it names ({})",
+                g.reason
+            )),
+            (Some(_), false) => {}
+        }
+    }
+    for gap in FIELD_KIND_GAPS {
+        if !used.contains(gap.kind) {
+            failures.push(format!(
+                "field kind '{}' has a gap mark but no case uses it: stale entry, remove it",
+                gap.kind
+            ));
+        }
+    }
+    failures
+}
+
+/// The shape case names of `kind` that `corpus` lacks; every name when the table has no such kind.
+fn missing_shape_cases(corpus: &Corpus, kind: &str) -> Vec<String> {
+    let Some(k) = crate::shapes::KINDS.iter().find(|k| k.name == kind) else {
+        return vec![format!("shape.{kind}.*")];
+    };
+    crate::shapes::layouts_of(k)
+        .flat_map(|layout| {
+            k.values
+                .iter()
+                .map(move |v| crate::shapes::case_name(k.name, layout.name, v.count))
+        })
+        .filter(|name| !corpus.cases.iter().any(|c| &c.name == name))
+        .collect()
 }
 
 /// `shrink_wrap_derive` directives of `DIRECTIVE_KINDS` whose text appears in `conformance_api`'s source: a
@@ -259,4 +359,36 @@ pub fn check(
         }
     }
     failures
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_missing_shape_case_fails() {
+        let mut corpus = crate::corpus::load();
+        assert!(field_kind_failures(&corpus).is_empty());
+        corpus
+            .cases
+            .retain(|c| c.name != "shape.bytes.mid_bool.empty");
+        let failures = field_kind_failures(&corpus);
+        assert_eq!(failures.len(), 1, "{failures:?}");
+        assert!(
+            failures[0].contains("shape.bytes.mid_bool.empty"),
+            "{failures:?}"
+        );
+    }
+
+    #[test]
+    fn every_shape_kind_is_a_field_kind() {
+        let used = collect(&crate::corpus::load(), field_kind);
+        for kind in crate::shapes::KINDS {
+            assert!(
+                used.contains(kind.name) || MODEL_LESS_FIELD_KINDS.contains(&kind.name),
+                "shape kind '{}' is no field kind field_kind gives",
+                kind.name
+            );
+        }
+    }
 }

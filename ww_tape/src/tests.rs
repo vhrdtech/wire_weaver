@@ -1367,7 +1367,7 @@ fn typed_items_hash() {
     assert_eq!(set.len(), 2);
 }
 
-/// A track with an empty bundle and path, no item and not sticky reads back: the empty bundle starts mid-byte,
+/// A track with an empty bundle, path and keys, no item and not sticky reads back: the empty bundle starts mid-byte,
 /// after the API version's bits (SW-81).
 #[test]
 fn bare_track_round_trips() {

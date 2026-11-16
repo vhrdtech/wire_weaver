@@ -261,11 +261,12 @@
       "name": "multi.multi_call",
       "steps": [
         {
-          "request": "808080800140a11040128000000221",
+          "request": "808080800140a110401280000121",
           "reply": "0180c00001"
         }
       ],
-      "note": "MultiCall of channel[].pulse over indices 0 and 1 (multi_req = true)."
+      "note": "MultiCall of channel[].pulse over indices 0 and 1 (multi_req = true).",
+      "wire_change": "EVO-81 / the empty MultiArgs::Same list has no padding byte (SW-81); both forms read the same"
     },
     {
       "name": "multi.multi_read",

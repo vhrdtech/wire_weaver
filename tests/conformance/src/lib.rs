@@ -1,12 +1,13 @@
 //! Wire-format conformance matrix (TEST-23, `docs/serdes/conformance.md`): one corpus of cases (`corpus.json`: a
-//! type, a value, the golden bytes), sent through every consumer of the wire format: the Rust derive, the `ww_self`
-//! dynamic client, Python (`wire_weaver_py/tests/test_conformance.py`) and C (the runtime and the generated
-//! fixed-layout readers). A case a consumer can't express yet carries a gap mark with the reason; the tests fail
+//! type, a value, the golden bytes), sent through every consumer of the wire format: the Rust derive's owned and
+//! borrowed types, the `ww_self` dynamic client, Python (`wire_weaver_py/tests/test_conformance.py`) and C (the
+//! runtime and the generated fixed-layout readers). A case a consumer can't express yet carries a gap mark with the reason; the tests fail
 //! when a mark is missing or no longer needed, so nothing is skipped silently.
 //!
 //! `just conformance-update` (`CONFORMANCE=update` for the `corpus` and `report` tests) fills in the golden bytes of
 //! new cases (from the derive) and writes the report, `docs/serdes/conformance_matrix.md`.
 
+pub mod borrowed;
 pub mod c;
 pub mod codec;
 pub mod corpus;
@@ -18,6 +19,8 @@ pub mod frozen;
 pub mod json;
 pub mod report;
 pub mod requantize;
+pub mod shape_values;
+pub mod shapes;
 pub mod signature;
 
 use corpus::{Case, Direction};
@@ -41,10 +44,6 @@ pub trait Consumer {
     fn encode(&self, case: &Case) -> Option<Result<Vec<u8>, String>>;
     /// The golden bytes decoded.
     fn decode(&self, case: &Case) -> Option<DecodeResult>;
-    /// Further checks of a passing `both` case (the derive's borrowed types).
-    fn extra(&self, _case: &Case) -> Result<(), String> {
-        Ok(())
-    }
 }
 
 /// What a consumer could do with a case.
@@ -99,7 +98,7 @@ fn attempt<C: Consumer>(consumer: &C, case: &Case) -> Attempt {
     let full = |r: Option<Result<(), String>>| r.map_or(Attempt::None, Attempt::Full);
     match case.direction {
         Direction::Both => match (encode(), decode()) {
-            (Some(e), Some(d)) => Attempt::Full(e.and(d).and_then(|()| consumer.extra(case))),
+            (Some(e), Some(d)) => Attempt::Full(e.and(d)),
             (Some(half), None) | (None, Some(half)) => Attempt::Partial(half),
             (None, None) => Attempt::None,
         },

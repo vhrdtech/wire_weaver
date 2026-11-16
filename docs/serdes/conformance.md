@@ -16,7 +16,8 @@ the value to exactly those bytes and decode them back to the value:
 
 | Consumer | How it runs a case |
 |---|---|
-| `derive` | The value as the Rust type `#[derive_shrink_wrap]` generates (owned), encoded and decoded; where the borrowed type differs, the golden bytes go through it and back too. The reference: it runs every case. |
+| `derive` | The value as the owned Rust type `#[derive_shrink_wrap]` generates, encoded and decoded. The reference: it runs every case. |
+| `borrowed` | The borrowed type (`Inner<'i>`, `RefVec`, `&str`: what firmware writes with), found by the case's `type`: the golden bytes read and written again must be the golden bytes, and what it wrote, read with the owned type, the value. Every property of `Conformance` has a borrowed type (the `borrowed` test fails otherwise), so only a type without a borrowed form, or a value that must not encode, carries a gap. |
 | `dynamic` | `ww_self::ValueOwned::ser_shrink_wrap_dyn` / `des_shrink_wrap_dyn` with the type from the API model of `tests/conformance_api`, loaded from source as for a device's crate. |
 | `explain` | What [`ww explain`](../cli_reference.md#ww-explain) is made of: the value written as a Rust expression (`ww_self::expr::to_expr`) and read back (`parse_value`) before it is encoded; the golden bytes decoded by `ww_self::explain`, whose map of the bits must hold: every bit in exactly one part (a value, a length, a discriminant, a flag, padding, a header, bytes skipped from a newer version). |
 | `python` | `wire_weaver_py`'s `load_api(..).<type>.encode` / `.decode`, with the value as Python gives it. |
@@ -30,14 +31,14 @@ The [conformance matrix](conformance_matrix.md) lists every case and what each c
 - `tests/conformance_api`: the types. Each type of a case is a property of the `Conformance` trait
   (`property!(rw shape: Shape<'i>)`), which is how the dynamic consumers find it in the API model. Types that
   aren't in the model (a `head_tail` type, `TailBytes`) are defined there but not listed in the trait.
-- `tests/conformance`: the runner. `src/derive.rs` has the derive's value of every case, `src/json.rs` turns a
-  corpus value into a `ValueOwned`, `src/c.rs` writes and runs the C, `src/explain.rs` checks the bit map. One test per consumer in
+- `tests/conformance`: the runner. `src/derive.rs` has the derive's value of every case, `src/borrowed.rs` the
+  borrowed type of every case type, `src/json.rs` turns a corpus value into a `ValueOwned`, `src/c.rs` writes and runs the C, `src/explain.rs` checks the bit map. One test per consumer in
   `tests/matrix.rs`, plus `corpus` (the file is well formed and `derive.rs` has every case), `report` (the
   matrix page is up to date), `frozen_bytes` ([frozen golden bytes](#frozen-golden-bytes), TEST-24,
   `src/frozen.rs`) and `coverage` ([coverage guard](#coverage-guard), TEST-25, `src/coverage.rs`).
 - `ww_tools/wire_weaver_wheel/tests/test_conformance.py`: the Python consumer, the same rules.
 
-`just test` runs all five. A failure names the case, the consumer and what differs, the first differing byte for
+`just test` runs all six. A failure names the case, the consumer and what differs, the first differing byte for
 an encode:
 
 ```text
@@ -148,6 +149,24 @@ Besides the sealed values, each case checks how the two signatures relate: the d
 has the same shape signature, and then its signature with docs is that shape signature; a reference is the shape
 signature followed by the signature with docs; an 8-byte reference matches by either.
 
+## Shape cases
+
+Writers have disagreed most where a list or a string sits: empty or not, starting on a byte or mid-byte, last in its
+struct or followed by a bit (SW-81: the borrowed derive padded an empty byte list that started mid-byte). So every
+list-like and string-like field kind has generated shape cases, `shape.<kind>.<layout>.<count>`:
+
+| | |
+|---|---|
+| kinds | `bytes` (`RefVec<u8>`), `vec` (`RefVec<u16>`), `vec_bool`, `vec_str`, `str`, `option` (`Option<RefVec<u8>>`), `array` (`[u8; N]`), `tail` (`TailBytes`, last only) |
+| layouts | `aligned_last`, `aligned_bool` (followed by a `bool`), `mid_last` (after a `bool`), `mid_bool` |
+| counts | `empty`, `one`, `many` (for `option`: `None`, `Some` of an empty list, `Some` of three bytes) |
+
+They run through every consumer like any case; the `borrowed` consumer also builds each value from slices, as
+firmware does, and checks it writes the golden bytes and that they read as it. One table,
+`tests/conformance/src/shapes.rs`, gives the types and properties in `tests/conformance_api` (between the `shape`
+markers), the Rust values (`src/shape_values.rs`) and the corpus cases; the `shapes` test fails when one of them is
+not what the table gives, and `just conformance-update` writes them. A new kind is a line in that table.
+
 ## Frozen golden bytes
 
 Once a case's `bytes` are in, they are the contract: nothing should change them, remove the case, or change its
@@ -220,6 +239,9 @@ that used to be the only cover for a feature is deleted. The `coverage` test (`t
   `head_tail`, `sparse`, `validate = ..`, `ww_repr = ..`, `series`, `#[series(opaque)]`, `no_future_version`,
   `#[flag]`, `#[default = ..]`) used by some type in `tests/conformance_api`. Directives that don't change
   serialized bytes (which Rust type is generated, derives, doc/display, naming) are left out rather than tracked.
+
+- Every list-like or string-like field kind (`ww_self::Type` classified by `field_kind`, an exhaustive match, and
+  `TailBytes`) of some case's type has all of its [shape cases](#shape-cases), or a gap in `FIELD_KIND_GAPS`.
 
 A kind not exercised by any case, and not listed, fails the test by name. A kind that *is* listed (`TYPE_GAPS` /
 `DIRECTIVE_GAPS` in `conformance::coverage`) needs a reason ending in a `FEATURES.md` id, same rules as a case's own

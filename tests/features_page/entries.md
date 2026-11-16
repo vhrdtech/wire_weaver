@@ -510,7 +510,7 @@ How WireWeaver is kept working: every change runs through CI, against the real c
 
 ## Nomicon
 
-- TEST-23, TEST-24, TEST-25 | Conformance matrix | One corpus of golden bytes every wire-format implementation must match: derive, dynamic client, Python, C; guarded against a sealed case changing and against a wire kind going untested. | serdes/conformance.md
+- TEST-23, TEST-24, TEST-25, TEST-37 | Conformance matrix | One corpus of golden bytes every wire-format implementation must match: derive (owned and borrowed), dynamic client, Python, C; guarded against a sealed case changing and against a wire kind going untested. | serdes/conformance.md
 - TEST-31 | Dispatcher golden replies | One corpus of golden request/reply bytes covering every resource kind the dispatcher serves, checked against a sync and an async server and guarded against a sealed case changing. | serdes/conformance.md
 - TEST-17 | Code size bench | Firmware images per case for RISC-V and Cortex-M, measured on every change. | serdes/code_size.md
 - TEST-10 | Binary size tracking | Flash and RAM per feature in CI. |
@@ -541,6 +541,7 @@ How WireWeaver is kept working: every change runs through CI, against the real c
 - EVO-55 | The wire change behind exact_units at c132f58 (`CodecDef`'s `codes`/`nominal`/`curve`, `Symbols`' `m_u`): the user-visible side is STD-109 (codec) and the Magnitude conformance cases it touches.
 - EVO-60 | The wire change behind `ww_user_info`'s bounded `NameMax` / `NotesMax` caps: the user-visible side is `docs/std_library/ww_user_info.md`.
 - EVO-61 | The wire change behind `ww_onewire`'s new wire line (`SearchState::last_discrepancy`'s added `1..=64` bound): the user-visible side is STD-113.
+- EVO-81 | The wire change behind the empty-list padding fix in multi requests (no break, both forms read the same): the user-visible side is SW-81.
 - EVO-72 | The wire change behind the capability limits bounded by their `MAX_*` consts (`ww_i2c` `w2.0`, `ww_user_info` and `ww_spi` `w3.0`): the user-visible side is the docs of those crates.
 - EVO-65 | The wire change behind `ww_dfu`'s typed numbers (wire `w2.0`): ids and versions as newtypes, a security counter apart from the release version, `resume_from` split; the user-visible side is STD-12.
 - EVO-58 | The wire change behind the typed, bounded calendar fields of `ww_date_time` (wire `w2.0`): the user-visible side is STD-4, see [ww_date_time](std_library/ww_date_time.md).

@@ -222,3 +222,233 @@ fn frozen_bytes() {
         }
     }
 }
+
+/// Multi requests whose `MultiArgs` holds an empty list, as the borrowed writer wrote them before EVO-81 (old) and
+/// writes them since (new), with the case's name: MultiCall or MultiWrite, path `[10]` or `[10, 1]`, `Same` or
+/// `Different`, with or without `in_each_array_id`. The old bytes are the output of the pre-fix commit
+/// (`cf822c4e9^`) for these values.
+const MULTI_EMPTY_ARGS: &[(&str, &str, &str)] = &[
+    (
+        "call.p1.same.each",
+        "808080800140a11040128000000221",
+        "808080800140a110401280000121",
+    ),
+    (
+        "write.p1.same.each",
+        "808080800140a15040128000000221",
+        "808080800140a150401280000121",
+    ),
+    (
+        "call.p1.same.none",
+        "808080800140a11040120000000221",
+        "808080800140a110401200000121",
+    ),
+    (
+        "write.p1.same.none",
+        "808080800140a15040120000000221",
+        "808080800140a150401200000121",
+    ),
+    (
+        "call.p1.diff.each",
+        "808080800140a11040128080000221",
+        "808080800140a110401280800121",
+    ),
+    (
+        "write.p1.diff.each",
+        "808080800140a15040128080000221",
+        "808080800140a150401280800121",
+    ),
+    (
+        "call.p1.diff.none",
+        "808080800140a11040120080000221",
+        "808080800140a110401200800121",
+    ),
+    (
+        "write.p1.diff.none",
+        "808080800140a15040120080000221",
+        "808080800140a150401200800121",
+    ),
+    (
+        "call.p2.same.each",
+        "808080800140a11140128000000222",
+        "808080800140a111401280000122",
+    ),
+    (
+        "write.p2.same.each",
+        "808080800140a11540128000000222",
+        "808080800140a115401280000122",
+    ),
+    (
+        "call.p2.same.none",
+        "808080800140a11140120000000222",
+        "808080800140a111401200000122",
+    ),
+    (
+        "write.p2.same.none",
+        "808080800140a11540120000000222",
+        "808080800140a115401200000122",
+    ),
+    (
+        "call.p2.diff.each",
+        "808080800140a11140128080000222",
+        "808080800140a111401280800122",
+    ),
+    (
+        "write.p2.diff.each",
+        "808080800140a11540128080000222",
+        "808080800140a115401280800122",
+    ),
+    (
+        "call.p2.diff.none",
+        "808080800140a11140120080000222",
+        "808080800140a111401200800122",
+    ),
+    (
+        "write.p2.diff.none",
+        "808080800140a11540120080000222",
+        "808080800140a115401200800122",
+    ),
+];
+
+/// EVO-81 skew: the multi request bytes of before and after the SW-81 writer fix are read the same by every
+/// reader, both ways. `MultiArgs` is not `final_structure`, so its body is size-delimited and the old padding
+/// byte sits inside it, where nothing reads it. The readers are unchanged by the fix (cf822c4e9 changes only
+/// `RefVec::ser_shrink_wrap_vec_u8`), so a device or host built before it reads both forms as this test does.
+#[test]
+fn multi_empty_args_old_and_new_bytes_read_the_same() {
+    use wire_weaver::prelude::*;
+    use ww_client_server::{Request, RequestOwned};
+
+    for (name, old_hex, new_hex) in MULTI_EMPTY_ARGS {
+        let old = hex::decode(old_hex).expect("hex");
+        let new = hex::decode(new_hex).expect("hex");
+        assert_eq!(old.len(), new.len() + 1, "{name}: one padding byte less");
+
+        let old_value =
+            Request::from_ww_bytes(&old).unwrap_or_else(|e| panic!("{name} old: {e:?}"));
+        let new_value =
+            Request::from_ww_bytes(&new).unwrap_or_else(|e| panic!("{name} new: {e:?}"));
+        assert_eq!(
+            format!("{old_value:?}"),
+            format!("{new_value:?}"),
+            "{name}: borrowed reader"
+        );
+
+        let old_owned = RequestOwned::from_ww_bytes_owned(&old)
+            .unwrap_or_else(|e| panic!("{name} old owned: {e:?}"));
+        let new_owned = RequestOwned::from_ww_bytes_owned(&new)
+            .unwrap_or_else(|e| panic!("{name} new owned: {e:?}"));
+        assert_eq!(
+            format!("{old_owned:?}"),
+            format!("{new_owned:?}"),
+            "{name}: owned reader"
+        );
+
+        // a std host (owned writer) has always sent the new form; the borrowed writer now does too
+        assert_eq!(
+            old_owned.to_ww_bytes_owned().expect("owned write"),
+            new,
+            "{name}: owned writer"
+        );
+        let mut buf = [0u8; 64];
+        assert_eq!(
+            old_value.to_ww_bytes(&mut buf).expect("borrowed write"),
+            &new[..],
+            "{name}: borrowed writer"
+        );
+    }
+}
+
+/// EVO-81 skew on a device: the golden multi_call request of before the fix gets the same reply and events from
+/// the sync and the async server as the new one.
+#[test]
+fn multi_call_old_request_gets_the_new_reply() {
+    let (_, old_hex, new_hex) = MULTI_EMPTY_ARGS[0];
+    let corpus = corpus::load();
+    let case = corpus
+        .cases
+        .iter()
+        .find(|c| c.name == "multi.multi_call")
+        .expect("multi.multi_call in the corpus");
+    assert_eq!(hex::encode(requests::build(&case.name, 0)), new_hex);
+    let golden_reply = case.steps[0].reply_bytes();
+
+    for request in [
+        hex::decode(old_hex).expect("hex"),
+        hex::decode(new_hex).expect("hex"),
+    ] {
+        let mut srv = server::Server::default();
+        let mut scratch = [0u8; 512];
+        let mut event_scratch = [0u8; 512];
+        let mut out = wire_weaver::EventWriter::new(Recorder::default(), &mut event_scratch);
+        let reply = srv
+            .process_request_bytes(&request, &mut scratch, &mut out, ())
+            .expect("sync server")
+            .to_vec();
+        assert_eq!(
+            reply,
+            golden_reply,
+            "sync reply to {}",
+            hex::encode(&request)
+        );
+        assert!(out.sink.0.is_empty(), "sync events");
+
+        let rt = tokio::runtime::Runtime::new().expect("tokio runtime");
+        let (reply, events) = rt.block_on(async {
+            let mut srv = async_server::AsyncServer::default();
+            let mut scratch = [0u8; 512];
+            let mut event_scratch = [0u8; 512];
+            let mut out = wire_weaver::EventWriter::new(Recorder::default(), &mut event_scratch);
+            let reply = srv
+                .process_request_bytes(&request, &mut scratch, &mut out, ())
+                .await
+                .expect("async server")
+                .to_vec();
+            (reply, out.sink.0)
+        });
+        assert_eq!(
+            reply,
+            golden_reply,
+            "async reply to {}",
+            hex::encode(&request)
+        );
+        assert!(events.is_empty(), "async events");
+    }
+}
+
+/// EVO-81: events and replies are untouched by the fix. The only `RefVec<u8>` in an `Event` is
+/// `ErrorKind::UserBytes`, which follows a `u8` discriminant and so always starts on a byte: an empty one (a
+/// property error without a user error type) has the bytes the pre-fix commit wrote, for each length of `seq`
+/// and `err_seq`.
+#[test]
+fn empty_user_bytes_event_unchanged() {
+    use wire_weaver::prelude::*;
+    use wire_weaver::shrink_wrap::UVlq32;
+    use ww_client_server::{Error, ErrorKind, Event, EventOwned};
+
+    const PRE_FIX: &[(u32, u32, &str)] = &[
+        (0, 0, "00000c0002"),
+        (0, 1, "01000c0002"),
+        (0, 300, "822c000c0002"),
+        (3, 1, "01030c0002"),
+        (300, 1, "010cd40c0002"),
+        (70000, 300, "822c08ed89200c0002"),
+    ];
+    for (err_seq, seq, pre_fix) in PRE_FIX {
+        let ev = Event {
+            seq: UVlq32(*seq),
+            result: Err(Error::new(
+                *err_seq,
+                ErrorKind::UserBytes(RefVec::Slice { slice: &[] }),
+            )),
+        };
+        let mut buf = [0u8; 64];
+        let bytes = ev.to_ww_bytes(&mut buf).expect("borrowed write");
+        assert_eq!(hex::encode(bytes), *pre_fix, "err_seq {err_seq} seq {seq}");
+        let owned = EventOwned::from_ww_bytes_owned(bytes).expect("owned read");
+        assert_eq!(
+            hex::encode(owned.to_ww_bytes_owned().expect("owned write")),
+            *pre_fix
+        );
+    }
+}

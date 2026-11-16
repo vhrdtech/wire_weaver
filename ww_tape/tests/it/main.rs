@@ -18,6 +18,7 @@
 mod media;
 mod pieces;
 mod reader;
+mod resume;
 mod series;
 
 use ww_tape::{BlockId, RunTag};

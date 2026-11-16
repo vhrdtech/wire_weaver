@@ -48,15 +48,26 @@ impl Indexer {
     /// Note the block `bytes` (exactly one block, written by this writer) placed at `offset` in the piece. Its
     /// CRC is not checked again: a chunk block's head is read by its head CRC.
     pub(crate) fn placed(&mut self, offset: u64, bytes: &[u8]) {
-        self.placed_unlisted(bytes.len());
-        let Some(e) = of_placed(offset, bytes) else {
-            return;
-        };
+        match of_placed(offset, bytes) {
+            Some(e) => self.placed_entry(e, bytes.len()),
+            None => self.placed_unlisted(bytes.len()),
+        }
+    }
+
+    /// Note a `len`-byte block placed whose entry is `e`: a block a resume finds damaged, listed by the index read
+    /// back.
+    pub(crate) fn placed_entry(&mut self, e: IndexEntry, len: usize) {
+        self.placed_unlisted(len);
         if matches!(e.kind, BlockKind::Events | BlockKind::Series) {
             add_to_range(&mut self.tracks, &e);
         }
         self.pending.push(e);
         self.all.push(e);
+    }
+
+    /// Every entry of the piece so far, in the order placed.
+    pub(crate) fn entries(&self) -> &[IndexEntry] {
+        &self.all
     }
 
     /// Note `len` bytes placed that no index lists: a block written again with the same bytes, which readers drop.
@@ -164,23 +175,31 @@ impl Indexer {
 
     /// Where each track's items continue in a next piece: `prev` (this piece's own starts) moved on by its chunks.
     pub(crate) fn next_starts(&self, prev: &[TrackStart]) -> Vec<TrackStart> {
-        let mut out: BTreeMap<u64, TrackStart> = prev.iter().map(|t| (t.track_id, *t)).collect();
-        for t in self.tracks.values() {
-            let from_tick = out
-                .get(&t.track_id)
-                .map_or(t.last_tick, |s| s.from_tick.max(t.last_tick));
-            out.insert(
-                t.track_id,
-                TrackStart {
-                    track_id: t.track_id,
-                    track_number: t.track_number,
-                    next_item: t.end_item(),
-                    from_tick,
-                },
-            );
-        }
-        out.into_values().collect()
+        next_starts(prev, self.tracks.values())
     }
+}
+
+/// Where each track's items continue in the piece after one whose head said `prev` and whose chunks cover `ranges`.
+pub(crate) fn next_starts<'r>(
+    prev: &[TrackStart],
+    ranges: impl IntoIterator<Item = &'r TrackRange>,
+) -> Vec<TrackStart> {
+    let mut out: BTreeMap<u64, TrackStart> = prev.iter().map(|t| (t.track_id, *t)).collect();
+    for t in ranges {
+        let from_tick = out
+            .get(&t.track_id)
+            .map_or(t.last_tick, |s| s.from_tick.max(t.last_tick));
+        out.insert(
+            t.track_id,
+            TrackStart {
+                track_id: t.track_id,
+                track_number: t.track_number,
+                next_item: t.end_item(),
+                from_tick,
+            },
+        );
+    }
+    out.into_values().collect()
 }
 
 /// Add chunk entry `e` to its track's item and tick range.

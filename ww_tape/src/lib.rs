@@ -238,9 +238,13 @@ mod set;
 #[cfg(feature = "std")]
 pub use set::{DescribeError, DescribeSet, Sticky};
 #[cfg(feature = "std")]
+pub mod sink;
+#[cfg(feature = "std")]
+pub use sink::{FileSink, Files, MemSink, MemTape, MemTapes, SinkFactory, TapeSink};
+#[cfg(feature = "std")]
 pub mod writer;
 #[cfg(feature = "std")]
-pub use writer::{Finished, SyncPolicy, TapeWriter, WriteError};
+pub use writer::{Finished, Resumed, SyncPolicy, TapeWriter, WriteError, WriterOptions};
 
 /// `WWTP`
 pub const MAGIC: [u8; 4] = *b"WWTP";

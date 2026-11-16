@@ -759,7 +759,7 @@ pub const DEFAULT_CHECKPOINT_BYTES: u64 = 4 << 20;
 #[cfg(feature = "std")]
 mod build;
 #[cfg(feature = "std")]
-pub(crate) use build::Indexer;
+pub(crate) use build::{Indexer, next_starts};
 
 #[cfg(test)]
 mod tests;

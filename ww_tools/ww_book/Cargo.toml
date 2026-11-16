@@ -1,0 +1,19 @@
+[package]
+name = "ww_book"
+version.workspace = true
+authors.workspace = true
+description = "Assembles the WireWeaver book: copies the pages and feature trackers of the repositories it takes by git into docs/"
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+publish = false
+
+[[bin]]
+name = "ww-book"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+serde = { workspace = true, features = ["std"] }
+toml.workspace = true
+ww_snapshots.workspace = true

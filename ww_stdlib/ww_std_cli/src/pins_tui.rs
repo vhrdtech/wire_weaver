@@ -608,7 +608,7 @@ mod tests {
     fn nucleo() -> Board {
         Board::load(
             &Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("../../ww_pin_probe/tests/data/nucleo_g0b1re.toml"),
+                .join("../ww_pin_probe/tests/data/nucleo_g0b1re.toml"),
         )
         .unwrap()
     }

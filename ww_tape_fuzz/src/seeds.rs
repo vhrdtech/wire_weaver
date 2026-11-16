@@ -484,6 +484,27 @@ fn media_fixes() -> Vec<Seed> {
     out
 }
 
+/// Inputs of `tape-resume`: each template piece whole, cut halfway, and cut with a flipped byte in its head
+/// describe set; then a stream.
+fn resume_seeds() -> Vec<Seed> {
+    let mut out = vec![];
+    for mode in 0..4u8 {
+        out.push(seed("tape-resume", format!("mode{mode}-whole"), vec![mode]));
+        out.push(seed(
+            "tape-resume",
+            format!("mode{mode}-half"),
+            vec![mode, 0x00, 0x30],
+        ));
+        out.push(seed(
+            "tape-resume",
+            format!("mode{mode}-head-describe-flipped"),
+            vec![mode, 0x00, 0x30, 0xc8, 0x00, 0x01],
+        ));
+    }
+    out.extend(stream("tape-resume", 0x5eed_0000_7e50_0001));
+    out
+}
+
 /// xorshift64 inputs of a hostile target's stream.
 fn stream(target: &'static str, mut x: u64) -> Vec<Seed> {
     let mut out = vec![seed(target, "zeros", vec![0; STREAM_INPUT_LEN])];
@@ -512,6 +533,7 @@ pub fn all() -> Vec<Seed> {
         concat(GOLDEN_INDEX),
     ));
     out.extend(media_fixes());
+    out.extend(resume_seeds());
     out.extend(golden_blocks("tape-chunk", "v2-chunks", GOLDEN_CHUNKS));
     out.extend(golden_blocks("tape-index", "v2-index", GOLDEN_INDEX));
     out.push(seed(

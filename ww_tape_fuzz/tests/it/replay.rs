@@ -56,6 +56,7 @@ replays! {
     replay_tape_index: "tape-index";
     replay_tape_payloads: "tape-payloads";
     replay_tape_reader: "tape-reader";
+    replay_tape_resume: "tape-resume";
     replay_tape_samples: "tape-samples";
     replay_tape_series: "tape-series";
     replay_tape_summary: "tape-summary";

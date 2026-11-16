@@ -442,6 +442,11 @@ fuzz-shrink-wrap-nesting:
 fuzz-tape-reader:
     cargo +nightly fuzz run tape-reader -- -max_len=65536 -rss_limit_mb=1024 -malloc_limit_mb=128 -timeout=10
 
+# Fuzz ww_tape's writer resuming a cut and mutated unfinished piece: it finishes whole (STD-132)
+[working-directory('fuzz')]
+fuzz-tape-resume:
+    cargo +nightly fuzz run tape-resume -- -max_len=512 -rss_limit_mb=1024 -malloc_limit_mb=128 -timeout=10
+
 # Fuzz ww_tape chunk blocks: reading and salvage on any bytes, a flipped bit costs one segment (STD-118)
 [working-directory('fuzz')]
 fuzz-tape-chunk:

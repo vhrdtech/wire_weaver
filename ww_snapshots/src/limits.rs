@@ -1,0 +1,40 @@
+//! Bounds on everything the resolver reads from outside: files of the cache and of Cargo's sources, archives from the
+//! network, directories it lists. A file or an answer past a bound is refused and named in the log, never read whole.
+
+use std::time::Duration;
+
+/// A whole-crate snapshot file (`<crate>_<x>_<y>_<z>.ron`). The largest one today, exact_units', is 604 KB.
+pub const SNAPSHOT_FILE_BYTES_MAX: u64 = 32 << 20;
+
+/// A superseded definition (`superseded/<...>.ww`): one canonical bundle, a few KB today.
+pub const SUPERSEDED_FILE_BYTES_MAX: u64 = 4 << 20;
+
+/// Entries looked at in one `superseded/` directory.
+pub const SUPERSEDED_FILES_MAX: usize = 4096;
+
+/// Depth the RON reader follows into a snapshot file.
+pub const RON_RECURSION_LIMIT: usize = 256;
+
+/// Directory entries listed under `CARGO_HOME/registry/src` and `CARGO_HOME/git/checkouts` for one lookup.
+pub const CARGO_DIRS_SCANNED_MAX: usize = 4096;
+
+/// A `.crate` or a repository archive as received, compressed.
+pub const ARCHIVE_BYTES_MAX: u64 = 64 << 20;
+
+/// What is read out of the decompressor of an archive, so a small archive can't unpack without end.
+pub const ARCHIVE_UNPACKED_BYTES_MAX: u64 = 256 << 20;
+
+/// Entries looked at in one archive.
+pub const ARCHIVE_ENTRIES_MAX: usize = 100_000;
+
+/// Connecting to a host.
+pub const FETCH_CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// One fetch, connect to last byte.
+pub const FETCH_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// Redirects followed: GitHub's archive URL redirects to codeload once.
+pub const FETCH_REDIRECTS_MAX: u32 = 3;
+
+/// A fetch that found nothing is remembered in the cache and not tried again before this.
+pub const FETCH_RETRY_AFTER: Duration = Duration::from_secs(24 * 60 * 60);

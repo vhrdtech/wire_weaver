@@ -1,0 +1,27 @@
+[package]
+name = "ww_snapshots"
+version.workspace = true
+authors.workspace = true
+description = "API snapshots of WireWeaver crates found by crate name and version: embedded sets, the per-user cache, Cargo's sources on disk and a fetch, each file verified against what the device sent"
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[features]
+default = []
+# the last step of the chain: a snapshot fetched from crates.io or the crate's git repository, TLS through rustls
+fetch = ["dep:flate2", "dep:tar", "dep:ureq"]
+
+[dependencies]
+anyhow.workspace = true
+elsa.workspace = true
+flate2 = { workspace = true, optional = true }
+ron.workspace = true
+semver.workspace = true
+serde = { workspace = true, features = ["std"] }
+tar = { workspace = true, optional = true }
+toml.workspace = true
+tracing.workspace = true
+ureq = { workspace = true, optional = true }
+ww_self = { workspace = true, features = ["std", "serde"] }
+ww_version = { workspace = true, features = ["std", "serde"] }

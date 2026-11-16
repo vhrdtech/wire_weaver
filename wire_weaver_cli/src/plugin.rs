@@ -204,7 +204,8 @@ pub fn selection_env(selection: &Selection, no_config: bool) -> Vec<(String, Str
         env.push(("WW_CONFIG".into(), config.display().to_string()));
     }
     if no_config {
-        env.push(("WW_NO_CONFIG".into(), "1".into()));
+        // a bool flag's environment variable takes `true` or `false` only
+        env.push(("WW_NO_CONFIG".into(), "true".into()));
     }
     env
 }
@@ -298,4 +299,40 @@ fn is_plugin(exe: &std::path::Path) -> bool {
         let _ = std::fs::write(&file, known + &line);
     }
     answered
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// What `ww --no-config` hands a plugin is a value the plugin's own `--no-config` (from [`DeviceArgs`]) takes.
+    #[test]
+    fn no_config_reaches_the_plugin_as_a_value_it_takes() {
+        let matches = crate::cli::root_command()
+            .try_get_matches_from(["ww", "--no-config", "list"])
+            .expect("ww parses the command line");
+        let selection = Selection::resolve(&matches, false).expect("a selection");
+        let env = selection_env(&selection, true);
+        let (_, value) = env
+            .iter()
+            .find(|(k, _)| k == "WW_NO_CONFIG")
+            .expect("WW_NO_CONFIG is set");
+        let root = crate::cli::root_command();
+        let arg = root
+            .get_arguments()
+            .find(|a| a.get_id() == "no_config")
+            .expect("the --no-config flag");
+        // a `SetTrue` flag reads its environment variable with clap's bool parser
+        assert!(
+            matches!(arg.get_action(), clap::ArgAction::SetTrue),
+            "--no-config is a SetTrue flag"
+        );
+        let parsed = clap::builder::TypedValueParser::parse_ref(
+            &clap::builder::BoolValueParser::new(),
+            &root,
+            Some(arg),
+            std::ffi::OsStr::new(value),
+        );
+        assert_eq!(parsed.ok(), Some(true), "WW_NO_CONFIG={value}");
+    }
 }

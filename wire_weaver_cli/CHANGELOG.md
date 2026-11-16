@@ -6,6 +6,10 @@
 - `ww` embeds the API snapshots of every crate in its build's lock, and `ww api cache PATH...` / `ww api fetch CRATE VERSION` fill `~/.wire_weaver/snapshots/` (EVO-80).
 - `ww` prints an opaque value with its crate, version and bytes, and names `ww api fetch` (EVO-80).
 
+### 🐛 Bug Fixes
+
+- `ww --no-config PLUGIN` hands the plugin `WW_NO_CONFIG=true`, which its `--no-config` takes; `1` was refused (CLT-47).
+
 ### ⚠️ Breaking
 
 - `cmd::tap::test_support`'s `tapped_session`, `replayed` and `replayed_view` take the snapshot resolver (EVO-80).

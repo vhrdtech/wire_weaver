@@ -541,17 +541,18 @@ impl CargoSources {
 
 impl CargoSources {
     /// Directory of `package` as a `[patch.<source>]` of the workspace whose `Cargo.lock` is `lock_path` puts it: a
-    /// git or registry dependency that Cargo resolves to a path there (wire_weaver patches the shrink_wrap that
-    /// exact_units takes by git to its own). The manifest's `[patch]` tables, then `.cargo/config.toml`'s, whose
-    /// paths are relative to the workspace root as well.
+    /// git or registry dependency that Cargo resolves to a path there (a checkout of exact_units or shrink_wrap
+    /// developed beside this one). The manifest's `[patch]` tables first, then those of `.cargo/config.toml` in the
+    /// workspace root and each directory above it, nearest first, as Cargo reads them; a config's paths are
+    /// relative to the directory holding its `.cargo`.
     fn patched_dir(&self, lock_path: &Path, package: &str) -> Result<Option<PathBuf>> {
         let root = lock_path.parent().unwrap_or(Path::new("."));
-        for file in [
-            root.join("Cargo.toml"),
-            root.join(".cargo").join("config.toml"),
-        ] {
-            if let Some(dir) = self.patch_in(&file, package)? {
-                return Ok(Some(root.join(dir)));
+        if let Some(dir) = self.patch_in(&root.join("Cargo.toml"), package)? {
+            return Ok(Some(root.join(dir)));
+        }
+        for dir in root.ancestors().take(CONFIG_ANCESTORS_MAX) {
+            if let Some(path) = self.patch_in(&dir.join(".cargo").join("config.toml"), package)? {
+                return Ok(Some(dir.join(path)));
             }
         }
         Ok(None)
@@ -583,6 +584,10 @@ impl CargoSources {
         Ok(None)
     }
 }
+
+/// How many directories, from the workspace root up, [CargoSources::patched_dir] looks into for a
+/// `.cargo/config.toml`.
+const CONFIG_ANCESTORS_MAX: usize = 64;
 
 /// `CARGO_HOME`: the environment's, else `~/.cargo`.
 pub fn default_cargo_home() -> Result<PathBuf> {
@@ -783,14 +788,20 @@ mod tests {
 
     #[test]
     fn patch_of_the_workspace_puts_a_git_dependency_at_a_path() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+        let root = std::env::temp_dir().join(format!("ww_patched_dir_ws_{}", std::process::id()));
+        fs::create_dir_all(&root).unwrap();
+        fs::write(
+            root.join("Cargo.toml"),
+            "[workspace]\n\n[patch.\"https://example.org/units\"]\nunits = { path = \"./units\" }\n",
+        )
+        .unwrap();
         let lock = root.join("Cargo.lock");
         let sources = CargoSources::default();
-        assert_eq!(
-            sources.patched_dir(&lock, "shrink_wrap").unwrap(),
-            Some(root.join("./shrink_wrap/shrink_wrap"))
-        );
-        assert_eq!(sources.patched_dir(&lock, "no_such_package").unwrap(), None);
+        let found = sources.patched_dir(&lock, "units").unwrap();
+        let missing = sources.patched_dir(&lock, "no_such_package").unwrap();
+        fs::remove_dir_all(&root).unwrap();
+        assert_eq!(found, Some(root.join("./units")));
+        assert_eq!(missing, None);
     }
 
     #[test]
@@ -810,6 +821,25 @@ mod tests {
         fs::remove_dir_all(&root).unwrap();
         assert_eq!(found, Some(root.join("../units")));
         assert_eq!(missing, None);
+    }
+
+    #[test]
+    fn patch_of_a_cargo_config_above_the_workspace_puts_a_git_dependency_at_a_path() {
+        let top = std::env::temp_dir().join(format!("ww_patched_dir_above_{}", std::process::id()));
+        let root = top.join("repo");
+        fs::create_dir_all(top.join(".cargo")).unwrap();
+        fs::create_dir_all(&root).unwrap();
+        fs::write(root.join("Cargo.toml"), "[workspace]\n").unwrap();
+        fs::write(
+            top.join(".cargo/config.toml"),
+            "[patch.\"https://example.org/units\"]\nunits = { path = \"units\" }\n",
+        )
+        .unwrap();
+        let lock = root.join("Cargo.lock");
+        let sources = CargoSources::default();
+        let found = sources.patched_dir(&lock, "units").unwrap();
+        fs::remove_dir_all(&top).unwrap();
+        assert_eq!(found, Some(top.join("units")));
     }
 
     fn ws_version(name: &str) -> semver::Version {

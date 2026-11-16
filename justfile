@@ -67,8 +67,7 @@ conformance-update:
     CONFORMANCE=update cargo nextest run -p conformance corpus
     CONFORMANCE=update cargo nextest run -p conformance report
 
-# Rewrite ww_tape's golden files (golden/v2.hex, golden/v2-chunks.hex, golden/v2-summary.hex) after a deliberate format change (STD-117, STD-118, STD-121)
-# Rewrite ww_tape's golden files (golden/v2.hex, golden/v2-chunks.hex, golden/v2-times.hex) after a deliberate format change (STD-117, STD-118, STD-120)
+# Rewrite ww_tape's golden files (golden/v2*.hex) after a deliberate format change
 tape-golden-update:
     WW_TAPE_GOLDEN=update cargo nextest run -p ww_tape golden
 

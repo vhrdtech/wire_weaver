@@ -8384,6 +8384,15 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
   <code>fw-z</code> sync (+260), 13474 → 13778 B async (+304), 16794 → 17106 B / 17614 → 18030 B at <code>fw-3</code> (+312 / +416); an
   image that already reads bit fields (4 observed properties) moves by -60..+72 B. No device or host uses the
   format.</li>
+<li>✅ <strong>EVO-81 Multi requests with an empty argument list lose a padding byte</strong> · <code>v0.5</code> — wire change of
+  <code>ww_client_server</code>'s <code>Request</code>, no break: since SW-81 the borrowed writer writes an empty <code>MultiArgs::Same</code> or
+  <code>Different</code> list of a <code>MultiCall</code> or <code>MultiWrite</code> one byte shorter (no padding), as the owned writer of a std
+  host always did. <code>MultiArgs</code> is size-delimited, so the old padding byte sat inside its body: every reader,
+  before and after the fix, borrowed and owned, reads both forms as the same request, and a device answers both the
+  same. Events and replies are unchanged (<code>ErrorKind::UserBytes</code> starts on a byte). The line stays <code>w1.0</code>, no
+  generation bump. The dispatch golden <code>multi.multi_call</code> carries <code>"wire_change": "EVO-81 / ..."</code>; tests
+  <code>dispatch_golden</code> <code>multi_empty_args_old_and_new_bytes_read_the_same</code> (16 old/new pairs from the pre-fix commit),
+  <code>multi_call_old_request_gets_the_new_reply</code>, <code>empty_user_bytes_event_unchanged</code>.</li>
 <li>✅ <strong>EVO-78 Evolution of keyed arrays</strong> · <code>v0.5</code> — <code>keyed!</code> in the checker: adding one is compatible, removing
   one is a break, the key type is compared both ways, and keying another array is a break. Across a wire break a
   companion is matched by the array it keys, so it follows a moved or <code>#[moved_from]</code>-renamed array. <code>ww api diff</code>
@@ -9619,6 +9628,22 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
   unused fails, a kind listed (<code>TYPE_GAPS</code> / <code>DIRECTIVE_GAPS</code>) but now used fails too. Found two variants a
   prepared bundle never carries (filed INT-11) and two directives with no case yet (filed SW-67).
   <code>tests/conformance/src/coverage.rs</code>, <code>tests/matrix.rs::coverage</code>. See <code>docs/serdes/conformance.md</code>.</li>
+<li>✅ <strong>TEST-37 The borrowed writer and shape cases in the conformance matrix</strong> · <code>v0.5</code> — the matrix encoded
+  every case with the owned writer and read the borrowed type only where a case opted in, so SW-81 (an empty
+  <code>RefVec&lt;u8&gt;</code> padded by the borrowed derive) reached the frozen dispatch golden (EVO-81) unseen. The borrowed
+  type is now a consumer of its own, <code>borrowed</code>: each case's golden bytes are read with it and written again,
+  which must give them back, and what it wrote reads as the value with the owned type. It is found by the case's
+  type, and every property of <code>Conformance</code> must have one, so only a type without a borrowed form (<code>head_tail</code>)
+  or a value that must not encode carries a gap (<code>tests/conformance/src/borrowed.rs</code>, <code>matrix.rs::borrowed</code>).
+  Generated shape cases cover every list and string field kind (<code>bytes</code>, <code>vec</code>, <code>vec_bool</code>, <code>vec_str</code>, <code>str</code>,
+  <code>option</code>, <code>array</code>, <code>tail</code>) empty, with one and with many elements, at a byte and mid-byte, last and followed by
+  a bool: 90 cases from one table (<code>tests/conformance/src/shapes.rs</code>, <code>matrix.rs::shapes</code>), the borrowed value
+  also built from slices. The coverage guard fails when a field kind of the model lacks them. With SW-81 reverted,
+  <code>shape.bytes.mid_last.empty</code> and <code>shape.bytes.mid_bool.empty</code> fail. See
+  <a href="../docs/serdes/conformance/#shape-cases">shape cases</a>.</li>
+<li>📋 <strong>TEST-38 Shape cases of a <code>Series</code></strong> — a <code>Series&lt;T&gt;</code> field is written as columns with their own layout, so
+  the shape table of TEST-37 doesn't cover it; it carries a gap in <code>FIELD_KIND_GAPS</code> until it has its own shapes
+  (empty, one, many items; aligned, mid-byte; last, followed by a bool).</li>
 <li>✅ <strong>TEST-17 <code>shrink_wrap</code> code size bench</strong>: <code>just size-bench</code> builds one bare firmware image per test case
   (plain struct, enum, list, bit fields, <code>Option</code>, decode or encode only, the request/reply codec of a small
   softcore firmware and the same by hand) for RV32I, RV32IC, Cortex-M0 and Cortex-M4F/M7 and prints <code>.text</code> +

@@ -1440,6 +1440,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#shape-cases" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Shape cases
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#frozen-golden-bytes" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6050,6 +6061,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#shape-cases" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Shape cases
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#frozen-golden-bytes" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6217,7 +6239,11 @@ the value to exactly those bytes and decode them back to the value:</p>
 <tbody>
 <tr>
 <td><code>derive</code></td>
-<td>The value as the Rust type <code>#[derive_shrink_wrap]</code> generates (owned), encoded and decoded; where the borrowed type differs, the golden bytes go through it and back too. The reference: it runs every case.</td>
+<td>The value as the owned Rust type <code>#[derive_shrink_wrap]</code> generates, encoded and decoded. The reference: it runs every case.</td>
+</tr>
+<tr>
+<td><code>borrowed</code></td>
+<td>The borrowed type (<code>Inner&lt;'i&gt;</code>, <code>RefVec</code>, <code>&amp;str</code>: what firmware writes with), found by the case's <code>type</code>: the golden bytes read and written again must be the golden bytes, and what it wrote, read with the owned type, the value. Every property of <code>Conformance</code> has a borrowed type (the <code>borrowed</code> test fails otherwise), so only a type without a borrowed form, or a value that must not encode, carries a gap.</td>
 </tr>
 <tr>
 <td><code>dynamic</code></td>
@@ -6244,14 +6270,14 @@ the value to exactly those bytes and decode them back to the value:</p>
 <li><code>tests/conformance_api</code>: the types. Each type of a case is a property of the <code>Conformance</code> trait
   (<code>property!(rw shape: Shape&lt;'i&gt;)</code>), which is how the dynamic consumers find it in the API model. Types that
   aren't in the model (a <code>head_tail</code> type, <code>TailBytes</code>) are defined there but not listed in the trait.</li>
-<li><code>tests/conformance</code>: the runner. <code>src/derive.rs</code> has the derive's value of every case, <code>src/json.rs</code> turns a
-  corpus value into a <code>ValueOwned</code>, <code>src/c.rs</code> writes and runs the C, <code>src/explain.rs</code> checks the bit map. One test per consumer in
+<li><code>tests/conformance</code>: the runner. <code>src/derive.rs</code> has the derive's value of every case, <code>src/borrowed.rs</code> the
+  borrowed type of every case type, <code>src/json.rs</code> turns a corpus value into a <code>ValueOwned</code>, <code>src/c.rs</code> writes and runs the C, <code>src/explain.rs</code> checks the bit map. One test per consumer in
   <code>tests/matrix.rs</code>, plus <code>corpus</code> (the file is well formed and <code>derive.rs</code> has every case), <code>report</code> (the
   matrix page is up to date), <code>frozen_bytes</code> (<a href="#frozen-golden-bytes">frozen golden bytes</a>, TEST-24,
   <code>src/frozen.rs</code>) and <code>coverage</code> (<a href="#coverage-guard">coverage guard</a>, TEST-25, <code>src/coverage.rs</code>).</li>
 <li><code>wire_weaver_py/tests/test_conformance.py</code>: the Python consumer, the same rules.</li>
 </ul>
-<p><code>just test</code> runs all five. A failure names the case, the consumer and what differs, the first differing byte for
+<p><code>just test</code> runs all six. A failure names the case, the consumer and what differs, the first differing byte for
 an encode:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>case &#39;fixed.numbers&#39;, consumer c: (the part that runs) decode: C check failed: t_fixed_numbers_a(p) == 18u
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>case &#39;fixed.numbers&#39;, consumer dynamic: encode: bytes differ at byte 0: got 125634debc9a7808... (46 bytes), golden 135634debc9a7808... (46 bytes)
@@ -6345,6 +6371,37 @@ as much a part of the wire as golden bytes. Only <code>ww_self::signature</code>
 <p>Besides the sealed values, each case checks how the two signatures relate: the definition with its docs cleared
 has the same shape signature, and then its signature with docs is that shape signature; a reference is the shape
 signature followed by the signature with docs; an 8-byte reference matches by either.</p>
+<h2 id="shape-cases">Shape cases<a class="headerlink" href="#shape-cases" title="Permanent link">&para;</a></h2>
+<p>Writers have disagreed most where a list or a string sits: empty or not, starting on a byte or mid-byte, last in its
+struct or followed by a bit (SW-81: the borrowed derive padded an empty byte list that started mid-byte). So every
+list-like and string-like field kind has generated shape cases, <code>shape.&lt;kind&gt;.&lt;layout&gt;.&lt;count&gt;</code>:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>kinds</td>
+<td><code>bytes</code> (<code>RefVec&lt;u8&gt;</code>), <code>vec</code> (<code>RefVec&lt;u16&gt;</code>), <code>vec_bool</code>, <code>vec_str</code>, <code>str</code>, <code>option</code> (<code>Option&lt;RefVec&lt;u8&gt;&gt;</code>), <code>array</code> (<code>[u8; N]</code>), <code>tail</code> (<code>TailBytes</code>, last only)</td>
+</tr>
+<tr>
+<td>layouts</td>
+<td><code>aligned_last</code>, <code>aligned_bool</code> (followed by a <code>bool</code>), <code>mid_last</code> (after a <code>bool</code>), <code>mid_bool</code></td>
+</tr>
+<tr>
+<td>counts</td>
+<td><code>empty</code>, <code>one</code>, <code>many</code> (for <code>option</code>: <code>None</code>, <code>Some</code> of an empty list, <code>Some</code> of three bytes)</td>
+</tr>
+</tbody>
+</table>
+<p>They run through every consumer like any case; the <code>borrowed</code> consumer also builds each value from slices, as
+firmware does, and checks it writes the golden bytes and that they read as it. One table,
+<code>tests/conformance/src/shapes.rs</code>, gives the types and properties in <code>tests/conformance_api</code> (between the <code>shape</code>
+markers), the Rust values (<code>src/shape_values.rs</code>) and the corpus cases; the <code>shapes</code> test fails when one of them is
+not what the table gives, and <code>just conformance-update</code> writes them. A new kind is a line in that table.</p>
 <h2 id="frozen-golden-bytes">Frozen golden bytes<a class="headerlink" href="#frozen-golden-bytes" title="Permanent link">&para;</a></h2>
 <p>Once a case's <code>bytes</code> are in, they are the contract: nothing should change them, remove the case, or change its
 <code>direction</code> or <code>bytes_from</code> without everyone noticing. <code>CONFORMANCE=update</code> on its own only refuses to <em>overwrite</em>
@@ -6403,10 +6460,16 @@ that used to be the only cover for a feature is deleted. The <code>coverage</cod
   and following <code>OutOfLine</code>/<code>Instance</code> into the bundle's own <code>types</code> array (self-referential types are visited
   once). The walk is an exhaustive match: a new <code>Type</code> variant fails to compile there instead of being silently
   uncovered.</li>
-<li>Every wire-relevant <code>shrink_wrap_derive</code> directive (<code>final_structure</code>, <code>self_describing</code>, <code>sized</code>, <code>fixed_layout</code>,
+<li>
+<p>Every wire-relevant <code>shrink_wrap_derive</code> directive (<code>final_structure</code>, <code>self_describing</code>, <code>sized</code>, <code>fixed_layout</code>,
   <code>head_tail</code>, <code>sparse</code>, <code>validate = ..</code>, <code>ww_repr = ..</code>, <code>series</code>, <code>#[series(opaque)]</code>, <code>no_future_version</code>,
   <code>#[flag]</code>, <code>#[default = ..]</code>) used by some type in <code>tests/conformance_api</code>. Directives that don't change
-  serialized bytes (which Rust type is generated, derives, doc/display, naming) are left out rather than tracked.</li>
+  serialized bytes (which Rust type is generated, derives, doc/display, naming) are left out rather than tracked.</p>
+</li>
+<li>
+<p>Every list-like or string-like field kind (<code>ww_self::Type</code> classified by <code>field_kind</code>, an exhaustive match, and
+  <code>TailBytes</code>) of some case's type has all of its <a href="#shape-cases">shape cases</a>, or a gap in <code>FIELD_KIND_GAPS</code>.</p>
+</li>
 </ul>
 <p>A kind not exercised by any case, and not listed, fails the test by name. A kind that <em>is</em> listed (<code>TYPE_GAPS</code> /
 <code>DIRECTIVE_GAPS</code> in <code>conformance::coverage</code>) needs a reason ending in a <code>FEATURES.md</code> id, same rules as a case's own

@@ -8267,6 +8267,7 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
   Python (C: API-26). Firmware: no code cost (markers stay zero-size), introspection bytes only for the crate's own
   markers (<code>Rpm</code> 22 B, an origin ~40 B; TEST-27). Levels (STD-67), kinds (STD-68) and sentinels (STD-66) append
   their <code>MarkerDef</code> variants when their markers exist. <a href="../docs/std_library/units_in_the_model/">Units in the API model</a>.</li>
+<li>✅ <strong>INT-17 Identity name of a renamed resource</strong> · <code>v0.5</code> — <code>ApiItem::identity</code> (<code>#[default = None]</code>): the name a resource had on the oldest line of its <code>#[moved_from]</code> chain (EVO-40), when it differs from its <code>ident</code>; <code>None</code> otherwise. <code>ApiItemOwned::identity_name()</code> answers it or the <code>ident</code>, the name recorders hash so a renamed resource's tracks keep their ids (ww_tape name-path identity). Bundles without a rename keep their bytes (every stdlib snapshot's hash is unchanged). Renames within one trait only; a move to another trait keeps the name, its path prefix is a follow-up. Test <code>thermo</code> <code>every_line_dynamically</code> (<code>health.check_sensor</code> of line 3, was <code>self_test</code>).</li>
 </ul>
 <h2 id="evolution-versioning-and-compatibility-evo">Evolution, versioning and compatibility (<code>EVO</code>)<a class="headerlink" href="#evolution-versioning-and-compatibility-evo" title="Permanent link">&para;</a></h2>
 <ul>

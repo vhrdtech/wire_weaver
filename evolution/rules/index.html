@@ -6733,8 +6733,11 @@ and the place it had on the line before:</p>
   own line yet. It is compared with the latest snapshot of the previous line's root of the same name, for its moves
   and proposals only.</li>
 </ul>
-<p><code>#[moved_from]</code> is read from the source and is not part of the API model: a device's introspection data doesn't carry
-it, so the dynamic client and the facade helpers don't see it yet.</p>
+<p><code>#[moved_from]</code> is read from the source. The API model keeps one thing of it: a resource renamed on the way
+(<code>self_test</code> became <code>check_sensor</code>) carries its identity name, the name on the oldest line of its chain, in
+<code>ApiItem::identity</code> (INT-17). Recorders hash that name instead of the current one, so a renamed resource's tracks keep
+their ids. A resource that kept its name has <code>identity: None</code>. The rest of the chain stays out of a device's
+introspection data, so the dynamic client and the facade helpers don't see where a resource was.</p>
 <h3 id="arguments">Arguments<a class="headerlink" href="#arguments" title="Permanent link">&para;</a></h3>
 <p>The arguments of a method or stream function are the fields of an <code>Unsized</code> args struct on the wire, so they follow
 the rules for <a href="#unsized-types">unsized types</a> (EVO-22, <a href="../../api/methods/#arguments-that-evolve">methods</a>):</p>

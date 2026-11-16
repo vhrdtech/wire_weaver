@@ -285,19 +285,19 @@ save-snapshots *args:
     cargo build -q -p wire_weaver_cli
     # ww_client_server is the protocol itself, not used in APIs: its own api_snapshots/ (kept for
     # tests/stdlib_evolution) isn't saved or embedded by this recipe
-    for crate in ww_global ww_tap ww_timebase ww_stdlib/*/; do \
+    for crate in ww_global ww_tap ww_timebase tests/wire_line_fixture_api ww_stdlib/*/; do \
         target/debug/ww api save $crate {{ args }} || exit 1; \
     done
     # exact_units lives in its own repository: from the source ww_si uses, saved here
     target/debug/ww api save ww_stdlib/ww_si --dep exact_units --snapshots-dir wire_weaver_snapshots/other_repos {{ args }}
     rm -rf wire_weaver_snapshots/api_snapshots
     mkdir -p wire_weaver_snapshots/api_snapshots
-    for f in ww_global/api_snapshots/*.ron ww_tap/api_snapshots/*.ron ww_timebase/api_snapshots/*.ron wire_weaver_snapshots/other_repos/*.ron ww_stdlib/*/api_snapshots/*.ron; do \
+    for f in ww_global/api_snapshots/*.ron ww_tap/api_snapshots/*.ron ww_timebase/api_snapshots/*.ron wire_weaver_snapshots/other_repos/*.ron tests/wire_line_fixture_api/api_snapshots/*.ron ww_stdlib/*/api_snapshots/*.ron; do \
         cp "$f" wire_weaver_snapshots/api_snapshots/; \
     done
     # definitions that refreshes in place replaced, found by their old signatures (EVO-68)
     mkdir -p wire_weaver_snapshots/api_snapshots/superseded
-    for f in ww_global/api_snapshots/superseded/*.ww ww_tap/api_snapshots/superseded/*.ww ww_timebase/api_snapshots/superseded/*.ww wire_weaver_snapshots/other_repos/superseded/*.ww ww_stdlib/*/api_snapshots/superseded/*.ww; do \
+    for f in ww_global/api_snapshots/superseded/*.ww ww_tap/api_snapshots/superseded/*.ww ww_timebase/api_snapshots/superseded/*.ww wire_weaver_snapshots/other_repos/superseded/*.ww tests/wire_line_fixture_api/api_snapshots/superseded/*.ww ww_stdlib/*/api_snapshots/superseded/*.ww; do \
         [ ! -e "$f" ] || cp "$f" wire_weaver_snapshots/api_snapshots/superseded/; \
     done
     # the frozen fixture that follows the stdlib by path: its pins follow too (EVO-70)

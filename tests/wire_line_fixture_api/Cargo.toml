@@ -1,0 +1,23 @@
+[package]
+name = "wire_line_fixture_api"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Test trait of EVO-26 (a sub-trait's #[since] names its own crate's wire line): used by wire_weaver_client's compat/global_paths tests instead of a path dependency on ww_stdlib/ww_board_info."
+
+# Wire version of this crate's own traits (EVO-26), like a real ww_stdlib crate's
+[package.metadata.wire_weaver]
+wire = "w2.0"
+
+[features]
+default = ["std"]
+std = ["wire_weaver/std"]
+
+[dependencies]
+wire_weaver.workspace = true
+
+[dev-dependencies]
+wire_weaver_evolution = { workspace = true, features = ["source"] }

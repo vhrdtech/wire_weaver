@@ -355,27 +355,28 @@ pub trait Status {
         assert_eq!(find(&api, (0, 2), "Info"), Some(vec![1]));
     }
 
-    /// A `ww_stdlib` trait is found by its crate's wire line (EVO-26): the host asks for `ww_board_info` 0.3.0
-    /// (its embedded snapshot: w1.2), the device has 0.4.0, a Rust-only break on the same line. Another line hides it.
+    /// A `ww_stdlib`-shaped trait is found by its crate's wire line (EVO-26): the host asks for
+    /// `wire_line_fixture_api` 0.1.0 (its embedded snapshot: w2.0), the device has 0.4.0, a Rust-only break on the
+    /// same line. Another line hides it.
     #[test]
     fn stdlib_trait_found_by_wire_line() {
-        let board_info = format!(
-            "ww_board_info = {{ path = {:?} }}",
-            concat!(env!("CARGO_MANIFEST_DIR"), "/../ww_stdlib/ww_board_info")
+        let fixture = format!(
+            "wire_line_fixture_api = {{ path = {:?} }}",
+            concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/wire_line_fixture_api")
         );
         let src = r#"
             #[ww_api_root(wire = "w1.0")]
             pub trait Api {
                 fn ping();
-                ww_impl!(board: ww_board_info::BoardInfo);
+                ww_impl!(board: wire_line_fixture_api::Fixture);
             }
         "#;
         let mut device =
-            crate::compat::tests::bundle_with("global_paths_w", "0.1.0", src, &board_info);
+            crate::compat::tests::bundle_with("global_paths_w", "0.1.0", src, &fixture);
         let idx = device
             .ext_crates
             .iter()
-            .position(|c| c.crate_id == "ww_board_info")
+            .position(|c| c.crate_id == "wire_line_fixture_api")
             .unwrap();
         let wanted = device.ext_crates[idx].clone();
         assert_eq!(
@@ -384,14 +385,14 @@ pub trait Status {
         );
         device.ext_crates[idx].version = VersionOwned::new(0, 4, 0);
         device.set_crate_wire(idx as u32, Some(WireVersion::new(2, 1)));
-        let found = find_trait(&device, &wanted, "BoardInfo");
+        let found = find_trait(&device, &wanted, "Fixture");
         assert_eq!(found, Some(ww_client_server::resource_path([1]).to_vec()));
 
         device.set_crate_wire(idx as u32, Some(WireVersion::new(3, 0)));
-        assert_eq!(find_trait(&device, &wanted, "BoardInfo"), None);
-        // without the device's wire version, the crate versions decide: 0.4.0 is not 0.3.0
+        assert_eq!(find_trait(&device, &wanted, "Fixture"), None);
+        // without the device's wire version, the crate versions decide: 0.4.0 is not 0.1.0
         device.set_crate_wire(idx as u32, None);
-        assert_eq!(find_trait(&device, &wanted, "BoardInfo"), None);
+        assert_eq!(find_trait(&device, &wanted, "Fixture"), None);
     }
 
     #[test]

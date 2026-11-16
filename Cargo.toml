@@ -229,6 +229,7 @@ foc_observe_api = { version = "0.1.0", path = "./examples/foc_observe_api" }
 follow_reboot_api = { version = "0.1.0", path = "./tests/follow_reboot_api" }
 generics_api = { version = "0.1.0", path = "./tests/generics_api" }
 global_boot_api = { version = "0.1.0", path = "./tests/global_boot_api" }
+global_fixture_api = { version = "0.1.0", path = "./tests/global_fixture_api" }
 hub_api = { version = "0.1.0", path = "./tests/hub_api" }
 hub_pytest_device_api = { version = "0.1.0", path = "./tests/hub_pytest_device_api" }
 hub_reconnect_api = { version = "0.1.0", path = "./tests/hub_reconnect_api" }
@@ -285,6 +286,7 @@ uart_api = { version = "0.1.0", path = "./examples/uart_api" }
 uid_api = { version = "0.1.0", path = "./tests/uid_api" }
 user_info_api = { version = "0.1.0", path = "./tests/user_info_api" }
 wire_line_api = { version = "0.4.0", path = "./tests/wire_line_api" }
+wire_line_fixture_api = { version = "0.1.0", path = "./tests/wire_line_fixture_api" }
 wire_line_old_api = { version = "0.3.0", path = "./tests/wire_line_old_api" }
 ww_tape_fuzz = { version = "0.1.0", path = "./ww_tape_fuzz" }
 

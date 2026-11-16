@@ -1063,9 +1063,9 @@ pub(crate) mod tests {
         );
     }
 
-    /// A `ww_stdlib` trait's `#[since]` names a revision of its own crate's wire version, not the API root's (EVO-26):
-    /// `ww_board_info` (w1.2) marks `set_reworks` `w1.2` under an API root at `w1.0`. The device's `ww_board_info` at
-    /// w1.2 has it, one at w1.1 doesn't, and the error names the crate.
+    /// A `ww_stdlib`-shaped trait's `#[since]` names a revision of its own crate's wire version, not the API root's
+    /// (EVO-26): `wire_line_fixture_api` (w2.0) marks `set_mode` `w1.2` under an API root at `w1.0`. The device's
+    /// `wire_line_fixture_api` at w1.2 has it, one at w1.1 doesn't, and the error names the crate.
     #[test]
     fn since_of_a_stdlib_crate() {
         use crate::config::IntrospectBundle;
@@ -1073,22 +1073,22 @@ pub(crate) mod tests {
         use ww_client_server::PathKind;
         use ww_version::{ApiHashOwned, ApiHashPairOwned, VersionOwned};
 
-        let board_info = format!(
-            "ww_board_info = {{ path = {:?} }}",
-            concat!(env!("CARGO_MANIFEST_DIR"), "/../ww_stdlib/ww_board_info")
+        let fixture = format!(
+            "wire_line_fixture_api = {{ path = {:?} }}",
+            concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/wire_line_fixture_api")
         );
         let src = r#"
             #[ww_api_root(wire = "w1.0")]
             pub trait Api {
-                ww_impl!(board: ww_board_info::BoardInfo);
+                ww_impl!(board: wire_line_fixture_api::Fixture);
             }
         "#;
-        let client = bundle_with("client", "0.1.1", src, &board_info);
-        let device = bundle_with("device", "0.1.0", src, &board_info);
+        let client = bundle_with("client", "0.1.1", src, &fixture);
+        let device = bundle_with("device", "0.1.0", src, &fixture);
         let board = |b: &ApiBundleOwned| {
             b.ext_crates
                 .iter()
-                .position(|c| c.crate_id == "ww_board_info")
+                .position(|c| c.crate_id == "wire_line_fixture_api")
                 .unwrap() as u32
         };
         assert_eq!(
@@ -1100,10 +1100,10 @@ pub(crate) mod tests {
             panic!()
         };
         let level = client.root.items[0].get_as_level(&client).unwrap();
-        let set_reworks = level
+        let set_mode = level
             .items
             .iter()
-            .find(|i| i.ident == "set_reworks")
+            .find(|i| i.ident == "set_mode")
             .unwrap()
             .id
             .0;
@@ -1132,7 +1132,7 @@ pub(crate) mod tests {
         };
         let call = |cmd: &Commander| {
             cmd.prepare_call::<(), Error>(
-                PathKind::absolute(&ww_client_server::resource_path([0, set_reworks])),
+                PathKind::absolute(&ww_client_server::resource_path([0, set_mode])),
                 Ok(vec![]),
                 "",
             )
@@ -1161,11 +1161,12 @@ pub(crate) mod tests {
                 else {
                     unreachable!()
                 };
-                assert_eq!(crate_id, "ww_board_info");
+                assert_eq!(crate_id, "wire_line_fixture_api");
                 assert_eq!(*device_wire, WireVersion::new(1, 1));
                 assert_eq!(*required, WireVersion::new(1, 2));
                 assert!(
-                    e.to_string().contains("has ww_board_info at wire w1.1"),
+                    e.to_string()
+                        .contains("has wire_line_fixture_api at wire w1.1"),
                     "{e}"
                 );
             }

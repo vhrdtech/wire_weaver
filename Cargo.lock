@@ -1637,6 +1637,7 @@ name = "dispatch_golden"
 version = "0.1.0"
 dependencies = [
  "dispatch_golden_api",
+ "global_fixture_api",
  "hex",
  "serde",
  "serde_json",
@@ -1646,15 +1647,14 @@ dependencies = [
  "wire_weaver",
  "wire_weaver_client",
  "ww_client_server",
- "ww_user_info",
 ]
 
 [[package]]
 name = "dispatch_golden_api"
 version = "0.1.0"
 dependencies = [
+ "global_fixture_api",
  "wire_weaver",
- "ww_user_info",
 ]
 
 [[package]]
@@ -2326,6 +2326,13 @@ checksum = "e4eba85ea1d0a966a983acd07deee566e67395d2d96b6fb39e62b5a833f1eb0b"
 
 [[package]]
 name = "global_boot_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+]
+
+[[package]]
+name = "global_fixture_api"
 version = "0.1.0"
 dependencies = [
  "wire_weaver",
@@ -6372,6 +6379,14 @@ name = "wire_line_api"
 version = "0.4.0"
 dependencies = [
  "wire_weaver",
+]
+
+[[package]]
+name = "wire_line_fixture_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "wire_weaver_evolution",
 ]
 
 [[package]]

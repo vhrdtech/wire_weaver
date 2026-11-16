@@ -70,3 +70,25 @@ pub enum SelfTestError {
     SensorOpen,
     SensorShorted,
 }
+
+/// Stands in for `ww_indication::Indication` (R7): the status LED trait every line shares, same shape and wire
+/// repr, with the modes the bench's tests use (`IndicationMode::OnlyEssential` included, unlike `shared_sub_level`'s
+/// smaller stand-in).
+#[ww_trait]
+pub trait Indication {
+    property!(rw mode: IndicationMode);
+}
+
+/// A device indication mode, see [Indication::mode]. Named apart from [Mode] (the sampler's own), which this
+/// module already has.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Debug, Clone, Copy, PartialEq, Eq),
+    ww_repr = nib
+)]
+pub enum IndicationMode {
+    AllOff,
+    OnlyEssential,
+    Normal,
+}

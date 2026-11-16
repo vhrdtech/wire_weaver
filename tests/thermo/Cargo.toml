@@ -13,7 +13,6 @@ thiserror.workspace = true
 tokio = { workspace = true, features = ["sync", "rt-multi-thread", "rt", "macros"] }
 wire_weaver.workspace = true
 wire_weaver_client.workspace = true
-ww_indication = { workspace = true, features = ["std"] }
 ww_si = { workspace = true, features = ["std"] }
 
 [dev-dependencies]

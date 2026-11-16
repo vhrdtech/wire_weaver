@@ -9,7 +9,7 @@
 //!   recorders keep its track ids (STD-125).
 //! - `uptime` is in milliseconds in a `u64`, was whole seconds in a `u32`: a host model in seconds can't hold it.
 
-use super::common::{Channel, Command, Config, Mode, RateError, Sample, SelfTestError};
+use super::common::{Channel, Command, Config, Indication, Mode, RateError, Sample, SelfTestError};
 use wire_weaver::prelude::*;
 use ww_si::origins::Celsius;
 use ww_si::prefix::{Centi, Milli};
@@ -32,8 +32,8 @@ pub trait Thermo {
     sink!(commands: Command);
     /// Input channels, 0-based on the wire.
     ww_impl!(channel[]: Channel);
-    /// The status LED, a `ww_stdlib` trait every line shares.
-    ww_impl!(indication: ww_indication::Indication);
+    /// The status LED, a local stand-in for a `ww_stdlib` trait every line shares (R7).
+    ww_impl!(indication: Indication);
     /// Adds `offset` to every sample from now on.
     fn calibrate(offset: Fixed<Kelvin, Milli, i32>);
     /// Uptime and the sensor check, moved here from the root.

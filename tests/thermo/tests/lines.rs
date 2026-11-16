@@ -140,13 +140,13 @@ async fn exercise(t: &Thermo, shared: &devices::Shared) {
     // a ww_stdlib trait, the same client and types for every line
     let indication = t.indication();
     indication
-        .write_mode(ww_indication::Mode::OnlyEssential)
+        .write_mode(thermo_api::common::IndicationMode::OnlyEssential)
         .write()
         .await
         .unwrap();
     assert_eq!(
         indication.read_mode().read().await.unwrap(),
-        ww_indication::Mode::OnlyEssential
+        thermo_api::common::IndicationMode::OnlyEssential
     );
 }
 
@@ -299,10 +299,10 @@ fn the_driver_speaks_three_lines() {
 }
 
 /// `ww api check` agrees on both breaks, root by root of the one crate (EVO-39, EVO-42): line 2 against line 1 and
-/// line 3 against line 2 each need a new line and a breaking crate bump. Each line's later revision, against the
-/// snapshot its first revision was published with (1.0.0, 2.0.0, its root at the crate root then), needs a new
-/// revision and a minor bump. Across a break resources are matched by path and `#[moved_from]` (EVO-40), within a
-/// line by position.
+/// line 3 against line 2 each need a new line and a breaking crate bump. Each line's current root, against the
+/// snapshot its first revision was published with (1.0.0, 2.0.0, its root at the crate root then), also needs a new
+/// line now: the indication swap (R7) changed every line's attached trait identity, not just a revision inside one.
+/// Across a break resources are matched by path and `#[moved_from]` (EVO-40), within a line by position.
 #[test]
 fn checker_agrees_on_both_bumps() {
     use wire_weaver_evolution::{Change, Move, WireBump, compare, compare_moved};
@@ -412,14 +412,24 @@ fn checker_agrees_on_both_bumps() {
         report.proposals[0]
     );
 
-    // the crate version is checked per root against the snapshots by `thermo_api`'s own `tests/evolution.rs`
-    for (old, new, wire) in [(&w1_0, &w1, (1, 1)), (&w2_0, &w2, (2, 1))] {
+    // Each line's own first revision against the current root was a compatible revision bump before R7: now the
+    // indication swap (a trait identity change, every line) breaks both too, each its own new line past the old
+    // one's major, same as any other breaking change (`ww api check`'s own verdict, not hand-derived).
+    for (old, new, wire) in [(&w1_0, &w1, (2, 0)), (&w2_0, &w2, (3, 0))] {
         let report = compare(old, new).unwrap();
-        assert_eq!(report.change, Change::Compatible, "{:?}", report.breaking);
-        assert_eq!(report.wire_bump, WireBump::Revision);
+        assert_eq!(report.change, Change::Breaking, "{:?}", report.breaking);
+        assert_eq!(report.wire_bump, WireBump::Line);
         assert_eq!(
             report.minimal_wire(),
             Some(WireVersion::new(wire.0, wire.1))
+        );
+        assert!(
+            report
+                .wire_reasons
+                .iter()
+                .any(|r| r.contains("trait ww_indication::Indication changed")),
+            "{:?}",
+            report.wire_reasons
         );
         report.check_wire().unwrap();
     }

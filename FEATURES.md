@@ -1857,9 +1857,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 ## Transports and protocols (`TR`)
 
 - ✅ **CLT-68 One sub-level client for a stdlib trait shared by lines** · `v0.5` — the lines of one crate that
-  reach the same sub-trait by path (a `ww_stdlib` one, `ww_indication::Indication`, or the crate's own
-  `common::Channel`) get one client type for it: `ww_codegen!(ww_indication::Indication for IndicationClient,
-  client = "sub_level")` once, and each line's `ww_codegen!(.., sub_levels = [ww_indication::Indication =>
+  reach the same sub-trait by path (a `ww_stdlib` one, or the crate's own, `common::Channel` and
+  `common::Indication`) get one client type for it: `ww_codegen!(common::Indication for IndicationClient,
+  client = "sub_level")` once, and each line's `ww_codegen!(.., sub_levels = [common::Indication =>
   crate::IndicationClient])` returns it wherever its tree has the trait, at any depth or as an array. A `const`
   assert checks the trait's signature (docs and `#[since]` left out) is the one the shared client was generated
   from. No trait calls: the device is unchanged, and each line's `#[since]` is still checked per call. Docs:

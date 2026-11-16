@@ -7,7 +7,7 @@
 //!
 //! `self_test` came in w2.1, so a w2.0 device doesn't have it.
 
-use super::common::{Channel, Command, Config, Mode, RateError, Sample, SelfTestError};
+use super::common::{Channel, Command, Config, Indication, Mode, RateError, Sample, SelfTestError};
 use wire_weaver::prelude::*;
 use ww_si::prefix::{Centi, Milli, One};
 use ww_si::units::{Kelvin, Ratio, Second};
@@ -28,8 +28,8 @@ pub trait Thermo {
     sink!(commands: Command);
     /// Input channels, 0-based on the wire.
     ww_impl!(channel[]: Channel);
-    /// The status LED, a `ww_stdlib` trait every line shares.
-    ww_impl!(indication: ww_indication::Indication);
+    /// The status LED, a local stand-in for a `ww_stdlib` trait every line shares (R7).
+    ww_impl!(indication: Indication);
     /// Adds `offset` to every sample from now on.
     fn calibrate(offset: Fixed<Kelvin, Milli, i32>);
     /// Time since boot.

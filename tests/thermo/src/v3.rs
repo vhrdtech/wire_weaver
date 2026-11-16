@@ -9,7 +9,7 @@ use wire_weaver_client::observe::on_change;
 
 wire_weaver_client::facade_line!(
     thermo_api::wire_v3::Thermo,
-    sub_levels = [ww_indication::Indication => crate::IndicationClient],
+    sub_levels = [thermo_api::common::Indication => crate::IndicationClient],
 );
 
 // This line's types are all in `thermo_api::common`, converted in `crate::common`; what is left is the line's own

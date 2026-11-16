@@ -1,6 +1,6 @@
 [package]
 name = "thermo_api"
-version = "4.0.0"
+version = "6.0.0"
 publish = false
 edition.workspace = true
 authors.workspace = true
@@ -8,19 +8,22 @@ license.workspace = true
 repository.workspace = true
 
 # Every wire line still in use, one root per module (EVO-37, EVO-42). Lines 1 to 3 were the crates 1.x, 2.x and 3.x;
-# 4.0.0 holds them all, so one host build talks to firmware of any line and a type the lines share is one Rust type.
+# 4.0.0 held them all. 6.0.0 (R7) moves `indication` off `ww_indication` (leaving this repo) onto a local stand-in
+# (`common::Indication`): a wire break on every root, since the attached trait's identity changed, each a new line
+# (`ww api check`) so it doesn't collide with another root's; lines 1-4 (w1.0-w3.0, w4 the "unspoken" sentinel of
+# `tests/thermo`'s `a_fourth_line_is_refused`) stay retired history, not reused. 5.0.0 was never saved: landing
+# picked up a Rust-only rename on wire_v3 (`gain` -> `amp_gain`, STD-125) that needed the breaking position too.
 [package.metadata.wire_weaver.roots]
-"wire_v1::Thermo" = "w1.2"
-"wire_v2::Thermo" = "w2.1"
-"wire_v3::Thermo" = "w3.0"
+"wire_v1::Thermo" = "w5.0"
+"wire_v2::Thermo" = "w6.0"
+"wire_v3::Thermo" = "w7.0"
 
 [features]
 default = ["std"]
-std = ["wire_weaver/std", "ww_si/std", "ww_indication/std"]
+std = ["wire_weaver/std", "ww_si/std"]
 
 [dependencies]
 wire_weaver.workspace = true
-ww_indication.workspace = true
 ww_si = { workspace = true, features = ["time", "thermal", "dimensionless", "counting"] }
 
 [dev-dependencies]

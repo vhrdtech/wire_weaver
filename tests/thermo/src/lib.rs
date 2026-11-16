@@ -2,7 +2,7 @@
 //! w2.1, a wire break) and line 3 (`wire_v3`, w3.0, another break), one generated client each, behind one facade,
 //! [Thermo].
 //!
-//! - The lines are roots of one API crate, `thermo_api` 4.0.0, one module each (EVO-37); their clients are one module
+//! - The lines are roots of one API crate, `thermo_api` 6.0.0, one module each (EVO-37); their clients are one module
 //!   each here (`v1.rs`, `v2.rs`, `v3.rs`). What lines share is one type in `thermo_api::common`, converted once
 //!   (`common.rs`).
 //! - [Thermo] is an enum over the three clients, made by `wire_weaver_client::facade!` (CLT-64) from the operations
@@ -13,8 +13,9 @@
 //!   or a lost link, `Thermo::reconnect()` picks the client again (CLT-63): a DFU may bring the device back on
 //!   another line this facade also speaks.
 //! - [model] is the driver's own version-free types; each line converts to and from it.
-//! - `ww_indication` is a trait of `ww_stdlib` every line has: one client type, [IndicationClient], generated once and
-//!   returned by every line's client (CLT-68), reached by its path in the device's line ([Thermo::indication]).
+//! - `thermo_api::common::Indication` (a local stand-in for a `ww_stdlib` trait, R7) is on every line: one client
+//!   type, [IndicationClient], generated once and returned by every line's client (CLT-68), reached by its path in
+//!   the device's line ([Thermo::indication]).
 //!
 //! Tests against simulated firmware of each line (`thermo_devices`) are in `tests/`.
 
@@ -70,7 +71,7 @@ wire_weaver_client::facade! {
 }
 
 impl Thermo {
-    /// The status LED: `ww_indication::Indication`, the same trait and types on every line, one client type.
+    /// The status LED: `thermo_api::common::Indication`, the same trait and types on every line, one client type.
     pub fn indication(&self) -> IndicationClient<'_> {
         match self {
             Thermo::V3(c) => c.indication(),
@@ -81,8 +82,8 @@ impl Thermo {
 }
 
 mod indication_client {
-    wire_weaver::ww_codegen!(ww_indication :: Indication for IndicationClient, client = "sub_level");
+    wire_weaver::ww_codegen!(thermo_api :: common :: Indication for IndicationClient, client = "sub_level");
 }
-/// `ww_indication::Indication`, generated once for every line: each line's client returns it, reached by the path the
-/// trait has in that line's tree (CLT-68).
+/// `thermo_api::common::Indication`, generated once for every line: each line's client returns it, reached by the
+/// path the trait has in that line's tree (CLT-68).
 pub use indication_client::IndicationClient;

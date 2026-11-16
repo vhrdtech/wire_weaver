@@ -12,9 +12,13 @@
 //! R10 moved this bench off `tests/dfu_api` (`ww_dfu`, a stdlib API crate) onto a framework-only fixture; `clock`
 //! stays `ww_timebase::Clock` rather than a local trait because the `GlobalCompact` match case needs a trait with a
 //! real `ww_global` id (24), which a non-stdlib trait doesn't get until SRV-61. `ww_timebase` is itself framework
-//! (R5), not a standard API, so this keeps the bench off anything the `ww_stdlib` cut moves away. Numbers need
-//! remeasuring on real QEMU hardware (none on this PC); the table above this line is the last one taken against
-//! the `ww_dfu`-based fixture (20 Oct 2026) and no longer applies to this trait shape.
+//! (R5), not a standard API, so this keeps the bench off anything the `ww_stdlib` cut moves away.
+//!
+//! Instruction counts (the table this doc comment used to carry, from the `ww_dfu`-based fixture, 20 Oct 2026) need
+//! remeasuring with `qemu_icount` on a PC that has `qemu-system-arm` (none available here). The firmware itself
+//! shrank with the smaller fixture (`just zero-cost`, `examples_mcu/mcu_qemu` `streams` feature, this trait shape
+//! against the 5-trait `DfuDevice` one): `fw-z` .text 19708 -> 16172 B (-3536), .rodata 2020 -> 1960 B (-60);
+//! `fw-3` .text 28716 -> 23888 B (-4828), .rodata 1720 -> 1660 B (-60).
 #![no_main]
 #![no_std]
 

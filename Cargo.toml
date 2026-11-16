@@ -160,8 +160,8 @@ ww_pin_probe = { version = "0.5.0", path = "./ww_stdlib/ww_pin_probe" }
 ww_report = { version = "0.5.0", path = "./ww_stdlib/ww_report" }
 ww_settings = { version = "0.5.0", path = "./ww_settings/ww_settings" }
 ww_settings_derive = { version = "0.5.0", path = "./ww_settings/ww_settings_derive" }
-ww_std_cli = { version = "0.5.0", path = "./ww_stdlib/ww_std_cli" }
 ww_snapshots = { version = "0.5.0", path = "./ww_snapshots" }
+ww_std_cli = { version = "0.5.0", path = "./ww_stdlib/ww_std_cli" }
 # CLT-34: a crate of its own like picoboot_host, to move to its own repo.
 ww_stm32_dfu = { package = "stm32_dfu_host", version = "0.1.0", path = "./stm32_dfu_host", default-features = false }
 ww_stream = { version = "0.5.0", path = "./ww_stream", default-features = false }

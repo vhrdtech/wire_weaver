@@ -5263,8 +5263,8 @@ checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
 name = "tap_api"
 version = "0.1.0"
 dependencies = [
+ "global_fixture_api",
  "wire_weaver",
- "ww_user_info",
 ]
 
 [[package]]
@@ -6422,6 +6422,7 @@ dependencies = [
  "crossterm",
  "human-repr",
  "indicatif",
+ "io_timebase_api",
  "nusb",
  "proc-macro2",
  "ratatui",
@@ -6439,6 +6440,7 @@ dependencies = [
  "toml_edit",
  "tracing",
  "tracing-subscriber",
+ "user_info_api",
  "wire_weaver",
  "wire_weaver_client",
  "wire_weaver_core",
@@ -6447,6 +6449,7 @@ dependencies = [
  "ww_board_info",
  "ww_client_server",
  "ww_counters",
+ "ww_date_time",
  "ww_dfu",
  "ww_hub",
  "ww_hub_api",

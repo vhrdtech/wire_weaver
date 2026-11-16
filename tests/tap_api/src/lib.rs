@@ -15,5 +15,5 @@ pub trait TapDemo {
     /// Observed together with `load`: an update carries both
     property!(ro+observe state: u8);
     /// A global trait (known from a snapshot): the device leaves it out of its introspection data
-    ww_impl!(user: ww_user_info::UserInfo);
+    ww_impl!(user: global_fixture_api::GlobalDemo);
 }

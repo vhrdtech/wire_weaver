@@ -14,7 +14,6 @@ mod server {
     use tests_common::TestProcessEventsAsync;
     use wire_weaver::prelude::*;
     use ww_stream::observe::ObserveLimits;
-    use ww_user_info::{UserInfoCaps, UserInfoError};
 
     pub struct Server {
         pub blob: [u8; 512],
@@ -80,7 +79,7 @@ mod server {
             &mut self,
             _cx: &mut Context<'_, impl EventOut>,
             value: MaxLen<&'_ str, 32>,
-        ) -> SetResult<UserInfoError<'_>> {
+        ) -> SetResult<()> {
             self.name = value.to_string();
             Set
         }
@@ -88,23 +87,8 @@ mod server {
         async fn get_user_name(
             &mut self,
             _cx: &mut Context<'_, impl EventOut>,
-        ) -> GetResult<MaxLen<&'_ str, 32>, UserInfoError<'_>> {
+        ) -> GetResult<MaxLen<&'_ str, 32>, ()> {
             Value(MaxLen::new_unchecked(&self.name))
-        }
-
-        async fn set_user_notes(
-            &mut self,
-            _cx: &mut Context<'_, impl EventOut>,
-            _value: MaxLen<&'_ str, 256>,
-        ) -> SetResult<UserInfoError<'_>> {
-            Unimplemented.into()
-        }
-
-        async fn get_user_notes(
-            &mut self,
-            _cx: &mut Context<'_, impl EventOut>,
-        ) -> GetResult<MaxLen<&'_ str, 256>, UserInfoError<'_>> {
-            Unimplemented.into()
         }
 
         fn observe_state(&mut self) -> &mut api_impl::ObserveState {
@@ -113,11 +97,7 @@ mod server {
     }
 
     impl api_impl::TapDemoConsts for Server {
-        const USER_CAPABILITIES: UserInfoCaps = UserInfoCaps {
-            name_max: ww_user_info::NameMax::bounded(32),
-            notes_max: ww_user_info::NotesMax::bounded(0),
-            persistent: false,
-        };
+        const USER_CAPABILITIES: u8 = 32;
     }
 
     pub mod api_impl {
@@ -164,6 +144,233 @@ fn demo_device(path: &str, speed: u16) -> tests_common::TestDevice {
         tap_api::TAP_DEMO_WIRE_VERSION,
         server::api_impl::api_hash(),
     )
+}
+
+/// The framework's own global trait, `ww_timebase::Clock` (ww_global id 24), attached to a minimal device: TOOL-9's
+/// framework-owned cover of a global trait call named and decoded from a snapshot (R7), with no `ww_report`.
+mod global_clock {
+    use tests_common::TestProcessEventsAsync;
+    use wire_weaver::prelude::*;
+    use wire_weaver_client::{Commander, DynClient};
+    use ww_timebase::{ClockError, ClockInfo, DateTime, Second, SyncConfig, SyncState, SyncStatus};
+
+    pub struct Server {
+        pub started: std::time::Instant,
+    }
+
+    impl Server {
+        async fn clock_now(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<Second> {
+            Ready(Second::micro(self.started.elapsed().as_micros() as u32))
+        }
+
+        async fn clock_info(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+        ) -> RpcResult<ClockInfo<'_>> {
+            Ready(ClockInfo {
+                resolution: Second::micro(1u32),
+                source: MaxLen::new_unchecked("test clock"),
+                sync_formats: MaxLen::new_unchecked(RefVec::Slice { slice: &[] }),
+            })
+        }
+
+        async fn clock_time_map(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {
+            Ready(())
+        }
+
+        async fn close_clock_time_map(&mut self, _cx: &mut Context<'_, impl EventOut>) {}
+
+        async fn sideband_clock_time_map(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+            _sideband: ww_client_server::StreamSideband,
+        ) -> Option<ww_client_server::StreamSideband> {
+            None
+        }
+
+        async fn clock_configure_sync(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+            _config: SyncConfig,
+        ) -> RpcResult<Result<(), ClockError<'_>>> {
+            Ready(Err(CommonError::Unsupported.into()))
+        }
+
+        async fn clock_sync_config(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+        ) -> RpcResult<SyncConfig> {
+            Ready(SyncConfig::Off)
+        }
+
+        async fn clock_sync_status(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+        ) -> RpcResult<SyncStatus<'_>> {
+            Ready(SyncStatus {
+                state: SyncState::Free,
+                offset: None,
+                last_lock: None,
+                source: None,
+                error: None,
+                slew: None,
+                steerer: None,
+                noted: None,
+            })
+        }
+
+        async fn clock_set_time_of_day(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+            _t: DateTime,
+        ) -> RpcResult<Result<(), ClockError<'_>>> {
+            Ready(Err(CommonError::WrongState {
+                reason: MaxLen::new_unchecked("not a sync master"),
+            }
+            .into()))
+        }
+    }
+
+    pub mod api_impl {
+        wire_weaver::ww_codegen!(
+            io_timebase_api :: IoTimebaseTest for super::Server,
+            server = true, no_alloc = true, use_async = true,
+            method_model = "_=immediate",
+            property_model = "_=get_set",
+            omit = ["clock.host_sync"],
+        );
+    }
+
+    impl TestProcessEventsAsync for Server {
+        type Medium = ();
+
+        async fn process_request_bytes<'a>(
+            &mut self,
+            bytes: &[u8],
+            scratch: &'a mut [u8],
+            out: &mut impl EventOut,
+            medium: (),
+        ) -> Result<&'a [u8], ShrinkWrapError> {
+            self.process_request_bytes(bytes, scratch, out, medium)
+                .await
+        }
+    }
+
+    /// A device whose only resource is `ww_timebase::Clock`, attached globally.
+    pub fn demo_device(path: &str) -> tests_common::TestDevice {
+        tests_common::start_device_async_usb(
+            path,
+            64,
+            Server {
+                started: std::time::Instant::now(),
+            },
+            io_timebase_api::IO_TIMEBASE_TEST_FULL_GID,
+            io_timebase_api::IO_TIMEBASE_TEST_WIRE_VERSION,
+            api_impl::api_hash(),
+        )
+    }
+
+    /// A client of `ww_timebase::Clock` through a global attachment, built here (TOOL-9): no pregenerated
+    /// `ww_report` client, just `ww_codegen!` on the same trait the device implements.
+    pub struct ClockClient {
+        cmd: Commander,
+    }
+
+    impl ClockClient {
+        pub fn new(device: &DynClient) -> Self {
+            Self {
+                cmd: device
+                    .global_attachment(ww_timebase::CLOCK_FULL_GID, "Clock")
+                    .cmd_tx_take(),
+            }
+        }
+    }
+
+    mod clock_client_impl {
+        use super::*;
+        wire_weaver::ww_codegen!(
+            ww_timebase :: Clock for super::ClockClient,
+            client = "trait_client",
+            no_alloc = false,
+            use_async = true,
+            omit = ["clock.host_sync"],
+        );
+    }
+}
+
+/// A device whose only resource is `ww_user_info::UserInfo`, for the isolated `ww_report` variant of TOOL-9 below:
+/// this test module's only stdlib/tooling dependency is `ww_user_info` and `ww_report` (moves with the ww_stdlib /
+/// ww_tools cut, R7).
+mod user_info_report {
+    use tests_common::TestProcessEventsAsync;
+    use wire_weaver::prelude::*;
+    use ww_user_info::UserInfoCaps;
+
+    pub struct Server {
+        pub name: String,
+    }
+
+    impl Server {
+        async fn set_user_name(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+            value: MaxLen<&'_ str, 32>,
+        ) -> SetResult<ww_user_info::UserInfoError<'_>> {
+            self.name = value.to_string();
+            Set
+        }
+
+        async fn get_user_name(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+        ) -> GetResult<MaxLen<&'_ str, 32>, ww_user_info::UserInfoError<'_>> {
+            Value(MaxLen::new_unchecked(&self.name))
+        }
+    }
+
+    impl api_impl::UserInfoTestConsts for Server {
+        const USER_CAPABILITIES: UserInfoCaps = UserInfoCaps {
+            name_max: ww_user_info::NameMax::bounded(32),
+            notes_max: ww_user_info::NotesMax::bounded(0),
+            persistent: false,
+        };
+    }
+
+    pub mod api_impl {
+        wire_weaver::ww_codegen!(
+            user_info_api :: UserInfoTest for super::Server,
+            server = true, no_alloc = true, use_async = true,
+            method_model = "_=immediate",
+            property_model = "_=get_set",
+            omit = ["user.notes"],
+        );
+    }
+
+    impl TestProcessEventsAsync for Server {
+        type Medium = ();
+
+        async fn process_request_bytes<'a>(
+            &mut self,
+            bytes: &[u8],
+            scratch: &'a mut [u8],
+            out: &mut impl EventOut,
+            medium: (),
+        ) -> Result<&'a [u8], ShrinkWrapError> {
+            self.process_request_bytes(bytes, scratch, out, medium)
+                .await
+        }
+    }
+
+    pub fn demo_device(path: &str) -> tests_common::TestDevice {
+        tests_common::start_device_async_usb(
+            path,
+            64,
+            Server { name: "tapped".into() },
+            user_info_api::USER_INFO_TEST_FULL_GID,
+            user_info_api::USER_INFO_TEST_WIRE_VERSION,
+            api_impl::api_hash(),
+        )
+    }
 }
 
 fn u32v(v: u32) -> ValueOwned {
@@ -558,14 +765,56 @@ async fn observe_requests_replies_and_updates_are_decoded() {
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }
 
-/// TOOL-9: calls through a global trait id (`ww info` and friends) are named by the trait's crate and decoded from
+/// TOOL-9: a call through a global trait id (`ww info` and friends) is named by the trait's crate and decoded from
 /// the snapshot the host carries, without the device API (a command that never introspects). With the device API
 /// (here from the local cache codegen fills) the client sends the trait's absolute path instead (SRV-53), named by
-/// the device's API.
+/// the device's API. The framework's own cover (R7): `ww_timebase::Clock` (ww_global id 24, framework by the
+/// design), with a client generated right here, no `ww_report`. See
+/// `global_trait_calls_are_named_and_decoded_via_ww_report` below for the pre-existing `ww_user_info` + `ww_report`
+/// variant this test replaced as the only cover of the same behaviour.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn global_trait_calls_are_named_and_decoded() {
     for (traits_only, name) in [(false, "global"), (true, "global_traits_only")] {
-        let device = demo_device(&format!("cli/tap_{name}"), 7);
+        let device = global_clock::demo_device(&format!("cli/tap_{name}"));
+        let (printed, path) = tapped_session(name, &device, traits_only, async |client| {
+            let clock = global_clock::ClockClient::new(client);
+            clock.now().call().await.unwrap();
+        })
+        .await;
+        let resource = match traits_only {
+            true => "ww_timebase::Clock.now",
+            false => "clock.now",
+        };
+        assert!(
+            printed.contains(&format!("Request Call {resource}")),
+            "{printed}"
+        );
+        assert!(
+            printed
+                .lines()
+                .any(|l| l.contains(&format!("Event Value {resource}")) && l.contains("reply to #")),
+            "{printed}"
+        );
+        assert_eq!(replayed(&path, Layer::Api), printed, "{name}");
+        if traits_only {
+            // the call went out by the trait's ww_global id (API-20), named from the registry
+            let with_bytes = replayed_view(&path, Layer::Api, true);
+            let mut lines = with_bytes.lines();
+            lines.find(|l| l.contains(&format!("Request Call {resource}")));
+            let request_len = lines.next().unwrap().split_whitespace().skip(1).count();
+            assert!(request_len > 0, "{with_bytes}");
+        }
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
+}
+
+/// TOOL-9, the `ww_user_info` + `ww_report` variant `global_trait_calls_are_named_and_decoded` replaced above as the
+/// framework's cover of the same behaviour (R7): kept logically unchanged, isolated here so this test alone depends
+/// on `ww_user_info` and `ww_report` (moves with the ww_stdlib / ww_tools cut, together with those crates).
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn global_trait_calls_are_named_and_decoded_via_ww_report() {
+    for (traits_only, name) in [(false, "global_ui"), (true, "global_traits_only_ui")] {
+        let device = user_info_report::demo_device(&format!("cli/tap_{name}"));
         let (printed, path) = tapped_session(name, &device, traits_only, async |client| {
             let user = ww_report::clients::UserInfoClient::new(client);
             let n = user.read_name().read().await.unwrap();

@@ -150,6 +150,7 @@ fn track(kind: TrackKind<'static>, sticky: bool) -> TrackDef<'static> {
         path: RefVec::Slice {
             slice: &[UNib32(4), UNib32(1)],
         },
+        keys: RefVec::Slice { slice: &[] },
         item: None,
         label: "phase[a].current",
         sticky,

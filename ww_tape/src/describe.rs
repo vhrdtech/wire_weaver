@@ -387,6 +387,9 @@ pub struct TrackDef<'i> {
     pub bundle: RefVec<'i, u8>,
     /// Resource path of the track's stream in the API: `ww_trait` ids, array indices included.
     pub path: RefVec<'i, UNib32>,
+    /// Keys of the elements of keyed arrays (API-67) on `path`, in ascending order of position: what the track's
+    /// [key](Self::key) hashes instead of those indices. Empty when `path` crosses no keyed array.
+    pub keys: RefVec<'i, KeySegment<'i>>,
     /// The item type when the path doesn't give it (a producer's result, a map track); None: the stream's type. None
     /// for a series: [SeriesDef::sample] names the type of its values.
     pub item: Option<TypeRef<'i>>,
@@ -397,6 +400,15 @@ pub struct TrackDef<'i> {
     pub sticky: bool,
     /// How the track's items are stored: events or a fixed-rate series.
     pub kind: TrackKind<'i>,
+}
+
+/// The key of the keyed-array element a [TrackDef::path] index points at.
+#[derive_shrink_wrap(owned(feature = "std"), derive(Debug, PartialEq, Eq, Clone))]
+pub struct KeySegment<'i> {
+    /// Position in [TrackDef::path] of the index this key stands for.
+    pub at: UNib32,
+    /// The key in its shrink_wrap encoding.
+    pub bytes: RefVec<'i, u8>,
 }
 
 /// How a track's items are stored.
@@ -463,10 +475,10 @@ pub const NO_CLOCK: u32 = 0;
 /// Key of the wall clock (origin Unix epoch), the same for every producer.
 pub const UNIX_CLOCK_KEY: u64 = fnv1a(FNV_OFFSET, b"ww_tape unix epoch");
 
-/// Stable key of a clock: FNV-1a of `api_root` (u64 LE), every path id (u32 LE) of the thing that counts, then
+/// Stable key of a clock: the [track_key](crate::track_key) of the name path of the thing that counts, then FNV-1a of
 /// `epoch` (u64 LE, a boot count).
-pub fn clock_key(api_root: u64, path: &[u32], epoch: u64) -> u64 {
-    fnv1a(crate::track_key(api_root, path), &epoch.to_le_bytes())
+pub const fn clock_key(api_root: u64, segments: &[crate::Segment<'_>], epoch: u64) -> u64 {
+    fnv1a(crate::track_key(api_root, segments), &epoch.to_le_bytes())
 }
 
 /// Id of a track's identity: its key without dimensions, else FNV-1a of the key (u64 LE) and of every dimension's

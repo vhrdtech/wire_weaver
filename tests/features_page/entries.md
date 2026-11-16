@@ -76,6 +76,7 @@ copying. Every message between host and device is made of it, and it works on it
 - SW-39 | Byte-wise `memcpy` | Measured savings and downsides of a tiny `memcpy` for very small targets. | serdes/code_size.md#build-settings
 - SW-35 | Exact sizes of enums | `sized` enums report the discriminant plus one variant; variants of different sizes are a compile error. | serdes/size_assumptions.md#enums
 - SW-40 | Strict bit reads | Malformed data near the end of a buffer is an error, never a misread. | serdes/wire_format.md
+- SW-81 | Empty lists take no padding | An empty byte list writes only its length, so the borrowed and owned types give the same bytes. | serdes/wire_format.md#alignment
 - SW-9, DER-4 | Bytes to the end | `TailBytes` takes the rest of the buffer, written without a length; only allowed last. | types.md#special-types
 - SW-18 | Size of the rest of a value | `TailSize<N>`, filled in after writing, so a reader can skip a value or bound it. | serdes/special_types.md#tailsizen-the-size-of-the-rest-of-a-value
 - SW-61 | Lists written in place | `RefVecBuilder` writes a list into the buffer one element at a time, from a loop or an iterator, with no slice and the same bytes. | serdes/special_types.md#refvecbuilder-lists-written-in-place
@@ -469,6 +470,7 @@ feature tracker.
 - STD-127 | Tape series tracks | A series track says its sample type, scale and exact period; segments mark gaps and prefix changes, and a received `Series<Fixed>` batch becomes chunk columns without a float. | transport/tap.md#series-tracks
 - STD-129 | Tape runs and media provisions | Tapes on SD cards and raw NAND read past gaps, never take stale blocks for data, and survive a damaged describe set. | transport/tap.md#runs-media-and-damage
 - STD-126 | Tape payload codec | Event payloads with bit-packed lengths, raw or lz4, salvaged item by item from a damaged chunk. | transport/tap.md#payload-codec
+- STD-125 | Tape track identity by name | A track's key hashes its resource names and the keys of keyed arrays, so two runs that number things differently give the same ids. | transport/tap.md#track-identity
 - STD-128 | Tape summaries across scales | Series summaries stay exact when an autoranging device changes prefix: each block states its scale, nodes merge at a common one. | transport/tap.md#tape-blocks
 - STD-130 | Tape ALP float codec | Floats that began as decimals stored as bit-packed integers, other floats by their front bits, lossless and read in place. | transport/tap.md#sample-codecs
 - STD-131 | Tape hardening | Tape readers take damaged or hostile files without a panic, an overflow or an unbounded allocation; every limit is a named cap. | transport/tap.md#tape-blocks

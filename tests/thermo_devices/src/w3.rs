@@ -72,7 +72,7 @@ impl Server {
         GetResult::Value(self.mode)
     }
 
-    async fn set_gain(
+    async fn set_amp_gain(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
         value: Fixed<Ratio, Centi, u16, Range<100, 1600>>,
@@ -82,7 +82,7 @@ impl Server {
         SetResult::Set
     }
 
-    async fn get_gain(
+    async fn get_amp_gain(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
     ) -> GetResult<Fixed<Ratio, Centi, u16, Range<100, 1600>>, ()> {

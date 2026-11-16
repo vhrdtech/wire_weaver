@@ -18,6 +18,16 @@ pub const KEY: u32 = 1;
 /// Id of `stream!(keys: KeyEvent<I, K>)` in a key companion's level: an element appeared or went away.
 pub const KEYS: u32 = 2;
 
+/// Name of the item `id` of a key companion's level: `index_of`, `key` or `keys`; None for any other id.
+pub const fn item_name(id: u32) -> Option<&'static str> {
+    match id {
+        INDEX_OF => Some("index_of"),
+        KEY => Some("key"),
+        KEYS => Some("keys"),
+        _ => None,
+    }
+}
+
 /// Trait name of a key companion's level; no trait of this name exists in any crate.
 pub const LEVEL_NAME: &str = "Keys";
 
@@ -86,12 +96,14 @@ pub fn keys_level(level: &ApiLevelOwned, keys: &ApiItemOwned) -> Result<ApiLevel
         });
     };
     let index = index_ty(array);
-    let item = |id: u32, ident: &str, kind, multiplicity| ApiItemOwned {
+    let item = |id: u32, kind, multiplicity| ApiItemOwned {
         id: UNib32(id),
         kind,
         multiplicity,
         since: None,
-        ident: ident.to_owned(),
+        ident: item_name(id)
+            .expect("the level's own ids have names")
+            .to_owned(),
         docs: vec![],
         optional: None,
         meta: None,
@@ -100,7 +112,6 @@ pub fn keys_level(level: &ApiLevelOwned, keys: &ApiItemOwned) -> Result<ApiLevel
     let items = vec![
         item(
             INDEX_OF,
-            "index_of",
             ApiItemKindOwned::Method {
                 args: vec![ArgumentOwned {
                     ident: "key".to_owned(),
@@ -117,7 +128,6 @@ pub fn keys_level(level: &ApiLevelOwned, keys: &ApiItemOwned) -> Result<ApiLevel
         ),
         item(
             KEY,
-            "key",
             ApiItemKindOwned::Property {
                 ty: key.clone(),
                 access: PropertyAccess::ReadOnly { observe: false },
@@ -129,7 +139,6 @@ pub fn keys_level(level: &ApiLevelOwned, keys: &ApiItemOwned) -> Result<ApiLevel
         ),
         item(
             KEYS,
-            "keys",
             ApiItemKindOwned::Stream {
                 ty: event_ty.clone(),
                 is_up: true,

@@ -409,6 +409,30 @@
       "note": "evolvable structs inside a struct and a list carry their sizes"
     },
     {
+      "name": "struct.bytes.empty_end",
+      "type": "bytes_end",
+      "value": {"a": true, "b": []},
+      "bytes": "80",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "an empty byte list writes its length only, not the alignment its bytes would take (SW-81)"
+    },
+    {
+      "name": "struct.bytes.empty_mid",
+      "type": "bytes_mid",
+      "value": {"a": true, "b": [], "c": true},
+      "bytes": "c0",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "the bit after an empty byte list shares the byte of the bit before it (SW-81)"
+    },
+    {
+      "name": "struct.bytes.mid",
+      "type": "bytes_mid",
+      "value": {"a": true, "b": [7], "c": true},
+      "bytes": "800781",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "a byte list that is not empty starts on a fresh byte"
+    },
+    {
       "name": "struct.flags.relocated",
       "type": "flagged",
       "value": {"a": 5, "early": "hi", "res": {"Ok": 7}, "tagged": {"Pair": {"first": 1, "second": null}}, "late": 300},

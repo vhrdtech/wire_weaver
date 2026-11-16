@@ -62,6 +62,8 @@ trait Conformance {
     property!(rw bits: Bits);
     property!(rw nested: Outer<'i>);
     property!(rw flagged: Flagged<'i>);
+    property!(rw bytes_end: BytesEnd<'i>);
+    property!(rw bytes_mid: BytesMid<'i>);
     property!(rw pair: Pair<'i>);
     property!(rw rgb: Rgb);
     property!(rw marker: Marker);
@@ -242,6 +244,21 @@ pub struct Bits {
     pub byte: u8,
     pub wide: U10,
     pub last: bool,
+}
+
+/// A byte list that starts mid-byte, at the end: an empty one writes its length only, no alignment (SW-81).
+#[derive_shrink_wrap(owned, derive(Debug, PartialEq, Clone))]
+pub struct BytesEnd<'i> {
+    pub a: bool,
+    pub b: RefVec<'i, u8>,
+}
+
+/// A bit after a byte list that starts mid-byte: after an empty one it shares the first byte (SW-81).
+#[derive_shrink_wrap(owned, derive(Debug, PartialEq, Clone))]
+pub struct BytesMid<'i> {
+    pub a: bool,
+    pub b: RefVec<'i, u8>,
+    pub c: bool,
 }
 
 #[derive_shrink_wrap(owned, derive(Debug, PartialEq, Clone))]

@@ -5239,6 +5239,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "tape_identity"
+version = "0.1.0"
+dependencies = [
+ "keyed_api",
+ "wire_weaver",
+ "wire_weaver_core",
+ "ww_self",
+ "ww_si",
+ "ww_tap",
+ "ww_tape",
+]
+
+[[package]]
 name = "tar"
 version = "0.4.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7115,11 +7128,13 @@ dependencies = [
 name = "ww_tape"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "blake3",
  "crc",
  "exact_units",
  "lz4_flex",
  "shrink_wrap",
+ "ww_self",
  "ww_version",
 ]
 

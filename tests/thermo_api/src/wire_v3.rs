@@ -5,6 +5,8 @@
 //! - The tree moved: `uptime` and `self_test` are in a new sub-level, `health`, so their paths changed. `self_test`
 //!   is the same resource renamed `check_sensor`, marked `#[moved_from]`, so its identity name stays `self_test`;
 //!   `uptime` changed too, so it is a new one.
+//! - `gain` is renamed `amp_gain` in the same trait, marked `#[moved_from]`: its identity name stays `gain`, so
+//!   recorders keep its track ids (STD-125).
 //! - `uptime` is in milliseconds in a `u64`, was whole seconds in a `u32`: a host model in seconds can't hold it.
 
 use super::common::{Channel, Command, Config, Mode, RateError, Sample, SelfTestError};
@@ -22,7 +24,8 @@ pub trait Thermo {
     fn read_once() -> Sample;
     property!(rw mode: Mode);
     /// Amplifier gain, observable: the device changes it itself on overload.
-    property!(rw+observe gain: Fixed<Ratio, Centi, u16, Range<100, 1600>>);
+    #[moved_from(w2.1, Thermo::gain)]
+    property!(rw+observe amp_gain: Fixed<Ratio, Centi, u16, Range<100, 1600>>);
     /// Samples in batches while `mode` is `Continuous`, and a burst of consecutive samples per `Command::Trigger`.
     stream!(samples: Batch<'i>);
     /// Commands for the sampler, in order.

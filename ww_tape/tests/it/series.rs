@@ -14,7 +14,7 @@ use ww_tape::samples::{Samples, encode, max_encoded_len};
 use ww_tape::{
     BlockKind, BlockWriter, ClockDef, ClockOrigin, ClockTime, Codec, ColumnKind, ColumnSpec,
     Describe, DescribeOwned, DescribeSet, EndMode, FileBlocks, FullVersion, Layout, Magnitude,
-    Producer, Ratio64, Recovery, SampleShape, SeriesDef, SeriesSegment, SeriesTimeline,
+    Producer, Ratio64, Recovery, SampleShape, Segment, SeriesDef, SeriesSegment, SeriesTimeline,
     SeriesValue, Sticky, SyncPolicy, TapeReader, TapeWriter, TrackDef, TrackKind, TypeRef, Version,
     clock_key, track_key,
 };
@@ -130,7 +130,7 @@ fn describe_blocks(first: &SeriesSegment, seq: &mut ww_tape::BlockId) -> Vec<Vec
     .unwrap();
     set.insert(&Describe::Track(TrackDef {
         number: UNib32(TRACK),
-        key: track_key(0x5e, &[3]),
+        key: track_key(0x5e, &[Segment::Name("phase")]),
         clock: UNib32(CLOCK),
         dimensions: RefVec::Slice { slice: &[] },
         api: FullVersion::new("motor_api", Version::new(0, 1, 0)),
@@ -138,6 +138,7 @@ fn describe_blocks(first: &SeriesSegment, seq: &mut ww_tape::BlockId) -> Vec<Vec
         path: RefVec::Slice {
             slice: &[UNib32(3)],
         },
+        keys: RefVec::Slice { slice: &[] },
         item: None,
         label: "phase.current",
         sticky: true,

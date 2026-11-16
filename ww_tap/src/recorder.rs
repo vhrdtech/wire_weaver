@@ -22,8 +22,8 @@ use wire_weaver::prelude::*;
 use wire_weaver::shrink_wrap::SerializeShrinkWrap;
 use ww_tape::{
     Block, BlockId, BlockKind, BlockState, BlockWriter, ClockDef, ClockMap, ClockOrigin, ClockTime,
-    Describe, DescribeSet, FullVersion, Magnitude, MapSegment, Producer, RunTag, Sticky, TrackDef,
-    Version,
+    Describe, DescribeSet, FullVersion, Magnitude, MapSegment, Producer, RunTag, Segment, Sticky,
+    TrackDef, Version,
 };
 
 use crate::{Dir, Frame, LinkEvent, Message, Session, Tap, ids};
@@ -232,6 +232,25 @@ pub const WALL_CLOCK: u32 = 2;
 /// Track number of a link's stream: links take 7 numbers each, from 1 on.
 pub fn track_number(link: u32, stream: u32) -> u32 {
     1 + link * 7 + stream
+}
+
+/// Stable key of a link's stream, the [ww_tape::track_key] of its name path `link[link].<stream>` in [LinkTap](crate::LinkTap).
+///
+/// # Panics
+///
+/// When `stream` is not one of [ids]' streams.
+pub fn track_key(link: u32, stream: u32) -> u64 {
+    let name = STREAM_NAMES
+        .get(stream as usize)
+        .expect("stream is one of ids' streams");
+    ww_tape::track_key(
+        ww_tape::api_root_id(api().crate_id),
+        &[
+            Segment::Name("link"),
+            Segment::Index(link),
+            Segment::Name(name),
+        ],
+    )
 }
 
 /// Link id and stream id of a track number, the reverse of [track_number].
@@ -603,7 +622,7 @@ impl Inner {
             name: &self.config.name,
         }));
         let api = api();
-        let api_root = ww_tape::api_root_id(api.crate_id, api.version.major.0);
+        let api_root = ww_tape::api_root_id(api.crate_id);
         add(&Describe::Clock(ClockDef {
             number: UNib32(HOST_CLOCK),
             // a run of the recorder is a clock of its own
@@ -642,12 +661,13 @@ impl Inner {
                 let label = format!("link[{link}].{}", STREAM_NAMES[stream as usize]);
                 add(&Describe::Track(TrackDef {
                     number: UNib32(track_number(link, stream)),
-                    key: ww_tape::track_key(api_root, &[ids::LINK, link, stream]),
+                    key: track_key(link, stream),
                     clock: UNib32(HOST_CLOCK),
                     dimensions: RefVec::Slice { slice: &[] },
                     api,
                     bundle: RefVec::Slice { slice: &[] },
                     path: RefVec::Slice { slice: &path },
+                    keys: RefVec::Slice { slice: &[] },
                     item: None,
                     label: &label,
                     sticky: stream == ids::SESSION,

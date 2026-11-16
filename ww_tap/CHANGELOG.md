@@ -5,6 +5,7 @@
 ### ⚠️ Breaking
 
 - The recorder's blocks carry a random run tag per recorder, counted from seq 0 (STD-129).
+- Track keys hash the name path `link[i].<stream>` and the crate name only: tracks get new ids (STD-125).
 - The recorder's tracks are `TrackKind::Events` instants in the describe set (STD-127).
 - Tape v2 (STD-117): record times count `HOST_CLOCK` (ns since the recorder started), mapped to `WALL_CLOCK` in the describe set; `RecorderConfig::describe_every` is gone: describe blocks are no longer repeated by time.
 
@@ -16,6 +17,7 @@
 
 ### 🚀 Features
 
+- `track_key(link, stream)`: the stable key of a link's stream track (STD-125).
 - `Medium::InProcessWebSocket` for sessions over `wire_weaver_client`'s simulated WebSocket (TR-22), appended.
 - `Medium::InProcessUdp` for sessions over `wire_weaver_client`'s simulated UDP (TR-21), appended, so older captures still decode.
 - `Medium::LocalSocket` for sessions over a local socket (TR-16), appended, so older captures still decode.

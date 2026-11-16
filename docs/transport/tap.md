@@ -87,7 +87,7 @@ A **describe** block carries, in a canonical order: the producer, the API bundle
 exact rate and resolution as `Magnitude`s, origin: free-running, boot, Unix epoch, media start, run start, or the next epoch of a counter, fixed by an exact offset map), the
 clock maps (segments `b = b0 + (a - a0) · slope`, the slope an exact_units `Ratio64`, with an error bound, strictly increasing across segments: the tap maps its own clock to the wall clock
 read at its start), a `TrackDef` per track (number, stable key, clock, dimensions that are part of its identity, API,
-resource path, optional item type, label, whether it is sticky, and its kind: events, with or without ends and flags, or a [series](#series-tracks)) and typed items (any wire_weaver value by bundle
+resource path, the keys of [keyed arrays](#track-identity) on it, optional item type, label, whether it is sticky, and its kind: events, with or without ends and flags, or a [series](#series-tracks)) and typed items (any wire_weaver value by bundle
 hash and type path), then the newest record of every sticky track. It is written at the start, when a track is
 added, when a consumer joins and after a loss, never by time, so a consumer that joins late decodes from its first
 block. `ww_tape::DescribeSet` keeps the records in that order, so the same input gives the same bytes whatever order
@@ -100,6 +100,34 @@ A **summary** block holds a batch of consecutive nodes of one level of a track's
 The **times** of an events chunk are coded by `ww_tape::times`, and every read runs on the chunk bytes as they are, with no decode into a list first. Starts are either *implicit* (the chunk's first tick plus a period per item, for evenly spaced items) or a *linear frame of reference* per group of 128 items: a 25-byte record per group (its first tick, a slope in Q16 ticks per item, the smallest residual, a width and an offset), then each item's residual against the line, bit-packed at the group's width. Periodic items cost their jitter, not their period: 1 ms with ±300 ns jitter takes about 1.48 bytes per item, exactly periodic ones almost nothing, bursty nanosecond traffic about 3.8 (8 for raw i64). A get is one record and one load, a lower bound searches the group first ticks, then only the items the slope leaves possible. Ends are absent (instants), the next item's start (spans back to back, nothing stored) or packed durations, whose group minimum plus 2^width bounds the group's longest item for overlap queries. Flags are an optional u32 per item, packed per group with the OR of the group's flags, so a zoomed-out view reads the ORs without a decode. Groups decode with hand-written kernels (`ww_tape::bitpack`: AVX-512, AVX2 or NEON, picked at run time, else scalar) at a fraction of a nanosecond per item. A chunk whose CRC failed still reads through `EventTimes::salvage`: group records are checked one by one, and only the items of a group that doesn't hold up are marked suspect.
 
 A file states in its describe set how its blocks are placed (`Layout`, alignment 0 or 4096; none means 0). In an aligned file (series files) every chunk payload starts on a 4 KiB boundary: the chunk's head sits in front of it, small blocks waiting for a place (`TapeWriter::defer_block`) fill the gap before the head, and what is left is zeros inside the head. Recovery looks for a block at every byte, aligned or not, and takes one only when its CRCs match.
+
+### Track identity
+
+A track's stable key is the same for the same resource in every file and every run of a producer, whatever ids or
+indices that run used. `ww_tape::track_key` hashes the resource's **name path** under its API: `api_root_id` of the
+API's crate name (no version: a breaking change is a new generation of the same API), then one `Segment` per step,
+each with a tag byte and its length, so `a.b` and `ab` never collide:
+
+| Step | Segment |
+|---|---|
+| a resource, `link`, `rx_frames` | `Name`: its identity name; a resource renamed with `#[moved_from]` keeps its oldest name |
+| an index into a plain array, `link[2]` | `Index(2)` |
+| an element of a [keyed array](../api/arrays.md), `flow[{key}]` | `Key`: the key's shrink_wrap bytes, not the index |
+
+So `link[2].rx_frames` of the tap is `track_key(api_root_id("ww_tap"), &[Name("link"), Index(2), Name("rx_frames")])`
+(`ww_tap::track_key(2, ids::RX_FRAMES)`). Two runs of a dissector that number flows in another order give each
+flow's tracks the same key, since its key, not its index, is hashed.
+
+`TrackDef.path` stays numeric; `TrackDef.keys` holds the key bytes for each index into a keyed array, by its
+position in `path`. With the `bundle` feature, `ww_tape::name_path` builds the name path from the API bundle, the
+numeric path and the keys, and `key_in_bundle` the key under the bundle's own crate: a reader rebuilds the name of
+every track and checks its key. A producer that sees an element of a keyed array before its key reads `key[i]`
+first and writes the track's definition when it knows it.
+
+The key's shrink_wrap bytes change when its type gains a field, even a defaulted one, so every keyed track then gets
+a new key. Before the first long-lived recordings this is to be revisited: a canonical hash of the key's value, which
+leaves out fields at their default, would survive such a change. A resource renamed within its trait keeps its key;
+one moved to another trait gets a new name path, and with it a new key, even with `#[moved_from]`.
 
 ### Index, finish and tail
 

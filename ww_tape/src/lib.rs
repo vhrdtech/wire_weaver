@@ -159,16 +159,21 @@ pub use ww_version::{FullVersion, Version};
 mod describe;
 pub use describe::{
     ALIGNMENT, ClockDef, ClockMap, ClockOrigin, ClockRate, ClockResolution, Describe, Dimension,
-    Ends, EventsDef, GAP_CHECKS_MAX, GAP_MAX_MAX, GAP_PROBES_MAX, Layout, MapSegment, NO_CLOCK,
-    Producer, Rank, SD_GAP_MAX, SD_RESUME_ALIGN, TrackDef, TrackKind, TypeRef, TypedItem,
+    Ends, EventsDef, GAP_CHECKS_MAX, GAP_MAX_MAX, GAP_PROBES_MAX, KeySegment, Layout, MapSegment,
+    NO_CLOCK, Producer, Rank, SD_GAP_MAX, SD_RESUME_ALIGN, TrackDef, TrackKind, TypeRef, TypedItem,
     UNIX_CLOCK_KEY, clock_key, segments_increasing, track_id,
 };
 #[cfg(feature = "std")]
 pub use describe::{
-    ClockDefOwned, ClockMapOwned, DescribeOwned, DimensionOwned, ProducerOwned, TrackDefOwned,
-    TrackKindOwned, TypeRefOwned, TypedItemOwned,
+    ClockDefOwned, ClockMapOwned, DescribeOwned, DimensionOwned, KeySegmentOwned, ProducerOwned,
+    TrackDefOwned, TrackKindOwned, TypeRefOwned, TypedItemOwned,
 };
 pub use exact_units::{Magnitude, MagnitudeOf, Ratio64, Rounding};
+
+#[cfg(feature = "bundle")]
+mod name_path;
+#[cfg(feature = "bundle")]
+pub use name_path::{NamePathError, key_in_bundle, name_path};
 
 pub mod summary;
 pub use summary::{EventFields, EventNode, Summary, SummaryError, SummaryHead};
@@ -356,20 +361,54 @@ pub const fn fnv1a(mut h: u64, mut bytes: &[u8]) -> u64 {
 
 pub const FNV_OFFSET: u64 = 0xcbf29ce484222325;
 
-/// Names an API across its minor versions: FNV-1a of the crate name and the major version (u32 LE), as logring's
-/// `api_root_id`.
-pub const fn api_root_id(crate_name: &str, major: u32) -> u64 {
-    fnv1a(
-        fnv1a(FNV_OFFSET, crate_name.as_bytes()),
-        &major.to_le_bytes(),
-    )
+/// Names an API across all its versions: FNV-1a of the crate name. A breaking change is a new definition generation
+/// of the same API, not a new identity.
+pub const fn api_root_id(crate_name: &str) -> u64 {
+    fnv1a(FNV_OFFSET, crate_name.as_bytes())
 }
 
-/// Stable key of a track: FNV-1a of `api_root` (u64 LE), then of every path id (u32 LE), as logring's track key.
-pub fn track_key(api_root: u64, path: &[u32]) -> u64 {
+/// One step of a track's name path, the input of [track_key].
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub enum Segment<'a> {
+    /// A resource's identity name: its name, or for a renamed resource the oldest name of its `#[moved_from]` chain.
+    Name(&'a str),
+    /// An index into a plain resource array.
+    Index(u32),
+    /// The key of an element of a keyed resource array (API-67): the key's shrink_wrap bytes. Two runs that number
+    /// the elements differently give the same key.
+    Key(&'a [u8]),
+}
+
+impl Segment<'_> {
+    /// Feed the segment into an FNV-1a state: a tag byte, the length of its bytes (u32 LE), the bytes. Tag and length
+    /// keep `a.b` and `ab`, or a name and a key of the same bytes, apart.
+    const fn hash(&self, h: u64) -> u64 {
+        let index;
+        let (tag, bytes): (u8, &[u8]) = match self {
+            Segment::Name(name) => (1, name.as_bytes()),
+            Segment::Index(i) => {
+                index = i.to_le_bytes();
+                (2, &index)
+            }
+            Segment::Key(key) => (3, key),
+        };
+        #[expect(
+            clippy::as_conversions,
+            clippy::cast_possible_truncation,
+            reason = "a hash input: a name or key over 4 GiB only hashes a shorter length; TryFrom is not const"
+        )]
+        let len = bytes.len() as u32;
+        fnv1a(fnv1a(fnv1a(h, &[tag]), &len.to_le_bytes()), bytes)
+    }
+}
+
+/// Stable key of a track: FNV-1a of `api_root` (u64 LE), then of every segment of the resource's name path (see
+/// [Segment]), so the key survives renumbered ids and indices assigned in another order.
+pub const fn track_key(api_root: u64, mut segments: &[Segment<'_>]) -> u64 {
     let mut h = fnv1a(FNV_OFFSET, &api_root.to_le_bytes());
-    for id in path {
-        h = fnv1a(h, &id.to_le_bytes());
+    while let [segment, rest @ ..] = segments {
+        h = segment.hash(h);
+        segments = rest;
     }
     h
 }

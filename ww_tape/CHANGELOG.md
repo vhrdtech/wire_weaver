@@ -30,6 +30,8 @@
 - `OpenOptions` gains `medium`, `start` and `layout`; `PieceInfo` gains `gaps` and `replaced` (STD-129).
 - `Layout` gains `gap_max` and `resume_align`, its fields are `Bytes<u32>`; `FileError` gains `Gap` and `Stale`, `Cut` gains `Stale` (STD-129).
 - Block makers take a `BlockId` (run and seq) instead of a seq; `set_seq` is `set_id`; `DescribeSet::write_blocks` counts a `&mut BlockId` (STD-129).
+- `track_key` and `clock_key` hash a name path of `Segment`s (names, indices, keys' bytes); `api_root_id` takes the crate name only (STD-125).
+- `TrackDef` gains `keys: RefVec<KeySegment>`, the keys of keyed arrays on its path (STD-125).
 - Series summary blocks state their scale (head bytes 52..54, `Magnitude` after the head); `SeriesStart` takes `segment` instead of `first_tick` (STD-128).
 - `summary_len` returns a `Result`; `StatColumn::value` is `get`, None past the end; `SeriesSummaries::pending` returns `SeriesNode`s (STD-128).
 
@@ -84,6 +86,7 @@
 - Blank is 0x00 or 0xFF: `is_blank`; `FileBlocks` and `TapeReader` take either after the last block as the end (STD-129).
 - `RunTag` (random, from a seed, of a piece id) and `Block::run`; `TapeWriter::next_id`, `run`, `set_run`; a chain's run is derived (STD-129).
 - `Codec::ALP` (26): lossless floats as decimals stored as bit-packed integers, or front bits through a dictionary; `samples::ALP_GROUP` (STD-130).
+- Feature `bundle`: `name_path` and `key_in_bundle` build a track's name path and key from an API bundle, renames kept (STD-125).
 - Series summaries across prefix changes: nodes at their common scale, exact min and max; `SeriesSummaries::segment`, `SeriesNode::merge` (STD-128).
 - `SeriesDef`: sample type by `TypeRef`, element and channels, exact period, scale, summaries, media stream; `SeriesValue` derives them from `Fixed` (STD-127).
 - `SeriesSegment` records (first index, time grid, scale) and `SeriesTimeline`: ticks, scales and chunk checks, damaged records refused (STD-127).

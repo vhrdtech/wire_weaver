@@ -4,8 +4,8 @@
 use super::{Draw, RUN, describe_block, records_block};
 use shrink_wrap::prelude::*;
 use ww_tape::{
-    BlockId, Describe, FullVersion, Magnitude, Ratio64, SampleShape, SeriesDef, SeriesSegment,
-    TrackDef, TrackKind, Version, track_key,
+    BlockId, Describe, FullVersion, Magnitude, Ratio64, SampleShape, Segment, SeriesDef,
+    SeriesSegment, TrackDef, TrackKind, Version, track_key,
 };
 
 /// The track number of the hostile series.
@@ -24,7 +24,7 @@ pub(crate) fn track_item(shape: SampleShape, period: Ratio64, scale: Magnitude) 
     };
     let track = Describe::Track(TrackDef {
         number: UNib32(TRACK),
-        key: track_key(0x5e, &[1]),
+        key: track_key(0x5e, &[Segment::Name("hostile")]),
         clock: UNib32(1),
         dimensions: RefVec::Slice { slice: &[] },
         api: FullVersion::new("hostile_api", Version::new(0, 1, 0)),
@@ -32,6 +32,7 @@ pub(crate) fn track_item(shape: SampleShape, period: Ratio64, scale: Magnitude) 
         path: RefVec::Slice {
             slice: &[UNib32(1)],
         },
+        keys: RefVec::Slice { slice: &[] },
         item: None,
         label: "hostile",
         sticky: true,

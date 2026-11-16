@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### ⚠️ Breaking
+
+- `Store` takes its CRC-32C from `ww_crc`: bitwise without `std` unless the firmware turns on `ww_crc/table-256` (the 1 KiB table it had) or `table-slice16`; same bytes (TR-31).
+
 ### 🚀 Features
 
 - First version (STD-32): a power-cut safe settings store for devices (`docs/api/settings.md`).

@@ -13,9 +13,8 @@
 //!   (`crate::StreamHead`), the item. The tag and the CRC both depend on the log id and the segment's `seq`, so a
 //!   record left over from an earlier lap of the ring never reads as part of the current one.
 
-use crc::{CRC_32_ISCSI, Crc};
+pub(super) use ww_crc::CRC32C as CRC;
 
-pub(super) const CRC: Crc<u32> = Crc::<u32>::new(&CRC_32_ISCSI);
 pub(super) const VERSION: u8 = 1;
 const SB_MAGIC: u32 = u32::from_le_bytes(*b"WWLS");
 const SEG_MAGIC: u32 = u32::from_le_bytes(*b"WWSG");
@@ -204,7 +203,7 @@ impl RecHeader {
 /// Start of a record's CRC: the log id, the segment's `seq` and the first 8 bytes of the record header. The head
 /// and the item follow.
 pub(super) fn record_crc_start(
-    digest: &mut crc::Digest<'_, u32>,
+    digest: &mut ww_crc::Digest<u32>,
     log_id: u32,
     seq: u64,
     header: &[u8; REC_HEADER_LEN],

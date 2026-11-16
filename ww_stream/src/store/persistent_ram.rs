@@ -9,10 +9,9 @@ use super::ram_ring::{Check, MAX_HEAD, RECORD_OVERHEAD, Ring, write};
 use super::{FullPolicy, PushError, RamRingError, StoreState, StoredEvent, StreamStore};
 use crate::StreamHead;
 use core::mem::MaybeUninit;
-use crc::{CRC_32_ISCSI, Crc};
 use wire_weaver::shrink_wrap::{DeserializeShrinkWrap, UVlq32};
+use ww_crc::CRC32C as CRC;
 
-const CRC: Crc<u32> = Crc::<u32>::new(&CRC_32_ISCSI);
 const MAGIC: u32 = u32::from_le_bytes(*b"WWPR");
 const VERSION: u8 = 1;
 /// Bytes of one header slot.

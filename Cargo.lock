@@ -6576,9 +6576,9 @@ dependencies = [
 name = "ww_block"
 version = "0.1.0"
 dependencies = [
- "crc",
  "defmt 1.1.1",
  "wire_weaver",
+ "ww_crc",
  "ww_error",
  "ww_si",
 ]
@@ -7052,11 +7052,11 @@ dependencies = [
 name = "ww_settings"
 version = "0.5.0"
 dependencies = [
- "crc",
  "defmt 1.1.1",
  "embassy-futures",
  "embedded-storage-async",
  "shrink_wrap",
+ "ww_crc",
  "ww_settings",
  "ww_settings_derive",
 ]
@@ -7107,13 +7107,13 @@ version = "0.5.0"
 dependencies = [
  "atomic-waker",
  "cnt",
- "crc",
  "defmt 1.1.1",
  "embedded-sdmmc-types",
  "embedded-storage-async",
  "portable-atomic",
  "wire_weaver",
  "ww_client_server",
+ "ww_crc",
  "ww_lz4",
  "ww_si",
 ]

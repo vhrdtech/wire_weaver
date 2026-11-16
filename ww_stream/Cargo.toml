@@ -9,7 +9,7 @@ repository.workspace = true
 
 [features]
 default = []
-std = ["alloc", "streams", "ww_client_server/std", "ww_si/std"]
+std = ["alloc", "streams", "ww_client_server/std", "ww_si/std", "ww_crc?/table-slice16"]
 # counted and reliable streams and credit sinks (tx, rx, sink, codec): their wire messages are behind
 # ww_client_server's `streams` too, so a firmware with only plain streams and observe doesn't carry them
 streams = ["ww_client_server/streams"]
@@ -20,11 +20,11 @@ cnt = ["dep:cnt"]
 # RamRingError implements defmt::Format, so it can be logged on target without core::fmt::Debug (SW-69)
 defmt = ["dep:defmt", "wire_weaver/defmt"]
 # store::LogStore: a power-cut safe log on a block device
-log-store = ["dep:crc"]
+log-store = ["dep:ww_crc"]
 # codec::ItemCodec for ww_lz4::Encoder: compressed counted streams (API-55)
 lz4 = ["streams", "dep:ww_lz4"]
 # store::PersistentRamRing: a RAM ring that survives a soft reset
-persistent-ram = ["dep:crc"]
+persistent-ram = ["dep:ww_crc"]
 # store::log::SdMedium on an embedded-sdmmc BlockDevice
 sdmmc = ["log-store", "dep:embedded-sdmmc-types"]
 # store::log::NorMedium on an embedded-storage-async NorFlash
@@ -33,18 +33,17 @@ nor-flash = ["log-store", "dep:embedded-storage-async"]
 [dependencies]
 atomic-waker.workspace = true
 cnt = { workspace = true, optional = true }
-crc = { workspace = true, optional = true }
 defmt = { workspace = true, optional = true }
 embedded-sdmmc-types = { version = "0.1", optional = true }
 embedded-storage-async = { workspace = true, optional = true }
 portable-atomic.workspace = true
 wire_weaver.workspace = true
 ww_client_server.workspace = true
+ww_crc = { workspace = true, optional = true }
 ww_lz4 = { workspace = true, optional = true }
 ww_si.workspace = true
 
 [dev-dependencies]
-crc.workspace = true
 ww_lz4 = { workspace = true, features = ["std"] }
 ww_si = { workspace = true, features = ["std"] }
 

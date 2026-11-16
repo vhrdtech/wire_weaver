@@ -19,9 +19,9 @@ trait HubTest {
 #[ww_trait]
 trait Bus {
     /// Sends a frame: `Common(InUse)` from the hub while another program holds the bus.
-    fn send(id: u32) -> Result<u32, BusError<'i>>;
+    fn send(id: u32) -> Result<u32, BusError>;
     /// Bit rate.
-    property!(rw speed: u32, BusError<'i>);
+    property!(rw speed: u32, BusError);
     /// Received frames.
     stream!(rx: u32);
 }
@@ -33,14 +33,13 @@ trait Port {
 }
 
 /// Errors of [Bus].
-#[derive_shrink_wrap(owned(feature = "std"), derive(Debug, PartialEq, Eq, Clone), ww_repr = unib32)]
-pub enum BusError<'i> {
-    /// {0}
-    #[common]
-    Common(CommonError<'i>),
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Debug, PartialEq, Eq, Clone), ww_repr = unib32)]
+pub enum BusError {
     /// The bus is off.
     BusOff,
 }
+
+ww_api::api_error!(BusError);
 
 /// A device whose clock the hub steers (SRV-31): `ww_timebase::Clock` with `host_sync`.
 #[ww_api_root]

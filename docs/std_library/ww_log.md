@@ -179,12 +179,12 @@ pub enum LevelFilter { Off, Error, Warn, Info, Debug, Trace }
 * `records` - one record per message, unit: record. The head's `t` carries the device time of the record. Logs from
   before the host connects come the same way as with `LogDefmt`, by resuming.
 * `level` - records less severe than this are not produced (`LevelFilter::allows(severity)`); filters compiled into
-  the firmware still apply. Writing it may fail with `Common(Unsupported)` when the level is fixed at compile time.
+  the firmware still apply. Writing it may fail with `CommonError::Unsupported` when the level is fixed at compile time.
 
 `Severity` and `LevelFilter` are complete as they are (`no_future_version`): the five levels of `log`, `tracing`
 and `defmt`.
 
 ## Errors
 
-`LogError` has only `Common(CommonError)` for now ([common errors](ww_error.md)): `Busy` when another host has the
+`LogText` has no error type of its own, only the [common errors](ww_error.md): `Busy` when another host has the
 log open, `Unsupported` when the device logs elsewhere only. It stays an enum so variants can be added.

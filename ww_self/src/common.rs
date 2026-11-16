@@ -1,70 +1,9 @@
-//! `ww_error::CommonError` (STD-16) in dynamic values: recognised by its type, so that every tool shows it the same
-//! for every API, and messages from the doc lines of enum variants.
+//! Messages of error values in dynamic values: the doc lines of enum variants, filled in from the value.
 
-use crate::{
-    ApiBundleOwned, FieldsOwned, FieldsValueOwned, TypeLocationOwned, TypeOwned, ValueOwned,
-};
+use crate::{ApiBundleOwned, FieldsValueOwned, TypeOwned, ValueOwned};
 use ww_numeric::NumericValue;
 
-/// Crate and name of the type every API's common errors have.
-pub const COMMON_ERROR: (&str, &str) = ("ww_error", "CommonError");
-
-impl TypeOwned {
-    /// Whether this is `ww_error::CommonError`, of any version, also when its definition was left out
-    /// (known from snapshots).
-    pub fn is_common_error(&self, bundle: &ApiBundleOwned) -> bool {
-        let TypeOwned::OutOfLine { type_idx } = self else {
-            return false;
-        };
-        let (crate_idx, name) = match bundle.types.get(type_idx.0 as usize) {
-            Some(TypeLocationOwned::InLine {
-                ty: TypeOwned::Enum(item_enum),
-                crate_idx,
-            }) => (crate_idx, item_enum.ident.as_str()),
-            Some(TypeLocationOwned::SkippedFullVersion {
-                crate_idx,
-                type_name,
-                ..
-            }) => (crate_idx, type_name.as_str()),
-            _ => return false,
-        };
-        bundle.crate_name(crate_idx.0).ok() == Some(COMMON_ERROR.0) && name == COMMON_ERROR.1
-    }
-}
-
 impl ValueOwned {
-    /// The `CommonError` in an error value of type `ty`, with its type: the value itself when `ty` is
-    /// `CommonError`, the field of its `#[common] Common(CommonError)` variant when it is an API's error enum holding
-    /// one, `None` otherwise.
-    pub fn common_error<'v>(
-        &'v self,
-        ty: &'v TypeOwned,
-        bundle: &'v ApiBundleOwned,
-    ) -> Option<(&'v ValueOwned, &'v TypeOwned)> {
-        if ty.is_common_error(bundle) {
-            return Some((self, ty));
-        }
-        let (
-            TypeOwned::Enum(item_enum),
-            ValueOwned::Enum {
-                variant,
-                fields: FieldsValueOwned::Unnamed(values),
-            },
-        ) = (ty.get_in_line(bundle).ok()?, self)
-        else {
-            return None;
-        };
-        let def = item_enum.variants.iter().find(|v| &v.ident == variant)?;
-        match (&def.fields, values.as_slice()) {
-            (FieldsOwned::Unnamed(fields), [value])
-                if fields.len() == 1 && fields[0].ty.is_common_error(bundle) =>
-            {
-                Some((value, &fields[0].ty))
-            }
-            _ => None,
-        }
-    }
-
     /// The first doc line of the variant of an enum value of type `ty`, without the final period, with `{field}`
     /// (and `{field:#x}` for integers) filled in from the value: `In use by USART2` for
     /// `/// In use by {by}.`. A placeholder whose field is an empty string is dropped together with the `: ` or

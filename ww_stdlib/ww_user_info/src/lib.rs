@@ -9,7 +9,6 @@
 //! that cannot save returns `Fault`, one that cannot interrupt a flash operation `Busy`.
 
 use ww_api::prelude::*;
-use ww_error::CommonError;
 pub use ww_si::{Bytes, Range, units::Byte};
 
 /// Longest name any device keeps, in bytes.
@@ -34,13 +33,13 @@ pub trait UserInfo {
     const CAPABILITIES: UserInfoCaps;
 
     /// Short name of the unit, shown by `ww list`.
-    #[errors(TooLong, Common(Busy, Fault))]
-    property!(rw name: MaxLen<&'i str, MAX_NAME_LEN>, UserInfoError<'i>);
+    #[errors(TooLong, CommonError(Busy, Fault))]
+    property!(rw name: MaxLen<&'i str, MAX_NAME_LEN>, UserInfoError);
 
     /// Free-form notes about the unit. A device with no room for them leaves this out.
     #[optional]
-    #[errors(TooLong, Common(Busy, Fault))]
-    property!(rw notes: MaxLen<&'i str, MAX_NOTES_LEN>, UserInfoError<'i>);
+    #[errors(TooLong, CommonError(Busy, Fault))]
+    property!(rw notes: MaxLen<&'i str, MAX_NOTES_LEN>, UserInfoError);
 }
 
 /// What a device keeps of the user's name and notes.
@@ -61,20 +60,18 @@ pub struct UserInfoCaps {
 
 /// Errors of writing the name or notes.
 #[derive_shrink_wrap(
-    owned(feature = "std"),
+    borrowed, owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Clone, Debug, PartialEq, Eq),
     display,
     ww_repr = unib32
 )]
-pub enum UserInfoError<'i> {
-    /// Common error
-    #[display("{0}")]
-    #[common]
-    Common(CommonError<'i>),
+pub enum UserInfoError {
     /// Longer than this device keeps ({max} bytes)
     TooLong {
         /// What the device keeps, from `CAPABILITIES`.
         max: Bytes<u16>,
     },
 }
+
+ww_api::api_error!(UserInfoError);

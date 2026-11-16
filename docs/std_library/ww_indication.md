@@ -13,7 +13,7 @@ pub trait Indication {
     #[optional]
     property!(rw brightness: Brightness);
     #[optional]
-    fn identify(duration: Second) -> Result<(), CommonError<'i>>;
+    fn identify(duration: Second);
     #[optional]
     const NAMES: RefVec<'i, &'i str>;
 }

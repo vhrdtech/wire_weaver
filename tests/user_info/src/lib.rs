@@ -40,11 +40,14 @@ mod tests {
                 value: &str,
                 max: usize,
                 field: impl Fn(&mut Storage) -> &mut String,
-            ) -> SetResult<UserInfoError<'static>> {
+            ) -> SetResult<wire_weaver::Error<'_, UserInfoError>> {
                 if value.len() > max {
-                    return SetError(UserInfoError::TooLong {
-                        max: Bytes::new(max as u16),
-                    });
+                    return SetError(
+                        UserInfoError::TooLong {
+                            max: Bytes::new(max as u16),
+                        }
+                        .into(),
+                    );
                 }
                 let mut st = self.storage.lock().unwrap();
                 if st.busy {
@@ -68,14 +71,14 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: MaxLen<&'_ str, 32>,
-            ) -> SetResult<UserInfoError<'_>> {
+            ) -> SetResult<wire_weaver::Error<'_, UserInfoError>> {
                 self.save(&value, usize::from(self.name_max), |s| &mut s.name)
             }
 
             fn get_user_name(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<MaxLen<&'_ str, 32>, UserInfoError<'_>> {
+            ) -> GetResult<MaxLen<&'_ str, 32>, wire_weaver::Error<'_, UserInfoError>> {
                 // returned from the struct's own copy: the storage is behind a mutex
                 self.name_copy = self.storage.lock().unwrap().name.clone();
                 Value(MaxLen::new_unchecked(&self.name_copy))
@@ -85,14 +88,15 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: MaxLen<&'_ str, 256>,
-            ) -> SetResult<UserInfoError<'_>> {
+            ) -> SetResult<wire_weaver::Error<'_, UserInfoError>> {
                 self.save(&value, 256, |s| &mut s.notes)
             }
 
             fn get_user_notes(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<MaxLen<&'_ str, 256>, UserInfoError<'_>> {
+            ) -> GetResult<MaxLen<&'_ str, 256>, wire_weaver::Error<'_, UserInfoError>>
+            {
                 self.notes_copy = self.storage.lock().unwrap().notes.clone();
                 Value(MaxLen::new_unchecked(&self.notes_copy))
             }
@@ -232,7 +236,7 @@ mod tests {
             matches!(
                 &r,
                 Err(CallError::Device(
-                    ww_user_info::UserInfoErrorOwned::TooLong { max }
+                    ww_user_info::UserInfoError::TooLong { max }
                 )) if max.get() == 8
             ),
             "{r:?}"
@@ -271,7 +275,6 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn busy_and_fault_leave_the_old_value() {
         use ww_error::CommonErrorOwned;
-        use ww_user_info::UserInfoErrorOwned;
         let (device, storage) = start("user_info/busy_fault", 32);
         let client = connect(&device).await;
         client
@@ -288,12 +291,7 @@ mod tests {
             .write()
             .await;
         assert!(
-            matches!(
-                r,
-                Err(CallError::Device(UserInfoErrorOwned::Common(
-                    CommonErrorOwned::Busy
-                )))
-            ),
+            matches!(r, Err(CallError::Common(CommonErrorOwned::Busy))),
             "{r:?}"
         );
         storage.lock().unwrap().busy = false;
@@ -307,9 +305,7 @@ mod tests {
         assert!(
             matches!(
                 r,
-                Err(CallError::Device(UserInfoErrorOwned::Common(
-                    CommonErrorOwned::Fault { code: 7 }
-                )))
+                Err(CallError::Common(CommonErrorOwned::Fault { code: 7 }))
             ),
             "{r:?}"
         );

@@ -43,8 +43,8 @@ pub trait Bank {
     /// Configures what the pins of the bank share and returns what was actually set: the IO level in effect.
     /// `Unsupported` for an IO level the bank's hardware can't drive, `Refused` when a safety rule of the device
     /// doesn't allow it.
-    #[errors(Common(Unsupported, Refused))]
-    fn configure(config: BankConfig) -> Result<BankConfig, GpioError<'i>>;
+    #[errors(CommonError(Unsupported, Refused))]
+    fn configure(config: BankConfig) -> Result<BankConfig, GpioError>;
 
     /// User-friendly bank name, e.g. `"PA"`.
     fn name() -> &'i str;
@@ -82,28 +82,28 @@ pub trait Pin {
     /// in `enabled`, closing it disables them. A counted stream, unit: event; each event may carry the device time
     /// it happened at, and the host learns exactly how many events the device dropped.
     /// `Unsupported` if a requested source (edge or custom) isn't available on this pin.
-    #[errors(Common(Unsupported))]
+    #[errors(CommonError(Unsupported))]
     #[stream(IoPinEvent, counted)]
-    fn event(enabled: IoPinEnabledEvents<'i>) -> Result<(), GpioError<'i>>;
+    fn event(enabled: IoPinEnabledEvents<'i>) -> Result<(), GpioError>;
 
     /// Mode configuration, input, high-z, push-pull, open-drain or custom.
     /// Optionally set the initial level before changing pin mode.
     /// `Unsupported` if the pin can't be switched to the requested mode, `DifferentModes` if the bank's pins share one
     /// mode and this one differs.
-    #[errors(Common(Unsupported, InUse, NoPower, Refused), DifferentModes)]
-    fn set_mode(mode: Mode, initial: Option<Level>) -> Result<(), GpioError<'i>>;
+    #[errors(CommonError(Unsupported, InUse, NoPower, Refused), DifferentModes)]
+    fn set_mode(mode: Mode, initial: Option<Level>) -> Result<(), GpioError>;
     /// Get current mode.
     fn mode() -> Mode;
 
     /// Pull resistors selection.
     /// `Unsupported` if the pin doesn't support the requested pull (`set` only).
-    #[errors(Common(Unsupported))]
-    property!(rw pull: Pull, GpioError<'i>);
+    #[errors(CommonError(Unsupported))]
+    property!(rw pull: Pull, GpioError);
 
     /// Drive strength selection.
     /// `Unsupported` if the pin doesn't support the requested drive strength (`set` only).
-    #[errors(Common(Unsupported))]
-    property!(rw speed: Speed, GpioError<'i>);
+    #[errors(CommonError(Unsupported))]
+    property!(rw speed: Speed, GpioError);
 
     /// What this pin can do: modes, pulls, speeds, whether it sends events, and its name.
     fn capabilities() -> PinCapabilities<'i>;
@@ -169,19 +169,18 @@ pub enum Mode {
 /// Errors of `Bank` and `Pin`: the common ones first (unsupported mode, pull, speed, event or IO level; in use; no
 /// power; refused), then what is specific to GPIO. Each method lists the variants it returns.
 #[derive_shrink_wrap(
-    owned(feature = "std"),
+    borrowed, owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Debug, PartialEq, Eq, Clone),
     ww_repr = unib32,
     display
 )]
-pub enum GpioError<'i> {
-    /// {0}
-    #[common]
-    Common(CommonError<'i>),
+pub enum GpioError {
     /// The pins of this bank share one mode, and another pin is in a different one.
     DifferentModes,
 }
+
+ww_api::api_error!(GpioError);
 
 /// IO pin pull configuration (pull-up, pull-down, etc.)
 #[derive_shrink_wrap(

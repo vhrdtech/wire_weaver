@@ -7,12 +7,12 @@
 //! refusal (`Unsupported` as not capable), but nothing stops a drive the board can't take: that is what `PinDiag`
 //! is for.
 
-use crate::{Level, PinError, Pins, Point, PointCaps, PointState, Pull};
+use crate::{Level, PinError, Pins, Point, PointCaps, PointState, Pull, Refusal};
 use anyhow::{Result, anyhow, bail};
 use wire_weaver::prelude::CommonErrorOwned;
 use wire_weaver_client::ww_client_server::ResourceIndex;
 use wire_weaver_client::{CallError, Commander, DynClient, DynResource, DynResourceKind};
-use ww_gpio::{GpioErrorOwned, Mode};
+use ww_gpio::{GpioError, Mode};
 use ww_pin_diag::{InternedOwned, PinDiagErrorOwned};
 
 /// Client of `ww_gpio::Pin` at an absolute path.
@@ -142,7 +142,7 @@ impl BankPins {
     fn pin(&mut self, point: u16) -> Result<&mut BankPin, PinError> {
         self.pins
             .get_mut(point as usize)
-            .ok_or(PinError::Refused(PinDiagErrorOwned::NoSuchPoint))
+            .ok_or(PinError::Refused(PinDiagErrorOwned::NoSuchPoint.into()))
     }
 }
 
@@ -213,18 +213,16 @@ fn is_bank(res: &DynResource) -> bool {
 
 /// A GPIO error as `PinDiag` would say it: `Unsupported` is not capable, a bank whose pins share one mode a refusal
 /// by that rule.
-fn refused(e: CallError<GpioErrorOwned>) -> PinError {
+fn refused(e: CallError<GpioError>) -> PinError {
     match e {
-        CallError::Device(GpioErrorOwned::Common(CommonErrorOwned::Unsupported)) => {
-            PinError::Refused(PinDiagErrorOwned::NotCapable)
+        CallError::Common(CommonErrorOwned::Unsupported) => {
+            PinError::Refused(PinDiagErrorOwned::NotCapable.into())
         }
-        CallError::Device(GpioErrorOwned::Common(c)) => {
-            PinError::Refused(PinDiagErrorOwned::Common(c))
-        }
-        CallError::Device(GpioErrorOwned::DifferentModes) => {
-            PinError::Refused(PinDiagErrorOwned::Refused {
+        CallError::Common(c) => PinError::Refused(Refusal::Common(c)),
+        CallError::Device(GpioError::DifferentModes) => {
+            PinError::Refused(Refusal::PinDiag(PinDiagErrorOwned::Refused {
                 rule: InternedOwned::Text("the bank's pins share one mode".into()),
-            })
+            }))
         }
         CallError::Device(other) => PinError::Failed(other.to_string()),
         other => PinError::Failed(other.to_string()),
@@ -259,7 +257,7 @@ impl Pins for BankPins {
                 .call()
                 .await
                 .map_err(refused),
-            PointState::Unknown(_) => Err(PinError::Refused(PinDiagErrorOwned::NotCapable)),
+            PointState::Unknown(_) => Err(PinError::Refused(PinDiagErrorOwned::NotCapable.into())),
         }
     }
 

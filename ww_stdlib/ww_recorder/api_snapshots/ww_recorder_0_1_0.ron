@@ -1,6 +1,6 @@
 // ww_recorder 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 6f73845db4003acfb0e0d0d35d960ec661b1a3a89728248f8fe7278546d4f53b
+// shrink_wrap sha256: e7a305a137ada6e1a47947e0b1d8a83b18748a01f9d5d4cf3818a9df67eccc51
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Control a recorder over WireWeaver (STD-34): a device that logs many tracks (streams of any type) to an SD card",
     "or flash on its own, with sessions, recordings and markers.",
@@ -204,30 +204,25 @@
         "Errors of the recorder calls.",
     ], ident: "RecorderError", generics: [], variants: [
         (docs: [
-            "Common error",
-        ], ident: "Common", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 32), docs: [], slot: None, series_opaque: false),
-        ]), discriminant: 0, since: None),
-        (docs: [
             "No card in the slot.",
-        ], ident: "NoCard", fields: Unit, discriminant: 1, since: None),
+        ], ident: "NoCard", fields: Unit, discriminant: 0, since: None),
         (docs: [
             "The format token is expired, used, or from another card.",
-        ], ident: "BadToken", fields: Unit, discriminant: 2, since: None),
+        ], ident: "BadToken", fields: Unit, discriminant: 1, since: None),
         (docs: [
             "The card check found a fake, broken or unreadable card.",
         ], ident: "CardFailed", fields: Named([
             (ident: Some("reason"), default: None, since: None, ty: MaxLen(max_len: Fixed(64), ty: String), docs: [], slot: None, series_opaque: false),
-        ]), discriminant: 3, since: None),
+        ]), discriminant: 2, since: None),
         (docs: [
             "The recorder is not logging: no card, unbound, formatting or failed (see [Recorder::status]).",
-        ], ident: "NotLogging", fields: Unit, discriminant: 4, since: None),
+        ], ident: "NotLogging", fields: Unit, discriminant: 3, since: None),
         (docs: [
             "A recording is already running.",
-        ], ident: "RecordingRunning", fields: Unit, discriminant: 5, since: None),
+        ], ident: "RecordingRunning", fields: Unit, discriminant: 4, since: None),
         (docs: [
             "No recording is running.",
-        ], ident: "NoRecording", fields: Unit, discriminant: 6, since: None),
+        ], ident: "NoRecording", fields: Unit, discriminant: 5, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "One-use token of a [FormatOffer], see [Recorder::format].",
@@ -373,7 +368,7 @@
         ])), docs: [
             "Device time of the start (shifted back by the pre-trigger), `None` if the clock was not running.",
         ], slot: None, series_opaque: false),
-        (ident: Some("stopped"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 33)), docs: [
+        (ident: Some("stopped"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 32)), docs: [
             "`None` while it runs.",
         ], slot: None, series_opaque: false),
         (ident: Some("duration"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 24, args: [
@@ -426,20 +421,20 @@
         ], slot: None, series_opaque: false),
         (ident: Some("flush_interval"), default: None, since: None, ty: Instance(type_idx: 6, args: [
             Type(OutOfLine(type_idx: 11)),
-            Type(OutOfLine(type_idx: 34)),
+            Type(OutOfLine(type_idx: 33)),
             Type(NumericAny(Base(U32))),
             Type(OutOfLine(type_idx: 9)),
         ]), docs: [
             "After how long a flush with data is written even if small (default 1000 ms): the most a power cut",
             "takes when data comes slowly. Takes effect at once.",
         ], slot: None, series_opaque: false),
-        (ident: Some("full"), default: None, since: None, ty: OutOfLine(type_idx: 35), docs: [
+        (ident: Some("full"), default: None, since: None, ty: OutOfLine(type_idx: 34), docs: [
             "What to do when the ring is full. Takes effect from the next boot.",
         ], slot: None, series_opaque: false),
-        (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 36), docs: [
+        (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 35), docs: [
             "Whether tracks are written all the time or only in recordings. Takes effect from the next boot.",
         ], slot: None, series_opaque: false),
-        (ident: Some("usb_view"), default: None, since: None, ty: OutOfLine(type_idx: 37), docs: [
+        (ident: Some("usb_view"), default: None, since: None, ty: OutOfLine(type_idx: 36), docs: [
             "How the log is split in the USB view. Takes effect at the next [Recorder::refresh_usb] or mount.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -455,7 +450,7 @@
             "Data and meta bytes written since the format.",
         ], slot: None, series_opaque: false),
         (ident: Some("segments_reused"), default: None, since: None, ty: Instance(type_idx: 6, args: [
-            Type(OutOfLine(type_idx: 38)),
+            Type(OutOfLine(type_idx: 37)),
             Type(OutOfLine(type_idx: 12)),
             Type(NumericAny(Base(UVlq64))),
             Type(OutOfLine(type_idx: 9)),
@@ -464,13 +459,13 @@
             "span.",
         ], slot: None, series_opaque: false),
         (ident: Some("ring_segments"), default: None, since: None, ty: Instance(type_idx: 6, args: [
-            Type(OutOfLine(type_idx: 38)),
+            Type(OutOfLine(type_idx: 37)),
             Type(OutOfLine(type_idx: 12)),
             Type(NumericAny(Base(UVlq64))),
             Type(OutOfLine(type_idx: 9)),
         ]), docs: [], slot: None, series_opaque: false),
         (ident: Some("torn_blocks"), default: None, since: None, ty: Instance(type_idx: 6, args: [
-            Type(OutOfLine(type_idx: 39)),
+            Type(OutOfLine(type_idx: 38)),
             Type(OutOfLine(type_idx: 12)),
             Type(NumericAny(Base(UVlq32))),
             Type(OutOfLine(type_idx: 9)),
@@ -479,13 +474,13 @@
             "format.",
         ], slot: None, series_opaque: false),
         (ident: Some("torn_records"), default: None, since: None, ty: Instance(type_idx: 6, args: [
-            Type(OutOfLine(type_idx: 40)),
+            Type(OutOfLine(type_idx: 39)),
             Type(OutOfLine(type_idx: 12)),
             Type(NumericAny(Base(UVlq32))),
             Type(OutOfLine(type_idx: 9)),
         ]), docs: [], slot: None, series_opaque: false),
         (ident: Some("dropped"), default: None, since: None, ty: Instance(type_idx: 6, args: [
-            Type(OutOfLine(type_idx: 41)),
+            Type(OutOfLine(type_idx: 40)),
             Type(OutOfLine(type_idx: 12)),
             Type(NumericAny(Base(UVlq64))),
             Type(OutOfLine(type_idx: 9)),
@@ -493,7 +488,7 @@
             "Units lost in all tracks, this boot.",
         ], slot: None, series_opaque: false),
         (ident: Some("card_stalls"), default: None, since: None, ty: Instance(type_idx: 6, args: [
-            Type(OutOfLine(type_idx: 42)),
+            Type(OutOfLine(type_idx: 41)),
             Type(OutOfLine(type_idx: 12)),
             Type(NumericAny(Base(UVlq32))),
             Type(OutOfLine(type_idx: 9)),
@@ -502,12 +497,12 @@
         ], slot: None, series_opaque: false),
         (ident: Some("worst_stall"), default: None, since: None, ty: Instance(type_idx: 6, args: [
             Type(OutOfLine(type_idx: 11)),
-            Type(OutOfLine(type_idx: 34)),
+            Type(OutOfLine(type_idx: 33)),
             Type(NumericAny(Base(UVlq32))),
             Type(OutOfLine(type_idx: 9)),
         ]), docs: [], slot: None, series_opaque: false),
         (ident: Some("card_errors"), default: None, since: None, ty: Instance(type_idx: 6, args: [
-            Type(OutOfLine(type_idx: 42)),
+            Type(OutOfLine(type_idx: 41)),
             Type(OutOfLine(type_idx: 12)),
             Type(NumericAny(Base(UVlq32))),
             Type(OutOfLine(type_idx: 9)),
@@ -515,7 +510,7 @@
             "Write errors of the card, this boot.",
         ], slot: None, series_opaque: false),
         (ident: Some("sessions"), default: None, since: None, ty: Instance(type_idx: 6, args: [
-            Type(OutOfLine(type_idx: 43)),
+            Type(OutOfLine(type_idx: 42)),
             Type(OutOfLine(type_idx: 12)),
             Type(NumericAny(Base(UVlq32))),
             Type(OutOfLine(type_idx: 9)),
@@ -537,17 +532,17 @@
             "The stream\'s resource path in the device API as resource ids, array indices included: the form requests use",
             "(`docs/api/addressing.md`). Empty for the system track.",
         ], slot: None, series_opaque: false),
-        (ident: Some("item_type"), default: None, since: None, ty: OutOfLine(type_idx: 44), docs: [
+        (ident: Some("item_type"), default: None, since: None, ty: OutOfLine(type_idx: 43), docs: [
             "What the track\'s items are.",
         ], slot: None, series_opaque: false),
-        (ident: Some("key"), default: None, since: None, ty: OutOfLine(type_idx: 45), docs: [
+        (ident: Some("key"), default: None, since: None, ty: OutOfLine(type_idx: 44), docs: [
             "Stable key: the same track across sessions and firmware versions that keep its path. Made from",
             "numbers only (what names the API root across firmware updates, and the path).",
         ], slot: None, series_opaque: false),
         (ident: Some("rate"), default: None, since: None, ty: Instance(type_idx: 27, args: [
             Type(Instance(type_idx: 6, args: [
-                Type(Instance(type_idx: 46, args: [
-                    Type(OutOfLine(type_idx: 41)),
+                Type(Instance(type_idx: 45, args: [
+                    Type(OutOfLine(type_idx: 40)),
                     Type(OutOfLine(type_idx: 11)),
                 ])),
                 Type(OutOfLine(type_idx: 12)),
@@ -586,7 +581,7 @@
         "What a track has stored, see [Track::counters]. Since this boot unless it says otherwise.",
     ], ident: "TrackCounters", generics: [], fields: Named([
         (ident: Some("records"), default: None, since: None, ty: Instance(type_idx: 6, args: [
-            Type(OutOfLine(type_idx: 40)),
+            Type(OutOfLine(type_idx: 39)),
             Type(OutOfLine(type_idx: 12)),
             Type(NumericAny(Base(UVlq64))),
             Type(OutOfLine(type_idx: 9)),
@@ -599,29 +594,29 @@
             Type(NumericAny(Base(UVlq64))),
             Type(OutOfLine(type_idx: 9)),
         ]), docs: [], slot: None, series_opaque: false),
-        (ident: Some("next"), default: None, since: None, ty: Instance(type_idx: 47, args: [
-            Type(OutOfLine(type_idx: 41)),
+        (ident: Some("next"), default: None, since: None, ty: Instance(type_idx: 46, args: [
+            Type(OutOfLine(type_idx: 40)),
             Type(NumericAny(Base(UVlq64))),
             Type(OutOfLine(type_idx: 9)),
         ]), docs: [
             "Where the track\'s stream continues (counts across boots, the stream position of the next item).",
         ], slot: None, series_opaque: false),
-        (ident: Some("durable"), default: None, since: None, ty: Instance(type_idx: 47, args: [
-            Type(OutOfLine(type_idx: 41)),
+        (ident: Some("durable"), default: None, since: None, ty: Instance(type_idx: 46, args: [
+            Type(OutOfLine(type_idx: 40)),
             Type(NumericAny(Base(UVlq64))),
             Type(OutOfLine(type_idx: 9)),
         ]), docs: [
             "Up to where the track is on the card.",
         ], slot: None, series_opaque: false),
-        (ident: Some("released"), default: None, since: None, ty: Instance(type_idx: 47, args: [
-            Type(OutOfLine(type_idx: 41)),
+        (ident: Some("released"), default: None, since: None, ty: Instance(type_idx: 46, args: [
+            Type(OutOfLine(type_idx: 40)),
             Type(NumericAny(Base(UVlq64))),
             Type(OutOfLine(type_idx: 9)),
         ]), docs: [
             "Up to where the host released it.",
         ], slot: None, series_opaque: false),
         (ident: Some("dropped"), default: None, since: None, ty: Instance(type_idx: 6, args: [
-            Type(OutOfLine(type_idx: 41)),
+            Type(OutOfLine(type_idx: 40)),
             Type(OutOfLine(type_idx: 12)),
             Type(NumericAny(Base(UVlq64))),
             Type(OutOfLine(type_idx: 9)),
@@ -650,8 +645,8 @@
             "A check or format is running.",
         ], ident: "Formatting", fields: Named([
             (ident: Some("percent"), default: None, since: None, ty: Instance(type_idx: 6, args: [
+                Type(OutOfLine(type_idx: 47)),
                 Type(OutOfLine(type_idx: 48)),
-                Type(OutOfLine(type_idx: 49)),
                 Type(NumericAny(Base(U8))),
                 Type(Instance(type_idx: 28, args: [
                     Const(Numeric(I64(0))),
@@ -789,11 +784,11 @@
             "Capacity really there: a fake card wraps around when written past its true size.",
         ], slot: None, series_opaque: false),
         (ident: Some("write_rate"), default: None, since: None, ty: Instance(type_idx: 6, args: [
-            Type(Instance(type_idx: 46, args: [
+            Type(Instance(type_idx: 45, args: [
                 Type(OutOfLine(type_idx: 7)),
                 Type(OutOfLine(type_idx: 11)),
             ])),
-            Type(OutOfLine(type_idx: 50)),
+            Type(OutOfLine(type_idx: 49)),
             Type(NumericAny(Base(U32))),
             Type(OutOfLine(type_idx: 9)),
         ]), docs: [
@@ -801,7 +796,7 @@
         ], slot: None, series_opaque: false),
         (ident: Some("worst_stall"), default: None, since: None, ty: Instance(type_idx: 6, args: [
             Type(OutOfLine(type_idx: 11)),
-            Type(OutOfLine(type_idx: 34)),
+            Type(OutOfLine(type_idx: 33)),
             Type(NumericAny(Base(U32))),
             Type(OutOfLine(type_idx: 9)),
         ]), docs: [
@@ -815,26 +810,8 @@
         ]), docs: [
             "Flush size that wrote fastest on this card (0: not measured): the device\'s default for [Settings::flush].",
         ], slot: None, series_opaque: false),
-        (ident: Some("rating"), default: None, since: None, ty: OutOfLine(type_idx: 51), docs: [], slot: None, series_opaque: false),
+        (ident: Some("rating"), default: None, since: None, ty: OutOfLine(type_idx: 50), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 3, type_name: "CommonError", signature: [
-        30,
-        18,
-        211,
-        141,
-        253,
-        197,
-        48,
-        184,
-        37,
-        11,
-        183,
-        248,
-        238,
-        96,
-        205,
-        177,
-    ]),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "Why a recording ended, see [RecordingInfo::stopped].",
     ], ident: "StopReason", generics: [], variants: [
@@ -1156,7 +1133,7 @@
         (id: 3, kind: Method(args: [
             (ident: "action", ty: OutOfLine(type_idx: 2), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 3), err_ty: OutOfLine(type_idx: 4))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "Busy",
                 "Unsupported",
             ])),
@@ -1179,7 +1156,7 @@
                 Type(OutOfLine(type_idx: 9)),
             ])), default: Some("None"), flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 4))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "Busy",
                 "InvalidArgument",
             ])),
@@ -1206,7 +1183,7 @@
                 Type(OutOfLine(type_idx: 9)),
             ]), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 13), err_ty: OutOfLine(type_idx: 4))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "Unsupported",
                 "InvalidArgument",
             ])),
@@ -1239,7 +1216,7 @@
             (ident: "label", ty: MaxLen(max_len: Fixed(64), ty: String), default: Some("Default::default()"), flatten: false),
             (ident: "value", ty: Option(some_ty: NumericAny(Base(I64))), default: Some("None"), flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 4))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "InvalidArgument",
             ])),
             (ident: "NotLogging", nested: None),
@@ -1254,7 +1231,7 @@
             "[Settings::flush_interval]. Answers when it is on the card. Before a planned power-off, on a brown-out warning.",
         ], optional: None, meta: None, identity: None),
         (id: 10, kind: Property(ty: OutOfLine(type_idx: 16), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 4)), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "InvalidArgument",
                 "Unsupported",
             ])),
@@ -1265,7 +1242,7 @@
             "Totals since the card was formatted and since this boot.",
         ], optional: Some((group: Some("counting"))), meta: None, identity: None),
         (id: 12, kind: Method(args: [], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 4))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "Unsupported",
                 "Busy",
             ])),
@@ -1282,7 +1259,7 @@
             "Where the track comes from and what it carries.",
         ], optional: None, meta: None, identity: None),
         (id: 1, kind: Property(ty: Bool, access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 4)), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "Unsupported",
             ])),
         ]), batched: None), multiplicity: Flat, since: None, ident: "enabled", docs: [
@@ -1290,14 +1267,14 @@
             "counted as dropped. Takes effect at once; the system track (0) can\'t be disabled (`Unsupported`).",
         ], optional: None, meta: None, identity: None),
         (id: 2, kind: Property(ty: OutOfLine(type_idx: 19), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 4)), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "Unsupported",
             ])),
         ]), batched: None), multiplicity: Flat, since: None, ident: "durability", docs: [
             "When the track is flushed to the card, see [Durability]. Takes effect at once.",
         ], optional: Some((group: Some("track_settings"))), meta: None, identity: None),
         (id: 3, kind: Property(ty: OutOfLine(type_idx: 20), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 4)), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "Unsupported",
             ])),
         ]), batched: None), multiplicity: Flat, since: None, ident: "compression", docs: [
@@ -1312,10 +1289,8 @@
     (crate_id: "ww_recorder", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_si", version: (major: 0, minor: 5, patch: 0, pre: None, build: None)),
-    (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-], root_omitted: None, wire: Some((line: 2, revision: 0)), ext_wire: Some([
-    Some((line: 2, revision: 0)),
+], root_omitted: None, wire: Some((line: 3, revision: 0)), ext_wire: Some([
+    Some((line: 3, revision: 0)),
     None,
     Some((line: 5, revision: 0)),
-    Some((line: 1, revision: 0)),
 ]))

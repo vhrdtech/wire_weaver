@@ -634,7 +634,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (`docs/api/optional_items.md#optional-traits`, `docs/evolution/rules.md#optional-items`, `tests/traits`,
   `tests/streams_batched`). Not yet: `+observe` properties of a trait left out with `omit_if` aren't observed in
   either build.
-- ✅ **API-32 Per-method error lists** — `#[errors(Common(InUse), Nack, ..)]` on a trait method, a stream function
+- ✅ **API-32 Per-method error lists** — `#[errors(CommonError(InUse), Nack, ..)]` on a trait method, a stream function
   (the open's `Result` error) or above a `property!` with an error type (its reads and writes): checked against the
   error enum when the trait is parsed (a compile error on a wrong name), in the API model (`ww_self` `Method`,
   `StreamFn` and `Property` `errors`), generated client and rustdoc `# Errors` with each variant's doc line, `ww api
@@ -658,9 +658,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   discriminants, as server handler return types only (`narrow_errors = true`), for a compile-time contract on the
   device. Explored and not recommended for clients: friction in every driver crate.
 - ✅ **API-35 Stream functions with a borrowed error type** · `v0.5` — a stream function whose `Result` error has a
-  lifetime (`#[stream(I2cRecord<'i>, counted)] fn records(..) -> Result<(), I2cError<'i>>`, every IO family error
+  lifetime (`#[stream(I2cRecord<'i>, counted)] fn records(..) -> Result<(), I2cError>`, every IO family error
   since it holds `CommonError<'i>`) compiles on the server with the handler signature `ww api scaffold` prints
-  (`RpcResult<Result<(), I2cError<'_>>>`, an error borrowed from the server), for plain, counted and reliable
+  (`RpcResult<Result<(), I2cError>>`, an error borrowed from the server), for plain, counted and reliable
   streams, sync and async servers: the generated dispatch takes the `Ok` value out of the result before it opens
   the stream's state (`tests/streams_borrowed_error`). An `Ok` value that borrows from the server still can't.
 - ✅ **API-36 Const items served from a value** · `v0.5` — a `const NAME: T;` of a `#[ww_trait]` is served without a
@@ -690,13 +690,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `docs/api/observing.md#levels-under-resource-arrays`, `tests/observe_arrays`, `ww_stream/src/observe/tests.rs`.
 - ✅ **API-68 `ww_api`, the API crate prelude** · `v0.5` — an API crate depends on `ww_api`, never on the
   `wire_weaver` runtime: `use ww_api::prelude::*` gives `#[ww_trait]`, `#[ww_api_root]`, `ww_impl!`, `ww_codegen!`,
-  `full_version!`, `compact_version!`, the `shrink_wrap` prelude, `CommonError`/`HasCommon` and `FullVersion`;
+  `full_version!`, `compact_version!`, the `shrink_wrap` prelude, `CommonError`, `Error` and `FullVersion`;
   `ww_api::api_doc` holds the rustdoc markers. `wire_weaver` re-exports `ww_api` and its prelude includes
   `ww_api::prelude`, so servers and clients keep `use wire_weaver::prelude::*`; the derives find `shrink_wrap` and
   `ww_error` through `ww_api` or `wire_weaver`, `#[ww_trait]` emits `ww_api` paths. The deprecated `ww_api!` macro is
   gone. Every API crate of the repo (`ww_stdlib/*`, `ww_hub_api`, `tests/*_api`, `examples/*_api`) is switched;
   `tests/layers_lint` fails one whose normal dependencies reach the runtime (`layers.toml` `[api] crates`, TEST-36).
   `docs/api/folder_structure.md`, `docs/evolution/crate_layers.md`.
+- 📋 **API-69 Streams ending with a common error** — a stream that stops because the device refused to go on
+  (`Busy`, `NoPower`, `Fault`) ends today with the stream's `Close` sideband or an error of the API's own item type;
+  the common error (STD-16) has no place in a running stream's items yet. Filed with SRV-63, not built: a `Common`
+  end of a stream in `ww_client_server::stream`, the client's stream handle ending with `Error::common()`.
 - 📋 **API-64 Every sample of an element of a resource array** — `+batched` properties of a level under resource
   arrays are observed in the other modes; `Samples` is refused with `ModeNotSupported`, as a level's batcher, outbox
   and sampler are one per level, not per element (API-63). Needs a sampler that takes the element's chain and a
@@ -1072,7 +1076,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
     `ww_pin_diag`). The hub's `claims` group (`claim(key, path, purpose, ttl_s) -> Result<u32, ClaimError {
     UnknownDevice, ApiUnknown, BadPath, NotClaimable, InUse, Overlap }>`, `release`, `claims(key)`, `Claimed` /
     `Released` events): calls and writes of other client instances at or under a claimed path are answered by the hub
-    with `Common(InUse { by })` in the item's own error type (an error event naming the holder without one), without
+    with the common error event `InUse { by }` (STD-16), whatever the item's own error type, without
     reaching the device; reads, streams and observe stay open (taken too for `observe`); a claim belongs to the
     client instance (CLT-41) as its principal and drops with its last connection or at the ttl; overlap by path and by
     `#[shares]`, nesting within one instance. `docs/api/metadata.md`, `docs/transport/hub.md` (with how hub and
@@ -1394,6 +1398,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `qemu-flash-keyed` against `qemu-flash-arrayed`): 316 B on thumbv6m at `fw-z`, sync; 276-784 B on thumbv6m and
   thumbv7m at `fw-z` and `fw-3`, sync and `use_async`. `tests/keyed` (blocking `no_alloc` and async servers:
   `index_of`, `key[i]`, a multi read of all keys, the `keys` stream), [docs](docs/api/arrays.md#keyed-arrays).
+- ✅ **SRV-63 Handlers answer common errors beside the API's error** · `v0.5` — a handler of `fn x() -> Result<T, E>`
+  returns `RpcResult<Result<T, wire_weaver::Error<'_, E>>>` (`Common(CommonError)` or `Api(E)`), one of a plain
+  `fn x() -> T` returns `T` or `Result<T, CommonError<'_>>` through `wire_weaver::IntoOutput`, properties
+  `GetResult<T, wire_weaver::Error<'_, E>>` / `SetResult<..>` and `CommonError<'_>` without an error type (the
+  `()` error is gone), stream opens and deferred `_send_return` the same (STD-16). The dispatcher writes the API's
+  `Err` as the `Result` in the value, as before, and a common error as the error event
+  `ErrorKind::Common` at the item's handler site (`ww_client_server::dispatch::reply_call_result`,
+  `reply_get_common`, `send_common_error`); the `Ok` path writes through the same thunk by reference, no new move.
+  `ww api scaffold` prints the signatures; the transform refuses `Result<T, CommonError>` and a property error type
+  `CommonError`. Flash: see the `ww_client_server` changelog. `docs/api/errors.md#common-errors`,
+  `tests/common_error`, `tests/dispatch_golden`.
 - 📋 **SRV-59 Marking an element's change from another task** — `ObserveSignal` (SRV-25) has a bit per observable
   property of the flat levels; a property of a level under resource arrays (API-63) is marked on the server,
   `mark_changed_<name>(index_chain)`, so an interrupt or another task can't mark it without the server state. Needs a
@@ -2888,16 +2903,18 @@ Unicast Data0 to one node over the same bus is TR-6.
 - ✅ **STD-3 `ww_si`** and **`ww_numeric`**.
 - ✅ **STD-4 `ww_date_time`**.
 - ✅ **STD-5 `ww_gpio`**.
-- ✅ **STD-16 Common errors** — `ww_error::CommonError` (`Unsupported`, `InvalidArgument`, `InUse`, `Busy`,
+- ✅ **STD-16 Common errors** · `v0.5` — `ww_error::CommonError` (`Unsupported`, `InvalidArgument`, `InUse`, `Busy`,
   `WrongState`, `NoPower`, `Refused`, `Timeout`, `Fault`, bounded strings), re-exported as
-  `ww_api::prelude::CommonError`, nested first in an error enum as `#[common] Common(CommonError)` (the derive
-  adds `From<CommonError>` and `HasCommon`); recognised by tools by its type (`ww_self::TypeOwned::is_common_error`):
-  Python `RemoteError.common` with the doc line as the message, `ww api tree -t` marks it. Display by hand until
-  DER-12 takes over. Every `ww_stdlib` API crate with fallible methods uses it except `ww_dfu` (its `Error` has no
-  lifetime and predates this; only `Unsupported`/`Busy` would map cleanly, left as a follow-up) and `ww_can_bus`
-  (not ready yet); `ww_client_server`'s `ErrorKind` is a framework/link-level error, not an API error, so it is out
-  of scope.
-  `docs/std_library/ww_error.md`, `tests/common_error`.
+  `ww_api::prelude::CommonError`, is an error every item of every API can return, beside the API's own error enum
+  and without a variant in it: the protocol carries it as `ww_client_server::ErrorKind::Common` (wire `w2.0`), a
+  handler returns `Result<T, wire_weaver::Error<'_, E>>` (`Common` or `Api`, `?` takes both through `api_error!`) or
+  `Result<T, CommonError>` for an item without an error type, the client gets `CallError::Common` or
+  `Error::common()`, `#[errors(..)]` lists them as `CommonError(Busy, InUse)` on any item. Tools read the event, no
+  crate name is matched: Python `RemoteError.common`, `ww` prints its text, `CommonError::DOCS` gives names and doc
+  lines. Every `ww_stdlib` API crate uses it; `ww_counters`, `ww_log`, `ww_timebase` and `ww_uart` lost their error
+  enums, which held nothing else. The server side is SRV-63.
+  `docs/std_library/ww_error.md`, `docs/api/errors.md#common-errors`, `tests/common_error`, `wire_weaver_py`
+  `test_errors.py`.
 - ✅ **STD-19 `ww_pwm`** — `Pwm` / `PwmChannel` outputs (`set_output`, `set_duty`, `stop`, `state`), `PwmCapture` /
   `PwmCaptureChannel` measurements (frequency, duty, pulse width, edge count) over a plain stream with sideband
   `Open` / `Close`. Full rustdoc, mock server and in-process tests (`tests/io_pwm`), docs page
@@ -3034,7 +3051,7 @@ Unicast Data0 to one node over the same bus is TR-6.
     `Rework.title: Option<..>`, `None` for an applied number the firmware doesn't know (written by a newer one: since
     STD-101 the board refuses to boot unless an allowance for its image covers it). Optional `BoardInfo::set_reworks(changes, program)`: all changes or none, dry
     run, `ReworkChange` (`Unchanged`, `WouldWrite`, `Written` from the next boot), `ReworkError` (`UnknownRework`, never
-    stored; `Conflict`; `ProductionRecord`; `Common`). `ww_board_info::table` (`no_std`) answers both from the
+    stored; `Conflict`; `ProductionRecord`). `ww_board_info::table` (`no_std`) answers both from the
     firmware's table (`ReworkTable`, `ReworkSet`, `apply`, `list`, `unknown`, `known_ids`). `ww info` prints unknown
     ones. Docs `docs/std_library/ww_board_info.md#recording-a-rework`, tests `tests/board_info`, `tests/device_report`.
     The `ww board rework` command is TOOL-28; the first device is usb_io_fw PLAT-17.
@@ -3185,8 +3202,8 @@ Unicast Data0 to one node over the same bus is TR-6.
   and a docs page `docs/std_library/ww_<x>.md`; `examples_mcu` GPIO and UART boards follow. A bus or bank is
   configured with one `configure(XConfig)` answering what was actually set, the IO level inside it
   (`io_level: Option<Volt>`, capabilities `io_levels` / `io_level_min` / `io_level_max`). Every crate's error enum
-  starts with `#[common] Common(CommonError)` (STD-16) and keeps only what is specific (`Nack`, `NoPresence`,
-  `NoSuchChannel`, ...), methods list their variants with `#[errors(..)]` (API-32). Streams with a configuration are
+  keeps only what is specific (`Nack`, `NoPresence`, `NoSuchChannel`, ...), the common errors come beside it
+  (STD-16), methods list their variants with `#[errors(..)]` (API-32). Streams with a configuration are
   counted stream functions (API-31: `AdcStream::samples`, `LogicStream::data`, `Pin::event`,
   `PwmCaptureChannel::capture`, `Spi::monitor`, `I2cMonitor::records`, `Uart::monitor`), `Uart::rx` and
   `I2cWatch::changes` are counted: positions, device losses and the time of the first unit in the event head; UART
@@ -3217,7 +3234,7 @@ Unicast Data0 to one node over the same bus is TR-6.
   (CRC-32, `ww_block::crc32`), `claim` / `release` of a write lease that stops the card's own user, `write` with a
   CRC and `erase` under it, and the optional `bulk` group: the `write_runs` credit sink acknowledged on the counted
   `written` stream, and the counted `read_runs` stream. Who may claim is the firmware's choice per link
-  (`Common(Refused)`). Tier T1 of logring's design (its PC `LinkMedium`, S2 prepare on the PC). API crate, snapshot,
+  (`CommonError::Refused`). Tier T1 of logring's design (its PC `LinkMedium`, S2 prepare on the PC). API crate, snapshot,
   docs page `docs/std_library/ww_block.md` and the round trip `tests/block_sd` done, the scaffold compiles; the
   first server is the logring's. `crc32`/`crc32_update` are `ww_crc`'s `CRC32_ISO_HDLC` (TR-31), table size
   (none, `table-256`, `table-slice16`) picked by `ww_crc`'s cargo features.
@@ -3258,7 +3275,7 @@ Unicast Data0 to one node over the same bus is TR-6.
 - 🚧 **STD-47 `ww_pin_diag` pin tests** · `v0.5.x` — `PinDiag { const POINTS; set(point, PointState); read(point);
   release_all() }`: raw access to a board's digital points (MCU pins, shift register and expander outputs) for
   bring-up, verification and production tests; the firmware keeps its board's rules and answers `NotCapable`,
-  `Common(InUse)` or `Refused { rule }`. Done: crate, docs page `docs/std_library/ww_pin_diag.md`, test pair
+  `CommonError::InUse` or `Refused { rule }`. Done: crate, docs page `docs/std_library/ww_pin_diag.md`, test pair
   `tests/pin_diag` (mock board: short, external pull-up, input-only pin, interlocked outputs, held pin), snapshot;
   the host tests and plan files are TOOL-15 (`ww pins test`). Missing: a device implementing it (rePort).
 - 🚧 **STD-48 `ww_interned` strings as ids** · `v0.5.x` — `Interned { Id(Index<InternedStr, UNib32>), Text(&str) }` for names and reasons;

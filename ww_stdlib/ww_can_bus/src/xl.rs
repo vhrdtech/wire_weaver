@@ -19,8 +19,8 @@ pub const MAX_XL_DATA_LEN: usize = 2048;
 pub trait CanXl {
     /// Configures the XL data phase (`None`: no XL frames) and answers what was set. Needs CAN FD configured on the
     /// controller (`WrongState`); a timing or transceiver mode switching it can't do is `Unsupported`.
-    #[errors(Common(Unsupported, InvalidArgument, WrongState))]
-    fn configure_xl(config: Option<XlConfig>) -> Result<Option<XlConfig>, CanError<'i>>;
+    #[errors(CommonError(Unsupported, InvalidArgument, WrongState))]
+    fn configure_xl(config: Option<XlConfig>) -> Result<Option<XlConfig>, CanError>;
 
     /// Received XL frames. A counted stream, unit: frame; the head's time is when the frame was received.
     #[counted]

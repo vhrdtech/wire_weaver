@@ -549,3 +549,4 @@ How WireWeaver is kept working: every change runs through CI, against the real c
 - EVO-57 | The wire change behind `ww_spi`'s typed numbers (word size, byte lengths, register offsets, `io_level` as `Fixed`): the user-visible side is STD-56.
 - EVO-59 | The wire change behind `ww_logic_analyzer` typing its channel, sample and size fields: transparent wrappers of the same bytes, test maintenance, not a new capability.
 - EVO-63 | The wire change behind transfer curves (`MarkerDef::Curve`, `MarkerDef::Transfer`): the user-visible side is STD-112.
+- SRV-63 | Server handlers answer with a common error beside the API's own error, on any item: `wire_weaver::Error<'_, E>` in `Result` handlers, `CommonError` in plain ones, written as the protocol's common error event (see [Errors](api/errors.md#common-errors)).

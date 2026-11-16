@@ -7,6 +7,7 @@
 
 ### ⚠️ Breaking
 
+- `RemoteError.common` comes from the protocol's common error event only (STD-16): an error of the API's own never has a common part, `decode_return` returns the API's `Err` as before.
 - A `Timed` value's `t` is a time point (`ww_si` STD-110): it decodes as a `ww.Quantity` shown since its origin (`"1.5 s since boot"`), and is written as one or as the dict of its `coord`, not as a `Second`'s `prefix` and `value`.
 - A `Point<O, Fixed<U, ..>>` property, argument, return or stream item (a temperature in °C, a heading) decodes as a
   `ww.Quantity` instead of the generic `dict` of its one field, `coord` (CLT-65): `str()` and `float()` are now the

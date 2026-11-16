@@ -75,6 +75,8 @@ pub enum CheckError {
     Missing,
 }
 
+ww_api::api_error!(CheckError);
+
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),

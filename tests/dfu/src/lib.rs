@@ -143,7 +143,7 @@ mod tests {
             fn boot_confirm(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> RpcResult<Result<(), Error>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, Error>>> {
                 let mut dev = self.dev.write().unwrap();
                 if dev.boot_state == BootState::Trial {
                     dev.boot_state = BootState::Confirmed;
@@ -154,14 +154,14 @@ mod tests {
             fn boot_revert(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> RpcResult<Result<(), Error>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, Error>>> {
                 let mut dev = self.dev.write().unwrap();
                 match dev.boot_state {
                     BootState::Trial | BootState::Staged => {
                         dev.boot_state = BootState::Reverted;
                         Ready(Ok(()))
                     }
-                    state => Ready(Err(Error::WrongState(state))),
+                    state => Ready(Err(Error::WrongState(state).into())),
                 }
             }
 
@@ -169,7 +169,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 into: BootTarget,
-            ) -> RpcResult<Result<(), Error>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, Error>>> {
                 self.dev.write().unwrap().rebooted_into = Some(into);
                 Ready(Ok(()))
             }
@@ -178,7 +178,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 _slot: Slot,
-            ) -> RpcResult<Result<SlotLayout, Error>> {
+            ) -> RpcResult<Result<SlotLayout, wire_weaver::Error<'_, Error>>> {
                 Ready(Ok(SlotLayout {
                     chunk_size: Fixed::new(CHUNK as u32),
                     chunks: Fixed::new(CHUNKS as u16),
@@ -191,7 +191,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 _slot: Slot,
-            ) -> RpcResult<Result<[u8; 8], Error>> {
+            ) -> RpcResult<Result<[u8; 8], wire_weaver::Error<'_, Error>>> {
                 Ready(Ok([1, 2, 3, 4, 5, 6, 7, 8]))
             }
 
@@ -201,8 +201,12 @@ mod tests {
                 slot: Slot,
                 first: Index<Chunk, u16>,
                 count: Fixed<Chunk, ww_si::prefix::One, u16>,
-            ) -> RpcResult<Result<MaxLen<RefVec<'_, ChunkState>, { ww_dfu::MAX_CHUNKS_PAGE }>, Error>>
-            {
+            ) -> RpcResult<
+                Result<
+                    MaxLen<RefVec<'_, ChunkState>, { ww_dfu::MAX_CHUNKS_PAGE }>,
+                    wire_weaver::Error<'_, Error>,
+                >,
+            > {
                 let (first, count) = (first.get(), count.get());
                 let dev = self.dev.read().unwrap();
                 let flash = match slot {
@@ -210,7 +214,7 @@ mod tests {
                     Slot::Inactive => &dev.inactive,
                 };
                 if first as usize >= CHUNKS {
-                    return Ready(Err(Error::OutOfRange));
+                    return Ready(Err(Error::OutOfRange.into()));
                 }
                 let end =
                     (first as usize + (count as usize).min(ww_dfu::MAX_CHUNKS_PAGE)).min(CHUNKS);
@@ -250,17 +254,17 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 target: Target,
                 header: MaxLen<RefVec<'_, u8>, { ww_dfu::MAX_HEADER_LEN }>,
-            ) -> RpcResult<Result<Session, Error>> {
+            ) -> RpcResult<Result<Session, wire_weaver::Error<'_, Error>>> {
                 let mut dev = self.dev.write().unwrap();
                 if target != Target::Live {
-                    return Ready(Err(Error::Unsupported));
+                    return Ready(Err(Error::Unsupported.into()));
                 }
                 if !dev.boot_state.may_stage() {
-                    return Ready(Err(Error::WrongState(dev.boot_state)));
+                    return Ready(Err(Error::WrongState(dev.boot_state).into()));
                 }
                 // Test header: one byte, the step count.
                 let Some(Ok(steps)) = header.iter().next() else {
-                    return Ready(Err(Error::BadHeader));
+                    return Ready(Err(Error::BadHeader.into()));
                 };
                 let steps = steps as u32;
                 if dev.steps == Some(steps) {
@@ -287,17 +291,17 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index: Index<Step, u32>,
                 block: Index<Block, u16>,
-            ) -> RpcResult<Result<(), Error>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, Error>>> {
                 let block = block.get();
                 let mut dev = self.dev.write().unwrap();
                 match dev.check_order(index) {
-                    Err(e) => return Ready(Err(e)),
+                    Err(e) => return Ready(Err(e.into())),
                     Ok(true) => return Ready(Ok(())),
                     Ok(false) => {}
                 }
                 let start = block as usize * CHUNK * 2;
                 if start + CHUNK * 2 > dev.inactive.len() {
-                    return Ready(Err(Error::OutOfRange));
+                    return Ready(Err(Error::OutOfRange.into()));
                 }
                 dev.inactive[start..start + CHUNK * 2].fill(0xFF);
                 dev.next_step += 1;
@@ -311,22 +315,22 @@ mod tests {
                 dst: Index<Chunk, u16>,
                 src: Index<Chunk, u16>,
                 hash: [u8; 8],
-            ) -> RpcResult<Result<(), Error>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, Error>>> {
                 let mut dev = self.dev.write().unwrap();
                 match dev.check_order(index) {
-                    Err(e) => return Ready(Err(e)),
+                    Err(e) => return Ready(Err(e.into())),
                     Ok(true) => return Ready(Ok(())),
                     Ok(false) => {}
                 }
                 let (dst, src) = (dst.get() as usize, src.get() as usize);
                 if dst >= CHUNKS || src >= CHUNKS {
-                    return Ready(Err(Error::OutOfRange));
+                    return Ready(Err(Error::OutOfRange.into()));
                 }
                 let source: [u8; CHUNK] = dev.active[src * CHUNK..(src + 1) * CHUNK]
                     .try_into()
                     .unwrap();
                 if chunk_hash(&source) != hash {
-                    return Ready(Err(Error::SourceMismatch));
+                    return Ready(Err(Error::SourceMismatch.into()));
                 }
                 dev.inactive[dst * CHUNK..(dst + 1) * CHUNK].copy_from_slice(&source);
                 dev.next_step += 1;
@@ -341,21 +345,21 @@ mod tests {
                 hash: [u8; 8],
                 offset: Index<Byte, u32>,
                 data: MaxLen<RefVec<'_, u8>, { ww_dfu::MAX_PIECE_LEN }>,
-            ) -> RpcResult<Result<(), Error>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, Error>>> {
                 let mut dev = self.dev.write().unwrap();
                 match dev.check_order(index) {
-                    Err(e) => return Ready(Err(e)),
+                    Err(e) => return Ready(Err(e.into())),
                     Ok(true) => return Ready(Ok(())),
                     Ok(false) => {}
                 }
                 let data: Vec<u8> = data.iter().map(|b| b.unwrap()).collect();
                 if data.len() > MAX_PIECE {
-                    return Ready(Err(Error::PieceTooBig));
+                    return Ready(Err(Error::PieceTooBig.into()));
                 }
                 let (dst, offset) = (dst.get() as usize, offset.get() as usize);
                 if dst >= CHUNKS || offset + data.len() > CHUNK || offset as u32 != dev.chunk_offset
                 {
-                    return Ready(Err(Error::OutOfRange));
+                    return Ready(Err(Error::OutOfRange.into()));
                 }
                 let at = dst * CHUNK + offset;
                 dev.inactive[at..at + data.len()].copy_from_slice(&data);
@@ -363,7 +367,7 @@ mod tests {
                 if dev.chunk_offset as usize == CHUNK {
                     dev.chunk_offset = 0;
                     if chunk_hash(&dev.inactive[dst * CHUNK..]) != hash {
-                        return Ready(Err(Error::HashMismatch));
+                        return Ready(Err(Error::HashMismatch.into()));
                     }
                     dev.next_step += 1;
                 }
@@ -373,10 +377,10 @@ mod tests {
             fn stage_progress(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> RpcResult<Result<Progress, Error>> {
+            ) -> RpcResult<Result<Progress, wire_weaver::Error<'_, Error>>> {
                 let dev = self.dev.read().unwrap();
                 let Some(steps) = dev.steps else {
-                    return Ready(Err(Error::NoSession));
+                    return Ready(Err(Error::NoSession.into()));
                 };
                 Ready(Ok(Progress {
                     steps: Fixed::new(steps),
@@ -389,13 +393,13 @@ mod tests {
             fn stage_finish(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> RpcResult<Result<BootState, Error>> {
+            ) -> RpcResult<Result<BootState, wire_weaver::Error<'_, Error>>> {
                 let mut dev = self.dev.write().unwrap();
                 let Some(steps) = dev.steps else {
-                    return Ready(Err(Error::NoSession));
+                    return Ready(Err(Error::NoSession.into()));
                 };
                 if dev.next_step < steps {
-                    return Ready(Err(Error::Incomplete));
+                    return Ready(Err(Error::Incomplete.into()));
                 }
                 dev.steps = None;
                 dev.boot_state = BootState::Staged;
@@ -434,7 +438,7 @@ mod tests {
                 _header: MaxLen<RefVec<'_, u8>, { ww_dfu::MAX_HEADER_LEN }>,
                 _total_len: ww_si::Bytes<u32>,
                 _ack_every: ww_dfu::AckEvery,
-            ) -> RpcResult<Result<Session, Error>> {
+            ) -> RpcResult<Result<Session, wire_weaver::Error<'_, Error>>> {
                 self.dev.write().unwrap().plan.clear();
                 Ready(Ok(Session {
                     steps: Fixed::new(0),

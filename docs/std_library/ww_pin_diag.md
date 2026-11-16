@@ -49,7 +49,7 @@ The trait carries only the outcome:
 |---|---|
 | `NoSuchPoint` | no point with that id |
 | `NotCapable` | the point can never do this (see its caps): reading a shift register output, driving an input-only pin |
-| `Common(InUse)` | a function holds the point now |
+| `CommonError::InUse` | a function holds the point now |
 | `Refused { rule }` | the board's rules forbid it in the current state of the other points: "two VREF sources" |
 
 A change of several points is several `set`s, each checked on its own. A host orders them so that each step is safe

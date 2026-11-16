@@ -62,9 +62,9 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 cfg: Config,
-            ) -> RpcResult<Result<(), OpenError>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, OpenError>>> {
                 Ready(if sum(cfg) == 0 {
-                    Err(OpenError::Zero)
+                    Err(OpenError::Zero.into())
                 } else {
                     Ok(())
                 })
@@ -150,9 +150,9 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 cfg: Config,
-            ) -> RpcResult<Result<(), OpenError>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, OpenError>>> {
                 Ready(if sum(cfg) == 0 {
-                    Err(OpenError::Zero)
+                    Err(OpenError::Zero.into())
                 } else {
                     Ok(())
                 })

@@ -919,14 +919,14 @@ mod tests {
             .map(|c| c.crate_id.as_str())
             .collect();
         // in the order of first use from the root (EVO-77)
-        assert_eq!(crates, ["ww_uart", "ww_si", "exact_units", "ww_error"]);
+        assert_eq!(crates, ["ww_uart", "ww_si", "exact_units"]);
 
-        // own types in-line, exact_units, ww_si and ww_error ones only referenced, nothing they refer to is left over
+        // own types in-line, exact_units and ww_si ones only referenced, nothing they refer to is left over
         for location in &bundle.types {
             match location {
                 TypeLocationOwned::InLine { crate_idx, .. } => assert_eq!(crate_idx.0, 0),
                 TypeLocationOwned::SkippedFullVersion { crate_idx, .. } => {
-                    assert!([1, 2, 3].contains(&crate_idx.0))
+                    assert!([1, 2].contains(&crate_idx.0))
                 }
             }
         }
@@ -939,7 +939,6 @@ mod tests {
         assert!(skipped("Quantity"));
         assert!(skipped("units::Volt"));
         assert!(skipped("units::Second"));
-        assert!(skipped("CommonError"));
 
         // every index points to an existing entry
         let mut refs = Refs::default();

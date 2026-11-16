@@ -262,7 +262,9 @@ To bring an existing server in line after the API changed:
 6. `cargo check` the crate and point out body errors from changed signatures.
 
 Every handler takes `cx: &mut Context<'_, impl EventOut, Medium>` (`BlockingEventOut` for `use_async = false`)
-after `&mut self`; deferred methods answer later with `<method>_send_return(out, cx.reply_to().seq, ..)`.
+after `&mut self`; deferred methods answer later with `<method>_send_return(out, cx.reply_to().seq, ..)`. A handler
+of `-> Result<T, E>` returns `Result<T, wire_weaver::Error<'_, E>>` (a common error or the API's own, `?` takes
+both); one without a `Result` returns `T` or `Result<T, CommonError<'_>>`; properties the same way (STD-16).
 
 ## Compatibility
 

@@ -55,7 +55,10 @@ mod server {
             Ready(RefVec::new_bytes(&self.blob[..(len as usize).min(512)]))
         }
 
-        async fn get_speed(&mut self, _cx: &mut Context<'_, impl EventOut>) -> GetResult<u16, ()> {
+        async fn get_speed(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+        ) -> GetResult<u16, CommonError<'_>> {
             Value(self.speed)
         }
 
@@ -63,16 +66,22 @@ mod server {
             &mut self,
             _cx: &mut Context<'_, impl EventOut>,
             value: u16,
-        ) -> SetResult<()> {
+        ) -> SetResult<CommonError<'_>> {
             self.speed = value;
             Set
         }
 
-        async fn get_load(&mut self, _cx: &mut Context<'_, impl EventOut>) -> GetResult<u16, ()> {
+        async fn get_load(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+        ) -> GetResult<u16, CommonError<'_>> {
             Value(self.load)
         }
 
-        async fn get_state(&mut self, _cx: &mut Context<'_, impl EventOut>) -> GetResult<u8, ()> {
+        async fn get_state(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+        ) -> GetResult<u8, CommonError<'_>> {
             Value(3)
         }
 
@@ -80,7 +89,7 @@ mod server {
             &mut self,
             _cx: &mut Context<'_, impl EventOut>,
             value: MaxLen<&'_ str, 32>,
-        ) -> SetResult<()> {
+        ) -> SetResult<CommonError<'_>> {
             self.name = value.to_string();
             Set
         }
@@ -88,7 +97,7 @@ mod server {
         async fn get_user_name(
             &mut self,
             _cx: &mut Context<'_, impl EventOut>,
-        ) -> GetResult<MaxLen<&'_ str, 32>, ()> {
+        ) -> GetResult<MaxLen<&'_ str, 32>, CommonError<'_>> {
             Value(MaxLen::new_unchecked(&self.name))
         }
 
@@ -153,7 +162,7 @@ mod global_clock {
     use tests_common::TestProcessEventsAsync;
     use wire_weaver::prelude::*;
     use wire_weaver_client::{Commander, DynClient};
-    use ww_timebase::{ClockError, ClockInfo, DateTime, Second, SyncConfig, SyncState, SyncStatus};
+    use ww_timebase::{ClockInfo, DateTime, Second, SyncConfig, SyncState, SyncStatus};
 
     pub struct Server {
         pub started: std::time::Instant,
@@ -193,8 +202,8 @@ mod global_clock {
             &mut self,
             _cx: &mut Context<'_, impl EventOut>,
             _config: SyncConfig,
-        ) -> RpcResult<Result<(), ClockError<'_>>> {
-            Ready(Err(CommonError::Unsupported.into()))
+        ) -> RpcResult<Result<(), CommonError<'_>>> {
+            Ready(Err(CommonError::Unsupported))
         }
 
         async fn clock_sync_config(
@@ -224,11 +233,10 @@ mod global_clock {
             &mut self,
             _cx: &mut Context<'_, impl EventOut>,
             _t: DateTime,
-        ) -> RpcResult<Result<(), ClockError<'_>>> {
+        ) -> RpcResult<Result<(), CommonError<'_>>> {
             Ready(Err(CommonError::WrongState {
                 reason: MaxLen::new_unchecked("not a sync master"),
-            }
-            .into()))
+            }))
         }
     }
 

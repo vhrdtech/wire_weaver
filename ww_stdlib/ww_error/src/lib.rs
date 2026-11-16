@@ -1,52 +1,39 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 //! Errors every WireWeaver API can return (STD-16).
 //!
-//! An API's error enum puts [CommonError] first, marked `#[common]`, and keeps its own variants for what is
-//! specific to it:
+//! [CommonError] is not part of any API's error enum: a handler returns it beside the API's own error and the
+//! protocol carries it on its own (`ww_client_server::ErrorKind::Common`), so every client sees the same type
+//! whatever the API. An API's error enum keeps only what is specific to it:
 //!
 //! ```
 //! use shrink_wrap::prelude::*;
-//! use ww_error::{CommonError, HasCommon};
+//! use ww_error::CommonError;
 //!
 //! #[derive_shrink_wrap(derive(Debug, PartialEq, Eq, Clone), ww_repr = unib32)]
-//! pub enum I2cError<'i> {
-//!     #[common]
-//!     Common(CommonError<'i>),
+//! pub enum I2cError {
 //!     /// The address or a data byte was not acknowledged.
 //!     Nack,
 //! }
 //!
-//! // `#[common]` adds `From<CommonError>`: helpers return `CommonError` and `?` into any crate's error
+//! // a helper returns `CommonError`; a handler's `?` turns it into the runtime's `Error<I2cError>`
 //! fn check_power(on: bool) -> Result<(), CommonError<'static>> {
 //!     if on { Ok(()) } else { Err(CommonError::NoPower { rail: MaxLen::new_unchecked("VIO") }) }
 //! }
-//! fn write() -> Result<(), I2cError<'static>> {
-//!     check_power(false)?;
-//!     Ok(())
-//! }
-//!
-//! // ... and `HasCommon`: generic code finds the common part of any crate's error
-//! let e = write().unwrap_err();
-//! assert!(matches!(e.common(), Some(CommonError::NoPower { .. })));
-//! assert_eq!(e.common().unwrap().to_string(), "No power on VIO");
-//! assert_eq!(I2cError::Nack.common(), None);
+//! let e = check_power(false).unwrap_err();
+//! assert_eq!(e.to_string(), "No power on VIO");
+//! assert_eq!(e.name(), "NoPower");
 //! ```
 //!
-//! Tools (the ww CLI, Python) recognise `ww_error::CommonError` by its type in the API model and show it the same
-//! for every API. Strings are bounded and may be empty: a device that saves flash sends `""`.
-
-// `#[common]` in derived enums names this crate `::ww_error`, here too
-extern crate self as ww_error;
+//! Strings are bounded and may be empty: a device that saves flash sends `""`.
 
 use core::fmt;
 use shrink_wrap::prelude::*;
 use ww_si::{Index, units::Argument};
 
-/// Errors every crate can return, recognised by tools by this type.
+/// Errors every item of every API can answer with, carried by the protocol beside the API's own error type.
 ///
-/// Put first in an API's error enum as `#[common] Common(CommonError<'i>)`. `Unsupported` means the device knows
-/// the call and can't do what was asked; a call that has no implementation at all is the framework's
-/// `Unimplemented` instead.
+/// `Unsupported` means the device knows the call and can't do what was asked; a call that has no implementation
+/// at all is the framework's `Unimplemented` instead.
 #[derive_shrink_wrap(
     owned(feature = "std"),
     derive(Debug, PartialEq, Eq, Clone),
@@ -78,6 +65,48 @@ pub enum CommonError<'i> {
     Fault { code: u32 },
 }
 
+impl CommonError<'_> {
+    /// Every variant's name and its first doc line, for tools: `#[errors(CommonError(Busy, InUse))]` lists and
+    /// their docs, `ww api tree`.
+    pub const DOCS: &[(&str, &str)] = &[
+        (
+            "Unsupported",
+            "Not supported by this device (a mode, a range, a feature of the call)",
+        ),
+        (
+            "InvalidArgument",
+            "Argument number {arg} is invalid: {reason}",
+        ),
+        ("InUse", "In use by {by}"),
+        ("Busy", "Busy with another operation, try again later"),
+        ("WrongState", "Not possible in the current state: {reason}"),
+        ("NoPower", "No power on {rail}"),
+        ("Refused", "Refused: {reason}"),
+        ("Timeout", "Timed out"),
+        ("Fault", "Hardware fault {code:#x}"),
+    ];
+
+    /// The variant's name, as in [CommonError::DOCS]; `Unknown` for a variant of a newer version.
+    pub fn name(&self) -> &'static str {
+        name_of(self.discriminant())
+    }
+}
+
+/// [CommonError::name] by discriminant: the variants are numbered in the order of [CommonError::DOCS].
+fn name_of(discriminant: u32) -> &'static str {
+    CommonError::DOCS
+        .get(discriminant as usize)
+        .map_or("Unknown", |(name, _)| name)
+}
+
+#[cfg(feature = "std")]
+impl CommonErrorOwned {
+    /// The variant's name, as in [CommonError::DOCS]; `Unknown` for a variant of a newer version.
+    pub fn name(&self) -> &'static str {
+        name_of(self.discriminant())
+    }
+}
+
 #[cfg(feature = "std")]
 impl CommonError<'_> {
     /// The same error owning its strings.
@@ -102,35 +131,6 @@ impl CommonError<'_> {
             CommonError::Fault { code } => CommonErrorOwned::Fault { code: *code },
             CommonError::Unknown(n) => CommonErrorOwned::Unknown(*n),
         }
-    }
-}
-
-/// An error enum with a `#[common]` variant: generic code gets the [CommonError] out of any crate's error.
-///
-/// Implemented by `#[derive_shrink_wrap]` for an enum with a `#[common] Common(CommonError<'i>)` variant, with
-/// `Common = CommonError<'i>` for the borrowed type and `Common = CommonErrorOwned` for the owned one, and by
-/// `CommonError` itself.
-pub trait HasCommon {
-    type Common;
-
-    /// The common error, `None` for a crate-specific variant.
-    fn common(&self) -> Option<&Self::Common>;
-}
-
-impl<'i> HasCommon for CommonError<'i> {
-    type Common = CommonError<'i>;
-
-    fn common(&self) -> Option<&Self::Common> {
-        Some(self)
-    }
-}
-
-#[cfg(feature = "std")]
-impl HasCommon for CommonErrorOwned {
-    type Common = CommonErrorOwned;
-
-    fn common(&self) -> Option<&Self::Common> {
-        Some(self)
     }
 }
 

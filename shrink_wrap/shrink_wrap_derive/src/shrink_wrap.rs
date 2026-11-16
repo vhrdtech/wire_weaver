@@ -277,7 +277,6 @@ fn generate_inner(
                 if args.display {
                     ts.append_all(cg_item_enum.display_and_error_rust(true));
                 }
-                ts.append_all(cg_item_enum.impl_common(true)?);
                 if args.series {
                     ts.append_all(
                         borrowed
@@ -308,23 +307,20 @@ fn generate_inner(
                     ts.append_all(cg_item_enum.display_and_error_rust(false));
                 }
                 // an ambiguous type is the same one as borrowed, which has the impls already
-                if !(matches!(ty_kind, TyKind::Ambiguous) && do_generate_borrowed) {
-                    ts.append_all(cg_item_enum.impl_common(false)?);
-                    if args.series {
-                        ts.append_all(
-                            owned
-                                .series_seed(
-                                    false,
-                                    &ww_item_enum.generics,
-                                    args.series_store,
-                                    args.series_cells,
-                                )
-                                .series_enum(
-                                    &ww_item_enum.variants,
-                                    future_version_ident(&ww_item_enum),
-                                )?,
-                        );
-                    }
+                if args.series && !(matches!(ty_kind, TyKind::Ambiguous) && do_generate_borrowed) {
+                    ts.append_all(
+                        owned
+                            .series_seed(
+                                false,
+                                &ww_item_enum.generics,
+                                args.series_store,
+                                args.series_cells,
+                            )
+                            .series_enum(
+                                &ww_item_enum.variants,
+                                future_version_ident(&ww_item_enum),
+                            )?,
+                    );
                 }
             }
         }

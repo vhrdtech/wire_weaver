@@ -36,8 +36,8 @@
 //!
 //! # Errors
 //!
-//! All traits return [PwmError]: the framework's `CommonError` as [PwmError::Common], plus `SharedTimer`. Each
-//! method lists the variants it returns (`#[errors]`).
+//! All traits return [PwmError] (`SharedTimer`); the common errors (`ww_error::CommonError`) come beside it, as every
+//! item's do. Each method lists the errors it returns (`#[errors]`).
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use ww_api::prelude::*;
@@ -67,17 +67,17 @@ pub trait PwmChannel {
     /// can do).
     /// `InvalidArgument`: frequency or duty out of range; `SharedTimer`: another channel of the same group already runs
     /// at a different frequency.
-    #[errors(Common(InvalidArgument, InUse, NoPower, Refused), SharedTimer)]
-    fn set_output(output: PwmOutput) -> Result<PwmActual, PwmError<'i>>;
+    #[errors(CommonError(InvalidArgument, InUse, NoPower, Refused), SharedTimer)]
+    fn set_output(output: PwmOutput) -> Result<PwmActual, PwmError>;
 
     /// Changes only the duty, keeping the frequency; returns the duty actually set.
     /// `WrongState`: the channel is idle, `PwmChannel::set_output` first.
-    #[errors(Common(WrongState, InvalidArgument))]
-    fn set_duty(duty: Duty16) -> Result<Duty16, PwmError<'i>>;
+    #[errors(CommonError(WrongState, InvalidArgument))]
+    fn set_duty(duty: Duty16) -> Result<Duty16, PwmError>;
 
     /// Stops the output, leaving the pin high or low.
-    #[errors(Common(InUse, Refused))]
-    fn stop(idle_high: bool) -> Result<(), PwmError<'i>>;
+    #[errors(CommonError(InUse, Refused))]
+    fn stop(idle_high: bool) -> Result<(), PwmError>;
 
     /// The current output, or [PwmState::Idle] if stopped.
     fn state() -> PwmState;
@@ -97,20 +97,20 @@ pub trait PwmCaptureChannel {
     /// set (the nearest gate the hardware can do). Unit: measurement; the head's time is the end of its window.
     /// `Unsupported` when this mode isn't available on this channel, `InvalidArgument` for a gate out of range or
     /// [CaptureMode::Off].
-    #[errors(Common(Unsupported, InvalidArgument, InUse, Refused))]
+    #[errors(CommonError(Unsupported, InvalidArgument, InUse, Refused))]
     #[stream(CaptureValue, counted)]
-    fn capture(config: CaptureConfig) -> Result<CaptureConfig, PwmError<'i>>;
+    fn capture(config: CaptureConfig) -> Result<CaptureConfig, PwmError>;
 
     /// Sets up what to measure without a stream, for `PwmCaptureChannel::read_capture`, and returns what was
     /// actually set (the nearest gate the hardware can do).
     /// `Unsupported`: this mode isn't available on this channel; `InvalidArgument`: gate out of range.
-    #[errors(Common(Unsupported, InvalidArgument, InUse, Refused))]
-    fn set_capture(config: CaptureConfig) -> Result<CaptureConfig, PwmError<'i>>;
+    #[errors(CommonError(Unsupported, InvalidArgument, InUse, Refused))]
+    fn set_capture(config: CaptureConfig) -> Result<CaptureConfig, PwmError>;
 
     /// The last measurement.
     /// `WrongState`: no measurement yet; `PwmCaptureChannel::set_capture` first, then wait for at least one `gate`.
-    #[errors(Common(WrongState))]
-    fn read_capture() -> Result<CaptureSample, PwmError<'i>>;
+    #[errors(CommonError(WrongState))]
+    fn read_capture() -> Result<CaptureSample, PwmError>;
 }
 
 /// What to set, see `PwmChannel::set_output`.
@@ -266,16 +266,15 @@ pub struct TimerGroup(pub u8);
 /// Errors of every trait in this crate: the common ones first, then what is specific to PWM. Each method lists the
 /// variants it returns.
 #[derive_shrink_wrap(
-    owned(feature = "std"),
+    borrowed, owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Debug, PartialEq, Eq, Clone),
     ww_repr = unib32,
     display
 )]
-pub enum PwmError<'i> {
-    /// {0}
-    #[common]
-    Common(CommonError<'i>),
+pub enum PwmError {
     /// The other channel of the group runs at another frequency.
     SharedTimer,
 }
+
+ww_api::api_error!(PwmError);

@@ -72,7 +72,7 @@ impl Server {
     async fn get_last_table(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-    ) -> GetResult<Vec<ReadingOwned>, ()> {
+    ) -> GetResult<Vec<ReadingOwned>, CommonError<'_>> {
         GetResult::Value(self.last_table.clone())
     }
 

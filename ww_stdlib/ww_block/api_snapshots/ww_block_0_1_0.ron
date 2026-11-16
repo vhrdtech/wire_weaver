@@ -1,6 +1,6 @@
 // ww_block 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: b3c70664b78728f580cdf20690329cdb152c77c95fab0b57ddd409dca1c7baf6
+// shrink_wrap sha256: 9afb1cd34155d0435911ff23ca3b99cbb8773392b4bd2a29d62101feb536018b
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "A block device over WireWeaver (STD-39): an SD card, eMMC or flash read, checked, written and erased in whole",
     "blocks by their address (LBA).",
@@ -97,35 +97,30 @@
         "Errors of the block device calls.",
     ], ident: "BlockError", generics: [], variants: [
         (docs: [
-            "Common error",
-        ], ident: "Common", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 16), docs: [], slot: None, series_opaque: false),
-        ]), discriminant: 0, since: None),
-        (docs: [
             "No card in the slot, or the medium doesn\'t answer.",
-        ], ident: "NoMedium", fields: Unit, discriminant: 1, since: None),
+        ], ident: "NoMedium", fields: Unit, discriminant: 0, since: None),
         (docs: [
             "A block past the last one.",
-        ], ident: "OutOfRange", fields: Unit, discriminant: 2, since: None),
+        ], ident: "OutOfRange", fields: Unit, discriminant: 1, since: None),
         (docs: [
             "The lease lapsed, was released, or is not the current one: claim the card again.",
-        ], ident: "BadLease", fields: Unit, discriminant: 3, since: None),
+        ], ident: "BadLease", fields: Unit, discriminant: 2, since: None),
         (docs: [
             "The data\'s CRC-32 doesn\'t match the one given: nothing was written.",
-        ], ident: "BadCrc", fields: Unit, discriminant: 4, since: None),
+        ], ident: "BadCrc", fields: Unit, discriminant: 3, since: None),
         (docs: [
             "The medium is write-protected.",
-        ], ident: "ReadOnly", fields: Unit, discriminant: 5, since: None),
+        ], ident: "ReadOnly", fields: Unit, discriminant: 4, since: None),
         (docs: [
             "The medium reported a read error (or its data failed the device\'s own check).",
         ], ident: "ReadFailed", fields: Named([
             (ident: Some("reason"), default: None, since: None, ty: MaxLen(max_len: Fixed(64), ty: String), docs: [], slot: None, series_opaque: false),
-        ]), discriminant: 6, since: None),
+        ]), discriminant: 5, since: None),
         (docs: [
             "The medium reported a write or erase error: what was written may be partly there.",
         ], ident: "WriteFailed", fields: Named([
             (ident: Some("reason"), default: None, since: None, ty: MaxLen(max_len: Fixed(64), ty: String), docs: [], slot: None, series_opaque: false),
-        ]), discriminant: 7, since: None),
+        ]), discriminant: 6, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "Index", signature: [
         231,
@@ -271,7 +266,7 @@
             Type(NumericAny(Base(U32))),
             Type(OutOfLine(type_idx: 4)),
         ]), docs: [], slot: None, series_opaque: false),
-        (ident: Some("status"), default: None, since: None, ty: OutOfLine(type_idx: 17), docs: [], slot: None, series_opaque: false),
+        (ident: Some("status"), default: None, since: None, ty: OutOfLine(type_idx: 16), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One run of [BlockDevice::read_runs]: the blocks from `lba`.",
@@ -341,24 +336,6 @@
     ], ident: "MediumId", generics: [], fields: Unnamed([
         (ident: None, default: None, since: None, ty: NumericAny(Base(U64)), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: Some((transparent: true, marker: None)))), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 2, type_name: "CommonError", signature: [
-        30,
-        18,
-        211,
-        141,
-        253,
-        197,
-        48,
-        184,
-        37,
-        11,
-        183,
-        248,
-        238,
-        96,
-        205,
-        177,
-    ]),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "What became of a run, see [RunAck::status]. The same as [BlockDevice::write]\'s answer.",
         "",
@@ -403,7 +380,7 @@
                 Type(OutOfLine(type_idx: 4)),
             ]), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: MaxLen(max_len: Fixed(4096), ty: Vec(NumericAny(Base(U8)))), err_ty: OutOfLine(type_idx: 1))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "Busy",
                 "InvalidArgument",
             ])),
@@ -429,7 +406,7 @@
                 Type(OutOfLine(type_idx: 4)),
             ]), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: NumericAny(Base(U32)), err_ty: OutOfLine(type_idx: 1))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "Busy",
             ])),
             (ident: "NoMedium", nested: None),
@@ -447,7 +424,7 @@
                 Type(OutOfLine(type_idx: 4)),
             ]), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 8), err_ty: OutOfLine(type_idx: 1))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "Busy",
                 "Refused",
                 "InvalidArgument",
@@ -481,7 +458,7 @@
             (ident: "data", ty: MaxLen(max_len: Fixed(4096), ty: Vec(NumericAny(Base(U8)))), default: None, flatten: false),
             (ident: "crc", ty: NumericAny(Base(U32)), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 1))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "InvalidArgument",
             ])),
             (ident: "NoMedium", nested: None),
@@ -540,7 +517,7 @@
                 Type(OutOfLine(type_idx: 4)),
             ]), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 1))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "Busy",
             ])),
             (ident: "NoMedium", nested: None),
@@ -554,9 +531,6 @@
 ], ext_crates: [
     (crate_id: "ww_block", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-    (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
-    Some((line: 1, revision: 0)),
-    None,
-    Some((line: 1, revision: 0)),
+], root_omitted: None, wire: Some((line: 2, revision: 0)), ext_wire: Some([
+    Some((line: 2, revision: 0)),
 ]))

@@ -6,8 +6,9 @@ level: basic
 
 A call to a device can fail in three different ways, and WireWeaver keeps them apart all the way to your code:
 
-- **The device said no.** The method ran and returned its own error: an I2C address wasn't acknowledged, a pin is in
-  use. This is the `E` of a method returning `Result<T, E>`, a normal ShrinkWrap value.
+- **The device said no.** The method ran and returned its own error: an I2C address wasn't acknowledged. This is
+  the `E` of a method returning `Result<T, E>`, a normal ShrinkWrap value. Or it refused with one of the
+  [common errors](#common-errors) every item can return: a pin is in use, the device is busy.
 - **The device can't do this at all.** There is no implementation: the handler answered `Unimplemented`, or the
   device left an [optional item](#optional-items) out.
 - **The call didn't go through.** The link dropped, the request timed out, the device was disconnected.
@@ -23,14 +24,12 @@ A method that can fail returns `Result<T, E>`, where `E` is the error enum of it
 #[ww_trait]
 pub trait I2c {
     /// Writes `data` to the device at `addr`.
-    #[errors(Common, Nack, Arbitration, Timeout, BufferTooBig)]
-    fn i2c_write(addr: u8, data: MaxLen<RefVec<'i, u8>, MAX_WRITE_LEN>) -> Result<(), I2cError<'i>>;
+    #[errors(CommonError, Nack, Arbitration, Timeout, BufferTooBig)]
+    fn i2c_write(addr: u8, data: MaxLen<RefVec<'i, u8>, MAX_WRITE_LEN>) -> Result<(), I2cError>;
 }
 
-#[derive_shrink_wrap(owned(feature = "std"), derive(Debug, PartialEq, Eq, Clone), display, ww_repr = unib32)]
-pub enum I2cError<'i> {
-    #[common]
-    Common(CommonError<'i>),
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Debug, PartialEq, Eq, Clone), display, ww_repr = unib32)]
+pub enum I2cError {
     /// The address or a data byte was not acknowledged.
     Nack,
     /// Arbitration lost to another master.
@@ -40,18 +39,21 @@ pub enum I2cError<'i> {
     /// The transfer is longer than the device can buffer ({max} bytes).
     BufferTooBig { max: u16 },
 }
+
+ww_api::api_error!(I2cError);
 ```
 
 Use **one error enum per crate** (or per group of traits, when a crate's traits really fail for unrelated reasons).
 The same type is used on the wire, in the device's handlers and in the client, so device code can share helpers and
-`?` them anywhere, and a driver crate converts it into its own error with a single `#[from]`.
+`?` them anywhere, and a driver crate converts it into its own error with a single `#[from]`. `api_error!` lets a
+handler `?` the enum into `wire_weaver::Error<'_, E>`, the type every handler of a `Result` method returns (see
+[Common errors](#common-errors)). A method that can only fail with common errors needs no `Result` at all.
 
 ### Which errors a method returns
 
-`#[errors(..)]` lists the variants a method can actually return. For a variant holding one enum, such as
-`Common(CommonError)`, the entry names the variants of that one: `Common(InUse, Refused)`; `Common` alone means any
-`CommonError`. The list is checked when the trait is parsed, so an unknown or repeated name is a compile error on
-that name.
+`#[errors(..)]` lists the errors a method can actually return: the variants of its error enum, and the common
+errors as one `CommonError(InUse, Refused)` entry; `CommonError` alone means any common error. The list is checked
+when the trait is parsed, so an unknown or repeated name is a compile error on that name.
 
 The list doesn't change the type or the wire; it goes into the API model, and from there:
 
@@ -64,28 +66,30 @@ The list doesn't change the type or the wire; it goes into the API model, and fr
   `wire_weaver_client::set_strict_error_lists(true)` makes it a panic instead; the test harness
   (`tests_common`) turns that on.
 
-A method without `#[errors]` may return any variant of its error enum.
+A method without `#[errors]` may return any variant of its error enum and any common error. A list without a
+`CommonError` entry says nothing about common errors.
 
-Stream functions and properties take the same list, with the same outputs. On a stream function
-(`#[stream(..)] fn`, API-31) it is about the `Err` of its `Result`, which opening the stream answers; the client checks
-the open's result. Above a `property!` with an error type (`property!(rw mode: Mode, ModeError)`) it is about that
-type: a property has one error type for reading and writing, so one list covers both. The generated client checks
-writes (its reads return the error as raw bytes), the dynamic client reads and writes.
+Stream functions and properties take the same list, with the same outputs, also when they have no error type of
+their own (then only common errors can be listed). On a stream function (`#[stream(..)] fn`, API-31) it is about
+the `Err` of its `Result` and the common errors the open answers with; the client checks the open's result. Above a
+`property!` with an error type (`property!(rw mode: Mode, ModeError)`) it is about that type: a property has one
+error type for reading and writing, so one list covers both. The generated client checks writes (its reads return
+the error as raw bytes), the dynamic client reads and writes.
 
 ```rust
 #[ww_trait]
 pub trait I2cMonitor {
-    #[errors(Common(InUse, Unsupported))]
+    #[errors(CommonError(InUse, Unsupported))]
     #[stream(I2cRecord<'i>, counted)]
-    fn records(io_level: Option<Volt>) -> Result<(), I2cError<'i>>;
+    fn records(io_level: Option<Volt>) -> Result<(), I2cError>;
 
-    #[errors(Common(Unsupported, Busy))]
-    property!(rw speed_hz: u32, I2cError<'i>);
+    #[errors(CommonError(Unsupported, Busy))]
+    property!(rw speed_hz: u32, I2cError);
 }
 ```
 
-[`ww_error`](../std_library/ww_error.md#which-errors-a-method-returns) walks through the `Common(..)` nesting and
-real examples from `ww_stdlib`.
+[`ww_error`](../std_library/ww_error.md#which-errors-a-method-returns) walks through the `CommonError(..)` entry
+and real examples from `ww_stdlib`.
 
 ### Messages from doc comments
 
@@ -99,8 +103,8 @@ hand-written `Display` for any API error.
 ## Common errors
 
 Some situations come up in almost every crate: the device doesn't support a mode, a resource is in use by something
-else, the device is busy. These are `ww_error::CommonError` (also in `ww_api::prelude`), nested as the first
-variant of a crate's error enum and marked `#[common]`:
+else, the device is busy. These are `ww_error::CommonError` (also in `ww_api::prelude`), and every item can return
+them, whether or not it has an error type of its own: they are not a variant of the crate's error enum.
 
 | Variant | Meaning |
 |---|---|
@@ -116,8 +120,11 @@ variant of a crate's error enum and marked `#[common]`:
 
 Strings are bounded and may be empty, so a device short on flash sends `""`.
 
-On the device, `#[common]` gives the crate error a `From<CommonError>`, so a helper returning `CommonError` can be
-`?`-ed into any crate's error:
+On the device, a handler of a method returning `Result<T, E>` returns `Result<T, wire_weaver::Error<'_, E>>`:
+`Error::Common(CommonError)` or `Error::Api(E)`. `?` takes a `CommonError` from any helper, and the crate's own
+error through its `api_error!`. A handler of a method without a `Result` returns `T`, or `Result<T, CommonError<'_>>`
+when it can refuse; properties the same way (`GetResult<T, wire_weaver::Error<'_, E>>`, `SetResult<CommonError<'_>>`,
+...), and `ww api scaffold` prints the signatures:
 
 ```rust
 fn check_level(&self) -> Result<(), CommonError<'static>> {
@@ -127,9 +134,11 @@ fn check_level(&self) -> Result<(), CommonError<'static>> {
     Ok(())
 }
 
-fn write(&mut self, addr: u8, data: &[u8]) -> Result<(), I2cError<'static>> {
-    self.check_level()?; // CommonError becomes I2cError::Common
-    // ...
+fn write(&mut self, addr: u8, data: &[u8]) -> Result<(), wire_weaver::Error<'static, I2cError>> {
+    self.check_level()?; // a CommonError
+    if !self.acked(addr) {
+        Err(I2cError::Nack)?; // the API's own error
+    }
     Ok(())
 }
 
@@ -138,15 +147,20 @@ async fn i2c_write(
     _cx: &mut Context<'_, impl EventOut>,
     addr: u8,
     data: MaxLen<RefVec<'_, u8>, MAX_WRITE_LEN>,
-) -> RpcResult<Result<(), I2cError<'_>>> {
+) -> RpcResult<Result<(), wire_weaver::Error<'_, I2cError>>> {
     Ready(self.write(addr, data.as_slice()))
 }
 ```
 
-On the host, `e.common()` (trait `HasCommon`, in the prelude) works on any crate's error, for example on
-`call_error.device()`, so generic code (a GUI, a `_hl` crate) handles the common cases without knowing the crate.
-Tools recognise `CommonError` by its type in the API model: `ww api tree -t` marks it, and in Python
-`RemoteError.common` holds the variant and its fields next to `.value`.
+On the wire, the API's own error is the `Err` of the method's `Result` in the reply's value, as before; a common
+error is an error event of the protocol (`ww_client_server::ErrorKind::Common`, STD-16) at the item's handler site,
+the same for a method, a property, a stream function, and for the hub refusing a claimed resource. `Error<E>` is
+protocol-neutral: another dispatcher sends `Common` as its own protocol's common error.
+
+On the host, `CallError::Common(CommonErrorOwned)` is the call's error, and `common()` on `CallError<E>` and on
+`wire_weaver_client::Error` gives the common error of any item without a match, so generic code (a GUI, a `_hl`
+crate) handles the common cases without knowing the crate. Tools read the same event: in Python `RemoteError.common`
+holds the variant and its fields (`.value` is `None` then), `ww` prints its text.
 
 Keep a crate-specific variant when a caller should act on exactly that case: `Nack` for I2C, an `UnsupportedSpeed`
 that carries the supported range.
@@ -159,6 +173,8 @@ For a method returning `Result<T, E>`, `call()`, `blocking_call()` and promises 
 pub enum CallError<E> {
     /// The device answered with its error: the `Err(e)` of the method.
     Device(E),
+    /// The device refused with a common error (`Busy`, `InUse`, ...), or the hub did for a claimed resource.
+    Common(CommonErrorOwned),
     /// The device has no implementation of this item.
     Unimplemented { resource: String },
     /// The call didn't go through: link, timeout, disconnect or another framework error.
@@ -180,7 +196,7 @@ async fn script(dev: &Board) -> anyhow::Result<()> {
 #[derive(Debug, thiserror::Error)]
 enum SensorError {
     #[error(transparent)]
-    I2c(#[from] CallError<I2cErrorOwned>),
+    I2c(#[from] CallError<I2cError>),
     #[error("unexpected chip id {0:#x}")]
     ChipId(u8),
 }
@@ -188,14 +204,15 @@ enum SensorError {
 // handling one case: retry while an EEPROM is busy with a page write
 loop {
     match dev.i2c().i2c_write(0x50, data.clone()).call().await {
-        Err(CallError::Device(I2cErrorOwned::Nack)) => continue,
+        Err(CallError::Device(I2cError::Nack)) => continue,
         other => break other?,
     }
 }
 ```
 
 Methods without a `Result` return `Result<T, wire_weaver_client::Error>`; `is_unimplemented()` on it answers the same
-"can the device do this at all" question. Python already flattens all of this: a call returns `T` or raises.
+"can the device do this at all" question, `common()` gives the common error the device refused with. Python already
+flattens all of this: a call returns `T` or raises.
 
 ## Unsupported is not Unimplemented
 
@@ -246,8 +263,8 @@ reader doesn't know instead of failing to decode the whole reply:
 
 ```rust
 match e {
-    CallError::Device(I2cErrorOwned::Nack) => { /* ... */ }
-    CallError::Device(I2cErrorOwned::Unknown(n)) => warn!("device error {n} from a newer firmware"),
+    CallError::Device(I2cError::Nack) => { /* ... */ }
+    CallError::Device(I2cError::Unknown(n)) => warn!("device error {n} from a newer firmware"),
     // ...
 }
 ```
@@ -274,7 +291,7 @@ that lacks them leaves them out at code generation, paying neither a dispatch en
 pub trait I2c {
     /// Clocks SCL until SDA is released, then a stop.
     #[optional]
-    fn i2c_wiggle_clock(count: u8) -> Result<I2cLinesState, I2cError<'i>>;
+    fn i2c_wiggle_clock(count: u8) -> Result<I2cLinesState, I2cError>;
 }
 
 // a device without it

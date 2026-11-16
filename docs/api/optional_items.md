@@ -13,14 +13,14 @@ apart from a device's own errors.
 ```rust
 #[ww_trait]
 pub trait I2c {
-    fn i2c_configure(config: I2cConfig) -> Result<I2cConfig, I2cError<'i>>;
+    fn i2c_configure(config: I2cConfig) -> Result<I2cConfig, I2cError>;
     // ...
     /// Clocks SCL until SDA is released, then a stop.
     #[optional]
-    fn i2c_wiggle_clock(count: u8) -> Result<I2cLinesState, I2cError<'i>>;
+    fn i2c_wiggle_clock(count: u8) -> Result<I2cLinesState, I2cError>;
     /// Switchable pull-ups: both items or neither.
     #[optional(pullups)]
-    fn i2c_set_pullups(enabled: bool) -> Result<(), I2cError<'i>>;
+    fn i2c_set_pullups(enabled: bool) -> Result<(), I2cError>;
     #[optional(pullups)]
     property!(ro i2c_pullups: bool);
 }

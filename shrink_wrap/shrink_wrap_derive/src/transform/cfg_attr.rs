@@ -21,7 +21,6 @@ const READ: &[&str] = &[
     "series",
     "slot",
     "since",
-    "common",
     "display",
     "future_version",
 ];

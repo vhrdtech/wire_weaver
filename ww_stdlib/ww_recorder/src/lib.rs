@@ -97,7 +97,7 @@ pub trait Recorder {
     ///
     /// `Common(Busy)` while a format is running, `NoCard`.
     #[optional(formatting)]
-    #[errors(Common(Busy, Unsupported), NoCard)]
+    #[errors(CommonError(Busy, Unsupported), NoCard)]
     fn prepare_format(action: FormatAction) -> Result<FormatOffer<'i>, RecorderError<'i>>;
 
     /// Second step: carries out the offer. `rw_mb` is the size of the read-write region for a full format (`None`:
@@ -110,7 +110,7 @@ pub trait Recorder {
     /// `BadToken` for an expired, used or other card's token, `Common(InvalidArgument)` for an `rw_mb` outside the
     /// offer's limits, `CardFailed` when the check finds a fake or broken card (nothing is formatted then).
     #[optional(formatting)]
-    #[errors(Common(Busy, InvalidArgument), NoCard, BadToken, CardFailed)]
+    #[errors(CommonError(Busy, InvalidArgument), NoCard, BadToken, CardFailed)]
     fn format(token: FormatToken, rw_mb: Option<Mebibytes<u32>>) -> Result<(), RecorderError<'i>>;
 
     /// Starts a recording: a labelled span of the log. Everything is logged all the time in the default
@@ -120,7 +120,11 @@ pub trait Recorder {
     ///
     /// `NotLogging` without a mounted ring, `RecordingRunning` while one is open.
     #[optional(recording)]
-    #[errors(Common(Unsupported, InvalidArgument), NotLogging, RecordingRunning)]
+    #[errors(
+        CommonError(Unsupported, InvalidArgument),
+        NotLogging,
+        RecordingRunning
+    )]
     fn recording_start(
         trigger: Trigger,
         pre_trigger: Secs<u16>,
@@ -142,7 +146,7 @@ pub trait Recorder {
     /// Drops a marker into the system track: a moment to find again (a button press, a note, a trigger). Written
     /// at once, not with the next flush.
     #[optional(markers)]
-    #[errors(Common(InvalidArgument), NotLogging)]
+    #[errors(CommonError(InvalidArgument), NotLogging)]
     fn marker(
         kind: MarkerKind,
         label: MaxLen<&'i str, MAX_LABEL>,
@@ -155,7 +159,7 @@ pub trait Recorder {
     fn sync() -> Result<(), RecorderError<'i>>;
 
     /// Settings: flush thresholds, full policy, recording mode, USB view. Each field says when it takes effect.
-    #[errors(Common(InvalidArgument, Unsupported))]
+    #[errors(CommonError(InvalidArgument, Unsupported))]
     property!(rw settings: Settings, RecorderError<'i>);
 
     /// Totals since the card was formatted and since this boot.
@@ -166,6 +170,6 @@ pub trait Recorder {
     /// mounts it, so new data shows only after a re-mount; this raises a media change instead. Optional: a device
     /// without a USB view leaves it out.
     #[optional(usb)]
-    #[errors(Common(Unsupported, Busy))]
+    #[errors(CommonError(Unsupported, Busy))]
     fn refresh_usb() -> Result<(), RecorderError<'i>>;
 }

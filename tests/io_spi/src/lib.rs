@@ -11,8 +11,8 @@ mod tests {
     use ww_numeric::NumericValue;
     use ww_si::{Fixed, Index, Prefix, Second};
     use ww_spi::{
-        BitOrder, Byte, CsMode, SpiCapabilities, SpiConfig, SpiError, SpiErrorOwned, SpiFrame,
-        SpiMode, SpiMonitorConfig, SpiOp, SpiRole, SpiSlaveAnswers, SpiSlaveConfig, Volt,
+        BitOrder, Byte, CsMode, SpiCapabilities, SpiConfig, SpiError, SpiFrame, SpiMode,
+        SpiMonitorConfig, SpiOp, SpiRole, SpiSlaveAnswers, SpiSlaveConfig, Volt,
     };
     use ww_stream::tx::Counted;
 
@@ -28,7 +28,7 @@ mod tests {
         Second::from_parts(prefix, NumericValue::U32(value))
     }
 
-    fn wrong_state() -> SpiError<'static> {
+    fn wrong_state() -> wire_weaver::Error<'static, SpiError> {
         CommonError::WrongState {
             reason: MaxLen::new_unchecked("not a master"),
         }
@@ -96,8 +96,12 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 data: MaxLen<RefVec<'_, u8>, { ww_spi::SPI_MAX }>,
-            ) -> RpcResult<Result<MaxLen<RefVec<'_, u8>, { ww_spi::SPI_MAX }>, SpiError<'_>>>
-            {
+            ) -> RpcResult<
+                Result<
+                    MaxLen<RefVec<'_, u8>, { ww_spi::SPI_MAX }>,
+                    wire_weaver::Error<'_, SpiError>,
+                >,
+            > {
                 let master = matches!(
                     self.data.lock().unwrap().configured.map(|c| c.role),
                     Some(SpiRole::Master)
@@ -107,7 +111,7 @@ mod tests {
                 }
                 let bytes = data.into_inner().as_slice().to_vec();
                 if bytes.len() > MAX_LEN {
-                    return Ready(Err(SpiError::BufferTooBig));
+                    return Ready(Err(SpiError::BufferTooBig.into()));
                 }
                 // loopback: the mock peripheral echoes back what it was sent
                 Ready(Ok(MaxLen::new(leak_bytes(bytes)).unwrap()))
@@ -117,8 +121,12 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 ops: MaxLen<RefVec<'_, SpiOp<'_>>, { ww_spi::MAX_OPS }>,
-            ) -> RpcResult<Result<MaxLen<RefVec<'_, u8>, { ww_spi::SPI_MAX }>, SpiError<'_>>>
-            {
+            ) -> RpcResult<
+                Result<
+                    MaxLen<RefVec<'_, u8>, { ww_spi::SPI_MAX }>,
+                    wire_weaver::Error<'_, SpiError>,
+                >,
+            > {
                 let master = matches!(
                     self.data.lock().unwrap().configured.map(|c| c.role),
                     Some(SpiRole::Master)
@@ -149,7 +157,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 data: MaxLen<RefVec<'_, u8>, { ww_spi::SPI_MAX }>,
-            ) -> RpcResult<Result<(), SpiError<'_>>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, SpiError>>> {
                 let master = matches!(
                     self.data.lock().unwrap().configured.map(|c| c.role),
                     Some(SpiRole::Master)
@@ -184,7 +192,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 config: SpiConfig,
-            ) -> RpcResult<Result<SpiConfig, SpiError<'_>>> {
+            ) -> RpcResult<Result<SpiConfig, wire_weaver::Error<'_, SpiError>>> {
                 if config.word.get() != 8 {
                     return Ready(Err(CommonError::InvalidArgument {
                         arg: Index::new(0),
@@ -210,7 +218,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 active: bool,
-            ) -> RpcResult<Result<(), SpiError<'_>>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, SpiError>>> {
                 let mut model = self.data.lock().unwrap();
                 let manual = matches!(model.configured.map(|c| c.cs), Some(CsMode::Manual));
                 if !manual {
@@ -224,7 +232,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 config: SpiMonitorConfig,
-            ) -> RpcResult<Result<(), SpiError<'_>>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, SpiError>>> {
                 if config.word.get() != 8 {
                     return Ready(Err(CommonError::Unsupported.into()));
                 }
@@ -414,10 +422,7 @@ mod tests {
             .transfer(MaxLen::new(too_long).unwrap())
             .call()
             .await;
-        assert_eq!(
-            err.unwrap_err().device(),
-            Some(&SpiErrorOwned::BufferTooBig)
-        );
+        assert_eq!(err.unwrap_err().device(), Some(&SpiError::BufferTooBig));
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -460,8 +465,8 @@ mod tests {
 
         let err = client.spi().set_cs(true).call().await;
         assert!(matches!(
-            err.unwrap_err().device(),
-            Some(SpiErrorOwned::Common(CommonErrorOwned::WrongState { .. }))
+            err.unwrap_err().common(),
+            Some(CommonErrorOwned::WrongState { .. })
         ));
 
         client
@@ -496,8 +501,8 @@ mod tests {
         };
         let err = client.spi().configure(at_5v).call().await;
         assert!(matches!(
-            err.unwrap_err().device(),
-            Some(SpiErrorOwned::Common(CommonErrorOwned::Unsupported))
+            err.unwrap_err().common(),
+            Some(CommonErrorOwned::Unsupported)
         ));
         let configured = data.lock().unwrap().configured.unwrap();
         assert_eq!(configured.io_level, Some(volt(3300)));
@@ -513,12 +518,15 @@ mod tests {
             word: Fixed::new(word),
             io_level: None,
         };
-        let r = client.spi().monitor(config(9)).call().await.unwrap();
-        assert!(
-            matches!(r, Err(SpiErrorOwned::Common(CommonErrorOwned::Unsupported))),
-            "{:?}",
-            r.err()
-        );
+        // a common error of a stream function with an error type of its own: the open's error, not its `Err`
+        let e = client
+            .spi()
+            .monitor(config(9))
+            .call()
+            .await
+            .err()
+            .expect("a 9-bit word is refused");
+        assert_eq!(e.common(), Some(&CommonErrorOwned::Unsupported));
 
         let ((), mut stream) = client
             .spi()
@@ -573,7 +581,7 @@ mod tests {
         const EV: usize = 8;
         const REC: usize = 16;
 
-        fn wrong_state() -> SpiError<'static> {
+        fn wrong_state() -> wire_weaver::Error<'static, SpiError> {
             CommonError::WrongState {
                 reason: MaxLen::new_unchecked("slave-only mock"),
             }
@@ -627,8 +635,12 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 _data: MaxLen<RefVec<'_, u8>, { ww_spi::SPI_MAX }>,
-            ) -> RpcResult<Result<MaxLen<RefVec<'_, u8>, { ww_spi::SPI_MAX }>, SpiError<'_>>>
-            {
+            ) -> RpcResult<
+                Result<
+                    MaxLen<RefVec<'_, u8>, { ww_spi::SPI_MAX }>,
+                    wire_weaver::Error<'_, SpiError>,
+                >,
+            > {
                 Ready(Err(wrong_state()))
             }
 
@@ -636,8 +648,12 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 _ops: MaxLen<RefVec<'_, SpiOp<'_>>, { ww_spi::MAX_OPS }>,
-            ) -> RpcResult<Result<MaxLen<RefVec<'_, u8>, { ww_spi::SPI_MAX }>, SpiError<'_>>>
-            {
+            ) -> RpcResult<
+                Result<
+                    MaxLen<RefVec<'_, u8>, { ww_spi::SPI_MAX }>,
+                    wire_weaver::Error<'_, SpiError>,
+                >,
+            > {
                 Ready(Err(wrong_state()))
             }
 
@@ -645,7 +661,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 _data: MaxLen<RefVec<'_, u8>, { ww_spi::SPI_MAX }>,
-            ) -> RpcResult<Result<(), SpiError<'_>>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, SpiError>>> {
                 Ready(Err(wrong_state()))
             }
 
@@ -670,7 +686,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 config: SpiConfig,
-            ) -> RpcResult<Result<SpiConfig, SpiError<'_>>> {
+            ) -> RpcResult<Result<SpiConfig, wire_weaver::Error<'_, SpiError>>> {
                 match config.role {
                     SpiRole::Disabled => Ready(Ok(SpiConfig {
                         role: SpiRole::Disabled,
@@ -685,7 +701,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 _active: bool,
-            ) -> RpcResult<Result<(), SpiError<'_>>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, SpiError>>> {
                 Ready(Err(wrong_state()))
             }
 
@@ -709,7 +725,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 config: SpiSlaveConfig,
-            ) -> RpcResult<Result<(), SpiError<'_>>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, SpiError>>> {
                 Ready(self.engine.configure(&config).map_err(Into::into))
             }
 
@@ -726,7 +742,7 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 offset: Index<Byte, u32>,
                 data: MaxLen<RefVec<'_, u8>, { ww_spi::SPI_MAX }>,
-            ) -> RpcResult<Result<(), SpiError<'_>>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, SpiError>>> {
                 Ready(
                     self.engine
                         .map_write(offset.get(), data.as_slice())
@@ -739,11 +755,15 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 offset: Index<Byte, u32>,
                 len: Fixed<Byte, ww_si::prefix::One, u16>,
-            ) -> RpcResult<Result<MaxLen<RefVec<'_, u8>, { ww_spi::SPI_MAX }>, SpiError<'_>>>
-            {
+            ) -> RpcResult<
+                Result<
+                    MaxLen<RefVec<'_, u8>, { ww_spi::SPI_MAX }>,
+                    wire_weaver::Error<'_, SpiError>,
+                >,
+            > {
                 let len = len.get() as usize;
                 if len > self.map_scratch.len() {
-                    return Ready(Err(SpiError::BufferTooBig));
+                    return Ready(Err(SpiError::BufferTooBig.into()));
                 }
                 match self
                     .engine

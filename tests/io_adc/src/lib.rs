@@ -133,12 +133,12 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 channel: Index<Channel, u8>,
-            ) -> RpcResult<Result<Reading, AdcError<'_>>> {
+            ) -> RpcResult<Result<Reading, wire_weaver::Error<'_, AdcError>>> {
                 if self.busy() {
                     return Ready(Err(CommonError::Busy.into()));
                 }
                 let Some(ch) = self.channels.get(channel.get() as usize) else {
-                    return Ready(Err(AdcError::NoSuchChannel));
+                    return Ready(Err(AdcError::NoSuchChannel.into()));
                 };
                 let (raw, value) = if ch.calibrated {
                     // half scale
@@ -169,7 +169,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 config: StreamConfig<'_>,
-            ) -> RpcResult<Result<StreamActual, AdcError<'_>>> {
+            ) -> RpcResult<Result<StreamActual, wire_weaver::Error<'_, AdcError>>> {
                 if self.busy() {
                     return Ready(Err(CommonError::Busy.into()));
                 }
@@ -180,7 +180,7 @@ mod tests {
                     .unwrap();
                 for ch in &channels {
                     if ch.get() as usize >= self.channels.len() {
-                        return Ready(Err(AdcError::NoSuchChannel));
+                        return Ready(Err(AdcError::NoSuchChannel.into()));
                     }
                 }
                 if channels.len() as u8 > self.channels.len() as u8 {
@@ -282,14 +282,14 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 config: CaptureConfig<'_>,
-            ) -> RpcResult<Result<CaptureActual, AdcError<'_>>> {
+            ) -> RpcResult<Result<CaptureActual, wire_weaver::Error<'_, AdcError>>> {
                 if self.stream.running {
                     return Ready(Err(CommonError::Busy.into()));
                 }
                 for ch in config.channels.iter() {
                     let ch = ch.unwrap();
                     if ch.get() as usize >= self.channels.len() {
-                        return Ready(Err(AdcError::NoSuchChannel));
+                        return Ready(Err(AdcError::NoSuchChannel.into()));
                     }
                 }
                 if !matches!(config.format, SampleFormat::U8 | SampleFormat::U16) {
@@ -353,8 +353,12 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 offset: Index<Byte, u32>,
                 len: Bytes<u16>,
-            ) -> RpcResult<Result<MaxLen<RefVec<'_, u8>, MAX_CAPTURE_READ_LEN>, AdcError<'_>>>
-            {
+            ) -> RpcResult<
+                Result<
+                    MaxLen<RefVec<'_, u8>, MAX_CAPTURE_READ_LEN>,
+                    wire_weaver::Error<'_, AdcError>,
+                >,
+            > {
                 if !matches!(self.capture.status, CaptureStatus::Done { .. }) {
                     return Ready(Err(CommonError::WrongState {
                         reason: MaxLen::new_unchecked(""),
@@ -498,7 +502,7 @@ mod tests {
 
         assert_eq!(
             adc.read(Index::new(9)).call().await.unwrap_err().device(),
-            Some(&AdcErrorOwned::NoSuchChannel)
+            Some(&AdcError::NoSuchChannel)
         );
     }
 
@@ -517,15 +521,15 @@ mod tests {
             format,
             flush_interval: None,
         };
-        let r = adc_stream
+        let e = adc_stream
             .samples(config(SampleFormat::I24))
             .call()
             .await
-            .unwrap();
+            .err()
+            .expect("refused");
         assert!(
-            matches!(r, Err(AdcErrorOwned::Common(CommonErrorOwned::Unsupported))),
-            "{:?}",
-            r.err()
+            matches!(e.common(), Some(CommonErrorOwned::Unsupported)),
+            "{e:?}"
         );
 
         let (actual, mut samples) = adc_stream
@@ -544,8 +548,8 @@ mod tests {
                 .call()
                 .await
                 .unwrap_err()
-                .device(),
-            Some(&AdcErrorOwned::Common(CommonErrorOwned::Busy))
+                .common(),
+            Some(&CommonErrorOwned::Busy)
         );
 
         match samples.recv_event().await.unwrap() {
@@ -608,10 +612,8 @@ mod tests {
                 .call()
                 .await
                 .unwrap_err()
-                .device(),
-            Some(AdcErrorOwned::Common(
-                CommonErrorOwned::InvalidArgument { .. }
-            ))
+                .common(),
+            Some(CommonErrorOwned::InvalidArgument { .. })
         ));
 
         adc_capture.capture_abort().call().await.unwrap();
@@ -621,8 +623,8 @@ mod tests {
                 .call()
                 .await
                 .unwrap_err()
-                .device(),
-            Some(AdcErrorOwned::Common(CommonErrorOwned::WrongState { .. }))
+                .common(),
+            Some(CommonErrorOwned::WrongState { .. })
         ));
     }
 

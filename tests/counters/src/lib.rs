@@ -46,8 +46,7 @@ mod tests {
         use tests_common::TestProcessEvents;
         use wire_weaver::BlockingEventOut;
         use ww_counters::{
-            BufferInfo, CountersError, CountersInfo, Index, MAX_WORDS, Word, read_words,
-            reset_words,
+            BufferInfo, CountersInfo, Index, MAX_WORDS, Word, read_words, reset_words,
         };
 
         pub struct Server {
@@ -69,13 +68,13 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 buffer: CounterBuffer,
                 offset: Index<Word, u16>,
-            ) -> RpcResult<Result<MaxLen<RefVec<'_, UVlq32>, 64>, CountersError<'_>>> {
+            ) -> RpcResult<Result<MaxLen<RefVec<'_, UVlq32>, 64>, CommonError<'_>>> {
                 let buffers = self.buffers.clone();
                 let (words, used) = match buffer {
                     CounterBuffer::Ram => (&buffers.ram[..], buffers.ram_used),
                     CounterBuffer::Backup => match &buffers.bkp {
                         Some(bkp) => (&bkp[..], BKP_USED),
-                        None => return RpcResult::Ready(Err(CountersError::unsupported())),
+                        None => return RpcResult::Ready(Err(CommonError::Unsupported)),
                     },
                 };
                 RpcResult::Ready(read_words(words, used, offset.get(), &mut self.scratch))
@@ -85,13 +84,13 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 buffer: CounterBuffer,
-            ) -> RpcResult<Result<(), CountersError<'_>>> {
+            ) -> RpcResult<Result<(), CommonError<'_>>> {
                 match self.buffer(buffer) {
                     Some((words, _)) => {
                         reset_words(words);
                         RpcResult::Ready(Ok(()))
                     }
-                    None => RpcResult::Ready(Err(CountersError::unsupported())),
+                    None => RpcResult::Ready(Err(CommonError::Unsupported)),
                 }
             }
         }

@@ -80,13 +80,13 @@ model without generated code:
   without the owning crate's name, for display in a tool.
 * `TypeOwned::is_lifetime` / `is_unsized` / `is_byte_slice` / `max_len` - what the type needs structurally (does it
   borrow, is its size written to the FIFO, is it `Vec<u8>`/`MaxLen<Vec<u8>, N>`, what bound a `MaxLen` carries).
-* `TypeOwned::is_common_error` / `ValueOwned::common_error` / `doc_message` - recognise `ww_error::CommonError`
-  (by crate and type name, any version, even when its definition was left out) inside an API's own error enum, and
-  turn an error variant's first doc line into a message with its fields filled in (`doc_message`, used for
-  `Display` on generated error types; `fill` in `ww_self::common` does the `{field}` substitution).
+* `ValueOwned::doc_message` - turn an error variant's first doc line into a message with its fields filled in
+  (used for `Display` on generated error types; `fill` in `ww_self::common` does the `{field}` substitution). A
+  common error (STD-16) is no type of the model: tools read it from the protocol's error event.
 * `ww_self::errors` - per-method `#[errors(..)]` lists (API-32): `ApiItemKindOwned::error_list`,
-  `error_list_docs` (one doc line per entry, `"any CommonError"` for a bare `Common`), `error_list_contains`
-  (whether a returned error value matches the list), `error_value_name`.
+  `error_list_docs` (one doc line per entry, a common error's from `CommonError::DOCS`, `"any common error"` for a
+  bare `CommonError`), `error_list_contains` (whether a returned error value matches the list),
+  `error_list_allows_common` (whether a common error does), `error_value_name`.
 * `ApiItemKindOwned::as_stream_fn` / `as_stream` - see any device-to-host stream (a plain `stream!`, a `#[stream]`
   method, or a `StreamFn`) uniformly as a `StreamFnRef` (item type, `Delivery`, arguments, return type), or as a
   stream/sink with its direction and flow control.

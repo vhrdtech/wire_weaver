@@ -12,7 +12,7 @@ use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 use syn::{LitStr, Path};
-use ww_self::errors::{error_list_docs, fmt_error_list, method_err_ty};
+use ww_self::errors::{COMMON_ENTRY, error_list_docs, fmt_error_list, method_err_ty};
 use ww_self::{
     ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, ArgumentOwned, Batching, Delivery,
     ErrorVariantOwned, FieldsOwned, FlowControl, Multiplicity, PropertyAccess, StreamFnRef,
@@ -870,21 +870,10 @@ fn handle_method(
     let path_kind = path_kind(path_mode, gid_paths);
     let mut docs = docs.to_vec();
     let mut with_error_list = quote! {};
-    if let Some(errors) = errors
-        && let Some(err_ty) = method_err_ty(return_type.as_ref(), api_bundle)
-    {
+    if let Some(errors) = errors {
+        let err_ty = method_err_ty(return_type.as_ref(), api_bundle);
         docs.extend(error_list_doc(errors, err_ty, api_bundle));
-        let listed = error_list_patterns(errors, err_ty, api_bundle);
-        let names = fmt_error_list(errors);
-        with_error_list = quote! {
-            .with_error_list(wire_weaver_client::ErrorList {
-                listed: |e| match e {
-                    wire_weaver_client::CallError::Device(e) => matches!(e, #listed),
-                    _ => true,
-                },
-                names: #names,
-            })
-        };
+        with_error_list = with_error_list_call(errors, err_ty, api_bundle);
     }
     let docs = docs.iter().map(|s| quote! { #[doc = #s] });
     quote! {
@@ -898,11 +887,43 @@ fn handle_method(
     }
 }
 
+/// `.with_error_list(..)` of a call or a write from its `#[errors(..)]` list (API-32): the API's own errors are
+/// checked against the list's entries when the item has an error type `err_ty` (`CallError::Device`), the common
+/// errors against its `CommonError(..)` entry (STD-16).
+fn with_error_list_call(
+    errors: &[ErrorVariantOwned],
+    err_ty: Option<&TypeOwned>,
+    api_bundle: &CodegenBundle,
+) -> TokenStream {
+    let (api, common) = error_list_patterns(errors, err_ty, api_bundle);
+    let names = fmt_error_list(errors);
+    // an item without an error type of its own fails with `Error`, not `CallError`: its own method
+    let (with, listed) = match api {
+        Some(api) => (
+            quote! { with_error_list },
+            quote! {
+                |e| match e {
+                    wire_weaver_client::CallError::Device(e) => #api,
+                    _ => true,
+                }
+            },
+        ),
+        None => (quote! { with_common_error_list }, quote! { |_| true }),
+    };
+    quote! {
+        .#with(wire_weaver_client::ErrorList {
+            listed: #listed,
+            common: #common,
+            names: #names,
+        })
+    }
+}
+
 /// `# Errors` section of a method's, stream function's or property write's docs from its `#[errors(..)]` list
 /// (API-32), each entry with its variant's doc line.
 fn error_list_doc(
     errors: &[ErrorVariantOwned],
-    err_ty: &TypeOwned,
+    err_ty: Option<&TypeOwned>,
     api_bundle: &CodegenBundle,
 ) -> Vec<String> {
     let mut docs = vec![String::new(), "# Errors".into(), String::new()];
@@ -915,20 +936,36 @@ fn error_list_doc(
     docs
 }
 
-/// Patterns of the listed variants of `err_ty` (API-32), for a `matches!` in `.with_error_list(..)`, so that the
-/// client warns when a device returns another one.
+/// The checks of an `#[errors(..)]` list (API-32), so that the client warns when a device returns an error outside
+/// it: a `matches!` over the listed variants of the item's error type `err_ty` (`None` without one), and a closure
+/// over `CommonErrorOwned` for the list's `CommonError(..)` entry (STD-16; every common error passes without one).
 fn error_list_patterns(
     errors: &[ErrorVariantOwned],
-    err_ty: &TypeOwned,
+    err_ty: Option<&TypeOwned>,
     api_bundle: &CodegenBundle,
-) -> TokenStream {
+) -> (Option<TokenStream>, TokenStream) {
+    let common = match errors.iter().find(|e| e.ident == COMMON_ENTRY) {
+        Some(ErrorVariantOwned {
+            nested: Some(nested),
+            ..
+        }) => {
+            let names = nested.iter().map(|n| Ident::new(n, Span::call_site()));
+            quote! {
+                |c| matches!(c, #(wire_weaver_client::ww_error::CommonErrorOwned::#names { .. })|*)
+            }
+        }
+        _ => quote! { |_| true },
+    };
+    let Some(err_ty) = err_ty else {
+        return (None, common);
+    };
     let err_path = ty_def(api_bundle, err_ty, true, TyPos::Arg).unwrap();
     let variants = match err_ty.get_in_line(api_bundle) {
         Ok(TypeOwned::Enum(item_enum)) => item_enum.variants.as_slice(),
         _ => &[],
     };
     let mut patterns = vec![];
-    for entry in errors {
+    for entry in errors.iter().filter(|e| e.ident != COMMON_ENTRY) {
         let variant = Ident::new(&entry.ident, Span::call_site());
         match &entry.nested {
             None => patterns.push(quote! { #err_path::#variant { .. } }),
@@ -949,7 +986,13 @@ fn error_list_patterns(
             }
         }
     }
-    quote! { #(#patterns)|* }
+    // only common errors listed: any error of the API's own is outside the list
+    let api = if patterns.is_empty() {
+        quote! { false }
+    } else {
+        quote! { matches!(e, #(#patterns)|*) }
+    };
+    (Some(api), common)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -996,20 +1039,10 @@ fn handle_property(
         };
         let mut docs = vec![];
         let mut with_error_list = quote! {};
-        if let (Some(errors), Some(err_ty)) = (errors, user_result_ty) {
-            docs = error_list_doc(errors, err_ty, api_bundle);
+        if let Some(errors) = errors {
+            docs = error_list_doc(errors, user_result_ty.as_ref(), api_bundle);
             docs.remove(0); // no docs above the section
-            let listed = error_list_patterns(errors, err_ty, api_bundle);
-            let names = fmt_error_list(errors);
-            with_error_list = quote! {
-                .with_error_list(wire_weaver_client::ErrorList {
-                    listed: |e| match e {
-                        wire_weaver_client::CallError::Device(e) => matches!(e, #listed),
-                        _ => true,
-                    },
-                    names: #names,
-                })
-            };
+            with_error_list = with_error_list_call(errors, user_result_ty.as_ref(), api_bundle);
         }
         let docs = docs.iter().map(|s| quote! { #[doc = #s] });
         quote! {
@@ -1122,8 +1155,15 @@ fn handle_stream_fn(
     } else {
         ty_def(api_bundle, stream.ty, !model.no_alloc(), TyPos::Arg).unwrap()
     };
+    // STD-16: a stream function declared `-> T` answers its open with `T` (or a common error): `OpenValue<T>`
     let result_ty = match stream.return_ty {
-        Some(ty) => ty_def(api_bundle, ty, true, TyPos::Arg).unwrap(),
+        Some(ty) => {
+            let def = ty_def(api_bundle, ty, true, TyPos::Arg).unwrap();
+            match ty.get_in_line(api_bundle) {
+                Ok(TypeOwned::Result { .. }) => def,
+                _ => quote! { wire_weaver_client::OpenValue<#def> },
+            }
+        }
         None => quote! { () },
     };
     // a timed batched stream's items come with their own time, the full point of its Tm (CLT-70)
@@ -1153,17 +1193,28 @@ fn handle_stream_fn(
     let path_kind = path_kind(path_mode, gid_paths);
     let mut docs = docs.to_vec();
     let mut with_error_list = quote! {};
-    if let Some(errors) = stream.errors
-        && let Some(err_ty) = method_err_ty(stream.return_ty, api_bundle)
-    {
+    if let Some(errors) = stream.errors {
+        let err_ty = method_err_ty(stream.return_ty, api_bundle);
         docs.extend(error_list_doc(errors, err_ty, api_bundle));
-        let listed = error_list_patterns(errors, err_ty, api_bundle);
+        let (api, common) = error_list_patterns(errors, err_ty, api_bundle);
         let names = fmt_error_list(errors);
-        with_error_list = quote! {
-            .with_error_list(wire_weaver_client::ErrorList {
-                listed: |e| matches!(e, #listed),
-                names: #names,
-            }, #resource)
+        with_error_list = match api {
+            // the function's own `Err` is checked against the list, the open's common error too
+            Some(api) => quote! {
+                .with_error_list(wire_weaver_client::ErrorList {
+                    listed: |e| #api,
+                    common: #common,
+                    names: #names,
+                }, #resource)
+            },
+            // no result: only the open's common error is checked
+            None => quote! {
+                .with_common_error_list(wire_weaver_client::ErrorList {
+                    listed: |_| true,
+                    common: #common,
+                    names: #names,
+                }, #resource)
+            },
         };
     }
     // a batched stream's events are batches: the handle unpacks them into items (API-41)

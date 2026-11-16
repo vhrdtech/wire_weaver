@@ -92,7 +92,7 @@ mod tests {
                 &mut self,
                 cx: &mut Context<'_, impl BlockingEventOut>,
                 x: Option<u8>,
-            ) -> RpcResult<Result<u8, CheckError>> {
+            ) -> RpcResult<Result<u8, wire_weaver::Error<'_, CheckError>>> {
                 self.check(cx, x)
             }
 
@@ -100,10 +100,10 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 x: Option<u8>,
-            ) -> RpcResult<Result<u8, CheckError>> {
+            ) -> RpcResult<Result<u8, wire_weaver::Error<'_, CheckError>>> {
                 Ready(match x {
-                    None => Err(CheckError::Missing),
-                    Some(x) if x > 100 => Err(CheckError::TooBig),
+                    None => Err(CheckError::Missing.into()),
+                    Some(x) if x > 100 => Err(CheckError::TooBig.into()),
                     Some(x) => Ok(x),
                 })
             }
@@ -112,7 +112,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: u16,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.speed = value;
                 Set
             }
@@ -120,7 +120,7 @@ mod tests {
             fn get_speed(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<u16, ()> {
+            ) -> GetResult<u16, CommonError<'_>> {
                 Value(self.speed)
             }
 
@@ -128,7 +128,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: Everything<'_>,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.everything = to_bytes(&value);
                 Set
             }
@@ -136,7 +136,7 @@ mod tests {
             fn get_everything(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Everything<'_>, ()> {
+            ) -> GetResult<Everything<'_>, CommonError<'_>> {
                 Value(Everything::from_ww_bytes(&self.everything).unwrap())
             }
 
@@ -144,7 +144,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: Flagged<'_>,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 let mut buf = [0u8; 64];
                 self.flagged = value.to_ww_bytes(&mut buf).unwrap().to_vec();
                 Set
@@ -153,7 +153,7 @@ mod tests {
             fn get_flagged(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Flagged<'_>, ()> {
+            ) -> GetResult<Flagged<'_>, CommonError<'_>> {
                 Value(Flagged::from_ww_bytes(&self.flagged).unwrap())
             }
 
@@ -166,7 +166,7 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [ww_client_server::ResourceIndex; 1],
                 value: f32,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.gains[index_chain[0].get().0 as usize] = value;
                 Set
             }
@@ -175,7 +175,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [ww_client_server::ResourceIndex; 1],
-            ) -> GetResult<f32, ()> {
+            ) -> GetResult<f32, CommonError<'_>> {
                 Value(self.gains[index_chain[0].get().0 as usize])
             }
 

@@ -28,13 +28,13 @@ of that type.
 ```rust
 #[ww_trait]
 pub trait Memory32 {
-    fn read(addr: u32, allow_side_effects: bool) -> Result<u32, MemoryError<'i>>;
-    fn write(addr: u32, value: u32) -> Result<(), MemoryError<'i>>;
-    fn read_many(addr: u32, len: u32, allow_side_effects: bool) -> Result<RefVec<'i, u32>, MemoryError<'i>>;
-    fn write_many(addr: u32, data: RefVec<'i, u32>) -> Result<(), MemoryError<'i>>;
+    fn read(addr: u32, allow_side_effects: bool) -> Result<u32, MemoryError>;
+    fn write(addr: u32, value: u32) -> Result<(), MemoryError>;
+    fn read_many(addr: u32, len: u32, allow_side_effects: bool) -> Result<RefVec<'i, u32>, MemoryError>;
+    fn write_many(addr: u32, data: RefVec<'i, u32>) -> Result<(), MemoryError>;
 
     #[optional(watches)]
-    fn watch(addr: u32) -> Result<(), MemoryError<'i>>;
+    fn watch(addr: u32) -> Result<(), MemoryError>;
     #[optional(watches)]
     fn watching() -> RefVec<'i, u32>;
     #[optional(watches)]
@@ -47,8 +47,8 @@ pub trait Memory32 {
 
 * `read` / `read_many` - the word at `addr`, or `len` words from it. With `allow_side_effects` false, an address
   whose read changes the device's state (a status register cleared on read) isn't read: `read` answers
-  `Common(Refused)`, `read_many` skips it.
-* `write` / `write_many` - the word at `addr`, or consecutive words from it; `Common(Refused)` for a read-only
+  `CommonError::Refused`, `read_many` skips it.
+* `write` / `write_many` - the word at `addr`, or consecutive words from it; `CommonError::Refused` for a read-only
   address.
 * `watch`, `watching`, `changed` - the [optional](../api/optional_items.md) group `watches`: start watching a word,
   list the watched addresses, and a stream of `(address, new value)` changes. A device without it writes
@@ -58,6 +58,6 @@ pub trait Memory32 {
 
 ## Errors
 
-`MemoryError<'i>` starts with `#[common] Common(CommonError)` ([common errors](../api/errors.md#common-errors)), then
+`MemoryError` holds the crate's own variants, the [common errors](../api/errors.md#common-errors) come beside it:
 `WrongAddress` (outside `address_range`, or a range running past its end) and `OutOfWatchSlots`. Each method lists
 the variants it returns with `#[errors(..)]`.

@@ -6,8 +6,7 @@ mod tests {
     use tests_common::TestDevice;
     use wire_weaver::prelude::*;
     use ww_board_info::{
-        BoardSummary, RevisionSource, ReworkChange, ReworkError, ReworkErrorOwned, ReworkId,
-        ReworkState,
+        BoardSummary, RevisionSource, ReworkChange, ReworkError, ReworkId, ReworkState,
         table::{ReworkDef, ReworkSet, ReworkTable},
     };
 
@@ -57,15 +56,15 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 changes: MaxLen<RefVec<'_, ReworkState>, 16>,
                 program: bool,
-            ) -> RpcResult<Result<ReworkChange, ReworkError<'_>>> {
+            ) -> RpcResult<Result<ReworkChange, wire_weaver::Error<'_, ReworkError>>> {
                 if self.production {
-                    return Ready(Err(ReworkError::ProductionRecord));
+                    return Ready(Err(ReworkError::ProductionRecord.into()));
                 }
                 let changes = changes.iter().map_while(Result::ok);
                 let mut record = self.record.lock().unwrap();
                 let applied = match TABLE.apply(*record, changes) {
                     Ok(applied) => applied,
-                    Err(e) => return Ready(Err(e)),
+                    Err(e) => return Ready(Err(e.into())),
                 };
                 Ready(Ok(if applied == *record {
                     ReworkChange::Unchanged
@@ -248,7 +247,7 @@ mod tests {
         client: &StdClient,
         changes: &[ReworkState],
         program: bool,
-    ) -> Result<ReworkChange, ReworkErrorOwned> {
+    ) -> Result<ReworkChange, ReworkError> {
         match client
             .board()
             .set_reworks(MaxLen::new_unchecked(changes.to_vec()), program)
@@ -321,7 +320,7 @@ mod tests {
         // undoing it is refused too: this firmware can't judge it
         assert_eq!(
             set_reworks(&client, &[change(7, false)], true).await,
-            Err(ReworkErrorOwned::UnknownRework { id: ReworkId(7) })
+            Err(ReworkError::UnknownRework { id: ReworkId(7) })
         );
     }
 
@@ -369,7 +368,7 @@ mod tests {
         let err = set_reworks(&client, &[change(3, true), change(7, true)], true)
             .await
             .unwrap_err();
-        assert_eq!(err, ReworkErrorOwned::UnknownRework { id: ReworkId(7) });
+        assert_eq!(err, ReworkError::UnknownRework { id: ReworkId(7) });
         assert_eq!(
             err.to_string(),
             "Unknown rework 7: this firmware doesn't know it, update the firmware first"
@@ -389,7 +388,7 @@ mod tests {
         let client = connect(&device).await;
         assert_eq!(
             set_reworks(&client, &[change(4, true)], true).await,
-            Err(ReworkErrorOwned::Conflict {
+            Err(ReworkError::Conflict {
                 id: ReworkId(4),
                 with: ReworkId(2)
             })
@@ -410,7 +409,7 @@ mod tests {
         let client = connect(&device).await;
         assert_eq!(
             set_reworks(&client, &[change(3, true)], false).await,
-            Err(ReworkErrorOwned::ProductionRecord)
+            Err(ReworkError::ProductionRecord)
         );
     }
 

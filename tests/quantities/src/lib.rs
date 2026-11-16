@@ -197,7 +197,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: Volt,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.values.lock().unwrap().voltage = value;
                 SetResult::Set
             }
@@ -205,7 +205,7 @@ mod tests {
             fn get_voltage(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Volt, ()> {
+            ) -> GetResult<Volt, CommonError<'_>> {
                 GetResult::Value(self.values.lock().unwrap().voltage)
             }
 
@@ -213,7 +213,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: Rail,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.values.lock().unwrap().rail = value;
                 SetResult::Set
             }
@@ -221,14 +221,14 @@ mod tests {
             fn get_rail(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Rail, ()> {
+            ) -> GetResult<Rail, CommonError<'_>> {
                 GetResult::Value(self.values.lock().unwrap().rail)
             }
 
             fn get_duty(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Quantity<units::Ratio>, ()> {
+            ) -> GetResult<Quantity<units::Ratio>, CommonError<'_>> {
                 GetResult::Value(self.values.lock().unwrap().duty)
             }
 
@@ -243,7 +243,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: Damping,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.values.lock().unwrap().damping = value;
                 SetResult::Set
             }
@@ -251,7 +251,7 @@ mod tests {
             fn get_damping(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Damping, ()> {
+            ) -> GetResult<Damping, CommonError<'_>> {
                 GetResult::Value(self.values.lock().unwrap().damping)
             }
 
@@ -259,7 +259,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: Quantity<Rpm>,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.values.lock().unwrap().speed = value;
                 SetResult::Set
             }
@@ -267,7 +267,7 @@ mod tests {
             fn get_speed(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Quantity<Rpm>, ()> {
+            ) -> GetResult<Quantity<Rpm>, CommonError<'_>> {
                 GetResult::Value(self.values.lock().unwrap().speed)
             }
 
@@ -275,7 +275,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: Quantity<fan_api::Rpm>,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.values.lock().unwrap().fan = value;
                 SetResult::Set
             }
@@ -283,7 +283,7 @@ mod tests {
             fn get_fan(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Quantity<fan_api::Rpm>, ()> {
+            ) -> GetResult<Quantity<fan_api::Rpm>, CommonError<'_>> {
                 GetResult::Value(self.values.lock().unwrap().fan)
             }
 
@@ -291,7 +291,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: AnyQuantity<'_>,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 let mut buf = [0u8; 256];
                 let bytes = value.to_ww_bytes(&mut buf).unwrap();
                 self.values.lock().unwrap().sensor = bytes.to_vec();
@@ -301,11 +301,13 @@ mod tests {
             fn get_sensor(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<AnyQuantity<'_>, ()> {
+            ) -> GetResult<AnyQuantity<'_>, CommonError<'_>> {
                 self.sensor = self.values.lock().unwrap().sensor.clone();
                 match AnyQuantity::from_ww_bytes(&self.sensor) {
                     Ok(q) => GetResult::Value(q),
-                    Err(_) => GetResult::GetError(()),
+                    Err(_) => GetResult::GetError(CommonError::WrongState {
+                        reason: MaxLen::new_unchecked(""),
+                    }),
                 }
             }
         }
@@ -315,7 +317,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: Timeout,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.values.lock().unwrap().timeout = value;
                 SetResult::Set
             }
@@ -323,7 +325,7 @@ mod tests {
             fn get_timeout(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Timeout, ()> {
+            ) -> GetResult<Timeout, CommonError<'_>> {
                 GetResult::Value(self.values.lock().unwrap().timeout)
             }
 
@@ -332,7 +334,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: Fixed<units::Second, Milli, u16, Unbounded>,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.values.lock().unwrap().timeout = value;
                 SetResult::Set
             }
@@ -340,49 +342,50 @@ mod tests {
             fn get_timeout_full(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Fixed<units::Second, Milli, u16, Unbounded>, ()> {
+            ) -> GetResult<Fixed<units::Second, Milli, u16, Unbounded>, CommonError<'_>>
+            {
                 GetResult::Value(self.values.lock().unwrap().timeout)
             }
 
             fn get_adc(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Adc, ()> {
+            ) -> GetResult<Adc, CommonError<'_>> {
                 GetResult::Value(Adc::new(2048))
             }
 
             fn get_gyro(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Gyro, ()> {
+            ) -> GetResult<Gyro, CommonError<'_>> {
                 GetResult::Value(Gyro::new(-100))
             }
 
             fn get_belt(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Belt, ()> {
+            ) -> GetResult<Belt, CommonError<'_>> {
                 GetResult::Value(Belt::new(1500))
             }
 
             fn get_board_temp(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<BoardTemperature, ()> {
+            ) -> GetResult<BoardTemperature, CommonError<'_>> {
                 GetResult::Value(BoardTemperature::from_raw(128))
             }
 
             fn get_heading(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Heading, ()> {
+            ) -> GetResult<Heading, CommonError<'_>> {
                 GetResult::Value(Heading::from_raw(9000))
             }
 
             fn get_shaft(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<ShaftAngle, ()> {
+            ) -> GetResult<ShaftAngle, CommonError<'_>> {
                 GetResult::Value(ShaftAngle::from_raw(-4500))
             }
 
@@ -390,7 +393,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: Window,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.values.lock().unwrap().window = value;
                 SetResult::Set
             }
@@ -398,7 +401,7 @@ mod tests {
             fn get_window(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Window, ()> {
+            ) -> GetResult<Window, CommonError<'_>> {
                 GetResult::Value(self.values.lock().unwrap().window)
             }
 
@@ -406,7 +409,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: Voice,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.values.lock().unwrap().voice = value;
                 SetResult::Set
             }
@@ -414,7 +417,7 @@ mod tests {
             fn get_voice(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Voice, ()> {
+            ) -> GetResult<Voice, CommonError<'_>> {
                 GetResult::Value(self.values.lock().unwrap().voice)
             }
 
@@ -422,7 +425,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: Luma,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.values.lock().unwrap().luma = value;
                 SetResult::Set
             }
@@ -430,7 +433,7 @@ mod tests {
             fn get_luma(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Luma, ()> {
+            ) -> GetResult<Luma, CommonError<'_>> {
                 GetResult::Value(self.values.lock().unwrap().luma)
             }
 
@@ -438,7 +441,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: Sense,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.values.lock().unwrap().sense = value;
                 SetResult::Set
             }
@@ -446,7 +449,7 @@ mod tests {
             fn get_sense(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Sense, ()> {
+            ) -> GetResult<Sense, CommonError<'_>> {
                 GetResult::Value(self.values.lock().unwrap().sense)
             }
 
@@ -454,7 +457,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: RawSense,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.values.lock().unwrap().raw_sense = value;
                 SetResult::Set
             }
@@ -462,7 +465,7 @@ mod tests {
             fn get_raw_sense(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<RawSense, ()> {
+            ) -> GetResult<RawSense, CommonError<'_>> {
                 GetResult::Value(self.values.lock().unwrap().raw_sense)
             }
 
@@ -487,7 +490,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: Uptime,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.values.lock().unwrap().uptime = value;
                 SetResult::Set
             }
@@ -495,7 +498,7 @@ mod tests {
             fn get_uptime(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Uptime, ()> {
+            ) -> GetResult<Uptime, CommonError<'_>> {
                 GetResult::Value(self.values.lock().unwrap().uptime)
             }
 
@@ -503,7 +506,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: Buffer,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.values.lock().unwrap().buffer = value;
                 SetResult::Set
             }
@@ -511,7 +514,7 @@ mod tests {
             fn get_buffer(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Buffer, ()> {
+            ) -> GetResult<Buffer, CommonError<'_>> {
                 GetResult::Value(self.values.lock().unwrap().buffer)
             }
 
@@ -542,7 +545,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: Input,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.values.lock().unwrap().input = value;
                 SetResult::Set
             }
@@ -550,7 +553,7 @@ mod tests {
             fn get_input(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Input, ()> {
+            ) -> GetResult<Input, CommonError<'_>> {
                 GetResult::Value(self.values.lock().unwrap().input)
             }
 
@@ -558,7 +561,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: Index<Sample, u32>,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.values.lock().unwrap().sample = value;
                 SetResult::Set
             }
@@ -566,7 +569,7 @@ mod tests {
             fn get_sample(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Index<Sample, u32>, ()> {
+            ) -> GetResult<Index<Sample, u32>, CommonError<'_>> {
                 GetResult::Value(self.values.lock().unwrap().sample)
             }
 
@@ -574,7 +577,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: Seq<Frame, u16>,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.values.lock().unwrap().frame = value;
                 SetResult::Set
             }
@@ -582,14 +585,14 @@ mod tests {
             fn get_frame(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Seq<Frame, u16>, ()> {
+            ) -> GetResult<Seq<Frame, u16>, CommonError<'_>> {
                 GetResult::Value(self.values.lock().unwrap().frame)
             }
 
             fn get_power(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Power, ()> {
+            ) -> GetResult<Power, CommonError<'_>> {
                 // 3.3 V at 152 mA
                 GetResult::Value(Power::new(501_600))
             }
@@ -597,42 +600,42 @@ mod tests {
             fn get_transimpedance(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Transimpedance, ()> {
+            ) -> GetResult<Transimpedance, CommonError<'_>> {
                 GetResult::Value(Transimpedance::new(47))
             }
 
             fn get_height(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Height, ()> {
+            ) -> GetResult<Height, CommonError<'_>> {
                 GetResult::Value(Height::new(1750))
             }
 
             fn get_width(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Width, ()> {
+            ) -> GetResult<Width, CommonError<'_>> {
                 GetResult::Value(Width::new(600))
             }
 
             fn get_shunt(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Shunt, ()> {
+            ) -> GetResult<Shunt, CommonError<'_>> {
                 GetResult::Value(Shunt::new(100))
             }
 
             fn get_phase(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<NcoPhase, ()> {
+            ) -> GetResult<NcoPhase, CommonError<'_>> {
                 GetResult::Value(NcoPhase::new(9000))
             }
 
             fn get_field(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Field, ()> {
+            ) -> GetResult<Field, CommonError<'_>> {
                 // the Earth's field, about 0.5 G
                 GetResult::Value(Field::new(500))
             }
@@ -640,28 +643,28 @@ mod tests {
             fn get_survey(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Survey, ()> {
+            ) -> GetResult<Survey, CommonError<'_>> {
                 GetResult::Value(Survey::new(50_000))
             }
 
             fn get_time_base(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<ww_si::RunScale, ()> {
+            ) -> GetResult<ww_si::RunScale, CommonError<'_>> {
                 GetResult::Value(time_base())
             }
 
             fn get_pts(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<ww_si::Ticks<u64>, ()> {
+            ) -> GetResult<ww_si::Ticks<u64>, CommonError<'_>> {
                 GetResult::Value(ww_si::Ticks::new(154_112, time_base()))
             }
 
             fn get_step(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<ww_si::Scaled<units::Volt, u16>, ()> {
+            ) -> GetResult<ww_si::Scaled<units::Volt, u16>, CommonError<'_>> {
                 // 3 · 2⁻¹² V a step: a 12-bit converter on a 3 V reference
                 GetResult::Value(ww_si::Scaled::new(
                     1,

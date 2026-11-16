@@ -10,9 +10,9 @@ mod tests {
     use ww_si::ww_numeric::NumericValue;
     use ww_si::{Index, Prefix, Second};
     use ww_timebase::{
-        ClockError, ClockErrorOwned, ClockInfo, DateTime, InstanceId, Micros, Ppb, SteerPoint,
-        SteerPointOwned, Steerer, SteererOwned, SyncConfig, SyncFormat, SyncSource, SyncState,
-        SyncStatus, TimeMapPoint, UnixMicros,
+        ClockInfo, DateTime, InstanceId, Micros, Ppb, SteerPoint, SteerPointOwned, Steerer,
+        SteererOwned, SyncConfig, SyncFormat, SyncSource, SyncState, SyncStatus, TimeMapPoint,
+        UnixMicros,
     };
 
     /// The mock follows one steerer while its points come this often (bedrock boards: 3 s).
@@ -172,17 +172,17 @@ mod tests {
                 &mut self,
                 cx: &mut Context<'_, impl BlockingEventOut>,
                 config: SyncConfig,
-            ) -> RpcResult<Result<(), ClockError<'_>>> {
+            ) -> RpcResult<Result<(), CommonError<'_>>> {
                 let format = match config {
                     SyncConfig::Off => None,
                     SyncConfig::Master { format } | SyncConfig::Slave { format } => Some(format),
                     // a config from a newer API version
-                    SyncConfig::Unknown(_) => return Ready(Err(CommonError::Unsupported.into())),
+                    SyncConfig::Unknown(_) => return Ready(Err(CommonError::Unsupported)),
                 };
                 if let Some(format) = format
                     && !self.formats.contains(&format)
                 {
-                    return Ready(Err(CommonError::Unsupported.into()));
+                    return Ready(Err(CommonError::Unsupported));
                 }
                 self.m.lock().unwrap().sync_config = config;
                 match config {
@@ -312,13 +312,12 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 t: DateTime,
-            ) -> RpcResult<Result<(), ClockError<'_>>> {
+            ) -> RpcResult<Result<(), CommonError<'_>>> {
                 let mut m = self.m.lock().unwrap();
                 if !matches!(m.sync_config, SyncConfig::Master { .. }) {
                     return Ready(Err(CommonError::WrongState {
                         reason: MaxLen::new_unchecked("not a sync master"),
-                    }
-                    .into()));
+                    }));
                 }
                 m.times_of_day.push(t);
                 Ready(Ok(()))
@@ -328,15 +327,14 @@ mod tests {
                 &mut self,
                 cx: &mut Context<'_, impl BlockingEventOut>,
                 point: SteerPoint,
-            ) -> RpcResult<Result<Option<SyncSource>, ClockError<'_>>> {
+            ) -> RpcResult<Result<Option<SyncSource>, CommonError<'_>>> {
                 if point.local.prefix != Prefix::Micro
                     || !matches!(point.local.value, NumericValue::U32(_))
                 {
                     return Ready(Err(CommonError::InvalidArgument {
                         arg: Index::new(0),
                         reason: MaxLen::new_unchecked("local not in U32 µs"),
-                    }
-                    .into()));
+                    }));
                 }
                 let mut m = self.m.lock().unwrap();
                 m.steers += 1;
@@ -401,7 +399,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 sources: Option<MaxLen<RefVec<'_, SyncSource>, 8>>,
-            ) -> RpcResult<Result<(), ClockError<'_>>> {
+            ) -> RpcResult<Result<(), CommonError<'_>>> {
                 let Some(sources) = sources else {
                     self.sources = None;
                     return Ready(Ok(()));
@@ -412,14 +410,13 @@ mod tests {
                     if let SyncSource::Line { format } = s
                         && !self.formats.contains(&format)
                     {
-                        return Ready(Err(CommonError::Unsupported.into()));
+                        return Ready(Err(CommonError::Unsupported));
                     }
                     if list.contains(&s) {
                         return Ready(Err(CommonError::InvalidArgument {
                             arg: Index::new(0),
                             reason: MaxLen::new_unchecked("a source named twice"),
-                        }
-                        .into()));
+                        }));
                     }
                     list.push(s);
                 }
@@ -629,8 +626,8 @@ mod tests {
             .call()
             .await;
         assert_eq!(
-            result.unwrap_err().device(),
-            Some(&ClockErrorOwned::Common(CommonErrorOwned::Unsupported))
+            result.unwrap_err().common(),
+            Some(&CommonErrorOwned::Unsupported)
         );
         assert_eq!(
             client.clock().sync_status().call().await.unwrap().state,
@@ -646,8 +643,8 @@ mod tests {
 
         let result = client.clock().set_time_of_day(t).call().await;
         assert!(matches!(
-            result.unwrap_err().device(),
-            Some(ClockErrorOwned::Common(CommonErrorOwned::WrongState { .. }))
+            result.unwrap_err().common(),
+            Some(CommonErrorOwned::WrongState { .. })
         ));
 
         client
@@ -925,10 +922,8 @@ mod tests {
         };
         let result = client.clock().steer(bad).call().await;
         assert!(matches!(
-            result.unwrap_err().device(),
-            Some(ClockErrorOwned::Common(
-                CommonErrorOwned::InvalidArgument { .. }
-            ))
+            result.unwrap_err().common(),
+            Some(CommonErrorOwned::InvalidArgument { .. })
         ));
     }
 
@@ -1009,8 +1004,8 @@ mod tests {
             .call()
             .await;
         assert_eq!(
-            r.unwrap_err().device(),
-            Some(&ClockErrorOwned::Common(CommonErrorOwned::Unsupported))
+            r.unwrap_err().common(),
+            Some(&CommonErrorOwned::Unsupported)
         );
         let r = client
             .clock()
@@ -1021,10 +1016,8 @@ mod tests {
             .call()
             .await;
         assert!(matches!(
-            r.unwrap_err().device(),
-            Some(ClockErrorOwned::Common(
-                CommonErrorOwned::InvalidArgument { .. }
-            ))
+            r.unwrap_err().common(),
+            Some(CommonErrorOwned::InvalidArgument { .. })
         ));
     }
 }

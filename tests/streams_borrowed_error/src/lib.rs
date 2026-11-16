@@ -1,5 +1,5 @@
 //! Stream functions whose error type borrows (API-35): the handlers have the signature `ww api scaffold` prints,
-//! `RpcResult<Result<(), OpenError<'_>>>`, and return an error borrowed from the server. The sync server has plain and
+//! `RpcResult<Result<(), wire_weaver::Error<'_, OpenError<'_>>>>`, and return an error borrowed from the server. The sync server has plain and
 //! counted streams, the async one adds a reliable stream; both open a stream and refuse one with that error.
 
 #[cfg(test)]
@@ -36,8 +36,12 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 fail: bool,
-            ) -> RpcResult<Result<(), OpenError<'_>>> {
-                Ready(if fail { Err(busy(&self.owner)) } else { Ok(()) })
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, OpenError<'_>>>> {
+                Ready(if fail {
+                    Err(busy(&self.owner).into())
+                } else {
+                    Ok(())
+                })
             }
 
             fn close_plain(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) {}
@@ -54,9 +58,9 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 fail: bool,
-            ) -> RpcResult<Result<(), OpenError<'_>>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, OpenError<'_>>>> {
                 Ready(if fail {
-                    Err(inner(&self.owner))
+                    Err(inner(&self.owner).into())
                 } else {
                     Ok(())
                 })
@@ -116,8 +120,12 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
                 fail: bool,
-            ) -> RpcResult<Result<(), OpenError<'_>>> {
-                Ready(if fail { Err(busy(&self.owner)) } else { Ok(()) })
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, OpenError<'_>>>> {
+                Ready(if fail {
+                    Err(busy(&self.owner).into())
+                } else {
+                    Ok(())
+                })
             }
 
             async fn close_plain(&mut self, _cx: &mut Context<'_, impl EventOut>) {}
@@ -134,9 +142,9 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
                 fail: bool,
-            ) -> RpcResult<Result<(), OpenError<'_>>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, OpenError<'_>>>> {
                 Ready(if fail {
-                    Err(inner(&self.owner))
+                    Err(inner(&self.owner).into())
                 } else {
                     Ok(())
                 })
@@ -152,8 +160,12 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
                 fail: bool,
-            ) -> RpcResult<Result<(), OpenError<'_>>> {
-                Ready(if fail { Err(busy(&self.owner)) } else { Ok(()) })
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, OpenError<'_>>>> {
+                Ready(if fail {
+                    Err(busy(&self.owner).into())
+                } else {
+                    Ok(())
+                })
             }
 
             async fn close_reliable(&mut self, _cx: &mut Context<'_, impl EventOut>) {}

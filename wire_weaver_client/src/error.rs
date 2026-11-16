@@ -561,6 +561,9 @@ impl<E: std::error::Error + 'static> std::error::Error for CallError<E> {
 pub trait OutcomeError: Debug + Sized {
     /// Wraps an error of the call itself; `resource` names the called item for [CallError::Unimplemented].
     fn from_client(e: Error, resource: &'static str) -> Self;
+
+    /// The common error the device answered with (STD-16), `None` for any other outcome.
+    fn common_error(&self) -> Option<&CommonErrorOwned>;
 }
 
 /// Decodes a reply to `T` or the error it carries, see [OutcomeError].
@@ -571,6 +574,10 @@ pub trait DecodeReply<T>: OutcomeError {
 impl OutcomeError for Error {
     fn from_client(e: Error, _resource: &'static str) -> Self {
         e
+    }
+
+    fn common_error(&self) -> Option<&CommonErrorOwned> {
+        self.common()
     }
 }
 
@@ -598,6 +605,10 @@ impl<E: DeserializeShrinkWrapOwned + Debug> OutcomeError for CallError<E> {
             },
             e => CallError::Client(e),
         }
+    }
+
+    fn common_error(&self) -> Option<&CommonErrorOwned> {
+        self.common()
     }
 }
 

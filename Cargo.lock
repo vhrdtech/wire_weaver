@@ -2503,6 +2503,7 @@ dependencies = [
 name = "hub_pytest_device"
 version = "0.1.0"
 dependencies = [
+ "common_error",
  "hub_pytest_device_api",
  "keyed",
  "tests_common",
@@ -6776,7 +6777,6 @@ dependencies = [
  "defmt 1.1.1",
  "ww_api",
  "ww_crc",
- "ww_error",
  "ww_si",
 ]
 
@@ -6790,7 +6790,6 @@ dependencies = [
  "ww_api",
  "ww_board_info",
  "ww_date_time",
- "ww_error",
  "ww_settings",
 ]
 
@@ -7189,7 +7188,6 @@ version = "0.1.0"
 dependencies = [
  "defmt 1.1.1",
  "ww_api",
- "ww_error",
  "ww_si",
 ]
 
@@ -7227,7 +7225,6 @@ dependencies = [
  "defmt 1.1.1",
  "ww_api",
  "ww_block",
- "ww_error",
  "ww_si",
 ]
 
@@ -7242,6 +7239,7 @@ dependencies = [
  "sha2 0.11.0",
  "shrink_wrap",
  "syn 3.0.3",
+ "ww_error",
  "ww_lz4",
  "ww_numeric",
  "ww_version",
@@ -7449,7 +7447,6 @@ version = "0.1.0"
 dependencies = [
  "defmt 1.1.1",
  "ww_api",
- "ww_error",
  "ww_si",
 ]
 

@@ -13,7 +13,7 @@ the items for bus debuggers, filters and message memory, and time-triggered CAN.
 #[ww_trait]
 pub trait Can {
     fn capabilities() -> Capabilities<'i>;
-    fn configure(config: CanConfig) -> Result<CanConfig, CanError<'i>>;
+    fn configure(config: CanConfig) -> Result<CanConfig, CanError>;
     fn config() -> CanConfig;
     property!(ro status: Status);
     #[counted]
@@ -21,25 +21,25 @@ pub trait Can {
     #[credit]
     sink!(tx: TxFrame<'i>);
 
-    #[optional] fn set_mode(mode: Mode) -> Result<Mode, CanError<'i>>;
-    #[optional] fn recover() -> Result<(), CanError<'i>>;
+    #[optional] fn set_mode(mode: Mode) -> Result<Mode, CanError>;
+    #[optional] fn recover() -> Result<(), CanError>;
     #[optional] fn tx_abort() -> Fixed<units::Frame, One, u32>;
     #[optional] #[counted] stream!(tx_events: TxEvent);
     #[optional] #[counted] stream!(bus_errors: BusError);
     #[optional] fn protocol_status() -> ProtocolStatus;
     #[optional] property!(ro bus_load: BusLoad);
     #[optional] fn detect_timing(candidates: MaxLen<RefVec<'i, Timing>, 16>, per_candidate: Second)
-        -> Result<Option<CanConfig>, CanError<'i>>;
-    #[optional(filters)] fn set_filters(filters: FilterConfig<'i>) -> Result<(), CanError<'i>>;
-    #[optional] fn set_layout(layout: MemoryLayout) -> Result<MemoryLayout, CanError<'i>>;
-    #[optional(rx_buffers)] fn rx_buffer(index: BufferIndex) -> Result<Option<BufferedFrame<'i>>, CanError<'i>>;
+        -> Result<Option<CanConfig>, CanError>;
+    #[optional(filters)] fn set_filters(filters: FilterConfig<'i>) -> Result<(), CanError>;
+    #[optional] fn set_layout(layout: MemoryLayout) -> Result<MemoryLayout, CanError>;
+    #[optional(rx_buffers)] fn rx_buffer(index: BufferIndex) -> Result<Option<BufferedFrame<'i>>, CanError>;
     #[optional(tx_buffers)] fn tx_buffer(index: BufferIndex, frame: Option<TxFrame<'i>>, period: Option<Second>)
-        -> Result<(), CanError<'i>>;
-    #[optional(transceiver)] fn set_transceiver(mode: TransceiverMode) -> Result<TransceiverMode, CanError<'i>>;
+        -> Result<(), CanError>;
+    #[optional(transceiver)] fn set_transceiver(mode: TransceiverMode) -> Result<TransceiverMode, CanError>;
     #[optional(transceiver)] property!(ro transceiver_state: TransceiverState);
-    #[optional(terminator)] fn set_termination(termination: Termination) -> Result<Termination, CanError<'i>>;
+    #[optional(terminator)] fn set_termination(termination: Termination) -> Result<Termination, CanError>;
     #[optional(terminator)] property!(ro termination: Termination);
-    #[optional] fn test_pins(tx: TxPin) -> Result<BusLevel, CanError<'i>>;
+    #[optional] fn test_pins(tx: TxPin) -> Result<BusLevel, CanError>;
 }
 ```
 
@@ -91,10 +91,10 @@ Which controllers have what:
 pub trait CanGroup {
     ww_impl!(interface[]: Can);
     fn group_capabilities() -> GroupCapabilities<'i>;
-    fn enable() -> Result<GroupClock, CanError<'i>>;
-    fn disable() -> Result<(), CanError<'i>>;
+    fn enable() -> Result<GroupClock, CanError>;
+    fn disable() -> Result<(), CanError>;
     property!(ro group_state: GroupState);
-    #[optional(clock)] fn set_clock(clock: GroupClock) -> Result<GroupClock, CanError<'i>>;
+    #[optional(clock)] fn set_clock(clock: GroupClock) -> Result<GroupClock, CanError>;
     #[optional] fn performance() -> Performance;
 }
 ```
@@ -135,7 +135,7 @@ buffers nor carry the types.
 ```rust
 #[ww_trait]
 pub trait CanXl {
-    fn configure_xl(config: Option<XlConfig>) -> Result<Option<XlConfig>, CanError<'i>>;
+    fn configure_xl(config: Option<XlConfig>) -> Result<Option<XlConfig>, CanError>;
     #[counted] stream!(rx_xl: XlFrame<'i>);
     #[credit] sink!(tx_xl: XlTxFrame<'i>);
 }
@@ -221,8 +221,8 @@ with `None`.
 ```rust
 #[ww_trait]
 pub trait CanTimeTriggered {
-    fn configure_tt(config: Option<TtConfig>) -> Result<Option<TtConfig>, CanError<'i>>;
-    fn set_schedule(triggers: MaxLen<RefVec<'i, Trigger>, MAX_TRIGGERS>) -> Result<(), CanError<'i>>;
+    fn configure_tt(config: Option<TtConfig>) -> Result<Option<TtConfig>, CanError>;
+    fn set_schedule(triggers: MaxLen<RefVec<'i, Trigger>, MAX_TRIGGERS>) -> Result<(), CanError>;
     property!(ro tt_status: TtStatus);
 }
 ```

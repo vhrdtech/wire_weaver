@@ -24,7 +24,6 @@
 //! Serve it with `ww api scaffold`, which prints the handler stubs for the `ww_codegen!` call you use.
 
 use ww_api::prelude::*;
-use ww_error::CommonError;
 use ww_si::units::Block;
 use ww_si::{Bytes, Count, Index, Secs};
 
@@ -51,7 +50,7 @@ pub trait BlockDevice {
     /// writes the card itself.
     ///
     /// `OutOfRange` past the last block, `Common(InvalidArgument)` for more than [Geometry::max_blocks].
-    #[errors(Common(Busy, InvalidArgument), NoMedium, OutOfRange, ReadFailed)]
+    #[errors(CommonError(Busy, InvalidArgument), NoMedium, OutOfRange, ReadFailed)]
     fn read(
         lba: Index<Block, u64>,
         count: Count<Block, u16>,
@@ -59,7 +58,7 @@ pub trait BlockDevice {
 
     /// CRC-32 (see [crc32]) of `count` blocks from `lba`, computed on the device: the host checks what it wrote
     /// without reading it back over a slow link. Takes as long as reading the blocks.
-    #[errors(Common(Busy), NoMedium, OutOfRange, ReadFailed)]
+    #[errors(CommonError(Busy), NoMedium, OutOfRange, ReadFailed)]
     fn crc(lba: Index<Block, u64>, count: Count<Block, u32>) -> Result<u32, BlockError<'i>>;
 
     /// Takes the card for writing and returns a [Lease]. Stops the card's own user first (a recorder syncs and
@@ -69,7 +68,7 @@ pub trait BlockDevice {
     ///
     /// `Common(Busy)` while another lease is held, `Common(Refused)` when this link may not write the card (the
     /// firmware's choice), `ReadOnly` for a read-only medium.
-    #[errors(Common(Busy, Refused, InvalidArgument), NoMedium, ReadOnly)]
+    #[errors(CommonError(Busy, Refused, InvalidArgument), NoMedium, ReadOnly)]
     fn claim(lease: Secs<u16>) -> Result<Lease, BlockError<'i>>;
 
     /// Gives the card back: its user mounts it again (and finds what the host wrote). `BadLease` for a lease that
@@ -83,7 +82,7 @@ pub trait BlockDevice {
     /// `Common(InvalidArgument)` when `data` is not whole blocks or more than [Geometry::max_blocks], `BadCrc` when `crc` doesn't match (nothing is
     /// written).
     #[errors(
-        Common(InvalidArgument),
+        CommonError(InvalidArgument),
         NoMedium,
         OutOfRange,
         BadLease,
@@ -123,7 +122,7 @@ pub trait BlockDevice {
     /// full speed instead of one call per run. The stream ends when the last run is sent; opening it again starts
     /// another range. A counted stream, unit: block.
     #[optional(bulk)]
-    #[errors(Common(Busy), NoMedium, OutOfRange)]
+    #[errors(CommonError(Busy), NoMedium, OutOfRange)]
     #[stream(ReadRun<'i>, counted)]
     fn read_runs(lba: Index<Block, u64>, count: Count<Block, u64>) -> Result<(), BlockError<'i>>;
 }
@@ -283,10 +282,6 @@ pub enum RunStatus {
     ww_repr = unib32
 )]
 pub enum BlockError<'i> {
-    /// Common error
-    #[display("{0}")]
-    #[common]
-    Common(CommonError<'i>),
     /// No card in the slot, or the medium doesn't answer.
     #[display("no medium")]
     NoMedium,
@@ -310,12 +305,9 @@ pub enum BlockError<'i> {
     WriteFailed { reason: MaxLen<&'i str, 64> },
 }
 
-impl BlockError<'_> {
-    /// `Common(Busy)`.
-    pub const fn busy() -> Self {
-        BlockError::Common(CommonError::Busy)
-    }
-}
+ww_api::api_error!(BlockError<'i>);
+#[cfg(feature = "std")]
+ww_api::api_error!(BlockErrorOwned);
 
 /// CRC-32 of `data` as [BlockDevice::crc], [BlockDevice::write] and [WriteRun] use it: CRC-32/ISO-HDLC, the one of
 /// zip, PNG and Ethernet (polynomial `0x04c11db7` reflected, init and final xor `0xffffffff`; `crc32(b"123456789")`

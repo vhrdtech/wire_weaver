@@ -1873,7 +1873,7 @@ fn handle_keys(
             _ => quote! {
                 match &request.kind {
                     RequestKind::StreamOpen { resume: None, .. } => {
-                        ww_client_server::dispatch::reply_open_plain(wr, d, RpcResult::Ready(()))
+                        ww_client_server::dispatch::reply_open_plain(wr, d, RpcResult::Ready(Ok(())))
                     }
                     RequestKind::StreamSideband { sideband: StreamSideband::Unknown(_) } => {
                         ww_err(wr, d, #es_kind, ErrorKindDiscriminants::OperationNotSupported)
@@ -1913,6 +1913,22 @@ impl ApiServerCGContext<'_> {
     /// `..Owned`) otherwise (API-21).
     fn value_ty(&self, api_bundle: &CodegenBundle, ty: &TypeOwned, pos: TyPos) -> TokenStream {
         ty_def(api_bundle, ty, !self.no_alloc, pos).unwrap()
+    }
+
+    /// The `Ok` and `Err` types of an item declared `-> Result<T, E>`, as [value_ty](Self::value_ty) annotations;
+    /// `None` for any other return type (STD-16: those answer `T` or `Result<T, CommonError>`).
+    fn result_parts(
+        &self,
+        api_bundle: &CodegenBundle,
+        return_ty: Option<&TypeOwned>,
+    ) -> Option<(TokenStream, TokenStream)> {
+        match return_ty?.get_in_line(api_bundle).ok()? {
+            TypeOwned::Result { ok_ty, err_ty } => Some((
+                self.value_ty(api_bundle, ok_ty, TyPos::Annotation),
+                self.value_ty(api_bundle, err_ty, TyPos::Annotation),
+            )),
+            _ => None,
+        }
     }
 
     /// `des_shrink_wrap` of a [value_ty](Self::value_ty) (in `TyPos::Expr`), `des_shrink_wrap_owned` with alloc.
@@ -2064,12 +2080,15 @@ fn handle_method(
         item_err_seq("", "KIND_NOT_TAKEN"),
         item_err_seq("method", "HANDLER"),
     );
+    let output_ty = match return_type {
+        Some(ty) => cx.value_ty(api_bundle, ty, TyPos::Annotation),
+        None => quote! { () },
+    };
+    // STD-16: a method declared `-> Result<T, E>` answers `Result<T, Error<'_, E>>`, any other one `T` or
+    // `Result<T, CommonError<'_>>`
+    let result_parts = cx.result_parts(api_bundle, return_type.as_ref());
     if cx.no_alloc {
         // SRV-51: the arm decodes, calls and hands the result to the shared reply path
-        let output_ty = match return_type {
-            Some(ty) => cx.value_ty(api_bundle, ty, TyPos::Annotation),
-            None => quote! { () },
-        };
         let args_des = if args.is_empty() {
             quote! {}
         } else {
@@ -2081,13 +2100,22 @@ fn handle_method(
                 };
             }
         };
+        let reply = match &result_parts {
+            Some((ok_ty, err_ty)) => quote! {
+                let result: RpcResult<Result<#ok_ty, wire_weaver::Error<'_, #err_ty>>> = #call;
+                ww_client_server::dispatch::reply_call_result(wr, d, result)
+            },
+            None => quote! {
+                let result: RpcResult<Result<#output_ty, wire_weaver::CommonError<'_>>> = RpcResult::output(#call);
+                ww_client_server::dispatch::reply_call(wr, d, result)
+            },
+        };
         return quote! {
             match &request.kind {
                 RequestKind::Call { #maybe_args } => {
                     #maybe_refuse_in_multi
                     #args_des
-                    let result: RpcResult<#output_ty> = #call;
-                    ww_client_server::dispatch::reply_call(wr, d, result)
+                    #reply
                 }
                 _ => ww_err(wr, d, #es_kind, ErrorKindDiscriminants::OperationNotSupported),
             }
@@ -2095,6 +2123,28 @@ fn handle_method(
     }
     let ser_output = cx.ser_handler_value(quote! { output }, item_err_seq("method", "OUTPUT"));
     let ev_kind_builder = cx.prepare_event_kind_builder();
+    let (call, take_output) = match &result_parts {
+        Some((ok_ty, err_ty)) => (
+            call,
+            quote! {
+                let output: Result<#ok_ty, wire_weaver::Error<'_, #err_ty>> = output;
+                let output: Result<#ok_ty, #err_ty> = match output {
+                    Ok(value) => Ok(value),
+                    Err(wire_weaver::Error::Api(e)) => Err(e),
+                    Err(wire_weaver::Error::Common(c)) => return ww_client_server::dispatch::common_error(wr, d, #es, &c),
+                };
+            },
+        ),
+        None => (
+            quote! { RpcResult::output::<#output_ty>(#call) },
+            quote! {
+                let output: #output_ty = match output {
+                    Ok(value) => value,
+                    Err(c) => return ww_client_server::dispatch::common_error(wr, d, #es, &c),
+                };
+            },
+        ),
+    };
     quote! {
         match &request.kind {
             RequestKind::Call { #maybe_args } => {
@@ -2102,6 +2152,7 @@ fn handle_method(
                 #args_des
                 match #call {
                     RpcResult::Ready(output) => {
+                        #take_output
                         #ev_kind_builder
                         if request.seq.0 != 0 {
                             #maybe_enforce_ty
@@ -2142,21 +2193,30 @@ fn handle_property(
     let enforce_ty = cx.value_ty(api_bundle, ty, TyPos::Expr);
     let des_value = cx.des_value(&enforce_ty);
     let es = item_err_seq("property", "USER_ERROR");
-    let ser_user_err = user_error_ty
+    let es_handler = item_err_seq("property", "HANDLER");
+    // STD-16: the arm of a getter's or setter's error (`user_err`): the API's own error written in place, a common
+    // error as an error event; a property without an error type of its own fails with a common error only
+    let user_err_arm = user_error_ty
         .as_ref()
         .map(|ty| cx.value_ty(api_bundle, ty, TyPos::Annotation))
         .map(|enforce_user_err_ty| {
             let write_user_err = cx.write_value(quote! { user_err });
             quote! {
-                let user_err: #enforce_user_err_ty = user_err;
-                let err_builder = __ww_try!(wr, d, ErrorBuilder::new(#es, wr), #es, ResponseSerFailed);
-                __ww_try!(wr, d, #write_user_err, #es, ResponseSerFailed);
-                __ww_try!(wr, d, err_builder.finish_with_kind(ErrorKindDiscriminants::UserBytes, wr), #es, ResponseSerFailed);
+                let user_err: wire_weaver::Error<'_, #enforce_user_err_ty> = user_err;
+                match user_err {
+                    wire_weaver::Error::Api(user_err) => {
+                        let err_builder = __ww_try!(wr, d, ErrorBuilder::new(#es, wr), #es, ResponseSerFailed);
+                        __ww_try!(wr, d, #write_user_err, #es, ResponseSerFailed);
+                        __ww_try!(wr, d, err_builder.finish_with_kind(ErrorKindDiscriminants::UserBytes, wr), #es, ResponseSerFailed);
+                        WrAction::WrittenErr
+                    }
+                    wire_weaver::Error::Common(c) => ww_client_server::dispatch::common_error(wr, d, #es_handler, &c),
+                }
             }
         })
         .unwrap_or(quote! {
-            let _unit: () = user_err;
-            __ww_try!(wr, d, wr.write(&Error::new(#es, ErrorKind::UserBytes(RefVec::new_bytes(&[])))), #es, ResponseSerFailed);
+            let common: wire_weaver::CommonError<'_> = user_err;
+            ww_client_server::dispatch::common_error(wr, d, #es_handler, &common)
         });
     let property_model_pick = cx
         .property_model
@@ -2170,15 +2230,15 @@ fn handle_property(
             (
                 quote! { ww_client_server::dispatch::reply_get },
                 quote! { ww_client_server::dispatch::reply_set },
-                quote! { GetResult<#enforce_ty, #user_err_ty> },
-                quote! { SetResult<#user_err_ty> },
+                quote! { GetResult<#enforce_ty, wire_weaver::Error<'_, #user_err_ty>> },
+                quote! { SetResult<wire_weaver::Error<'_, #user_err_ty>> },
             )
         }
         None => (
-            quote! { ww_client_server::dispatch::reply_get_unit_err },
-            quote! { ww_client_server::dispatch::reply_set_unit_err },
-            quote! { GetResult<#enforce_ty, ()> },
-            quote! { SetResult<()> },
+            quote! { ww_client_server::dispatch::reply_get_common },
+            quote! { ww_client_server::dispatch::reply_set_common },
+            quote! { GetResult<#enforce_ty, wire_weaver::CommonError<'_>> },
+            quote! { SetResult<wire_weaver::CommonError<'_>> },
         ),
     };
     // SRV-57: an observed property is marked changed by the generated code after a successful write, so a host's own
@@ -2247,10 +2307,8 @@ fn handle_property(
                                     WrAction::WrittenOk
                                 },
                                 SetResult::SetError(user_err) => {
-                                    // if request.seq.0 != 0 {
                                     // always send errors back, even if they won't reach a user call site, they will show up in logs
-                                    #ser_user_err
-                                    WrAction::WrittenErr
+                                    #user_err_arm
                                 }
                                 SetResult::Unimplemented => {
                                     ww_err(wr, d, #es_handler, ErrorKindDiscriminants::Unimplemented)
@@ -2339,8 +2397,7 @@ fn handle_property(
                                     WrAction::WrittenOk
                                 }
                                 GetResult::GetError(user_err) => {
-                                    #ser_user_err
-                                    WrAction::WrittenErr
+                                    #user_err_arm
                                 }
                                 GetResult::Unimplemented => {
                                     __ww_try!(wr, d, wr.write(&Error::unimplemented(#es)), #es, ResponseSerFailed);
@@ -2672,8 +2729,13 @@ fn handle_stream_fn(
             }
         },
     };
-    let open_state = match (delivery, stream.return_ty.is_some()) {
+    let returns_result = matches!(
+        stream.return_ty.map(|ty| ty.get_in_line(api_bundle)),
+        Some(Ok(TypeOwned::Result { .. }))
+    );
+    let open_state = match (delivery, returns_result) {
         (Delivery::Plain, _) if !batched => quote! { let opened = #closed_opened; },
+        // nothing, or a value (STD-16): the open is accepted
         (_, false) => quote! { let opened = { #new_session }; },
         // The handler's result may borrow from `self` (an error type with a lifetime, API-35): take the `Ok` value
         // out of it before the stream's state is touched, so the borrow ends on that path.
@@ -2688,13 +2750,42 @@ fn handle_stream_fn(
     let ev_kind_builder = cx.prepare_event_kind_builder();
     let es_open = item_err_seq("stream", "OPEN");
     let open_call = cx.call(ident, quote! { self.#prefixed_ident(cx, #idx #args_list) });
+    // STD-16: a stream function declared `-> Result<T, E>` answers `Result<T, Error<'_, E>>`, one without a result
+    // `()` or `Result<(), CommonError<'_>>`
+    let result_parts = cx.result_parts(api_bundle, stream.return_ty);
+    let (open_call, take_output) = match &result_parts {
+        Some((ok_ty, err_ty)) => (
+            open_call,
+            quote! {
+                let output: Result<#ok_ty, wire_weaver::Error<'_, #err_ty>> = output;
+                let output: #enforce_ty = match output {
+                    Ok(value) => Ok(value),
+                    Err(wire_weaver::Error::Api(e)) => Err(e),
+                    Err(wire_weaver::Error::Common(c)) => return ww_client_server::dispatch::common_error(wr, d, #es_open, &c),
+                };
+            },
+        ),
+        None => (
+            quote! { RpcResult::output::<#enforce_ty>(#open_call) },
+            quote! {
+                let output: #enforce_ty = match output {
+                    Ok(value) => value,
+                    Err(c) => return ww_client_server::dispatch::common_error(wr, d, #es_open, &c),
+                };
+            },
+        ),
+    };
     let open = if cx.no_alloc && delivery == Delivery::Plain && !batched {
         // SRV-51: no session, so the whole answer is the shared path's
+        let reply_open = if result_parts.is_some() {
+            quote! { ww_client_server::dispatch::reply_open_plain_result(wr, d, #open_call) }
+        } else {
+            quote! { ww_client_server::dispatch::reply_open_plain(wr, d, #open_call) }
+        };
         quote! {
             RequestKind::StreamOpen { resume: None, #max_age_arg #raw_arg #maybe_args } => {
                 #args_des
-                let result: RpcResult<#enforce_ty> = #open_call;
-                ww_client_server::dispatch::reply_open_plain(wr, d, result)
+                #reply_open
             }
         }
     } else if cx.no_alloc {
@@ -2703,7 +2794,7 @@ fn handle_stream_fn(
                 #args_des
                 match #open_call {
                     RpcResult::Ready(output) => {
-                        let output: #enforce_ty = output;
+                        #take_output
                         #open_state
                         ww_client_server::dispatch::reply_opened(wr, d, &opened, &output)
                     }
@@ -2719,7 +2810,7 @@ fn handle_stream_fn(
                 #args_des
                 match #open_call {
                     RpcResult::Ready(output) => {
-                        let output: #enforce_ty = output;
+                        #take_output
                         #open_state
                         #ev_kind_builder
                         __ww_try!(wr, d, opened.ser_head(wr), #es_ser, ResponseSerFailed);
@@ -3493,13 +3584,40 @@ fn deferred_method_return_ser_methods(
             Span::call_site(),
         );
         let ser_output_or_unit = ser_method_output(return_ty, quote! { seq }, no_alloc);
-        let maybe_output = match return_ty {
-            Some(ty) => {
-                let ty = ty_def(api_bundle, ty, !no_alloc, TyPos::Annotation).unwrap();
-                quote! { , output: #ty }
-            }
-            None => quote! {},
+        let output_ty = match return_ty {
+            Some(ty) => ty_def(api_bundle, ty, !no_alloc, TyPos::Annotation).unwrap(),
+            None => quote! { () },
         };
+        // STD-16: a method declared `-> Result<T, E>` answers `Result<T, Error<'_, E>>`, any other one `T` or
+        // `Result<T, CommonError<'_>>`; a common error is sent as the call's error event
+        let result_parts = match return_ty.as_ref().map(|ty| ty.get_in_line(api_bundle)) {
+            Some(Ok(TypeOwned::Result { ok_ty, err_ty })) => Some((
+                ty_def(api_bundle, ok_ty, !no_alloc, TyPos::Annotation).unwrap(),
+                ty_def(api_bundle, err_ty, !no_alloc, TyPos::Annotation).unwrap(),
+            )),
+            _ => None,
+        };
+        // `taken`: the value to send, or the common error to send instead
+        let (maybe_output, take_output) = match &result_parts {
+            Some((ok_ty, err_ty)) => (
+                quote! { , output: Result<#ok_ty, wire_weaver::Error<'_, #err_ty>> },
+                quote! {
+                    let taken: Result<Result<#ok_ty, #err_ty>, wire_weaver::CommonError<'_>> = match output {
+                        Ok(value) => Ok(Ok(value)),
+                        Err(wire_weaver::Error::Api(e)) => Ok(Err(e)),
+                        Err(wire_weaver::Error::Common(c)) => Err(c),
+                    };
+                },
+            ),
+            None => (
+                quote! { , output: impl wire_weaver::IntoOutput<'i, #output_ty> },
+                quote! {
+                    let taken: Result<#output_ty, wire_weaver::CommonError<'_>> =
+                        wire_weaver::IntoOutput::into_output(output);
+                },
+            ),
+        };
+        let es_common = fixed_err_seq("DEFERRED_EVENT_SER");
         let ser = ser_root_value(no_alloc, quote! { output });
         let ser_output = maybe_quote(
             return_ty.is_some(),
@@ -3565,20 +3683,41 @@ fn deferred_method_return_ser_methods(
         };
         ts.extend(quote! {
             pub fn #fn_name<'i>(scratch_args: &'i mut [u8], scratch_event: &'i mut [u8], seq: u32 #maybe_output) -> Result<&'i [u8], Error<'static>> {
+                #take_output
+                let output = match taken {
+                    Ok(output) => output,
+                    Err(c) => {
+                        let error = Error::new(ww_client_server::err_seq::method::HANDLER, ErrorKind::Common(c));
+                        return ww_client_server::util::ser_err_event(scratch_event, seq, error)
+                            .map_err(|_| Error::new(#es_common, ErrorKind::ResponseSerFailed));
+                    }
+                };
                 #ser_output_or_unit
             }
 
-            /// Send the return value of a deferred call, `reply_to` is `cx.reply_to()` of the original call: the reply
-            /// inherits its priority, an urgent one is flushed at once (SRV-42).
+            /// Send the return value of a deferred call, or the common error it failed with; `reply_to` is
+            /// `cx.reply_to()` of the original call: the reply inherits its priority, an urgent one is flushed at
+            /// once (SRV-42).
             pub async fn #send_fn_name<'i, M>(out: &mut impl wire_weaver::EventOut, reply_to: wire_weaver::ReplyTo<M> #maybe_output) -> Result<(), wire_weaver::SendError> {
                 let seq = reply_to.seq;
+                #take_output
+                let output = match taken {
+                    Ok(output) => output,
+                    Err(c) => return ww_client_server::dispatch::send_common_error(out, reply_to, &c).await,
+                };
                 #send_async
             }
 
-            /// Send the return value of a deferred call, `reply_to` is `cx.reply_to()` of the original call: the reply
-            /// inherits its priority, an urgent one is flushed at once (SRV-42).
+            /// Send the return value of a deferred call, or the common error it failed with; `reply_to` is
+            /// `cx.reply_to()` of the original call: the reply inherits its priority, an urgent one is flushed at
+            /// once (SRV-42).
             pub fn #send_blocking_fn_name<'i, M>(out: &mut impl wire_weaver::BlockingEventOut, reply_to: wire_weaver::ReplyTo<M> #maybe_output) -> Result<(), wire_weaver::SendError> {
                 let seq = reply_to.seq;
+                #take_output
+                let output = match taken {
+                    Ok(output) => output,
+                    Err(c) => return ww_client_server::dispatch::send_common_error_blocking(out, reply_to, &c),
+                };
                 #send_blocking
             }
         });

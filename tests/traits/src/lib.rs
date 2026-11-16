@@ -45,7 +45,7 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index: [ww_client_server::ResourceIndex; 2],
                 gain: f32,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.data.write().unwrap().set_gain.insert(index, gain);
                 Set
             }
@@ -54,7 +54,7 @@ mod tests {
                 &self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index: [ww_client_server::ResourceIndex; 2],
-            ) -> GetResult<f32, ()> {
+            ) -> GetResult<f32, CommonError<'_>> {
                 let value = self
                     .data
                     .read()
@@ -150,7 +150,7 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 _index: [ww_client_server::ResourceIndex; 2],
                 _gain: f32,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 Set
             }
 
@@ -158,7 +158,7 @@ mod tests {
                 &self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 _index: [ww_client_server::ResourceIndex; 2],
-            ) -> GetResult<f32, ()> {
+            ) -> GetResult<f32, CommonError<'_>> {
                 Value(0.0)
             }
 

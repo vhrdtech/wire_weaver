@@ -55,3 +55,5 @@ pub enum Error {
     /// An implementation-specific error: the vendor's own code, no unit.
     Custom(u32),
 }
+
+ww_api::api_error!(Error);

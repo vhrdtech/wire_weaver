@@ -165,7 +165,7 @@ impl ServerState {
         &mut self,
         _cx: &mut Context<'_, impl BlockingEventOut>,
         _config: ww_timebase::SyncConfig,
-    ) -> RpcResult<Result<(), ww_timebase::ClockError<'_>>> {
+    ) -> RpcResult<Result<(), CommonError<'_>>> {
         Unimplemented.into()
     }
 
@@ -187,7 +187,7 @@ impl ServerState {
         &mut self,
         _cx: &mut Context<'_, impl BlockingEventOut>,
         _t: ww_timebase::DateTime,
-    ) -> RpcResult<Result<(), ww_timebase::ClockError<'_>>> {
+    ) -> RpcResult<Result<(), CommonError<'_>>> {
         Unimplemented.into()
     }
 }

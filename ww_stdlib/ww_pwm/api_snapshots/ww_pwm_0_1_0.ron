@@ -1,6 +1,6 @@
 // ww_pwm 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 1cf486b7b90c0c1247d7afeee7dc59b6b06a8444531850d2278bc6be3a361560
+// shrink_wrap sha256: 44e148e3a257a7b2489c9e9bc1ac476fead942396c22b4dbf65b650ec1a0aa8b
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "PWM outputs and pulse measurement over WireWeaver.",
     "",
@@ -123,13 +123,8 @@
         "variants it returns.",
     ], ident: "PwmError", generics: [], variants: [
         (docs: [
-            "{0}",
-        ], ident: "Common", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 19), docs: [], slot: None, series_opaque: false),
-        ]), discriminant: 0, since: None),
-        (docs: [
             "The other channel of the group runs at another frequency.",
-        ], ident: "SharedTimer", fields: Unit, discriminant: 1, since: None),
+        ], ident: "SharedTimer", fields: Unit, discriminant: 0, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One measurement with its time, see `PwmCaptureChannel::read_capture`.",
@@ -273,7 +268,7 @@
         (ident: Some("name"), default: None, since: None, ty: MaxLen(max_len: Fixed(16), ty: String), docs: [
             "For the user: \"TIM1_CH1\", \"servo\", \"fan\".",
         ], slot: None, series_opaque: false),
-        (ident: Some("group"), default: None, since: None, ty: OutOfLine(type_idx: 20), docs: [
+        (ident: Some("group"), default: None, since: None, ty: OutOfLine(type_idx: 19), docs: [
             "Channels with the same group share a timer and so a frequency, see the crate docs.",
         ], slot: None, series_opaque: false),
         (ident: Some("capture"), default: None, since: None, ty: Bool, docs: [
@@ -389,24 +384,6 @@
             "Rising (or falling, device-defined) edges counted over `gate`.",
         ], ident: "EdgeCount", fields: Unit, discriminant: 4, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 3, type_name: "CommonError", signature: [
-        30,
-        18,
-        211,
-        141,
-        253,
-        197,
-        48,
-        184,
-        37,
-        11,
-        183,
-        248,
-        238,
-        96,
-        205,
-        177,
-    ]),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Id of a shared timer, see [PwmChannelInfo::group]: same bytes as its `u8` (DER-18).",
     ], ident: "TimerGroup", generics: [], fields: Unnamed([
@@ -436,7 +413,7 @@
         (id: 0, kind: StreamFn(ty: OutOfLine(type_idx: 1), delivery: Counted, args: [
             (ident: "config", ty: OutOfLine(type_idx: 2), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 2), err_ty: OutOfLine(type_idx: 3))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "Unsupported",
                 "InvalidArgument",
                 "InUse",
@@ -451,7 +428,7 @@
         (id: 1, kind: Method(args: [
             (ident: "config", ty: OutOfLine(type_idx: 2), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 2), err_ty: OutOfLine(type_idx: 3))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "Unsupported",
                 "InvalidArgument",
                 "InUse",
@@ -463,7 +440,7 @@
             "`Unsupported`: this mode isn\'t available on this channel; `InvalidArgument`: gate out of range.",
         ], optional: None, meta: None, identity: None),
         (id: 2, kind: Method(args: [], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 4), err_ty: OutOfLine(type_idx: 3))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "WrongState",
             ])),
         ])), multiplicity: Flat, since: None, ident: "read_capture", docs: [
@@ -477,7 +454,7 @@
         (id: 0, kind: Method(args: [
             (ident: "output", ty: OutOfLine(type_idx: 5), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 6), err_ty: OutOfLine(type_idx: 3))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "InvalidArgument",
                 "InUse",
                 "NoPower",
@@ -509,7 +486,7 @@
             Type(NumericAny(Base(U16))),
             Type(OutOfLine(type_idx: 10)),
         ]), err_ty: OutOfLine(type_idx: 3))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "WrongState",
                 "InvalidArgument",
             ])),
@@ -520,7 +497,7 @@
         (id: 2, kind: Method(args: [
             (ident: "idle_high", ty: Bool, default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 3))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "InUse",
                 "Refused",
             ])),
@@ -535,10 +512,8 @@
     (crate_id: "ww_pwm", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_si", version: (major: 0, minor: 5, patch: 0, pre: None, build: None)),
-    (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
-    Some((line: 1, revision: 0)),
+], root_omitted: None, wire: Some((line: 2, revision: 0)), ext_wire: Some([
+    Some((line: 2, revision: 0)),
     None,
     Some((line: 5, revision: 0)),
-    Some((line: 1, revision: 0)),
 ]))

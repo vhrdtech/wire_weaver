@@ -90,7 +90,7 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 _index_chain: [ww_client_server::ResourceIndex; 1],
                 id: u32,
-            ) -> RpcResult<Result<u32, hub_api::BusError<'_>>> {
+            ) -> RpcResult<Result<u32, wire_weaver::Error<'_, hub_api::BusError>>> {
                 Ready(Ok(id))
             }
 
@@ -100,7 +100,7 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [ww_client_server::ResourceIndex; 1],
                 value: u32,
-            ) -> SetResult<hub_api::BusError<'_>> {
+            ) -> SetResult<wire_weaver::Error<'_, hub_api::BusError>> {
                 self.seen.lock().unwrap().speed[index_chain[0].get().0 as usize] = value;
                 SetResult::Set
             }
@@ -110,7 +110,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [ww_client_server::ResourceIndex; 1],
-            ) -> GetResult<u32, hub_api::BusError<'_>> {
+            ) -> GetResult<u32, wire_weaver::Error<'_, hub_api::BusError>> {
                 GetResult::Value(self.seen.lock().unwrap().speed[index_chain[0].get().0 as usize])
             }
 
@@ -583,7 +583,7 @@ mod tests {
 
     // ---- claims (SRV-34) ----
 
-    use hub_api::BusErrorOwned;
+    use hub_api::BusError;
     use wire_weaver_client::{CallError, ClientMeta};
     use ww_hub::client::HubClient;
     use ww_hub_api::{ClaimErrorOwned, ClaimKind, EventOwned};
@@ -655,7 +655,7 @@ mod tests {
     }
 
     /// What B's call or write at A's claim gets.
-    fn refused<T: std::fmt::Debug>(r: Result<T, CallError<BusErrorOwned>>) -> CommonErrorOwned {
+    fn refused<T: std::fmt::Debug>(r: Result<T, CallError<BusError>>) -> CommonErrorOwned {
         common_error(r.expect_err("refused"))
     }
 

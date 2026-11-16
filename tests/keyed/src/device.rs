@@ -49,7 +49,7 @@ macro_rules! handlers {
             &mut self,
             _cx: &mut Context<'_, impl $out>,
             index_chain: [ResourceIndex; 1],
-        ) -> GetResult<FlowKey, ()> {
+        ) -> GetResult<FlowKey, CommonError<'_>> {
             let table = self.table.lock().unwrap();
             let flow = table.flows[index_chain[0].get().0 as usize].clone();
             Value(flow.expect("valid indices are the occupied ones").0)
@@ -72,7 +72,7 @@ macro_rules! handlers {
             &mut self,
             _cx: &mut Context<'_, impl $out>,
             index_chain: [ResourceIndex; 1],
-        ) -> GetResult<ww_si::Bytes<u64>, ()> {
+        ) -> GetResult<ww_si::Bytes<u64>, CommonError<'_>> {
             let table = self.table.lock().unwrap();
             let flow = &table.flows[index_chain[0].get().0 as usize];
             Value(ww_si::Bytes::new(flow.as_ref().expect("valid indices are the occupied ones").1))

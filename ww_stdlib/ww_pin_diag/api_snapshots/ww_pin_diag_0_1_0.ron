@@ -1,6 +1,6 @@
 // ww_pin_diag 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: f1cb9e91fa9bc348715baa5f5c61bceafeb416d01f0c5d8a803fa3181d5f02c0
+// shrink_wrap sha256: 62c54ef097087687c2cfebcc3b4094fa9a2c1d3ac1788cef460f0084a62abecc
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Raw access to a board\'s digital points for bring-up, verification and production tests (STD-47).",
     "",
@@ -104,21 +104,16 @@
         "Errors of [PinDiag].",
     ], ident: "PinDiagError", generics: [], variants: [
         (docs: [
-            "{0}",
-        ], ident: "Common", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 11), docs: [], slot: None, series_opaque: false),
-        ]), discriminant: 0, since: None),
-        (docs: [
             "No point with this id",
-        ], ident: "NoSuchPoint", fields: Unit, discriminant: 1, since: None),
+        ], ident: "NoSuchPoint", fields: Unit, discriminant: 0, since: None),
         (docs: [
             "The point can\'t do this at all (see its caps)",
-        ], ident: "NotCapable", fields: Unit, discriminant: 2, since: None),
+        ], ident: "NotCapable", fields: Unit, discriminant: 1, since: None),
         (docs: [
             "The board\'s rules forbid this now: {rule}",
         ], ident: "Refused", fields: Named([
             (ident: Some("rule"), default: None, since: None, ty: OutOfLine(type_idx: 7), docs: [], slot: None, series_opaque: false),
-        ]), discriminant: 3, since: None),
+        ]), discriminant: 2, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "Level", signature: [
         207,
@@ -206,24 +201,6 @@
             "The weakest drive the point has, for short tests.",
         ], ident: "Weak", fields: Unit, discriminant: 1, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 4, type_name: "CommonError", signature: [
-        30,
-        18,
-        211,
-        141,
-        253,
-        197,
-        48,
-        184,
-        37,
-        11,
-        183,
-        248,
-        238,
-        96,
-        205,
-        177,
-    ]),
 ], traits: [
     InLine(level: (docs: [
         "Raw access to a board\'s digital points, see the [crate](crate) documentation.",
@@ -242,7 +219,7 @@
             (ident: "NoSuchPoint", nested: None),
             (ident: "NotCapable", nested: None),
             (ident: "Refused", nested: None),
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "InUse",
             ])),
         ])), multiplicity: Flat, since: None, ident: "set", docs: [
@@ -272,11 +249,9 @@
     (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_gpio", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_interned", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-    (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
-    Some((line: 1, revision: 0)),
-    None,
+], root_omitted: None, wire: Some((line: 2, revision: 0)), ext_wire: Some([
     Some((line: 2, revision: 0)),
-    Some((line: 1, revision: 0)),
+    None,
+    Some((line: 3, revision: 0)),
     Some((line: 1, revision: 0)),
 ]))

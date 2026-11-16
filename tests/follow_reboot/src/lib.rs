@@ -204,7 +204,7 @@ impl App {
         &mut self,
         _cx: &mut Context<'_, impl BlockingEventOut>,
         into: BootTarget,
-    ) -> RpcResult<Result<(), Error>> {
+    ) -> RpcResult<Result<(), wire_weaver::Error<'_, Error>>> {
         self.reboot = Some(into);
         Ready(Ok(()))
     }

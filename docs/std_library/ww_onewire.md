@@ -88,7 +88,7 @@ the transaction's last byte; `OneWireCapabilities::strong_pullup` says whether i
 * `OneWireCapabilities<'i>` - `pins: MaxLen<RefVec<'i, MaxLen<&'i str, 16>>, MAX_PINS>` (by name), `io_levels:
   MaxLen<RefVec<'i, Volt>, MAX_IO_LEVELS>`, `io_level_min` / `io_level_max: Option<Volt>`, `overdrive: bool`,
   `strong_pullup: bool`.
-* `OneWireError<'i>` - `Common(CommonError)` ([common errors](../api/errors.md#common-errors)), `NoPresence`,
+* `OneWireError` - the [common errors](../api/errors.md#common-errors) beside its own `NoPresence`,
   `CrcMismatch`, `ShortCircuit`; unsized (`unib32` discriminant), evolvable.
 
 Constants: `OW_MAX` (256, largest write or read of one transaction), `MAX_ROMS` (16, most ROM ids in one search

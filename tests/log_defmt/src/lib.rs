@@ -164,7 +164,7 @@ mod tests {
             async fn defmt_frames(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
-            ) -> RpcResult<Result<(), ww_log::LogError<'_>>> {
+            ) -> RpcResult<Result<(), CommonError<'_>>> {
                 RpcResult::Ready(Ok(()))
             }
 
@@ -177,7 +177,7 @@ mod tests {
             async fn text_records(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
-            ) -> RpcResult<Result<(), ww_log::LogError<'_>>> {
+            ) -> RpcResult<Result<(), CommonError<'_>>> {
                 RpcResult::Ready(Ok(()))
             }
 
@@ -191,7 +191,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
                 value: LevelFilter,
-            ) -> SetResult<ww_log::LogError<'_>> {
+            ) -> SetResult<CommonError<'_>> {
                 self.level = value;
                 SetResult::Set
             }
@@ -199,7 +199,7 @@ mod tests {
             async fn get_text_level(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
-            ) -> GetResult<LevelFilter, ww_log::LogError<'_>> {
+            ) -> GetResult<LevelFilter, CommonError<'_>> {
                 GetResult::Value(self.level)
             }
 
@@ -401,7 +401,7 @@ mod tests {
         let info = client.defmt().read_DEFMT().read().await.unwrap();
         let table = table(info.encoding);
         let mut decoder = table.new_stream_decoder();
-        let mut frames = client.defmt().frames().call().await.unwrap().unwrap().1;
+        let mut frames = client.defmt().frames().call().await.unwrap();
 
         client.log_samples(0, 3).call().await.unwrap();
         // a frame takes 6 bytes in the ring besides its own ~10: 512 bytes hold about 30 of 100

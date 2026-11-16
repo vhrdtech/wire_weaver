@@ -64,7 +64,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: Mode,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.mode = value;
                 Set
             }
@@ -72,7 +72,7 @@ mod tests {
             pub(super) fn get_indication_mode(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Mode, ()> {
+            ) -> GetResult<Mode, CommonError<'_>> {
                 Value(self.mode)
             }
         }
@@ -156,7 +156,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: Mode,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.mode = value;
                 Set
             }
@@ -164,7 +164,7 @@ mod tests {
             pub(super) fn get_indication_mode(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Mode, ()> {
+            ) -> GetResult<Mode, CommonError<'_>> {
                 Value(self.mode)
             }
         }

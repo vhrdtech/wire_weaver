@@ -1,5 +1,4 @@
 use ww_api::prelude::*;
-use ww_error::CommonError;
 
 /// Errors of the recorder calls.
 #[derive_shrink_wrap(
@@ -10,10 +9,6 @@ use ww_error::CommonError;
     ww_repr = unib32
 )]
 pub enum RecorderError<'i> {
-    /// Common error
-    #[display("{0}")]
-    #[common]
-    Common(CommonError<'i>),
     /// No card in the slot.
     #[display("no card")]
     NoCard,
@@ -34,9 +29,6 @@ pub enum RecorderError<'i> {
     NoRecording,
 }
 
-impl RecorderError<'_> {
-    /// `Common(Unsupported)`.
-    pub const fn unsupported() -> Self {
-        RecorderError::Common(CommonError::Unsupported)
-    }
-}
+ww_api::api_error!(RecorderError<'i>);
+#[cfg(feature = "std")]
+ww_api::api_error!(RecorderErrorOwned);

@@ -78,7 +78,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: Timed<Ampere>,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.data.lock().unwrap().latest = Some(value);
                 SetResult::Set
             }
@@ -86,10 +86,12 @@ mod tests {
             fn get_latest(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Timed<Ampere>, ()> {
+            ) -> GetResult<Timed<Ampere>, CommonError<'_>> {
                 match self.data.lock().unwrap().latest {
                     Some(latest) => GetResult::Value(latest),
-                    None => GetResult::GetError(()),
+                    None => GetResult::GetError(CommonError::WrongState {
+                        reason: MaxLen::new_unchecked(""),
+                    }),
                 }
             }
 
@@ -97,7 +99,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: Outer<3>,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.data.lock().unwrap().outer = Some(value);
                 SetResult::Set
             }
@@ -105,10 +107,12 @@ mod tests {
             fn get_outer(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Outer<3>, ()> {
+            ) -> GetResult<Outer<3>, CommonError<'_>> {
                 match self.data.lock().unwrap().outer {
                     Some(outer) => GetResult::Value(outer),
-                    None => GetResult::GetError(()),
+                    None => GetResult::GetError(CommonError::WrongState {
+                        reason: MaxLen::new_unchecked(""),
+                    }),
                 }
             }
 
@@ -128,7 +132,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: Volt,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.data.lock().unwrap().voltage = Some(value);
                 SetResult::Set
             }
@@ -136,10 +140,12 @@ mod tests {
             fn get_voltage(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Volt, ()> {
+            ) -> GetResult<Volt, CommonError<'_>> {
                 match self.data.lock().unwrap().voltage {
                     Some(v) => GetResult::Value(v),
-                    None => GetResult::GetError(()),
+                    None => GetResult::GetError(CommonError::WrongState {
+                        reason: MaxLen::new_unchecked(""),
+                    }),
                 }
             }
 
@@ -147,7 +153,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: Timed<Volt>,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.data.lock().unwrap().timed_voltage = Some(value);
                 SetResult::Set
             }
@@ -155,10 +161,12 @@ mod tests {
             fn get_timed_voltage(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Timed<Volt>, ()> {
+            ) -> GetResult<Timed<Volt>, CommonError<'_>> {
                 match self.data.lock().unwrap().timed_voltage {
                     Some(v) => GetResult::Value(v),
-                    None => GetResult::GetError(()),
+                    None => GetResult::GetError(CommonError::WrongState {
+                        reason: MaxLen::new_unchecked(""),
+                    }),
                 }
             }
 
@@ -166,7 +174,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: Sample<u8>,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.data.lock().unwrap().sample = Some(value);
                 SetResult::Set
             }
@@ -174,10 +182,12 @@ mod tests {
             fn get_sample(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Sample<u8>, ()> {
+            ) -> GetResult<Sample<u8>, CommonError<'_>> {
                 match self.data.lock().unwrap().sample {
                     Some(v) => GetResult::Value(v),
-                    None => GetResult::GetError(()),
+                    None => GetResult::GetError(CommonError::WrongState {
+                        reason: MaxLen::new_unchecked(""),
+                    }),
                 }
             }
 
@@ -185,7 +195,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: Niched8,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.data.lock().unwrap().niched = Some(value);
                 SetResult::Set
             }
@@ -193,10 +203,12 @@ mod tests {
             fn get_niched(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Niched8, ()> {
+            ) -> GetResult<Niched8, CommonError<'_>> {
                 match self.data.lock().unwrap().niched {
                     Some(v) => GetResult::Value(v),
-                    None => GetResult::GetError(()),
+                    None => GetResult::GetError(CommonError::WrongState {
+                        reason: MaxLen::new_unchecked(""),
+                    }),
                 }
             }
 

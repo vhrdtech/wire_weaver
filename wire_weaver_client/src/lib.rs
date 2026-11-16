@@ -54,7 +54,9 @@ pub use client::prepared_call::{PendingCall, PreparedCall};
 pub use client::prepared_connection::PreparedConnection;
 pub use client::prepared_disconnect::PreparedDisconnect;
 pub use client::prepared_read::PreparedRead;
-pub use client::prepared_stream_open::{PreparedStreamOpen, StreamHandle, StreamOpenResult};
+pub use client::prepared_stream_open::{
+    OpenValue, PreparedStreamOpen, StreamHandle, StreamOpenResult,
+};
 pub use client::prepared_write::PreparedWrite;
 pub use client::promise::{Promise, PromiseState};
 pub use client::sink::CreditConfig;

@@ -8,8 +8,8 @@ mod tests {
     use wire_weaver::prelude::*;
     use wire_weaver_client::StreamEvent;
     use ww_gpio::{
-        BankCapabilities, BankConfig, GpioError, GpioErrorOwned, IoLevel, IoPinEnabledEvents,
-        IoPinEvent, Level, Mode, PinCapabilities, Pull, Speed,
+        BankCapabilities, BankConfig, GpioError, IoLevel, IoPinEnabledEvents, IoPinEvent, Level,
+        Mode, PinCapabilities, Pull, Speed,
     };
     use ww_si::Index;
     use ww_stream::tx::Counted;
@@ -180,7 +180,7 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [ww_client_server::ResourceIndex; 1],
                 config: BankConfig,
-            ) -> RpcResult<Result<BankConfig, GpioError<'_>>> {
+            ) -> RpcResult<Result<BankConfig, wire_weaver::Error<'_, GpioError>>> {
                 let bank = index_chain[0].get().0 as usize;
                 let mut banks = self.banks.lock().unwrap();
                 if let Some(level) = config.io_level {
@@ -261,7 +261,7 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [ww_client_server::ResourceIndex; 2],
                 enabled: IoPinEnabledEvents<'_>,
-            ) -> RpcResult<Result<(), GpioError<'_>>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, GpioError>>> {
                 if !enabled.custom.is_empty() {
                     // The mock pins have no device-specific sources.
                     return Ready(Err(CommonError::Unsupported.into()));
@@ -302,7 +302,7 @@ mod tests {
                 index_chain: [ww_client_server::ResourceIndex; 2],
                 mode: Mode,
                 initial: Option<Level>,
-            ) -> RpcResult<Result<(), GpioError<'_>>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, GpioError>>> {
                 if matches!(mode, Mode::Analog) {
                     // The mock pins don't support Analog, exercised by `set_mode_unsupported`.
                     return Ready(Err(CommonError::Unsupported.into()));
@@ -329,7 +329,7 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [ww_client_server::ResourceIndex; 2],
                 value: Pull,
-            ) -> SetResult<GpioError<'_>> {
+            ) -> SetResult<wire_weaver::Error<'_, GpioError>> {
                 self.with_pin_mut(index_chain, |pin| pin.pull = value);
                 Set
             }
@@ -338,7 +338,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [ww_client_server::ResourceIndex; 2],
-            ) -> GetResult<Pull, GpioError<'_>> {
+            ) -> GetResult<Pull, wire_weaver::Error<'_, GpioError>> {
                 Value(self.pin(index_chain).pull)
             }
 
@@ -347,7 +347,7 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [ww_client_server::ResourceIndex; 2],
                 value: Speed,
-            ) -> SetResult<GpioError<'_>> {
+            ) -> SetResult<wire_weaver::Error<'_, GpioError>> {
                 self.with_pin_mut(index_chain, |pin| pin.speed = value);
                 Set
             }
@@ -356,7 +356,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [ww_client_server::ResourceIndex; 2],
-            ) -> GetResult<Speed, GpioError<'_>> {
+            ) -> GetResult<Speed, wire_weaver::Error<'_, GpioError>> {
                 Value(self.pin(index_chain).speed)
             }
 
@@ -522,10 +522,7 @@ mod tests {
             .call()
             .await
             .unwrap_err();
-        assert!(matches!(
-            err.device(),
-            Some(GpioErrorOwned::Common(CommonErrorOwned::Unsupported))
-        ));
+        assert!(matches!(err.common(), Some(CommonErrorOwned::Unsupported)));
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -565,8 +562,8 @@ mod tests {
 
         let err = pin.set_mode(Mode::Analog, None).call().await;
         assert!(matches!(
-            err.unwrap_err().device(),
-            Some(GpioErrorOwned::Common(CommonErrorOwned::Unsupported))
+            err.unwrap_err().common(),
+            Some(CommonErrorOwned::Unsupported)
         ));
 
         pin.write_pull(Pull::Up).write().await.unwrap();
@@ -587,7 +584,7 @@ mod tests {
         let bank = client.bank(1);
         let pin = bank.pin(1);
 
-        let r = pin
+        let e = pin
             .event(ww_gpio::IoPinEnabledEventsOwned {
                 rising: true,
                 falling: false,
@@ -595,14 +592,11 @@ mod tests {
             })
             .call()
             .await
-            .unwrap();
+            .err()
+            .expect("a custom event is refused");
         assert!(
-            matches!(
-                r,
-                Err(GpioErrorOwned::Common(CommonErrorOwned::Unsupported))
-            ),
-            "{:?}",
-            r.err()
+            matches!(e.common(), Some(CommonErrorOwned::Unsupported)),
+            "{e:?}"
         );
 
         let ((), mut events) = pin

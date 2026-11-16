@@ -13,14 +13,8 @@ wire = "w1.0"
 
 [features]
 default = ["std"]
-std = ["ww_api/std", "ww_error/std", "ww_block/std", "ww_si/std"]
-defmt = [
-    "dep:defmt",
-    "ww_api/defmt",
-    "ww_error/defmt",
-    "ww_block/defmt",
-    "ww_si/defmt",
-]
+std = ["ww_api/std", "ww_block/std", "ww_si/std"]
+defmt = ["dep:defmt", "ww_api/defmt", "ww_block/defmt", "ww_si/defmt"]
 # Lets CMD42 (lock/unlock) and CMD27 (program CSD, permanent write protect) through `check_access`, with the lease.
 # Bring-up firmware only: these commands can lock a card or damage it for good.
 raw-sd-unrestricted = []
@@ -29,5 +23,4 @@ raw-sd-unrestricted = []
 defmt = { workspace = true, optional = true }
 ww_api.workspace = true
 ww_block = { workspace = true, default-features = false }
-ww_error = { workspace = true, default-features = false }
 ww_si = { workspace = true, default-features = false, features = ["time", "information", "counting"] }

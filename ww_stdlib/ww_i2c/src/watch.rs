@@ -3,8 +3,6 @@ use ww_si::{Bytes, Count, Range, Second};
 
 #[cfg(feature = "std")]
 use crate::I2cReadKindOwned;
-#[cfg(feature = "std")]
-use crate::error::I2cErrorOwned;
 use crate::{I2cAddress, I2cError, I2cReadKind, Watch};
 
 /// Most watches one `I2cWatch` device holds at once (it may hold fewer, see [I2cWatchCapabilities]).
@@ -33,17 +31,25 @@ pub trait I2cWatch {
     /// Adds a watch and returns its slot, used by the other methods and in [I2cWatchEvent::slot].
     /// `InvalidArgument` for a period below the device's minimum or a mask or match rule not as long as the read,
     /// `BufferTooBig` for a read longer than this device watches, `WrongState` while not a master.
-    #[errors(Common(InvalidArgument, WrongState), OutOfWatchSlots, BufferTooBig)]
-    fn watch_add(watch: I2cWatchConfig<'i>) -> Result<WatchSlot, I2cError<'i>>;
+    #[errors(
+        CommonError(InvalidArgument, WrongState),
+        OutOfWatchSlots,
+        BufferTooBig
+    )]
+    fn watch_add(watch: I2cWatchConfig<'i>) -> Result<WatchSlot, I2cError>;
 
     /// Replaces a watch's configuration; its previous result is forgotten, so the next read is reported. Errors as
     /// `I2cWatch::watch_add`.
-    #[errors(Common(InvalidArgument, WrongState), InvalidWatchSlot, BufferTooBig)]
-    fn watch_modify(slot: WatchSlot, watch: I2cWatchConfig<'i>) -> Result<(), I2cError<'i>>;
+    #[errors(
+        CommonError(InvalidArgument, WrongState),
+        InvalidWatchSlot,
+        BufferTooBig
+    )]
+    fn watch_modify(slot: WatchSlot, watch: I2cWatchConfig<'i>) -> Result<(), I2cError>;
 
     /// Removes a watch.
     #[errors(InvalidWatchSlot)]
-    fn watch_remove(slot: WatchSlot) -> Result<(), I2cError<'i>>;
+    fn watch_remove(slot: WatchSlot) -> Result<(), I2cError>;
 
     /// Slots in use.
     fn watch_list() -> MaxLen<RefVec<'i, WatchSlot>, MAX_WATCHES>;
@@ -138,5 +144,5 @@ pub struct I2cMatchByte {
 )]
 pub struct I2cWatchEvent<'i> {
     pub slot: WatchSlot,
-    pub result: Result<MaxLen<RefVec<'i, u8>, MAX_WATCH_LEN>, I2cError<'i>>,
+    pub result: Result<MaxLen<RefVec<'i, u8>, MAX_WATCH_LEN>, I2cError>,
 }

@@ -34,23 +34,23 @@ macro_rules! boot_handlers {
         fn boot_confirm(
             &mut self,
             _cx: &mut Context<'_, impl BlockingEventOut>,
-        ) -> RpcResult<Result<(), Error>> {
-            Ready(self.node.confirm())
+        ) -> RpcResult<Result<(), wire_weaver::Error<'_, Error>>> {
+            Ready(self.node.confirm().map_err(Into::into))
         }
 
         fn boot_revert(
             &mut self,
             _cx: &mut Context<'_, impl BlockingEventOut>,
-        ) -> RpcResult<Result<(), Error>> {
-            Ready(self.node.revert())
+        ) -> RpcResult<Result<(), wire_weaver::Error<'_, Error>>> {
+            Ready(self.node.revert().map_err(Into::into))
         }
 
         fn boot_reboot(
             &mut self,
             _cx: &mut Context<'_, impl BlockingEventOut>,
             into: BootTarget,
-        ) -> RpcResult<Result<(), Error>> {
-            Ready(self.node.reboot(into))
+        ) -> RpcResult<Result<(), wire_weaver::Error<'_, Error>>> {
+            Ready(self.node.reboot(into).map_err(Into::into))
         }
     };
 }
@@ -62,16 +62,16 @@ macro_rules! stage_handlers {
             &mut self,
             _cx: &mut Context<'_, impl BlockingEventOut>,
             slot: Slot,
-        ) -> RpcResult<Result<SlotLayout, Error>> {
-            Ready(self.node.layout(slot))
+        ) -> RpcResult<Result<SlotLayout, wire_weaver::Error<'_, Error>>> {
+            Ready(self.node.layout(slot).map_err(Into::into))
         }
 
         fn inventory_manifest_digest(
             &mut self,
             _cx: &mut Context<'_, impl BlockingEventOut>,
             slot: Slot,
-        ) -> RpcResult<Result<[u8; 8], Error>> {
-            Ready(self.node.manifest_digest(slot))
+        ) -> RpcResult<Result<[u8; 8], wire_weaver::Error<'_, Error>>> {
+            Ready(self.node.manifest_digest(slot).map_err(Into::into))
         }
 
         fn inventory_chunks(
@@ -80,11 +80,17 @@ macro_rules! stage_handlers {
             slot: Slot,
             first: Index<Chunk, u16>,
             count: Count<Chunk, u16>,
-        ) -> RpcResult<Result<MaxLen<RefVec<'_, ChunkState>, { ww_dfu::MAX_CHUNKS_PAGE }>, Error>> {
+        ) -> RpcResult<
+            Result<
+                MaxLen<RefVec<'_, ChunkState>, { ww_dfu::MAX_CHUNKS_PAGE }>,
+                wire_weaver::Error<'_, Error>,
+            >,
+        > {
             Ready(
                 self.node
                     .chunks(slot, first, count)
-                    .map(|page| MaxLen::new(RefVec::Slice { slice: page }).unwrap()),
+                    .map(|page| MaxLen::new(RefVec::Slice { slice: page }).unwrap())
+                    .map_err(Into::into),
             )
         }
 
@@ -100,9 +106,9 @@ macro_rules! stage_handlers {
             _cx: &mut Context<'_, impl BlockingEventOut>,
             target: Target,
             header: MaxLen<RefVec<'_, u8>, { ww_dfu::MAX_HEADER_LEN }>,
-        ) -> RpcResult<Result<Session, Error>> {
+        ) -> RpcResult<Result<Session, wire_weaver::Error<'_, Error>>> {
             let header = bytes(&header);
-            Ready(self.node.begin(target, &header))
+            Ready(self.node.begin(target, &header).map_err(Into::into))
         }
 
         fn stage_erase(
@@ -110,8 +116,8 @@ macro_rules! stage_handlers {
             _cx: &mut Context<'_, impl BlockingEventOut>,
             index: Index<Step, u32>,
             block: Index<Block, u16>,
-        ) -> RpcResult<Result<(), Error>> {
-            Ready(self.node.erase(index, block))
+        ) -> RpcResult<Result<(), wire_weaver::Error<'_, Error>>> {
+            Ready(self.node.erase(index, block).map_err(Into::into))
         }
 
         fn stage_copy(
@@ -121,8 +127,8 @@ macro_rules! stage_handlers {
             dst: Index<Chunk, u16>,
             src: Index<Chunk, u16>,
             hash: [u8; 8],
-        ) -> RpcResult<Result<(), Error>> {
-            Ready(self.node.copy(index, dst, src, hash))
+        ) -> RpcResult<Result<(), wire_weaver::Error<'_, Error>>> {
+            Ready(self.node.copy(index, dst, src, hash).map_err(Into::into))
         }
 
         fn stage_write(
@@ -133,23 +139,27 @@ macro_rules! stage_handlers {
             hash: [u8; 8],
             offset: Index<Byte, u32>,
             data: MaxLen<RefVec<'_, u8>, { ww_dfu::MAX_PIECE_LEN }>,
-        ) -> RpcResult<Result<(), Error>> {
+        ) -> RpcResult<Result<(), wire_weaver::Error<'_, Error>>> {
             let data = bytes(&data);
-            Ready(self.node.write(index, dst, hash, offset, &data))
+            Ready(
+                self.node
+                    .write(index, dst, hash, offset, &data)
+                    .map_err(Into::into),
+            )
         }
 
         fn stage_progress(
             &mut self,
             _cx: &mut Context<'_, impl BlockingEventOut>,
-        ) -> RpcResult<Result<Progress, Error>> {
-            Ready(self.node.progress())
+        ) -> RpcResult<Result<Progress, wire_weaver::Error<'_, Error>>> {
+            Ready(self.node.progress().map_err(Into::into))
         }
 
         fn stage_finish(
             &mut self,
             _cx: &mut Context<'_, impl BlockingEventOut>,
-        ) -> RpcResult<Result<BootState, Error>> {
-            Ready(self.node.finish())
+        ) -> RpcResult<Result<BootState, wire_weaver::Error<'_, Error>>> {
+            Ready(self.node.finish().map_err(Into::into))
         }
 
         fn stage_abort(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) -> RpcResult<()> {
@@ -178,9 +188,13 @@ macro_rules! stage_handlers {
             header: MaxLen<RefVec<'_, u8>, { ww_dfu::MAX_HEADER_LEN }>,
             total_len: Bytes<u32>,
             ack_every: ww_dfu::AckEvery,
-        ) -> RpcResult<Result<Session, Error>> {
+        ) -> RpcResult<Result<Session, wire_weaver::Error<'_, Error>>> {
             let header = bytes(&header);
-            Ready(self.node.begin_bulk(target, &header, total_len, ack_every))
+            Ready(
+                self.node
+                    .begin_bulk(target, &header, total_len, ack_every)
+                    .map_err(Into::into),
+            )
         }
 
         fn credit_bulk_plan(&mut self) -> &mut SinkCredit {

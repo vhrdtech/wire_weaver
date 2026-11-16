@@ -39,7 +39,7 @@
 //! [Error] implements `embedded_hal::i2c::Error`: `I2cError::Nack` is `NoAcknowledge` of the address
 //! (`at: Some(0)`), of data (`at: Some(n)`) or unknown (`at: None`); `Arbitration` is `ArbitrationLoss`; `Bus` and
 //! `BusStuck` are `Bus`; `Overrun` is `Overrun`; everything else (`ClockStretch`, `Timeout`, a refused
-//! transaction, a lost link) is `Other`. The full error is kept: `Error::I2c` has the device's `I2cErrorOwned`,
+//! transaction, a lost link) is `Other`. The full error is kept: `Error::I2c` has the device's `I2cError`,
 //! with `Nack::op` counting the merged operations.
 
 mod plan;
@@ -55,8 +55,8 @@ use wire_weaver_client::{Attachment, CallError};
 use ww::I2cClient;
 pub use ww_i2c;
 use ww_i2c::{
-    I2cAddress, I2cCapabilitiesOwned, I2cErrorOwned, I2cReadKindOwned, I2cTransactionTimeRange,
-    MAX_OPS, MAX_READ_LEN, MAX_WRITE_LEN, MAX_WRITE_READ_LEN,
+    I2cAddress, I2cCapabilitiesOwned, I2cError, I2cReadKindOwned, I2cTransactionTimeRange, MAX_OPS,
+    MAX_READ_LEN, MAX_WRITE_LEN, MAX_WRITE_READ_LEN,
 };
 
 /// What a device takes in one call, from `I2c::i2c_capabilities` (see [I2cMaster::new]).
@@ -101,7 +101,7 @@ impl From<&I2cCapabilitiesOwned> for I2cLimits {
 pub enum Error {
     /// The device answered with an error.
     #[error("ww_i2c: {0:?}")]
-    I2c(I2cErrorOwned),
+    I2c(I2cError),
     /// The device answered with a common error (STD-16): `Busy`, `InUse`, `Unsupported`, ...
     #[error(transparent)]
     Common(wire_weaver_client::ww_error::CommonErrorOwned),
@@ -128,8 +128,8 @@ pub enum Error {
     ShortRead { got: usize, expected: usize },
 }
 
-impl From<CallError<I2cErrorOwned>> for Error {
-    fn from(e: CallError<I2cErrorOwned>) -> Self {
+impl From<CallError<I2cError>> for Error {
+    fn from(e: CallError<I2cError>) -> Self {
         match e {
             CallError::Device(e) => Error::I2c(e),
             CallError::Common(c) => Error::Common(c),
@@ -149,16 +149,14 @@ impl embedded_hal::i2c::Error for Error {
     fn kind(&self) -> ErrorKind {
         match self {
             Error::I2c(e) => match e {
-                I2cErrorOwned::Nack { at, .. } => {
-                    ErrorKind::NoAcknowledge(match at.map(|a| a.get()) {
-                        Some(0) => NoAcknowledgeSource::Address,
-                        Some(_) => NoAcknowledgeSource::Data,
-                        None => NoAcknowledgeSource::Unknown,
-                    })
-                }
-                I2cErrorOwned::Arbitration => ErrorKind::ArbitrationLoss,
-                I2cErrorOwned::Bus | I2cErrorOwned::BusStuck { .. } => ErrorKind::Bus,
-                I2cErrorOwned::Overrun => ErrorKind::Overrun,
+                I2cError::Nack { at, .. } => ErrorKind::NoAcknowledge(match at.map(|a| a.get()) {
+                    Some(0) => NoAcknowledgeSource::Address,
+                    Some(_) => NoAcknowledgeSource::Data,
+                    None => NoAcknowledgeSource::Unknown,
+                }),
+                I2cError::Arbitration => ErrorKind::ArbitrationLoss,
+                I2cError::Bus | I2cError::BusStuck { .. } => ErrorKind::Bus,
+                I2cError::Overrun => ErrorKind::Overrun,
                 _ => ErrorKind::Other,
             },
             _ => ErrorKind::Other,

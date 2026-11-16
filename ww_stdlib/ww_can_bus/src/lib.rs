@@ -44,9 +44,9 @@
 //!
 //! # Errors
 //!
-//! Every method returns [CanError]: the framework's `CommonError` (unsupported, in use, wrong state, ...) as
-//! [CanError::Common], plus what is specific to CAN (`OutOfFilters`, `OutOfMemory`, `BusOff`). Each method lists the
-//! variants it returns (`#[errors]`). Errors on the bus are not errors of a call: they are counted in [Status] and
+//! Every method returns [CanError], what is specific to CAN (`OutOfFilters`, `OutOfMemory`, `BusOff`); the common
+//! errors (unsupported, in use, wrong state, ...: `ww_error::CommonError`) come beside it, as every item's do. Each
+//! method lists the errors it returns (`#[errors]`). Errors on the bus are not errors of a call: they are counted in [Status] and
 //! reported one by one on the optional `bus_errors` stream.
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -66,8 +66,6 @@ pub mod config;
 pub use config::{BitTiming, CanConfig, FdConfig, Mode, Options, RxOverflow, Tdc, Timing, TxOrder};
 pub mod error;
 pub use error::CanError;
-#[cfg(feature = "std")]
-pub use error::CanErrorOwned;
 pub mod filter;
 #[cfg(feature = "std")]
 pub use filter::FilterConfigOwned;
@@ -155,8 +153,8 @@ pub trait Can {
     /// [Capabilities::nominal] / [Capabilities::data] or a bit rate it can't reach exactly `InvalidArgument`,
     /// `InUse` when another controller sharing the clock keeps it from changing, `WrongState` while its [CanGroup]
     /// is disabled.
-    #[errors(Common(Unsupported, InvalidArgument, InUse, WrongState, NoPower))]
-    fn configure(config: CanConfig) -> Result<CanConfig, CanError<'i>>;
+    #[errors(CommonError(Unsupported, InvalidArgument, InUse, WrongState, NoPower))]
+    fn configure(config: CanConfig) -> Result<CanConfig, CanError>;
 
     /// The configuration in effect, as `configure` last answered it (with the mode now in effect): for a host
     /// attaching to a running node.
@@ -184,14 +182,14 @@ pub trait Can {
     /// [Mode::Restricted], [Mode::ListenOnly], a loopback, [Mode::Test] or [Mode::Sleep]. `Unsupported` for a mode
     /// this controller doesn't have.
     #[optional]
-    #[errors(Common(Unsupported, WrongState))]
-    fn set_mode(mode: Mode) -> Result<Mode, CanError<'i>>;
+    #[errors(CommonError(Unsupported, WrongState))]
+    fn set_mode(mode: Mode) -> Result<Mode, CanError>;
 
     /// Starts the bus-off recovery now (128 occurrences of 11 recessive bits, then error active). Left out by a
     /// device that only recovers automatically ([CanConfig::bus_off_recovery]). `WrongState` when not bus-off.
     #[optional]
-    #[errors(Common(WrongState))]
-    fn recover() -> Result<(), CanError<'i>>;
+    #[errors(CommonError(WrongState))]
+    fn recover() -> Result<(), CanError>;
 
     /// Drops every frame queued for sending, including those already handed to the controller and not yet on the
     /// bus; answers how many were dropped. Each one is reported on `tx_events` as [TxOutcome::Aborted].
@@ -227,11 +225,11 @@ pub trait Can {
     /// errors (the controller then stays configured with it, in listen-only), or `None` (the configuration is left
     /// as it was). `InvalidArgument` for an empty list or a timing outside the limits.
     #[optional]
-    #[errors(Common(InvalidArgument, Unsupported, InUse))]
+    #[errors(CommonError(InvalidArgument, Unsupported, InUse))]
     fn detect_timing(
         candidates: MaxLen<RefVec<'i, Timing>, MAX_TIMING_CANDIDATES>,
         per_candidate: Second,
-    ) -> Result<Option<CanConfig>, CanError<'i>>;
+    ) -> Result<Option<CanConfig>, CanError>;
 
     /// Replaces the whole acceptance filter list and what happens to frames no filter matches. Without this item,
     /// a device receives every frame.
@@ -239,23 +237,23 @@ pub trait Can {
     /// More filters of a kind than the controller has (or than its memory layout holds) is `OutOfFilters`, a match
     /// kind it can't do (a range, a mask) `Unsupported`, a FIFO or buffer index it doesn't have `InvalidArgument`.
     #[optional(filters)]
-    #[errors(Common(Unsupported, InvalidArgument), OutOfFilters)]
-    fn set_filters(filters: FilterConfig<'i>) -> Result<(), CanError<'i>>;
+    #[errors(CommonError(Unsupported, InvalidArgument), OutOfFilters)]
+    fn set_filters(filters: FilterConfig<'i>) -> Result<(), CanError>;
 
     /// Divides the controller's message memory (M_CAN message RAM, MCP2518FD FIFO RAM) between filters, FIFOs,
     /// buffers and the TX event FIFO, and answers the layout in effect. Only on controllers with a configurable
     /// layout ([Capabilities::memory]). `OutOfMemory` when it doesn't fit (also next to the other controllers of its
     /// group sharing the memory), `WrongState` while frames are queued.
     #[optional]
-    #[errors(Common(Unsupported, InvalidArgument, WrongState), OutOfMemory)]
-    fn set_layout(layout: MemoryLayout) -> Result<MemoryLayout, CanError<'i>>;
+    #[errors(CommonError(Unsupported, InvalidArgument, WrongState), OutOfMemory)]
+    fn set_layout(layout: MemoryLayout) -> Result<MemoryLayout, CanError>;
 
     /// The last frame a filter routed into dedicated receive buffer `index` ([FilterAction::Buffer]), and when it
     /// came; `None` when none came since the buffer was last read. For "the latest value of this ID" without
     /// streaming every frame. `InvalidArgument` for an index past [Capabilities::rx_buffers].
     #[optional(rx_buffers)]
-    #[errors(Common(InvalidArgument))]
-    fn rx_buffer(index: BufferIndex) -> Result<Option<BufferedFrame<'i>>, CanError<'i>>;
+    #[errors(CommonError(InvalidArgument))]
+    fn rx_buffer(index: BufferIndex) -> Result<Option<BufferedFrame<'i>>, CanError>;
 
     /// Dedicated transmit buffer `index`: `frame` with no `period` is sent once now, with a `period` every
     /// `period` by the device until the buffer is written again; `None` clears the buffer (stops a cyclic frame,
@@ -265,18 +263,18 @@ pub trait Can {
     /// `InvalidArgument` for an index past [Capabilities::tx_buffers], `Unsupported` for a period on a device
     /// without cyclic sending, `WrongState` in a mode that doesn't send, `BusOff` while bus-off.
     #[optional(tx_buffers)]
-    #[errors(Common(Unsupported, InvalidArgument, WrongState), BusOff)]
+    #[errors(CommonError(Unsupported, InvalidArgument, WrongState), BusOff)]
     fn tx_buffer(
         index: BufferIndex,
         frame: Option<TxFrame<'i>>,
         period: Option<Second>,
-    ) -> Result<(), CanError<'i>>;
+    ) -> Result<(), CanError>;
 
     /// Switches the transceiver (standby pin, silent pin, sleep) and answers the mode in effect. `Unsupported` for
     /// a mode it doesn't have ([Capabilities::transceiver_modes]).
     #[optional(transceiver)]
-    #[errors(Common(Unsupported, NoPower))]
-    fn set_transceiver(mode: TransceiverMode) -> Result<TransceiverMode, CanError<'i>>;
+    #[errors(CommonError(Unsupported, NoPower))]
+    fn set_transceiver(mode: TransceiverMode) -> Result<TransceiverMode, CanError>;
 
     /// Transceiver mode and the bus wiring faults it detects; sent to observers when a fault appears or clears.
     #[optional(transceiver)]
@@ -285,8 +283,8 @@ pub trait Can {
     /// Switches the terminator and answers the one in effect. `Unsupported` for a value not in
     /// [Capabilities::termination].
     #[optional(terminator)]
-    #[errors(Common(Unsupported, NoPower))]
-    fn set_termination(termination: Termination) -> Result<Termination, CanError<'i>>;
+    #[errors(CommonError(Unsupported, NoPower))]
+    fn set_termination(termination: Termination) -> Result<Termination, CanError>;
 
     /// The terminator in effect.
     #[optional(terminator)]
@@ -295,8 +293,8 @@ pub trait Can {
     /// In [Mode::Test]: drives the TX pin as `tx` says and answers the level on the RX pin. `WrongState` in any
     /// other mode.
     #[optional]
-    #[errors(Common(WrongState))]
-    fn test_pins(tx: TxPin) -> Result<BusLevel, CanError<'i>>;
+    #[errors(CommonError(WrongState))]
+    fn test_pins(tx: TxPin) -> Result<BusLevel, CanError>;
 }
 
 #[cfg(test)]

@@ -9,6 +9,7 @@
 
 ### 🚀 Features
 
+- `api_error!` for `TakeError`, `ClaimError`, `ReleaseError`, `AdoptError`, `HandoverError` and their `Owned` forms (STD-16): the hub's handlers `?` them into `wire_weaver::Error`.
 - `DeviceState::Lent { claim }` (SRV-32): a device lent out with `Claims::lend`, with the claim naming who borrowed it and what for; it was listed as free (or not at all) while lent. Wire-compatible addition: an older client reads it as an unknown state.
 - `Adopt` (CLT-44) at `Hub::adopt`: `prepare(snapshot) -> Result<u64, AdoptError>` and `commit(id) -> Result<(), AdoptError>`, a direct holder handing its live link to the hub in two steps; `AdoptError` (`Versions`, `Snapshot`, `Busy`, `UnknownId`, `Open`). Wire-compatible addition (a new item of the root).
 - `Claims::lend(key, purpose, ttl_s) -> Result<u32, ClaimError>` (SRV-32): a root claim that has the hub close the device for a program outside it until released; `ClaimEntry::lent` (`#[default = false]`), `Event::Lent { key, id }` and `Event::Returned { key }`. Device-wide exclusive access is a claim on the root path, documented on `Claims`. Wire-compatible additions.

@@ -15,8 +15,7 @@ use ww_hub_api::{DeviceStateOwned, SyncEntryOwned, SyncPhaseOwned};
 use ww_si::ww_numeric::NumericValue;
 use ww_si::{Prefix, Second};
 use ww_timebase::{
-    ClockError, ClockInfo, SteerPoint, Steerer, SteererOwned, SyncConfig, SyncSource, SyncState,
-    SyncStatus,
+    ClockInfo, SteerPoint, Steerer, SteererOwned, SyncConfig, SyncSource, SyncState, SyncStatus,
 };
 
 /// What the device's clock took.
@@ -96,7 +95,7 @@ mod server {
             &mut self,
             _cx: &mut Context<'_, impl BlockingEventOut>,
             _config: SyncConfig,
-        ) -> RpcResult<Result<(), ClockError<'_>>> {
+        ) -> RpcResult<Result<(), CommonError<'_>>> {
             Unimplemented.into()
         }
 
@@ -137,7 +136,7 @@ mod server {
             &mut self,
             _cx: &mut Context<'_, impl BlockingEventOut>,
             _t: ww_date_time::DateTime,
-        ) -> RpcResult<Result<(), ClockError<'_>>> {
+        ) -> RpcResult<Result<(), CommonError<'_>>> {
             Unimplemented.into()
         }
 
@@ -145,7 +144,7 @@ mod server {
             &mut self,
             _cx: &mut Context<'_, impl BlockingEventOut>,
             point: SteerPoint<'_>,
-        ) -> RpcResult<Result<Option<SyncSource>, ClockError<'_>>> {
+        ) -> RpcResult<Result<Option<SyncSource>, CommonError<'_>>> {
             self.steerer = point.steerer.as_ref().map(|s| SteererOwned {
                 id: s.id,
                 host: s.host.to_string(),
@@ -178,7 +177,7 @@ mod server {
             &mut self,
             _cx: &mut Context<'_, impl BlockingEventOut>,
             _sources: Option<MaxLen<RefVec<'_, SyncSource>, 8>>,
-        ) -> RpcResult<Result<(), ClockError<'_>>> {
+        ) -> RpcResult<Result<(), CommonError<'_>>> {
             Unimplemented.into()
         }
 

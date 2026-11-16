@@ -14,7 +14,7 @@ guarantee and how is in [Stream delivery](stream_reliability.md). This page show
 trait Adc {
     /// Sample sets at `config.rate`; unit: sample set
     #[stream(SampleBlock<'i>, reliable)]
-    fn samples(config: StreamConfig) -> Result<StreamActual, AdcError<'i>>;
+    fn samples(config: StreamConfig) -> Result<StreamActual, AdcError>;
 
     /// Bytes as they arrive on the line; unit: byte
     #[counted]

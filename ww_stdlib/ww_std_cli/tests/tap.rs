@@ -15,14 +15,14 @@ impl Server {
         &mut self,
         _cx: &mut Context<'_, impl BlockingEventOut>,
         _value: MaxLen<&'_ str, 32>,
-    ) -> SetResult<UserInfoError<'_>> {
+    ) -> SetResult<wire_weaver::Error<'_, UserInfoError>> {
         Set
     }
 
     fn get_user_name(
         &mut self,
         _cx: &mut Context<'_, impl BlockingEventOut>,
-    ) -> GetResult<MaxLen<&'_ str, 32>, UserInfoError<'_>> {
+    ) -> GetResult<MaxLen<&'_ str, 32>, wire_weaver::Error<'_, UserInfoError>> {
         Value(MaxLen::new_unchecked("tapped"))
     }
 
@@ -30,14 +30,14 @@ impl Server {
         &mut self,
         _cx: &mut Context<'_, impl BlockingEventOut>,
         _value: MaxLen<&'_ str, 256>,
-    ) -> SetResult<UserInfoError<'_>> {
+    ) -> SetResult<wire_weaver::Error<'_, UserInfoError>> {
         Set
     }
 
     fn get_user_notes(
         &mut self,
         _cx: &mut Context<'_, impl BlockingEventOut>,
-    ) -> GetResult<MaxLen<&'_ str, 256>, UserInfoError<'_>> {
+    ) -> GetResult<MaxLen<&'_ str, 256>, wire_weaver::Error<'_, UserInfoError>> {
         Value(MaxLen::new_unchecked(""))
     }
 }

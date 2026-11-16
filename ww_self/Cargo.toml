@@ -43,6 +43,7 @@ serde = { workspace = true, optional = true }
 sha2 = { workspace = true, optional = true }
 shrink_wrap.workspace = true
 syn = { workspace = true, optional = true }
+ww_error.workspace = true
 ww_lz4 = { workspace = true, optional = true }
 ww_numeric.workspace = true
 ww_version.workspace = true

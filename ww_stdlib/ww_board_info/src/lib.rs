@@ -14,7 +14,6 @@
 use core::fmt;
 use ww_api::prelude::*;
 pub use ww_date_time::DateTime;
-use ww_error::CommonError;
 
 pub mod guard;
 pub mod image;
@@ -50,7 +49,7 @@ pub trait BoardInfo {
     fn set_reworks(
         changes: MaxLen<RefVec<'i, ReworkState>, MAX_REWORKS>,
         program: bool,
-    ) -> Result<ReworkChange, ReworkError<'i>>;
+    ) -> Result<ReworkChange, ReworkError>;
 }
 
 /// Most reworks a board lists, and most changes one [BoardInfo::set_reworks] carries.
@@ -117,17 +116,13 @@ pub enum ReworkChange {
 
 /// Why [BoardInfo::set_reworks] refused; nothing was written.
 #[derive_shrink_wrap(
-    owned(feature = "std"),
+    borrowed, owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Clone, Debug, PartialEq, Eq),
     display,
     ww_repr = unib32
 )]
-pub enum ReworkError<'i> {
-    /// Common error: a storage fault (`Fault`), a stored record from a newer firmware (`WrongState`), ...
-    #[display("{0}")]
-    #[common]
-    Common(CommonError<'i>),
+pub enum ReworkError {
     /// Unknown rework {id}: this firmware doesn't know it, update the firmware first
     ///
     /// `REWORKS` lists the ones it knows.
@@ -139,6 +134,8 @@ pub enum ReworkError<'i> {
     /// A production record fixes this unit's reworks: a bench record would never be used
     ProductionRecord,
 }
+
+ww_api::api_error!(ReworkError);
 
 /// The PCB and its assembly, see [BoardInfo::BOARD].
 #[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq, Eq))]

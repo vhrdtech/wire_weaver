@@ -9,8 +9,6 @@ mod alloc;
 pub use alloc::{HUMAN_DEFINITION_MAX_NODES, StreamFnRef, qualified_name};
 mod common;
 #[cfg(feature = "std")]
-pub use common::COMMON_ERROR;
-#[cfg(feature = "std")]
 pub mod compressed;
 #[cfg(feature = "std")]
 pub mod definition_cache;
@@ -224,7 +222,7 @@ pub struct ApiItem<'i> {
     pub identity: Option<&'i str>,
 }
 
-/// One entry of a method's error list (`#[errors(Common(InUse, Refused), Nack)]`, API-32): a variant of the
+/// One entry of a method's error list (`#[errors(CommonError(InUse, Refused), Nack)]`, API-32): a variant of the
 /// method's error enum, and for a variant holding one enum (`Common(CommonError)`), the variants of that one.
 #[derive_shrink_wrap(
     owned(feature = "std"),

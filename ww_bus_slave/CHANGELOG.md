@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### ⚠️ Breaking
+
+- `From<ConfigError>` and `From<MapError>` are for `wire_weaver::Error<'static, ww_i2c::I2cError>` / `ww_spi::SpiError` (STD-16): `Busy` and `Unsupported` map to the common error, `BufferTooBig` to the API's.
+
 ### 🐛 Fixes
 
 - Follows `ww_i2c`'s typed numbers (P2401#11nov-0948g): `I2cSlave::configure` reads `pointer_bytes` / `len` /

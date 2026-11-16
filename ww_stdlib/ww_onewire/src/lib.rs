@@ -38,9 +38,9 @@
 //!
 //! # Errors
 //!
-//! Every method returns [OneWireError]: the framework's `CommonError` as [OneWireError::Common], plus what is
-//! specific to 1-Wire (`NoPresence`, `CrcMismatch`, `ShortCircuit`). Each method lists the variants it returns
-//! (`#[errors]`).
+//! Every method returns [OneWireError], what is specific to 1-Wire (`NoPresence`, `CrcMismatch`, `ShortCircuit`);
+//! the common errors (`ww_error::CommonError`) come beside it, as every item's do. Each method lists the errors it
+//! returns (`#[errors]`).
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use ww_api::prelude::*;
@@ -67,23 +67,23 @@ pub trait OneWire {
     /// while the bus is not configured (see `OneWire::configure`), `InvalidArgument` for `write.len() + read_len`
     /// over [OW_MAX] or a `strong_pullup` on a device without [OneWireCapabilities::strong_pullup].
     #[errors(
-        Common(InvalidArgument, Busy, WrongState, NoPower, Refused),
+        CommonError(InvalidArgument, Busy, WrongState, NoPower, Refused),
         NoPresence,
         ShortCircuit
     )]
     fn transaction(
         t: OneWireTransaction<'i>,
-    ) -> Result<MaxLen<RefVec<'i, u8>, OW_MAX>, OneWireError<'i>>;
+    ) -> Result<MaxLen<RefVec<'i, u8>, OW_MAX>, OneWireError>;
 
     /// Reset pulse; true when a device answered with a presence pulse.
-    #[errors(Common(Busy, WrongState, NoPower), ShortCircuit)]
-    fn reset() -> Result<bool, OneWireError<'i>>;
+    #[errors(CommonError(Busy, WrongState, NoPower), ShortCircuit)]
+    fn reset() -> Result<bool, OneWireError>;
 
     /// ROM search, one page at a time: start with `from: None`, continue with the page's `next` until it comes back
     /// `None`. `family`, when given, only returns ids whose first byte matches. `NoPresence` when nothing answered
     /// the reset before this page's search, `CrcMismatch` when a found id's own CRC8 did not check out.
     #[errors(
-        Common(Busy, WrongState, NoPower),
+        CommonError(Busy, WrongState, NoPower),
         NoPresence,
         ShortCircuit,
         CrcMismatch
@@ -91,7 +91,7 @@ pub trait OneWire {
     fn search(
         from: Option<SearchState>,
         family: Option<FamilyCode>,
-    ) -> Result<SearchPage<'i>, OneWireError<'i>>;
+    ) -> Result<SearchPage<'i>, OneWireError>;
 
     /// What this bus supports: pins it can be put on, IO levels, overdrive, strong pull-up.
     fn capabilities() -> OneWireCapabilities<'i>;
@@ -101,8 +101,8 @@ pub trait OneWire {
     /// outside [OneWireCapabilities::pins], `Unsupported` for `speed: Overdrive` without
     /// [OneWireCapabilities::overdrive] or an IO level the adapter doesn't have, `InUse` when the pin serves another
     /// function, `Busy` while a transaction or search runs.
-    #[errors(Common(Unsupported, InvalidArgument, InUse, Busy, Refused))]
-    fn configure(config: OneWireConfig) -> Result<OneWireConfig, OneWireError<'i>>;
+    #[errors(CommonError(Unsupported, InvalidArgument, InUse, Busy, Refused))]
+    fn configure(config: OneWireConfig) -> Result<OneWireConfig, OneWireError>;
 
     /// One search step at bit level, for a search run on the host: after `OneWire::reset` and writing the `Search
     /// ROM` command (`0xF0`) through `OneWire::transaction`, call this up to 64 times, once per ROM bit. `id_bit`
@@ -110,8 +110,8 @@ pub trait OneWire {
     /// on it, both clear at a fork between devices); `direction` is the bit this call actually drove onto the bus
     /// for the next step (the agreed bit when there is no fork, the caller's `direction` at a fork). `WrongState`
     /// when no `Search ROM` command was sent since the last reset, or after more than 64 calls.
-    #[errors(Common(WrongState, NoPower, Refused), ShortCircuit)]
-    fn triplet(direction: bool) -> Result<Triplet, OneWireError<'i>>;
+    #[errors(CommonError(WrongState, NoPower, Refused), ShortCircuit)]
+    fn triplet(direction: bool) -> Result<Triplet, OneWireError>;
 }
 
 /// A 1-Wire ROM id: an 8-bit family code, a 48-bit serial number, and a CRC8 of the other seven bytes
@@ -225,15 +225,12 @@ pub struct OneWireCapabilities<'i> {
 /// Errors of `OneWire`: the common ones first, then what is specific to 1-Wire. Each method lists the variants it
 /// returns.
 #[derive_shrink_wrap(
-    owned(feature = "std"),
+    borrowed, owned(feature = "std"),
     derive(Debug, PartialEq, Eq, Clone),
     ww_repr = unib32,
     display
 )]
-pub enum OneWireError<'i> {
-    /// {0}
-    #[common]
-    Common(CommonError<'i>),
+pub enum OneWireError {
     /// No device answered the reset.
     NoPresence,
     /// A ROM id's own CRC8 did not check out.
@@ -241,3 +238,5 @@ pub enum OneWireError<'i> {
     /// The bus is held low.
     ShortCircuit,
 }
+
+ww_api::api_error!(OneWireError);

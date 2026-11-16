@@ -29,7 +29,7 @@ mod tests {
             fn get_custom(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Custom<'_>, ()> {
+            ) -> GetResult<Custom<'_>, CommonError<'_>> {
                 Value(Custom {
                     z: 123,
                     inner: RefVec::Slice {
@@ -42,7 +42,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 custom: Custom<'_>,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 let custom = custom.make_owned();
                 self.data.write().unwrap().custom = custom;
                 Set
@@ -54,7 +54,7 @@ mod tests {
             fn get_custom(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<CustomOwned, ()> {
+            ) -> GetResult<CustomOwned, CommonError<'_>> {
                 Value(CustomOwned {
                     z: 123,
                     inner: vec![
@@ -74,7 +74,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 custom: CustomOwned,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.data.write().unwrap().custom = custom;
                 Set
             }
@@ -87,7 +87,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: u8,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.data.write().unwrap().x = value;
                 // notify observers, through the handler's context
                 api_impl::stream_data_ser()
@@ -96,7 +96,10 @@ mod tests {
                 Set
             }
 
-            fn get_x(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) -> GetResult<u8, ()> {
+            fn get_x(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<u8, CommonError<'_>> {
                 Value(self.data.read().unwrap().x)
             }
 
@@ -111,14 +114,14 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 _value: u8,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 Unimplemented.into()
             }
 
             fn get_absent(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<u8, ()> {
+            ) -> GetResult<u8, CommonError<'_>> {
                 Unimplemented.into()
             }
 
@@ -126,12 +129,12 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: u8,
-            ) -> SetResult<ModeError> {
+            ) -> SetResult<wire_weaver::Error<'_, ModeError>> {
                 if value == 99 {
-                    return SetError(ModeError::Locked);
+                    return SetError(ModeError::Locked.into());
                 }
                 if value > 10 {
-                    return SetError(ModeError::TooBig);
+                    return SetError(ModeError::TooBig.into());
                 }
                 self.data.write().unwrap().mode = value;
                 Set
@@ -140,9 +143,9 @@ mod tests {
             fn get_mode(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<u8, ModeError> {
+            ) -> GetResult<u8, wire_weaver::Error<'_, ModeError>> {
                 match self.data.read().unwrap().mode {
-                    0 => GetError(ModeError::NotSet),
+                    0 => GetError(ModeError::NotSet.into()),
                     mode => Value(mode),
                 }
             }
@@ -156,7 +159,7 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [ww_client_server::ResourceIndex; 1],
                 value: u8,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.data.write().unwrap().ch_level[index_chain[0].get().0 as usize] = value;
                 Set
             }
@@ -165,7 +168,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [ww_client_server::ResourceIndex; 1],
-            ) -> GetResult<u8, ()> {
+            ) -> GetResult<u8, CommonError<'_>> {
                 Value(self.data.read().unwrap().ch_level[index_chain[0].get().0 as usize])
             }
         };

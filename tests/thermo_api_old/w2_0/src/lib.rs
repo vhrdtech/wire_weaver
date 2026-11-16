@@ -80,6 +80,8 @@ pub enum RateError {
     Busy,
 }
 
+ww_api::api_error!(RateError);
+
 /// Unchanged from line 1, yet a type of its own here.
 #[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Debug, PartialEq, Eq, Clone, Copy), ww_repr = u4)]
 pub enum Command {

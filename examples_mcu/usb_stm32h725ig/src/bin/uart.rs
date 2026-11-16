@@ -246,7 +246,7 @@ impl ServerState {
         _cx: &mut Context<'_, impl EventOut>,
         _index: [ww_client_server::ResourceIndex; 1],
         _config: UartConfig,
-    ) -> RpcResult<Result<UartConfig, ww_uart::UartError<'_>>> {
+    ) -> RpcResult<Result<UartConfig, CommonError<'_>>> {
         ww_unimplemented!()
     }
 
@@ -256,7 +256,7 @@ impl ServerState {
         _index: [ww_client_server::ResourceIndex; 1],
         _pin: ww_uart::Pin,
         _is_high: bool,
-    ) -> RpcResult<Result<(), ww_uart::UartError<'_>>> {
+    ) -> RpcResult<Result<(), CommonError<'_>>> {
         ww_unimplemented!()
     }
 
@@ -265,7 +265,7 @@ impl ServerState {
         _cx: &mut Context<'_, impl EventOut>,
         _index: [ww_client_server::ResourceIndex; 1],
         _duration: ww_si::Second,
-    ) -> RpcResult<Result<(), ww_uart::UartError<'_>>> {
+    ) -> RpcResult<Result<(), CommonError<'_>>> {
         ww_unimplemented!()
     }
 

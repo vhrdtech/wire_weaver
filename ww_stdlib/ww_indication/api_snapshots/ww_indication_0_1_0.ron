@@ -1,6 +1,6 @@
 // ww_indication 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: f3dbc553e27490f86ebf33790ae49b6f2eb5a0cefe4328f50ef747dcc216dee3
+// shrink_wrap sha256: d7eb898fe39c5abbf9f6a02b42dd3ef516609f7ca6d5ad5a1857b1a039cdc219
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Device indication control (STD-28): one global mode every indicator (LED, buzzer, ...) follows.",
     "",
@@ -109,24 +109,6 @@
         138,
         5,
     ]),
-    SkippedFullVersion(crate_idx: 3, type_name: "CommonError", signature: [
-        30,
-        18,
-        211,
-        141,
-        253,
-        197,
-        48,
-        184,
-        37,
-        11,
-        183,
-        248,
-        238,
-        96,
-        205,
-        177,
-    ]),
 ], traits: [
     InLine(level: (docs: [
         "Device indication control: a global mode every indicator follows, with optional brightness, identify and",
@@ -145,9 +127,11 @@
                 Type(OutOfLine(type_idx: 3)),
                 Type(OutOfLine(type_idx: 4)),
             ]), default: None, flatten: false),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 5))), errors: Some([
-            (ident: "Unsupported", nested: None),
-            (ident: "Busy", nested: None),
+        ], return_ty: None, errors: Some([
+            (ident: "CommonError", nested: Some([
+                "Unsupported",
+                "Busy",
+            ])),
         ])), multiplicity: Flat, since: None, ident: "identify", docs: [
             "Blinks every indicator for `duration` so the unit can be found on a bench or in a rack, then returns to",
             "`mode`. `Unsupported` on a device with no way to blink its indicators, `Busy` while already identifying.",
@@ -161,10 +145,7 @@
     (crate_id: "ww_indication", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_si", version: (major: 0, minor: 5, patch: 0, pre: None, build: None)),
     (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-    (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
-    Some((line: 1, revision: 0)),
+], root_omitted: None, wire: Some((line: 2, revision: 0)), ext_wire: Some([
+    Some((line: 2, revision: 0)),
     Some((line: 5, revision: 0)),
-    None,
-    Some((line: 1, revision: 0)),
 ]))

@@ -64,3 +64,5 @@ pub enum SampleError {
     /// Not in the list of `samples`, returned for rate `u32::MAX` to test the client's warning.
     TooFast,
 }
+
+ww_api::api_error!(SampleError);

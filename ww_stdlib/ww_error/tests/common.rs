@@ -1,76 +1,25 @@
-//! `#[common]` variants: `From<CommonError>`, `HasCommon`, and the bytes on the wire.
+//! `CommonError`: the bytes on the wire, its messages, names and the owned form.
 
 use shrink_wrap::prelude::*;
-use ww_error::{CommonError, CommonErrorOwned, HasCommon};
+use ww_error::{CommonError, CommonErrorOwned};
 use ww_si::Index;
-
-#[derive_shrink_wrap(owned, derive(Debug, PartialEq, Eq, Clone), ww_repr = unib32)]
-enum I2cError<'i> {
-    #[common]
-    Common(CommonError<'i>),
-    Nack,
-    Arbitration {
-        lost_at: u8,
-    },
-}
-
-fn helper() -> Result<(), CommonError<'static>> {
-    Err(CommonError::InUse {
-        by: MaxLen::new_unchecked("USART2"),
-    })
-}
-
-fn handler() -> Result<(), I2cError<'static>> {
-    helper()?;
-    Ok(())
-}
-
-#[test]
-fn from_and_has_common() {
-    let e = handler().unwrap_err();
-    assert_eq!(
-        e.common(),
-        Some(&CommonError::InUse {
-            by: MaxLen::new_unchecked("USART2")
-        })
-    );
-    assert_eq!(I2cError::Nack.common(), None);
-    assert_eq!(I2cError::Arbitration { lost_at: 3 }.common(), None);
-    assert_eq!(CommonError::Busy.common(), Some(&CommonError::Busy));
-}
-
-#[test]
-fn owned() {
-    let e: I2cErrorOwned = CommonErrorOwned::Timeout.into();
-    assert_eq!(e, I2cErrorOwned::Common(CommonErrorOwned::Timeout));
-    assert_eq!(e.common(), Some(&CommonErrorOwned::Timeout));
-    // generic host code over any crate's error
-    fn is_retryable<E: HasCommon<Common = CommonErrorOwned>>(e: &E) -> bool {
-        matches!(
-            e.common(),
-            Some(CommonErrorOwned::Busy | CommonErrorOwned::Timeout)
-        )
-    }
-    assert!(is_retryable(&e));
-    assert!(!is_retryable(&I2cErrorOwned::Nack));
-}
 
 #[test]
 fn wire() {
     let mut buf = [0u8; 32];
-    let e = I2cError::Common(CommonError::InUse {
+    let e = CommonError::InUse {
         by: MaxLen::new_unchecked("USART2"),
-    });
+    };
     let bytes = e.to_ww_bytes(&mut buf).unwrap().to_vec();
-    // discriminants of Common (0) and InUse (2), the string, sizes at the back
-    assert_eq!(bytes, b"\x00\x20USART2\x06\x09");
-    assert_eq!(I2cError::from_ww_bytes(&bytes).unwrap(), e);
-    let owned = I2cErrorOwned::from_ww_bytes_owned(&bytes).unwrap();
+    // discriminant of InUse (2), the string, its size at the back
+    assert_eq!(bytes, b"\x20USART2\x06");
+    assert_eq!(CommonError::from_ww_bytes(&bytes).unwrap(), e);
+    let owned = CommonErrorOwned::from_ww_bytes_owned(&bytes).unwrap();
     assert_eq!(
         owned,
-        I2cErrorOwned::Common(CommonErrorOwned::InUse {
+        CommonErrorOwned::InUse {
             by: MaxLen::new_unchecked("USART2".into())
-        })
+        }
     );
 }
 
@@ -132,5 +81,46 @@ fn make_owned() {
     assert_eq!(
         CommonError::Fault { code: 3 }.make_owned(),
         CommonErrorOwned::Fault { code: 3 }
+    );
+}
+
+/// Every variant is in `DOCS`, in discriminant order, and `name()` finds it there.
+#[test]
+fn names_and_docs() {
+    let all = [
+        CommonError::Unsupported,
+        CommonError::InvalidArgument {
+            arg: Index::new(0),
+            reason: MaxLen::new_unchecked(""),
+        },
+        CommonError::InUse {
+            by: MaxLen::new_unchecked(""),
+        },
+        CommonError::Busy,
+        CommonError::WrongState {
+            reason: MaxLen::new_unchecked(""),
+        },
+        CommonError::NoPower {
+            rail: MaxLen::new_unchecked(""),
+        },
+        CommonError::Refused {
+            reason: MaxLen::new_unchecked(""),
+        },
+        CommonError::Timeout,
+        CommonError::Fault { code: 0 },
+    ];
+    assert_eq!(all.len(), CommonError::DOCS.len());
+    for e in &all {
+        let (name, doc) = CommonError::DOCS[e.discriminant() as usize];
+        assert_eq!(e.name(), name);
+        assert_eq!(e.make_owned().name(), name);
+        assert!(!doc.is_empty(), "{name} has no doc line");
+        // the names are the variants' Rust names
+        assert!(format!("{e:?}").starts_with(name), "{e:?} vs {name}");
+    }
+    assert_eq!(CommonError::Unknown(12).name(), "Unknown");
+    assert_eq!(
+        CommonError::DOCS[3],
+        ("Busy", "Busy with another operation, try again later")
     );
 }

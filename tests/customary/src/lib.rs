@@ -65,7 +65,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: LbfSeconds,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.values.lock().unwrap().impulse = value;
                 SetResult::Set
             }
@@ -73,7 +73,7 @@ mod tests {
             fn get_impulse(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<LbfSeconds, ()> {
+            ) -> GetResult<LbfSeconds, CommonError<'_>> {
                 GetResult::Value(self.values.lock().unwrap().impulse)
             }
 
@@ -81,7 +81,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: Impulse,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.values.lock().unwrap().impulse_q = value;
                 SetResult::Set
             }
@@ -89,7 +89,7 @@ mod tests {
             fn get_impulse_q(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Impulse, ()> {
+            ) -> GetResult<Impulse, CommonError<'_>> {
                 GetResult::Value(self.values.lock().unwrap().impulse_q)
             }
 
@@ -97,7 +97,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: AnyQuantity<'_>,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.values.lock().unwrap().impulse_any =
                     value.to_ww_bytes(&mut [0u8; 128]).unwrap().to_vec();
                 SetResult::Set
@@ -106,11 +106,13 @@ mod tests {
             fn get_impulse_any(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<AnyQuantity<'_>, ()> {
+            ) -> GetResult<AnyQuantity<'_>, CommonError<'_>> {
                 self.any = self.values.lock().unwrap().impulse_any.clone();
                 match AnyQuantity::from_ww_bytes(&self.any) {
                     Ok(q) => GetResult::Value(q),
-                    Err(_) => GetResult::GetError(()),
+                    Err(_) => GetResult::GetError(CommonError::WrongState {
+                        reason: MaxLen::new_unchecked(""),
+                    }),
                 }
             }
         }

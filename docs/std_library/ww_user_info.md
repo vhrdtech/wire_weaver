@@ -10,9 +10,9 @@ A name and notes the user gives a unit, shown by `ww list`.
 #[ww_trait]
 pub trait UserInfo {
     const CAPABILITIES: UserInfoCaps;
-    property!(rw name: MaxLen<&'i str, 32>, UserInfoError<'i>);
+    property!(rw name: MaxLen<&'i str, 32>, UserInfoError);
     #[optional]
-    property!(rw notes: MaxLen<&'i str, 256>, UserInfoError<'i>);
+    property!(rw notes: MaxLen<&'i str, 256>, UserInfoError);
 }
 ```
 
@@ -23,8 +23,8 @@ then 0). It is a [`const` item](../api/properties.md#const-items), usually a Rus
 
 ## Errors
 
-A write returns `UserInfoError`: `Common(CommonError)` (see [ww_error](ww_error.md)) or `TooLong { max }` with what
-the device keeps. `Common(Busy)` means storage can't be touched right now, `Common(Fault)` that saving failed. The
+A write returns `UserInfoError::TooLong { max }` with what the device keeps, or a [common error](ww_error.md):
+`CommonError::Busy` means storage can't be touched right now, `CommonError::Fault` that saving failed. The
 property syntax has no per-property `#[errors]` list yet, so the doc comment names the variants a device returns.
 
 ## Persistence

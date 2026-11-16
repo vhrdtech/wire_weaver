@@ -40,7 +40,7 @@ pub trait PinDiag {
     /// Sets a point to an input with a pull, or to an output at a level. Takes the point from its normal function
     /// until [PinDiag::release_all]. Refused when the point can't do that at all, a function holds it, or the
     /// board's rules forbid it in the current state of the other points.
-    #[errors(NoSuchPoint, NotCapable, Refused, Common(InUse))]
+    #[errors(NoSuchPoint, NotCapable, Refused, CommonError(InUse))]
     fn set(point: Index<TestPoint, u16>, state: PointState) -> Result<(), PinDiagError<'i>>;
 
     /// Level on the point's pad, also while it drives: a point driving high that reads low is shorted to something
@@ -128,9 +128,6 @@ pub enum Drive {
     display
 )]
 pub enum PinDiagError<'i> {
-    /// {0}
-    #[common]
-    Common(CommonError<'i>),
     /// No point with this id
     NoSuchPoint,
     /// The point can't do this at all (see its caps)
@@ -138,3 +135,7 @@ pub enum PinDiagError<'i> {
     /// The board's rules forbid this now: {rule}
     Refused { rule: Interned<'i> },
 }
+
+ww_api::api_error!(PinDiagError<'i>);
+#[cfg(feature = "std")]
+ww_api::api_error!(PinDiagErrorOwned);

@@ -607,10 +607,7 @@ impl Scaffold<'_> {
             let ty = self.ty(&arg.ty, !self.no_alloc)?;
             write!(args_def, "_{}: {ty}, ", arg.ident)?;
         }
-        let return_ty = match return_ty {
-            Some(ty) => self.ty(ty, !self.no_alloc)?,
-            None => "()".into(),
-        };
+        let return_ty = self.handler_result_ty(return_ty.as_ref())?;
         self.docs(item)?;
         if self.method_model.pick(name) == Some(MethodModelKind::Deferred) {
             writeln!(
@@ -643,9 +640,10 @@ impl Scaffold<'_> {
             return self.const_item(item, name, index_len, ty);
         }
         let value_ty = self.ty(ty, !self.no_alloc)?;
+        // STD-16: the API's own error beside the common ones, or the common ones alone
         let err_ty = match write_err_ty {
-            Some(ty) => self.ty(ty, !self.no_alloc)?,
-            None => "()".into(),
+            Some(ty) => format!("wire_weaver::Error<'_, {}>", self.ty(ty, !self.no_alloc)?),
+            None => "CommonError<'_>".into(),
         };
         let is_writable = matches!(
             access,
@@ -822,7 +820,10 @@ impl Scaffold<'_> {
             write!(args_def, "_{}: {ty}, ", arg.ident)?;
         }
         let (return_ty, body) = match stream.return_ty {
-            Some(ty) => (self.ty(ty, !self.no_alloc)?, "Unimplemented.into()"),
+            Some(_) => (
+                self.handler_result_ty(stream.return_ty)?,
+                "Unimplemented.into()",
+            ),
             // nothing to decide: accept the open
             None => ("()".into(), "RpcResult::Ready(())"),
         };
@@ -976,6 +977,23 @@ impl Scaffold<'_> {
 
     fn ty(&self, ty: &TypeOwned, alloc: bool) -> Result<String> {
         Ok(ty_def(self.api_bundle, ty, alloc, TyPos::Arg)?.to_string())
+    }
+
+    /// What a method's or stream function's handler returns inside `RpcResult` (STD-16): `Result<T,
+    /// wire_weaver::Error<'_, E>>` for an item declared `-> Result<T, E>`, the type itself otherwise (such a
+    /// handler can also return `Result<T, CommonError<'_>>`), `()` without one.
+    fn handler_result_ty(&self, return_ty: Option<&TypeOwned>) -> Result<String> {
+        let Some(ty) = return_ty else {
+            return Ok("()".into());
+        };
+        Ok(match ty.get_in_line(self.api_bundle)? {
+            TypeOwned::Result { ok_ty, err_ty } => format!(
+                "Result<{}, wire_weaver::Error<'_, {}>>",
+                self.ty(ok_ty, !self.no_alloc)?,
+                self.ty(err_ty, !self.no_alloc)?
+            ),
+            _ => self.ty(ty, !self.no_alloc)?,
+        })
     }
 
     /// `async ` for the handlers of the current item if `handler_model` (or `use_async`) makes them async.
@@ -1173,7 +1191,7 @@ mod tests {
         let code = gen_server_scaffold(&bundle, &alloc, &CratePaths::default()).unwrap();
         for expected in [
             "_value: properties_api :: CustomOwned)",
-            "GetResult<properties_api :: CustomOwned, ()>",
+            "GetResult<properties_api :: CustomOwned, CommonError<'_>>",
             "no_alloc = false",
         ] {
             assert!(code.contains(expected), "{expected}\n{code}");
@@ -1184,7 +1202,7 @@ mod tests {
         for expected in [
             "_u: methods_api :: UserDefinedOwned",
             "RpcResult<methods_api :: UserDefinedOwned>",
-            "methods_api :: ListedErrorOwned",
+            "RpcResult<Result<(), wire_weaver::Error<'_, methods_api :: ListedError>>>",
         ] {
             assert!(code.contains(expected), "{expected}\n{code}");
         }

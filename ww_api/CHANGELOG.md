@@ -1,5 +1,9 @@
 ## Unreleased
 
+### ⚠️ Breaking
+
+- The prelude has no `HasCommon` (STD-16); every API error enum declares `api_error!(XError)` so handlers can `?` it into `Error<'_, XError>`.
+
 ### 🚀 Features
 
 - `Error<'i, E>` (STD-16): what a handler answers instead of a value, `Common(CommonError)` or `Api(E)`, with `From<CommonError>`; `api_error!(XError<'i>)` adds `From<XError>` for it in the error enum's crate (a blanket `From<E>` would overlap at `E = CommonError`). Both in the prelude. Generated servers take it from the next codegen on.

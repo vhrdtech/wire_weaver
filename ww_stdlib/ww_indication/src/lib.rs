@@ -31,8 +31,8 @@ pub trait Indication {
     /// Blinks every indicator for `duration` so the unit can be found on a bench or in a rack, then returns to
     /// `mode`. `Unsupported` on a device with no way to blink its indicators, `Busy` while already identifying.
     #[optional]
-    #[errors(Unsupported, Busy)]
-    fn identify(duration: Second) -> Result<(), CommonError<'i>>;
+    #[errors(CommonError(Unsupported, Busy))]
+    fn identify(duration: Second);
 
     /// Indicator names, in the device's own order. Left out (empty on devices that implement it with nothing to
     /// name) to save flash.

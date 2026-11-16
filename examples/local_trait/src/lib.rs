@@ -163,10 +163,10 @@ pub mod server {
             &mut self,
             cx: &mut Context<'_, impl EventOut>,
             parts: u32,
-        ) -> RpcResult<Result<u32, CounterError>> {
+        ) -> RpcResult<Result<u32, wire_weaver::Error<'_, CounterError>>> {
             match self.core.split(cx.call(), parts).await {
                 Ok(v) => Ready(Ok(v)),
-                Err(CallError::Api(e)) => Ready(Err(e)),
+                Err(CallError::Api(e)) => Ready(Err(e.into())),
                 Err(_) => Unimplemented.into(),
             }
         }
@@ -185,14 +185,17 @@ pub mod server {
             &mut self,
             cx: &mut Context<'_, impl EventOut>,
             value: u32,
-        ) -> SetResult<()> {
+        ) -> SetResult<CommonError<'_>> {
             match self.core.write_step(cx.call(), value).await {
                 Ok(()) => Set,
                 Err(_) => Unimplemented.into(),
             }
         }
 
-        async fn get_step(&mut self, cx: &mut Context<'_, impl EventOut>) -> GetResult<u32, ()> {
+        async fn get_step(
+            &mut self,
+            cx: &mut Context<'_, impl EventOut>,
+        ) -> GetResult<u32, CommonError<'_>> {
             match self.core.read_step(cx.call()).await {
                 Ok(v) => Value(v),
                 Err(_) => Unimplemented.into(),

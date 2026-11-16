@@ -74,7 +74,7 @@ urgent I2C round trip over USB is around 2 ms, so the driver's requests have to 
 | `Overrun` | `Overrun` |
 | anything else (`ClockStretch`, `Timeout`, a refused transaction, a lost link) | `Other` |
 
-The full error stays available: `Error::I2c` holds the device's `I2cErrorOwned`, whose `Nack::op` counts the
+The full error stays available: `Error::I2c` holds the device's `I2cError`, whose `Nack::op` counts the
 merged operations. `I2cMaster::last_transaction_time` gives when the last transaction started and ended on the bus,
 in device time.
 

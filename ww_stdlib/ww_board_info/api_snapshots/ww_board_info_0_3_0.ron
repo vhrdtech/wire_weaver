@@ -1,6 +1,6 @@
 // ww_board_info 0.3.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 944239e4e45555c8de7a578ae1a2c69f309b083f9c379fc43e446ca641c6db13
+// shrink_wrap sha256: c5830e9ceb7ad5b797dc30cc7b66ea9acac810c42ddf9915408b1c9311c3dc41
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "PCB and PCBA information (STD-24).",
     "",
@@ -82,17 +82,12 @@
         "Why [BoardInfo::set_reworks] refused; nothing was written.",
     ], ident: "ReworkError", generics: [], variants: [
         (docs: [
-            "Common error: a storage fault (`Fault`), a stored record from a newer firmware (`WrongState`), ...",
-        ], ident: "Common", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 8), docs: [], slot: None, series_opaque: false),
-        ]), discriminant: 0, since: None),
-        (docs: [
             "Unknown rework {id}: this firmware doesn\'t know it, update the firmware first",
             "",
             "`REWORKS` lists the ones it knows.",
         ], ident: "UnknownRework", fields: Named([
             (ident: Some("id"), default: None, since: None, ty: OutOfLine(type_idx: 7), docs: [], slot: None, series_opaque: false),
-        ]), discriminant: 1, since: None),
+        ]), discriminant: 0, since: None),
         (docs: [
             "Rework {id} conflicts with rework {with}: undo one in the same call",
             "",
@@ -100,10 +95,10 @@
         ], ident: "Conflict", fields: Named([
             (ident: Some("id"), default: None, since: None, ty: OutOfLine(type_idx: 7), docs: [], slot: None, series_opaque: false),
             (ident: Some("with"), default: None, since: None, ty: OutOfLine(type_idx: 7), docs: [], slot: None, series_opaque: false),
-        ]), discriminant: 2, since: None),
+        ]), discriminant: 1, since: None),
         (docs: [
             "A production record fixes this unit\'s reworks: a bench record would never be used",
-        ], ident: "ProductionRecord", fields: Unit, discriminant: 3, since: None),
+        ], ident: "ProductionRecord", fields: Unit, discriminant: 2, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Where a board\'s revision comes from.",
@@ -151,24 +146,6 @@
     ], ident: "ReworkId", generics: [], fields: Unnamed([
         (ident: None, default: None, since: None, ty: NumericAny(Base(U16)), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 2, type_name: "CommonError", signature: [
-        30,
-        18,
-        211,
-        141,
-        253,
-        197,
-        48,
-        184,
-        37,
-        11,
-        183,
-        248,
-        238,
-        96,
-        205,
-        177,
-    ]),
 ], traits: [
     InLine(level: (docs: [
         "The PCB and its assembly.",
@@ -198,9 +175,7 @@
 ], ext_crates: [
     (crate_id: "ww_board_info", version: (major: 0, minor: 3, patch: 0, pre: None, build: None)),
     (crate_id: "ww_date_time", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-    (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-], root_omitted: None, wire: Some((line: 2, revision: 0)), ext_wire: Some([
+], root_omitted: None, wire: Some((line: 3, revision: 0)), ext_wire: Some([
+    Some((line: 3, revision: 0)),
     Some((line: 2, revision: 0)),
-    Some((line: 2, revision: 0)),
-    Some((line: 1, revision: 0)),
 ]))

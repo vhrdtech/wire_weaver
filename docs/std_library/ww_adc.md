@@ -34,7 +34,7 @@ pub trait Adc {
 ```
 
 * `read` - one calibrated reading of `channel`, in the channel's unit (`NoSuchChannel`,
-  `Common(Busy)` if a stream or capture can't be interrupted, `Common(NoPower)`, `Common(Timeout)`).
+  `CommonError::Busy` if a stream or capture can't be interrupted, `CommonError::NoPower`, `CommonError::Timeout`).
 * `capabilities` - the channels, their units, ranges and calibration, see `AdcCapabilities` under
   [Types](#types) below.
 
@@ -105,7 +105,7 @@ pub trait AdcCapture {
   sets }` once the data is ready — a host polls this until `Done`.
 * `capture_read` - reads `len` bytes of the captured data from `offset`; raw samples, interleaved in the order of
   `CaptureConfig::channels`, `CaptureActual::bytes` long, with the first `pre_trigger` sets before the trigger
-  (`Common(WrongState)` before a capture is done, `Common(InvalidArgument)` outside the data).
+  (`CommonError::WrongState` before a capture is done, `CommonError::InvalidArgument` outside the data).
 * `capture_abort` - stops an armed or running capture and drops its data.
 
 ## Types
@@ -136,7 +136,7 @@ pub trait AdcCapture {
 * `CaptureActual` - `rate: Hertz`, `bytes: u32` (size of the data once done).
 * `CaptureStatus` - `Idle`, `Armed`, `Triggered { t: Second }`, `Done { t_first: Second, t_trigger:
   Option<Second>, sets: u32 }`; `sized` (`unib32` discriminant).
-* `AdcError<'i>` - `Common(CommonError)` ([common errors](../api/errors.md#common-errors)), `NoSuchChannel`; unsized
+* `AdcError` - the [common errors](../api/errors.md#common-errors) beside its own `NoSuchChannel`; unsized
   (`unib32` discriminant), evolvable, shared by every trait in the crate.
 
 All enums and structs are behind `#[derive_shrink_wrap]` with `owned(feature = "std")` and
@@ -173,7 +173,7 @@ another worked example of the pattern). It is a convenient reference for wiring 
   `AdcError::Busy` while the stream runs.
 * `capture_now_trigger_and_read` - `AdcCapture::capture` with `Trigger::Now` completes immediately
   (`CaptureStatus::Done`), `capture_read` returns the data with bounds checking
-  (`Common(InvalidArgument)` past the end), and `capture_abort` drops it (`Common(WrongState)` after).
+  (`CommonError::InvalidArgument` past the end), and `capture_abort` drops it (`CommonError::WrongState` after).
 * `capture_polled_trigger_progresses_to_done` - a non-`Now` trigger (`Trigger::Rising`) arms the capture; the mock
   advances `Armed` -> `Triggered` -> `Done` one step per `capture_status` poll, standing in for the real wait on
   the trigger, the same way a host would poll a real device.

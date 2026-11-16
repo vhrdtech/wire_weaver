@@ -222,7 +222,7 @@ macro_rules! stage {
 
             impl Server {
                 $(
-                    fn $get(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) -> GetResult<$ty, ()> {
+                    fn $get(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) -> GetResult<$ty, CommonError<'_>> {
                         Unimplemented.into()
                     }
                 )*

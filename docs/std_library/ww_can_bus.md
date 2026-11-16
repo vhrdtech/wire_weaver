@@ -95,8 +95,8 @@ to 0-1000), each the same bytes as its number. `Capabilities::nominal` / `data` 
 `can_bittiming_const`), for a host that computes timings itself.
 
 `Tdc::Auto` leaves the transceiver delay compensation to the device (offset at the data sample point), and the answer
-says the offset it set. A setting the controller doesn't have is `Common(Unsupported)`, a bit rate it can't reach
-`Common(InvalidArgument)`. `configure` takes the controller off the bus and back as its hardware needs (frames
+says the offset it set. A setting the controller doesn't have is `CommonError::Unsupported`, a bit rate it can't reach
+`CommonError::InvalidArgument`. `configure` takes the controller off the bus and back as its hardware needs (frames
 queued for sending stay queued) and ends in `CanConfig::mode`.
 
 ```rust
@@ -161,7 +161,7 @@ while let Ok(s) = status.recv().await {
 }
 ```
 
-Methods return `CanError`: [`CommonError`](../api/errors.md#common-errors) as `Common` (unsupported, invalid
+Methods return `CanError` beside the [common errors](../api/errors.md#common-errors) (unsupported, invalid
 argument, in use, wrong state, ...), plus `OutOfFilters { max }` (fall back to fewer or wider filters),
 `OutOfMemory { available }` (a smaller layout or schedule) and `BusOff` (recover first). Each method lists what it
 returns with `#[errors(..)]`. Errors on the bus are not errors of a call: they are counted in `Status` and reported

@@ -83,7 +83,7 @@ After a rework on the bench, the unit's record is changed through one optional m
 fn set_reworks(
     changes: MaxLen<RefVec<'i, ReworkState>, MAX_REWORKS>, // { id, applied }
     program: bool,
-) -> Result<ReworkChange, ReworkError<'i>>;
+) -> Result<ReworkChange, ReworkError>;
 ```
 
 * All changes of a call or none: a swap (undo 5, apply 8) is one call, and a call with one bad number stores
@@ -98,7 +98,7 @@ fn set_reworks(
 | `UnknownRework { id }` | The firmware doesn't know the number: it is refused, never stored. Update the firmware first. Undoing an unknown number is refused too: the firmware can't judge it |
 | `Conflict { id, with }` | The result would have two reworks that can't both be applied (two ways of rewiring the same lines) |
 | `ProductionRecord` | A production record fixes this unit's reworks; a bench record would never be used |
-| `Common(..)` | A storage fault (`Fault`), a stored record from a newer firmware (`WrongState`), ... |
+| a common error | A storage fault (`Fault`), a stored record from a newer firmware (`WrongState`), ... |
 
 The rule that matters is the first: a firmware never stores a number it can't name. A host shows the refusal with
 the numbers the firmware knows, from `REWORKS`: `unknown rework 7: this firmware knows 1-5, 8; update firmware

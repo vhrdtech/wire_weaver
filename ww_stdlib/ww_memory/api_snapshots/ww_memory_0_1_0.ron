@@ -1,6 +1,6 @@
 // ww_memory 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: af01de5352aca1752758f7dabbadbe42b0ae0b828a67055acd4696d2a7b24b9c
+// shrink_wrap sha256: 59501c92cfbc158634733d280c37ba506df0c37c996d03345c40a292e8f37c33
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Low-level access to memory or registers over WireWeaver: read and write words at addresses, and optionally watch",
     "addresses for changes.",
@@ -25,16 +25,11 @@
         "lists the variants it returns.",
     ], ident: "MemoryError", generics: [], variants: [
         (docs: [
-            "{0}",
-        ], ident: "Common", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None, series_opaque: false),
-        ]), discriminant: 0, since: None),
-        (docs: [
             "An address outside `address_range`, or a range that runs past its end.",
-        ], ident: "WrongAddress", fields: Unit, discriminant: 1, since: None),
+        ], ident: "WrongAddress", fields: Unit, discriminant: 0, since: None),
         (docs: [
             "All watch slots are taken.",
-        ], ident: "OutOfWatchSlots", fields: Unit, discriminant: 2, since: None),
+        ], ident: "OutOfWatchSlots", fields: Unit, discriminant: 1, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: BitAligned(2), crate_idx: 0, docs: [
         "Access rights of a memory region.",
@@ -46,24 +41,6 @@
             (ident: None, default: None, since: None, ty: NumericAny(Base(Nibble)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
     ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 1, type_name: "CommonError", signature: [
-        30,
-        18,
-        211,
-        141,
-        253,
-        197,
-        48,
-        184,
-        37,
-        11,
-        183,
-        248,
-        238,
-        96,
-        205,
-        177,
-    ]),
 ], traits: [
     InLine(level: (docs: [
         "Memory or registers with 32-bit addresses and 32-bit words.",
@@ -73,7 +50,7 @@
             (ident: "allow_side_effects", ty: Bool, default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: NumericAny(Base(U32)), err_ty: OutOfLine(type_idx: 0))), errors: Some([
             (ident: "WrongAddress", nested: None),
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "Refused",
             ])),
         ])), multiplicity: Flat, since: None, ident: "read", docs: [
@@ -85,7 +62,7 @@
             (ident: "value", ty: NumericAny(Base(U32)), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 0))), errors: Some([
             (ident: "WrongAddress", nested: None),
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "Refused",
             ])),
         ])), multiplicity: Flat, since: None, ident: "write", docs: [
@@ -97,7 +74,7 @@
             (ident: "allow_side_effects", ty: Bool, default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Vec(NumericAny(Base(U32))), err_ty: OutOfLine(type_idx: 0))), errors: Some([
             (ident: "WrongAddress", nested: None),
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "Refused",
             ])),
         ])), multiplicity: Flat, since: None, ident: "read_many", docs: [
@@ -109,7 +86,7 @@
             (ident: "data", ty: Vec(NumericAny(Base(U32))), default: Some("Default::default()"), flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 0))), errors: Some([
             (ident: "WrongAddress", nested: None),
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "Refused",
             ])),
         ])), multiplicity: Flat, since: None, ident: "write_many", docs: [
@@ -150,7 +127,7 @@
             (ident: "allow_side_effects", ty: Bool, default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: NumericAny(Base(U8)), err_ty: OutOfLine(type_idx: 0))), errors: Some([
             (ident: "WrongAddress", nested: None),
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "Refused",
             ])),
         ])), multiplicity: Flat, since: None, ident: "read", docs: [
@@ -162,7 +139,7 @@
             (ident: "value", ty: NumericAny(Base(U8)), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 0))), errors: Some([
             (ident: "WrongAddress", nested: None),
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "Refused",
             ])),
         ])), multiplicity: Flat, since: None, ident: "write", docs: [
@@ -174,7 +151,7 @@
             (ident: "allow_side_effects", ty: Bool, default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Vec(NumericAny(Base(U8))), err_ty: OutOfLine(type_idx: 0))), errors: Some([
             (ident: "WrongAddress", nested: None),
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "Refused",
             ])),
         ])), multiplicity: Flat, since: None, ident: "read_many", docs: [
@@ -186,7 +163,7 @@
             (ident: "data", ty: Vec(NumericAny(Base(U8))), default: Some("Default::default()"), flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 0))), errors: Some([
             (ident: "WrongAddress", nested: None),
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "Refused",
             ])),
         ])), multiplicity: Flat, since: None, ident: "write_many", docs: [
@@ -221,8 +198,6 @@
     ], compact_id: Some(64), meta: None), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_memory", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-    (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
-    Some((line: 1, revision: 0)),
-    Some((line: 1, revision: 0)),
+], root_omitted: None, wire: Some((line: 2, revision: 0)), ext_wire: Some([
+    Some((line: 2, revision: 0)),
 ]))

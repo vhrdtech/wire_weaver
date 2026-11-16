@@ -23,9 +23,9 @@ pub trait SdCard {
     fn capabilities() -> Capabilities;
     fn state() -> CardState;
     stream!(detect: bool);
-    fn registers() -> Result<SdRegisters<'i>, SdError<'i>>;
-    fn reinit(lease: Lease, max_clock: Fixed<Hertz, Kilo, u32>, bus_width: BusWidth) -> Result<InitReport<'i>, SdError<'i>>;
-    fn command(lease: Option<Lease>, cmd: RawCommand<'i>) -> Result<RawResponse<'i>, SdError<'i>>;
+    fn registers() -> Result<SdRegisters<'i>, SdError>;
+    fn reinit(lease: Lease, max_clock: Fixed<Hertz, Kilo, u32>, bus_width: BusWidth) -> Result<InitReport<'i>, SdError>;
+    fn command(lease: Option<Lease>, cmd: RawCommand<'i>) -> Result<RawResponse<'i>, SdError>;
 }
 ```
 
@@ -42,7 +42,7 @@ pub trait SdCard {
 - `detect`: card inserted (`true`) or removed (`false`).
 - `registers()`: `SdRegisters` with CID, CSD, OCR, RCA, SCR and SD Status (ACMD13) as raw bytes, MSB first, as the
   card sent them. Decoding is the host's: the device keeps no parser for fields it doesn't use itself. Read at init
-  and cached, so safe at any time; `Common(WrongState)` before the card is initialised.
+  and cached, so safe at any time; `CommonError::WrongState` before the card is initialised.
 
 ## Init with a report
 
@@ -72,8 +72,8 @@ The answer `RawResponse` has:
 - `timing`: microseconds from sending the command to the end of the response, of the data phase and of busy. This is
   what makes raw commands worth having for bring-up and for judging cards.
 
-An error of the call means the command wasn't sent: `NoCard`, `BadLease`, `Restricted`, `Common(Unsupported)` for a
-command the interface doesn't have (SPI mode), `Common(InvalidArgument)`.
+An error of the call means the command wasn't sent: `NoCard`, `BadLease`, `Restricted`, `CommonError::Unsupported` for a
+command the interface doesn't have (SPI mode), `CommonError::InvalidArgument`.
 
 ### In SPI mode
 
@@ -88,7 +88,7 @@ A card in SPI mode answers with R1-based responses of its own, and some commands
   the table doesn't know.
 - CMD9, CMD10, CMD6, CMD30, ACMD13, ACMD22 and ACMD51 read their block (CSD, CID, the switch status, ...) into
   `data` also with `DataPhase::None`, since the card sends it either way.
-- Commands only the SD bus has (CMD2, CMD3, CMD7, CMD11, CMD15, CMD19, ACMD6) answer `Common(Unsupported)`, and so
+- Commands only the SD bus has (CMD2, CMD3, CMD7, CMD11, CMD15, CMD19, ACMD6) answer `CommonError::Unsupported`, and so
   does `reinit` with a 4-bit bus.
 - `Outcome::Other { code }`: 0x01-0x0f a read answered with this data error token (bit 0 error, 1 CC error, 2 card
   ECC failed, 3 out of range), 0x10 written data refused with a write error, 0x11 a byte that is no data response
@@ -118,7 +118,7 @@ fn sd_command(
     _cx: &mut Context<'_, impl BlockingEventOut>,
     lease: Option<ww_block::Lease>,
     cmd: ww_sd::RawCommand<'_>,
-) -> RpcResult<Result<ww_sd::RawResponse<'_>, ww_sd::SdError<'_>>> {
+) -> RpcResult<Result<ww_sd::RawResponse<'_>, ww_sd::SdError>> {
     let lease_ok = lease.is_some_and(|l| self.lease_ok(l));
     if let Err(e) = ww_sd::check_access(&cmd, lease_ok) {
         return Ready(Err(e));
@@ -128,7 +128,7 @@ fn sd_command(
 ```
 
 Who may call the lease commands at all is the firmware's choice per link, made where it hands out the lease
-(`ww_block` answers `claim` with `Common(Refused)`, see [Who may write](ww_block.md#who-may-write)); `ww_sd` has no
+(`ww_block` answers `claim` with `CommonError::Refused`, see [Who may write](ww_block.md#who-may-write)); `ww_sd` has no
 access rules of its own.
 
 ## Errors

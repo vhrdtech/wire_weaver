@@ -144,8 +144,8 @@ mod server {
             &mut self,
             _cx: &mut Context<'_, impl EventOut>,
             socket: String,
-        ) -> RpcResult<Result<(), HandoverError>> {
-            RpcResult::Ready(self.hub.handover(&socket).await)
+        ) -> RpcResult<Result<(), wire_weaver::Error<'_, HandoverError>>> {
+            RpcResult::Ready(self.hub.handover(&socket).await.map_err(Into::into))
         }
 
         async fn shutdown(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {
@@ -187,23 +187,26 @@ mod server {
             &mut self,
             _cx: &mut Context<'_, impl EventOut>,
             key: String,
-        ) -> RpcResult<Result<(), TakeErrorOwned>> {
+        ) -> RpcResult<Result<(), wire_weaver::Error<'_, TakeErrorOwned>>> {
             RpcResult::Ready(match self.hub.take(&key).await {
                 Ok(()) => Ok(()),
                 Err(ww_local_socket::Status::HeldElsewhere) => {
                     match wire_weaver_client::holders::holder_of(&key) {
                         Some(holder) => Err(TakeErrorOwned::HeldElsewhere {
                             holder: crate::devices::holder_owned(&holder),
-                        }),
+                        }
+                        .into()),
                         None => Err(TakeErrorOwned::Failed {
                             why: "held by another program".into(),
-                        }),
+                        }
+                        .into()),
                     }
                 }
                 Err(ww_local_socket::Status::Lent) => Err(TakeErrorOwned::Failed {
                     why: format!("lent to {}", self.hub.lent_to(&key).unwrap_or_default()),
-                }),
-                Err(_) => Err(TakeErrorOwned::UnknownDevice),
+                }
+                .into()),
+                Err(_) => Err(TakeErrorOwned::UnknownDevice.into()),
             })
         }
 
@@ -214,13 +217,13 @@ mod server {
             path: Vec<UNib32>,
             purpose: String,
             ttl_s: Option<u32>,
-        ) -> RpcResult<Result<u32, ClaimErrorOwned>> {
+        ) -> RpcResult<Result<u32, wire_weaver::Error<'_, ClaimErrorOwned>>> {
             let path = path.iter().map(|n| n.0).collect();
             RpcResult::Ready(
                 self.hub
                     .claim(self.id, key, path, purpose, ttl_s)
                     .await
-                    .map_err(|e| *e),
+                    .map_err(|e| wire_weaver::Error::Api(*e)),
             )
         }
 
@@ -228,8 +231,8 @@ mod server {
             &mut self,
             _cx: &mut Context<'_, impl EventOut>,
             id: u32,
-        ) -> RpcResult<Result<(), ReleaseError>> {
-            RpcResult::Ready(self.hub.release(self.id, id))
+        ) -> RpcResult<Result<(), wire_weaver::Error<'_, ReleaseError>>> {
+            RpcResult::Ready(self.hub.release(self.id, id).map_err(Into::into))
         }
 
         async fn claims_lend(
@@ -238,12 +241,12 @@ mod server {
             key: String,
             purpose: String,
             ttl_s: Option<u32>,
-        ) -> RpcResult<Result<u32, ClaimErrorOwned>> {
+        ) -> RpcResult<Result<u32, wire_weaver::Error<'_, ClaimErrorOwned>>> {
             RpcResult::Ready(
                 self.hub
                     .lend(self.id, key, purpose, ttl_s)
                     .await
-                    .map_err(|e| *e),
+                    .map_err(|e| wire_weaver::Error::Api(*e)),
             )
         }
 
@@ -300,7 +303,7 @@ mod server {
             &mut self,
             _cx: &mut Context<'_, impl EventOut>,
             value: Option<u32>,
-        ) -> SetResult<()> {
+        ) -> SetResult<CommonError<'_>> {
             self.hub.steering.lock().unwrap().linger =
                 value.map(|s| std::time::Duration::from_secs(s as u64));
             self.hub.recheck_lingers().await;
@@ -310,7 +313,7 @@ mod server {
         async fn get_sync_linger(
             &mut self,
             _cx: &mut Context<'_, impl EventOut>,
-        ) -> GetResult<Option<u32>, ()> {
+        ) -> GetResult<Option<u32>, CommonError<'_>> {
             let linger = self.hub.steering.lock().unwrap().linger;
             GetResult::Value(linger.map(|l| l.as_secs().min(u32::MAX as u64) as u32))
         }
@@ -339,9 +342,9 @@ mod server {
             &mut self,
             _cx: &mut Context<'_, impl EventOut>,
             snapshot: Vec<u8>,
-        ) -> RpcResult<Result<u64, AdoptErrorOwned>> {
+        ) -> RpcResult<Result<u64, wire_weaver::Error<'_, AdoptErrorOwned>>> {
             if self.adopting.is_some() {
-                return RpcResult::Ready(Err(AdoptErrorOwned::Busy));
+                return RpcResult::Ready(Err(AdoptErrorOwned::Busy.into()));
             }
             RpcResult::Ready(match crate::adopt::prepare(&self.hub, &snapshot).await {
                 Ok(prepared) => {
@@ -349,7 +352,7 @@ mod server {
                     self.adopting = Some(prepared);
                     Ok(id)
                 }
-                Err(e) => Err(e),
+                Err(e) => Err(e.into()),
             })
         }
 
@@ -357,14 +360,16 @@ mod server {
             &mut self,
             _cx: &mut Context<'_, impl EventOut>,
             id: u64,
-        ) -> RpcResult<Result<(), AdoptErrorOwned>> {
+        ) -> RpcResult<Result<(), wire_weaver::Error<'_, AdoptErrorOwned>>> {
             RpcResult::Ready(match self.adopting.take() {
                 Some(prepared) if prepared.id == id => {
-                    crate::adopt::commit(&self.hub, self.id, prepared).await
+                    crate::adopt::commit(&self.hub, self.id, prepared)
+                        .await
+                        .map_err(Into::into)
                 }
                 other => {
                     self.adopting = other;
-                    Err(AdoptErrorOwned::UnknownId)
+                    Err(AdoptErrorOwned::UnknownId.into())
                 }
             })
         }

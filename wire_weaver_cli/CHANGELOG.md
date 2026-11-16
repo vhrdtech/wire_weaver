@@ -7,6 +7,7 @@
 
 ### ⚠️ Breaking
 
+- `ww api tree -t` and `ww introspect -t` no longer mark `common errors` on types (STD-16): a common error is no type of the API, the `#[errors(..)]` lists show `CommonError(..)` entries.
 - The `ww` binary is the crate `ww` in `ww_tools/ww` (TOOL-36): `cargo install --git .. ww`, `cargo build -p ww`; `wire_weaver_cli` is a library only.
 - `ww api keep-superseded` resolves the definitions of other crates through `ww_snapshots::Resolver::global()` (EVO-80).
 - `ww dfu status` talks `ww_dfu` on wire `w2.0` (EVO-65): it prints the running image's security counter next to its version and the security floor (was the version floor), and a device on the old `w1` line is no longer understood.

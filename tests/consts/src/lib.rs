@@ -28,7 +28,7 @@ mod tests {
             fn get_uptime(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<u32, ()> {
+            ) -> GetResult<u32, CommonError<'_>> {
                 self.uptime += 1;
                 Value(self.uptime)
             }
@@ -99,7 +99,7 @@ mod tests {
             async fn get_uptime(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
-            ) -> GetResult<u32, ()> {
+            ) -> GetResult<u32, CommonError<'_>> {
                 Value(0)
             }
 

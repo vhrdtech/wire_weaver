@@ -6,8 +6,8 @@ use crate::ast::item_enum::{Fields, FutureVersion, Variant};
 use crate::ast::object_size::ObjectSize;
 use crate::ast::repr::Repr;
 use crate::transform::syn_util::{
-    collect_docs_attrs, take_cfg_attrs, take_display_attr, take_flag_like_attr,
-    take_flag_like_attr_or_cfg, take_since_attr,
+    collect_docs_attrs, take_cfg_attrs, take_display_attr, take_flag_like_attr_or_cfg,
+    take_since_attr,
 };
 use crate::transform::transform_struct::{change_is_ok_to_is_some, propagate_default_to_flags};
 use crate::transform::util::{
@@ -44,10 +44,6 @@ impl ItemEnum {
                     repr.max_discriminant()
                 ));
             }
-            let common = take_flag_like_attr(&mut attrs, "common");
-            if common {
-                check_common_variant(variant, variants.iter().any(|v: &Variant| v.common))?;
-            }
             let path = FieldPath::new(FieldPathRoot::EnumVariant(variant.ident.clone()));
             let (fields, unnamed_attrs) = convert_fields(&variant.fields, &path)?;
             let since = take_since_attr(&mut attrs)?;
@@ -62,7 +58,6 @@ impl ItemEnum {
                 _since: since,
                 cfg,
                 display,
-                common,
                 attrs,
                 unnamed_attrs,
             });
@@ -214,22 +209,6 @@ fn future_version_variant(
         attrs,
         ty,
     })
-}
-
-/// `#[common] Common(CommonError<'i>)`: one per enum, one unnamed field (STD-16).
-fn check_common_variant(variant: &syn::Variant, has_one_already: bool) -> Result<(), String> {
-    let ident = &variant.ident;
-    if has_one_already {
-        return Err(format!(
-            "#[common] variant `{ident}`: only one variant can be #[common]"
-        ));
-    }
-    match &variant.fields {
-        syn::Fields::Unnamed(fields) if fields.unnamed.len() == 1 => Ok(()),
-        _ => Err(format!(
-            "#[common] variant `{ident}` must have one unnamed field: `#[common] {ident}(CommonError<'i>)`"
-        )),
-    }
 }
 
 fn get_discriminant(variant: &syn::Variant) -> Result<Option<u32>, String> {

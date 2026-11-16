@@ -9,8 +9,8 @@ mod tests {
     use std::sync::{Arc, RwLock};
     use wire_weaver::prelude::*;
     use ww_onewire::{
-        Bytes, FamilyCode, Index, IndexFrom1, OneWireConfig, OneWireError, OneWireErrorOwned,
-        OneWireSpeed, OneWireTransactionOwned, RomId, SearchState,
+        Bytes, FamilyCode, Index, IndexFrom1, OneWireConfig, OneWireError, OneWireSpeed,
+        OneWireTransactionOwned, RomId, SearchState,
     };
 
     /// Family code used by every simulated device in these tests.
@@ -133,16 +133,20 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 t: ww_onewire::OneWireTransaction<'_>,
-            ) -> RpcResult<Result<MaxLen<RefVec<'_, u8>, { ww_onewire::OW_MAX }>, OneWireError<'_>>>
-            {
+            ) -> RpcResult<
+                Result<
+                    MaxLen<RefVec<'_, u8>, { ww_onewire::OW_MAX }>,
+                    wire_weaver::Error<'_, OneWireError>,
+                >,
+            > {
                 let mut bus = self.bus.write().unwrap();
                 if bus.roms.is_empty() {
-                    return Ready(Err(OneWireError::NoPresence));
+                    return Ready(Err(OneWireError::NoPresence.into()));
                 }
                 if let Some(rom) = t.rom
                     && !bus.roms.contains(&rom)
                 {
-                    return Ready(Err(OneWireError::NoPresence));
+                    return Ready(Err(OneWireError::NoPresence.into()));
                 }
                 let write = t.write.as_slice();
                 let read_len = t.read_len.get() as usize;
@@ -174,7 +178,7 @@ mod tests {
             fn onewire_reset(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> RpcResult<Result<bool, OneWireError<'_>>> {
+            ) -> RpcResult<Result<bool, wire_weaver::Error<'_, OneWireError>>> {
                 let mut bus = self.bus.write().unwrap();
                 bus.triplet_session = None;
                 Ready(Ok(!bus.roms.is_empty()))
@@ -185,10 +189,11 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 from: Option<SearchState>,
                 family: Option<FamilyCode>,
-            ) -> RpcResult<Result<ww_onewire::SearchPage<'_>, OneWireError<'_>>> {
+            ) -> RpcResult<Result<ww_onewire::SearchPage<'_>, wire_weaver::Error<'_, OneWireError>>>
+            {
                 let bus = self.bus.read().unwrap();
                 if bus.roms.is_empty() {
-                    return Ready(Err(OneWireError::NoPresence));
+                    return Ready(Err(OneWireError::NoPresence.into()));
                 }
                 let (last_discrepancy, last_rom) = match from {
                     Some(s) => (s.last_discrepancy.get(), Some(s.last_rom.bytes)),
@@ -239,7 +244,8 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 config: OneWireConfig,
-            ) -> RpcResult<Result<OneWireConfig, OneWireError<'_>>> {
+            ) -> RpcResult<Result<OneWireConfig, wire_weaver::Error<'_, OneWireError>>>
+            {
                 if config.pin.get() > 1 {
                     return Ready(Err(CommonError::InvalidArgument {
                         arg: Index::new(0),
@@ -259,7 +265,8 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 direction: bool,
-            ) -> RpcResult<Result<ww_onewire::Triplet, OneWireError<'_>>> {
+            ) -> RpcResult<Result<ww_onewire::Triplet, wire_weaver::Error<'_, OneWireError>>>
+            {
                 let mut bus = self.bus.write().unwrap();
                 let Bus {
                     roms,
@@ -408,10 +415,7 @@ mod tests {
             })
             .call()
             .await;
-        assert_eq!(
-            err.unwrap_err().device(),
-            Some(&OneWireErrorOwned::NoPresence)
-        );
+        assert_eq!(err.unwrap_err().device(), Some(&OneWireError::NoPresence));
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -467,7 +471,7 @@ mod tests {
         let err = client.onewire().search(None, None).call().await;
         assert!(matches!(
             err.unwrap_err().device(),
-            Some(OneWireErrorOwned::NoPresence)
+            Some(OneWireError::NoPresence)
         ));
     }
 
@@ -505,10 +509,8 @@ mod tests {
             .call()
             .await;
         assert!(matches!(
-            err.unwrap_err().device(),
-            Some(OneWireErrorOwned::Common(
-                CommonErrorOwned::InvalidArgument { .. }
-            ))
+            err.unwrap_err().common(),
+            Some(CommonErrorOwned::InvalidArgument { .. })
         ));
     }
 
@@ -545,10 +547,8 @@ mod tests {
         // 65th call without a new reset/search command is refused.
         let err = onewire.triplet(false).call().await;
         assert!(matches!(
-            err.unwrap_err().device(),
-            Some(OneWireErrorOwned::Common(
-                CommonErrorOwned::WrongState { .. }
-            ))
+            err.unwrap_err().common(),
+            Some(CommonErrorOwned::WrongState { .. })
         ));
     }
 
@@ -557,10 +557,8 @@ mod tests {
         let (client, _bus, _device) = connect("onewire/triplet_wrong_mode", vec![ROM_A]).await;
         let err = client.onewire().triplet(false).call().await;
         assert!(matches!(
-            err.unwrap_err().device(),
-            Some(OneWireErrorOwned::Common(
-                CommonErrorOwned::WrongState { .. }
-            ))
+            err.unwrap_err().common(),
+            Some(CommonErrorOwned::WrongState { .. })
         ));
     }
 }

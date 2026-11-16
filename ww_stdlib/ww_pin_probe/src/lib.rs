@@ -19,6 +19,7 @@
 //! ```
 
 use std::fmt::{Display, Formatter};
+use wire_weaver::prelude::CommonErrorOwned;
 pub use ww_pin_diag::{Drive, Level, PinDiagErrorOwned, PointCaps, PointState, Pull};
 
 pub mod bank;
@@ -40,12 +41,32 @@ pub struct Point {
     pub caps: PointCaps,
 }
 
+/// What the device refused a `set` or `read` with: one of the common errors (a function holds the point, STD-16)
+/// or `PinDiag`'s own.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Refusal {
+    Common(CommonErrorOwned),
+    PinDiag(PinDiagErrorOwned),
+}
+
+impl From<CommonErrorOwned> for Refusal {
+    fn from(c: CommonErrorOwned) -> Self {
+        Refusal::Common(c)
+    }
+}
+
+impl From<PinDiagErrorOwned> for Refusal {
+    fn from(e: PinDiagErrorOwned) -> Self {
+        Refusal::PinDiag(e)
+    }
+}
+
 /// Why a `set` or `read` didn't happen.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PinError {
     /// The device said no: the point can't do it, a function holds it, or the board's rules forbid it now. Shown,
     /// and the tests go on.
-    Refused(PinDiagErrorOwned),
+    Refused(Refusal),
     /// The call didn't go through (link, timeout, the device doesn't implement it): the tests stop.
     Failed(String),
 }
@@ -62,16 +83,14 @@ impl Display for PinError {
 impl std::error::Error for PinError {}
 
 /// A device's refusal in a few words: `not capable`, `in use by indication`, `refused: two VREF sources`.
-pub fn refusal(e: &PinDiagErrorOwned) -> String {
-    use wire_weaver::prelude::CommonErrorOwned;
+pub fn refusal(e: &Refusal) -> String {
     match e {
-        PinDiagErrorOwned::NoSuchPoint => "no such point".into(),
-        PinDiagErrorOwned::NotCapable => "not capable".into(),
-        PinDiagErrorOwned::Refused { rule } => format!("refused: {rule}"),
-        PinDiagErrorOwned::Common(CommonErrorOwned::InUse { by }) => {
-            format!("in use by {}", by.as_str())
-        }
-        other => other.to_string(),
+        Refusal::PinDiag(PinDiagErrorOwned::NoSuchPoint) => "no such point".into(),
+        Refusal::PinDiag(PinDiagErrorOwned::NotCapable) => "not capable".into(),
+        Refusal::PinDiag(PinDiagErrorOwned::Refused { rule }) => format!("refused: {rule}"),
+        Refusal::PinDiag(other) => other.to_string(),
+        Refusal::Common(CommonErrorOwned::InUse { by }) => format!("in use by {}", by.as_str()),
+        Refusal::Common(other) => other.to_string(),
     }
 }
 

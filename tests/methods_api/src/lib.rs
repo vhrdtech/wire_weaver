@@ -23,13 +23,13 @@ trait Methods {
     /// `value / 2`, or `Err(MethodError::Odd)` for an odd value
     #[errors(Odd)]
     fn fallible(value: u8) -> Result<u8, MethodError>;
-    /// Errors from a list (API-32): `pick` 0 is `Ok`, 1 `Common(Busy)`, 2 `Nack`, 3 `Common(Timeout)` and
+    /// Errors from a list (API-32): `pick` 0 is `Ok`, 1 `CommonError::Busy`, 2 `Nack`, 3 `CommonError::Timeout` and
     /// 4 `Overrun`, which are not in the list
-    #[errors(Common(Busy, InUse), Nack)]
-    fn listed_errors(pick: u8) -> Result<(), ListedError<'i>>;
-    /// Any `CommonError` (API-32): `Common` lists all of the nested enum's variants
-    #[errors(Common)]
-    fn all_common(pick: u8) -> Result<(), ListedError<'i>>;
+    #[errors(CommonError(Busy, InUse), Nack)]
+    fn listed_errors(pick: u8) -> Result<(), ListedError>;
+    /// Any common error (API-32): `CommonError` alone lists all of them
+    #[errors(CommonError)]
+    fn all_common(pick: u8) -> Result<(), ListedError>;
     /// Server returns Unimplemented
     fn fallible_absent() -> Result<(), MethodError>;
     /// Array of units (CLT-15 multi-request tests: list/range/mask indices through `call_array`)
@@ -58,6 +58,8 @@ pub enum MethodError {
     Odd,
 }
 
+ww_api::api_error!(MethodError);
+
 impl core::fmt::Display for MethodError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
@@ -71,20 +73,19 @@ impl core::error::Error for MethodError {}
 
 /// Error of [Methods::listed_errors]: the common errors first, then the API's own (STD-16).
 #[derive_shrink_wrap(
-    owned(feature = "std"),
+    borrowed, owned(feature = "std"),
     derive(Debug, PartialEq, Eq, Clone),
     ww_repr = unib32,
     display
 )]
-pub enum ListedError<'i> {
-    /// {0}
-    #[common]
-    Common(CommonError<'i>),
+pub enum ListedError {
     /// The sensor did not answer.
     Nack,
     /// Data was lost.
     Overrun,
 }
+
+ww_api::api_error!(ListedError);
 
 #[derive_shrink_wrap(owned(feature = "std"), derive(Debug, PartialEq, Eq))]
 struct UserDefined<'i> {

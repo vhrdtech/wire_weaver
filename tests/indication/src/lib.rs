@@ -7,7 +7,6 @@ mod tests {
     use std::sync::{Arc, Mutex};
     use tests_common::TestDevice;
     use wire_weaver::prelude::*;
-    use wire_weaver_client::CallError;
     use ww_error::CommonErrorOwned;
     use ww_indication::{Brightness, Mode};
     use ww_si::Second;
@@ -48,7 +47,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: Mode,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.storage.lock().unwrap().mode = value;
                 Set
             }
@@ -56,7 +55,7 @@ mod tests {
             fn get_indication_mode(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Mode, ()> {
+            ) -> GetResult<Mode, CommonError<'_>> {
                 Value(self.storage.lock().unwrap().mode)
             }
 
@@ -64,7 +63,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: Brightness,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.storage.lock().unwrap().brightness = value;
                 Set
             }
@@ -72,7 +71,7 @@ mod tests {
             fn get_indication_brightness(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Brightness, ()> {
+            ) -> GetResult<Brightness, CommonError<'_>> {
                 Value(self.storage.lock().unwrap().brightness)
             }
 
@@ -137,7 +136,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: Mode,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.mode = value;
                 Set
             }
@@ -145,7 +144,7 @@ mod tests {
             fn get_indication_mode(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Mode, ()> {
+            ) -> GetResult<Mode, CommonError<'_>> {
                 Value(self.mode)
             }
         }
@@ -294,10 +293,7 @@ mod tests {
             .identify(Second::from_f32(1.0))
             .call()
             .await;
-        assert!(
-            matches!(r, Err(CallError::Device(CommonErrorOwned::Busy))),
-            "{r:?}"
-        );
+        assert_eq!(r.unwrap_err().common(), Some(&CommonErrorOwned::Busy));
     }
 
     /// A device that leaves optional items out still serves `mode`; the rest fails locally, known from the
@@ -332,7 +328,7 @@ mod tests {
                 .identify(Second::from_f32(1.0))
                 .call()
                 .await,
-            Err(CallError::Unimplemented { .. })
+            Err(wire_weaver_client::Error::NotImplementedByDevice { .. })
         ));
     }
 }

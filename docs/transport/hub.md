@@ -634,7 +634,7 @@ Windows compile only so far.
 Several programs share a device through the hub; sometimes one of them needs a part of it to itself for a while (a
 test sequence that reconfigures a CAN bus, a firmware update). It *claims* that resource through the hub's
 `claims` group, and until it lets go, the hub answers other programs' calls and property writes there itself, with
-`Common(InUse)` naming the holder, without reaching the device. Which resources can be claimed, and in which mode,
+`CommonError::InUse` naming the holder, without reaching the device. Which resources can be claimed, and in which mode,
 is in the device's API (`#[claim(..)]`, `#[shares(..)]`, `#[label(..)]`, see [Metadata](../api/metadata.md)); the
 root of a device always can, exclusively.
 
@@ -647,7 +647,7 @@ let board = Board::config(|c| c.hub_device(key.clone()).client_meta(meta.clone()
 // `can[0]`: the path of resource ids from the root, array indices included, as in a request
 let id = hub.claims().claim(key.clone(), vec![UNib32(3), UNib32(0)], "bitrate sweep".into(), Some(600)).call().await?;
 board.can(0).set_bitrate(500_000).call().await?; // goes through: this instance holds the claim
-// ... another program's `can(0).send(..)` gets Err(Common(InUse { by: "sweep pid 4711" }))
+// ... another program's `can(0).send(..)` gets Err(CallError::Common(InUse { by: "sweep pid 4711" }))
 hub.claims().release(id).call().await?;
 ```
 
@@ -675,10 +675,9 @@ What is refused, for programs other than the holder, at or under the claimed pat
 | `shared` | refused for programs holding no claim on it; several programs claim it together | open |
 | `observe` | refused | refused |
 
-- The answer is typed where the item has an error type: a method returning `Result<_, E>` gets `Err(E::Common(InUse
-  { by }))`, a property write with an error type gets that error, built from the device's API with the dynamic
-  serializer, so the program's own client decodes it as a normal `CallError::Device`. Without one (`fn ping() ->
-  u8`), the error event says `in use by <program> pid <pid>` (`ErrorKind::UserStr`).
+- The answer is the protocol's common error event (`ErrorKind::Common(InUse { by })`, STD-16), whatever the item's
+  own error type: the program's own client gets `CallError::Common` on a method with a `Result`, `Error::common()`
+  on one without, Python a `RemoteError` with `.common`; the hub needs no definition from the device's API for it.
 - Requests addressed by trait (global paths) are placed with the device's API; multi-requests (`MultiCall`,
   `MultiWrite`, ...) are refused when a claim is at, above or under their path. A request the hub can't read (an
   envelope newer than the hub) is refused like a call anywhere on the device while other programs hold claims on it,
@@ -702,7 +701,7 @@ pins and functions, so a UART and a pin test can't both drive PA9). The two laye
 A firmware update or a settings write needs the whole device to itself: another program's call in the middle of it
 could do harm, and the hub's own clock steering would disturb the device while it reboots into a trial. That is a
 claim on the device's root path (an empty path, always claimable, exclusively): every other program's calls and
-writes anywhere on the device are refused with `Common(InUse)` naming the holder, their reads, streams and observing go
+writes anywhere on the device are refused with `CommonError::InUse` naming the holder, their reads, streams and observing go
 on, and the hub doesn't steer the device's clock while it is held (SRV-31). It is an ordinary claim otherwise: owned
 by the client instance, gone with its last connection or its ttl, listed by `claims(key)`.
 

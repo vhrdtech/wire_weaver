@@ -83,14 +83,14 @@ macro_rules! props {
             &mut self,
             _cx: &mut Context<'_, impl Out>,
             value: flash_budget_api::Code,
-        ) -> SetResult<()> {
+        ) -> SetResult<CommonError<'_>> {
             $crate::flash_budget::distinct!();
             $crate::flash_budget::black_box(value);
             $crate::flash_budget::black_box(SetResult::Set)
         }
 
         #[inline(never)]
-        fn $get(&mut self, _cx: &mut Context<'_, impl Out>) -> GetResult<flash_budget_api::Code, ()> {
+        fn $get(&mut self, _cx: &mut Context<'_, impl Out>) -> GetResult<flash_budget_api::Code, CommonError<'_>> {
             $crate::flash_budget::distinct!();
             $crate::flash_budget::black_box(GetResult::Value(flash_budget_api::Code(1)))
         }
@@ -106,14 +106,14 @@ macro_rules! maxlen_props {
             &mut self,
             _cx: &mut Context<'_, impl Out>,
             value: MaxLen<&'_ str, $n>,
-        ) -> SetResult<()> {
+        ) -> SetResult<CommonError<'_>> {
             $crate::flash_budget::distinct!();
             $crate::flash_budget::black_box(value);
             $crate::flash_budget::black_box(SetResult::Set)
         }
 
         #[inline(never)]
-        fn $get(&mut self, _cx: &mut Context<'_, impl Out>) -> GetResult<MaxLen<&'_ str, $n>, ()> {
+        fn $get(&mut self, _cx: &mut Context<'_, impl Out>) -> GetResult<MaxLen<&'_ str, $n>, CommonError<'_>> {
             $crate::flash_budget::distinct!();
             $crate::flash_budget::black_box(GetResult::Value(MaxLen::new_unchecked("x")))
         }
@@ -159,7 +159,7 @@ macro_rules! item_array {
             &mut self,
             _cx: &mut Context<'_, impl Out>,
             index_chain: [ww_client_server::ResourceIndex; 1],
-        ) -> GetResult<flash_budget_api::Code, ()> {
+        ) -> GetResult<flash_budget_api::Code, CommonError<'_>> {
             let index = $crate::flash_budget::black_box(index_chain[0].get().0);
             $crate::flash_budget::black_box(GetResult::Value(flash_budget_api::Code(index as u16)))
         }
@@ -259,7 +259,7 @@ macro_rules! flash_budget_server_impl {
 macro_rules! observed {
     ($($get:ident),* $(,)?) => {$(
         #[inline(never)]
-        fn $get(&mut self, _cx: &mut Context<'_, impl Out>) -> GetResult<i32, ()> {
+        fn $get(&mut self, _cx: &mut Context<'_, impl Out>) -> GetResult<i32, CommonError<'_>> {
             $crate::flash_budget::distinct!();
             $crate::flash_budget::black_box(GetResult::Value(1))
         }

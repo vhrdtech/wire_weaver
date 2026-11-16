@@ -31,6 +31,7 @@ pub use valid_indices::ValidIndices;
 #[cfg(feature = "std")]
 pub use valid_indices::ValidIndicesOwned;
 pub use ww_api;
+pub use ww_api::ww_error::CommonError;
 pub use ww_api::{Error, api_error, compact_version, full_version, ww_codegen, ww_trait};
 pub use ww_version;
 use ww_version::FullVersion;

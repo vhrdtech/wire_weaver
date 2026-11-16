@@ -64,10 +64,10 @@ pub trait PatternGenerator {
     /// Drops a loaded pattern.
     /// `InvalidArgument`: rate or channel count out of range; `Unsupported`: start condition; `Busy`: a pattern plays.
     #[errors(
-        Common(InvalidArgument, Unsupported, Busy, InUse, NoPower),
+        CommonError(InvalidArgument, Unsupported, Busy, InUse, NoPower),
         NoSuchChannel
     )]
-    fn configure(config: PgConfig<'i>) -> Result<PgActual, PgError<'i>>;
+    fn configure(config: PgConfig<'i>) -> Result<PgActual, PgError>;
 
     /// Pattern data, appended in order. The credit is the free pattern memory.
     #[credit]
@@ -76,8 +76,8 @@ pub trait PatternGenerator {
     /// Starts output now, or waits for [PgConfig::start]. Started before the pattern is complete, it plays what it
     /// has while the sink keeps filling, and stops with [PgStatus::Underrun] if the host falls behind.
     /// `WrongState`: not configured, or nothing loaded.
-    #[errors(Common(WrongState, Refused))]
-    fn start() -> Result<(), PgError<'i>>;
+    #[errors(CommonError(WrongState, Refused))]
+    fn start() -> Result<(), PgError>;
 
     /// Stops output; the channels go to their idle levels.
     fn stop();
@@ -97,8 +97,8 @@ pub trait WaveformGenerator {
     /// Starts every channel in `channels` (already `set`, held) on the same sample clock tick, so their phases line
     /// up.
     /// `Unsupported`: the channels don't share a clock.
-    #[errors(Common(Unsupported, WrongState), NoSuchChannel)]
-    fn start_together(channels: MaxLen<RefVec<'i, u8>, MAX_CHANNELS>) -> Result<(), WgError<'i>>;
+    #[errors(CommonError(Unsupported, WrongState), NoSuchChannel)]
+    fn start_together(channels: MaxLen<RefVec<'i, u8>, MAX_CHANNELS>) -> Result<(), WgError>;
 }
 
 /// One DAC output.
@@ -107,13 +107,13 @@ pub trait WaveformChannel {
     /// Starts or changes the output and returns what the DAC actually does.
     /// `InvalidArgument`: frequency or levels out of range; `Unsupported`: shape or format; `WrongState`: an
     /// `Arbitrary` shape with no table.
-    #[errors(Common(InvalidArgument, Unsupported, WrongState, InUse, Refused))]
-    fn set(waveform: Waveform) -> Result<WaveformActual, WgError<'i>>;
+    #[errors(CommonError(InvalidArgument, Unsupported, WrongState, InUse, Refused))]
+    fn set(waveform: Waveform) -> Result<WaveformActual, WgError>;
 
     /// Stops and holds `level`; returns the level actually held.
     /// `InvalidArgument`: out of range.
-    #[errors(Common(InvalidArgument, Refused))]
-    fn stop(level: Volt) -> Result<Volt, WgError<'i>>;
+    #[errors(CommonError(InvalidArgument, Refused))]
+    fn stop(level: Volt) -> Result<Volt, WgError>;
 
     fn state() -> WaveformState;
 
@@ -248,19 +248,18 @@ pub enum PgStatus {
 /// Errors of `PatternGenerator`: the common ones first, then `NoSuchChannel`. Each method lists the variants it
 /// returns.
 #[derive_shrink_wrap(
-    owned(feature = "std"),
+    borrowed, owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Debug, PartialEq, Eq, Clone),
     ww_repr = unib32,
     display
 )]
-pub enum PgError<'i> {
-    /// {0}
-    #[common]
-    Common(CommonError<'i>),
+pub enum PgError {
     /// No channel with this index.
     NoSuchChannel,
 }
+
+ww_api::api_error!(PgError);
 
 /// What a device's DACs offer, see `WaveformGenerator::capabilities`.
 #[derive_shrink_wrap(
@@ -382,16 +381,15 @@ pub enum WaveformState {
 /// Errors of `WaveformGenerator`: the common ones first, then `NoSuchChannel`. Each method lists the variants it
 /// returns.
 #[derive_shrink_wrap(
-    owned(feature = "std"),
+    borrowed, owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Debug, PartialEq, Eq, Clone),
     ww_repr = unib32,
     display
 )]
-pub enum WgError<'i> {
-    /// {0}
-    #[common]
-    Common(CommonError<'i>),
+pub enum WgError {
     /// No channel with this index.
     NoSuchChannel,
 }
+
+ww_api::api_error!(WgError);

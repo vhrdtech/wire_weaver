@@ -2098,6 +2098,7 @@ dependencies = [
  "serde",
  "sha2 0.11.0",
  "shrink_wrap",
+ "ww_error",
  "ww_lz4",
  "ww_numeric",
  "ww_version",

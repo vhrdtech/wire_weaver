@@ -18,9 +18,9 @@ so it can't be compiled into the same image. So the device sends **raw words** a
 #[ww_trait]
 pub trait Counters {
     const INFO: CountersInfo<'i>;
-    #[errors(Common(InvalidArgument, Unsupported))]
+    #[errors(CommonError(InvalidArgument, Unsupported))]
     fn read(buffer: CounterBuffer, offset: u16) -> Result<MaxLen<RefVec<'i, UVlq32>, 64>, CountersError<'i>>;
-    #[errors(Common(Unsupported))]
+    #[errors(CommonError(Unsupported))]
     fn reset(buffer: CounterBuffer) -> Result<(), CountersError<'i>>;
     #[optional]
     #[stream(CounterChanges<'i>, counted)]
@@ -34,8 +34,8 @@ pub trait Counters {
   fixed at link time, so a server provides it as a `fn` (`const_model = "INFO=fn"`).
 * `read(buffer, offset)` - words of `Ram` or `Backup` from word `offset`, at most 64, never past the used words
   (empty at the end). Words are `UVlq32`: a counter at 0 costs one byte, so a 64-word buffer of mostly small counters
-  is one call of about 80 bytes. `Common(Unsupported)` for the backup buffer of a device without one,
-  `Common(InvalidArgument)` for an offset past the used words.
+  is one call of about 80 bytes. `CommonError::Unsupported` for the backup buffer of a device without one,
+  `CommonError::InvalidArgument` for an offset past the used words.
 * `reset(buffer)` - zero a buffer.
 * `watch(period)` - optional and not served by anything yet: changed words every `period`, for slow links where
   polling `read` costs too much. Leave it out with `omit = ["counters.watch"]`.
@@ -139,5 +139,5 @@ calls on a generated client; `cnt_core::Counters::read` / `read_changes` decode,
 ## Evolution
 
 `CounterBuffer` is `no_future_version` (`cnt` has these two buffers); `CountersInfo`, `BufferInfo` and
-`CounterChanges` are evolvable structs, `CountersError` an evolvable enum with the `Common` errors. A new `cnt` buffer
+`CounterChanges` are evolvable structs; the calls fail only with the common errors. A new `cnt` buffer
 layout bumps `cnt::SIGNATURE_VERSION`, which `INFO.format` carries: the host refuses a format it doesn't read.

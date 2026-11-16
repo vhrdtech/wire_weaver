@@ -82,14 +82,14 @@ pub trait Pin {
 * `input_level` - reads the input register. If the pin is configured as output and its input buffer is disabled,
   the current output level should be returned instead.
 * `event` - a counted [stream function](../api/streams.md#stream-functions) of `IoPinEvent`s (rising/falling edge,
-  custom sources): the host opens it with the sources to report (`Common(Unsupported)` for one the pin can't
+  custom sources): the host opens it with the sources to report (`CommonError::Unsupported` for one the pin can't
   generate) and closes it to stop. Its unit is an event: the event head carries the device time of each
   edge and exactly how many edges the device dropped ([stream delivery](../api/stream_reliability.md)).
 * `set_mode` / `mode` - switch between push-pull, open-drain, input, high-z, analog or a custom mode, optionally
-  setting the initial output level before the switch. Can fail with `Common(Unsupported)`, or `DifferentModes` on a
+  setting the initial output level before the switch. Can fail with `CommonError::Unsupported`, or `DifferentModes` on a
   bank whose pins share one mode.
-* `pull` - pull resistor configuration, can fail with `Common(Unsupported)`.
-* `speed` - drive strength/slew rate, can fail with `Common(Unsupported)`.
+* `pull` - pull resistor configuration, can fail with `CommonError::Unsupported`.
+* `speed` - drive strength/slew rate, can fail with `CommonError::Unsupported`.
 * `capabilities()` - what this pin supports: modes, pulls, speeds, whether `event` works, and its name, see
   `PinCapabilities` under [Types](#types) below.
 
@@ -117,7 +117,7 @@ change is seen in an interrupt, so it waits for marks of an element from another
 * `Pull` - `None`, `Up`, `Down`, `Custom(Index<CustomPull, u8>)`; `sized`, 2 bits.
 * `Speed` - `Slow`, `Medium`, `Fast`, `VeryFast`, `Custom(Index<CustomSpeed, u8>)`; `sized`, 1 nibble.
 * `IoPinEvent` - `RisingEdge`, `FallingEdge`, `Custom(Index<CustomEvent, u8>)`; `sized`, 2 bits.
-* `GpioError<'i>` - `Common(CommonError)` ([common errors](../api/errors.md#common-errors)), `DifferentModes`; unsized
+* `GpioError` - the [common errors](../api/errors.md#common-errors) beside its own `DifferentModes`; unsized
   (`unib32` discriminant), evolvable, `Display` from the doc lines. Each method lists the variants it returns
   (`#[errors]`).
 * `IoPinEnabledEvents<'i>` - which sources the `event` stream reports, its argument: `rising: bool`, `falling: bool`,
@@ -290,5 +290,5 @@ fn valid_indices_root_port_pin(&mut self, index: [ww_client_server::ResourceInde
 In this example, `capabilities()` and `configure` are hardcoded (3.3V without level control, push-pull/open-drain/input all
 supported, no custom modes), `set_mode`/`mode` and `pull`/`speed` are translated to/from the STM32 `MODER` /
 `OTYPER` / `PUPDR` / `OSPEEDR` registers, and the `event` stream never opens (`port_pin_event` answers
-`Common(Unsupported)`, one `Counted` state serves every pin) since the example does not wire up EXTI
+`CommonError::Unsupported`, one `Counted` state serves every pin) since the example does not wire up EXTI
 interrupts.

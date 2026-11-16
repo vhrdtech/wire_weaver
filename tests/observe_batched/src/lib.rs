@@ -91,14 +91,14 @@ mod tests {
             async fn get_current(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
-            ) -> GetResult<i32, ()> {
+            ) -> GetResult<i32, CommonError<'_>> {
                 GetResult::Value(self.current)
             }
 
             async fn get_reading(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
-            ) -> GetResult<Reading, ()> {
+            ) -> GetResult<Reading, CommonError<'_>> {
                 GetResult::Value(reading(self.current))
             }
 
@@ -107,7 +107,7 @@ mod tests {
             async fn get_slow_temp(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
-            ) -> GetResult<f32, ()> {
+            ) -> GetResult<f32, CommonError<'_>> {
                 GetResult::Value(temp(self.current))
             }
 
@@ -212,14 +212,14 @@ mod tests {
             async fn get_current(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
-            ) -> GetResult<i32, ()> {
+            ) -> GetResult<i32, CommonError<'_>> {
                 GetResult::Value(self.current)
             }
 
             async fn get_reading(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
-            ) -> GetResult<Reading, ()> {
+            ) -> GetResult<Reading, CommonError<'_>> {
                 GetResult::Value(reading(self.current))
             }
 
@@ -228,7 +228,7 @@ mod tests {
             async fn get_slow_temp(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
-            ) -> GetResult<f32, ()> {
+            ) -> GetResult<f32, CommonError<'_>> {
                 GetResult::Value(temp(self.current))
             }
 
@@ -670,14 +670,14 @@ mod tests {
             async fn get_current(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
-            ) -> GetResult<i32, ()> {
+            ) -> GetResult<i32, CommonError<'_>> {
                 GetResult::Value(self.current)
             }
 
             async fn get_reading(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
-            ) -> GetResult<Reading, ()> {
+            ) -> GetResult<Reading, CommonError<'_>> {
                 GetResult::Value(reading(self.current))
             }
 
@@ -686,7 +686,7 @@ mod tests {
             async fn get_slow_temp(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
-            ) -> GetResult<f32, ()> {
+            ) -> GetResult<f32, CommonError<'_>> {
                 GetResult::Value(temp(self.current))
             }
 
@@ -758,14 +758,14 @@ mod tests {
             fn get_current(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<i32, ()> {
+            ) -> GetResult<i32, CommonError<'_>> {
                 GetResult::Value(0)
             }
 
             fn get_reading(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Reading, ()> {
+            ) -> GetResult<Reading, CommonError<'_>> {
                 GetResult::Value(reading(0))
             }
 
@@ -774,7 +774,7 @@ mod tests {
             fn get_slow_temp(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<f32, ()> {
+            ) -> GetResult<f32, CommonError<'_>> {
                 GetResult::Value(0.0)
             }
 

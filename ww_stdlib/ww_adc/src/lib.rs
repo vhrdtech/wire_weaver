@@ -49,8 +49,8 @@
 //!
 //! # Errors
 //!
-//! All traits return [AdcError]: the framework's `CommonError` as [AdcError::Common], plus `NoSuchChannel`. Each
-//! method lists the variants it returns (`#[errors]`).
+//! All traits return [AdcError] (`NoSuchChannel`); the common errors (`ww_error::CommonError`) come beside it, as every
+//! item's do. Each method lists the errors it returns (`#[errors]`).
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use ww_api::prelude::*;
@@ -84,8 +84,8 @@ pub trait Adc {
     /// One calibrated reading of `channel`, in the channel's unit.
     /// `Busy`: the ADC runs a stream or capture that can't be interrupted; `NoPower`: inputs behind an unpowered
     /// buffer.
-    #[errors(Common(Busy, NoPower, Timeout), NoSuchChannel)]
-    fn read(channel: Index<Channel, u8>) -> Result<Reading, AdcError<'i>>;
+    #[errors(CommonError(Busy, NoPower, Timeout), NoSuchChannel)]
+    fn read(channel: Index<Channel, u8>) -> Result<Reading, AdcError>;
 
     /// The channels, their units and ranges.
     fn capabilities() -> AdcCapabilities<'i>;
@@ -102,10 +102,10 @@ pub trait AdcStream {
     /// for a rate or channel count out of range, `Unsupported` for the format, `Busy` while a capture runs.
     #[errors(
         NoSuchChannel,
-        Common(InvalidArgument, Unsupported, Busy, InUse, NoPower)
+        CommonError(InvalidArgument, Unsupported, Busy, InUse, NoPower)
     )]
     #[stream(SampleBlock<'i>, counted)]
-    fn samples(config: StreamConfig<'i>) -> Result<StreamActual, AdcError<'i>>;
+    fn samples(config: StreamConfig<'i>) -> Result<StreamActual, AdcError>;
 
     /// Rates, formats and limits of streaming.
     fn stream_capabilities() -> StreamCapabilities<'i>;
@@ -122,10 +122,10 @@ pub trait AdcCapture {
     /// `InvalidArgument`: rate, depth or trigger level out of range; `Unsupported`: format or trigger; `Busy`: a stream
     /// runs.
     #[errors(
-        Common(InvalidArgument, Unsupported, Busy, InUse, NoPower),
+        CommonError(InvalidArgument, Unsupported, Busy, InUse, NoPower),
         NoSuchChannel
     )]
-    fn capture(config: CaptureConfig<'i>) -> Result<CaptureActual, AdcError<'i>>;
+    fn capture(config: CaptureConfig<'i>) -> Result<CaptureActual, AdcError>;
 
     /// Where the capture stands.
     fn capture_status() -> CaptureStatus;
@@ -133,11 +133,11 @@ pub trait AdcCapture {
     /// Reads `len` bytes of the captured data from `offset`. The data is raw samples, interleaved in the order of
     /// [CaptureConfig::channels], `CaptureActual::bytes` long; the first `pre_trigger` sets come before the trigger.
     /// `WrongState`: no finished capture; `InvalidArgument`: outside the data.
-    #[errors(Common(WrongState, InvalidArgument))]
+    #[errors(CommonError(WrongState, InvalidArgument))]
     fn capture_read(
         offset: Index<Byte, u32>,
         len: Bytes<u16>,
-    ) -> Result<MaxLen<RefVec<'i, u8>, MAX_CAPTURE_READ_LEN>, AdcError<'i>>;
+    ) -> Result<MaxLen<RefVec<'i, u8>, MAX_CAPTURE_READ_LEN>, AdcError>;
 
     /// Stops an armed or running capture and drops its data.
     fn capture_abort();
@@ -390,16 +390,15 @@ pub enum CaptureStatus {
 /// Errors of every trait in this crate: the common ones first, then what is specific to ADCs. Each method lists the
 /// variants it returns.
 #[derive_shrink_wrap(
-    owned(feature = "std"),
+    borrowed, owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Debug, PartialEq, Eq, Clone),
     ww_repr = unib32,
     display
 )]
-pub enum AdcError<'i> {
-    /// {0}
-    #[common]
-    Common(CommonError<'i>),
+pub enum AdcError {
     /// No channel with this index.
     NoSuchChannel,
 }
+
+ww_api::api_error!(AdcError);

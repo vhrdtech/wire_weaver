@@ -81,7 +81,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: Hidden,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.data.lock().unwrap().hidden = Some(value);
                 SetResult::Set
             }
@@ -89,10 +89,12 @@ mod tests {
             fn get_hidden(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Hidden, ()> {
+            ) -> GetResult<Hidden, CommonError<'_>> {
                 match self.data.lock().unwrap().hidden {
                     Some(v) => GetResult::Value(v),
-                    None => GetResult::GetError(()),
+                    None => GetResult::GetError(CommonError::WrongState {
+                        reason: MaxLen::new_unchecked(""),
+                    }),
                 }
             }
 
@@ -100,7 +102,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: Renamed,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.data.lock().unwrap().renamed = Some(value);
                 SetResult::Set
             }
@@ -108,10 +110,12 @@ mod tests {
             fn get_renamed(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Renamed, ()> {
+            ) -> GetResult<Renamed, CommonError<'_>> {
                 match self.data.lock().unwrap().renamed {
                     Some(v) => GetResult::Value(v),
-                    None => GetResult::GetError(()),
+                    None => GetResult::GetError(CommonError::WrongState {
+                        reason: MaxLen::new_unchecked(""),
+                    }),
                 }
             }
         }

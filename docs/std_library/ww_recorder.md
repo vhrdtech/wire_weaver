@@ -124,7 +124,7 @@ brown-out warning.
 | `mode` | `Continuous`; or `Triggered` | next boot |
 | `usb_view` | split by recording; `by_time`, `by_track`, `csv` add folders and files | next refresh or mount |
 
-A write outside the limits answers `Common(InvalidArgument)`. Larger flushes are faster on most cards and lose more in
+A write outside the limits answers `CommonError::InvalidArgument`. Larger flushes are faster on most cards and lose more in
 a power cut: nothing written before the last completed flush is lost, and the next mount counts what was in RAM.
 
 `track[]` is the array of the session's tracks, indexed by track number: **0 is the system track** (markers,

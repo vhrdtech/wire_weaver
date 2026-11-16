@@ -32,7 +32,7 @@ impl ServerState {
         &mut self,
         _cx: &mut Context<'_, impl Out>,
         index_chain: [ww_client_server::ResourceIndex; 1],
-    ) -> GetResult<flash_budget_api::Code, ()> {
+    ) -> GetResult<flash_budget_api::Code, CommonError<'_>> {
         let index = flash_budget::black_box(index_chain[0].get().0);
         flash_budget::black_box(GetResult::Value(flash_budget_api::Code(index as u16)))
     }

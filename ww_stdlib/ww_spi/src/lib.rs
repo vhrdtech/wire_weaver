@@ -48,8 +48,8 @@
 //!
 //! # Errors
 //!
-//! Every method returns [SpiError]: the framework's `CommonError` as [SpiError::Common], plus `BufferTooBig`. Each
-//! method lists the variants it returns (`#[errors]`).
+//! Every method returns [SpiError] (`BufferTooBig`); the common errors (`ww_error::CommonError`) come beside it, as every
+//! item's do. Each method lists the errors it returns (`#[errors]`).
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use ww_api::prelude::*;
@@ -78,23 +78,23 @@ pub trait Spi {
     /// after, as [CsMode::Auto]; with [CsMode::Manual] the bus must already be selected (`Spi::set_cs`).
     /// `WrongState` while not configured as [SpiRole::Master], `BufferTooBig` for `data` longer than [SPI_MAX] or
     /// this device's [SpiCapabilities::max_len].
-    #[errors(Common(WrongState, NoPower, Timeout), BufferTooBig)]
+    #[errors(CommonError(WrongState, NoPower, Timeout), BufferTooBig)]
     fn transfer(
         data: MaxLen<RefVec<'i, u8>, SPI_MAX>,
-    ) -> Result<MaxLen<RefVec<'i, u8>, SPI_MAX>, SpiError<'i>>;
+    ) -> Result<MaxLen<RefVec<'i, u8>, SPI_MAX>, SpiError>;
 
     /// CS asserted for every op of `ops`, released at the end; returns the bytes of every [SpiOp::Read] and
     /// [SpiOp::Transfer], concatenated in order. [SpiOp::Delay] waits between two ops without touching the lines.
     /// Errors as `Spi::transfer`; `BufferTooBig` also when the reads together exceed [SPI_MAX], `Unsupported` for an
     /// operation of a newer version.
-    #[errors(Common(Unsupported, WrongState, NoPower, Timeout), BufferTooBig)]
+    #[errors(CommonError(Unsupported, WrongState, NoPower, Timeout), BufferTooBig)]
     fn transaction(
         ops: MaxLen<RefVec<'i, SpiOp<'i>>, MAX_OPS>,
-    ) -> Result<MaxLen<RefVec<'i, u8>, SPI_MAX>, SpiError<'i>>;
+    ) -> Result<MaxLen<RefVec<'i, u8>, SPI_MAX>, SpiError>;
 
     /// Writes `data`, ignoring what comes back. Errors as `Spi::transfer`.
-    #[errors(Common(WrongState, NoPower, Timeout), BufferTooBig)]
-    fn write(data: MaxLen<RefVec<'i, u8>, SPI_MAX>) -> Result<(), SpiError<'i>>;
+    #[errors(CommonError(WrongState, NoPower, Timeout), BufferTooBig)]
+    fn write(data: MaxLen<RefVec<'i, u8>, SPI_MAX>) -> Result<(), SpiError>;
 
     /// What this bus supports: frequency range, word sizes, master/slave, IO levels.
     fn capabilities() -> SpiCapabilities<'i>;
@@ -104,12 +104,12 @@ pub trait Spi {
     /// `InUse` while `Spi::slave_frames` or `Spi::monitor` is open, `Unsupported` for a `word`, a [CsMode] or an
     /// IO level the adapter doesn't have, `InvalidArgument` for a `freq` outside [SpiCapabilities], `Refused` when
     /// e.g. the bus already sits at a higher voltage than `io_level`.
-    #[errors(Common(Unsupported, InvalidArgument, InUse, Refused))]
-    fn configure(config: SpiConfig) -> Result<SpiConfig, SpiError<'i>>;
+    #[errors(CommonError(Unsupported, InvalidArgument, InUse, Refused))]
+    fn configure(config: SpiConfig) -> Result<SpiConfig, SpiError>;
 
     /// Asserts or releases CS, with [CsMode::Manual]; `WrongState` with another [CsMode].
-    #[errors(Common(WrongState))]
-    fn set_cs(active: bool) -> Result<(), SpiError<'i>>;
+    #[errors(CommonError(WrongState))]
+    fn set_cs(active: bool) -> Result<(), SpiError>;
 
     /// Watches the bus without taking part: one [SpiFrame] per CS assertion, in bus order, decoded with `config` (the
     /// monitor doesn't drive CS or clock, it only listens). Opening starts monitoring, closing stops it. A counted
@@ -119,9 +119,9 @@ pub trait Spi {
     /// Optional: an adapter without monitoring hardware leaves it out (`omit = ["spi.monitor"]`), and a host sees
     /// that in the device's introspection. `Unsupported` for a `word` the monitor can't decode.
     #[optional]
-    #[errors(Common(InUse, Unsupported, Refused))]
+    #[errors(CommonError(InUse, Unsupported, Refused))]
     #[stream(SpiFrame<'i>, counted)]
-    fn monitor(config: SpiMonitorConfig) -> Result<(), SpiError<'i>>;
+    fn monitor(config: SpiMonitorConfig) -> Result<(), SpiError>;
 
     /// What slave mode supports: queue depth, register map, how fast.
     #[optional(slave)]
@@ -137,11 +137,11 @@ pub trait Spi {
     /// [SpiSlaveCapabilities::map_len].
     #[optional(slave)]
     #[errors(
-        Common(InUse, Unsupported, InvalidArgument, Refused, NoPower),
+        CommonError(InUse, Unsupported, InvalidArgument, Refused, NoPower),
         BufferTooBig
     )]
     #[stream(SpiSlaveFrame<'i>, counted)]
-    fn slave_frames(config: SpiSlaveConfig) -> Result<(), SpiError<'i>>;
+    fn slave_frames(config: SpiSlaveConfig) -> Result<(), SpiError>;
 
     /// Writes `data` into the register map from `offset`, while the slave runs or before it starts (the map keeps
     /// its contents between runs). Takes effect between two frames, never inside one. `BufferTooBig` past
@@ -151,7 +151,7 @@ pub trait Spi {
     fn slave_map_write(
         offset: Index<Byte, u32>,
         data: MaxLen<RefVec<'i, u8>, SPI_MAX>,
-    ) -> Result<(), SpiError<'i>>;
+    ) -> Result<(), SpiError>;
 
     /// Reads `len` bytes of the register map from `offset` as the master sees it: a `Spi::slave_map_write` still
     /// waiting for the frame to end shows once it is applied. `BufferTooBig` past [SpiSlaveCapabilities::map_len] or
@@ -161,7 +161,7 @@ pub trait Spi {
     fn slave_map_read(
         offset: Index<Byte, u32>,
         len: Bytes<u16>,
-    ) -> Result<MaxLen<RefVec<'i, u8>, SPI_MAX>, SpiError<'i>>;
+    ) -> Result<MaxLen<RefVec<'i, u8>, SPI_MAX>, SpiError>;
 
     /// Answers for [SpiSlaveAnswers::Queue], one item per frame, in order. A frame shorter than its answer leaves
     /// the rest unsent (dropped when CS goes inactive), a longer one gets the idle byte for the rest. An answer is
@@ -423,15 +423,14 @@ pub struct SpiSlaveCapabilities {
 
 /// Errors of `Spi`: the common ones first, then what is specific to SPI. Each method lists the variants it returns.
 #[derive_shrink_wrap(
-    owned(feature = "std"),
+    borrowed, owned(feature = "std"),
     derive(Debug, PartialEq, Eq, Clone),
     ww_repr = unib32,
     display
 )]
-pub enum SpiError<'i> {
-    /// {0}
-    #[common]
-    Common(CommonError<'i>),
+pub enum SpiError {
     /// Longer than this device takes, see its capabilities.
     BufferTooBig,
 }
+
+ww_api::api_error!(SpiError);

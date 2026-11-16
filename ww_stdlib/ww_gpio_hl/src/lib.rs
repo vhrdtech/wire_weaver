@@ -12,7 +12,7 @@ pub enum Error {
     #[error("client error: '{:?}'", .0)]
     Client(#[from] wire_weaver_client::Error),
     #[error("ww_gpio: {0}")]
-    Gpio(ww_gpio::GpioErrorOwned),
+    Gpio(ww_gpio::GpioError),
     /// The device answered with a common error (STD-16): `Busy`, `InUse`, `Unsupported`, ...
     #[error(transparent)]
     Common(wire_weaver_client::ww_error::CommonErrorOwned),
@@ -28,14 +28,14 @@ pub enum Error {
     Internal(String),
 }
 
-impl From<ww_gpio::GpioErrorOwned> for Error {
-    fn from(e: ww_gpio::GpioErrorOwned) -> Self {
+impl From<ww_gpio::GpioError> for Error {
+    fn from(e: ww_gpio::GpioError) -> Self {
         Error::Gpio(e)
     }
 }
 
-impl From<wire_weaver_client::CallError<ww_gpio::GpioErrorOwned>> for Error {
-    fn from(e: wire_weaver_client::CallError<ww_gpio::GpioErrorOwned>) -> Self {
+impl From<wire_weaver_client::CallError<ww_gpio::GpioError>> for Error {
+    fn from(e: wire_weaver_client::CallError<ww_gpio::GpioError>) -> Self {
         use wire_weaver_client::CallError;
         match e {
             CallError::Device(e) => Error::Gpio(e),

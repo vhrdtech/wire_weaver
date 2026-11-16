@@ -1,6 +1,6 @@
 // ww_onewire 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 5681ee685dacdd780a09adef93a294501cfef13821bd23db093f569eeb23459b
+// shrink_wrap sha256: 789430926c7a3a60702880381bff29a4868863b0284f89f5c029dcab825c250f
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "1-Wire over WireWeaver: a device (a USB adapter, a dev board, an instrument) lets a host reset the bus, find the",
     "ROM ids on it, and run addressed transactions against them.",
@@ -73,19 +73,14 @@
         "returns.",
     ], ident: "OneWireError", generics: [], variants: [
         (docs: [
-            "{0}",
-        ], ident: "Common", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 15), docs: [], slot: None, series_opaque: false),
-        ]), discriminant: 0, since: None),
-        (docs: [
             "No device answered the reset.",
-        ], ident: "NoPresence", fields: Unit, discriminant: 1, since: None),
+        ], ident: "NoPresence", fields: Unit, discriminant: 0, since: None),
         (docs: [
             "A ROM id\'s own CRC8 did not check out.",
-        ], ident: "CrcMismatch", fields: Unit, discriminant: 2, since: None),
+        ], ident: "CrcMismatch", fields: Unit, discriminant: 1, since: None),
         (docs: [
             "The bus is held low.",
-        ], ident: "ShortCircuit", fields: Unit, discriminant: 3, since: None),
+        ], ident: "ShortCircuit", fields: Unit, discriminant: 2, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Where a paged `OneWire::search` left off: the classic Dallas/Maxim search state, carried from one page to the",
@@ -94,10 +89,10 @@
         (ident: Some("last_rom"), default: None, since: None, ty: OutOfLine(type_idx: 8), docs: [
             "The last ROM id found, continuing the tree walk from the bit after it.",
         ], slot: None, series_opaque: false),
-        (ident: Some("last_discrepancy"), default: None, since: None, ty: Instance(type_idx: 16, args: [
-            Type(OutOfLine(type_idx: 17)),
+        (ident: Some("last_discrepancy"), default: None, since: None, ty: Instance(type_idx: 15, args: [
+            Type(OutOfLine(type_idx: 16)),
             Type(NumericAny(Base(U8))),
-            Type(Instance(type_idx: 18, args: [
+            Type(Instance(type_idx: 17, args: [
                 Const(Numeric(I64(1))),
                 Const(Numeric(I64(64))),
             ])),
@@ -126,20 +121,20 @@
             "Pins the bus can be put on, by name.",
         ], slot: None, series_opaque: false),
         (ident: Some("io_levels"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(Instance(type_idx: 13, args: [
-            Type(OutOfLine(type_idx: 19)),
+            Type(OutOfLine(type_idx: 18)),
             Type(OutOfLine(type_idx: 12)),
         ]))), docs: [
             "Discrete IO levels [OneWireConfig::io_level] can be set to (e.g. 3.3 V, 5 V); empty if the adapter has no",
             "level control.",
         ], slot: None, series_opaque: false),
         (ident: Some("io_level_min"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 13, args: [
-            Type(OutOfLine(type_idx: 19)),
+            Type(OutOfLine(type_idx: 18)),
             Type(OutOfLine(type_idx: 12)),
         ])), docs: [
             "Lowest IO level of an adjustable supply, if the adapter has one.",
         ], slot: None, series_opaque: false),
         (ident: Some("io_level_max"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 13, args: [
-            Type(OutOfLine(type_idx: 19)),
+            Type(OutOfLine(type_idx: 18)),
             Type(OutOfLine(type_idx: 12)),
         ])), docs: [
             "Highest IO level of an adjustable supply, if the adapter has one.",
@@ -152,16 +147,16 @@
         "set coming back.",
     ], ident: "OneWireConfig", generics: [], fields: Named([
         (ident: Some("enabled"), default: None, since: None, ty: Bool, docs: [], slot: None, series_opaque: false),
-        (ident: Some("pin"), default: None, since: None, ty: Instance(type_idx: 20, args: [
-            Type(OutOfLine(type_idx: 21)),
+        (ident: Some("pin"), default: None, since: None, ty: Instance(type_idx: 19, args: [
+            Type(OutOfLine(type_idx: 20)),
             Type(NumericAny(Base(U8))),
             Type(OutOfLine(type_idx: 12)),
         ]), docs: [
             "Index into [OneWireCapabilities::pins].",
         ], slot: None, series_opaque: false),
-        (ident: Some("speed"), default: None, since: None, ty: OutOfLine(type_idx: 22), docs: [], slot: None, series_opaque: false),
+        (ident: Some("speed"), default: None, since: None, ty: OutOfLine(type_idx: 21), docs: [], slot: None, series_opaque: false),
         (ident: Some("io_level"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 13, args: [
-            Type(OutOfLine(type_idx: 19)),
+            Type(OutOfLine(type_idx: 18)),
             Type(OutOfLine(type_idx: 12)),
         ])), docs: [
             "Voltage of the bus on adapters with level translators ([OneWireCapabilities::io_levels]); `None` leaves it as",
@@ -295,24 +290,6 @@
         20,
         62,
     ]),
-    SkippedFullVersion(crate_idx: 3, type_name: "CommonError", signature: [
-        30,
-        18,
-        211,
-        141,
-        253,
-        197,
-        48,
-        184,
-        37,
-        11,
-        183,
-        248,
-        238,
-        96,
-        205,
-        177,
-    ]),
     SkippedFullVersion(crate_idx: 1, type_name: "IndexFrom1", signature: [
         234,
         33,
@@ -430,7 +407,7 @@
         (id: 0, kind: Method(args: [
             (ident: "t", ty: OutOfLine(type_idx: 0), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: MaxLen(max_len: Fixed(256), ty: Vec(NumericAny(Base(U8)))), err_ty: OutOfLine(type_idx: 1))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "InvalidArgument",
                 "Busy",
                 "WrongState",
@@ -446,7 +423,7 @@
             "over [OW_MAX] or a `strong_pullup` on a device without [OneWireCapabilities::strong_pullup].",
         ], optional: None, meta: None, identity: None),
         (id: 1, kind: Method(args: [], return_ty: Some(Result(ok_ty: Bool, err_ty: OutOfLine(type_idx: 1))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "Busy",
                 "WrongState",
                 "NoPower",
@@ -459,7 +436,7 @@
             (ident: "from", ty: Option(some_ty: OutOfLine(type_idx: 2)), default: Some("None"), flatten: false),
             (ident: "family", ty: Option(some_ty: OutOfLine(type_idx: 3)), default: Some("None"), flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 4), err_ty: OutOfLine(type_idx: 1))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "Busy",
                 "WrongState",
                 "NoPower",
@@ -478,7 +455,7 @@
         (id: 4, kind: Method(args: [
             (ident: "config", ty: OutOfLine(type_idx: 6), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 6), err_ty: OutOfLine(type_idx: 1))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "Unsupported",
                 "InvalidArgument",
                 "InUse",
@@ -495,7 +472,7 @@
         (id: 5, kind: Method(args: [
             (ident: "direction", ty: Bool, default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 7), err_ty: OutOfLine(type_idx: 1))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "WrongState",
                 "NoPower",
                 "Refused",
@@ -514,10 +491,8 @@
     (crate_id: "ww_onewire", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_si", version: (major: 0, minor: 5, patch: 0, pre: None, build: None)),
-    (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-], root_omitted: None, wire: Some((line: 2, revision: 0)), ext_wire: Some([
-    Some((line: 2, revision: 0)),
+], root_omitted: None, wire: Some((line: 3, revision: 0)), ext_wire: Some([
+    Some((line: 3, revision: 0)),
     None,
     Some((line: 5, revision: 0)),
-    Some((line: 1, revision: 0)),
 ]))

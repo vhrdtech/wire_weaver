@@ -104,8 +104,8 @@ Types other crates and your own API build on.
 
 * [`ww_si`](ww_si.md) — `Volt`, `Hertz`, `Second`, ...: physical values with their unit, in whatever number type
   the device picks
-* [`ww_error`](ww_error.md) — `CommonError`, `HasCommon`: the errors every API can return (`Unsupported`, `InUse`,
-  `Busy`, ...), nested first in a crate's own error enum
+* [`ww_error`](ww_error.md) — `CommonError`: the errors every item of every API can return (`Unsupported`, `InUse`,
+  `Busy`, ...), beside a crate's own error enum
 * [`ww_date_time`](ww_date_time.md) — `DateTime` (ISO 8601, optional time zone and nanoseconds, 32 bits minimum),
   `NaiveDate`, `NaiveTime`
 * [`ww_numeric`](ww_numeric.md) — `NumericValue`, `NumericBaseType`, `NumericAnyType`: the number types `ww_si`

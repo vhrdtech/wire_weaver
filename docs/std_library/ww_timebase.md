@@ -95,8 +95,7 @@ pub trait Clock {
   on; `steerer: Option<Steerer>` (`#[default = None]`) says who sends it.
 * `Steerer<'i>` - `id: u64` (random per steering program, what the device tells steerers apart by), `host: &str`,
   `program: &str` (`ww hub`, `ww`, an app), `pid: u32`.
-* `ClockError<'i>` - `Common(CommonError)` ([common errors](../api/errors.md#common-errors)); unsized (`unib32`
-  discriminant), evolvable.
+* No error enum of its own: the [common errors](../api/errors.md#common-errors) are all a clock call fails with.
 
 All enums and structs are behind `#[derive_shrink_wrap]` with `owned(feature = "std")`, so owned (`*Owned`)
 variants are available by enabling the crate's `std` feature.

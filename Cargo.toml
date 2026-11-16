@@ -222,6 +222,7 @@ board_info_api = { version = "0.1.0", path = "./tests/board_info_api" }
 bounded_api = { version = "0.1.0", path = "./tests/bounded_api" }
 cfg_variants_api = { version = "0.1.0", path = "./tests/cfg_variants_api" }
 cfg_variants_narrow_api = { version = "0.1.0", path = "./tests/cfg_variants_narrow_api", default-features = false, features = ["std"] }
+common_error = { version = "0.1.0", path = "./tests/common_error" }
 common_error_api = { version = "0.1.0", path = "./tests/common_error_api" }
 conformance_api = { version = "0.1.0", path = "./tests/conformance_api" }
 consts_api = { version = "0.1.0", path = "./tests/consts_api" }

@@ -52,7 +52,7 @@ mod tests {
             fn get_limit(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Milli<Ampere>, ()> {
+            ) -> GetResult<Milli<Ampere>, CommonError<'_>> {
                 Value(self.limit)
             }
         }

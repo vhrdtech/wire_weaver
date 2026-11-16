@@ -35,6 +35,8 @@ pub enum ModeError {
     Locked,
 }
 
+ww_api::api_error!(ModeError);
+
 #[derive_shrink_wrap(owned(feature = "std"), derive(Debug, PartialEq, Eq, Clone))]
 struct Custom<'i> {
     z: u8,

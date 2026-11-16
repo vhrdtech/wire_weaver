@@ -8,11 +8,11 @@ mod tests {
     use tests_common::TestDevice;
     use wire_weaver::prelude::*;
     use ww_can_bus::{
-        BitTiming, BufferIndex, CanConfig, CanError, CanErrorOwned, CanId, Capabilities,
-        ClockSource, ErrorState, FdConfig, FilterIndex, FrameKind, GroupCapabilities, GroupClock,
-        GroupState, Mode, Options, Performance, RxOverflow, Share, Status, Tdc, Timing,
-        TimingLimits, Trigger, TriggerKind, TtConfig, TtErrorLevel, TtLevel, TtRole, TtStatus,
-        TtSync, TxMarker, TxOrder, VcId, XlConfig,
+        BitTiming, BufferIndex, CanConfig, CanError, CanId, Capabilities, ClockSource, ErrorState,
+        FdConfig, FilterIndex, FrameKind, GroupCapabilities, GroupClock, GroupState, Mode, Options,
+        Performance, RxOverflow, Share, Status, Tdc, Timing, TimingLimits, Trigger, TriggerKind,
+        TtConfig, TtErrorLevel, TtLevel, TtRole, TtStatus, TtSync, TxMarker, TxOrder, VcId,
+        XlConfig,
     };
     use ww_si::{Baud, Fixed, Hertz, Index, Second};
 
@@ -123,7 +123,7 @@ mod tests {
         }
     }
 
-    fn invalid(reason: &'static str) -> CanError<'static> {
+    fn invalid(reason: &'static str) -> wire_weaver::Error<'static, CanError> {
         CommonError::InvalidArgument {
             arg: Index::new(0),
             reason: MaxLen::new_unchecked(reason),
@@ -131,7 +131,7 @@ mod tests {
         .into()
     }
 
-    fn wrong_state(reason: &'static str) -> CanError<'static> {
+    fn wrong_state(reason: &'static str) -> wire_weaver::Error<'static, CanError> {
         CommonError::WrongState {
             reason: MaxLen::new_unchecked(reason),
         }
@@ -255,7 +255,7 @@ mod tests {
             fn can_enable(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> RpcResult<Result<GroupClock, CanError<'_>>> {
+            ) -> RpcResult<Result<GroupClock, wire_weaver::Error<'_, CanError>>> {
                 let mut m = self.m.lock().unwrap();
                 if m.enabled {
                     return Ready(Err(wrong_state("enabled")));
@@ -268,7 +268,7 @@ mod tests {
             fn can_disable(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> RpcResult<Result<(), CanError<'_>>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, CanError>>> {
                 let mut m = self.m.lock().unwrap();
                 if m.controllers.iter().any(|c| c.mode() != Mode::Off) {
                     return Ready(Err(wrong_state("a controller is not Off")));
@@ -281,7 +281,7 @@ mod tests {
             fn get_can_group_state(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<GroupState, ()> {
+            ) -> GetResult<GroupState, CommonError<'_>> {
                 Value(self.m.lock().unwrap().group_state())
             }
 
@@ -289,7 +289,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 clock: GroupClock,
-            ) -> RpcResult<Result<GroupClock, CanError<'_>>> {
+            ) -> RpcResult<Result<GroupClock, wire_weaver::Error<'_, CanError>>> {
                 let mut m = self.m.lock().unwrap();
                 if m.enabled {
                     return Ready(Err(wrong_state("enabled")));
@@ -371,7 +371,7 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [ww_client_server::ResourceIndex; 1],
                 config: CanConfig,
-            ) -> RpcResult<Result<CanConfig, CanError<'_>>> {
+            ) -> RpcResult<Result<CanConfig, wire_weaver::Error<'_, CanError>>> {
                 let mut m = self.m.lock().unwrap();
                 if !m.enabled {
                     return Ready(Err(wrong_state("group disabled")));
@@ -425,7 +425,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [ww_client_server::ResourceIndex; 1],
-            ) -> GetResult<Status, ()> {
+            ) -> GetResult<Status, CommonError<'_>> {
                 let m = self.m.lock().unwrap();
                 Value(m.controllers[idx(index_chain)].status.unwrap_or(Status {
                     state: ErrorState::Stopped,
@@ -497,7 +497,7 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [ww_client_server::ResourceIndex; 1],
                 config: Option<TtConfig>,
-            ) -> RpcResult<Result<Option<TtConfig>, CanError<'_>>> {
+            ) -> RpcResult<Result<Option<TtConfig>, wire_weaver::Error<'_, CanError>>> {
                 let mut m = self.m.lock().unwrap();
                 let c = &mut m.controllers[idx(index_chain)];
                 if !matches!(c.mode(), Mode::Off | Mode::Config) {
@@ -517,13 +517,14 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [ww_client_server::ResourceIndex; 1],
                 triggers: MaxLen<RefVec<'_, Trigger>, 64>,
-            ) -> RpcResult<Result<(), CanError<'_>>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, CanError>>> {
                 let list: Vec<Trigger> = triggers.iter().map(|t| t.unwrap()).collect();
                 // trigger memory of the mock: 8 elements
                 if list.len() > 8 {
                     return Ready(Err(CanError::OutOfMemory {
                         available: Fixed::new(8),
-                    }));
+                    }
+                    .into()));
                 }
                 if !list.is_sorted_by_key(|t| t.time_mark) {
                     return Ready(Err(invalid("unsorted")));
@@ -536,7 +537,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [ww_client_server::ResourceIndex; 1],
-            ) -> GetResult<TtStatus, ()> {
+            ) -> GetResult<TtStatus, CommonError<'_>> {
                 let m = self.m.lock().unwrap();
                 let c = &m.controllers[idx(index_chain)];
                 let running = c.tt.is_some() && c.mode() == Mode::Normal;
@@ -558,7 +559,7 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [ww_client_server::ResourceIndex; 1],
                 config: Option<XlConfig>,
-            ) -> RpcResult<Result<Option<XlConfig>, CanError<'_>>> {
+            ) -> RpcResult<Result<Option<XlConfig>, wire_weaver::Error<'_, CanError>>> {
                 let mut m = self.m.lock().unwrap();
                 let i = idx(index_chain);
                 if config.is_some()
@@ -768,11 +769,11 @@ mod tests {
     }
 
     fn is_wrong_state<T: std::fmt::Debug>(
-        r: Result<T, wire_weaver_client::CallError<CanErrorOwned>>,
+        r: Result<T, wire_weaver_client::CallError<CanError>>,
     ) -> bool {
         matches!(
-            r.unwrap_err().device(),
-            Some(CanErrorOwned::Common(CommonErrorOwned::WrongState { .. }))
+            r.unwrap_err().common(),
+            Some(CommonErrorOwned::WrongState { .. })
         )
     }
 
@@ -985,7 +986,7 @@ mod tests {
             .await;
         assert!(matches!(
             r.unwrap_err().device(),
-            Some(CanErrorOwned::OutOfMemory { available }) if *available == Fixed::new(8)
+            Some(CanError::OutOfMemory { available }) if *available == Fixed::new(8)
         ));
 
         client

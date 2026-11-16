@@ -6,15 +6,12 @@ use ww_si::units;
 /// Errors of the CAN traits: the common ones plus what is specific to CAN; each method lists the variants it
 /// returns.
 #[derive_shrink_wrap(
-    owned(feature = "std"),
+    borrowed, owned(feature = "std"),
     derive(Debug, PartialEq, Eq, Clone),
     ww_repr = unib32,
     display
 )]
-pub enum CanError<'i> {
-    /// {0}
-    #[common]
-    Common(CommonError<'i>),
+pub enum CanError {
     /// More filters than the controller has ({max} of this kind).
     OutOfFilters { max: Fixed<units::Filter, One, u16> },
     /// Not possible while the controller is bus-off.
@@ -24,3 +21,5 @@ pub enum CanError<'i> {
         available: Fixed<units::Item, One, u32>,
     },
 }
+
+ww_api::api_error!(CanError);

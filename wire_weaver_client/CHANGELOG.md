@@ -9,10 +9,12 @@
 ### ⚠️ Breaking
 
 - `snapshots` is `ww_snapshots`: `Resolver::global().snapshot(v)` replaces `snapshots::get(v)`, `all()` is gone (EVO-80).
+- `ErrorList` gains `common` (STD-16): the `CommonError(..)` entry of an item's list; `with_common_error_list` on `PreparedCall<T, Error>`, `PreparedWrite<Error>` and `PreparedStreamOpen` (items without an error type); opening a stream function returning plain `T` gives `(T, stream)` (`OpenValue<T>`).
 - `tap::What` gains `BadBody`, `Stats` gains `blocks_bad`: a coded body that doesn't decode is reported (STD-129).
 
 ### 🐛 Fixes
 
+- A common error answered as the protocol's error event is checked against the item's `#[errors(..)]` list like the device's own error (STD-16); before, it bypassed the strict check.
 - The tap decoder takes sticky records from a describe copy unless it read that run's own describe blocks (STD-129).
 - The tap decoder tells a describe copy by its header mark, not by its seq, and counts lost blocks per run (STD-129).
 - The tap decoder reads the records of blocks with a coded body (STD-129).

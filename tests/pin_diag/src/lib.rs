@@ -134,10 +134,10 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 point: Index<TestPoint, u16>,
                 state: PointState,
-            ) -> RpcResult<Result<(), PinDiagError<'_>>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, PinDiagError<'_>>>> {
                 let point = point.get();
                 let Some(p) = self.points.get(point as usize) else {
-                    return Ready(Err(PinDiagError::NoSuchPoint));
+                    return Ready(Err(PinDiagError::NoSuchPoint.into()));
                 };
                 let capable = match state {
                     PointState::Input { pull: Pull::None } => p.caps.read,
@@ -154,12 +154,13 @@ mod tests {
                     PointState::Unknown(_) => false,
                 };
                 if !capable {
-                    return Ready(Err(PinDiagError::NotCapable));
+                    return Ready(Err(PinDiagError::NotCapable.into()));
                 }
                 if point == LED {
-                    return Ready(Err(PinDiagError::Common(CommonError::InUse {
+                    return Ready(Err(CommonError::InUse {
                         by: MaxLen::new_unchecked("indication"),
-                    })));
+                    }
+                    .into()));
                 }
                 let other = match point {
                     EX0 => Some(EX1),
@@ -176,7 +177,8 @@ mod tests {
                 if wants_high && other.is_some_and(|o| self.high(o)) {
                     return Ready(Err(PinDiagError::Refused {
                         rule: Interned::Text("one source at a time"),
-                    }));
+                    }
+                    .into()));
                 }
                 self.states[point as usize] = Some(state);
                 Ready(Ok(()))
@@ -186,11 +188,11 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 point: Index<TestPoint, u16>,
-            ) -> RpcResult<Result<Level, PinDiagError<'_>>> {
+            ) -> RpcResult<Result<Level, wire_weaver::Error<'_, PinDiagError<'_>>>> {
                 let point = point.get();
                 match self.points.get(point as usize) {
-                    None => Ready(Err(PinDiagError::NoSuchPoint)),
-                    Some(p) if !p.caps.read => Ready(Err(PinDiagError::NotCapable)),
+                    None => Ready(Err(PinDiagError::NoSuchPoint.into())),
+                    Some(p) if !p.caps.read => Ready(Err(PinDiagError::NotCapable.into())),
                     Some(_) => Ready(Ok(self.net_level(NETS[point as usize]))),
                 }
             }
@@ -370,8 +372,8 @@ mod tests {
         // held by a function
         let r = pins.set(Index::new(LED), input(Pull::None)).call().await;
         assert!(matches!(
-            device_error(r),
-            PinDiagErrorOwned::Common(CommonErrorOwned::InUse { .. })
+            r.unwrap_err().common(),
+            Some(CommonErrorOwned::InUse { .. })
         ));
         // the board's rule: EX0 and EX1 never both high; off first, then the other one is fine
         pins.set(Index::new(EX0), output(Level::High, Drive::Normal))

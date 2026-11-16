@@ -139,7 +139,7 @@ impl<'a> ReworkTable<'a> {
         &self,
         applied: ReworkSet,
         changes: impl IntoIterator<Item = ReworkState>,
-    ) -> Result<ReworkSet, ReworkError<'static>> {
+    ) -> Result<ReworkSet, ReworkError> {
         let mut result = applied;
         let mut changed = ReworkSet::EMPTY;
         for change in changes {

@@ -1,6 +1,6 @@
 // ww_spi 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: c563c4180b9d37142307902fb3ee8c062c25b7ec8475f1374e8122f92ceedaaa
+// shrink_wrap sha256: 4108a4e3ca6ddbc70e2a5a282d5f49715758aeede3c39cca272ca24c48c153d1
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "SPI over WireWeaver: a device lets a host talk to the SPI devices on its bus, hold CS for several operations in",
     "one transaction, or watch a bus without taking part.",
@@ -61,13 +61,8 @@
         "Errors of `Spi`: the common ones first, then what is specific to SPI. Each method lists the variants it returns.",
     ], ident: "SpiError", generics: [], variants: [
         (docs: [
-            "{0}",
-        ], ident: "Common", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 15), docs: [], slot: None, series_opaque: false),
-        ]), discriminant: 0, since: None),
-        (docs: [
             "Longer than this device takes, see its capabilities.",
-        ], ident: "BufferTooBig", fields: Unit, discriminant: 1, since: None),
+        ], ident: "BufferTooBig", fields: Unit, discriminant: 0, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "One operation of a `Spi::transaction`.",
@@ -95,8 +90,8 @@
         (docs: [
             "Wait, without touching the lines; CS stays asserted.",
         ], ident: "Delay", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Instance(type_idx: 16, args: [
-                Type(OutOfLine(type_idx: 17)),
+            (ident: None, default: None, since: None, ty: Instance(type_idx: 15, args: [
+                Type(OutOfLine(type_idx: 16)),
                 Type(OutOfLine(type_idx: 11)),
             ]), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
@@ -104,46 +99,46 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What this bus supports, see `Spi::capabilities`.",
     ], ident: "SpiCapabilities", generics: [], fields: Named([
-        (ident: Some("min_freq"), default: None, since: None, ty: Instance(type_idx: 16, args: [
-            Type(OutOfLine(type_idx: 18)),
+        (ident: Some("min_freq"), default: None, since: None, ty: Instance(type_idx: 15, args: [
+            Type(OutOfLine(type_idx: 17)),
             Type(OutOfLine(type_idx: 11)),
         ]), docs: [], slot: None, series_opaque: false),
-        (ident: Some("max_freq"), default: None, since: None, ty: Instance(type_idx: 16, args: [
-            Type(OutOfLine(type_idx: 18)),
+        (ident: Some("max_freq"), default: None, since: None, ty: Instance(type_idx: 15, args: [
+            Type(OutOfLine(type_idx: 17)),
             Type(OutOfLine(type_idx: 11)),
         ]), docs: [], slot: None, series_opaque: false),
         (ident: Some("min_word"), default: None, since: None, ty: Instance(type_idx: 12, args: [
-            Type(OutOfLine(type_idx: 19)),
+            Type(OutOfLine(type_idx: 18)),
             Type(OutOfLine(type_idx: 13)),
             Type(NumericAny(Base(U8))),
             Type(OutOfLine(type_idx: 11)),
         ]), docs: [], slot: None, series_opaque: false),
         (ident: Some("max_word"), default: None, since: None, ty: Instance(type_idx: 12, args: [
-            Type(OutOfLine(type_idx: 19)),
+            Type(OutOfLine(type_idx: 18)),
             Type(OutOfLine(type_idx: 13)),
             Type(NumericAny(Base(U8))),
             Type(OutOfLine(type_idx: 11)),
         ]), docs: [], slot: None, series_opaque: false),
         (ident: Some("master"), default: None, since: None, ty: Bool, docs: [], slot: None, series_opaque: false),
         (ident: Some("io_levels"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(Instance(type_idx: 12, args: [
+            Type(OutOfLine(type_idx: 19)),
             Type(OutOfLine(type_idx: 20)),
-            Type(OutOfLine(type_idx: 21)),
             Type(NumericAny(Base(U16))),
             Type(OutOfLine(type_idx: 11)),
         ]))), docs: [
             "Discrete IO levels the adapter can set (e.g. 1.8 V, 3.3 V, 5 V); empty if it has no level control.",
         ], slot: None, series_opaque: false),
         (ident: Some("io_level_min"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 12, args: [
+            Type(OutOfLine(type_idx: 19)),
             Type(OutOfLine(type_idx: 20)),
-            Type(OutOfLine(type_idx: 21)),
             Type(NumericAny(Base(U16))),
             Type(OutOfLine(type_idx: 11)),
         ])), docs: [
             "Lowest IO level of an adjustable supply, if the adapter has one.",
         ], slot: None, series_opaque: false),
         (ident: Some("io_level_max"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 12, args: [
+            Type(OutOfLine(type_idx: 19)),
             Type(OutOfLine(type_idx: 20)),
-            Type(OutOfLine(type_idx: 21)),
             Type(NumericAny(Base(U16))),
             Type(OutOfLine(type_idx: 11)),
         ])), docs: [
@@ -153,7 +148,7 @@
             Type(OutOfLine(type_idx: 10)),
             Type(OutOfLine(type_idx: 13)),
             Type(NumericAny(Base(U16))),
-            Type(Instance(type_idx: 22, args: [
+            Type(Instance(type_idx: 21, args: [
                 Const(Numeric(I64(0))),
                 Const(Numeric(I64(512))),
             ])),
@@ -165,27 +160,27 @@
         "Everything the bus is configured with, see `Spi::configure`: what is asked for going in, what was actually set",
         "coming back.",
     ], ident: "SpiConfig", generics: [], fields: Named([
-        (ident: Some("role"), default: None, since: None, ty: OutOfLine(type_idx: 23), docs: [], slot: None, series_opaque: false),
-        (ident: Some("freq"), default: None, since: None, ty: Instance(type_idx: 16, args: [
-            Type(OutOfLine(type_idx: 18)),
+        (ident: Some("role"), default: None, since: None, ty: OutOfLine(type_idx: 22), docs: [], slot: None, series_opaque: false),
+        (ident: Some("freq"), default: None, since: None, ty: Instance(type_idx: 15, args: [
+            Type(OutOfLine(type_idx: 17)),
             Type(OutOfLine(type_idx: 11)),
         ]), docs: [
             "SCK frequency asked for; `Spi::configure` answers with what was actually set.",
         ], slot: None, series_opaque: false),
-        (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 24), docs: [], slot: None, series_opaque: false),
-        (ident: Some("bit_order"), default: None, since: None, ty: OutOfLine(type_idx: 25), docs: [], slot: None, series_opaque: false),
+        (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 23), docs: [], slot: None, series_opaque: false),
+        (ident: Some("bit_order"), default: None, since: None, ty: OutOfLine(type_idx: 24), docs: [], slot: None, series_opaque: false),
         (ident: Some("word"), default: None, since: None, ty: Instance(type_idx: 12, args: [
-            Type(OutOfLine(type_idx: 19)),
+            Type(OutOfLine(type_idx: 18)),
             Type(OutOfLine(type_idx: 13)),
             Type(NumericAny(Base(U8))),
             Type(OutOfLine(type_idx: 11)),
         ]), docs: [
             "Bits per word; words above 8 bits travel as 2 bytes, little-endian.",
         ], slot: None, series_opaque: false),
-        (ident: Some("cs"), default: None, since: None, ty: OutOfLine(type_idx: 26), docs: [], slot: None, series_opaque: false),
+        (ident: Some("cs"), default: None, since: None, ty: OutOfLine(type_idx: 25), docs: [], slot: None, series_opaque: false),
         (ident: Some("io_level"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 12, args: [
+            Type(OutOfLine(type_idx: 19)),
             Type(OutOfLine(type_idx: 20)),
-            Type(OutOfLine(type_idx: 21)),
             Type(NumericAny(Base(U16))),
             Type(OutOfLine(type_idx: 11)),
         ])), docs: [
@@ -196,8 +191,8 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One frame seen by `Spi::monitor`: from CS asserted to released.",
     ], ident: "SpiFrame", generics: [], fields: Named([
-        (ident: Some("end"), default: None, since: None, ty: Instance(type_idx: 16, args: [
-            Type(OutOfLine(type_idx: 17)),
+        (ident: Some("end"), default: None, since: None, ty: Instance(type_idx: 15, args: [
+            Type(OutOfLine(type_idx: 16)),
             Type(OutOfLine(type_idx: 11)),
         ]), docs: [
             "When CS was released; when it was asserted is the time in the event head.",
@@ -216,17 +211,17 @@
         "Bus settings for `Spi::monitor`: everything needed to decode frames correctly, without the",
         "parts that only apply to driving the bus ([SpiConfig::role], [SpiConfig::cs]).",
     ], ident: "SpiMonitorConfig", generics: [], fields: Named([
-        (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 24), docs: [], slot: None, series_opaque: false),
-        (ident: Some("bit_order"), default: None, since: None, ty: OutOfLine(type_idx: 25), docs: [], slot: None, series_opaque: false),
+        (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 23), docs: [], slot: None, series_opaque: false),
+        (ident: Some("bit_order"), default: None, since: None, ty: OutOfLine(type_idx: 24), docs: [], slot: None, series_opaque: false),
         (ident: Some("word"), default: None, since: None, ty: Instance(type_idx: 12, args: [
-            Type(OutOfLine(type_idx: 19)),
+            Type(OutOfLine(type_idx: 18)),
             Type(OutOfLine(type_idx: 13)),
             Type(NumericAny(Base(U8))),
             Type(OutOfLine(type_idx: 11)),
         ]), docs: [], slot: None, series_opaque: false),
         (ident: Some("io_level"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 12, args: [
+            Type(OutOfLine(type_idx: 19)),
             Type(OutOfLine(type_idx: 20)),
-            Type(OutOfLine(type_idx: 21)),
             Type(NumericAny(Base(U16))),
             Type(OutOfLine(type_idx: 11)),
         ])), docs: [
@@ -236,8 +231,8 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What slave mode supports, see `Spi::slave_capabilities`.",
     ], ident: "SpiSlaveCapabilities", generics: [], fields: Named([
-        (ident: Some("max_freq"), default: None, since: None, ty: Instance(type_idx: 16, args: [
-            Type(OutOfLine(type_idx: 18)),
+        (ident: Some("max_freq"), default: None, since: None, ty: Instance(type_idx: 15, args: [
+            Type(OutOfLine(type_idx: 17)),
             Type(OutOfLine(type_idx: 11)),
         ]), docs: [
             "Fastest SCK the slave takes with the answer queue.",
@@ -266,8 +261,8 @@
         ]), docs: [
             "Widest address.",
         ], slot: None, series_opaque: false),
-        (ident: Some("map_max_freq"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 16, args: [
-            Type(OutOfLine(type_idx: 18)),
+        (ident: Some("map_max_freq"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 15, args: [
+            Type(OutOfLine(type_idx: 17)),
             Type(OutOfLine(type_idx: 11)),
         ])), docs: [
             "Fastest SCK at which register reads come out right without dummy bytes; each dummy byte gives the device",
@@ -277,8 +272,8 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One frame of `Spi::slave_frames`: from CS asserted to released.",
     ], ident: "SpiSlaveFrame", generics: [], fields: Named([
-        (ident: Some("end"), default: None, since: None, ty: Instance(type_idx: 16, args: [
-            Type(OutOfLine(type_idx: 17)),
+        (ident: Some("end"), default: None, since: None, ty: Instance(type_idx: 15, args: [
+            Type(OutOfLine(type_idx: 16)),
             Type(OutOfLine(type_idx: 11)),
         ]), docs: [
             "When CS was released; when it was asserted is the time in the event head.",
@@ -310,10 +305,10 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Slave mode, see `Spi::slave_frames`.",
     ], ident: "SpiSlaveConfig", generics: [], fields: Named([
-        (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 24), docs: [], slot: None, series_opaque: false),
-        (ident: Some("bit_order"), default: None, since: None, ty: OutOfLine(type_idx: 25), docs: [], slot: None, series_opaque: false),
+        (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 23), docs: [], slot: None, series_opaque: false),
+        (ident: Some("bit_order"), default: None, since: None, ty: OutOfLine(type_idx: 24), docs: [], slot: None, series_opaque: false),
         (ident: Some("word"), default: None, since: None, ty: Instance(type_idx: 12, args: [
-            Type(OutOfLine(type_idx: 19)),
+            Type(OutOfLine(type_idx: 18)),
             Type(OutOfLine(type_idx: 13)),
             Type(NumericAny(Base(U8))),
             Type(OutOfLine(type_idx: 11)),
@@ -321,14 +316,14 @@
             "As in [SpiConfig::word].",
         ], slot: None, series_opaque: false),
         (ident: Some("io_level"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 12, args: [
+            Type(OutOfLine(type_idx: 19)),
             Type(OutOfLine(type_idx: 20)),
-            Type(OutOfLine(type_idx: 21)),
             Type(NumericAny(Base(U16))),
             Type(OutOfLine(type_idx: 11)),
         ])), docs: [
             "As in [SpiConfig::io_level].",
         ], slot: None, series_opaque: false),
-        (ident: Some("answers"), default: None, since: None, ty: OutOfLine(type_idx: 27), docs: [
+        (ident: Some("answers"), default: None, since: None, ty: OutOfLine(type_idx: 26), docs: [
             "What this device sends on MISO.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -440,25 +435,7 @@
         164,
         107,
     ]),
-    SkippedFullVersion(crate_idx: 2, type_name: "CommonError", signature: [
-        30,
-        18,
-        211,
-        141,
-        253,
-        197,
-        48,
-        184,
-        37,
-        11,
-        183,
-        248,
-        238,
-        96,
-        205,
-        177,
-    ]),
-    SkippedFullVersion(crate_idx: 3, type_name: "Quantity", signature: [
+    SkippedFullVersion(crate_idx: 2, type_name: "Quantity", signature: [
         177,
         199,
         35,
@@ -641,7 +618,7 @@
         (docs: [
             "The register map (`Spi::slave_map_write`), see [SpiRegisters].",
         ], ident: "Registers", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 28), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 27), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
@@ -656,7 +633,7 @@
             "Width of the address at the start of each frame (big-endian), without the bits of `rw`. This device sends",
             "`idle` while they come in.",
         ], slot: None, series_opaque: false),
-        (ident: Some("rw"), default: None, since: None, ty: OutOfLine(type_idx: 29), docs: [
+        (ident: Some("rw"), default: None, since: None, ty: OutOfLine(type_idx: 28), docs: [
             "Which frames read and which write.",
         ], slot: None, series_opaque: false),
         (ident: Some("dummy"), default: None, since: None, ty: Instance(type_idx: 12, args: [
@@ -691,9 +668,9 @@
             "Bit `bit` of the first address byte: set reads, clear writes (bit 7 in most sensors).",
         ], ident: "SetIsRead", fields: Named([
             (ident: Some("bit"), default: None, since: None, ty: Instance(type_idx: 9, args: [
-                Type(OutOfLine(type_idx: 19)),
+                Type(OutOfLine(type_idx: 18)),
                 Type(NumericAny(Base(U8))),
-                Type(Instance(type_idx: 22, args: [
+                Type(Instance(type_idx: 21, args: [
                     Const(Numeric(I64(0))),
                     Const(Numeric(I64(7))),
                 ])),
@@ -703,9 +680,9 @@
             "Bit `bit` of the first address byte: clear reads, set writes.",
         ], ident: "ClearIsRead", fields: Named([
             (ident: Some("bit"), default: None, since: None, ty: Instance(type_idx: 9, args: [
-                Type(OutOfLine(type_idx: 19)),
+                Type(OutOfLine(type_idx: 18)),
                 Type(NumericAny(Base(U8))),
-                Type(Instance(type_idx: 22, args: [
+                Type(Instance(type_idx: 21, args: [
                     Const(Numeric(I64(0))),
                     Const(Numeric(I64(7))),
                 ])),
@@ -722,7 +699,7 @@
         (id: 0, kind: Method(args: [
             (ident: "data", ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8)))), default: Some("Default::default()"), flatten: false),
         ], return_ty: Some(Result(ok_ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8)))), err_ty: OutOfLine(type_idx: 0))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "WrongState",
                 "NoPower",
                 "Timeout",
@@ -737,7 +714,7 @@
         (id: 1, kind: Method(args: [
             (ident: "ops", ty: MaxLen(max_len: Fixed(16), ty: Vec(OutOfLine(type_idx: 1))), default: Some("Default::default()"), flatten: false),
         ], return_ty: Some(Result(ok_ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8)))), err_ty: OutOfLine(type_idx: 0))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "Unsupported",
                 "WrongState",
                 "NoPower",
@@ -753,7 +730,7 @@
         (id: 2, kind: Method(args: [
             (ident: "data", ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8)))), default: Some("Default::default()"), flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 0))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "WrongState",
                 "NoPower",
                 "Timeout",
@@ -768,7 +745,7 @@
         (id: 4, kind: Method(args: [
             (ident: "config", ty: OutOfLine(type_idx: 3), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 3), err_ty: OutOfLine(type_idx: 0))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "Unsupported",
                 "InvalidArgument",
                 "InUse",
@@ -784,7 +761,7 @@
         (id: 5, kind: Method(args: [
             (ident: "active", ty: Bool, default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 0))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "WrongState",
             ])),
         ])), multiplicity: Flat, since: None, ident: "set_cs", docs: [
@@ -793,7 +770,7 @@
         (id: 6, kind: StreamFn(ty: OutOfLine(type_idx: 4), delivery: Counted, args: [
             (ident: "config", ty: OutOfLine(type_idx: 5), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 0))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "InUse",
                 "Unsupported",
                 "Refused",
@@ -813,7 +790,7 @@
         (id: 8, kind: StreamFn(ty: OutOfLine(type_idx: 7), delivery: Counted, args: [
             (ident: "config", ty: OutOfLine(type_idx: 8), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 0))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "InUse",
                 "Unsupported",
                 "InvalidArgument",
@@ -886,11 +863,9 @@
 ], ext_crates: [
     (crate_id: "ww_spi", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-    (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_si", version: (major: 0, minor: 5, patch: 0, pre: None, build: None)),
-], root_omitted: None, wire: Some((line: 3, revision: 0)), ext_wire: Some([
-    Some((line: 3, revision: 0)),
+], root_omitted: None, wire: Some((line: 4, revision: 0)), ext_wire: Some([
+    Some((line: 4, revision: 0)),
     None,
-    Some((line: 1, revision: 0)),
     Some((line: 5, revision: 0)),
 ]))

@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- `Error::Gpio` holds `ww_gpio::GpioError` (STD-16): the enum lost its lifetime, `GpioErrorOwned` is gone; a common error comes as `CallError::Common` and maps to `Error::Common`.
 - `Flex::index` / `FlexBlocking::index`, `Bank::pin` / `pin_get_mode` (blocking and async) and `BankPromise::pin` /
   `pin_ref` / `pin_indices` take or return `PinIndex` (`ww_si::Index<ww_si::units::Pin, u32>`, new alias) instead of
   a bare `u32` (AGENTS.md "Numbers are typed"). `BankPromise::new_hint`'s `valid_pin_indices` is `Arc<Vec<PinIndex>>`.

@@ -1,6 +1,6 @@
 //! [Pins] over a connected device: `PinDiag` found wherever the device's API has it, from its introspection data.
 
-use crate::{Level, PinError, Pins, Point, PointState};
+use crate::{Level, PinError, Pins, Point, PointState, Refusal};
 use anyhow::{Result, anyhow, bail};
 use std::path::PathBuf;
 use wire_weaver_client::{CallError, Commander, DynClient};
@@ -101,7 +101,8 @@ impl DevicePins {
 
 fn failed_or_refused(e: CallError<PinDiagErrorOwned>) -> PinError {
     match e {
-        CallError::Device(e) => PinError::Refused(e),
+        CallError::Device(e) => PinError::Refused(Refusal::PinDiag(e)),
+        CallError::Common(c) => PinError::Refused(Refusal::Common(c)),
         other => PinError::Failed(other.to_string()),
     }
 }

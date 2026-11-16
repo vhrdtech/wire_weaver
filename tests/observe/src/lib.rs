@@ -76,7 +76,7 @@ mod tests {
             async fn get_temp(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
-            ) -> GetResult<f32, ()> {
+            ) -> GetResult<f32, CommonError<'_>> {
                 match &self.shared_temp {
                     Some(t) => GetResult::Value(f32::from_bits(t.load(Ordering::Relaxed))),
                     None => GetResult::Value(self.temp),
@@ -89,11 +89,14 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
                 _value: u8,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 SetResult::Set
             }
 
-            fn get_plain(&mut self, _cx: &mut Context<'_, impl EventOut>) -> GetResult<u8, ()> {
+            fn get_plain(
+                &mut self,
+                _cx: &mut Context<'_, impl EventOut>,
+            ) -> GetResult<u8, CommonError<'_>> {
                 GetResult::Value(0)
             }
 
@@ -102,22 +105,27 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
                 value: u8,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 if value == 0 {
-                    return SetResult::SetError(());
+                    return SetResult::SetError(CommonError::WrongState {
+                        reason: MaxLen::new_unchecked(""),
+                    });
                 }
                 self.gain = value;
                 SetResult::Set
             }
 
-            fn get_gain(&mut self, _cx: &mut Context<'_, impl EventOut>) -> GetResult<u8, ()> {
+            fn get_gain(
+                &mut self,
+                _cx: &mut Context<'_, impl EventOut>,
+            ) -> GetResult<u8, CommonError<'_>> {
                 GetResult::Value(self.gain)
             }
 
             fn get_label(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
-            ) -> GetResult<&'_ str, ()> {
+            ) -> GetResult<&'_ str, CommonError<'_>> {
                 GetResult::Value(&self.label)
             }
 
@@ -150,21 +158,21 @@ mod tests {
             async fn get_motor_speed(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
-            ) -> GetResult<u32, ()> {
+            ) -> GetResult<u32, CommonError<'_>> {
                 GetResult::Value((self.now() / 1_000) as u32)
             }
 
             fn get_motor_current(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
-            ) -> GetResult<u32, ()> {
+            ) -> GetResult<u32, CommonError<'_>> {
                 GetResult::Value((self.now() / 10_000) as u32)
             }
 
             fn get_motor_position(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
-            ) -> GetResult<u32, ()> {
+            ) -> GetResult<u32, CommonError<'_>> {
                 GetResult::Value((self.now() / 100_000) as u32)
             }
 
@@ -172,7 +180,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
                 _index_chain: [ww_client_server::ResourceIndex; 1],
-            ) -> GetResult<u8, ()> {
+            ) -> GetResult<u8, CommonError<'_>> {
                 GetResult::Value(0)
             }
         }
@@ -259,7 +267,7 @@ mod tests {
             fn get_temp(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<f32, ()> {
+            ) -> GetResult<f32, CommonError<'_>> {
                 GetResult::Value(0.5)
             }
 
@@ -269,14 +277,14 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 _value: u8,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 SetResult::Set
             }
 
             fn get_plain(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<u8, ()> {
+            ) -> GetResult<u8, CommonError<'_>> {
                 GetResult::Value(0)
             }
 
@@ -284,21 +292,21 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 _value: u8,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 SetResult::Set
             }
 
             fn get_gain(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<u8, ()> {
+            ) -> GetResult<u8, CommonError<'_>> {
                 GetResult::Value(4)
             }
 
             fn get_label(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<&'_ str, ()> {
+            ) -> GetResult<&'_ str, CommonError<'_>> {
                 GetResult::Unimplemented
             }
 
@@ -318,21 +326,21 @@ mod tests {
             fn get_motor_speed(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<u32, ()> {
+            ) -> GetResult<u32, CommonError<'_>> {
                 GetResult::Value(1)
             }
 
             fn get_motor_current(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<u32, ()> {
+            ) -> GetResult<u32, CommonError<'_>> {
                 GetResult::Value(2)
             }
 
             fn get_motor_position(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<u32, ()> {
+            ) -> GetResult<u32, CommonError<'_>> {
                 GetResult::Value(3)
             }
 
@@ -340,7 +348,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 _index_chain: [ww_client_server::ResourceIndex; 1],
-            ) -> GetResult<u8, ()> {
+            ) -> GetResult<u8, CommonError<'_>> {
                 GetResult::Value(0)
             }
         }

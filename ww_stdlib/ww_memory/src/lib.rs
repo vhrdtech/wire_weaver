@@ -10,8 +10,8 @@
 //! Watching is `#[optional(watches)]`: a device without it leaves `watch`, `watching` and `changed` out
 //! (`omit = ["mem.watches"]`), and a host calling them gets `Unimplemented`.
 //!
-//! Errors are [MemoryError]: the framework's `CommonError` as [MemoryError::Common], plus what is specific to
-//! memory access. Each method lists the variants it returns (`#[errors]`).
+//! Errors are [MemoryError], what is specific to memory access; the common errors (`ww_error::CommonError`) come
+//! beside it, as every item's do. Each method lists the errors it returns (`#[errors]`).
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use ww_api::prelude::*;
@@ -21,28 +21,28 @@ use ww_api::prelude::*;
 pub trait Memory8 {
     /// Reads the word at `addr`. With `allow_side_effects` false, an address whose read changes the device's state
     /// (e.g. a status register cleared on read) isn't read and answers `Common(Refused)`.
-    #[errors(WrongAddress, Common(Refused))]
-    fn read(addr: u8, allow_side_effects: bool) -> Result<u8, MemoryError<'i>>;
+    #[errors(WrongAddress, CommonError(Refused))]
+    fn read(addr: u8, allow_side_effects: bool) -> Result<u8, MemoryError>;
     /// Writes the word at `addr`; `Common(Refused)` for a read-only address.
-    #[errors(WrongAddress, Common(Refused))]
-    fn write(addr: u8, value: u8) -> Result<(), MemoryError<'i>>;
+    #[errors(WrongAddress, CommonError(Refused))]
+    fn write(addr: u8, value: u8) -> Result<(), MemoryError>;
 
     /// Reads `len` words starting at `addr`. With `allow_side_effects` false, addresses whose read changes the
     /// device's state are skipped.
-    #[errors(WrongAddress, Common(Refused))]
+    #[errors(WrongAddress, CommonError(Refused))]
     fn read_many(
         addr: u8,
         len: u8,
         allow_side_effects: bool,
-    ) -> Result<RefVec<'i, u8>, MemoryError<'i>>;
+    ) -> Result<RefVec<'i, u8>, MemoryError>;
     /// Writes `data` to consecutive words starting at `addr`.
-    #[errors(WrongAddress, Common(Refused))]
-    fn write_many(addr: u8, data: RefVec<'i, u8>) -> Result<(), MemoryError<'i>>;
+    #[errors(WrongAddress, CommonError(Refused))]
+    fn write_many(addr: u8, data: RefVec<'i, u8>) -> Result<(), MemoryError>;
 
     /// Starts watching the word at `addr`: its changes come on `changed`.
     #[optional(watches)]
     #[errors(WrongAddress, OutOfWatchSlots)]
-    fn watch(addr: u8) -> Result<(), MemoryError<'i>>;
+    fn watch(addr: u8) -> Result<(), MemoryError>;
     /// Watched addresses.
     #[optional(watches)]
     fn watching() -> RefVec<'i, u8>;
@@ -61,28 +61,28 @@ pub trait Memory8 {
 pub trait Memory32 {
     /// Reads the word at `addr`. With `allow_side_effects` false, an address whose read changes the device's state
     /// (e.g. a status register cleared on read) isn't read and answers `Common(Refused)`.
-    #[errors(WrongAddress, Common(Refused))]
-    fn read(addr: u32, allow_side_effects: bool) -> Result<u32, MemoryError<'i>>;
+    #[errors(WrongAddress, CommonError(Refused))]
+    fn read(addr: u32, allow_side_effects: bool) -> Result<u32, MemoryError>;
     /// Writes the word at `addr`; `Common(Refused)` for a read-only address.
-    #[errors(WrongAddress, Common(Refused))]
-    fn write(addr: u32, value: u32) -> Result<(), MemoryError<'i>>;
+    #[errors(WrongAddress, CommonError(Refused))]
+    fn write(addr: u32, value: u32) -> Result<(), MemoryError>;
 
     /// Reads `len` words starting at `addr`. With `allow_side_effects` false, addresses whose read changes the
     /// device's state are skipped.
-    #[errors(WrongAddress, Common(Refused))]
+    #[errors(WrongAddress, CommonError(Refused))]
     fn read_many(
         addr: u32,
         len: u32,
         allow_side_effects: bool,
-    ) -> Result<RefVec<'i, u32>, MemoryError<'i>>;
+    ) -> Result<RefVec<'i, u32>, MemoryError>;
     /// Writes `data` to consecutive words starting at `addr`.
-    #[errors(WrongAddress, Common(Refused))]
-    fn write_many(addr: u32, data: RefVec<'i, u32>) -> Result<(), MemoryError<'i>>;
+    #[errors(WrongAddress, CommonError(Refused))]
+    fn write_many(addr: u32, data: RefVec<'i, u32>) -> Result<(), MemoryError>;
 
     /// Starts watching the word at `addr`: its changes come on `changed`.
     #[optional(watches)]
     #[errors(WrongAddress, OutOfWatchSlots)]
-    fn watch(addr: u32) -> Result<(), MemoryError<'i>>;
+    fn watch(addr: u32) -> Result<(), MemoryError>;
     /// Watched addresses.
     #[optional(watches)]
     fn watching() -> RefVec<'i, u32>;
@@ -115,18 +115,17 @@ pub enum Access {
 /// Errors of `Memory8` and `Memory32`: the common ones first, then what is specific to memory access. Each method
 /// lists the variants it returns.
 #[derive_shrink_wrap(
-    owned(feature = "std"),
+    borrowed, owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Debug, PartialEq, Eq, Clone),
     ww_repr = unib32,
     display
 )]
-pub enum MemoryError<'i> {
-    /// {0}
-    #[common]
-    Common(CommonError<'i>),
+pub enum MemoryError {
     /// An address outside `address_range`, or a range that runs past its end.
     WrongAddress,
     /// All watch slots are taken.
     OutOfWatchSlots,
 }
+
+ww_api::api_error!(MemoryError);

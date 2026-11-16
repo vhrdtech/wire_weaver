@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- `HasCommon` is gone (STD-16): a common error is no variant of an API's error enum; it travels beside the API's error, see `ww_api::Error` and `docs/api/errors.md#common-errors`.
 * `CommonError::InvalidArgument::arg` is `ww_si::Index<ww_si::units::Argument, u8>` instead of a bare `u8` (AGENTS.md
   "Numbers are typed"): same byte on the wire, so every API embedding `CommonError` through `#[common]` shows the
   new type in its model with no source change of its own; a caller that builds `InvalidArgument` by hand writes
@@ -9,6 +10,7 @@
 
 ### 🚀 Features
 
+- `CommonError::DOCS` (variant names and doc lines in discriminant order) and `name()` on `CommonError` and `CommonErrorOwned` (STD-16): tools name a common error without the crate's definition.
 - `CommonError::make_owned()` (`std`): the same error owning its strings (STD-16).
 * New crate (STD-16): `CommonError` (`Unsupported`, `InvalidArgument { arg, reason }`, `InUse { by }`, `Busy`,
   `WrongState { reason }`, `NoPower { rail }`, `Refused { reason }`, `Timeout`, `Fault { code }`) with bounded

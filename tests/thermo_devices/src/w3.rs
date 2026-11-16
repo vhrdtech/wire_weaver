@@ -45,10 +45,10 @@ impl Server {
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
         config: Config,
-    ) -> RpcResult<Result<(), RateError>> {
+    ) -> RpcResult<Result<(), wire_weaver::Error<'_, RateError>>> {
         // the simulation is busy at 999 Hz, to show the error
         if config.rate.get() == 999 {
-            return RpcResult::Ready(Err(RateError::Busy));
+            return RpcResult::Ready(Err(RateError::Busy.into()));
         }
         self.shared.lock().unwrap().rate = config.rate.get();
         self.mode = config.mode;
@@ -63,12 +63,15 @@ impl Server {
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
         value: Mode,
-    ) -> SetResult<()> {
+    ) -> SetResult<CommonError<'_>> {
         self.mode = value;
         SetResult::Set
     }
 
-    async fn get_mode(&mut self, _cx: &mut Context<'_, impl EventOut>) -> GetResult<Mode, ()> {
+    async fn get_mode(
+        &mut self,
+        _cx: &mut Context<'_, impl EventOut>,
+    ) -> GetResult<Mode, CommonError<'_>> {
         GetResult::Value(self.mode)
     }
 
@@ -76,7 +79,7 @@ impl Server {
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
         value: Fixed<Ratio, Centi, u16, Range<100, 1600>>,
-    ) -> SetResult<()> {
+    ) -> SetResult<CommonError<'_>> {
         self.gain = value;
         // observers with `OnChange` get it at the next poll: the generated code marks it changed (SRV-57)
         SetResult::Set
@@ -85,7 +88,7 @@ impl Server {
     async fn get_amp_gain(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-    ) -> GetResult<Fixed<Ratio, Centi, u16, Range<100, 1600>>, ()> {
+    ) -> GetResult<Fixed<Ratio, Centi, u16, Range<100, 1600>>, CommonError<'_>> {
         GetResult::Value(self.gain)
     }
 
@@ -147,7 +150,7 @@ impl Server {
     async fn get_health_uptime(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-    ) -> GetResult<Fixed<Second, Milli, u64>, ()> {
+    ) -> GetResult<Fixed<Second, Milli, u64>, CommonError<'_>> {
         GetResult::Value(Fixed::new(42_000))
     }
 
@@ -155,11 +158,11 @@ impl Server {
     async fn health_check_sensor(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-    ) -> RpcResult<Result<(), SelfTestError>> {
+    ) -> RpcResult<Result<(), wire_weaver::Error<'_, SelfTestError>>> {
         RpcResult::Ready(if self.enabled[0] {
             Ok(())
         } else {
-            Err(SelfTestError::SensorOpen)
+            Err(SelfTestError::SensorOpen.into())
         })
     }
 
@@ -168,7 +171,7 @@ impl Server {
         _cx: &mut Context<'_, impl EventOut>,
         index_chain: [ww_client_server::ResourceIndex; 1],
         value: bool,
-    ) -> SetResult<()> {
+    ) -> SetResult<CommonError<'_>> {
         self.enabled[index_chain[0].get().0 as usize] = value;
         SetResult::Set
     }
@@ -177,7 +180,7 @@ impl Server {
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
         index_chain: [ww_client_server::ResourceIndex; 1],
-    ) -> GetResult<bool, ()> {
+    ) -> GetResult<bool, CommonError<'_>> {
         GetResult::Value(self.enabled[index_chain[0].get().0 as usize])
     }
 
@@ -193,7 +196,7 @@ impl Server {
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
         value: IndicationMode,
-    ) -> SetResult<()> {
+    ) -> SetResult<CommonError<'_>> {
         self.indication = value;
         SetResult::Set
     }
@@ -201,7 +204,7 @@ impl Server {
     async fn get_indication_mode(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-    ) -> GetResult<IndicationMode, ()> {
+    ) -> GetResult<IndicationMode, CommonError<'_>> {
         GetResult::Value(self.indication)
     }
 

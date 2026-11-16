@@ -17,6 +17,23 @@ pub enum RpcResult<T> {
     Unimplemented,
 }
 
+impl<O> RpcResult<O> {
+    /// The handler's output of an item declared without a `Result` as what the dispatcher writes: the value, or the
+    /// common error the handler answered with instead ([IntoOutput]). `T` is the item's declared type, so a handler
+    /// that returns another one is refused where it is called.
+    #[inline(always)]
+    pub fn output<'i, T>(self) -> RpcResult<Result<T, CommonError<'i>>>
+    where
+        O: IntoOutput<'i, T>,
+    {
+        match self {
+            RpcResult::Ready(output) => RpcResult::Ready(output.into_output()),
+            RpcResult::Deferred => RpcResult::Deferred,
+            RpcResult::Unimplemented => RpcResult::Unimplemented,
+        }
+    }
+}
+
 pub enum SetResult<E> {
     Set,
     SetError(E),

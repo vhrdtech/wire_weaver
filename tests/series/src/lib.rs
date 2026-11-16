@@ -83,7 +83,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: Series<'_, u64>,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.data.lock().unwrap().stamps = value.iter().collect();
                 SetResult::Set
             }
@@ -91,7 +91,7 @@ mod tests {
             fn get_stamps(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Series<'_, u64>, ()> {
+            ) -> GetResult<Series<'_, u64>, CommonError<'_>> {
                 self.stamps = self.data.lock().unwrap().stamps.clone();
                 GetResult::Value(Series::new(&self.stamps))
             }
@@ -100,7 +100,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: Series<'i, series_api::Reading<'i>>,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.log = value.to_ww_bytes_owned().unwrap();
                 self.data.lock().unwrap().log =
                     SeriesOwned::<series_api::ReadingOwned>::from_ww_bytes_owned(&self.log)
@@ -112,7 +112,7 @@ mod tests {
             fn get_log(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Series<'_, series_api::Reading<'_>>, ()> {
+            ) -> GetResult<Series<'_, series_api::Reading<'_>>, CommonError<'_>> {
                 GetResult::Value(Series::from_ww_bytes(&self.log).unwrap())
             }
 

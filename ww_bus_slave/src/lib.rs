@@ -77,38 +77,39 @@ impl ConfigError {
     }
 }
 
-impl From<ConfigError> for ww_i2c::I2cError<'static> {
+// The handler's error (STD-16): the common part as `Error::Common`, the rest as the API's own error.
+impl From<ConfigError> for wire_weaver::Error<'static, ww_i2c::I2cError> {
     fn from(e: ConfigError) -> Self {
         match e.common() {
-            Some(c) => ww_i2c::I2cError::Common(c),
-            None => ww_i2c::I2cError::BufferTooBig,
+            Some(c) => wire_weaver::Error::Common(c),
+            None => wire_weaver::Error::Api(ww_i2c::I2cError::BufferTooBig),
         }
     }
 }
 
-impl From<ConfigError> for ww_spi::SpiError<'static> {
+impl From<ConfigError> for wire_weaver::Error<'static, ww_spi::SpiError> {
     fn from(e: ConfigError) -> Self {
         match e.common() {
-            Some(c) => ww_spi::SpiError::Common(c),
-            None => ww_spi::SpiError::BufferTooBig,
+            Some(c) => wire_weaver::Error::Common(c),
+            None => wire_weaver::Error::Api(ww_spi::SpiError::BufferTooBig),
         }
     }
 }
 
-impl From<MapError> for ww_i2c::I2cError<'static> {
+impl From<MapError> for wire_weaver::Error<'static, ww_i2c::I2cError> {
     fn from(e: MapError) -> Self {
         match e {
-            MapError::OutOfRange => ww_i2c::I2cError::BufferTooBig,
-            MapError::Busy => ww_i2c::I2cError::Common(CommonError::Busy),
+            MapError::OutOfRange => wire_weaver::Error::Api(ww_i2c::I2cError::BufferTooBig),
+            MapError::Busy => wire_weaver::Error::Common(CommonError::Busy),
         }
     }
 }
 
-impl From<MapError> for ww_spi::SpiError<'static> {
+impl From<MapError> for wire_weaver::Error<'static, ww_spi::SpiError> {
     fn from(e: MapError) -> Self {
         match e {
-            MapError::OutOfRange => ww_spi::SpiError::BufferTooBig,
-            MapError::Busy => ww_spi::SpiError::Common(CommonError::Busy),
+            MapError::OutOfRange => wire_weaver::Error::Api(ww_spi::SpiError::BufferTooBig),
+            MapError::Busy => wire_weaver::Error::Common(CommonError::Busy),
         }
     }
 }

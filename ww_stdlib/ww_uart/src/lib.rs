@@ -80,19 +80,19 @@ pub trait Uart {
     /// [Capabilities::min_baud_rate]..=[Capabilities::max_baud_rate], or a mode, parity, bit count, back-feed detector
     /// or IO level this device doesn't have is `Unsupported`; `Refused` when e.g. the line already sits at a higher
     /// voltage than `io_level`.
-    #[errors(Common(Unsupported, InUse, NoPower, Refused))]
-    fn configure(config: UartConfig) -> Result<UartConfig, UartError<'i>>;
+    #[errors(CommonError(Unsupported, InUse, NoPower, Refused))]
+    fn configure(config: UartConfig) -> UartConfig;
 
     /// Manually control pins, only in [Mode::Test].
     ///
     /// `WrongState` in any other mode.
-    #[errors(Common(WrongState, InUse, NoPower))]
-    fn set_pin_level(pin: Pin, is_high: bool) -> Result<(), UartError<'i>>;
+    #[errors(CommonError(WrongState, InUse, NoPower))]
+    fn set_pin_level(pin: Pin, is_high: bool);
 
     /// Holds TX low for `duration` (a break), after the bytes already queued.
     /// `WrongState` in [Mode::HighZ] or [Mode::Test], `Refused` when longer than this device allows.
-    #[errors(Common(WrongState, InUse, NoPower, Refused))]
-    fn send_break(duration: Second) -> Result<(), UartError<'i>>;
+    #[errors(CommonError(WrongState, InUse, NoPower, Refused))]
+    fn send_break(duration: Second);
 
     /// Bytes queued for sending and not sent yet.
     fn tx_pending() -> Bytes<u32>;
@@ -106,9 +106,9 @@ pub trait Uart {
     /// Optional: a port without monitoring hardware leaves it out (`omit = ["uart.monitor"]`), and a host sees that
     /// in the device's introspection. `Unsupported` for a baud rate, mode or parity this monitor can't decode.
     #[optional]
-    #[errors(Common(Unsupported, InUse, NoPower))]
+    #[errors(CommonError(Unsupported, InUse, NoPower))]
     #[stream(MonitorChunk<'i>, counted)]
-    fn monitor(config: MonitorConfig) -> Result<MonitorConfig, UartError<'i>>;
+    fn monitor(config: MonitorConfig) -> MonitorConfig;
 }
 
 /// Received bytes that came back to back, see `Uart::rx` and `Uart::monitor`: when the first byte arrived is the
@@ -318,20 +318,6 @@ pub enum DataBits {
     Nine,
     Six,
     Five,
-}
-
-/// Errors of `Uart`: the common ones (unsupported, in use, no power, refused, ...); each method lists the variants it
-/// returns. Line errors of received data are not errors of a call, they are [RxFlags] of the chunk.
-#[derive_shrink_wrap(
-    owned(feature = "std"),
-    derive(Debug, PartialEq, Eq, Clone),
-    ww_repr = unib32,
-    display
-)]
-pub enum UartError<'i> {
-    /// {0}
-    #[common]
-    Common(CommonError<'i>),
 }
 
 /// What a `Uart` implementation supports, see `Uart::capabilities`.

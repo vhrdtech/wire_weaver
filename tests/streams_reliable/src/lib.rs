@@ -56,12 +56,12 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
                 config: SampleConfig,
-            ) -> RpcResult<Result<SampleActual, SampleError>> {
+            ) -> RpcResult<Result<SampleActual, wire_weaver::Error<'_, SampleError>>> {
                 if config.rate == 0 {
-                    return RpcResult::Ready(Err(SampleError::BadRate));
+                    return RpcResult::Ready(Err(SampleError::BadRate.into()));
                 }
                 if config.rate == u32::MAX {
-                    return RpcResult::Ready(Err(SampleError::TooFast));
+                    return RpcResult::Ready(Err(SampleError::TooFast.into()));
                 }
                 RpcResult::Ready(Ok(SampleActual {
                     rate: config.rate.min(1000),

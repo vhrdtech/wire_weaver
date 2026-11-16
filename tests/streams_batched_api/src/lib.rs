@@ -71,6 +71,8 @@ pub enum SampleError {
     ZeroGain,
 }
 
+ww_api::api_error!(SampleError);
+
 /// The batched streams in an optional trait (API-54): a server leaving it out has no polled streams to send for.
 #[ww_api_root]
 trait BatchedBoard {

@@ -52,7 +52,7 @@ Several programs can share one device through the hub (one per user, it holds th
 Most of the time that is what you want: a GUI shows a CAN bus while a script sends frames on it. Sometimes one
 program needs a resource to itself for a while: a test sequence that reconfigures a bus, a firmware update. It then
 *claims* the resource, and until it releases it, the hub refuses other programs' calls and property writes at or
-under that path with `Common(InUse)`, naming who holds it, before they reach the device.
+under that path with `CommonError::InUse`, naming who holds it, before they reach the device.
 
 What a claim takes depends on the mode the API gives the resource:
 

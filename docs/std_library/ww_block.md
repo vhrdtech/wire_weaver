@@ -104,7 +104,7 @@ A write can destroy what the card's own user (a recorder logging to it) keeps th
 **lease**:
 
 1. `claim(lease)` stops the card's user first (a recorder syncs and unmounts its log) and returns the lease, a
-   `Lease`. It may take a while to answer. One lease at a time: `Common(Busy)` while another is held.
+   `Lease`. It may take a while to answer. One lease at a time: `CommonError::Busy` while another is held.
 2. `write(lease, lba, data, crc)` writes whole blocks, `erase(lease, lba, count)` erases a range (CMD38 on an SD
    card, a sector erase on flash, a discard on eMMC). `write` checks `crc` (the CRC-32 of `data`) before anything is
    written and answers `BadCrc` otherwise; it answers once the blocks are on the medium.
@@ -120,7 +120,7 @@ files on a live card does it through the card's USB mass storage view, if the de
 ### Who may write
 
 Who may claim the card is the **firmware's choice per link**: for example USB and RTT yes, a remote UDP link no. A
-link that may not answers `claim` with `Common(Refused)`, and without a lease nothing else writes. `ww_block` has no
+link that may not answers `claim` with `CommonError::Refused`, and without a lease nothing else writes. `ww_block` has no
 access rules of its own; the firmware's handler of `claim` knows which link a request came on from `cx.medium()`
 (see [Methods](../api/methods.md#handler-context)).
 
@@ -154,9 +154,9 @@ returns (`#[errors]`):
 | `BadCrc` | `write`'s CRC doesn't match the data: nothing was written |
 | `ReadOnly` | the medium is write-protected |
 | `ReadFailed { reason }`, `WriteFailed { reason }` | the medium reported an error |
-| `Common(Busy)` | another lease is held (`claim`), or the bus is taken |
-| `Common(Refused)` | this link may not write the card (`claim`) |
-| `Common(InvalidArgument)` | more than `max_blocks`, or `data` that isn't whole blocks |
+| `CommonError::Busy` | another lease is held (`claim`), or the bus is taken |
+| `CommonError::Refused` | this link may not write the card (`claim`) |
+| `CommonError::InvalidArgument` | more than `max_blocks`, or `data` that isn't whole blocks |
 
 ## Serving it
 

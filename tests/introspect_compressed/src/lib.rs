@@ -46,7 +46,7 @@ mod tests {
                     &mut self,
                     _cx: &mut Context<'_, impl BlockingEventOut>,
                     value: bool,
-                ) -> SetResult<()> {
+                ) -> SetResult<CommonError<'_>> {
                     self.enabled = value;
                     SetResult::Set
                 }
@@ -54,7 +54,7 @@ mod tests {
                 fn get_enabled(
                     &mut self,
                     _cx: &mut Context<'_, impl BlockingEventOut>,
-                ) -> GetResult<bool, ()> {
+                ) -> GetResult<bool, CommonError<'_>> {
                     Value(self.enabled)
                 }
             }
@@ -156,7 +156,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
                 value: bool,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.enabled = value;
                 SetResult::Set
             }
@@ -164,7 +164,7 @@ mod tests {
             async fn get_enabled(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
-            ) -> GetResult<bool, ()> {
+            ) -> GetResult<bool, CommonError<'_>> {
                 Value(self.enabled)
             }
         }

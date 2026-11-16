@@ -134,7 +134,7 @@ trait MyDevice {
     /// Methods: any number of arguments, any return type, Result for errors.
     fn set_brightness(value: Fixed<Ratio, Centi, u8, Range<0, 100>>);
     fn temperature() -> Point<Celsius, Fixed<Kelvin, Centi, i16>>;
-    fn read() -> Result<u16, SensorError<'i>>;
+    fn read() -> Result<u16, SensorError>;
 
     /// Properties: values the host reads, writes or observes.
     property!(rw speed: Fixed<Per<Meter, Second>, Milli, i32>);

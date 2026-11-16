@@ -50,6 +50,31 @@ impl StreamOpenResult for () {
     }
 }
 
+/// The result of a stream function declared `-> T` (STD-16): the device answered the open with `T`, so the stream
+/// is open (a common error fails the open instead). Opening gives `(T, S)`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct OpenValue<T>(pub T);
+
+impl<T: DeserializeShrinkWrapOwned> DeserializeShrinkWrapOwned for OpenValue<T> {
+    const ELEMENT_SIZE: ElementSize = T::ELEMENT_SIZE;
+
+    fn des_shrink_wrap_owned(rd: &mut BufReader<'_>) -> Result<Self, ShrinkWrapError> {
+        T::des_shrink_wrap_owned(rd).map(OpenValue)
+    }
+}
+
+impl<T: DeserializeShrinkWrapOwned> StreamOpenResult for OpenValue<T> {
+    type With<S> = (T, S);
+
+    fn is_open(&self) -> bool {
+        true
+    }
+
+    fn with<S>(self, stream: S) -> (T, S) {
+        (self.0, stream)
+    }
+}
+
 impl<A: DeserializeShrinkWrapOwned, E: DeserializeShrinkWrapOwned> StreamOpenResult
     for Result<A, E>
 {
@@ -213,24 +238,48 @@ pub struct PreparedStreamOpen<R, S: StreamHandle> {
     pub(crate) _phantom: PhantomData<(R, S)>,
 }
 
-/// Checks a stream function's result against its `#[errors(..)]` list.
-pub(crate) type ErrorCheck<R> = Box<dyn Fn(&R) + Send + Sync>;
+/// Checks a stream function's result, or the error the open failed with, against its `#[errors(..)]` list.
+pub(crate) type ErrorCheck<R> = Box<dyn Fn(Result<&R, &Error>) + Send + Sync>;
 
 impl<A, E: Debug + 'static, S: StreamHandle> PreparedStreamOpen<Result<A, E>, S> {
     /// The stream function's `#[errors(..)]` list (API-32), used by generated client code: a device error outside
     /// it is logged as a warning (a panic with [set_strict_error_lists](crate::set_strict_error_lists)).
     /// `resource` names the stream function in the message.
     pub fn with_error_list(mut self, list: ErrorList<E>, resource: &'static str) -> Self {
-        self.error_check = Some(Box::new(move |result: &Result<A, E>| {
-            if let Err(e) = result {
-                error_list::check(e, Some(&list), resource);
-            }
-        }));
+        self.error_check = Some(Box::new(
+            move |outcome: Result<&Result<A, E>, &Error>| match outcome {
+                Ok(Err(e)) => error_list::check_api(e, Some(&list), resource),
+                Err(e) => {
+                    if let Some(c) = e.common() {
+                        error_list::check_common(c, Some(&list), resource);
+                    }
+                }
+                Ok(Ok(_)) => {}
+            },
+        ));
         self
     }
 }
 
 impl<R: StreamOpenResult, S: StreamHandle> PreparedStreamOpen<R, S> {
+    /// The `#[errors(CommonError(..))]` list of a stream function without a `Result` (API-32, STD-16), used by
+    /// generated client code: a common error the open failed with outside it is logged as a warning (a panic with
+    /// [set_strict_error_lists](crate::set_strict_error_lists)). `resource` names the stream function.
+    pub fn with_common_error_list(
+        mut self,
+        list: ErrorList<Error>,
+        resource: &'static str,
+    ) -> Self {
+        self.error_check = Some(Box::new(move |outcome: Result<&R, &Error>| {
+            if let Err(e) = outcome
+                && let Some(c) = e.common()
+            {
+                error_list::check_common(c, Some(&list), resource);
+            }
+        }));
+        self
+    }
+
     /// The terms of a call through an API's local trait (SRV-48): `cx.priority` when it isn't
     /// [Priority::NORMAL](crate::Priority::NORMAL) (the Commander's default stays otherwise), `cx.deadline` as the
     /// timeout. The trace goes on the request once the wire carries it (SRV-47).
@@ -560,8 +609,8 @@ fn finish<R: StreamOpenResult, S: StreamHandle>(
         let result = decode_opened(&bytes)?.result;
         Ok((R::from_ww_bytes_owned(&result)?, open_check(&bytes)))
     });
-    if let (Ok((r, _)), Some(check)) = (&decoded, error_check) {
-        check(r);
+    if let Some(check) = error_check {
+        check(decoded.as_ref().map(|(r, _)| r));
     }
     let result = match decoded {
         Ok((r, true)) => {

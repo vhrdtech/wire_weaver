@@ -97,7 +97,7 @@ impl ServerState {
     async fn log_frames(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-    ) -> RpcResult<Result<(), ww_log::LogError<'_>>> {
+    ) -> RpcResult<Result<(), CommonError<'_>>> {
         Ready(Ok(()))
     }
 

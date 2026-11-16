@@ -47,8 +47,8 @@ pub trait Clock {
     /// configuration it rejects, `InUse` if sync mode cannot be switched while already locked to something else.
     ///
     /// Host steering needs no configuration: it is a source of its own, taken when the line gives nothing better.
-    #[errors(Common(Unsupported, InvalidArgument, InUse))]
-    fn configure_sync(config: SyncConfig) -> Result<(), ClockError<'i>>;
+    #[errors(CommonError(Unsupported, InvalidArgument, InUse))]
+    fn configure_sync(config: SyncConfig);
 
     /// Current sync configuration, as last accepted by `configure_sync` (`Off` until configured).
     fn sync_config() -> SyncConfig;
@@ -59,8 +59,8 @@ pub trait Clock {
 
     /// Time of day a sync master sends on the sync line, set from its host. Has no effect on a slave or while
     /// sync is off: `WrongState` unless `configure_sync` currently has this device set as `Master`.
-    #[errors(Common(WrongState))]
-    fn set_time_of_day(t: DateTime) -> Result<(), ClockError<'i>>;
+    #[errors(CommonError(WrongState))]
+    fn set_time_of_day(t: DateTime);
 
     /// A host's fit of this device's clock (STD-49), sent about once a second. The device follows it when it has
     /// nothing better and `Host` is allowed (see `set_sources`): its shared clock becomes
@@ -78,8 +78,8 @@ pub trait Clock {
     /// against its monotonic clock and adds the wall clock's offset when it sends, so a step of its wall clock
     /// moves the points without disturbing the fit (the `ww_clock_sync` crate does all this).
     #[optional(host_sync)]
-    #[errors(Common(InvalidArgument))]
-    fn steer(point: SteerPoint<'i>) -> Result<Option<SyncSource>, ClockError<'i>>;
+    #[errors(CommonError(InvalidArgument))]
+    fn steer(point: SteerPoint<'i>) -> Option<SyncSource>;
 
     /// The device's shared time now (UTC); `None` while the clock runs free. What a host compares with its own
     /// clock to see how well the device follows (the residual offset).
@@ -94,10 +94,8 @@ pub trait Clock {
     /// `InvalidArgument` for a source named twice. Switching to another source because of a new list slews, as
     /// any switch does.
     #[optional(host_sync)]
-    #[errors(Common(Unsupported, InvalidArgument))]
-    fn set_sources(
-        sources: Option<MaxLen<RefVec<'i, SyncSource>, 8>>,
-    ) -> Result<(), ClockError<'i>>;
+    #[errors(CommonError(Unsupported, InvalidArgument))]
+    fn set_sources(sources: Option<MaxLen<RefVec<'i, SyncSource>, 8>>);
 
     /// The source list last accepted by `set_sources`; `None` for the fixed ranking.
     #[optional(host_sync)]
@@ -282,18 +280,4 @@ pub struct Steerer<'i> {
     pub program: &'i str,
     /// The program's process id on `host`.
     pub pid: u32,
-}
-
-/// Errors of `Clock`: the common ones (unsupported sync line or format, invalid configuration, in use, wrong
-/// state); each method lists the variants it returns.
-#[derive_shrink_wrap(
-    owned(feature = "std"),
-    derive(Debug, PartialEq, Eq, Clone),
-    ww_repr = unib32,
-    display
-)]
-pub enum ClockError<'i> {
-    /// {0}
-    #[common]
-    Common(CommonError<'i>),
 }

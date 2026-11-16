@@ -165,7 +165,7 @@ impl Flex {
     }
 
     /// Change the mode of the pin, optionally setting the initial level first.
-    /// This method may fail with an unsupported-mode error (`GpioErrorOwned::Common(CommonErrorOwned::Unsupported)`).
+    /// This method may fail with an unsupported-mode error (`CallError::Common(CommonErrorOwned::Unsupported)`).
     pub async fn set_mode(&mut self, mode: Mode, initial: Option<Level>) -> Result<(), Error> {
         self.io.set_mode(mode, initial).call().await?;
         self.mode = Some(mode);

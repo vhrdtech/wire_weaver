@@ -53,7 +53,7 @@ pub trait PwmChannel {
   ([`PwmChannelInfo::group`](#types)) share its frequency: setting a different frequency on another channel of the
   same group fails with `PwmError::SharedTimer`.
 * `set_duty` - changes only the duty, keeping the frequency, and returns the duty actually set. Fails with
-  `Common(WrongState)` if the channel is currently idle.
+  `CommonError::WrongState` if the channel is currently idle.
 * `stop` - stops the output, leaving the pin high or low.
 * `state` - the channel's current output, or `PwmState::Idle`.
 
@@ -84,7 +84,7 @@ pub trait PwmCaptureChannel {
   ([stream delivery](../api/stream_reliability.md)).
 * `set_capture` - picks what to measure and the window without a stream, for polling with `read_capture`, and
   returns what was actually set.
-* `read_capture` - the last measurement, without waiting on the stream. Fails with `Common(WrongState)` before the
+* `read_capture` - the last measurement, without waiting on the stream. Fails with `CommonError::WrongState` before the
   first measurement completes.
 
 ## Types
@@ -104,7 +104,7 @@ pub trait PwmCaptureChannel {
 * `CaptureSample` - `t: Second` (end of the window), `value: CaptureValue`.
 * `CaptureValue` - `Frequency(Hertz)`, `DutyCycle(Duty16)`, `PulseWidth(Second)`, `EdgeCount(u32)`; the variant
   always matches `CaptureConfig::mode`. `unib32` discriminant.
-* `PwmError<'i>` - `Common(CommonError)` ([common errors](../api/errors.md#common-errors)), `SharedTimer`; unsized
+* `PwmError` - the [common errors](../api/errors.md#common-errors) beside its own `SharedTimer`; unsized
   (`unib32` discriminant), evolvable. Each method lists the variants it returns (`#[errors]`).
 
 All enums and structs are behind `#[derive_shrink_wrap]` with `owned(feature = "std")` and

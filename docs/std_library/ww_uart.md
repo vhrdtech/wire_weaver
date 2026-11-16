@@ -64,7 +64,7 @@ pub trait Uart {
   hardware rounds the baud rate to what its divider can do and the idle time to what its receiver can time, and `io_level: None` keeps the level and is answered with the level in effect. One call
   instead of a property per setting, so a port never runs with half a configuration.
 * `set_pin_level` - manual control of a pin, only in [`Mode::Test`](#types); every other mode answers
-  `Common(WrongState)`.
+  `CommonError::WrongState`.
 * `send_break` - holds TX low for `duration` (a break condition), after the bytes already queued.
 * `tx_pending()` - bytes queued for sending and not sent yet.
 * `monitor` - `#[optional]`, a counted [stream function](../api/streams.md#stream-functions): the host opens it with the line
@@ -143,7 +143,7 @@ frames by 3.5 character times, which 2 still splits). A protocol with its own ru
 * `StopBits` - `Stop1`, `Stop2`.
 * `Parity` - `None`, `Odd`, `Even`.
 * `DataBits` - `Eight`, `Seven`, `Nine`, `Six`, `Five`.
-* `UartError<'i>` - `Common(CommonError)` ([common errors](../api/errors.md#common-errors)); unsized, evolvable. Each
+* No error enum of its own: the [common errors](../api/errors.md#common-errors) are all a UART call fails with. Each
   method lists the variants it returns (`#[errors]`); line errors of received data are `RxFlags` of the chunk, not
   errors.
 * `RxChunk<'i>` - `end: Option<Second>` (when the last byte arrived, if the device measures it), `flags: Option<RxFlags>`, `bytes: MaxLen<RefVec<'i,

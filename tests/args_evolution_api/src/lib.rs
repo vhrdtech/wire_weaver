@@ -43,3 +43,5 @@ pub struct Seen {
 pub enum OpenError {
     Zero,
 }
+
+ww_api::api_error!(OpenError);

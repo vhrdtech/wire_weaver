@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### ⚠️ Breaking
+
+- `Error::I2c` holds `ww_i2c::I2cError` (STD-16): the enum lost its lifetime, `I2cErrorOwned` is gone; a common error comes as `CallError::Common` and maps to `Error::Common`.
+
 ### 🚀 Features
 
 - `Error::Common(CommonErrorOwned)` (STD-16): a common error the device answered with, from `CallError::Common`.

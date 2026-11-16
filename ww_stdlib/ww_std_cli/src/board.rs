@@ -14,7 +14,7 @@ use wire_weaver_client::ww_client_server::ErrorKindOwned;
 use wire_weaver_client::{CallError, DynClient, Error};
 use ww_board_info::guard::StoredAllowance;
 use ww_board_info::table::{IdRanges, ReworkSet};
-use ww_board_info::{ReworkChange, ReworkErrorOwned, ReworkId, ReworkState};
+use ww_board_info::{ReworkChange, ReworkError, ReworkId, ReworkState};
 use ww_report::clients::BoardInfoClient;
 use ww_report::rework_check::{
     RomFlash, allowance_line, board_guard, read_board, scan_installed_image, set_allowance,
@@ -259,7 +259,7 @@ async fn set_reworks(args: ReworkArgs, applied: bool, device: &DynClient) -> Res
             println!("{}", change_text(change, &args.ids, applied));
             Ok(())
         }
-        Err(CallError::Device(ReworkErrorOwned::UnknownRework { id })) => {
+        Err(CallError::Device(ReworkError::UnknownRework { id })) => {
             let known = known_rework_ids(&client).await;
             bail!("unknown rework {id}: this firmware knows {known}; update firmware first")
         }

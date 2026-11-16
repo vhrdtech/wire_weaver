@@ -1,6 +1,6 @@
 // ww_can_bus 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 37f6f8db61261d801bfd72807022a66b53c3097e8a80d0989d40870a2ef0fa8e
+// shrink_wrap sha256: 8b5c039011dc7404c23e13853af9098671337a893fa6cdab73a350a40bd57d08
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "CAN bus over WireWeaver: a device (a USB-CAN adapter, a gateway, a node with a CAN port, a bus analyzer or",
     "debugger) lets a host send and receive frames on its CAN buses, configure them and watch their state.",
@@ -238,11 +238,6 @@
         "returns.",
     ], ident: "CanError", generics: [], variants: [
         (docs: [
-            "{0}",
-        ], ident: "Common", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 48), docs: [], slot: None, series_opaque: false),
-        ]), discriminant: 0, since: None),
-        (docs: [
             "More filters than the controller has ({max} of this kind).",
         ], ident: "OutOfFilters", fields: Named([
             (ident: Some("max"), default: None, since: None, ty: Instance(type_idx: 7, args: [
@@ -251,46 +246,46 @@
                 Type(NumericAny(Base(U16))),
                 Type(OutOfLine(type_idx: 10)),
             ]), docs: [], slot: None, series_opaque: false),
-        ]), discriminant: 1, since: None),
+        ]), discriminant: 0, since: None),
         (docs: [
             "Not possible while the controller is bus-off.",
-        ], ident: "BusOff", fields: Unit, discriminant: 2, since: None),
+        ], ident: "BusOff", fields: Unit, discriminant: 1, since: None),
         (docs: [
             "Doesn\'t fit the controller\'s memory ({available} left).",
         ], ident: "OutOfMemory", fields: Named([
             (ident: Some("available"), default: None, since: None, ty: Instance(type_idx: 7, args: [
-                Type(OutOfLine(type_idx: 49)),
+                Type(OutOfLine(type_idx: 48)),
                 Type(OutOfLine(type_idx: 9)),
                 Type(NumericAny(Base(U32))),
                 Type(OutOfLine(type_idx: 10)),
             ]), docs: [], slot: None, series_opaque: false),
-        ]), discriminant: 3, since: None),
+        ]), discriminant: 2, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Error state and counters, see `Can::status`.",
     ], ident: "Status", generics: [], fields: Named([
-        (ident: Some("state"), default: None, since: None, ty: OutOfLine(type_idx: 50), docs: [], slot: None, series_opaque: false),
+        (ident: Some("state"), default: None, since: None, ty: OutOfLine(type_idx: 49), docs: [], slot: None, series_opaque: false),
         (ident: Some("tec"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
             "Transmit error counter.",
         ], slot: None, series_opaque: false),
         (ident: Some("rec"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
             "Receive error counter (some controllers stop at 127 and only flag error passive above).",
         ], slot: None, series_opaque: false),
-        (ident: Some("last_error"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 51)), docs: [
+        (ident: Some("last_error"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 50)), docs: [
             "Last protocol error in the arbitration phase (or of a classic frame), if any since the last read.",
         ], slot: None, series_opaque: false),
-        (ident: Some("last_data_error"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 51)), docs: [
+        (ident: Some("last_data_error"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 50)), docs: [
             "Last protocol error in the data phase of an FD frame with bit rate switch, if any since the last read.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A received frame, see `Can::rx`; when it was received is the time in the event head.",
     ], ident: "RxFrame", generics: [], fields: Named([
-        (ident: Some("frame"), default: None, since: None, ty: OutOfLine(type_idx: 52), docs: [], slot: None, series_opaque: false),
+        (ident: Some("frame"), default: None, since: None, ty: OutOfLine(type_idx: 51), docs: [], slot: None, series_opaque: false),
         (ident: Some("filter"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 20, args: [
             Type(OutOfLine(type_idx: 42)),
             Type(NumericAny(Base(UNib32))),
-            Type(Instance(type_idx: 53, args: [
+            Type(Instance(type_idx: 52, args: [
                 Const(Numeric(I64(0))),
                 Const(Numeric(I64(255))),
             ])),
@@ -302,8 +297,8 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A frame to send, see `Can::tx` and `Can::tx_buffer`.",
     ], ident: "TxFrame", generics: [], fields: Named([
-        (ident: Some("frame"), default: None, since: None, ty: OutOfLine(type_idx: 52), docs: [], slot: None, series_opaque: false),
-        (ident: Some("marker"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 54)), docs: [
+        (ident: Some("frame"), default: None, since: None, ty: OutOfLine(type_idx: 51), docs: [], slot: None, series_opaque: false),
+        (ident: Some("marker"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 53)), docs: [
             "Comes back in the frame\'s [TxEvent], so a host matches events to the frames it sent; `None` when it doesn\'t",
             "need to (a device may then skip the event).",
         ], slot: None, series_opaque: false),
@@ -416,11 +411,11 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What happened to a sent frame, see `Can::tx_events`; when is the time in the event head.",
     ], ident: "TxEvent", generics: [], fields: Named([
-        (ident: Some("marker"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 54)), docs: [
+        (ident: Some("marker"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 53)), docs: [
             "[TxFrame::marker] of the frame.",
         ], slot: None, series_opaque: false),
-        (ident: Some("id"), default: None, since: None, ty: OutOfLine(type_idx: 55), docs: [], slot: None, series_opaque: false),
-        (ident: Some("outcome"), default: None, since: None, ty: OutOfLine(type_idx: 56), docs: [], slot: None, series_opaque: false),
+        (ident: Some("id"), default: None, since: None, ty: OutOfLine(type_idx: 54), docs: [], slot: None, series_opaque: false),
+        (ident: Some("outcome"), default: None, since: None, ty: OutOfLine(type_idx: 55), docs: [], slot: None, series_opaque: false),
         (ident: Some("queued"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 16, args: [
             Type(OutOfLine(type_idx: 17)),
             Type(OutOfLine(type_idx: 10)),
@@ -432,31 +427,31 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "An error the controller detected on the bus, see `Can::bus_errors`; when is the time in the event head.",
     ], ident: "BusError", generics: [], fields: Named([
-        (ident: Some("kind"), default: None, since: None, ty: OutOfLine(type_idx: 51), docs: [], slot: None, series_opaque: false),
-        (ident: Some("phase"), default: None, since: None, ty: OutOfLine(type_idx: 57), docs: [], slot: None, series_opaque: false),
-        (ident: Some("dir"), default: None, since: None, ty: OutOfLine(type_idx: 58), docs: [], slot: None, series_opaque: false),
+        (ident: Some("kind"), default: None, since: None, ty: OutOfLine(type_idx: 50), docs: [], slot: None, series_opaque: false),
+        (ident: Some("phase"), default: None, since: None, ty: OutOfLine(type_idx: 56), docs: [], slot: None, series_opaque: false),
+        (ident: Some("dir"), default: None, since: None, ty: OutOfLine(type_idx: 57), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "The controller\'s protocol state, see `Can::protocol_status`.",
     ], ident: "ProtocolStatus", generics: [], fields: Named([
         (ident: Some("status"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [], slot: None, series_opaque: false),
-        (ident: Some("activity"), default: None, since: None, ty: OutOfLine(type_idx: 59), docs: [], slot: None, series_opaque: false),
+        (ident: Some("activity"), default: None, since: None, ty: OutOfLine(type_idx: 58), docs: [], slot: None, series_opaque: false),
         (ident: Some("error_log"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 7, args: [
-            Type(OutOfLine(type_idx: 60)),
+            Type(OutOfLine(type_idx: 59)),
             Type(OutOfLine(type_idx: 9)),
             Type(NumericAny(Base(U8))),
             Type(OutOfLine(type_idx: 10)),
         ])), docs: [
             "The controller\'s error logging counter (errors since the last read, saturating), if it has one.",
         ], slot: None, series_opaque: false),
-        (ident: Some("last_fd_frame"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 61)), docs: [
+        (ident: Some("last_fd_frame"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 60)), docs: [
             "Flags of the last received FD frame, if one came since the last read.",
         ], slot: None, series_opaque: false),
         (ident: Some("protocol_exception"), default: None, since: None, ty: Bool, docs: [
             "A protocol exception happened since the last read.",
         ], slot: None, series_opaque: false),
         (ident: Some("tdc_value"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 7, args: [
-            Type(OutOfLine(type_idx: 62)),
+            Type(OutOfLine(type_idx: 61)),
             Type(OutOfLine(type_idx: 9)),
             Type(NumericAny(Base(U8))),
             Type(OutOfLine(type_idx: 10)),
@@ -465,7 +460,7 @@
             "with TDC on.",
         ], slot: None, series_opaque: false),
         (ident: Some("memory_errors"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 7, args: [
-            Type(OutOfLine(type_idx: 60)),
+            Type(OutOfLine(type_idx: 59)),
             Type(OutOfLine(type_idx: 9)),
             Type(NumericAny(Base(U16))),
             Type(OutOfLine(type_idx: 10)),
@@ -484,10 +479,10 @@
             "Length of the measurement window.",
         ], slot: None, series_opaque: false),
         (ident: Some("load"), default: None, since: None, ty: Instance(type_idx: 7, args: [
+            Type(OutOfLine(type_idx: 62)),
             Type(OutOfLine(type_idx: 63)),
-            Type(OutOfLine(type_idx: 64)),
             Type(NumericAny(Base(U16))),
-            Type(Instance(type_idx: 53, args: [
+            Type(Instance(type_idx: 52, args: [
                 Const(Numeric(I64(0))),
                 Const(Numeric(I64(1000))),
             ])),
@@ -519,14 +514,14 @@
             "A bit rate and sample point, the device picks the segments.",
         ], ident: "Rate", fields: Named([
             (ident: Some("rate"), default: None, since: None, ty: Instance(type_idx: 16, args: [
-                Type(OutOfLine(type_idx: 65)),
+                Type(OutOfLine(type_idx: 64)),
                 Type(OutOfLine(type_idx: 10)),
             ]), docs: [], slot: None, series_opaque: false),
             (ident: Some("sample_point"), default: None, since: None, ty: Instance(type_idx: 7, args: [
+                Type(OutOfLine(type_idx: 62)),
                 Type(OutOfLine(type_idx: 63)),
-                Type(OutOfLine(type_idx: 64)),
                 Type(NumericAny(Base(U16))),
-                Type(Instance(type_idx: 53, args: [
+                Type(Instance(type_idx: 52, args: [
                     Const(Numeric(I64(0))),
                     Const(Numeric(I64(1000))),
                 ])),
@@ -537,7 +532,7 @@
         (docs: [
             "Segments in time quanta of `prescaler / Capabilities::clock`.",
         ], ident: "Segments", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 66), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 65), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "Quantity", signature: [
@@ -579,13 +574,13 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Acceptance filters, see `Can::set_filters`.",
     ], ident: "FilterConfig", generics: [], fields: Named([
-        (ident: Some("filters"), default: None, since: None, ty: MaxLen(max_len: Fixed(256), ty: Vec(OutOfLine(type_idx: 67))), docs: [
+        (ident: Some("filters"), default: None, since: None, ty: MaxLen(max_len: Fixed(256), ty: Vec(OutOfLine(type_idx: 66))), docs: [
             "Filter elements, first match wins.",
         ], slot: None, series_opaque: false),
-        (ident: Some("non_matching_standard"), default: None, since: None, ty: OutOfLine(type_idx: 68), docs: [
+        (ident: Some("non_matching_standard"), default: None, since: None, ty: OutOfLine(type_idx: 67), docs: [
             "What happens to a standard frame no filter matches.",
         ], slot: None, series_opaque: false),
-        (ident: Some("non_matching_extended"), default: None, since: None, ty: OutOfLine(type_idx: 68), docs: [
+        (ident: Some("non_matching_extended"), default: None, since: None, ty: OutOfLine(type_idx: 67), docs: [
             "What happens to an extended frame no filter matches.",
         ], slot: None, series_opaque: false),
         (ident: Some("reject_remote"), default: None, since: None, ty: Bool, docs: [
@@ -636,7 +631,7 @@
             "Frames the transmit FIFO / queue holds.",
         ], slot: None, series_opaque: false),
         (ident: Some("tx_events"), default: None, since: None, ty: Instance(type_idx: 7, args: [
-            Type(OutOfLine(type_idx: 60)),
+            Type(OutOfLine(type_idx: 59)),
             Type(OutOfLine(type_idx: 9)),
             Type(NumericAny(Base(U16))),
             Type(OutOfLine(type_idx: 10)),
@@ -644,10 +639,10 @@
             "Events the TX event FIFO holds.",
         ], slot: None, series_opaque: false),
         (ident: Some("element_data"), default: None, since: None, ty: Instance(type_idx: 7, args: [
-            Type(OutOfLine(type_idx: 69)),
+            Type(OutOfLine(type_idx: 68)),
             Type(OutOfLine(type_idx: 9)),
             Type(NumericAny(Base(U8))),
-            Type(Instance(type_idx: 53, args: [
+            Type(Instance(type_idx: 52, args: [
                 Const(Numeric(I64(8))),
                 Const(Numeric(I64(64))),
             ])),
@@ -695,7 +690,7 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A frame of a dedicated receive buffer, see `Can::rx_buffer`.",
     ], ident: "BufferedFrame", generics: [], fields: Named([
-        (ident: Some("frame"), default: None, since: None, ty: OutOfLine(type_idx: 52), docs: [], slot: None, series_opaque: false),
+        (ident: Some("frame"), default: None, since: None, ty: OutOfLine(type_idx: 51), docs: [], slot: None, series_opaque: false),
         (ident: Some("time"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 16, args: [
             Type(OutOfLine(type_idx: 17)),
             Type(OutOfLine(type_idx: 10)),
@@ -721,7 +716,7 @@
         "Transceiver mode and faults, see `Can::transceiver_state`.",
     ], ident: "TransceiverState", generics: [], fields: Named([
         (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 23), docs: [], slot: None, series_opaque: false),
-        (ident: Some("fault"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 70)), docs: [
+        (ident: Some("fault"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 69)), docs: [
             "A bus wiring fault the transceiver reports, if any (and if it can).",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -758,14 +753,14 @@
         "What a [CanGroup] has, see `CanGroup::group_capabilities`.",
     ], ident: "GroupCapabilities", generics: [], fields: Named([
         (ident: Some("interfaces"), default: None, since: None, ty: Instance(type_idx: 7, args: [
-            Type(OutOfLine(type_idx: 49)),
+            Type(OutOfLine(type_idx: 48)),
             Type(OutOfLine(type_idx: 9)),
             Type(NumericAny(Base(U8))),
             Type(OutOfLine(type_idx: 10)),
         ]), docs: [
             "Controllers in `interface[]`.",
         ], slot: None, series_opaque: false),
-        (ident: Some("clock_sources"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 71))), docs: [
+        (ident: Some("clock_sources"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 70))), docs: [
             "Clock sources `CanGroup::set_clock` chooses from; empty when the clock is fixed.",
         ], slot: None, series_opaque: false),
         (ident: Some("default_clock"), default: None, since: None, ty: OutOfLine(type_idx: 29), docs: [
@@ -784,7 +779,7 @@
         "Clock of a [CanGroup]: a source and the frequency the controllers get from it.",
     ], ident: "GroupClock", generics: [], fields: Named([
         (ident: Some("source"), default: None, since: None, ty: Instance(type_idx: 20, args: [
-            Type(OutOfLine(type_idx: 49)),
+            Type(OutOfLine(type_idx: 48)),
             Type(NumericAny(Base(U8))),
             Type(OutOfLine(type_idx: 10)),
         ]), docs: [
@@ -811,7 +806,7 @@
         "Throughput a controller or group guarantees, see `CanGroup::performance` and [Capabilities::performance].",
     ], ident: "Performance", generics: [], fields: Named([
         (ident: Some("min_frame_rate"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 7, args: [
-            Type(Instance(type_idx: 72, args: [
+            Type(Instance(type_idx: 71, args: [
                 Type(OutOfLine(type_idx: 8)),
                 Type(OutOfLine(type_idx: 17)),
             ])),
@@ -822,8 +817,8 @@
             "Frames received and passed on without loss, at any frame length.",
         ], slot: None, series_opaque: false),
         (ident: Some("min_data_rate"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 7, args: [
-            Type(Instance(type_idx: 72, args: [
-                Type(OutOfLine(type_idx: 69)),
+            Type(Instance(type_idx: 71, args: [
+                Type(OutOfLine(type_idx: 68)),
                 Type(OutOfLine(type_idx: 17)),
             ])),
             Type(OutOfLine(type_idx: 9)),
@@ -839,18 +834,18 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Time-triggered configuration of a controller, see `CanTimeTriggered::configure_tt`.",
     ], ident: "TtConfig", generics: [], fields: Named([
-        (ident: Some("level"), default: None, since: None, ty: OutOfLine(type_idx: 73), docs: [
+        (ident: Some("level"), default: None, since: None, ty: OutOfLine(type_idx: 72), docs: [
             "ISO 11898-4 level 1 (time-triggered messaging) or level 2 (plus global time).",
         ], slot: None, series_opaque: false),
-        (ident: Some("role"), default: None, since: None, ty: OutOfLine(type_idx: 74), docs: [], slot: None, series_opaque: false),
-        (ident: Some("reference_id"), default: None, since: None, ty: OutOfLine(type_idx: 55), docs: [
+        (ident: Some("role"), default: None, since: None, ty: OutOfLine(type_idx: 73), docs: [], slot: None, series_opaque: false),
+        (ident: Some("reference_id"), default: None, since: None, ty: OutOfLine(type_idx: 54), docs: [
             "ID of the reference message that starts every basic cycle.",
         ], slot: None, series_opaque: false),
         (ident: Some("matrix_cycles"), default: None, since: None, ty: Instance(type_idx: 7, args: [
-            Type(OutOfLine(type_idx: 62)),
+            Type(OutOfLine(type_idx: 61)),
             Type(OutOfLine(type_idx: 9)),
             Type(NumericAny(Base(U8))),
-            Type(Instance(type_idx: 53, args: [
+            Type(Instance(type_idx: 52, args: [
                 Const(Numeric(I64(1))),
                 Const(Numeric(I64(64))),
             ])),
@@ -870,17 +865,17 @@
         "One trigger of a time-triggered schedule, see `CanTimeTriggered::set_schedule`.",
     ], ident: "Trigger", generics: [], fields: Named([
         (ident: Some("time_mark"), default: None, since: None, ty: Instance(type_idx: 20, args: [
-            Type(OutOfLine(type_idx: 75)),
+            Type(OutOfLine(type_idx: 74)),
             Type(NumericAny(Base(U16))),
             Type(OutOfLine(type_idx: 10)),
         ]), docs: [
             "Time mark within the basic cycle, in network time units (NTU, [TtConfig]) from its start.",
         ], slot: None, series_opaque: false),
         (ident: Some("repeat"), default: None, since: None, ty: Instance(type_idx: 7, args: [
-            Type(OutOfLine(type_idx: 62)),
+            Type(OutOfLine(type_idx: 61)),
             Type(OutOfLine(type_idx: 9)),
             Type(NumericAny(Base(U8))),
-            Type(Instance(type_idx: 53, args: [
+            Type(Instance(type_idx: 52, args: [
                 Const(Numeric(I64(1))),
                 Const(Numeric(I64(64))),
             ])),
@@ -888,33 +883,33 @@
             "Basic cycles it fires in: every `repeat`-th (1, 2, 4, .., 64) starting at cycle `offset`.",
         ], slot: None, series_opaque: false),
         (ident: Some("offset"), default: None, since: None, ty: Instance(type_idx: 20, args: [
-            Type(OutOfLine(type_idx: 62)),
+            Type(OutOfLine(type_idx: 61)),
             Type(NumericAny(Base(U8))),
-            Type(Instance(type_idx: 53, args: [
+            Type(Instance(type_idx: 52, args: [
                 Const(Numeric(I64(0))),
                 Const(Numeric(I64(63))),
             ])),
         ]), docs: [], slot: None, series_opaque: false),
-        (ident: Some("kind"), default: None, since: None, ty: OutOfLine(type_idx: 76), docs: [], slot: None, series_opaque: false),
+        (ident: Some("kind"), default: None, since: None, ty: OutOfLine(type_idx: 75), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "State of time-triggered operation, see `CanTimeTriggered::tt_status`.",
     ], ident: "TtStatus", generics: [], fields: Named([
-        (ident: Some("sync"), default: None, since: None, ty: OutOfLine(type_idx: 77), docs: [], slot: None, series_opaque: false),
+        (ident: Some("sync"), default: None, since: None, ty: OutOfLine(type_idx: 76), docs: [], slot: None, series_opaque: false),
         (ident: Some("is_master"), default: None, since: None, ty: Bool, docs: [
             "This controller is the current time master.",
         ], slot: None, series_opaque: false),
         (ident: Some("cycle"), default: None, since: None, ty: Instance(type_idx: 20, args: [
-            Type(OutOfLine(type_idx: 62)),
+            Type(OutOfLine(type_idx: 61)),
             Type(NumericAny(Base(U8))),
-            Type(Instance(type_idx: 53, args: [
+            Type(Instance(type_idx: 52, args: [
                 Const(Numeric(I64(0))),
                 Const(Numeric(I64(63))),
             ])),
         ]), docs: [
             "Basic cycle within the matrix cycle.",
         ], slot: None, series_opaque: false),
-        (ident: Some("error_level"), default: None, since: None, ty: OutOfLine(type_idx: 78), docs: [], slot: None, series_opaque: false),
+        (ident: Some("error_level"), default: None, since: None, ty: OutOfLine(type_idx: 77), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "XL data phase settings, see `CanXl::configure_xl`.",
@@ -922,8 +917,8 @@
         (ident: Some("data"), default: None, since: None, ty: OutOfLine(type_idx: 15), docs: [
             "Bit timing of the XL data phase.",
         ], slot: None, series_opaque: false),
-        (ident: Some("tdc"), default: None, since: None, ty: OutOfLine(type_idx: 79), docs: [], slot: None, series_opaque: false),
-        (ident: Some("pwm"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 80)), docs: [
+        (ident: Some("tdc"), default: None, since: None, ty: OutOfLine(type_idx: 78), docs: [], slot: None, series_opaque: false),
+        (ident: Some("pwm"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 79)), docs: [
             "Transceiver mode switching (CAN SIC XL transceivers): the data phase as PWM symbols; `None` for an SIC",
             "transceiver without switching (data phase up to about 5 Mbit/s).",
         ], slot: None, series_opaque: false),
@@ -937,7 +932,7 @@
         (ident: Some("priority"), default: None, since: None, ty: NumericAny(Base(UB(11))), docs: [
             "Priority ID (11 bits), arbitrated like a standard ID.",
         ], slot: None, series_opaque: false),
-        (ident: Some("vcid"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 81)), docs: [
+        (ident: Some("vcid"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 80)), docs: [
             "Virtual CAN network ID; `None` when not used.",
         ], slot: None, series_opaque: false),
         (ident: Some("sdt"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
@@ -957,7 +952,7 @@
         "An XL frame to send, with a marker for `Can::tx_events`.",
     ], ident: "XlTxFrame", generics: [], fields: Named([
         (ident: Some("frame"), default: None, since: None, ty: OutOfLine(type_idx: 36), docs: [], slot: None, series_opaque: false),
-        (ident: Some("marker"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 54)), docs: [], slot: None, series_opaque: false),
+        (ident: Some("marker"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 53)), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Hertz", signature: [
         30,
@@ -981,49 +976,49 @@
         "Limits of one phase\'s [BitTiming] (as SocketCAN\'s `can_bittiming_const`).",
     ], ident: "TimingLimits", generics: [], fields: Named([
         (ident: Some("prescaler_min"), default: None, since: None, ty: Instance(type_idx: 7, args: [
-            Type(Instance(type_idx: 72, args: [
-                Type(OutOfLine(type_idx: 62)),
-                Type(OutOfLine(type_idx: 82)),
+            Type(Instance(type_idx: 71, args: [
+                Type(OutOfLine(type_idx: 61)),
+                Type(OutOfLine(type_idx: 81)),
             ])),
             Type(OutOfLine(type_idx: 9)),
             Type(NumericAny(Base(U16))),
             Type(OutOfLine(type_idx: 10)),
         ]), docs: [], slot: None, series_opaque: false),
         (ident: Some("prescaler_max"), default: None, since: None, ty: Instance(type_idx: 7, args: [
-            Type(Instance(type_idx: 72, args: [
-                Type(OutOfLine(type_idx: 62)),
-                Type(OutOfLine(type_idx: 82)),
+            Type(Instance(type_idx: 71, args: [
+                Type(OutOfLine(type_idx: 61)),
+                Type(OutOfLine(type_idx: 81)),
             ])),
             Type(OutOfLine(type_idx: 9)),
             Type(NumericAny(Base(U16))),
             Type(OutOfLine(type_idx: 10)),
         ]), docs: [], slot: None, series_opaque: false),
         (ident: Some("seg1_min"), default: None, since: None, ty: Instance(type_idx: 7, args: [
-            Type(OutOfLine(type_idx: 82)),
+            Type(OutOfLine(type_idx: 81)),
             Type(OutOfLine(type_idx: 9)),
             Type(NumericAny(Base(U16))),
             Type(OutOfLine(type_idx: 10)),
         ]), docs: [], slot: None, series_opaque: false),
         (ident: Some("seg1_max"), default: None, since: None, ty: Instance(type_idx: 7, args: [
-            Type(OutOfLine(type_idx: 82)),
+            Type(OutOfLine(type_idx: 81)),
             Type(OutOfLine(type_idx: 9)),
             Type(NumericAny(Base(U16))),
             Type(OutOfLine(type_idx: 10)),
         ]), docs: [], slot: None, series_opaque: false),
         (ident: Some("seg2_min"), default: None, since: None, ty: Instance(type_idx: 7, args: [
-            Type(OutOfLine(type_idx: 82)),
+            Type(OutOfLine(type_idx: 81)),
             Type(OutOfLine(type_idx: 9)),
             Type(NumericAny(Base(U8))),
             Type(OutOfLine(type_idx: 10)),
         ]), docs: [], slot: None, series_opaque: false),
         (ident: Some("seg2_max"), default: None, since: None, ty: Instance(type_idx: 7, args: [
-            Type(OutOfLine(type_idx: 82)),
+            Type(OutOfLine(type_idx: 81)),
             Type(OutOfLine(type_idx: 9)),
             Type(NumericAny(Base(U8))),
             Type(OutOfLine(type_idx: 10)),
         ]), docs: [], slot: None, series_opaque: false),
         (ident: Some("sjw_max"), default: None, since: None, ty: Instance(type_idx: 7, args: [
-            Type(OutOfLine(type_idx: 82)),
+            Type(OutOfLine(type_idx: 81)),
             Type(OutOfLine(type_idx: 9)),
             Type(NumericAny(Base(U8))),
             Type(OutOfLine(type_idx: 10)),
@@ -1038,7 +1033,7 @@
         ]), docs: [
             "Smallest step.",
         ], slot: None, series_opaque: false),
-        (ident: Some("point"), default: None, since: None, ty: OutOfLine(type_idx: 83), docs: [], slot: None, series_opaque: false),
+        (ident: Some("point"), default: None, since: None, ty: OutOfLine(type_idx: 82), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Fifo", signature: [
         161,
@@ -1126,7 +1121,7 @@
             "Bit timing of the data phase of frames with bit rate switch; the same as the nominal one when no frame",
             "switches.",
         ], slot: None, series_opaque: false),
-        (ident: Some("tdc"), default: None, since: None, ty: OutOfLine(type_idx: 79), docs: [
+        (ident: Some("tdc"), default: None, since: None, ty: OutOfLine(type_idx: 78), docs: [
             "Transceiver delay compensation, needed from about 2 Mbit/s in the data phase.",
         ], slot: None, series_opaque: false),
         (ident: Some("iso"), default: None, since: None, ty: Bool, docs: [
@@ -1149,10 +1144,10 @@
         (ident: Some("tx_pause"), default: None, since: None, ty: Bool, docs: [
             "Wait two bit times after each sent frame, so other nodes of the same priority get the bus.",
         ], slot: None, series_opaque: false),
-        (ident: Some("tx_order"), default: None, since: None, ty: OutOfLine(type_idx: 84), docs: [
+        (ident: Some("tx_order"), default: None, since: None, ty: OutOfLine(type_idx: 83), docs: [
             "Order of the `tx` queue.",
         ], slot: None, series_opaque: false),
-        (ident: Some("rx_overflow"), default: None, since: None, ty: OutOfLine(type_idx: 85), docs: [
+        (ident: Some("rx_overflow"), default: None, since: None, ty: OutOfLine(type_idx: 84), docs: [
             "Which frames a full receive FIFO keeps.",
         ], slot: None, series_opaque: false),
         (ident: Some("edge_filtering"), default: None, since: None, ty: Bool, docs: [
@@ -1167,24 +1162,6 @@
             "In [Mode::Sleep], wake up on bus activity.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 3, type_name: "CommonError", signature: [
-        30,
-        18,
-        211,
-        141,
-        253,
-        197,
-        48,
-        184,
-        37,
-        11,
-        183,
-        248,
-        238,
-        96,
-        205,
-        177,
-    ]),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Item", signature: [
         231,
         16,
@@ -1254,8 +1231,8 @@
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "A CAN frame: classic data, remote or CAN FD.",
     ], ident: "Frame", generics: [], fields: Named([
-        (ident: Some("id"), default: None, since: None, ty: OutOfLine(type_idx: 55), docs: [], slot: None, series_opaque: false),
-        (ident: Some("kind"), default: None, since: None, ty: OutOfLine(type_idx: 86), docs: [], slot: None, series_opaque: false),
+        (ident: Some("id"), default: None, since: None, ty: OutOfLine(type_idx: 54), docs: [], slot: None, series_opaque: false),
+        (ident: Some("kind"), default: None, since: None, ty: OutOfLine(type_idx: 85), docs: [], slot: None, series_opaque: false),
         (ident: Some("data"), default: None, since: None, ty: MaxLen(max_len: Fixed(64), ty: Vec(NumericAny(Base(U8)))), docs: [
             "0-8 bytes for a classic frame, empty for a remote frame, 0-8, 12, 16, 20, 24, 32, 48 or 64 bytes for an FD",
             "frame (a device pads other lengths up to the next one with zeroes).",
@@ -1438,28 +1415,28 @@
         "count).",
     ], ident: "BitTiming", generics: [], fields: Named([
         (ident: Some("prescaler"), default: None, since: None, ty: Instance(type_idx: 7, args: [
-            Type(Instance(type_idx: 72, args: [
-                Type(OutOfLine(type_idx: 62)),
-                Type(OutOfLine(type_idx: 82)),
+            Type(Instance(type_idx: 71, args: [
+                Type(OutOfLine(type_idx: 61)),
+                Type(OutOfLine(type_idx: 81)),
             ])),
             Type(OutOfLine(type_idx: 9)),
             Type(NumericAny(Base(U16))),
             Type(OutOfLine(type_idx: 10)),
         ]), docs: [], slot: None, series_opaque: false),
         (ident: Some("seg1"), default: None, since: None, ty: Instance(type_idx: 7, args: [
-            Type(OutOfLine(type_idx: 82)),
+            Type(OutOfLine(type_idx: 81)),
             Type(OutOfLine(type_idx: 9)),
             Type(NumericAny(Base(U16))),
             Type(OutOfLine(type_idx: 10)),
         ]), docs: [], slot: None, series_opaque: false),
         (ident: Some("seg2"), default: None, since: None, ty: Instance(type_idx: 7, args: [
-            Type(OutOfLine(type_idx: 82)),
+            Type(OutOfLine(type_idx: 81)),
             Type(OutOfLine(type_idx: 9)),
             Type(NumericAny(Base(U8))),
             Type(OutOfLine(type_idx: 10)),
         ]), docs: [], slot: None, series_opaque: false),
         (ident: Some("sjw"), default: None, since: None, ty: Instance(type_idx: 7, args: [
-            Type(OutOfLine(type_idx: 82)),
+            Type(OutOfLine(type_idx: 81)),
             Type(OutOfLine(type_idx: 9)),
             Type(NumericAny(Base(U8))),
             Type(OutOfLine(type_idx: 10)),
@@ -1470,8 +1447,8 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One filter element: which IDs it matches and what it does with them.",
     ], ident: "Filter", generics: [], fields: Named([
-        (ident: Some("matching"), default: None, since: None, ty: OutOfLine(type_idx: 87), docs: [], slot: None, series_opaque: false),
-        (ident: Some("action"), default: None, since: None, ty: OutOfLine(type_idx: 88), docs: [], slot: None, series_opaque: false),
+        (ident: Some("matching"), default: None, since: None, ty: OutOfLine(type_idx: 86), docs: [], slot: None, series_opaque: false),
+        (ident: Some("action"), default: None, since: None, ty: OutOfLine(type_idx: 87), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "What happens to a frame no [Filter] matches.",
@@ -1633,7 +1610,7 @@
             (ident: Some("filter"), default: None, since: None, ty: Instance(type_idx: 20, args: [
                 Type(OutOfLine(type_idx: 42)),
                 Type(NumericAny(Base(UNib32))),
-                Type(Instance(type_idx: 53, args: [
+                Type(Instance(type_idx: 52, args: [
                     Const(Numeric(I64(0))),
                     Const(Numeric(I64(255))),
                 ])),
@@ -1684,13 +1661,13 @@
             "[Capabilities::clock]); `filter`: shortest delay accepted as measured.",
         ], ident: "Manual", fields: Named([
             (ident: Some("offset"), default: None, since: None, ty: Instance(type_idx: 7, args: [
-                Type(OutOfLine(type_idx: 62)),
+                Type(OutOfLine(type_idx: 61)),
                 Type(OutOfLine(type_idx: 9)),
                 Type(NumericAny(Base(U8))),
                 Type(OutOfLine(type_idx: 10)),
             ]), docs: [], slot: None, series_opaque: false),
             (ident: Some("filter"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 7, args: [
-                Type(OutOfLine(type_idx: 62)),
+                Type(OutOfLine(type_idx: 61)),
                 Type(OutOfLine(type_idx: 9)),
                 Type(NumericAny(Base(U8))),
                 Type(OutOfLine(type_idx: 10)),
@@ -1701,19 +1678,19 @@
         "PWM symbol timing of the XL data phase, in minimum time quanta (clock periods).",
     ], ident: "XlPwm", generics: [], fields: Named([
         (ident: Some("short"), default: None, since: None, ty: Instance(type_idx: 7, args: [
-            Type(OutOfLine(type_idx: 62)),
+            Type(OutOfLine(type_idx: 61)),
             Type(OutOfLine(type_idx: 9)),
             Type(NumericAny(Base(U8))),
             Type(OutOfLine(type_idx: 10)),
         ]), docs: [], slot: None, series_opaque: false),
         (ident: Some("long"), default: None, since: None, ty: Instance(type_idx: 7, args: [
-            Type(OutOfLine(type_idx: 62)),
+            Type(OutOfLine(type_idx: 61)),
             Type(OutOfLine(type_idx: 9)),
             Type(NumericAny(Base(U8))),
             Type(OutOfLine(type_idx: 10)),
         ]), docs: [], slot: None, series_opaque: false),
         (ident: Some("offset"), default: None, since: None, ty: Instance(type_idx: 7, args: [
-            Type(OutOfLine(type_idx: 62)),
+            Type(OutOfLine(type_idx: 61)),
             Type(OutOfLine(type_idx: 9)),
             Type(NumericAny(Base(U8))),
             Type(OutOfLine(type_idx: 10)),
@@ -1809,19 +1786,19 @@
         (docs: [
             "One ID.",
         ], ident: "Exact", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 55), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 54), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
         (docs: [
             "IDs equal to `id` in every bit set in `mask`.",
         ], ident: "Mask", fields: Named([
-            (ident: Some("id"), default: None, since: None, ty: OutOfLine(type_idx: 55), docs: [], slot: None, series_opaque: false),
+            (ident: Some("id"), default: None, since: None, ty: OutOfLine(type_idx: 54), docs: [], slot: None, series_opaque: false),
             (ident: Some("mask"), default: None, since: None, ty: NumericAny(Base(UB(29))), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
         (docs: [
             "IDs from `from` to `to`, both included, both of the same kind.",
         ], ident: "Range", fields: Named([
-            (ident: Some("from"), default: None, since: None, ty: OutOfLine(type_idx: 55), docs: [], slot: None, series_opaque: false),
-            (ident: Some("to"), default: None, since: None, ty: OutOfLine(type_idx: 55), docs: [], slot: None, series_opaque: false),
+            (ident: Some("from"), default: None, since: None, ty: OutOfLine(type_idx: 54), docs: [], slot: None, series_opaque: false),
+            (ident: Some("to"), default: None, since: None, ty: OutOfLine(type_idx: 54), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
@@ -1863,7 +1840,7 @@
         (id: 1, kind: Method(args: [
             (ident: "config", ty: OutOfLine(type_idx: 1), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 1), err_ty: OutOfLine(type_idx: 2))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "Unsupported",
                 "InvalidArgument",
                 "InUse",
@@ -1903,7 +1880,7 @@
         (id: 6, kind: Method(args: [
             (ident: "mode", ty: OutOfLine(type_idx: 6), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 6), err_ty: OutOfLine(type_idx: 2))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "Unsupported",
                 "WrongState",
             ])),
@@ -1914,7 +1891,7 @@
             "this controller doesn\'t have.",
         ], optional: Some((group: None)), meta: None, identity: None),
         (id: 7, kind: Method(args: [], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 2))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "WrongState",
             ])),
         ])), multiplicity: Flat, since: None, ident: "recover", docs: [
@@ -1955,7 +1932,7 @@
                 Type(OutOfLine(type_idx: 10)),
             ]), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Option(some_ty: OutOfLine(type_idx: 1)), err_ty: OutOfLine(type_idx: 2))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "InvalidArgument",
                 "Unsupported",
                 "InUse",
@@ -1969,7 +1946,7 @@
         (id: 14, kind: Method(args: [
             (ident: "filters", ty: OutOfLine(type_idx: 18), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 2))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "Unsupported",
                 "InvalidArgument",
             ])),
@@ -1984,7 +1961,7 @@
         (id: 15, kind: Method(args: [
             (ident: "layout", ty: OutOfLine(type_idx: 19), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 19), err_ty: OutOfLine(type_idx: 2))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "Unsupported",
                 "InvalidArgument",
                 "WrongState",
@@ -2003,7 +1980,7 @@
                 Type(OutOfLine(type_idx: 10)),
             ]), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Option(some_ty: OutOfLine(type_idx: 22)), err_ty: OutOfLine(type_idx: 2))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "InvalidArgument",
             ])),
         ])), multiplicity: Flat, since: None, ident: "rx_buffer", docs: [
@@ -2023,7 +2000,7 @@
                 Type(OutOfLine(type_idx: 10)),
             ])), default: Some("None"), flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 2))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "Unsupported",
                 "InvalidArgument",
                 "WrongState",
@@ -2041,7 +2018,7 @@
         (id: 18, kind: Method(args: [
             (ident: "mode", ty: OutOfLine(type_idx: 23), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 23), err_ty: OutOfLine(type_idx: 2))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "Unsupported",
                 "NoPower",
             ])),
@@ -2055,7 +2032,7 @@
         (id: 20, kind: Method(args: [
             (ident: "termination", ty: OutOfLine(type_idx: 25), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 25), err_ty: OutOfLine(type_idx: 2))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "Unsupported",
                 "NoPower",
             ])),
@@ -2069,7 +2046,7 @@
         (id: 22, kind: Method(args: [
             (ident: "tx", ty: OutOfLine(type_idx: 26), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 27), err_ty: OutOfLine(type_idx: 2))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "WrongState",
             ])),
         ])), multiplicity: Flat, since: None, ident: "test_pins", docs: [
@@ -2089,7 +2066,7 @@
             "What the group has: number of controllers, clock sources and frequencies, shared message memory.",
         ], optional: None, meta: None, identity: None),
         (id: 2, kind: Method(args: [], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 29), err_ty: OutOfLine(type_idx: 2))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "WrongState",
                 "NoPower",
             ])),
@@ -2098,7 +2075,7 @@
             "in effect. Every controller is then in [Mode::Off] until configured. `WrongState` when already enabled.",
         ], optional: None, meta: None, identity: None),
         (id: 3, kind: Method(args: [], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 2))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "WrongState",
             ])),
         ])), multiplicity: Flat, since: None, ident: "disable", docs: [
@@ -2111,7 +2088,7 @@
         (id: 5, kind: Method(args: [
             (ident: "clock", ty: OutOfLine(type_idx: 29), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 29), err_ty: OutOfLine(type_idx: 2))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "Unsupported",
                 "WrongState",
             ])),
@@ -2133,7 +2110,7 @@
         (id: 0, kind: Method(args: [
             (ident: "config", ty: Option(some_ty: OutOfLine(type_idx: 32)), default: Some("None"), flatten: false),
         ], return_ty: Some(Result(ok_ty: Option(some_ty: OutOfLine(type_idx: 32)), err_ty: OutOfLine(type_idx: 2))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "Unsupported",
                 "InvalidArgument",
                 "WrongState",
@@ -2145,7 +2122,7 @@
         (id: 1, kind: Method(args: [
             (ident: "triggers", ty: MaxLen(max_len: Fixed(64), ty: Vec(OutOfLine(type_idx: 33))), default: Some("Default::default()"), flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 2))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "InvalidArgument",
                 "WrongState",
             ])),
@@ -2167,7 +2144,7 @@
         (id: 0, kind: Method(args: [
             (ident: "config", ty: Option(some_ty: OutOfLine(type_idx: 35)), default: Some("None"), flatten: false),
         ], return_ty: Some(Result(ok_ty: Option(some_ty: OutOfLine(type_idx: 35)), err_ty: OutOfLine(type_idx: 2))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "Unsupported",
                 "InvalidArgument",
                 "WrongState",
@@ -2187,10 +2164,8 @@
     (crate_id: "ww_can_bus", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_si", version: (major: 0, minor: 5, patch: 0, pre: None, build: None)),
-    (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-], root_omitted: None, wire: Some((line: 2, revision: 0)), ext_wire: Some([
-    Some((line: 2, revision: 0)),
+], root_omitted: None, wire: Some((line: 3, revision: 0)), ext_wire: Some([
+    Some((line: 3, revision: 0)),
     None,
     Some((line: 5, revision: 0)),
-    Some((line: 1, revision: 0)),
 ]))

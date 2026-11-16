@@ -14,7 +14,7 @@ mod tests {
     };
     use ww_sd::{
         Access, BusState, BusWidth, CardKind, CardState, CardStatus, DataPhaseOwned, InitStep,
-        Interface, Outcome, RawCommandOwned, ResponseType, SdError, SdErrorOwned, SpeedMode,
+        Interface, Outcome, RawCommandOwned, ResponseType, SdError, SpeedMode,
     };
     use ww_si::prefix::Kilo;
     use ww_si::units::{Block, Hertz};
@@ -121,7 +121,8 @@ mod tests {
             fn card_geometry(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> RpcResult<Result<Geometry<'_>, BlockError<'_>>> {
+            ) -> RpcResult<Result<Geometry<'_>, wire_weaver::Error<'_, BlockError<'_>>>>
+            {
                 Ready(Ok(Geometry {
                     kind: MediumKind::SdCard,
                     block_size: Bytes::new(BLOCK as u32),
@@ -142,10 +143,12 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 lba: Index<Block, u64>,
                 count: Count<Block, u16>,
-            ) -> RpcResult<Result<MaxLen<RefVec<'_, u8>, 4096>, BlockError<'_>>> {
+            ) -> RpcResult<
+                Result<MaxLen<RefVec<'_, u8>, 4096>, wire_weaver::Error<'_, BlockError<'_>>>,
+            > {
                 let (lba, count) = (lba.get(), count.get());
                 if !range_ok(lba, count as u64) {
-                    return Ready(Err(BlockError::OutOfRange));
+                    return Ready(Err(BlockError::OutOfRange.into()));
                 }
                 if count > 1 {
                     return Ready(Err(CommonError::InvalidArgument {
@@ -164,10 +167,10 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 lba: Index<Block, u64>,
                 count: Count<Block, u32>,
-            ) -> RpcResult<Result<u32, BlockError<'_>>> {
+            ) -> RpcResult<Result<u32, wire_weaver::Error<'_, BlockError<'_>>>> {
                 let (lba, count) = (lba.get(), count.get());
                 if !range_ok(lba, count as u64) {
-                    return Ready(Err(BlockError::OutOfRange));
+                    return Ready(Err(BlockError::OutOfRange.into()));
                 }
                 let at = lba as usize * BLOCK;
                 Ready(Ok(crc32(&self.card[at..at + count as usize * BLOCK])))
@@ -177,14 +180,14 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 lease: Secs<u16>,
-            ) -> RpcResult<Result<Lease, BlockError<'_>>> {
+            ) -> RpcResult<Result<Lease, wire_weaver::Error<'_, BlockError<'_>>>> {
                 let lease_s = lease.get();
                 if self
                     .lease
                     .as_ref()
                     .is_some_and(|l| l.last.elapsed().as_secs() < l.lease_s as u64)
                 {
-                    return Ready(Err(BlockError::busy()));
+                    return Ready(Err(CommonError::Busy.into()));
                 }
                 // stops the card's user before handing out the lease
                 self.m.lock().unwrap().user_running = false;
@@ -201,9 +204,9 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 lease: Lease,
-            ) -> RpcResult<Result<(), BlockError<'_>>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, BlockError<'_>>>> {
                 if !self.lease_ok(lease.0) {
-                    return Ready(Err(BlockError::BadLease));
+                    return Ready(Err(BlockError::BadLease.into()));
                 }
                 self.lease = None;
                 self.m.lock().unwrap().user_running = true;
@@ -217,13 +220,13 @@ mod tests {
                 lba: Index<Block, u64>,
                 data: MaxLen<RefVec<'_, u8>, 4096>,
                 crc: u32,
-            ) -> RpcResult<Result<(), BlockError<'_>>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, BlockError<'_>>>> {
                 let data = data.as_slice().to_vec();
                 Ready(match self.write_blocks(lease.0, lba.get(), &data, crc) {
                     RunStatus::Written => Ok(()),
-                    RunStatus::OutOfRange => Err(BlockError::OutOfRange),
-                    RunStatus::BadLease => Err(BlockError::BadLease),
-                    RunStatus::BadCrc => Err(BlockError::BadCrc),
+                    RunStatus::OutOfRange => Err(BlockError::OutOfRange.into()),
+                    RunStatus::BadLease => Err(BlockError::BadLease.into()),
+                    RunStatus::BadCrc => Err(BlockError::BadCrc.into()),
                     _ => Err(CommonError::InvalidArgument {
                         arg: Index::new(2),
                         reason: MaxLen::new_unchecked("not whole blocks"),
@@ -238,13 +241,13 @@ mod tests {
                 lease: Lease,
                 lba: Index<Block, u64>,
                 count: Count<Block, u32>,
-            ) -> RpcResult<Result<(), BlockError<'_>>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, BlockError<'_>>>> {
                 let (lba, count) = (lba.get(), count.get());
                 if !range_ok(lba, count as u64) {
-                    return Ready(Err(BlockError::OutOfRange));
+                    return Ready(Err(BlockError::OutOfRange.into()));
                 }
                 if !self.lease_ok(lease.0) {
-                    return Ready(Err(BlockError::BadLease));
+                    return Ready(Err(BlockError::BadLease.into()));
                 }
                 let at = lba as usize * BLOCK;
                 self.card[at..at + count as usize * BLOCK].fill(0);
@@ -304,10 +307,10 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 lba: Index<Block, u64>,
                 count: Count<Block, u64>,
-            ) -> RpcResult<Result<(), BlockError<'_>>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, BlockError<'_>>>> {
                 let (lba, count) = (lba.get(), count.get());
                 if !range_ok(lba, count) {
-                    return Ready(Err(BlockError::OutOfRange));
+                    return Ready(Err(BlockError::OutOfRange.into()));
                 }
                 self.read_left = Some((lba, count));
                 Ready(Ok(()))
@@ -365,7 +368,8 @@ mod tests {
             fn sd_registers(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> RpcResult<Result<ww_sd::SdRegisters<'_>, SdError<'_>>> {
+            ) -> RpcResult<Result<ww_sd::SdRegisters<'_>, wire_weaver::Error<'_, SdError>>>
+            {
                 let mut cid = [0u8; 16];
                 cid[0] = 0x03; // MID
                 cid[3..8].copy_from_slice(b"MOCK1");
@@ -385,9 +389,10 @@ mod tests {
                 lease: Lease,
                 _max_clock: Fixed<Hertz, Kilo, u32>,
                 _bus_width: BusWidth,
-            ) -> RpcResult<Result<ww_sd::InitReport<'_>, SdError<'_>>> {
+            ) -> RpcResult<Result<ww_sd::InitReport<'_>, wire_weaver::Error<'_, SdError>>>
+            {
                 if !self.lease_ok(lease.0) {
-                    return Ready(Err(SdError::BadLease));
+                    return Ready(Err(SdError::BadLease.into()));
                 }
                 const STEPS: [InitStep; 3] = [
                     step(0, false, 0, 0, 1),
@@ -406,10 +411,11 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 lease: Option<Lease>,
                 cmd: ww_sd::RawCommand<'_>,
-            ) -> RpcResult<Result<ww_sd::RawResponse<'_>, SdError<'_>>> {
+            ) -> RpcResult<Result<ww_sd::RawResponse<'_>, wire_weaver::Error<'_, SdError>>>
+            {
                 let lease_ok = lease.is_some_and(|l| self.lease_ok(l.0));
                 if let Err(e) = ww_sd::check_access(&cmd, lease_ok) {
-                    return Ready(Err(e));
+                    return Ready(Err(e.into()));
                 }
                 self.m.lock().unwrap().commands.push((cmd.app, cmd.index));
                 // the mock answers CMD13 and CMD17, and times out on anything else
@@ -577,6 +583,13 @@ mod tests {
         r.unwrap_err().device().cloned().expect("a device error")
     }
 
+    /// The common error of a refused call (STD-16).
+    fn common_error(
+        r: Result<impl std::fmt::Debug, wire_weaver_client::CallError<BlockErrorOwned>>,
+    ) -> CommonErrorOwned {
+        r.unwrap_err().common().cloned().expect("a common error")
+    }
+
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn block_read_crc_and_leased_write() {
         let (device, m) = start("block_sd/block");
@@ -613,14 +626,14 @@ mod tests {
             .unwrap();
         assert_eq!(crc, crc32(&data));
         assert!(matches!(
-            block_error(
+            common_error(
                 client
                     .card()
                     .read(Index::new(3), Count::new(2))
                     .call()
                     .await
             ),
-            BlockErrorOwned::Common(CommonErrorOwned::InvalidArgument { .. })
+            CommonErrorOwned::InvalidArgument { .. }
         ));
         assert_eq!(
             block_error(
@@ -652,8 +665,8 @@ mod tests {
         let lease = client.card().claim(Secs::new(10)).call().await.unwrap();
         assert!(!m.lock().unwrap().user_running);
         assert!(matches!(
-            block_error(client.card().claim(Secs::new(10)).call().await),
-            BlockErrorOwned::Common(CommonErrorOwned::Busy)
+            common_error(client.card().claim(Secs::new(10)).call().await),
+            CommonErrorOwned::Busy
         ));
 
         // a wrong CRC writes nothing
@@ -796,8 +809,8 @@ mod tests {
     }
 
     fn sd_error(
-        r: Result<impl std::fmt::Debug, wire_weaver_client::CallError<SdErrorOwned>>,
-    ) -> SdErrorOwned {
+        r: Result<impl std::fmt::Debug, wire_weaver_client::CallError<SdError>>,
+    ) -> SdError {
         r.unwrap_err().device().cloned().expect("a device error")
     }
 
@@ -850,7 +863,7 @@ mod tests {
         assert_eq!(erase.access(), Access::Lease);
         assert_eq!(
             sd_error(client.sd().command(None, erase.clone()).call().await),
-            SdErrorOwned::BadLease
+            SdError::BadLease
         );
         assert_eq!(
             sd_error(
@@ -860,7 +873,7 @@ mod tests {
                     .call()
                     .await
             ),
-            SdErrorOwned::BadLease
+            SdError::BadLease
         );
         let lease = client.card().claim(Secs::new(10)).call().await.unwrap();
         assert!(client.sd().state().call().await.unwrap().leased);
@@ -899,7 +912,7 @@ mod tests {
         );
         let r = client.sd().command(Some(lease), lock).call().await;
         if !ww_sd::UNRESTRICTED {
-            assert_eq!(sd_error(r), SdErrorOwned::Restricted { index: 42 });
+            assert_eq!(sd_error(r), SdError::Restricted { index: 42 });
         }
         client.card().release(lease).call().await.unwrap();
     }
@@ -927,7 +940,8 @@ mod lean {
             fn card_geometry(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> RpcResult<Result<Geometry<'_>, BlockError<'_>>> {
+            ) -> RpcResult<Result<Geometry<'_>, wire_weaver::Error<'_, BlockError<'_>>>>
+            {
                 Ready(Ok(Geometry {
                     kind: MediumKind::NorFlash,
                     block_size: Bytes::new(512),
@@ -948,9 +962,11 @@ mod lean {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 lba: Index<Block, u64>,
                 count: Count<Block, u16>,
-            ) -> RpcResult<Result<MaxLen<RefVec<'_, u8>, 4096>, BlockError<'_>>> {
+            ) -> RpcResult<
+                Result<MaxLen<RefVec<'_, u8>, 4096>, wire_weaver::Error<'_, BlockError<'_>>>,
+            > {
                 if lba.get() != 0 || count.get() != 1 {
-                    return Ready(Err(BlockError::OutOfRange));
+                    return Ready(Err(BlockError::OutOfRange.into()));
                 }
                 Ready(Ok(MaxLen::new(RefVec::new_bytes(&self.card)).unwrap()))
             }
@@ -960,7 +976,7 @@ mod lean {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 _lba: Index<Block, u64>,
                 _count: Count<Block, u32>,
-            ) -> RpcResult<Result<u32, BlockError<'_>>> {
+            ) -> RpcResult<Result<u32, wire_weaver::Error<'_, BlockError<'_>>>> {
                 Ready(Ok(ww_block::crc32(&self.card)))
             }
 
@@ -968,16 +984,16 @@ mod lean {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 _lease: Secs<u16>,
-            ) -> RpcResult<Result<Lease, BlockError<'_>>> {
-                Ready(Err(BlockError::ReadOnly))
+            ) -> RpcResult<Result<Lease, wire_weaver::Error<'_, BlockError<'_>>>> {
+                Ready(Err(BlockError::ReadOnly.into()))
             }
 
             fn card_release(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 _lease: Lease,
-            ) -> RpcResult<Result<(), BlockError<'_>>> {
-                Ready(Err(BlockError::BadLease))
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, BlockError<'_>>>> {
+                Ready(Err(BlockError::BadLease.into()))
             }
 
             fn card_write(
@@ -987,8 +1003,8 @@ mod lean {
                 _lba: Index<Block, u64>,
                 _data: MaxLen<RefVec<'_, u8>, 4096>,
                 _crc: u32,
-            ) -> RpcResult<Result<(), BlockError<'_>>> {
-                Ready(Err(BlockError::BadLease))
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, BlockError<'_>>>> {
+                Ready(Err(BlockError::BadLease.into()))
             }
 
             fn card_erase(
@@ -997,8 +1013,8 @@ mod lean {
                 _lease: Lease,
                 _lba: Index<Block, u64>,
                 _count: Count<Block, u32>,
-            ) -> RpcResult<Result<(), BlockError<'_>>> {
-                Ready(Err(BlockError::BadLease))
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, BlockError<'_>>>> {
+                Ready(Err(BlockError::BadLease.into()))
             }
         }
 

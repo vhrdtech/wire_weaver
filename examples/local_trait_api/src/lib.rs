@@ -30,6 +30,8 @@ pub enum CounterError {
     DivByZero,
 }
 
+ww_api::api_error!(CounterError);
+
 impl core::fmt::Display for CounterError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {

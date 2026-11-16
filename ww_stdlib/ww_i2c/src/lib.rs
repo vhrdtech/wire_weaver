@@ -73,8 +73,8 @@
 //!
 //! # Errors
 //!
-//! Every trait returns [I2cError]: the framework's `CommonError` (in use, no power, refused, ...) as
-//! [I2cError::Common], plus what is specific to I2C (`Nack`, `Arbitration`, ...). Each method lists the variants
+//! Every trait returns [I2cError], what is specific to I2C (`Nack`, `Arbitration`, ...); the common errors (in use,
+//! no power, refused, ...: `ww_error::CommonError`) come beside it, as every item's do. Each method lists the errors
 //! it returns (`#[errors]`).
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -84,8 +84,6 @@ pub use ww_si::{Bytes, Count, Hertz, Index, Range, Second, Volt};
 
 pub mod error;
 pub use error::I2cError;
-#[cfg(feature = "std")]
-pub use error::I2cErrorOwned;
 pub mod monitor;
 pub use monitor::{
     I_2_C_MONITOR_COMPACT_GID, I_2_C_MONITOR_FULL_GID, I2cMonitor, I2cRecord, I2cRecordKind,
@@ -155,8 +153,8 @@ pub trait I2c {
     /// effect. [I2cMode::Disabled] releases the pins.
     /// A mode or IO level this adapter doesn't have is `Unsupported`, a frequency outside its range an
     /// `InvalidArgument`; `Refused` when e.g. the bus already sits at a higher voltage than `io_level`.
-    #[errors(Common(Unsupported, InvalidArgument, InUse, Refused))]
-    fn i2c_configure(config: I2cConfig) -> Result<I2cConfig, I2cError<'i>>;
+    #[errors(CommonError(Unsupported, InvalidArgument, InUse, Refused))]
+    fn i2c_configure(config: I2cConfig) -> Result<I2cConfig, I2cError>;
 
     /// Writes `data` to the device at `addr`: start, address, data, stop.
     ///
@@ -169,7 +167,7 @@ pub trait I2c {
     /// line held low before the start `BusStuck`, a call that doesn't finish within the device's own deadline
     /// (waiting for another master to free the bus) `Timeout`.
     #[errors(
-        Common(Unsupported, WrongState, NoPower, Timeout),
+        CommonError(Unsupported, WrongState, NoPower, Timeout),
         Nack,
         Arbitration,
         Bus,
@@ -181,7 +179,7 @@ pub trait I2c {
         addr: I2cAddress,
         data: MaxLen<RefVec<'i, u8>, MAX_WRITE_LEN>,
         delay_after: Option<Second>,
-    ) -> Result<I2cTransactionTimeRange, I2cError<'i>>;
+    ) -> Result<I2cTransactionTimeRange, I2cError>;
 
     /// Reads `len` bytes from the device at `addr`, either plainly or after writing a few bytes with a repeated start
     /// (a register read).
@@ -190,7 +188,7 @@ pub trait I2c {
     /// [I2cReadKind::RepeatedStart] read is the transaction `[Write(write), Read(len)]`, so a `Nack` in its read part
     /// has `op: 1`.
     #[errors(
-        Common(Unsupported, InvalidArgument, WrongState, NoPower, Timeout),
+        CommonError(Unsupported, InvalidArgument, WrongState, NoPower, Timeout),
         Nack,
         Arbitration,
         Bus,
@@ -203,18 +201,18 @@ pub trait I2c {
         kind: I2cReadKind<'i>,
         len: Bytes<u16>,
         delay_after: Option<Second>,
-    ) -> Result<I2cReadEnvelope<'i>, I2cError<'i>>;
+    ) -> Result<I2cReadEnvelope<'i>, I2cError>;
 
     /// 7-bit addresses that acknowledged a one-byte read, in ascending order. The reserved addresses (`0x00..=0x07`,
     /// `0x78..=0x7F`) are skipped. An address that doesn't answer is no error; a stuck bus stops the scan.
     #[errors(
-        Common(WrongState, NoPower, Timeout),
+        CommonError(WrongState, NoPower, Timeout),
         Bus,
         Arbitration,
         ClockStretch,
         BusStuck
     )]
-    fn i2c_scan() -> Result<MaxLen<RefVec<'i, I2cAddress>, MAX_SCAN>, I2cError<'i>>;
+    fn i2c_scan() -> Result<MaxLen<RefVec<'i, I2cAddress>, MAX_SCAN>, I2cError>;
 
     /// Several operations to one address in one transaction: a start, then for each operation the address with its
     /// direction bit and the operation's bytes, a repeated start before every operation after the first, and one
@@ -229,7 +227,7 @@ pub trait I2c {
     /// exceed [MAX_READ_LEN] or the device's limit, or for more than [I2cCapabilities::max_ops] operations;
     /// `InvalidArgument` for no operations or an `I2cOp::Read(0)`.
     #[errors(
-        Common(Unsupported, InvalidArgument, WrongState, NoPower, Timeout),
+        CommonError(Unsupported, InvalidArgument, WrongState, NoPower, Timeout),
         Nack,
         Arbitration,
         Bus,
@@ -240,7 +238,7 @@ pub trait I2c {
     fn i2c_transaction(
         addr: I2cAddress,
         ops: MaxLen<RefVec<'i, I2cOp<'i>>, MAX_OPS>,
-    ) -> Result<I2cTransactionResult<'i>, I2cError<'i>>;
+    ) -> Result<I2cTransactionResult<'i>, I2cError>;
 
     /// Levels of SCL and SDA now. Both are high on an idle bus; a line held low means a slave is stuck mid-byte,
     /// pull-ups are missing or unpowered, or something shorts it.
@@ -253,13 +251,13 @@ pub trait I2c {
     /// drive SCL directly, `NoPower` when the bus has no level to drive (level translators without an IO level, a
     /// bus that is off while disabled). The only way a device frees the bus: it never does so silently before a
     /// transfer.
-    #[errors(Common(Unsupported, WrongState, NoPower))]
-    fn i2c_wiggle_clock(count: Count<Cycle, u8>) -> Result<I2cLinesState, I2cError<'i>>;
+    #[errors(CommonError(Unsupported, WrongState, NoPower))]
+    fn i2c_wiggle_clock(count: Count<Cycle, u8>) -> Result<I2cLinesState, I2cError>;
 
     /// Switches the adapter's own pull-up resistors on SCL and SDA. `Unsupported` without switchable pull-ups (see
     /// [I2cCapabilities::pullups]), `Refused` when e.g. the pull-ups would feed a bus that sits at another voltage.
-    #[errors(Common(Unsupported, Refused))]
-    fn i2c_set_pullups(enabled: bool) -> Result<(), I2cError<'i>>;
+    #[errors(CommonError(Unsupported, Refused))]
+    fn i2c_set_pullups(enabled: bool) -> Result<(), I2cError>;
 
     /// Whether the adapter's pull-ups are on (false if it has none).
     fn i2c_pullups() -> bool;
@@ -280,11 +278,11 @@ pub trait I2c {
     /// [I2cSlaveCapabilities::map_len].
     #[optional(slave)]
     #[errors(
-        Common(InUse, Unsupported, InvalidArgument, Refused, NoPower),
+        CommonError(InUse, Unsupported, InvalidArgument, Refused, NoPower),
         BufferTooBig
     )]
     #[stream(I2cSlaveEvent<'i>, counted)]
-    fn slave_events(config: I2cSlaveConfig) -> Result<(), I2cError<'i>>;
+    fn slave_events(config: I2cSlaveConfig) -> Result<(), I2cError>;
 
     /// Writes `data` into the register map from `offset`, while the slave runs or before it starts (the map keeps
     /// its contents between runs). Takes effect between two master transactions, never inside one, so a master
@@ -294,7 +292,7 @@ pub trait I2c {
     fn slave_map_write(
         offset: Index<Byte, u32>,
         data: MaxLen<RefVec<'i, u8>, MAX_WRITE_LEN>,
-    ) -> Result<(), I2cError<'i>>;
+    ) -> Result<(), I2cError>;
 
     /// Reads `len` bytes of the register map from `offset` as the master sees it: what the master wrote, or what
     /// the host put there. A `I2c::slave_map_write` still waiting for the master's transaction to end shows once it
@@ -305,7 +303,7 @@ pub trait I2c {
     fn slave_map_read(
         offset: Index<Byte, u32>,
         len: Bytes<u16>,
-    ) -> Result<MaxLen<RefVec<'i, u8>, MAX_READ_LEN>, I2cError<'i>>;
+    ) -> Result<MaxLen<RefVec<'i, u8>, MAX_READ_LEN>, I2cError>;
 
     /// Answers for [I2cSlaveAnswers::Queue], one item per read transaction of the master, in order. A master that
     /// reads fewer bytes than the answer has leaves the rest unsent (dropped at the stop or repeated start), one that
@@ -613,9 +611,9 @@ mod tests {
         assert!(I2cAddress::seven(0x80).is_none());
         assert!(I2cAddress::ten(0x400).is_none());
     }
-    #[derive_shrink_wrap(derive(Debug, PartialEq, Clone))]
-    struct Reply<'i> {
-        result: Result<u8, I2cError<'i>>,
+    #[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Clone))]
+    struct Reply {
+        result: Result<u8, I2cError>,
         after: u8,
     }
 

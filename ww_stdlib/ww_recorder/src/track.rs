@@ -27,18 +27,18 @@ pub trait Track {
 
     /// Whether the track is written. A disabled track keeps its place in the table and its position; its items are
     /// counted as dropped. Takes effect at once; the system track (0) can't be disabled (`Unsupported`).
-    #[errors(Common(Unsupported))]
+    #[errors(CommonError(Unsupported))]
     property!(rw enabled: bool, RecorderError<'i>);
 
     /// When the track is flushed to the card, see [Durability]. Takes effect at once.
     #[optional(track_settings)]
-    #[errors(Common(Unsupported))]
+    #[errors(CommonError(Unsupported))]
     property!(rw durability: Durability, RecorderError<'i>);
 
     /// Compression of the track's batches, see [Compression]. Optional: a device without a codec leaves it out,
     /// and tracks are stored plain.
     #[optional]
-    #[errors(Common(Unsupported))]
+    #[errors(CommonError(Unsupported))]
     property!(rw compression: Compression, RecorderError<'i>);
 
     /// What the track has stored and lost.

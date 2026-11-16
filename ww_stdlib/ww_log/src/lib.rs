@@ -39,7 +39,7 @@
 //!
 //! # Errors
 //!
-//! Both traits return [LogError].
+//! Both traits fail with common errors only (STD-16): `Busy`, `Unsupported`.
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use ww_api::prelude::*;
@@ -68,9 +68,9 @@ pub trait LogDefmt {
     /// The log: whole defmt frames, kept in the device's store until the host acknowledges them, also those logged
     /// before the host connected. Unit: defmt frame, so the head's `lost` is the exact number of log messages the
     /// host won't get. `Busy` while another host has the log open, `Unsupported` when the device logs elsewhere only.
-    #[errors(Common(Busy, Unsupported))]
+    #[errors(CommonError(Busy, Unsupported))]
     #[stream(DefmtFrames<'i>, reliable)]
-    fn frames() -> Result<(), LogError<'i>>;
+    fn frames();
 }
 
 /// How to decode `LogDefmt::frames`, see `LogDefmt::DEFMT`.
@@ -119,14 +119,14 @@ pub trait LogText {
     /// The log: one record per message, kept in the device's store until the host acknowledges it, also those
     /// logged before the host connected. Unit: record. The head's `t` is the device time of the record. `Busy` while
     /// another host has the log open, `Unsupported` when the device logs elsewhere only.
-    #[errors(Common(Busy, Unsupported))]
+    #[errors(CommonError(Busy, Unsupported))]
     #[stream(LogRecord<'i>, reliable)]
-    fn records() -> Result<(), LogError<'i>>;
+    fn records();
 
     /// Records less severe than this level are not produced (filters compiled into the firmware still apply).
     /// Writing it fails with `Unsupported` when the level is fixed at compile time.
-    #[errors(Common(Unsupported))]
-    property!(rw level: LevelFilter, LogError<'i>);
+    #[errors(CommonError(Unsupported))]
+    property!(rw level: LevelFilter);
 }
 
 /// One text log message, see `LogText::records`.
@@ -193,20 +193,6 @@ impl LevelFilter {
         };
         level <= self
     }
-}
-
-/// Errors of both traits in this crate. Each item says which variants it returns.
-#[derive_shrink_wrap(
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Debug, PartialEq, Eq, Clone),
-    display,
-    ww_repr = unib32
-)]
-pub enum LogError<'i> {
-    /// {0}
-    #[common]
-    Common(CommonError<'i>),
 }
 
 #[cfg(test)]

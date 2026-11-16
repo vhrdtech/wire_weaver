@@ -86,11 +86,11 @@ pub trait Dfu {
 #[ww_trait]
 pub trait Settings {
     /// The LED after boot: on (`true`) or off, default off
-    #[errors(Fault)]
-    property!(rw led_at_boot: bool, CommonError<'i>);
+    #[errors(CommonError(Fault))]
+    property!(rw led_at_boot: bool);
     /// Every setting back to its default, the label too
-    #[errors(Fault)]
-    fn reset() -> Result<(), CommonError<'i>>;
+    #[errors(CommonError(Fault))]
+    fn reset();
 }
 
 /// The chip a board carries, see [`Device::variant`]: every Nucleo-G0B1RE has an STM32G0B1RET6, what can differ is

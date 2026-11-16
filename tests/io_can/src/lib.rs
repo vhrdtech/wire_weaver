@@ -13,12 +13,12 @@ mod tests {
     use wire_weaver::prelude::*;
     use wire_weaver_client::StreamEvent;
     use ww_can_bus::{
-        Activity, BitTiming, BufferIndex, BusError, BusLevel, BusLoad, CanConfig, CanError,
-        CanErrorOwned, CanId, Capabilities, Direction, ErrorState, FdConfig, FifoIndex, Filter,
-        FilterAction, FilterIndex, FilterMatch, FrameKind, MemoryLayout, Mode, NonMatching, Ohm,
-        Options, Phase, ProtocolError, ProtocolStatus, RxOverflow, Share, Status, Tdc, Termination,
-        Timing, TimingLimits, TransceiverFault, TransceiverMode, TransceiverModes,
-        TransceiverState, TxMarker, TxOrder, TxOutcome, TxPin,
+        Activity, BitTiming, BufferIndex, BusError, BusLevel, BusLoad, CanConfig, CanError, CanId,
+        Capabilities, Direction, ErrorState, FdConfig, FifoIndex, Filter, FilterAction,
+        FilterIndex, FilterMatch, FrameKind, MemoryLayout, Mode, NonMatching, Ohm, Options, Phase,
+        ProtocolError, ProtocolStatus, RxOverflow, Share, Status, Tdc, Termination, Timing,
+        TimingLimits, TransceiverFault, TransceiverMode, TransceiverModes, TransceiverState,
+        TxMarker, TxOrder, TxOutcome, TxPin,
     };
     use ww_si::prefix::One;
     use ww_si::units;
@@ -347,12 +347,12 @@ mod tests {
     fn configure(
         caps: &Capabilities<'_>,
         config: CanConfig,
-    ) -> Result<CanConfig, CanError<'static>> {
+    ) -> Result<CanConfig, wire_weaver::Error<'static, CanError>> {
         let unsupported = || Err(CommonError::Unsupported.into());
         let resolve = |t: Timing| match t {
             Timing::Rate { rate, sample_point } => segments_for(rate, sample_point)
                 .map(Timing::Segments)
-                .ok_or(CanError::Common(CommonError::InvalidArgument {
+                .ok_or(wire_weaver::Error::Common(CommonError::InvalidArgument {
                     arg: Index::new(0),
                     reason: MaxLen::new_unchecked("bit rate not reachable"),
                 })),
@@ -520,7 +520,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 config: CanConfig,
-            ) -> RpcResult<Result<CanConfig, CanError<'_>>> {
+            ) -> RpcResult<Result<CanConfig, wire_weaver::Error<'_, CanError>>> {
                 let r = configure(&capabilities(true), config);
                 if let Ok(actual) = &r {
                     let mut m = self.m.lock().unwrap();
@@ -540,7 +540,7 @@ mod tests {
             fn get_can_status(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Status, ()> {
+            ) -> GetResult<Status, CommonError<'_>> {
                 Value(self.m.lock().unwrap().status)
             }
 
@@ -606,7 +606,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 mode: Mode,
-            ) -> RpcResult<Result<Mode, CanError<'_>>> {
+            ) -> RpcResult<Result<Mode, wire_weaver::Error<'_, CanError>>> {
                 let caps = capabilities(true);
                 let mut config = self.m.lock().unwrap().config.clone();
                 config.mode = mode;
@@ -651,7 +651,7 @@ mod tests {
             fn get_can_bus_load(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<BusLoad, ()> {
+            ) -> GetResult<BusLoad, CommonError<'_>> {
                 let frames = self.m.lock().unwrap().sent.len() as u32;
                 Value(BusLoad {
                     window: Second::milli(100u8),
@@ -666,7 +666,8 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 candidates: MaxLen<RefVec<'_, Timing>, 16>,
                 _per_candidate: Second,
-            ) -> RpcResult<Result<Option<CanConfig>, CanError<'_>>> {
+            ) -> RpcResult<Result<Option<CanConfig>, wire_weaver::Error<'_, CanError>>>
+            {
                 if candidates.is_empty() {
                     return Ready(Err(CommonError::InvalidArgument {
                         arg: Index::new(0),
@@ -704,7 +705,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 layout: MemoryLayout,
-            ) -> RpcResult<Result<MemoryLayout, CanError<'_>>> {
+            ) -> RpcResult<Result<MemoryLayout, wire_weaver::Error<'_, CanError>>> {
                 let mut m = self.m.lock().unwrap();
                 if !m.queued.is_empty() {
                     return Ready(Err(CommonError::WrongState {
@@ -723,7 +724,8 @@ mod tests {
                 if words > RAM_WORDS {
                     return Ready(Err(CanError::OutOfMemory {
                         available: Fixed::new(RAM_WORDS),
-                    }));
+                    }
+                    .into()));
                 }
                 // off the bus for it and back, unless already in configuration mode
                 m.layout = layout;
@@ -734,7 +736,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 mode: TransceiverMode,
-            ) -> RpcResult<Result<TransceiverMode, CanError<'_>>> {
+            ) -> RpcResult<Result<TransceiverMode, wire_weaver::Error<'_, CanError>>> {
                 if !matches!(mode, TransceiverMode::Normal | TransceiverMode::Standby) {
                     return Ready(Err(CommonError::Unsupported.into()));
                 }
@@ -747,14 +749,14 @@ mod tests {
             fn get_can_transceiver_state(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<TransceiverState, ()> {
+            ) -> GetResult<TransceiverState, CommonError<'_>> {
                 Value(self.m.lock().unwrap().transceiver)
             }
 
             fn can_recover(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> RpcResult<Result<(), CanError<'_>>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, CanError>>> {
                 let mut m = self.m.lock().unwrap();
                 if m.status.state != ErrorState::BusOff {
                     return Ready(Err(CommonError::WrongState {
@@ -791,7 +793,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 filters: ww_can_bus::FilterConfig<'_>,
-            ) -> RpcResult<Result<(), CanError<'_>>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, CanError>>> {
                 let caps = capabilities(true);
                 let layout = self.m.lock().unwrap().layout;
                 let list: Vec<Filter> = filters.filters.iter().map(|f| f.unwrap()).collect();
@@ -807,12 +809,14 @@ mod tests {
                 if n_std > layout.standard_filters.get() {
                     return Ready(Err(CanError::OutOfFilters {
                         max: layout.standard_filters,
-                    }));
+                    }
+                    .into()));
                 }
                 if n_ext > layout.extended_filters.get() {
                     return Ready(Err(CanError::OutOfFilters {
                         max: layout.extended_filters,
-                    }));
+                    }
+                    .into()));
                 }
                 for f in &list {
                     let bad = match f.action {
@@ -841,8 +845,9 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index: BufferIndex,
-            ) -> RpcResult<Result<Option<ww_can_bus::BufferedFrame<'_>>, CanError<'_>>>
-            {
+            ) -> RpcResult<
+                Result<Option<ww_can_bus::BufferedFrame<'_>>, wire_weaver::Error<'_, CanError>>,
+            > {
                 let mut m = self.m.lock().unwrap();
                 let Some(slot) = m.rx_buffers.get_mut(index.get() as usize) else {
                     return Ready(Err(CommonError::InvalidArgument {
@@ -872,7 +877,7 @@ mod tests {
                 index: BufferIndex,
                 frame: Option<ww_can_bus::TxFrame<'_>>,
                 period: Option<Second>,
-            ) -> RpcResult<Result<(), CanError<'_>>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, CanError>>> {
                 let mut m = self.m.lock().unwrap();
                 if index.get() >= capabilities(true).tx_buffers.get() {
                     return Ready(Err(CommonError::InvalidArgument {
@@ -882,7 +887,7 @@ mod tests {
                     .into()));
                 }
                 if m.status.state == ErrorState::BusOff {
-                    return Ready(Err(CanError::BusOff));
+                    return Ready(Err(CanError::BusOff.into()));
                 }
                 if matches!(m.config.mode, Mode::Off | Mode::ListenOnly) {
                     return Ready(Err(CommonError::WrongState {
@@ -907,7 +912,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 termination: Termination,
-            ) -> RpcResult<Result<Termination, CanError<'_>>> {
+            ) -> RpcResult<Result<Termination, wire_weaver::Error<'_, CanError>>> {
                 if let Termination::On(r) = termination
                     && r != ohms_120()
                 {
@@ -920,7 +925,7 @@ mod tests {
             fn get_can_termination(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Termination, ()> {
+            ) -> GetResult<Termination, CommonError<'_>> {
                 Value(self.m.lock().unwrap().termination)
             }
 
@@ -928,7 +933,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 tx: TxPin,
-            ) -> RpcResult<Result<BusLevel, CanError<'_>>> {
+            ) -> RpcResult<Result<BusLevel, wire_weaver::Error<'_, CanError>>> {
                 if self.m.lock().unwrap().config.mode != Mode::Test {
                     return Ready(Err(CommonError::WrongState {
                         reason: MaxLen::new_unchecked("not in Mode::Test"),
@@ -1026,7 +1031,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 config: CanConfig,
-            ) -> RpcResult<Result<CanConfig, CanError<'_>>> {
+            ) -> RpcResult<Result<CanConfig, wire_weaver::Error<'_, CanError>>> {
                 let r = configure(&capabilities(false), config);
                 if let Ok(actual) = &r {
                     let mut m = self.m.lock().unwrap();
@@ -1046,7 +1051,7 @@ mod tests {
             fn get_can_status(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Status, ()> {
+            ) -> GetResult<Status, CommonError<'_>> {
                 Value(self.m.lock().unwrap().status)
             }
 
@@ -1293,10 +1298,8 @@ mod tests {
             .call()
             .await;
         assert!(matches!(
-            r.unwrap_err().device(),
-            Some(CanErrorOwned::Common(
-                CommonErrorOwned::InvalidArgument { .. }
-            ))
+            r.unwrap_err().common(),
+            Some(CommonErrorOwned::InvalidArgument { .. })
         ));
 
         // an option this controller doesn't have
@@ -1304,8 +1307,8 @@ mod tests {
         config.options.presume_ack = true;
         let r = client.can().configure(config).call().await;
         assert!(matches!(
-            r.unwrap_err().device(),
-            Some(CanErrorOwned::Common(CommonErrorOwned::Unsupported))
+            r.unwrap_err().common(),
+            Some(CommonErrorOwned::Unsupported)
         ));
     }
 
@@ -1479,7 +1482,7 @@ mod tests {
         let r = client.can().set_filters(config(too_many)).call().await;
         assert!(matches!(
             r.unwrap_err().device(),
-            Some(CanErrorOwned::OutOfFilters { max }) if *max == Fixed::new(3)
+            Some(CanError::OutOfFilters { max }) if *max == Fixed::new(3)
         ));
         // no FIFO 2 on this controller
         let r = client
@@ -1494,10 +1497,8 @@ mod tests {
             .call()
             .await;
         assert!(matches!(
-            r.unwrap_err().device(),
-            Some(CanErrorOwned::Common(
-                CommonErrorOwned::InvalidArgument { .. }
-            ))
+            r.unwrap_err().common(),
+            Some(CommonErrorOwned::InvalidArgument { .. })
         ));
 
         let mut rx = client.can().rx().call().await.unwrap();
@@ -1550,10 +1551,8 @@ mod tests {
         );
         let r = client.can().rx_buffer(BufferIndex::new(9)).call().await;
         assert!(matches!(
-            r.unwrap_err().device(),
-            Some(CanErrorOwned::Common(
-                CommonErrorOwned::InvalidArgument { .. }
-            ))
+            r.unwrap_err().common(),
+            Some(CommonErrorOwned::InvalidArgument { .. })
         ));
     }
 
@@ -1580,8 +1579,8 @@ mod tests {
         );
         let r = client.can().recover().call().await;
         assert!(matches!(
-            r.unwrap_err().device(),
-            Some(CanErrorOwned::Common(CommonErrorOwned::WrongState { .. }))
+            r.unwrap_err().common(),
+            Some(CommonErrorOwned::WrongState { .. })
         ));
 
         // nobody acknowledges: ACK errors until bus-off
@@ -1615,10 +1614,7 @@ mod tests {
             )
             .call()
             .await;
-        assert!(matches!(
-            r.unwrap_err().device(),
-            Some(CanErrorOwned::BusOff)
-        ));
+        assert!(matches!(r.unwrap_err().device(), Some(CanError::BusOff)));
 
         client.can().recover().call().await.unwrap();
         client.can().config().call().await.unwrap();
@@ -1667,10 +1663,8 @@ mod tests {
             .call()
             .await;
         assert!(matches!(
-            r.unwrap_err().device(),
-            Some(CanErrorOwned::Common(
-                CommonErrorOwned::InvalidArgument { .. }
-            ))
+            r.unwrap_err().common(),
+            Some(CommonErrorOwned::InvalidArgument { .. })
         ));
 
         let on = Termination::On(ohms_120());
@@ -1682,15 +1676,15 @@ mod tests {
             .call()
             .await;
         assert!(matches!(
-            r.unwrap_err().device(),
-            Some(CanErrorOwned::Common(CommonErrorOwned::Unsupported))
+            r.unwrap_err().common(),
+            Some(CommonErrorOwned::Unsupported)
         ));
 
         // test pins only in Mode::Test
         let r = client.can().test_pins(TxPin::Dominant).call().await;
         assert!(matches!(
-            r.unwrap_err().device(),
-            Some(CanErrorOwned::Common(CommonErrorOwned::WrongState { .. }))
+            r.unwrap_err().common(),
+            Some(CommonErrorOwned::WrongState { .. })
         ));
         client
             .can()
@@ -1755,7 +1749,7 @@ mod tests {
         let r = client.can().set_layout(big).call().await;
         assert!(matches!(
             r.unwrap_err().device(),
-            Some(CanErrorOwned::OutOfMemory { available }) if *available == Fixed::new(RAM_WORDS)
+            Some(CanError::OutOfMemory { available }) if *available == Fixed::new(RAM_WORDS)
         ));
         let more_filters = MemoryLayout {
             standard_filters: Fixed::new(8),
@@ -1859,10 +1853,8 @@ mod tests {
             .call()
             .await;
         assert!(matches!(
-            r.unwrap_err().device(),
-            Some(CanErrorOwned::Common(
-                CommonErrorOwned::InvalidArgument { .. }
-            ))
+            r.unwrap_err().common(),
+            Some(CommonErrorOwned::InvalidArgument { .. })
         ));
 
         let mut load = client.can().observe_bus_load().await.unwrap();
@@ -1926,8 +1918,8 @@ mod tests {
             .call()
             .await;
         assert!(matches!(
-            r.unwrap_err().device(),
-            Some(CanErrorOwned::Common(CommonErrorOwned::Unsupported))
+            r.unwrap_err().common(),
+            Some(CommonErrorOwned::Unsupported)
         ));
         // a wiring fault reaches observers
         let mut trx = client.can().observe_transceiver_state().await.unwrap();
@@ -1971,8 +1963,8 @@ mod tests {
             .call()
             .await;
         assert!(matches!(
-            r.unwrap_err().device(),
-            Some(CanErrorOwned::Common(CommonErrorOwned::Unsupported))
+            r.unwrap_err().common(),
+            Some(CommonErrorOwned::Unsupported)
         ));
         client
             .can()
@@ -2006,7 +1998,7 @@ mod tests {
             matches!(e, wire_weaver_client::Error::NotImplementedByDevice { .. })
         };
         // methods returning a `Result` answer `CallError::Unimplemented`
-        let unimplemented = |e: wire_weaver_client::CallError<CanErrorOwned>| {
+        let unimplemented = |e: wire_weaver_client::CallError<CanError>| {
             matches!(e, wire_weaver_client::CallError::Unimplemented { .. })
         };
         assert!(unimplemented(

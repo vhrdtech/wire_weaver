@@ -206,6 +206,10 @@ pub enum AdoptError<'i> {
     Open { why: &'i str },
 }
 
+ww_api::api_error!(AdoptError<'i>);
+#[cfg(feature = "std")]
+ww_api::api_error!(AdoptErrorOwned);
+
 /// See [Hub::info].
 #[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq, Eq))]
 pub struct HubInfo<'i> {
@@ -251,6 +255,8 @@ pub enum HandoverError {
     /// Nothing answers on the socket given
     Unreachable,
 }
+
+ww_api::api_error!(HandoverError);
 
 /// One device, see [Registry::devices].
 #[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq, Eq))]
@@ -315,6 +321,10 @@ pub enum TakeError<'i> {
     /// Opening it failed
     Failed { why: &'i str },
 }
+
+ww_api::api_error!(TakeError<'i>);
+#[cfg(feature = "std")]
+ww_api::api_error!(TakeErrorOwned);
 
 /// One connected program, see [Registry::clients]: what its link setup said about it (`ww_link::ClientMeta`, CLT-41)
 /// and what the OS says.
@@ -390,6 +400,10 @@ pub enum ClaimError<'i> {
     Overlap { claim: ClaimEntry<'i> },
 }
 
+ww_api::api_error!(ClaimError<'i>);
+#[cfg(feature = "std")]
+ww_api::api_error!(ClaimErrorOwned);
+
 /// Why [Claims::release] failed.
 #[derive_shrink_wrap(
     borrowed,
@@ -403,6 +417,8 @@ pub enum ReleaseError {
     /// The claim belongs to another program
     NotHolder,
 }
+
+ww_api::api_error!(ReleaseError);
 
 /// See [Registry::events].
 #[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq, Eq), ww_repr = unib32)]

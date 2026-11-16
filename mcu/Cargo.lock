@@ -1405,6 +1405,7 @@ dependencies = [
  "serde",
  "sha2",
  "shrink_wrap",
+ "ww_error",
  "ww_lz4",
  "ww_numeric",
  "ww_version",

@@ -87,11 +87,11 @@ pub trait Spi {
     fn slave_capabilities() -> SpiSlaveCapabilities;
     #[optional(slave)]
     #[stream(SpiSlaveFrame<'i>, counted)]
-    fn slave_frames(config: SpiSlaveConfig) -> Result<(), SpiError<'i>>;
+    fn slave_frames(config: SpiSlaveConfig) -> Result<(), SpiError>;
     #[optional(slave)]
-    fn slave_map_write(offset: Index<Byte, u32>, data: MaxLen<RefVec<'i, u8>, SPI_MAX>) -> Result<(), SpiError<'i>>;
+    fn slave_map_write(offset: Index<Byte, u32>, data: MaxLen<RefVec<'i, u8>, SPI_MAX>) -> Result<(), SpiError>;
     #[optional(slave)]
-    fn slave_map_read(offset: Index<Byte, u32>, len: Bytes<u16>) -> Result<MaxLen<RefVec<'i, u8>, SPI_MAX>, SpiError<'i>>;
+    fn slave_map_read(offset: Index<Byte, u32>, len: Bytes<u16>) -> Result<MaxLen<RefVec<'i, u8>, SPI_MAX>, SpiError>;
     #[optional(slave)]
     #[credit]
     sink!(slave_answers: MaxLen<RefVec<'i, u8>, SPI_MAX>);
@@ -152,7 +152,7 @@ address and `map_max_freq` (`None`: no register map).
   bool`, `io_levels: MaxLen<RefVec<'i, Fixed<Volt, Milli, u16>>, MAX_IO_LEVELS>`, `io_level_min` / `io_level_max:
   Option<Fixed<Volt, Milli, u16>>` (an adjustable supply), `max_len: Bytes<u16, Range<0, 512>>` (largest transfer
   this device does, bounded by `SPI_MAX`).
-* `SpiError<'i>` - `Common(CommonError)` ([common errors](../api/errors.md#common-errors)), `BufferTooBig`; unsized
+* `SpiError` - the [common errors](../api/errors.md#common-errors) beside its own `BufferTooBig`; unsized
   (`unib32` discriminant), evolvable. Each method lists the variants it returns (`#[errors]`).
 
 `SPI_MAX` (512 bytes) bounds every transfer, write and the reads of one transaction concatenated; `MAX_OPS` (16)

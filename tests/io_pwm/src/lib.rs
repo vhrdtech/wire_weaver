@@ -9,8 +9,8 @@ mod tests {
     use wire_weaver_client::StreamEvent;
     use ww_pwm::{
         CaptureConfig, CaptureMode, CaptureSample, CaptureValue, Duty16, Fixed, Hertz, One,
-        PwmActual, PwmCapabilities, PwmChannelInfo, PwmError, PwmErrorOwned, PwmOutput, PwmState,
-        Second, TimerGroup, units,
+        PwmActual, PwmCapabilities, PwmChannelInfo, PwmError, PwmOutput, PwmState, Second,
+        TimerGroup, units,
     };
     use ww_si::Index;
     use ww_si::Prefix;
@@ -126,7 +126,7 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [ww_client_server::ResourceIndex; 1],
                 output: PwmOutput,
-            ) -> RpcResult<Result<PwmActual, PwmError<'_>>> {
+            ) -> RpcResult<Result<PwmActual, wire_weaver::Error<'_, PwmError>>> {
                 let idx = index_chain[0].get().0 as usize;
                 let actual = PwmActual {
                     freq: output.freq,
@@ -141,7 +141,7 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [ww_client_server::ResourceIndex; 1],
                 duty: Duty16,
-            ) -> RpcResult<Result<Duty16, PwmError<'_>>> {
+            ) -> RpcResult<Result<Duty16, wire_weaver::Error<'_, PwmError>>> {
                 let idx = index_chain[0].get().0 as usize;
                 let mut m = self.m.lock().unwrap();
                 match &mut m.channels[idx] {
@@ -161,7 +161,7 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [ww_client_server::ResourceIndex; 1],
                 _idle_high: bool,
-            ) -> RpcResult<Result<(), PwmError<'_>>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, PwmError>>> {
                 let idx = index_chain[0].get().0 as usize;
                 self.m.lock().unwrap().channels[idx] = None;
                 Ready(Ok(()))
@@ -189,7 +189,7 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [ww_client_server::ResourceIndex; 1],
                 config: CaptureConfig,
-            ) -> RpcResult<Result<CaptureConfig, PwmError<'_>>> {
+            ) -> RpcResult<Result<CaptureConfig, wire_weaver::Error<'_, PwmError>>> {
                 if config.mode == CaptureMode::Off {
                     return Ready(Err(CommonError::InvalidArgument {
                         arg: Index::new(0),
@@ -223,7 +223,7 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [ww_client_server::ResourceIndex; 1],
                 config: CaptureConfig,
-            ) -> RpcResult<Result<CaptureConfig, PwmError<'_>>> {
+            ) -> RpcResult<Result<CaptureConfig, wire_weaver::Error<'_, PwmError>>> {
                 let idx = index_chain[0].get().0 as usize;
                 self.m.lock().unwrap().capture_config[idx] = Some(config);
                 Ready(Ok(config))
@@ -233,7 +233,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [ww_client_server::ResourceIndex; 1],
-            ) -> RpcResult<Result<CaptureSample, PwmError<'_>>> {
+            ) -> RpcResult<Result<CaptureSample, wire_weaver::Error<'_, PwmError>>> {
                 let idx = index_chain[0].get().0 as usize;
                 match self.m.lock().unwrap().capture_sample[idx] {
                     Some(sample) => Ready(Ok(sample)),
@@ -382,8 +382,8 @@ mod tests {
         let channel = pwm.channel(1);
         let err = channel.set_duty(Duty16::new(100)).call().await;
         assert!(matches!(
-            err.unwrap_err().device(),
-            Some(PwmErrorOwned::Common(CommonErrorOwned::WrongState { .. }))
+            err.unwrap_err().common(),
+            Some(CommonErrorOwned::WrongState { .. })
         ));
     }
 
@@ -407,8 +407,8 @@ mod tests {
         // no measurement taken yet
         let err = channel.read_capture().call().await;
         assert!(matches!(
-            err.unwrap_err().device(),
-            Some(PwmErrorOwned::Common(CommonErrorOwned::WrongState { .. }))
+            err.unwrap_err().common(),
+            Some(CommonErrorOwned::WrongState { .. })
         ));
 
         // the device "measures" something; nothing here models real hardware, so the test sets it directly
@@ -433,20 +433,15 @@ mod tests {
             mode,
             gate: Second::from_parts(Prefix::Milli, NumericValue::U32(100)),
         };
-        let r = channel
+        let e = channel
             .capture(config(CaptureMode::Off))
             .call()
             .await
-            .unwrap();
+            .err()
+            .expect("refused");
         assert!(
-            matches!(
-                r,
-                Err(PwmErrorOwned::Common(
-                    CommonErrorOwned::InvalidArgument { .. }
-                ))
-            ),
-            "{:?}",
-            r.err()
+            matches!(e.common(), Some(CommonErrorOwned::InvalidArgument { .. })),
+            "{e:?}"
         );
 
         let (actual, mut stream) = channel

@@ -192,14 +192,14 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
                 _value: MaxLen<&'_ str, 32>,
-            ) -> SetResult<UserInfoError<'_>> {
+            ) -> SetResult<wire_weaver::Error<'_, UserInfoError>> {
                 Unimplemented.into()
             }
 
             async fn get_user_name(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
-            ) -> GetResult<MaxLen<&'_ str, 32>, UserInfoError<'_>> {
+            ) -> GetResult<MaxLen<&'_ str, 32>, wire_weaver::Error<'_, UserInfoError>> {
                 GetResult::Value(MaxLen::new_unchecked("bench 2"))
             }
 
@@ -207,21 +207,22 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
                 _value: MaxLen<&'_ str, 256>,
-            ) -> SetResult<UserInfoError<'_>> {
+            ) -> SetResult<wire_weaver::Error<'_, UserInfoError>> {
                 Unimplemented.into()
             }
 
             async fn get_user_notes(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
-            ) -> GetResult<MaxLen<&'_ str, 256>, UserInfoError<'_>> {
+            ) -> GetResult<MaxLen<&'_ str, 256>, wire_weaver::Error<'_, UserInfoError>>
+            {
                 GetResult::Value(MaxLen::new_unchecked("DUT of the CAN test"))
             }
 
             async fn defmt_frames(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
-            ) -> RpcResult<Result<(), ww_log::LogError<'_>>> {
+            ) -> RpcResult<Result<(), CommonError<'_>>> {
                 RpcResult::Ready(Ok(()))
             }
 
@@ -236,9 +237,8 @@ mod tests {
                 _cx: &mut Context<'_, impl EventOut>,
                 buffer: CounterBuffer,
                 offset: Index<Word, u16>,
-            ) -> RpcResult<
-                Result<MaxLen<RefVec<'_, UVlq32>, MAX_WORDS>, ww_counters::CountersError<'_>>,
-            > {
+            ) -> RpcResult<Result<MaxLen<RefVec<'_, UVlq32>, MAX_WORDS>, CommonError<'_>>>
+            {
                 let (words, used) = match buffer {
                     CounterBuffer::Ram => (&self.ram[..], RAM_USED),
                     CounterBuffer::Backup => (&self.bkp[..], BKP_USED),
@@ -250,7 +250,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
                 buffer: CounterBuffer,
-            ) -> RpcResult<Result<(), ww_counters::CountersError<'_>>> {
+            ) -> RpcResult<Result<(), CommonError<'_>>> {
                 match buffer {
                     CounterBuffer::Ram => reset_words(&self.ram),
                     CounterBuffer::Backup => reset_words(&self.bkp),
@@ -262,8 +262,8 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
                 _period: ww_si::Second,
-            ) -> RpcResult<Result<ww_si::Second, ww_counters::CountersError<'_>>> {
-                RpcResult::Ready(Err(ww_counters::CountersError::unsupported()))
+            ) -> RpcResult<Result<ww_si::Second, CommonError<'_>>> {
+                RpcResult::Ready(Err(CommonError::Unsupported))
             }
 
             async fn close_counters_watch(&mut self, _cx: &mut Context<'_, impl EventOut>) {}

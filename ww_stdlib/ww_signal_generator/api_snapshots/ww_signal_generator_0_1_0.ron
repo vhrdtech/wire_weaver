@@ -1,6 +1,6 @@
 // ww_signal_generator 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: cb98a3da8c4d81e69e6cc8bc89c5083ea8dd2cbbe118cda9a70127a077b74133
+// shrink_wrap sha256: 8f193dd2e13f1973bbb86c3e1b756f6cb0840558c8a7476d42869fc3fadd4a34
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Signal generators over WireWeaver: digital patterns on many pins at a fixed rate, and waveforms on DACs.",
     "",
@@ -100,13 +100,8 @@
         "returns.",
     ], ident: "PgError", generics: [], variants: [
         (docs: [
-            "{0}",
-        ], ident: "Common", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 19), docs: [], slot: None, series_opaque: false),
-        ]), discriminant: 0, since: None),
-        (docs: [
             "No channel with this index.",
-        ], ident: "NoSuchChannel", fields: Unit, discriminant: 1, since: None),
+        ], ident: "NoSuchChannel", fields: Unit, discriminant: 0, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "StreamChunk", signature: [
         97,
@@ -145,7 +140,7 @@
         ], ident: "Running", fields: Named([
             (ident: Some("repeat"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [], slot: None, series_opaque: false),
             (ident: Some("t_start"), default: None, since: None, ty: Instance(type_idx: 9, args: [
-                Type(OutOfLine(type_idx: 20)),
+                Type(OutOfLine(type_idx: 19)),
                 Type(OutOfLine(type_idx: 11)),
             ]), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
@@ -153,7 +148,7 @@
             "Played to the end, started at `t_start`.",
         ], ident: "Done", fields: Named([
             (ident: Some("t_start"), default: None, since: None, ty: Instance(type_idx: 9, args: [
-                Type(OutOfLine(type_idx: 20)),
+                Type(OutOfLine(type_idx: 19)),
                 Type(OutOfLine(type_idx: 11)),
             ]), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 4, since: None),
@@ -164,7 +159,7 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One output\'s waveform, see `WaveformChannel::set`.",
     ], ident: "Waveform", generics: [], fields: Named([
-        (ident: Some("shape"), default: None, since: None, ty: OutOfLine(type_idx: 21), docs: [], slot: None, series_opaque: false),
+        (ident: Some("shape"), default: None, since: None, ty: OutOfLine(type_idx: 20), docs: [], slot: None, series_opaque: false),
         (ident: Some("freq"), default: None, since: None, ty: Instance(type_idx: 9, args: [
             Type(OutOfLine(type_idx: 16)),
             Type(OutOfLine(type_idx: 11)),
@@ -206,13 +201,8 @@
         "returns.",
     ], ident: "WgError", generics: [], variants: [
         (docs: [
-            "{0}",
-        ], ident: "Common", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 19), docs: [], slot: None, series_opaque: false),
-        ]), discriminant: 0, since: None),
-        (docs: [
             "No channel with this index.",
-        ], ident: "NoSuchChannel", fields: Unit, discriminant: 1, since: None),
+        ], ident: "NoSuchChannel", fields: Unit, discriminant: 0, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "Quantity", signature: [
         177,
@@ -292,7 +282,7 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What a device\'s DACs offer, see `WaveformGenerator::capabilities`.",
     ], ident: "WgCapabilities", generics: [], fields: Named([
-        (ident: Some("channels"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: Vec(OutOfLine(type_idx: 22))), docs: [
+        (ident: Some("channels"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: Vec(OutOfLine(type_idx: 21))), docs: [
             "`channel[n]` is `channels[n]`.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -360,30 +350,12 @@
         (docs: [
             "On the external trigger input.",
         ], ident: "External", fields: Named([
-            (ident: Some("edge"), default: None, since: None, ty: OutOfLine(type_idx: 23), docs: [], slot: None, series_opaque: false),
+            (ident: Some("edge"), default: None, since: None, ty: OutOfLine(type_idx: 22), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
         (docs: [
             "When this device\'s `LogicAnalyzer` triggers: a stimulus and its response on one time base.",
         ], ident: "AnalyzerTrigger", fields: Unit, discriminant: 2, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 4, type_name: "CommonError", signature: [
-        30,
-        18,
-        211,
-        141,
-        253,
-        197,
-        48,
-        184,
-        37,
-        11,
-        183,
-        248,
-        238,
-        96,
-        205,
-        177,
-    ]),
     SkippedFullVersion(crate_idx: 3, type_name: "units::Second", signature: [
         176,
         71,
@@ -423,7 +395,7 @@
             "than it plays, a `once` table is a streamed DAC output. Amplitude and offset are ignored: the codes are the",
             "levels ([WgChannelInfo::code_to_volt]).",
         ], ident: "Arbitrary", fields: Named([
-            (ident: Some("format"), default: None, since: None, ty: OutOfLine(type_idx: 24), docs: [], slot: None, series_opaque: false),
+            (ident: Some("format"), default: None, since: None, ty: OutOfLine(type_idx: 23), docs: [], slot: None, series_opaque: false),
             (ident: Some("once"), default: None, since: None, ty: Bool, docs: [], slot: None, series_opaque: false),
         ]), discriminant: 5, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
@@ -463,10 +435,10 @@
         (ident: Some("table_len"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Table memory in samples.",
         ], slot: None, series_opaque: false),
-        (ident: Some("code_to_volt"), default: None, since: None, ty: OutOfLine(type_idx: 25), docs: [
+        (ident: Some("code_to_volt"), default: None, since: None, ty: OutOfLine(type_idx: 24), docs: [
             "Codes of tables to volts.",
         ], slot: None, series_opaque: false),
-        (ident: Some("formats"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 24))), docs: [
+        (ident: Some("formats"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 23))), docs: [
             "Table formats.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -488,7 +460,7 @@
         122,
         4,
     ]),
-    SkippedFullVersion(crate_idx: 5, type_name: "SampleFormat", signature: [
+    SkippedFullVersion(crate_idx: 4, type_name: "SampleFormat", signature: [
         149,
         244,
         33,
@@ -506,7 +478,7 @@
         73,
         153,
     ]),
-    SkippedFullVersion(crate_idx: 5, type_name: "Linear", signature: [
+    SkippedFullVersion(crate_idx: 4, type_name: "Linear", signature: [
         134,
         10,
         201,
@@ -537,7 +509,7 @@
         (id: 1, kind: Method(args: [
             (ident: "config", ty: OutOfLine(type_idx: 1), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 2), err_ty: OutOfLine(type_idx: 3))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "InvalidArgument",
                 "Unsupported",
                 "Busy",
@@ -554,7 +526,7 @@
             "Pattern data, appended in order. The credit is the free pattern memory.",
         ], optional: None, meta: None, identity: None),
         (id: 3, kind: Method(args: [], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 3))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "WrongState",
                 "Refused",
             ])),
@@ -576,7 +548,7 @@
         (id: 0, kind: Method(args: [
             (ident: "waveform", ty: OutOfLine(type_idx: 6), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 7), err_ty: OutOfLine(type_idx: 8))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "InvalidArgument",
                 "Unsupported",
                 "WrongState",
@@ -597,7 +569,7 @@
             Type(OutOfLine(type_idx: 10)),
             Type(OutOfLine(type_idx: 11)),
         ]), err_ty: OutOfLine(type_idx: 8))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "InvalidArgument",
                 "Refused",
             ])),
@@ -621,7 +593,7 @@
         (id: 2, kind: Method(args: [
             (ident: "channels", ty: MaxLen(max_len: Fixed(32), ty: Vec(NumericAny(Base(U8)))), default: Some("Default::default()"), flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 8))), errors: Some([
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "Unsupported",
                 "WrongState",
             ])),
@@ -637,13 +609,11 @@
     (crate_id: "ww_logic_analyzer", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_si", version: (major: 0, minor: 5, patch: 0, pre: None, build: None)),
     (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-    (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_adc", version: (major: 0, minor: 3, patch: 0, pre: None, build: None)),
-], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
-    Some((line: 1, revision: 0)),
+], root_omitted: None, wire: Some((line: 2, revision: 0)), ext_wire: Some([
     Some((line: 2, revision: 0)),
+    Some((line: 3, revision: 0)),
     Some((line: 5, revision: 0)),
     None,
-    Some((line: 1, revision: 0)),
-    Some((line: 3, revision: 0)),
+    Some((line: 4, revision: 0)),
 ]))

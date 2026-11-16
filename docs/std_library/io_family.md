@@ -62,9 +62,8 @@ threshold per capture.
 
 **Common errors.** Each crate has its own error enum (`ww_gpio::GpioError`, `ww_uart::UartError`,
 `ww_i2c::I2cError`, `ww_spi::SpiError`, `ww_can_bus::CanError`, `ww_adc::AdcError`, `ww_pwm::PwmError`, `ww_onewire::OneWireError`,
-`ww_timebase::ClockError`, `ww_logic_analyzer::LaError`, `ww_signal_generator::PgError` / `WgError`), and every one
-of them starts with [`ww_error::CommonError`](../api/errors.md#common-errors) as its `#[common] Common` variant for
-the situations every device shares: `Unsupported` (this device doesn't have the mode, level or feature asked for),
+`ww_logic_analyzer::LaError`, `ww_signal_generator::PgError` / `WgError`), and every item returns
+[`ww_error::CommonError`](../api/errors.md#common-errors) beside it for the situations every device shares: `Unsupported` (this device doesn't have the mode, level or feature asked for),
 `InvalidArgument`, `InUse` (the pins or peripheral already serve another function), `Busy`, `WrongState`,
 `NoPower` (the level translators or output buffers have no supply), `Refused` (a safety rule of the device declines
 the request), `Timeout`. Only what a caller acts on specifically stays crate-specific: `Nack` and `Arbitration` for

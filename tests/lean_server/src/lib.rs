@@ -39,14 +39,14 @@ impl Server {
         &mut self,
         _cx: &mut Context<'_, impl BlockingEventOut>,
         _value: flash_budget_api::Code,
-    ) -> SetResult<()> {
+    ) -> SetResult<CommonError<'_>> {
         Unimplemented.into()
     }
 
     fn get_base_p0(
         &mut self,
         _cx: &mut Context<'_, impl BlockingEventOut>,
-    ) -> GetResult<flash_budget_api::Code, ()> {
+    ) -> GetResult<flash_budget_api::Code, CommonError<'_>> {
         Unimplemented.into()
     }
 
@@ -54,14 +54,14 @@ impl Server {
         &mut self,
         _cx: &mut Context<'_, impl BlockingEventOut>,
         _value: flash_budget_api::Code,
-    ) -> SetResult<()> {
+    ) -> SetResult<CommonError<'_>> {
         Unimplemented.into()
     }
 
     fn get_base_p1(
         &mut self,
         _cx: &mut Context<'_, impl BlockingEventOut>,
-    ) -> GetResult<flash_budget_api::Code, ()> {
+    ) -> GetResult<flash_budget_api::Code, CommonError<'_>> {
         Unimplemented.into()
     }
 

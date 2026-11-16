@@ -83,7 +83,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: MaxLen<&'_ str, 6>,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.data.lock().unwrap().label = value.to_string();
                 SetResult::Set
             }
@@ -91,7 +91,7 @@ mod tests {
             fn get_label(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<MaxLen<&'_ str, 6>, ()> {
+            ) -> GetResult<MaxLen<&'_ str, 6>, CommonError<'_>> {
                 let label = self.data.lock().unwrap().label.clone();
                 self.label[..label.len()].copy_from_slice(label.as_bytes());
                 let label = core::str::from_utf8(&self.label[..label.len()]).unwrap();

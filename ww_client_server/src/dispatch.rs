@@ -24,7 +24,7 @@ use wire_weaver::shrink_wrap::{
     SerializeShrinkWrap,
     buf_writer::{BufWriterState, UnsizedBuilder},
 };
-use wire_weaver::{GetResult, RpcResult, SetResult};
+use wire_weaver::{Error as HandlerError, GetResult, RpcResult, SetResult};
 use ww_error::CommonError;
 
 /// What a level of the generated dispatcher did with a request. The reply, value or error, is in the writer the
@@ -128,13 +128,46 @@ pub fn common_error<const MULTI: bool>(
     wr: &mut BufWriter<'_>,
     d: &Dispatch<'_, MULTI>,
     err_seq: u32,
-    error: CommonError<'_>,
+    error: &CommonError<'_>,
 ) -> WrAction {
     write_error_at(
         wr,
         &d.before,
-        &Error::new(err_seq, ErrorKind::Common(error)),
+        &Error::new(err_seq, ErrorKind::Common(error.clone())),
     )
+}
+
+/// A deferred method's common error as its reply event: `reply_to` is `cx.reply_to()` of the call.
+pub async fn send_common_error<M>(
+    out: &mut impl wire_weaver::EventOut,
+    reply_to: wire_weaver::ReplyTo<M>,
+    error: &CommonError<'_>,
+) -> Result<(), wire_weaver::SendError> {
+    out.send_reply_with(reply_to.priority, |scratch| {
+        ser_common_error_event(scratch, reply_to.seq, error)
+    })
+    .await
+}
+
+/// [send_common_error] of a blocking server.
+pub fn send_common_error_blocking<M>(
+    out: &mut impl wire_weaver::BlockingEventOut,
+    reply_to: wire_weaver::ReplyTo<M>,
+    error: &CommonError<'_>,
+) -> Result<(), wire_weaver::SendError> {
+    out.send_reply_with_blocking(reply_to.priority, |scratch| {
+        ser_common_error_event(scratch, reply_to.seq, error)
+    })
+}
+
+/// The error event of a deferred method's common error in `scratch`: its length.
+pub fn ser_common_error_event(
+    scratch: &mut [u8],
+    seq: u32,
+    error: &CommonError<'_>,
+) -> Result<usize, ShrinkWrapError> {
+    let error = Error::new(err_seq::method::HANDLER, ErrorKind::Common(error.clone()));
+    Ok(crate::util::ser_err_event(scratch, seq, error)?.len())
 }
 
 /// `error` written at `before`, the start of the reply.
@@ -282,17 +315,51 @@ fn reply_erased<const MULTI: bool>(
     WrAction::WrittenOk
 }
 
-/// A call's answer from its handler's result: the output (not written when the request's seq is 0, no answer is
-/// sent), nothing for a deferred call (it answers later), or `Unimplemented`.
+/// A call's answer from its handler's result, [RpcResult::output] of a method declared without a `Result`: the
+/// output (not written when the request's seq is 0, no answer is sent), the common error the handler answered with
+/// instead, nothing for a deferred call (it answers later), or `Unimplemented`.
+///
+/// A handler that returns the value itself folds to the output path: the `Err` arm costs nothing then.
 #[inline(always)]
 pub fn reply_call<const MULTI: bool, T: SerializeShrinkWrap>(
     wr: &mut BufWriter<'_>,
     d: &Dispatch<'_, MULTI>,
-    result: RpcResult<T>,
+    result: RpcResult<Result<T, CommonError<'_>>>,
+) -> WrAction {
+    match result {
+        RpcResult::Ready(Ok(output)) => {
+            reply_output(wr, d, ErasedValue::new(&output), is_unsized::<T>())
+        }
+        RpcResult::Ready(Err(e)) => common_error(wr, d, err_seq::method::HANDLER, &e),
+        RpcResult::Deferred => WrAction::Deferred,
+        RpcResult::Unimplemented => unimplemented_call(wr, d),
+    }
+}
+
+/// [reply_call] of a method declared `-> Result<T, E>`: the API's own error `E` is the `Err` of the `Result` in
+/// the value, a common error is an error event instead. The `Result` is written through the same thunk whichever
+/// way it went, by reference, so the `Ok` path moves nothing.
+#[inline(always)]
+pub fn reply_call_result<const MULTI: bool, T: SerializeShrinkWrap, E: SerializeShrinkWrap>(
+    wr: &mut BufWriter<'_>,
+    d: &Dispatch<'_, MULTI>,
+    result: RpcResult<Result<T, HandlerError<'_, E>>>,
 ) -> WrAction {
     match result {
         RpcResult::Ready(output) => {
-            reply_output(wr, d, ErasedValue::new(&output), is_unsized::<T>())
+            let output: Result<&T, &E> = match &output {
+                Ok(value) => Ok(value),
+                Err(HandlerError::Api(e)) => Err(e),
+                Err(HandlerError::Common(c)) => {
+                    return common_error(wr, d, err_seq::method::HANDLER, c);
+                }
+            };
+            reply_output(
+                wr,
+                d,
+                ErasedValue::new(&output),
+                is_unsized::<Result<T, E>>(),
+            )
         }
         RpcResult::Deferred => WrAction::Deferred,
         RpcResult::Unimplemented => unimplemented_call(wr, d),
@@ -340,65 +407,71 @@ fn unimplemented_call<const MULTI: bool>(
     )
 }
 
-/// A property read's answer from its getter's result: the value, the user error `E` written in place, or
-/// `Unimplemented` written in place.
+/// A property read's answer from its getter's result: the value, the API's own error `E` written in place, a
+/// common error, or `Unimplemented` written in place.
 #[inline(always)]
 pub fn reply_get<const MULTI: bool, T: SerializeShrinkWrap, E: SerializeShrinkWrap>(
     wr: &mut BufWriter<'_>,
     d: &Dispatch<'_, MULTI>,
-    result: GetResult<T, E>,
+    result: GetResult<T, HandlerError<'_, E>>,
 ) -> WrAction {
     match result {
         GetResult::Value(value) => reply_value(wr, d, &value, err_seq::property::VALUE),
-        GetResult::GetError(user_err) => {
+        GetResult::GetError(HandlerError::Api(user_err)) => {
             write_user_error(wr, d, ErasedValue::new(&user_err), is_unsized::<E>())
+        }
+        GetResult::GetError(HandlerError::Common(c)) => {
+            common_error(wr, d, err_seq::property::HANDLER, &c)
         }
         GetResult::Unimplemented => unimplemented_property(wr, d),
     }
 }
 
-/// [reply_get] of a property without a user error type: its errors are an empty [ErrorKind::UserBytes].
+/// [reply_get] of a property without an error type of its own: its getter fails with a common error.
 #[inline(always)]
-pub fn reply_get_unit_err<const MULTI: bool, T: SerializeShrinkWrap>(
+pub fn reply_get_common<const MULTI: bool, T: SerializeShrinkWrap>(
     wr: &mut BufWriter<'_>,
     d: &Dispatch<'_, MULTI>,
-    result: GetResult<T, ()>,
+    result: GetResult<T, CommonError<'_>>,
 ) -> WrAction {
     match result {
         GetResult::Value(value) => reply_value(wr, d, &value, err_seq::property::VALUE),
-        GetResult::GetError(()) => write_unit_user_error(wr, d),
+        GetResult::GetError(c) => common_error(wr, d, err_seq::property::HANDLER, &c),
         GetResult::Unimplemented => unimplemented_property(wr, d),
     }
 }
 
-/// A property write's answer from its setter's result: an `Ok` with nothing, the user error `E` written in place,
-/// or `Unimplemented`. User errors are always sent back, even when seq is 0: they won't reach a call site, but
-/// they show up in logs.
+/// A property write's answer from its setter's result: an `Ok` with nothing, the API's own error `E` written in
+/// place, a common error, or `Unimplemented`. Errors are always sent back, even when seq is 0: they won't reach a
+/// call site, but they show up in logs.
 #[inline(always)]
 pub fn reply_set<const MULTI: bool, E: SerializeShrinkWrap>(
     wr: &mut BufWriter<'_>,
     d: &Dispatch<'_, MULTI>,
-    result: SetResult<E>,
+    result: SetResult<HandlerError<'_, E>>,
 ) -> WrAction {
     match result {
         SetResult::Set => reply_ok(wr, d),
-        SetResult::SetError(user_err) => {
+        SetResult::SetError(HandlerError::Api(user_err)) => {
             write_user_error(wr, d, ErasedValue::new(&user_err), is_unsized::<E>())
+        }
+        SetResult::SetError(HandlerError::Common(c)) => {
+            common_error(wr, d, err_seq::property::HANDLER, &c)
         }
         SetResult::Unimplemented => unimplemented_property(wr, d),
     }
 }
 
-/// [reply_set] of a property without a user error type: its errors are an empty [ErrorKind::UserBytes].
+/// [reply_set] of a property without an error type of its own: its setter fails with a common error.
 #[inline(never)]
-pub fn reply_set_unit_err<const MULTI: bool>(
+pub fn reply_set_common<const MULTI: bool>(
     wr: &mut BufWriter<'_>,
     d: &Dispatch<'_, MULTI>,
-    result: SetResult<()>,
+    result: SetResult<CommonError<'_>>,
 ) -> WrAction {
     match result {
         SetResult::Set => reply_ok(wr, d),
-        SetResult::SetError(()) => write_unit_user_error(wr, d),
+        SetResult::SetError(c) => common_error(wr, d, err_seq::property::HANDLER, &c),
         SetResult::Unimplemented => unimplemented_property(wr, d),
     }
 }
@@ -453,28 +526,6 @@ fn write_user_error<const MULTI: bool>(
     }
 }
 
-/// The user error of a property without a user error type, written in place: an empty [ErrorKind::UserBytes].
-#[inline(never)]
-fn write_unit_user_error<const MULTI: bool>(
-    wr: &mut BufWriter<'_>,
-    d: &Dispatch<'_, MULTI>,
-) -> WrAction {
-    // a user error is not a failure of the reply: the reply can't have started yet, the error is written where
-    // the writer is
-    match wr.write(&Error::new(
-        err_seq::USER_ERROR,
-        ErrorKind::UserBytes(RefVec::new_bytes(&[])),
-    )) {
-        Ok(()) => WrAction::WrittenErr,
-        Err(_) => err(
-            wr,
-            d,
-            err_seq::USER_ERROR,
-            ErrorKindDiscriminants::ResponseSerFailed,
-        ),
-    }
-}
-
 /// A stream open's answer: the session in `opened` (its head) and the stream function's `output`.
 #[inline(always)]
 pub fn reply_opened<const MULTI: bool, T: SerializeShrinkWrap>(
@@ -513,16 +564,46 @@ fn reply_opened_erased<const MULTI: bool>(
     WrAction::WrittenOk
 }
 
-/// The open answer of a plain stream (no session, nothing kept) from its stream function's result: the closed
-/// head and the output; a stream function can't defer, a deferred one is refused.
+/// The open answer of a plain stream (no session, nothing kept) from its stream function's result,
+/// [RpcResult::output] of a function declared without a `Result`: the closed head and the output, or the common
+/// error the function refused the open with; a stream function can't defer, a deferred one is refused.
 #[inline(always)]
 pub fn reply_open_plain<const MULTI: bool, T: SerializeShrinkWrap>(
     wr: &mut BufWriter<'_>,
     d: &Dispatch<'_, MULTI>,
-    result: RpcResult<T>,
+    result: RpcResult<Result<T, CommonError<'_>>>,
 ) -> WrAction {
     match result {
-        RpcResult::Ready(output) => reply_opened_plain(wr, d, ErasedValue::new(&output)),
+        RpcResult::Ready(Ok(output)) => reply_opened_plain(wr, d, ErasedValue::new(&output)),
+        RpcResult::Ready(Err(e)) => common_error(wr, d, err_seq::stream::OPEN, &e),
+        RpcResult::Deferred => refuse_open(wr, d, ErrorKindDiscriminants::OperationNotSupported),
+        RpcResult::Unimplemented => refuse_open(wr, d, ErrorKindDiscriminants::Unimplemented),
+    }
+}
+
+/// [reply_open_plain] of a stream function declared `-> Result<T, E>`: `E` is the `Err` of the `Result` in the
+/// answer, a common error an error event instead.
+#[inline(always)]
+pub fn reply_open_plain_result<
+    const MULTI: bool,
+    T: SerializeShrinkWrap,
+    E: SerializeShrinkWrap,
+>(
+    wr: &mut BufWriter<'_>,
+    d: &Dispatch<'_, MULTI>,
+    result: RpcResult<Result<T, HandlerError<'_, E>>>,
+) -> WrAction {
+    match result {
+        RpcResult::Ready(output) => {
+            let output: Result<&T, &E> = match &output {
+                Ok(value) => Ok(value),
+                Err(HandlerError::Api(e)) => Err(e),
+                Err(HandlerError::Common(c)) => {
+                    return common_error(wr, d, err_seq::stream::OPEN, c);
+                }
+            };
+            reply_opened_plain(wr, d, ErasedValue::new(&output))
+        }
         RpcResult::Deferred => refuse_open(wr, d, ErrorKindDiscriminants::OperationNotSupported),
         RpcResult::Unimplemented => refuse_open(wr, d, ErrorKindDiscriminants::Unimplemented),
     }

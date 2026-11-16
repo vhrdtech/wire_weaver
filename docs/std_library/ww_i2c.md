@@ -49,17 +49,17 @@ several operations without releasing the bus in between (repeated starts).
 #[ww_trait]
 pub trait I2c {
     fn i2c_capabilities() -> I2cCapabilities<'i>;
-    fn i2c_configure(config: I2cConfig) -> Result<I2cConfig, I2cError<'i>>;
+    fn i2c_configure(config: I2cConfig) -> Result<I2cConfig, I2cError>;
     fn i2c_write(addr: I2cAddress, data: MaxLen<RefVec<'i, u8>, MAX_WRITE_LEN>, delay_after: Option<Second>)
-        -> Result<I2cTransactionTimeRange, I2cError<'i>>;
+        -> Result<I2cTransactionTimeRange, I2cError>;
     fn i2c_read(addr: I2cAddress, kind: I2cReadKind<'i>, len: u16, delay_after: Option<Second>)
-        -> Result<I2cReadEnvelope<'i>, I2cError<'i>>;
-    fn i2c_scan() -> Result<MaxLen<RefVec<'i, u8>, MAX_SCAN>, I2cError<'i>>;
+        -> Result<I2cReadEnvelope<'i>, I2cError>;
+    fn i2c_scan() -> Result<MaxLen<RefVec<'i, u8>, MAX_SCAN>, I2cError>;
     fn i2c_transaction(addr: I2cAddress, ops: MaxLen<RefVec<'i, I2cOp<'i>>, MAX_OPS>)
-        -> Result<I2cTransactionResult<'i>, I2cError<'i>>;
+        -> Result<I2cTransactionResult<'i>, I2cError>;
     fn i2c_lines_state() -> I2cLinesState;
-    fn i2c_wiggle_clock(count: u8) -> Result<I2cLinesState, I2cError<'i>>;
-    fn i2c_set_pullups(enabled: bool) -> Result<(), I2cError<'i>>;
+    fn i2c_wiggle_clock(count: u8) -> Result<I2cLinesState, I2cError>;
+    fn i2c_set_pullups(enabled: bool) -> Result<(), I2cError>;
     fn i2c_pullups() -> bool;
 }
 ```
@@ -73,7 +73,7 @@ pub trait I2c {
 * `i2c_write` - start, address, data, stop; `delay_after` makes the next transfer to the *same* address wait (an
   EEPROM page write needs ~5 ms) while transfers to other addresses go ahead meanwhile. Empty data is an
   address-only write (probing, SMBus Quick Command) on adapters with `I2cCapabilities::zero_length_write`,
-  `Common(Unsupported)` on the others.
+  `CommonError::Unsupported` on the others.
 * `i2c_read` - plain read, or a register read (write a few bytes, repeated start, read) through
   [`I2cReadKind`](#types).
 * `i2c_scan` - 7-bit addresses that acknowledged a one-byte read, ascending, skipping the reserved ranges
@@ -84,7 +84,7 @@ pub trait I2c {
   mid-byte, missing/unpowered pull-ups, or a short.
 * `i2c_wiggle_clock` - bus recovery: clocks SCL up to `count` times (9 is enough for any stuck byte) at the
   configured SCL frequency but at most 100 kHz, stopping once SDA is released, then sends a stop; returns the line
-  levels afterwards. It works while the bus is disabled or a master between transfers; `Common(NoPower)` when
+  levels afterwards. It works while the bus is disabled or a master between transfers; `CommonError::NoPower` when
   the bus has no level to drive (level translators without an IO level, a bus off while disabled). A device never frees the
   bus on its own: a transfer that finds a line held low fails with `BusStuck`, and the host decides to recover.
 * `i2c_set_pullups` / `i2c_pullups` - the adapter's own pull-up resistors on SCL and SDA, on adapters that have
@@ -128,9 +128,9 @@ pub trait I2cWatch {
     #[counted]
     stream!(changes: I2cWatchEvent<'i>);
     fn watch_capabilities() -> I2cWatchCapabilities;
-    fn watch_add(watch: I2cWatchConfig<'i>) -> Result<u32, I2cError<'i>>;
-    fn watch_modify(slot: u32, watch: I2cWatchConfig<'i>) -> Result<(), I2cError<'i>>;
-    fn watch_remove(slot: u32) -> Result<(), I2cError<'i>>;
+    fn watch_add(watch: I2cWatchConfig<'i>) -> Result<u32, I2cError>;
+    fn watch_modify(slot: u32, watch: I2cWatchConfig<'i>) -> Result<(), I2cError>;
+    fn watch_remove(slot: u32) -> Result<(), I2cError>;
     fn watch_list() -> MaxLen<RefVec<'i, u32>, MAX_WATCHES>;
 }
 ```
@@ -166,7 +166,7 @@ too), for devices that only sniff and implement no `I2c`.
 #[ww_trait]
 pub trait I2cMonitor {
     #[stream(I2cRecord<'i>, counted)]
-    fn records(io_level: Option<Volt>) -> Result<(), I2cError<'i>>;
+    fn records(io_level: Option<Volt>) -> Result<(), I2cError>;
 }
 ```
 
@@ -188,11 +188,11 @@ pub trait I2c {
     fn slave_capabilities() -> I2cSlaveCapabilities;
     #[optional(slave)]
     #[stream(I2cSlaveEvent<'i>, counted)]
-    fn slave_events(config: I2cSlaveConfig) -> Result<(), I2cError<'i>>;
+    fn slave_events(config: I2cSlaveConfig) -> Result<(), I2cError>;
     #[optional(slave)]
-    fn slave_map_write(offset: u32, data: MaxLen<RefVec<'i, u8>, MAX_WRITE_LEN>) -> Result<(), I2cError<'i>>;
+    fn slave_map_write(offset: u32, data: MaxLen<RefVec<'i, u8>, MAX_WRITE_LEN>) -> Result<(), I2cError>;
     #[optional(slave)]
-    fn slave_map_read(offset: u32, len: u16) -> Result<MaxLen<RefVec<'i, u8>, MAX_READ_LEN>, I2cError<'i>>;
+    fn slave_map_read(offset: u32, len: u16) -> Result<MaxLen<RefVec<'i, u8>, MAX_READ_LEN>, I2cError>;
     #[optional(slave)]
     #[credit]
     sink!(slave_answers: MaxLen<RefVec<'i, u8>, MAX_READ_LEN>);
@@ -246,7 +246,7 @@ embedded-hal (`SevenBitAddress` / `TenBitAddress`): `I2cAddress::seven(0x50)`, `
 returning `None` above the respective range. It is bit-packed (SW-48, sub-byte fields): a 7-bit address takes
 **one byte** on the wire, exactly as a plain `u8` would, and a 10-bit one 11 bits (2 bytes) - `ww_i2c`'s own test
 suite checks both sizes against a real `to_ww_bytes()` call. An adapter without 10-bit support answers
-`Common(Unsupported)` (see `I2cCapabilities::ten_bit_addresses`). `i2c_scan` still only returns 7-bit addresses (a
+`CommonError::Unsupported` (see `I2cCapabilities::ten_bit_addresses`). `i2c_scan` still only returns 7-bit addresses (a
 10-bit scan is rarely useful and would need 1024 single-byte reads).
 
 ## Sizes
@@ -314,7 +314,7 @@ up with the device's other data.
   (the first byte not acknowledged: `Some(0)` the address, `Some(n)` `bytes[n - 1]`), `bytes` (without the address).
 * `I2cRecordKind` - `Complete`, `RepeatedStart` (the next record continues the transaction), `Truncated` (more than
   `MAX_RECORD_LEN` bytes), `BusError`.
-* `I2cError<'i>` - `Common(CommonError)` ([common errors](../api/errors.md#common-errors)), then `Nack { op, at }`,
+* `I2cError` - the [common errors](../api/errors.md#common-errors) beside its own then `Nack { op, at }`,
   `Arbitration`, `Bus`, `Crc`, `Overrun`, `BufferTooBig`, `OutOfWatchSlots`, `InvalidWatchSlot`, `ClockStretch`,
   `BusStuck { scl_low, sda_low }`; unsized (`unib32` discriminant), evolvable, `Display` from the doc lines (see
   [below](#errors)).
@@ -325,7 +325,7 @@ available by enabling the crate's `std` / `defmt` features.
 
 ## Errors
 
-Every trait returns `I2cError`: [`CommonError`](../api/errors.md#common-errors) as its `#[common] Common` variant
+Every trait returns `I2cError` beside the [common errors](../api/errors.md#common-errors)
 (unsupported mode or IO level, invalid argument, in use, wrong state, no power, refused, timeout), then what is
 specific to I2C and a caller acts on:
 
@@ -336,7 +336,7 @@ specific to I2C and a caller acts on:
 | `Bus` | a start or stop where it doesn't belong | check the wiring, retry |
 | `ClockStretch` | a slave held SCL low longer than the master's `stretch_timeout` | raise the timeout for a slow slave, or reset it |
 | `BusStuck { scl_low, sda_low }` | a line held low before the start: a slave stuck mid-byte, no pull-ups, a short | `i2c_wiggle_clock`, then check `i2c_lines_state` |
-| `Common(Timeout)` | the call didn't finish within the device's own deadline, e.g. another master kept the bus | retry later |
+| `CommonError::Timeout` | the call didn't finish within the device's own deadline, e.g. another master kept the bus | retry later |
 | `Crc`, `Overrun` | SMBus PEC failed; data came faster than the adapter took it (slave mode) | retry |
 | `BufferTooBig` | longer than the device takes | split the transfer |
 | `OutOfWatchSlots`, `InvalidWatchSlot` | `I2cWatch` slots | remove a watch; use a slot from `watch_list` |
@@ -346,7 +346,7 @@ enum is unsized, so a newer device's variant reads as `Unknown(n)` on an older h
 
 ```rust
 match dev.i2c().i2c_write(addr, data.clone(), None).call().await {
-    Err(CallError::Device(I2cErrorOwned::Nack { at: Some(0), .. })) => { /* not there, or busy */ }
+    Err(CallError::Device(I2cError::Nack { at: Some(0), .. })) => { /* not there, or busy */ }
     Err(CallError::Device(e)) if e.common().is_some() => { /* the same handling as for any other crate */ }
     r => { r?; }
 }
@@ -371,7 +371,7 @@ a tiny bus of addressable byte registers in a shared `Model`. The generated clie
 event loop end to end:
 
 * `i2c_write_read_roundtrip`, `i2c_nack_and_zero_length`, `i2c_scan_and_lines` - `I2c` write/read/scan/lines/pullups,
-  and the `Nack` / `Common(InvalidArgument)` (zero length) error paths.
+  and the `Nack` / `CommonError::InvalidArgument` (zero length) error paths.
 * `i2c_data_nack_names_op_and_byte`, `i2c_clock_stretch_timeout`, `i2c_bus_stuck_until_recovered` - where a `Nack`
   happened (operation and byte), the stretch timeout and `ClockStretch`, and a stuck bus reported as `BusStuck` until
   `i2c_wiggle_clock` frees it.

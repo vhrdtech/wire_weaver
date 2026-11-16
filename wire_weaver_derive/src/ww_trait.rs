@@ -391,11 +391,11 @@ fn errors_section(api_bundle: &ApiBundleOwned, item: &str) -> Vec<String> {
     else {
         return vec![];
     };
-    let (Some(errors), Some(err_ty)) = (kind.error_list(), kind.err_ty(api_bundle)) else {
+    let Some(errors) = kind.error_list() else {
         return vec![];
     };
     let mut lines = vec![String::new(), " # Errors".to_string(), String::new()];
-    for (name, doc) in error_list_docs(errors, err_ty, api_bundle) {
+    for (name, doc) in error_list_docs(errors, kind.err_ty(api_bundle), api_bundle) {
         lines.push(match doc {
             Some(doc) => format!(" - `{name}`: {doc}"),
             None => format!(" - `{name}`"),
@@ -714,8 +714,8 @@ mod tests {
                 "",
                 " # Errors",
                 "",
-                " - `Common(Busy)`: Busy with another operation, try again later",
-                " - `Common(InUse)`: In use by {by}",
+                " - `CommonError(Busy)`: Busy with another operation, try again later",
+                " - `CommonError(InUse)`: In use by {by}",
                 " - `Nack`: The sensor did not answer",
             ]
         );

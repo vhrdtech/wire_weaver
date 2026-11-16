@@ -78,7 +78,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: Tree<'_>,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 let mut buf = [0u8; 512];
                 let bytes = value.to_ww_bytes(&mut buf).unwrap();
                 self.data.lock().unwrap().tree = Some(bytes.to_vec());
@@ -88,14 +88,18 @@ mod tests {
             fn get_tree(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Tree<'_>, ()> {
+            ) -> GetResult<Tree<'_>, CommonError<'_>> {
                 let Some(tree) = self.data.lock().unwrap().tree.clone() else {
-                    return GetResult::GetError(());
+                    return GetResult::GetError(CommonError::WrongState {
+                        reason: MaxLen::new_unchecked(""),
+                    });
                 };
                 self.tree = tree;
                 match Tree::from_ww_bytes(&self.tree) {
                     Ok(tree) => GetResult::Value(tree),
-                    Err(_) => GetResult::GetError(()),
+                    Err(_) => GetResult::GetError(CommonError::WrongState {
+                        reason: MaxLen::new_unchecked(""),
+                    }),
                 }
             }
 

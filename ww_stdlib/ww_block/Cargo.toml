@@ -13,12 +13,11 @@ wire = "w1.0"
 
 [features]
 default = ["std"]
-std = ["ww_api/std", "ww_crc/table-slice16", "ww_error/std", "ww_si/std"]
-defmt = ["dep:defmt", "ww_api/defmt", "ww_error/defmt", "ww_si/defmt"]
+std = ["ww_api/std", "ww_crc/table-slice16", "ww_si/std"]
+defmt = ["dep:defmt", "ww_api/defmt", "ww_si/defmt"]
 
 [dependencies]
 defmt = { workspace = true, optional = true }
 ww_api.workspace = true
 ww_crc.workspace = true
-ww_error = { workspace = true, default-features = false }
 ww_si = { workspace = true, default-features = false, features = ["time", "information", "counting"] }

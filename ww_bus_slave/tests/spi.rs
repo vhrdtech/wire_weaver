@@ -361,7 +361,11 @@ fn config_errors_and_off() {
     let no_queue = SpiSlave::<8, 0, 0, 0, 1, 1>::new().configure(&config(q));
     assert_eq!(no_queue, Err(ConfigError::Unsupported));
     assert_eq!(
-        ww_spi::SpiError::from(ConfigError::BufferTooBig),
-        ww_spi::SpiError::BufferTooBig
+        wire_weaver::Error::from(ConfigError::BufferTooBig),
+        wire_weaver::Error::Api(ww_spi::SpiError::BufferTooBig)
+    );
+    assert_eq!(
+        wire_weaver::Error::<ww_spi::SpiError>::from(ConfigError::Unsupported),
+        wire_weaver::Error::Common(wire_weaver::CommonError::Unsupported)
     );
 }

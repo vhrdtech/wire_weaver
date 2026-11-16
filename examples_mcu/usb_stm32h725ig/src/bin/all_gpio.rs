@@ -236,7 +236,7 @@ impl ServerState {
         _cx: &mut Context<'_, impl EventOut>,
         _index: [ww_client_server::ResourceIndex; 1],
         config: BankConfig,
-    ) -> RpcResult<Result<BankConfig, GpioError<'_>>> {
+    ) -> RpcResult<Result<BankConfig, wire_weaver::Error<'_, GpioError>>> {
         // fixed 3.3 V, no level translators
         if config.io_level.is_some() {
             return Ready(Err(CommonError::Unsupported.into()));
@@ -337,7 +337,7 @@ impl ServerState {
         _cx: &mut Context<'_, impl EventOut>,
         _index: [ww_client_server::ResourceIndex; 2],
         _enabled: IoPinEnabledEvents<'_>,
-    ) -> RpcResult<Result<(), GpioError<'_>>> {
+    ) -> RpcResult<Result<(), wire_weaver::Error<'_, GpioError>>> {
         Ready(Err(CommonError::Unsupported.into()))
     }
 
@@ -364,7 +364,7 @@ impl ServerState {
         index: [ww_client_server::ResourceIndex; 2],
         mode: Mode,
         initial: Option<Level>,
-    ) -> RpcResult<Result<(), GpioError<'_>>> {
+    ) -> RpcResult<Result<(), wire_weaver::Error<'_, GpioError>>> {
         if let Some(initial) = initial {
             self.port_pin_set_output_level(_cx, index, initial).await;
         }
@@ -422,7 +422,7 @@ impl ServerState {
         _cx: &mut Context<'_, impl EventOut>,
         index: [ww_client_server::ResourceIndex; 2],
         pull: Pull,
-    ) -> SetResult<GpioError<'_>> {
+    ) -> SetResult<wire_weaver::Error<'_, GpioError>> {
         let bank_idx = index[0].get().0 as usize;
         let pin_idx = index[1].get().0 as usize;
         let pull = match pull {
@@ -441,7 +441,7 @@ impl ServerState {
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
         index: [ww_client_server::ResourceIndex; 2],
-    ) -> GetResult<Pull, GpioError<'_>> {
+    ) -> GetResult<Pull, wire_weaver::Error<'_, GpioError>> {
         let bank_idx = index[0].get().0 as usize;
         let pin_idx = index[1].get().0 as usize;
         let pull = self.bank[bank_idx].pupdr().read().pupdr(pin_idx);
@@ -459,7 +459,7 @@ impl ServerState {
         _cx: &mut Context<'_, impl EventOut>,
         index: [ww_client_server::ResourceIndex; 2],
         speed: Speed,
-    ) -> SetResult<GpioError<'_>> {
+    ) -> SetResult<wire_weaver::Error<'_, GpioError>> {
         let bank_idx = index[0].get().0 as usize;
         let pin_idx = index[1].get().0 as usize;
         let speed = match speed {
@@ -479,7 +479,7 @@ impl ServerState {
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
         index: [ww_client_server::ResourceIndex; 2],
-    ) -> GetResult<Speed, GpioError<'_>> {
+    ) -> GetResult<Speed, wire_weaver::Error<'_, GpioError>> {
         let bank_idx = index[0].get().0 as usize;
         let pin_idx = index[1].get().0 as usize;
         let speed = self.bank[bank_idx].ospeedr().read().ospeedr(pin_idx);

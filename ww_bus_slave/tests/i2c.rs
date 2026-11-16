@@ -511,8 +511,12 @@ fn off_and_config_errors() {
     }));
     assert_eq!(no_queue, Err(ConfigError::Unsupported));
     assert_eq!(
-        ww_i2c::I2cError::from(ConfigError::BufferTooBig),
-        ww_i2c::I2cError::BufferTooBig
+        wire_weaver::Error::from(ConfigError::BufferTooBig),
+        wire_weaver::Error::Api(ww_i2c::I2cError::BufferTooBig)
+    );
+    assert_eq!(
+        wire_weaver::Error::<ww_i2c::I2cError>::from(ConfigError::Unsupported),
+        wire_weaver::Error::Common(wire_weaver::CommonError::Unsupported)
     );
     // disabled: the address is not acknowledged, answers dropped, the map kept
     let mut s = registers(1, 64, None, false);

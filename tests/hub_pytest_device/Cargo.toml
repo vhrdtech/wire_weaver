@@ -16,6 +16,7 @@ name = "keyed_pytest_device"
 path = "src/bin/keyed_pytest_device.rs"
 
 [dependencies]
+common_error.workspace = true
 hub_pytest_device_api.workspace = true
 keyed.workspace = true
 tests_common.workspace = true

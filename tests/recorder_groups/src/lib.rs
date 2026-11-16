@@ -77,7 +77,7 @@ mod tests {
             fn recorder_sync(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> RpcResult<Result<(), RecorderError<'_>>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, RecorderError<'_>>>> {
                 Ready(Ok(()))
             }
 
@@ -85,7 +85,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: Settings,
-            ) -> SetResult<RecorderError<'_>> {
+            ) -> SetResult<wire_weaver::Error<'_, RecorderError<'_>>> {
                 self.data.lock().unwrap().settings = value;
                 Set
             }
@@ -93,7 +93,7 @@ mod tests {
             fn get_recorder_settings(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Settings, RecorderError<'_>> {
+            ) -> GetResult<Settings, wire_weaver::Error<'_, RecorderError<'_>>> {
                 Value(self.data.lock().unwrap().settings)
             }
 
@@ -120,11 +120,11 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [ww_client_server::ResourceIndex; 1],
                 value: bool,
-            ) -> SetResult<RecorderError<'_>> {
+            ) -> SetResult<wire_weaver::Error<'_, RecorderError<'_>>> {
                 let n = index_chain[0].get().0;
                 if n == 0 && !value {
                     // the system track can't be disabled
-                    return SetError(RecorderError::unsupported());
+                    return SetError(CommonError::Unsupported.into());
                 }
                 self.data.lock().unwrap().enabled[n as usize] = value;
                 Set
@@ -134,7 +134,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [ww_client_server::ResourceIndex; 1],
-            ) -> GetResult<bool, RecorderError<'_>> {
+            ) -> GetResult<bool, wire_weaver::Error<'_, RecorderError<'_>>> {
                 Value(self.data.lock().unwrap().enabled[index_chain[0].get().0 as usize])
             }
         }
@@ -274,7 +274,7 @@ mod tests {
             .unwrap();
         assert!(!data.lock().unwrap().enabled[1]);
 
-        // the system track can't be disabled: the handler's own RecorderError::Common(Unsupported)
+        // the system track can't be disabled: the handler's own Unsupported
         let err = client
             .recorder()
             .track(0)

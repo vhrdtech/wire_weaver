@@ -91,10 +91,10 @@ pub(crate) fn docs(res: &DynResource) -> String {
 /// `Errors:` with each entry of the `#[errors(..)]` of a method, stream function or property (its write) (API-32)
 /// and its variant's doc line, the variants `RemoteError.value` can have.
 fn error_list_docs(res: &DynResource, item: &ApiItemOwned) -> String {
-    let (Some(errors), Some(err_ty)) = (item.kind.error_list(), item.kind.err_ty(res.bundle()))
-    else {
+    let Some(errors) = item.kind.error_list() else {
         return String::new();
     };
+    let err_ty = item.kind.err_ty(res.bundle());
     let mut out = String::from(if item.docs.is_empty() {
         "Errors:"
     } else {
@@ -511,8 +511,8 @@ pub(crate) fn return_to_py(
     Ok(to_py(py, &value, ty, bundle)?.unbind())
 }
 
-/// `RemoteError` for the `Err(e)` of a call: `e` in `value`, the `ww_error::CommonError` in it in `common`
-/// (`None` for an error of the API's own), and the variant's doc line as the message (STD-16).
+/// `RemoteError` for the `Err(e)` of a call, an error of the API's own: `e` in `value`, `common` None, and the
+/// variant's doc line as the message. A common error comes through the protocol instead (`client_err`, STD-16).
 fn remote_error(
     py: Python<'_>,
     res: &DynResource,
@@ -521,22 +521,13 @@ fn remote_error(
 ) -> PyResult<PyErr> {
     let bundle = res.bundle();
     let value = to_py(py, e, err_ty, bundle)?;
-    let common = e.common_error(err_ty, bundle);
-    let text = match common {
-        Some((c, c_ty)) => c.doc_message(c_ty, bundle),
-        None => e.doc_message(err_ty, bundle),
-    };
-    let text = match text {
+    let text = match e.doc_message(err_ty, bundle) {
         Some(text) => text,
         None => value.repr()?.to_string(),
     };
     let err = RemoteError::new_err(format!("{}() returned an error: {text}", res.path()));
-    let common = match common {
-        Some((c, c_ty)) => to_py(py, c, c_ty, bundle)?.unbind(),
-        None => py.None(),
-    };
     err.value(py).setattr("value", value)?;
-    err.value(py).setattr("common", common)?;
+    err.value(py).setattr("common", py.None())?;
     Ok(err)
 }
 

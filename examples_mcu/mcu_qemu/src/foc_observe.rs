@@ -158,7 +158,7 @@ impl wire_weaver::BlockingMessageSink for Wire<'_> {
 macro_rules! getters {
     ($($get:ident: $ty:ty),* $(,)?) => {
         $(
-            fn $get(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) -> GetResult<$ty, ()> {
+            fn $get(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) -> GetResult<$ty, CommonError<'_>> {
                 Unimplemented.into()
             }
         )*

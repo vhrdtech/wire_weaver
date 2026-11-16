@@ -41,7 +41,7 @@ mod tests {
             async fn get_volume(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
-            ) -> GetResult<u8, ()> {
+            ) -> GetResult<u8, CommonError<'_>> {
                 GetResult::Value(7)
             }
 
@@ -100,7 +100,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
                 index_chain: [ww_client_server::ResourceIndex; 1],
-            ) -> GetResult<u8, ()> {
+            ) -> GetResult<u8, CommonError<'_>> {
                 GetResult::Value(self.browser_state[index_chain[0].get().0 as usize])
             }
 
@@ -115,7 +115,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
                 index_chain: [ww_client_server::ResourceIndex; 1],
-            ) -> GetResult<String, ()> {
+            ) -> GetResult<String, CommonError<'_>> {
                 GetResult::Value(format!("browser {}", index_chain[0].get().0))
             }
 
@@ -137,7 +137,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
                 _index_chain: [ww_client_server::ResourceIndex; 1],
-            ) -> GetResult<u8, ()> {
+            ) -> GetResult<u8, CommonError<'_>> {
                 GetResult::Value(0)
             }
 
@@ -145,7 +145,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
                 index_chain: [ww_client_server::ResourceIndex; 1],
-            ) -> GetResult<String, ()> {
+            ) -> GetResult<String, CommonError<'_>> {
                 match self
                     .players
                     .iter()

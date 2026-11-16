@@ -83,9 +83,9 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
                 gain: i32,
-            ) -> RpcResult<Result<(), SampleError>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, SampleError>>> {
                 if gain == 0 {
-                    return RpcResult::Ready(Err(SampleError::ZeroGain));
+                    return RpcResult::Ready(Err(SampleError::ZeroGain.into()));
                 }
                 self.gain = gain;
                 RpcResult::Ready(Ok(()))

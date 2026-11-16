@@ -25,7 +25,6 @@
 
 use ww_api::prelude::*;
 use ww_block::Lease;
-use ww_error::CommonError;
 use ww_si::prefix::Kilo;
 use ww_si::units::{self, Block, Item};
 use ww_si::{Bytes, Count, Fixed, Micros, Millis};
@@ -57,8 +56,8 @@ pub trait SdCard {
     /// (ACMD13), and the RCA. Decoding is the host's. Read at init and cached, safe at any time.
     ///
     /// `NoCard`, `Common(WrongState)` before the card is initialised.
-    #[errors(Common(WrongState), NoCard)]
-    fn registers() -> Result<SdRegisters<'i>, SdError<'i>>;
+    #[errors(CommonError(WrongState), NoCard)]
+    fn registers() -> Result<SdRegisters<'i>, SdError>;
 
     /// Runs the init sequence again (CMD0, CMD8, ACMD41, CMD2, CMD3, ..., then bus width and speed up to the
     /// limits given) and reports what each step answered and how long it took. Needs the lease (see the crate
@@ -66,12 +65,12 @@ pub trait SdCard {
     ///
     /// A card that fails to come up is not an error: the report says where it stopped. `Common(Unsupported)` for
     /// a bus width or clock the controller can't do.
-    #[errors(Common(Busy, Unsupported), NoCard, BadLease)]
+    #[errors(CommonError(Busy, Unsupported), NoCard, BadLease)]
     fn reinit(
         lease: Lease,
         max_clock: Fixed<units::Hertz, Kilo, u32>,
         bus_width: BusWidth,
-    ) -> Result<InitReport<'i>, SdError<'i>>;
+    ) -> Result<InitReport<'i>, SdError>;
 
     /// One raw command, with an optional data phase, see [RawCommand]. Free commands need no lease, the others
     /// the current one (see the crate docs).
@@ -81,12 +80,12 @@ pub trait SdCard {
     /// `raw-sd-unrestricted`, `Common(Unsupported)` for a command the interface doesn't have (SPI mode),
     /// `Common(InvalidArgument)` for an index above 63 or a data phase over [MAX_DATA].
     #[errors(
-        Common(Busy, Unsupported, InvalidArgument),
+        CommonError(Busy, Unsupported, InvalidArgument),
         NoCard,
         BadLease,
         Restricted
     )]
-    fn command(lease: Option<Lease>, cmd: RawCommand<'i>) -> Result<RawResponse<'i>, SdError<'i>>;
+    fn command(lease: Option<Lease>, cmd: RawCommand<'i>) -> Result<RawResponse<'i>, SdError>;
 }
 
 /// What the host controller can do, see [SdCard::capabilities].
@@ -492,7 +491,7 @@ impl RawCommandOwned {
 
 /// The access rule of the crate docs for a device's [SdCard::command] handler: `lease_ok` is whether the call
 /// carries the current `ww_block` lease. Restricted commands pass only in a build with `raw-sd-unrestricted`.
-pub fn check_access(cmd: &RawCommand<'_>, lease_ok: bool) -> Result<(), SdError<'static>> {
+pub fn check_access(cmd: &RawCommand<'_>, lease_ok: bool) -> Result<(), SdError> {
     match cmd.access() {
         Access::Free => Ok(()),
         Access::Restricted if !UNRESTRICTED => Err(SdError::Restricted { index: cmd.index }),
@@ -506,17 +505,13 @@ pub const UNRESTRICTED: bool = cfg!(feature = "raw-sd-unrestricted");
 
 /// Errors of the SD card calls.
 #[derive_shrink_wrap(
-    owned(feature = "std"),
+    borrowed, owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Clone, Debug, PartialEq, Eq),
     display,
     ww_repr = unib32
 )]
-pub enum SdError<'i> {
-    /// Common error
-    #[display("{0}")]
-    #[common]
-    Common(CommonError<'i>),
+pub enum SdError {
     /// No card in the slot.
     #[display("no card")]
     NoCard,
@@ -528,6 +523,8 @@ pub enum SdError<'i> {
     #[display("CMD{index} is restricted on this device")]
     Restricted { index: u8 },
 }
+
+ww_api::api_error!(SdError);
 
 #[cfg(test)]
 mod tests {

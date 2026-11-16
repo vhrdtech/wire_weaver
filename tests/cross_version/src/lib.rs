@@ -89,22 +89,22 @@ mod tests {
             pub(super) fn device_boot_confirm(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> RpcResult<Result<(), global_boot_api::Error>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, global_boot_api::Error>>> {
                 RpcResult::Ready(Ok(()))
             }
 
             pub(super) fn device_boot_revert(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> RpcResult<Result<(), global_boot_api::Error>> {
-                RpcResult::Ready(Err(global_boot_api::Error::Unsupported))
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, global_boot_api::Error>>> {
+                RpcResult::Ready(Err(global_boot_api::Error::Unsupported.into()))
             }
 
             pub(super) fn device_boot_reboot(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 into: BootTarget,
-            ) -> RpcResult<Result<(), global_boot_api::Error>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, global_boot_api::Error>>> {
                 self.calls.write().unwrap().rebooted_into = Some(into);
                 RpcResult::Ready(Ok(()))
             }

@@ -6,6 +6,7 @@
 
 ### 🚀 Features
 
+- `api_error!(Error)` (STD-16): a handler `?`s `ww_dfu::Error` into `wire_weaver::Error<'_, Error>`, beside the common errors.
 - `StageLimits::max_piece` is `Bytes<u16, Range<1, { MAX_PIECE_LEN as i64 }>>` (P2401#13nov-0531): the bound names `MAX_PIECE_LEN` instead of repeating 1024. The same type, bytes and wire line (`w2.0`); the 0.1.0 snapshot is saved again for the changed docs.
 
 ### ⚠️ Breaking

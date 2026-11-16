@@ -55,6 +55,8 @@ pub enum RateError {
     Busy,
 }
 
+ww_api::api_error!(RateError);
+
 /// Every line.
 #[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Debug, PartialEq, Eq, Clone, Copy), ww_repr = u4)]
 pub enum Command {
@@ -70,6 +72,8 @@ pub enum SelfTestError {
     SensorOpen,
     SensorShorted,
 }
+
+ww_api::api_error!(SelfTestError);
 
 /// Stands in for `ww_indication::Indication` (R7): the status LED trait every line shares, same shape and wire
 /// repr, with the modes the bench's tests use (`IndicationMode::OnlyEssential` included, unlike `shared_sub_level`'s

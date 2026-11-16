@@ -1,6 +1,6 @@
 use super::{
     crate_walker::{CrateContext, LookupKey, Scratch},
-    errors::{ListedOn, get_errors_attr, reject_errors_attr},
+    errors::{ListedOn, get_errors_attr, refuse_common_error_type, reject_errors_attr},
     keyed::{convert_api_item_keyed, reject_keys_ident_collisions},
     meta::{MetaSite, get_meta},
     moved_from::get_moved_from_attrs,
@@ -404,30 +404,21 @@ fn convert_api_item_fn(
         ReturnType::Type(_, ty) => Some(convert_ty(ty, current_crate, scratch)?),
     };
     let stream_fn = get_stream_fn_attr(&item_fn.attrs, current_crate)?;
+    let listed_on = ListedOn::Fn {
+        stream: stream_fn.is_some(),
+        return_ty: return_ty.as_ref(),
+    };
+    refuse_common_error_type(&item_fn.sig.ident.to_string(), listed_on, scratch)
+        .context(current_crate.err_context())?;
     let errors = get_errors_attr(
         &item_fn.attrs,
         &item_fn.sig.ident.to_string(),
-        ListedOn::Fn {
-            stream: stream_fn.is_some(),
-            return_ty: return_ty.as_ref(),
-        },
+        listed_on,
         scratch,
     )
     .context(current_crate.err_context())?;
     let since = get_since_attr(&item_fn.attrs, current_crate, scratch)?;
     let kind = match stream_fn {
-        Some(_)
-            if return_ty
-                .as_ref()
-                .is_some_and(|ty| !matches!(ty, TypeOwned::Result { .. })) =>
-        {
-            return Err(anyhow!(
-                "stream function {} returns neither nothing nor a Result<T, E>: a stream function \
-                 answers its open with its result, wrap it into Result<T, E>",
-                item_fn.sig.ident
-            )
-            .context(current_crate.err_context()));
-        }
         Some(stream) => {
             let ty = convert_ty(&stream.ty, current_crate, scratch)?;
             let batch_item_ty =
@@ -648,12 +639,15 @@ fn convert_api_item_property(
     let multiplicity = convert_multiplicity(&args.multiplicity, current_crate, scratch)?;
     let since = get_since_attr(&item_macro.attrs, current_crate, scratch)?;
     let docs = collect_docs(&item_macro.attrs);
+    let listed_on = ListedOn::Property {
+        write_err_ty: write_err_ty.as_ref(),
+    };
+    refuse_common_error_type(&args.resource_name.to_string(), listed_on, scratch)
+        .context(current_crate.err_context())?;
     let errors = get_errors_attr(
         &item_macro.attrs,
         &args.resource_name.to_string(),
-        ListedOn::Property {
-            write_err_ty: write_err_ty.as_ref(),
-        },
+        listed_on,
         scratch,
     )
     .context(current_crate.err_context())?;

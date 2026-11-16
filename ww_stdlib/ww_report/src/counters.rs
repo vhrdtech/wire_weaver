@@ -8,19 +8,16 @@ use serde::Serialize;
 use std::path::Path;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use wire_weaver_client::CallError;
 use ww_counters::host::{CountersDevice, WwSource};
 use ww_counters::{CounterBuffer, CountersInfoOwned, Index, Word};
 
 /// The calls `WwSource` makes, blocking: run from `spawn_blocking`.
 pub struct BlockingCounters(pub Arc<Mutex<CountersClient>>);
 
-fn call_error<E: std::fmt::Debug>(e: CallError<E>) -> anyhow::Error {
-    match e {
-        CallError::Device(e) => anyhow!("the device refused: {e:?}"),
-        CallError::Common(c) => anyhow!("the device refused: {c}"),
-        CallError::Unimplemented { resource } => anyhow!("the device doesn't implement {resource}"),
-        CallError::Client(e) => e.into(),
+fn call_error(e: wire_weaver_client::Error) -> anyhow::Error {
+    match e.common() {
+        Some(c) => anyhow!("the device refused: {c}"),
+        None => e.into(),
     }
 }
 

@@ -18,9 +18,9 @@ pub trait I2cMonitor {
     /// [I2cConfig::io_level]; the adapter's pull-ups stay as they are (the watched bus has its own). A counted
     /// stream, unit: transaction; the head's time is the start condition, and the host learns exactly how many
     /// records the device dropped. `Unsupported` for an IO level the adapter can't do.
-    #[errors(Common(InUse, Unsupported, Refused, NoPower))]
+    #[errors(CommonError(InUse, Unsupported, Refused, NoPower))]
     #[stream(I2cRecord<'i>, counted)]
-    fn records(io_level: Option<Volt>) -> Result<(), I2cError<'i>>;
+    fn records(io_level: Option<Volt>) -> Result<(), I2cError>;
 }
 
 /// One transaction seen by `I2cMonitor`: from a start to the stop (or to the next repeated start).

@@ -177,8 +177,7 @@ impl TreePrinter<'_> {
     /// `# Errors` with each entry of the `#[errors(..)]` of a method, stream function or property and its variant's
     /// doc line (API-32), like the docs of the generated client.
     fn error_list_docs(&mut self, item: &ApiItemOwned) {
-        let (Some(errors), Some(err_ty)) = (item.kind.error_list(), item.kind.err_ty(self.bundle))
-        else {
+        let Some(errors) = item.kind.error_list() else {
             return;
         };
         let mut lines = vec![];
@@ -186,7 +185,7 @@ impl TreePrinter<'_> {
             lines.push(String::new());
         }
         lines.push("# Errors".to_string());
-        for (name, doc) in error_list_docs(errors, err_ty, self.bundle) {
+        for (name, doc) in error_list_docs(errors, item.kind.err_ty(self.bundle), self.bundle) {
             let name = escape(&name);
             lines.push(match doc {
                 Some(doc) => format!("- `{name}`: {}", escape(&doc)),
@@ -483,12 +482,7 @@ impl<'a> TreePrinter<'a> {
                 TypeLocationOwned::InLine {
                     ty: TypeOwned::Enum(item_enum),
                     ..
-                } => {
-                    let ty = TypeOwned::OutOfLine {
-                        type_idx: (idx as u32).into(),
-                    };
-                    self.item_enum(item_enum, ty.is_common_error(self.bundle))
-                }
+                } => self.item_enum(item_enum),
                 TypeLocationOwned::InLine { ty, .. } => {
                     _ = writeln!(self.out, "{}", self.ty(ty));
                 }
@@ -537,8 +531,7 @@ impl<'a> TreePrinter<'a> {
         }
     }
 
-    /// `is_common`: `ww_error::CommonError`, the errors every API can return (STD-16).
-    fn item_enum(&mut self, item_enum: &'a ItemEnumOwned, is_common: bool) {
+    fn item_enum(&mut self, item_enum: &'a ItemEnumOwned) {
         _ = write!(self.out, "{} ", style("enum").blue());
         self.type_ident(item_enum.crate_idx.0, &item_enum.ident);
         self.params = &item_enum.generics;
@@ -552,12 +545,8 @@ impl<'a> TreePrinter<'a> {
             Repr::ByteAlignedU32 => "u32".to_string(),
         };
         let size = size_name(&item_enum.size);
-        let common = if is_common { ", common errors" } else { "" };
-        _ = writeln!(
-            self.out,
-            " {}",
-            style(format!("{size}, repr {repr}{common}")).dim()
-        );
+
+        _ = writeln!(self.out, " {}", style(format!("{size}, repr {repr}")).dim());
         self.visit_docs(&item_enum.docs);
         for (idx, variant) in item_enum.variants.iter().enumerate() {
             let is_last = idx + 1 == item_enum.variants.len();
@@ -569,10 +558,6 @@ impl<'a> TreePrinter<'a> {
                 style(escape(&variant.ident)).bold()
             );
             self.unnamed_fields(&variant.fields);
-            if matches!(&variant.fields, FieldsOwned::Unnamed(f) if f.len() == 1 && f[0].ty.is_common_error(self.bundle))
-            {
-                _ = write!(self.out, " {}", style("common errors").dim());
-            }
             if let Some(since) = &variant.since {
                 _ = write!(self.out, " {}", style(format!("since {since:?}")).dim());
             }
@@ -939,15 +924,22 @@ types
         assert_eq!(render_types(&bundle, false), expected);
     }
 
+    /// A common error is no type of the API (STD-16): the error enum holds the API's own variants only, and an item
+    /// without an error type lists its common errors.
     #[test]
     fn renders_common_errors() {
         console::set_colors_enabled(false);
         let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/common_error_api");
         let bundle = wire_weaver_core::load(&path, None, false).unwrap();
         let types = render_types(&bundle, true);
-        assert!(types.contains("enum ww_error::CommonError unsized, repr unib32, common errors\n"));
-        assert!(types.contains("├─ 0 Common(CommonError) common errors\n"));
-        assert!(types.contains("└─ 1 Nack\n"));
+        assert!(!types.contains("CommonError"), "{types}");
+        assert!(
+            types.contains("enum common_error_api::SensorError unsized, repr unib32\n"),
+            "{types}"
+        );
+        assert!(types.contains("└─ 0 Nack\n"), "{types}");
+        let tree = render(&bundle, true);
+        assert!(tree.contains("fn calibrate()\n"), "{tree}");
     }
 
     #[test]
@@ -957,19 +949,19 @@ types
         let bundle = wire_weaver_core::load(&path, Some("Methods".into()), false).unwrap();
         let tree = render(&bundle, false);
         let expected = "\
-├─ 13 #[errors(Common(Busy, InUse), Nack)] fn listed_errors(pick: u8) -> Result<(), ListedError>
-│  /// Errors from a list (API-32): `pick` 0 is `Ok`, 1 `Common(Busy)`, 2 `Nack`, 3 `Common(Timeout)` and
+├─ 13 #[errors(CommonError(Busy, InUse), Nack)] fn listed_errors(pick: u8) -> Result<(), ListedError>
+│  /// Errors from a list (API-32): `pick` 0 is `Ok`, 1 `CommonError::Busy`, 2 `Nack`, 3 `CommonError::Timeout` and
 │  /// 4 `Overrun`, which are not in the list
 │  ///
 │  /// # Errors
-│  /// - `Common(Busy)`: Busy with another operation, try again later
-│  /// - `Common(InUse)`: In use by {by}
+│  /// - `CommonError(Busy)`: Busy with another operation, try again later
+│  /// - `CommonError(InUse)`: In use by {by}
 │  /// - `Nack`: The sensor did not answer
-├─ 14 #[errors(Common)] fn all_common(pick: u8) -> Result<(), ListedError>
-│  /// Any `CommonError` (API-32): `Common` lists all of the nested enum's variants
+├─ 14 #[errors(CommonError)] fn all_common(pick: u8) -> Result<(), ListedError>
+│  /// Any common error (API-32): `CommonError` alone lists all of them
 │  ///
 │  /// # Errors
-│  /// - `Common`: any CommonError
+│  /// - `CommonError`: any common error
 ";
         assert!(tree.contains(expected), "{tree}");
     }

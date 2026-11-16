@@ -4,9 +4,9 @@ use ww_error::CommonError;
 
 /// What a handler's call failed with: a common error every item can return, or the API's own error `E`.
 ///
-/// A handler of a method `fn read() -> Result<u16, SensorError<'i>>` returns
-/// `Result<u16, Error<'_, SensorError<'_>>>`: `?` takes a [CommonError] from any helper, and a `SensorError` once
-/// its crate declared [`api_error!(SensorError<'i>)`](crate::api_error). A method declared without a `Result`
+/// A handler of a method `fn read() -> Result<u16, SensorError>` returns
+/// `Result<u16, Error<'_, SensorError>>`: `?` takes a [CommonError] from any helper, and a `SensorError` once
+/// its crate declared [`api_error!(SensorError)`](crate::api_error). A method declared without a `Result`
 /// returns `Result<T, CommonError>` instead, there is no API error to hold.
 ///
 /// Protocol-neutral: a dispatcher sends `Common` as its protocol's common error and `Api` as the method's `Err`.
@@ -59,17 +59,17 @@ impl<'i, E> From<CommonError<'i>> for Error<'i, E> {
 /// use ww_api::prelude::*;
 ///
 /// #[derive_shrink_wrap(owned(feature = "std"), derive(Debug, PartialEq, Eq, Clone), ww_repr = unib32)]
-/// pub enum SensorError<'i> {
+/// pub enum SensorError {
 ///     /// The sensor did not answer.
 ///     Nack,
 ///     /// The sensor's reply was {reason}.
 ///     Garbled { reason: MaxLen<&'i str, 16> },
 /// }
-/// ww_api::api_error!(SensorError<'i>);
+/// ww_api::api_error!(SensorError);
 /// #[cfg(feature = "std")]
-/// ww_api::api_error!(SensorErrorOwned);
+/// ww_api::api_error!(SensorError);
 ///
-/// fn read() -> Result<u16, Error<'static, SensorError<'static>>> {
+/// fn read() -> Result<u16, Error<'static, SensorError>> {
 ///     Err(SensorError::Nack)?
 /// }
 /// assert_eq!(read().unwrap_err().api(), Some(&SensorError::Nack));

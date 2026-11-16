@@ -13,7 +13,7 @@ mod tests {
     use ww_stream::tx::Counted;
     use ww_uart::{
         Baud, Bytes, Capabilities, Count, DataBits, Mode, MonitorChunk, MonitorConfig, MonitorLine,
-        Parity, Pin, RxChunk, StopBits, UartConfig, UartError, UartErrorOwned,
+        Parity, Pin, RxChunk, StopBits, UartConfig,
     };
 
     /// The rx stream compresses for hosts that decode it (API-55), as a firmware with a fast UART would.
@@ -227,15 +227,15 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 config: UartConfig,
-            ) -> RpcResult<Result<UartConfig, UartError<'_>>> {
+            ) -> RpcResult<Result<UartConfig, CommonError<'_>>> {
                 let caps = capabilities();
                 if config.baud_rate > caps.max_baud_rate || config.baud_rate < caps.min_baud_rate {
-                    return Ready(Err(CommonError::Unsupported.into()));
+                    return Ready(Err(CommonError::Unsupported));
                 }
                 if let Some(level) = config.io_level
                     && !caps.io_levels.iter().any(|l| l == Ok(level))
                 {
-                    return Ready(Err(CommonError::Unsupported.into()));
+                    return Ready(Err(CommonError::Unsupported));
                 }
                 let mut m = self.m.lock().unwrap();
                 let io_level = config.io_level.or(m.config.io_level);
@@ -254,13 +254,12 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 pin: Pin,
                 is_high: bool,
-            ) -> RpcResult<Result<(), UartError<'_>>> {
+            ) -> RpcResult<Result<(), CommonError<'_>>> {
                 let mut m = self.m.lock().unwrap();
                 if !matches!(m.config.mode, Mode::Test) {
                     return Ready(Err(CommonError::WrongState {
                         reason: MaxLen::new_unchecked("not in Mode::Test"),
-                    }
-                    .into()));
+                    }));
                 }
                 m.pin_levels.push((pin, is_high));
                 Ready(Ok(()))
@@ -270,7 +269,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 duration: ww_si::Second,
-            ) -> RpcResult<Result<(), UartError<'_>>> {
+            ) -> RpcResult<Result<(), CommonError<'_>>> {
                 self.m.lock().unwrap().send_break_calls.push(duration);
                 Ready(Ok(()))
             }
@@ -286,10 +285,10 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 config: MonitorConfig,
-            ) -> RpcResult<Result<MonitorConfig, UartError<'_>>> {
+            ) -> RpcResult<Result<MonitorConfig, CommonError<'_>>> {
                 // this monitor decodes from 300 Bd up
                 if config.baud_rate < Baud::base(300u32) {
-                    return Ready(Err(CommonError::Unsupported.into()));
+                    return Ready(Err(CommonError::Unsupported));
                 }
                 let actual = MonitorConfig {
                     io_level: config.io_level.or(Some(ww_si::Volt::milli(3300u16))),
@@ -444,8 +443,8 @@ mod tests {
         };
         let r = client.uart().configure(too_fast).call().await;
         assert!(matches!(
-            r.unwrap_err().device(),
-            Some(UartErrorOwned::Common(CommonErrorOwned::Unsupported))
+            r.unwrap_err().common(),
+            Some(CommonErrorOwned::Unsupported)
         ));
 
         let at_5v = UartConfig {
@@ -454,8 +453,8 @@ mod tests {
         };
         let r = client.uart().configure(at_5v).call().await;
         assert!(matches!(
-            r.unwrap_err().device(),
-            Some(UartErrorOwned::Common(CommonErrorOwned::Unsupported))
+            r.unwrap_err().common(),
+            Some(CommonErrorOwned::Unsupported)
         ));
     }
 
@@ -466,8 +465,8 @@ mod tests {
 
         let r = client.uart().set_pin_level(Pin::Tx, true).call().await;
         assert!(matches!(
-            r.unwrap_err().device(),
-            Some(UartErrorOwned::Common(CommonErrorOwned::WrongState { .. }))
+            r.unwrap_err().common(),
+            Some(CommonErrorOwned::WrongState { .. })
         ));
         assert!(m.lock().unwrap().pin_levels.is_empty());
 
@@ -654,27 +653,21 @@ mod tests {
             io_level: None,
             idle_chars: Count::new(ww_uart::IDLE_CHARS_DEFAULT),
         };
-        let r = client
+        // a stream function without an error type: a common error is the open's error
+        let e = client
             .uart()
             .monitor(config(Baud::base(110u32)))
             .call()
             .await
-            .unwrap();
-        assert!(
-            matches!(
-                r,
-                Err(UartErrorOwned::Common(CommonErrorOwned::Unsupported))
-            ),
-            "{:?}",
-            r.err()
-        );
+            .err()
+            .expect("110 baud is refused");
+        assert_eq!(e.common(), Some(&CommonErrorOwned::Unsupported));
 
         let (actual, mut lines) = client
             .uart()
             .monitor(config(Baud::base(115_200u32)))
             .call()
             .await
-            .unwrap()
             .unwrap();
         assert_eq!(actual.baud_rate, Baud::base(115_200u32));
         assert_eq!(actual.io_level, Some(ww_si::Volt::milli(3300u16)));

@@ -1,6 +1,6 @@
 // ww_uart 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 215b771e4f8a666779d0674e5f4e913078fc9594292a2725001d27efd430a290
+// shrink_wrap sha256: 26ebe59f5dc1f09f0196281bc4119f578f5f80987245d2358669c5b782d42bd7
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "UART over WireWeaver: a device bridges a serial port to the host, or watches the two lines of a serial link.",
     "",
@@ -44,15 +44,15 @@
         "Received bytes that came back to back, see `Uart::rx` and `Uart::monitor`: when the first byte arrived is the",
         "time in the event head, when the last one did is `end` (see the crate docs, \"Time\").",
     ], ident: "RxChunk", generics: [], fields: Named([
-        (ident: Some("end"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 5, args: [
+        (ident: Some("end"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 4, args: [
+            Type(OutOfLine(type_idx: 5)),
             Type(OutOfLine(type_idx: 6)),
-            Type(OutOfLine(type_idx: 7)),
         ])), docs: [
             "Device time when the chunk\'s last byte arrived (the end of its stop bit), on the same clock as the head\'s time",
             "of its first byte; the same as the head\'s for a one-byte chunk. `None` from a device that doesn\'t measure it:",
             "the last byte is then `(n - 1) * frame_bits / baud` after the first (see the crate docs, \"Time\").",
         ], slot: None, series_opaque: false),
-        (ident: Some("flags"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 13)), docs: [
+        (ident: Some("flags"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 12)), docs: [
             "Line errors seen while receiving this chunk, if any.",
         ], slot: None, series_opaque: false),
         (ident: Some("bytes"), default: None, since: None, ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8)))), docs: [
@@ -62,34 +62,34 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What a `Uart` implementation supports, see `Uart::capabilities`.",
     ], ident: "Capabilities", generics: [], fields: Named([
-        (ident: Some("min_baud_rate"), default: None, since: None, ty: Instance(type_idx: 5, args: [
-            Type(OutOfLine(type_idx: 14)),
-            Type(OutOfLine(type_idx: 7)),
+        (ident: Some("min_baud_rate"), default: None, since: None, ty: Instance(type_idx: 4, args: [
+            Type(OutOfLine(type_idx: 13)),
+            Type(OutOfLine(type_idx: 6)),
         ]), docs: [
             "Lowest baud rate this device can set.",
         ], slot: None, series_opaque: false),
-        (ident: Some("max_baud_rate"), default: None, since: None, ty: Instance(type_idx: 5, args: [
-            Type(OutOfLine(type_idx: 14)),
-            Type(OutOfLine(type_idx: 7)),
+        (ident: Some("max_baud_rate"), default: None, since: None, ty: Instance(type_idx: 4, args: [
+            Type(OutOfLine(type_idx: 13)),
+            Type(OutOfLine(type_idx: 6)),
         ]), docs: [
             "Highest baud rate this device can set.",
         ], slot: None, series_opaque: false),
-        (ident: Some("io_levels"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(Instance(type_idx: 5, args: [
-            Type(OutOfLine(type_idx: 15)),
-            Type(OutOfLine(type_idx: 7)),
+        (ident: Some("io_levels"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(Instance(type_idx: 4, args: [
+            Type(OutOfLine(type_idx: 14)),
+            Type(OutOfLine(type_idx: 6)),
         ]))), docs: [
             "Discrete IO levels [UartConfig::io_level] can be set to (e.g. 1.8 V, 3.3 V, 5 V); empty if the adapter has",
             "no level control.",
         ], slot: None, series_opaque: false),
-        (ident: Some("io_level_min"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 5, args: [
-            Type(OutOfLine(type_idx: 15)),
-            Type(OutOfLine(type_idx: 7)),
+        (ident: Some("io_level_min"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 4, args: [
+            Type(OutOfLine(type_idx: 14)),
+            Type(OutOfLine(type_idx: 6)),
         ])), docs: [
             "Lowest IO level of an adjustable supply, if the adapter has one.",
         ], slot: None, series_opaque: false),
-        (ident: Some("io_level_max"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 5, args: [
-            Type(OutOfLine(type_idx: 15)),
-            Type(OutOfLine(type_idx: 7)),
+        (ident: Some("io_level_max"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 4, args: [
+            Type(OutOfLine(type_idx: 14)),
+            Type(OutOfLine(type_idx: 6)),
         ])), docs: [
             "Highest IO level of an adjustable supply, if the adapter has one.",
         ], slot: None, series_opaque: false),
@@ -108,19 +108,19 @@
         (ident: Some("back_feed_detector"), default: None, since: None, ty: Bool, docs: [
             "Whether [UartConfig::prevent_back_feed] is supported.",
         ], slot: None, series_opaque: false),
-        (ident: Some("rx_buffer"), default: None, since: None, ty: Instance(type_idx: 8, args: [
+        (ident: Some("rx_buffer"), default: None, since: None, ty: Instance(type_idx: 7, args: [
+            Type(OutOfLine(type_idx: 8)),
             Type(OutOfLine(type_idx: 9)),
-            Type(OutOfLine(type_idx: 10)),
             Type(NumericAny(Base(U32))),
-            Type(OutOfLine(type_idx: 7)),
+            Type(OutOfLine(type_idx: 6)),
         ]), docs: [
             "Device receive buffer, in bytes.",
         ], slot: None, series_opaque: false),
-        (ident: Some("tx_buffer"), default: None, since: None, ty: Instance(type_idx: 8, args: [
+        (ident: Some("tx_buffer"), default: None, since: None, ty: Instance(type_idx: 7, args: [
+            Type(OutOfLine(type_idx: 8)),
             Type(OutOfLine(type_idx: 9)),
-            Type(OutOfLine(type_idx: 10)),
             Type(NumericAny(Base(U32))),
-            Type(OutOfLine(type_idx: 7)),
+            Type(OutOfLine(type_idx: 6)),
         ]), docs: [
             "Device transmit buffer, in bytes (the credit of the `tx` sink).",
         ], slot: None, series_opaque: false),
@@ -129,47 +129,37 @@
         "Everything a port is configured with, see `Uart::configure`: what is asked for going in, what was actually set",
         "coming back.",
     ], ident: "UartConfig", generics: [], fields: Named([
-        (ident: Some("baud_rate"), default: None, since: None, ty: Instance(type_idx: 5, args: [
-            Type(OutOfLine(type_idx: 14)),
-            Type(OutOfLine(type_idx: 7)),
+        (ident: Some("baud_rate"), default: None, since: None, ty: Instance(type_idx: 4, args: [
+            Type(OutOfLine(type_idx: 13)),
+            Type(OutOfLine(type_idx: 6)),
         ]), docs: [], slot: None, series_opaque: false),
-        (ident: Some("data_bits"), default: None, since: None, ty: OutOfLine(type_idx: 16), docs: [], slot: None, series_opaque: false),
-        (ident: Some("parity"), default: None, since: None, ty: OutOfLine(type_idx: 17), docs: [], slot: None, series_opaque: false),
-        (ident: Some("stop_bits"), default: None, since: None, ty: OutOfLine(type_idx: 18), docs: [], slot: None, series_opaque: false),
-        (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 19), docs: [
+        (ident: Some("data_bits"), default: None, since: None, ty: OutOfLine(type_idx: 15), docs: [], slot: None, series_opaque: false),
+        (ident: Some("parity"), default: None, since: None, ty: OutOfLine(type_idx: 16), docs: [], slot: None, series_opaque: false),
+        (ident: Some("stop_bits"), default: None, since: None, ty: OutOfLine(type_idx: 17), docs: [], slot: None, series_opaque: false),
+        (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 18), docs: [
             "Flow control, high-Z or manual pin control.",
         ], slot: None, series_opaque: false),
         (ident: Some("prevent_back_feed"), default: None, since: None, ty: Bool, docs: [
             "Detect RX low for more than one byte interval and hold TX low, so a device asleep isn\'t powered through TX",
             "([Capabilities::back_feed_detector]).",
         ], slot: None, series_opaque: false),
-        (ident: Some("io_level"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 5, args: [
-            Type(OutOfLine(type_idx: 15)),
-            Type(OutOfLine(type_idx: 7)),
+        (ident: Some("io_level"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 4, args: [
+            Type(OutOfLine(type_idx: 14)),
+            Type(OutOfLine(type_idx: 6)),
         ])), docs: [
             "Voltage of the lines on adapters with level translators ([Capabilities::io_levels]); `None` leaves it as it",
             "is going in (the only choice on a device without them), and is the answer of a device without them.",
         ], slot: None, series_opaque: false),
-        (ident: Some("idle_chars"), default: None, since: None, ty: Instance(type_idx: 8, args: [
-            Type(OutOfLine(type_idx: 20)),
-            Type(OutOfLine(type_idx: 10)),
+        (ident: Some("idle_chars"), default: None, since: None, ty: Instance(type_idx: 7, args: [
+            Type(OutOfLine(type_idx: 19)),
+            Type(OutOfLine(type_idx: 9)),
             Type(NumericAny(Base(U8))),
-            Type(OutOfLine(type_idx: 7)),
+            Type(OutOfLine(type_idx: 6)),
         ]), docs: [
             "Idle time on RX that ends a chunk, in character times (`frame_bits / baud` each): a gap longer than this ends",
             "the chunk, a shorter one doesn\'t. [IDLE_CHARS_DEFAULT] (2) unless a protocol asks for another; 0 is taken as 1.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
-    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
-        "Errors of `Uart`: the common ones (unsupported, in use, no power, refused, ...); each method lists the variants it",
-        "returns. Line errors of received data are not errors of a call, they are [RxFlags] of the chunk.",
-    ], ident: "UartError", generics: [], variants: [
-        (docs: [
-            "{0}",
-        ], ident: "Common", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 21), docs: [], slot: None, series_opaque: false),
-        ]), discriminant: 0, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(2), crate_idx: 0, docs: [
         "Pin selector used in test mode (`Uart::set_pin_level`).",
     ], ident: "Pin", generics: [], variants: [
@@ -297,38 +287,38 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Bytes of one line of the watched link, see `Uart::monitor`.",
     ], ident: "MonitorChunk", generics: [], fields: Named([
-        (ident: Some("line"), default: None, since: None, ty: OutOfLine(type_idx: 22), docs: [], slot: None, series_opaque: false),
+        (ident: Some("line"), default: None, since: None, ty: OutOfLine(type_idx: 20), docs: [], slot: None, series_opaque: false),
         (ident: Some("chunk"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Line settings of the watched link, the argument and the answer of `Uart::monitor`.",
     ], ident: "MonitorConfig", generics: [], fields: Named([
-        (ident: Some("baud_rate"), default: None, since: None, ty: Instance(type_idx: 5, args: [
-            Type(OutOfLine(type_idx: 14)),
-            Type(OutOfLine(type_idx: 7)),
+        (ident: Some("baud_rate"), default: None, since: None, ty: Instance(type_idx: 4, args: [
+            Type(OutOfLine(type_idx: 13)),
+            Type(OutOfLine(type_idx: 6)),
         ]), docs: [
             "Baud rate of the watched link.",
         ], slot: None, series_opaque: false),
-        (ident: Some("data_bits"), default: None, since: None, ty: OutOfLine(type_idx: 16), docs: [
+        (ident: Some("data_bits"), default: None, since: None, ty: OutOfLine(type_idx: 15), docs: [
             "Data bits per character of the watched link.",
         ], slot: None, series_opaque: false),
-        (ident: Some("parity"), default: None, since: None, ty: OutOfLine(type_idx: 17), docs: [
+        (ident: Some("parity"), default: None, since: None, ty: OutOfLine(type_idx: 16), docs: [
             "Parity of the watched link.",
         ], slot: None, series_opaque: false),
-        (ident: Some("stop_bits"), default: None, since: None, ty: OutOfLine(type_idx: 18), docs: [
+        (ident: Some("stop_bits"), default: None, since: None, ty: OutOfLine(type_idx: 17), docs: [
             "Stop bits of the watched link.",
         ], slot: None, series_opaque: false),
-        (ident: Some("io_level"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 5, args: [
-            Type(OutOfLine(type_idx: 15)),
-            Type(OutOfLine(type_idx: 7)),
+        (ident: Some("io_level"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 4, args: [
+            Type(OutOfLine(type_idx: 14)),
+            Type(OutOfLine(type_idx: 6)),
         ])), docs: [
             "Input threshold level, as [UartConfig::io_level].",
         ], slot: None, series_opaque: false),
-        (ident: Some("idle_chars"), default: None, since: None, ty: Instance(type_idx: 8, args: [
-            Type(OutOfLine(type_idx: 20)),
-            Type(OutOfLine(type_idx: 10)),
+        (ident: Some("idle_chars"), default: None, since: None, ty: Instance(type_idx: 7, args: [
+            Type(OutOfLine(type_idx: 19)),
+            Type(OutOfLine(type_idx: 9)),
             Type(NumericAny(Base(U8))),
-            Type(OutOfLine(type_idx: 7)),
+            Type(OutOfLine(type_idx: 6)),
         ]), docs: [
             "Idle time on either line that ends a chunk of that line, as [UartConfig::idle_chars].",
         ], slot: None, series_opaque: false),
@@ -452,24 +442,6 @@
         236,
         74,
     ]),
-    SkippedFullVersion(crate_idx: 3, type_name: "CommonError", signature: [
-        30,
-        18,
-        211,
-        141,
-        253,
-        197,
-        48,
-        184,
-        37,
-        11,
-        183,
-        248,
-        238,
-        96,
-        205,
-        177,
-    ]),
     InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(1), crate_idx: 0, docs: [
         "Which line of the watched link a [MonitorChunk] came from.",
     ], ident: "MonitorLine", generics: [], variants: [
@@ -498,8 +470,8 @@
         ], optional: None, meta: None, identity: None),
         (id: 3, kind: Method(args: [
             (ident: "config", ty: OutOfLine(type_idx: 2), default: None, flatten: false),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 2), err_ty: OutOfLine(type_idx: 3))), errors: Some([
-            (ident: "Common", nested: Some([
+        ], return_ty: Some(OutOfLine(type_idx: 2)), errors: Some([
+            (ident: "CommonError", nested: Some([
                 "Unsupported",
                 "InUse",
                 "NoPower",
@@ -514,10 +486,10 @@
             "voltage than `io_level`.",
         ], optional: None, meta: None, identity: None),
         (id: 4, kind: Method(args: [
-            (ident: "pin", ty: OutOfLine(type_idx: 4), default: None, flatten: false),
+            (ident: "pin", ty: OutOfLine(type_idx: 3), default: None, flatten: false),
             (ident: "is_high", ty: Bool, default: None, flatten: false),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 3))), errors: Some([
-            (ident: "Common", nested: Some([
+        ], return_ty: None, errors: Some([
+            (ident: "CommonError", nested: Some([
                 "WrongState",
                 "InUse",
                 "NoPower",
@@ -528,12 +500,12 @@
             "`WrongState` in any other mode.",
         ], optional: None, meta: None, identity: None),
         (id: 5, kind: Method(args: [
-            (ident: "duration", ty: Instance(type_idx: 5, args: [
+            (ident: "duration", ty: Instance(type_idx: 4, args: [
+                Type(OutOfLine(type_idx: 5)),
                 Type(OutOfLine(type_idx: 6)),
-                Type(OutOfLine(type_idx: 7)),
             ]), default: None, flatten: false),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 3))), errors: Some([
-            (ident: "Common", nested: Some([
+        ], return_ty: None, errors: Some([
+            (ident: "CommonError", nested: Some([
                 "WrongState",
                 "InUse",
                 "NoPower",
@@ -543,18 +515,18 @@
             "Holds TX low for `duration` (a break), after the bytes already queued.",
             "`WrongState` in [Mode::HighZ] or [Mode::Test], `Refused` when longer than this device allows.",
         ], optional: None, meta: None, identity: None),
-        (id: 6, kind: Method(args: [], return_ty: Some(Instance(type_idx: 8, args: [
+        (id: 6, kind: Method(args: [], return_ty: Some(Instance(type_idx: 7, args: [
+            Type(OutOfLine(type_idx: 8)),
             Type(OutOfLine(type_idx: 9)),
-            Type(OutOfLine(type_idx: 10)),
             Type(NumericAny(Base(U32))),
-            Type(OutOfLine(type_idx: 7)),
+            Type(OutOfLine(type_idx: 6)),
         ])), errors: None), multiplicity: Flat, since: None, ident: "tx_pending", docs: [
             "Bytes queued for sending and not sent yet.",
         ], optional: None, meta: None, identity: None),
-        (id: 7, kind: StreamFn(ty: OutOfLine(type_idx: 11), delivery: Counted, args: [
-            (ident: "config", ty: OutOfLine(type_idx: 12), default: None, flatten: false),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 12), err_ty: OutOfLine(type_idx: 3))), errors: Some([
-            (ident: "Common", nested: Some([
+        (id: 7, kind: StreamFn(ty: OutOfLine(type_idx: 10), delivery: Counted, args: [
+            (ident: "config", ty: OutOfLine(type_idx: 11), default: None, flatten: false),
+        ], return_ty: Some(OutOfLine(type_idx: 11)), errors: Some([
+            (ident: "CommonError", nested: Some([
                 "Unsupported",
                 "InUse",
                 "NoPower",
@@ -574,10 +546,7 @@
     (crate_id: "ww_uart", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_si", version: (major: 0, minor: 5, patch: 0, pre: None, build: None)),
     (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-    (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
-    Some((line: 1, revision: 0)),
+], root_omitted: None, wire: Some((line: 2, revision: 0)), ext_wire: Some([
+    Some((line: 2, revision: 0)),
     Some((line: 5, revision: 0)),
-    None,
-    Some((line: 1, revision: 0)),
 ]))

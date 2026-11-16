@@ -36,21 +36,21 @@ mod tests {
     /// Same handlers for the blocking and async servers: `$($async)?` and the event out trait differ.
     macro_rules! handlers {
         ($($async:ident)?; $out:path) => {
-            $($async)? fn set_a(&mut self, _cx: &mut Context<'_, impl $out>, value: u8) -> SetResult<()> {
+            $($async)? fn set_a(&mut self, _cx: &mut Context<'_, impl $out>, value: u8) -> SetResult<CommonError<'_>> {
                 self.shared.lock().unwrap().a = value;
                 Set
             }
 
-            $($async)? fn get_a(&mut self, _cx: &mut Context<'_, impl $out>) -> GetResult<u8, ()> {
+            $($async)? fn get_a(&mut self, _cx: &mut Context<'_, impl $out>) -> GetResult<u8, CommonError<'_>> {
                 Value(self.shared.lock().unwrap().a)
             }
 
-            $($async)? fn set_b(&mut self, _cx: &mut Context<'_, impl $out>, value: u16) -> SetResult<()> {
+            $($async)? fn set_b(&mut self, _cx: &mut Context<'_, impl $out>, value: u16) -> SetResult<CommonError<'_>> {
                 self.shared.lock().unwrap().b = value;
                 Set
             }
 
-            $($async)? fn get_b(&mut self, _cx: &mut Context<'_, impl $out>) -> GetResult<u16, ()> {
+            $($async)? fn get_b(&mut self, _cx: &mut Context<'_, impl $out>) -> GetResult<u16, CommonError<'_>> {
                 Value(self.shared.lock().unwrap().b)
             }
 
@@ -90,7 +90,7 @@ mod tests {
                 _cx: &mut Context<'_, impl $out>,
                 index_chain: [ww_client_server::ResourceIndex; 1],
                 value: u8,
-            ) -> SetResult<()> {
+            ) -> SetResult<CommonError<'_>> {
                 self.shared.lock().unwrap().pin_mode[index_chain[0].get().0 as usize] = value;
                 Set
             }
@@ -99,7 +99,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl $out>,
                 index_chain: [ww_client_server::ResourceIndex; 1],
-            ) -> GetResult<u8, ()> {
+            ) -> GetResult<u8, CommonError<'_>> {
                 Value(self.shared.lock().unwrap().pin_mode[index_chain[0].get().0 as usize])
             }
         };

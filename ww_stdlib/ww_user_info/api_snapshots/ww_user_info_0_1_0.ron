@@ -1,6 +1,6 @@
 // ww_user_info 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 39b2f0e77c529b3e999ee8f53b7abf62ae0061b32057c0642013d8b63a32837c
+// shrink_wrap sha256: 6d8eed94397070df323b873ae36c8f30e57b19a94ff1f9f8e6d5390df35f8c57
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "A name and notes the user gives a unit (STD-24), shown by `ww list`.",
     "",
@@ -46,22 +46,17 @@
         "Errors of writing the name or notes.",
     ], ident: "UserInfoError", generics: [], variants: [
         (docs: [
-            "Common error",
-        ], ident: "Common", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 6), docs: [], slot: None, series_opaque: false),
-        ]), discriminant: 0, since: None),
-        (docs: [
             "Longer than this device keeps ({max} bytes)",
         ], ident: "TooLong", fields: Named([
             (ident: Some("max"), default: None, since: None, ty: Instance(type_idx: 2, args: [
                 Type(OutOfLine(type_idx: 3)),
                 Type(OutOfLine(type_idx: 4)),
                 Type(NumericAny(Base(U16))),
-                Type(OutOfLine(type_idx: 7)),
+                Type(OutOfLine(type_idx: 6)),
             ]), docs: [
                 "What the device keeps, from `CAPABILITIES`.",
             ], slot: None, series_opaque: false),
-        ]), discriminant: 1, since: None),
+        ]), discriminant: 0, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "Fixed", signature: [
         226,
@@ -135,24 +130,6 @@
         242,
         151,
     ]),
-    SkippedFullVersion(crate_idx: 2, type_name: "CommonError", signature: [
-        30,
-        18,
-        211,
-        141,
-        253,
-        197,
-        48,
-        184,
-        37,
-        11,
-        183,
-        248,
-        238,
-        96,
-        205,
-        177,
-    ]),
     SkippedFullVersion(crate_idx: 1, type_name: "Unbounded", signature: [
         117,
         194,
@@ -185,7 +162,7 @@
         ], optional: None, meta: None, identity: None),
         (id: 1, kind: Property(ty: MaxLen(max_len: Fixed(32), ty: String), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 1)), errors: Some([
             (ident: "TooLong", nested: None),
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "Busy",
                 "Fault",
             ])),
@@ -194,7 +171,7 @@
         ], optional: None, meta: None, identity: None),
         (id: 2, kind: Property(ty: MaxLen(max_len: Fixed(256), ty: String), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 1)), errors: Some([
             (ident: "TooLong", nested: None),
-            (ident: "Common", nested: Some([
+            (ident: "CommonError", nested: Some([
                 "Busy",
                 "Fault",
             ])),
@@ -205,9 +182,6 @@
 ], ext_crates: [
     (crate_id: "ww_user_info", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-    (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-], root_omitted: None, wire: Some((line: 3, revision: 0)), ext_wire: Some([
-    Some((line: 3, revision: 0)),
-    None,
-    Some((line: 1, revision: 0)),
+], root_omitted: None, wire: Some((line: 4, revision: 0)), ext_wire: Some([
+    Some((line: 4, revision: 0)),
 ]))

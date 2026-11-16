@@ -1,7 +1,9 @@
 //! A simulated board for tests: points on nets, nets with external pulls or shorted to a rail, points held by a
 //! function, pairs of outputs that must never both be high. Answers like a firmware serving `PinDiag` would.
 
-use crate::{Drive, Level, PinDiagErrorOwned, PinError, Pins, Point, PointCaps, PointState, Pull};
+use crate::{
+    Drive, Level, PinDiagErrorOwned, PinError, Pins, Point, PointCaps, PointState, Pull, Refusal,
+};
 use wire_weaver::prelude::CommonErrorOwned;
 
 /// What the board puts on a net besides the points.
@@ -163,8 +165,8 @@ impl MockBoard {
     }
 }
 
-fn refused(e: PinDiagErrorOwned) -> Result<(), PinError> {
-    Err(PinError::Refused(e))
+fn refused(e: impl Into<Refusal>) -> Result<(), PinError> {
+    Err(PinError::Refused(e.into()))
 }
 
 impl Pins for MockBoard {
@@ -189,9 +191,9 @@ impl Pins for MockBoard {
             return refused(PinDiagErrorOwned::NotCapable);
         }
         if let Some(by) = &p.held_by {
-            return refused(PinDiagErrorOwned::Common(CommonErrorOwned::InUse {
+            return refused(CommonErrorOwned::InUse {
                 by: wire_weaver::prelude::MaxLen::new_unchecked(by.clone()),
-            }));
+            });
         }
         if matches!(
             state,
@@ -223,8 +225,8 @@ impl Pins for MockBoard {
     async fn read(&mut self, point: u16) -> Result<Level, PinError> {
         self.call()?;
         match self.points.get(point as usize) {
-            None => Err(PinError::Refused(PinDiagErrorOwned::NoSuchPoint)),
-            Some(p) if !p.caps.read => Err(PinError::Refused(PinDiagErrorOwned::NotCapable)),
+            None => refused(PinDiagErrorOwned::NoSuchPoint).map(|()| Level::Low),
+            Some(p) if !p.caps.read => refused(PinDiagErrorOwned::NotCapable).map(|()| Level::Low),
             Some(p) => Ok(self.net_level(p.net)),
         }
     }

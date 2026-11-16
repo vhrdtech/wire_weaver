@@ -9,11 +9,11 @@ mod tests {
     use wire_weaver::prelude::*;
     use ww_i2c::{
         Byte, Bytes, Count, Cycle, Hertz, I2cAddress, I2cCapabilities, I2cConfig, I2cError,
-        I2cErrorOwned, I2cLinesState, I2cMatchByte, I2cMode, I2cOp, I2cOpOwned, I2cReadEnvelope,
-        I2cReadKind, I2cReadKindOwned, I2cRecord, I2cRecordKind, I2cTimeRange,
-        I2cTransactionResult, I2cTransactionTimeRange, I2cWatchCapabilities, I2cWatchConfig,
-        I2cWatchConfigOwned, I2cWatchEvent, I2cWatchReportOwned, Index, Item, MAX_READ_LEN,
-        MAX_SCAN, MAX_WATCHES, Second, WatchSlot as WireWatchSlot,
+        I2cLinesState, I2cMatchByte, I2cMode, I2cOp, I2cOpOwned, I2cReadEnvelope, I2cReadKind,
+        I2cReadKindOwned, I2cRecord, I2cRecordKind, I2cTimeRange, I2cTransactionResult,
+        I2cTransactionTimeRange, I2cWatchCapabilities, I2cWatchConfig, I2cWatchConfigOwned,
+        I2cWatchEvent, I2cWatchReportOwned, Index, Item, MAX_READ_LEN, MAX_SCAN, MAX_WATCHES,
+        Second, WatchSlot as WireWatchSlot,
     };
     use ww_si::Prefix;
     use ww_si::ww_numeric::NumericValue;
@@ -23,11 +23,11 @@ mod tests {
         Second::from_parts(Prefix::Micro, NumericValue::U32(v))
     }
 
-    fn unsupported() -> I2cError<'static> {
+    fn unsupported() -> wire_weaver::Error<'static, I2cError> {
         CommonError::Unsupported.into()
     }
 
-    fn invalid(arg: u8, reason: &'static str) -> I2cError<'static> {
+    fn invalid(arg: u8, reason: &'static str) -> wire_weaver::Error<'static, I2cError> {
         CommonError::InvalidArgument {
             arg: Index::new(arg),
             reason: MaxLen::new_unchecked(reason),
@@ -116,7 +116,7 @@ mod tests {
 
     impl Model {
         /// The start of an operation `op` to `key`: a stuck bus, a missing device, one that stretches too long.
-        fn start(&self, key: u16, op: u8) -> Result<(), I2cError<'static>> {
+        fn start(&self, key: u16, op: u8) -> Result<(), I2cError> {
             if self.sda_stuck {
                 return Err(I2cError::BusStuck {
                     scl_low: false,
@@ -137,7 +137,12 @@ mod tests {
 
         /// The data of write operation `op`: a device without zero-length writes refuses empty ones, a device that
         /// takes fewer bytes doesn't acknowledge the first one past them.
-        fn write_data(&self, key: u16, op: u8, len: usize) -> Result<(), I2cError<'static>> {
+        fn write_data(
+            &self,
+            key: u16,
+            op: u8,
+            len: usize,
+        ) -> Result<(), wire_weaver::Error<'static, I2cError>> {
             if len == 0 {
                 return Err(unsupported());
             }
@@ -145,7 +150,8 @@ mod tests {
                 Some(&n) if len > n as usize => Err(I2cError::Nack {
                     op: Index::new(op),
                     at: Some(Index::new(n + 1)),
-                }),
+                }
+                .into()),
                 _ => Ok(()),
             }
         }
@@ -167,12 +173,7 @@ mod tests {
         /// Same read logic a real `I2c::i2c_read` and a watch's autonomous read share: a plain read returns the
         /// register's front bytes, a register read (`RepeatedStart`) returns `len` bytes starting at `offset`
         /// (the first byte the write part names).
-        fn read(
-            &self,
-            addr: I2cAddress,
-            offset: usize,
-            len: u16,
-        ) -> Result<Vec<u8>, I2cError<'static>> {
+        fn read(&self, addr: I2cAddress, offset: usize, len: u16) -> Result<Vec<u8>, I2cError> {
             let key = addr_key(addr);
             self.start(key, 0)?;
             let reg = self.registers.get(&key).cloned().unwrap_or_default();
@@ -206,7 +207,9 @@ mod tests {
     }
 
     /// Builds the owned equivalent of a borrowed `I2cReadKind` to store beyond the call that carried it.
-    fn read_kind_to_owned(kind: &I2cReadKind<'_>) -> Result<I2cReadKindOwned, I2cError<'static>> {
+    fn read_kind_to_owned(
+        kind: &I2cReadKind<'_>,
+    ) -> Result<I2cReadKindOwned, wire_weaver::Error<'static, I2cError>> {
         Ok(match kind {
             I2cReadKind::Plain => I2cReadKindOwned::Plain,
             I2cReadKind::RepeatedStart { write } => I2cReadKindOwned::RepeatedStart {
@@ -219,7 +222,7 @@ mod tests {
     /// Builds the owned equivalent of a borrowed `I2cWatchReport` to store beyond the call that carried it.
     fn report_to_owned(
         report: &ww_i2c::I2cWatchReport<'_>,
-    ) -> Result<I2cWatchReportOwned, I2cError<'static>> {
+    ) -> Result<I2cWatchReportOwned, wire_weaver::Error<'static, I2cError>> {
         Ok(match report {
             ww_i2c::I2cWatchReport::Always => I2cWatchReportOwned::Always,
             ww_i2c::I2cWatchReport::Changed { mask } => I2cWatchReportOwned::Changed {
@@ -240,7 +243,7 @@ mod tests {
     /// `Unsupported` for a read kind or report of a newer API version.
     fn watch_config_to_owned(
         config: &I2cWatchConfig<'_>,
-    ) -> Result<I2cWatchConfigOwned, I2cError<'static>> {
+    ) -> Result<I2cWatchConfigOwned, wire_weaver::Error<'static, I2cError>> {
         Ok(I2cWatchConfigOwned {
             addr: config.addr,
             kind: read_kind_to_owned(&config.kind)?,
@@ -324,7 +327,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 config: I2cConfig,
-            ) -> RpcResult<Result<I2cConfig, I2cError<'_>>> {
+            ) -> RpcResult<Result<I2cConfig, wire_weaver::Error<'_, I2cError>>> {
                 // a fixed 3.3 V bus: no level control, so the answer's IO level is `None`
                 if config.io_level.is_some() {
                     return Ready(Err(unsupported()));
@@ -366,13 +369,15 @@ mod tests {
                 addr: I2cAddress,
                 data: MaxLen<RefVec<'_, u8>, { ww_i2c::MAX_WRITE_LEN }>,
                 _delay_after: Option<Second>,
-            ) -> RpcResult<Result<I2cTransactionTimeRange, I2cError<'_>>> {
+            ) -> RpcResult<Result<I2cTransactionTimeRange, wire_weaver::Error<'_, I2cError>>>
+            {
                 let mut m = self.model.lock().unwrap();
                 let key = addr_key(addr);
                 m.calls
                     .push((Call::Write(data.as_slice().to_vec()), cx.priority()));
                 if let Err(e) = m
                     .start(key, 0)
+                    .map_err(Into::into)
                     .and_then(|_| m.write_data(key, 0, data.len()))
                 {
                     return Ready(Err(e));
@@ -412,7 +417,8 @@ mod tests {
                 kind: I2cReadKind<'_>,
                 len: Bytes<u16>,
                 _delay_after: Option<Second>,
-            ) -> RpcResult<Result<I2cReadEnvelope<'_>, I2cError<'_>>> {
+            ) -> RpcResult<Result<I2cReadEnvelope<'_>, wire_weaver::Error<'_, I2cError>>>
+            {
                 let len = len.get();
                 if len == 0 {
                     return Ready(Err(invalid(2, "len is 0")));
@@ -444,7 +450,7 @@ mod tests {
                 let end = m.tick();
                 let data = match result {
                     Ok(data) => data,
-                    Err(e) => return Ready(Err(e)),
+                    Err(e) => return Ready(Err(e.into())),
                 };
                 if m.monitor_enabled {
                     let record = I2cRecord {
@@ -471,8 +477,9 @@ mod tests {
             fn i2c_i2c_scan(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> RpcResult<Result<MaxLen<RefVec<'_, I2cAddress>, MAX_SCAN>, I2cError<'_>>>
-            {
+            ) -> RpcResult<
+                Result<MaxLen<RefVec<'_, I2cAddress>, MAX_SCAN>, wire_weaver::Error<'_, I2cError>>,
+            > {
                 let m = self.model.lock().unwrap();
                 let mut found: Vec<u8> = m
                     .registers
@@ -498,7 +505,8 @@ mod tests {
                 cx: &mut Context<'_, impl BlockingEventOut>,
                 addr: I2cAddress,
                 ops: MaxLen<RefVec<'_, I2cOp<'_>>, { ww_i2c::MAX_OPS }>,
-            ) -> RpcResult<Result<I2cTransactionResult<'_>, I2cError<'_>>> {
+            ) -> RpcResult<Result<I2cTransactionResult<'_>, wire_weaver::Error<'_, I2cError>>>
+            {
                 let mut m = self.model.lock().unwrap();
                 let call = ops
                     .iter()
@@ -522,7 +530,7 @@ mod tests {
                     };
                     // every operation starts with the address again (a repeated start after the first)
                     if let Err(e) = m.start(key, i as u8) {
-                        return Ready(Err(e));
+                        return Ready(Err(e.into()));
                     }
                     match op {
                         I2cOp::Write(data) => {
@@ -572,7 +580,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 count: Count<Cycle, u8>,
-            ) -> RpcResult<Result<I2cLinesState, I2cError<'_>>> {
+            ) -> RpcResult<Result<I2cLinesState, wire_weaver::Error<'_, I2cError>>> {
                 // the stuck slave lets go of SDA after a few clocks
                 let mut m = self.model.lock().unwrap();
                 if count.get() >= 3 {
@@ -585,7 +593,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 enabled: bool,
-            ) -> RpcResult<Result<(), I2cError<'_>>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, I2cError>>> {
                 self.model.lock().unwrap().pullups = enabled;
                 Ready(Ok(()))
             }
@@ -625,13 +633,13 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 watch: I2cWatchConfig<'_>,
-            ) -> RpcResult<Result<WireWatchSlot, I2cError<'_>>> {
+            ) -> RpcResult<Result<WireWatchSlot, wire_weaver::Error<'_, I2cError>>> {
                 let config = match watch_config_to_owned(&watch) {
                     Ok(config) => config,
                     Err(e) => return Ready(Err(e)),
                 };
                 let Some(slot) = self.watches.iter().position(Option::is_none) else {
-                    return Ready(Err(I2cError::OutOfWatchSlots));
+                    return Ready(Err(I2cError::OutOfWatchSlots.into()));
                 };
                 self.watches[slot] = Some(WatchSlot {
                     config,
@@ -647,12 +655,12 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 slot: WireWatchSlot,
                 watch: I2cWatchConfig<'_>,
-            ) -> RpcResult<Result<(), I2cError<'_>>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, I2cError>>> {
                 let Some(entry) = self.watches.get_mut(slot.0 as usize) else {
-                    return Ready(Err(I2cError::InvalidWatchSlot));
+                    return Ready(Err(I2cError::InvalidWatchSlot.into()));
                 };
                 if entry.is_none() {
-                    return Ready(Err(I2cError::InvalidWatchSlot));
+                    return Ready(Err(I2cError::InvalidWatchSlot.into()));
                 }
                 let config = match watch_config_to_owned(&watch) {
                     Ok(config) => config,
@@ -671,12 +679,12 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 slot: WireWatchSlot,
-            ) -> RpcResult<Result<(), I2cError<'_>>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, I2cError>>> {
                 let Some(entry) = self.watches.get_mut(slot.0 as usize) else {
-                    return Ready(Err(I2cError::InvalidWatchSlot));
+                    return Ready(Err(I2cError::InvalidWatchSlot.into()));
                 };
                 if entry.is_none() {
-                    return Ready(Err(I2cError::InvalidWatchSlot));
+                    return Ready(Err(I2cError::InvalidWatchSlot.into()));
                 }
                 *entry = None;
                 Ready(Ok(()))
@@ -706,7 +714,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 _io_level: Option<ww_si::Volt>,
-            ) -> RpcResult<Result<(), I2cError<'_>>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, I2cError>>> {
                 self.model.lock().unwrap().monitor_enabled = true;
                 Ready(Ok(()))
             }
@@ -944,10 +952,7 @@ mod tests {
             .call()
             .await
             .unwrap_err();
-        assert_eq!(
-            err.device(),
-            Some(&I2cErrorOwned::Common(CommonErrorOwned::Unsupported))
-        );
+        assert_eq!(err.common(), Some(&CommonErrorOwned::Unsupported));
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -966,7 +971,7 @@ mod tests {
         // the address was not acknowledged
         assert_eq!(
             err.device(),
-            Some(&I2cErrorOwned::Nack {
+            Some(&I2cError::Nack {
                 op: Index::new(0),
                 at: Some(Index::new(0))
             })
@@ -979,10 +984,8 @@ mod tests {
             .call()
             .await
             .unwrap_err();
-        let Some(I2cErrorOwned::Common(CommonErrorOwned::InvalidArgument { arg, .. })) =
-            err.device()
-        else {
-            panic!("expected InvalidArgument, got {:?}", err.device());
+        let Some(CommonErrorOwned::InvalidArgument { arg, .. }) = err.common() else {
+            panic!("expected InvalidArgument, got {:?}", err.common());
         };
         assert_eq!(arg.get(), 2);
     }
@@ -1005,7 +1008,7 @@ mod tests {
         // two bytes went through, the third (byte 3 on the bus after the address) was refused
         assert_eq!(
             err.device(),
-            Some(&I2cErrorOwned::Nack {
+            Some(&I2cError::Nack {
                 op: Index::new(0),
                 at: Some(Index::new(3))
             })
@@ -1026,7 +1029,7 @@ mod tests {
             .unwrap_err();
         assert_eq!(
             err.device(),
-            Some(&I2cErrorOwned::Nack {
+            Some(&I2cError::Nack {
                 op: Index::new(1),
                 at: Some(Index::new(3))
             })
@@ -1043,10 +1046,7 @@ mod tests {
             .call()
             .await
             .unwrap_err();
-        assert_eq!(
-            err.device(),
-            Some(&I2cErrorOwned::Common(CommonErrorOwned::Unsupported))
-        );
+        assert_eq!(err.common(), Some(&CommonErrorOwned::Unsupported));
         let caps = client.i2c().i2c_capabilities().call().await.unwrap();
         assert!(!caps.zero_length_write);
         assert_eq!(caps.max_ops.get(), ww_i2c::MAX_OPS as u8);
@@ -1088,10 +1088,8 @@ mod tests {
             .await
             .unwrap_err();
         assert!(matches!(
-            err.device(),
-            Some(I2cErrorOwned::Common(
-                CommonErrorOwned::InvalidArgument { .. }
-            ))
+            err.common(),
+            Some(CommonErrorOwned::InvalidArgument { .. })
         ));
 
         let err = client
@@ -1105,7 +1103,7 @@ mod tests {
             .call()
             .await
             .unwrap_err();
-        assert_eq!(err.device(), Some(&I2cErrorOwned::ClockStretch));
+        assert_eq!(err.device(), Some(&I2cError::ClockStretch));
     }
 
     /// A stuck SDA is reported, not recovered behind the host's back; `i2c_wiggle_clock` frees it.
@@ -1124,7 +1122,7 @@ mod tests {
             .unwrap_err();
         assert_eq!(
             err.device(),
-            Some(&I2cErrorOwned::BusStuck {
+            Some(&I2cError::BusStuck {
                 scl_low: false,
                 sda_low: true
             })
@@ -1359,7 +1357,7 @@ mod tests {
         let ev = changes.recv().await.unwrap();
         assert_eq!(
             ev.result.unwrap_err(),
-            I2cErrorOwned::Nack {
+            I2cError::Nack {
                 op: Index::new(0),
                 at: Some(Index::new(0))
             }
@@ -1440,7 +1438,7 @@ mod tests {
             .call()
             .await
             .unwrap_err();
-        assert_eq!(err.device(), Some(&I2cErrorOwned::InvalidWatchSlot));
+        assert_eq!(err.device(), Some(&I2cError::InvalidWatchSlot));
     }
 
     // ---- slave mode: a second mock server built on `ww_bus_slave::I2cSlave`, driven by `SlaveBusOp` instead of a
@@ -1464,7 +1462,7 @@ mod tests {
         const EV: usize = 8;
         const REC: usize = 16;
 
-        fn wrong_state() -> I2cError<'static> {
+        fn wrong_state() -> wire_weaver::Error<'static, I2cError> {
             CommonError::WrongState {
                 reason: MaxLen::new_unchecked("slave-only mock"),
             }
@@ -1543,7 +1541,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 config: I2cConfig,
-            ) -> RpcResult<Result<I2cConfig, I2cError<'_>>> {
+            ) -> RpcResult<Result<I2cConfig, wire_weaver::Error<'_, I2cError>>> {
                 match config.mode {
                     I2cMode::Disabled => Ready(Ok(I2cConfig {
                         mode: I2cMode::Disabled,
@@ -1559,7 +1557,8 @@ mod tests {
                 _addr: I2cAddress,
                 _data: MaxLen<RefVec<'_, u8>, { ww_i2c::MAX_WRITE_LEN }>,
                 _delay_after: Option<Second>,
-            ) -> RpcResult<Result<I2cTransactionTimeRange, I2cError<'_>>> {
+            ) -> RpcResult<Result<I2cTransactionTimeRange, wire_weaver::Error<'_, I2cError>>>
+            {
                 Ready(Err(wrong_state()))
             }
 
@@ -1570,15 +1569,17 @@ mod tests {
                 _kind: I2cReadKind<'_>,
                 _len: Bytes<u16>,
                 _delay_after: Option<Second>,
-            ) -> RpcResult<Result<I2cReadEnvelope<'_>, I2cError<'_>>> {
+            ) -> RpcResult<Result<I2cReadEnvelope<'_>, wire_weaver::Error<'_, I2cError>>>
+            {
                 Ready(Err(wrong_state()))
             }
 
             fn i2c_i2c_scan(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> RpcResult<Result<MaxLen<RefVec<'_, I2cAddress>, MAX_SCAN>, I2cError<'_>>>
-            {
+            ) -> RpcResult<
+                Result<MaxLen<RefVec<'_, I2cAddress>, MAX_SCAN>, wire_weaver::Error<'_, I2cError>>,
+            > {
                 Ready(Err(wrong_state()))
             }
 
@@ -1587,7 +1588,8 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 _addr: I2cAddress,
                 _ops: MaxLen<RefVec<'_, I2cOp<'_>>, { ww_i2c::MAX_OPS }>,
-            ) -> RpcResult<Result<I2cTransactionResult<'_>, I2cError<'_>>> {
+            ) -> RpcResult<Result<I2cTransactionResult<'_>, wire_weaver::Error<'_, I2cError>>>
+            {
                 Ready(Err(wrong_state()))
             }
 
@@ -1607,7 +1609,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 _count: Count<Cycle, u8>,
-            ) -> RpcResult<Result<I2cLinesState, I2cError<'_>>> {
+            ) -> RpcResult<Result<I2cLinesState, wire_weaver::Error<'_, I2cError>>> {
                 Ready(Err(unsupported()))
             }
 
@@ -1615,7 +1617,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 _enabled: bool,
-            ) -> RpcResult<Result<(), I2cError<'_>>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, I2cError>>> {
                 Ready(Err(unsupported()))
             }
 
@@ -1645,7 +1647,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 config: I2cSlaveConfig,
-            ) -> RpcResult<Result<(), I2cError<'_>>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, I2cError>>> {
                 Ready(self.engine.configure(&config).map_err(Into::into))
             }
 
@@ -1662,7 +1664,7 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 offset: Index<Byte, u32>,
                 data: MaxLen<RefVec<'_, u8>, { ww_i2c::MAX_WRITE_LEN }>,
-            ) -> RpcResult<Result<(), I2cError<'_>>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, I2cError>>> {
                 Ready(
                     self.engine
                         .map_write(offset.get(), data.as_slice())
@@ -1675,10 +1677,12 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 offset: Index<Byte, u32>,
                 len: Bytes<u16>,
-            ) -> RpcResult<Result<MaxLen<RefVec<'_, u8>, MAX_READ_LEN>, I2cError<'_>>> {
+            ) -> RpcResult<
+                Result<MaxLen<RefVec<'_, u8>, MAX_READ_LEN>, wire_weaver::Error<'_, I2cError>>,
+            > {
                 let len = len.get() as usize;
                 if len > self.map_scratch.len() {
-                    return Ready(Err(I2cError::BufferTooBig));
+                    return Ready(Err(I2cError::BufferTooBig.into()));
                 }
                 match self
                     .engine
@@ -2570,7 +2574,7 @@ mod tests {
             .await
             .unwrap_err();
         assert!(
-            matches!(err, HlError::I2c(I2cErrorOwned::BusStuck { .. })),
+            matches!(err, HlError::I2c(I2cError::BusStuck { .. })),
             "{err:?}"
         );
         assert_eq!(err.kind(), ErrorKind::Bus);

@@ -45,6 +45,16 @@ impl<T, D: DeserializeShrinkWrapOwned + Debug> PreparedCall<T, CallError<D>> {
     }
 }
 
+impl<T> PreparedCall<T, Error> {
+    /// The `#[errors(CommonError(..))]` list of a method without a `Result` (API-32, STD-16), used by generated
+    /// client code: a common error outside it is logged as a warning (a panic with
+    /// [set_strict_error_lists](crate::set_strict_error_lists)).
+    pub fn with_common_error_list(mut self, list: ErrorList<Error>) -> Self {
+        self.error_list = Some(list);
+        self
+    }
+}
+
 impl<T: DeserializeShrinkWrapOwned, E: DecodeReply<T>> PreparedCall<T, E> {
     /// The terms of a call through an API's local trait (SRV-48): `cx.priority` when it isn't
     /// [Priority::NORMAL](crate::Priority::NORMAL) (the Commander's default stays otherwise), `cx.deadline` as the
@@ -89,10 +99,11 @@ impl<T: DeserializeShrinkWrapOwned, E: DecodeReply<T>> PreparedCall<T, E> {
     /// This can happen if too many requests are sent or if client device is slow to respond.
     pub async fn call(self) -> Result<T, E> {
         let (resource, error_list) = (self.resource, self.error_list);
-        let result = self
-            .call_inner()
-            .await
-            .map_err(|e| E::from_client(e, resource))?;
+        // a common error is the protocol's answer (STD-16), checked against the list like the device's own
+        let result = match self.call_inner().await {
+            Ok(result) => result,
+            Err(e) => Err(E::from_client(e, resource)),
+        };
         check_error_list(result, error_list.as_ref(), resource)
     }
 
@@ -121,9 +132,10 @@ impl<T: DeserializeShrinkWrapOwned, E: DecodeReply<T>> PreparedCall<T, E> {
     /// This can happen if too many requests are sent or if client device is slow to respond.
     pub fn blocking_call(self) -> Result<T, E> {
         let (resource, error_list) = (self.resource, self.error_list);
-        let result = self
-            .blocking_call_inner()
-            .map_err(|e| E::from_client(e, resource))?;
+        let result = match self.blocking_call_inner() {
+            Ok(result) => result,
+            Err(e) => Err(E::from_client(e, resource)),
+        };
         check_error_list(result, error_list.as_ref(), resource)
     }
 

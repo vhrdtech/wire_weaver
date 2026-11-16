@@ -108,14 +108,14 @@ impl ServerState {
         &mut self,
         _cx: &mut Context<'_, impl BlockingEventOut>,
         _value: wire_weaver::shrink_wrap::MaxLen<&'_ str, 6>,
-    ) -> SetResult<()> {
+    ) -> SetResult<CommonError<'_>> {
         Unimplemented.into()
     }
 
     fn get_label(
         &mut self,
         _cx: &mut Context<'_, impl BlockingEventOut>,
-    ) -> GetResult<wire_weaver::shrink_wrap::MaxLen<&'_ str, 6>, ()> {
+    ) -> GetResult<wire_weaver::shrink_wrap::MaxLen<&'_ str, 6>, CommonError<'_>> {
         Unimplemented.into()
     }
 

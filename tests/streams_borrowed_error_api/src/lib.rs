@@ -33,6 +33,10 @@ pub enum OpenError<'i> {
     Inner(InnerError<'i>),
 }
 
+ww_api::api_error!(OpenError<'i>);
+#[cfg(feature = "std")]
+ww_api::api_error!(OpenErrorOwned);
+
 #[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Debug, PartialEq, Eq, Clone), ww_repr = u4)]
 pub enum InnerError<'i> {
     Message(&'i str),

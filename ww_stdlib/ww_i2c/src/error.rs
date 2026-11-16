@@ -6,16 +6,13 @@ use crate::{Byte, Op};
 /// Errors of every trait in this crate: the common ones first, then what is specific to I2C. Each method lists the
 /// variants it returns.
 #[derive_shrink_wrap(
-    owned(feature = "std"),
+    borrowed, owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Debug, PartialEq, Eq, Clone),
     ww_repr = unib32,
     display
 )]
-pub enum I2cError<'i> {
-    /// {0}
-    #[common]
-    Common(CommonError<'i>),
+pub enum I2cError {
     /// Not acknowledged: the address, or a data byte of a write (`at`), in operation `op`.
     ///
     /// `op` is 0 for `I2c::i2c_write` and a plain `I2c::i2c_read`; for an [I2cReadKind::RepeatedStart] read 0 is
@@ -51,3 +48,5 @@ pub enum I2cError<'i> {
     #[display("bus stuck: SCL low {scl_low}, SDA low {sda_low}")]
     BusStuck { scl_low: bool, sda_low: bool },
 }
+
+ww_api::api_error!(I2cError);

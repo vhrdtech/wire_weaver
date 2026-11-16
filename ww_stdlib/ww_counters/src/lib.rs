@@ -33,19 +33,19 @@
 //!     _cx: &mut Context<'_, impl BlockingEventOut>,
 //!     buffer: CounterBuffer,
 //!     offset: Index<Word, u16>,
-//! ) -> RpcResult<Result<MaxLen<RefVec<'_, UVlq32>, MAX_WORDS>, CountersError<'_>>> {
+//! ) -> RpcResult<Result<MaxLen<RefVec<'_, UVlq32>, MAX_WORDS>, CommonError<'_>>> {
 //!     RpcResult::Ready(match buffer {
 //!         CounterBuffer::Ram => {
 //!             read_words(cnt::counters_ram_buffer(), cnt::ram_used_words(), offset.get(), &mut self.scratch)
 //!         }
-//!         CounterBuffer::Backup => Err(CountersError::unsupported()),
+//!         CounterBuffer::Backup => Err(CommonError::Unsupported),
 //!     })
 //! }
 //!
-//! fn counters_reset(&mut self, _cx: .., buffer: CounterBuffer) -> RpcResult<Result<(), CountersError<'_>>> {
+//! fn counters_reset(&mut self, _cx: .., buffer: CounterBuffer) -> RpcResult<Result<(), CommonError<'_>>> {
 //!     match buffer {
 //!         CounterBuffer::Ram => reset_words(cnt::counters_ram_buffer()),
-//!         CounterBuffer::Backup => return RpcResult::Ready(Err(CountersError::unsupported())),
+//!         CounterBuffer::Backup => return RpcResult::Ready(Err(CommonError::Unsupported)),
 //!     }
 //!     RpcResult::Ready(Ok(()))
 //! }
@@ -71,7 +71,7 @@ pub const BUILD_ID_MAX_LEN: usize = 32;
 ///
 /// # Errors
 ///
-/// [CountersError]: `Common(Unsupported)` for the backup buffer on a device without one, `Common(InvalidArgument)`
+/// Common errors only (STD-16): `Unsupported` for the backup buffer on a device without one, `InvalidArgument`
 /// for an offset past the used words.
 #[ww_trait]
 pub trait Counters {
@@ -81,24 +81,24 @@ pub trait Counters {
     /// Words of a buffer from word `offset`, up to [MAX_WORDS] and never past its used words: empty at the end. The
     /// words of one call are copied at once, so a page is one snapshot (a `u64` counter can still tear between two
     /// calls, or within one if an interrupt carries into its high word; the host reads such a counter again).
-    #[errors(Common(InvalidArgument, Unsupported))]
+    #[errors(CommonError(InvalidArgument, Unsupported))]
     fn read(
         buffer: CounterBuffer,
         offset: Index<Word, u16>,
-    ) -> Result<MaxLen<RefVec<'i, UVlq32>, MAX_WORDS>, CountersError<'i>>;
+    ) -> MaxLen<RefVec<'i, UVlq32>, MAX_WORDS>;
 
     /// Zero a buffer.
-    #[errors(Common(Unsupported))]
-    fn reset(buffer: CounterBuffer) -> Result<(), CountersError<'i>>;
+    #[errors(CommonError(Unsupported))]
+    fn reset(buffer: CounterBuffer);
 
     /// Words that changed since the last event, sent every `period` (at least the device's minimum, which opening
     /// answers): for slow links where polling [Counters::read] costs too much. A counted stream, unit: event.
     ///
     /// Optional: a device leaves it out (`omit = ["counters.watch"]`), polling `read` works everywhere.
     #[optional]
-    #[errors(Common(Unsupported, Busy))]
+    #[errors(CommonError(Unsupported, Busy))]
     #[stream(CounterChanges<'i>, counted)]
-    fn watch(period: Second) -> Result<Second, CountersError<'i>>;
+    fn watch(period: Second) -> Second;
 }
 
 /// One of the two `cnt` buffers.
@@ -171,28 +171,6 @@ pub struct WordChange {
     pub value: UVlq32,
 }
 
-/// Errors of the counters calls.
-#[derive_shrink_wrap(
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Clone, Debug, PartialEq, Eq),
-    display,
-    ww_repr = unib32
-)]
-pub enum CountersError<'i> {
-    /// Common error
-    #[display("{0}")]
-    #[common]
-    Common(CommonError<'i>),
-}
-
-impl CountersError<'_> {
-    /// `Common(Unsupported)`: e.g. the backup buffer of a device without one.
-    pub const fn unsupported() -> Self {
-        CountersError::Common(CommonError::Unsupported)
-    }
-}
-
 impl BufferInfo {
     /// A buffer of `cnt` (`cnt::counters_ram_buffer()`) with `used` words in use (`cnt::ram_used_words()`).
     pub fn new(used: usize, buffer: &[AtomicU32]) -> Self {
@@ -210,14 +188,14 @@ pub fn read_words<'s>(
     used: usize,
     offset: u16,
     scratch: &'s mut [UVlq32; MAX_WORDS],
-) -> Result<MaxLen<RefVec<'s, UVlq32>, MAX_WORDS>, CountersError<'static>> {
+) -> Result<MaxLen<RefVec<'s, UVlq32>, MAX_WORDS>, CommonError<'static>> {
     let used = used.min(buffer.len());
     let offset = offset as usize;
     if offset > used {
-        return Err(CountersError::Common(CommonError::InvalidArgument {
+        return Err(CommonError::InvalidArgument {
             arg: Index::new(1),
             reason: MaxLen::new_unchecked("offset past the used words"),
-        }));
+        });
     }
     let n = (used - offset).min(MAX_WORDS);
     for (dst, src) in scratch.iter_mut().zip(&buffer[offset..offset + n]) {

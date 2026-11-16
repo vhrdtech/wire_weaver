@@ -105,7 +105,7 @@ mod tests {
                     Self::deferred_send_return_blocking(cx, reply_to, value).unwrap();
                 }
                 if let Some(reply_to) = data.deferred_unit.take() {
-                    Self::deferred_unit_send_return_blocking(cx, reply_to).unwrap();
+                    Self::deferred_unit_send_return_blocking(cx, reply_to, ()).unwrap();
                 }
                 if let Some(reply_to) = data.plug_vbus_cycle.take() {
                     Self::plug_vbus_cycle_send_return_blocking(cx, reply_to, value + 1).unwrap();
@@ -144,18 +144,18 @@ mod tests {
                 &mut self,
                 _cx: &mut Cx<'_, impl BlockingEventOut>,
                 value: u8,
-            ) -> RpcResult<Result<u8, MethodError>> {
+            ) -> RpcResult<Result<u8, wire_weaver::Error<'_, MethodError>>> {
                 Ready(if value.is_multiple_of(2) {
                     Ok(value / 2)
                 } else {
-                    Err(MethodError::Odd)
+                    Err(MethodError::Odd.into())
                 })
             }
 
             fn fallible_absent(
                 &mut self,
                 _cx: &mut Cx<'_, impl BlockingEventOut>,
-            ) -> RpcResult<Result<(), MethodError>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, MethodError>>> {
                 Unimplemented.into()
             }
 
@@ -163,7 +163,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Cx<'_, impl BlockingEventOut>,
                 pick: u8,
-            ) -> RpcResult<Result<(), ListedError<'_>>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, ListedError>>> {
                 Ready(pick_error(pick))
             }
 
@@ -171,7 +171,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Cx<'_, impl BlockingEventOut>,
                 pick: u8,
-            ) -> RpcResult<Result<(), ListedError<'_>>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, ListedError>>> {
                 Ready(pick_error(pick))
             }
 
@@ -194,12 +194,12 @@ mod tests {
                 _cx: &mut Cx<'_, impl BlockingEventOut>,
                 index_chain: [ww_client_server::ResourceIndex; 1],
                 value: u8,
-            ) -> RpcResult<Result<u8, MethodError>> {
+            ) -> RpcResult<Result<u8, wire_weaver::Error<'_, MethodError>>> {
                 let _ = index_chain;
                 Ready(if value.is_multiple_of(2) {
                     Ok(value / 2)
                 } else {
-                    Err(MethodError::Odd)
+                    Err(MethodError::Odd.into())
                 })
             }
         }
@@ -207,13 +207,13 @@ mod tests {
         /// Elements of the `unit[]` array (CLT-15 multi-request tests)
         pub const UNITS: u32 = 4;
 
-        fn pick_error(pick: u8) -> Result<(), ListedError<'static>> {
+        fn pick_error(pick: u8) -> Result<(), wire_weaver::Error<'static, ListedError>> {
             match pick {
                 0 => Ok(()),
                 1 => Err(CommonError::Busy.into()),
-                2 => Err(ListedError::Nack),
+                2 => Err(ListedError::Nack.into()),
                 3 => Err(CommonError::Timeout.into()),
-                _ => Err(ListedError::Overrun),
+                _ => Err(ListedError::Overrun.into()),
             }
         }
 
@@ -248,7 +248,7 @@ mod tests {
     /// it, with [no_std_sync_server] as the reference it must match byte for byte (`tests_common::Twin`).
     mod alloc_server {
         use super::*;
-        use methods_api::{I2cAddress, ListedErrorOwned, MethodError, UserDefinedOwned};
+        use methods_api::{I2cAddress, ListedError, MethodError, UserDefinedOwned};
         use tests_common::TestProcessEvents;
         use wire_weaver::prelude::*;
 
@@ -323,7 +323,7 @@ mod tests {
                     Self::deferred_send_return_blocking(cx, reply_to, value).unwrap();
                 }
                 if let Some(reply_to) = data.deferred_unit.take() {
-                    Self::deferred_unit_send_return_blocking(cx, reply_to).unwrap();
+                    Self::deferred_unit_send_return_blocking(cx, reply_to, ()).unwrap();
                 }
                 if let Some(reply_to) = data.plug_vbus_cycle.take() {
                     Self::plug_vbus_cycle_send_return_blocking(cx, reply_to, value + 1).unwrap();
@@ -362,18 +362,18 @@ mod tests {
                 &mut self,
                 _cx: &mut Cx<'_, impl BlockingEventOut>,
                 value: u8,
-            ) -> RpcResult<Result<u8, MethodError>> {
+            ) -> RpcResult<Result<u8, wire_weaver::Error<'_, MethodError>>> {
                 Ready(if value.is_multiple_of(2) {
                     Ok(value / 2)
                 } else {
-                    Err(MethodError::Odd)
+                    Err(MethodError::Odd.into())
                 })
             }
 
             fn fallible_absent(
                 &mut self,
                 _cx: &mut Cx<'_, impl BlockingEventOut>,
-            ) -> RpcResult<Result<(), MethodError>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, MethodError>>> {
                 Unimplemented.into()
             }
 
@@ -381,7 +381,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Cx<'_, impl BlockingEventOut>,
                 pick: u8,
-            ) -> RpcResult<Result<(), ListedErrorOwned>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, ListedError>>> {
                 Ready(pick_error(pick))
             }
 
@@ -389,7 +389,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Cx<'_, impl BlockingEventOut>,
                 pick: u8,
-            ) -> RpcResult<Result<(), ListedErrorOwned>> {
+            ) -> RpcResult<Result<(), wire_weaver::Error<'_, ListedError>>> {
                 Ready(pick_error(pick))
             }
 
@@ -412,23 +412,23 @@ mod tests {
                 _cx: &mut Cx<'_, impl BlockingEventOut>,
                 index_chain: [ww_client_server::ResourceIndex; 1],
                 value: u8,
-            ) -> RpcResult<Result<u8, MethodError>> {
+            ) -> RpcResult<Result<u8, wire_weaver::Error<'_, MethodError>>> {
                 let _ = index_chain;
                 Ready(if value.is_multiple_of(2) {
                     Ok(value / 2)
                 } else {
-                    Err(MethodError::Odd)
+                    Err(MethodError::Odd.into())
                 })
             }
         }
 
-        fn pick_error(pick: u8) -> Result<(), ListedErrorOwned> {
+        fn pick_error(pick: u8) -> Result<(), wire_weaver::Error<'static, ListedError>> {
             match pick {
                 0 => Ok(()),
-                1 => Err(ListedErrorOwned::Common(CommonErrorOwned::Busy)),
-                2 => Err(ListedErrorOwned::Nack),
-                3 => Err(ListedErrorOwned::Common(CommonErrorOwned::Timeout)),
-                _ => Err(ListedErrorOwned::Overrun),
+                1 => Err(CommonError::Busy.into()),
+                2 => Err(ListedError::Nack.into()),
+                3 => Err(CommonError::Timeout.into()),
+                _ => Err(ListedError::Overrun.into()),
             }
         }
 
@@ -746,24 +746,18 @@ mod tests {
     /// A device error in the method's `#[errors(..)]` list goes through as is (API-32).
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn listed_errors() {
-        use methods_api::ListedErrorOwned;
+        use methods_api::ListedError;
         use wire_weaver::prelude::CommonErrorOwned;
         let (device, _data) = start("methods/listed_errors");
         let client = connect(&device).await;
         client.listed_errors(0).call().await.unwrap();
         let e = client.listed_errors(1).call().await.unwrap_err();
         assert!(
-            matches!(
-                e,
-                CallError::Device(ListedErrorOwned::Common(CommonErrorOwned::Busy))
-            ),
+            matches!(e, CallError::Common(CommonErrorOwned::Busy)),
             "{e:?}"
         );
         let e = client.listed_errors(2).call().await.unwrap_err();
-        assert!(
-            matches!(e, CallError::Device(ListedErrorOwned::Nack)),
-            "{e:?}"
-        );
+        assert!(matches!(e, CallError::Device(ListedError::Nack)), "{e:?}");
         // Common lists every common error
         for pick in [1, 3] {
             client.all_common(pick).call().await.unwrap_err();
@@ -773,7 +767,7 @@ mod tests {
     /// tests_common makes the client strict: a device error outside the list fails the test (API-32).
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     #[should_panic(
-        expected = "'Methods::listed_errors' returned Device(Common(Timeout)), which is not in its #[errors(Common(Busy, InUse), Nack)]"
+        expected = "'Methods::listed_errors' returned CommonError(Timeout), which is not in its #[errors(CommonError(Busy, InUse), Nack)]"
     )]
     async fn unlisted_nested_error_fails_in_tests() {
         let (device, _data) = start("methods/unlisted_nested_error");
@@ -995,10 +989,7 @@ mod tests {
             .unwrap();
         assert_eq!(ok.unwrap(), 2);
         assert!(
-            matches!(
-                err,
-                Err(CallError::Device(methods_api::ListedErrorOwned::Nack))
-            ),
+            matches!(err, Err(CallError::Device(methods_api::ListedError::Nack))),
             "{err:?}"
         );
 
@@ -1176,6 +1167,7 @@ mod tests {
             &mut args,
             &mut scratch_event,
             6,
+            (),
         )
         .unwrap();
         let event = ww_client_server::Event::from_ww_bytes(bytes).unwrap();

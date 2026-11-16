@@ -269,15 +269,15 @@ limits).
 
 ### Error lists
 
-`#[errors(..)]` on a method names the variants of its error enum it returns (API-32), `Common(InUse, Refused)` the
-variants of the enum a `Common(CommonError)` variant holds, `Common` all of them:
+`#[errors(..)]` on a method names the variants of its error enum it returns (API-32), `CommonError(InUse, Refused)`
+the common errors it returns (STD-16), `CommonError` all of them:
 
 ```rust
 #[ww_trait]
 trait Sensor {
     /// Reads one sample.
-    #[errors(Common(Busy, InUse), Nack)]
-    fn read() -> Result<u16, SensorError<'i>>;
+    #[errors(CommonError(Busy, InUse), Nack)]
+    fn read() -> Result<u16, SensorError>;
 }
 ```
 

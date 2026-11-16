@@ -66,9 +66,9 @@ impl AsyncServer {
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
         value: u8,
-    ) -> SetResult<GuardedError> {
+    ) -> SetResult<wire_weaver::Error<'_, GuardedError>> {
         if value > 100 {
-            SetError(GuardedError::TooBig)
+            SetError(GuardedError::TooBig.into())
         } else {
             self.guarded = value;
             Set
@@ -78,7 +78,7 @@ impl AsyncServer {
     async fn get_guarded(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-    ) -> GetResult<u8, GuardedError> {
+    ) -> GetResult<u8, wire_weaver::Error<'_, GuardedError>> {
         Value(self.guarded)
     }
 
@@ -123,7 +123,7 @@ impl AsyncServer {
         _cx: &mut Context<'_, impl EventOut>,
         index_chain: [ww_client_server::ResourceIndex; 1],
         value: u8,
-    ) -> SetResult<()> {
+    ) -> SetResult<CommonError<'_>> {
         self.channel_level[index_chain[0].get().0 as usize] = value;
         Set
     }
@@ -132,7 +132,7 @@ impl AsyncServer {
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
         index_chain: [ww_client_server::ResourceIndex; 1],
-    ) -> GetResult<u8, ()> {
+    ) -> GetResult<u8, CommonError<'_>> {
         Value(self.channel_level[index_chain[0].get().0 as usize])
     }
 
@@ -140,7 +140,7 @@ impl AsyncServer {
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
         value: MaxLen<&'_ str, 32>,
-    ) -> SetResult<()> {
+    ) -> SetResult<CommonError<'_>> {
         self.info_name = value.to_string();
         Set
     }
@@ -148,7 +148,7 @@ impl AsyncServer {
     async fn get_info_name(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-    ) -> GetResult<MaxLen<&'_ str, 32>, ()> {
+    ) -> GetResult<MaxLen<&'_ str, 32>, CommonError<'_>> {
         Value(MaxLen::new_unchecked(&self.info_name))
     }
 }

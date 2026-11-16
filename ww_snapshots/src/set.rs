@@ -18,7 +18,7 @@ use ww_version::FullVersionOwned;
 /// A decoded superseded definition: its canonical bundle and the signatures computed from its bytes.
 type Superseded = (ApiBundleOwned, Signatures);
 
-/// Snapshots and superseded definitions embedded in a binary, see the [module docs](self).
+/// Snapshots and superseded definitions embedded in a binary, see the [crate docs](crate).
 pub struct Set {
     /// (file name as `ww api save` wrote it, its shrink_wrap bytes)
     snapshots: &'static [(&'static str, &'static [u8])],

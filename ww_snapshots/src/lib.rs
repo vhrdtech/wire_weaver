@@ -5,16 +5,16 @@
 //! only when the dependency's own `api_snapshots/` (in its source directory, which the walker locates through
 //! `Cargo.lock`) has the same definition. A host finds a snapshot through a chain, in this order:
 //!
-//! 1. [Set]s the application embedded ([embed()], written by [embed] at build time);
+//! 1. [Set]s the application embedded ([embed()], written at build time);
 //! 2. directories the caller named (codegen and the checker: the walked crates' `api_snapshots/`, and nothing else,
 //!    so a build is deterministic given its sources);
 //! 3. the cache, `~/.wire_weaver/snapshots/` ([cache]);
 //! 4. Cargo's sources on this machine ([cargo]): the workspace a `Cargo.lock` above the current directory names, then
 //!    what Cargo fetched under `CARGO_HOME`;
-//! 5. a fetch from crates.io or the crate's git repository (feature `fetch`, [fetch]);
+//! 5. a fetch from crates.io or the crate's git repository (feature `fetch`);
 //! 6. nothing: the definition stays skipped, and a value of it is opaque.
 //!
-//! Every file read passes the checks of [file] (its header's SHA-256, its own crate and version), and a definition
+//! Every file read passes the checks of [mod@file] (its header's SHA-256, its own crate and version), and a definition
 //! from any source is put back only when the signature computed from its bytes matches the reference the device sent
 //! (shape, EVO-69): what the device sent is the anchor, no source can make a host decode with another layout. Sizes,
 //! counts and timeouts are bounded by [limits].

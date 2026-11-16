@@ -65,7 +65,7 @@ pub trait Thermo {
 - An API whose lines were crates of their own before (here 1.x, 2.x and 3.x, each with its root at the crate root)
   moves into this layout without touching the wire: keep the old snapshots in `api_snapshots/`, and each root is
   compared with the last snapshot of its line. Firmware built from the old crates keeps working with a host built
-  from the new one; the bench tests that with the published 1.0.0 and 2.0.0 (`tests/thermo_api_old`). The move
+  from the new one; the bench tests that with an older published crate (`tests/thermo_api_old`). The move
   changes every Rust path (`thermo_api::Sample` is `thermo_api::wire_v1::Sample`), so it is a breaking crate bump,
   which the checker doesn't ask for yet (EVO-54).
 
@@ -358,11 +358,12 @@ client's test and Python's (`thermo_pytest_devices` hosts every line behind a ww
 
 - Simulate the first revision of each line too (here w1.0 and w2.0), to see `#[since]` items refused. A server is
   always built at its root's revision, so such firmware comes from the API crate as it was then: the bench keeps
-  the published 1.0.0 and 2.0.0 in `tests/thermo_api_old`, outside the workspace (a workspace can't hold two
-  packages of one name), as old firmware still in the field. A device built from the current crate claiming an
+  the published crate of its lines' first revisions in `tests/thermo_api_old`, outside the workspace (a workspace
+  can't hold two packages of one name), as old firmware still in the field. (The bench's lines are on wire lines 5
+  to 7 since a trait identity change moved each to a new one; its first revisions are `thermo_api` 5.0.0.) A device built from the current crate claiming an
   older wire is refused (CLT-61). Building a server at an earlier revision of its root is SRV-58.
 - Old crates of the same name make `-p thermo_api` ambiguous for Cargo: name the current one with its version,
-  `-p thermo_api@4.0.0`.
+  `-p thermo_api@6.0.0`.
 - An observed `get_set` property reports a host's write by itself: the generated code marks it changed after the
   setter returns `SetResult::Set` (SRV-57). Changes the firmware makes on its own still need `mark_changed_<name>`.
 - A device of a line the driver has no client of checks the refusal and its message.

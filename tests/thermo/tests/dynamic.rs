@@ -209,7 +209,7 @@ fn samples(v: &ValueOwned, ty: &TypeOwned, b: &ApiBundleOwned) -> Vec<(i128, i12
 /// `lines.rs`'s `exercise`, by name and introspection only. `wire` is only for the test's own checks of which way
 /// each step went.
 async fn exercise(d: &Device, shared: &devices::Shared, wire: WireVersion) {
-    let line = wire.line.0;
+    let line = devices::bench_line(wire);
     let b = d.bundle();
     let cmd = d.client.cmd();
     let continuous = unit_variant("Continuous");
@@ -383,7 +383,7 @@ async fn exercise(d: &Device, shared: &devices::Shared, wire: WireVersion) {
 
     // uptime at the root or in `health`, in whole seconds or in ms: 42 s wherever the device has it
     let uptime = d.find(&["uptime", "health.uptime"]);
-    assert_eq!(uptime.is_some(), wire != WireVersion::new(1, 0));
+    assert_eq!(uptime.is_some(), wire != WireVersion::new(5, 0));
     if let Some(uptime) = uptime {
         let up = uptime.read(cmd).await.unwrap();
         assert_eq!(quantity(&up, &property_ty(&uptime), b).to_f64(), 42.0);
@@ -392,11 +392,11 @@ async fn exercise(d: &Device, shared: &devices::Shared, wire: WireVersion) {
     // a method where the device has it, at the root or renamed in `health`; its identity name, the oldest name of
     // its `#[moved_from]` chain, is `self_test` on every line (INT-17)
     let self_test = d.find(&["self_test", "health.check_sensor"]);
-    assert_eq!(self_test.is_some(), wire >= WireVersion::new(2, 1));
+    assert_eq!(self_test.is_some(), wire >= WireVersion::new(6, 1));
     if let Some(self_test) = self_test {
         let item = self_test.item().expect("a resource");
         assert_eq!(item.identity_name(), "self_test");
-        let renamed = (wire.line.0 == 3).then_some("self_test");
+        let renamed = (line == 3).then_some("self_test");
         assert_eq!(item.identity.as_deref(), renamed);
         assert_eq!(
             d.call(&self_test, &[]).await,
@@ -422,23 +422,23 @@ async fn every_line_dynamically() {
     let devices = [
         (
             devices::w1::start("thermo-dyn/w1", thermo_api::wire_v1::THERMO_WIRE_VERSION),
-            WireVersion::new(1, 2),
+            WireVersion::new(5, 2),
         ),
         (
             devices::w2::start("thermo-dyn/w2", thermo_api::wire_v2::THERMO_WIRE_VERSION),
-            WireVersion::new(2, 1),
+            WireVersion::new(6, 1),
         ),
         (
             devices::w3::start("thermo-dyn/w3", thermo_api::wire_v3::THERMO_WIRE_VERSION),
-            WireVersion::new(3, 0),
+            WireVersion::new(7, 0),
         ),
         (
-            devices::w1_0::start("thermo-dyn/w1_0"),
-            WireVersion::new(1, 0),
+            devices::w5_0::start("thermo-dyn/w5_0"),
+            WireVersion::new(5, 0),
         ),
         (
-            devices::w2_0::start("thermo-dyn/w2_0"),
-            WireVersion::new(2, 0),
+            devices::w6_0::start("thermo-dyn/w6_0"),
+            WireVersion::new(6, 0),
         ),
     ];
     for ((shared, device), wire) in &devices {

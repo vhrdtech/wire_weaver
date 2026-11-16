@@ -1,12 +1,16 @@
-# The first revision of a line of the bench API as it was published, its root at the crate root, before the lines
-# moved into one crate (`tests/thermo_api`, EVO-42): built as old firmware still in the field. Outside the workspace
+# `thermo_api` 5.0.0 as it was published: lines 5 and 6 at their first revisions, w5.0 and w6.0, the lines 1 and 2 of
+# 4.0.0 moved to new lines by R7's indication swap (line 3 retired; line 7 came with 6.0.0). Built as old firmware still in the field. Outside the workspace
 # (`exclude` in the root Cargo.toml), which can't hold two packages of one name; fields members inherit are written out.
 [package]
 name = "thermo_api"
-version = "1.0.0"
+version = "5.0.0"
 publish = false
 edition = "2024"
 license = "MIT"
+
+[package.metadata.wire_weaver.roots]
+"wire_v1::Thermo" = "w5.0"
+"wire_v2::Thermo" = "w6.0"
 
 [features]
 default = ["std"]

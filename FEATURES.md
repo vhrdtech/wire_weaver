@@ -1417,7 +1417,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   build firmware of an earlier revision from the current root: the resources added after it (`#[since]`) left out of
   dispatch and of the bundle, the bundle's and the hello's wire that revision. Mostly for tests: a host driver's
   bench could then simulate `w1.0` and `w2.0` devices without keeping the crates they were published from (EVO-42
-  keeps `thermo_api` 1.0.0 and 2.0.0 in `tests/thermo_api_old` for that). In practice an old line's maintenance
+  keeps `thermo_api` 5.0.0 in `tests/thermo_api_old` for that). In practice an old line's maintenance
   firmware is built from its module at that line's newest revision, so real firmware rarely needs it. Fields and
   variants with a newer `#[since]` can't be left out of a Rust type, so such a type would be refused.
 

@@ -1,6 +1,6 @@
 """One script against three wire lines of an API (EVO-28): the `thermo_api` bench's scenario from Python, with no
-generated code, against simulated firmware of line 1 (w1.2), line 2 (w2.1) and line 3 (w3.0), each a wire break of
-the one before. `tests/thermo_devices`' `thermo_pytest_devices` hosts the ww hub and the three devices in one process
+generated code, against simulated firmware of line 1 (w5.2), line 2 (w6.1) and line 3 (w7.0), each a wire break of
+the one before (the bench's lines 1 to 3 are on wire lines 5 to 7 since R7 moved each to a new one). `tests/thermo_devices`' `thermo_pytest_devices` hosts the ww hub and the three devices in one process
 (`inproc:thermo-w1`, `-w2`, `-w3`), as `test_hub.py`'s `hub_pytest_device` does.
 
 Values in another scale or storage need no per-line code: a `ww.Quantity` is read whatever the step, and one made
@@ -23,7 +23,7 @@ import wire_weaver as ww
 
 ROOT = Path(__file__).parents[3]
 READY_TIMEOUT = 10.0
-LINES = {1: (1, 2), 2: (2, 1), 3: (3, 0)}
+LINES = {1: (5, 2), 2: (6, 1), 3: (7, 0)}
 BURST = 3  # samples per trigger on line 3, thermo_devices::w3::BURST
 
 

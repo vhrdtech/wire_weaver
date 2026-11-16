@@ -1,6 +1,6 @@
-//! A host driver for every wire line of `thermo_api` (EVO-28, EVO-42): line 1 (`wire_v1`, w1.2), line 2 (`wire_v2`,
-//! w2.1, a wire break) and line 3 (`wire_v3`, w3.0, another break), one generated client each, behind one facade,
-//! [Thermo].
+//! A host driver for every wire line of `thermo_api` (EVO-28, EVO-42): line 1 (`wire_v1`, w5.2), line 2 (`wire_v2`,
+//! w6.1, a wire break) and line 3 (`wire_v3`, w7.0, another break), one generated client each, behind one facade,
+//! [Thermo]. The bench's lines 1, 2 and 3 are on wire lines 5, 6 and 7 since R7 moved each to a new one.
 //!
 //! - The lines are roots of one API crate, `thermo_api` 6.0.0, one module each (EVO-37); their clients are one module
 //!   each here (`v1.rs`, `v2.rs`, `v3.rs`). What lines share is one type in `thermo_api::common`, converted once
@@ -61,12 +61,12 @@ wire_weaver_client::facade! {
     async fn channel_enabled(&self, channel: u32) -> bool;
     async fn set_channel_enabled(&self, channel: u32, enabled: bool);
     async fn channel_last(&self, channel: u32) -> Sample;
-    /// From w1.1 on line 1, which takes 0.01 K steps: a finer offset is [Error::NotRepresentable].
+    /// From w5.1 on line 1, which takes 0.01 K steps: a finer offset is [Error::NotRepresentable].
     async fn calibrate(&self, offset: Offset);
-    /// From w1.2 on line 1; whole seconds on lines 1 and 2, milliseconds on line 3.
+    /// From w5.2 on line 1; whole seconds on lines 1 and 2, milliseconds on line 3.
     async fn uptime(&self) -> Uptime;
-    /// From w2.1, lines 2 and 3.
-    #[unsupported(V1, needs = "line 2 from w2.1")]
+    /// From w6.1, lines 2 and 3.
+    #[unsupported(V1, needs = "line 2 from w6.1")]
     async fn self_test(&self);
 }
 

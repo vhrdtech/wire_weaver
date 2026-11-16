@@ -1,5 +1,5 @@
-//! Line 1 at w5.0 (w1.2 before R7's indication swap forced a new line), the crate 1.2.0 before. `calibrate` came
-//! in w1.1, `uptime` in w1.2.
+//! Line 1 at w5.2: `calibrate` came in w5.1, `uptime` in w5.2. The crate 1.2.0 had it at w1.2; R7's indication swap
+//! (a trait identity change) moved it to a new line in 5.0.0, at w5.0.
 
 use super::common::{Command, Indication, RateError};
 use ww_api::prelude::*;
@@ -25,11 +25,11 @@ pub trait Thermo {
     ww_impl!(channel[]: Channel);
     /// The status LED, a local stand-in for a `ww_stdlib` trait every line shares (R7).
     ww_impl!(indication: Indication);
-    /// Adds `offset` to every sample from now on. Added in w1.1.
-    #[since = "w1.1"]
+    /// Adds `offset` to every sample from now on. Added in w5.1.
+    #[since = "w5.1"]
     fn calibrate(offset: Fixed<Kelvin, Centi, i16>);
-    /// Time since boot. Added in w1.2.
-    #[since = "w1.2"]
+    /// Time since boot. Added in w5.2.
+    #[since = "w5.2"]
     property!(ro uptime: Fixed<Second, One, u32>);
 }
 

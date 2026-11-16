@@ -172,6 +172,7 @@ wire_weaver_py = 5
 wire_weaver_tool = 5
 wire_weaver_usb_embassy = 5
 ww_client_server = 5
+ww_book = 5
 ww_clock_sync = 5
 ww_device = 5
 ww_ecc_flash = 5

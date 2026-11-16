@@ -15,6 +15,7 @@ members = [
     "wire_weaver_evolution",
     "wire_weaver_py",
     "ww_api",
+    "ww_book",
     "ww_bus_slave",
     "ww_client_server",
     "ww_clock_sync",

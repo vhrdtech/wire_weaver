@@ -6770,6 +6770,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ww_book"
+version = "0.5.0"
+dependencies = [
+ "anyhow",
+ "serde",
+ "toml",
+ "ww_snapshots",
+]
+
+[[package]]
 name = "ww_bus_slave"
 version = "0.5.0"
 dependencies = [

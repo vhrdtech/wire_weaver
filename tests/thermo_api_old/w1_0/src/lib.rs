@@ -6,8 +6,10 @@
 //!
 //! It touches every place a wire break can bite: methods with arguments, returns and errors, properties with get,
 //! set and observe, an enum, a stream up and a sink down, an array of sub-levels, items added within the line
-//! (`#[since]`), unit types from `ww_si` and a trait from `ww_stdlib` (`ww_indication`), both shared with line 2.
-//! Line 2 (`wire_v2`) breaks the wire; `tests/thermo` bundles a client of each line.
+//! (`#[since]`), unit types from `ww_si` and a local `Indication` trait (a stand-in, R7, for what was
+//! `ww_stdlib`'s `ww_indication` when this crate was actually published: `ww_stdlib` is leaving this repo, and the
+//! wire shape, not the Rust identity, is what this historical firmware's frozen snapshot records), both shared
+//! with line 2. Line 2 (`wire_v2`) breaks the wire; `tests/thermo` bundles a client of each line.
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use ww_api::prelude::*;
@@ -31,8 +33,23 @@ pub trait Thermo {
     sink!(commands: Command);
     /// Input channels, 0-based on the wire.
     ww_impl!(channel[]: Channel);
-    /// The status LED, a `ww_stdlib` trait both lines share.
-    ww_impl!(indication: ww_indication::Indication);
+    /// The status LED, a trait both lines share.
+    ww_impl!(indication: Indication);
+}
+
+/// Stands in for `ww_indication::Indication` (R7): same shape and wire repr as the real one this crate was
+/// published with.
+#[ww_trait]
+pub trait Indication {
+    property!(rw mode: IndicationMode);
+}
+
+/// A device indication mode, see [Indication::mode].
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Debug, Clone, Copy, PartialEq, Eq), ww_repr = nib)]
+pub enum IndicationMode {
+    AllOff,
+    OnlyEssential,
+    Normal,
 }
 
 #[ww_trait]

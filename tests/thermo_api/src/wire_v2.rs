@@ -1,4 +1,5 @@
-//! Line 2 at w2.1, the crate 2.1.0 before. What broke against line 1:
+//! Line 2 at w6.0 (w2.1 before R7's indication swap forced a new line), the crate 2.1.0 before. What broke
+//! against line 1:
 //! - `set_rate(rate)` is gone, `configure(Config)` sets rate and mode in one call.
 //! - `Sample::temp` is in 0.001 K steps in an `i32`, was 0.01 K in an `i16`.
 //! - `Mode::Triggered` is gone: `Command::Trigger` takes a sample in any mode.

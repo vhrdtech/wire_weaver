@@ -19,6 +19,5 @@ thermo_api_w2_0.workspace = true
 wire_weaver = { workspace = true, features = ["std"] }
 ww_client_server = { workspace = true, features = ["std"] }
 ww_hub.workspace = true
-ww_indication = { workspace = true, features = ["std"] }
 ww_si = { workspace = true, features = ["std"] }
 ww_stream = { workspace = true, features = ["std"] }

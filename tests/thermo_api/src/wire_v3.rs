@@ -1,5 +1,5 @@
-//! Line 3 at w3.0, the crate 3.0.0 before. What broke against line 2, each of a kind the line 1 to 2 break didn't
-//! have:
+//! Line 3 at w7.0 (w3.0 before R7's indication swap forced a new line), the crate 3.0.0 before. What broke
+//! against line 2, each of a kind the line 1 to 2 break didn't have:
 //! - The stream sends batches: `samples` carries a [Batch] of temperatures of one input with the first one's number,
 //!   no longer one `Sample` per item. A host wanting single samples splits each batch.
 //! - The tree moved: `uptime` and `self_test` are in a new sub-level, `health`, so their paths changed. `self_test`

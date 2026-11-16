@@ -11,7 +11,9 @@
 //! - `calibrate` takes 0.001 K steps.
 //!
 //! Unchanged: `read_once`, `mode`, the stream and sink, the channels, `uptime`, `RateError`, `Command` and the shared
-//! `ww_indication` trait.
+//! `Indication` trait (a local stand-in, R7, for what was `ww_stdlib`'s `ww_indication` when this crate was
+//! actually published: `ww_stdlib` is leaving this repo, and the wire shape, not the Rust identity, is what this
+//! historical firmware's frozen snapshot records).
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use ww_api::prelude::*;
@@ -35,8 +37,8 @@ pub trait Thermo {
     sink!(commands: Command);
     /// Input channels, 0-based on the wire.
     ww_impl!(channel[]: Channel);
-    /// The status LED, a `ww_stdlib` trait both lines share.
-    ww_impl!(indication: ww_indication::Indication);
+    /// The status LED, a trait both lines share.
+    ww_impl!(indication: Indication);
     /// Adds `offset` to every sample from now on.
     fn calibrate(offset: Fixed<Kelvin, Milli, i32>);
     /// Time since boot.
@@ -85,4 +87,19 @@ pub enum Command {
     Trigger,
     /// Restart sample numbering at `seq`.
     Mark { seq: Seq<SampleUnit, u16> },
+}
+
+/// Stands in for `ww_indication::Indication` (R7): same shape and wire repr as the real one this crate was
+/// published with.
+#[ww_trait]
+pub trait Indication {
+    property!(rw mode: IndicationMode);
+}
+
+/// A device indication mode, see [Indication::mode].
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Debug, Clone, Copy, PartialEq, Eq), ww_repr = nib)]
+pub enum IndicationMode {
+    AllOff,
+    OnlyEssential,
+    Normal,
 }

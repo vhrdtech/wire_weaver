@@ -1,4 +1,5 @@
-//! Line 1 at w1.2, the crate 1.2.0 before. `calibrate` came in w1.1, `uptime` in w1.2.
+//! Line 1 at w5.0 (w1.2 before R7's indication swap forced a new line), the crate 1.2.0 before. `calibrate` came
+//! in w1.1, `uptime` in w1.2.
 
 use super::common::{Command, Indication, RateError};
 use ww_api::prelude::*;

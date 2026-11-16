@@ -2,7 +2,7 @@
 //! and `uptime`.
 
 use crate::Shared;
-use thermo_api_w1_0::{Command, Mode, RateError, Sample};
+use thermo_api_w1_0::{Command, IndicationMode, Mode, RateError, Sample};
 use wire_weaver::prelude::*;
 use ww_si::prefix::One;
 use ww_si::units::{Hertz, Ratio};
@@ -15,7 +15,7 @@ pub struct Server {
     gain: Fixed<Ratio, One, u8, Range<1, 16>>,
     seq: u16,
     enabled: [bool; 4],
-    indication: ww_indication::Mode,
+    indication: IndicationMode,
     buf: Vec<u8>,
 }
 
@@ -148,7 +148,7 @@ impl Server {
     async fn set_indication_mode(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-        value: ww_indication::Mode,
+        value: IndicationMode,
     ) -> SetResult<()> {
         self.indication = value;
         SetResult::Set
@@ -157,7 +157,7 @@ impl Server {
     async fn get_indication_mode(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-    ) -> GetResult<ww_indication::Mode, ()> {
+    ) -> GetResult<IndicationMode, ()> {
         GetResult::Value(self.indication)
     }
 
@@ -173,7 +173,6 @@ pub mod api_impl {
         method_model = "_=immediate",
         property_model = "_=get_set",
         introspect = "no_docs",
-        omit = ["indication.brightness", "indication.identify", "indication.NAMES"],
         debug_to_file = "../../target/thermo_w1_0_server.rs",
     );
 }
@@ -209,7 +208,7 @@ pub fn start(path: &str) -> (Shared, tests_common::TestDevice) {
         gain: Fixed::try_new(1).unwrap(),
         seq: 0,
         enabled: [true; 4],
-        indication: ww_indication::Mode::Normal,
+        indication: IndicationMode::Normal,
         buf: vec![0; 512],
     };
     let device = tests_common::start_device_async(

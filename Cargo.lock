@@ -6518,6 +6518,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "wire_weaver_wheel"
+version = "0.5.0"
+dependencies = [
+ "pyo3",
+ "wire_weaver_py",
+]
+
+[[package]]
 name = "wit-bindgen"
 version = "0.57.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

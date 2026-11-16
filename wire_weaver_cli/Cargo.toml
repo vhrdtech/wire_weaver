@@ -21,9 +21,9 @@ clap = { workspace = true, features = ["derive", "env"] }
 clap_complete = { workspace = true, features = ["unstable-dynamic"] }
 cnt_core.workspace = true
 console.workspace = true
-hex = { workspace = true, features = ["std"] }
 # crossterm reads `q` on Windows (util::QuitKey)
 crossterm.workspace = true
+hex = { workspace = true, features = ["std"] }
 human-repr = "1.1"
 indicatif = "0.18"
 inventory.workspace = true

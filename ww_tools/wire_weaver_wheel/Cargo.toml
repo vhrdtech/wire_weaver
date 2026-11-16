@@ -1,0 +1,20 @@
+[package]
+name = "wire_weaver_wheel"
+version.workspace = true
+authors.workspace = true
+description = "The wire_weaver Python wheel: the extension module of wire_weaver_py, built by maturin"
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+publish = false # distributed as a Python wheel, see pyproject.toml
+
+[lib]
+crate-type = ["cdylib"]
+
+[features]
+# RTT over a debug probe (probe-rs), no system libraries needed; enabled for the wheel, see pyproject.toml
+rtt = ["wire_weaver_py/rtt"]
+
+[dependencies]
+pyo3.workspace = true
+wire_weaver_py.workspace = true

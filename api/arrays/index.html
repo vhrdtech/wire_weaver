@@ -1815,6 +1815,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Keyed arrays">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#keyed-arrays-on-the-client" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Keyed arrays on the client
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -5948,6 +5965,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Keyed arrays">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#keyed-arrays-on-the-client" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Keyed arrays on the client
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -6187,6 +6221,36 @@ prints the handlers.</p>
 <p>One <code>keyed!</code> costs 316 B of flash on a Cortex-M0 at <code>fw-z</code> in a blocking server, 276 to 784 B on M0 and M3 at
 <code>fw-z</code> and <code>fw-3</code>, blocking and async (TEST-30, <code>qemu-flash-keyed</code> against <code>qemu-flash-arrayed</code>). The <code>keys</code>
 stream's send helper is not counted: it is linked only where it is used.</p>
+<h3 id="keyed-arrays-on-the-client">Keyed arrays on the client<a class="headerlink" href="#keyed-arrays-on-the-client" title="Permanent link">&para;</a></h3>
+<p>The generated client finds an element by its key (CLT-72):</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">if</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">flow</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">client</span><span class="p">.</span><span class="n">flow_by</span><span class="p">(</span><span class="o">&amp;</span><span class="n">key</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">bytes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">flow</span><span class="p">.</span><span class="n">read_bytes</span><span class="p">().</span><span class="n">read</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="p">}</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="kd">let</span><span class="w"> </span><span class="n">key</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">client</span><span class="p">.</span><span class="n">flow_key</span><span class="p">(</span><span class="mi">3</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span><span class="w">    </span><span class="c1">// the key of flow 3</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">keys</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">client</span><span class="p">.</span><span class="n">flow_keys</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span><span class="w"> </span><span class="c1">// KeyEvent::Added and Removed as they happen</span>
+</span></code></pre></div>
+<p><code>flow_by</code> returns the element's client, <code>None</code> when the device has no element with that key; it returns the index
+for an array of properties, streams or sinks. Each has a <code>_blocking</code> twin. The key type needs <code>Clone</code>.</p>
+<p><code>flow_by</code> asks the device's <code>index_of</code> once per key and keeps the answer in the connection's key cache, shared by
+every clone of the client: later lookups send nothing. Keys the client sees otherwise go into the cache too: a
+<code>flow_key</code> read, an <code>Added</code> on the <code>keys</code> stream. An entry goes away on a <code>Removed</code>, on a <code>BadIndex</code> answer to a
+request through that index, and on a reconnect; the cache holds at most 1024 keys per keyed array and forgets the
+oldest first. A key not found is asked again each time. Between a flow's removal and the next request through its
+index, a cached index can already belong to another flow: a client that must not touch the wrong element keeps the
+<code>keys</code> stream open, so the <code>Removed</code> drops it at once.</p>
+<p>The dynamic client, <code>ww</code> and Python take a key in a path. In <code>ww</code> and the dynamic client
+(<code>DynResource::walk_on</code>) the brackets hold the key as a Rust expression of its type, all fields given:</p>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>ww<span class="w"> </span>stream<span class="w"> </span><span class="s1">&#39;flow[FlowKey { proto: Proto::Tcp, src: Endpoint { addr: [10, 0, 0, 1], port: Port(6000) },</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="s1">    dst: Endpoint { addr: [10, 0, 0, 2], port: Port(443) }, first_seen: Point { coord: 100 } }].packets&#39;</span>
+</span></code></pre></div>
+<p>A time point in a key is written as its <code>coord</code> (<code>Point { coord: 100 }</code>) for now. A number in brackets is an index.</p>
+<p>In Python an int indexes and anything else is a key, in the form any argument takes:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">key</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;proto&quot;</span><span class="p">:</span> <span class="s2">&quot;Tcp&quot;</span><span class="p">,</span> <span class="s2">&quot;src&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;addr&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="s2">&quot;port&quot;</span><span class="p">:</span> <span class="mi">6000</span><span class="p">},</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>       <span class="s2">&quot;dst&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;addr&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="s2">&quot;port&quot;</span><span class="p">:</span> <span class="mi">443</span><span class="p">},</span> <span class="s2">&quot;first_seen&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;coord&quot;</span><span class="p">:</span> <span class="mi">100</span><span class="p">}}</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">dev</span><span class="o">.</span><span class="n">flow</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">bytes</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>  <span class="c1"># KeyError when the device has no such flow</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="n">dev</span><span class="o">.</span><span class="n">flow</span><span class="o">.</span><span class="n">by</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>            <span class="c1"># None instead</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="n">dev</span><span class="o">.</span><span class="n">flow</span><span class="o">.</span><span class="n">key_type</span>           <span class="c1"># &quot;FlowKey&quot;</span>
+</span></code></pre></div>
 
 
 

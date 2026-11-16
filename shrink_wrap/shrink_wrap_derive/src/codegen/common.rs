@@ -10,14 +10,15 @@ use quote::quote;
 /// re-exports `ww_api`), whichever the user's `Cargo.toml` has.
 fn ww_error_path() -> Result<TokenStream, String> {
     use proc_macro_crate::{FoundCrate, crate_name};
-    let reexport = |found: Result<FoundCrate, _>, inside: TokenStream, under: TokenStream| match found {
-        Ok(FoundCrate::Itself) => Some(quote! { crate::#inside }),
-        Ok(FoundCrate::Name(name)) => {
-            let name = Ident::new(&name, Span::call_site());
-            Some(quote! { ::#name::#under })
-        }
-        Err(_) => None,
-    };
+    let reexport =
+        |found: Result<FoundCrate, _>, inside: TokenStream, under: TokenStream| match found {
+            Ok(FoundCrate::Itself) => Some(quote! { crate::#inside }),
+            Ok(FoundCrate::Name(name)) => {
+                let name = Ident::new(&name, Span::call_site());
+                Some(quote! { ::#name::#under })
+            }
+            Err(_) => None,
+        };
     match crate_name("ww_error") {
         Ok(FoundCrate::Itself) => return Ok(quote! { ::ww_error }),
         Ok(FoundCrate::Name(name)) => {

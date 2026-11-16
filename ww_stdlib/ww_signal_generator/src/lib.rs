@@ -31,8 +31,8 @@
 //! `Common` variant, plus `NoSuchChannel`. Each method lists the variants it returns (`#[errors]`).
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use ww_api::prelude::*;
 pub use ww_adc::{Linear, SampleFormat};
+use ww_api::prelude::*;
 pub use ww_logic_analyzer::{Edge, RateLimit, StreamChunk};
 pub use ww_si::{Hertz, Second, Volt};
 

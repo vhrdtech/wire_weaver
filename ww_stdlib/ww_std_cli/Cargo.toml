@@ -36,6 +36,10 @@ ww_report.workspace = true
 # the codegen names exact_units types through this crate's re-export
 ww_si = { workspace = true, features = ["std"] }
 
+# ww_si is used by the generated code of `ww_codegen!`, which cargo machete does not see
+[package.metadata.cargo-machete]
+ignored = ["ww_si"]
+
 [dev-dependencies]
 tests_common.workspace = true
 user_info_api.workspace = true

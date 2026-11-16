@@ -4986,6 +4986,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#track-identity" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Track identity
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#index-finish-and-tail" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6112,6 +6123,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#track-identity" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Track identity
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#index-finish-and-tail" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6398,7 +6420,7 @@ clock, so a block reads alone and one clock costs no bit. No wall time is in a b
 exact rate and resolution as <code>Magnitude</code>s, origin: free-running, boot, Unix epoch, media start, run start, or the next epoch of a counter, fixed by an exact offset map), the
 clock maps (segments <code>b = b0 + (a - a0) · slope</code>, the slope an exact_units <code>Ratio64</code>, with an error bound, strictly increasing across segments: the tap maps its own clock to the wall clock
 read at its start), a <code>TrackDef</code> per track (number, stable key, clock, dimensions that are part of its identity, API,
-resource path, optional item type, label, whether it is sticky, and its kind: events, with or without ends and flags, or a <a href="#series-tracks">series</a>) and typed items (any wire_weaver value by bundle
+resource path, the keys of <a href="#track-identity">keyed arrays</a> on it, optional item type, label, whether it is sticky, and its kind: events, with or without ends and flags, or a <a href="#series-tracks">series</a>) and typed items (any wire_weaver value by bundle
 hash and type path), then the newest record of every sticky track. It is written at the start, when a track is
 added, when a consumer joins and after a loss, never by time, so a consumer that joins late decodes from its first
 block. <code>ww_tape::DescribeSet</code> keeps the records in that order, so the same input gives the same bytes whatever order
@@ -6407,6 +6429,45 @@ the producer added them in.</p>
 <p>A <strong>summary</strong> block holds a batch of consecutive nodes of one level of a track's summary tree, so an overview of a long track reads a few hundred KB instead of its items. Nodes run over item numbers, not time: a level-0 node of an event track holds 2048 items, each level up 16 nodes of the level below, and node <code>n</code> holds items <code>[n &lt;&lt; shift, (n + 1) &lt;&lt; shift)</code>, so the first and last node of a tape piece may hold fewer items and the nodes of two pieces line up. An event node holds its first and last item's start, the OR of the items' flags and, for spans, the latest end; counts follow from the item range. A series node holds <code>2^base_shift</code> samples and, per channel, the statistics the track declares (<code>SeriesSummarySpec</code>): minimum, maximum, sum, sum of squares, a count of clipped or NaN samples, the flags OR, and for complex samples the mean and maximum of <code>I² + Q²</code>; no ticks, since a series' ticks follow from its segments' grids and period. Every statistic merges in item order (<code>EventNode::merge</code>, <code>ChannelStats::merge</code>), so a reader building coarser bins gets the bits the writer stored one level up. A segment may change the scale of a series' numbers mid-node (an autoranging device changes prefix); such a node is kept at the common scale of its samples (<code>common_scale</code>: <code>10⁻⁶</code> for <code>10⁻³</code> and <code>10⁻⁶</code>), the coarser numbers multiplied by a whole factor, so minimum and maximum stay exact integers in the sample type's unit. A series block states its scale in its head, the common scale of all its nodes, so it is read alone without the segment records; <code>SeriesNode::merge</code> merges nodes of two scales (two blocks, a view cache across a change) at their common scale, and refuses scales with no common one (a ratio that isn't a fraction of integers) rather than mixing them. The head names the track, the level, the node size, the element, channels and scale of a series, the statistics stored, the items covered and their tick range, so an index lists the block without reading its body; the body is one column per field, little endian. The writer (<code>EventTree</code>, <code>SeriesSummaries</code>) writes a block when a level's batch fills and the partial nodes at <code>finish</code>, up to a level with a single node. The blocks are small (a few KiB) and go through <code>TapeWriter::defer_block</code>, so in an aligned file they fill the gaps before chunk payloads and cost no space; a lost one is rebuilt from the data.</p>
 <p>The <strong>times</strong> of an events chunk are coded by <code>ww_tape::times</code>, and every read runs on the chunk bytes as they are, with no decode into a list first. Starts are either <em>implicit</em> (the chunk's first tick plus a period per item, for evenly spaced items) or a <em>linear frame of reference</em> per group of 128 items: a 25-byte record per group (its first tick, a slope in Q16 ticks per item, the smallest residual, a width and an offset), then each item's residual against the line, bit-packed at the group's width. Periodic items cost their jitter, not their period: 1 ms with ±300 ns jitter takes about 1.48 bytes per item, exactly periodic ones almost nothing, bursty nanosecond traffic about 3.8 (8 for raw i64). A get is one record and one load, a lower bound searches the group first ticks, then only the items the slope leaves possible. Ends are absent (instants), the next item's start (spans back to back, nothing stored) or packed durations, whose group minimum plus 2^width bounds the group's longest item for overlap queries. Flags are an optional u32 per item, packed per group with the OR of the group's flags, so a zoomed-out view reads the ORs without a decode. Groups decode with hand-written kernels (<code>ww_tape::bitpack</code>: AVX-512, AVX2 or NEON, picked at run time, else scalar) at a fraction of a nanosecond per item. A chunk whose CRC failed still reads through <code>EventTimes::salvage</code>: group records are checked one by one, and only the items of a group that doesn't hold up are marked suspect.</p>
 <p>A file states in its describe set how its blocks are placed (<code>Layout</code>, alignment 0 or 4096; none means 0). In an aligned file (series files) every chunk payload starts on a 4 KiB boundary: the chunk's head sits in front of it, small blocks waiting for a place (<code>TapeWriter::defer_block</code>) fill the gap before the head, and what is left is zeros inside the head. Recovery looks for a block at every byte, aligned or not, and takes one only when its CRCs match.</p>
+<h3 id="track-identity">Track identity<a class="headerlink" href="#track-identity" title="Permanent link">&para;</a></h3>
+<p>A track's stable key is the same for the same resource in every file and every run of a producer, whatever ids or
+indices that run used. <code>ww_tape::track_key</code> hashes the resource's <strong>name path</strong> under its API: <code>api_root_id</code> of the
+API's crate name (no version: a breaking change is a new generation of the same API), then one <code>Segment</code> per step,
+each with a tag byte and its length, so <code>a.b</code> and <code>ab</code> never collide:</p>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Segment</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>a resource, <code>link</code>, <code>rx_frames</code></td>
+<td><code>Name</code>: its identity name; a resource renamed with <code>#[moved_from]</code> keeps its oldest name</td>
+</tr>
+<tr>
+<td>an index into a plain array, <code>link[2]</code></td>
+<td><code>Index(2)</code></td>
+</tr>
+<tr>
+<td>an element of a <a href="../../api/arrays/">keyed array</a>, <code>flow[{key}]</code></td>
+<td><code>Key</code>: the key's shrink_wrap bytes, not the index</td>
+</tr>
+</tbody>
+</table>
+<p>So <code>link[2].rx_frames</code> of the tap is <code>track_key(api_root_id("ww_tap"), &amp;[Name("link"), Index(2), Name("rx_frames")])</code>
+(<code>ww_tap::track_key(2, ids::RX_FRAMES)</code>). Two runs of a dissector that number flows in another order give each
+flow's tracks the same key, since its key, not its index, is hashed.</p>
+<p><code>TrackDef.path</code> stays numeric; <code>TrackDef.keys</code> holds the key bytes for each index into a keyed array, by its
+position in <code>path</code>. With the <code>bundle</code> feature, <code>ww_tape::name_path</code> builds the name path from the API bundle, the
+numeric path and the keys, and <code>key_in_bundle</code> the key under the bundle's own crate: a reader rebuilds the name of
+every track and checks its key. A producer that sees an element of a keyed array before its key reads <code>key[i]</code>
+first and writes the track's definition when it knows it.</p>
+<p>The key's shrink_wrap bytes change when its type gains a field, even a defaulted one, so every keyed track then gets
+a new key. Before the first long-lived recordings this is to be revisited: a canonical hash of the key's value, which
+leaves out fields at their default, would survive such a change. A resource renamed within its trait keeps its key;
+one moved to another trait gets a new name path, and with it a new key, even with <code>#[moved_from]</code>.</p>
 <h3 id="index-finish-and-tail">Index, finish and tail<a class="headerlink" href="#index-finish-and-tail" title="Permanent link">&para;</a></h3>
 <p>A writer lists what it places. Every few MiB (<code>ww_tape::IndexPolicy</code>, 4 MiB by default; by time only when asked, since that makes the bytes depend on the clock) it writes a checkpoint <strong>index</strong> block: one 72-byte entry per block placed since the previous checkpoint (offset, length, kind, track id and number, first item number, item count, first and last tick, latest end; a summary block's level and tree), and a pointer back at that checkpoint. Chunk, summary, record and describe blocks are all listed; record and describe blocks carry no track id or ticks. In an aligned file a checkpoint goes into the gap before the next chunk payload. Blocks the file structure adds (index, finish, tail, piece head, and describe blocks the writer repeats) carry the seq of the block before them and are not counted, so seq stays the producer's count of its own blocks and a pass-through capture keeps its order. A crash costs at most the chunks not yet written, and a reader rescans only the stretch after the newest checkpoint.</p>
 <p><code>TapeWriter::finish</code> ends the file: a <strong>final index</strong> listing every block again sorted by track, with a directory of tracks in its head and a CRC per track's entries (a reader of one track out of thousands reads the head and that track's list), a backup of the newest describe blocks, the <strong>finish</strong> block (complete, continued or aborted; the BLAKE3 content hash of every byte before it; where the newest checkpoint, the final index and the describe backup are; per track the chunks, items and ticks the file holds) and a fixed-size <strong>tail</strong> of 164 bytes as the last bytes of the file, which says where the file's piece starts and where its finish is. Offsets count from the start of the piece, so the index stays valid when files are concatenated. The writer also writes the newest describe blocks again as copies (<a href="#runs-media-and-damage">below</a>). A lost index block costs a scan to the neighbouring checkpoint; a lost tail or finish only the content-hash check.</p>

@@ -9445,6 +9445,12 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
   three <code>nucleo_g0b1re_api</code> (now <code>0.4.0</code>) fixture signatures and <code>wire_weaver_snapshots</code>' pinned <code>Clock</code> signature
   updated the same way earlier STD-59 drift did (<code>exact_units::Prefix</code> changed without a version bump, unpublished
   crates), and <code>ww_si::units::ALL</code>'s hardcoded count moved with the new markers.</li>
+<li>✅ <strong>STD-125 <code>ww_tape</code> track identity by name path</strong> · <code>v0.5</code> — <code>api_root_id</code> from the crate name only,
+  <code>track_key</code> and <code>clock_key</code> over name segments (identity names of resources, so <code>#[moved_from]</code> renames within a
+  trait keep the key (INT-17), array indices, keys' shrink_wrap bytes for keyed arrays), <code>TrackDef.keys</code>,
+  <code>name_path</code>/<code>key_in_bundle</code> from a bundle (feature <code>bundle</code>), <code>ww_tap::track_key</code>, so two runs that number things
+  differently give the same ids (API-67); <code>tests/tape_identity</code>, <a href="../docs/transport/tap/#track-identity">docs</a>. A
+  resource moved to another trait still gets a new key.</li>
 <li>📋 <strong>STD-53 <code>Volt</code> with a <code>u16</code> value fails to decode on a device</strong> — <code>I2cConfig { io_level:
   Some(Volt::milli(3300u16)), .. }</code> from the host gets <code>ArgsDesFailed</code> on the rePort B200A firmware, the same level as
   a <code>u32</code> value works (report-i2c-master bench run, 27 Oct 2026). Find where the <code>ww_si</code> value storage / numeric
@@ -9473,10 +9479,6 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
 <li>📋 <strong>STD-81 Database columns with units</strong> — <code>sqlx</code> and <code>diesel</code> column types for <code>Fixed</code> (integer at the fixed
   scale) and <code>AnyQuantity</code>, the unit in the schema or a unit column as "Storing units" (STD-78) says. Later, optional
   features.</li>
-<li>📋 <strong>STD-125 <code>ww_tape</code> track identity by name path</strong> · <code>v0.5</code> — <code>api_root_id</code> from the crate name only,
-  <code>track_key</code> over name segments (resource names, array indices, keys' shrink_wrap bytes for keyed arrays),
-  <code>TrackDef.keys</code>, <code>clock_key</code> on the same path, identity names of renamed resources (INT-17), so two runs that
-  number things differently give the same ids (API-67).</li>
 </ul>
 <h2 id="examples-ex">Examples (<code>EX</code>)<a class="headerlink" href="#examples-ex" title="Permanent link">&para;</a></h2>
 <ul>

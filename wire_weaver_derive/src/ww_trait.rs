@@ -111,12 +111,14 @@ fn ww_trait_inner(item: TokenStream) -> Result<(TokenStream, Option<WireVersion>
     let compact_gid_doc = format!(
         "Global ID and version of the [{trait_name}] API, if it has one in the registry, shorter on the wire than [{full_gid}]."
     );
+    let ww_api = crate::crate_paths::ww_api();
+    let ww_version = crate::crate_paths::ww_version();
     let tokens = quote! {
         #doc_trait
         #[doc = #full_gid_doc]
-        pub const #full_gid: ww_version::FullVersion = wire_weaver::full_version!();
+        pub const #full_gid: #ww_version::FullVersion = #ww_api::full_version!();
         #[doc = #compact_gid_doc]
-        pub const #compact_gid: Option<ww_version::CompactVersion> = wire_weaver::compact_version!(#trait_ident);
+        pub const #compact_gid: Option<#ww_version::CompactVersion> = #ww_api::compact_version!(#trait_ident);
     };
     Ok((tokens, api_bundle.wire))
 }
@@ -162,7 +164,7 @@ fn file_modules(crate_path: &Path) -> Option<Vec<String>> {
     Some(modules)
 }
 
-/// Rust trait of the same name as the API trait, so that rustdoc shows the API, see `wire_weaver::api_doc`.
+/// Rust trait of the same name as the API trait, so that rustdoc shows the API, see `ww_api::api_doc`.
 ///
 /// Resources keep their original spans, so the compiler checks their types in the defining crate (missing
 /// lifetimes, unknown types or traits), and IDEs can go to their definitions and show them on hover.
@@ -170,6 +172,7 @@ fn doc_trait(
     item_trait: &ItemTrait,
     api_bundle: Option<&ApiBundleOwned>,
 ) -> Result<TokenStream, String> {
+    let ww_api = crate::crate_paths::ww_api();
     let mut items = TokenStream::new();
     for item in &item_trait.items {
         match item {
@@ -222,7 +225,7 @@ fn doc_trait(
                         let mut lifetimes = vec![];
                         collect_lifetimes(ty, &mut lifetimes);
                         let lifetimes = generic_lifetimes(lifetimes);
-                        let (index, array) = index_arg(&args.multiplicity);
+                        let (index, array) = index_arg(&args.multiplicity, &ww_api);
                         let (marker, note) = if kind == "stream" {
                             (quote! { Stream }, "Stream from the device to a client.")
                         } else {
@@ -259,7 +262,7 @@ fn doc_trait(
                         items.extend(quote! {
                             #(#docs)*
                             #notes
-                            fn #ident #lifetimes (#index) -> wire_weaver::api_doc::#marker<#ty>;
+                            fn #ident #lifetimes (#index) -> #ww_api::api_doc::#marker<#ty>;
                         });
                     }
                     "property" => {
@@ -274,7 +277,7 @@ fn doc_trait(
                             quote! { , #err_ty }
                         });
                         let lifetimes = generic_lifetimes(lifetimes);
-                        let (index, array) = index_arg(&args.multiplicity);
+                        let (index, array) = index_arg(&args.multiplicity, &ww_api);
                         let access = match (args.access, args.batched) {
                             (PropertyAccess::Const, _) => "Constant property, never changes.",
                             (PropertyAccess::ReadOnly { observe: false }, _) => {
@@ -308,7 +311,7 @@ fn doc_trait(
                             #(#docs)*
                             #(#[doc = #errors])*
                             #notes
-                            fn #ident #lifetimes (#index) -> wire_weaver::api_doc::Property<#ty #err_ty>;
+                            fn #ident #lifetimes (#index) -> #ww_api::api_doc::Property<#ty #err_ty>;
                         });
                     }
                     "ww_impl" => {
@@ -316,7 +319,7 @@ fn doc_trait(
                             parse2(tokens).map_err(|e| format!("ww_impl!: {e}"))?;
                         let ident = &args.resource_name;
                         let ext_trait = &args.type_or_trait;
-                        let (index, array) = index_arg(&args.multiplicity);
+                        let (index, array) = index_arg(&args.multiplicity, &ww_api);
                         let notes = notes([array, since, meta_note(&item_macro.attrs)]);
                         items.extend(quote! {
                             #(#docs)*
@@ -345,7 +348,7 @@ fn doc_trait(
                     #(#docs)*
                     #notes
                     #[allow(non_snake_case)]
-                    fn #ident #lifetimes () -> wire_weaver::api_doc::Property<#ty>;
+                    fn #ident #lifetimes () -> #ww_api::api_doc::Property<#ty>;
                 });
             }
             _ => {}
@@ -356,8 +359,11 @@ fn doc_trait(
     let meta = meta_note(&item_trait.attrs).map(|note| quote! { #[doc = ""] #[doc = #note] });
     let vis = &item_trait.vis;
     let ident = &item_trait.ident;
-    let note = "WireWeaver API: describes the resources, it is not implemented directly, server and client code \
-        come from `ww_codegen!`, see [wire_weaver::api_doc].";
+    let note = format!(
+        "WireWeaver API: describes the resources, it is not implemented directly, server and client code come from \
+         `ww_codegen!`, see [{}::api_doc].",
+        crate::crate_paths::ww_api_doc_path()
+    );
     // a private trait is only used by codegen, which reads the source
     let allow_dead_code =
         (!matches!(vis, Visibility::Public(_))).then(|| quote! { #[allow(dead_code)] });
@@ -578,14 +584,17 @@ fn notes<const N: usize>(notes: [Option<String>; N]) -> TokenStream {
 }
 
 /// `index: UNib32` (or the custom index type) for resource arrays, and a note about it.
-fn index_arg(multiplicity: &Option<Option<PathSegment>>) -> (TokenStream, Option<String>) {
+fn index_arg(
+    multiplicity: &Option<Option<PathSegment>>,
+    ww_api: &TokenStream,
+) -> (TokenStream, Option<String>) {
     match multiplicity {
         None => (quote! {}, None),
         Some(index_ty) => {
             let index_ty = index_ty
                 .as_ref()
                 .map(|ty| ty.to_token_stream())
-                .unwrap_or_else(|| quote! { wire_weaver::shrink_wrap::UNib32 });
+                .unwrap_or_else(|| quote! { #ww_api::shrink_wrap::UNib32 });
             (
                 quote! { index: #index_ty },
                 Some("Array of resources, addressed by `index`.".to_string()),
@@ -675,21 +684,21 @@ mod tests {
         let expected = quote! {
             #[doc = " Motor"]
             #[doc = ""]
-            #[doc = "WireWeaver API: describes the resources, it is not implemented directly, server and client code come from `ww_codegen!`, see [wire_weaver::api_doc]."]
+            #[doc = "WireWeaver API: describes the resources, it is not implemented directly, server and client code come from `ww_codegen!`, see [ww_api::api_doc]."]
             pub trait Motor {
                 #[doc = " Speed setpoint"]
                 #[doc = ""]
                 #[doc = "Read-write property, changes can be observed. Since `w1.2`."]
-                fn speed() -> wire_weaver::api_doc::Property<u32, SpeedError>;
+                fn speed() -> ::ww_api::api_doc::Property<u32, SpeedError>;
                 #[doc = " Encoder"]
                 #[doc = ""]
                 #[doc = "Sink from a client to the device. Array of resources, addressed by `index`. Credit based flow control (`#[credit]`)."]
-                fn phases<'i>(index: wire_weaver::shrink_wrap::UNib32) -> wire_weaver::api_doc::Sink<Phase<'i> >;
+                fn phases<'i>(index: ::ww_api::shrink_wrap::UNib32) -> ::ww_api::api_doc::Sink<Phase<'i> >;
                 fn brake() -> impl ww_brake::Brake;
                 #[doc = ""]
                 #[doc = "Constant property, never changes."]
                 #[allow(non_snake_case)]
-                fn LIMIT() -> wire_weaver::api_doc::Property<u32>;
+                fn LIMIT() -> ::ww_api::api_doc::Property<u32>;
             }
         };
         assert_eq!(out, expected.to_string());

@@ -6545,6 +6545,7 @@ dependencies = [
  "convert_case 0.11.0",
  "darling",
  "pathsearch",
+ "proc-macro-crate",
  "proc-macro2",
  "quote",
  "subprocess",

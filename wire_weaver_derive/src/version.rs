@@ -8,7 +8,8 @@ pub(crate) fn full_version(_args: TokenStream) -> TokenStream {
     let crate_name = var("CARGO_PKG_NAME").unwrap();
     let crate_name = Lit::new(Literal::string(crate_name.as_str()));
     let (major, minor, patch) = get_version();
-    quote! { ww_version::FullVersion::new(#crate_name, ww_version::Version::new(#major, #minor, #patch)) }
+    let ww_version = crate::crate_paths::ww_version();
+    quote! { #ww_version::FullVersion::new(#crate_name, #ww_version::Version::new(#major, #minor, #patch)) }
 }
 
 /// `compact_version!(Trait)`: the id of `this_crate::Trait` in the `ww_global` registry, `compact_version!()`: the id
@@ -30,10 +31,11 @@ pub(crate) fn compact_version(args: TokenStream) -> TokenStream {
         ww_global::trait_id(&crate_name, &trait_name.to_string())
     };
     let (major, minor, patch) = get_version();
+    let ww_version = crate::crate_paths::ww_version();
     match gid {
         Some(gid) => {
             let id = gid.id.0;
-            quote! { Some(ww_version::CompactVersion::new(ww_version::GlobalTypeId::new(#id), #major, #minor, #patch)) }
+            quote! { Some(#ww_version::CompactVersion::new(#ww_version::GlobalTypeId::new(#id), #major, #minor, #patch)) }
         }
         None => quote! { None },
     }

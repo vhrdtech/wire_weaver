@@ -93,6 +93,7 @@ libm = "0.2"
 lz4_flex = { version = "=0.14.0", default-features = false, features = ["safe-decode", "checked-decode"] }
 nusb = { version = "0.2", features = ["tokio"] }
 portable-atomic = { version = "1.15", default-features = false, features = ["require-cas"] }
+proc-macro-crate = "3"
 proc-macro2 = "1.0"
 proptest = "1.11"
 pyo3 = "0.29"

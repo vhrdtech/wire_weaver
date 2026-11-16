@@ -1,6 +1,7 @@
 use proc_macro::TokenStream;
 use syn::parse_macro_input;
 
+mod crate_paths;
 mod util;
 mod version;
 mod ww_api;
@@ -78,11 +79,11 @@ pub fn ww_impl(args: TokenStream) -> TokenStream {
 /// again through a file system or from crates.io, find this marker and parse the trait definition.
 ///
 /// In place, this macro leaves a Rust trait of the same name that only describes the API, so that rustdoc shows it with
-/// all its resources (see `wire_weaver::api_doc`), and `*_FULL_GID` / `*_COMPACT_GID` consts with the API version.
+/// all its resources (see `ww_api::api_doc`), and `*_FULL_GID` / `*_COMPACT_GID` consts with the API version.
 ///
 /// Example:
 /// ```ignore
-/// use wire_weaver_derive::ww_trait;
+/// use ww_api::prelude::*;
 ///
 /// #[ww_trait]
 /// pub trait BuildInfo {

@@ -8,7 +8,9 @@
 #![no_std]
 
 pub mod api_doc;
+mod error;
 
+pub use error::Error;
 pub use shrink_wrap;
 pub use shrink_wrap::derive_shrink_wrap;
 pub use wire_weaver_derive::{
@@ -19,6 +21,7 @@ pub use ww_version;
 
 /// Everything an API crate's `lib.rs` names: `use ww_api::prelude::*;`.
 pub mod prelude {
+    pub use crate::{Error, api_error};
     pub use shrink_wrap;
     pub use shrink_wrap::prelude::*;
     pub use wire_weaver_derive::{

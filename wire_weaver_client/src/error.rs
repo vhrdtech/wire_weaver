@@ -6,6 +6,7 @@ use ww_version::{FullVersionOwned, WireVersion};
 use crate::DeviceInfo;
 use exact_units::Bytes;
 use wire_weaver::call::ErrorKind as CallErrorKind;
+use ww_error::CommonErrorOwned;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -377,6 +378,16 @@ impl Error {
 
 impl Error {
     /// What kind of failure this is for a caller of an API's local trait (SRV-48), see
+    /// The common error (`ww_error::CommonError`) the device or the hub answered a call, read or write with
+    /// ([ErrorKindOwned::Common]): the item has no error type of its own, else it is
+    /// [CallError::Common].
+    pub fn common(&self) -> Option<&CommonErrorOwned> {
+        match self {
+            Error::RemoteError(e) => e.common(),
+            _ => None,
+        }
+    }
+
     /// [wire_weaver::call::ErrorKind]: an error converts into a [wire_weaver::call::Error] of this kind, kept whole as
     /// its cause.
     pub fn call_kind(&self) -> CallErrorKind {
@@ -385,7 +396,7 @@ impl Error {
             Error::NotImplementedByDevice { .. } | Error::Unsupported { .. } => {
                 CallErrorKind::Unimplemented
             }
-            Error::RemoteError(e) => match e.kind {
+            Error::RemoteError(e) => match &e.kind {
                 Remote::Unimplemented
                 | Remote::TraitNotFound
                 | Remote::BadPath
@@ -404,6 +415,7 @@ impl Error {
                 | Remote::StreamNoSession
                 | Remote::StreamStoreFailed
                 | Remote::Unknown(_) => CallErrorKind::Internal,
+                Remote::Common(c) => CallErrorKind::of_common(c),
             },
             Error::Timeout => CallErrorKind::DeadlineExceeded,
             Error::EventLoopNotRunning
@@ -447,19 +459,25 @@ impl Error {
 }
 
 /// The client's error as the light error of local traits, kept whole as its cause (downcast it back with
-/// [wire_weaver::call::Error::cause]).
+/// [wire_weaver::call::Error::cause]); a common error the device answered with is
+/// [call::Error::common](wire_weaver::call::Error::common), the common error its cause.
 impl From<Error> for wire_weaver::call::Error {
     fn from(e: Error) -> Self {
+        if let Some(c) = e.common() {
+            return wire_weaver::call::Error::common(c.clone());
+        }
         wire_weaver::call::Error::new(e.call_kind(), e)
     }
 }
 
 /// The client's [CallError] as the one of local traits: [CallError::Device] is
-/// [Api](wire_weaver::call::CallError::Api), the others keep their client error as the cause.
+/// [Api](wire_weaver::call::CallError::Api), [CallError::Common] is
+/// [Common](wire_weaver::call::CallError::Common), the others keep their client error as the cause.
 impl<E> From<CallError<E>> for wire_weaver::call::CallError<E> {
     fn from(e: CallError<E>) -> Self {
         match e {
             CallError::Device(e) => wire_weaver::call::CallError::Api(e),
+            CallError::Common(c) => wire_weaver::call::CallError::Common(c),
             CallError::Unimplemented { resource } => wire_weaver::call::CallError::Unimplemented(
                 Some(format!("'{resource}' is not implemented by the device").into()),
             ),
@@ -471,13 +489,17 @@ impl<E> From<CallError<E>> for wire_weaver::call::CallError<E> {
 /// Error of a call to a method returning `Result<T, E>`, or of a write to a property with an error type.
 ///
 /// `call()`, `blocking_call()`, `write()` and the promises of such items return `Result<T, CallError<E>>`,
-/// so one `?` is enough, and a match tells the three outcomes apart.
+/// so one `?` is enough, and a match tells the four outcomes apart.
 ///
 /// `Display` and [source](std::error::Error::source) are transparent: the inner error's text, once.
 #[derive(Debug)]
 pub enum CallError<E> {
     /// The device answered with its error: the `Err(e)` of the method (or of the property write).
     Device(E),
+    /// The device (or the hub in front of it) answered with a common error, `ww_error::CommonError`: `Busy`,
+    /// `InUse`, `Unsupported`, .. (STD-16). Every item can answer with one; for an item without an error type
+    /// of its own it is [Error::common].
+    Common(CommonErrorOwned),
     /// The device has no implementation: its handler returned `Unimplemented` (`RpcResult`, `GetResult`,
     /// `SetResult`), or the device's API doesn't have it (known locally from introspection, no round trip).
     Unimplemented {
@@ -497,6 +519,14 @@ impl<E> CallError<E> {
         }
     }
 
+    /// The common error the device or the hub answered with.
+    pub fn common(&self) -> Option<&CommonErrorOwned> {
+        match self {
+            CallError::Common(c) => Some(c),
+            _ => None,
+        }
+    }
+
     /// See [CallError::Unimplemented].
     pub fn is_unimplemented(&self) -> bool {
         matches!(self, CallError::Unimplemented { .. })
@@ -507,6 +537,7 @@ impl<E: Display> Display for CallError<E> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             CallError::Device(e) => Display::fmt(e, f),
+            CallError::Common(c) => Display::fmt(c, f),
             CallError::Unimplemented { resource } => {
                 write!(f, "'{resource}' is not implemented by the device")
             }
@@ -519,7 +550,7 @@ impl<E: std::error::Error + 'static> std::error::Error for CallError<E> {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             CallError::Device(e) => e.source(),
-            CallError::Unimplemented { .. } => None,
+            CallError::Common(_) | CallError::Unimplemented { .. } => None,
             CallError::Client(e) => e.source(),
         }
     }
@@ -562,6 +593,7 @@ impl<E: DeserializeShrinkWrapOwned + Debug> OutcomeError for CallError<E> {
                     Ok(e) => CallError::Device(e),
                     Err(e) => CallError::Client(e.into()),
                 },
+                ErrorKindOwned::Common(c) => CallError::Common(c.clone()),
                 _ => CallError::Client(Error::RemoteError(remote)),
             },
             e => CallError::Client(e),
@@ -624,6 +656,40 @@ mod tests {
         );
         let e = CallError::<u8>::from_client(remote(kind), "T::p");
         assert!(matches!(e, CallError::Device(7)), "{e:?}");
+    }
+
+    #[test]
+    fn common_error_of_a_call_or_write() {
+        let in_use = || {
+            ww_client_server::ErrorKind::Common(ww_error::CommonError::InUse {
+                by: wire_weaver::shrink_wrap::MaxLen::new_unchecked("alice"),
+            })
+        };
+        let owned = ww_error::CommonErrorOwned::InUse {
+            by: wire_weaver::shrink_wrap::MaxLen::new_unchecked("alice".into()),
+        };
+        let e = CallError::<u8>::from_client(remote(in_use()), "T::m");
+        assert_eq!(e.common(), Some(&owned));
+        assert_eq!(e.to_string(), "In use by alice");
+        // an item without an error type: the client error carries it
+        let e = remote(in_use());
+        assert_eq!(e.common(), Some(&owned));
+        assert_eq!(
+            e.to_string(),
+            "Remote device returned In use by alice (common error at item site 1 (decode))"
+        );
+        assert_eq!(e.call_kind(), CallErrorKind::Common);
+        assert_eq!(
+            remote(ww_client_server::ErrorKind::Common(
+                ww_error::CommonError::Busy
+            ))
+            .call_kind(),
+            CallErrorKind::Overloaded
+        );
+        let light = wire_weaver::call::Error::from(e);
+        assert_eq!(light.common_error(), Some(&owned));
+        let light: wire_weaver::call::CallError<u8> = CallError::<u8>::Common(owned.clone()).into();
+        assert_eq!(light.common(), Some(&owned));
     }
 
     #[test]

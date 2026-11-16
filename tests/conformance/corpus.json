@@ -1205,6 +1205,14 @@
       "note": "a StreamData event on the path [7, 300] of ResourceIndex: golden bytes taken from the same event with bare UNib32 path elements"
     },
     {
+      "name": "client_server.event.common_error",
+      "type": "Event",
+      "value": {"seq": 5, "result": {"Err": {"err_seq": 2, "kind": {"Common": {"InUse": {"by": "USART2"}}}}}},
+      "bytes": "05021120555341525432060929",
+      "gaps": {"dynamic": "ww_client_server's Event is a protocol message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail)", "explain": "ww_client_server's Event is a protocol message, not a type of an API in the model", "python": "ww_client_server's Event is a protocol message, not a type of an API in the model", "c": "ww_client_server's Event is a protocol message, not a type of an API in the model"},
+      "note": "an error event carrying a common error (STD-16, ErrorKind::Common): the handler of any item answered InUse, or the hub refused a claimed resource"
+    },
+    {
       "name": "client_server.multi_index.list",
       "type": "MultiIndex",
       "value": {"List": [0, 9, 70000]},

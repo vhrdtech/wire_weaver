@@ -794,3 +794,46 @@ fn field_names(defs: &[FieldOwned]) -> String {
         .collect::<Vec<_>>()
         .join(", ")
 }
+
+/// A common error (STD-16) as `RemoteError.common` shows it: a unit variant as its name, one with fields as
+/// `{"Name": {"field": value}}`, the shape every enum value has in Python.
+pub(crate) fn common_to_py(py: Python<'_>, c: &ww_error::CommonErrorOwned) -> Py<PyAny> {
+    use pyo3::IntoPyObjectExt;
+    use ww_error::CommonErrorOwned as C;
+    let unit = |name: &str| PyString::new(py, name).into_any().unbind();
+    let named = |name: &str, fields: &[(&str, Py<PyAny>)]| -> Py<PyAny> {
+        let inner = PyDict::new(py);
+        let dict = PyDict::new(py);
+        for (k, v) in fields {
+            // a fresh dict takes any key
+            _ = inner.set_item(*k, v);
+        }
+        _ = dict.set_item(name, inner);
+        dict.into_any().unbind()
+    };
+    let s = |s: &str| PyString::new(py, s).into_any().unbind();
+    match c {
+        C::Unsupported => unit("Unsupported"),
+        C::InvalidArgument { arg, reason } => named(
+            "InvalidArgument",
+            &[
+                (
+                    "arg",
+                    arg.get().into_py_any(py).unwrap_or_else(|_| py.None()),
+                ),
+                ("reason", s(reason)),
+            ],
+        ),
+        C::InUse { by } => named("InUse", &[("by", s(by))]),
+        C::Busy => unit("Busy"),
+        C::WrongState { reason } => named("WrongState", &[("reason", s(reason))]),
+        C::NoPower { rail } => named("NoPower", &[("rail", s(rail))]),
+        C::Refused { reason } => named("Refused", &[("reason", s(reason))]),
+        C::Timeout => unit("Timeout"),
+        C::Fault { code } => named(
+            "Fault",
+            &[("code", code.into_py_any(py).unwrap_or_else(|_| py.None()))],
+        ),
+        C::Unknown(n) => unit(&format!("<unknown {n}>")),
+    }
+}

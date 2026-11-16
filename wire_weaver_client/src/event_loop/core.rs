@@ -867,7 +867,11 @@ mod tests {
     /// itself, and sends no LinkSetup.
     #[test]
     fn device_of_another_generation() {
-        for (device_gen, advice) in [(2, "update the host"), (0, "update the device firmware")] {
+        let host = ww_client_server::GENERATION;
+        for (device_gen, advice) in [
+            (host + 1, "update the host"),
+            (host - 1, "update the device firmware"),
+        ] {
             let now = Instant::now();
             let mut p = Pair::new();
             let (connected_tx, mut connected_rx) = oneshot::channel();

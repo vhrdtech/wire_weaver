@@ -102,6 +102,9 @@ pub enum Error {
     /// The device answered with an error.
     #[error("ww_i2c: {0:?}")]
     I2c(I2cErrorOwned),
+    /// The device answered with a common error (STD-16): `Busy`, `InUse`, `Unsupported`, ...
+    #[error(transparent)]
+    Common(wire_weaver_client::ww_error::CommonErrorOwned),
     #[error("'{resource}' is not implemented by the device")]
     Unimplemented { resource: String },
     #[error("client error: '{0:?}'")]
@@ -129,6 +132,7 @@ impl From<CallError<I2cErrorOwned>> for Error {
     fn from(e: CallError<I2cErrorOwned>) -> Self {
         match e {
             CallError::Device(e) => Error::I2c(e),
+            CallError::Common(c) => Error::Common(c),
             CallError::Unimplemented { resource } => Error::Unimplemented { resource },
             CallError::Client(e) => Error::Client(e),
         }

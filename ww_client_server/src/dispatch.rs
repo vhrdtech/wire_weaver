@@ -25,6 +25,7 @@ use wire_weaver::shrink_wrap::{
     buf_writer::{BufWriterState, UnsizedBuilder},
 };
 use wire_weaver::{GetResult, RpcResult, SetResult};
+use ww_error::CommonError;
 
 /// What a level of the generated dispatcher did with a request. The reply, value or error, is in the writer the
 /// level got; the root fills in the event kind and the result flag.
@@ -114,10 +115,26 @@ fn write_err(
         D::TraitNotFound => ErrorKind::TraitNotFound,
         D::StreamNoSession => ErrorKind::StreamNoSession,
         D::StreamStoreFailed => ErrorKind::StreamStoreFailed,
-        // not a kind of this version: the dispatcher never raises one
-        D::Unknown(_) => ErrorKind::OperationNotSupported,
+        // written with its payload by `common_error`, never through here; nor is a kind of a newer version
+        D::Common | D::Unknown(_) => ErrorKind::OperationNotSupported,
     };
     write_error_at(wr, before, &Error::new(err_seq, kind))
+}
+
+/// A handler's common error as the reply, written where the reply starts: one copy for every item of a firmware,
+/// whatever its types.
+#[inline(never)]
+pub fn common_error<const MULTI: bool>(
+    wr: &mut BufWriter<'_>,
+    d: &Dispatch<'_, MULTI>,
+    err_seq: u32,
+    error: CommonError<'_>,
+) -> WrAction {
+    write_error_at(
+        wr,
+        &d.before,
+        &Error::new(err_seq, ErrorKind::Common(error)),
+    )
 }
 
 /// `error` written at `before`, the start of the reply.

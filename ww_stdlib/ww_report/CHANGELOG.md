@@ -12,6 +12,7 @@
 
 ### 🚀 Features
 
+- A counters read refused with a common error is reported by its text (STD-16).
 - `ww info` and `ww report` show the device's wire version next to its crate version, and the hello generations
   this connection agreed on (EVO-34): `Contract::api_wire: Option<String>`, `Contract::generations: String`,
   `info::DeviceInfo::api_wire` and `::generations` (`render_info`'s new `API ... (wire w2.3)` and `Hello ...`

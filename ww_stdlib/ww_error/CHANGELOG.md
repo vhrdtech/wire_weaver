@@ -9,6 +9,7 @@
 
 ### 🚀 Features
 
+- `CommonError::make_owned()` (`std`): the same error owning its strings (STD-16).
 * New crate (STD-16): `CommonError` (`Unsupported`, `InvalidArgument { arg, reason }`, `InUse { by }`, `Busy`,
   `WrongState { reason }`, `NoPower { rail }`, `Refused { reason }`, `Timeout`, `Fault { code }`) with bounded
   strings, `Display` and `core::error::Error` from each variant's doc line, and the `HasCommon` trait the

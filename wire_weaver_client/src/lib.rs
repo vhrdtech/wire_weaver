@@ -110,6 +110,8 @@ pub use error::{CallError, DecodeReply, Error, OutcomeError};
 pub use error_list::{ErrorList, set_strict_error_lists};
 
 pub use ww_client_server;
+/// The common error every item can answer with (`CallError::Common`, `Error::common`).
+pub use ww_error;
 pub use ww_numeric;
 #[cfg(feature = "picoboot")]
 pub use ww_picoboot;

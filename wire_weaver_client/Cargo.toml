@@ -81,6 +81,7 @@ wire_weaver_evolution.workspace = true
 ww_client_server = { workspace = true, features = ["std"] }
 ww_date_time = { workspace = true, features = ["std"], optional = true } # used by codegen of the Clock client, not by name
 ww_device = { workspace = true, optional = true }
+ww_error = { workspace = true, features = ["std"] }
 ww_framer = { workspace = true, features = ["std", "large"] }
 ww_global.workspace = true
 ww_hub_api = { workspace = true, features = ["std"], optional = true }

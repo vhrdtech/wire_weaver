@@ -17,6 +17,7 @@
 
 ### 🚀 Features
 
+- `RemoteError` is raised for a common error of any item (STD-16, `ErrorKind::Common`): `common` holds it (`"Busy"`, `{"InUse": {"by": "alice"}}`), `value` is `None`, the message is its text.
 - The crate is a library (CLT-74): `init(m)` fills the module; the wheel is built from `ww_tools/wire_weaver_wheel`.
 
 - Keyed arrays by key (CLT-72): `dev.flow[key]` finds the element with that key (an int still indexes), `Array.by(key)` returns `None` where `[key]` raises `KeyError`, and `Array.key_type` names the key type. The index comes from the connection's key cache after the first lookup.

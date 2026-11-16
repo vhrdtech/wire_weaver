@@ -4,7 +4,8 @@
 //!
 //! A case here has the name of its corpus case; the corpus test checks both lists have the same names.
 
-use conformance_api::*;
+// `conformance_api::Error` is the test API's own error enum, `wire_weaver::prelude::Error` the handler-side one
+use conformance_api::{Error, *};
 use core::fmt::Debug;
 use wire_weaver::prelude::*;
 use wire_weaver::shrink_wrap::series::SeriesOwned;
@@ -1286,6 +1287,18 @@ pub fn table() -> Vec<Typed> {
                     path: ww_client_server::resource_path([7, 300]).to_vec(),
                     data: TailBytesOwned(vec![1, 2]),
                 }),
+            }
+        }),
+        // the common error of an item (STD-16): every item can answer with one, the hub too
+        case_debug("client_server.event.common_error", || {
+            ww_client_server::EventOwned {
+                seq: UVlq32(5),
+                result: Err(ww_client_server::ErrorOwned::new(
+                    2,
+                    ww_client_server::ErrorKindOwned::Common(ww_error::CommonErrorOwned::InUse {
+                        by: MaxLen::new_unchecked("USART2".into()),
+                    }),
+                )),
             }
         }),
         case_debug("client_server.multi_index.list", || {

@@ -18,6 +18,7 @@ pub struct BlockingCounters(pub Arc<Mutex<CountersClient>>);
 fn call_error<E: std::fmt::Debug>(e: CallError<E>) -> anyhow::Error {
     match e {
         CallError::Device(e) => anyhow!("the device refused: {e:?}"),
+        CallError::Common(c) => anyhow!("the device refused: {c}"),
         CallError::Unimplemented { resource } => anyhow!("the device doesn't implement {resource}"),
         CallError::Client(e) => e.into(),
     }

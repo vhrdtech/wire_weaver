@@ -4,6 +4,7 @@
 
 ### 🚀 Features
 
+- `Error::Common(CommonErrorOwned)` (STD-16): a common error the device answered with, from `CallError::Common`.
 - `I2cLimits::from(&I2cCapabilitiesOwned)` takes the device's limits as they are: `ww_i2c` bounds them by its consts on the wire now (EVO-72), so the clamp to `I2cLimits::default()` is gone. Same values as before.
 
 ### 🐛 Fixes

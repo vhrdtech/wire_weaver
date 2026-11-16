@@ -23,7 +23,7 @@ pub use context::{
 };
 pub use disconnect_reason::DisconnectReason;
 pub use priority::Priority;
-pub use rpc::{GetResult, RpcResult, SetResult, Unimplemented};
+pub use rpc::{GetResult, IntoOutput, RpcResult, SetResult, Unimplemented};
 pub use shrink_wrap;
 pub use shrink_wrap::derive_shrink_wrap;
 use shrink_wrap::prelude::ShrinkWrapError;
@@ -31,7 +31,7 @@ pub use valid_indices::ValidIndices;
 #[cfg(feature = "std")]
 pub use valid_indices::ValidIndicesOwned;
 pub use ww_api;
-pub use ww_api::{compact_version, full_version, ww_codegen, ww_trait};
+pub use ww_api::{Error, api_error, compact_version, full_version, ww_codegen, ww_trait};
 pub use ww_version;
 use ww_version::FullVersion;
 
@@ -41,7 +41,7 @@ pub mod prelude {
     pub use crate::rpc::GetResult::{GetError, Value};
     pub use crate::rpc::RpcResult::{Deferred, Ready};
     pub use crate::rpc::SetResult::{Set, SetError};
-    pub use crate::rpc::{GetResult, RpcResult, SetResult, Unimplemented};
+    pub use crate::rpc::{GetResult, IntoOutput, RpcResult, SetResult, Unimplemented};
     pub use crate::valid_indices::ValidIndices;
     #[cfg(feature = "std")]
     pub use crate::valid_indices::ValidIndicesOwned;

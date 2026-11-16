@@ -117,3 +117,20 @@ fn display() {
         "Refused: locked"
     );
 }
+
+#[test]
+fn make_owned() {
+    let e = CommonError::InUse {
+        by: MaxLen::new_unchecked("USART2"),
+    };
+    assert_eq!(
+        e.make_owned(),
+        CommonErrorOwned::InUse {
+            by: MaxLen::new_unchecked("USART2".into())
+        }
+    );
+    assert_eq!(
+        CommonError::Fault { code: 3 }.make_owned(),
+        CommonErrorOwned::Fault { code: 3 }
+    );
+}

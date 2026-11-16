@@ -1,3 +1,5 @@
+use ww_api::ww_error::CommonError;
+
 /// Result type that each server handler returns.
 /// - `Ready(T)` - serialize T and send it back to a client that is making a request.
 /// - `Deferred` - do nothing, result must be sent later using `cx.request_id` provided.
@@ -54,4 +56,25 @@ macro_rules! ww_unimplemented {
     () => {
         wire_weaver::Unimplemented.into()
     };
+}
+
+/// What a handler of an item declared without a `Result` answers: the value itself, or `Result<T, CommonError>` when
+/// it can fail with a common error. Generated servers and `ww_client_server::dispatch` take either.
+pub trait IntoOutput<'i, T> {
+    /// The value, or the common error the item answers with instead.
+    fn into_output(self) -> Result<T, CommonError<'i>>;
+}
+
+impl<'i, T> IntoOutput<'i, T> for T {
+    #[inline(always)]
+    fn into_output(self) -> Result<T, CommonError<'i>> {
+        Ok(self)
+    }
+}
+
+impl<'i, T> IntoOutput<'i, T> for Result<T, CommonError<'i>> {
+    #[inline(always)]
+    fn into_output(self) -> Result<T, CommonError<'i>> {
+        self
+    }
 }

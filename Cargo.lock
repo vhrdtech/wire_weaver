@@ -940,6 +940,7 @@ dependencies = [
  "wire_weaver",
  "wire_weaver_core",
  "ww_client_server",
+ "ww_error",
  "ww_keyed",
  "ww_link",
  "ww_numeric",
@@ -6630,6 +6631,7 @@ dependencies = [
  "ww_client_server",
  "ww_date_time",
  "ww_device",
+ "ww_error",
  "ww_framer",
  "ww_global",
  "ww_hub_api",
@@ -6717,6 +6719,7 @@ dependencies = [
  "tokio",
  "wire_weaver_client",
  "wire_weaver_core",
+ "ww_error",
  "ww_hub",
  "ww_snapshots",
 ]
@@ -6817,6 +6820,7 @@ name = "ww_client_server"
 version = "0.2.0"
 dependencies = [
  "wire_weaver",
+ "ww_error",
  "ww_global",
  "ww_si",
 ]
@@ -6986,6 +6990,7 @@ dependencies = [
  "wire_weaver_client",
  "ww_client_server",
  "ww_device",
+ "ww_error",
  "ww_hub_api",
  "ww_local_socket",
  "ww_si",

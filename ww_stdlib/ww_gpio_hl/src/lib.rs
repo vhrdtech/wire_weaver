@@ -13,6 +13,9 @@ pub enum Error {
     Client(#[from] wire_weaver_client::Error),
     #[error("ww_gpio: {0}")]
     Gpio(ww_gpio::GpioErrorOwned),
+    /// The device answered with a common error (STD-16): `Busy`, `InUse`, `Unsupported`, ...
+    #[error(transparent)]
+    Common(wire_weaver_client::ww_error::CommonErrorOwned),
     #[error("'{resource}' is not implemented by the device")]
     Unimplemented { resource: String },
     #[error(transparent)]
@@ -36,6 +39,7 @@ impl From<wire_weaver_client::CallError<ww_gpio::GpioErrorOwned>> for Error {
         use wire_weaver_client::CallError;
         match e {
             CallError::Device(e) => Error::Gpio(e),
+            CallError::Common(c) => Error::Common(c),
             CallError::Unimplemented { resource } => Error::Unimplemented { resource },
             CallError::Client(e) => Error::Client(e),
         }

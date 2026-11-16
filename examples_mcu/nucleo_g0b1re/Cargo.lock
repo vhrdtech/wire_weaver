@@ -1943,6 +1943,7 @@ name = "ww_client_server"
 version = "0.2.0"
 dependencies = [
  "wire_weaver",
+ "ww_error",
  "ww_global",
  "ww_si",
 ]

@@ -9,6 +9,9 @@ pub enum Error {
     Client(wire_weaver_client::Error),
     #[error(transparent)]
     Stream(#[from] StreamError),
+    /// The device answered with a common error (STD-16).
+    #[error(transparent)]
+    Common(wire_weaver_client::ww_error::CommonErrorOwned),
     /// `RateError::Busy` of any line.
     #[error("the device is busy with a triggered sample")]
     Busy,
@@ -96,6 +99,7 @@ where
     fn from(e: CallError<E>) -> Self {
         match e {
             CallError::Device(e) => DeviceError(e).into(),
+            CallError::Common(c) => Error::Common(c),
             CallError::Unimplemented { resource } => Error::Unimplemented(resource),
             CallError::Client(e) => e.into(),
         }

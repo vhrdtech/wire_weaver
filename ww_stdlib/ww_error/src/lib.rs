@@ -78,6 +78,33 @@ pub enum CommonError<'i> {
     Fault { code: u32 },
 }
 
+#[cfg(feature = "std")]
+impl CommonError<'_> {
+    /// The same error owning its strings.
+    pub fn make_owned(&self) -> CommonErrorOwned {
+        fn s<const N: usize>(s: &MaxLen<&str, N>) -> MaxLen<String, N> {
+            MaxLen::new_unchecked((**s).to_owned())
+        }
+        match self {
+            CommonError::Unsupported => CommonErrorOwned::Unsupported,
+            CommonError::InvalidArgument { arg, reason } => CommonErrorOwned::InvalidArgument {
+                arg: *arg,
+                reason: s(reason),
+            },
+            CommonError::InUse { by } => CommonErrorOwned::InUse { by: s(by) },
+            CommonError::Busy => CommonErrorOwned::Busy,
+            CommonError::WrongState { reason } => {
+                CommonErrorOwned::WrongState { reason: s(reason) }
+            }
+            CommonError::NoPower { rail } => CommonErrorOwned::NoPower { rail: s(rail) },
+            CommonError::Refused { reason } => CommonErrorOwned::Refused { reason: s(reason) },
+            CommonError::Timeout => CommonErrorOwned::Timeout,
+            CommonError::Fault { code } => CommonErrorOwned::Fault { code: *code },
+            CommonError::Unknown(n) => CommonErrorOwned::Unknown(*n),
+        }
+    }
+}
+
 /// An error enum with a `#[common]` variant: generic code gets the [CommonError] out of any crate's error.
 ///
 /// Implemented by `#[derive_shrink_wrap]` for an enum with a `#[common] Common(CommonError<'i>)` variant, with

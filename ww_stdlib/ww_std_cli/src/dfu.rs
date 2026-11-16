@@ -184,6 +184,7 @@ async fn reboot(into: Into, device: &DynClient) -> Result<()> {
             .is_ok_and(|n| matches!(n.profile, Profile::AB(_)) && n.offers.stage);
     dfu.boot.reboot(target).call().await.map_err(|e| match e {
         CallError::Device(e) => anyhow!("device refused to reboot: {e:?}"),
+        CallError::Common(c) => anyhow!("device refused to reboot: {c}"),
         CallError::Unimplemented { resource } => anyhow!("the device doesn't implement {resource}"),
         CallError::Client(e) => not_found(e),
     })?;
@@ -289,6 +290,7 @@ fn state_style(state: BootState) -> console::StyledObject<String> {
 fn call_error(e: CallError<ww_dfu::Error>) -> anyhow::Error {
     match e {
         CallError::Device(e) => anyhow!("the device refused: {e:?}"),
+        CallError::Common(c) => anyhow!("the device refused: {c}"),
         CallError::Unimplemented { resource } => anyhow!("the device doesn't implement {resource}"),
         CallError::Client(e) => not_found(e),
     }

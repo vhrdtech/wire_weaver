@@ -61,6 +61,7 @@ fn connect_hub(
 fn refused(e: CallError<AdoptErrorOwned>) -> Refused {
     match e {
         CallError::Device(e) => Refused::ByHub(format!("{e:?}")),
+        CallError::Common(c) => Refused::ByHub(c.to_string()),
         CallError::Unimplemented { .. } => {
             Refused::ByHub("the hub is older than live link handover".into())
         }

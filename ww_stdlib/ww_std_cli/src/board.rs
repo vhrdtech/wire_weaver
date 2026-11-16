@@ -264,6 +264,7 @@ async fn set_reworks(args: ReworkArgs, applied: bool, device: &DynClient) -> Res
             bail!("unknown rework {id}: this firmware knows {known}; update firmware first")
         }
         Err(CallError::Device(e)) => bail!("{e}"),
+        Err(CallError::Common(c)) => bail!("{c}"),
         Err(CallError::Unimplemented { resource }) => {
             bail!("the device doesn't implement {resource}")
         }

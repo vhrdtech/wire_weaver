@@ -19,6 +19,7 @@
 
 ### 🚀 Features
 
+- `Error::Common(CommonErrorOwned)` (STD-16): a common error the device answered with, from `CallError::Common`.
 - Async flavor `asynchronous::{Flex, PushPullOutput, Input, OpenDrainOutput, Bank}` (STD-6), for code in an async
   task. `Flex`, `Input` and `OpenDrainOutput` implement `embedded_hal_async::digital::Wait` without a race: the
   pin's `event` stream is opened first, then the level read, then an edge awaited; the stream is closed when the

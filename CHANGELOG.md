@@ -11,6 +11,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
+- Common errors in the protocol, part 1 (STD-16): `ww_client_server::ErrorKind::Common` (`w2.0`, generation 2), `ww_api::Error<E>` with `api_error!`, `wire_weaver::IntoOutput`, `CallError::Common` on both call error types, the hub refuses a claimed resource with a plain `InUse`, Python raises `RemoteError` for it. See the `ww_client_server`, `ww_error`, `ww_api`, `wire_weaver`, `wire_weaver_client`, `ww_hub`, `wire_weaver_py`, `ww_i2c_hl`, `ww_gpio_hl`, `ww_std_cli` and `ww_report` changelogs.
 - `ww` commands register themselves (TOOL-36): `wire_weaver_cli` and the new `ww_std_cli` are libraries, the binary is the crate `ww` (`ww_tools/ww`); `wire_weaver_py` is a library and the wheel the crate `wire_weaver_wheel` (CLT-74). See the `wire_weaver_cli`, `ww_std_cli`, `ww`, `wire_weaver_py` and `wire_weaver_wheel` changelogs.
 - `ww_api`, the API crate prelude (API-68): an API crate depends on `ww_api` instead of `wire_weaver`; `wire_weaver` re-exports it and drops `ww_error` and `api_doc`; the deprecated `ww_api!` macro is gone. See the `ww_api`, `wire_weaver`, `wire_weaver_derive`, `wire_weaver_core`, `shrink_wrap` and `ww_stdlib/*` changelogs.
 - Conformance matrix: the borrowed writer is a consumer of every case, and generated shape cases cover every list and string field kind (TEST-37).

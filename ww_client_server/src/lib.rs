@@ -38,6 +38,7 @@ pub const fn resource_path<const N: usize>(ids: [u32; N]) -> [ResourceIndex; N] 
 
 pub use wire_weaver::Priority;
 use wire_weaver::{prelude::*, shrink_wrap::tail_bytes::TailBytes};
+use ww_error::CommonError;
 /// The units of this protocol's numbers (periods, byte grants, budgets), for code that builds them, generated code
 /// too.
 pub use ww_si;
@@ -52,6 +53,8 @@ use stream::StreamHead;
 
 #[cfg(feature = "std")]
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
+#[cfg(feature = "std")]
+use ww_error::CommonErrorOwned;
 #[cfg(feature = "std")]
 use ww_version::FullVersionOwned;
 
@@ -537,6 +540,9 @@ pub enum ErrorKind<'i> {
     StreamNoSession,
     /// The store of a reliable stream failed (open or resume)
     StreamStoreFailed,
+    /// An error every item can answer with (`ww_error::CommonError`): the handler returned
+    /// `Err(wire_weaver::Error::Common(..))`, or a hub refused the call for a claimed resource (`InUse`)
+    Common(CommonError<'i>),
 }
 
 // Optional shaper configuration request.
@@ -647,11 +653,33 @@ impl ErrorOwned {
     }
 }
 
-/// `Unimplemented at item site 2 (handler)`, `BadIndex at level site 42 (index not valid)`.
+/// `Unimplemented at item site 2 (handler)`, `BadIndex at level site 42 (index not valid)`; a common error by its
+/// own text, `In use by USART2 (common error at item site 2 (handler))`.
 #[cfg(feature = "std")]
 impl core::fmt::Display for ErrorOwned {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "{:?} at {}", self.kind, self.site())
+        match &self.kind {
+            ErrorKindOwned::Common(c) => write!(f, "{c} (common error at {})", self.site()),
+            kind => write!(f, "{kind:?} at {}", self.site()),
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl ErrorOwned {
+    pub fn new(err_seq: u32, kind: ErrorKindOwned) -> ErrorOwned {
+        Self {
+            err_seq: UNib32(err_seq),
+            kind,
+        }
+    }
+
+    /// The common error (`ww_error::CommonError`) the device or a hub answered with, `None` for any other kind.
+    pub fn common(&self) -> Option<&CommonErrorOwned> {
+        match &self.kind {
+            ErrorKindOwned::Common(c) => Some(c),
+            _ => None,
+        }
     }
 }
 
@@ -676,6 +704,7 @@ impl Error<'_> {
             ErrorKind::StreamStoreFailed => ErrorKindOwned::StreamStoreFailed,
             ErrorKind::UserBytes(bytes) => ErrorKindOwned::UserBytes(bytes.to_vec()),
             ErrorKind::UserStr(s) => ErrorKindOwned::UserStr(s.to_string()),
+            ErrorKind::Common(c) => ErrorKindOwned::Common(c.make_owned()),
             ErrorKind::Unknown(d) => ErrorKindOwned::Unknown(*d),
         };
         ErrorOwned {

@@ -638,7 +638,7 @@ mod tests {
         format!("{program} pid {}", std::process::id())
     }
 
-    /// The device's (here: the hub's) error, panics on any other.
+    /// The hub's own API error (`ww_hub_api`), panics on any other.
     fn device_error<E: std::fmt::Debug>(e: CallError<E>) -> E {
         match e {
             CallError::Device(e) => e,
@@ -646,16 +646,24 @@ mod tests {
         }
     }
 
-    /// What B's call or write at A's claim gets.
-    fn refused<T: std::fmt::Debug>(r: Result<T, CallError<BusErrorOwned>>) -> BusErrorOwned {
-        device_error(r.expect_err("refused"))
+    /// The hub's common error, panics on any other.
+    fn common_error<E: std::fmt::Debug>(e: CallError<E>) -> CommonErrorOwned {
+        match e {
+            CallError::Common(c) => c,
+            other => panic!("expected a common error, got {other:?}"),
+        }
     }
 
-    /// `Common(InUse)` naming `program` of this test process.
-    fn in_use(program: &str) -> BusErrorOwned {
-        BusErrorOwned::Common(CommonErrorOwned::InUse {
+    /// What B's call or write at A's claim gets.
+    fn refused<T: std::fmt::Debug>(r: Result<T, CallError<BusErrorOwned>>) -> CommonErrorOwned {
+        common_error(r.expect_err("refused"))
+    }
+
+    /// `InUse` naming `program` of this test process.
+    fn in_use(program: &str) -> CommonErrorOwned {
+        CommonErrorOwned::InUse {
             by: MaxLen::new(by(program)).unwrap(),
-        })
+        }
     }
 
     /// A holds `bus[0]`: B's calls and writes there get `Common(InUse)` naming A, from the hub; its reads, streams
@@ -790,12 +798,7 @@ mod tests {
             .unwrap();
         assert_eq!((claims[0].id, claims[0].kind), (id, ClaimKind::Observe));
         match b.dev.port().ping().call().await {
-            Err(wire_weaver_client::Error::RemoteError(e)) => {
-                assert!(
-                    matches!(&e.kind, ww_client_server::ErrorKindOwned::UserStr(s) if *s == format!("in use by {}", by("alice"))),
-                    "{e:?}"
-                )
-            }
+            Err(e) => assert_eq!(e.common(), Some(&in_use("alice")), "{e:?}"),
             other => panic!("expected a refusal, got {other:?}"),
         }
         assert_eq!(a.dev.port().ping().call().await.unwrap(), 1);
@@ -928,12 +931,9 @@ mod tests {
             refused(b.dev.bus(1).write_speed(1).write().await),
             in_use("alice")
         );
-        // `add` has no error type: an error event names the holder
+        // `add` has no error type: the common error comes with the client's error
         match b.dev.add(1, 2).call().await {
-            Err(wire_weaver_client::Error::RemoteError(e)) => assert!(
-                matches!(&e.kind, ww_client_server::ErrorKindOwned::UserStr(s) if *s == format!("in use by {}", by("alice"))),
-                "{e:?}"
-            ),
+            Err(e) => assert_eq!(e.common(), Some(&in_use("alice")), "{e:?}"),
             other => panic!("expected a refusal, got {other:?}"),
         }
         assert_eq!(b.dev.bus(1).read_speed().read().await.unwrap(), 0);

@@ -557,7 +557,7 @@ impl Device {
             crate::owner_of(&hub, id)
         };
         let (seq, _) = envelope::split_seq(bytes)?;
-        let (access, target, path) = match envelope::access(bytes) {
+        let (access, target) = match envelope::access(bytes) {
             Ok(None) => return None,
             Ok(Some((access, place, multi))) => {
                 let path = match place {
@@ -575,10 +575,10 @@ impl Device {
                     (Some(p), true) => Target::Under(p.clone()),
                     (None, _) => Target::Anywhere,
                 };
-                (access, target, path.filter(|_| !multi))
+                (access, target)
             }
             // a newer envelope than this build: it can't be placed, so not past a claim
-            Err(()) => (claims::Access::Call, Target::Anywhere, None),
+            Err(()) => (claims::Access::Call, Target::Anywhere),
         };
         let by = {
             let mut hub = self.hub.state.lock().unwrap();
@@ -595,11 +595,7 @@ impl Device {
             "ww hub: {} refused for client {id}: in use by {by}",
             self.key
         );
-        let bundle = state.bundle();
-        Some((
-            seq,
-            claims::in_use_reply(bundle.as_deref(), path.as_deref(), access, &by, seq),
-        ))
+        Some((seq, claims::in_use_reply(&by, seq)))
     }
 
     pub(crate) async fn loopback(

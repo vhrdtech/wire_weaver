@@ -11,6 +11,7 @@ use std::convert::Infallible;
 use std::fmt::{Debug, Display, Formatter};
 use std::future::Future;
 use std::pin::Pin;
+use ww_api::ww_error::CommonErrorOwned;
 
 /// Future of a function of a local trait's `Dyn` companion.
 pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
@@ -50,6 +51,11 @@ pub enum ErrorKind {
     /// A request or reply is longer than the link's message limit (CLT-55): which one, how long, and the limit.
     /// Trying again won't help; a smaller request, or a result in pieces (a stream, pages), does.
     MessageTooBig(MessageTooBig),
+    /// The callee answered with a common error other than `Busy`, `Timeout` and `Unsupported`, which are
+    /// [Overloaded](ErrorKind::Overloaded), [DeadlineExceeded](ErrorKind::DeadlineExceeded) and
+    /// [Unimplemented](ErrorKind::Unimplemented): `InUse`, `Refused`, `WrongState`, `NoPower`, `InvalidArgument`,
+    /// `Fault`. The error itself is the cause ([Error::common], [CallError::Common]).
+    Common,
     /// Anything else: a broken reply, an incompatible API, a bug.
     Internal,
 }
@@ -109,6 +115,18 @@ impl Display for MessageTooBig {
 }
 
 impl ErrorKind {
+    /// The kind a common error folds into: `Busy` is [Overloaded](ErrorKind::Overloaded), `Timeout`
+    /// [DeadlineExceeded](ErrorKind::DeadlineExceeded), `Unsupported` [Unimplemented](ErrorKind::Unimplemented), so
+    /// retry logic reads one field; the rest is [Common](ErrorKind::Common).
+    pub fn of_common(e: &CommonErrorOwned) -> ErrorKind {
+        match e {
+            CommonErrorOwned::Busy => ErrorKind::Overloaded,
+            CommonErrorOwned::Timeout => ErrorKind::DeadlineExceeded,
+            CommonErrorOwned::Unsupported => ErrorKind::Unimplemented,
+            _ => ErrorKind::Common,
+        }
+    }
+
     fn describe(self) -> &'static str {
         match self {
             ErrorKind::Unimplemented => "not implemented",
@@ -118,6 +136,7 @@ impl ErrorKind {
             ErrorKind::Cancelled => "cancelled",
             ErrorKind::Overloaded => "overloaded",
             ErrorKind::MessageTooBig(_) => "message too big",
+            ErrorKind::Common => "common error",
             ErrorKind::Internal => "internal error",
         }
     }
@@ -187,6 +206,19 @@ impl Error {
     /// A request or reply over the link's limit, without a cause: its text says which, how long and the limit.
     pub const fn message_too_big(too_big: MessageTooBig) -> Self {
         Self::from_kind(ErrorKind::MessageTooBig(too_big))
+    }
+
+    /// A common error the callee answered with: its kind through [ErrorKind::of_common], the error as the cause.
+    pub fn common(e: CommonErrorOwned) -> Self {
+        Self::new(ErrorKind::of_common(&e), e)
+    }
+
+    /// The common error the callee answered with, for an error made by [Error::common] or converted from a
+    /// client's error that carries one; `None` otherwise.
+    pub fn common_error(&self) -> Option<&CommonErrorOwned> {
+        self.source
+            .as_deref()
+            .and_then(|s| s.downcast_ref::<CommonErrorOwned>())
     }
 
     /// Which message was over the link's limit, how long and the limit, for [ErrorKind::MessageTooBig].
@@ -259,6 +291,9 @@ impl From<Infallible> for Error {
 pub enum CallError<E> {
     /// The callee answered with the API's error: the `Err(e)` of the method (or of the property write).
     Api(E),
+    /// The callee answered with a common error (`ww_error::CommonError`): [kind](CallError::kind) is what it folds
+    /// into ([ErrorKind::of_common]).
+    Common(CommonErrorOwned),
     /// [ErrorKind::Unimplemented]
     Unimplemented(Option<Source>),
     /// [ErrorKind::Denied]
@@ -286,10 +321,21 @@ impl<E> CallError<E> {
         }
     }
 
-    /// What went wrong on the way, None for the API's error.
+    /// The common error the callee answered with.
+    pub fn common(&self) -> Option<&CommonErrorOwned> {
+        match self {
+            CallError::Common(c) => Some(c),
+            _ => None,
+        }
+    }
+
+    /// What went wrong on the way, None for the API's error. A common error gives what it folds into
+    /// ([ErrorKind::of_common]: `Busy` is `Overloaded`, `Timeout` `DeadlineExceeded`, `Unsupported` `Unimplemented`,
+    /// the rest `Common`), so retry logic reads one field.
     pub fn kind(&self) -> Option<ErrorKind> {
         Some(match self {
             CallError::Api(_) => return None,
+            CallError::Common(c) => ErrorKind::of_common(c),
             CallError::Unimplemented(_) => ErrorKind::Unimplemented,
             CallError::Denied(_) => ErrorKind::Denied,
             CallError::Unavailable(_) => ErrorKind::Unavailable,
@@ -301,12 +347,12 @@ impl<E> CallError<E> {
         })
     }
 
-    /// The callee doesn't implement the item ([ErrorKind::Unimplemented]).
+    /// The callee doesn't implement the item ([ErrorKind::Unimplemented]), or answered `Unsupported`.
     pub fn is_unimplemented(&self) -> bool {
-        matches!(self, CallError::Unimplemented(_))
+        self.kind() == Some(ErrorKind::Unimplemented)
     }
 
-    /// The API's error as `Ok`, or the call's error as an [Error].
+    /// The API's error as `Ok`, or the call's error as an [Error] (a common error as [Error::common]).
     pub fn into_api(self) -> Result<E, Error> {
         let Some(kind) = self.kind() else {
             let CallError::Api(e) = self else {
@@ -316,6 +362,7 @@ impl<E> CallError<E> {
         };
         let source = match self {
             CallError::Api(e) => return Ok(e),
+            CallError::Common(c) => return Err(Error::common(c)),
             CallError::Unimplemented(s)
             | CallError::Denied(s)
             | CallError::Unavailable(s)
@@ -330,7 +377,7 @@ impl<E> CallError<E> {
 
     fn cause(&self) -> Option<&Source> {
         match self {
-            CallError::Api(_) => None,
+            CallError::Api(_) | CallError::Common(_) => None,
             CallError::Unimplemented(s)
             | CallError::Denied(s)
             | CallError::Unavailable(s)
@@ -351,8 +398,13 @@ impl<E> CallError<E> {
     }
 }
 
+/// An [Error] made by [Error::common] (or converted from a client error carrying a common error) is
+/// [CallError::Common] again.
 impl<E> From<Error> for CallError<E> {
     fn from(e: Error) -> Self {
+        if let Some(c) = e.common_error() {
+            return CallError::Common(c.clone());
+        }
         let s = e.source;
         match e.kind {
             ErrorKind::Unimplemented => CallError::Unimplemented(s),
@@ -362,7 +414,7 @@ impl<E> From<Error> for CallError<E> {
             ErrorKind::Cancelled => CallError::Cancelled(s),
             ErrorKind::Overloaded => CallError::Overloaded(s),
             ErrorKind::MessageTooBig(m) => CallError::MessageTooBig(m, s),
-            ErrorKind::Internal => CallError::Internal(s),
+            ErrorKind::Common | ErrorKind::Internal => CallError::Internal(s),
         }
     }
 }
@@ -375,6 +427,9 @@ impl<E> From<ErrorKind> for CallError<E> {
 
 impl<E: Debug> Debug for CallError<E> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        if let CallError::Common(c) = self {
+            return f.debug_tuple("Common").field(c).finish();
+        }
         match (self.kind(), self.cause()) {
             (None, _) => f.debug_tuple("Api").field(self.api().unwrap()).finish(),
             (Some(kind), Some(cause)) => write!(f, "{kind:?}({cause:?})"),
@@ -387,6 +442,7 @@ impl<E: Display> Display for CallError<E> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match (self, self.cause()) {
             (CallError::Api(e), _) => Display::fmt(e, f),
+            (CallError::Common(c), _) => Display::fmt(c, f),
             (_, Some(cause)) => Display::fmt(cause, f),
             (_, None) => Display::fmt(&self.kind().unwrap(), f),
         }
@@ -397,6 +453,7 @@ impl<E: std::error::Error + 'static> std::error::Error for CallError<E> {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             CallError::Api(e) => e.source(),
+            CallError::Common(_) => None,
             _ => self.cause()?.source(),
         }
     }
@@ -458,6 +515,31 @@ mod tests {
         assert_eq!(
             request.to_string(),
             "request over the link's message limit of 512 B"
+        );
+    }
+
+    #[test]
+    fn common_errors_fold_into_kinds() {
+        let busy: CallError<u8> = CallError::Common(CommonErrorOwned::Busy);
+        assert_eq!(busy.kind(), Some(ErrorKind::Overloaded));
+        assert!(CallError::<u8>::Common(CommonErrorOwned::Unsupported).is_unimplemented());
+        let in_use = CommonErrorOwned::InUse {
+            by: ww_api::shrink_wrap::MaxLen::new_unchecked("USART2".into()),
+        };
+        let e: CallError<u8> = CallError::Common(in_use.clone());
+        assert_eq!(e.kind(), Some(ErrorKind::Common));
+        assert_eq!(e.to_string(), "In use by USART2");
+        assert_eq!(format!("{e:?}"), format!("Common({in_use:?})"));
+        // through the light error and back
+        let light = e.into_api().unwrap_err();
+        assert_eq!(light.kind(), ErrorKind::Common);
+        assert_eq!(light.common_error(), Some(&in_use));
+        assert_eq!(light.to_string(), "In use by USART2");
+        let back: CallError<u8> = light.into();
+        assert_eq!(back.common(), Some(&in_use));
+        assert_eq!(
+            Error::common(CommonErrorOwned::Timeout).kind(),
+            ErrorKind::DeadlineExceeded
         );
     }
 

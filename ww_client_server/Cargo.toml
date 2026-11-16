@@ -9,12 +9,12 @@ repository.workspace = true
 
 [package.metadata.wire_weaver]
 # its line is the GENERATION in the link setup hello (EVO-23): a wire break bumps it
-wire = "w1.0"
+wire = "w2.0"
 
 [features]
 default = ["std"]
 # hosts read and send everything; a firmware turns on only the parts it serves
-std = ["wire_weaver/std", "ww_si/std", "multi", "streams"]
+std = ["wire_weaver/std", "ww_error/std", "ww_si/std", "multi", "streams"]
 # MultiCall, MultiRead, MultiWrite (MultiIndex, MultiArgs): needed by a server generated with `multi_req = true`
 multi = []
 # counted and reliable streams and credit sinks: SinkWrite requests, StreamItem events, the Ack/Resend/Query
@@ -23,6 +23,8 @@ streams = []
 
 [dependencies]
 wire_weaver.workspace = true
+# the common error every item can answer with, ErrorKind::Common
+ww_error = { workspace = true, default-features = false }
 ww_global.workspace = true
 # timestamps in stream heads: Second { Micro, U32 }; a host unwraps them into U64 (ww_si host, part of std).
 # Periods are Micros, byte grants and budgets Bytes and BytePerSecond, missed sends Count<Event>, clock epochs

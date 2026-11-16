@@ -44,7 +44,7 @@ create_exception!(
     wire_weaver,
     RemoteError,
     WireWeaverError,
-    "A method returned `Err(e)`: `e` is in the `value` attribute, the `ww_error::CommonError` in it (if any) in `common`."
+    "A method returned `Err(e)`: `e` is in the `value` attribute, the `ww_error::CommonError` in it (if any) in `common`. A common error of any item (`Busy`, `InUse`, ..., STD-16) is in `common` with `value` `None`."
 );
 
 create_exception!(
@@ -57,8 +57,22 @@ create_exception!(
 pub(crate) fn client_err(e: Error) -> PyErr {
     match e {
         Error::Timeout => PyTimeoutError::new_err("no response from device"),
-        e => WireWeaverError::new_err(err_msg(e)),
+        e => match e.common() {
+            Some(c) => Python::attach(|py| common_error(py, c)),
+            None => WireWeaverError::new_err(err_msg(e)),
+        },
     }
+}
+
+/// `RemoteError` for a common error (STD-16) of an item without an error type of its own: the error in `common`
+/// (`"Busy"`, `{"InUse": {"by": "USART2"}}`), `value` is `None`, the message its text.
+pub(crate) fn common_error(py: Python<'_>, c: &ww_error::CommonErrorOwned) -> PyErr {
+    let err = RemoteError::new_err(c.to_string());
+    let value = err.value(py);
+    // `setattr` on a freshly made exception can't fail
+    _ = value.setattr("value", py.None());
+    _ = value.setattr("common", convert::common_to_py(py, c));
+    err
 }
 
 /// Error message without the `Other error: '..'` wrapping.

@@ -18,6 +18,7 @@ wire_weaver = { workspace = true, features = ["std"] }
 wire_weaver_client = { workspace = true, features = ["clock_sync", "hub", "in_process"] }
 ww_client_server = { workspace = true, features = ["std"] }
 ww_device.workspace = true
+ww_error = { workspace = true, features = ["std"] }
 ww_hub_api = { workspace = true, features = ["std"] }
 ww_local_socket = { workspace = true, features = ["socket"] }
 ww_si = { workspace = true, features = ["std", "time"] }

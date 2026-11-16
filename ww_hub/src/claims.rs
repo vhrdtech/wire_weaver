@@ -9,14 +9,10 @@
 use std::collections::BTreeSet;
 
 use tokio::time::Instant;
-use wire_weaver::shrink_wrap::UNib32;
-use wire_weaver::shrink_wrap::tail_bytes::TailBytes;
-use wire_weaver::shrink_wrap::{RefVec, SerializeShrinkWrap, UVlq32};
-use wire_weaver_client::ww_self::{
-    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, ClaimMode, FieldsOwned,
-    FieldsValueOwned, TypeOwned, ValueOwned,
-};
-use ww_client_server::{Error, ErrorKind, Event, EventKind};
+use wire_weaver::shrink_wrap::{MaxLen, SerializeShrinkWrap, UNib32, UVlq32};
+use wire_weaver_client::ww_self::{ApiBundleOwned, ApiItemKindOwned, ApiLevelOwned, ClaimMode};
+use ww_client_server::{Error, ErrorKind, Event};
+use ww_error::CommonError;
 use ww_hub_api::{ClaimEntryOwned, ClaimErrorOwned, ClaimKind, ClientEntryOwned, ReleaseError};
 
 /// Who a connection acts for. Today every connection is the local OS user the hub runs as (the socket lets no one
@@ -235,113 +231,20 @@ pub(crate) fn trait_path(bundle: &ApiBundleOwned, id: &TraitId) -> Option<Vec<u3
     walk(&bundle.root, bundle, id, &mut vec![])
 }
 
-/// The item at an absolute request path (indices of resource arrays included).
-fn item_at<'b>(bundle: &'b ApiBundleOwned, path: &[u32]) -> Option<&'b ApiItemOwned> {
-    let mut level = &bundle.root;
-    let mut rest = path;
-    loop {
-        let (id, after) = rest.split_first()?;
-        let item = level.items.iter().find(|i| i.id.0 == *id)?;
-        let after = match item.is_array() {
-            true => after.split_first().map_or(after, |(_, a)| a),
-            false => after,
-        };
-        if after.is_empty() {
-            return Some(item);
-        }
-        level = item.get_as_level(bundle).ok()?;
-        rest = after;
-    }
-}
-
-/// `CommonError::InUse { by }` as a value of the error type `err_ty`: itself when it is `CommonError`, in its
-/// `#[common] Common(CommonError)` variant when it is an API's error enum, `None` for any other type.
-fn in_use_value(err_ty: &TypeOwned, bundle: &ApiBundleOwned, by: &str) -> Option<ValueOwned> {
-    let in_use = ValueOwned::Enum {
-        variant: "InUse".into(),
-        fields: FieldsValueOwned::Named(vec![("by".into(), ValueOwned::String(by.into()))]),
-    };
-    if err_ty.is_common_error(bundle) {
-        return Some(in_use);
-    }
-    let TypeOwned::Enum(item_enum) = err_ty.get_in_line(bundle).ok()? else {
-        return None;
-    };
-    let common = item_enum.variants.iter().find(|v| {
-        matches!(&v.fields, FieldsOwned::Unnamed(f) if f.len() == 1 && f[0].ty.is_common_error(bundle))
-    })?;
-    Some(ValueOwned::Enum {
-        variant: common.ident.clone(),
-        fields: FieldsValueOwned::Unnamed(vec![in_use]),
-    })
-}
-
-/// The answer to a refused request with `seq`: `Common(InUse { by })` of the method's or the property's own error
-/// type where it has one (a method returning `Result<_, E>`, a property with a write error type), else an error
-/// event naming the holder (`ErrorKind::UserStr`).
-pub(crate) fn in_use_reply(
-    bundle: Option<&ApiBundleOwned>,
-    path: Option<&[u32]>,
-    access: Access,
-    by: &str,
-    seq: u32,
-) -> Vec<u8> {
-    enum Typed {
-        /// A method's `Err` return value
-        Value(Vec<u8>),
-        /// A property's write error
-        WriteError(Vec<u8>),
-    }
-    let typed = (|| {
-        let bundle = bundle?;
-        let item = item_at(bundle, path?)?;
-        match (access, &item.kind) {
-            (
-                Access::Call,
-                ApiItemKindOwned::Method {
-                    return_ty: Some(ret @ TypeOwned::Result { err_ty, .. }),
-                    ..
-                },
-            ) => {
-                let err = in_use_value(err_ty, bundle, by)?;
-                ValueOwned::Result(Err(Box::new(err)))
-                    .ser_shrink_wrap_dyn(ret, bundle)
-                    .ok()
-                    .map(Typed::Value)
-            }
-            (
-                Access::Write,
-                ApiItemKindOwned::Property {
-                    write_err_ty: Some(err_ty),
-                    ..
-                },
-            ) => in_use_value(err_ty, bundle, by)?
-                .ser_shrink_wrap_dyn(err_ty, bundle)
-                .ok()
-                .map(Typed::WriteError),
-            _ => None,
-        }
-    })();
-    let text = format!("in use by {by}");
-    let result = match &typed {
-        Some(Typed::Value(data)) => Ok(EventKind::Value {
-            data: TailBytes(data),
-        }),
-        Some(Typed::WriteError(data)) => Err(Error::new(
-            0,
-            ErrorKind::UserBytes(RefVec::Slice { slice: data }),
-        )),
-        None => Err(Error::new(0, ErrorKind::UserStr(&text))),
+/// The answer to a refused request with `seq`: the common error `InUse { by }` (`ErrorKind::Common`), whatever the
+/// item is. Every item can answer with a common error, so the hub needs neither the API's model nor the item's
+/// error type to refuse a call, a write, a read or an open.
+pub(crate) fn in_use_reply(by: &str, seq: u32) -> Vec<u8> {
+    let by = match MaxLen::new(by) {
+        Ok(by) => by,
+        // `Claim::by` keeps it within the bound; a longer one is cut rather than refused
+        Err(_) => MaxLen::new_unchecked(&by[..by.floor_char_boundary(32)]),
     };
     let event = Event {
         seq: UVlq32(seq),
-        result,
+        result: Err(Error::new(0, ErrorKind::Common(CommonError::InUse { by }))),
     };
-    let data_len = match &typed {
-        Some(Typed::Value(d) | Typed::WriteError(d)) => d.len(),
-        None => 0,
-    };
-    let mut buf = vec![0u8; text.len() + data_len + 32];
+    let mut buf = vec![0u8; 64];
     event
         .to_ww_bytes(&mut buf)
         .map(<[u8]>::to_vec)

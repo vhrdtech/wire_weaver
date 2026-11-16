@@ -21,7 +21,7 @@ use ww_version::FullVersionOwned;
 /// Where a snapshot came from.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Origin {
-    /// An embedded set, by its position among the resolver's sets.
+    /// An embedded set, by the position of its source in the resolver.
     Set(usize),
     /// A directory the caller named: a walked crate's `api_snapshots/`.
     Dir(PathBuf),
@@ -59,9 +59,22 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     mutex.lock().expect("a resolver lock is poisoned")
 }
 
-enum Sets {
-    Own(Vec<&'static Set>),
+/// One source of the chain, in the order the resolver was built.
+enum Source {
+    Set(&'static Set),
+    /// The sets registered with [embed], as they are at each lookup.
     Embedded,
+    Dir(Dir),
+    Cache(Dir),
+    Cargo(CargoScan),
+}
+
+/// A source expanded for one lookup.
+enum Place<'s> {
+    Set(&'static Set),
+    /// A directory, and whether it is the cache.
+    Dir(&'s Dir, bool),
+    Cargo(&'s CargoScan),
 }
 
 /// Where the resolver looks for crates in Cargo's sources on this machine.
@@ -74,15 +87,16 @@ pub struct CargoScan {
     pub cargo_home: Option<PathBuf>,
 }
 
-/// Finds snapshots by crate name and version through the chain of sources it was built with, each found once per
+/// Lookup key of a superseded definition: kind, crate version, name, reference.
+type SupersededKey = (Kind, FullVersionOwned, String, Vec<u8>);
+
+/// Finds snapshots by crate name and version through its sources, in the order they were added, each found once per
 /// version. Shared between threads: a host keeps one for the process, [Resolver::global].
 pub struct Resolver {
-    sets: Sets,
-    dirs: Vec<Dir>,
-    cache: Option<Dir>,
+    sources: Vec<Source>,
     definitions: Option<PathBuf>,
-    cargo: Option<CargoScan>,
     memo: FrozenMap<FullVersionOwned, Box<ApiBundleOwned>>,
+    superseded: FrozenMap<SupersededKey, Box<Option<ApiBundleOwned>>>,
     origins: Mutex<HashMap<FullVersionOwned, Origin>>,
     missing: Mutex<HashSet<FullVersionOwned>>,
 }
@@ -98,28 +112,33 @@ impl Resolver {
     /// [Self::with_crate_dirs] and nothing else, so a build sees only its sources.
     pub fn new() -> Self {
         Resolver {
-            sets: Sets::Own(vec![]),
-            dirs: vec![],
-            cache: None,
+            sources: vec![],
             definitions: None,
-            cargo: None,
             memo: FrozenMap::new(),
+            superseded: FrozenMap::new(),
             origins: Mutex::new(HashMap::new()),
             missing: Mutex::new(HashSet::new()),
         }
     }
 
-    /// A host's resolver: the embedded sets, the cache and the definition cache under `~/.wire_weaver`, Cargo's
-    /// sources through the current directory's workspace and `CARGO_HOME`.
+    /// A host's resolver: [Self::with_host_sources] alone.
     pub fn host() -> Self {
-        let mut resolver = Self::new().with_embedded();
+        Self::new().with_host_sources()
+    }
+
+    /// Adds what a host on this machine has, after the sources added before: the embedded sets, the cache and the
+    /// definition cache under `~/.wire_weaver`, Cargo's sources through the current directory's workspace and
+    /// `CARGO_HOME`. The checker adds them after the walked crates' directories, for a frozen snapshot that names a
+    /// crate the walk didn't reach.
+    pub fn with_host_sources(mut self) -> Self {
+        self = self.with_embedded();
         if let Some(root) = cache::default_root() {
-            resolver = resolver.with_cache(&root);
+            self = self.with_cache(&root);
         }
         if let Some(dir) = definition_cache::default_dir() {
-            resolver = resolver.with_definitions(dir);
+            self = self.with_definitions(dir);
         }
-        resolver.with_cargo_scan(CargoScan {
+        self.with_cargo_scan(CargoScan {
             workspace: std::env::current_dir().ok(),
             cargo_home: cargo::default_cargo_home().ok(),
         })
@@ -130,70 +149,83 @@ impl Resolver {
         GLOBAL.get_or_init(Self::host)
     }
 
-    /// Adds an embedded set, after those added before.
+    /// Adds an embedded set.
     pub fn with_set(mut self, set: &'static Set) -> Self {
-        match &mut self.sets {
-            Sets::Own(sets) => sets.push(set),
-            Sets::Embedded => self.sets = Sets::Own(embedded().into_iter().chain([set]).collect()),
-        }
+        self.sources.push(Source::Set(set));
         self
     }
 
-    /// Uses the sets registered with [embed], as they are at each lookup.
+    /// Adds the sets registered with [embed], as they are at each lookup.
     pub fn with_embedded(mut self) -> Self {
-        self.sets = Sets::Embedded;
+        self.sources.push(Source::Embedded);
         self
     }
 
-    /// Adds a directory in the `api_snapshots/` layout, after those added before.
+    /// Adds a directory in the `api_snapshots/` layout.
     pub fn with_dir(mut self, dir: Dir) -> Self {
-        self.dirs.push(dir);
+        self.sources.push(Source::Dir(dir));
         self
     }
 
-    /// Adds the `api_snapshots/` of every crate directory that has one, in order.
+    /// Adds the `api_snapshots/` of every crate directory that has one, in order, each once.
     pub fn with_crate_dirs<P: AsRef<Path>>(
         mut self,
         crate_dirs: impl IntoIterator<Item = P>,
     ) -> Self {
         for crate_dir in crate_dirs {
             let dir = Dir::of_crate(crate_dir.as_ref());
-            if dir.exists() && !self.dirs.contains(&dir) {
-                self.dirs.push(dir);
+            let known = self
+                .sources
+                .iter()
+                .any(|s| matches!(s, Source::Dir(d) if *d == dir));
+            if dir.exists() && !known {
+                self.sources.push(Source::Dir(dir));
             }
         }
         self
     }
 
-    /// The cache rooted at `root` (`~/.wire_weaver`): read after the directories, written with what Cargo's sources
-    /// yield.
+    /// Adds the cache rooted at `root` (`~/.wire_weaver`), which a hit in a source after it is copied into.
     pub fn with_cache(mut self, root: &Path) -> Self {
-        self.cache = Some(cache::snapshots_dir(root));
+        self.sources.push(Source::Cache(cache::snapshots_dir(root)));
         self
     }
 
-    /// The definition cache, [ww_self::definition_cache], looked up by signature.
+    /// The definition cache, [ww_self::definition_cache], looked up by signature after every source's `superseded/`.
     pub fn with_definitions(mut self, dir: PathBuf) -> Self {
         self.definitions = Some(dir);
         self
     }
 
-    /// Cargo's sources on this machine, after the cache.
+    /// Adds Cargo's sources on this machine.
     pub fn with_cargo_scan(mut self, scan: CargoScan) -> Self {
-        self.cargo = Some(scan);
+        self.sources.push(Source::Cargo(scan));
         self
     }
 
-    fn sets(&self) -> Vec<&'static Set> {
-        match &self.sets {
-            Sets::Own(sets) => sets.clone(),
-            Sets::Embedded => embedded(),
+    /// The sources with their position, the embedded sets expanded.
+    fn places(&self) -> Vec<(usize, Place<'_>)> {
+        let mut places = vec![];
+        for (index, source) in self.sources.iter().enumerate() {
+            match source {
+                Source::Set(set) => places.push((index, Place::Set(set))),
+                Source::Embedded => {
+                    places.extend(embedded().into_iter().map(|s| (index, Place::Set(s))));
+                }
+                Source::Dir(dir) => places.push((index, Place::Dir(dir, false))),
+                Source::Cache(dir) => places.push((index, Place::Dir(dir, true))),
+                Source::Cargo(scan) => places.push((index, Place::Cargo(scan))),
+            }
         }
+        places
     }
 
-    /// The directories named and the cache, in order.
-    fn dirs(&self) -> impl Iterator<Item = &Dir> {
-        self.dirs.iter().chain(self.cache.iter())
+    /// The cache, when there is one.
+    fn cache(&self) -> Option<&Dir> {
+        self.sources.iter().find_map(|s| match s {
+            Source::Cache(dir) => Some(dir),
+            _ => None,
+        })
     }
 
     /// The snapshot of `version`, the first source that has one. Found once: later calls answer from memory.
@@ -211,7 +243,7 @@ impl Resolver {
         if lock(&self.missing).contains(version) {
             return None;
         }
-        match self.find(version) {
+        match self.every_snapshot(version, true).into_iter().next() {
             Some((origin, bundle)) => {
                 debug!(
                     "snapshot of {} {} from {origin:?}",
@@ -239,35 +271,58 @@ impl Resolver {
         lock(&self.missing).clear();
     }
 
-    fn find(&self, version: &FullVersionOwned) -> Option<(Origin, ApiBundleOwned)> {
-        for (index, set) in self.sets().iter().enumerate() {
-            if let Some(bundle) = set.get(version) {
-                return Some((Origin::Set(index), bundle.clone()));
+    /// The snapshot of `version` in every source that has one, in chain order; only the first with `first`. A hit
+    /// in a source after the cache is copied into the cache.
+    fn every_snapshot(
+        &self,
+        version: &FullVersionOwned,
+        first: bool,
+    ) -> Vec<(Origin, ApiBundleOwned)> {
+        let mut found = vec![];
+        let mut past_cache = false;
+        for (index, place) in self.places() {
+            match place {
+                Place::Set(set) => {
+                    if let Some(bundle) = set.get(version) {
+                        found.push((Origin::Set(index), bundle.clone()));
+                    }
+                }
+                Place::Dir(dir, is_cache) => {
+                    past_cache |= is_cache;
+                    if let Some(snapshot) = read_snapshot(dir, version) {
+                        let origin = if is_cache {
+                            Origin::Cache
+                        } else {
+                            Origin::Dir(dir.path().to_path_buf())
+                        };
+                        found.push((origin, snapshot.bundle));
+                    }
+                }
+                Place::Cargo(scan) => {
+                    for crate_dir in self.cargo_dirs(scan, version) {
+                        let dir = Dir::of_crate(&crate_dir);
+                        if let Some(snapshot) = read_snapshot(&dir, version) {
+                            if past_cache {
+                                self.store(&dir);
+                            }
+                            found.push((Origin::Cargo(crate_dir), snapshot.bundle));
+                            if first {
+                                return found;
+                            }
+                        }
+                    }
+                }
+            }
+            if first && !found.is_empty() {
+                return found;
             }
         }
-        for dir in self.dirs() {
-            if let Some(snapshot) = read_snapshot(dir, version) {
-                let origin = if Some(dir) == self.cache.as_ref() {
-                    Origin::Cache
-                } else {
-                    Origin::Dir(dir.path().to_path_buf())
-                };
-                return Some((origin, snapshot.bundle));
-            }
-        }
-        for crate_dir in self.cargo_dirs(version) {
-            let dir = Dir::of_crate(&crate_dir);
-            if let Some(snapshot) = read_snapshot(&dir, version) {
-                self.store(&dir);
-                return Some((Origin::Cargo(crate_dir), snapshot.bundle));
-            }
-        }
-        None
+        found
     }
 
     /// Copies a crate's snapshots found outside the cache into it, so the next process finds them there.
     fn store(&self, from: &Dir) {
-        let Some(cache) = &self.cache else { return };
+        let Some(cache) = self.cache() else { return };
         match cache::store_crate(cache, from) {
             Ok(stored) => {
                 for (path, why) in &stored.refused {
@@ -283,11 +338,8 @@ impl Resolver {
         }
     }
 
-    /// Directories of `version` in Cargo's sources that have an `api_snapshots/`.
-    fn cargo_dirs(&self, version: &FullVersionOwned) -> Vec<PathBuf> {
-        let Some(scan) = &self.cargo else {
-            return vec![];
-        };
+    /// Directories of `version` in Cargo's sources (`scan`) that have an `api_snapshots/`.
+    fn cargo_dirs(&self, scan: &CargoScan, version: &FullVersionOwned) -> Vec<PathBuf> {
         let v = &version.version;
         let semver = semver::Version::new(v.major.0.into(), v.minor.0.into(), v.patch.0.into());
         let mut dirs = vec![];
@@ -329,7 +381,7 @@ impl Resolver {
             return Ok(None);
         }
         if let Some(found) = self.superseded(kind, version, name, reference) {
-            return Ok(Some(found));
+            return Ok(Some(found.clone()));
         }
         if let Some(definitions) = &self.definitions
             && let Some(found) =
@@ -338,7 +390,7 @@ impl Resolver {
             return Ok(Some(found));
         }
         let origin = self.origin(version);
-        for (candidate, bundle) in self.every_snapshot(version) {
+        for (candidate, bundle) in self.every_snapshot(version, false) {
             if origin.as_ref() == Some(&candidate) {
                 continue;
             }
@@ -353,58 +405,59 @@ impl Resolver {
         Ok(None)
     }
 
-    /// A superseded definition (EVO-68) of `version` that `reference` names, from the first source that keeps one.
+    /// A superseded definition (EVO-68) of `version` that `reference` names, from the first source that keeps one;
+    /// looked up once per key, a miss remembered too.
     pub fn superseded(
         &self,
         kind: Kind,
         version: &FullVersionOwned,
         name: &str,
         reference: &[u8],
-    ) -> Option<ApiBundleOwned> {
-        for set in self.sets() {
-            if let Some(found) = set.superseded(kind, version, name, reference) {
-                return Some(found.clone());
-            }
+    ) -> Option<&ApiBundleOwned> {
+        let key = (kind, version.clone(), name.to_owned(), reference.to_vec());
+        if let Some(found) = self.superseded.get(&key) {
+            return found.as_ref();
         }
-        let cargo_dirs = self.cargo_dirs(version);
-        for dir in self
-            .dirs()
-            .cloned()
-            .chain(cargo_dirs.iter().map(|d| Dir::of_crate(d)))
+        if !file::is_plain_crate_name(&version.crate_id)
+            || !definition_cache::is_plain_definition_name(name)
         {
-            match dir.superseded(kind, version, name, reference) {
-                Ok(Some(found)) => return Some(found),
-                Ok(None) => {}
-                Err(e) => warn!("{}: {e:#}", dir.superseded_dir().display()),
+            return None;
+        }
+        let found = self.find_superseded(kind, version, name, reference);
+        self.superseded.insert(key, Box::new(found)).as_ref()
+    }
+
+    fn find_superseded(
+        &self,
+        kind: Kind,
+        version: &FullVersionOwned,
+        name: &str,
+        reference: &[u8],
+    ) -> Option<ApiBundleOwned> {
+        for (_, place) in self.places() {
+            let dirs = match place {
+                Place::Set(set) => {
+                    if let Some(found) = set.superseded(kind, version, name, reference) {
+                        return Some(found.clone());
+                    }
+                    continue;
+                }
+                Place::Dir(dir, _) => vec![dir.clone()],
+                Place::Cargo(scan) => self
+                    .cargo_dirs(scan, version)
+                    .iter()
+                    .map(|d| Dir::of_crate(d))
+                    .collect(),
+            };
+            for dir in dirs {
+                match dir.superseded(kind, version, name, reference) {
+                    Ok(Some(found)) => return Some(found),
+                    Ok(None) => {}
+                    Err(e) => warn!("{}: {e:#}", dir.superseded_dir().display()),
+                }
             }
         }
         None
-    }
-
-    /// The snapshot of `version` in every source that has one, in chain order.
-    fn every_snapshot(&self, version: &FullVersionOwned) -> Vec<(Origin, ApiBundleOwned)> {
-        let mut found = vec![];
-        for (index, set) in self.sets().iter().enumerate() {
-            if let Some(bundle) = set.get(version) {
-                found.push((Origin::Set(index), bundle.clone()));
-            }
-        }
-        for dir in self.dirs() {
-            if let Some(snapshot) = read_snapshot(dir, version) {
-                let origin = if Some(dir) == self.cache.as_ref() {
-                    Origin::Cache
-                } else {
-                    Origin::Dir(dir.path().to_path_buf())
-                };
-                found.push((origin, snapshot.bundle));
-            }
-        }
-        for crate_dir in self.cargo_dirs(version) {
-            if let Some(snapshot) = read_snapshot(&Dir::of_crate(&crate_dir), version) {
-                found.push((Origin::Cargo(crate_dir), snapshot.bundle));
-            }
-        }
-        found
     }
 
     /// The canonical bundle of the `kind` named `name` in `bundle`, when its signature matches `reference`.
@@ -460,14 +513,23 @@ fn read_snapshot(dir: &Dir, version: &FullVersionOwned) -> Option<file::Snapshot
     }
 }
 
+impl std::fmt::Debug for Source {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Source::Set(set) => write!(f, "Set({set:?})"),
+            Source::Embedded => write!(f, "Embedded({})", embedded().len()),
+            Source::Dir(dir) => write!(f, "Dir({})", dir.path().display()),
+            Source::Cache(dir) => write!(f, "Cache({})", dir.path().display()),
+            Source::Cargo(scan) => write!(f, "Cargo({scan:?})"),
+        }
+    }
+}
+
 impl std::fmt::Debug for Resolver {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Resolver")
-            .field("sets", &self.sets().len())
-            .field("dirs", &self.dirs)
-            .field("cache", &self.cache)
+            .field("sources", &self.sources)
             .field("definitions", &self.definitions)
-            .field("cargo", &self.cargo)
             .finish_non_exhaustive()
     }
 }
@@ -527,15 +589,20 @@ mod tests {
         write_snapshot(&root.join("a"), &first);
         write_snapshot(&root.join("b"), &second);
         let version = first.ext_crates[0].clone();
-        let resolver =
-            Resolver::new().with_crate_dirs([root.join("a"), root.join("b"), root.join("none")]);
-        assert_eq!(resolver.dirs.len(), 2);
+        let resolver = Resolver::new().with_crate_dirs([
+            root.join("a"),
+            root.join("b"),
+            root.join("none"),
+            root.join("a"),
+        ]);
+        assert_eq!(resolver.sources.len(), 2);
         let found = resolver.snapshot(&version).unwrap();
         assert_eq!(found.root.trait_name, "First");
         assert_eq!(
             resolver.origin(&version),
             Some(Origin::Dir(root.join("a").join("api_snapshots")))
         );
+        assert_eq!(resolver.every_snapshot(&version, false).len(), 2);
         fs::remove_dir_all(&root).unwrap();
         // from memory now
         assert_eq!(
@@ -544,14 +611,8 @@ mod tests {
         );
         let other = FullVersionOwned::new("other".into(), VersionOwned::new(1, 0, 0));
         assert!(resolver.snapshot(&other).is_none());
-        assert!(
-            resolver
-                .snapshot(&FullVersionOwned::new(
-                    "../dep".into(),
-                    VersionOwned::new(0, 1, 0)
-                ))
-                .is_none()
-        );
+        let bad = FullVersionOwned::new("../dep".into(), VersionOwned::new(0, 1, 0));
+        assert!(resolver.snapshot(&bad).is_none());
     }
 
     #[test]
@@ -565,13 +626,10 @@ mod tests {
                 .unwrap()
                 .into_boxed_slice(),
         );
-        let snapshots: &'static [(&'static str, &'static [u8])] = Box::leak(
-            vec![(
-                &*Box::leak(file::file_name(&embedded.ext_crates[0]).into_boxed_str()),
-                bytes,
-            )]
-            .into_boxed_slice(),
-        );
+        let name: &'static str =
+            Box::leak(file::file_name(&embedded.ext_crates[0]).into_boxed_str());
+        let snapshots: &'static [(&'static str, &'static [u8])] =
+            Box::leak(vec![(name, bytes)].into_boxed_slice());
         let set: &'static Set = Box::leak(Box::new(Set::new(snapshots, &[])));
         let resolver = Resolver::new()
             .with_set(set)
@@ -582,7 +640,15 @@ mod tests {
             "FromSet"
         );
         assert_eq!(resolver.origin(&version), Some(Origin::Set(0)));
-        assert_eq!(resolver.every_snapshot(&version).len(), 2);
+        assert_eq!(resolver.every_snapshot(&version, false).len(), 2);
+        // added after the directory, the set comes second
+        let resolver = Resolver::new()
+            .with_crate_dirs([root.join("a")])
+            .with_set(set);
+        assert_eq!(
+            resolver.snapshot(&version).unwrap().root.trait_name,
+            "FromFile"
+        );
         fs::remove_dir_all(&root).unwrap();
     }
 

@@ -14,6 +14,8 @@
 use crate::corpus::{Case, Direction};
 use crate::derive::{Decoded, Derive};
 use conformance_api::*;
+// the corpus enum, not the handler-side `Error` of the prelude
+use conformance_api::Error;
 use core::ops::{Range, RangeInclusive};
 use wire_weaver::prelude::*;
 use wire_weaver::shrink_wrap::series::Series;

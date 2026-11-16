@@ -110,7 +110,7 @@ device can run TCP.
 Each datagram is one [ww_framer](ww_framer.md) frame, with `ww_link::UdpFraming`: a one-byte
 [frame prefix](ww_framer.md#frame-prefix) (`UdpPrefix`, `SeqPrefix`: frame counter mod 16 and session epoch mod 4),
 then the messages with `UdpHead` (`U2Head`) heads and `UdpChecksum`, a CRC-32/ISO-HDLC (the CRC-32 of zip and
-Ethernet, computed by `ww_block`) after every message, covering the prefix, the head and the message, and `UdpTail`
+Ethernet, `ww_crc`'s `CRC32_ISO_HDLC`) after every message, covering the prefix, the head and the message, and `UdpTail`
 (none). Same as over USB, small messages accumulated by the event loop share a datagram and big ones are split across
 several. Byte examples are on [framer wire format](ww_framer_wire.md#with-a-crc-32-on-every-message-udp). The hello is
 the one datagram outside the framer: no frame prefix, its own CRC, and it is not counted

@@ -68,9 +68,9 @@ type UdpRx<'a> = FramingRx<'a, UdpFraming>; // ww_framer::FramedRx<'a, UdpHead, 
 
 `FramingTxOwned` / `FramingRxOwned` are the `std` variants (`TxOwned` / `FramedRxOwned` of `ww_framer`). On the
 device, a `PacketSink` / `PacketSource` of `ww_device` names its medium's `Framing`, and `FramedTx` / `FramedRx` frame
-in it. The CRC-32 of UDP is `ww_link::LinkCrc32`, computed by `ww_block::crc32_update`: one implementation for links
-and [block devices](../std_library/ww_block.md), with the table a firmware picks once through `ww_block`'s
-`crc-table-*` features (bitwise without one, hosts get `crc-table-slice16`). Frame size is whatever the medium
+in it. The CRC-32 of UDP is `ww_framer`'s `Crc32IsoHdlc`, a static of `ww_crc`: one table for links and
+[block devices](../std_library/ww_block.md), its size picked once by a firmware with `ww_crc`'s `table-*` features
+(bitwise without one, hosts get `table-slice16`). Frame size is whatever the medium
 dictates and is passed in when creating the framer (e.g., USB max packet size). Both ends of a link must agree on the
 framing: USB tells it in the interface protocol (`USB_INTERFACE_PROTOCOL`, 0x37, or `USB_INTERFACE_PROTOCOL_SEQ`,
 0x38, for `UsbSeqFraming`), every other medium has one.

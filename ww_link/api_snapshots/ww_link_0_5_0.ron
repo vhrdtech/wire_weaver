@@ -1,6 +1,6 @@
 // ww_link 0.5.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 28693de148b1d29b207916b4dadf8f3e3067593367b303981052cc40dfd3e106
+// shrink_wrap sha256: c79774a190ee11377e04eeadab299c6b84d421c7e83866e25d74f2a60e2304a0
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "WireWeaver link layer: message kinds and their payloads carried over [ww_framer] frames.",
     "",
@@ -104,22 +104,22 @@
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "CompactVersion", signature: [
-        152,
-        89,
-        28,
-        141,
-        177,
-        187,
-        150,
-        102,
-        184,
-        0,
-        200,
-        213,
-        132,
-        49,
-        146,
-        35,
+        50,
+        74,
+        22,
+        142,
+        34,
+        241,
+        185,
+        230,
+        32,
+        77,
+        77,
+        145,
+        27,
+        203,
+        115,
+        71,
     ]),
     SkippedFullVersion(crate_idx: 1, type_name: "FullVersion", signature: [
         115,
@@ -193,11 +193,6 @@
         120,
         226,
     ]),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "CRC-32/ISO-HDLC (zip, Ethernet) of [UdpChecksum], computed by `ww_block::crc32_update`: one implementation",
-        "for the link and block checksums, with the lookup table size a firmware picks once with `ww_block`\'s",
-        "`crc-table-*` features (bitwise without one).",
-    ], ident: "LinkCrc32", generics: [], fields: Unit, sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Sent from host to device after receiving [DeviceInfo].",
     ], ident: "LinkSetup", generics: [], fields: Named([

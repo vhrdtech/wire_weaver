@@ -290,8 +290,8 @@ pub mod usb {
 
 /// The hello datagram on UDP, frozen: one datagram, never with a frame prefix (unlike every other
 /// [UdpFraming](crate::UdpFraming) datagram), written and read outside the framer by both sides. A CRC-32/ISO-HDLC
-/// ([LinkCrc32](crate::LinkCrc32)) over the head and the payload follows, little endian: datagrams get corrupted,
-/// and a corrupted one is not a hello.
+/// ([UdpChecksum](crate::UdpChecksum)'s) over the head and the payload follows, little endian: datagrams get
+/// corrupted, and a corrupted one is not a hello.
 ///
 /// | byte          | value                                                     |
 /// |---------------|-----------------------------------------------------------|
@@ -300,7 +300,7 @@ pub mod usb {
 /// | 3 + len..     | CRC-32 of bytes `0..3 + len`, `u32` little endian         |
 pub mod udp {
     use super::*;
-    use crate::LinkCrc32;
+    use ww_framer::crc::Crc32IsoHdlc;
     use ww_framer::crc::CrcAlgorithm;
 
     /// Length of this build's hello datagram.
@@ -311,7 +311,7 @@ pub mod udp {
         let mut f = [0u8; FRAME_LEN];
         f[..3].copy_from_slice(&usb::HEAD);
         f[3..3 + HELLO_LEN].copy_from_slice(&hello.to_bytes());
-        let crc = LinkCrc32::checksum(&f[..3], &f[3..3 + HELLO_LEN]);
+        let crc = Crc32IsoHdlc::checksum(&f[..3], &f[3..3 + HELLO_LEN]);
         f[3 + HELLO_LEN..].copy_from_slice(&crc.to_le_bytes());
         f
     }
@@ -322,7 +322,7 @@ pub mod udp {
         let len = read_frame_head(datagram)?;
         let payload = datagram.get(3..3 + len)?;
         let crc = datagram.get(3 + len..7 + len)?;
-        if LinkCrc32::checksum(&datagram[..3], payload).to_le_bytes() != *crc {
+        if Crc32IsoHdlc::checksum(&datagram[..3], payload).to_le_bytes() != *crc {
             return None;
         }
         Hello::from_bytes(payload).ok()
@@ -627,11 +627,11 @@ mod tests {
     /// A later, longer UDP hello is found too.
     #[test]
     fn udp_longer_hello() {
-        use crate::LinkCrc32;
+        use ww_framer::crc::Crc32IsoHdlc;
         use ww_framer::crc::CrcAlgorithm;
         let mut d = std::vec![0x30, 0x48, 17, b'W', b'W', b'D', 5, 2, 1, 1, 1, 9];
         d.extend_from_slice(&7u64.to_le_bytes());
-        let crc = LinkCrc32::checksum(&d[..3], &d[3..]);
+        let crc = Crc32IsoHdlc::checksum(&d[..3], &d[3..]);
         d.extend_from_slice(&crc.to_le_bytes());
         let found = udp::find(&d).unwrap();
         assert_eq!((found.generations.framer, found.token), (2, 7));

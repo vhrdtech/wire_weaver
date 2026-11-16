@@ -4,6 +4,7 @@
 
 ### ⚠️ Breaking
 
+- `LinkCrc32` is gone: `UdpChecksum` is `CrcChecksum<ww_framer::crc::Crc32IsoHdlc, true>`, the same bytes. `ww_link` no longer depends on `ww_block`; firmware picks the CRC table with `ww_crc`'s `table-*` features instead of `ww_block`'s `crc-table-*` (TR-31).
 - The hello goes outside the framer (EVO-23): `Framing` gains `hello_frame(&Hello, &mut [u8; hello::HELLO_FRAME_MAX]) -> Option<usize>` and `find_hello(&[u8]) -> Option<Hello>` (defaults: None, the hello goes through the framer); `UsbFraming` and `UsbSeqFraming` write and find the frozen USB frame, without a frame prefix. `hello::usb::find(packet)` lost its prefix argument and reads the payload length from the head. Custom `Framing` impls compile unchanged.
 - The hello frozen on UDP, RTT and WebSocket too (EVO-23): `hello::udp` (the head, the payload and a CRC-32, without the frame prefix), `hello::rtt` (the USB bytes, found anywhere in a stream: `find(stream, role)` answers the hello and where it lies), `hello::ws` (kind byte 4 and the payload), each with `frame` and `find`, and `hello::frame_head(len)`. `UdpFraming` writes and finds the UDP hello outside the framer.
 - `hello::rtt::Scanner`: finds the peer's hello in a stream read in chunks, also split across two reads, before the framer sees it (EVO-23). It compares four positions at a time with the hello's first two bytes and keeps a read's end only when it may still start a hello: about 4 instructions per byte on a Cortex-M3, 1.8 KB of flash in an RTT firmware.

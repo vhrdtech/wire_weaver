@@ -10,7 +10,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use shrink_wrap::prelude::*;
-use ww_framer::crc::{CrcAlgorithm, CrcChecksum};
+use ww_framer::crc::{Crc32IsoHdlc, CrcChecksum};
 use ww_framer::framed::U2Head;
 use ww_framer::prefix::{FramePrefix, NopPrefix, SeqPrefix};
 use ww_framer::traits::{Checksum, Head, NopChecksum, NopTail, Tail};
@@ -211,7 +211,7 @@ pub type UdpHead = U2Head;
 /// CRC-32 on every message, with the frame prefix and the head folded in: datagrams get lost, duplicated or
 /// reordered and nothing is retried, the UDP checksum is a 16-bit sum (optional over IPv4) and Ethernet's CRC only
 /// covers each hop. shrink_wrap is dense, so a flipped bit often still parses: the CRC is the real guard.
-pub type UdpChecksum = CrcChecksum<LinkCrc32, true>;
+pub type UdpChecksum = CrcChecksum<Crc32IsoHdlc, true>;
 /// Datagrams do not need a delimiter.
 pub type UdpTail = NopTail;
 /// Frame counter and session epoch: lost, duplicated, reordered and previous-session datagrams are told apart.
@@ -234,20 +234,6 @@ impl Framing for UdpFraming {
 
     fn find_hello(frame: &[u8]) -> Option<Hello> {
         hello::udp::find(frame)
-    }
-}
-
-/// CRC-32/ISO-HDLC (zip, Ethernet) of [UdpChecksum], computed by `ww_block::crc32_update`: one implementation
-/// for the link and block checksums, with the lookup table size a firmware picks once with `ww_block`'s
-/// `crc-table-*` features (bitwise without one).
-pub struct LinkCrc32;
-
-impl CrcAlgorithm for LinkCrc32 {
-    type Width = u32;
-
-    #[inline]
-    fn checksum(header: &[u8], message: &[u8]) -> u32 {
-        !ww_block::crc32_update(ww_block::crc32_update(!0, header), message)
     }
 }
 
@@ -925,13 +911,10 @@ mod tests {
     }
 
     #[test]
-    fn link_crc32_is_crc32_iso_hdlc_over_header_and_message() {
-        use ww_framer::crc::Crc32IsoHdlc;
-        assert_eq!(LinkCrc32::checksum(b"", b"123456789"), 0xcbf4_3926);
-        assert_eq!(LinkCrc32::checksum(b"1234", b"56789"), 0xcbf4_3926);
-        for (h, m) in [(&b""[..], &b""[..]), (&[0x15, 0x02], &[1, 2, 3, 4, 5][..])] {
-            assert_eq!(LinkCrc32::checksum(h, m), Crc32IsoHdlc::checksum(h, m));
-        }
+    fn udp_crc32_is_crc32_iso_hdlc_over_header_and_message() {
+        use ww_framer::crc::CrcAlgorithm;
+        assert_eq!(Crc32IsoHdlc::checksum(b"", b"123456789"), 0xcbf4_3926);
+        assert_eq!(Crc32IsoHdlc::checksum(b"1234", b"56789"), 0xcbf4_3926);
     }
 
     #[test]

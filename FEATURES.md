@@ -3431,6 +3431,13 @@ Unicast Data0 to one node over the same bus is TR-6.
   instruction on thumbv6m, thumbv7em and thumbv8m.main at `fw-z` and `fw-3`: range check and `Series` encode
   identical everywhere, `Series` decode at `fw-3`; struct encode/decode differ by the derive's per-field write for a
   `Fixed` (a few instructions). STD-63's rounding conversions were measured against hand-written ones on M0 and M4F at `z` and `3` (the exact_units book's [Cost on Cortex-M](https://exact.vhrd.tech/fixed_point/cost/)). STD-72 adds nothing of its own to measure: its markers are zero-size types and `Fixed::convert` is `Fixed::to`'s compile-time factor, so the `to` measurements cover it. See `docs/articles/units_budget.md`.
+- ✅ **TEST-36 Layer lint**: `/layers.toml` gives every crate of every workspace in the repo (root,
+  `mcu/`, `examples_mcu/*`, `fuzz/`, `wire_weaver_tool/`) a target layer, 0 to 6, per the architecture
+  layers design; a crate `cargo metadata` finds but the table doesn't list fails. `tests/layers_lint`
+  reads each workspace's `cargo metadata` (normal, build and dev edges) and fails on a lower-layer
+  crate taking a higher one, unless `layers.toml`'s `[[allow]]` names the edge with the refactor
+  (`R1`..`R10`) that removes it; a named edge that no longer exists fails too, so the allow-list
+  shrinks as the refactors land. First run: 22 allow-listed edges (`R4`, `R7`, `R8`).
 - 🚧 **TEST-9 Remaining test coverage** · `v0.5`:
   - [ ] properties: unimplemented, observe stream
   - [ ] streams: promise timeout

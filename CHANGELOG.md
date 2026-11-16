@@ -100,6 +100,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - Identity name of a renamed resource in `ww_self` (INT-17): `ApiItem::identity`, the oldest `#[moved_from]` name; bundles without a rename keep their bytes. See the `ww_self`, `wire_weaver_core` and `wire_weaver_snapshots` changelogs.
 - Server of a keyed array (SRV-62): `index_of`, `key[]` and the `keys` stream generated, `ww api scaffold` prints the handlers. See the `wire_weaver_core` changelog.
 - Client of a keyed array (CLT-72): `flow_by(&key)` through a key cache per keyed array. See the `wire_weaver_core` and `wire_weaver_client` changelogs.
+- Layer lint (R9, TEST-36): `/layers.toml` gives every crate of every workspace in the repo a target layer, 0 to 6 (the architecture layers plan); `tests/layers_lint` reads each workspace's `cargo metadata` and fails on a crate missing from the table or an un-allow-listed edge from a lower layer to a higher one. 22 of today's upward edges are allow-listed under the refactor (R4, R7, R8) that removes them.
 
 ### Added
 

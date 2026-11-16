@@ -59,6 +59,7 @@ anyhow = "1"
 atomic-waker = { version = "1.1", features = ["portable-atomic"] }
 # pure: no C or assembly build step; std (through ww_tape std) turns on run-time SIMD detection
 blake3 = { version = "1.8", default-features = false, features = ["pure"] }
+cargo_metadata = "0.23"
 cc = "1.2"
 clap = "4.5"
 clap_complete = "4.6"

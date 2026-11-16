@@ -1,0 +1,375 @@
+# R9 layer lint (tests/layers_lint): the target layer, 0 to 6, of every crate in every workspace of
+# this repo -- the root workspace, mcu/, examples_mcu/*, fuzz/ and wire_weaver_tool/ -- per
+# ~/git/tpm/prj/P2401-wireweaver/design/architecture-layers.md section 5. A crate the test finds
+# through `cargo metadata` but not listed here fails it.
+#
+# Layer 1 (exact_units) and layer 7 (applications: logring, eventfull, firmware repos) are not
+# workspace crates of this repo, so they never appear here.
+#
+# A lower-layer crate may not depend on a higher-layer one (tests/layers_lint fails any such edge,
+# normal, build or dev, that `[[allow]]` below does not name); same-layer edges are fine.
+
+[layers]
+# Layer 0 — wire format
+shrink_wrap = 0
+shrink_wrap_derive = 0
+size_bench = 0
+
+# Layer 2 — base types and identity
+ww_date_time = 2
+ww_error = 2
+ww_global = 2
+ww_keyed = 2
+ww_numeric = 2
+ww_si = 2
+ww_version = 2
+
+# Layer 3 — storage
+ww_tape = 3
+ww_tape_benchmarks = 3
+ww_tape_fuzz = 3
+
+# Layer 4 — API description
+wire_weaver_core = 4
+wire_weaver_derive = 4
+wire_weaver_evolution = 4
+wire_weaver_snapshots = 4
+ww_lz4 = 4
+ww_self = 4
+
+# Layer 5 — framework runtime and host (incl. its tests, examples and benches)
+args_evolution = 5
+args_evolution_api = 5
+array_of_streams = 5
+array_of_streams_api = 5
+blinky = 5
+blinky_api = 5
+blinky_api_evolved = 5
+blinky_evolved = 5
+blinky_py = 5
+bounded = 5
+bounded_api = 5
+cannify_micro_g0b1cetxn = 5
+cfg_variants = 5
+cfg_variants_api = 5
+cfg_variants_narrow_api = 5
+common_error = 5
+common_error_api = 5
+conformance = 5
+conformance_api = 5
+consts = 5
+consts_api = 5
+credit_sink = 5
+credit_sink_api = 5
+cross_version = 5
+cross_version_api = 5
+cross_version_old_api = 5
+customary = 5
+customary_api = 5
+dispatch_golden = 5
+dispatch_golden_api = 5
+docs_highlight = 5
+dynamic = 5
+dynamic_api = 5
+ecc_flash_g0b1 = 5
+ecc_flash_h7 = 5
+fan_api = 5
+features_page = 5
+flash_budget_api = 5
+foc_observe_api = 5
+follow_reboot = 5
+fuzz = 5
+fw_budget = 5
+generics = 5
+generics_api = 5
+hub = 5
+hub_api = 5
+hub_pytest_device = 5
+hub_pytest_device_api = 5
+hub_reconnect = 5
+hub_reconnect_api = 5
+hub_routing = 5
+introspect_compressed = 5
+introspect_compressed_api = 5
+io_timebase = 5
+io_timebase_api = 5
+keyed = 5
+keyed_api = 5
+large_messages = 5
+large_messages_api = 5
+layers_lint = 5
+lean_server = 5
+local_trait = 5
+local_trait_api = 5
+mcu_qemu_m4f = 5
+methods = 5
+methods_api = 5
+minimal-shrink-wrap = 5
+module_paths = 5
+module_paths_api = 5
+multi_req = 5
+multi_req_api = 5
+multi_root = 5
+multi_root_api = 5
+observe = 5
+observe_api = 5
+observe_arrays = 5
+observe_arrays_api = 5
+observe_batched = 5
+observe_batched_api = 5
+power_stage_api = 5
+properties = 5
+properties_api = 5
+qemu_icount = 5
+quantities = 5
+quantities_api = 5
+recursive = 5
+recursive_api = 5
+rp2 = 5
+series = 5
+series_api = 5
+settings = 5
+settings_api = 5
+shared_sub_level = 5
+shared_sub_level_api = 5
+shrink_wrap_c = 5
+standalone = 5
+standalone_api = 5
+standalone_units = 5
+stm32_dfu_host = 5
+streams = 5
+streams_api = 5
+streams_batched = 5
+streams_batched_api = 5
+streams_borrowed_error = 5
+streams_borrowed_error_api = 5
+streams_reliable = 5
+streams_reliable_api = 5
+tap_api = 5
+tests_common = 5
+thermo = 5
+thermo_api = 5
+thermo_devices = 5
+traits = 5
+traits_api = 5
+wire_line = 5
+wire_line_api = 5
+wire_line_old_api = 5
+wire_weaver = 5
+wire_weaver_cli = 5
+wire_weaver_client = 5
+wire_weaver_py = 5
+wire_weaver_tool = 5
+wire_weaver_usb_embassy = 5
+ww_client_server = 5
+ww_clock_sync = 5
+ww_device = 5
+ww_ecc_flash = 5
+ww_framer = 5
+ww_hub = 5
+ww_hub_api = 5
+ww_link = 5
+ww_local_socket = 5
+ww_settings = 5
+ww_settings_derive = 5
+ww_stream = 5
+ww_tap = 5
+ww_timebase = 5
+
+# Layer 6 — standard APIs (incl. their helpers, tests and examples)
+all_gpio = 6
+all_gpio_api = 6
+block_sd = 6
+block_sd_api = 6
+board_info = 6
+board_info_api = 6
+counters = 6
+counters_api = 6
+defmt_log = 6
+defmt_log_api = 6
+device_report = 6
+device_report_api = 6
+dfu = 6
+dfu_api = 6
+dfu_app_api = 6
+dfu_lean_app_api = 6
+dfu_scenarios = 6
+dfu_updater_api = 6
+firmware_info = 6
+firmware_info_api = 6
+global_ids = 6
+indication = 6
+indication_api = 6
+io_adc = 6
+io_adc_api = 6
+io_can = 6
+io_can_api = 6
+io_can_group = 6
+io_can_group_api = 6
+io_gpio = 6
+io_gpio_api = 6
+io_i2c = 6
+io_i2c_api = 6
+io_onewire = 6
+io_onewire_api = 6
+io_pwm = 6
+io_pwm_api = 6
+io_spi = 6
+io_spi_api = 6
+io_uart = 6
+io_uart_api = 6
+log_defmt = 6
+log_defmt_api = 6
+mcu_qemu = 6
+nucleo_h743zi2 = 6
+pin_diag = 6
+pin_diag_api = 6
+recorder_groups = 6
+recorder_groups_api = 6
+stdlib_evolution = 6
+uart = 6
+uart_api = 6
+uid = 6
+uid_api = 6
+usb_fdcan_h725ig = 6
+user_info = 6
+user_info_api = 6
+ww_adc = 6
+ww_block = 6
+ww_board_info = 6
+ww_bus_slave = 6
+ww_can_bus = 6
+ww_counters = 6
+ww_defmt_logger = 6
+ww_dfu = 6
+ww_firmware_info = 6
+ww_gpio = 6
+ww_gpio_hl = 6
+ww_i2c = 6
+ww_i2c_hl = 6
+ww_indication = 6
+ww_interned = 6
+ww_log = 6
+ww_logic_analyzer = 6
+ww_memory = 6
+ww_onewire = 6
+ww_pin_diag = 6
+ww_pin_probe = 6
+ww_pwm = 6
+ww_recorder = 6
+ww_report = 6
+ww_sd = 6
+ww_signal_generator = 6
+ww_spi = 6
+ww_uart = 6
+ww_uid = 6
+ww_user_info = 6
+
+# Known upward edges of today, each removed by the refactor (R1..R10, design section 6) named here.
+# An edge no longer present in `cargo metadata` fails the test: drop its line in the same change that
+# lands the refactor removing it.
+
+[[allow]]
+from = "ww_link"
+to = "ww_block"
+refactor = "R4"
+
+[[allow]]
+from = "cross_version"
+to = "ww_dfu"
+refactor = "R7"
+
+[[allow]]
+from = "cross_version_api"
+to = "ww_dfu"
+refactor = "R7"
+
+[[allow]]
+from = "cross_version_old_api"
+to = "ww_dfu"
+refactor = "R7"
+
+[[allow]]
+from = "dispatch_golden"
+to = "ww_user_info"
+refactor = "R7"
+
+[[allow]]
+from = "dispatch_golden_api"
+to = "ww_user_info"
+refactor = "R7"
+
+[[allow]]
+from = "follow_reboot"
+to = "dfu_lean_app_api"
+refactor = "R7"
+
+[[allow]]
+from = "follow_reboot"
+to = "ww_dfu"
+refactor = "R7"
+
+[[allow]]
+from = "shared_sub_level"
+to = "ww_indication"
+refactor = "R7"
+
+[[allow]]
+from = "shared_sub_level_api"
+to = "ww_indication"
+refactor = "R7"
+
+[[allow]]
+from = "tap_api"
+to = "ww_user_info"
+refactor = "R7"
+
+[[allow]]
+from = "thermo"
+to = "ww_indication"
+refactor = "R7"
+
+[[allow]]
+from = "thermo_api"
+to = "ww_indication"
+refactor = "R7"
+
+[[allow]]
+from = "thermo_devices"
+to = "ww_indication"
+refactor = "R7"
+
+[[allow]]
+from = "wire_weaver_cli"
+to = "ww_board_info"
+refactor = "R8"
+
+[[allow]]
+from = "wire_weaver_cli"
+to = "ww_counters"
+refactor = "R8"
+
+[[allow]]
+from = "wire_weaver_cli"
+to = "ww_dfu"
+refactor = "R8"
+
+[[allow]]
+from = "wire_weaver_cli"
+to = "ww_indication"
+refactor = "R8"
+
+[[allow]]
+from = "wire_weaver_cli"
+to = "ww_pin_probe"
+refactor = "R8"
+
+[[allow]]
+from = "wire_weaver_cli"
+to = "ww_report"
+refactor = "R8"
+
+[[allow]]
+from = "wire_weaver_cli"
+to = "ww_user_info"
+refactor = "R8"

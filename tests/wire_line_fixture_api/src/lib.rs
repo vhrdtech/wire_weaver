@@ -2,7 +2,7 @@
 //! names a revision of *this crate's own* wire line (`w2.0`), not its API root's.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 #[ww_trait]
 pub trait Fixture {

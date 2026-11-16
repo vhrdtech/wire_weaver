@@ -10,7 +10,7 @@ description = "Test traits of CLT-10/API-20/SRV-53 (global trait paths): used by
 
 [features]
 default = ["std"]
-std = ["wire_weaver/std"]
+std = ["ww_api/std"]
 
 [dependencies]
-wire_weaver.workspace = true
+ww_api.workspace = true

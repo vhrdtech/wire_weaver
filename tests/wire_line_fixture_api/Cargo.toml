@@ -14,10 +14,10 @@ wire = "w2.0"
 
 [features]
 default = ["std"]
-std = ["wire_weaver/std"]
+std = ["ww_api/std"]
 
 [dependencies]
-wire_weaver.workspace = true
+ww_api.workspace = true
 
 [dev-dependencies]
 wire_weaver_evolution = { workspace = true, features = ["source"] }

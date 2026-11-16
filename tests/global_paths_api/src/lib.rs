@@ -4,7 +4,7 @@
 //! framework-only trait of its own has no id until SRV-61 gives non-stdlib traits one too.
 #![no_std]
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 #[ww_api_root]
 pub trait PathBenchDevice {

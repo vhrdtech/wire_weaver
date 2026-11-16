@@ -10,7 +10,7 @@ description = "Test trait of TEST-31 (GlobalFull/GlobalCompact dispatch): used b
 
 [features]
 default = ["std"]
-std = ["wire_weaver/std"]
+std = ["ww_api/std"]
 
 [dependencies]
-wire_weaver.workspace = true
+ww_api.workspace = true

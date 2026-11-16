@@ -286,6 +286,12 @@ ww_user_info = 6
 
 [api]
 crates = [
+    "counted_stream_api",
+    "follow_reboot_api",
+    "global_boot_api",
+    "global_fixture_api",
+    "global_paths_api",
+    "wire_line_fixture_api",
     "ww_adc",
     "ww_block",
     "ww_board_info",

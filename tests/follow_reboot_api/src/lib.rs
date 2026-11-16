@@ -3,7 +3,7 @@
 //! `reboot(into)` shape the client's `follow` logic cares about, not the real API's richer node info.
 #![no_std]
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 #[ww_api_root]
 pub trait FollowRebootApp {

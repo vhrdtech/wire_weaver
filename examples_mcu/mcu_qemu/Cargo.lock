@@ -163,7 +163,7 @@ dependencies = [
 name = "counted_stream_api"
 version = "0.1.0"
 dependencies = [
- "wire_weaver",
+ "ww_api",
 ]
 
 [[package]]
@@ -350,7 +350,7 @@ dependencies = [
 name = "global_paths_api"
 version = "0.1.0"
 dependencies = [
- "wire_weaver",
+ "ww_api",
  "ww_timebase",
 ]
 

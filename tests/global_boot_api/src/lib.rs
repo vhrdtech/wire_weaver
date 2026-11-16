@@ -3,7 +3,7 @@
 //! real `ww_stdlib` crate (R7): only the global-path shape matters here, not any real API's behavior.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 /// Reboots a unit between its app and its updater; implemented by the simulated old firmware.
 #[ww_trait]

@@ -182,7 +182,7 @@ The codegen pipeline (read `wire_weaver_derive`, then `wire_weaver_core`):
 
 - **`shrink_wrap/`**: the wire format, no dependency on the rest. `shrink_wrap` has `BufReader`/`BufWriter` and the
   `SerializeShrinkWrap`/`DeserializeShrinkWrap` (+ `..Owned`) traits, `shrink_wrap_derive` the `#[derive_shrink_wrap]`
-  macro, `shrink_wrap/c` the C runtime. Usable standalone.
+  macro, `shrink_wrap_c` the C runtime. Usable standalone.
 - **`wire_weaver_derive/`**: `ww_trait`/`ww_api_root` (walk the trait and emit a Rust trait for rustdoc with
   `ww_api::api_doc` markers plus the `*_FULL_GID`/`*_COMPACT_GID`/`*_WIRE_VERSION` consts), `ww_codegen!`/`ww_impl!`
   (re-parse the marked trait's source and emit server/client code), `full_version!`/`compact_version!`.

@@ -39,6 +39,6 @@ The same conversion outside Rust, bit for bit:
 - Python: `ww.requantize(value, factor, to, rounding, overflow="checked")`, or `ww.Requantizer(factor, to, rounding,
   overflow)` with `.apply(value)` for many values; the factor is a `Magnitude` as the model gives it, its bytes or
   the `dict` `decode` gives (`{"pow10": -4, "rest": None}` is 1/100).
-- C: `sw_requantize()` in `shrink_wrap/c/sw_requantize.h` and `.c` (C99, no `malloc`), with the factor as
+- C: `sw_requantize()` in `shrink_wrap_c/sw_requantize.h` and `.c` (C99, no `malloc`), with the factor as
   constants worked out on the host: an exact ratio `num / den` of up to 128 bits, or `m * 2^shift` for π and other
   factors that aren't fractions of integers. See [ShrinkWrap in C](../c.md#requantize).

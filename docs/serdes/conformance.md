@@ -21,7 +21,7 @@ the value to exactly those bytes and decode them back to the value:
 | `dynamic` | `ww_self::ValueOwned::ser_shrink_wrap_dyn` / `des_shrink_wrap_dyn` with the type from the API model of `tests/conformance_api`, loaded from source as for a device's crate. |
 | `explain` | What [`ww explain`](../cli_reference.md#ww-explain) is made of: the value written as a Rust expression (`ww_self::expr::to_expr`) and read back (`parse_value`) before it is encoded; the golden bytes decoded by `ww_self::explain`, whose map of the bits must hold: every bit in exactly one part (a value, a length, a discriminant, a flag, padding, a header, bytes skipped from a newer version). |
 | `python` | `wire_weaver_py`'s `load_api(..).<type>.encode` / `.decode`, with the value as Python gives it. |
-| `c` | The C runtime (`shrink_wrap/c`) for a single number, bool, string or byte list; the generated C readers of `fixed_layout` and `head_tail` types, compiled with `cc` and run on the golden bytes. Other types wait for C generated from the model (API-26). |
+| `c` | The C runtime (`shrink_wrap_c`) for a single number, bool, string or byte list; the generated C readers of `fixed_layout` and `head_tail` types, compiled with `cc` and run on the golden bytes. Other types wait for C generated from the model (API-26). |
 
 The [conformance matrix](conformance_matrix.md) lists every case and what each consumer does with it.
 
@@ -125,7 +125,7 @@ consumer has to give bit for bit.
 
 Results are worked out independently of the Rust code (exact fractions, and 60 digits of π for scales with π).
 Python runs every case through `ww.requantize` (the factor as the model gives it, its bytes). C runs them through
-`sw_requantize()` (`shrink_wrap/c/sw_requantize.h`): `tests/conformance/src/c.rs` works out each factor's constants
+`sw_requantize()` (`shrink_wrap_c/sw_requantize.h`): `tests/conformance/src/c.rs` works out each factor's constants
 on the host from the same `Magnitude`, as a code generator would, emits them into one C program for all cases, and
 compiles and runs it.
 

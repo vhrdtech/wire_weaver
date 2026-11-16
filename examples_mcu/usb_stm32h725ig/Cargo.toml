@@ -7,7 +7,15 @@ edition = "2024"
 # the dispatch bench's server (`mcu_qemu/src/flash_budget.rs`) asks for it; only the sync server is built here
 flash-async = []
 # counted streams and credit sinks (ww_gpio's `event`, ww_uart's `rx` and `tx`): the all-gpio and uart bins
-streams = ["ww_client_server/streams", "ww_stream/streams"]
+streams = [
+    "ww_client_server/streams",
+    "ww_stream/streams",
+    "dep:all_gpio_api",
+    "dep:bbqueue",
+    "dep:uart_api",
+    "dep:ww_gpio",
+    "dep:ww_uart",
+]
 
 [dependencies]
 cortex-m-rt = "0.7"
@@ -32,19 +40,19 @@ embassy-sync = { version = "0.8", features = ["defmt"] }
 embassy-futures = "0.1"
 embassy-usb = { version = "0.6", features = ["defmt"] }
 static_cell = "2.1"
-bbqueue = "0.7"
+bbqueue = { version = "0.7", optional = true }
 
 blinky_api = { path = "../../examples/blinky_api", default-features = false }
-all_gpio_api = { path = "../../examples/all_gpio_api", default-features = false }
-uart_api = { path = "../../examples/uart_api", default-features = false }
+all_gpio_api = { path = "../../examples/all_gpio_api", default-features = false, optional = true }
+uart_api = { path = "../../examples/uart_api", default-features = false, optional = true }
 foc_observe_api = { path = "../../examples/foc_observe_api", default-features = false }
 power_stage_api = { path = "../../examples/power_stage_api", default-features = false }
 wire_weaver_usb_embassy = { path = "../../mcu/wire_weaver_usb_embassy" }
 wire_weaver = { path = "../../wire_weaver", default-features = false, features = ["defmt"] }
 ww_client_server = { path = "../../ww_client_server", default-features = false }
 ww_stream = { path = "../../ww_stream", default-features = false }
-ww_gpio = { path = "../../ww_stdlib/ww_gpio", default-features = false }
-ww_uart = { path = "../../ww_stdlib/ww_uart", default-features = false }
+ww_gpio = { path = "../../ww_stdlib/ww_gpio", default-features = false, optional = true }
+ww_uart = { path = "../../ww_stdlib/ww_uart", default-features = false, optional = true }
 flash_budget_api = { path = "../../tests/flash_budget_api", default-features = false }
 ww_si = { path = "../../ww_stdlib/ww_si", default-features = false, features = ["electrical", "angle", "dimensionless", "time", "f32", "u32", "i32"] }
 

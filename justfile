@@ -334,6 +334,11 @@ bench-sample-codecs *args:
     echo "90239988a1fc36a44f6531207c918544980bfea0  target/bench-data/Roosevelt_Pearl_Harbor.ogg" | sha1sum -c --quiet
     cargo run -q --release -p ww_tape_benchmarks -- --speech target/bench-data/Roosevelt_Pearl_Harbor.ogg {{ args }}
 
+# Series summaries of ww_tape (STD-133): MB/s per element type through the RAW codec, the summaries and both;
+# `just bench-summaries --help`
+bench-summaries *args:
+    cargo run -q --release -p ww_tape_benchmarks --bin summaries -- {{ args }}
+
 # Units firmware budget (TEST-27): ww_si::Fixed against plain fields in instructions (QEMU M3), flash and stack, at the
 # shipped firmware's profile; `--qemu-host HOST` runs QEMU there (this PC has none), `--cycles` adds the STM32H725 (DWT)
 [working-directory('examples_mcu/fw_budget')]

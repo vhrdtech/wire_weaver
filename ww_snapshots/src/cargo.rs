@@ -375,6 +375,49 @@ impl CargoSources {
         Ok(dirs)
     }
 
+    /// The `Cargo.lock` above [Self::entry_dir].
+    pub fn lock_path(&mut self) -> Result<PathBuf> {
+        Ok(self.lock()?.path.clone())
+    }
+
+    /// The directory of every package the `Cargo.lock` above [Self::entry_dir] lists and Cargo has on this machine:
+    /// registry crates and git checkouts it fetched, the workspace's own tree and its `[patch]`es; one Cargo hasn't
+    /// fetched is left out and named in the log. For a build script that embeds the snapshots of every crate a
+    /// workspace uses ([crate::build]).
+    pub fn locked_package_dirs(&mut self) -> Result<Vec<(String, semver::Version, PathBuf)>> {
+        let lock = self.lock()?;
+        let root = lock.path.parent().unwrap_or(Path::new("."));
+        let mut tree: Option<Vec<Package>> = None;
+        let mut dirs = vec![];
+        for locked in &lock.package {
+            let Ok(version) = semver::Version::parse(&locked.version) else {
+                continue;
+            };
+            let dir = match self.package_dir(locked) {
+                Ok(Some(dir)) => Some(dir),
+                Ok(None) => match self.patched_dir(&lock.path, &locked.name)? {
+                    Some(dir) => Some(dir),
+                    None => tree
+                        .get_or_insert_with(|| {
+                            let mut budget = CARGO_TREE_DIRS_MAX;
+                            packages_under(root, &mut budget).unwrap_or_default()
+                        })
+                        .iter()
+                        .find(|p| p.name == locked.name && p.version.as_ref() == Some(&version))
+                        .map(|p| p.dir.clone()),
+                },
+                Err(e) => {
+                    tracing::debug!("{} {}: {e:#}", locked.name, locked.version);
+                    None
+                }
+            };
+            if let Some(dir) = dir {
+                dirs.push((locked.name.clone(), version, dir));
+            }
+        }
+        Ok(dirs)
+    }
+
     /// Where Cargo put the source of `locked`, `None` for a path dependency.
     fn package_dir(&mut self, locked: &LockedPackage) -> Result<Option<PathBuf>> {
         match locked.source()? {

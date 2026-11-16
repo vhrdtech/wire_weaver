@@ -5,7 +5,7 @@
 //! only when the dependency's own `api_snapshots/` (in its source directory, which the walker locates through
 //! `Cargo.lock`) has the same definition. A host finds a snapshot through a chain, in this order:
 //!
-//! 1. [Set]s the application embedded ([embed()], written at build time);
+//! 1. [Set]s the application embedded ([embed()], written at build time by [build]);
 //! 2. directories the caller named (codegen and the checker: the walked crates' `api_snapshots/`, and nothing else,
 //!    so a build is deterministic given its sources);
 //! 3. the cache, `~/.wire_weaver/snapshots/` ([cache]);
@@ -22,6 +22,7 @@
 //!
 //! No snapshot of any other crate is compiled into this crate.
 
+pub mod build;
 pub mod cache;
 pub mod cargo;
 pub mod dir;

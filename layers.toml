@@ -1,20 +1,16 @@
-# Layer lint (TEST-36, tests/layers_lint): the target layer, 0 to 6, of every crate in every workspace
+# Layer lint (TEST-36, tests/layers_lint): the target layer, 2 to 7, of every crate in every workspace
 # of this repo: the root workspace, mcu/, examples_mcu/*, fuzz/, wire_weaver_tool/ and ww_tools/
 # (docs/evolution/crate_layers.md). A crate the test finds through `cargo metadata` but not listed
 # here fails it.
 #
-# Layer 1 (exact_units) and layer 7 (applications: logring, eventfull, firmware repos) are not
-# workspace crates of this repo; the layer-7 crates of ww_tools/ link some of them ([outside] below).
+# Layer 0 (shrink_wrap, its own repository) and layer 1 (exact_units) are not workspace crates of
+# this repo, so they never appear here. Layer 7 holds the shipped tools of ww_tools/ and the crates of
+# applications built on this repo that they link ([outside] below).
 #
 # A lower-layer crate may not depend on a higher-layer one (tests/layers_lint fails any such edge,
 # normal, build or dev, that `[[allow]]` below does not name); same-layer edges are fine.
 
 [layers]
-# Layer 0 — wire format
-shrink_wrap = 0
-shrink_wrap_derive = 0
-size_bench = 0
-
 # Layer 2 — base types and identity
 ww_crc = 2
 ww_date_time = 2
@@ -143,6 +139,7 @@ settings_api = 5
 shared_sub_level = 5
 shared_sub_level_api = 5
 shrink_wrap_c = 5
+size_bench_reply = 5
 standalone = 5
 standalone_api = 5
 standalone_units = 5

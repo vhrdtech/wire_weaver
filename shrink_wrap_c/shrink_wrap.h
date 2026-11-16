@@ -1,6 +1,6 @@
 /*
  * shrink_wrap C99 runtime (SW-43): BufReader and BufWriter of the shrink_wrap wire format, the same bytes as the
- * Rust crate (shrink_wrap/shrink_wrap/src/buf_reader.rs, buf_writer.rs). No malloc, no libc beyond <stdint.h>,
+ * Rust crate (romixlab/shrink_wrap: shrink_wrap/src/buf_reader.rs, buf_writer.rs). No malloc, no libc beyond <stdint.h>,
  * <stddef.h>, <stdbool.h>, <string.h> and the freestanding <limits.h>. See docs/c.md.
  *
  * Buffers are arrays of sw_octet, one octet (8 bits) per element. With CHAR_BIT == 8 that is a plain byte array.

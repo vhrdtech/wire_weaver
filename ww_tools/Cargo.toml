@@ -27,10 +27,11 @@ wire_weaver_py = { version = "0.5.0", path = "../wire_weaver_py" }
 ww_snapshots = { version = "0.5.0", path = "../ww_snapshots" }
 ww_std_cli = { version = "0.5.0", path = "../ww_stdlib/ww_std_cli" }
 
-# logring and chunky_mcu_updater take these by git: the crates of this repository instead
+# logring and chunky_mcu_updater take these by git: the crates of this repository instead, and shrink_wrap
+# from its own repository, as the crates here take it
 [patch."https://github.com/vhrdtech/wire_weaver"]
-shrink_wrap = { path = "../shrink_wrap/shrink_wrap" }
-shrink_wrap_derive = { path = "../shrink_wrap/shrink_wrap_derive" }
+shrink_wrap = { git = "https://github.com/romixlab/shrink_wrap" }
+shrink_wrap_derive = { git = "https://github.com/romixlab/shrink_wrap" }
 wire_weaver = { path = "../wire_weaver" }
 wire_weaver_cli = { path = "../wire_weaver_cli" }
 wire_weaver_client = { path = "../wire_weaver_client" }

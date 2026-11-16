@@ -10,7 +10,6 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = "0.4"
 arbitrary = { version = "1", features = ["derive"] }
-shrink_wrap = { path = "../shrink_wrap/shrink_wrap" }
 ww_framer = { path = "../ww_framer", features = ["large", "very_large"] }
 ww_link = { path = "../ww_link", features = ["std"] }
 ww_self = { path = "../ww_self" }
@@ -33,57 +32,8 @@ doc = false
 bench = false
 
 [[bin]]
-name = "shrink-wrap-tail-size"
-path = "src/shrink_wrap_tail_size.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
-name = "shrink-wrap-ref-vec"
-path = "src/shrink_wrap_ref_vec.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
-name = "shrink-wrap-latched"
-path = "src/shrink_wrap_latched.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
-name = "shrink-wrap-option-any-vec"
-path = "src/shrink_wrap_option_any_vec.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
-name = "shrink-wrap-series-columns"
-path = "src/shrink_wrap_series_columns.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
-name = "shrink-wrap-series-type"
-path = "src/shrink_wrap_series_type.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
 name = "introspection"
 path = "src/introspection.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
-name = "shrink-wrap-nesting"
-path = "src/shrink_wrap_nesting.rs"
 test = false
 doc = false
 bench = false
@@ -234,7 +184,3 @@ path = "src/link_hello.rs"
 test = false
 doc = false
 bench = false
-
-# exact_units takes shrink_wrap from this repository by git: use the one here, as the root workspace does
-[patch."https://github.com/vhrdtech/wire_weaver"]
-shrink_wrap = { path = "../shrink_wrap/shrink_wrap" }

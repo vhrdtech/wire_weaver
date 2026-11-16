@@ -75,11 +75,9 @@ tape-golden-update:
 dispatch-golden-update:
     DISPATCH_GOLDEN=update cargo nextest run -p dispatch_golden corpus
 
-# Observe cells under miri: the SeriesCells round trips, and the ring's writer and reader on two threads over many
-# interleavings (about a minute)
+# Observe cells under miri: the ring's writer and reader on two threads over many interleavings (about a minute);
+# shrink_wrap's SeriesCells round trips run under miri in its own repository (`just miri` there)
 miri:
-    cargo +nightly miri test -p shrink_wrap --lib cells_tests
-    cargo +nightly miri test -p shrink_wrap --lib in_place
     cargo +nightly miri test -p ww_stream --features std --lib in_place
     MIRIFLAGS="-Zmiri-many-seeds=0..16" cargo +nightly miri test -p ww_stream --features std --lib cells_tests
 
@@ -120,16 +118,11 @@ lint:
     RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --all-features
     just lint-c
 
-# Build the shrink_wrap C runtime and sw_requantize.c (also with SW_NO_F64) on their own, warnings are errors (SW-43, CLT-54); build and run the generated fixed-layout (SW-45) and head+tail (SW-46) C readers
+# Build the shrink_wrap C runtime and sw_requantize.c (also with SW_NO_F64) on their own, warnings are errors (SW-43, CLT-54); the generated fixed-layout and head+tail C readers are checked in the shrink_wrap repository
 lint-c:
     cc -std=c99 -Wall -Wextra -Werror -pedantic -Wconversion -Wsign-conversion -c shrink_wrap_c/shrink_wrap.c -o /dev/null
     cc -std=c99 -Wall -Wextra -Werror -pedantic -Wconversion -Wsign-conversion -c shrink_wrap_c/sw_requantize.c -o /dev/null
     cc -std=c99 -Wall -Wextra -Werror -pedantic -Wconversion -Wsign-conversion -DSW_NO_F64 -c shrink_wrap_c/sw_requantize.c -o /dev/null
-    mkdir -p target
-    cc -std=c99 -Wall -Wextra -Werror -pedantic -Wconversion -Wsign-conversion -o target/fixed_layout_c shrink_wrap/shrink_wrap/tests/fixed_layout_c.c
-    target/fixed_layout_c
-    cc -std=c99 -Wall -Wextra -Werror -pedantic -Wconversion -Wsign-conversion -o target/head_tail_c shrink_wrap/shrink_wrap/tests/head_tail_c.c
-    target/head_tail_c
 
 # cargo check everything
 check: check-core check-mcu check-examples-mcu
@@ -168,6 +161,7 @@ check-examples-mcu:
     @just check-examples-mcu-rp2
     @just check-examples-mcu-ecc-flash-g0b1
     @just check-examples-mcu-ecc-flash-h7
+    @just check-examples-mcu-size-bench-reply
 
 [working-directory('examples_mcu/mcu_qemu_m4f')]
 check-examples-mcu-qemu-m4f:
@@ -209,6 +203,12 @@ check-examples-mcu-ecc-flash-g0b1:
 check-examples-mcu-ecc-flash-h7:
     # Checking ecc_flash_h7
     @cargo check
+
+[working-directory('examples_mcu/size_bench_reply')]
+check-examples-mcu-size-bench-reply:
+    # Checking size_bench_reply (the runner, and the reply image on Cortex-M0)
+    @cargo check
+    cd fw && cargo check --features reply,finish_for --target thumbv6m-none-eabi
 
 # Hardware check of ww_ecc_flash on an STM32H725IG: real ECC errors from a scratch flash word programmed twice, read
 # in zeros and strict mode; replaces the board's firmware, erases 0x080E0000.. (probe: PROBE_RS_PROBE=VID:PID)
@@ -278,19 +278,27 @@ pre-commit:
     cargo sort -w -g
     cargo clippy
 
+# Copy the pages and feature trackers of the repositories in book_sources.toml (shrink_wrap) into docs/, from the
+# checkouts Cargo.lock pins; the copies are git-ignored (ww_book)
+[group('docs')]
+book-assemble:
+    cargo run -q -p ww_book -- assemble
+
 # Serve the documentation locally
 [group('docs')]
-serve-docs:
+serve-docs: book-assemble
     uv run --with zensical zensical serve
 
 # Build the documentation
 [group('docs')]
-build-docs:
+build-docs: book-assemble
     uv run --with zensical zensical build --clean
 
-# shrink_wrap's code size on small CPUs (RV32I, RV32IC, Cortex-M0) per test case, `just size-bench --help` (TEST-17)
-size-bench *args:
-    cargo run -q --release -p size_bench -- {{ args }}
+# Code size of a generated server's method reply on small CPUs (examples_mcu/size_bench_reply), through shrink_wrap's
+# size bench runner: `just size-bench-reply --help`, `--fw-features finish_for` (TEST-17)
+[working-directory('examples_mcu/size_bench_reply')]
+size-bench-reply *args:
+    cargo run -q --release -- {{ args }}
 
 # Float sample codecs of ww_tape on motor_sim, decoded speech and ADC data (STD-130); fetches the public-domain
 # speech file (Roosevelt's Pearl Harbor address, Wikimedia Commons) once and checks it; `just bench-sample-codecs --help`
@@ -369,36 +377,6 @@ fuzz-framer-lossy:
 [working-directory('fuzz')]
 fuzz-link-hello:
     cargo +nightly fuzz run link-hello -- -max_len=64
-
-# Fuzz shrink_wrap TailSize types (SW-22)
-[working-directory('fuzz')]
-fuzz-shrink-wrap:
-    cargo +nightly fuzz run shrink-wrap-tail-size -- -max_len=4096
-
-# Fuzz shrink_wrap RefVec of plain numbers against its decode pass (SW-37)
-[working-directory('fuzz')]
-fuzz-shrink-wrap-ref-vec:
-    cargo +nightly fuzz run shrink-wrap-ref-vec -- -max_len=4096
-
-# Fuzz shrink_wrap OptionAnyVec: random headers into the reader, round trips of any present set in every mode (SW-55)
-[working-directory('fuzz')]
-fuzz-shrink-wrap-option-any-vec:
-    cargo +nightly fuzz run shrink-wrap-option-any-vec -- -max_len=4096
-
-# Fuzz shrink_wrap's latched reads of U1..U64 / I2..I64 against reads with a Result (SW-38)
-[working-directory('fuzz')]
-fuzz-shrink-wrap-latched:
-    cargo +nightly fuzz run shrink-wrap-latched -- -max_len=4096
-
-# Fuzz Series<T> (SW-60): round trips of generated items, random bytes into the readers
-[working-directory('fuzz')]
-fuzz-shrink-wrap-series-type:
-    cargo +nightly fuzz run shrink-wrap-series-type -- -max_len=4096
-
-# Fuzz decoding recursive types at random nesting limits: bounded by the limit, never a stack overflow
-[working-directory('fuzz')]
-fuzz-shrink-wrap-nesting:
-    cargo +nightly fuzz run shrink-wrap-nesting -- -max_len=4096
 
 # The ww_tape targets run with libFuzzer limits: -rss_limit_mb=1024 (1 GiB of memory), -malloc_limit_mb=128 (no
 # single allocation over 128 MiB) and -timeout=10 (10 s per input); an input over one is a crash.

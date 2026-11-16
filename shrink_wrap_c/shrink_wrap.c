@@ -1,5 +1,5 @@
 /*
- * shrink_wrap C99 runtime (SW-43), a port of shrink_wrap/shrink_wrap/src/buf_reader.rs and buf_writer.rs.
+ * shrink_wrap C99 runtime (SW-43), a port of shrink_wrap/src/buf_reader.rs and buf_writer.rs (romixlab/shrink_wrap).
  * Checked against the Rust crate by shrink_wrap_c/tests (golden vectors and a property-based cross-check).
  *
  * Every public call works on a copy of the cursor and only commits it when the call succeeds, so a failing call

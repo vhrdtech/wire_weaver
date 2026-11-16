@@ -1,0 +1,40 @@
+cargo-features = ["panic-immediate-abort"]
+
+[package]
+name = "size_bench_reply_fw"
+version = "0.1.0"
+edition = "2024"
+description = "Bare firmware images of a generated server's method reply, measured by size_bench_reply"
+publish = false
+
+# Built for bare-metal targets with a nightly toolchain, so not a member of the repo root workspace.
+[workspace]
+
+[features]
+# One case per build, picked by the runner. `empty` is the image without any shrink_wrap code.
+empty = []
+# A method's reply the way `ww_codegen!` server code encodes it: the return value alone, then a
+# `ww_client_server::Event` around it, plus the error event every generated server has.
+reply = ["dep:ww_client_server"]
+# `reply` with `finish_for` for the return value instead of `finish` (shrink_wrap's docs/code_size.md, "Replies of
+# generated servers")
+finish_for = []
+# The firmware's own byte-wise `memcpy` instead of the word-wise one of `compiler_builtins`.
+byte_memcpy = ["size_bench_rt/byte_memcpy"]
+# `Wave` with `sized` instead of the evolvable default.
+final = []
+
+[dependencies]
+shrink_wrap = { git = "https://github.com/romixlab/shrink_wrap", default-features = false }
+size_bench_rt = { git = "https://github.com/romixlab/shrink_wrap" }
+ww_client_server = { path = "../../../ww_client_server", default-features = false, optional = true }
+
+# As shrink_wrap's size bench (QERV softcore, 8 KB of RAM for code, data and stack)
+[profile.release]
+opt-level = "z"
+lto = "fat"
+codegen-units = 1
+panic = "immediate-abort"
+debug = 0
+strip = false
+overflow-checks = false

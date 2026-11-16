@@ -45,8 +45,8 @@ worked byte-by-byte example.
 ## `BufWriter` and `BufReader`
 
 The two core types are
-[`BufWriter`](https://github.com/vhrdtech/wire_weaver/blob/master/shrink_wrap/shrink_wrap/src/buf_writer.rs) and
-[`BufReader`](https://github.com/vhrdtech/wire_weaver/blob/master/shrink_wrap/shrink_wrap/src/buf_reader.rs). Both
+[`BufWriter`](https://github.com/romixlab/shrink_wrap/blob/main/shrink_wrap/src/buf_writer.rs) and
+[`BufReader`](https://github.com/romixlab/shrink_wrap/blob/main/shrink_wrap/src/buf_reader.rs). Both
 work on plain byte slices that may start at any address: the bit, nibble and byte alignment below is tracked as a
 bit and byte cursor, not imposed by the platform.
 
@@ -173,7 +173,7 @@ size didn't even change.
 ## Traits and `ElementSize`
 
 Every serializable type implements
-[`SerializeShrinkWrap` and `DeserializeShrinkWrap`](https://github.com/vhrdtech/wire_weaver/blob/master/shrink_wrap/shrink_wrap/src/traits.rs).
+[`SerializeShrinkWrap` and `DeserializeShrinkWrap`](https://github.com/romixlab/shrink_wrap/blob/main/shrink_wrap/src/traits.rs).
 Both work on borrowed data, no allocator required. Types that also support `std` implement the `..Owned`
 counterparts, `SerializeShrinkWrapOwned` / `DeserializeShrinkWrapOwned`, which write into a `BufWriterOwned`.
 `#[derive_shrink_wrap(..)]` generates one pair per representation you ask for (see

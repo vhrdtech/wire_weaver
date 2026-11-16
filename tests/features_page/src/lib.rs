@@ -1,7 +1,8 @@
 //! Renders `docs/features_today.md`, the docs site's "Features" page (DOC-7, DOC-9): per area a sentence on what
 //! it is for, then its features by reading level, each with a short line and a link to its docs page. What the page
 //! says is kept by hand in `entries.md` next to this crate, what is done comes from this repository's own
-//! `FEATURES.md`; [`render`] joins the two and fails when they disagree, so a feature that is done can't miss the
+//! `FEATURES.md` and the trackers of the repositories whose pages the book assembles (`book_sources.toml`:
+//! shrink_wrap's); [`render`] joins them and fails when they disagree, so a feature that is done can't miss the
 //! page. `exact_units`' own items are out of scope: `entries.md` points to its own feature tracker instead. The
 //! page is a golden file: `tests/features_page.rs` fails when it is stale, `just features-page` writes it.
 
@@ -50,9 +51,29 @@ struct Feature {
     area: usize,
 }
 
+/// A feature tracker the page is made from.
+#[derive(Clone, Copy, Debug)]
+pub struct TrackerSource<'a> {
+    /// The tracker's page in the book, relative to `docs/`: `features.md` for this repository's own
+    pub page: &'a str,
+    /// Whose it is, shown next to its areas' names on the page; `None` for this repository's own
+    pub name: Option<&'a str>,
+    /// Its text
+    pub text: &'a str,
+}
+
+/// One area of a tracker.
+struct TrackerArea {
+    /// The heading as written, e.g. ``Wire format (`shrink_wrap`, `SW`)``.
+    heading: String,
+    /// The page of its tracker, relative to `docs/`.
+    page: String,
+    /// Whose tracker it is, `None` for this repository's.
+    name: Option<String>,
+}
+
 struct Tracker {
-    /// The headings as written, e.g. ``Wire format (`shrink_wrap`, `SW`)``.
-    areas: Vec<String>,
+    areas: Vec<TrackerArea>,
     /// By ID, in file order.
     features: Vec<(String, Feature)>,
 }
@@ -119,10 +140,17 @@ struct Entries {
     omitted: Vec<(String, usize)>,
 }
 
-/// The page for `features` (the contents of this repository's own `FEATURES.md`) and `entries` (of `entries.md`),
+/// The page for `trackers` (this repository's own `FEATURES.md` first, then the other trackers) and `entries` (of
+/// `entries.md`),
 /// or what is wrong, one problem per line.
-pub fn render(features: &str, entries: &str) -> Result<String, String> {
-    let tracker = parse_tracker(features);
+pub fn render(trackers: &[TrackerSource<'_>], entries: &str) -> Result<String, String> {
+    let mut tracker = Tracker {
+        areas: Vec::new(),
+        features: Vec::new(),
+    };
+    for source in trackers {
+        parse_tracker(&mut tracker, source);
+    }
     let entries = parse_entries(entries)?;
     check(&tracker, &entries)?;
     let by_id: BTreeMap<&str, &Feature> = tracker
@@ -185,8 +213,12 @@ pub fn render(features: &str, entries: &str) -> Result<String, String> {
         let links: Vec<String> = tracker_areas
             .iter()
             .map(|&i| {
-                let heading = &tracker.areas[i];
-                format!("[{}](features.md#{})", area_title(heading), slug(heading))
+                let area = &tracker.areas[i];
+                let title = match &area.name {
+                    Some(name) => format!("{} ({name})", area_title(&area.heading)),
+                    None => area_title(&area.heading).to_string(),
+                };
+                format!("[{title}]({}#{})", area.page, slug(&area.heading))
             })
             .collect();
         let _ = writeln!(
@@ -287,21 +319,22 @@ fn check(tracker: &Tracker, entries: &Entries) -> Result<(), String> {
     }
 }
 
-fn parse_tracker(features: &str) -> Tracker {
-    let mut tracker = Tracker {
-        areas: Vec::new(),
-        features: Vec::new(),
-    };
+/// Adds the areas and items of one tracker to `tracker`.
+fn parse_tracker(tracker: &mut Tracker, source: &TrackerSource<'_>) {
     let mut skip = true;
-    for line in features.lines() {
+    for line in source.text.lines() {
         if let Some(heading) = line.strip_prefix("## ") {
             skip = SKIPPED_AREAS.contains(&heading);
             if !skip {
-                tracker.areas.push(heading.to_string());
+                tracker.areas.push(TrackerArea {
+                    heading: heading.to_string(),
+                    page: source.page.to_string(),
+                    name: source.name.map(str::to_string),
+                });
             }
             continue;
         }
-        if skip || tracker.areas.is_empty() {
+        if skip {
             continue;
         }
         // Top-level items only: `- ✅ **SW-1 Title**, rest`
@@ -323,7 +356,6 @@ fn parse_tracker(features: &str) -> Tracker {
             },
         ));
     }
-    tracker
 }
 
 /// `**SW-1 Structs, plain enums**, rest` → (`SW-1`, `Structs, plain enums`).
@@ -502,6 +534,15 @@ fn slug(heading: &str) -> String {
 mod tests {
     use super::*;
 
+    /// `features` as this repository's own tracker.
+    fn own(features: &str) -> [TrackerSource<'_>; 1] {
+        [TrackerSource {
+            page: "features.md",
+            name: None,
+            text: features,
+        }]
+    }
+
     const FEATURES: &str = "# T\n\n## How to use this file\n\n- ✅ **X-1 not an item**\n\n\
                             ## Wire format (`shrink_wrap`, `SW`)\n\n\
                             - ✅ **SW-1 Structs and enums**, with `ww_repr`.\n  - ✅ **SW-9 nested, not an item**\n\
@@ -515,7 +556,7 @@ mod tests {
 
     #[test]
     fn renders_areas_levels_and_status() {
-        let page = render(FEATURES, ENTRIES).unwrap();
+        let page = render(&own(FEATURES), ENTRIES).unwrap();
         assert!(
             page.contains("\n## Wire format\n\nWhat it is for.\nSecond line.\n"),
             "{page}"
@@ -540,7 +581,7 @@ mod tests {
     #[test]
     fn missing_and_stale_entries() {
         let entries = ENTRIES.replace("- SW-2, SW-3", "- SW-3, SW-4");
-        let err = render(FEATURES, &entries).unwrap_err();
+        let err = render(&own(FEATURES), &entries).unwrap_err();
         assert!(err.contains("SW-2 On hardware has no line"), "{err}");
         assert!(
             err.contains("SW-4 Planned is not done or in progress"),
@@ -548,21 +589,21 @@ mod tests {
         );
 
         let entries = ENTRIES.replace("- DOC-1 | This site.", "- DOC-1, SW-1 | This site.");
-        let err = render(FEATURES, &entries).unwrap_err();
+        let err = render(&own(FEATURES), &entries).unwrap_err();
         assert!(err.contains("SW-1 is already on line 10"), "{err}");
 
         let entries = ENTRIES.replace("SW-1 |", "SW-7 |");
-        let err = render(FEATURES, &entries).unwrap_err();
+        let err = render(&own(FEATURES), &entries).unwrap_err();
         assert!(err.contains("SW-7 is not in FEATURES.md"), "{err}");
     }
 
     #[test]
     fn malformed_entries() {
-        let err = render(FEATURES, &ENTRIES.replace("## Advanced", "## Expert")).unwrap_err();
+        let err = render(&own(FEATURES), &ENTRIES.replace("## Advanced", "## Expert")).unwrap_err();
         assert!(err.contains("`Expert` is not a level"), "{err}");
-        let err = render(FEATURES, &ENTRIES.replace(" | serdes/derive.md", "")).unwrap_err();
+        let err = render(&own(FEATURES), &ENTRIES.replace(" | serdes/derive.md", "")).unwrap_err();
         assert!(err.contains("got 3 parts"), "{err}");
-        let err = render(FEATURES, &ENTRIES.replace("## Advanced", "## Basic")).unwrap_err();
+        let err = render(&own(FEATURES), &ENTRIES.replace("## Advanced", "## Basic")).unwrap_err();
         assert!(err.contains("each at most once"), "{err}");
     }
 

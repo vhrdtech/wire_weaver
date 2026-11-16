@@ -236,10 +236,6 @@ opt-level = 3
 inherits = "fw-z"
 opt-level = "s"
 
-# exact_units (its own repository) takes shrink_wrap from wire_weaver by git: use the one here, so there is one
-[patch."https://github.com/vhrdtech/wire_weaver"]
-shrink_wrap = { path = "../../shrink_wrap/shrink_wrap" }
-
 [[bin]]
 name = "qemu-flash-floor"
 path = "src/bin/flash_floor.rs"

@@ -22,7 +22,7 @@ The module is built with [maturin](https://www.maturin.rs), from a checkout of t
 needed):
 
 ```sh
-cd wire_weaver_py
+cd ww_tools/wire_weaver_wheel
 uvx maturin build --release        # wheel in target/wheels/, `uv pip install` it anywhere
 uvx maturin develop --release      # or install into the active virtual environment
 ```
@@ -35,7 +35,7 @@ uvx maturin develop --release      # or install into the active virtual environm
 
 ## Interactive console
 
-From the repository root, `just py` builds the module into `wire_weaver_py/.venv` (only when Rust sources changed)
+From the repository root, `just py` builds the module into `ww_tools/wire_weaver_wheel/.venv` (only when Rust sources changed)
 and opens a Python prompt with `ww` imported and the device connected as `dev`, if exactly one is found or a filter
 is given:
 

@@ -76,8 +76,8 @@ tape-golden-update:
 dispatch-golden-update:
     DISPATCH_GOLDEN=update cargo nextest run -p dispatch_golden corpus
 
-# The conformance corpus through the Python module (wire_weaver_py), in its own venv (TEST-23)
-[working-directory('wire_weaver_py')]
+# The conformance corpus through the Python module (wire_weaver_wheel), in its own venv (TEST-23)
+[working-directory('ww_tools/wire_weaver_wheel')]
 test-conformance-py:
     uv run --group dev pytest -q tests/test_conformance.py
 
@@ -137,13 +137,13 @@ lint-c:
     cc -std=c99 -Wall -Wextra -Werror -pedantic -Wconversion -Wsign-conversion -o target/head_tail_c shrink_wrap/shrink_wrap/tests/head_tail_c.c
     target/head_tail_c
 
-# Build the Python module (wire_weaver_py) into its own venv and run its tests
-[working-directory('wire_weaver_py')]
+# Build the Python module (wire_weaver_wheel) into its own venv and run its tests
+[working-directory('ww_tools/wire_weaver_wheel')]
 test-py:
     uv run --group dev pytest
 
 # Python console with `ww` imported and the device connected as `dev` (rebuilds the module if needed), `just py --help`
-[working-directory('wire_weaver_py')]
+[working-directory('ww_tools/wire_weaver_wheel')]
 py *args:
     WW_CWD="{{invocation_directory()}}" uv run python -i scripts/console.py {{args}}
 

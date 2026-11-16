@@ -12,6 +12,8 @@
 
 ### 🚀 Features
 
+- The crate is a library (CLT-74): `init(m)` fills the module; the wheel is built from `ww_tools/wire_weaver_wheel`.
+
 - Keyed arrays by key (CLT-72): `dev.flow[key]` finds the element with that key (an int still indexes), `Array.by(key)` returns `None` where `[key]` raises `KeyError`, and `Array.key_type` names the key type. The index comes from the connection's key cache after the first lookup.
 - `keyed!` items show as `keyed flow_keys: by FlowKey` in a node's signature (API-67).
 - `ww.Quantity.light`, `light_exact` and `light_unit` (STD-112): the light a `Coded` value's code means through its codec's transfer curve, a `Coded<Transfer<Narrow10, Pq>, ..>` code's display luminance (`10000.0` and `Fraction(10000)` cd/m² for code 940, `"Nit"`); `None` without a curve, `light_exact` `None` where the light is irrational. A `Transfer` instance reads as its quantizer's signal.

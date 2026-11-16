@@ -217,7 +217,7 @@ directly (a program reaches any device through the hub with `ClientConfig::hub_d
 
 ## Python and notebooks (TOOL-18)
 
-The wheel (`wire_weaver_py`) carries `wire_weaver_client` with its `hub` feature and `ww_hub`, so Python follows the
+The wheel (`wire_weaver_wheel`) carries `wire_weaver_client` with its `hub` feature and `ww_hub`, so Python follows the
 same routing as a Rust program, with no separate `ww` install needed:
 
 - `python -m wire_weaver.hub` serves the hub; `wire_weaver` registers `sys.executable`,
@@ -243,8 +243,9 @@ USB enumeration. Two notebooks, or a notebook and the `ww` CLI, share a board th
 
 `connect_blocking()` (what every Python call uses, since `pyo3` releases the GIL around it rather than running on
 an async task) reaches a local socket or the hub the same way `connect()` does; `tests/hub_pytest_device` hosts the
-ww hub and an in-process test device in one binary (no real hardware), so `wire_weaver_py`'s pytest suite
-(`tests/test_hub.py`) covers the kernel-restart reconnect and two Python processes sharing one device without it.
+ww hub and an in-process test device in one binary (no real hardware), so the wheel's pytest suite
+(`ww_tools/wire_weaver_wheel/tests/test_hub.py`) covers the kernel-restart reconnect and two Python processes sharing
+one device without it.
 
 ## The `ww hub` command (TOOL-17)
 

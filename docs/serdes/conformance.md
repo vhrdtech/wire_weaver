@@ -35,7 +35,7 @@ The [conformance matrix](conformance_matrix.md) lists every case and what each c
   `tests/matrix.rs`, plus `corpus` (the file is well formed and `derive.rs` has every case), `report` (the
   matrix page is up to date), `frozen_bytes` ([frozen golden bytes](#frozen-golden-bytes), TEST-24,
   `src/frozen.rs`) and `coverage` ([coverage guard](#coverage-guard), TEST-25, `src/coverage.rs`).
-- `wire_weaver_py/tests/test_conformance.py`: the Python consumer, the same rules.
+- `ww_tools/wire_weaver_wheel/tests/test_conformance.py`: the Python consumer, the same rules.
 
 `just test` runs all five. A failure names the case, the consumer and what differs, the first differing byte for
 an encode:

@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-ROOT = Path(__file__).parents[2]
+ROOT = Path(__file__).parents[3]
 DEVICE_KEY = "inproc:pytest-device"
 READY_TIMEOUT = 10.0
 

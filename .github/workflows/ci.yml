@@ -133,7 +133,7 @@ jobs:
       - uses: actions-rust-lang/setup-rust-toolchain@v2
       - uses: astral-sh/setup-uv@v10.2.0
       - run: uv run --group dev pytest -q tests/test_conformance.py
-        working-directory: wire_weaver_py
+        working-directory: ww_tools/wire_weaver_wheel
 
   # ww_lz4's blocks decoded by C liblz4 (python-lz4)
   lz4-c:

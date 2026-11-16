@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 import wire_weaver as ww
 
-ROOT = Path(__file__).parents[2]
+ROOT = Path(__file__).parents[3]
 CORPUS = json.loads((ROOT / "tests" / "conformance" / "corpus.json").read_text())
 CASES = CORPUS["cases"]
 

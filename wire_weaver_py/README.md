@@ -138,7 +138,8 @@ just py --help
 ## Building
 
 ```sh
-just test-py                       # build into wire_weaver_py/.venv and run the tests
+just test-py                       # build into ww_tools/wire_weaver_wheel/.venv and run the tests
+cd ww_tools/wire_weaver_wheel      # the wheel crate, where pyproject.toml is
 uvx maturin build --release        # wheel in target/wheels/
 uvx maturin develop                # install into the active venv
 ```

@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-ROOT = Path(__file__).parents[2]
+ROOT = Path(__file__).parents[3]
 DEVICE_KEY = "inproc:keyed-device"
 READY_TIMEOUT = 10.0
 # tests/keyed/src/device.rs: `FLOWS`, `REMOVED`, `flow(i)`

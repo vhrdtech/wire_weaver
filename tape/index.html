@@ -6076,7 +6076,7 @@ resource path it comes from, and the clock its times count.</p>
 <p>A <strong>clock</strong> is anything that counts time: the host's nanosecond clock, a device's microsecond timer since boot, an audio
 codec's sample clock. Its definition (<code>ClockDef</code>) gives an exact rate in ticks per second, an exact resolution, and an
 <strong>origin</strong>: what tick 0 is. The origin is an identity, never a number. It may be a device's boot, the Unix epoch, the
-start of a media file, the start of the producer's run, or nothing known (a free-running counter).</p>
+start of a media file, the start of the producer's session, or nothing known (a free-running counter).</p>
 <p>A <strong>tick</strong> is one step of a clock, and every record time is a signed 64-bit count of ticks. Rates are exact fractions,
 so clocks that are not whole numbers of hertz stay exact. A video at 60000/1001 frames per second lives on its stream's
 60 000 Hz time base, one frame every 1001 ticks, and every frame time is exact.</p>
@@ -6143,15 +6143,15 @@ crystal drifts against the host.</p>
 <h2 id="blocks">Blocks<a class="headerlink" href="#blocks" title="Permanent link">&para;</a></h2>
 <p>A tape is a sequence of <strong>blocks</strong>. Every block has a 32-byte header, a body and a CRC-32C checksum over everything
 before it. The header starts with the magic <code>WWTP</code> and gives the block's version, its kind, its total length, a count
-(records, items or entries, by kind), a sequence number and a run tag. A file is blocks appended back to back, never
+(records, items or entries, by kind), a sequence number and a session tag. A file is blocks appended back to back, never
 padded between them; a live feed sends one block per message.</p>
 <p>The header and the trailing CRC are the same in every version of the format. A reader can therefore check any block and
 skip it by its length, even a block of a kind or version it doesn't know. A later version changes only the bodies, and
 an old reader takes a block it doesn't understand as one it skips, not as damage.</p>
-<p>The <strong>sequence number</strong> counts a writer's blocks from 0, so a gap in it says how many blocks were lost. The <strong>run tag</strong>
-names one writer's unbroken append: a producer's start, a device's boot. The run tag is how a reader tells current data
-from stale data left on a medium by an earlier recording; <a href="recovery/#runs-and-stale-data">Damage and recovery</a>
-explains it.</p>
+<p>The <strong>sequence number</strong> counts a writer's blocks from 0, so a gap in it says how many blocks were lost. The <strong>session
+tag</strong> names one writer's unbroken append: a producer's start, a device's boot. The session tag is how a reader tells
+current data from stale data left on a medium by an earlier recording; <a href="recovery/#sessions-and-stale-data">Damage and
+recovery</a> explains it.</p>
 <p>The block kinds fall into four groups:</p>
 <table>
 <thead>
@@ -6265,7 +6265,7 @@ make retention simple (delete the oldest piece), and a crash costs only the piec
 <p>The pieces of one recording form a <strong>chain</strong>, checked in both directions. Each piece head names the previous piece by
 the content hash in its finish block. The tail cannot name the next piece's hash, since that piece isn't written yet, so
 it names the next piece's id instead, derived from its own id and hash at the cut. The next head repeats that id. Each
-piece also names the recording it belongs to (the result id), its sequence number in the chain, and for each track where
+piece also names the recording it belongs to (the owner id, opaque to <code>ww_tape</code>), its sequence number in the chain, and for each track where
 its items continue.</p>
 <p>Pieces written back to back are one valid tape: <code>cat 00000000.wwt 00000001.wwt</code> gives a file any reader takes. A reader
 finds the last piece's tail at the end, the piece's start from it, and the previous piece's tail just before that start,

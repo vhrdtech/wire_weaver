@@ -101,10 +101,13 @@ mod tests {
             cfg_variants_api::CFG_VARIANTS_WIRE_VERSION,
             narrow_device::api_impl::api_hash(),
         );
-        let host = Host::config(|c| c.in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("a build with fewer variants must connect");
+        let host = Host::config(|c| {
+            c.in_process_path(device.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect()
+        .await
+        .expect("a build with fewer variants must connect");
         (device, host)
     }
 

@@ -38,7 +38,7 @@ fn describe_backup_is_not_a_new_session() {
     }
     writer.finish().unwrap();
 
-    let mut decoder = Decoder::default();
+    let mut decoder = Decoder::default().with_resolver(crate::test_resolver());
     let mut blocks = FileBlocks::new(std::fs::File::open(&path).unwrap());
     while let Some(b) = blocks.next_good(|e| panic!("{e}")) {
         decoder.feed(&b);
@@ -63,7 +63,7 @@ fn describe_backup_is_not_a_new_session() {
     let copy = |b: &Vec<u8>| ww_tape::Block::read(b).unwrap().is_copy();
     let last = all.iter().rposition(copy).unwrap();
     let first = all[..=last].iter().rposition(|b| !copy(b)).unwrap() + 1;
-    let mut decoder = Decoder::default();
+    let mut decoder = Decoder::default().with_resolver(crate::test_resolver());
     for b in &all[first..] {
         decoder.feed(&ww_tape::Block::read(b).unwrap());
     }
@@ -107,7 +107,7 @@ fn a_bad_coded_body_is_reported() {
     let crc = crc::Crc::<u32>::new(&crc::CRC_32_ISCSI).checksum(&coded[..n - 4]);
     coded[n - 4..].copy_from_slice(&crc.to_le_bytes());
     let block = ww_tape::Block::read(&coded).unwrap();
-    let mut decoder = Decoder::default();
+    let mut decoder = Decoder::default().with_resolver(crate::test_resolver());
     decoder.feed(&block);
     let d = decoder.next().unwrap();
     assert!(

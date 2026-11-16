@@ -256,10 +256,13 @@ mod tests {
             observe_arrays_api::ARRAYS_WIRE_VERSION,
             server::api_impl::api_hash(),
         );
-        let client = Client::config(|c| c.in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect");
+        let client = Client::config(|c| {
+            c.in_process_path(device.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect()
+        .await
+        .expect("connect");
         Bench {
             _device: device,
             client,

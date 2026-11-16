@@ -157,6 +157,16 @@ pub trait WwClient {
     }
 }
 
+/// The resolver this crate's tests connect and inline through: [ww_snapshots::Resolver::offline] over the
+/// workspace.
+#[cfg(test)]
+pub(crate) fn test_resolver() -> &'static ww_snapshots::Resolver {
+    static RESOLVER: std::sync::LazyLock<ww_snapshots::Resolver> = std::sync::LazyLock::new(|| {
+        ww_snapshots::Resolver::offline(std::path::Path::new(env!("CARGO_MANIFEST_DIR")))
+    });
+    &RESOLVER
+}
+
 #[cfg(test)]
 mod ww_client_tests {
     use super::{ClientConfig, Commander, Error, WwClient};

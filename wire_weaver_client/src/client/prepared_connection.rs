@@ -858,6 +858,7 @@ fn create_commander_inner(
     commander.set_default_priority(config.default_priority);
     commander.traits_only = config.traits_only;
     commander.global_paths = config.global_paths.clone();
+    commander.resolver = config.resolver;
     commander.set_stream_queue_bytes(config.stream_queue_bytes);
     commander.set_stream_compression(config.stream_compression);
     // a host speaking several lines (EVO-28) has the introspection data of the device's line
@@ -899,6 +900,7 @@ pub(crate) async fn create_commander(
                     sent_api_bundle,
                     device_api_hash.clone(),
                     sent_size,
+                    commander.resolver,
                 ) {
                     Ok(bundle) => commander.set_device_introspect(bundle),
                     Err(e) => warn!("Device introspection data is not usable: {e:#}"),
@@ -933,6 +935,7 @@ fn create_commander_blocking(
                     sent_api_bundle,
                     device_api_hash.clone(),
                     sent_size,
+                    commander.resolver,
                 ) {
                     Ok(bundle) => commander.set_device_introspect(bundle),
                     Err(e) => warn!("Device introspection data is not usable: {e:#}"),

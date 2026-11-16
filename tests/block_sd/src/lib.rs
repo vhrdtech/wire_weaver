@@ -571,10 +571,13 @@ mod tests {
     }
 
     async fn connect(device: &TestDevice) -> StdClient {
-        StdClient::config(|c| c.in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect")
+        StdClient::config(|c| {
+            c.in_process_path(device.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect()
+        .await
+        .expect("connect")
     }
 
     fn block_error(
@@ -1078,10 +1081,13 @@ mod lean {
             block_sd_api::BLOCK_LEAN_TEST_WIRE_VERSION,
             server::api_impl::api_hash(),
         );
-        let client = client::StdClient::config(|c| c.in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect");
+        let client = client::StdClient::config(|c| {
+            c.in_process_path(device.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect()
+        .await
+        .expect("connect");
 
         let g = client.card().geometry().call().await.unwrap();
         assert!(g.read_only && g.erase_before_write);

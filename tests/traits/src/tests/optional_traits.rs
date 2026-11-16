@@ -235,10 +235,13 @@ async fn optional_traits_served_when_present() {
         traits_api::TRAITS_WIRE_VERSION,
         full_server::api_impl::api_hash(),
     );
-    let client = BoardClient::config(|c| c.in_process_path(device.path()))
-        .connect()
-        .await
-        .expect("connect");
+    let client = BoardClient::config(|c| {
+        c.in_process_path(device.path())
+            .resolver(tests_common::resolver())
+    })
+    .connect()
+    .await
+    .expect("connect");
     assert_eq!(client.ping().call().await.unwrap(), 1);
     assert_eq!(client.diag().read(3).call().await.unwrap(), 6);
     client.diag().release_all().call().await.unwrap();
@@ -259,10 +262,13 @@ async fn omitted_traits_fail_locally() {
         traits_api::TRAITS_WIRE_VERSION,
         lean_server::api_impl::api_hash(),
     );
-    let client = BoardClient::config(|c| c.in_process_path(device.path()))
-        .connect()
-        .await
-        .expect("connect");
+    let client = BoardClient::config(|c| {
+        c.in_process_path(device.path())
+            .resolver(tests_common::resolver())
+    })
+    .connect()
+    .await
+    .expect("connect");
     assert_eq!(client.ping().call().await.unwrap(), 1);
     assert_not_implemented(client.diag().read(3).call().await, "diag.read");
     assert_not_implemented(client.diag().sub().m1().call().await, "diag.sub.m1");
@@ -282,10 +288,13 @@ async fn omit_if_on_traits_follows_cfg() {
         traits_api::TRAITS_WIRE_VERSION,
         cfg_server::api_impl::api_hash(),
     );
-    let client = BoardClient::config(|c| c.in_process_path(device.path()))
-        .connect()
-        .await
-        .expect("connect");
+    let client = BoardClient::config(|c| {
+        c.in_process_path(device.path())
+            .resolver(tests_common::resolver())
+    })
+    .connect()
+    .await
+    .expect("connect");
     assert_eq!(client.diag().read(3).call().await.unwrap(), 6);
     assert_eq!(client.diag().read_POINTS().read().await.unwrap(), 64);
     assert_not_implemented(client.probe(1).set_high().call().await, "probe[].set_high");
@@ -347,10 +356,14 @@ async fn dynamic_client_fails_omitted_traits_locally() {
         traits_api::TRAITS_WIRE_VERSION,
         lean_server::api_impl::api_hash(),
     );
-    let client = DynClient::from_config(ClientConfig::new().in_process_path(device.path()))
-        .connect()
-        .await
-        .expect("connect");
+    let client = DynClient::from_config(
+        ClientConfig::new()
+            .in_process_path(device.path())
+            .resolver(tests_common::resolver()),
+    )
+    .connect()
+    .await
+    .expect("connect");
     let bundle = client.device_introspect().unwrap().api_bundle.clone();
     assert_eq!(
         bundle.root_omitted,

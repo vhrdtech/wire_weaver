@@ -2127,7 +2127,8 @@ Unicast Data0 to one node over the same bus is TR-6.
   header and crate version, every size and count is bounded (`ww_snapshots::limits`), and a definition is put back
   only when its shape signature matches what the device sent. A value whose type has no definition anywhere is
   `ww_self::Value::Opaque` (crate, version, name, signature, bytes), printed by `ww` with a hint, `ww.Opaque` in
-  Python, refused when sent. `just save-snapshots` saves `ww_global`, `ww_tap` and `ww_stdlib/*` in place;
+  Python, refused when sent. A connection resolves through the resolver it is given (`ClientConfig::resolver`,
+  `HubConfig::resolver`, `Resolver::global()` by default); tests pass `Resolver::offline`. `just save-snapshots` saves `ww_global`, `ww_tap` and `ww_stdlib/*` in place;
   exact_units keeps its snapshot in its own repository. `docs/evolution/snapshots.md`; tests `ww_snapshots`,
   `tests/stdlib_evolution` (`snapshots_can_be_inlined`, `superseded_definitions_load`,
   `signatures_from_before_marker_definitions`), `wire_weaver_client` `compat`, `ww_self`

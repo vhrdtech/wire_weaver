@@ -10,10 +10,13 @@ use wire_weaver::ww_version::WireVersion;
 use wire_weaver_client::WwClient;
 
 async fn connect(device: &tests_common::TestDevice) -> Thermo {
-    Thermo::config(|c| c.in_process_path(device.path()))
-        .connect()
-        .await
-        .expect("a device of a line the driver knows connects")
+    Thermo::config(|c| {
+        c.in_process_path(device.path())
+            .resolver(tests_common::resolver())
+    })
+    .connect()
+    .await
+    .expect("a device of a line the driver knows connects")
 }
 
 fn gain(hundredths: u16) -> Gain {
@@ -232,11 +235,14 @@ async fn a_fourth_line_is_refused() {
     ] {
         let (shared, device) =
             devices::w3::start(&format!("thermo/w{line}"), WireVersion::new(line, 0));
-        let e = Thermo::config(|c| c.in_process_path(device.path()))
-            .connect()
-            .await
-            .err()
-            .expect("no client of that line");
+        let e = Thermo::config(|c| {
+            c.in_process_path(device.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect()
+        .await
+        .err()
+        .expect("no client of that line");
         let Some(wire_weaver_client::Error::ConnectFailed { reason, .. }) =
             e.downcast_ref::<wire_weaver_client::Error>()
         else {

@@ -41,6 +41,7 @@ async fn hold_device(socket: &str, kind: &str) -> Result<(), String> {
     };
     let client = hub_reconnect::client::Client::config(|c| {
         c.ipc_path(socket.to_string())
+            .resolver(tests_common::resolver())
             .ipc_exclusive()
             .client_meta(ClientMeta::new().kind(kind).program("polite-holder"))
     })
@@ -89,6 +90,7 @@ async fn hold_usb(socket: &str, kind: &str) -> Result<(), String> {
     };
     let client = hub_reconnect::client::Client::config(|c| {
         c.usb_sim_path(socket.to_string())
+            .resolver(tests_common::resolver())
             .client_meta(ClientMeta::new().kind(kind).program("live-holder"))
     })
     .connect()

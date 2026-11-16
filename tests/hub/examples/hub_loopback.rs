@@ -169,7 +169,9 @@ async fn main() {
 
     let direct = if let Some(path) = key.strip_prefix("inproc:") {
         start_in_process_device(path);
-        ClientConfig::new().in_process_path(path.into())
+        ClientConfig::new()
+            .in_process_path(path.into())
+            .resolver(tests_common::resolver())
     } else if let Some(rest) = key.strip_prefix("usb:") {
         let mut parts = rest.split(':');
         let vid = u16::from_str_radix(parts.next().unwrap(), 16).unwrap();
@@ -194,6 +196,7 @@ async fn main() {
         sync_linger: None,
         sync_options: wire_weaver_client::clock_sync::Options::default(),
         state_dir: None,
+        resolver: tests_common::resolver(),
         adopt_attach: std::time::Duration::from_secs(5),
     };
     // the hub on a runtime of its own, one thread as `ww_hub::run_blocking` (`HUB_RT=multi`: a multi-thread one)

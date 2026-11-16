@@ -565,10 +565,13 @@ mod tests {
             dfu_api::DFU_DEVICE_WIRE_VERSION,
             server::api_impl::api_hash(),
         );
-        let client = client::DfuClient::config(|c| c.in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect");
+        let client = client::DfuClient::config(|c| {
+            c.in_process_path(device.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect()
+        .await
+        .expect("connect");
         (client, dev, device)
     }
 

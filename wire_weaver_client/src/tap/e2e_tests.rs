@@ -61,7 +61,7 @@ async fn send(
 
 /// Everything decoded from `chunks`, as text to compare.
 fn decode_all<'a>(blocks: impl Iterator<Item = ww_tape::Block<'a>>) -> (Vec<Decoded>, Stats) {
-    let mut d = Decoder::default();
+    let mut d = Decoder::default().with_resolver(crate::test_resolver());
     for b in blocks {
         d.feed(&b);
     }

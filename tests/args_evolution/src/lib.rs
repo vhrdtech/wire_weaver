@@ -261,10 +261,13 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn flattened_struct_and_defaults_through_the_generated_client() {
         let device = start("args_evolution/generated");
-        let client = StdClient::config(|c| c.in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect");
+        let client = StdClient::config(|c| {
+            c.in_process_path(device.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect()
+        .await
+        .expect("connect");
 
         assert_eq!(client.configure(1, 300).call().await.unwrap(), 301);
         let cfg = Config { a: 2, b: 400 };
@@ -297,10 +300,14 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn left_out_arguments_are_read_as_their_defaults() {
         let device = start("args_evolution/defaults");
-        let client = DynClient::from_config(ClientConfig::new().in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect");
+        let client = DynClient::from_config(
+            ClientConfig::new()
+                .in_process_path(device.path())
+                .resolver(tests_common::resolver()),
+        )
+        .connect()
+        .await
+        .expect("connect");
         let cmd = client.cmd();
         let root = DynResource::root(bundle());
         let with_defaults = root.child("with_defaults").unwrap();
@@ -342,10 +349,14 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn dynamic_client_calls_a_flattened_method_with_the_fields() {
         let device = start("args_evolution/dynamic_flatten");
-        let client = DynClient::from_config(ClientConfig::new().in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect");
+        let client = DynClient::from_config(
+            ClientConfig::new()
+                .in_process_path(device.path())
+                .resolver(tests_common::resolver()),
+        )
+        .connect()
+        .await
+        .expect("connect");
         let cmd = client.cmd();
         let root = DynResource::root(bundle());
         let args = [u8v(3), ValueOwned::Numeric(N::U16(500))];

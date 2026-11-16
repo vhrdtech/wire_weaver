@@ -27,10 +27,14 @@ struct Device {
 
 impl Device {
     async fn connect(device: &tests_common::TestDevice) -> Self {
-        let client = DynClient::from_config(ClientConfig::new().in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect");
+        let client = DynClient::from_config(
+            ClientConfig::new()
+                .in_process_path(device.path())
+                .resolver(tests_common::resolver()),
+        )
+        .connect()
+        .await
+        .expect("connect");
         let bundle = client.device_introspect().unwrap().api_bundle.clone();
         Device {
             client,

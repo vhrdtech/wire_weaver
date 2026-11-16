@@ -447,6 +447,7 @@ pub(crate) mod tests {
             Resolver::new().with_cargo_scan(CargoScan {
                 workspace: Some(PathBuf::from(env!("CARGO_MANIFEST_DIR"))),
                 cargo_home: ww_snapshots::cargo::default_cargo_home().ok(),
+                unlocked: false,
             })
         }
 
@@ -1129,6 +1130,7 @@ pub(crate) mod tests {
                     with_docs: ApiHashOwned { hash: vec![] },
                 },
                 0,
+                crate::test_resolver(),
             )
             .unwrap()
         };
@@ -1216,6 +1218,7 @@ pub(crate) mod tests {
                     with_docs: ApiHashOwned { hash: vec![] },
                 },
                 0,
+                crate::test_resolver(),
             )
             .unwrap()
         };
@@ -1306,6 +1309,7 @@ pub(crate) mod tests {
                     with_docs: ApiHashOwned { hash: vec![] },
                 },
                 0,
+                crate::test_resolver(),
             )
             .unwrap()
         };
@@ -1422,9 +1426,17 @@ pub(crate) mod tests {
         cmd.connected_device.user_api_hash = hash.clone();
         // client and device report the same hash: without the check, this would take the Identical shortcut
         cmd.set_client_introspect(
-            IntrospectBundle::from_sent(device_bundle.clone(), hash.clone(), 0).unwrap(),
+            IntrospectBundle::from_sent(
+                device_bundle.clone(),
+                hash.clone(),
+                0,
+                crate::test_resolver(),
+            )
+            .unwrap(),
         );
-        cmd.set_device_introspect(IntrospectBundle::from_sent(device_bundle, hash, 0).unwrap());
+        cmd.set_device_introspect(
+            IntrospectBundle::from_sent(device_bundle, hash, 0, crate::test_resolver()).unwrap(),
+        );
 
         match cmd.resolve_api_match() {
             Err(Error::HelloWireMismatch {
@@ -1492,6 +1504,7 @@ pub(crate) mod tests {
                 with_docs: ApiHashOwned { hash: vec![] },
             },
             0,
+            crate::test_resolver(),
         )
         .unwrap();
         cmd.set_client_introspect(client);

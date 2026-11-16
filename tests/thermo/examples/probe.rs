@@ -9,9 +9,12 @@ use ww_si::Seq;
 #[tokio::main]
 async fn main() {
     let path = std::env::args().nth(1).unwrap_or_default();
-    let Ok(t) = Thermo::config(|c| c.in_process_path(path.clone()))
-        .connect()
-        .await
+    let Ok(t) = Thermo::config(|c| {
+        c.in_process_path(path.clone())
+            .resolver(tests_common::resolver())
+    })
+    .connect()
+    .await
     else {
         return;
     };

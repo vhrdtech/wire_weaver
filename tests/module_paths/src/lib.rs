@@ -189,10 +189,13 @@ mod tests {
     }
 
     async fn connect(device: &TestDevice) -> StdClient {
-        StdClient::config(|c| c.in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect")
+        StdClient::config(|c| {
+            c.in_process_path(device.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect()
+        .await
+        .expect("connect")
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

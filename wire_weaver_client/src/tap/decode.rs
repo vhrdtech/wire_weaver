@@ -211,6 +211,8 @@ pub struct Decoder {
     /// API bundles by the hash bytes of their `ApiHashPair::no_docs`, from describe blocks or added
     bundles: HashMap<Vec<u8>, Arc<ApiBundleOwned>>,
     lookup: Option<BundleLookup>,
+    /// [Self::with_resolver]: puts back what a bundle left out, and its cache root is the local cache.
+    resolver: &'static ww_snapshots::Resolver,
     next_seq: Option<u64>,
     /// Run of the blocks fed last
     run: Option<ww_tape::RunTag>,
@@ -236,6 +238,7 @@ impl Decoder {
             links: BTreeMap::new(),
             bundles: HashMap::new(),
             lookup: None,
+            resolver: ww_snapshots::Resolver::global(),
             next_seq: None,
             run: None,
             described: None,
@@ -252,9 +255,20 @@ impl Decoder {
         self
     }
 
-    /// Look bundles up in the local cache (`~/.wire_weaver`), where a client keeps what devices sent.
+    /// The resolver that puts back the traits and types a bundle left out, [ww_snapshots::Resolver::global] by
+    /// default; [Self::with_local_cache] looks in its cache root.
+    pub fn with_resolver(mut self, resolver: &'static ww_snapshots::Resolver) -> Self {
+        self.resolver = resolver;
+        self
+    }
+
+    /// Look bundles up in the local cache (the resolver's cache root, `~/.wire_weaver` by default), where a client
+    /// keeps what devices sent. Nothing is looked up for a resolver without a cache.
     pub fn with_local_cache(self) -> Self {
-        self.with_lookup(Box::new(crate::local_registry::load))
+        let resolver = self.resolver;
+        self.with_lookup(Box::new(move |hash| {
+            crate::local_registry::load(resolver.cache_root()?, hash)
+        }))
     }
 
     /// Wall clock (ns since the Unix epoch) at tap clock time 0, once a describe block mapped the one to the other.
@@ -388,7 +402,7 @@ impl Decoder {
                 }
                 if let Ok(bytes) = ww_self::compressed::bundle_bytes(bytes.as_slice())
                     && let Ok(b) = ApiBundleOwned::from_ww_bytes_owned(&bytes)
-                    && let Some(b) = ready(b)
+                    && let Some(b) = ready(b, self.resolver)
                 {
                     self.bundles.insert(hash, b);
                     self.retry_roots();
@@ -401,7 +415,7 @@ impl Decoder {
     /// Add a device API bundle by the hash bytes of its `ApiHashPair::no_docs`.
     /// A bundle as a device sent it (traits known from snapshots left out) is fine: they are put back here.
     pub fn add_bundle(&mut self, hash: &[u8], bundle: ApiBundleOwned) {
-        if let Some(bundle) = ready(bundle) {
+        if let Some(bundle) = ready(bundle, self.resolver) {
             self.bundles.insert(hash.to_vec(), bundle);
             self.retry_roots();
         }
@@ -685,7 +699,7 @@ impl Decoder {
                     .lookup
                     .as_ref()
                     .and_then(|f| f(&device.hash))
-                    .and_then(ready)
+                    .and_then(|b| ready(b, self.resolver))
                     .inspect(|b| {
                         self.bundles.insert(key, b.clone());
                     }),
@@ -710,7 +724,7 @@ impl Decoder {
                     _ => None,
                 };
                 let envelope = (explain && r.is_some())
-                    .then(|| Arc::new(explain_request(bytes, root.as_ref())));
+                    .then(|| Arc::new(explain_request(bytes, root.as_ref(), self.resolver)));
                 let title = match (&envelope, &r) {
                     (Some(e), _) => e.title.clone(),
                     (None, Some(r)) => format!(
@@ -848,8 +862,11 @@ pub fn kind_name(kind: u8) -> &'static str {
 
 /// A bundle as stored in a describe block or a cache is as the device sent it: traits and types it left out because
 /// they are known from snapshots are put back, and generic types instantiated, as the client does on connect.
-fn ready(mut bundle: ApiBundleOwned) -> Option<Arc<ApiBundleOwned>> {
-    crate::client::introspect::inline_known(&mut bundle).ok()?;
+fn ready(
+    mut bundle: ApiBundleOwned,
+    resolver: &ww_snapshots::Resolver,
+) -> Option<Arc<ApiBundleOwned>> {
+    crate::client::introspect::inline_known(&mut bundle, resolver).ok()?;
     Some(Arc::new(bundle))
 }
 

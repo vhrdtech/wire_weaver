@@ -40,10 +40,14 @@ mod tests {
     const KEYS: u32 = 2;
 
     async fn connect(device: &TestDevice) -> DynClient {
-        DynClient::from_config(ClientConfig::new().in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect")
+        DynClient::from_config(
+            ClientConfig::new()
+                .in_process_path(device.path())
+                .resolver(tests_common::resolver()),
+        )
+        .connect()
+        .await
+        .expect("connect")
     }
 
     fn resource_path(path: &[u32]) -> Vec<ResourceIndex> {
@@ -296,10 +300,13 @@ mod tests {
     async fn client_by_key() {
         let device = start_blocking("keyed/client", shuffled_table());
         let index_of = count_index_of(&device);
-        let client = Client::config(|c| c.in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect");
+        let client = Client::config(|c| {
+            c.in_process_path(device.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect()
+        .await
+        .expect("connect");
         for round in 0..2 {
             for i in 0..FLOWS {
                 let (key, bytes) = flow(i);
@@ -328,9 +335,12 @@ mod tests {
         let _guard = rt.enter();
         let device = start_async("keyed/client_blocking", shuffled_table());
         let index_of = count_index_of(&device);
-        let client = Client::config(|c| c.in_process_path(device.path()))
-            .connect_blocking()
-            .expect("connect");
+        let client = Client::config(|c| {
+            c.in_process_path(device.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect_blocking()
+        .expect("connect");
         for _ in 0..2 {
             for i in REMOVED..FLOWS {
                 let (key, bytes) = flow(i);
@@ -360,10 +370,13 @@ mod tests {
         let table = shuffled_table();
         let device = start_blocking("keyed/cache", table.clone());
         let index_of = count_index_of(&device);
-        let client = Client::config(|c| c.in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect");
+        let client = Client::config(|c| {
+            c.in_process_path(device.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect()
+        .await
+        .expect("connect");
         let mut keys = client.flow_keys().await.unwrap();
 
         // announced: found without asking
@@ -510,9 +523,13 @@ mod tests {
         let table = shuffled_table();
         let device = start_async("keyed/dynamic_blocking", table.clone());
         let index_of = count_index_of(&device);
-        let client = DynClient::from_config(ClientConfig::new().in_process_path(device.path()))
-            .connect_blocking()
-            .expect("connect");
+        let client = DynClient::from_config(
+            ClientConfig::new()
+                .in_process_path(device.path())
+                .resolver(tests_common::resolver()),
+        )
+        .connect_blocking()
+        .expect("connect");
         let cmd = client.cmd();
         let root = DynResource::root(client.device_introspect().unwrap().api_bundle.clone());
         for i in REMOVED..FLOWS {

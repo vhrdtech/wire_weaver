@@ -597,7 +597,7 @@ mod tests {
             matches!(req.kind, ww_client_server::RequestKind::Call { args: a } if a.as_slice() == args)
         );
 
-        let e = explain_request(&bytes, &root);
+        let e = explain_request(&bytes, &root, tests_common::resolver());
         assert_eq!(e.title, "Request Call add");
         assert_eq!(
             e.explained.result.as_ref().unwrap(),
@@ -639,7 +639,7 @@ mod tests {
             .unwrap()
             .id
             .0;
-        let e = explain_request(&request(user_info), None);
+        let e = explain_request(&request(user_info), None, tests_common::resolver());
         let path = part(&e.explained.parts, "path");
         assert_eq!(path.ty, "PathKind::GlobalCompact");
         assert!(
@@ -651,10 +651,15 @@ mod tests {
         no_bit_twice(&e.explained);
 
         let note = |id| {
-            part(&explain_request(&request(id), None).explained.parts, "path")
-                .note
-                .clone()
-                .unwrap()
+            part(
+                &explain_request(&request(id), None, tests_common::resolver())
+                    .explained
+                    .parts,
+                "path",
+            )
+            .note
+            .clone()
+            .unwrap()
         };
         assert!(
             note(4000).contains("not in the ww_global registry"),
@@ -1062,10 +1067,14 @@ mod tests {
             dynamic_api::DYNAMIC_WIRE_VERSION,
             server::api_impl::api_hash(),
         );
-        let client = DynClient::from_config(ClientConfig::new().in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect");
+        let client = DynClient::from_config(
+            ClientConfig::new()
+                .in_process_path(device.path())
+                .resolver(tests_common::resolver()),
+        )
+        .connect()
+        .await
+        .expect("connect");
         let root = DynResource::root(bundle());
         let check_listed = root.child("check_listed").unwrap();
         let _ = check_listed
@@ -1082,10 +1091,14 @@ mod tests {
             dynamic_api::DYNAMIC_WIRE_VERSION,
             server::api_impl::api_hash(),
         );
-        let client = DynClient::from_config(ClientConfig::new().in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect");
+        let client = DynClient::from_config(
+            ClientConfig::new()
+                .in_process_path(device.path())
+                .resolver(tests_common::resolver()),
+        )
+        .connect()
+        .await
+        .expect("connect");
         let cmd = client.cmd();
         let root = DynResource::root(bundle());
 
@@ -1206,10 +1219,14 @@ mod tests {
             dynamic_api::DYNAMIC_WIRE_VERSION,
             server::api_impl::api_hash(),
         );
-        let client = DynClient::from_config(ClientConfig::new().in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect");
+        let client = DynClient::from_config(
+            ClientConfig::new()
+                .in_process_path(device.path())
+                .resolver(tests_common::resolver()),
+        )
+        .connect()
+        .await
+        .expect("connect");
         let cmd = client.cmd();
         let root = DynResource::root(bundle());
         let channel = root.child("channel").unwrap();

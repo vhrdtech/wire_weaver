@@ -301,10 +301,13 @@ mod tests {
     }
 
     async fn connect(device: &TestDevice) -> StdClient {
-        StdClient::config(|c| c.in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect")
+        StdClient::config(|c| {
+            c.in_process_path(device.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect()
+        .await
+        .expect("connect")
     }
 
     fn latest() -> Timed<Ampere> {
@@ -540,10 +543,14 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn introspection_leaves_known_definitions_out() {
         let (device, _data) = start("generics/introspect");
-        let client = DynClient::from_config(ClientConfig::new().in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect");
+        let client = DynClient::from_config(
+            ClientConfig::new()
+                .in_process_path(device.path())
+                .resolver(tests_common::resolver()),
+        )
+        .connect()
+        .await
+        .expect("connect");
         let introspect = client.device_introspect().unwrap();
         // as sent: Timed is known from the ww_si snapshot, left out, its use is an instance
         let sent = &introspect.sent_api_bundle;
@@ -591,10 +598,14 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn dynamic_client() {
         let (device, data) = start("generics/dynamic");
-        let client = DynClient::from_config(ClientConfig::new().in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect");
+        let client = DynClient::from_config(
+            ClientConfig::new()
+                .in_process_path(device.path())
+                .resolver(tests_common::resolver()),
+        )
+        .connect()
+        .await
+        .expect("connect");
         let cmd = client.cmd();
         let bundle = client.device_introspect().unwrap().api_bundle.clone();
         let root = DynResource::root(bundle.clone());

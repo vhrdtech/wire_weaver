@@ -523,16 +523,22 @@ mod tests {
     }
 
     async fn connect(device: &TestDevice) -> StdClient {
-        StdClient::config(|c| c.in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect")
+        StdClient::config(|c| {
+            c.in_process_path(device.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect()
+        .await
+        .expect("connect")
     }
 
     fn connect_blocking(device: &TestDevice) -> StdClient {
-        StdClient::config(|c| c.in_process_path(device.path()))
-            .connect_blocking()
-            .expect("connect")
+        StdClient::config(|c| {
+            c.in_process_path(device.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect_blocking()
+        .expect("connect")
     }
 
     /// Calls through the local trait (CLT-57) reach the device like the client's own calls.

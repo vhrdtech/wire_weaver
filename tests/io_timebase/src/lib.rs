@@ -523,16 +523,21 @@ mod tests {
 
     /// Without the connection's own steering (CLT-46): the tests steer, or don't, themselves.
     async fn connect(device: &TestDevice) -> Client {
-        Client::config(|c| c.in_process_path(device.path()).clock_sync(false))
-            .connect()
-            .await
-            .expect("connect")
+        Client::config(|c| {
+            c.in_process_path(device.path())
+                .resolver(tests_common::resolver())
+                .clock_sync(false)
+        })
+        .connect()
+        .await
+        .expect("connect")
     }
 
     /// With the connection's own steering (CLT-46), at the tests' pace.
     async fn connect_steering(device: &TestDevice) -> Client {
         Client::config(|c| {
             c.in_process_path(device.path())
+                .resolver(tests_common::resolver())
                 .clock_sync(true)
                 .clock_sync_options(fast_options())
         })

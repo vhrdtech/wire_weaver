@@ -228,10 +228,13 @@ mod tests {
     }
 
     async fn connect(device: &TestDevice) -> StdClient {
-        StdClient::config(|c| c.in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect")
+        StdClient::config(|c| {
+            c.in_process_path(device.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect()
+        .await
+        .expect("connect")
     }
 
     /// With every optional group omitted, only the minimum is served: a small firmware still answers status, card,

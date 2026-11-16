@@ -124,10 +124,13 @@ mod tests {
             "wire_line/newer_revision",
             wire_line_old_api::WIRE_LINE_WIRE_VERSION,
         );
-        let client = new_client::NewClient::config(|c| c.in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("a host on the device's wire line connects whatever its crate version");
+        let client = new_client::NewClient::config(|c| {
+            c.in_process_path(device.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect()
+        .await
+        .expect("a host on the device's wire line connects whatever its crate version");
         let info = client.cmd.device_api_info();
         assert_eq!(info.user_api_wire, Some(WireVersion::new(2, 3)));
         assert_eq!(info.user_api_version.version.minor.0, 3);
@@ -162,11 +165,14 @@ mod tests {
         ] {
             let (requests, device) =
                 start_old_device(&format!("wire_line/line_{}", wire.line.0), wire);
-            let e = new_client::NewClient::config(|c| c.in_process_path(device.path()))
-                .connect()
-                .await
-                .err()
-                .expect("a host on another wire line must not connect");
+            let e = new_client::NewClient::config(|c| {
+                c.in_process_path(device.path())
+                    .resolver(tests_common::resolver())
+            })
+            .connect()
+            .await
+            .err()
+            .expect("a host on another wire line must not connect");
             let Some(Error::ConnectFailed { reason, .. }) = e.downcast_ref::<Error>() else {
                 panic!("{e:?}");
             };

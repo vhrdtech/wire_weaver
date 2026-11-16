@@ -23,7 +23,17 @@ fn config(dir: &Path, idle_ms: u64) -> HubConfig {
         sync_options: wire_weaver_client::clock_sync::Options::default(),
         adopt_attach: std::time::Duration::from_secs(5),
         state_dir: None,
+        resolver: test_resolver(),
     }
+}
+
+/// [Resolver::offline] over the workspace: devices opened by these tests leave nothing on this machine.
+fn test_resolver() -> &'static wire_weaver_client::snapshots::Resolver {
+    static RESOLVER: std::sync::LazyLock<wire_weaver_client::snapshots::Resolver> =
+        std::sync::LazyLock::new(|| {
+            wire_weaver_client::snapshots::Resolver::offline(Path::new(env!("CARGO_MANIFEST_DIR")))
+        });
+    &RESOLVER
 }
 
 /// Starts a hub, returns its task and a shutdown handle once it listens.

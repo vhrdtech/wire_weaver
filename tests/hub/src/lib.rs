@@ -291,6 +291,7 @@ mod tests {
             sync_options: wire_weaver_client::clock_sync::Options::default(),
             state_dir: None,
             adopt_attach: std::time::Duration::from_secs(5),
+            resolver: tests_common::resolver(),
         })
         .unwrap()
         .expect("no other hub in this dir");
@@ -1086,10 +1087,13 @@ mod tests {
                 r => panic!("expected InUse naming the lend, got {r:?}"),
             }
         }
-        let direct = Client::config(|c| c.in_process_path(bench.device.path()))
-            .connect()
-            .await
-            .expect("the device is free for the other program");
+        let direct = Client::config(|c| {
+            c.in_process_path(bench.device.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect()
+        .await
+        .expect("the device is free for the other program");
         assert_eq!(direct.add(2, 2).call().await.unwrap(), 4);
         direct.cmd.disconnect().asynch().await.unwrap();
 

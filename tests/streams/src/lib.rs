@@ -367,18 +367,25 @@ mod tests {
     }
 
     async fn connect(device: &TestDevice) -> StdClient {
-        StdClient::config(|c| c.in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect")
+        StdClient::config(|c| {
+            c.in_process_path(device.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect()
+        .await
+        .expect("connect")
     }
 
     /// Only one request can wait for an answer at a time, a request still holding the seq makes the next one fail
     async fn connect_one_seq(device: &TestDevice) -> StdClient {
-        StdClient::config(|c| c.in_process_path(device.path()).max_seq(1))
-            .connect()
-            .await
-            .expect("connect")
+        StdClient::config(|c| {
+            c.in_process_path(device.path())
+                .resolver(tests_common::resolver())
+                .max_seq(1)
+        })
+        .connect()
+        .await
+        .expect("connect")
     }
 
     /// Call until the seq is free again, the device answered the previous request then
@@ -394,9 +401,12 @@ mod tests {
     }
 
     fn connect_blocking(device: &TestDevice) -> StdClient {
-        StdClient::config(|c| c.in_process_path(device.path()))
-            .connect_blocking()
-            .expect("connect")
+        StdClient::config(|c| {
+            c.in_process_path(device.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect_blocking()
+        .expect("connect")
     }
 
     /// Stream sideband event from the device, not in response to a request

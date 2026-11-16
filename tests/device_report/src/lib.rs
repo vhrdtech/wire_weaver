@@ -430,17 +430,24 @@ mod tests {
 
     /// `ww info` connects traits-only, `ww report` also reads the device's introspection data (the log stream).
     async fn connect_traits_only(device: &TestDevice) -> DynClient {
-        DynClient::traits_only(|c| c.in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect")
+        DynClient::traits_only(|c| {
+            c.in_process_path(device.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect()
+        .await
+        .expect("connect")
     }
 
     async fn connect(device: &TestDevice) -> DynClient {
-        DynClient::from_config(ClientConfig::new().in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect")
+        DynClient::from_config(
+            ClientConfig::new()
+                .in_process_path(device.path())
+                .resolver(tests_common::resolver()),
+        )
+        .connect()
+        .await
+        .expect("connect")
     }
 
     fn defmt_table() -> Arc<defmt_decoder::Table> {

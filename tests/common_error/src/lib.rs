@@ -125,10 +125,13 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn generated_client() {
         let device = start("common_error/generated");
-        let client = Client::config(|c| c.in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect");
+        let client = Client::config(|c| {
+            c.in_process_path(device.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect()
+        .await
+        .expect("connect");
 
         assert_eq!(client.read(0).call().await.unwrap(), 1234);
         // a common error of a method with an error type of its own: `CallError::Common`, not `Device`
@@ -173,10 +176,14 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn dynamic_client() {
         let device = start("common_error/dynamic");
-        let client = DynClient::from_config(ClientConfig::new().in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect");
+        let client = DynClient::from_config(
+            ClientConfig::new()
+                .in_process_path(device.path())
+                .resolver(tests_common::resolver()),
+        )
+        .connect()
+        .await
+        .expect("connect");
         let cmd = client.cmd();
         let root = DynResource::root(bundle());
         let read = root.child("read").unwrap();

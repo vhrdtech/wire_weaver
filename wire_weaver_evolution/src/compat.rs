@@ -2708,6 +2708,7 @@ pub(crate) mod tests {
         Resolver::new().with_cargo_scan(ww_snapshots::CargoScan {
             workspace: Some(std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))),
             cargo_home: ww_snapshots::cargo::default_cargo_home().ok(),
+            unlocked: false,
         })
     }
 

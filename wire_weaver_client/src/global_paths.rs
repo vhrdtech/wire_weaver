@@ -39,7 +39,6 @@ use ww_version::{ApiHashPairOwned, FullVersionOwned, VersionOwned, WireVersion};
 type TraitKey = (String, String, u32, u32, u32);
 
 /// The global trait paths of one connection: the device's API once known, and the paths found in it.
-#[derive(Default)]
 pub struct GlobalPaths {
     /// The device's API, with the traits it left out of its introspection data put back; `None` inside: the device
     /// has no introspection data (and none is cached for its API).
@@ -48,6 +47,8 @@ pub struct GlobalPaths {
     link: Mutex<Option<Link>>,
     /// Paths found so far, `None` for a trait the device's API doesn't have in a compatible version.
     resolved: Mutex<HashMap<TraitKey, Option<Vec<ResourceIndex>>>>,
+    /// The connection's resolver: the wanted crate's wire version, what the device left out of its API.
+    resolver: &'static Resolver,
 }
 
 struct Link {
@@ -75,8 +76,13 @@ impl std::fmt::Debug for GlobalPaths {
 }
 
 impl GlobalPaths {
-    pub(crate) fn new() -> Arc<Self> {
-        Arc::new(Self::default())
+    pub(crate) fn new(resolver: &'static Resolver) -> Arc<Self> {
+        Arc::new(Self {
+            api: OnceCell::new(),
+            link: Mutex::new(None),
+            resolved: Mutex::new(HashMap::new()),
+            resolver,
+        })
     }
 
     /// Connected: how to reach the device, and its API if the connection already has it (`Some(None)`: the device
@@ -117,7 +123,7 @@ impl GlobalPaths {
             .entry(key)
             .or_insert_with(|| {
                 let wanted = FullVersionOwned::new(crate_id.into(), version.clone());
-                find_trait(api, &wanted, trait_name)
+                find_trait(api, &wanted, trait_name, self.resolver)
             })
             .clone()
     }
@@ -136,14 +142,14 @@ impl GlobalPaths {
                 };
                 let transport = transport.ok_or(Error::EventLoopNotRunning)?;
                 debug!("resolving a global trait path: getting the device's introspection data");
-                let sent = Introspect::new(transport, api_hash.clone())
+                let sent = Introspect::new(transport, api_hash.clone(), self.resolver)
                     .get_as_sent()
                     .await
                     .map_err(|e| Error::Other(format!("{e:#}")))?;
                 let Some((sent, size)) = sent else {
                     return Ok::<_, Error>(None);
                 };
-                let bundle = IntrospectBundle::from_sent(sent, api_hash, size)
+                let bundle = IntrospectBundle::from_sent(sent, api_hash, size, self.resolver)
                     .map_err(|e| Error::Other(format!("{e:#}")))?;
                 Ok(Some(bundle.api_bundle))
             })
@@ -218,16 +224,18 @@ impl GlobalPaths {
 
 /// Absolute path of the first trait in `api` depth first (the root first, then items in order) whose crate is
 /// protocol compatible with `wanted` and whose name is `trait_name`. A trait under a resource array is reached at
-/// index 0; items the device leaves out (API-16) are skipped.
+/// index 0; items the device leaves out (API-16) are skipped. The wanted crate's wire version comes from its snapshot
+/// through `resolver`.
 pub(crate) fn find_trait(
     api: &ApiBundleOwned,
     wanted: &FullVersionOwned,
     trait_name: &str,
+    resolver: &Resolver,
 ) -> Option<Vec<ResourceIndex>> {
     let omitted: Vec<u32> = api.root_omitted.iter().flatten().map(|id| id.0).collect();
     let wanted = Wanted {
         version: wanted,
-        wire: Resolver::global().snapshot(wanted).and_then(|s| s.wire),
+        wire: resolver.snapshot(wanted).and_then(|s| s.wire),
     };
     find_in_level(api, &api.root, &omitted, &wanted, trait_name, &mut vec![])
 }
@@ -332,7 +340,8 @@ pub trait Status {
             "test_api".into(),
             VersionOwned::new(version.0, version.1, 7),
         );
-        find_trait(api, &wanted, trait_name).map(|p| p.iter().map(|id| id.get().0).collect())
+        find_trait(api, &wanted, trait_name, crate::test_resolver())
+            .map(|p| p.iter().map(|id| id.get().0).collect())
     }
 
     #[test]
@@ -384,19 +393,27 @@ pub trait Status {
             .unwrap();
         let wanted = device.ext_crates[idx].clone();
         assert_eq!(
-            Resolver::global().snapshot(&wanted).and_then(|s| s.wire),
+            crate::test_resolver()
+                .snapshot(&wanted)
+                .and_then(|s| s.wire),
             Some(WireVersion::new(2, 0))
         );
         device.ext_crates[idx].version = VersionOwned::new(0, 4, 0);
         device.set_crate_wire(idx as u32, Some(WireVersion::new(2, 1)));
-        let found = find_trait(&device, &wanted, "Fixture");
+        let found = find_trait(&device, &wanted, "Fixture", crate::test_resolver());
         assert_eq!(found, Some(ww_client_server::resource_path([1]).to_vec()));
 
         device.set_crate_wire(idx as u32, Some(WireVersion::new(3, 0)));
-        assert_eq!(find_trait(&device, &wanted, "Fixture"), None);
+        assert_eq!(
+            find_trait(&device, &wanted, "Fixture", crate::test_resolver()),
+            None
+        );
         // without the device's wire version, the crate versions decide: 0.4.0 is not 0.1.0
         device.set_crate_wire(idx as u32, None);
-        assert_eq!(find_trait(&device, &wanted, "Fixture"), None);
+        assert_eq!(
+            find_trait(&device, &wanted, "Fixture", crate::test_resolver()),
+            None
+        );
     }
 
     #[test]
@@ -409,7 +426,7 @@ pub trait Status {
     #[test]
     fn resolve_caches_per_trait() {
         let api = bundle("global_paths_r", "0.2.1", API);
-        let paths = GlobalPaths::new();
+        let paths = GlobalPaths::new(crate::test_resolver());
         let version = VersionOwned::new(0, 2, 0);
         assert_eq!(
             paths.resolve("test_api", &version, "Port"),

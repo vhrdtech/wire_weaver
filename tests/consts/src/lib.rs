@@ -203,10 +203,13 @@ mod tests {
     }
 
     async fn connect(device: &TestDevice) -> StdClient {
-        StdClient::config(|c| c.in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect")
+        StdClient::config(|c| {
+            c.in_process_path(device.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect()
+        .await
+        .expect("connect")
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -295,10 +298,14 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn dynamic_client_reads_once() {
         let (device, reads) = start("consts/dynamic");
-        let client = DynClient::from_config(ClientConfig::new().in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect");
+        let client = DynClient::from_config(
+            ClientConfig::new()
+                .in_process_path(device.path())
+                .resolver(tests_common::resolver()),
+        )
+        .connect()
+        .await
+        .expect("connect");
         let root = DynResource::root(client.device_introspect().unwrap().api_bundle.clone());
         let before = reads.load(Ordering::Relaxed);
         let name = root.child("info").unwrap().child("NAME").unwrap();
@@ -327,9 +334,12 @@ mod tests {
         let (device, reads) = start("consts/promise");
         let rt = tokio::runtime::Runtime::new().unwrap();
         let _guard = rt.enter();
-        let client = StdClient::config(|c| c.in_process_path(device.path()))
-            .connect_blocking()
-            .expect("connect");
+        let client = StdClient::config(|c| {
+            c.in_process_path(device.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect_blocking()
+        .expect("connect");
         let before = reads.load(Ordering::Relaxed);
         for _ in 0..2 {
             let mut read = client.info().read_NAME().read_promise("name");

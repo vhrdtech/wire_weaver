@@ -19,6 +19,7 @@
 
 ### ⚠️ Breaking
 
+- `HubConfig` has the new field `resolver` (EVO-80): the snapshot resolver of the hub's device connections, `Resolver::global()` from `from_env()`. Struct literals need it.
 - A claim's refusal (SRV-34) is the common error `InUse { by }` (`ErrorKind::Common`, STD-16) for every item, instead of a `Common(InUse)` value of the item's own error type and a `UserStr` for items without one: the hub no longer needs the device's API model to refuse, and clients read it as `CallError::Common` / `Error::common()`.
 - `HubConfig` has the new field `adopt_attach` (CLT-44, `ADOPT_ATTACH_ENV`, 5 s by default): struct literals need it.
 - `HubConfig` has the new field `version` (the version the hub answers with and compares in a handover; `HUB_VERSION` from `from_env()`), `Exit` the variant `Handover`. Struct literals and exhaustive matches need them.

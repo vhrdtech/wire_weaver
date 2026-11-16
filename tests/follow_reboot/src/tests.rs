@@ -31,10 +31,13 @@ mod api_client {
 }
 
 async fn connect(serial: &str) -> LeanAppClient {
-    LeanAppClient::config(|c| c.in_process_path(serial.to_string()))
-        .connect()
-        .await
-        .expect("connect")
+    LeanAppClient::config(|c| {
+        c.in_process_path(serial.to_string())
+            .resolver(tests_common::resolver())
+    })
+    .connect()
+    .await
+    .expect("connect")
 }
 
 /// `image` as a UF2 file for the RP2350 (ARM, secure), as picotool writes it, with the RP2350-E10 dummy block first.

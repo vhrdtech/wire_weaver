@@ -17,6 +17,22 @@ use wire_weaver_client::in_process::{self, TokioClock};
 /// Message buffers of the test device (`ww_device::Server` scratch, in-process link).
 pub const MAX_MESSAGE_LEN: usize = 1024;
 
+/// The resolver test clients connect with (`ClientConfig::resolver`): [Resolver::offline] over this workspace, with
+/// the host's cache, where codegen keeps the APIs of devices that don't send theirs. It never fetches.
+///
+/// [Resolver::offline]: wire_weaver_client::snapshots::Resolver::offline
+pub fn resolver() -> &'static wire_weaver_client::snapshots::Resolver {
+    use wire_weaver_client::snapshots::{Resolver, cache};
+    static RESOLVER: std::sync::LazyLock<Resolver> = std::sync::LazyLock::new(|| {
+        let resolver = Resolver::offline(std::path::Path::new(env!("CARGO_MANIFEST_DIR")));
+        match cache::default_root() {
+            Some(root) => resolver.with_cache(&root),
+            None => resolver,
+        }
+    });
+    &RESOLVER
+}
+
 /// Implemented by test servers generated with `use_async = false`, forwards to the generated `process_request_bytes`.
 pub trait TestProcessEvents {
     /// `medium = ".."` given to `ww_codegen!`, `()` by default.
@@ -209,7 +225,7 @@ pub struct TestDevice {
 }
 
 impl TestDevice {
-    /// Path to connect to: `Client::config(|c| c.in_process_path(device.path()))`.
+    /// Path to connect to: `Client::config(|c| c.in_process_path(device.path()).resolver(tests_common::resolver()))`.
     pub fn path(&self) -> String {
         self.path.clone()
     }

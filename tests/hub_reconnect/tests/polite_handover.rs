@@ -109,11 +109,16 @@ async fn a_command_line_holder_hands_the_device_to_the_hub() {
 
     // this program wants the device too: the holder hands it to the hub, both go on through it
     let started = Instant::now();
-    let client =
-        Client::config(|c| asker()(c.ipc_path(socket.display().to_string()).ipc_exclusive()))
-            .connect()
-            .await
-            .expect("connect through the hub after the handover");
+    let client = Client::config(|c| {
+        asker()(
+            c.ipc_path(socket.display().to_string())
+                .resolver(tests_common::resolver())
+                .ipc_exclusive(),
+        )
+    })
+    .connect()
+    .await
+    .expect("connect through the hub after the handover");
     let connect = started.elapsed();
     assert_eq!(client.add(20, 22).call().await.unwrap(), 42);
 
@@ -162,14 +167,19 @@ async fn a_gui_holder_refuses_and_is_named() {
     let key = format!("ipc:{}", socket.display());
     let holder = Holder::start(&socket, "Gui");
 
-    let e =
-        match Client::config(|c| asker()(c.ipc_path(socket.display().to_string()).ipc_exclusive()))
-            .connect()
-            .await
-        {
-            Ok(_) => panic!("a GUI holder doesn't hand its device over"),
-            Err(e) => format!("{e:#}"),
-        };
+    let e = match Client::config(|c| {
+        asker()(
+            c.ipc_path(socket.display().to_string())
+                .resolver(tests_common::resolver())
+                .ipc_exclusive(),
+        )
+    })
+    .connect()
+    .await
+    {
+        Ok(_) => panic!("a GUI holder doesn't hand its device over"),
+        Err(e) => format!("{e:#}"),
+    };
     assert!(e.contains("polite-holder"), "{e}");
     assert!(e.contains("Gui"), "{e}");
     assert!(e.contains("doesn't hand it over"), "{e}");

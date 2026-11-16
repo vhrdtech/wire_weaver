@@ -19,3 +19,6 @@ ww_client_server.workspace = true
 ww_device.workspace = true
 ww_picoboot = { workspace = true, features = ["sim"] }
 ww_stm32_dfu = { workspace = true, features = ["sim"] }
+
+[dev-dependencies]
+tests_common.workspace = true

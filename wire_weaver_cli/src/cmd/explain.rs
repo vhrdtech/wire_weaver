@@ -15,6 +15,7 @@ use std::sync::Arc;
 use tracing::level_filters::LevelFilter;
 use wire_weaver_client::envelope;
 use wire_weaver_client::expr::{self, Call};
+use wire_weaver_client::snapshots::Resolver;
 use wire_weaver_client::ww_self::explain::{Explained, Part, PartKind, explain, explain_fields};
 use wire_weaver_client::ww_self::{
     ApiBundleOwned, ArgumentOwned, FieldOwned, TypeOwned, ValueOwned, check_args_count,
@@ -129,7 +130,7 @@ pub(crate) fn explain_cmd(args: ExplainArgs, device: Option<&DynClient>) -> Resu
     let root = DynResource::root(bundle.clone());
     let (title, bytes, explained) = match (args.what.as_str(), given) {
         ("request", Some(bytes)) => {
-            let e = envelope::explain_request(&bytes, &root);
+            let e = envelope::explain_request(&bytes, &root, Resolver::global());
             (e.title, bytes, e.explained)
         }
         ("event", Some(bytes)) => {
@@ -155,7 +156,7 @@ pub(crate) fn explain_cmd(args: ExplainArgs, device: Option<&DynClient>) -> Resu
                 })?;
                 let payload = (!matches!(target, Target::None)).then_some(bytes);
                 let bytes = envelope::request_bytes(&resource, payload)?;
-                let e = envelope::explain_request(&bytes, &root);
+                let e = envelope::explain_request(&bytes, &root, Resolver::global());
                 (e.title, bytes, e.explained)
             } else {
                 let explained = explain_target(&bytes, &target, &bundle);

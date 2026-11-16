@@ -443,10 +443,13 @@ mod tests {
     }
 
     async fn connect(device: &TestDevice) -> Client {
-        Client::config(|c| c.in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect")
+        Client::config(|c| {
+            c.in_process_path(device.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect()
+        .await
+        .expect("connect")
     }
 
     fn data(len: usize) -> Vec<u8> {
@@ -1012,9 +1015,12 @@ mod tests {
         let rt = tokio::runtime::Runtime::new().unwrap();
         let _guard = rt.enter();
         let connect = || {
-            Client::config(|c| c.in_process_path(device.path()))
-                .connect_blocking()
-                .expect("connect")
+            Client::config(|c| {
+                c.in_process_path(device.path())
+                    .resolver(tests_common::resolver())
+            })
+            .connect_blocking()
+            .expect("connect")
         };
         let client = connect();
         let mut plan = client.plan_blocking().unwrap();
@@ -1093,9 +1099,12 @@ mod tests {
         );
         let rt = tokio::runtime::Runtime::new().unwrap();
         let _guard = rt.enter();
-        let client = Client::config(|c| c.in_process_path(device.path()))
-            .connect_blocking()
-            .expect("connect");
+        let client = Client::config(|c| {
+            c.in_process_path(device.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect_blocking()
+        .expect("connect");
         let mut plan = client.plan_blocking().unwrap();
         let bytes = data(4000);
         for chunk in bytes.chunks(50) {
@@ -1155,10 +1164,14 @@ mod tests {
         let (device, m) = start("credit/dynamic", Config::new(4, 2));
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../credit_sink_api");
         let bundle = wire_weaver_core::load(&path, Some("CreditSinks".into()), false).unwrap();
-        let client = DynClient::from_config(ClientConfig::new().in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect");
+        let client = DynClient::from_config(
+            ClientConfig::new()
+                .in_process_path(device.path())
+                .resolver(tests_common::resolver()),
+        )
+        .connect()
+        .await
+        .expect("connect");
         let root = DynResource::root(Arc::new(bundle));
         let points = root.child("points").unwrap();
         assert!(matches!(

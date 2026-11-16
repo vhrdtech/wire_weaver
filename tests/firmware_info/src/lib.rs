@@ -168,10 +168,13 @@ mod tests {
     }
 
     async fn connect(device: &TestDevice) -> StdClient {
-        StdClient::config(|c| c.in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect")
+        StdClient::config(|c| {
+            c.in_process_path(device.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect()
+        .await
+        .expect("connect")
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -209,10 +212,14 @@ mod tests {
     async fn dynamic_client_reads_summary() {
         use wire_weaver_client::{ClientConfig, DynClient, DynResource};
         let (device, _) = start("firmware_info/dynamic", None);
-        let client = DynClient::from_config(ClientConfig::new().in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect");
+        let client = DynClient::from_config(
+            ClientConfig::new()
+                .in_process_path(device.path())
+                .resolver(tests_common::resolver()),
+        )
+        .connect()
+        .await
+        .expect("connect");
         let root = DynResource::root(client.device_introspect().unwrap().api_bundle.clone());
         let fw = root.child("firmware").unwrap();
         let summary = fw.child("FIRMWARE").unwrap().read(client.cmd()).await;

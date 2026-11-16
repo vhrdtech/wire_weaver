@@ -219,9 +219,12 @@ mod tests {
 
     /// The bundle a plain server sends, with the known traits and types put back as the client does.
     fn plain_bundle() -> ApiBundleOwned {
-        wire_weaver_client::decode_introspection(&plain::api_impl::WW_SELF_BYTES)
-            .unwrap()
-            .unwrap()
+        wire_weaver_client::decode_introspection(
+            &plain::api_impl::WW_SELF_BYTES,
+            tests_common::resolver(),
+        )
+        .unwrap()
+        .unwrap()
     }
 
     fn bytes(bundle: &ApiBundleOwned) -> Vec<u8> {
@@ -326,10 +329,13 @@ mod tests {
     }
 
     async fn connect_to(device: &tests_common::TestDevice) -> Host {
-        Host::config(|c| c.in_process_path(device.path()))
-            .connect()
-            .await
-            .unwrap()
+        Host::config(|c| {
+            c.in_process_path(device.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect()
+        .await
+        .unwrap()
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -396,7 +402,9 @@ mod tests {
             lz4::api_impl::api_hash(),
         );
         let client = wire_weaver_client::DynClient::from_config(
-            ClientConfig::new().in_process_path(device.path()),
+            ClientConfig::new()
+                .in_process_path(device.path())
+                .resolver(tests_common::resolver()),
         )
         .connect()
         .await
@@ -467,6 +475,7 @@ mod tests {
             sync_linger: None,
             sync_options: wire_weaver_client::clock_sync::Options::default(),
             state_dir: None,
+            resolver: tests_common::resolver(),
             adopt_attach: Duration::from_secs(5),
         })
         .unwrap()

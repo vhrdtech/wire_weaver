@@ -267,10 +267,13 @@ mod tests {
             traits_api::TRAITS_WIRE_VERSION,
             no_std_sync_server::api_impl::api_hash(),
         );
-        let client = std_client::StdClient::config(|c| c.in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect");
+        let client = std_client::StdClient::config(|c| {
+            c.in_process_path(device.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect()
+        .await
+        .expect("connect");
 
         client.g1().m1().call().await.unwrap();
         assert!(data.read().unwrap().subgroup_m1_called);
@@ -342,10 +345,13 @@ mod tests {
             traits_api::TRAITS_WIRE_VERSION,
             no_std_sync_server::api_impl::api_hash(),
         );
-        let client = std_client::StdClient::config(|c| c.in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect");
+        let client = std_client::StdClient::config(|c| {
+            c.in_process_path(device.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect()
+        .await
+        .expect("connect");
 
         assert_eq!(client.i2c().i2c_write(1).call().await.unwrap(), 2);
         // method
@@ -382,10 +388,13 @@ mod tests {
             traits_api::TRAITS_WIRE_VERSION,
             cfg_server::api_impl::api_hash(),
         );
-        let client = std_client::StdClient::config(|c| c.in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect");
+        let client = std_client::StdClient::config(|c| {
+            c.in_process_path(device.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect()
+        .await
+        .expect("connect");
 
         assert_eq!(client.i2c().i2c_wiggle_clock(3).call().await.unwrap(), 6);
         assert_call_unimplemented(
@@ -543,10 +552,14 @@ mod tests {
             traits_api::TRAITS_WIRE_VERSION,
             no_std_sync_server::api_impl::api_hash(),
         );
-        let client = DynClient::from_config(ClientConfig::new().in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect");
+        let client = DynClient::from_config(
+            ClientConfig::new()
+                .in_process_path(device.path())
+                .resolver(tests_common::resolver()),
+        )
+        .connect()
+        .await
+        .expect("connect");
         let bundle = client.device_introspect().unwrap().api_bundle.clone();
         let root = DynResource::root(bundle);
         let i2c = root.child("i2c").unwrap();
@@ -583,10 +596,14 @@ mod tests {
             traits_api::TRAITS_WIRE_VERSION,
             no_std_sync_server::api_impl::api_hash(),
         );
-        let client = DynClient::from_config(ClientConfig::new().in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect");
+        let client = DynClient::from_config(
+            ClientConfig::new()
+                .in_process_path(device.path())
+                .resolver(tests_common::resolver()),
+        )
+        .connect()
+        .await
+        .expect("connect");
         let bundle = &client.device_introspect().unwrap().api_bundle;
         let claims: Vec<_> = bundle
             .root

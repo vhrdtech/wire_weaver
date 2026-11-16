@@ -213,10 +213,13 @@ mod tests {
     }
 
     async fn connect(device: &TestDevice) -> Client {
-        Client::config(|c| c.in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect")
+        Client::config(|c| {
+            c.in_process_path(device.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect()
+        .await
+        .expect("connect")
     }
 
     async fn next<T: DeserializeShrinkWrapOwned>(

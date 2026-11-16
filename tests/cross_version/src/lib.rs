@@ -331,18 +331,25 @@ mod tests {
 
     /// Without the connection's own clock steering (CLT-46): its `Clock::now()` try would be in the recorded calls.
     async fn connect_traits_only(device: &tests_common::TestDevice) -> DynClient {
-        DynClient::traits_only(|c| c.in_process_path(device.path()).clock_sync(false))
-            .connect()
-            .await
-            .expect("connect")
+        DynClient::traits_only(|c| {
+            c.in_process_path(device.path())
+                .resolver(tests_common::resolver())
+                .clock_sync(false)
+        })
+        .connect()
+        .await
+        .expect("connect")
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn new_api_client_is_refused() {
         let (_calls, device) = start_old_device("cross_version/refused");
-        let r = new_client::NewClient::config(|c| c.in_process_path(device.path()))
-            .connect()
-            .await;
+        let r = new_client::NewClient::config(|c| {
+            c.in_process_path(device.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect()
+        .await;
         let e = r
             .err()
             .expect("a client of another wire line must not connect");
@@ -584,6 +591,7 @@ mod tests {
         let client = DynClient::from_config(
             wire_weaver_client::ClientConfig::new()
                 .in_process_path(device.path())
+                .resolver(tests_common::resolver())
                 .clock_sync(false),
         )
         .connect()

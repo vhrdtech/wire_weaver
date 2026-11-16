@@ -37,6 +37,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::sync::watch;
 use tokio::time::Instant;
 use tracing::{debug, info, warn};
+use wire_weaver_client::snapshots::Resolver;
 use ww_local_socket::files::{HUB_LOCK, HUB_SOCKET};
 use ww_local_socket::{Answer, Peer, Preamble, PreambleError, Status, Target};
 
@@ -91,6 +92,9 @@ pub struct HubConfig {
     /// After adopting a program's live link (CLT-44), how long its tunnel has to connect (5 s) before the hub takes
     /// the program as gone.
     pub adopt_attach: Duration,
+    /// What the hub opens devices with and decodes their introspection data through
+    /// ([wire_weaver_client::ClientConfig::resolver]): [Resolver::global] normally.
+    pub resolver: &'static Resolver,
 }
 
 impl HubConfig {
@@ -138,6 +142,7 @@ impl HubConfig {
                 })?,
                 Err(_) => adopt::ATTACH_TIMEOUT,
             },
+            resolver: Resolver::global(),
         })
     }
 }
@@ -389,6 +394,7 @@ impl Bound {
             handing_over: std::sync::atomic::AtomicBool::new(false),
             adopt_attach: config.adopt_attach,
             adoptions: Mutex::new(Default::default()),
+            resolver: config.resolver,
         });
         Bound {
             config,
@@ -550,6 +556,8 @@ pub(crate) struct Hub {
     pub(crate) state_dir: Option<PathBuf>,
     /// See [HubConfig::sync_options]
     pub(crate) sync_options: wire_weaver_client::clock_sync::Options,
+    /// See [HubConfig::resolver]
+    pub(crate) resolver: &'static Resolver,
     /// See [HubConfig::adopt_attach]
     pub(crate) adopt_attach: Duration,
     /// Adopted links whose program's tunnel hasn't connected yet (CLT-44), by adoption id

@@ -2,12 +2,14 @@
 
 ### 🚀 Features
 
+- `ClientConfig::resolver(&'static Resolver)` (EVO-80): the snapshot resolver of one connection, `Resolver::global()` by default; introspection, global trait paths and the local cache of downloaded APIs go through it, and a resolver without a cache keeps nothing on the machine.
 - A property, return value or stream item of a type without a definition decodes as `ValueOwned::Opaque` (EVO-80).
 - `CallError::Common(CommonErrorOwned)` and `Error::common()` (STD-16): the common error a device or the hub answered a call, read, write or stream open with (`ErrorKind::Common`), for an item with an error type of its own as a `CallError` variant (`CallError::common()`), for one without through `Error::common()`. It converts into `wire_weaver::call::CallError::Common`; `Error::call_kind` folds it (`Busy` is `Overloaded`, ...). The crate re-exports `ww_error`. Exhaustive matches on `CallError` need the arm.
 - `quantity::CodedType::light(raw)` (STD-112): the light a code means through its codec's transfer curve, a `ww_self::units::Light` (exact where it is a rational, the float edge). `coded_of` reads a `Coded<Transfer<Q, C>, ..>` (a 10-bit PQ pixel), its `codec` `Q`'s definition with `curve` set; `DynQuantity` reads and writes it as `Q`'s signal.
 
 ### ⚠️ Breaking
 
+- Snapshot lookups take the resolver (EVO-80): `decode_introspection(bytes, resolver)`, `envelope::explain_request(bytes, root, resolver)`; `tap::Decoder::with_resolver` (default `Resolver::global()`).
 - `snapshots` is `ww_snapshots`: `Resolver::global().snapshot(v)` replaces `snapshots::get(v)`, `all()` is gone (EVO-80).
 - `ErrorList` gains `common` (STD-16): the `CommonError(..)` entry of an item's list; `with_common_error_list` on `PreparedCall<T, Error>`, `PreparedWrite<Error>` and `PreparedStreamOpen` (items without an error type); opening a stream function returning plain `T` gives `(T, stream)` (`OpenValue<T>`).
 - `tap::What` gains `BadBody`, `Stats` gains `blocks_bad`: a coded body that doesn't decode is reported (STD-129).

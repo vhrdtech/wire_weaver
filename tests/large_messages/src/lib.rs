@@ -192,10 +192,14 @@ fn start(name: &str, device_limit: usize) -> TestDevice {
 }
 
 async fn connect(device: &TestDevice, host_limit: usize) -> Client {
-    Client::config(|c| c.in_process_path(device.path()).max_message_len(host_limit))
-        .connect()
-        .await
-        .expect("connect")
+    Client::config(|c| {
+        c.in_process_path(device.path())
+            .resolver(tests_common::resolver())
+            .max_message_len(host_limit)
+    })
+    .connect()
+    .await
+    .expect("connect")
 }
 
 fn rows(n: u32) -> RowCount {

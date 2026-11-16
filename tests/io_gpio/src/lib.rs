@@ -472,10 +472,13 @@ mod tests {
     }
 
     async fn connect(device: &TestDevice) -> StdClient {
-        StdClient::config(|c| c.in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect")
+        StdClient::config(|c| {
+            c.in_process_path(device.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect()
+        .await
+        .expect("connect")
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -638,10 +641,14 @@ mod tests {
 
         let (device, banks) = start("io_gpio/pins_view_over_banks");
         banks.lock().unwrap()[1].pins[1].pull = Pull::Down;
-        let client = DynClient::from_config(ClientConfig::new().in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect");
+        let client = DynClient::from_config(
+            ClientConfig::new()
+                .in_process_path(device.path())
+                .resolver(tests_common::resolver()),
+        )
+        .connect()
+        .await
+        .expect("connect");
         let (mut pins, points) = BankPins::find(&client).await.unwrap();
         // every mock pin calls itself "pin": named by bank and index instead
         let names: Vec<(&str, &str)> = points

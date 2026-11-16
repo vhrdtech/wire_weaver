@@ -267,10 +267,13 @@ mod tests {
             pin_diag_api::PIN_DIAG_TEST_WIRE_VERSION,
             server::api_impl::api_hash(),
         );
-        let client = StdClient::config(|c| c.in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect");
+        let client = StdClient::config(|c| {
+            c.in_process_path(device.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect()
+        .await
+        .expect("connect");
         (device, client)
     }
 
@@ -422,10 +425,14 @@ mod tests {
             pin_diag_api::PIN_DIAG_TEST_WIRE_VERSION,
             server::api_impl::api_hash(),
         );
-        let client = DynClient::from_config(ClientConfig::new().in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect");
+        let client = DynClient::from_config(
+            ClientConfig::new()
+                .in_process_path(device.path())
+                .resolver(tests_common::resolver()),
+        )
+        .connect()
+        .await
+        .expect("connect");
         assert!(DevicePins::find(&client, Some("diag")).is_err());
         let mut pins = DevicePins::find(&client, None).unwrap();
         assert_eq!(pins.at.name, "pins");

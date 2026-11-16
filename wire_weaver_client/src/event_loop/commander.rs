@@ -35,6 +35,7 @@ use wire_weaver::shrink_wrap::SerializeShrinkWrapOwned;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
 use ww_client_server::ResourceIndex;
 use ww_client_server::{PathKind, PathKindOwned, Priority, RequestKindOwned, StreamSideband};
+use ww_snapshots::Resolver;
 use ww_stream::StreamCursor;
 use ww_version::{CompactVersion, VersionOwned};
 
@@ -70,6 +71,9 @@ pub struct Commander {
     /// Global trait paths resolved to absolute ones from the device's introspection data (SRV-53), shared with the
     /// event loop and the Commander's clones.
     pub(crate) global_paths: Arc<GlobalPaths>,
+    /// [ClientConfig::resolver](crate::ClientConfig::resolver): finds the snapshots of what the device leaves out of
+    /// its introspection data, and its cache root keeps that data.
+    pub(crate) resolver: &'static Resolver,
     /// Bytes of items queued per stream on the host
     stream_queue_bytes: usize,
     stream_compression: bool,
@@ -154,6 +158,7 @@ pub(crate) struct WeakCommander {
     api_match: ApiMatch,
     traits_only: bool,
     global_paths: Arc<GlobalPaths>,
+    resolver: &'static Resolver,
     stream_queue_bytes: usize,
     stream_compression: bool,
     streams: StreamRegistry,
@@ -181,6 +186,7 @@ impl WeakCommander {
             api_match: self.api_match.clone(),
             traits_only: self.traits_only,
             global_paths: self.global_paths.clone(),
+            resolver: self.resolver,
             stream_queue_bytes: self.stream_queue_bytes,
             stream_compression: self.stream_compression,
             streams: self.streams.clone(),
@@ -221,7 +227,8 @@ impl Commander {
             device_introspect: None,
             api_match: ApiMatch::NoClientApi,
             traits_only: false,
-            global_paths: GlobalPaths::new(),
+            global_paths: GlobalPaths::new(Resolver::global()),
+            resolver: Resolver::global(),
             stream_queue_bytes: crate::DEFAULT_STREAM_QUEUE_BYTES,
             stream_compression: true,
             streams: StreamRegistry::default(),
@@ -936,6 +943,7 @@ impl Commander {
         Introspect::new(
             self.transport(),
             self.connected_device.user_api_hash.clone(),
+            self.resolver,
         )
     }
 
@@ -980,6 +988,7 @@ impl Commander {
             api_match: self.api_match.clone(),
             traits_only: self.traits_only,
             global_paths: self.global_paths.clone(),
+            resolver: self.resolver,
             stream_queue_bytes: self.stream_queue_bytes,
             stream_compression: self.stream_compression,
             streams: self.streams.clone(),

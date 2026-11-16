@@ -44,10 +44,13 @@ client!(updater, UpdaterClient, dfu_updater_api, DfuUpdater);
 /// Client config that selects the device at `addr`.
 pub fn at(addr: &Addr) -> impl Fn(ClientConfig) -> ClientConfig + use<> {
     let addr = addr.clone();
-    move |c| match &addr {
-        Addr::InProcess(path) => c.in_process_path(path.clone()),
-        Addr::WebSocket(url) => c.websocket_url(url.clone()),
-        Addr::Udp(a) => c.udp_addr(a.clone()),
+    move |c| {
+        let c = c.resolver(tests_common::resolver());
+        match &addr {
+            Addr::InProcess(path) => c.in_process_path(path.clone()),
+            Addr::WebSocket(url) => c.websocket_url(url.clone()),
+            Addr::Udp(a) => c.udp_addr(a.clone()),
+        }
     }
 }
 

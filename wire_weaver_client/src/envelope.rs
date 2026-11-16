@@ -27,6 +27,7 @@ use ww_client_server::{
 use ww_numeric::NumericValue;
 use ww_self::explain::{Explained, Part, PartKind, explain, explain_fields};
 use ww_self::{ApiBundleOwned, ApiLevelLocationOwned, TypeOwned, ValueOwned};
+use ww_snapshots::Resolver;
 use ww_version::{CompactVersion, FullVersionOwned, VersionOwned};
 
 /// A request or event explained, with a title saying what it is.
@@ -41,9 +42,13 @@ pub struct Envelope {
 }
 
 /// Explain `bytes` as a request (as the host sends it), its payload by the resource its path names in `root`'s API,
-/// or in the snapshot of a global trait ([global_trait]). Without a `root` (the API of the device is not known) only
-/// the requests through global traits are explained.
-pub fn explain_request<'r>(bytes: &[u8], root: impl Into<Option<&'r DynResource>>) -> Envelope {
+/// or in the snapshot of a global trait ([global_trait], found through `resolver`). Without a `root` (the API of the
+/// device is not known) only the requests through global traits are explained.
+pub fn explain_request<'r>(
+    bytes: &[u8],
+    root: impl Into<Option<&'r DynResource>>,
+    resolver: &'static Resolver,
+) -> Envelope {
     let root = root.into();
     let mut b = Builder::new(bytes);
     let mut title = "Request".to_string();
@@ -115,7 +120,7 @@ pub fn explain_request<'r>(bytes: &[u8], root: impl Into<Option<&'r DynResource>
                     .iter()
                     .map(|i| i.map(|i| i.get().0))
                     .collect::<Result<_, _>>()?;
-                let resource = global_trait(&gid.make_owned(), trait_name)
+                let resource = global_trait(&gid.make_owned(), trait_name, resolver)
                     .ok_or_else(|| anyhow!("{}@{} is not known here", gid.crate_id, trait_name))
                     .and_then(|t| t.descend(&chain).map_err(|e| anyhow!("{e}")));
                 b.leaf(
@@ -146,7 +151,7 @@ pub fn explain_request<'r>(bytes: &[u8], root: impl Into<Option<&'r DynResource>
                     .clone()
                     .map_err(|e| anyhow!("{e}"))
                     .and_then(|(version, trait_name)| {
-                        global_trait(&version, trait_name).ok_or_else(|| {
+                        global_trait(&version, trait_name, resolver).ok_or_else(|| {
                             anyhow!("{}@{} is not known here", version.crate_id, trait_name)
                         })
                     })
@@ -868,20 +873,29 @@ pub fn compact_trait_name(
     ))
 }
 
-/// The trait `trait_name` of crate `version` as a level, from the API snapshots this host finds
+/// The trait `trait_name` of crate `version` as a level, from the API snapshots `resolver` finds
 /// ([crate::snapshots]): the traits a device leaves out of its introspection data, and what a request through a
 /// global trait id (`PathKind::GlobalFull`) names. `None` when no snapshot of the version is found or it has no such
 /// trait.
-pub fn global_trait(version: &FullVersionOwned, trait_name: &str) -> Option<DynResource> {
-    type Key = (FullVersionOwned, String);
+pub fn global_trait(
+    version: &FullVersionOwned,
+    trait_name: &str,
+    resolver: &'static Resolver,
+) -> Option<DynResource> {
+    /// The resolver's address, the version and the trait name: a level found through one resolver is its own.
+    type Key = (usize, FullVersionOwned, String);
     static CACHE: Mutex<Option<HashMap<Key, Option<DynResource>>>> = Mutex::new(None);
     let mut cache = CACHE.lock().unwrap();
     cache
         .get_or_insert_with(HashMap::new)
-        .entry((version.clone(), trait_name.to_string()))
+        .entry((
+            std::ptr::from_ref(resolver) as usize,
+            version.clone(),
+            trait_name.to_string(),
+        ))
         .or_insert_with(|| {
-            let mut bundle = ww_snapshots::Resolver::global().snapshot(version)?.clone();
-            crate::client::introspect::inline_known(&mut bundle).ok()?;
+            let mut bundle = resolver.snapshot(version)?.clone();
+            crate::client::introspect::inline_known(&mut bundle, resolver).ok()?;
             let idx = bundle.traits.iter().position(|t| {
                 matches!(
                     t,

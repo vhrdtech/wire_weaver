@@ -93,8 +93,12 @@ pub struct CargoScan {
     /// A directory of the workspace whose `Cargo.lock` says which sources are in use (the current directory for a
     /// host tool); `None` to go by `cargo_home` alone.
     pub workspace: Option<PathBuf>,
-    /// `CARGO_HOME`, scanned for fetched registry crates and git checkouts.
+    /// `CARGO_HOME`: where the lock's registry crates and git checkouts are.
     pub cargo_home: Option<PathBuf>,
+    /// Whether a crate the lock doesn't list is looked for in every registry crate and git checkout under
+    /// `cargo_home` (what this machine fetched for any project). Hosts do; a test leaves it off, so it reads only
+    /// what its own build uses.
+    pub unlocked: bool,
 }
 
 /// Lookup key of a superseded definition: kind, crate version, name, reference.
@@ -104,6 +108,8 @@ type SupersededKey = (Kind, FullVersionOwned, String, Vec<u8>);
 /// version. Shared between threads: a host keeps one for the process, [Resolver::global].
 pub struct Resolver {
     sources: Vec<Source>,
+    /// The root [Self::with_cache] was given.
+    cache_root: Option<PathBuf>,
     definitions: Option<PathBuf>,
     memo: FrozenMap<FullVersionOwned, Box<ApiBundleOwned>>,
     superseded: FrozenMap<SupersededKey, Box<Option<ApiBundleOwned>>>,
@@ -128,6 +134,7 @@ impl Resolver {
     pub fn new() -> Self {
         Resolver {
             sources: vec![],
+            cache_root: None,
             definitions: None,
             memo: FrozenMap::new(),
             superseded: FrozenMap::new(),
@@ -172,6 +179,19 @@ impl Resolver {
         self.with_cargo_scan(CargoScan {
             workspace: std::env::current_dir().ok(),
             cargo_home: cargo::default_cargo_home().ok(),
+            unlocked: true,
+        })
+    }
+
+    /// The embedded sets and the sources the `Cargo.lock` of the workspace at `workspace` pins: the snapshots a
+    /// build there sees. No cache, no definition cache, no other crate under `CARGO_HOME`, no fetch: it reads only
+    /// what that build uses, and never the network. Tests connect through one, so they find their fixtures'
+    /// snapshots and keep nothing.
+    pub fn offline(workspace: &Path) -> Self {
+        Self::new().with_embedded().with_cargo_scan(CargoScan {
+            workspace: Some(workspace.to_path_buf()),
+            cargo_home: cargo::default_cargo_home().ok(),
+            unlocked: false,
         })
     }
 
@@ -225,7 +245,14 @@ impl Resolver {
     /// Adds the cache rooted at `root` (`~/.wire_weaver`), which a hit in a source after it is copied into.
     pub fn with_cache(mut self, root: &Path) -> Self {
         self.sources.push(Source::Cache(cache::snapshots_dir(root)));
+        self.cache_root = Some(root.to_path_buf());
         self
+    }
+
+    /// The root of the cache on this machine this resolver reads and fills (`~/.wire_weaver` for [Self::host]),
+    /// `None` without one: a host keeps nothing else there either, such as the introspection data of devices.
+    pub fn cache_root(&self) -> Option<&Path> {
+        self.cache_root.as_deref()
     }
 
     /// The definition cache, [ww_self::definition_cache], looked up by signature after every source's `superseded/`.
@@ -473,6 +500,7 @@ impl Resolver {
             }
         }
         if dirs.is_empty()
+            && scan.unlocked
             && let Some(home) = &scan.cargo_home
         {
             dirs.extend(self.fetched(index, home).find(&version.crate_id, &semver));
@@ -810,6 +838,7 @@ mod tests {
             .with_cargo_scan(CargoScan {
                 workspace: None,
                 cargo_home: Some(home.clone()),
+                unlocked: true,
             });
         assert_eq!(
             resolver.snapshot(&version).unwrap().root.trait_name,
@@ -839,6 +868,7 @@ mod tests {
         let resolver = Resolver::new().with_cargo_scan(CargoScan {
             workspace: None,
             cargo_home: Some(home.clone()),
+            unlocked: true,
         });
         let write = |name: &str, trait_name: &str| {
             let crate_dir = checkout.join(name);

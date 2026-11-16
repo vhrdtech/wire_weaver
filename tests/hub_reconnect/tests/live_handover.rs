@@ -195,10 +195,15 @@ async fn a_holder_hands_its_live_link_to_the_hub() {
 
     // this program wants the device too: the holder hands its live link to the hub, both go on through it
     let started = Instant::now();
-    let client = Client::config(|c| asker()(c.usb_sim_path(socket.display().to_string())))
-        .connect()
-        .await
-        .expect("connect through the hub after the handover");
+    let client = Client::config(|c| {
+        asker()(
+            c.usb_sim_path(socket.display().to_string())
+                .resolver(tests_common::resolver()),
+        )
+    })
+    .connect()
+    .await
+    .expect("connect through the hub after the handover");
     let connect = started.elapsed();
     assert_eq!(client.add(20, 22).call().await.unwrap(), 42);
 
@@ -284,9 +289,14 @@ async fn wait_until(what: &str, mut ok: impl FnMut() -> bool) {
 fn ask(socket: &Path) -> tokio::task::JoinHandle<anyhow::Result<Client>> {
     let path = socket.display().to_string();
     tokio::spawn(async move {
-        Client::config(|c| asker()(c.usb_sim_path(path.clone())))
-            .connect()
-            .await
+        Client::config(|c| {
+            asker()(
+                c.usb_sim_path(path.clone())
+                    .resolver(tests_common::resolver()),
+            )
+        })
+        .connect()
+        .await
     })
 }
 
@@ -525,8 +535,11 @@ async fn a_prepared_adoption_goes_with_its_connection() {
     // the slot is kept for the commit: a program asking for the device waits
     let connecting = tokio::spawn(async move {
         Client::config(|c| {
-            asker()(c.usb_sim_path(socket.display().to_string()))
-                .hub(wire_weaver_client::hub::HubMode::Required)
+            asker()(
+                c.usb_sim_path(socket.display().to_string())
+                    .resolver(tests_common::resolver()),
+            )
+            .hub(wire_weaver_client::hub::HubMode::Required)
         })
         .connect()
         .await

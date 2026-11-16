@@ -5,6 +5,7 @@ use semver::VersionReq;
 use strum_macros::EnumDiscriminants;
 use wire_weaver::shrink_wrap::DeserializeShrinkWrapOwned;
 use ww_self::ApiBundleOwned;
+use ww_snapshots::Resolver;
 use ww_version::{ApiHashPairOwned, FullVersionOwned, VersionOwned, WireVersion};
 
 use crate::client_meta::ClientMetaSetting;
@@ -46,6 +47,8 @@ pub struct ClientConfig {
     max_seq: Option<SeqTy>,
     max_message_len: Option<usize>,
     traits_only: bool,
+    /// [ClientConfig::resolver]; None: [Resolver::global]
+    resolver: Option<&'static Resolver>,
     stream_queue_bytes: Option<usize>,
     no_stream_compression: bool,
     link_setup_timeout: Option<Duration>,
@@ -174,6 +177,8 @@ pub(crate) struct ValidatedConfig {
     /// [ClientConfig::speaks]: the introspection data of the lines after the first one
     pub(crate) other_introspect: Vec<(WireVersion, IntrospectBundle)>,
     pub(crate) traits_only: bool,
+    /// [ClientConfig::resolver], else [Resolver::global]
+    pub(crate) resolver: &'static Resolver,
     /// Global trait paths resolved from the device's introspection data (SRV-53): one per validated config, so a
     /// reconnect (same API) keeps what was resolved.
     pub(crate) global_paths: std::sync::Arc<crate::global_paths::GlobalPaths>,
@@ -229,21 +234,26 @@ pub struct IntrospectBundle {
 
 impl IntrospectBundle {
     /// A generated client's own introspection data: as a device sends it, with known traits and types left out.
-    fn from_client(ww_self_bytes: &[u8], api_hash: ApiHashPairOwned) -> Result<Self> {
+    fn from_client(
+        ww_self_bytes: &[u8],
+        api_hash: ApiHashPairOwned,
+        resolver: &Resolver,
+    ) -> Result<Self> {
         let ww_self_bytes = ww_self::compressed::bundle_bytes(ww_self_bytes)?;
         let sent_api_bundle = ApiBundleOwned::from_ww_bytes_owned(&ww_self_bytes)?;
-        IntrospectBundle::from_sent(sent_api_bundle, api_hash, ww_self_bytes.len())
+        IntrospectBundle::from_sent(sent_api_bundle, api_hash, ww_self_bytes.len(), resolver)
     }
 
-    /// Put back traits and types that `sent_api_bundle` left out, because they are known from snapshots, and
+    /// Put back traits and types that `sent_api_bundle` left out, because `resolver` knows them from snapshots, and
     /// instantiate generic types; fails for malformed introspection data.
     pub(crate) fn from_sent(
         sent_api_bundle: ApiBundleOwned,
         api_hash: ApiHashPairOwned,
         sent_size: usize,
+        resolver: &Resolver,
     ) -> Result<Self> {
         let mut api_bundle = sent_api_bundle.clone();
-        crate::client::introspect::inline_known(&mut api_bundle)?;
+        crate::client::introspect::inline_known(&mut api_bundle, resolver)?;
         Ok(IntrospectBundle {
             api_bundle: Arc::new(api_bundle),
             api_hash,
@@ -384,10 +394,11 @@ impl ClientConfig {
     pub(crate) fn validate(self) -> Result<ValidatedConfig> {
         let s = self;
         // s.canonicalize();
+        let resolver = s.resolver.unwrap_or_else(Resolver::global);
         let introspect_client = match s.introspect_client {
-            Some((ww_self_bytes, api_hash)) if !s.traits_only => {
-                Some(IntrospectBundle::from_client(&ww_self_bytes, api_hash)?)
-            }
+            Some((ww_self_bytes, api_hash)) if !s.traits_only => Some(
+                IntrospectBundle::from_client(&ww_self_bytes, api_hash, resolver)?,
+            ),
             _ => None,
         };
         let max_seq = s.max_seq.unwrap_or(crate::DEFAULT_MAX_SEQ);
@@ -435,7 +446,7 @@ impl ClientConfig {
                     .push((line.version.version, line.wire));
                 other_introspect.push((
                     line.wire,
-                    IntrospectBundle::from_client(line.ww_self_bytes, line.api_hash)?,
+                    IntrospectBundle::from_client(line.ww_self_bytes, line.api_hash, resolver)?,
                 ));
             }
         }
@@ -458,7 +469,8 @@ impl ClientConfig {
             introspect_client,
             other_introspect,
             traits_only: s.traits_only,
-            global_paths: crate::global_paths::GlobalPaths::new(),
+            resolver,
+            global_paths: crate::global_paths::GlobalPaths::new(resolver),
             tap: s.tap,
             client_meta: match &s.client_meta {
                 ClientMetaSetting::On(meta) => Some(Box::new(meta.resolve())),
@@ -931,6 +943,16 @@ impl ClientConfig {
     pub fn traits_only(self) -> Self {
         let mut c = self;
         c.traits_only = true;
+        c
+    }
+
+    /// The resolver the connection finds API snapshots through: what the device and this client leave out of their
+    /// introspection data, and a crate's wire version for a global trait path (SRV-53). Its cache root
+    /// ([Resolver::cache_root]) also keeps the device's introspection data; a resolver without a cache keeps nothing
+    /// on this machine. Default: [Resolver::global], this host's snapshots, cache and fetch.
+    pub fn resolver(self, resolver: &'static Resolver) -> Self {
+        let mut c = self;
+        c.resolver = Some(resolver);
         c
     }
 

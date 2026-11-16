@@ -28,6 +28,7 @@ fn bind(dir: &Path) -> (tokio::task::JoinHandle<Exit>, Shutdown) {
         sync_options: Default::default(),
         adopt_attach: std::time::Duration::from_secs(5),
         state_dir: None,
+        resolver: tests_common::resolver(),
     })
     .unwrap()
     .expect("no other hub in this dir");

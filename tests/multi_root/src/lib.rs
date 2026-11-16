@@ -255,10 +255,13 @@ mod tests {
     async fn each_line_talks_to_its_own() {
         let d1 = start_v1("multi_root/v1");
         let d2 = start_v2("multi_root/v2");
-        let c1 = client_v1::Client::config(|c| c.in_process_path(d1.path()))
-            .connect()
-            .await
-            .expect("a line 1 host connects to a line 1 device");
+        let c1 = client_v1::Client::config(|c| {
+            c.in_process_path(d1.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect()
+        .await
+        .expect("a line 1 host connects to a line 1 device");
         assert_eq!(
             c1.cmd.device_api_info().user_api_wire,
             Some(WireVersion::new(1, 2))
@@ -267,10 +270,13 @@ mod tests {
         assert_eq!(c1.channel().read().call().await.unwrap(), Code(1));
         c1.channel().reset().call().await.unwrap();
 
-        let c2 = client_v2::Client::config(|c| c.in_process_path(d2.path()))
-            .connect()
-            .await
-            .expect("a line 2 host connects to a line 2 device");
+        let c2 = client_v2::Client::config(|c| {
+            c.in_process_path(d2.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect()
+        .await
+        .expect("a line 2 host connects to a line 2 device");
         assert_eq!(
             c2.cmd.device_api_info().user_api_wire,
             Some(WireVersion::new(2, 1))
@@ -284,11 +290,14 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn the_other_line_is_refused() {
         let d1 = start_v1("multi_root/refused");
-        let e = client_v2::Client::config(|c| c.in_process_path(d1.path()))
-            .connect()
-            .await
-            .err()
-            .expect("a line 2 host must not connect to a line 1 device");
+        let e = client_v2::Client::config(|c| {
+            c.in_process_path(d1.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect()
+        .await
+        .err()
+        .expect("a line 2 host must not connect to a line 1 device");
         let e = e.to_string();
         assert!(e.contains("w1.2") && e.contains("w2.1"), "{e}");
     }

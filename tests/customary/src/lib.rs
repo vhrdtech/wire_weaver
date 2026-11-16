@@ -157,10 +157,14 @@ mod tests {
     }
 
     async fn connect(device: &TestDevice) -> (DynClient, DynResource) {
-        let client = DynClient::from_config(ClientConfig::new().in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect");
+        let client = DynClient::from_config(
+            ClientConfig::new()
+                .in_process_path(device.path())
+                .resolver(tests_common::resolver()),
+        )
+        .connect()
+        .await
+        .expect("connect");
         let bundle = client.device_introspect().unwrap().api_bundle.clone();
         (client, DynResource::root(bundle))
     }

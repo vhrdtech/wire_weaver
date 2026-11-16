@@ -148,10 +148,13 @@ async fn streams_of_an_omitted_trait_are_not_polled() {
             ),
         ),
     ] {
-        let client = BoardClient::config(|c| c.in_process_path(device.path()))
-            .connect()
-            .await
-            .expect(path);
+        let client = BoardClient::config(|c| {
+            c.in_process_path(device.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect()
+        .await
+        .expect(path);
         assert_eq!(client.ping().call().await.unwrap(), 1, "{path}");
         assert_not_implemented(
             client.streams().produce(1, 0).call().await,

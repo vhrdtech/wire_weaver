@@ -220,10 +220,13 @@ mod tests {
     }
 
     async fn connect(device: &TestDevice) -> (StdClient, CountersInfoOwned) {
-        let client = StdClient::config(|c| c.in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect");
+        let client = StdClient::config(|c| {
+            c.in_process_path(device.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect()
+        .await
+        .expect("connect");
         let info = client.counters().read_INFO().read().await.unwrap();
         (client, info)
     }

@@ -307,14 +307,20 @@ mod tests {
     async fn one_client_per_trait_for_both_lines() {
         let d1 = start("shared_sub_level/v1", 1, WireVersion::new(1, 1));
         let d2 = start("shared_sub_level/v2", 2, WireVersion::new(2, 1));
-        let c1 = client_v1::Client::config(|c| c.in_process_path(d1.path()))
-            .connect()
-            .await
-            .unwrap();
-        let c2 = client_v2::Client::config(|c| c.in_process_path(d2.path()))
-            .connect()
-            .await
-            .unwrap();
+        let c1 = client_v1::Client::config(|c| {
+            c.in_process_path(d1.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect()
+        .await
+        .unwrap();
+        let c2 = client_v2::Client::config(|c| {
+            c.in_process_path(d2.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect()
+        .await
+        .unwrap();
 
         assert_eq!(read_and_reset(c1.channel()).await.unwrap(), Code(1));
         assert_eq!(read_and_reset(c2.probe().channel()).await.unwrap(), Code(2));
@@ -334,14 +340,20 @@ mod tests {
     async fn each_line_checks_its_own_since() {
         let d1 = start("shared_sub_level/since_v1", 1, WireVersion::new(1, 0));
         let d2 = start("shared_sub_level/since_v2", 2, WireVersion::new(2, 0));
-        let c1 = client_v1::Client::config(|c| c.in_process_path(d1.path()))
-            .connect()
-            .await
-            .unwrap();
-        let c2 = client_v2::Client::config(|c| c.in_process_path(d2.path()))
-            .connect()
-            .await
-            .unwrap();
+        let c1 = client_v1::Client::config(|c| {
+            c.in_process_path(d1.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect()
+        .await
+        .unwrap();
+        let c2 = client_v2::Client::config(|c| {
+            c.in_process_path(d2.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect()
+        .await
+        .unwrap();
 
         refuses_reset(c1.channel(), WireVersion::new(1, 1)).await;
         refuses_reset(c2.probe().channel(), WireVersion::new(2, 1)).await;

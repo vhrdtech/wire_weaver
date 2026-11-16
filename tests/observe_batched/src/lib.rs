@@ -494,10 +494,13 @@ mod tests {
                     )
                 }
             };
-            let client = Client::config(|c| c.in_process_path(device.path()))
-                .connect()
-                .await
-                .expect("connect");
+            let client = Client::config(|c| {
+                c.in_process_path(device.path())
+                    .resolver(tests_common::resolver())
+            })
+            .connect()
+            .await
+            .expect("connect");
             let (trace_tx, mut trace_rx) = mpsc::unbounded_channel();
             client
                 .cmd

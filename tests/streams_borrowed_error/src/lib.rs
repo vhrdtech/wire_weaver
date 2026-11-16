@@ -305,10 +305,13 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn sync_server_opens_and_refuses() {
         let device = start_sync("streams_borrowed_error/sync");
-        let client = SyncClient::config(|c| c.in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect");
+        let client = SyncClient::config(|c| {
+            c.in_process_path(device.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect()
+        .await
+        .expect("connect");
 
         let r = client.plain(true).call().await.unwrap();
         assert_eq!(r.err(), Some(busy_owned()));
@@ -322,10 +325,13 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn async_server_opens_and_refuses() {
         let device = start_async("streams_borrowed_error/async");
-        let client = AsyncClient::config(|c| c.in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect");
+        let client = AsyncClient::config(|c| {
+            c.in_process_path(device.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect()
+        .await
+        .expect("connect");
 
         let r = client.plain(true).call().await.unwrap();
         assert_eq!(r.err(), Some(busy_owned()));

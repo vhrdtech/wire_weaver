@@ -16,15 +16,22 @@ pub struct Introspect {
     transport_cmd_tx: TransportCommander,
     hash: ApiHashPairOwned,
     timeout: Duration,
+    /// The connection's resolver: puts back what the device left out, and its cache root holds the cached data.
+    resolver: &'static Resolver,
 }
 
 impl Introspect {
-    pub(crate) fn new(transport_cmd_tx: TransportCommander, hash: ApiHashPairOwned) -> Self {
+    pub(crate) fn new(
+        transport_cmd_tx: TransportCommander,
+        hash: ApiHashPairOwned,
+        resolver: &'static Resolver,
+    ) -> Self {
         let timeout = transport_cmd_tx.default_timeout();
         Introspect {
             transport_cmd_tx,
             hash,
             timeout,
+            resolver,
         }
     }
 
@@ -35,35 +42,39 @@ impl Introspect {
         Self { timeout, ..self }
     }
 
-    /// Load introspect data from local cache at `~/.wire_weaver/` if available.
+    /// Load introspect data from the local cache (the root of the connection's resolver's cache, `~/.wire_weaver/`
+    /// by default) if available.
     /// Otherwise download it from a device and cache.
     ///
     /// Additionally, if introspect data with doc strings is available in the cache, it will be loaded instead.
     ///
     /// See also: [Introspect::download]
     pub async fn get(self) -> Result<Option<ApiBundleOwned>> {
+        let resolver = self.resolver;
         match self.get_as_sent().await? {
-            Some((bundle, _)) => inlined_blocking(bundle).await.map(Some),
+            Some((bundle, _)) => inlined_blocking(bundle, resolver).await.map(Some),
             None => Ok(None),
         }
     }
 
-    /// Load introspect data from local cache at `~/.wire_weaver/` if available.
+    /// Load introspect data from the local cache (the root of the connection's resolver's cache, `~/.wire_weaver/`
+    /// by default) if available.
     /// Otherwise download it from a device and cache.
     ///
     /// Additionally, if introspect data with doc strings is available in the cache, it will be loaded instead.
     ///
     /// See also: [Introspect::download_blocking]
     pub fn get_blocking(self) -> Result<Option<ApiBundleOwned>> {
+        let resolver = self.resolver;
         self.get_as_sent_blocking()?
-            .map(|(bundle, _)| inlined(bundle))
+            .map(|(bundle, _)| inlined(bundle, resolver))
             .transpose()
     }
 
     /// Same as [Introspect::get], but returns introspection data as sent by the device (without traits and types
     /// known from snapshots put back) and its size.
     pub(crate) async fn get_as_sent(self) -> Result<Option<(ApiBundleOwned, usize)>> {
-        if let Some(sized) = load_cached(&self.hash) {
+        if let Some(sized) = load_cached(self.resolver, &self.hash) {
             return Ok(Some(sized));
         }
         self.cache_miss_msg();
@@ -73,7 +84,7 @@ impl Introspect {
     /// Same as [Introspect::get_blocking], but returns introspection data as sent by the device (without traits and
     /// types known from snapshots put back) and its size.
     pub(crate) fn get_as_sent_blocking(self) -> Result<Option<(ApiBundleOwned, usize)>> {
-        if let Some(sized) = load_cached(&self.hash) {
+        if let Some(sized) = load_cached(self.resolver, &self.hash) {
             return Ok(Some(sized));
         }
         self.cache_miss_msg();
@@ -85,8 +96,8 @@ impl Introspect {
     /// Must only be polled from synchronous code, not from async tasks, see [Promise] docs.
     #[must_use = "Promise does nothing, unless it is polled"]
     pub fn get_promise(self) -> Promise<ApiBundleOwned> {
-        if let Some((bundle, _)) = load_cached(&self.hash) {
-            return match inlined(bundle) {
+        if let Some((bundle, _)) = load_cached(self.resolver, &self.hash) {
+            return match inlined(bundle, self.resolver) {
                 Ok(bundle) => Promise::done(bundle, "introspect"),
                 Err(e) => Promise::error(crate::Error::Other(format!("{e:#}")), "introspect"),
             };
@@ -100,12 +111,15 @@ impl Introspect {
     #[must_use = "Promise does nothing, unless it is polled"]
     pub fn download_promise(self) -> Promise<ApiBundleOwned> {
         let hash = self.hash;
+        let resolver = self.resolver;
         Promise::new_introspect(
             self.transport_cmd_tx,
             self.timeout,
             Box::new(move |bundle, ww_self_bytes| {
-                local_registry::store(bundle, ww_self_bytes, &hash);
-                inline_known(bundle).map_err(|e| crate::Error::Other(format!("{e:#}")))
+                if let Some(root) = resolver.cache_root() {
+                    local_registry::store(root, bundle, ww_self_bytes, &hash);
+                }
+                inline_known(bundle, resolver).map_err(|e| crate::Error::Other(format!("{e:#}")))
             }),
             "introspect",
         )
@@ -116,8 +130,9 @@ impl Introspect {
     ///
     /// See also [Introspect::get] that uses local cache.
     pub async fn download(self) -> Result<Option<ApiBundleOwned>> {
+        let resolver = self.resolver;
         match self.download_as_sent().await? {
-            Some((bundle, _)) => inlined_blocking(bundle).await.map(Some),
+            Some((bundle, _)) => inlined_blocking(bundle, resolver).await.map(Some),
             None => Ok(None),
         }
     }
@@ -127,8 +142,9 @@ impl Introspect {
     ///
     /// See also [Introspect::get_blocking] that uses local cache.
     pub fn download_blocking(self) -> Result<Option<ApiBundleOwned>> {
+        let resolver = self.resolver;
         self.download_as_sent_blocking()?
-            .map(|(bundle, _)| inlined(bundle))
+            .map(|(bundle, _)| inlined(bundle, resolver))
             .transpose()
     }
 
@@ -143,7 +159,7 @@ impl Introspect {
             _phantom: Default::default(),
         };
         let ww_self_bytes = stream.recv_all_bytes_timeout(self.timeout).await?;
-        decode_and_cache(&ww_self_bytes, &self.hash)
+        decode_and_cache(&ww_self_bytes, &self.hash, self.resolver)
     }
 
     fn download_as_sent_blocking(self) -> Result<Option<(ApiBundleOwned, usize)>> {
@@ -157,7 +173,7 @@ impl Introspect {
             _phantom: Default::default(),
         };
         let ww_self_bytes = stream.recv_all_bytes_timeout_blocking(self.timeout)?;
-        decode_and_cache(&ww_self_bytes, &self.hash)
+        decode_and_cache(&ww_self_bytes, &self.hash, self.resolver)
     }
 
     fn cache_miss_msg(&self) {
@@ -169,19 +185,27 @@ impl Introspect {
 /// traits and types it left out put back (snapshots, definition cache) and generic types instantiated: the API of a
 /// device whose traffic a program forwards rather than calls, as the ww hub does to find claimable resources (SRV-34).
 /// `None` for an empty stream (a device with introspection disabled); an error for malformed data. Compressed data
-/// (INT-16) is decompressed first.
-pub fn decode_introspection(ww_self_bytes: &[u8]) -> Result<Option<ApiBundleOwned>> {
+/// (INT-16) is decompressed first. `resolver` finds what the device left out ([Resolver::global] for a host's).
+pub fn decode_introspection(
+    ww_self_bytes: &[u8],
+    resolver: &Resolver,
+) -> Result<Option<ApiBundleOwned>> {
     if ww_self_bytes.is_empty() {
         return Ok(None);
     }
     let ww_self_bytes = ww_self::compressed::bundle_bytes(ww_self_bytes)?;
-    inlined(ApiBundleOwned::from_ww_bytes_owned(&ww_self_bytes)?).map(Some)
+    inlined(
+        ApiBundleOwned::from_ww_bytes_owned(&ww_self_bytes)?,
+        resolver,
+    )
+    .map(Some)
 }
 
 /// The bundle a device sent and its size, uncompressed (INT-16): the API hashes and the cache are over these bytes.
 fn decode_and_cache(
     ww_self_bytes: &[u8],
     hash: &ApiHashPairOwned,
+    resolver: &Resolver,
 ) -> Result<Option<(ApiBundleOwned, usize)>> {
     if ww_self_bytes.is_empty() {
         return Ok(None);
@@ -189,36 +213,41 @@ fn decode_and_cache(
     let ww_self_bytes = &*ww_self::compressed::bundle_bytes(ww_self_bytes)?;
     let api_bundle = ApiBundleOwned::from_ww_bytes_owned(ww_self_bytes)?;
     // cached as received, so that it matches the device reported hash
-    local_registry::store(&api_bundle, ww_self_bytes, hash);
+    if let Some(root) = resolver.cache_root() {
+        local_registry::store(root, &api_bundle, ww_self_bytes, hash);
+    }
     Ok(Some((api_bundle, ww_self_bytes.len())))
 }
 
-/// Cached bundle (as it was received) and its size.
-fn load_cached(hash: &ApiHashPairOwned) -> Option<(ApiBundleOwned, usize)> {
-    let bundle = local_registry::load(hash)?;
+/// Cached bundle (as it was received) and its size, from the root of `resolver`'s cache.
+fn load_cached(resolver: &Resolver, hash: &ApiHashPairOwned) -> Option<(ApiBundleOwned, usize)> {
+    let bundle = local_registry::load(resolver.cache_root()?, hash)?;
     let sent_size = bundle.to_ww_bytes_owned().ok()?.len();
     Some((bundle, sent_size))
 }
 
-fn inlined(mut bundle: ApiBundleOwned) -> Result<ApiBundleOwned> {
-    inline_known(&mut bundle)?;
+fn inlined(mut bundle: ApiBundleOwned, resolver: &Resolver) -> Result<ApiBundleOwned> {
+    inline_known(&mut bundle, resolver)?;
     Ok(bundle)
 }
 
 /// [inlined] off the runtime's workers: the resolver reads files, and may fetch a snapshot, on the way.
-async fn inlined_blocking(bundle: ApiBundleOwned) -> Result<ApiBundleOwned> {
-    tokio::task::spawn_blocking(move || inlined(bundle))
+async fn inlined_blocking(
+    bundle: ApiBundleOwned,
+    resolver: &'static Resolver,
+) -> Result<ApiBundleOwned> {
+    tokio::task::spawn_blocking(move || inlined(bundle, resolver))
         .await
         .context("inlining introspection data")?
 }
 
 /// Put back traits and types that a device left out of its introspection data, because they are known from
-/// snapshots the process's resolver finds ([crate::snapshots], [Resolver::global]), or by signature from the
-/// definition cache on this machine ([ww_self::definition_cache]). The ones that are not found are logged and left
+/// snapshots `resolver` finds (a connection's, [Resolver::global] by default, see [crate::snapshots]), or by
+/// signature from its definition cache ([ww_self::definition_cache]). The ones that are not found are logged and left
 /// skipped. Then checks the bundle and instantiates its generic types ([ww_self::generics::prepare]): introspection
 /// data comes from a device and is not trusted, a malformed one is an error.
-pub(crate) fn inline_known(bundle: &mut ApiBundleOwned) -> Result<()> {
-    inline_known_with(bundle, Resolver::global());
+pub(crate) fn inline_known(bundle: &mut ApiBundleOwned, resolver: &Resolver) -> Result<()> {
+    inline_known_with(bundle, resolver);
     ww_self::generics::prepare(bundle).context("malformed introspection data")
 }
 

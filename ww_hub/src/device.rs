@@ -180,7 +180,7 @@ pub(crate) async fn join(
 
 /// Opens the device and starts its task, which ends after [crate::HubConfig::linger] without tunnels.
 pub(crate) async fn open(hub: &Arc<Hub>, key: &str, slot: Slot) -> Result<DeviceHandle, Status> {
-    let Some(config) = config_for(key) else {
+    let Some(config) = config_for(key).map(|c| c.resolver(hub.resolver)) else {
         debug!("ww hub: no transport for device key {key:?}");
         return Err(Status::UnknownDevice);
     };
@@ -223,7 +223,9 @@ pub(crate) async fn adopt(
         key, link, medium, ..
     } = handover;
     let key = key.as_str();
-    let config = config_for(key).ok_or_else(|| format!("no transport for {key}"))?;
+    let config = config_for(key)
+        .ok_or_else(|| format!("no transport for {key}"))?
+        .resolver(hub.resolver);
     // the event loop goes on with the link; the medium that opens the device by its key reads what its kind left
     let adopted = Adopted::new(
         &link,
@@ -314,6 +316,7 @@ async fn start(
         bundle: None,
         bundle_waiters: vec![],
         key: key.to_string(),
+        resolver: hub.resolver,
         loopback_owner: None,
         keep: false,
         stamp: 0,
@@ -506,6 +509,8 @@ struct State {
     bundle_waiters: Vec<oneshot::Sender<Option<Arc<ApiBundleOwned>>>>,
     /// The device's key, for messages
     key: String,
+    /// [HubConfig::resolver](crate::HubConfig::resolver), to decode the introspection data with
+    resolver: &'static wire_weaver_client::snapshots::Resolver,
     /// The client whose loopback messages went out last gets the echoes
     loopback_owner: Option<u32>,
     /// `Registry::take`: no linger
@@ -945,7 +950,7 @@ impl State {
             && let Introspect::Cached(events) = &self.introspect
         {
             let bytes = envelope::introspection_bytes(events);
-            match wire_weaver_client::decode_introspection(&bytes) {
+            match wire_weaver_client::decode_introspection(&bytes, self.resolver) {
                 Ok(bundle) => self.bundle = bundle.map(Arc::new),
                 Err(e) => warn!("ww hub: introspection data of {}: {e:#}", self.key),
             }

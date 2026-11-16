@@ -37,6 +37,20 @@ impl Kind {
     }
 }
 
+/// The most an entry can be: a canonical bundle of one definition and what it refers to, a few KB today. A larger
+/// file in the cache is refused unread.
+pub const ENTRY_BYTES_MAX: u64 = 4 << 20;
+
+/// Whether `name` is a definition's name as the API model has it (`Volt`, `units::Volt`), so that it forms one file
+/// name and nothing else. A name from a device or a file is checked before it reaches a path.
+pub fn is_plain_definition_name(name: &str) -> bool {
+    !name.is_empty()
+        && name.len() <= 256
+        && name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == ':')
+}
+
 /// `~/.wire_weaver/definitions`, `None` without a home directory.
 pub fn default_dir() -> Option<PathBuf> {
     Some(
@@ -78,6 +92,9 @@ pub fn store(
     name: &str,
     canonical_bytes: &[u8],
 ) -> Result<()> {
+    if !is_plain_definition_name(name) {
+        return Err(anyhow!("`{name}` is not a definition name, refused"));
+    }
     let signatures = signature::signatures_of(canonical_bytes)?;
     let path = file_path(dir, kind, version, name, &signatures.shape);
     if fs::read(&path).is_ok_and(|bytes| bytes == canonical_bytes) {
@@ -100,16 +117,19 @@ pub fn load(
     name: &str,
     signature: &[u8],
 ) -> Result<Option<ApiBundleOwned>> {
+    if !is_plain_definition_name(name) {
+        return Err(anyhow!("`{name}` is not a definition name, refused"));
+    }
     // named by the shape signature, or (written before EVO-69) by the signature with docs
     let path = file_path(dir, kind, version, name, signature::shape_part(signature));
-    match fs::read(&path) {
-        Ok(bytes) => {
+    match read_entry(&path) {
+        Ok(Some(bytes)) => {
             return decode(kind, name, signature, &bytes)
                 .map(Some)
                 .map_err(|e| anyhow!("{}: {e}", path.display()));
         }
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-        Err(e) => return Err(anyhow!("reading {}: {e}", path.display())),
+        Ok(None) => {}
+        Err(e) => return Err(e),
     }
     // a reference from before EVO-69 is a signature with docs, while the entry is named by its shape: the entries of
     // this definition are few, each is checked
@@ -126,7 +146,7 @@ pub fn load(
         if rest.contains('-') || !rest.ends_with(".ww") {
             continue;
         }
-        let Ok(bytes) = fs::read(entry.path()) else {
+        let Ok(Some(bytes)) = read_entry(&entry.path()) else {
             continue;
         };
         if let Ok((bundle, signatures)) = decode_with_signatures(kind, name, &bytes)
@@ -136,6 +156,25 @@ pub fn load(
         }
     }
     Ok(None)
+}
+
+/// The bytes of the entry at `path`, `Ok(None)` when there is none; an entry over [ENTRY_BYTES_MAX] is refused.
+fn read_entry(path: &Path) -> Result<Option<Vec<u8>>> {
+    let meta = match fs::metadata(path) {
+        Ok(meta) => meta,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => return Err(anyhow!("reading {}: {e}", path.display())),
+    };
+    if meta.len() > ENTRY_BYTES_MAX {
+        return Err(anyhow!(
+            "{}: {} bytes, more than a definition can be ({ENTRY_BYTES_MAX}), refused",
+            path.display(),
+            meta.len()
+        ));
+    }
+    fs::read(path)
+        .map(Some)
+        .map_err(|e| anyhow!("reading {}: {e}", path.display()))
 }
 
 /// The canonical bundle of an entry's bytes, checked to be of the definition `reference` names (docs aside) and to
@@ -176,4 +215,42 @@ pub fn decode_with_signatures(
         return Err(anyhow!("doesn't hold {} {name}", kind.name()));
     }
     Ok((bundle, signatures))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_name_that_is_not_a_definition_never_reaches_a_path() {
+        assert!(is_plain_definition_name("Volt"));
+        assert!(is_plain_definition_name("units::Volt"));
+        assert!(!is_plain_definition_name(""));
+        assert!(!is_plain_definition_name("../x"));
+        assert!(!is_plain_definition_name("a/b"));
+        assert!(!is_plain_definition_name("a b"));
+        let dir = std::env::temp_dir().join(format!("ww_definition_names_{}", std::process::id()));
+        let version = FullVersionOwned::new("dep".into(), ww_version::VersionOwned::new(0, 1, 0));
+        let e = load(&dir, Kind::Type, &version, "../x", &[0; 8]).unwrap_err();
+        assert!(e.to_string().contains("not a definition name"), "{e}");
+        let e = store(&dir, Kind::Type, &version, "../x", &[]).unwrap_err();
+        assert!(e.to_string().contains("not a definition name"), "{e}");
+    }
+
+    #[test]
+    fn an_entry_over_the_bound_is_refused_unread() {
+        let dir = std::env::temp_dir().join(format!("ww_definition_bound_{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let version = FullVersionOwned::new("dep".into(), ww_version::VersionOwned::new(0, 1, 0));
+        let reference = [7u8; 8];
+        let path = file_path(&dir, Kind::Type, &version, "Big", &reference);
+        let file = fs::File::create(&path).unwrap();
+        file.set_len(ENTRY_BYTES_MAX + 1).unwrap();
+        let e = load(&dir, Kind::Type, &version, "Big", &reference).unwrap_err();
+        fs::remove_dir_all(&dir).unwrap();
+        assert!(
+            e.to_string().contains("more than a definition can be"),
+            "{e}"
+        );
+    }
 }

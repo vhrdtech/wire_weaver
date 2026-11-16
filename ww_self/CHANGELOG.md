@@ -2,6 +2,7 @@
 
 ### 🚀 Features
 
+- `definition_cache` refuses an entry over `ENTRY_BYTES_MAX` unread and a definition name that is not one (`is_plain_definition_name`) before it forms a path (EVO-80).
 - `units::codec_light(def, raw, step)` (STD-112): the light a code of a codec with a transfer curve means, a `units::Light` with the curve's unit, scene or display, the exact value where it is a rational (`CurveDef::decode_exact`) and the float edge (`decode_f64`). The `std` feature turns on exact_units' `libm` (pure Rust) for it.
 
 ### ⚠️ Breaking

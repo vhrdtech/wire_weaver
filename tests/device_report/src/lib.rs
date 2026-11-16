@@ -423,7 +423,7 @@ mod tests {
             server,
             device_report_api::REPORT_TEST_FULL_GID,
             device_report_api::REPORT_TEST_WIRE_VERSION,
-            server::api_impl::api_hash(),
+            tests_common::api!(server::api_impl),
         );
         (device, pc, name)
     }

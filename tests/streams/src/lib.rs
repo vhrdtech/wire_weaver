@@ -361,7 +361,7 @@ mod tests {
             server,
             streams_api::STREAMS_FULL_GID,
             streams_api::STREAMS_WIRE_VERSION,
-            alloc_server::api_impl::api_hash(),
+            tests_common::api!(alloc_server::api_impl),
         );
         (device, data)
     }

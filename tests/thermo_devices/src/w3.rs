@@ -265,7 +265,7 @@ pub fn start(path: &str, wire: WireVersion) -> (Shared, tests_common::TestDevice
         server,
         thermo_api::wire_v3::THERMO_FULL_GID,
         wire,
-        api_impl::api_hash(),
+        tests_common::api!(api_impl),
     );
     (shared, device)
 }

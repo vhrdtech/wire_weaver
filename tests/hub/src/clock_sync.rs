@@ -283,7 +283,7 @@ fn start(name: &str, linger: Duration, sync_linger: Option<Duration>) -> Bench {
         },
         hub_api::HUB_TEST_FULL_GID,
         hub_api::HUB_TEST_WIRE_VERSION,
-        server::api_impl::api_hash(),
+        tests_common::api!(server::api_impl),
     );
     let dir = std::env::temp_dir().join(format!("ww-hub-sync-{}-{name}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);

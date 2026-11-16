@@ -222,7 +222,7 @@ mod tests {
             server,
             board_info_api::BOARD_INFO_TEST_FULL_GID,
             board_info_api::BOARD_INFO_TEST_WIRE_VERSION,
-            server::api_impl::api_hash(),
+            tests_common::api!(server::api_impl),
         )
     }
 
@@ -425,7 +425,7 @@ mod tests {
             plain_server::Server,
             board_info_api::BOARD_INFO_TEST_FULL_GID,
             board_info_api::BOARD_INFO_TEST_WIRE_VERSION,
-            plain_server::api_impl::api_hash(),
+            tests_common::api!(plain_server::api_impl),
         );
         let client = connect(&device).await;
         assert_eq!(

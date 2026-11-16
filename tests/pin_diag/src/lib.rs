@@ -265,7 +265,7 @@ mod tests {
             server::Server::new(),
             pin_diag_api::PIN_DIAG_TEST_FULL_GID,
             pin_diag_api::PIN_DIAG_TEST_WIRE_VERSION,
-            server::api_impl::api_hash(),
+            tests_common::api!(server::api_impl),
         );
         let client = StdClient::config(|c| {
             c.in_process_path(device.path())
@@ -423,7 +423,7 @@ mod tests {
             server::Server::new(),
             pin_diag_api::PIN_DIAG_TEST_FULL_GID,
             pin_diag_api::PIN_DIAG_TEST_WIRE_VERSION,
-            server::api_impl::api_hash(),
+            tests_common::api!(server::api_impl),
         );
         let client = DynClient::from_config(
             ClientConfig::new()

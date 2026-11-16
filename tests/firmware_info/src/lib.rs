@@ -162,7 +162,7 @@ mod tests {
             srv,
             firmware_info_api::FIRMWARE_INFO_TEST_FULL_GID,
             firmware_info_api::FIRMWARE_INFO_TEST_WIRE_VERSION,
-            server::api_impl::api_hash(),
+            tests_common::api!(server::api_impl),
         );
         (device, crash)
     }

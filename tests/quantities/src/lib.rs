@@ -712,7 +712,7 @@ mod tests {
             server,
             quantities_api::QUANTITIES_FULL_GID,
             quantities_api::QUANTITIES_WIRE_VERSION,
-            server::api_impl::api_hash(),
+            tests_common::api!(server::api_impl),
         );
         (device, values)
     }

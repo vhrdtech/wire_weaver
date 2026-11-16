@@ -73,7 +73,7 @@ fn main() {
         Server { counter },
         hub_pytest_device_api::PYTEST_DEVICE_FULL_GID,
         hub_pytest_device_api::PYTEST_DEVICE_WIRE_VERSION,
-        api_impl::api_hash(),
+        tests_common::api!(api_impl),
     );
     let _errors_device = common_error::server::start(ERRORS_DEVICE_PATH);
 

@@ -254,7 +254,7 @@ mod tests {
             server,
             observe_arrays_api::ARRAYS_FULL_GID,
             observe_arrays_api::ARRAYS_WIRE_VERSION,
-            server::api_impl::api_hash(),
+            tests_common::api!(server::api_impl),
         );
         let client = Client::config(|c| {
             c.in_process_path(device.path())

@@ -187,7 +187,7 @@ fn start(name: &str, device_limit: usize) -> TestDevice {
         Server::default(),
         ARCHIVE_FULL_GID,
         ARCHIVE_WIRE_VERSION,
-        api_impl::api_hash(),
+        tests_common::api!(api_impl),
     )
 }
 

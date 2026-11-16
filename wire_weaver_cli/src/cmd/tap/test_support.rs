@@ -5,6 +5,7 @@ use super::{FileFeed, Layer, ViewArgs, replay};
 use crate::cmd::tap::{Attached, TapFlags};
 use std::io::Write;
 use std::sync::Arc;
+use wire_weaver_client::snapshots::Resolver;
 use wire_weaver_client::{ClientConfig, DynClient};
 
 /// A `Write` the test reads back.
@@ -23,10 +24,12 @@ impl Write for Shared {
 }
 
 /// A live tap on the in-process device at `device_path`, printed as `--monitor=api` does and captured to a file:
-/// the monitor's text and the file. `traits_only`: the client is connected as `--traits-only` does.
+/// the monitor's text and the file. `traits_only`: the client is connected as `--traits-only` does. The client and
+/// the monitor resolve through `resolver`.
 pub async fn tapped_session(
     name: &str,
     device_path: String,
+    resolver: &'static Resolver,
     traits_only: bool,
     session: impl AsyncFnOnce(&DynClient),
 ) -> (String, std::path::PathBuf) {
@@ -41,9 +44,10 @@ pub async fn tapped_session(
         capture: Some(path.clone()),
     };
     let printed = Shared::default();
-    let attached = Attached::start_with(&flags, Box::new(printed.clone())).unwrap();
+    let attached = Attached::start_with(&flags, Box::new(printed.clone()), resolver).unwrap();
     let config = ClientConfig::new()
         .in_process_path(device_path)
+        .resolver(resolver)
         .tap(attached.recorder());
     let config = if traits_only {
         config.traits_only()
@@ -62,13 +66,18 @@ pub async fn tapped_session(
     (printed, path)
 }
 
-/// What `ww explain FILE` prints of a capture.
-pub fn replayed(path: &std::path::Path, layer: Layer) -> String {
-    replayed_view(path, layer, false)
+/// What `ww explain FILE` prints of a capture, decoded through `resolver`.
+pub fn replayed(path: &std::path::Path, layer: Layer, resolver: &'static Resolver) -> String {
+    replayed_view(path, layer, false, resolver)
 }
 
-/// What `ww explain FILE` prints of a capture, with `--bytes` when `bytes`.
-pub fn replayed_view(path: &std::path::Path, layer: Layer, bytes: bool) -> String {
+/// What `ww explain FILE` prints of a capture, with `--bytes` when `bytes`, decoded through `resolver`.
+pub fn replayed_view(
+    path: &std::path::Path,
+    layer: Layer,
+    bytes: bool,
+    resolver: &'static Resolver,
+) -> String {
     let view = ViewArgs {
         layer,
         bytes,
@@ -79,6 +88,7 @@ pub fn replayed_view(path: &std::path::Path, layer: Layer, bytes: bool) -> Strin
         &mut FileFeed::open(path, false).unwrap(),
         view,
         false,
+        resolver,
         &mut out,
     )
     .unwrap();

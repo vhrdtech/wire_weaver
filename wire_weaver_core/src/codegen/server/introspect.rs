@@ -1,6 +1,6 @@
 use crate::codegen::api_server::IntrospectCompression;
 use crate::codegen::omit::Omissions;
-use crate::codegen::util::{fixed_err_seq, maybe_quote};
+use crate::codegen::util::fixed_err_seq;
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
@@ -53,8 +53,8 @@ pub(crate) fn introspect(
         &format!("{}_FULL_GID", root.trait_name).to_case(Case::Constant),
         Span::call_site(),
     );
-    // at module level, so that tests and tools see the bytes too; the device stores them where the arm uses them
-    let bytes_consts = maybe_quote(enabled, bytes_consts);
+    // at module level, so that tests and tools see the bytes too, also of a device that doesn't send them (a host
+    // seeds its cache with them); flash holds them only where the arm uses them
     let api_hash = quote! {
         #bytes_consts
         #hash_consts

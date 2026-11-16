@@ -300,15 +300,18 @@ mod tests {
             server,
             local_trait_api::COUNTER_API_FULL_GID,
             local_trait_api::COUNTER_API_WIRE_VERSION,
-            server::api_impl::api_hash(),
+            tests_common::api!(server::api_impl),
         )
     }
 
     async fn connect(device: &TestDevice) -> client::CounterClient {
-        client::CounterClient::config(|c| c.in_process_path(device.path()))
-            .connect()
-            .await
-            .expect("connect")
+        client::CounterClient::config(|c| {
+            c.in_process_path(device.path())
+                .resolver(tests_common::resolver())
+        })
+        .connect()
+        .await
+        .expect("connect")
     }
 
     #[tokio::test]

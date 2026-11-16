@@ -29,6 +29,11 @@ The answer is a stream at the root path (`[]`), under the request's seq:
 A device with introspection off answers with `Close` alone, and the client reports no introspection data. The
 client joins the data events in order, so the chunk size is not part of the format.
 
+A device built with introspection off still has `WW_SELF_BYTES` in its `api_impl`, unused by its code, so it takes no
+flash. A host that knows the device's build puts them into a client's cache with
+`wire_weaver_client::cache_introspection`, and the client then finds the API without asking the device, as the
+test harness (`tests_common::api!`) does.
+
 Traits and types known from the API snapshots of `ww_stdlib` and the framework are left out of what a device sends,
 and the client puts them back (`ww_snapshots`, [finding snapshots](../evolution/snapshots.md)). What is left is mostly the device's own API and its doc
 comments: on a real board the docs are the larger part.

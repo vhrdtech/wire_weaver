@@ -565,7 +565,7 @@ mod tests {
             server,
             block_sd_api::BLOCK_SD_TEST_FULL_GID,
             block_sd_api::BLOCK_SD_TEST_WIRE_VERSION,
-            server::api_impl::api_hash(),
+            tests_common::api!(server::api_impl),
         );
         (device, m)
     }
@@ -1079,7 +1079,7 @@ mod lean {
             server::Server { card: [0xff; 512] },
             block_sd_api::BLOCK_LEAN_TEST_FULL_GID,
             block_sd_api::BLOCK_LEAN_TEST_WIRE_VERSION,
-            server::api_impl::api_hash(),
+            tests_common::api!(server::api_impl),
         );
         let client = client::StdClient::config(|c| {
             c.in_process_path(device.path())

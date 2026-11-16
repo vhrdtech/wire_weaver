@@ -746,7 +746,7 @@ mod tests {
             server,
             io_can_group_api::IO_CAN_GROUP_TEST_FULL_GID,
             io_can_group_api::IO_CAN_GROUP_TEST_WIRE_VERSION,
-            server::api_impl::api_hash(),
+            tests_common::api!(server::api_impl),
         );
         (device, m)
     }

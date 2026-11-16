@@ -222,7 +222,7 @@ mod tests {
             server,
             recorder_groups_api::RECORDER_GROUPS_TEST_FULL_GID,
             recorder_groups_api::RECORDER_GROUPS_TEST_WIRE_VERSION,
-            api_impl::api_hash(),
+            tests_common::api!(api_impl),
         );
         (device, data)
     }

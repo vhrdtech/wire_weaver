@@ -7,6 +7,7 @@
 
 ### ⚠️ Breaking
 
+- `cmd::tap::test_support`'s `tapped_session`, `replayed` and `replayed_view` take the snapshot resolver (EVO-80).
 - `ww api tree -t` and `ww introspect -t` no longer mark `common errors` on types (STD-16): a common error is no type of the API, the `#[errors(..)]` lists show `CommonError(..)` entries.
 - The `ww` binary is the crate `ww` in `ww_tools/ww` (TOOL-36): `cargo install --git .. ww`, `cargo build -p ww`; `wire_weaver_cli` is a library only.
 - `ww api keep-superseded` resolves the definitions of other crates through `ww_snapshots::Resolver::global()` (EVO-80).

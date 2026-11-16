@@ -25,6 +25,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 use tracing::level_filters::LevelFilter;
 use wire_weaver_client::DynClient;
+use wire_weaver_client::snapshots::Resolver;
 use wire_weaver_client::tap::{
     Check, Decoded, Decoder, DecoderConfig, Dir, FrameInfo, FrameOutcome, FrameReport, Layers,
     MessageInfo, PieceOutcome, Recorder, RecorderConfig, Subscription, What, decode::kind_name,
@@ -336,18 +337,25 @@ pub(crate) struct Monitor {
 }
 
 impl Monitor {
-    /// `local_cache`: look device APIs up in `~/.wire_weaver` when a capture doesn't carry them.
-    pub(crate) fn new(view: ViewArgs, local_cache: bool) -> Self {
-        Self::with_frames(view, local_cache, true)
+    /// `local_cache`: look device APIs up in `resolver`'s cache (`~/.wire_weaver` for the host's) when a capture
+    /// doesn't carry them; `resolver` puts back what a device's API left out.
+    pub(crate) fn new(view: ViewArgs, local_cache: bool, resolver: &'static Resolver) -> Self {
+        Self::with_frames(view, local_cache, true, resolver)
     }
 
     /// `frames`: the recorder gave frames too (else messages only, and are printed as they come).
-    pub(crate) fn with_frames(view: ViewArgs, local_cache: bool, frames: bool) -> Self {
+    pub(crate) fn with_frames(
+        view: ViewArgs,
+        local_cache: bool,
+        frames: bool,
+        resolver: &'static Resolver,
+    ) -> Self {
         // explained at every layer: requests and stats go by their names, not ids
         let decoder = Decoder::new(DecoderConfig {
             frames,
             ..DecoderConfig::default()
-        });
+        })
+        .with_resolver(resolver);
         Monitor {
             decoder: if local_cache {
                 decoder.with_local_cache()
@@ -818,7 +826,9 @@ pub(crate) async fn monitor(
     let (mut feed, recorder) = LiveFeed::new(tap);
     let view = args.view;
     run_live(device, recorder, args.duration, stop, move |stop| {
-        let mut monitor = Monitor::with_frames(view, false, view.layer == Layer::Frame);
+        // the command's connection resolves through the host's resolver
+        let mut monitor =
+            Monitor::with_frames(view, false, view.layer == Layer::Frame, Resolver::global());
         let mut out = std::io::stdout().lock();
         consume(&mut feed, &stop, |b| monitor.block(b, &mut out))?;
         monitor.finish(&mut out)
@@ -841,7 +851,7 @@ pub(crate) async fn stats(
             bytes: false,
             bits: false,
         };
-        let mut monitor = Monitor::new(view, false);
+        let mut monitor = Monitor::new(view, false, Resolver::global());
         let mut last = Instant::now();
         let print = |monitor: &mut Monitor, last: &mut Instant| {
             if last.elapsed() >= every {
@@ -870,7 +880,7 @@ pub(crate) fn stats_file(args: &StatsArgs) -> Result<()> {
         bytes: false,
         bits: false,
     };
-    let mut monitor = Monitor::new(view, true);
+    let mut monitor = Monitor::new(view, true, Resolver::global());
     let mut feed = FileFeed::open(path, args.resync)?;
     let mut sink = std::io::sink();
     let stop = AtomicBool::new(true);
@@ -959,7 +969,7 @@ pub(crate) async fn capture(
 pub(crate) fn explain_file(path: &Path, view: ViewArgs, resync: bool) -> Result<()> {
     let mut feed = FileFeed::open(path, resync)?;
     let mut out = std::io::stdout().lock();
-    replay(&mut feed, view, true, &mut out)
+    replay(&mut feed, view, true, Resolver::global(), &mut out)
 }
 
 /// A feed to its end through a [Monitor].
@@ -967,9 +977,10 @@ pub(crate) fn replay(
     feed: &mut dyn Feed,
     view: ViewArgs,
     local_cache: bool,
+    resolver: &'static Resolver,
     out: &mut impl Write,
 ) -> Result<()> {
-    let mut monitor = Monitor::new(view, local_cache);
+    let mut monitor = Monitor::new(view, local_cache, resolver);
     let stop = AtomicBool::new(true);
     consume(feed, &stop, |b| monitor.block(b, out))?;
     monitor.finish(out)

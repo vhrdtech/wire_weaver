@@ -218,7 +218,7 @@ mod tests {
             server,
             bounded_api::BOUNDED_FULL_GID,
             bounded_api::BOUNDED_WIRE_VERSION,
-            api_impl::api_hash(),
+            tests_common::api!(api_impl),
         );
         (device, data)
     }

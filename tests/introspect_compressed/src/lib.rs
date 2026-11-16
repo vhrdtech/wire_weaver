@@ -346,7 +346,7 @@ mod tests {
             lz4::Server::default(),
             INTROSPECT_COMPRESSED_FULL_GID,
             INTROSPECT_COMPRESSED_WIRE_VERSION,
-            lz4::api_impl::api_hash(),
+            tests_common::api!(lz4::api_impl),
         );
         let host = connect_to(&device).await;
         let downloaded = host.cmd.introspect().download().await.unwrap().unwrap();
@@ -367,7 +367,7 @@ mod tests {
             plain::Server::default(),
             INTROSPECT_COMPRESSED_FULL_GID,
             INTROSPECT_COMPRESSED_WIRE_VERSION,
-            plain::api_impl::api_hash(),
+            tests_common::api!(plain::api_impl),
         );
         let host = connect_to(&device).await;
         let downloaded = host.cmd.introspect().download().await.unwrap().unwrap();
@@ -383,7 +383,7 @@ mod tests {
             lz4_async::Server::default(),
             INTROSPECT_COMPRESSED_FULL_GID,
             INTROSPECT_COMPRESSED_WIRE_VERSION,
-            lz4_async::api_impl::api_hash(),
+            tests_common::api!(lz4_async::api_impl),
         );
         let host = connect_to(&device).await;
         let downloaded = host.cmd.introspect().download().await.unwrap().unwrap();
@@ -399,7 +399,7 @@ mod tests {
             lz4::Server::default(),
             INTROSPECT_COMPRESSED_FULL_GID,
             INTROSPECT_COMPRESSED_WIRE_VERSION,
-            lz4::api_impl::api_hash(),
+            tests_common::api!(lz4::api_impl),
         );
         let client = wire_weaver_client::DynClient::from_config(
             ClientConfig::new()
@@ -422,7 +422,7 @@ mod tests {
             lz4::Server::default(),
             INTROSPECT_COMPRESSED_FULL_GID,
             INTROSPECT_COMPRESSED_WIRE_VERSION,
-            lz4::api_impl::api_hash(),
+            tests_common::api!(lz4::api_impl),
         );
         let host = connect_to(&device).await;
         let cmd = host.cmd.clone();
@@ -463,7 +463,7 @@ mod tests {
             lz4::Server::default(),
             INTROSPECT_COMPRESSED_FULL_GID,
             INTROSPECT_COMPRESSED_WIRE_VERSION,
-            lz4::api_impl::api_hash(),
+            tests_common::api!(lz4::api_impl),
         );
         let dir = runtime_dir("hub");
         let bound = Bound::bind(HubConfig {

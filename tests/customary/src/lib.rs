@@ -152,7 +152,7 @@ mod tests {
             server,
             customary_api::SMALL_FORCES_FULL_GID,
             customary_api::SMALL_FORCES_WIRE_VERSION,
-            server::api_impl::api_hash(),
+            tests_common::api!(server::api_impl),
         )
     }
 

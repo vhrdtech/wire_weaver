@@ -275,7 +275,7 @@ mod tests {
             server,
             series_api::SEQUENCES_FULL_GID,
             series_api::SEQUENCES_WIRE_VERSION,
-            api_impl::api_hash(),
+            tests_common::api!(api_impl),
         );
         (device, data)
     }

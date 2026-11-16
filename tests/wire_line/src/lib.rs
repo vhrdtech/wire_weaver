@@ -101,7 +101,7 @@ mod tests {
             },
             FullVersion::new("wire_line_api", Version::new(0, 3, 0)),
             wire,
-            old_device::api_impl::api_hash(),
+            tests_common::api!(old_device::api_impl),
         );
         (requests, device)
     }

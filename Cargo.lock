@@ -4904,6 +4904,7 @@ name = "settings"
 version = "0.1.0"
 dependencies = [
  "settings_api",
+ "tests_common",
  "tokio",
  "wire_weaver",
  "wire_weaver_client",

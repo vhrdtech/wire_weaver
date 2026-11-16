@@ -441,7 +441,7 @@ mod tests {
                         server,
                         observe_batched_api::OBSERVE_BATCHED_FULL_GID,
                         observe_batched_api::OBSERVE_BATCHED_WIRE_VERSION,
-                        server::api_impl::api_hash(),
+                        tests_common::api!(server::api_impl),
                     )
                 }
                 Variant::Cells => {
@@ -468,7 +468,7 @@ mod tests {
                         server,
                         observe_batched_api::OBSERVE_BATCHED_FULL_GID,
                         observe_batched_api::OBSERVE_BATCHED_WIRE_VERSION,
-                        cells_server::api_impl::api_hash(),
+                        tests_common::api!(cells_server::api_impl),
                     )
                 }
                 Variant::NoSamples | Variant::NoSamplesSilent => {
@@ -489,7 +489,7 @@ mod tests {
                         server,
                         observe_batched_api::OBSERVE_BATCHED_FULL_GID,
                         observe_batched_api::OBSERVE_BATCHED_WIRE_VERSION,
-                        no_samples_server::api_impl::api_hash(),
+                        tests_common::api!(no_samples_server::api_impl),
                         facts,
                     )
                 }

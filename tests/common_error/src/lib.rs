@@ -78,7 +78,7 @@ pub mod server {
             Server,
             common_error_api::COMMON_ERRORS_FULL_GID,
             common_error_api::COMMON_ERRORS_WIRE_VERSION,
-            api_impl::api_hash(),
+            tests_common::api!(api_impl),
         )
     }
 }

@@ -271,7 +271,7 @@ mod tests {
             server,
             streams_borrowed_error_api::BORROWED_ERROR_FULL_GID,
             streams_borrowed_error_api::BORROWED_ERROR_WIRE_VERSION,
-            sync_server::api_impl::api_hash(),
+            tests_common::api!(sync_server::api_impl),
         )
     }
 
@@ -288,7 +288,7 @@ mod tests {
             server,
             streams_borrowed_error_api::BORROWED_ERROR_RELIABLE_FULL_GID,
             streams_borrowed_error_api::BORROWED_ERROR_RELIABLE_WIRE_VERSION,
-            async_server::api_impl::api_hash(),
+            tests_common::api!(async_server::api_impl),
         )
     }
 

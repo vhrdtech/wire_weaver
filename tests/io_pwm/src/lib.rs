@@ -308,7 +308,7 @@ mod tests {
             server,
             io_pwm_api::IO_PWM_TEST_FULL_GID,
             io_pwm_api::IO_PWM_TEST_WIRE_VERSION,
-            sync_server::api_impl::api_hash(),
+            tests_common::api!(sync_server::api_impl),
         );
         (device, m)
     }

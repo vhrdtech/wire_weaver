@@ -261,7 +261,7 @@ mod tests {
         let (gid, wire, hash) = (
             hub_api::HUB_TEST_FULL_GID,
             hub_api::HUB_TEST_WIRE_VERSION,
-            server::api_impl::api_hash(),
+            tests_common::api!(server::api_impl),
         );
         let device = match window {
             Some(w) => {

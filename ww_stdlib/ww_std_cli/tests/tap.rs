@@ -83,7 +83,7 @@ fn user_info_device(path: &str) -> tests_common::TestDevice {
         Server,
         user_info_api::USER_INFO_TEST_FULL_GID,
         user_info_api::USER_INFO_TEST_WIRE_VERSION,
-        api_impl::api_hash(),
+        tests_common::api!(api_impl),
     )
 }
 
@@ -93,11 +93,17 @@ fn user_info_device(path: &str) -> tests_common::TestDevice {
 async fn global_trait_calls_are_named_and_decoded() {
     for (traits_only, name) in [(false, "global"), (true, "global_traits_only")] {
         let device = user_info_device(&format!("std_cli/tap_{name}"));
-        let (printed, path) = tapped_session(name, device.path(), traits_only, async |client| {
-            let user = ww_report::clients::UserInfoClient::new(client);
-            let n = user.read_name().read().await.unwrap();
-            assert_eq!(&*n, "tapped");
-        })
+        let (printed, path) = tapped_session(
+            name,
+            device.path(),
+            tests_common::resolver(),
+            traits_only,
+            async |client| {
+                let user = ww_report::clients::UserInfoClient::new(client);
+                let n = user.read_name().read().await.unwrap();
+                assert_eq!(&*n, "tapped");
+            },
+        )
         .await;
         let resource = match traits_only {
             true => "ww_user_info::UserInfo.name",
@@ -114,11 +120,15 @@ async fn global_trait_calls_are_named_and_decoded() {
             ),
             "{printed}"
         );
-        assert_eq!(replayed(&path, Layer::Api), printed, "{name}");
+        assert_eq!(
+            replayed(&path, Layer::Api, tests_common::resolver()),
+            printed,
+            "{name}"
+        );
         if traits_only {
             // the call went out by the trait's ww_global id (API-20): 6 bytes, the crate name alone would take 12;
             // the name shown comes from the registry
-            let with_bytes = replayed_view(&path, Layer::Api, true);
+            let with_bytes = replayed_view(&path, Layer::Api, true, tests_common::resolver());
             let mut lines = with_bytes.lines();
             lines.find(|l| l.contains("Request Read ww_user_info::UserInfo.name"));
             let request_len = lines.next().unwrap().split_whitespace().skip(1).count();

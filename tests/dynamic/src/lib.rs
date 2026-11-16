@@ -1065,7 +1065,7 @@ mod tests {
             server::DynServer::default(),
             dynamic_api::DYNAMIC_FULL_GID,
             dynamic_api::DYNAMIC_WIRE_VERSION,
-            server::api_impl::api_hash(),
+            tests_common::api!(server::api_impl),
         );
         let client = DynClient::from_config(
             ClientConfig::new()
@@ -1089,7 +1089,7 @@ mod tests {
             server::DynServer::default(),
             dynamic_api::DYNAMIC_FULL_GID,
             dynamic_api::DYNAMIC_WIRE_VERSION,
-            server::api_impl::api_hash(),
+            tests_common::api!(server::api_impl),
         );
         let client = DynClient::from_config(
             ClientConfig::new()
@@ -1217,7 +1217,7 @@ mod tests {
             server::DynServer::default(),
             dynamic_api::DYNAMIC_FULL_GID,
             dynamic_api::DYNAMIC_WIRE_VERSION,
-            server::api_impl::api_hash(),
+            tests_common::api!(server::api_impl),
         );
         let client = DynClient::from_config(
             ClientConfig::new()

@@ -188,7 +188,7 @@ mod tests {
             },
             user_info_api::USER_INFO_TEST_FULL_GID,
             user_info_api::USER_INFO_TEST_WIRE_VERSION,
-            server::api_impl::api_hash(),
+            tests_common::api!(server::api_impl),
         );
         (device, storage)
     }

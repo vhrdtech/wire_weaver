@@ -18,19 +18,76 @@ use wire_weaver_client::in_process::{self, TokioClock};
 pub const MAX_MESSAGE_LEN: usize = 1024;
 
 /// The resolver test clients connect with (`ClientConfig::resolver`): [Resolver::offline] over this workspace, with
-/// the host's cache, where codegen keeps the APIs of devices that don't send theirs. It never fetches.
+/// a cache of this test process's own under the temp dir. It finds the snapshots a build here sees, never fetches
+/// and reads nothing of this machine's `~/.wire_weaver`; the devices a test starts put their introspection data
+/// into its cache ([DeviceApi]).
 ///
 /// [Resolver::offline]: wire_weaver_client::snapshots::Resolver::offline
 pub fn resolver() -> &'static wire_weaver_client::snapshots::Resolver {
-    use wire_weaver_client::snapshots::{Resolver, cache};
-    static RESOLVER: std::sync::LazyLock<Resolver> = std::sync::LazyLock::new(|| {
-        let resolver = Resolver::offline(std::path::Path::new(env!("CARGO_MANIFEST_DIR")));
-        match cache::default_root() {
-            Some(root) => resolver.with_cache(&root),
-            None => resolver,
-        }
-    });
+    static RESOLVER: std::sync::LazyLock<wire_weaver_client::snapshots::Resolver> =
+        std::sync::LazyLock::new(|| {
+            let cache = std::env::temp_dir()
+                .join("ww_tests_cache")
+                .join(std::process::id().to_string());
+            wire_weaver_client::snapshots::Resolver::offline(std::path::Path::new(env!(
+                "CARGO_MANIFEST_DIR"
+            )))
+            .with_cache(&cache)
+        });
     &RESOLVER
+}
+
+/// A test device's API identity and introspection data, from its generated `api_impl`: [api!] makes one.
+#[derive(Clone, Copy)]
+pub struct DeviceApi {
+    /// The server's `api_impl::api_hash()`
+    pub hash: ApiHashPair<'static>,
+    /// The server's `api_impl::WW_SELF_BYTES`, there also when the device doesn't send them
+    pub ww_self_bytes: &'static [u8],
+}
+
+/// The [DeviceApi] of a generated server: `tests_common::api!(server::api_impl)`.
+#[macro_export]
+macro_rules! api {
+    ($api_impl:path) => {{
+        use $api_impl as api_impl;
+        $crate::DeviceApi {
+            hash: api_impl::api_hash(),
+            ww_self_bytes: &api_impl::WW_SELF_BYTES,
+        }
+    }};
+}
+
+impl DeviceApi {
+    /// A device that reports `hash` instead, as one of another build would: nothing of it is in the test cache.
+    pub fn reporting(hash: ApiHashPair<'static>) -> Self {
+        DeviceApi {
+            hash,
+            ww_self_bytes: &[],
+        }
+    }
+
+    /// Put the introspection data into [resolver]'s cache, as a client that downloaded it from the device would
+    /// have: a test client then knows the API also of a device built with introspection off. Once per API in a
+    /// process.
+    fn seed(&self) {
+        if self.ww_self_bytes.is_empty() {
+            return;
+        }
+        static SEEDED: Mutex<Vec<Vec<u8>>> = Mutex::new(Vec::new());
+        let mut seeded = SEEDED.lock().expect("seeding panicked");
+        let key = self.hash.no_docs.make_owned().hash;
+        if seeded.contains(&key) {
+            return;
+        }
+        wire_weaver_client::cache_introspection(
+            resolver(),
+            self.ww_self_bytes,
+            &self.hash.make_owned(),
+        )
+        .expect("the device's introspection data goes into the test cache");
+        seeded.push(key);
+    }
 }
 
 /// Implemented by test servers generated with `use_async = false`, forwards to the generated `process_request_bytes`.
@@ -270,15 +327,15 @@ impl TestDevice {
 }
 
 /// Start a device thread serving `server` under `path` (unique per test).
-/// `version` is the API crate's `<TRAIT>_FULL_GID`, `wire` its `<TRAIT>_WIRE_VERSION`, `api_hash` is the server's generated `api_hash()`.
+/// `version` is the API crate's `<TRAIT>_FULL_GID`, `wire` its `<TRAIT>_WIRE_VERSION`, `api` is the server's [api!].
 pub fn start_device<S: TestProcessEvents<Medium = ()> + Send + 'static>(
     path: &str,
     server: S,
     version: FullVersion<'static>,
     wire: WireVersion,
-    api_hash: ApiHashPair<'static>,
+    api: DeviceApi,
 ) -> TestDevice {
-    start_device_on(path, server, version, wire, api_hash, ())
+    start_device_on(path, server, version, wire, api, ())
 }
 
 /// Same as [start_device], for servers generated with `medium = ".."`: `medium` is passed to every handler.
@@ -287,10 +344,10 @@ pub fn start_device_on<S: TestProcessEvents + Send + 'static>(
     server: S,
     version: FullVersion<'static>,
     wire: WireVersion,
-    api_hash: ApiHashPair<'static>,
+    api: DeviceApi,
     medium: S::Medium,
 ) -> TestDevice {
-    start(path, SyncServer(server), version, wire, api_hash, medium)
+    start(path, SyncServer(server), version, wire, api, medium)
 }
 
 /// Same as [start_device_usb], with the device asking for an accumulation window of `window` instead of the default
@@ -302,7 +359,7 @@ pub fn start_device_usb_with_window<S: TestProcessEvents<Medium = ()> + Send + '
     server: S,
     version: FullVersion<'static>,
     wire: WireVersion,
-    api_hash: ApiHashPair<'static>,
+    api: DeviceApi,
     window: std::time::Duration,
 ) -> TestDevice {
     start_with(
@@ -311,7 +368,7 @@ pub fn start_device_usb_with_window<S: TestProcessEvents<Medium = ()> + Send + '
         SyncServer(server),
         version,
         wire,
-        api_hash,
+        api,
         ImageFacts::default(),
         (),
         Some(window),
@@ -326,7 +383,7 @@ pub fn start_device_async_with_limit<S: TestProcessEventsAsync<Medium = ()> + Se
     server: S,
     version: FullVersion<'static>,
     wire: WireVersion,
-    api_hash: ApiHashPair<'static>,
+    api: DeviceApi,
 ) -> TestDevice {
     start_on(
         path,
@@ -334,7 +391,7 @@ pub fn start_device_async_with_limit<S: TestProcessEventsAsync<Medium = ()> + Se
         AsyncServer(server),
         version,
         wire,
-        api_hash,
+        api,
         (),
     )
 }
@@ -345,9 +402,9 @@ pub fn start_device_async<S: TestProcessEventsAsync<Medium = ()> + Send + 'stati
     server: S,
     version: FullVersion<'static>,
     wire: WireVersion,
-    api_hash: ApiHashPair<'static>,
+    api: DeviceApi,
 ) -> TestDevice {
-    start(path, AsyncServer(server), version, wire, api_hash, ())
+    start(path, AsyncServer(server), version, wire, api, ())
 }
 
 /// Same as [start_device], with a device saying `image_facts`.
@@ -356,7 +413,7 @@ pub fn start_device_with_facts<S: TestProcessEvents<Medium = ()> + Send + 'stati
     server: S,
     version: FullVersion<'static>,
     wire: WireVersion,
-    api_hash: ApiHashPair<'static>,
+    api: DeviceApi,
     image_facts: ImageFacts,
 ) -> TestDevice {
     start_with(
@@ -365,7 +422,7 @@ pub fn start_device_with_facts<S: TestProcessEvents<Medium = ()> + Send + 'stati
         SyncServer(server),
         version,
         wire,
-        api_hash,
+        api,
         image_facts,
         (),
         None,
@@ -379,7 +436,7 @@ pub fn start_device_async_with_facts<S: TestProcessEventsAsync<Medium = ()> + Se
     server: S,
     version: FullVersion<'static>,
     wire: WireVersion,
-    api_hash: ApiHashPair<'static>,
+    api: DeviceApi,
     image_facts: ImageFacts,
 ) -> TestDevice {
     start_with(
@@ -388,7 +445,7 @@ pub fn start_device_async_with_facts<S: TestProcessEventsAsync<Medium = ()> + Se
         AsyncServer(server),
         version,
         wire,
-        api_hash,
+        api,
         image_facts,
         (),
         None,
@@ -474,7 +531,7 @@ pub fn start_device_usb<S: TestProcessEvents<Medium = ()> + Send + 'static>(
     server: S,
     version: FullVersion<'static>,
     wire: WireVersion,
-    api_hash: ApiHashPair<'static>,
+    api: DeviceApi,
 ) -> TestDevice {
     start_on(
         path,
@@ -482,7 +539,7 @@ pub fn start_device_usb<S: TestProcessEvents<Medium = ()> + Send + 'static>(
         SyncServer(server),
         version,
         wire,
-        api_hash,
+        api,
         (),
     )
 }
@@ -494,7 +551,7 @@ pub fn start_device_async_usb<S: TestProcessEventsAsync<Medium = ()> + Send + 's
     server: S,
     version: FullVersion<'static>,
     wire: WireVersion,
-    api_hash: ApiHashPair<'static>,
+    api: DeviceApi,
 ) -> TestDevice {
     start_on(
         path,
@@ -502,7 +559,7 @@ pub fn start_device_async_usb<S: TestProcessEventsAsync<Medium = ()> + Send + 's
         AsyncServer(server),
         version,
         wire,
-        api_hash,
+        api,
         (),
     )
 }
@@ -533,7 +590,7 @@ pub fn start_device_async_usb_sim<S: TestProcessEventsAsync<Medium = ()> + Send 
     server: S,
     version: FullVersion<'static>,
     wire: WireVersion,
-    api_hash: ApiHashPair<'static>,
+    api: DeviceApi,
 ) -> TestDevice {
     start_on(
         &socket.display().to_string(),
@@ -541,7 +598,7 @@ pub fn start_device_async_usb_sim<S: TestProcessEventsAsync<Medium = ()> + Send 
         AsyncServer(server),
         version,
         wire,
-        api_hash,
+        api,
         (),
     )
 }
@@ -554,7 +611,7 @@ pub fn start_device_async_ipc<S: TestProcessEventsAsync<Medium = ()> + Send + 's
     server: S,
     version: FullVersion<'static>,
     wire: WireVersion,
-    api_hash: ApiHashPair<'static>,
+    api: DeviceApi,
 ) -> TestDevice {
     start_on(
         &socket.display().to_string(),
@@ -562,7 +619,7 @@ pub fn start_device_async_ipc<S: TestProcessEventsAsync<Medium = ()> + Send + 's
         AsyncServer(server),
         version,
         wire,
-        api_hash,
+        api,
         (),
     )
 }
@@ -575,7 +632,7 @@ fn start<S: Process + Send + 'static>(
     server: S,
     version: FullVersion<'static>,
     wire: WireVersion,
-    api_hash: ApiHashPair<'static>,
+    api: DeviceApi,
     medium: S::Medium,
 ) -> TestDevice {
     start_on(
@@ -584,7 +641,7 @@ fn start<S: Process + Send + 'static>(
         server,
         version,
         wire,
-        api_hash,
+        api,
         medium,
     )
 }
@@ -595,7 +652,7 @@ fn start_on<S: Process + Send + 'static>(
     server: S,
     version: FullVersion<'static>,
     wire: WireVersion,
-    api_hash: ApiHashPair<'static>,
+    api: DeviceApi,
     medium: S::Medium,
 ) -> TestDevice {
     start_with(
@@ -604,7 +661,7 @@ fn start_on<S: Process + Send + 'static>(
         server,
         version,
         wire,
-        api_hash,
+        api,
         ImageFacts::default(),
         medium,
         None,
@@ -618,13 +675,14 @@ fn start_with<S: Process + Send + 'static>(
     server: S,
     version: FullVersion<'static>,
     wire: WireVersion,
-    api_hash: ApiHashPair<'static>,
+    api: DeviceApi,
     image_facts: ImageFacts,
     medium: S::Medium,
     accumulation_time: Option<std::time::Duration>,
 ) -> TestDevice {
     // a device returning an error outside a method's #[errors(..)] fails the test (API-32)
     wire_weaver_client::set_strict_error_lists(true);
+    api.seed();
     let drop_requests = Arc::new(AtomicBool::new(false));
     let links: Arc<(std::sync::atomic::AtomicU32, std::sync::atomic::AtomicU32)> = Arc::default();
     let links_out = links.clone();
@@ -643,7 +701,7 @@ fn start_with<S: Process + Send + 'static>(
     let mut config = ww_device::LinkConfig::new(
         version,
         wire,
-        api_hash,
+        api.hash,
         image_facts,
         ww_client_server::COMPACT_VERSION,
     );

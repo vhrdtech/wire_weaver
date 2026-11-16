@@ -214,7 +214,7 @@ mod tests {
             },
             counters_api::COUNTERS_TEST_FULL_GID,
             counters_api::COUNTERS_TEST_WIRE_VERSION,
-            server::api_impl::api_hash(),
+            tests_common::api!(server::api_impl),
         );
         (device, buffers)
     }

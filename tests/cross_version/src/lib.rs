@@ -307,7 +307,7 @@ mod tests {
             // what the old firmware reports: the same API crate as the host's, an older version on another wire line
             FullVersion::new("cross_version_api", Version::new(0, 3, 0)),
             cross_version_old_api::CROSS_VERSION_WIRE_VERSION,
-            old_device::api_impl::api_hash(),
+            tests_common::api!(old_device::api_impl),
         );
         (calls, device)
     }
@@ -324,7 +324,7 @@ mod tests {
             server,
             FullVersion::new("cross_version_api", Version::new(0, 3, 0)),
             cross_version_old_api::CROSS_VERSION_WIRE_VERSION,
-            introspecting_device::api_impl::api_hash(),
+            tests_common::api!(introspecting_device::api_impl),
         );
         (calls, device)
     }

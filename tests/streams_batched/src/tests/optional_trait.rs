@@ -134,7 +134,7 @@ async fn streams_of_an_omitted_trait_are_not_polled() {
                 cfg_server::CfgServer,
                 streams_batched_api::STREAMS_BATCHED_FULL_GID,
                 streams_batched_api::STREAMS_BATCHED_WIRE_VERSION,
-                cfg_server::api_impl::api_hash(),
+                tests_common::api!(cfg_server::api_impl),
             ),
         ),
         (
@@ -144,7 +144,7 @@ async fn streams_of_an_omitted_trait_are_not_polled() {
                 lean_server::LeanServer,
                 streams_batched_api::STREAMS_BATCHED_FULL_GID,
                 streams_batched_api::STREAMS_BATCHED_WIRE_VERSION,
-                lean_server::api_impl::api_hash(),
+                tests_common::api!(lean_server::api_impl),
             ),
         ),
     ] {

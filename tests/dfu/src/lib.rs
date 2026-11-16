@@ -563,7 +563,7 @@ mod tests {
             server,
             dfu_api::DFU_DEVICE_FULL_GID,
             dfu_api::DFU_DEVICE_WIRE_VERSION,
-            server::api_impl::api_hash(),
+            tests_common::api!(server::api_impl),
         );
         let client = client::DfuClient::config(|c| {
             c.in_process_path(device.path())

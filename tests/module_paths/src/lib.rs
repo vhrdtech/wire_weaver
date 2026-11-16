@@ -183,7 +183,7 @@ mod tests {
             server,
             module_paths_api::MODULE_PATHS_FULL_GID,
             module_paths_api::MODULE_PATHS_WIRE_VERSION,
-            api_impl::api_hash(),
+            tests_common::api!(api_impl),
         );
         (device, data)
     }

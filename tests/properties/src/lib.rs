@@ -380,7 +380,7 @@ mod tests {
             server,
             properties_api::PROPERTIES_FULL_GID,
             properties_api::PROPERTIES_WIRE_VERSION,
-            alloc_multi_req_server::api_impl::api_hash(),
+            tests_common::api!(alloc_multi_req_server::api_impl),
         );
         (device, data)
     }
@@ -404,7 +404,7 @@ mod tests {
             server,
             properties_api::PROPERTIES_FULL_GID,
             properties_api::PROPERTIES_WIRE_VERSION,
-            alloc_single_req_server::api_impl::api_hash(),
+            tests_common::api!(alloc_single_req_server::api_impl),
         );
         (device, data)
     }

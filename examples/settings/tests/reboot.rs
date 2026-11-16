@@ -36,10 +36,13 @@ fn spawn_device(
 }
 
 async fn connect(path: &str) -> Client {
-    Client::config(|c| c.in_process_path(path.to_string()))
-        .connect()
-        .await
-        .expect("connect")
+    Client::config(|c| {
+        c.in_process_path(path.to_string())
+            .resolver(tests_common::resolver())
+    })
+    .connect()
+    .await
+    .expect("connect")
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

@@ -152,7 +152,7 @@ fn demo_device(path: &str, speed: u16) -> tests_common::TestDevice {
         server::Server::new(speed),
         tap_api::TAP_DEMO_FULL_GID,
         tap_api::TAP_DEMO_WIRE_VERSION,
-        server::api_impl::api_hash(),
+        tests_common::api!(server::api_impl),
     )
 }
 
@@ -275,7 +275,7 @@ mod global_clock {
             },
             io_timebase_api::IO_TIMEBASE_TEST_FULL_GID,
             io_timebase_api::IO_TIMEBASE_TEST_WIRE_VERSION,
-            api_impl::api_hash(),
+            tests_common::api!(api_impl),
         )
     }
 
@@ -339,6 +339,7 @@ async fn monitor_capture_and_explain_file_agree() {
     let client = DynClient::from_config(
         ClientConfig::new()
             .in_process_path(device.path())
+            .resolver(tests_common::resolver())
             .tap(tap.recorder.clone()),
     )
     .connect()
@@ -373,7 +374,7 @@ async fn monitor_capture_and_explain_file_agree() {
     recorder.flush();
 
     // live: every view printed as the blocks come, and the blocks written as `ww capture` writes them
-    let mut monitors = views().map(|v| Monitor::new(v, false));
+    let mut monitors = views().map(|v| Monitor::new(v, false, tests_common::resolver()));
     let mut live = [vec![], vec![], vec![]];
     let mut file = vec![];
     let dir = std::env::temp_dir().join(format!("ww_cli_tap_{}", std::process::id()));
@@ -419,6 +420,7 @@ async fn monitor_capture_and_explain_file_agree() {
             &mut FileFeed::open(&path, false).unwrap(),
             view,
             false,
+            tests_common::resolver(),
             &mut replayed,
         )
         .unwrap();
@@ -483,10 +485,12 @@ async fn monitor_and_capture_flags_on_a_commands_own_client() {
     };
     let printed = Shared::default();
     // as main.rs does: the tap first, the client records into it
-    let attached = Attached::start_with(&flags, Box::new(printed.clone())).unwrap();
+    let attached =
+        Attached::start_with(&flags, Box::new(printed.clone()), tests_common::resolver()).unwrap();
     let client = DynClient::from_config(
         ClientConfig::new()
             .in_process_path(device.path())
+            .resolver(tests_common::resolver())
             .tap(attached.recorder()),
     )
     .connect()
@@ -534,13 +538,14 @@ async fn monitor_and_capture_flags_on_a_commands_own_client() {
         &mut FileFeed::open(&path, false).unwrap(),
         view,
         false,
+        tests_common::resolver(),
         &mut replayed,
     )
     .unwrap();
     assert_eq!(String::from_utf8(replayed).unwrap(), printed);
 
     // a second run to the same file is refused before connecting
-    let err = Attached::start_with(&flags, Box::new(std::io::sink()))
+    let err = Attached::start_with(&flags, Box::new(std::io::sink()), tests_common::resolver())
         .err()
         .unwrap();
     assert!(err.to_string().contains("exists"), "{err}");
@@ -553,29 +558,35 @@ async fn monitor_and_capture_flags_on_a_commands_own_client() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn observe_requests_replies_and_updates_are_decoded() {
     let device = demo_device("cli/tap_observe", 7);
-    let (printed, path) = tapped_session("observe", device.path(), false, async |client| {
-        let root = DynResource::root(client.device_introspect().unwrap().api_bundle.clone());
-        let level = root.walk("").unwrap();
-        let props = level.observable_properties().unwrap();
-        let names: Vec<_> = props.iter().map(|(_, n, _)| n.as_str()).collect();
-        assert_eq!(names, ["load", "state"]);
-        let entries = props
-            .iter()
-            .map(|(i, ..)| {
-                (
-                    *i,
-                    ObserveMode::OnChange {
-                        min: Micros::new(UNib32(0)),
-                    },
-                )
-            })
-            .collect();
-        let mut observer = level.observe(client.cmd(), entries).await.unwrap();
-        // the first update has both properties, later ones only what changed
-        for _ in 0..3 {
-            observer.recv().await.unwrap();
-        }
-    })
+    let (printed, path) = tapped_session(
+        "observe",
+        device.path(),
+        tests_common::resolver(),
+        false,
+        async |client| {
+            let root = DynResource::root(client.device_introspect().unwrap().api_bundle.clone());
+            let level = root.walk("").unwrap();
+            let props = level.observable_properties().unwrap();
+            let names: Vec<_> = props.iter().map(|(_, n, _)| n.as_str()).collect();
+            assert_eq!(names, ["load", "state"]);
+            let entries = props
+                .iter()
+                .map(|(i, ..)| {
+                    (
+                        *i,
+                        ObserveMode::OnChange {
+                            min: Micros::new(UNib32(0)),
+                        },
+                    )
+                })
+                .collect();
+            let mut observer = level.observe(client.cmd(), entries).await.unwrap();
+            // the first update has both properties, later ones only what changed
+            for _ in 0..3 {
+                observer.recv().await.unwrap();
+            }
+        },
+    )
     .await;
     let lines =
         |what: &str| -> Vec<&str> { printed.lines().filter(|l| l.contains(what)).collect() };
@@ -613,7 +624,10 @@ async fn observe_requests_replies_and_updates_are_decoded() {
     // the load changes at every poll, the state never: later updates carry the load alone, counted up
     assert!(!updates[2].contains("state"), "{printed}");
     assert!(load(updates[2]) > load(updates[0]), "{printed}");
-    assert_eq!(replayed(&path, Layer::Api), printed);
+    assert_eq!(
+        replayed(&path, Layer::Api, tests_common::resolver()),
+        printed
+    );
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }
 
@@ -626,10 +640,16 @@ async fn observe_requests_replies_and_updates_are_decoded() {
 async fn global_trait_calls_are_named_and_decoded() {
     for (traits_only, name) in [(false, "global"), (true, "global_traits_only")] {
         let device = global_clock::demo_device(&format!("cli/tap_{name}"));
-        let (printed, path) = tapped_session(name, device.path(), traits_only, async |client| {
-            let clock = global_clock::ClockClient::new(client);
-            clock.now().call().await.unwrap();
-        })
+        let (printed, path) = tapped_session(
+            name,
+            device.path(),
+            tests_common::resolver(),
+            traits_only,
+            async |client| {
+                let clock = global_clock::ClockClient::new(client);
+                clock.now().call().await.unwrap();
+            },
+        )
         .await;
         let resource = match traits_only {
             true => "ww_timebase::Clock.now",
@@ -645,10 +665,14 @@ async fn global_trait_calls_are_named_and_decoded() {
                 .any(|l| l.contains(&format!("Event Value {resource}")) && l.contains("reply to #")),
             "{printed}"
         );
-        assert_eq!(replayed(&path, Layer::Api), printed, "{name}");
+        assert_eq!(
+            replayed(&path, Layer::Api, tests_common::resolver()),
+            printed,
+            "{name}"
+        );
         if traits_only {
             // the call went out by the trait's ww_global id (API-20), named from the registry
-            let with_bytes = replayed_view(&path, Layer::Api, true);
+            let with_bytes = replayed_view(&path, Layer::Api, true, tests_common::resolver());
             let mut lines = with_bytes.lines();
             lines.find(|l| l.contains(&format!("Request Call {resource}")));
             let request_len = lines.next().unwrap().split_whitespace().skip(1).count();
@@ -673,12 +697,14 @@ async fn sigterm_finishes_the_capture_file() {
         tap_bits: false,
         capture: Some(path.clone()),
     };
-    let attached = Attached::start_with(&flags, Box::new(std::io::sink())).unwrap();
+    let attached =
+        Attached::start_with(&flags, Box::new(std::io::sink()), tests_common::resolver()).unwrap();
     // as main.rs does: installed before connecting
     let stop = crate::util::StopSignal::install();
     let client = DynClient::from_config(
         ClientConfig::new()
             .in_process_path(device.path())
+            .resolver(tests_common::resolver())
             .tap(attached.recorder()),
     )
     .connect()
@@ -722,7 +748,7 @@ async fn sigterm_finishes_the_capture_file() {
         "not left partial"
     );
     assert!(is_capture(path.to_str().unwrap()));
-    let text = replayed(&path, Layer::Api);
+    let text = replayed(&path, Layer::Api, tests_common::resolver());
     assert!(text.contains("Request Observe"), "{text}");
     std::fs::remove_dir_all(&dir).unwrap();
 }

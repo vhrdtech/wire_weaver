@@ -516,7 +516,7 @@ mod tests {
             server,
             methods_api::METHODS_FULL_GID,
             methods_api::METHODS_WIRE_VERSION,
-            alloc_server::api_impl::api_hash(),
+            tests_common::api!(alloc_server::api_impl),
             Medium::Can,
         );
         (device, data)

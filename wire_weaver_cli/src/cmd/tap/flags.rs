@@ -77,11 +77,16 @@ pub struct Attached {
 impl Attached {
     /// Monitor output to stderr.
     pub fn start(flags: &TapFlags) -> Result<Self> {
-        Self::start_with(flags, Box::new(std::io::stderr()))
+        Self::start_with(flags, Box::new(std::io::stderr()), Resolver::global())
     }
 
-    /// Opens the capture file first, so a refusal comes before any connecting.
-    pub(crate) fn start_with(flags: &TapFlags, out: Box<dyn Write + Send>) -> Result<Self> {
+    /// Opens the capture file first, so a refusal comes before any connecting. `resolver`: the connection's, the
+    /// monitor decodes the device's API through it.
+    pub(crate) fn start_with(
+        flags: &TapFlags,
+        out: Box<dyn Write + Send>,
+        resolver: &'static Resolver,
+    ) -> Result<Self> {
         flags.check()?;
         let writer = flags
             .capture
@@ -106,7 +111,7 @@ impl Attached {
         let stop = Arc::new(AtomicBool::new(false));
         let thread = std::thread::spawn({
             let stop = stop.clone();
-            move || run(&mut feed, &stop, view, frames, writer, out)
+            move || run(&mut feed, &stop, view, frames, writer, out, resolver)
         });
         Ok(Attached {
             recorder,
@@ -151,9 +156,10 @@ fn run(
     frames: bool,
     mut writer: Option<TapeWriter>,
     mut out: Box<dyn Write + Send>,
+    resolver: &'static Resolver,
 ) -> Result<Summary> {
     // colours follow the stream the text goes to, not stdout
-    let mut monitor = view.map(|v| Monitor::with_frames(v, false, frames).for_stderr());
+    let mut monitor = view.map(|v| Monitor::with_frames(v, false, frames, resolver).for_stderr());
     // a failed write ends the capture: the file stays as it is (its valid prefix reads)
     let result = consume_idle(feed, stop, |b| {
         let Some(b) = b else {

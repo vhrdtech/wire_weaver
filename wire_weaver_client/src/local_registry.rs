@@ -4,7 +4,7 @@
 //! Filled by codegen (see `wire_weaver_core/src/local_registry.rs`) and by bundles downloaded from devices.
 //! File names are `<crate>_<major>_<minor>_<patch>-<hash>[+docs].ron`, keep in sync with codegen.
 
-use anyhow::Result;
+use anyhow::{Result, bail};
 use ron::ser::{PrettyConfig, to_string_pretty};
 use std::fs;
 use std::io::ErrorKind;
@@ -57,21 +57,22 @@ fn load_inner(
     Ok(None)
 }
 
-/// Cache a bundle downloaded from a device.
-/// `ww_self_bytes` are hashed the same way as in codegen to find out whether they match the device reported
-/// `hash` with or without docs, bundles matching neither are not cached.
+/// Cache a bundle downloaded from a device, logging a failure ([store_checked]).
 pub(crate) fn store(
     root: &Path,
     api_bundle: &ApiBundleOwned,
     ww_self_bytes: &[u8],
     hash: &ApiHashPairOwned,
 ) {
-    if let Err(e) = store_inner(root, api_bundle, ww_self_bytes, hash) {
+    if let Err(e) = store_checked(root, api_bundle, ww_self_bytes, hash) {
         warn!("Failed to cache API bundle: {e:?}");
     }
 }
 
-fn store_inner(
+/// Cache `api_bundle`, decoded from `ww_self_bytes`, under `root`. The bytes are hashed the same way as in codegen
+/// to find out whether they match `hash` with or without docs; bytes matching neither are an error. The file is
+/// written whole and renamed into place, so a reader never sees half of it.
+pub(crate) fn store_checked(
     root: &Path,
     api_bundle: &ApiBundleOwned,
     ww_self_bytes: &[u8],
@@ -84,11 +85,10 @@ fn store_inner(
     } else if !hash.with_docs.hash.is_empty() && digest == hash.with_docs.hash.as_slice() {
         (&hash.with_docs, true)
     } else {
-        warn!(
-            "Downloaded API bundle hash {} matches none of the device reported hashes {hash:?}, not caching it",
+        bail!(
+            "API bundle hash {} matches none of the device reported hashes {hash:?}, not caching it",
             hex::encode(digest)
         );
-        return Ok(());
     };
 
     let api_crate = api_bundle.crate_version(api_bundle.root.crate_idx.0)?;
@@ -110,9 +110,8 @@ fn store_inner(
     if read_back(&file_path) {
         return Ok(());
     }
-    fs::create_dir_all(root)?;
     let as_ron = to_string_pretty(api_bundle, PrettyConfig::new().compact_structs(true))?;
-    fs::write(&file_path, as_ron)?;
+    ww_snapshots::cache::store_file(root, &file_name, as_ron.as_bytes())?;
     debug!("cached API bundle: {file_name}");
     Ok(())
 }

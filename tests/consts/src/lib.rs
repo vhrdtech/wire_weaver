@@ -185,7 +185,7 @@ mod tests {
             },
             consts_api::CONSTS_TEST_FULL_GID,
             consts_api::CONSTS_TEST_WIRE_VERSION,
-            server::api_impl::api_hash(),
+            tests_common::api!(server::api_impl),
         );
         let reads = Arc::new(AtomicU32::new(0));
         let counter = reads.clone();
@@ -281,7 +281,7 @@ mod tests {
             async_server::Server,
             consts_api::CONSTS_TEST_FULL_GID,
             consts_api::CONSTS_TEST_WIRE_VERSION,
-            async_server::api_impl::api_hash(),
+            tests_common::api!(async_server::api_impl),
         );
         let client = connect(&device).await;
         assert_eq!(client.read_SERIAL().read().await.unwrap(), "async");

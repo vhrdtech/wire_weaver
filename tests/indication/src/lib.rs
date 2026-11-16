@@ -221,7 +221,7 @@ mod tests {
             },
             indication_api::INDICATION_TEST_FULL_GID,
             indication_api::INDICATION_TEST_WIRE_VERSION,
-            full_server::api_impl::api_hash(),
+            tests_common::api!(full_server::api_impl),
         );
         (device, storage)
     }
@@ -233,7 +233,7 @@ mod tests {
             lite_server::Server { mode: Mode::Normal },
             indication_api::INDICATION_TEST_FULL_GID,
             indication_api::INDICATION_TEST_WIRE_VERSION,
-            lite_server::api_impl::api_hash(),
+            tests_common::api!(lite_server::api_impl),
         )
     }
 

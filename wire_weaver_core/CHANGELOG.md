@@ -19,6 +19,7 @@
 
 ### 🚀 Features
 
+- Generated servers have `api_impl::WW_SELF_BYTES` also with introspection off (EVO-80), so a host or test can seed its cache with them; firmware that doesn't send them doesn't keep them.
 - Client codegen of `keyed!(flow by FlowKey)` (CLT-72): `flow_by(&key)` gives the element's client (its index for an array of properties or streams), `flow_key(index)` and `flow_keys()`, each also `_blocking`. A client crate of a keyed API depends on `ww_keyed`.
 - Server codegen of `keyed!(flow by FlowKey)` (SRV-62): handlers `flow_index_of` and `get_flow_key`, the key array's indices from `valid_indices_root_flow`, a `keys` stream the generated code opens and closes, `stream_data_ser().flow_keys_send` to announce a `KeyEvent`; `ww api scaffold` prints them. A server crate of a keyed API depends on `ww_keyed`. Refused: an item named `flow_index_of` or `flow_key` beside the keyed array, and in a keyed trait array an item named `index_of` or `key`.
 - `keyed!(flow by FlowKey)` in a trait (API-67): parsed into an `ApiItemKind::Keys` item named `flow_keys` at its position. Refused: no array `flow` before it, a method or flat item, a second `keyed!`, a float in the key, a name clash.

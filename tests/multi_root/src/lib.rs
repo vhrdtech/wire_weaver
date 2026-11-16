@@ -178,7 +178,7 @@ mod tests {
             device_v1::Device,
             multi_root_api::wire_v1::THERMO_FULL_GID,
             multi_root_api::wire_v1::THERMO_WIRE_VERSION,
-            device_v1::api_impl::api_hash(),
+            tests_common::api!(device_v1::api_impl),
         )
     }
 
@@ -189,7 +189,7 @@ mod tests {
             device_v2::Device,
             multi_root_api::wire_v2::THERMO_FULL_GID,
             multi_root_api::wire_v2::THERMO_WIRE_VERSION,
-            device_v2::api_impl::api_hash(),
+            tests_common::api!(device_v2::api_impl),
         )
     }
 

@@ -2,6 +2,7 @@
 
 ### 🚀 Features
 
+- `cache_introspection(resolver, ww_self_bytes, hash)` (EVO-80): puts a device's introspection data (its `api_impl::WW_SELF_BYTES`) into the resolver's cache, as a download would, for a host that knows the build of a device that doesn't send it.
 - `ClientConfig::resolver(&'static Resolver)` (EVO-80): the snapshot resolver of one connection, `Resolver::global()` by default; introspection, global trait paths and the local cache of downloaded APIs go through it, and a resolver without a cache keeps nothing on the machine.
 - A property, return value or stream item of a type without a definition decodes as `ValueOwned::Opaque` (EVO-80).
 - `CallError::Common(CommonErrorOwned)` and `Error::common()` (STD-16): the common error a device or the hub answered a call, read, write or stream open with (`ErrorKind::Common`), for an item with an error type of its own as a `CallError` variant (`CallError::common()`), for one without through `Error::common()`. It converts into `wire_weaver::call::CallError::Common`; `Error::call_kind` folds it (`Busy` is `Overloaded`, ...). The crate re-exports `ww_error`. Exhaustive matches on `CallError` need the arm.
@@ -16,6 +17,7 @@
 
 ### 🐛 Fixes
 
+- The cache of downloaded APIs is written whole and renamed into place: a reader never sees half a file.
 - A common error answered as the protocol's error event is checked against the item's `#[errors(..)]` list like the device's own error (STD-16); before, it bypassed the strict check.
 - The tap decoder takes sticky records from a describe copy unless it read that run's own describe blocks (STD-129).
 - The tap decoder tells a describe copy by its header mark, not by its seq, and counts lost blocks per run (STD-129).

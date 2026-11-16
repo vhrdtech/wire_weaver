@@ -43,7 +43,7 @@ pub use client::dynamic::{
     DynMultiArgs, DynMultiValue, DynResource, DynResourceKind, DynSink, DynStream, PathStep,
     parse_path,
 };
-pub use client::introspect::{Introspect, decode_introspection};
+pub use client::introspect::{Introspect, cache_introspection, decode_introspection};
 pub use client::keyed::{KEY_CACHE_ENTRIES_MAX, KeyStream, Keyed};
 pub use client::multi::{self, MultiCall, MultiRead, MultiWrite};
 pub use client::positioned::{

@@ -222,7 +222,7 @@ pub fn start_blocking(path: &str, table: Arc<Mutex<Table>>) -> TestDevice {
         server,
         keyed_api::DISSECTOR_FULL_GID,
         keyed_api::DISSECTOR_WIRE_VERSION,
-        blocking_server::api_impl::api_hash(),
+        tests_common::api!(blocking_server::api_impl),
     )
 }
 
@@ -237,7 +237,7 @@ pub fn start_async(path: &str, table: Arc<Mutex<Table>>) -> TestDevice {
         server,
         keyed_api::DISSECTOR_FULL_GID,
         keyed_api::DISSECTOR_WIRE_VERSION,
-        async_server::api_impl::api_hash(),
+        tests_common::api!(async_server::api_impl),
     )
 }
 

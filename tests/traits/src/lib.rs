@@ -265,7 +265,7 @@ mod tests {
             server,
             traits_api::TRAITS_FULL_GID,
             traits_api::TRAITS_WIRE_VERSION,
-            no_std_sync_server::api_impl::api_hash(),
+            tests_common::api!(no_std_sync_server::api_impl),
         );
         let client = std_client::StdClient::config(|c| {
             c.in_process_path(device.path())
@@ -343,7 +343,7 @@ mod tests {
             server,
             traits_api::TRAITS_FULL_GID,
             traits_api::TRAITS_WIRE_VERSION,
-            no_std_sync_server::api_impl::api_hash(),
+            tests_common::api!(no_std_sync_server::api_impl),
         );
         let client = std_client::StdClient::config(|c| {
             c.in_process_path(device.path())
@@ -386,7 +386,7 @@ mod tests {
             cfg_server::CfgServer,
             traits_api::TRAITS_FULL_GID,
             traits_api::TRAITS_WIRE_VERSION,
-            cfg_server::api_impl::api_hash(),
+            tests_common::api!(cfg_server::api_impl),
         );
         let client = std_client::StdClient::config(|c| {
             c.in_process_path(device.path())
@@ -550,7 +550,7 @@ mod tests {
             no_std_sync_server::NoStdSyncServer { data },
             traits_api::TRAITS_FULL_GID,
             traits_api::TRAITS_WIRE_VERSION,
-            no_std_sync_server::api_impl::api_hash(),
+            tests_common::api!(no_std_sync_server::api_impl),
         );
         let client = DynClient::from_config(
             ClientConfig::new()
@@ -594,7 +594,7 @@ mod tests {
             no_std_sync_server::NoStdSyncServer { data },
             traits_api::TRAITS_FULL_GID,
             traits_api::TRAITS_WIRE_VERSION,
-            no_std_sync_server::api_impl::api_hash(),
+            tests_common::api!(no_std_sync_server::api_impl),
         );
         let client = DynClient::from_config(
             ClientConfig::new()

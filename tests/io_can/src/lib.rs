@@ -1172,7 +1172,7 @@ mod tests {
             server,
             io_can_api::IO_CAN_TEST_FULL_GID,
             io_can_api::IO_CAN_TEST_WIRE_VERSION,
-            full_server::api_impl::api_hash(),
+            tests_common::api!(full_server::api_impl),
         );
         (device, m)
     }
@@ -1191,7 +1191,7 @@ mod tests {
             server,
             io_can_api::IO_CAN_TEST_FULL_GID,
             io_can_api::IO_CAN_TEST_WIRE_VERSION,
-            minimal_server::api_impl::api_hash(),
+            tests_common::api!(minimal_server::api_impl),
         );
         (device, m)
     }

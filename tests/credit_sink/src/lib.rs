@@ -437,7 +437,7 @@ mod tests {
             server,
             credit_sink_api::CREDIT_SINKS_FULL_GID,
             credit_sink_api::CREDIT_SINKS_WIRE_VERSION,
-            sync_server::api_impl::api_hash(),
+            tests_common::api!(sync_server::api_impl),
         );
         (device, m)
     }
@@ -1142,7 +1142,7 @@ mod tests {
             server,
             credit_sink_api::CREDIT_SINKS_FULL_GID,
             credit_sink_api::CREDIT_SINKS_WIRE_VERSION,
-            async_server::api_impl::api_hash(),
+            tests_common::api!(async_server::api_impl),
         );
         let client = connect(&device).await;
         let mut plan = client.plan().await.unwrap();

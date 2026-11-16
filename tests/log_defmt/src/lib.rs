@@ -288,7 +288,7 @@ mod tests {
             server,
             log_defmt_api::LOG_TEST_FULL_GID,
             log_defmt_api::LOG_TEST_WIRE_VERSION,
-            server::api_impl::api_hash(),
+            tests_common::api!(server::api_impl),
         )
     }
 

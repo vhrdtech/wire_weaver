@@ -468,7 +468,7 @@ mod tests {
             server,
             io_adc_api::IO_ADC_TEST_FULL_GID,
             io_adc_api::IO_ADC_TEST_WIRE_VERSION,
-            sync_server::api_impl::api_hash(),
+            tests_common::api!(sync_server::api_impl),
         )
     }
 

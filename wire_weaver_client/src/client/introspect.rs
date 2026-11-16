@@ -201,6 +201,24 @@ pub fn decode_introspection(
     .map(Some)
 }
 
+/// Put a device's introspection data into the cache under `resolver`'s cache root ([Resolver::cache_root]), as a
+/// download from the device would: the bytes of its `api_impl::WW_SELF_BYTES` (compressed or not) and the hashes of
+/// its `api_impl::api_hash()`. For a host that knows the device's build, also when the device doesn't send them
+/// (introspection off); a connection through `resolver` then finds the API without asking the device. An error when
+/// the bytes are malformed, match neither hash, or the resolver has no cache.
+pub fn cache_introspection(
+    resolver: &Resolver,
+    ww_self_bytes: &[u8],
+    hash: &ApiHashPairOwned,
+) -> Result<()> {
+    let root = resolver
+        .cache_root()
+        .context("the resolver has no cache to keep introspection data in")?;
+    let ww_self_bytes = &*ww_self::compressed::bundle_bytes(ww_self_bytes)?;
+    let api_bundle = ApiBundleOwned::from_ww_bytes_owned(ww_self_bytes)?;
+    local_registry::store_checked(root, &api_bundle, ww_self_bytes, hash)
+}
+
 /// The bundle a device sent and its size, uncompressed (INT-16): the API hashes and the cache are over these bytes.
 fn decode_and_cache(
     ww_self_bytes: &[u8],

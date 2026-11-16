@@ -2462,6 +2462,58 @@ mod tests {
         load_inner(manifest, features, None, &mut scratch)
     }
 
+    /// A type reached through a glob import of a module that itself globs another crate's module is found
+    /// (API-68): a server's `use wire_weaver::prelude::*` sees `CommonError` through `wire_weaver::prelude`'s
+    /// `pub use ww_api::prelude::*`. Here `api` globs `hub::prelude`, which globs `base::prelude`, which names
+    /// `Shared`; `api` doesn't depend on `base`.
+    #[test]
+    fn a_glob_into_a_module_that_globs_another_crate() {
+        let dir = scratch_dir("glob_through_glob");
+        write_crate(
+            &dir,
+            "base",
+            "",
+            "pub mod prelude {
+    pub use crate::Shared;
+}
+             #[derive_shrink_wrap]
+pub struct Shared { pub id: u8 }
+",
+        );
+        write_crate(
+            &dir,
+            "hub",
+            "[dependencies]
+base = { path = \"../base\" }
+",
+            "pub mod prelude {
+    pub use base::prelude::*;
+}
+",
+        );
+        write_crate(
+            &dir,
+            "api",
+            "[workspace]
+
+[dependencies]
+hub = { path = \"../hub\" }
+",
+            "use hub::prelude::*;
+#[ww_api_root]
+pub trait Api {
+    fn get() -> Shared;
+}
+",
+        );
+        let bundle = load_api(&dir.join("api")).unwrap();
+        assert_eq!(
+            crate_names(&bundle),
+            [("api".into(), 1), ("base".into(), 1)]
+        );
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
     /// The features of a crate that isn't a ww API crate come from its dependents' entries (API-60): `Milli` is
     /// `sized` with `sw`, and without it a plain type (as unit markers are), so `Unsized`.
     #[test]

@@ -241,7 +241,7 @@ fn find_user_item_in(
             _ => {}
         }
     }
-    // `use wire_weaver::prelude::*` brings in `CommonError`: look into glob imports last, as Rust does
+    // `use ww_api::prelude::*` brings in `CommonError`: look into glob imports last, as Rust does
     for item in &current_crate.lib_rs_ast.items {
         let Item::Use(item_use) = item else {
             continue;
@@ -251,7 +251,7 @@ fn find_user_item_in(
             let Ok(dependent_crate) = current_crate.resolve_path(path, scratch) else {
                 continue;
             };
-            if declares_or_imports(&dependent_crate, user_ty) {
+            if reaches(&dependent_crate, user_ty, scratch, &mut HashSet::new()) {
                 return find_user_item_in(user_ty, &dependent_crate, scratch, visited);
             }
         }
@@ -949,6 +949,32 @@ fn declares_or_imports(cx: &CrateContext, name: &str) -> bool {
         Item::Trait(item_trait) => item_trait.ident == name,
         Item::Use(item_use) => use_tree_path_to(&item_use.tree, name).is_some(),
         _ => false,
+    })
+}
+
+/// Whether `name` is declared or imported in `cx`, by name or through its glob imports, however deep: a server's
+/// `use wire_weaver::prelude::*` reaches `CommonError` through that prelude's `pub use ww_api::prelude::*`. A module
+/// looked into once is not looked into again (globs that lead back, `use super::*` under a parent's `use child::*`).
+fn reaches(
+    cx: &CrateContext,
+    name: &str,
+    scratch: &mut Scratch,
+    visited: &mut HashSet<LookupKey>,
+) -> bool {
+    if !visited.insert(cx.lookup_key(name)) {
+        return false;
+    }
+    if declares_or_imports(cx, name) {
+        return true;
+    }
+    cx.lib_rs_ast.items.iter().any(|item| {
+        let Item::Use(item_use) = item else {
+            return false;
+        };
+        use_tree_globs(&item_use.tree).into_iter().any(|path| {
+            cx.resolve_path(path, scratch)
+                .is_ok_and(|dependent| reaches(&dependent, name, scratch, visited))
+        })
     })
 }
 

@@ -28,21 +28,21 @@ embassy-futures = "0.1"
 static_cell = "2.1"
 
 blinky_api = { path = "../../examples/blinky_api", default-features = false }
-all_gpio_api = { path = "../../examples/all_gpio_api", default-features = false }
+all_gpio_api = { path = "../../examples/all_gpio_api", default-features = false, optional = true }
 settings_api = { path = "../../examples/settings_api", default-features = false, features = ["defmt"], optional = true }
 wire_weaver_usb_embassy = { path = "../../mcu/wire_weaver_usb_embassy" }
 wire_weaver = { path = "../../wire_weaver", default-features = false, features = ["defmt"] }
 ww_client_server = { path = "../../ww_client_server", default-features = false }
 ww_settings = { path = "../../ww_settings/ww_settings", default-features = false, features = ["defmt"], optional = true }
-ww_stream = { path = "../../ww_stream", default-features = false }
-ww_gpio = { path = "../../ww_stdlib/ww_gpio", default-features = false }
+ww_stream = { path = "../../ww_stream", default-features = false, optional = true }
+ww_gpio = { path = "../../ww_stdlib/ww_gpio", default-features = false, optional = true }
 ww_si = { path = "../../ww_stdlib/ww_si", default-features = false, features = ["electrical", "f32"] }
 
 [features]
 # settings_api::SettingsDemo kept in flash through ww_settings, for the settings bin
 settings = ["dep:settings_api", "dep:ww_settings"]
 # counted streams (ww_gpio's `event`): the all-gpio bin
-streams = ["ww_client_server/streams", "ww_stream/streams"]
+streams = ["ww_client_server/streams", "ww_stream/streams", "dep:all_gpio_api", "dep:ww_stream", "dep:ww_gpio"]
 
 [[bin]]
 name = "nucleo-h743zi2-blinky"

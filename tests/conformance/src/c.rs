@@ -1,6 +1,6 @@
 //! C as a consumer, where C exists for the case's type:
 //!
-//! * a single number, bool, string or byte list: written and read by the C runtime (`shrink_wrap/c`, SW-43)
+//! * a single number, bool, string or byte list: written and read by the C runtime (`shrink_wrap_c`, SW-43)
 //!   through `shrink_wrap_c`'s FFI, the calls chosen from the type in the API model (as generated C would make
 //!   them);
 //! * a `fixed_layout` type (SW-44, SW-45): the generated C reader (`FixedLayout::write_c`), compiled with `cc`
@@ -8,7 +8,7 @@
 //!   prefix, every field compared with the case's value;
 //! * a `head_tail` type (SW-46): its generated C view and tail walker, the same way.
 //!
-//! The requantize cases (STD-63) run through `sw_requantize()` (`shrink_wrap/c/sw_requantize.c`, CLT-54) in one
+//! The requantize cases (STD-63) run through `sw_requantize()` (`shrink_wrap_c/sw_requantize.c`, CLT-54) in one
 //! generated program: [requantize].
 //!
 //! The generated C readers have no writers yet, so those cases are decode only (their gap mark says so). Every
@@ -346,12 +346,12 @@ fn run_generated() -> HashMap<String, crate::DecodeResult> {
 }
 
 /// `program` built as `name` (a name of its own per test: nextest runs tests in parallel processes) with the C
-/// runtime's `sources` (in `shrink_wrap/c`, which is on the include path), and run.
+/// runtime's `sources` (in `shrink_wrap_c`, which is on the include path), and run.
 fn compile_and_run(name: &str, program: &str, sources: &[&str]) -> String {
     // target/conformance_c, next to the build of this crate
     let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../target/conformance_c");
     std::fs::create_dir_all(&dir).unwrap();
-    let runtime = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../shrink_wrap/c");
+    let runtime = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../shrink_wrap_c");
     let src = dir.join(format!("{name}.c"));
     let exe = dir.join(name);
     std::fs::write(&src, program).unwrap();

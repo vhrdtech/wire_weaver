@@ -153,12 +153,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   reader (reads with a `Result` return it, no read moves), so a derived decoder with lists or nested types next to
   plain fields returns the first error again, as before SW-34. 20 bytes on a request/reply decoder (RV32IC), four
   forms measured (`docs/serdes/code_size.md`, `shrink_wrap/tests/latched_errors.rs`).
-- ✅ **SW-43 C99 runtime** (first step of API-26): `shrink_wrap/c/shrink_wrap.{h,c}`, the `BufReader` / `BufWriter`
+- ✅ **SW-43 C99 runtime** (first step of API-26): `shrink_wrap_c/shrink_wrap.{h,c}`, the `BufReader` / `BufWriter`
   of the Rust crate for C: bits, nibbles, `un8`..`un64`, LE integers, floats, `UNib32`, `UVlq32` / `UVlq64`, bytes
   and strings as borrowed views, `split`, lengths at the back and `finish`, `Unsized` values. No `malloc`, the first
   error kept as in SW-41 (a failing call moves nothing), octets through accessors so 16-bit `char` (TI C2000) works.
   Checked against the Rust crate with golden vectors and a proptest cross-check in both directions, also on
-  truncated and corrupted input (`shrink_wrap/c/tests`, part of `just test`; `just lint` builds the C with
+  truncated and corrupted input (`shrink_wrap_c/tests`, part of `just test`; `just lint` builds the C with
   `-std=c99 -pedantic -Werror`). How to use it: `docs/c.md`. `TailSize`, the series types and the `_latch` /
   `finish_no_lens` code size tricks are not ported.
 - ✅ **SW-44 Fixed-layout fast path**: `#[derive_shrink_wrap]` sees when a type's encoding is a fixed little-endian
@@ -298,7 +298,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `MultiIndex`), `future_version = Name` renames it, `final_structure` / `self_describing` / `sized` enums only get it
   when written. A Rust API change of every such enum (exhaustive matches need the arm), not of the wire or the API
   model. `docs/serdes/derive.md#enum-variants-from-a-newer-version`, `shrink_wrap/tests/evolution.rs`.
-- 📋 **SW-66 128-bit numbers in the C runtime** — `shrink_wrap/c` reads and writes up to 64-bit numbers;
+- 📋 **SW-66 128-bit numbers in the C runtime** — `shrink_wrap_c` reads and writes up to 64-bit numbers;
   `u128` / `i128` (two `u64` halves in C) are missing. Conformance cases `int.u128.max`, `int.i128.min`.
 - 📋 **SW-67 `no_future_version` and `#[series(opaque)]` have no conformance case** — found by the coverage guard
   (TEST-25): no case turns off the `Unknown(u32)` catch-all (SW-47) and then feeds an out-of-range discriminant
@@ -396,7 +396,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   the C runtime has no `Op::INib32` of its own yet, only `UNib32` (gap-marked, SW-75).
   `NumericBaseType`/`NumericValue::INib32` is breaking (neither enum has a catch-all for an unknown variant):
   `ww_numeric` 0.3.0, wire line w2.0, `#[since = "w2.0"]`; dependents re-saved, none bump their own version.
-- 💡 **SW-75 `INib32` in the C runtime** — `shrink_wrap/c`'s `Op` enum, FFI decls and `shrink_wrap.{h,c}` have no
+- 💡 **SW-75 `INib32` in the C runtime** — `shrink_wrap_c`'s `Op` enum, FFI decls and `shrink_wrap.{h,c}` have no
   signed-nibble-varint codec (only `UNib32`'s). A new `Op::INib32`, its zigzag+nibble encode/decode in C, and
   golden/cross tests against the Rust type (SW-43's style) — closes the C gap of SW-24's conformance cases
   (`inib32.one_nibble`, `inib32.two_nibbles`, `inib32.min`, `inib32.max`).

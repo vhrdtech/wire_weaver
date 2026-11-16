@@ -4,7 +4,7 @@ level: advanced
 
 # ShrinkWrap in C
 
-`shrink_wrap/c/shrink_wrap.h` and `shrink_wrap/c/shrink_wrap.c` are the ShrinkWrap reader and writer for C99:
+`shrink_wrap_c/shrink_wrap.h` and `shrink_wrap_c/shrink_wrap.c` are the ShrinkWrap reader and writer for C99:
 the same bytes as the Rust `BufReader` and `BufWriter`, for firmware that is not written in Rust. Copy the two
 files into the project, nothing else is needed: no `malloc`, nothing from libc beyond `<stdint.h>`, `<stddef.h>`,
 `<stdbool.h>`, `<string.h>` (`memcpy`, `memset`) and the freestanding `<limits.h>`.
@@ -208,7 +208,7 @@ for a hot path on a small MCU the typed Rust conversion (constants and policy fi
 
 ## Tests
 
-`shrink_wrap/c` is also a Rust crate (`shrink_wrap_c`, not published) that builds the C with the `cc` crate and
+`shrink_wrap_c/` is also a Rust crate (`shrink_wrap_c`, not published) that builds the C with the `cc` crate and
 checks it against the Rust one in `just test`: golden vectors for every primitive, the length layouts and
 `finish()`, the errors and the latch (`tests/golden.rs`), and a proptest cross-check of random sequences of
 writes and reads, in both directions, on truncated and corrupted input too (`tests/cross.rs`). `sw_requantize()`

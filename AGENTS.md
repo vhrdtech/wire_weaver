@@ -107,7 +107,7 @@ just test             # everything (test-all: nextest, feature-set runs, Python 
 just lint             # what CI checks besides tests: fmt, cargo sort -w -g, typos, clippy and rustdoc -D warnings, C
 just install          # build ww (--profile deploy) and install it (through our internal release tool when present, else cargo install)
 just build-docs       # build the docs site and check its links
-just save-snapshots   # API snapshots of ww_global, ww_tap and ww_stdlib/* into each crate's own api_snapshots/
+just save-snapshots   # API snapshots of ww_global, ww_tap, ww_link, ww_stdlib/*, ... into each crate's own api_snapshots/
 just conformance-update   # fill in golden bytes of new conformance cases
 just jobs=4 test --changed   # caps CARGO_BUILD_JOBS / NEXTEST_TEST_THREADS at 4 for that run (also test-all, lint, check); unset leaves them inherited
 ```
@@ -223,9 +223,9 @@ The codegen pipeline (read `wire_weaver_derive`, then `wire_weaver_core`):
   crate's repository (`ureq` with `rustls`; its provider `ring` is C and assembly, the one such dependency: rustls
   needs a crypto provider and no pure-Rust one is audited yet). Every crate keeps its own `api_snapshots/`; codegen
   leaves types known from a dependency's out of a device's introspection data and the client puts them back. After
-  changing a type in `ww_global`, `ww_tap` or `ww_stdlib/*`, run `just save-snapshots` (a test fails otherwise). It
-  refreshes the crate's current version, right only for a version never published (`cargo info --registry crates-io
-  <crate>`): bump a published one first.
+  changing a type in `ww_global`, `ww_tap`, `ww_link` or `ww_stdlib/*`, run `just save-snapshots` (a test fails
+  otherwise). It refreshes the crate's current version, right only for a version never published (`cargo info
+  --registry crates-io <crate>`): bump a published one first.
 - **`examples/`**: paired `<name>_api` (trait and types, `no_std`) and `<name>` (server and client) crates, the
   project shape users copy (`docs/api/folder_structure.md`); `examples_mcu/` has firmware per board.
 - **`tests/`**: one integration-test crate per feature, each with a `<name>_api` companion: the best place for minimal

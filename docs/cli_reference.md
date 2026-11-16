@@ -235,10 +235,10 @@ their own API in the same form. A host puts the left-out definitions back after 
 checking signatures, through `ww_snapshots` ([finding snapshots](evolution/snapshots.md)): the snapshots embedded in
 `ww` and the Python wheel, the cache `~/.wire_weaver/snapshots/`, Cargo's sources on the machine, then crates.io or
 the crate's repository. One found nowhere stays skipped: its resources are checked by crate version and signature
-only, and a value of it is opaque. In this repo, `just save-snapshots` saves the snapshots of `ww_global`, `ww_tap`
-and every `ww_stdlib` crate into their own `api_snapshots/`; a `wire_weaver_core` test fails if any is out of date. A
-snapshot is RON for people to read, its header holds the SHA-256 of the shrink_wrap bytes it stands for
-(`// shrink_wrap sha256: ..`); every reader encodes the RON and refuses a mismatch, and `ww` embeds only the bytes.
+only, and a value of it is opaque. In this repo, `just save-snapshots` saves the snapshots of `ww_global`, `ww_tap`,
+`ww_timebase`, `ww_link`, `ww_client_server` and every `ww_stdlib` crate into their own `api_snapshots/`; a test
+(`wire_weaver_core`, `stdlib_evolution`) fails if any is out of date. A snapshot is RON for people to read, its
+header holds the SHA-256 of the shrink_wrap bytes it stands for (`// shrink_wrap sha256: ..`); every reader encodes the RON and refuses a mismatch, and `ww` embeds only the bytes.
 
 ```
 $ ww api save ww_stdlib/ww_uart

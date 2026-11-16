@@ -279,12 +279,12 @@ deploy:
     ww --version | grep -q "($(git rev-parse --short HEAD)" || { echo "ww --version does not show $(git rev-parse --short HEAD):"; ww --version; exit 1; }
     ww --version
 
-# Save API snapshots of ww_global, ww_tap, ww_timebase and the ww_stdlib crates into each crate's api_snapshots/.
+# Save API snapshots of ww_global, ww_tap, ww_timebase, ww_link, ww_client_server and the ww_stdlib crates into each crate's api_snapshots/.
 # Pass --force to overwrite snapshots of versions that were never published.
 save-snapshots *args:
     cargo build -q -p ww
     # ww_std_cli, ww_report and ww_pin_probe are host tools without an API
-    for crate in ww_global ww_tap ww_timebase tests/wire_line_fixture_api ww_stdlib/*/; do \
+    for crate in ww_global ww_tap ww_timebase ww_link ww_client_server tests/wire_line_fixture_api ww_stdlib/*/; do \
         case "$(basename $crate)" in ww_std_cli|ww_report|ww_pin_probe) continue;; esac; \
         target/debug/ww api save $crate {{ args }} || exit 1; \
     done

@@ -57,6 +57,14 @@ common_error = 5
 common_error_api = 5
 conformance = 5
 conformance_api = 5
+counted_stream_api = 5
+follow_reboot_api = 5
+global_boot_api = 5
+global_fixture_api = 5
+global_paths_api = 5
+tape_identity = 5
+wire_line_fixture_api = 5
+ww_crc = 5
 consts = 5
 consts_api = 5
 credit_sink = 5
@@ -270,61 +278,6 @@ ww_user_info = 6
 # lands the refactor removing it.
 
 [[allow]]
-from = "ww_link"
-to = "ww_block"
-refactor = "R4"
-
-[[allow]]
-from = "cross_version"
-to = "ww_dfu"
-refactor = "R7"
-
-[[allow]]
-from = "cross_version_api"
-to = "ww_dfu"
-refactor = "R7"
-
-[[allow]]
-from = "cross_version_old_api"
-to = "ww_dfu"
-refactor = "R7"
-
-[[allow]]
-from = "dispatch_golden"
-to = "ww_user_info"
-refactor = "R7"
-
-[[allow]]
-from = "dispatch_golden_api"
-to = "ww_user_info"
-refactor = "R7"
-
-[[allow]]
-from = "follow_reboot"
-to = "dfu_lean_app_api"
-refactor = "R7"
-
-[[allow]]
-from = "follow_reboot"
-to = "ww_dfu"
-refactor = "R7"
-
-[[allow]]
-from = "shared_sub_level"
-to = "ww_indication"
-refactor = "R7"
-
-[[allow]]
-from = "shared_sub_level_api"
-to = "ww_indication"
-refactor = "R7"
-
-[[allow]]
-from = "tap_api"
-to = "ww_user_info"
-refactor = "R7"
-
-[[allow]]
 from = "thermo"
 to = "ww_indication"
 refactor = "R7"
@@ -372,4 +325,14 @@ refactor = "R8"
 [[allow]]
 from = "wire_weaver_cli"
 to = "ww_user_info"
+refactor = "R8"
+
+[[allow]]
+from = "ww_tape"
+to = "ww_self"
+refactor = "R11"
+
+[[allow]]
+from = "wire_weaver_cli"
+to = "user_info_api"
 refactor = "R8"

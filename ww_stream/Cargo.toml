@@ -44,6 +44,7 @@ ww_lz4 = { workspace = true, optional = true }
 ww_si.workspace = true
 
 [dev-dependencies]
+ww_crc.workspace = true
 ww_lz4 = { workspace = true, features = ["std"] }
 ww_si = { workspace = true, features = ["std"] }
 

@@ -1,6 +1,6 @@
 // ww_tap 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 0e359cee36a7c34475895d9e9d5054528516b77bac2652ab9b862b49df9e037c
+// shrink_wrap sha256: 39d5180ce79d1f7a3ca9a64c7bfc958b0d55276fe14e395dd66b17c4a34b7d66
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "The link tap: what crosses a wire_weaver link, recorded at the transport edge, for monitors, statistics and",
     "captures (TR-14).",
@@ -13,7 +13,8 @@
     "without a tap compiles them away.",
     "",
     "The records are ordinary wire_weaver types, streams of the [LinkTap] trait, so a capture is described by its API",
-    "bundle like any device log: one track per link and stream ([Link]), Session sticky. With the `std` feature,",
+    "bundle like any device log: one track per link and stream ([Link]), Session sticky. A producer that writes them as",
+    "tracks names them with [api] and [ids]; a link named by its peer is keyed by [LinkKey]. With the `std` feature,",
     "[Recorder] batches them into `ww_tape` blocks.",
 ], crate_idx: 0, trait_name: "ww_tap", items: [
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Link", docs: [], optional: None, meta: None, identity: None),
@@ -173,6 +174,17 @@
             "`SeqPrefix`: one byte `00ee_ssss`, frame counter mod 16 and session epoch mod 4.",
         ], ident: "Seq", fields: Unit, discriminant: 1, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The key of a link in [LinkTap]\'s `link[]` when links are named by their peer: one device keeps its tracks",
+        "across reconnects.",
+        "",
+        "Its bytes are hashed into the tracks\' keys, so a new field gives every keyed tap track a new key.",
+    ], ident: "LinkKey", generics: [], fields: Named([
+        (ident: Some("medium"), default: None, since: None, ty: OutOfLine(type_idx: 6), docs: [], slot: None, series_opaque: false),
+        (ident: Some("peer"), default: None, since: None, ty: String, docs: [
+            "[Session::peer] of the link\'s first session.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A tap that records nothing.",
     ], ident: "NoTap", generics: [], fields: Unit, sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),

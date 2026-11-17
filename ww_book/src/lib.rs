@@ -225,14 +225,28 @@ fn copied_before(dir: &Path) -> Result<Vec<String>> {
         .collect())
 }
 
-/// A source's feature tracker as a page of the book.
+/// A source's feature tracker as a page of the book. Its links into its own pages directory (`](docs/ww_si.md)` in a
+/// tracker next to `docs/`) point beside it, where the book has those pages.
 fn tracker_page(located: &Located) -> Result<String> {
     let tracker = located
         .tracker()?
         .context("tracker_page is only called for a source with a tracker")?;
+    let tracker = match pages_from_tracker(&located.source) {
+        Some(prefix) => tracker.replace(&format!("]({prefix}/"), "]("),
+        None => tracker,
+    };
     Ok(format!(
         "---\nicon: lucide/list-checks\nlevel: advanced\n---\n\n{tracker}"
     ))
+}
+
+/// The pages directory as the tracker's links write it, relative to the tracker's directory (`docs`), when it is
+/// below that directory.
+fn pages_from_tracker(source: &Source) -> Option<String> {
+    let tracker_dir = source.features.as_ref()?.parent()?;
+    let rest = source.pages.strip_prefix(tracker_dir).ok()?;
+    let prefix = rest.to_str()?.trim_end_matches('/');
+    (!prefix.is_empty()).then(|| prefix.to_owned())
 }
 
 #[cfg(test)]
@@ -303,6 +317,28 @@ mod tests {
             Some(root.join("docs/serdes/own.md"))
         );
         fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn tracker_links_into_its_pages_point_beside_it() {
+        let dir = scratch("tracker_links");
+        fs::create_dir_all(dir.join("other/docs")).unwrap();
+        fs::create_dir_all(dir.join("other/fmt")).unwrap();
+        fs::write(dir.join("other/docs/wire.md"), "# Wire\n").unwrap();
+        fs::write(
+            dir.join("other/FEATURES.md"),
+            "[wire](docs/wire.md#bits), [site](https://x.org/docs/a)\n",
+        )
+        .unwrap();
+        let root = dir.join("book");
+        fs::create_dir_all(root.join("docs")).unwrap();
+        assemble(&root, &[located(&dir.join("other"))]).unwrap();
+        let page = fs::read_to_string(root.join("docs/serdes/features.md")).unwrap();
+        fs::remove_dir_all(&dir).unwrap();
+        assert!(
+            page.ends_with("[wire](wire.md#bits), [site](https://x.org/docs/a)\n"),
+            "{page}"
+        );
     }
 
     #[test]

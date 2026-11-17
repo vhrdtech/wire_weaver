@@ -3,7 +3,8 @@
 //! directory, or by its git URL and branch, its pages relative to the repository's root in a checkout of that branch
 //! (no revision is pinned: the branch's latest commit, as for a git dependency); and the directory under `docs/` they
 //! go to. [assemble] copies them there with the repository's feature tracker as `features.md`, and writes a
-//! `.gitignore` naming the copies, so they never enter this repository.
+//! `.gitignore` naming the copies, so they never enter this repository. Files a page includes as snippets go to
+//! [SNIPPETS_DIR].
 
 use anyhow::{Context, Result, bail, ensure};
 use serde::Deserialize;
@@ -323,6 +324,11 @@ pub fn assemble(root: &Path, sources: &[Located]) -> Result<Vec<PathBuf>> {
     let mut written = vec![];
     // per target directory: what an earlier run copied there, what this one does
     let mut by_dir: Vec<(PathBuf, Vec<String>, Vec<String>)> = vec![];
+    let snippets = root.join(SNIPPETS_DIR);
+    if snippets.exists() {
+        fs::remove_dir_all(&snippets)
+            .with_context(|| format!("removing {}", snippets.display()))?;
+    }
     for located in sources {
         let into = root.join("docs").join(&located.source.into);
         fs::create_dir_all(&into).with_context(|| format!("creating {}", into.display()))?;
@@ -352,7 +358,10 @@ pub fn assemble(root: &Path, sources: &[Located]) -> Result<Vec<PathBuf>> {
                 tracker_page(located)?
             } else {
                 let from = located.pages_dir().join(name);
-                fs::read_to_string(&from).with_context(|| format!("reading {}", from.display()))?
+                let text = fs::read_to_string(&from)
+                    .with_context(|| format!("reading {}", from.display()))?;
+                with_snippets(root, located, &text, &mut written)
+                    .with_context(|| format!("in {}", from.display()))?
             };
             fs::write(&target, text).with_context(|| format!("writing {}", target.display()))?;
             written.push(target.strip_prefix(root).unwrap_or(&target).to_path_buf());
@@ -381,6 +390,72 @@ pub fn assemble(root: &Path, sources: &[Located]) -> Result<Vec<PathBuf>> {
         fs::write(&path, text).with_context(|| format!("writing {}", path.display()))?;
     }
     Ok(written)
+}
+
+/// Directory, relative to the repository root, the files a source's pages include go to: under `target/`, so they
+/// never enter this repository and never become pages of the book.
+pub const SNIPPETS_DIR: &str = "target/ww_book/snippets";
+
+/// Marker of a snippet include line (pymdownx.snippets): `--8<-- "path"`, the path relative to the source's
+/// repository root, optionally followed by `:lines` or `:section`.
+const SNIPPET_MARKER: &str = "--8<--";
+
+/// `text` with each one-line snippet include taken from the source: the included file is copied from the source's
+/// repository root (the parent of its pages directory) to [SNIPPETS_DIR]`/<name>/`, and the line points there.
+/// The block form and escaped (`;--8<--`) lines are left as they are.
+fn with_snippets(
+    root: &Path,
+    located: &Located,
+    text: &str,
+    written: &mut Vec<PathBuf>,
+) -> Result<String> {
+    let pages_dir = located.pages_dir();
+    let source_root = pages_dir
+        .parent()
+        .context("a pages directory has a parent")?;
+    let into = Path::new(SNIPPETS_DIR).join(located.source.name());
+    let mut out = String::with_capacity(text.len());
+    for line in text.split_inclusive('\n') {
+        let Some((indent, path, rest)) = snippet_include(line) else {
+            out.push_str(line);
+            continue;
+        };
+        let file = path.split(':').next().unwrap_or(path);
+        let relative = Path::new(file);
+        ensure!(
+            relative
+                .components()
+                .all(|c| matches!(c, std::path::Component::Normal(_))),
+            "snippet `{path}` must be a path inside its repository"
+        );
+        let from = source_root.join(relative);
+        let to = into.join(relative);
+        let target = root.join(&to);
+        if !target.exists() {
+            fs::create_dir_all(target.parent().context("a snippet path has a parent")?)?;
+            fs::copy(&from, &target).with_context(|| {
+                format!("copying snippet {} to {}", from.display(), target.display())
+            })?;
+            written.push(to.clone());
+        }
+        let suffix = &path[file.len()..];
+        out.push_str(&format!(
+            "{indent}{SNIPPET_MARKER} \"{}{suffix}\"{rest}",
+            to.display()
+        ));
+    }
+    Ok(out)
+}
+
+/// A one-line snippet include: its indent, the quoted path and what follows the closing quote.
+fn snippet_include(line: &str) -> Option<(&str, &str, &str)> {
+    let start = line.len() - line.trim_start().len();
+    let after = line[start..].strip_prefix(SNIPPET_MARKER)?.trim_start();
+    let quote = after.chars().next().filter(|c| *c == '"' || *c == '\'')?;
+    let path_and_rest = &after[1..];
+    let end = path_and_rest.find(quote)?;
+    let path = &path_and_rest[..end];
+    (!path.is_empty()).then_some((&line[..start], path, &path_and_rest[end + 1..]))
 }
 
 /// The names a `.gitignore` of an earlier [assemble] lists in `dir`; none when there is no such file.
@@ -497,6 +572,47 @@ mod tests {
             Some(root.join("docs/serdes/own.md"))
         );
         fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn snippets_a_page_includes_come_along() {
+        let dir = scratch("snippets");
+        fs::create_dir_all(dir.join("other/docs")).unwrap();
+        fs::create_dir_all(dir.join("other/fmt")).unwrap();
+        fs::create_dir_all(dir.join("other/tests/t")).unwrap();
+        fs::write(dir.join("other/tests/t/run.md"), "transcript\n").unwrap();
+        fs::write(
+            dir.join("other/docs/wire.md"),
+            "# Wire\n  --8<-- \"tests/t/run.md:2:3\"\n;--8<-- \"x.md\"\n",
+        )
+        .unwrap();
+        let root = dir.join("book");
+        fs::create_dir_all(root.join("docs")).unwrap();
+        let mut source = located(&dir.join("other"));
+        source.source.features = None;
+        let written = assemble(&root, std::slice::from_ref(&source)).unwrap();
+        let page = fs::read_to_string(root.join("docs/serdes/wire.md")).unwrap();
+        let copied = root.join(SNIPPETS_DIR).join("fmt/tests/t/run.md");
+        let copied_text = fs::read_to_string(&copied).unwrap();
+        // a path leaving the source's repository is refused
+        fs::write(dir.join("other/docs/wire.md"), "--8<-- \"../out.md\"\n").unwrap();
+        let outside = assemble(&root, &[source]);
+        fs::remove_dir_all(&dir).unwrap();
+        assert_eq!(
+            page,
+            format!(
+                "# Wire\n  --8<-- \"{SNIPPETS_DIR}/fmt/tests/t/run.md:2:3\"\n;--8<-- \"x.md\"\n"
+            )
+        );
+        assert_eq!(copied_text, "transcript\n");
+        assert_eq!(
+            written,
+            [
+                Path::new(SNIPPETS_DIR).join("fmt/tests/t/run.md"),
+                PathBuf::from("docs/serdes/wire.md")
+            ]
+        );
+        assert!(format!("{:#}", outside.unwrap_err()).contains("inside its repository"),);
     }
 
     #[test]

@@ -3,6 +3,8 @@
 ### ⚠️ Breaking
 
 - The `ww` binary moved to vhrdtech/ww_tools: install it with `cargo install --git https://github.com/vhrdtech/ww_tools ww`; the root recipes `install`, `install-cli` and `deploy` are removed, and `cargo ww` runs the example `ww_generic` (generic commands only).
+- The global `--monitor`, `--monitor-bytes`, `--monitor-bits` and `--capture` flags are removed; use `ww monitor` and `ww capture` (TOOL-14).
+- `GlobalFlags::DeviceAndTap`, `DeviceUse::tap` and `DeviceUse::untapped` are removed: a command that connects shows `GlobalFlags::Device`.
 
 ### 🚀 Features
 

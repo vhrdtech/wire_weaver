@@ -1,7 +1,6 @@
-//! The root command line: the global flags (device selection, link tap) and the registered subcommands
+//! The root command line: the global flags (device selection) and the registered subcommands
 //! ([`crate::registry`]), with the global flags fitted to each subcommand's help.
 
-use crate::cmd::tap::TapFlags;
 use crate::device::DeviceArgs;
 use crate::registry::{self, CommandDef, GlobalFlags};
 use clap::{Args, Command};
@@ -35,29 +34,22 @@ pub fn root_command() -> Command {
         .allow_external_subcommands(true)
         .external_subcommand_value_parser(clap::value_parser!(OsString));
     let root = DeviceArgs::augment_args(root);
-    let root = TapFlags::augment_args(root);
     let root = registry::commands()
         .into_iter()
         .fold(root, |root, def| root.subcommand((def.command)()));
-    let tap = TapFlags::augment_args(Command::new("tap"));
-    let globals: Vec<(clap::Arg, bool)> = root
+    let globals: Vec<clap::Arg> = root
         .get_arguments()
         .filter(|a| a.is_global_set())
-        .map(|a| {
-            (
-                a.clone(),
-                tap.get_arguments().any(|t| t.get_id() == a.get_id()),
-            )
-        })
+        .cloned()
         .collect();
     let header = *root.get_styles().get_header();
     root.mut_subcommands(|sc| {
         let def = registry::find(sc.get_name()).expect("every subcommand is a registered command");
-        fit_globals(sc, def, "", GlobalFlags::DeviceAndTap, &globals, header)
+        fit_globals(sc, def, "", GlobalFlags::Device, &globals, header)
     })
 }
 
-/// Adds the fitted copies of the global flags (`(flag, is a tap flag)`) to a subcommand at `path` (`rp` under
+/// Adds the fitted copies of the global flags to a subcommand at `path` (`rp` under
 /// `dfu`) and its own subcommands: hidden where it doesn't use them (by the command's table, else as its parent),
 /// out of the long help where it does, a summary standing in for them there. A subcommand's own flag of the same
 /// name (`ww dfu flash --product`) wins, as in clap's own propagation.
@@ -66,21 +58,14 @@ fn fit_globals(
     def: &CommandDef,
     path: &str,
     parent: GlobalFlags,
-    globals: &[(clap::Arg, bool)],
+    globals: &[clap::Arg],
     header: clap::builder::styling::Style,
 ) -> Command {
     let flags = def.globals_of(path, parent);
     let added: Vec<_> = globals
         .iter()
-        .filter(|(a, _)| !cmd.get_arguments().any(|own| own.get_id() == a.get_id()))
-        .map(|(a, is_tap)| {
-            let shown = match flags {
-                GlobalFlags::DeviceAndTap => true,
-                GlobalFlags::Device => !is_tap,
-                GlobalFlags::Neither => false,
-            };
-            (a.clone(), shown)
-        })
+        .filter(|a| !cmd.get_arguments().any(|own| own.get_id() == a.get_id()))
+        .map(|a| (a.clone(), flags == GlobalFlags::Device))
         .collect();
     let summary = global_summary(&added, header);
     let cmd = added.into_iter().fold(cmd, |cmd, (a, shown)| {
@@ -201,10 +186,8 @@ mod tests {
     fn global_flags_shown_only_where_used() {
         assert!(!help(&["elf", "--help"]).contains("--serial"));
         assert!(!help(&["elf", "-h"]).contains("--serial"));
-        let list = help(&["list", "-h"]);
-        assert!(list.contains("--serial") && !list.contains("--monitor"));
-        let info = help(&["info", "-h"]);
-        assert!(info.contains("[env: WW_SERIAL=]") && info.contains("--monitor"));
+        assert!(help(&["list", "-h"]).contains("--serial"));
+        assert!(help(&["info", "-h"]).contains("[env: WW_SERIAL=]"));
     }
 
     #[test]
@@ -212,8 +195,6 @@ mod tests {
         let info = help(&["info", "--help"]);
         assert!(!info.contains("[env: WW_SERIAL=]"), "{info}");
         assert!(info.contains("-s/--serial, -l/--label"), "{info}");
-        assert!(info.contains("--monitor, --monitor-bytes"), "{info}");
-        assert!(!help(&["list", "--help"]).contains("--monitor"));
         // in full where they are defined
         assert!(help(&["--help"]).contains("[env: WW_SERIAL=]"));
     }

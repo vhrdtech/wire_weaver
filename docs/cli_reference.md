@@ -397,39 +397,10 @@ a 12 byte message's bytes), a message line the frames it is in (`in #3@58+6, #4@
 prefix and what it says, `[15 in order]`, `[17 2 frames lost before]` or `[14 dropped: duplicate]`. Without a ww server, this is the command's own connection to the device: the link setup,
 the reads it makes to connect, its pings.
 
-### `--monitor` and `--capture` on any command
-
-The tap of `ww monitor` and `ww capture` is also a pair of global flags of every command that opens a device
-connection (`info`, `observe`, `stream`, `introspect`, `dfu`, `counters`, `report`, `usb-loopback`): they tap that
-command's own connection, so the traffic of a real call is seen without a ww server.
-
-- `--monitor[=frame|link|api]` (default `link`, the value needs `=`) prints to **stderr**, from the link setup on,
-  as `ww monitor` does; the command's own output stays on stdout for scripts. `--monitor-bytes` and `--monitor-bits`
-  are `ww monitor`'s `--bytes` and `--bits`.
-- `--capture FILE` saves the same connection (frames included) to a new file, written as `FILE.partial` and renamed
-  when the command ends, to read with [`ww explain FILE`](#ww-explain); it is refused when `FILE` exists
-  (`ww capture --append` adds to one).
-
-```
-$ ww -l donguru-m1 --monitor=api info
-...
-   0.082878 L0 → Request Read ww_firmware_info::FirmwareInfo.FIRMWARE #3
-   0.085630 L0 ← Event Value ww_firmware_info::FirmwareInfo.FIRMWARE  FirmwareSummary { name: "donguru", .. } (reply to #3 in 2.75 ms)
-$ ww -l donguru-m1 --monitor=api observe meter
-   0.120178 L0 → Request Observe meter  reading: on change; temperature: on change; totals: on change; others off #3
-   0.123055 L0 ← Event Value meter  reading: on change (min 1 ms); temperature: on change (min 1 ms); totals: on change (min 1 ms); budget 2000 B/s (reply to #3 in 2.88 ms)
-   0.124580 L0 ← Event PropertyUpdate meter  reading: MeterReading { vbus_in: 5228 mV, current: 7 mA }, temperature: 34000 m°C, ..
-   0.134138 L0 ← Event PropertyUpdate meter  reading: MeterReading { vbus_in: 5229 mV, current: 6 mA }
-```
-
 Requests are named by the device's API, and calls through global traits (`ww info` reads `ww_firmware_info`,
-`ww_board_info`, `ww_user_info`, ..) by the trait's crate and name, decoded from the snapshots `ww` carries, also when
-the command never reads the device's own API. An `Observe` shows the property names with the mode asked and the one
-granted, an update the properties it carries with their values. Ctrl+C and SIGTERM (`timeout`) end the command with the
-capture finished and renamed.
-
-Commands that don't connect (`list`, `explain`, `api`, `udev`, `elf`, `config`, `settings`) refuse the flags with an
-error, and so do `ww monitor`, `ww capture` and `ww stats`, which are the tap themselves.
+`ww_board_info`, `ww_user_info`, ..) by the trait's crate and name, decoded from the snapshots `ww` carries. An
+`Observe` shows the property names with the mode asked and the one granted, an update the properties it carries with
+their values.
 
 ## `ww stats`
 

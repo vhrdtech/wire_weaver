@@ -575,7 +575,7 @@ fn connection(matches: &clap::ArgMatches) -> Result<Connection> {
     args.check()?;
     Ok(match args.need_device() {
         // `ww explain` may connect, but only to look an API up
-        true => Connection::Device(DeviceUse::FULL.untapped()),
+        true => Connection::Device(DeviceUse::FULL),
         false => Connection::None,
     })
 }

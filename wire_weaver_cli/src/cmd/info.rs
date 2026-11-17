@@ -141,6 +141,6 @@ fn run(mut run: Run<'_>) -> BoxFuture<'_, Result<Ran>> {
 
 inventory::submit! {
     CommandDef::new("info", 150, command, run)
-        .globals(&[("", GlobalFlags::DeviceAndTap)])
+        .globals(&[("", GlobalFlags::Device)])
         .connection(|_| Ok(Connection::Device(DeviceUse::TRAITS_ONLY.on_demand())))
 }

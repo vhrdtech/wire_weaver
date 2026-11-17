@@ -8,11 +8,11 @@
 //! device), its log level, whether it taps the connection itself and what it forwards to a plugin, and the
 //! function that runs it on a [`Run`].
 
-use crate::cmd::tap::{Attached, Layer, LiveTap};
+use crate::cmd::tap::{Layer, LiveTap};
 use crate::device::Selection;
 use crate::util::StopSignal;
 use anyhow::{Context as _, Result, anyhow};
-use clap::{ArgMatches, Command, FromArgMatches};
+use clap::{ArgMatches, Command};
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::OnceLock;
@@ -46,13 +46,11 @@ pub fn program() -> Program {
     })
 }
 
-/// Which of the global flags (device selection, link tap) a subcommand shows in its help. All of them are accepted
+/// Which of the global flags (device selection) a subcommand shows in its help. All of them are accepted
 /// everywhere, a hidden one is only left out of the help and completion.
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum GlobalFlags {
-    /// The command opens a device connection: device selection and the link tap
-    DeviceAndTap,
-    /// The command finds devices, or connects without being tappable: device selection only
+    /// The command finds devices or opens a device connection: device selection
     Device,
     /// The command doesn't look at devices
     Neither,
@@ -67,22 +65,18 @@ pub struct DeviceUse {
     /// The command connects itself, with [`Run::connect`], once it knows it needs to (`ww info` first looks for a
     /// device sitting in its boot ROM); otherwise the device is connected before the command runs.
     pub on_demand: bool,
-    /// `--monitor` / `--capture` may tap this command's connection (`ww explain` connects only to look an API up).
-    pub tap: bool,
 }
 
 impl DeviceUse {
-    /// The device's full API from its introspection data, connected before the command runs, tappable.
+    /// The device's full API from its introspection data, connected before the command runs.
     pub const FULL: Self = DeviceUse {
         traits_only: false,
         on_demand: false,
-        tap: true,
     };
-    /// Global traits only (any device, whatever its API), connected before the command runs, tappable.
+    /// Global traits only (any device, whatever its API), connected before the command runs.
     pub const TRAITS_ONLY: Self = DeviceUse {
         traits_only: true,
         on_demand: false,
-        tap: true,
     };
 
     /// The command connects itself with [`Run::connect`].
@@ -91,11 +85,6 @@ impl DeviceUse {
             on_demand: true,
             ..self
         }
-    }
-
-    /// Not tappable: `--monitor` / `--capture` are refused.
-    pub const fn untapped(self) -> Self {
-        DeviceUse { tap: false, ..self }
     }
 }
 
@@ -324,7 +313,6 @@ pub async fn forward(
         program: run.program,
         device_use,
         recorder: None,
-        flag_tap: None,
     };
     let ran = (def.run)(forwarded).await?;
     if ran.disconnect
@@ -401,13 +389,12 @@ pub struct Run<'a> {
     pub meta: &'a ClientMeta,
     /// The command's own tap, from [`CommandDef::own_tap`].
     pub tap: Option<LiveTap>,
-    /// Set when a tap of any kind is on: the command ends cleanly on SIGINT / SIGTERM.
+    /// Set when the command taps its own connection: it ends cleanly on SIGINT / SIGTERM.
     pub stop: Option<StopSignal>,
     /// The program's name and version, for what the command prints.
     pub program: Program,
     device_use: Option<DeviceUse>,
     recorder: Option<Recorder>,
-    flag_tap: Option<&'a Attached>,
 }
 
 impl<'a> Run<'a> {
@@ -449,9 +436,6 @@ impl<'a> Run<'a> {
                 self.stop.clone(),
             )
             .await?;
-            if let Some(attached) = self.flag_tap {
-                attached.add_bundles(&device);
-            }
             *self.device = Some(device);
         }
         Ok(self.device.as_mut().expect("just connected"))
@@ -528,9 +512,7 @@ pub(crate) async fn run() -> Result<()> {
     };
     let sub = sub.clone();
     init_logging((def.log_level)(&sub));
-    let tap_flags = crate::cmd::tap::TapFlags::from_arg_matches(&matches)
-        .expect("the root command carries the tap flags");
-    let connection = check(&matches)?;
+    let connection = (def.connection)(&sub)?;
     let selection = match connection {
         Connection::None => None,
         Connection::Selection { save_config } => Some(Selection::resolve(&matches, save_config)?),
@@ -538,18 +520,9 @@ pub(crate) async fn run() -> Result<()> {
     };
     // the tap commands record the connection from its start: the recorder is subscribed to before connecting
     let tap = (def.own_tap)(&sub).map(LiveTap::new);
-    // `--monitor` / `--capture` of a command that connects: its own tap, from the start of the connection
-    let flag_tap = tap_flags
-        .active()
-        .then(|| Attached::start(&tap_flags))
-        .transpose()?;
-    let recorder = match (&tap, &flag_tap) {
-        (Some(tap), _) => Some(tap.recorder.clone()),
-        (None, Some(attached)) => Some(attached.recorder()),
-        _ => None,
-    };
+    let recorder = tap.as_ref().map(|tap| tap.recorder.clone());
     // a tapped run ends cleanly on SIGINT / SIGTERM: the capture file is finished and renamed, not left `.partial`
-    let stop = (tap.is_some() || flag_tap.is_some()).then(StopSignal::install);
+    let stop = tap.as_ref().map(|_| StopSignal::install());
     // who this program is to the device and a hub: one client instance for all its connections, so a claim it takes
     // in the hub (`ww dfu`, SRV-32) lets its own calls through
     let meta = ClientMeta::new();
@@ -558,26 +531,11 @@ pub(crate) async fn run() -> Result<()> {
         _ => None,
     };
     let mut device = match (device_use, &selection) {
-        (Some(device_use), Some(selection)) if !device_use.on_demand => {
-            match connect_device(selection, device_use, &meta, recorder.clone(), stop.clone()).await
-            {
-                Ok(device) => Some(device),
-                Err(e) => {
-                    // the tap saw the failed connect too: let it print and close its file
-                    if let Some(attached) = flag_tap
-                        && let Err(tap_err) = attached.finish()
-                    {
-                        eprintln!("tap: {tap_err:#}");
-                    }
-                    return Err(e);
-                }
-            }
-        }
+        (Some(device_use), Some(selection)) if !device_use.on_demand => Some(
+            connect_device(selection, device_use, &meta, recorder.clone(), stop.clone()).await?,
+        ),
         _ => None,
     };
-    if let (Some(attached), Some(device)) = (&flag_tap, &device) {
-        attached.add_bundles(device);
-    }
 
     let run = Run {
         matches: sub,
@@ -586,30 +544,12 @@ pub(crate) async fn run() -> Result<()> {
         device: &mut device,
         meta: &meta,
         tap,
-        stop: stop.clone(),
+        stop,
         program: program(),
         device_use,
         recorder,
-        flag_tap: flag_tap.as_ref(),
     };
-    // a flagged command that is stopped (`observe` runs until it is) ends as if it was done: the tap is finished below
-    let command_result =
-        crate::util::guard(flag_tap.is_some().then_some(stop).flatten(), (def.run)(run))
-            .await
-            .unwrap_or(Ok(Ran::DONE));
-    if let Some(attached) = flag_tap {
-        // the recording ends with the disconnect
-        if let Some(device) = device.take() {
-            _ = device.disconnect().asynch().await;
-        }
-        let tap_result = attached.finish();
-        match (&command_result, tap_result) {
-            (Ok(_), Err(e)) => return Err(e),
-            (Err(_), Err(e)) => eprintln!("tap: {e:#}"),
-            _ => {}
-        }
-    }
-    let ran = command_result?;
+    let ran = (def.run)(run).await?;
     if ran.disconnect
         && let Some(device) = device
     {
@@ -620,53 +560,6 @@ pub(crate) async fn run() -> Result<()> {
         std::process::exit(1);
     }
     Ok(())
-}
-
-/// What the parsed command line's command needs ([`CommandDef::connection`]), after the checks that refuse a command
-/// line before anything connects: the command's own, and the tap flags'.
-pub(crate) fn check(matches: &ArgMatches) -> Result<Connection> {
-    let (name, sub) = matches
-        .subcommand()
-        .expect("the root command requires a subcommand");
-    let Some(def) = find(name) else {
-        // a plugin connects itself
-        return Ok(Connection::SELECTION);
-    };
-    let tap_flags = crate::cmd::tap::TapFlags::from_arg_matches(matches)
-        .expect("the root command carries the tap flags");
-    let connection = (def.connection)(sub)?;
-    check_tap(&tap_flags, def, sub, connection)?;
-    Ok(connection)
-}
-
-/// `--monitor` / `--capture` tap the command's own connection: refused where there is none, or where the command is
-/// a tap itself.
-fn check_tap(
-    flags: &crate::cmd::tap::TapFlags,
-    def: &CommandDef,
-    sub: &ArgMatches,
-    connection: Connection,
-) -> Result<()> {
-    if !flags.active() {
-        return flags.check();
-    }
-    if (def.own_tap)(sub).is_some() {
-        anyhow::bail!(
-            "--monitor and --capture tap the connection of another command: `ww monitor` and `ww capture` are the tap itself, use their own options (--layer, --bytes, --bits, -o)"
-        );
-    }
-    if !matches!(connection, Connection::Device(u) if u.tap) {
-        let tappable: Vec<&str> = commands()
-            .into_iter()
-            .filter(|c| c.globals_of("", GlobalFlags::Neither) == GlobalFlags::DeviceAndTap)
-            .map(|c| c.name)
-            .collect();
-        anyhow::bail!(
-            "--monitor and --capture need a command that opens a device connection ({}); this one doesn't",
-            tappable.join(", ")
-        );
-    }
-    flags.check()
 }
 
 fn init_logging(max_level: LevelFilter) {

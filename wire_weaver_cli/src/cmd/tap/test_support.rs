@@ -1,8 +1,8 @@
-//! Helpers for tests of the tap: a live tap on a device printed as `--monitor=api` does and captured to a file, and
+//! Helpers for tests of the tap: a live tap on a device printed as `ww monitor --layer api` does and captured to a file, and
 //! the capture read back as `ww explain FILE` would print it.
 
 use super::{FileFeed, Layer, ViewArgs, replay};
-use crate::cmd::tap::{Attached, TapFlags};
+use crate::cmd::tap::Attached;
 use std::io::Write;
 use std::sync::Arc;
 use wire_weaver_client::snapshots::Resolver;
@@ -23,7 +23,7 @@ impl Write for Shared {
     }
 }
 
-/// A live tap on the in-process device at `device_path`, printed as `--monitor=api` does and captured to a file:
+/// A live tap on the in-process device at `device_path`, printed as `ww monitor --layer api` does and captured to a file:
 /// the monitor's text and the file. `traits_only`: the client is connected as `--traits-only` does. The client and
 /// the monitor resolve through `resolver`.
 pub async fn tapped_session(
@@ -37,14 +37,13 @@ pub async fn tapped_session(
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("cap.wwtape");
     let _ = std::fs::remove_file(&path);
-    let flags = TapFlags {
-        monitor: Some(Layer::Api),
-        tap_bytes: false,
-        tap_bits: false,
-        capture: Some(path.clone()),
+    let view = ViewArgs {
+        layer: Layer::Api,
+        bytes: false,
+        bits: false,
     };
     let printed = Shared::default();
-    let attached = Attached::start_with(&flags, Box::new(printed.clone()), resolver).unwrap();
+    let attached = Attached::start(view, &path, Box::new(printed.clone()), resolver).unwrap();
     let config = ClientConfig::new()
         .in_process_path(device_path)
         .resolver(resolver)

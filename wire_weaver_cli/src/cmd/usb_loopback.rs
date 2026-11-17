@@ -291,7 +291,7 @@ fn run(run: Run<'_>) -> BoxFuture<'_, Result<Ran>> {
 
 inventory::submit! {
     CommandDef::new("usb-loopback", 20, command, run)
-        .globals(&[("", GlobalFlags::DeviceAndTap)])
+        .globals(&[("", GlobalFlags::Device)])
         // the loopback test does not call the API at all, the link layer answers
         .connection(|_| Ok(Connection::Device(DeviceUse::TRAITS_ONLY)))
 }

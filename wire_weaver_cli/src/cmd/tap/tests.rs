@@ -2,7 +2,7 @@
 //! the real framers on both ends), printed live the way `ww monitor` prints it, captured the way `ww capture` writes
 //! it, and the capture read back the way `ww explain FILE` reads it: the same text.
 
-use super::test_support::{Shared, replayed, replayed_view, tapped_session};
+use super::test_support::{replayed, replayed_view, tapped_session};
 use super::*;
 use wire_weaver::shrink_wrap::UNib32;
 use wire_weaver_client::observe::ObserveMode;
@@ -478,90 +478,6 @@ fn sync_policies() {
     assert!(p("0s").is_err() && p("fast").is_err() && p("blocks:x").is_err());
 }
 
-/// `--monitor=api --capture FILE` on a command's own client: the request and its paired reply printed, and the file
-/// read back by `ww explain FILE` as the same text.
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn monitor_and_capture_flags_on_a_commands_own_client() {
-    let device = demo_device("cli/tap_flags", 7);
-    let dir = std::env::temp_dir().join(format!("ww_cli_tap_flags_{}", std::process::id()));
-    std::fs::create_dir_all(&dir).unwrap();
-    let path = dir.join("cmd.wwtape");
-    let _ = std::fs::remove_file(&path);
-    let flags = TapFlags {
-        monitor: Some(Layer::Api),
-        tap_bytes: false,
-        tap_bits: false,
-        capture: Some(path.clone()),
-    };
-    let printed = Shared::default();
-    // as main.rs does: the tap first, the client records into it
-    let attached =
-        Attached::start_with(&flags, Box::new(printed.clone()), tests_common::resolver()).unwrap();
-    let client = DynClient::from_config(
-        ClientConfig::new()
-            .in_process_path(device.path())
-            .resolver(tests_common::resolver())
-            .tap(attached.recorder()),
-    )
-    .connect()
-    .await
-    .expect("connect");
-    attached.add_bundles(&client);
-    let root = DynResource::root(client.device_introspect().unwrap().api_bundle.clone());
-    let add = root.walk("add").unwrap();
-    let sum = add
-        .call(client.cmd(), &[u32v(3), u32v(100)])
-        .await
-        .unwrap()
-        .unwrap();
-    assert_eq!(sum, u32v(103));
-    client.disconnect().asynch().await.unwrap();
-    attached.finish().unwrap();
-
-    let printed = String::from_utf8(printed.0.lock().unwrap().clone()).unwrap();
-    assert!(
-        printed.contains("Request Call add  a: 3, b: 100"),
-        "{printed}"
-    );
-    assert!(
-        printed
-            .lines()
-            .any(|l| l.contains("Event Value add  103") && l.contains("reply to #")),
-        "{printed}"
-    );
-    assert!(!printed.contains("frame #"), "{printed}");
-    // in the order it happened: the request line, then the reply to it
-    assert!(
-        printed.find("Request Call add").unwrap() < printed.find("Event Value add").unwrap(),
-        "{printed}"
-    );
-
-    // the capture is a capture, and prints as it did live
-    assert!(is_capture(path.to_str().unwrap()));
-    let view = ViewArgs {
-        layer: Layer::Api,
-        bytes: false,
-        bits: false,
-    };
-    let mut replayed = vec![];
-    replay(
-        &mut FileFeed::open(&path, false).unwrap(),
-        view,
-        false,
-        tests_common::resolver(),
-        &mut replayed,
-    )
-    .unwrap();
-    assert_eq!(String::from_utf8(replayed).unwrap(), printed);
-
-    // a second run to the same file is refused before connecting
-    let err = Attached::start_with(&flags, Box::new(std::io::sink()), tests_common::resolver())
-        .err()
-        .unwrap();
-    assert!(err.to_string().contains("exists"), "{err}");
-    std::fs::remove_dir_all(&dir).unwrap();
-}
-
 /// TOOL-9: an `Observe` and its answer read as property names with the modes asked and granted, every update as the
 /// properties it carries with their values (two in the first one, as the device sends them together), all of it
 /// the same from a capture.
@@ -691,7 +607,7 @@ async fn global_trait_calls_are_named_and_decoded() {
         std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
     }
 }
-/// TOOL-14: SIGTERM (a `timeout`, a service manager) ends a command with `--capture` like Ctrl-C does: the capture is
+/// TOOL-14: SIGTERM (a `timeout`, a service manager) ends a tapped command like Ctrl-C does: the capture is
 /// finished and renamed, not left as FILE.partial.
 #[cfg(unix)]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -701,15 +617,19 @@ async fn sigterm_finishes_the_capture_file() {
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("cap.wwtape");
     let _ = std::fs::remove_file(&path);
-    let flags = TapFlags {
-        monitor: None,
-        tap_bytes: false,
-        tap_bits: false,
-        capture: Some(path.clone()),
+    let view = ViewArgs {
+        layer: Layer::Api,
+        bytes: false,
+        bits: false,
     };
-    let attached =
-        Attached::start_with(&flags, Box::new(std::io::sink()), tests_common::resolver()).unwrap();
-    // as main.rs does: installed before connecting
+    let attached = Attached::start(
+        view,
+        &path,
+        Box::new(std::io::sink()),
+        tests_common::resolver(),
+    )
+    .unwrap();
+    // as the registry does for a tap command: installed before connecting
     let stop = crate::util::StopSignal::install();
     let client = DynClient::from_config(
         ClientConfig::new()
@@ -785,49 +705,7 @@ fn check(args: &[&str]) -> Result<(), String> {
     let matches = crate::cli::root_command()
         .try_get_matches_from(std::iter::once(&"ww").chain(args))
         .map_err(|e| e.to_string())?;
-    crate::registry::check(&matches)
-        .map(|_| ())
-        .map_err(|e| e.to_string())
-}
-
-#[test]
-fn tap_flags_belong_to_commands_that_connect() {
-    assert_eq!(check(&["info"]), Ok(()));
-    for ok in [
-        &["--monitor", "info"][..],
-        &["info", "--monitor=api", "--monitor-bits"],
-        &["--monitor=frame", "--monitor-bytes", "counters"],
-        &["info", "--capture", "x.wwtape"],
-        &["observe", "--monitor=link", "a"],
-    ] {
-        assert_eq!(check(ok), Ok(()), "{ok:?}");
-    }
-    // `--monitor info` is not a layer called info
-    assert!(
-        check(&["--monitor", "list"])
-            .unwrap_err()
-            .contains("connection")
-    );
-    for refused in [
-        &["--monitor", "list"][..],
-        &["--capture", "x", "api", "tree", "a"],
-        &["--monitor", "udev"],
-        &["--monitor", "config", "show"],
-        &["--monitor", "elf", "a"],
-        &["--monitor=api", "explain", "u8", "00"],
-        &["--monitor", "monitor"],
-        &["--capture", "x", "capture", "-o", "y"],
-    ] {
-        assert!(check(refused).is_err(), "{refused:?}");
-    }
-    assert!(
-        check(&["--monitor-bytes", "info"])
-            .unwrap_err()
-            .contains("--monitor")
-    );
-    // the tap commands keep their own options
-    assert_eq!(
-        check(&["monitor", "--layer", "api", "--bytes", "--bits"]),
-        Ok(())
-    );
+    let (name, sub) = matches.subcommand().expect("a subcommand");
+    let def = crate::registry::find(name).expect("a registered command");
+    (def.connection)(sub).map(|_| ()).map_err(|e| e.to_string())
 }

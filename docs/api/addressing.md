@@ -88,7 +88,7 @@ than for an absolute path on a Cortex-M3, see `examples_mcu/mcu_qemu/src/bin/glo
 The host prefers the compact form: a global call to a trait the registry knows goes out with its id, whether the
 client asked for `GlobalFull` or not. A device built before the trait had an id answers `TraitNotFound`; the client
 then sends the same request again with `GlobalFull` and keeps using it for that trait for the rest of the
-connection. The tap decoder, `ww --monitor=api` and `ww explain` name compact calls through the registry and decode
+connection. The tap decoder, `ww monitor --layer api` and `ww explain` name compact calls through the registry and decode
 them from the trait's snapshot.
 
 ## Who resolves a global path

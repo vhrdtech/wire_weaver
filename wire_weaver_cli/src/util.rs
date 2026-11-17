@@ -14,7 +14,7 @@ pub fn display_path(path: &str) -> &str {
 
 /// Tells that the process was asked to stop: Ctrl-C (SIGINT) or, on Unix, SIGTERM (`timeout`, a service manager,
 /// `kill`). Installed before connecting so no signal is lost on the way, and so the default action (dying at once,
-/// with a `--capture` file still `.partial`) is off: whoever holds it ends what it does and cleans up.
+/// with a `ww capture` file still `.partial`) is off: whoever holds it ends what it does and cleans up.
 #[derive(Clone)]
 pub struct StopSignal(watch::Receiver<bool>, Arc<watch::Sender<bool>>);
 

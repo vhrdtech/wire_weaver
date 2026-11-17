@@ -38,8 +38,10 @@ use wire_weaver_client::ww_tape::{
     Block, Definitions, FileBlocks, MAGIC, Recovery, SyncPolicy, TapeWriter, WriteError,
 };
 
+#[cfg(any(test, feature = "test-support"))]
 mod flags;
-pub use flags::{Attached, TapFlags};
+#[cfg(any(test, feature = "test-support"))]
+use flags::Attached;
 #[cfg(any(test, feature = "test-support"))]
 pub mod test_support;
 
@@ -341,8 +343,6 @@ pub(crate) struct Monitor {
     decoder: Decoder,
     view: ViewArgs,
     t0: Option<u64>,
-    /// Text goes to stderr: colour by what stderr is, not stdout
-    stderr: bool,
 }
 
 impl Monitor {
@@ -373,14 +373,7 @@ impl Monitor {
             },
             view,
             t0: None,
-            stderr: false,
         }
-    }
-
-    /// Printed to stderr: colour codes only where stderr is a terminal (stdout may be the other way round).
-    pub(crate) fn for_stderr(mut self) -> Self {
-        self.stderr = true;
-        self
     }
 
     pub(crate) fn block(&mut self, block: &Block<'_>, out: &mut impl Write) -> Result<()> {
@@ -397,11 +390,6 @@ impl Monitor {
     fn drain(&mut self, out: &mut impl Write) -> Result<()> {
         while let Some(d) = self.decoder.next() {
             if let Some(text) = self.render(&d) {
-                let text = if self.stderr && !console::colors_enabled_stderr() {
-                    console::strip_ansi_codes(&text).into_owned()
-                } else {
-                    text
-                };
                 out.write_all(text.as_bytes())?;
             }
         }

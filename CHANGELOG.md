@@ -141,6 +141,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - `pins::refresh` gets back a test fixture free of `ww_stdlib`, lost when `nucleo_g0b1re_api` moved out. See the `wire_weaver_evolution` changelog.
 - `tests/layers_lint` reads only this repository's workspaces: ww_tools and `layers.toml`'s `[outside]` table are gone, every other check stays.
 - **Breaking:** `ww_tools/` (the `ww` binary and the `wire_weaver_wheel` Python wheel, layer 7) moved to vhrdtech/ww_tools, with TOOL-39; `just install`, `just install-cli` and `just deploy` are gone here, install with `cargo install --git https://github.com/vhrdtech/ww_tools ww`; `cargo ww` runs the generic commands only. See the `wire_weaver_cli` and `wire_weaver_py` changelogs.
+- **Breaking:** `ww`'s global `--monitor` and `--capture` flags are removed (TOOL-14); see the `wire_weaver_cli` changelog.
 
 ### Added
 

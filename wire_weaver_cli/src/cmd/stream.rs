@@ -182,7 +182,7 @@ fn run(run: Run<'_>) -> BoxFuture<'_, Result<Ran>> {
 
 inventory::submit! {
     CommandDef::new("stream", 70, command, run)
-        .globals(&[("", GlobalFlags::DeviceAndTap)])
+        .globals(&[("", GlobalFlags::Device)])
         .connection(|_| Ok(Connection::Device(DeviceUse::FULL)))
         .log_level(|_| LevelFilter::WARN)
 }

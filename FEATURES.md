@@ -2125,10 +2125,9 @@ Unicast Data0 to one node over the same bus is TR-6.
   captures with the device's API bundle in them, read back by `ww explain FILE` exactly as monitored live.
   Blocks come from a `Feed` (`wire_weaver_cli/src/cmd/tap.rs`): the CLI's own connection today, a ww server's tap
   of all its clients later.
-  Global `--monitor[=frame|link|api]` (`--monitor-bytes`, `--monitor-bits`) and `--capture FILE` on every command
-  that connects print (to stderr) or save that command's own connection, with the same `Monitor`, `LiveFeed` and
-  `TapeWriter`; the tap decoder orders a block's records by time so a reply is paired with its request
-  (`docs/cli_reference.md#ww-monitor`).
+  The tap decoder orders a block's records by time so a reply is paired with its request
+  (`docs/cli_reference.md#ww-monitor`). The global `--monitor` and `--capture` flags, which tapped any command's own
+  connection, are removed.
 - ✅ **TOOL-18 The hub from Python and notebooks** · `v0.5.x` — the wheel (`wire_weaver_py`) carries
   `wire_weaver_client` with its `hub` feature and `ww_hub`; `python -m wire_weaver.hub` serves the hub, found by
   `wire_weaver_client::hub::ensure_running` the same way as a Rust `ww_hub::main_if_hub()` program (`wire_weaver`

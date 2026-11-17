@@ -1449,7 +1449,7 @@ mod hint_tests {
                 && ww_link.contains("(inherited by "),
             "{ww_link}"
         );
-        let own = version_declared_at(Some(&root.join("ww_stdlib/ww_gpio")));
+        let own = version_declared_at(Some(&root.join("ww_self")));
         assert!(own.starts_with("`version` in "), "{own}");
     }
 }

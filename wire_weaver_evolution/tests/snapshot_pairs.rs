@@ -1,4 +1,4 @@
-//! Every saved snapshot of `ww_tap`, `ww_client_server`, `ww_timebase`, the `ww_stdlib` crates and the ww_base crates
+//! Every saved snapshot of `ww_tap`, `ww_client_server`, `ww_timebase` and the ww_base crates
 //! (from the checkout `Cargo.lock` pins), checked against the snapshot of the version before it, as `ww api check <snapshot>` does: both the crate and
 //! the wire version must be bumped enough (EVO-27). A wrong wire version on an older snapshot, or a released
 //! snapshot that changed, shows here, not only when someone runs the check by hand.
@@ -14,13 +14,6 @@ fn snapshot_crates(root: &Path) -> Vec<PathBuf> {
         root.join("ww_client_server"),
         root.join("ww_timebase"),
     ];
-    let mut stdlib: Vec<PathBuf> = std::fs::read_dir(root.join("ww_stdlib"))
-        .unwrap()
-        .map(|entry| entry.unwrap().path())
-        .filter(|path| path.join(SNAPSHOTS_DIR).is_dir())
-        .collect();
-    stdlib.sort();
-    crates.extend(stdlib);
     let mut sources = ww_snapshots::cargo::CargoSources::default();
     sources.entry_dir = Some(root.to_path_buf());
     for name in [

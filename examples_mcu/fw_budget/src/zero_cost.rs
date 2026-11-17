@@ -3,7 +3,7 @@
 //! `--snapshot DIR [--tree PATH]` writes `DIR/manifest.txt`, one line per digest, of the tree at `PATH` (this
 //! repository when not given), with that tree's own code:
 //!
-//! - every API crate (`tests/*_api`, `examples/*_api`, `ww_stdlib/*`, `wire_weaver_evolution/tests/fixtures/*` and
+//! - every API crate (`tests/*_api`, `examples/*_api`, `wire_weaver_evolution/tests/fixtures/*` and
 //!   the root crates with `api_snapshots/`): the snapshot `ww api save` writes (every trait and type of the crate as
 //!   the walker reads them) and the bundle of each API root `ww api ast` prints (what codegen builds from), both kept
 //!   under `DIR/bundles/` for a `diff`;
@@ -38,10 +38,9 @@ const NOT_STAGED: [&str; 6] = [
     "site",
 ];
 /// Directories whose crates with a `Cargo.toml` are API crates, and the suffix their names need (`""`: any).
-const API_DIRS: [(&str, &str); 4] = [
+const API_DIRS: [(&str, &str); 3] = [
     ("tests", "_api"),
     ("examples", "_api"),
-    ("ww_stdlib", ""),
     ("wire_weaver_evolution/tests/fixtures", ""),
 ];
 

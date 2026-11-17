@@ -1953,6 +1953,7 @@ dependencies = [
 [[package]]
 name = "ww_crc"
 version = "0.5.0"
+source = "git+https://github.com/vhrdtech/ww_base#fbddc7e13b577a6f876aa1e5a4698eafc85eba8c"
 dependencies = [
  "crc",
 ]
@@ -1976,6 +1977,7 @@ dependencies = [
 [[package]]
 name = "ww_error"
 version = "0.1.0"
+source = "git+https://github.com/vhrdtech/ww_base#fbddc7e13b577a6f876aa1e5a4698eafc85eba8c"
 dependencies = [
  "defmt 1.1.1",
  "shrink_wrap",
@@ -1993,6 +1995,7 @@ dependencies = [
 [[package]]
 name = "ww_global"
 version = "0.2.0"
+source = "git+https://github.com/vhrdtech/ww_base#fbddc7e13b577a6f876aa1e5a4698eafc85eba8c"
 dependencies = [
  "convert_case",
  "serde_json",
@@ -2021,6 +2024,7 @@ dependencies = [
 [[package]]
 name = "ww_numeric"
 version = "0.3.0"
+source = "git+https://github.com/vhrdtech/ww_base#fbddc7e13b577a6f876aa1e5a4698eafc85eba8c"
 dependencies = [
  "defmt 1.1.1",
  "serde",
@@ -2065,6 +2069,7 @@ dependencies = [
 [[package]]
 name = "ww_si"
 version = "0.5.0"
+source = "git+https://github.com/vhrdtech/ww_base#fbddc7e13b577a6f876aa1e5a4698eafc85eba8c"
 dependencies = [
  "defmt 1.1.1",
  "exact_units",
@@ -2097,6 +2102,7 @@ dependencies = [
 [[package]]
 name = "ww_version"
 version = "0.2.0"
+source = "git+https://github.com/vhrdtech/ww_base#fbddc7e13b577a6f876aa1e5a4698eafc85eba8c"
 dependencies = [
  "defmt 1.1.1",
  "hex",

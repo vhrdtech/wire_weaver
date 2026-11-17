@@ -3543,6 +3543,7 @@ checksum = "1ffae5123b2d3fc086436f8834ae3ab053a283cfac8fe0a0b8eaae044768a4c4"
 [[package]]
 name = "ww_error"
 version = "0.1.0"
+source = "git+https://github.com/vhrdtech/ww_base#fbddc7e13b577a6f876aa1e5a4698eafc85eba8c"
 dependencies = [
  "shrink_wrap",
  "ww_si",
@@ -3551,6 +3552,7 @@ dependencies = [
 [[package]]
 name = "ww_global"
 version = "0.2.0"
+source = "git+https://github.com/vhrdtech/ww_base#fbddc7e13b577a6f876aa1e5a4698eafc85eba8c"
 dependencies = [
  "convert_case",
  "serde_json",
@@ -3567,6 +3569,7 @@ dependencies = [
 [[package]]
 name = "ww_numeric"
 version = "0.3.0"
+source = "git+https://github.com/vhrdtech/ww_base#fbddc7e13b577a6f876aa1e5a4698eafc85eba8c"
 dependencies = [
  "serde",
  "shrink_wrap",
@@ -3590,6 +3593,7 @@ dependencies = [
 [[package]]
 name = "ww_si"
 version = "0.5.0"
+source = "git+https://github.com/vhrdtech/ww_base#fbddc7e13b577a6f876aa1e5a4698eafc85eba8c"
 dependencies = [
  "exact_units",
  "shrink_wrap",
@@ -3614,6 +3618,7 @@ dependencies = [
 [[package]]
 name = "ww_version"
 version = "0.2.0"
+source = "git+https://github.com/vhrdtech/ww_base#fbddc7e13b577a6f876aa1e5a4698eafc85eba8c"
 dependencies = [
  "hex",
  "semver",

@@ -39,8 +39,9 @@ fn a_session_put_again_is_not_a_new_session() {
         copy_spacing: 256,
         ..ww_tape::NearPolicy::default()
     });
+    let mut defs = ww_tape::Definitions::new();
     while let Some(chunk) = sub.try_recv() {
-        writer.write_block(chunk.bytes()).unwrap();
+        writer.relay_block(&mut defs, chunk.bytes()).unwrap();
     }
     writer.finish().unwrap();
 

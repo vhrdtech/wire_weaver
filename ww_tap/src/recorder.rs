@@ -7,19 +7,21 @@
 //! fall behind, records are dropped and counted, and the next block opens with a [LinkEvent::Lost] on the link: a
 //! gap is visible, never silent, and the link is never stalled.
 //!
-//! Definitions (the producer, its clocks, the tracks of every link, API bundles added with [Recorder::add_bundle])
-//! are records on track 0: what is new is handed over as a block of definitions before the next records block, a
-//! bundle at once. A link's session track is a state track: its newest session is put, never written in a records
-//! block. What a consumer has is kept per consumer: one that subscribes, or that misses a block (its queue was full),
-//! has nothing behind it, and before its next block it is handed a block of puts ([ww_tape::FLAG_REPEAT]) with every
-//! open definition and the newest session of every link; a new session is put to every consumer at once. A closed
-//! link's tracks are closed: a consumer that joins later doesn't get them. Nothing is written by time.
+//! Definitions (the clocks, the tracks of every link, API bundles added with [Recorder::add_bundle]) are records on
+//! track 0, held in the recorder's [Definitions]. A link's session track is a state track: its newest session is
+//! put, never written in a records block. Each consumer is handed what its blocks need by the near rule
+//! ([ww_tape::writer::near]) applied to its own stream: before a records block, the definitions and sessions the
+//! block's records need that don't lie within `near` behind in that consumer's stream are put in front of it, as
+//! blocks of puts ([ww_tape::FLAG_REPEAT]). When the puts and the block don't fit its queue, the consumer misses the
+//! block (a gap in seq) and nothing else is sent. A consumer that joins has nothing behind it and gets what each
+//! block needs as blocks come; a new session is put to every consumer at once. A closed link's tracks are closed: a
+//! consumer gets them no more. Nothing is written by time. The producer is not a definition here: a writer of the
+//! stream names it ([RecorderConfig::name]).
 //!
 //! Record times are nanoseconds of the recorder's own clock ([HOST_CLOCK], origin the recorder's start); a definition
 //! maps it to the wall clock ([WALL_CLOCK]) read once at the start.
 
-use std::collections::BTreeMap;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, Weak, mpsc};
 use std::time::{Duration, Instant, SystemTime};
 
@@ -27,8 +29,9 @@ use wire_weaver::prelude::*;
 use wire_weaver::shrink_wrap::SerializeShrinkWrap;
 use ww_tape::{
     Block, BlockId, BlockKind, BlockState, BlockWriter, ClockDef, ClockMap, ClockOrigin, ClockTime,
-    Describe, FullVersion, ItemHash, Magnitude, MapSegment, Open, Producer, RecordRef, Segment,
-    SessionTag, Slot, TrackDef, TrackRepeat, Version,
+    DefinitionKind, Definitions, Describe, FullVersion, ItemHash, Magnitude, MapSegment, RecordRef,
+    Segment, SessionTag, Slot, StatePolicy, TrackDef, TrackRepeat, Version,
+    writer::near::{Near, NearPolicy, Rule},
 };
 
 use crate::{Dir, Frame, LinkEvent, Message, Session, Tap, ids};
@@ -128,6 +131,8 @@ impl core::fmt::Debug for Chunk {
 /// Where a consumer gets the blocks, see [Recorder::subscribe].
 pub struct Subscription {
     rx: mpsc::Receiver<Chunk>,
+    /// Blocks in the queue: sent and not yet taken
+    queued: Arc<AtomicUsize>,
     id: u64,
     recorder: Weak<Inner>,
 }
@@ -135,15 +140,24 @@ pub struct Subscription {
 impl Subscription {
     /// The next block, waiting for it; None once the recorder is gone.
     pub fn recv(&self) -> Option<Chunk> {
-        self.rx.recv().ok()
+        self.taken(self.rx.recv().ok())
     }
 
     pub fn recv_timeout(&self, timeout: Duration) -> Result<Chunk, mpsc::RecvTimeoutError> {
-        self.rx.recv_timeout(timeout)
+        let c = self.rx.recv_timeout(timeout)?;
+        self.queued.fetch_sub(1, Ordering::Relaxed);
+        Ok(c)
     }
 
     pub fn try_recv(&self) -> Option<Chunk> {
-        self.rx.try_recv().ok()
+        self.taken(self.rx.try_recv().ok())
+    }
+
+    fn taken(&self, c: Option<Chunk>) -> Option<Chunk> {
+        if c.is_some() {
+            self.queued.fetch_sub(1, Ordering::Relaxed);
+        }
+        c
     }
 }
 
@@ -165,8 +179,13 @@ pub struct Recorder {
 type SinkFn = Box<dyn FnMut(&Chunk) -> bool + Send>;
 
 enum SinkKind {
-    /// Bounded queue; a full one skips the block for this consumer (it sees the gap in block seq).
-    Queue(mpsc::SyncSender<Chunk>),
+    /// Bounded queue of `cap` blocks, `queued` of them in it; a full one skips the block for this consumer (it sees
+    /// the gap in block seq).
+    Queue {
+        tx: mpsc::SyncSender<Chunk>,
+        queued: Arc<AtomicUsize>,
+        cap: usize,
+    },
     /// Called with every block, under the recorder's lock: must be quick. False unsubscribes.
     Fn(SinkFn),
 }
@@ -175,17 +194,21 @@ struct Sink {
     id: u64,
     layers: Layers,
     kind: SinkKind,
-    /// Whether it took every block since it was handed all open definitions
-    whole: bool,
-    /// The newest session of each link it was handed, by link
-    sessions: BTreeMap<u32, ItemHash>,
+    /// Bytes of the blocks it took: where its stream is
+    at: u64,
+    /// The definitions and sessions put to it, where in its stream
+    near: Near,
 }
 
 impl Sink {
-    /// It missed a block: nothing is behind it any more.
-    fn behind(&mut self) {
-        self.whole = false;
-        self.sessions.clear();
+    /// Whether `blocks` more fit its queue.
+    fn fits(&self, blocks: usize) -> bool {
+        match &self.kind {
+            SinkKind::Queue { queued, cap, .. } => {
+                queued.load(Ordering::Relaxed).saturating_add(blocks) <= *cap
+            }
+            SinkKind::Fn(_) => true,
+        }
     }
 }
 
@@ -241,14 +264,10 @@ struct State {
     /// Session and seq of the next block: a random session per recorder
     next: BlockId,
     links: Vec<LinkState>,
-    /// Hashes of the bundles defined
-    bundles: Vec<Vec<u8>>,
     sinks: Vec<Sink>,
     next_sink: u64,
     /// The open definitions
-    open: Open,
-    /// Definitions not handed over yet, as items
-    pending: Vec<Vec<u8>>,
+    defs: Definitions,
     scratch: Vec<u8>,
 }
 
@@ -353,11 +372,9 @@ impl Recorder {
                 current: None,
                 next: BlockId::new(SessionTag::random(), 0),
                 links: Vec::new(),
-                bundles: Vec::new(),
                 sinks: Vec::new(),
                 next_sink: 0,
-                open: Open::new(),
-                pending: Vec::new(),
+                defs: Definitions::new(),
                 scratch: Vec::new(),
             }),
             frames: AtomicBool::new(false),
@@ -366,7 +383,7 @@ impl Recorder {
             flusher: Mutex::new(None),
             config,
         });
-        inner.define_producer(&mut inner.state.lock().unwrap(), wall_ns_at_zero);
+        Inner::define_clocks(&mut inner.state.lock().unwrap(), wall_ns_at_zero);
         if inner.config.background_flush {
             let weak = Arc::downgrade(&inner);
             let flush_time = inner.config.flush_time;
@@ -411,10 +428,10 @@ impl Recorder {
     /// Define an API bundle (the tap's own types, a device's API), by its hash; once per hash.
     pub fn add_bundle(&self, hash: &[u8], bytes: &[u8]) {
         let mut st = self.inner.state.lock().unwrap();
-        if st.bundles.iter().any(|h| h == hash) {
+        if st.defs.bundle(hash).is_some() {
             return;
         }
-        st.bundles.push(hash.to_vec());
+        // every records block needs the bundles: it is put in front of the block being filled, with the rest
         Inner::define(
             &mut st,
             &Describe::Bundle {
@@ -422,28 +439,31 @@ impl Recorder {
                 bytes: RefVec::Slice { slice: bytes },
             },
         );
-        // handed over now, not with the next block: the block being filled may already hold the first
-        // messages that need this bundle, and a block of definitions after it would come too late for a live reader
-        if !st.sinks.is_empty() {
-            self.inner.flush_current(&mut st);
-            self.inner.flush_definitions(&mut st);
-        }
     }
 
     /// Blocks into a bounded queue of `queue` blocks: a consumer that falls further behind misses blocks (a gap in
-    /// their seq). Starts with a full repeat.
+    /// their seq), a records block with the puts in front of it, never one without them.
     pub fn subscribe(&self, layers: Layers, queue: usize) -> Subscription {
-        let (tx, rx) = mpsc::sync_channel(queue.max(1));
-        let id = self.inner.add_sink(layers, SinkKind::Queue(tx));
+        let cap = queue.max(1);
+        let (tx, rx) = mpsc::sync_channel(cap);
+        let queued = Arc::new(AtomicUsize::new(0));
+        let id = self.inner.add_sink(
+            layers,
+            SinkKind::Queue {
+                tx,
+                queued: queued.clone(),
+                cap,
+            },
+        );
         Subscription {
             rx,
+            queued,
             id,
             recorder: Arc::downgrade(&self.inner),
         }
     }
 
     /// Every block to `f`, called under the recorder's lock (keep it short); `f` returns false to unsubscribe.
-    /// Starts with a full repeat.
     pub fn subscribe_fn(&self, layers: Layers, f: impl FnMut(&Chunk) -> bool + Send + 'static) {
         self.inner.add_sink(layers, SinkKind::Fn(Box::new(f)));
     }
@@ -489,19 +509,15 @@ impl Inner {
 
     fn add_sink(&self, layers: Layers, kind: SinkKind) -> u64 {
         let mut st = self.state.lock().unwrap();
-        // what the others had pending goes to them, the new one starts with everything put
-        self.flush_current(&mut st);
-        self.flush_definitions(&mut st);
         let id = st.next_sink;
         st.next_sink += 1;
         st.sinks.push(Sink {
             id,
             layers,
             kind,
-            whole: false,
-            sessions: BTreeMap::new(),
+            at: 0,
+            near: Near::default(),
         });
-        self.catch_up(&mut st);
         self.update_layers(&st);
         id
     }
@@ -552,10 +568,6 @@ impl Inner {
     fn open(&self, st: &mut State, now: u64) -> bool {
         if st.current.is_some() {
             return true;
-        }
-        if !st.sinks.is_empty() {
-            self.flush_definitions(st);
-            self.catch_up(st);
         }
         let Some(mut buf) = self.take_block(st) else {
             return false;
@@ -620,8 +632,9 @@ impl Inner {
                 l.session = Some((at, bytes.to_vec(), ItemHash::of(bytes)));
             }
             self.flush_current(st);
-            self.flush_definitions(st);
-            self.catch_up(st);
+            let needs = Needs::of(st, [track]);
+            let id = BlockId::new(st.next.session, st.next.seq.saturating_sub(1));
+            self.hand(st, &needs, id, None);
             return;
         }
         if st.sinks.is_empty() {
@@ -658,54 +671,31 @@ impl Inner {
         b.len = w.finish();
         let chunk = Chunk(cur.buf.clone());
         st.pool.push(cur.buf);
-        deliver(&mut st.sinks, &chunk);
-        self.update_layers(st);
+        let block = chunk.block();
+        let needs = Needs::of(st, block.records().filter_map(|r| Some(r.ok()?.track)));
+        let id = BlockId::new(block.session, block.seq.saturating_sub(1));
+        self.hand(st, &needs, id, Some(&chunk));
     }
 
-    /// Open `d`, checked against the open definitions, and add it to the pending ones unless the open one of its
-    /// slot is the same bytes.
+    /// Hold `d` in the open definitions; one they refuse is left out, and logged.
     fn define(st: &mut State, d: &Describe<'_>) {
-        let defined = ww_tape::open::encode(d).and_then(|item| {
-            st.open.check_batch([(d, item.as_slice())])?;
-            Ok(item)
-        });
-        let item = match defined {
-            Ok(item) => item,
-            Err(e) => {
-                tracing::warn!("tap definition left out: {e}");
-                return;
-            }
-        };
-        let slot = Slot::of_definition(d, || ItemHash::of(&item));
-        if st.open.get(&slot) == Some(item.as_slice()) {
-            return;
+        if let Err(e) = st.defs.define(d) {
+            tracing::warn!("tap definition left out: {e}");
         }
-        st.open.insert(d, &item);
-        st.pending.push(item);
     }
 
-    /// Close the tracks of link `link`: a consumer that joins later doesn't get them.
+    /// Close the tracks of link `link`: no consumer gets them any more.
     fn close_link(st: &mut State, link: u32) {
-        let tracks: Vec<u32> = (0..7u32).map(|stream| track_number(link, stream)).collect();
-        for t in &tracks {
-            st.open.close(*t);
+        for stream in 0..7u32 {
+            st.defs.close(track_number(link, stream));
         }
-        st.pending.retain(|item| {
-            !matches!(Slot::of(0, item), Some(Slot::Track { number }) if tracks.contains(&number))
-        });
         if let Some(l) = st.links.get_mut(link as usize) {
             l.session = None;
         }
     }
 
-    /// Define the producer, its clock and the wall clock it maps to, read `wall_ns_at_zero` at its start.
-    fn define_producer(&self, st: &mut State, wall_ns_at_zero: u64) {
-        Self::define(
-            st,
-            &Describe::Producer(Producer {
-                name: &self.config.name,
-            }),
-        );
+    /// Define the recorder's clock and the wall clock it maps to, read `wall_ns_at_zero` at its start.
+    fn define_clocks(st: &mut State, wall_ns_at_zero: u64) {
         let api_root = ww_tape::api_root_id(api().crate_id);
         Self::define(
             st,
@@ -771,93 +761,183 @@ impl Inner {
         }
     }
 
-    /// Hand the pending definitions over to every consumer as counted blocks of definitions (not pooled: rare, and
-    /// bundles can be large). With nobody to hand them to they are dropped, no seq spent: a consumer that joins is
-    /// put every open definition.
-    fn flush_definitions(&self, st: &mut State) {
-        if st.pending.is_empty() {
-            return;
-        }
-        let pending = core::mem::take(&mut st.pending);
-        if st.sinks.is_empty() {
-            return;
-        }
-        let records: Vec<RecordRef<'_>> = pending
-            .iter()
-            .map(|item| RecordRef {
-                track: 0,
-                at: None,
-                item,
-            })
-            .collect();
-        let mut next = st.next;
-        let blocks = blocks_of(&records, self.config.block_size, 0, || {
-            let id = next;
-            next = id.next();
-            id
-        });
-        st.next = next;
-        for bytes in blocks {
-            deliver(&mut st.sinks, &chunk_of(bytes));
-        }
-        self.update_layers(st);
-    }
-
-    /// Put to each consumer what it doesn't have: every open definition to one that isn't whole, and the newest
-    /// session of every link it wasn't handed. Blocks of puts carry the seq of the block before them.
-    fn catch_up(&self, st: &mut State) {
-        let id = BlockId::new(st.next.session, st.next.seq.saturating_sub(1));
-        let mut sinks = core::mem::take(&mut st.sinks);
-        sinks.retain_mut(|sink| {
-            let mut records = Vec::new();
-            if !sink.whole {
-                let mut defs: Vec<(&Slot, &[u8])> = st.open.definitions().collect();
-                defs.sort_by_key(|(slot, _)| put_order(slot));
-                records.extend(defs.into_iter().map(|(_, item)| RecordRef {
-                    track: 0,
-                    at: None,
-                    item,
-                }));
-            }
-            let mut sessions = Vec::new();
-            for (link, l) in st.links.iter().enumerate() {
-                let Some((at, bytes, hash)) = &l.session else {
-                    continue;
-                };
-                let link = link as u32;
-                if sink.sessions.get(&link) != Some(hash) {
-                    sessions.push((link, *hash));
-                    records.push(RecordRef {
-                        track: track_number(link, ids::SESSION),
-                        at: Some(*at),
-                        item: bytes,
-                    });
-                }
-            }
-            if records.is_empty() {
+    /// Hand each consumer the definitions and sessions of `needs` it doesn't have near, as blocks of puts numbered
+    /// `id` (the seq of the block before), then `data`; a consumer whose queue can't take them all misses them all.
+    fn hand(&self, st: &mut State, needs: &Needs, id: BlockId, data: Option<&Chunk>) {
+        let block_size = self.config.block_size;
+        st.sinks.retain_mut(|sink| {
+            let blocks = needs.puts(sink, block_size, id);
+            let len: u64 = blocks.iter().map(|b| b.len() as u64).sum();
+            let count = blocks.len() + usize::from(data.is_some());
+            if count == 0 || !sink.fits(count) {
                 return true;
             }
-            let blocks = blocks_of(
-                &records,
-                self.config.block_size,
-                ww_tape::FLAG_REPEAT,
-                || id,
-            );
+            // the queue only drains meanwhile: what fits stays taken
             for bytes in blocks {
                 match deliver_to(sink, &chunk_of(bytes)) {
                     Delivery::Taken => {}
-                    Delivery::Missed => {
-                        sink.behind();
-                        return true;
-                    }
+                    Delivery::Missed => return true,
                     Delivery::Gone => return false,
                 }
             }
-            sink.whole = true;
-            sink.sessions.extend(sessions);
+            needs.put_to(sink);
+            sink.at = sink.at.saturating_add(len);
+            if let Some(chunk) = data {
+                match deliver_to(sink, chunk) {
+                    Delivery::Taken => {}
+                    Delivery::Missed => return true,
+                    Delivery::Gone => return false,
+                }
+                sink.at = sink.at.saturating_add(chunk.bytes().len() as u64);
+            }
             true
         });
-        st.sinks = sinks;
+        self.update_layers(st);
+    }
+}
+
+/// What a block's records need: the definitions of their tracks, the bundles, and the newest session of their links.
+struct Needs {
+    records: Vec<Needed>,
+}
+
+/// A definition or session a block needs.
+struct Needed {
+    slot: Slot,
+    track: u32,
+    at: Option<ClockTime>,
+    item: Vec<u8>,
+    hash: ItemHash,
+    rule: Rule,
+}
+
+/// How the definitions are put to a consumer: the default policy, no copies. A consumer's stream isn't a medium:
+/// whoever stores it puts by its own rule ([ww_tape::TapeWriter::put_block]).
+const DEFINITIONS: StatePolicy = StatePolicy::DEFAULT;
+
+/// The rule of `policy` in a consumer's stream: no copies.
+fn rule(policy: StatePolicy) -> Rule {
+    Rule {
+        near: u64::from(policy.near.get()),
+        copies: 0,
+        spacing: u64::MAX,
+    }
+}
+
+impl Needs {
+    /// What records on `tracks` need, each once, in the order they are put: what the others name first.
+    fn of(st: &State, tracks: impl IntoIterator<Item = u32>) -> Needs {
+        let tracks: std::collections::BTreeSet<u32> = tracks.into_iter().collect();
+        let links: std::collections::BTreeSet<u32> = tracks
+            .iter()
+            .filter_map(|t| Some(track_of(*t)?.0))
+            .collect();
+        // a link's session is put with its track's definitions
+        let sessions = links.iter().filter_map(|link| {
+            let l = st.links.get(*link as usize)?;
+            l.session
+                .as_ref()
+                .map(|_| track_number(*link, ids::SESSION))
+        });
+        let defined: std::collections::BTreeSet<u32> =
+            tracks.iter().copied().chain(sessions).collect();
+        let mut slots = Vec::new();
+        for t in &defined {
+            for s in st.defs.needs(*t) {
+                if !slots.contains(&s) {
+                    slots.push(s);
+                }
+            }
+        }
+        let bundles = st.defs.definitions().map(|(s, _)| *s).filter(|s| {
+            matches!(
+                s,
+                Slot::Own {
+                    kind: DefinitionKind::Bundle,
+                    ..
+                }
+            )
+        });
+        for s in bundles {
+            if !slots.contains(&s) {
+                slots.push(s);
+            }
+        }
+        slots.sort_by_key(put_order);
+        let mut records: Vec<Needed> = slots
+            .into_iter()
+            .filter_map(|slot| {
+                let item = st.defs.get(&slot)?.to_vec();
+                Some(Needed {
+                    slot,
+                    track: 0,
+                    at: None,
+                    hash: ItemHash::of(&item),
+                    item,
+                    rule: rule(DEFINITIONS),
+                })
+            })
+            .collect();
+        for link in links {
+            let track = track_number(link, ids::SESSION);
+            if let (Some(l), Some(policy)) = (st.links.get(link as usize), st.defs.policy(track))
+                && let Some((at, bytes, hash)) = &l.session
+            {
+                records.push(Needed {
+                    slot: Slot::State { track },
+                    track,
+                    at: Some(*at),
+                    item: bytes.clone(),
+                    hash: *hash,
+                    rule: rule(policy),
+                });
+            }
+        }
+        Needs { records }
+    }
+
+    /// The records due to `sink` with a block landing `pos` bytes on in its stream.
+    fn due(&self, sink: &Sink, pos: u64) -> Vec<RecordRef<'_>> {
+        self.records
+            .iter()
+            .filter(|n| sink.near.writes(&n.slot, n.hash, pos, n.rule))
+            .map(|n| RecordRef {
+                track: n.track,
+                at: n.at,
+                item: &n.item,
+            })
+            .collect()
+    }
+
+    /// The blocks of puts `sink` is due before the next block: near is measured to where that block lands, after
+    /// the puts, so more may fall due as they grow.
+    fn puts(&self, sink: &Sink, block_size: usize, id: BlockId) -> Vec<Vec<u8>> {
+        let mut blocks = Vec::new();
+        let mut due = 0;
+        loop {
+            let len: u64 = blocks.iter().map(|b: &Vec<u8>| b.len() as u64).sum();
+            let records = self.due(sink, sink.at.saturating_add(len));
+            if records.len() == due {
+                return blocks;
+            }
+            due = records.len();
+            blocks = blocks_of(&records, block_size, ww_tape::FLAG_REPEAT, || id);
+        }
+    }
+
+    /// Note in `sink` the records due to it as put where its stream is now.
+    fn put_to(&self, sink: &mut Sink) {
+        let pos = sink.at;
+        let due: Vec<(Slot, ItemHash)> = self
+            .records
+            .iter()
+            .filter(|n| sink.near.writes(&n.slot, n.hash, pos, n.rule))
+            .map(|n| (n.slot, n.hash))
+            .collect();
+        for (slot, hash) in due {
+            sink.near
+                .wrote(slot, Some(hash), pos, &NearPolicy::default());
+        }
     }
 }
 
@@ -899,11 +979,17 @@ fn chunk_of(bytes: Vec<u8>) -> Chunk {
 /// Hand `chunk` to `sink`.
 fn deliver_to(sink: &mut Sink, chunk: &Chunk) -> Delivery {
     match &mut sink.kind {
-        SinkKind::Queue(tx) => match tx.try_send(chunk.clone()) {
-            Ok(()) => Delivery::Taken,
-            Err(mpsc::TrySendError::Full(_)) => Delivery::Missed,
-            Err(mpsc::TrySendError::Disconnected(_)) => Delivery::Gone,
-        },
+        SinkKind::Queue { tx, queued, .. } => {
+            // counted before it can be taken, so the count never goes below what the queue holds
+            queued.fetch_add(1, Ordering::Relaxed);
+            let d = match tx.try_send(chunk.clone()) {
+                Ok(()) => return Delivery::Taken,
+                Err(mpsc::TrySendError::Full(_)) => Delivery::Missed,
+                Err(mpsc::TrySendError::Disconnected(_)) => Delivery::Gone,
+            };
+            queued.fetch_sub(1, Ordering::Relaxed);
+            d
+        }
         SinkKind::Fn(f) => {
             if f(chunk) {
                 Delivery::Taken
@@ -912,18 +998,6 @@ fn deliver_to(sink: &mut Sink, chunk: &Chunk) -> Delivery {
             }
         }
     }
-}
-
-/// Hand `chunk` to every consumer: one that misses it has nothing behind it any more, one that is gone goes.
-fn deliver(sinks: &mut Vec<Sink>, chunk: &Chunk) {
-    sinks.retain_mut(|s| match deliver_to(s, chunk) {
-        Delivery::Taken => true,
-        Delivery::Missed => {
-            s.behind();
-            true
-        }
-        Delivery::Gone => false,
-    });
 }
 
 fn encode<'s, T: SerializeShrinkWrap>(

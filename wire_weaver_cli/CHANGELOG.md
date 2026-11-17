@@ -12,7 +12,7 @@
 
 ### ⚠️ Breaking
 
-- `ww tap` and `ww capture` use tape format 1; captures of earlier builds no longer read (STD-135).
+- `ww tap` and `ww capture` use tape format 1, relaying the tap with `TapeWriter::relay_block`; earlier captures no longer read (STD-135).
 - `cmd::tap::test_support`'s `tapped_session`, `replayed` and `replayed_view` take the snapshot resolver (EVO-80).
 - `ww api tree -t` and `ww introspect -t` no longer mark `common errors` on types (STD-16): a common error is no type of the API, the `#[errors(..)]` lists show `CommonError(..)` entries.
 - The `ww` binary is the crate `ww` in `ww_tools/ww` (TOOL-36): `cargo install --git .. ww`, `cargo build -p ww`; `wire_weaver_cli` is a library only.

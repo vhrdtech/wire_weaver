@@ -160,6 +160,10 @@ fn run(
 ) -> Result<Summary> {
     // colours follow the stream the text goes to, not stdout
     let mut monitor = view.map(|v| Monitor::with_frames(v, false, frames, resolver).for_stderr());
+    if let Some(w) = &mut writer {
+        w.set_producer(super::PRODUCER);
+    }
+    let mut defs = Definitions::new();
     // a failed write ends the capture: the file stays as it is (its valid prefix reads)
     let result = consume_idle(feed, stop, |b| {
         let Some(b) = b else {
@@ -169,7 +173,7 @@ fn run(
             return Ok(());
         };
         if let Some(w) = &mut writer {
-            w.write_block(b.bytes())?;
+            w.relay_block(&mut defs, b.bytes())?;
         }
         if let Some(m) = &mut monitor {
             m.block(b, &mut out)?;

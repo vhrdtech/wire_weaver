@@ -35,7 +35,7 @@ use wire_weaver_client::ww_self::ApiBundleOwned;
 use wire_weaver_client::ww_self::explain::PartKind;
 use wire_weaver_client::ww_tap::{LinkEventOwned, SessionOwned};
 use wire_weaver_client::ww_tape::{
-    Block, FileBlocks, MAGIC, Recovery, SyncPolicy, TapeWriter, WriteError,
+    Block, Definitions, FileBlocks, MAGIC, Recovery, SyncPolicy, TapeWriter, WriteError,
 };
 
 mod flags;
@@ -205,10 +205,13 @@ pub struct LiveTap {
     subscription: Subscription,
 }
 
+/// The producer `ww` names in its captures and its tap.
+pub(crate) const PRODUCER: &str = "ww";
+
 impl LiveTap {
     pub fn new(layer: Layer) -> Self {
         let recorder = Recorder::new(RecorderConfig {
-            name: "ww".into(),
+            name: PRODUCER.into(),
             ..RecorderConfig::default()
         });
         // ~64 KiB blocks: a few seconds of a busy link
@@ -920,6 +923,8 @@ pub(crate) async fn capture(
     let (path, blocks, bytes, lost) =
         run_live(device, recorder, args.duration, stop, move |stop| {
             let mut writer = writer;
+            writer.set_producer(PRODUCER);
+            let mut defs = Definitions::new();
             let shown = writer.current_path().display().to_string();
             let bar = ProgressBar::new_spinner().with_style(
                 ProgressStyle::with_template("{spinner} {msg} ({elapsed})").expect("template"),
@@ -932,7 +937,7 @@ pub(crate) async fn capture(
                 let Some(b) = b else {
                     return Ok(writer.tick()?);
                 };
-                writer.write_block(b.bytes())?;
+                writer.relay_block(&mut defs, b.bytes())?;
                 if let Some(n) = next_seq
                     && b.seq > n
                 {

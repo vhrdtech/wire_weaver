@@ -382,6 +382,8 @@ async fn monitor_capture_and_explain_file_agree() {
     let path = dir.join("cap.wwtape");
     let _ = std::fs::remove_file(&path);
     let mut writer = TapeWriter::create(&path, SyncPolicy::default()).unwrap();
+    writer.set_producer(PRODUCER);
+    let mut defs = Definitions::new();
     // the writer's own session holds its layout, ahead of the tap's blocks
     let own = writer.session();
     let stop = AtomicBool::new(true);
@@ -390,7 +392,7 @@ async fn monitor_capture_and_explain_file_agree() {
         if !b.is_repeat() {
             file.extend_from_slice(b.bytes());
         }
-        writer.write_block(b.bytes())?;
+        writer.relay_block(&mut defs, b.bytes())?;
         for (m, out) in monitors.iter_mut().zip(&mut live) {
             m.block(b, out)?;
         }

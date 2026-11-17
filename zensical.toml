@@ -65,7 +65,7 @@ nav = [
                     "api/versioning.md",
                     "api/settings.md",
                     { "ECC-safe flash" = "api/ecc_flash.md" },
-                    { "I2C and SPI slave engine" = "api/bus_slave.md" }
+                    { "I2C and SPI slave engine" = "std_library/bus_slave.md" }
                 ]
             },
             { "Nomicon" = [
@@ -218,7 +218,8 @@ nav = [
             { "WireWeaver" = "features.md" },
             { "shrink_wrap" = "serdes/features.md" },
             { "ww_base" = "std_library/features.md" },
-            { "ww_tape" = "tape/features.md" }
+            { "ww_tape" = "tape/features.md" },
+            { "ww_stdlib" = "std_library/stdlib_features.md" }
         ]
     }
 ]

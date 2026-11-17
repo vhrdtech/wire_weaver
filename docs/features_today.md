@@ -179,7 +179,7 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 - **[Observed properties](api/observing.md#the-device-side)**: The device sends property changes within the budget each host asked for.
 - **[Event-driven observe](api/observing.md#the-server-loop)**: The device sleeps until an observed property is due, and wakes at once when one changes.
 - **[ECC-safe STM32 flash](api/ecc_flash.md)**: Reads a flash word broken by a power cut as zeros (stores) or as an ECC error (bootloaders) instead of crashing. <span class="ww-status">hardware check open</span>
-- **[I2C and SPI slave engine](api/bus_slave.md)**: Register map, answer queue, clock stretching and events of a slave, wired to your peripheral's interrupts.
+- **[I2C and SPI slave engine](std_library/bus_slave.md)**: Register map, answer queue, clock stretching and events of a slave, wired to your peripheral's interrupts.
 - **Streaming LZ4**: `ww_lz4` compresses a byte stream chunk by chunk on the device, with history across chunks: shell text 3-5x smaller in 512 B chunks, standard LZ4 blocks any LZ4 library decodes.
 - **[A host write reaches observers](api/observing.md#the-device-side)**: An observed `get_set` property written by a host is sent to its on-change observers without the setter marking it: the generated server marks it after a successful set.
 - **[Leave out multi requests and counted streams](serdes/code_size.md#request-kinds-a-firmware-leaves-out-multi-and-streams)**: A firmware that doesn't serve them builds `ww_client_server` without `multi` and `streams`: 1.6 KB less flash and about 12 % fewer instructions per request at `opt-level = "z"`, and it answers such requests as unsupported.
@@ -198,7 +198,7 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 - **[Logs that survive a crash](api/stream_stores.md)**: A store in RAM that outlives a reset, for what happened just before a fault.
 - **[Smaller observe code](api/observing.md#the-device-side)**: A firmware carries the observe logic once, not once per trait level: about 15 KiB less flash on a big API.
 
-<p class="ww-features__more" markdown>Details and what is planned: [Server / device side](features.md#server-device-side-srv) in the feature tracker.</p>
+<p class="ww-features__more" markdown>Details and what is planned: [Server / device side](features.md#server-device-side-srv), [Server / device side (ww_stdlib)](std_library/stdlib_features.md#server-device-side-srv) in the feature tracker.</p>
 
 ## Host side
 
@@ -371,7 +371,7 @@ round, and tell you before a release when a change would break that.
 - **[Definitions from another revision](std_library/ww_self.md#the-definition-cache)**: A device built from an unpublished revision still connects, with a warning.
 - **[Units compared by meaning](evolution/units_by_meaning.md)**: `Milli` → `Pow10<-3>` passes as the same value; lbf·s → N·s is caught as breaking with the factor, as are another zero of a point or a wrapping number on one side.
 
-<p class="ww-features__more" markdown>Details and what is planned: [Evolution, versioning and compatibility](features.md#evolution-versioning-and-compatibility-evo), [Transports and protocols](features.md#transports-and-protocols-tr), [Client / host side](features.md#client-host-side-clt), [Evolution of these crates' types and the id ledger (ww_base)](std_library/features.md#evolution-of-these-crates-types-and-the-id-ledger-ww_global-evo) in the feature tracker.</p>
+<p class="ww-features__more" markdown>Details and what is planned: [Evolution, versioning and compatibility](features.md#evolution-versioning-and-compatibility-evo), [Evolution, versioning and compatibility (ww_stdlib)](std_library/stdlib_features.md#evolution-versioning-and-compatibility-evo), [Transports and protocols](features.md#transports-and-protocols-tr), [Client / host side](features.md#client-host-side-clt), [Evolution of these crates' types and the id ledger (ww_base)](std_library/features.md#evolution-of-these-crates-types-and-the-id-ledger-ww_global-evo) in the feature tracker.</p>
 
 ## Tools
 
@@ -411,7 +411,7 @@ A command line tool, a Python module and a GUI to work with devices and APIs wit
 - **[Values from text](python_advanced.md)**: Typed values written as text and turned into bytes at runtime.
 - **[Dev GUI](dev_tool.md)**: Shows the parsed API and the generated code side by side; a UI for any device is prototyped. <span class="ww-status">in progress</span>
 
-<p class="ww-features__more" markdown>Details and what is planned: [Evolution, versioning and compatibility](features.md#evolution-versioning-and-compatibility-evo), [Client / host side](features.md#client-host-side-clt) in the feature tracker.</p>
+<p class="ww-features__more" markdown>Details and what is planned: [Evolution, versioning and compatibility](features.md#evolution-versioning-and-compatibility-evo), [Client / host side](features.md#client-host-side-clt), [Client / host side (ww_stdlib)](std_library/stdlib_features.md#client-host-side-clt), [Tools (ww_stdlib)](std_library/stdlib_features.md#tools-tool) in the feature tracker.</p>
 
 ## Standard library
 
@@ -504,7 +504,7 @@ feature tracker.
 - **[Tape pieces on 4 KiB](tape/index.md#pieces-and-chains)**: Finished tape pieces end on a 4 KiB boundary, so many pieces clone back to back into one file without copying a byte.
 - **[Tape definitions near their use](tape/index.md#state-tracks-and-near-use)**: Tracks, clocks, bundles and state items are records on track 0 and state tracks, put again only where not close behind their use.
 
-<p class="ww-features__more" markdown>Details and what is planned: [Evolution, versioning and compatibility](features.md#evolution-versioning-and-compatibility-evo), [Base types and quantities (ww_base)](std_library/features.md#base-types-and-quantities-ww_si-ww_numeric-ww_version-ww_date_time-ww_error-std), [Tapes (ww_tape)](tape/features.md#tapes-ww_tape-ww_tape_fuzz-ww_tape_benchmarks-std-new-items-tape) in the feature tracker.</p>
+<p class="ww-features__more" markdown>Details and what is planned: [Standard APIs (ww_stdlib)](std_library/stdlib_features.md#standard-apis-std), [Evolution, versioning and compatibility](features.md#evolution-versioning-and-compatibility-evo), [Base types and quantities (ww_base)](std_library/features.md#base-types-and-quantities-ww_si-ww_numeric-ww_version-ww_date_time-ww_error-std), [Tapes (ww_tape)](tape/features.md#tapes-ww_tape-ww_tape_fuzz-ww_tape_benchmarks-std-new-items-tape) in the feature tracker.</p>
 
 ## Examples
 

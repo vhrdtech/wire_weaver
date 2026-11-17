@@ -172,7 +172,7 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 - SRV-18 | Observed properties | The device sends property changes within the budget each host asked for. | api/observing.md#the-device-side
 - SRV-25 | Event-driven observe | The device sleeps until an observed property is due, and wakes at once when one changes. | api/observing.md#the-server-loop
 - SRV-19 | ECC-safe STM32 flash | Reads a flash word broken by a power cut as zeros (stores) or as an ECC error (bootloaders) instead of crashing. | api/ecc_flash.md
-- SRV-26 | I2C and SPI slave engine | Register map, answer queue, clock stretching and events of a slave, wired to your peripheral's interrupts. | api/bus_slave.md
+- SRV-26 | I2C and SPI slave engine | Register map, answer queue, clock stretching and events of a slave, wired to your peripheral's interrupts. | std_library/bus_slave.md
 - SRV-27 | Streaming LZ4 | `ww_lz4` compresses a byte stream chunk by chunk on the device, with history across chunks: shell text 3-5x smaller in 512 B chunks, standard LZ4 blocks any LZ4 library decodes. |
 - SRV-57 | A host write reaches observers | An observed `get_set` property written by a host is sent to its on-change observers without the setter marking it: the generated server marks it after a successful set. | api/observing.md#the-device-side
 - SRV-60 | Leave out multi requests and counted streams | A firmware that doesn't serve them builds `ww_client_server` without `multi` and `streams`: 1.6 KB less flash and about 12 % fewer instructions per request at `opt-level = "z"`, and it answers such requests as unsupported. | serdes/code_size.md#request-kinds-a-firmware-leaves-out-multi-and-streams

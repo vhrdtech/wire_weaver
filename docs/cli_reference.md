@@ -210,7 +210,7 @@ path; refused on a wire break unless `--accept-breaking`. See
 `ww api save <path>` saves every `#[ww_trait]`/`#[ww_api_root]` trait defined in the crate's `src/lib.rs`, and every
 `#[derive_shrink_wrap]` type and unit marker struct (`pub struct Volt;`) defined there, in a `pub mod` at any depth,
 or re-exported from a module with `pub use` (each known by its path and name, `units::Volt`) into `<path>/api_snapshots/<crate>_<major>_<minor>_<patch>.ron`, for example
-`ww_stdlib/ww_gpio/api_snapshots/ww_gpio_0_1_0.ron`. Commit the snapshot and never change it afterward.
+`ww_gpio/api_snapshots/ww_gpio_0_1_0.ron` (in ww_stdlib). Commit the snapshot and never change it afterward.
 A crate with several API roots (a `[package.metadata.wire_weaver.roots]` table, [several lines in one
 crate](evolution/versions.md#several-lines-in-one-crate)) gets a snapshot per root instead,
 `<path>/api_snapshots/<crate>_<major>_<minor>_<patch>.<module path>.<Trait>@w<line>.<revision>.ron`
@@ -227,7 +227,7 @@ when it compares its API with a device's: a skipped trait or type with the same 
 signature makes the resources using it incompatible.
 
 A device leaves traits and types known from the snapshots of the crates it uses out of its introspection data,
-referring to them by crate version, name and signature, which makes it much smaller (e.g. `examples/all_gpio_api`
+referring to them by crate version, name and signature, which makes it much smaller (e.g. ww_stdlib's `examples/all_gpio_api`
 goes from 4363 to 72 bytes). Codegen leaves a definition out only when the dependency's own `api_snapshots/` (in its
 source directory, found through `Cargo.lock`) has exactly the same one: an unpublished crate version that changed
 after its snapshot was saved stays in-line. The API hash is calculated over the data as sent. Generated clients embed
@@ -235,14 +235,14 @@ their own API in the same form. A host puts the left-out definitions back after 
 checking signatures, through `ww_snapshots` ([finding snapshots](evolution/snapshots.md)): the snapshots embedded in
 `ww` and the Python wheel, the cache `~/.wire_weaver/snapshots/`, Cargo's sources on the machine, then crates.io or
 the crate's repository. One found nowhere stays skipped: its resources are checked by crate version and signature
-only, and a value of it is opaque. In this repo, `just save-snapshots` saves the snapshots of `ww_global`, `ww_tap`,
-`ww_timebase`, `ww_link`, `ww_client_server` and every `ww_stdlib` crate into their own `api_snapshots/`; a test
-(`wire_weaver_core`, `stdlib_evolution`) fails if any is out of date. A snapshot is RON for people to read, its
+only, and a value of it is opaque. In this repo, `just save-snapshots` saves the snapshots of `ww_tap`, `ww_timebase`,
+`ww_link`, `ww_client_server` and the tests' fixtures into their own `api_snapshots/` (ww_base and ww_stdlib save
+theirs in their own repositories); a test (`wire_weaver_core`, `stdlib_evolution`) fails if any is out of date. A snapshot is RON for people to read, its
 header holds the SHA-256 of the shrink_wrap bytes it stands for (`// shrink_wrap sha256: ..`); every reader encodes the RON and refuses a mismatch, and `ww` embeds only the bytes.
 
 ```
-$ ww api save ww_stdlib/ww_uart
-saved ww_stdlib/ww_uart/api_snapshots/ww_uart_0_1_0.ron, 12 resources, 1 traits, 11 types (0 traits and 2 types not included)
+$ ww api save ww_uart
+saved ww_uart/api_snapshots/ww_uart_0_1_0.ron, 12 resources, 1 traits, 11 types (0 traits and 2 types not included)
 ```
 
 Running it again does nothing if nothing changed. Only the snapshot of the version in `Cargo.toml` is written: when the

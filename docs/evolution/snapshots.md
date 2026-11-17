@@ -6,14 +6,14 @@ level: advanced
 
 A device does not send the definitions of the traits and types it takes from other crates. Its introspection data
 names each one by the crate, the crate's version, the item's name and a signature, and leaves the definition out
-(`SkippedFullVersion` in the model). That keeps the data small: `examples/all_gpio_api` goes from 4363 to 72 bytes.
+(`SkippedFullVersion` in the model). That keeps the data small: ww_stdlib's `examples/all_gpio_api` goes from 4363 to 72 bytes.
 A host has to find those definitions again. This page explains where it looks, what it trusts, and what happens when
 nothing is found.
 
 The source of every definition is a snapshot, the file `ww api save` writes into a crate's `api_snapshots/`
 (`<crate>_<major>_<minor>_<patch>.ron`, see [the evolution checker](checker_tool.md)). Every crate keeps its own
-snapshots in its own repository: `ww_global`, `ww_tap` and the `ww_stdlib` crates in this repository
-(`just save-snapshots`), `exact_units` in its own. There is no central copy.
+snapshots in its own repository: `ww_tap`, `ww_link`, `ww_timebase` and `ww_client_server` in this one
+(`just save-snapshots`), the base crates in ww_base, the standard library's in ww_stdlib, `exact_units` in its own. There is no central copy.
 
 ## The chain
 

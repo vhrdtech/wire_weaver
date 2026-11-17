@@ -14,10 +14,11 @@ Read `docs/index.md` first, then `docs/serdes/shrink_wrap.md` and `wire_format.m
 `docs/serdes/showcase.md` (byte-verified tricks), `docs/api/overview.md`, `docs/types.md`, and
 `docs/evolution/overview.md` with `versions.md` and `rules.md`. The SerDes pages but the conformance ones live in the
 shrink_wrap repository, the pages of `ww_si`, `ww_numeric`, `ww_version`, `ww_error`, `ww_date_time` and the units in
-the ww_base repository, the Tapes chapter in the ww_tape repository: `just book-assemble` copies them into
-`docs/serdes/`, `docs/std_library/` and `docs/tape/` (git-ignored) from the checkouts `Cargo.lock` pins
-(`book_sources.toml`, `ww_book`). Prefer the docs (`docs/`, built with zensical) to the source; where they are
-unclear, the source and its comments are authoritative.
+the ww_base repository, the Tapes chapter in the ww_tape repository, the standard library's API pages in the
+ww_stdlib repository: `just book-assemble` copies them into `docs/serdes/`, `docs/std_library/` and `docs/tape/`
+(git-ignored) from the checkouts `Cargo.lock` pins, and ww_stdlib's from its `main` branch (`book_sources.toml`,
+`ww_book`). Prefer the docs (`docs/`, built with zensical) to the source; where they are unclear, the source and its
+comments are authoritative.
 
 ## Numbers are typed: never a bare integer or float
 
@@ -92,7 +93,9 @@ writes `ww_si::..` and turns on the unit groups it needs as `ww_si` features (`t
 size bench and fuzz targets; `cargo update -p shrink_wrap` moves them. The base crates (`ww_si`, `ww_numeric`,
 `ww_version`, `ww_global`, `ww_error`, `ww_date_time`, `ww_keyed`, `ww_crc`) come from vhrdtech/ww_base, with their
 tests, feature-set checks and `api_snapshots/`; `cargo update -p ww_si` moves them, and `tests/stdlib_evolution`
-checks their snapshots in the checkout `Cargo.lock` pins. To change both together, put a `[patch]` to a
+checks their snapshots in the checkout `Cargo.lock` pins. The standard library's crates (`ww_gpio`, `ww_dfu`, ...,
+`ww_bus_slave`, `ww_std_cli`) live in vhrdtech/ww_stdlib, which builds on this repository; nothing here depends on
+them but `ww_tools/`. To change both together, put a `[patch]` to a
 checkout in the worktree's `.cargo/config.toml` (never committed); the crate walker reads it too.
 
 ## FEATURES.md
@@ -117,7 +120,7 @@ just test             # everything (test-all: nextest, feature-set runs, Python 
 just lint             # what CI checks besides tests: fmt, cargo sort -w -g, typos, clippy and rustdoc -D warnings, C
 just install          # build ww (--profile deploy) and install it (through our internal release tool when present, else cargo install)
 just build-docs       # build the docs site and check its links
-just save-snapshots   # API snapshots of ww_tap, ww_link, ww_stdlib/*, ... into each crate's own api_snapshots/
+just save-snapshots   # API snapshots of ww_tap, ww_link, ww_timebase, ww_client_server and test fixtures into api_snapshots/
 just conformance-update   # fill in golden bytes of new conformance cases
 just jobs=4 test --changed   # caps CARGO_BUILD_JOBS / NEXTEST_TEST_THREADS at 4 for that run (also test-all, lint, check); unset leaves them inherited
 ```
@@ -167,7 +170,7 @@ format as in use anywhere, such a change needs no other reason than a better des
 ## Firmware: stack, cycles and flash
 
 The device side runs on small MCUs, often in interrupts: every change to server codegen, `ww_stream`, `shrink_wrap`'s
-writers or `ww_stdlib` types firmware uses is checked for stack, cycles and flash, not only correctness.
+writers or the standard library's types firmware uses is checked for stack, cycles and flash, not only correctness.
 
 - **Stack.** Big state (stores, outboxes, `ObserveState`, buffers) lives in a `static`, set up in place: a
   `const fn new` or an `init` into `&'static mut MaybeUninit<_>` (`ObserveState::init`). Never build it by value and
@@ -212,22 +215,21 @@ The codegen pipeline (read `wire_weaver_derive`, then `wire_weaver_core`):
 - **Transport and device**: `ww_link` (link layer), `ww_framer` (packs small messages into packets and splits big
   ones), `ww_device` (sans-IO `DeviceLink`, async `Server` with `wait()`/`handle()`, `blocking::Server`; RTT,
   WebSocket, UDP and `embassy-net` behind features), `mcu/wire_weaver_usb_embassy` (embassy-usb class).
-- **Device-side crates**: `ww_stream` (streams, observe), `ww_settings`, `ww_bus_slave` (I2C/SPI slave, SRV-26),
-  `mcu/ww_ecc_flash` (`EccSafeFlash`, `docs/api/ecc_flash.md`), `ww_lz4`, `ww_defmt_logger`.
+- **Device-side crates**: `ww_stream` (streams, observe), `ww_settings`, `mcu/ww_ecc_flash` (`EccSafeFlash`,
+  `docs/api/ecc_flash.md`), `ww_lz4`.
 - **Host tools**: `wire_weaver_cli` (library: the generic `ww` commands and the registry each command registers
-  with, `registry::CommandDef`), `ww_stdlib/ww_std_cli` (the standard library's commands), `ww_tools/ww` (the `ww`
-  binary, `cargo ww`; plugins `ww NAME` run `ww-NAME` from PATH), `ww_hub`/`ww_hub_api` (the per-user hub),
+  with, `registry::CommandDef`), `ww_tools/ww` (the `ww` binary, `cargo ww`; plugins `ww NAME` run `ww-NAME` from PATH), `ww_hub`/`ww_hub_api` (the per-user hub),
   `ww_clock_sync`, `ww_tap`, `wire_weaver_py` (Python, a library) with its wheel `ww_tools/wire_weaver_wheel`,
   `wire_weaver_evolution` (the compatibility checker), `wire_weaver_tool` (egui viewer, `docs/dev_tool.md`).
-  `ww_tools/` is its own workspace (layer 7): it links logring's and chunky_mcu_updater's commands by git and patches
-  their wire_weaver crates to the ones here; nothing in the root workspace depends on them, and no root recipe
-  builds it (`ww_tools/justfile` has its recipes; the root's use the examples `ww_generic` and `ww_stdlib`). Nothing
-  here depends on another repository by path (`just check-clean-clone`); `exact_units`, the ww_base crates and
-  `ww_tape` (vhrdtech/ww_tape: the tape format, its benchmarks, fuzz targets and golden files) come by git, with
+  `ww_tools/` is its own workspace (layer 7): it links ww_stdlib's (`ww_std_cli`), logring's and chunky_mcu_updater's
+  commands by git and patches their wire_weaver crates to the ones here; nothing in the root workspace depends on
+  them, and no root recipe builds it (`ww_tools/justfile` has its recipes; the root's use the example `ww_generic`).
+  Nothing here depends on another repository by path (`just check-clean-clone`); `exact_units`, the ww_base crates
+  and `ww_tape` (vhrdtech/ww_tape: the tape format, its benchmarks, fuzz targets and golden files) come by git, with
   the commit tracked in `Cargo.lock`, never pinned in `Cargo.toml`.
-- **`ww_stdlib/`**: reusable API traits and types for unrelated projects (GPIO, I2C, SPI, UART, CAN, DFU, logs, ...;
-  canonical home `vhrdtech/ww_stdlib`); units, numbers, versions, dates and common errors are ww_base's. Reuse or extend one of these before inventing a
-  project-local equivalent.
+- **The standard library** (vhrdtech/ww_stdlib, layer 6, its own repository): reusable API traits and types for
+  unrelated projects (GPIO, I2C, SPI, UART, CAN, DFU, logs, ...); units, numbers, versions, dates and common errors
+  are ww_base's. A framework crate or test never depends on it: tests use stand-ins (`tests/skipped_dep_api`).
 - **`ww_self/`**: the API model AST (introspection, snapshots), with ww_base's `ww_global` (the global type ID
   registry); versioned like API crates (`docs/evolution/crate_layers.md`). `ww_tape_bundle` sits above `ww_self` and `ww_tape`:
   the name paths and keys of tape tracks from an API bundle (the tape format itself knows no API model).
@@ -236,7 +238,7 @@ The codegen pipeline (read `wire_weaver_derive`, then `wire_weaver_core`):
   crate's repository (`ureq` with `rustls`; its provider `ring` is C and assembly, the one such dependency: rustls
   needs a crypto provider and no pure-Rust one is audited yet). Every crate keeps its own `api_snapshots/`; codegen
   leaves types known from a dependency's out of a device's introspection data and the client puts them back. After
-  changing a type in `ww_tap`, `ww_link` or `ww_stdlib/*`, run `just save-snapshots` (a test fails
+  changing a type in `ww_tap`, `ww_link`, `ww_timebase` or `ww_client_server`, run `just save-snapshots` (a test fails
   otherwise). It refreshes the crate's current version, right only for a version never published (`cargo info
   --registry crates-io <crate>`): bump a published one first.
 - **`examples/`**: paired `<name>_api` (trait and types, `no_std`) and `<name>` (server and client) crates, the
@@ -292,9 +294,9 @@ part of its SemVer contract. Use `ww api check` / `ww api diff` rather than eyeb
 breaks the wire. Which devices and hosts that affects comes from our internal device/host tracking; nothing listed
 means a break costs only its CHANGELOG entry and its `EVO-n` item.
 
-Pinned signatures (the `nucleo_g0b1re_api` evolution fixture's) are refreshed by the tool, `just save-snapshots` (it
-calls `just refresh-fixture-pins`), never edited by hand; `tests/stdlib_evolution` reads the stdlib's pins from the
-snapshot files.
+Pinned signatures (the `nucleo_g0b1re_api` evolution fixture's, in ww_stdlib) are refreshed by `ww api refresh-pins`,
+never edited by hand; `tests/stdlib_evolution/pins/` holds a byte-identical copy of its snapshot for the
+`ww_timebase::Clock` pin.
 
 `ElementSize::Sized { size_bits }` is the bits of the value's own fields, padding excluded (`struct { a: bool, b: u8 }`
 is 9 bits in 2 bytes): for byte counts, run a real `to_ww_bytes()`.
@@ -323,14 +325,13 @@ is 9 bits in 2 bytes): for byte counts, run a real `to_ww_bytes()`.
   per finished step with its changelogs. It lands on main when the user agrees; publishes, OTA and prod
   wait for the user.
 - Session commits don't bump versions. At landing, a changed crate gets its **minor** bumped (pre-1.0 the breaking
-  position), except wire-compatible additions to API crates (`ww_stdlib/*`, `*_api`), which bump patch; once per release cycle (skip it when the version is already above
+  position), except wire-compatible additions to API crates (`*_api`), which bump patch; once per release cycle (skip it when the version is already above
   `cargo info --registry crates-io <crate>`); never-published crates and docs/CI-only changes stay. Crates with
   `version.workspace = true` share the root `[workspace.package]` version; path dependencies carry the version in the
   root `[workspace.dependencies]`, also in `docs/` strings and `mcu/Cargo.lock` (`just check-mcu`). For API crates
   the version is the API's identity (`docs/api/folder_structure.md`): never skip it.
-- Dependencies and metadata live in the root workspace: crates inherit `authors`, `edition`, `license`, `repository`
-  (`ww_stdlib/*` point at `vhrdtech/ww_stdlib`); every in-repo crate and every external crate used by more than one
-  member is in `[workspace.dependencies]` and used as `dep.workspace = true`. A workspace entry with
+- Dependencies and metadata live in the root workspace: crates inherit `authors`, `edition`, `license`, `repository`;
+  every in-repo crate and every external crate used by more than one member is in `[workspace.dependencies]` and used as `dep.workspace = true`. A workspace entry with
   `default-features = false` makes members list the defaults they need (usually `["std"]`); the reverse doesn't work.
 - CLIs print version, git SHA and build time in `--version` (`tool 0.4.2 (a1b2c3d-dirty, built 3 Oct 2026 18:20)`)
   from a small `build.rs` without extra crates; firmware reports the same through `fw_info`.

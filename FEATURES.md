@@ -540,15 +540,6 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   request path and the error kind it still pinpoints one site, and identical error arms are shared code: Donguru
   -1.5 KiB flash at `z`, -1.7 KiB at 3. `Error::site()`, the host prints `Unimplemented at item site 2 (handler)`.
   `docs/api/errors.md#where-on-the-device-an-error-came-from`; tests `tests/methods`, `tests/traits`.
-- ✅ **SRV-26 Device-side engine for I2C and SPI slaves** — `ww_bus_slave`, no_std, sans-IO, no alloc: `I2cSlave` and
-  `SpiSlave` do what STD-35's API promises, so a firmware only wires its peripheral's interrupts to them. I2C: the
-  register map (pointer bytes, auto-increment, wrap at `len`, page wrap, `read_only`), host updates staged until the
-  stop, the answer queue with `Fill`, `Stretch { max }` (deadline, `resume`, `ReadWaiting`) and `Nack`
-  (`acks_address`), `unsent` for a TX FIFO loaded ahead. SPI: queue answers (`idle`, `repeat_last`, `underrun`) and
-  `SpiRegisters` frames (address, `rw` bit, dummy bytes before read data), the answer picked at the first `miso()`
-  (FIFO preload, `rewind`); 8-bit words only. Events built as `I2cSlaveEvent` / `SpiSlaveFrame`. `const fn new` for a
-  `static`; 58-100 instructions per byte on a Cortex-M3 (`examples_mcu/mcu_qemu` bin `qemu-bus-slave`).
-  `docs/api/bus_slave.md`, tests `ww_bus_slave/tests`. First firmware user: usb_io_fw IF-5 (rePort, RP2350B).
 - ✅ **SRV-27 ww-lz4-encoder Streaming LZ4 encoder for byte streams** — `ww_lz4`, no_std, no alloc: each chunk of a
   stream (UART RX, a log) becomes one standard LZ4 block whose matches reach back into earlier chunks, so 512 B chunks
   of shell text go 3.2-5.1x and 64 B chunks 2.4-3.3x (captured boot log, `ls`/`rg` colour output, `top`), about 2x
@@ -952,15 +943,6 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   `docs/std_library/device_contract.md`, `tests/device_report`. The stored log is a stream and streams open on the
   absolute path only (CLT-23), so `ww report` reads the device's introspection data for the log's path; `ww info`
   needs none. Not yet: fetching the release archive by itself.
-- ✅ **CLT-59 Crash call chain as `file:line`** · `v0.5` — firmware built with `-Zlocation-detail=none` has no
-  `file:line` in its panic messages, so `ww report` decodes the crash record's addresses with the ELF's DWARF
-  (`addr2line`, `gimli`, pure Rust): a fault's `pc` exactly, its `lr` and the stack's return addresses at the call
-  before them, inlined frames innermost first, demangled names, shortened `trim-paths` paths; stack words that are
-  no return address (Thumb bit, `.text`, after a `BL`/`BLX`, read from the ELF's code, the rule of
-  `bedrock_crash::is_return_address`) are dropped; the panic machinery is passed over to mark the panic site.
-  `ww_report::crash` (`Symbolizer`, `CrashAddresses`, `CrashFrames`, serializable) for other host tools,
-  `docs/std_library/device_contract.md#crash-call-chain`, tests against a real thumbv6m ELF
-  (`ww_stdlib/ww_report/tests/crash_frames.rs`, `just crash-fw-elf`).
 - ✅ **CLT-28 Observing properties on the host** · `v0.5.x` — generated std clients have `observe(cfg)` per trait
   level with `+observe` properties (an `Observer` of the level's `<Trait>Update`) and `observe_<name>(mode)` per
   property, fanned out from the level: one device subscription per level covering all its observers (merged modes,
@@ -2017,14 +1999,6 @@ Unicast Data0 to one node over the same bus is TR-6.
   master) split the signature into a shape part and a docs part: with it, the doc-only case doesn't even need
   this fallback, the shape signature already matches through the embedded snapshot alone, and the eight
   `tests/thermo_api` files are back to their originally-released bytes.
-- ✅ **EVO-60 `ww_user_info` caps bounded on the wire** · `v0.5` — the ww_stdlib units survey's Q4: `UserInfoCaps::name_max` and `notes_max` carry their device-wide ceiling as a bound (`NameMax` / `NotesMax`, `Fixed<units::Byte, One, u16, Range<0, 32>>` / `Range<0, 256>>`) instead of a plain `u16`; `ww_user_info` on a new wire line, `w2.0`. No device or host uses the format.
-- ✅ **EVO-62 `ww_can_bus` on wire `w2.0`** · `v0.5` — the wire change of STD-114: new `Range` bounds (load and sample point 0-1000, element data 8-64 bytes, TTCAN matrix cycles and repeat 1-64, cycle offset and cycle 0-63, filter index 0-255), `TriggerKind::RxCheck::filter` from `u16` to the `UNib32` of `RxFrame::filter`, `TtStatus::error_level` from `u8` to the enum `TtErrorLevel` (2 bits), `TtRole::Master::priority` from `u8` to `U3`; every other change wraps the same number. The crate was never published, so its 0.1.0 snapshot was saved again in place on `w2.0`.
-- ✅ **EVO-61 `ww_onewire` on a new wire line** · `v0.5` — the wire change of STD-113: `SearchState::last_discrepancy`
-  narrows from a plain `u8` to `IndexFrom1<RomBit, u8, Range<1, 64>>`, a bound added, so `ww_onewire` moves from
-  `w1.0` to `w2.0`. Every other change of STD-113 (`ww_onewire`'s `FamilyCode`, `read_len`,
-  `pin`; all of `ww_uart`'s) is a transparent wrapper or an unbounded `Fixed`/`Index`/`Count`, same bytes, no wire
-  bump. `ww_onewire_0_1_0.ron` is saved again in place (never published). No device or host uses the
-  format.
 - ✅ **EVO-68 Superseded definitions** · `v0.5` — EVO-67 for a dependency's trait, and after its snapshot was
   refreshed in place: `ww api save` keeps each own definition whose signature a refresh in place changes, in the
   definition cache's format (`api_snapshots/superseded/<crate>_<version>-<kind>-<name>-<signature>.ww`,
@@ -2064,7 +2038,6 @@ Unicast Data0 to one node over the same bus is TR-6.
   by hand (`docs/evolution/inside_the_checker.md#a-snapshot-saved-by-an-older-wire_weaver-evo-70`; `wire_weaver_evolution`
   tests `old_format_snapshot_passes_against_unchanged_source`, `compatible_stdlib_change_passes_the_fixture`,
   `breaking_stdlib_change_fails_the_fixture`).
-- ✅ **EVO-65 `ww_dfu` typed numbers on the wire** · `v0.5` — `ww_dfu` on a new wire line, `w2.0` (P2401 stdlib units survey): step indices and counts are `Index<Step, u32>` / `Count<Step, u32>`, chunks `Index`/`Count<Chunk, u16>`, erase blocks `Index<Block, u16>` / `Count<Block, u16>`, byte offsets in a chunk or a plan `Index<Byte, u32>`, sizes `Bytes<u32>`, all the same bytes. The breaks: `NodeInfo`'s `product_id`, `app_version` and `version_floor` become `app: Option<ImageInfo>` (`ProductId`, `ImageVersion`, and the image's new `security_counter`) and `security_floor: SecurityCounter`, as chunky checks the floor against the security counter, not the version; `geometry_id` is `geometry: GeometryId`; `LastResult::version` is `Option<ImageVersion>`; `Session::resume_from` is split into `resume_step` and `resume_byte`; `StageLimits::max_piece` is `Fixed<Byte, One, u16, Range<1, 1024>>` (a `u16`, bounded), `in_flight` `Fixed<Request, One, u8, Range<1, 255>>`; `ack_every` and `plan_area` are `Niched<.., Null<0>>`. Tests `ww_dfu` (bytes of every wrapper, the bounds, the niches), `tests/dfu`, `tests/dfu_scenarios` (transcripts again). No device or host uses the format.
 - ✅ **EVO-73 The device declares a stream's codec** · `v0.5` — wire break of `ww_client_server`: the host's codec
   offer, `RequestKind::StreamOpen { codecs: Option<StreamCodecs> }`, becomes one bit, `raw` (send the items as they
   are), and `StreamCodecs` is gone. A device compresses a `Compressed` stream unless the host asked for `raw` and
@@ -2078,20 +2051,6 @@ Unicast Data0 to one node over the same bus is TR-6.
   `answer`. Conformance cases `client_server.stream_open.*`, `client_server.stream_opened.*`; tests
   `ww_client_server` `codec_declared_and_newer`, `wire_weaver_client` `unknown_codec_reopens_raw`. No device or host
   uses the format.
-- ✅ **EVO-72 Capability limits bounded by their consts** · `v0.5` — each `ww_stdlib` limit documented "at most
-  `MAX_..`" carries that const as its `Range` bound (`{ MAX_X as i64 }`, read by the walker's const evaluator) in the
-  smallest storage that holds it, refused past it on decode: `ww_i2c` (`I2cCapabilities`' four limits,
-  `I2cWatchCapabilities` with the new unit `Watch`, `I2cWatchConfig::len`; wire `w1.0` -> `w2.0`), `ww_user_info`
-  (`NameMax` in a `u8`; `w2.0` -> `w3.0`), `ww_spi` (`SpiCapabilities::max_len` in a `u16`; `w2.0` -> `w3.0`),
-  `ww_dfu` (`max_piece`, same bytes). Never published, so the 0.1.0 snapshots were saved again in place. No device
-  or host uses the format (`~/git/tpm/area/ops/in-use.md`).
-- ✅ **EVO-57 `ww_spi` typed numbers on the wire** · `v0.5` — the wire change of STD-56 for `ww_spi`: word size,
-  byte lengths, register offsets and counts move from a bare integer to `exact_units::Fixed` / `Bytes` / `Index` /
-  `Count` (same bytes, Rust-only break besides the renames); `SpiRwBit::SetIsRead`/`ClearIsRead`'s `bit` gets a
-  `Range<0, 7>` bound and `io_level` moves from `ww_si::Quantity<Volt>` to `Fixed<Volt, Milli, u16>` (both narrow
-  or change what is sent, a real wire break); `ww_spi` was never published, so its 0.1.0 snapshot was saved again
-  in place on a new wire line, `w2.0`. No device or host uses the format (`~/git/tpm/area/ops/in-use.md`).
-- ✅ **EVO-59 `ww_logic_analyzer` typed numbers on the wire** · `v0.5` — the stdlib units survey's per-crate change (`prj/P2401-wireweaver/design/stdlib-units-survey.md`): every channel number is an `Index<Channel, u8>` (`read_transitions`, `TriggerStage::UartByte::channel`, `I2cAddress::scl`/`sda`, `SpiFirstByte::cs`/`sck`/`data`, `ChannelCondition::channel`, `TransitionsChunk::channel`, `CaptureConfig::channels`, `StreamConfig::channels`), `RateLimit::channels` a `Count<Channel, u8>`, `ChannelInfo::gpio_pin` an `Option<Index<Pin, u8>>`; every sample position an `Index<Sample, u32>` and every sample amount a `Count<Sample, u32>` (`read_transitions`'s `from`, `CaptureStatus::Done::trigger_at`/`samples`, `SampleRange`, `RawChunk`, `TransitionsChunk::from`/`scanned_to`/`edges`, `CaptureConfig::samples`/`pre_trigger`, `CaptureActual::samples`); `LaCapabilities::memory` a `Bytes<u32>`, `RawLayout::width` a `Fixed<Bit, One, u8>`, `TriggerCapabilities::max_stages`/`max_conditions` a `Count<Item, u8>`, `TriggerStage::SpiFirstByte::mode` a `ww_spi::SpiMode` instead of a bare `0..=3` `u8` (reusing `ww_spi`'s enum, as the crate already reuses `ww_gpio::Level` and `ww_i2c::I2cAddress`; `ww_spi::SpiMode` now derives `defmt::Format`, as `TriggerStage`'s conditional derive needs). Every change a transparent wrapper or an enum of the same `ww_repr`, so the bytes are unchanged; wire line `w2.0` (shared with EVO-64) records the break, as the survey's decisions call for a new line, a CHANGELOG entry and an EVO item per break, bytes or not. `ww_logic_analyzer` 0.1.0 (never published), its `api_snapshots` refreshed. No device or host uses the format.
 - ✅ **EVO-71 Generations from the wire line** · `v0.5` — the four foundation crates of the frozen hello
   (`shrink_wrap`, `ww_framer`, `ww_link`, `ww_client_server`) declare `[package.metadata.wire_weaver] wire = "w1.0"`
   in `Cargo.toml`, and their `GENERATION` is that line, read at compile time by `shrink_wrap::generation_from_manifest!()`
@@ -2275,14 +2234,6 @@ Unicast Data0 to one node over the same bus is TR-6.
 - 📋 **TOOL-37 `ww udev` prints the rule** — the command exists and is documented but stops with an error naming
   this item (was a `todo!()` panic): it should print a udev rule for WireWeaver USB devices to pipe into
   `/etc/udev/rules.d/`.
-- ✅ **TOOL-28 `ww board rework set` / `clear`** — records a rework done on the bench through
-  `BoardInfo::set_reworks` (STD-98), on any device serving it anywhere in its API (a global trait attachment,
-  API-20). `ww board rework set 1,3,5` / `clear 1,3,5` mark reworks applied or undone, all or none; `--dry-run`
-  passes `program = false` (nothing written, the would-be outcome printed). `UnknownRework` is shown with the
-  numbers the firmware knows, read from `REWORKS`: `unknown rework 7: this firmware knows 1-5, 8; update firmware
-  first`; `Conflict` and `ProductionRecord` print the device's own message. `wire_weaver_cli` `cmd::board`. The
-  first device is usb_io_fw PLAT-17. Tested on B200A 027 (3 Nov 2026, firmware 0.10.29, `ww` feb97a85): `set` /
-  `clear` with and without `--dry-run`, `set 9` refused with the known numbers, nothing stored.
 - 🧪 **TOOL-16 `ww sync`** — several devices kept on the host's UTC at once (STD-49, crate `ww_clock_sync`): devices
   by serial or label parts (or every device the selection matches), a live table per device (state, followed source,
   rate in ppm, shortest round trip, the residual offset measured with `shared_now`, samples), `--mode` writes the
@@ -2305,15 +2256,6 @@ Unicast Data0 to one node over the same bus is TR-6.
   are the same text; SIGINT and SIGTERM end a flagged command or `ww monitor` / `capture` / `stats` with the
   capture finished, synced and renamed; `ww explain` of a path-like WHAT that is no file says so without
   connecting.
-- 🧪 **TOOL-21 `ww pins tui`** · `v0.5.x` — every point live, laid out per connector of a board preset
-  (`docs/cli_reference.md#ww-pins-tui`): level and what was set on each pad, keys to drive, toggle, pull, weak
-  drive, read all, release, pause; every point released on quit, signals and errors. The preset is boardmap's board
-  description read as it is (`[[view.connector]]`, `[aliases]`, `[pins]` roles, pads from its geometry JSON, nets
-  joined across fitted solder bridges), no dependency on embedded_bedrock; a preset for ww alone lists nets per
-  connector. Devices with `ww_gpio` banks and no `PinDiag` are shown through the banks (modes and pulls put back on
-  release). Library `ww_pin_probe::board`, `live`, `bank`; tests on `MockBoard` with the NUCLEO-G0B1RE preset
-  (`wire_weaver_cli` `cmd::pins_tui`) and over banks end to end (`tests/io_gpio`). Hardware check open: the Nucleo
-  G0B1RE once its firmware serves `PinDiag`.
 - 🚧 **TOOL-6 Dev GUI / web tool** · `v0.5.x` — `wire_weaver_tool` (egui, Trunk) shows the AST and generated code. Goals:
   a web tool like the pest playground, a dynamic UI for any API (MVP prototyped), widgets per type, mockup
   server UI. See `docs/dev_tool.md`. A `Fixed` field's widget shows its unit and takes its slider limits from
@@ -2328,23 +2270,6 @@ Unicast Data0 to one node over the same bus is TR-6.
   a hub; `ww list` asks a running hub through the registry (with a `STATE` column, `--direct` to enumerate USB
   anyway); completions of the subcommands, `keep` durations and device keys with help texts; colour off without a
   TTY or with `NO_COLOR`; `lend DEVICE -- CMD` (SRV-32). Open: `ww list` asks a running hub and doesn't start one.
-- 🧪 **TOOL-29 Flashers check the board's reworks** · `v0.5` — `ww dfu rp flash` and `ww dfu stm32 flash` check
-  with the chip in its ROM bootloader (user, 3 Nov 2026: a board with an unknown rework refuses to boot and sits
-  there). Given the serial of a running device they reboot it there first (`BootControl::reboot(Updater)`, an A/B
-  device only, the titles of its `REWORKS` kept for the question). In the ROM they read the new image's table,
-  locator and build id from the file (`ww_board_info::image`, STD-101), the table of the image in flash (the board's
-  name, `--board` when no image names exactly one) and the bench record and allowance from the settings store
-  (PICOBOOT read, DfuSe upload), and warn with the list when the image lacks a rework; only if the user agrees (or
-  `--allow-unknown-reworks` names exactly those numbers) the allowance is stored for the image's `ImageId` through
-  the ROM (the store's own erases and writes replayed, read back), otherwise a stored one is cleared. An image for
-  another board, without a table or with an unreadable one, or without a build id, is asked about too (`--yes`);
-  without a terminal every question is refused. An STM32 whose bootloader can't read its flash (readout
-  protection) is written only with `--yes`. The check as a library: `ww_report::rework_check` (`RomFlash`,
-  `ImageReworks`, `scan_installed`, `read_board`, `verdict`, `set_allowance`).
-  `docs/cli_reference.md#checking-the-boards-reworks`. Tests: `ww_report` `rework_check::tests` (the whole check on
-  a chip in RAM), `wire_weaver_cli` `cmd::rework_check::tests`. `ww dfu flash` (the `ww-chunky` plugin, a running
-  app, no ROM at hand) compares with the app's `REWORKS` and refuses a lacking image. Hardware
-  check open: an RP2350 or STM32 board with a guarding firmware (usb_io_fw PLAT-18).
 - 🧪 **TOOL-30 `ww info` and `ww board rework allow` in the ROM bootloader** · `v0.5` — on a board in BOOTSEL / the
   STM32 bootloader, `ww info` reads the installed image's table (build id, boards it lists) and the bench record
   through the ROM (`ww_report::rework_check`, TOOL-29: `scan_installed_image`, `read_board`), and prints the verdict
@@ -2375,7 +2300,6 @@ Unicast Data0 to one node over the same bus is TR-6.
   `None` for both `None` and `Some(None)` of an `Option<Option<T>>`, so the inner `None` can't be written or told
   apart when read. Needs a marker for a present `None` (e.g. `ww.Some(None)`). Conformance case
   `option.option.some_none`.
-- 📋 **TOOL-8 `ww` inspect / read / write all GPIOs on any device** · `v0.5.x`.
 - 🚧 **TOOL-9 Buffer visualizer / "explain" encoding** · `v0.5.x` — each bit traced to the value it belongs to.
   Done: `ww_self::explain` (the dynamic decoder records every value, length, discriminant, flag and padding with
   its front bits and back nibbles); `ww_self::expr` (feature `expr`: values and calls written as Rust expressions,
@@ -2400,11 +2324,6 @@ Unicast Data0 to one node over the same bus is TR-6.
   old `STD-NN` its new area id. An item below that is both stays here with a pointer to the new id.
 - ✅ **STD-1 `ww_client_server`** — the request/event model, pruned of sideband/subscribe/rate, variable length seq
   numbers.
-- ✅ **STD-5 `ww_gpio`**.
-- ✅ **STD-19 `ww_pwm`** — `Pwm` / `PwmChannel` outputs (`set_output`, `set_duty`, `stop`, `state`), `PwmCapture` /
-  `PwmCaptureChannel` measurements (frequency, duty, pulse width, edge count) over a plain stream with sideband
-  `Open` / `Close`. Full rustdoc, mock server and in-process tests (`tests/io_pwm`), docs page
-  (`docs/std_library/ww_pwm.md`) (STD-13).
 - ✅ **STD-17 `ww_timebase`** — `Clock`: device time as `ww_si::Second` (full width via `now()`, truncated
   elsewhere), sync master / slave (IRIG-B, PPS), `sync_status`, a `time_map` stream mapping device time to
   shared time, `set_time_of_day` for a master. `tests/io_timebase`, `docs/std_library/ww_timebase.md`.
@@ -2424,53 +2343,14 @@ Unicast Data0 to one node over the same bus is TR-6.
   the PC (SRV-31). Checked on one of our dev PCs (21-22 Oct 2026): Donguru, rePort and B135 steered by `ww sync`,
   `sync_status` `Locked` in 1.2-1.6 s, the residual measured with `shared_now` B135 -5..-16 µs (±55 µs), Donguru
   within ±1.2 ms (its 1.4-1.6 ms round trips).
-- ✅ **STD-18 `ww_adc`** — `Adc`, `AdcStream` (sideband `Open` / `Close`), `AdcCapture`. Fill-in done:
-  full rustdoc, `tests/io_adc` mock server (one test per trait), `docs/std_library/ww_adc.md`, API snapshot
-  (STD-13).
-- ✅ **STD-20 `ww_onewire`** — `OneWire`: addressed transactions with strong pull-up, reset, paged and
-  bit-level (`triplet`) ROM search, the real Dallas/Maxim search algorithm. Full rustdoc, docs page
-  (`docs/std_library/ww_onewire.md`), API snapshot, in-process test with a mock bus (`tests/io_onewire`).
 - ✅ **STD-105 NaN-free floats in the model and the clients** · `v0.5` — the wire_weaver side of exact_units NUM-19: a float `Fixed` is never NaN unless its bound is `MaybeNan`. The walker reads `MaybeNan` (`ww_self::MarkerDef::MaybeNan`, re-exported as `ww_si::MaybeNan`); `ww_self::units::NumBounds` refuses NaN for every other bound on decode and encode, so the dynamic client, Python and `ww` refuse it before sending and on receiving; the evolution checker sees `MaybeNan` → NaN-free and a plain float → NaN-free `Fixed` as a bound narrowed. `ww_self::expr` writes and reads NaN and ±∞ as `f32::NAN`, `f32::INFINITY`, `-f64::INFINITY`. Conformance cases `stdlib.si.fixed.f32*`, `stdlib.si.fixed.maybe_nan.*`, `model.marker_def.maybe_nan`; tests in `tests/quantities` (`sense`, `raw_sense`) and `wire_weaver_py/tests/test_offline.py`. [Docs](docs/std_library/exact_units.md#in-ww-python-and-dynamic-clients).
 - ✅ **STD-106 Unit identity in the model** · `v0.5` — the wire_weaver side of exact_units UNIT-7 (piece 3, the walker and the schema): a unit's definition in the model is `exact_units::UnitDef`, the record `unit!` compiles, with its `MarkerId` (the declaring crate as `CARGO_CRATE_NAME` gives it, and the marker's ident), names, dimension, kind of quantity, exact scale and provenance; scales and origins carry ids, an origin's reference is a `MarkerId` and its unit a named unit's `UnitDef`. The walker builds the ids, refuses an `Affine` scale (°C is `origins::Celsius`), two markers of one crate named alike in two modules, and a model with two different definitions under one identity (`ww_self::units::check_marker_ids`); `exact_units_definitions_match_the_compiled_consts` compares every walked definition with the compiled one field by field. Wire change EVO-35. The run-time side (`AnyQuantity` compacted against the API's table, `DynUnit` on `Ref`) follows with STD-74. [Docs](docs/std_library/units_in_the_model.md#identity).
 - ✅ **STD-108 Time scales in the model** · `v0.5` — the wire_weaver side of exact_units PT-4: an origin's `reference` in the model is the whole `exact_units::ReferenceDef` (`ww_self::ReferenceDef { id, name, how }`, `how` one of `Exact`, `RunTime`, `TimeScale(TimeScaleDef { counting, zero })`), and the reference's struct carries it as `MarkerDef::Reference`. The walker reads an `impl Reference` beside a struct (its `NAME` literal and `HOW` as written), so `exact_units`' `UnitZero`, `AmbientPressure`, `TaiScale`, `PosixScale` and `DeviceMonotonic` and a crate's own reference come with their kind, checked against the compiled `Reference::DEF`. `ww_self::units::reference_conversion` says why points of two references don't convert (a zero known only at run time, a device clock that needs a clock sync, a leap-second table between POSIX time and TAI); the evolution checker gives that reason for an origin moved to another reference, and finds a reference whose `HOW` changed breaking. The dynamic client doesn't convert points between origins yet, so there is nothing for it to refuse. `ww_si` re-exports `Reference`, `ReferenceDef`, `ReferenceHow`, `TimeScaleDef`, `TimeCounting`, `TimeZero` and `UnitZero`. Wire change EVO-48. `Timed.t` as a point on `DeviceBoot` followed as STD-110. Tests in `tests/quantities` (`origins_of_the_model`, a crate's `IndexPulse`). [Docs](docs/std_library/units_in_the_model.md#references).
 - ✅ **STD-109 Non-linear codes in the model and the clients** · `v0.5` — the wire_weaver side of exact_units LVL-6: a codec marker (an `impl exact_units::codec::Codec`) carries its `CodecDef` (id, shape, spare codes, its `codes`, `nominal` and `curve`, exact_units NUM-8/LVL-10) as `MarkerDef::Codec`, appended after `Reference`. The walker reads an `impl Codec`'s `DEF` (`MuLaw`, `ALaw`, `Table`, `Offset` and `MantissaExponent`, a table named by the `DEF` from a `const` array literal of the codec's module, numbers as literals, `-`, `+`, `*` and `<<`; it evaluates no `const` code, so exact_units writes its tables out; a `curve` and exact_units' generic `Transfer<Q, C>` are STD-112) and checks every exact_units codec against its compiled `Codec::DEF`. `exact_units::Fraction` (a macro-generated struct with no literal shape in its source, now reachable through `CodecDef::curve`) stands in for in the type walker's `MACRO_SHAPED` table, its fields copied from the `fraction!` macro by hand. `ww_self::units` knows `Coded<C, V, T>` as a number wrapper (`Wrapper::Coded`) and runs a definition without the trait (`codec_of`, `codec_decode`, `codec_encode`, through `CodecDef::decode` / `encode`); `wire_weaver_client::quantity::coded_of` and `DynQuantity` read a code as the `Fixed` it means and write a quantity by its exact code, refusing a value between two codes with the nearest one named; Python's `ww.Quantity.code` is the code it was read as. `ww_si` re-exports `codec`. Conformance cases `stdlib.si.coded.mu_law.*` (each with the linear number its byte means, `decoded`, checked by the typed codec, the model's definition and Python) and `model.marker_def.codec`; tests in `tests/quantities` (`coded_property`). [Docs](docs/std_library/exact_units.md#non-linear-codes).
 - ✅ **STD-112 Transfer curves in the model and the clients** · `v0.5` — exact_units' `codec::Transfer<Q, C>`, a quantizer with a transfer curve (`Coded<Transfer<Narrow10, Pq>, NarrowSignal10, u16>`, a 10-bit PQ pixel), in an API. Its definition is one per instance, so the model holds three markers: `MarkerDef::Transfer` (the generic struct, the variant alone), the quantizer's `MarkerDef::Codec` and the curve's new `MarkerDef::Curve` (exact_units' `CurveDef`: the light's unit and scale, domain, exact segments). The walker reads an `impl Curve`'s `DEF` from source: the constants it names put in (module consts, inherent `Ty::N`, `Self::`), `Fraction::new`/`int`/`ZERO`/`ONE` and `Fraction`'s checked arithmetic run with exact_units' own `Fraction`, an unwrap-shaped helper (`known(..)`) as `.unwrap()`; a codec's own `curve: Some(..)` reads the same; `exact_units_definitions_match_the_compiled_consts` checks `Pq`, `Hlg` and `Bt709`. `ww_self::units::codec_of` puts an instance together (`Q`'s definition, `curve` set to `C`'s; `curve_of`), `codec_light` computes a code's light (exact where rational, the float edge, exact_units `libm` on hosts); `wire_weaver_client::quantity::CodedType::light`, Python's `ww.Quantity.light`, `light_exact`, `light_unit`. A generic `impl<..> Codec` of another crate is still refused where an API uses it. Wire side EVO-63; conformance cases `stdlib.si.coded.pq.*` (with `light`, sealed by `frozen_bytes`), `model.marker_def.curve`, `.transfer`; tests in `tests/quantities` (`transfer_curve_property`). Not yet: writing a value by its light (the signal is written). [Docs](docs/std_library/exact_units.md#transfer-curves). P2401#11nov-1825.
 - ✅ **STD-115 Typed numbers in `ww_client_server`** · `v0.5` — the protocol's numbers say what they are (P2401#11nov-0947f, AGENTS.md "Numbers are typed"): observe periods `Micros<UNib32>` (`ObserveMode::OnChange { min }`, `Periodic { every }`, `OnChangeOrBeat { min, max }`, `Samples { every, max_age }`), a level's budget `observe::Budget` (`Fixed<BytePerSecond, One, UNib32>`), property and `in_each_array_id` resource indices `ResourceIndex` (`Index<units::Resource, UNib32>`, the crate's own `Resource` base: a WireWeaver resource index, no other crate's), missed sends `Count<Event, UNib32>`, a batched stream's `max_age` `Micros<UNib32>`, sink grants, LZ4 history and a sink's capacity `Bytes<UVlq32>`, a stream's bytes in flight and its store's `used` / `capacity` `Bytes<UVlq64>`, `HeadExt::clock_epoch` `Index<Boot, UVlq32>`. Every one is a transparent `Fixed` or `Index` of the old storage, so the bytes are the same (the crate's golden-byte tests, `tests/stdlib_evolution` reads every change as compatible, same bytes); no wire line or EVO item. Left plain: stream positions and counts in each stream's own unit (a unit parameter on the stream would be a design of its own), `SizeHint` / `User` (the stream users' unit), sessions and sequence numbers (correlation ids). Head and observe times stay `Second` until P2401#10nov-1016c. Resource paths too (P2401#13nov-0541): `PathKind`'s `path` / `path_from_trait`, the `EventKind` paths and `MultiIndex::List` hold `ResourceIndex`es (`resource_path([..])`, a `const fn`), as do generated index chains (`[ResourceIndex; N]` in handlers), `ww_stream`'s observe element chains and the clients' paths; `MultiIndex::Range` stays `Range<UNib32>` (a range in the API model holds a plain number). The bytes are the same: conformance cases `client_server.request.absolute_path`, `.global_path`, `client_server.event.stream_data_path`, `client_server.multi_index.list` carry the bytes of the bare `UNib32` paths, and the dispatch budgets measured the same instructions per request (`just dispatch-budget`, Cortex-M3 under QEMU, `fw-z` and `fw-3`, sync and `use_async`) and code within 4 B (`just flash-budget`, Cortex-M0+); a path array is cleared from a `const` zero, since `[ResourceIndex::new(UNib32(0)); N]` was a store loop at `opt-level = "z"` (+40 instructions a request) where the plain number's was a `memclr`.
-- ✅ **STD-114 `ww_can_bus` typed numbers** · `v0.5` — the CAN traits' bare integers as exact_units types through `ww_si` (AGENTS.md "Numbers are typed", the stdlib units survey): bit timing segments and limits as `Fixed<TimeQuantum, One, _>`, the prescaler as `Prescaler` (`Per<Cycle, TimeQuantum>`), TDC offsets, filter, measured delay and XL PWM symbols as `Fixed<Cycle, One, u8>` (clock periods), bus load and sample point as `Share` (‰, `Range<0, 1000>`), frame, buffer, filter, FIFO, event and word counts as counted `Fixed`s, buffer, FIFO and filter positions as `BufferIndex`, `FifoIndex`, `FilterIndex` (one type for `RxFrame::filter` and `TriggerKind::RxCheck::filter`), TTCAN cycles as bounded `Fixed` / `Index<Cycle, ..>` and its time marks as `Index<Tick, u16>`, `Performance` rates as `Per<Frame, Second>` / `Per<Byte, Second>`, `TxMarker` and `VcId` newtypes, `TtErrorLevel` for the TTCAN error level, `TtRole::Master::priority` a `U3`; `BitTiming::bit_rate` takes the `Hertz` of `Capabilities::clock`. Raw protocol fields (TEC / REC, `TURCF`, the XL SDT and acceptance field) stay plain with `#[no_unit_hint]`. Wire change EVO-62. Tests `tests/io_can`, `tests/io_can_group`. [Docs](docs/std_library/ww_can_bus.md#configuration).
-- ✅ **STD-113 `ww_onewire` / `ww_uart` typed numbers** · `v0.5` — the stdlib units survey's (P2401#11nov-0948f)
-  ww_onewire/ww_uart piece of AGENTS.md "Numbers are typed": `ww_onewire`'s `search`'s `family: Option<u8>` is
-  `Option<FamilyCode>` (`FamilyCode(pub u8)`, a transparent newtype, same bytes), `OneWireTransaction::read_len:
-  u16` is `ww_si::Bytes<u16>` (same bytes), `OneWireConfig::pin: u8` is `ww_si::Index<ww_si::units::Pin, u8>` (same
-  bytes), and `SearchState::last_discrepancy: u8` is `ww_si::IndexFrom1<RomBit, u8, Range<1, 64>>` (`RomBit` a
-  counted marker of this crate, declared with `unit!`): the added `1..=64` bound is a wire break, EVO-61, on a new
-  wire line `w1.0` -> `w2.0`. `ww_uart`'s `tx_pending()`, `Capabilities::rx_buffer` /
-  `tx_buffer: u32` are `ww_si::Bytes<u32>`, `UartConfig` / `MonitorConfig::idle_chars: u8` are
-  `ww_si::Count<ww_si::units::Char, u8>`, `UartConfig::frame_bits()` / `MonitorConfig::frame_bits()` return
-  `Option<ww_si::Fixed<ww_si::units::Bit, ww_si::prefix::One, u32>>`: all same bytes, no wire bump. `strong_pullup`, `send_break`'s durations and `io_level` (both crates)
-  stay `Quantity` for now (P2401 Q2, a separate cross-cutting change); IO item timestamps (`RxChunk::end`) stay
-  `Second` (Q1, with the framework device-timestamp change). `ww_onewire_0_1_0.ron` / `ww_uart_0_1_0.ron` are saved again
-  in place (never published). `tests/stdlib_evolution` checks both.
 - 🚧 **STD-111 `CodecShape::Offset` and a curve above a codec, in the model** (P2401#10nov-1311d) — the wire_weaver side of exact_units LVL-8/LVL-9: `CodecDef` gains `codes` (every code the `Raw` holds), `nominal` (the span a client clips or warns at) and `curve` (a `CurveDef` above the code, signal to light); `CodecShape` drops `Power`/`PiecewisePower`/`Exp` (never implemented) and gains `Offset { zero }` (video's narrow-range quantizers, affine) and a literal `Table` (`CanFdDlc`'s DLC table). The walker reads `Offset`, a literal `Table` (inlining a sibling `const` array where the DEF names one, API-62's `Transfer<Q, C>` left out: no literal without resolving its generic `Q`/`C`) and, where present, `curve: Some(CurveDef { id, referred, unit, scale, low, high, segments })` with every `Segment`'s `CurveForm` (`Affine`, `Power` with its `scale`, `Exp`, `RationalPower`) and `ExpBase` (`E`, `Exactly`), each parameter a `Fraction` literal; `exact_units::Fraction`'s body (its own `fraction!` macro, invisible to source re-parsing) is a named exception next to `MarkerId`'s kind of lookup. `ww_self::units::codec_def` reconstructs the borrowed `CodecDef` with the new fields and the `Offset`/`Table` shapes for `codec_decode`/`codec_encode`; `ww_si` already re-exports the whole `codec` module, so `Narrow8`, `NarrowChroma8`, `Narrow10`, `NarrowChroma10`, `CanFdDlc`, `CurveDef` and kin need no new re-export. Checked against the compiled `Codec::DEF` of all five new codecs (`exact_units_definitions_match_the_compiled_consts`). A `Fraction` is `±num/den · 10^exp` (exact_units NUM-33), four fields on the wire, canonical on decode in Rust only (SW-20); conformance cases `stdlib.si.fraction.exp`, `.negative`, `.third` and `.rejected` keep the walker's stand-in in step with the macro. No device or host uses the format yet. [Docs](docs/std_library/exact_units.md#non-linear-codes).
 - ✅ **STD-104 `Finite` bound in the model** · `v0.5` — exact_units NUM-20's `Finite` (every finite float, neither ±∞ nor NaN): the walker reads it (`MarkerDef::Finite`, appended after `Codec`, re-exported as `ww_si::Finite`); `ww_self::units::NumBounds::finite` refuses ±∞ on decode and encode, so the dynamic client, Python and `ww` refuse it before sending and on receiving, with its own message; the evolution checker sees `Unbounded` (or a plain float) → `Finite` as a bound narrowed, a float range inside `Finite`. Conformance cases `stdlib.si.fixed.finite`, `.finite.inf.rejected`, `.finite.nan.rejected`, `model.marker_def.finite`; `finite_is_two_values_fewer` in the evolution tests. [Docs](docs/std_library/exact_units.md#in-ww-python-and-dynamic-clients).
-- ✅ **STD-24 `ww_firmware_info` / `ww_board_info` / `ww_uid` / `ww_user_info` device contract** · `v0.5` — the info
-    crates every device implements. `FirmwareInfo` const items `FIRMWARE` (name, version, git, build time, profile),
-    `BUILD_ID` (GNU build id, finds the ELF) and optional `BUILD_RECORD`; `build::emit()` + `firmware_summary!()` for
-    `build.rs`, `build_id()` reader; `LastReset` (`ResetRecord` with a `Fault` per architecture behind `cortex-m` /
-    `riscv`, stack words, `boot_count`, `clear`). `BoardInfo::BOARD` with `RevisionSource` (`Record`, `Strap`, `Assumed`, `Provisional`) and optional `REWORKS`
-    (`Rework { id, title, applied }`, up to 16, numbered since STD-98; `ww info` prints them). `Uid::IDS`, first id is
-    the primary one (USB serial). `UserInfo` with bounded `name` / optional `notes`, `UserInfoError`, `CAPABILITIES`
-    and the persistence rule. Docs `docs/std_library/ww_{firmware_info,board_info,uid,user_info}.md`, tests
-    `tests/{firmware_info,board_info,uid,user_info}`. The const items are served by `get_` handlers until constant
-    items come from the introspection data; properties cannot carry `#[errors]` yet.
-- ✅ **STD-98 Recording a board rework** · `v0.5` — `ww_board_info` reworks are numbers, `ReworkId(u16)` per board
-    revision (Roman, 2 Nov 2026), so a record keeps a bit per number and the titles stay in the firmware.
-    `Rework.title: Option<..>`, `None` for an applied number the firmware doesn't know (written by a newer one: since
-    STD-101 the board refuses to boot unless an allowance for its image covers it). Optional `BoardInfo::set_reworks(changes, program)`: all changes or none, dry
-    run, `ReworkChange` (`Unchanged`, `WouldWrite`, `Written` from the next boot), `ReworkError` (`UnknownRework`, never
-    stored; `Conflict`; `ProductionRecord`). `ww_board_info::table` (`no_std`) answers both from the
-    firmware's table (`ReworkTable`, `ReworkSet`, `apply`, `list`, `unknown`, `known_ids`). `ww info` prints unknown
-    ones. Docs `docs/std_library/ww_board_info.md#recording-a-rework`, tests `tests/board_info`, `tests/device_report`.
-    The `ww board rework` command is TOOL-28; the first device is usb_io_fw PLAT-17.
 - ✅ **STD-101 The rework guard** · `v0.5` — a firmware never runs a board with a rework it doesn't know (Roman,
     3 Nov 2026; replaces "runs on its safe features"). It refuses to boot: first thing in `main`, before any board
     init, it reads the bench record and the allowance from flash; with an applied rework it doesn't know and no
@@ -2490,56 +2370,6 @@ Unicast Data0 to one node over the same bus is TR-6.
     `docs/std_library/ww_board_info.md#the-rework-guard`, tests the crates' unit tests. Flashers TOOL-29, `ww info`
     and `ww board rework allow` TOOL-30, the first device usb_io_fw PLAT-18. Holds from the first firmware with the
     guard: deployed firmware can't learn it.
-- 🧪 **STD-26 `ww_log` defmt over reliable streams** · `v0.5` — `ww_log_bare_metal` renamed `ww_log`.
-    `LogDefmt { const DEFMT (encoding, build id); frames() }`: a reliable stream whose unit is one `defmt` frame,
-    whole frames per item (up to 512 B), so `lost` is the exact number of dropped messages and logs from before the
-    host connects arrive by resuming the device's session. `LogText { records(); rw level: LevelFilter }` with
-    bounded `LogRecord`, `Severity` without `User`, `LogError` on `CommonError`. Device side: new crate
-    `ww_defmt_logger` (`global_logger!`, lock-free ring with whole-frame commits, RTT tee that never blocks (whole
-    frames or skipped and counted, whatever mode a probe set), `pump()` into the store,
-    drops reported in place), ring stress-tested on the host with concurrent producers. `tests/log_defmt` decodes
-    with `defmt-decoder` end to end; `examples/defmt_log` (host) and `examples_mcu/rp2`'s `rp2_usb_log` (USB and RTT
-    at once, build id in flash). `docs/std_library/ww_log.md`. Tested 16 Oct 2026 on Donguru B153A (STM32G0B1,
-    typec_dongle API-10, with a `PersistentRamRing`): logs over USB and RTT at once, `lost` exact under a flood of
-    1000 (227 + 773), logs from before connecting and from before a forced HardFault; the non-blocking RTT tee
-    with probe-rs attached (it sets the channel to blocking): floods of 1000 go on at ~62 us a line instead of
-    ~620 us, RTT shows what fits. Known gap: frames dropped at the end of a burst are reported (`lost`) only with
-    the next frame the device logs, so a quiet device shows the loss late. `rp2_usb_log` not run (no Pico 2 probe
-    on the mesh). `ww log` in the CLI is a later item.
-- ✅ **STD-25 `ww_counters` on `cnt` words** · `v0.5` — the device's `cnt` counters as raw buffer words, decoded on
-    the host with the firmware's ELF found by its build id: `Counters::INFO` (format, used/capacity words of RAM and
-    backup, build id), `read(buffer, offset)` pages of `UVlq32`, `reset`, optional `watch` stream (not served by
-    anything yet); `read_words` / `reset_words` serve `cnt` buffers, feature `host` has `WwSource` (a
-    `cnt_core::Source`). `ww counters read|watch|tui|reset|info` shows the `cnt_view` views (CLT-10). In the `cnt`
-    repo: `cnt::ram_used_words()`, word sources and ELF lookup by build id in `cnt_core`, `cnt_view`, and the probe
-    path checks the build id too. Docs `docs/std_library/ww_counters.md`, tests `tests/counters`; `cnt_core` /
-    `cnt_view` 0.5 from crates.io.
-- ✅ **STD-27 `reset-record-age`** · `v0.5` — `ww_firmware_info::ResetRecord::boots_since_crash`: boots since the
-    crash data was saved (0 = the last reset was the crash), so a record kept across later normal resets shows how old
-    it is. `bedrock_crash` counts it (`Crash::boots_since`) and the firmware template fills it.
-- ✅ **STD-28 `ww_indication` lightweight rework** — cut to one required item: `mode: Mode` (`AllOff` /
-    `OnlyEssential` / `Normal`). `brightness: Brightness` (5 levels, one setting for all indicators),
-    `identify(duration)` (blink everything to find the unit on a bench, errors on `CommonError`) and `NAMES`
-    (indicator names, API-36) are each their own `#[optional]` item. Dropped `alert_brightness` /
-    `AlertBrightness`, `animation_enable`, `test_mode` / `TestMode` and `HAS_NOT_CONTROLLABLE`. Docs
-    `docs/std_library/ww_indication.md`, tests `tests/indication` (mock servers with only `mode`, and with every
-    optional item).
-- 🧪 **STD-50 `ww_indication` animations in phase** — a device with a shared clock (STD-49 or a sync line) aligns
-  its periodic animations to period boundaries of shared time (UTC, WSPR-style: `t mod P`), so devices showing the
-  same animation are in phase with no epoch passed around, across PCs to NTP precision. A rule in the trait's docs,
-  no API item (an explicit epoch was dropped: every server would have had to implement or omit it).
-  `docs/std_library/ww_indication.md#animations-in-phase-std-50`; device side embedded_bedrock `bedrock_led` with
-  `bedrock_sync`. Hardware check open: Donguru and rePort breathing in phase.
-- ✅ **STD-29 `ww_can_bus` on the stdlib idioms** — from simple bridges to bus debuggers. `Can` is one controller:
-  six required items (`capabilities()`, `configure(CanConfig)` answering what was set, `config()`, the observable
-  `status`, the counted `rx` stream, the `tx` credit sink) and `#[optional]` `set_mode` (incl. `Config` and
-  `Sleep`), `recover`, `tx_abort`, `tx_events` (marker, measured queue time), `bus_errors`, `protocol_status`,
-  `bus_load`, `detect_timing`, `set_filters`, `set_layout`, `rx_buffer`, `tx_buffer` (once or cyclic),
-  transceiver (standby / silent / sleep, wiring faults), terminator, `test_pins`. `CanGroup` (`interface[]: Can`,
-  enable / disable, optional clock source and frequency, performance) for controllers sharing clock, power and
-  message RAM; `CanTimeTriggered` (TTCAN); `CanXl` behind the `xl` feature. Errors on `CommonError` +
-  `OutOfFilters`, `OutOfMemory`, `BusOff`; `defmt` no longer pulls `std`. Docs `docs/std_library/ww_can_bus.md`,
-  tests `tests/io_can` (full and minimal node), `tests/io_can_group` (group, TTCAN, XL).
 - 🧪 **STD-32 `ww_settings` settings store** · `v0.5` — a device's settings in its own NOR flash: `#[derive(Settings)]`
   on a plain struct (`#[setting(slot = N, default = ..)]`, `#[settings(retired(..))]`), stored as a record of the
   fields not at their default, each a byte blob in an `OptionAnyVec`, so firmware versions skip and keep each other's
@@ -2550,149 +2380,15 @@ Unicast Data0 to one node over the same bus is TR-6.
   `sequential-storage` 8 isn't. Docs `docs/api/settings.md` (pages, erase stalls on G0 / F4 / H7, big-sector
   options) and `docs/evolution/rules.md#settings-stored-on-a-device`, tests `ww_settings/tests` (`just
   test-power-cut`). Hardware check open: real power cuts on a G0B1 (TEST-21), dump decoder (TOOL-12), demo (EX).
-- 🧪 **STD-35 Slave data paths in `ww_i2c` and `ww_spi`** · `v0.5.x` — an `#[optional(slave)]` group in `I2c` and
-  in `Spi`: opening the counted `slave_events` / `slave_frames` stream with a config starts slave mode (closing stops
-  it) and reports every transfer (bytes both ways, register pointer or address, fill bytes, stretch time); the
-  answers come from a register map the host fills and reads back (`slave_map_write` / `slave_map_read`, applied
-  between two transfers) or from the `slave_answers` credit sink, one answer per read or frame. A host that is too
-  slow: I2C `I2cSlaveUnderrun` (`Fill`, `Stretch { max }` with `ReadWaiting` sent at once, `Nack` while empty), SPI
-  the idle byte or the last answer again, flagged `underrun`. Limits of clock stretching (SMBus 25 ms, masters
-  without it) in the crate docs and `docs/std_library/ww_i2c.md#slave-mode`. `I2cMode::Slave`, `SpiRole::Slave` and
-  the `slave` capability flags are gone. API, snapshots, docs, the device-side engine (SRV-26, `ww_bus_slave`) and an
-  end-to-end test of both slaves done: `tests/io_i2c` / `tests/io_spi` drive `I2cSlave` / `SpiSlave` byte by byte as a
-  simulated master (test-only `slave_bus` / `slave_pump` methods, a fake clock) through the real host and device event
-  loops: register maps with page wrap and host updates between transactions, the answer queues, stretching to the
-  deadline and past it, `Nack`, `repeat_last`, cleared answers and dropped events. Open: a check on real silicon, with
-  the first user, the rePort (usb_io_fw IF-5, v1.0 launch, Roman 16 Oct 2026).
-- 🧪 **STD-52 `ww_i2c` master errors and limits** · `v0.5` — what a good I2C master knows reaches the host (found
-  by the rePort I2C driver): `I2cError::Nack { op, at }` (which operation, and the address
-  or which data byte, counted as `I2cRecord::nack_at`), `ClockStretch` with `I2cMode::Master`'s `stretch_timeout`
-  (set and answered by `i2c_configure`, range in the capabilities), `BusStuck { scl_low, sda_low }` (no silent recovery:
-  `i2c_wiggle_clock` on request, at the bus speed up to 100 kHz), and the limits in `I2cCapabilities` (`speeds`,
-  `max_ops`, `max_write_read_len`, `zero_length_write`, `stretch_timeout` range; grouped by topic, sizes all `u16`). Transactions are stated as
-  a repeated start before every operation (Linux `I2C_RDWR`), not embedded-hal merging; `i2c_configure` answers the
-  highest SCL not above the request. Breaking on the wire and in Rust (nothing released or deployed, user 27 Oct
-  2026): callers in usb_io_fw and typec_dongle adapt. Docs
-  `docs/std_library/ww_i2c.md#transactions`, tests in `ww_i2c` (round trips) and `tests/io_i2c`. Open:
-  the check on real silicon with the rePort driver (usb_io_fw IF-2, RP2350 DW_apb_i2c).
-- 🧪 **STD-76 `ww_i2c_hl` embedded-hal I2C over `ww_i2c`** · `v0.5` — a stock embedded-hal 1.0 I2C driver,
-    blocking or async, runs unchanged on the host against a remote `ww_i2c::I2c` (for a FUSB302 PD sink
-    driven from the PC): `I2cMaster` merges contiguous same-direction operations (a repeated start before every
-    `ww_i2c` operation, STD-52), so one embedded-hal transaction is one call and one round trip; refuses, never
-    splits, what the device's `I2cCapabilities` don't take; `Nack`/`Arbitration`/`Bus`/`Overrun` mapped to
-    `ErrorKind`; request priority as a handle setting (`urgent()`, CLT-50). Docs `docs/std_library/ww_i2c_hl.md`,
-    tests `tests/io_i2c` (`tmp1x2` async, `eeprom24x` blocking, unchanged). Open: the check on real silicon with
-    the FUSB302 over the rePort's I2C.
-- 🚧 **STD-6 `ww_gpio_hl`** — usable, some APIs are still missing. Blocking, async and promise flavors; the blocking
-    pins implement `embedded_hal::digital` (`OutputPin`, `StatefulOutputPin`, `InputPin`), the async ones
-    `embedded_hal_async::digital::Wait` without a race (stream opened, then level read, then edge awaited) and keep
-    the edge's device time (`last_edge_time`), tested in `tests/io_gpio` (`docs/std_library/ww_gpio.md#embedded-hal-ww_gpio_hl`).
-- 🔍 **STD-7 Interrupt left enabled in `ww_gpio_hl`** · `v0.5` — the falling edge helper documents that it leaves
-  interrupts enabled; decide whether that is the intended fix or a bug.
-- 🚧 **STD-8 Prototypes**, to be completed later: `ww_i2c`, `ww_uart`,
-  `ww_memory` (was `ww_ll`: one word type per trait, optional watches, errors on `CommonError`, docs page),
-  Known gaps are `TODO`s in their sources (e.g. SMBus and 7-bit addresses in `ww_i2c`; `ww_can_bus` is done in
-  STD-29). `ww_log` (was `ww_log_bare_metal`) left for STD-26.
-- 🚧 **STD-12 `ww_dfu` firmware update API** — traits `UpdateNode`, `BootControl`, `Inventory`, `Stage`,
-  `StageBulk`: each node (app, bootloader, recovery app) implements what it needs; A/B live, in place from a stored
-  plan, in place live; step by step or bulk. Carries the octet records of the chunky protocol spec. End to
-  end test `tests/dfu`. Guide with the eight update scenarios (`2C-APP-STEP` Swap Shuttle .. `1L-UPD-BULK` Pit-stop
-  Freight), each tested end to end over USB (simulated), WebSocket or UDP with reboots and power cuts, its exchange
-  recorded as a golden transcript the docs include (`docs/std_library/ww_dfu.md`, `tests/dfu_scenarios`,
-  `just dfu-transcripts`). `StageBulk::plan` is a credit sink (API-28 credit-sinks). Every variable-size field is bounded (SW-19:
-  `MAX_PIECE_LEN`, `MAX_HEADER_LEN`, `MAX_CHUNKS_PAGE`, `MAX_PRODUCT_LEN`), so every method has a known largest
-  request and reply. `Profile::AB(SlotSwitch::{Copy, Remap})` / `InPlace`. Its numbers are typed (EVO-65): steps,
-  chunks and erase blocks as `Index`/`Count` of `Step`, `Chunk`, `Block`, byte offsets and sizes as `Index<Byte, ..>`
-  and `Bytes`, ids and versions as newtypes, the anti-rollback floor a `SecurityCounter` apart from the release
-  `ImageVersion`. Next: a chunky implementation (chunky NET-1).
-- 🚧 **STD-13 IO trait family** · `v0.5` — `ww_gpio`, `ww_uart` (optional `Uart::monitor`), `ww_i2c` (+ `I2cWatch`,
-  `I2cMonitor`, 10-bit addresses), `ww_spi` (optional `Spi::monitor`), `ww_adc` (STD-18), `ww_pwm` (STD-19),
-  `ww_onewire` (STD-20), `ww_timebase` (STD-17), `ww_logic_analyzer` / `ww_signal_generator` (STD-21, STD-22);
-  `ww_si` values and timestamps (STD-23): frequencies `Hertz`, baud rates `Baud`. Family overview in
-  `docs/std_library/io_family.md`; every crate filled in with full rustdoc, a mock-server test pair `tests/io_<x>`
-  and a docs page `docs/std_library/ww_<x>.md`; `examples_mcu` GPIO and UART boards follow. A bus or bank is
-  configured with one `configure(XConfig)` answering what was actually set, the IO level inside it
-  (`io_level: Option<Volt>`, capabilities `io_levels` / `io_level_min` / `io_level_max`). Every crate's error enum
-  keeps only what is specific (`Nack`, `NoPresence`, `NoSuchChannel`, ...), the common errors come beside it
-  (STD-16), methods list their variants with `#[errors(..)]` (API-32). Streams with a configuration are
-  counted stream functions (API-31: `AdcStream::samples`, `LogicStream::data`, `Pin::event`,
-  `PwmCaptureChannel::capture`, `Spi::monitor`, `I2cMonitor::records`, `Uart::monitor`), `Uart::rx` and
-  `I2cWatch::changes` are counted: positions, device losses and the time of the first unit in the event head; UART
-  chunks end on line idle (`UartConfig::idle_chars`, one back-to-back burst each) and carry the time of their last
-  byte when the device measures it (`RxChunk::end`). Clients take one `?` per call (CLT-24
-  `CallError`), `Unsized` enums read newer variants as `Unknown(u32)` (SW-47). Review round 1 (15 Oct 2026) done.
-  Open: `*_hl` crates are STD-14.
-- 🚧 **STD-21 `ww_logic_analyzer`** · `v0.5.x` — `LogicAnalyzer` (triggered capture into RAM), `LogicStream`;
-  `Raw` and per-channel `Transitions` encodings (edges as a `Series<u32>`), staged pattern triggers and protocol
-  stages (UART byte, I2C address, SPI first byte). Skeleton written, docs
-  page `docs/std_library/ww_logic_analyzer.md`; mock-server test pair still open (STD-13).
-- 🚧 **STD-22 `ww_signal_generator`** · `v0.5.x` — `PatternGenerator` (digital, replays analyzer captures through
-  a credit sink), `WaveformGenerator` (DAC channels). Skeleton written, docs page
-  `docs/std_library/ww_signal_generator.md`; mock-server test pair still open (STD-13).
-- ⛔ **STD-31 Observable `ww_gpio` pin level** · `v0.5.x` — `property!(ro+observe level: Level)` on `Pin` at one of its
-  reserved indices 4..=6, so a host sees input changes without opening the `event` stream of every pin (slow inputs,
-  a dashboard). `Pin` sits in `Bank::pin[]` (and banks usually in an array too): levels there are observable per
-  element since API-63, but a pin's change is seen in an interrupt, so it is blocked on SRV-59
-  element-marks-from-tasks.
-- 🚧 **STD-34 `ww_recorder`** · `v0.5.x` — control a recorder over WireWeaver: `Recorder` (status, card facts,
-  two-step prepare/format with a token, recordings, markers, `sync`, settings with the flush thresholds, counters,
-  optional `refresh_usb`) and `Track[]` (info, enable, durability, compression, counters). For the SD card log store
-  of repo `logring`, usable by any recorder. API crate, snapshot and docs page
-  `docs/std_library/ww_recorder.md` done, the scaffold compiles; the first server is the logring's (rePort
-  integration).
-- 🚧 **STD-39 `ww_block`** · `v0.5.x` — a block device over WireWeaver (SD card, eMMC, flash): `BlockDevice` with
-  `geometry` (block size and count, blocks per call, erase unit, erased value), free `read` and device-side `crc`
-  (CRC-32, `ww_block::crc32`), `claim` / `release` of a write lease that stops the card's own user, `write` with a
-  CRC and `erase` under it, and the optional `bulk` group: the `write_runs` credit sink acknowledged on the counted
-  `written` stream, and the counted `read_runs` stream. Who may claim is the firmware's choice per link
-  (`CommonError::Refused`). Tier T1 of logring's design (its PC `LinkMedium`, S2 prepare on the PC). API crate, snapshot,
-  docs page `docs/std_library/ww_block.md` and the round trip `tests/block_sd` done, the scaffold compiles; the
-  first server is the logring's. `crc32`/`crc32_update` are `ww_crc`'s `CRC32_ISO_HDLC` (TR-31), table size
-  (none, `table-256`, `table-slice16`) picked by `ww_crc`'s cargo features.
-- 🚧 **STD-40 `ww_sd`** · `v0.5.x` — raw SD card access over WireWeaver: `SdCard` with `capabilities`, `state`, the
-  `detect` stream, raw `registers` (CID, CSD, OCR, RCA, SCR, SD Status), `reinit` with a per-step `InitReport`, and
-  `command`: one raw command with an optional data phase, answering response bytes, `CardStatus` bits, the
-  `Outcome` and timing. Commands are `Free`, need the `ww_block` lease, or are `Restricted` (CMD42, CMD27) unless
-  the firmware builds with `raw-sd-unrestricted` (`ww_sd::check_access`). Tier T0 of logring's design. API crate, snapshot,
-  docs page `docs/std_library/ww_sd.md` and the round trip `tests/block_sd` done, the scaffold compiles; a device
-  needs a raw-command hook in its SD driver (not checked yet for embassy-stm32's `Sdmmc`). The docs page says how a
-  device in SPI mode fills the answers ("In SPI mode", from rePort's `sd_proto` engine); rePort's simulator serves
-  `SdCard` on a simulated card in SPI mode (usb_io_fw IF-8).
 - 💡 **STD-33 `ww_settings` single-sector mode** — a store in one sector with a RAM copy, for a part with exactly
   one sector to spare; a power cut during its erase loses every group (the window is the whole erase, 1 to 4 s on a
   128 KiB sector, see `docs/api/settings.md#parts-with-big-sectors`). Only if a device needs it.
-- 💡 **STD-10 Device state machine trait** like CANopen.
 - 💡 **STD-11 Register description registry** — WireWeaver for describing device registers.
-- 💡 **STD-41 Frame splitters for byte streams** — a no_std, sans-IO splitter (bytes in, frames out with their
-  time and status: CRC good or bad, truncated, overrun), the same code on the device and the host. Kernels: idle
-  gap (today's `RxChunk`), delimiter (`\n`, `\r\n`, any byte), fixed length, length field, sync byte + length +
-  checksum, COBS, SLIP, Modbus RTU, NMEA; picked by the host when it opens the stream (`Uart::frames(cfg)`), no new
-  firmware. Frames of a bounded length are what a batched stream can take, where a raw byte stream can't (no size
-  bound); with API-51, each frame XOR'd with the last one of the same key (Modbus address, NMEA sentence, CAN ID).
-- 💡 **STD-44 SPI slave data-ready line** — a GPIO the slave asserts while an answer is queued (or the register map
-  changed), as most SPI slave protocols with a computed answer have (ESP32 handshake, nRF IRQ); the master reads only
-  when it is set, so the answer queue needs no polling. Part of `SpiSlaveConfig`, the pin named by the board.
-- 💡 **STD-45 Live registers in a slave's register map** — address ranges of the I2C or SPI register map whose reads
-  the host answers (I2C stretching meanwhile) or that change on read (clear-on-read status, FIFO data registers),
-  so a chip with a few such registers can be emulated without moving it all to the answer queue.
-- 💡 **STD-46 More I2C slave addressing** — a second address or an address mask (one emulator answering for several
-  chips, a 24C16's block bits), general call, SMBus PEC and SMBALERT#/ARA. RP2350's controller has one address only,
-  so this is per-device capability.
 - 💡 **STD-51 Automatic sync master election** — boards that share a two-way link (CAN, Ethernet, USB through one
   host) choose the master of their sync line themselves, PTP-BMCA style: the best source wins (a GPS or a
   host-steered board with a good error bound), the lowest serial breaks a tie. Not over IRIG-B or PPS: they are
   one-way, so today the master is set explicitly with `configure_sync` (STD-49,
   `docs/std_library/ww_timebase.md#two-pcs-two-boards-one-line`).
-- 🚧 **STD-47 `ww_pin_diag` pin tests** · `v0.5.x` — `PinDiag { const POINTS; set(point, PointState); read(point);
-  release_all() }`: raw access to a board's digital points (MCU pins, shift register and expander outputs) for
-  bring-up, verification and production tests; the firmware keeps its board's rules and answers `NotCapable`,
-  `CommonError::InUse` or `Refused { rule }`. Done: crate, docs page `docs/std_library/ww_pin_diag.md`, test pair
-  `tests/pin_diag` (mock board: short, external pull-up, input-only pin, interlocked outputs, held pin), snapshot;
-  the host tests and plan files are TOOL-15 (`ww pins test`). Missing: a device implementing it (rePort).
-- 🚧 **STD-48 `ww_interned` strings as ids** · `v0.5.x` — `Interned { Id(Index<InternedStr, UNib32>), Text(&str) }` for names and reasons;
-  ids resolved on the host from the firmware's ELF by build id. Done: the type, `Display` (`#17` for an unresolved
-  id), `ww pins` finds the ELF by build id (`ww_pin_probe::device::Names`). Missing: an accessor for
-  `defmt::Str`'s index (upstream, `Table::get_str`), reading the ids from the ELF's table with it.
 - ✅ **STD-99 Level rates on the wire** — the wire_weaver side of `exact_units` LVL-3 (was STD-97): the crate walker
   (`wire_weaver_core/src/transform/markers.rs`) learns `counted(Base)` (a unit sharing another marker's counted
   dimension, `Decibel`'s `counted(Neper)`) and `ln2` / `ln10` exponents in a `unit!` / `scale!` line's `Exact(..)`
@@ -2716,10 +2412,6 @@ Unicast Data0 to one node over the same bus is TR-6.
   three `nucleo_g0b1re_api` (now `0.4.0`) fixture signatures and `wire_weaver_snapshots`' pinned `Clock` signature
   updated the same way earlier STD-59 drift did (`exact_units::Prefix` changed without a version bump, unpublished
   crates), and `ww_si::units::ALL`'s hardcoded count moved with the new markers.
-- 📋 **STD-54 `ww counters` against the rePort** — `ww counters` fails against the B200A: the firmware sends no build
-  id, and its `cnt` format is v0 while the tool reads v2 (report-i2c-master bench run, 27 Oct 2026). Either side may
-  be behind (STD-25): bring the firmware's `cnt` and build id up to what the tool needs, or make the tool say which
-  format it got and what is missing instead of failing.
 - 🚧 **STD-56 Plain fields with a unit in their name become `Fixed`** — `shared_us: u64`, `rate_ppb: i32`,
   `ring_capacity_bytes: u64`, `queue_len: u32` and about 80 more across `ww_stdlib`, `ww_link`, `ww_stream`,
   `ww_client_server` and the host crates: same bytes, a Rust-API break per crate; a bound, a counted unit or a
@@ -2946,11 +2638,6 @@ Unicast Data0 to one node over the same bus is TR-6.
 - 📋 **TEST-19 Lossy test medium** · `v0.5` — an in-process medium that drops, duplicates, reorders, stalls and
   disconnects on a seeded schedule, with the stream reliability scenarios S1-S6 as end-to-end tests
   (`docs/api/stream_reliability.md`).
-- 🐛 **TEST-20 DFU transcript 1L-UPD-STEP races**: after the power cut, the host annotation "the call fails (link
-  lost)" and the bootloader's "an update is under way" are recorded in either order, so
-  `scenarios::pit_stop_shuttle_1l_upd_step` fails now and then (~2 in 10 alone, more often under the full parallel
-  `just test`). Seen before the TR-12 changes too. The recorder needs one order for events of the host and the
-  simulated device that happen at the same time. Found 15 Oct 2026.
 - 🚧 **TEST-21 Power cuts against a flash store on STM32** — `examples_mcu/ecc_flash_g0b1`, a sequential-storage map on
   `ww_ecc_flash` (SRV-19) in bank 2 of a G0B1:
   - [x] reset loop: every boot loads and checks all keys against what earlier boots committed, then a SysTick
@@ -3175,10 +2862,58 @@ Unicast Data0 to one node over the same bus is TR-6.
 - **STD-134 `ww_tape` finished pieces end on 4 KiB** — moved to ww_tape's own repository with its id: [vhrdtech/ww_tape FEATURES.md](https://github.com/vhrdtech/ww_tape/blob/main/FEATURES.md).
 - **STD-135 `ww_tape` definitions and state near their use on track 0, format version 1** — moved to ww_tape's own repository with its id: [vhrdtech/ww_tape FEATURES.md](https://github.com/vhrdtech/ww_tape/blob/main/FEATURES.md).
 - **EVO-8 Snapshots of crates.io crates** — superseded by EVO-80: a host fetches a published crate's snapshot from
+- **SRV-26 Device-side engine for I2C and SPI slaves** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **CLT-59 Crash call chain as `file:line`** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **EVO-57 `ww_spi` typed numbers on the wire** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **EVO-59 `ww_logic_analyzer` typed numbers on the wire** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **EVO-60 `ww_user_info` caps bounded on the wire** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **EVO-61 `ww_onewire` on a new wire line** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **EVO-62 `ww_can_bus` on wire `w2.0`** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **EVO-65 `ww_dfu` typed numbers on the wire** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **EVO-72 Capability limits bounded by their consts** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **TOOL-8 `ww` inspect / read / write all GPIOs on any device** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **TOOL-21 `ww pins tui`** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **TOOL-28 `ww board rework set` / `clear`** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **TOOL-29 Flashers check the board's reworks** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **TEST-20 DFU transcript 1L-UPD-STEP races** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **STD-5 `ww_gpio`** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **STD-6 `ww_gpio_hl`** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **STD-7 Interrupt left enabled in `ww_gpio_hl`** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **STD-8 Prototypes** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **STD-10 Device state machine trait** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **STD-12 `ww_dfu` firmware update API** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **STD-13 IO trait family** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **STD-18 `ww_adc`** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **STD-19 `ww_pwm`** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **STD-20 `ww_onewire`** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **STD-21 `ww_logic_analyzer`** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **STD-22 `ww_signal_generator`** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **STD-24 `ww_firmware_info` / `ww_board_info` / `ww_uid` / `ww_user_info` device contract** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **STD-25 `ww_counters` on `cnt` words** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **STD-26 `ww_log` defmt over reliable streams** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **STD-27 `reset-record-age`** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **STD-28 `ww_indication` lightweight rework** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **STD-29 `ww_can_bus` on the stdlib idioms** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **STD-31 Observable `ww_gpio` pin level** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **STD-34 `ww_recorder`** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **STD-35 Slave data paths in `ww_i2c` and `ww_spi`** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **STD-39 `ww_block`** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **STD-40 `ww_sd`** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **STD-41 Frame splitters for byte streams** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **STD-44 SPI slave data-ready line** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **STD-45 Live registers in a slave's register map** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **STD-46 More I2C slave addressing** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **STD-47 `ww_pin_diag` pin tests** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **STD-48 `ww_interned` strings as ids** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **STD-50 `ww_indication` animations in phase** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **STD-52 `ww_i2c` master errors and limits** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **STD-54 `ww counters` against the rePort** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **STD-76 `ww_i2c_hl` embedded-hal I2C over `ww_i2c`** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **STD-98 Recording a board rework** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **STD-113 `ww_onewire` / `ww_uart` typed numbers** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
+- **STD-114 `ww_can_bus` typed numbers** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
   its `.crate` archive on crates.io, or from the crate's repository.
-- **STD-9 Stubs, for later: `ww_spi`** — superseded by STD-13: `ww_spi` is now a full IO-family trait (optional
-  `Spi::monitor`, typed numbers, STD-56), not a stub; `ww_board_info`, `ww_firmware_info`, `ww_user_info` and
-  `ww_uid` moved to STD-24 already.
+- **STD-9 Stubs, for later: `ww_spi`** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
 - **SRV-50 Server call gate** — removed before any release (user, 3 Nov 2026): a board with a rework its firmware
   doesn't know no longer runs guarded but refuses to boot (STD-101), so nothing is left to gate. It was
   `ww_codegen!(.., call_gate = true)`, a `CallGate::admit` question per trait level (and per item where named) before
@@ -3199,12 +2934,7 @@ Unicast Data0 to one node over the same bus is TR-6.
   through every consumer, is the contract that keeps them byte-identical; `ww_self` is the shared model for
   everything outside the derive. Fallback if drift ever bites: a dependency-free crate holding only the layout rules
   (bit offsets, flags, nibble alignment), called by both `shrink_wrap_derive` and `ww_self`, breaks no cycle.
-- **STD-30 `ww_gpio` port access** — dropped (Roman, 20 Oct 2026), `Bank::read_inputs` / `write_outputs`,
-  `PinLevel` and the `simultaneous_*` capabilities removed before `ww_gpio` 0.1.0 was published. `ww_gpio` stays
-  simple and low speed, one pin per call (IO family D9): many pins in one round trip are per-pin calls in one multi
-  request (CLT-15, `docs/std_library/ww_gpio.md#several-pins`); several pins at one instant or with precise timing
-  (bit-banged parallel buses, a strobe with its data lines) belong to the signal generator (STD-22) and the logic
-  analyzer (STD-21). The extra methods only cost flash on every GPIO server.
+- **STD-30 `ww_gpio` port access** — moved to ww_stdlib's own repository with its id: [vhrdtech/ww_stdlib FEATURES.md](https://github.com/vhrdtech/ww_stdlib/blob/main/FEATURES.md).
 - **EVO-32 Conversions between unchanged types of two versions** — superseded by EVO-37: the lines of one API
   live in one crate and share unchanged types from one module, one Rust type, nothing to convert (Roman, 9 Nov 2026).
 - **API-15 Return streams from functions** — superseded by API-31 stream functions: `#[stream(T)] fn name(args)`

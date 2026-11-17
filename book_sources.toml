@@ -27,3 +27,12 @@ package = "ww_tape"
 pages = "../docs"
 into = "tape"
 features = "../FEATURES.md"
+
+# ww_stdlib: the pages of the standard library's API crates, helpers and tools; no crate of it is locked here
+[[source]]
+git = "https://github.com/vhrdtech/ww_stdlib"
+branch = "main"
+pages = "docs"
+into = "std_library"
+features = "FEATURES.md"
+features_page = "stdlib_features.md"

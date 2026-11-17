@@ -17,7 +17,7 @@ some framework code defines bytes on the wire although it lives in a "free to br
 | Layer                 | Crates                                                                                                                                                              | Versioning                                                                  |
 |-----------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------|
 | 1. Wire format        | `shrink_wrap`, `shrink_wrap_derive`                                                                                                                                 | own version, changes rarely                                                 |
-| 2. Shared API & types | `exact_units` (its own repository, the units and `Fixed` under `ww_si`); base types `ww_numeric`, `ww_si`, `ww_date_time`, `ww_version`, `ww_error`, `ww_global`, `ww_keyed`, `ww_crc` ([ww_base](https://github.com/vhrdtech/ww_base), by git); `ww_stdlib/*` traits (`ww_gpio`, `ww_i2c`, ...); `ww_self` (repo root) | own version per crate, the version is the API identity                      |
+| 2. Shared API & types | `exact_units` (its own repository, the units and `Fixed` under `ww_si`); base types `ww_numeric`, `ww_si`, `ww_date_time`, `ww_version`, `ww_error`, `ww_global`, `ww_keyed`, `ww_crc` ([ww_base](https://github.com/vhrdtech/ww_base), by git); standard library traits (`ww_gpio`, `ww_i2c`, ...; [ww_stdlib](https://github.com/vhrdtech/ww_stdlib), by git); `ww_self` (repo root) | own version per crate, the version is the API identity                      |
 | 3. Framework          | API description: `ww_api` (the API crate prelude), `wire_weaver_derive`, `wire_weaver_core`; runtime: `wire_weaver`, `wire_weaver_client`, `wire_weaver_cli`, `ww_device`, `ww_link`, `ww_framer`, `ww_client_server`, `ww_timebase`, ... | shared `[workspace.package] version`, free to break Rust API                |
 | 4. User API           | `my_device_api` and friends (see [folder structure](../api/folder_structure.md))                                                                                    | own version, the version is the API identity, checked on every connection |
 
@@ -35,7 +35,7 @@ which re-exports `ww_api`. Generated code refers to `shrink_wrap::...` through t
 2. Which layer is it in? Wire changes in `shrink_wrap`, `ww_framer`, `ww_link`, `ww_client_server` or server/client
    codegen affect every device - avoid them, and if unavoidable, batch them and mark them `Wire format:` in the
    changelog.
-3. For `shrink_wrap` (and base `ww_stdlib` types), list the reverse dependencies that need to be re-released.
+3. For `shrink_wrap` (and the base types of ww_base), list the reverse dependencies that need to be re-released.
 4. Bump the right position: patch for compatible additions in `shrink_wrap` and API crates before 1.0, minor for
    everything else before 1.0.
 5. Write the changelog entry, saying what users must change and whether deployed devices are affected.

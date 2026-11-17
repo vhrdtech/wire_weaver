@@ -147,7 +147,7 @@ checker reads its definition from the `ww_si` snapshot built into it, so a field
 checked the same way as a wrapper of your own. The same for a wrapper of any other crate with a built-in snapshot
 (`ww_block::Lease`, a `u32`, as an argument of `ww_sd`). When that snapshot doesn't hold the wrapper (saved before it
 was added, for a version not published yet), the check stops with an error naming it: save that crate's snapshot
-again (`just save-snapshots` for `ww_stdlib`).
+again (`just save-snapshots` in its repository).
 
 This holds for every generic type, not only `Fixed`: a type parameter that no field uses (one only in `PhantomData`,
 which the model doesn't have) is a marker that gives the bytes a meaning. A marker with a definition in the model (a

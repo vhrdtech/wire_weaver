@@ -8,7 +8,7 @@ level: nomicon
 and of the data types it uses, serializable with `shrink_wrap` like any other wire type. The codegen builds one
 from a `#[ww_trait]`/`#[ww_api_root]` definition at compile time, a device can send its own as introspection data,
 and tools (the dynamic client, the `ww` CLI, the Python bindings) walk it to call methods, decode values and show
-an API without any generated code for it. It lives in the `wire_weaver` repo root, not `ww_stdlib/`, but is
+an API without any generated code for it. It lives in the `wire_weaver` repository, not in ww_stdlib, but is
 versioned and published the same way; add it with:
 
 ```toml

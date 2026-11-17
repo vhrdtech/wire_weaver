@@ -16,7 +16,7 @@ name of whatever trait lives there. Because it carries this identity, an `Attach
 never heard of the concrete device or its top-level API trait, as long as that code knows what to do with the global
 trait underneath.
 
-`examples/all_gpio/examples/high_level.rs` is the reference for this pattern end-to-end:
+ww_stdlib's `examples/all_gpio/examples/high_level.rs` is the reference for this pattern end-to-end:
 
 ```rust
 let device = AllGpio::new().connect_blocking()?;
@@ -40,7 +40,7 @@ it is `all_gpio`-specific generated code. `.attachment()` erases that specificit
   attachment that isn't really a `ww_gpio::Bank`, whatever device or resource path it actually came from - that runtime
   check is what makes it safe to accept an attachment from arbitrary device APIs.
 
-The `ww_gpio_hl` crate (in `ww_stdlib/ww_gpio_hl`) is the reference for the driver side of this pattern - a
+The `ww_gpio_hl` crate (in the ww_stdlib repository) is the reference for the driver side of this pattern - a
 higher-level API built on top of plain generated code:
 
 - `src/ww.rs` defines small wrapper structs (`BankClient`, `GpioClient`) and invokes `ww_impl!` against `ww_gpio::Bank`

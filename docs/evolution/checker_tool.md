@@ -22,8 +22,8 @@ saved in `<path>/api_snapshots/`, and fails if the crate version or the [wire ve
 is not bumped enough for what changed:
 
 ```
-$ ww api check ww_stdlib/ww_uart
-ww_uart 0.1.0 (ww_stdlib/ww_uart/api_snapshots/ww_uart_0_1_0.ron) -> 0.1.1 (source): compatible changes
+$ ww api check ww_uart
+ww_uart 0.1.0 (ww_uart/api_snapshots/ww_uart_0_1_0.ron) -> 0.1.1 (source): compatible changes
   needs: wire w1.0 -> w1.1 or later (a new wire revision), crate 0.1.0 -> 0.1.1 or later (compatible position (patch before 1.0, minor after))
   compatible: wire version w1.0 -> w1.1
   compatible: Uart::flush added
@@ -313,8 +313,8 @@ lists every difference, doc comments included, followed by the verdict. It never
 is breaking, `ww api check` does:
 
 ```
-$ ww api diff ww_stdlib/ww_uart
-ww_uart 0.1.0 (ww_stdlib/ww_uart/api_snapshots/ww_uart_0_1_0.ron) -> 0.1.0 (source)
+$ ww api diff ww_uart
+ww_uart 0.1.0 (ww_uart/api_snapshots/ww_uart_0_1_0.ron) -> 0.1.0 (source)
   ~ Uart::rx: docs
       /// Receive stream
     + /// of chunks

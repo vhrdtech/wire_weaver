@@ -78,7 +78,7 @@ A test on tokio's paused clock (`start_paused`) can't use a real socket: the run
 still in the kernel, so the clock can jump past it. On the simulated socket a datagram is in the device's queue as soon
 as it is sent. The paused clock then drives both ends' accumulation windows and the host's link setup retries
 exactly, so which messages share a datagram, and every frame counter after that, is the same on every run, however
-loaded the machine is. `tests/dfu_scenarios` pins its UDP transcripts this way (`1S-APP-BULK`, `2C-APP-BULK`) and
+loaded the machine is. ww_stdlib's `tests/dfu_scenarios` pins its UDP transcripts this way (`1S-APP-BULK`, `2C-APP-BULK`) and
 keeps one run of the same scenario over real sockets, which checks that the update gets through. WebSocket has the
 same, see [Simulated WebSocket in tests](websocket.md#simulated-websocket-in-tests).
 

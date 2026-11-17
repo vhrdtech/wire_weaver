@@ -63,7 +63,7 @@ binary message per link message. The device serves the returned `WsPort` with `W
 it would a TCP socket.
 
 Nothing waits in a kernel, so a test on tokio's paused clock (`start_paused`) drives both ends exactly, and the order
-of the host's and the device's frames is the same on every run. `tests/dfu_scenarios` pins its WebSocket transcripts
+of the host's and the device's frames is the same on every run. ww_stdlib's `tests/dfu_scenarios` pins its WebSocket transcripts
 this way (`1L-UPD-BULK`, `2R-APP-STEP`) and keeps one run over a real TCP socket, which checks that the update gets
 through. The same holds for UDP, see [Simulated UDP in tests](udp.md#simulated-udp-in-tests).
 

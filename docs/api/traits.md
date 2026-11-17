@@ -81,7 +81,7 @@ TODO: splitting into multiple files
 A trait published in a crate is defined once and implemented by many devices: GPIO banks, I2C, UART, firmware
 updates, logs, counters, board and firmware info, memory access, CAN bus and more are in the
 [standard library](../std_library/overview.md). A device API puts such a trait in with `ww_impl!` and the trait's
-path; the crate providing it (`ww_gpio` here) is a normal Cargo dependency of the API crate, see
+path; the crate providing it (`ww_gpio` here) is a normal Cargo dependency of the API crate, see ww_stdlib's
 `examples/all_gpio_api`:
 
 ```rust

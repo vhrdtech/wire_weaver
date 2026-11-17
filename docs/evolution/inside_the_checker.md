@@ -123,7 +123,7 @@ crate that embeds the type, and a change of the bytes is a break named at the fi
 
 A definition found nowhere (a snapshot saved against a revision of the dependency that no snapshot holds any more) is
 still reported by its two signatures. Either way the snapshot of the checking crate's current version differs from its
-source: save it again while the version is not published (`just save-snapshots` for `ww_stdlib`).
+source: save it again while the version is not published (`just save-snapshots` in its repository).
 
 ### Superseded definitions (EVO-68)
 
@@ -135,7 +135,7 @@ snapshot saved before EVO-69 names the definition by its signature with docs):
 
 ```text
 ww_error/api_snapshots/superseded/ww_error_0_1_0-type-CommonError-bb2c2d7eb9d06d70.ww  (in ww_base)
-ww_stdlib/ww_indication/api_snapshots/superseded/ww_indication_0_1_0-trait-Indication-e1b197f7361f73a6.ww
+ww_indication/api_snapshots/superseded/ww_indication_0_1_0-trait-Indication-e1b197f7361f73a6.ww  (in ww_stdlib)
 ```
 
 * A trait or type whose own source didn't change is kept too when its signature did: `Indication`'s method returns a
@@ -155,9 +155,9 @@ A refresh that happened before these files existed is made up for from git histo
 keep what the current one no longer has.
 
 ```sh
-git show <earlier-commit>:ww_stdlib/ww_indication/api_snapshots/ww_indication_0_1_0.ron > old.ron
-ww api keep-superseded old.ron --current ww_stdlib/ww_indication/api_snapshots/ww_indication_0_1_0.ron \
-    --into ww_stdlib/ww_indication/api_snapshots/superseded
+git show <earlier-commit>:ww_indication/api_snapshots/ww_indication_0_1_0.ron > old.ron
+ww api keep-superseded old.ron --current ww_indication/api_snapshots/ww_indication_0_1_0.ron \
+    --into ww_indication/api_snapshots/superseded
 ```
 
 The earlier snapshot must parse with today's model, and the definitions of other crates it refers to must be known,
@@ -179,24 +179,24 @@ snapshot of today's format. Only a signature that names nothing known is let thr
 
 ### Frozen fixtures and `ww api refresh-pins`
 
-A frozen snapshot that stands for a released API but follows the live `ww_stdlib` by path on purpose, as the
-evolution checker's `nucleo_g0b1re_api` fixture does, keeps its pins in line with the source without being saved
-again (saving would rewrite it in today's format):
+A frozen snapshot that stands for a released API but follows the live standard library on purpose, as the
+`nucleo_g0b1re_api` fixture in the ww_stdlib repository does, keeps its pins in line with the source without being
+saved again (saving would rewrite it in today's format):
 
 ```sh
-ww api refresh-pins wire_weaver_evolution/tests/fixtures/nucleo_g0b1re_api
+ww api refresh-pins tests/nucleo_g0b1re_fixture
 ```
 
 * It rewrites only the signatures by which the snapshot of the crate's current version names other crates' traits and
   types, and those crates' versions; an 8-byte reference stays 8 bytes.
 * It refuses when the source no longer works with the snapshot on the wire, printing the report, unless
   `--accept-breaking` (a stated break of the dependency). `--dry-run` prints what would change.
-* In this repository `just refresh-fixture-pins` runs it, and `just save-snapshots` calls that at its end.
 * No signature bytes are edited by hand: the fixture's tests require a wire-compatible verdict against the live
-  `ww_stdlib` (not "no changes"), the older-format checks run on a copy with refreshed pins, and
-  `tests/stdlib_evolution`'s `signatures_from_before_marker_definitions` reads its pins from the snapshot files.
-* The tests `old_format_snapshot_passes_against_unchanged_source`, `compatible_stdlib_change_passes_the_fixture` and
-  `breaking_stdlib_change_fails_the_fixture` in `wire_weaver_evolution` hold this in place.
+  standard library (not "no changes"), and the older-format checks run on a copy with refreshed pins.
+* The fixture and its tests (`old_format_snapshot_passes_against_unchanged_source`,
+  `compatible_stdlib_change_passes_the_fixture`, `breaking_stdlib_change_fails_the_fixture`) live in the ww_stdlib
+  repository. Here `tests/stdlib_evolution`'s `signatures_from_before_marker_definitions` reads the `ww_timebase::Clock`
+  pin from a byte-identical copy of the fixture's snapshot (`tests/stdlib_evolution/pins/`).
 
 ## Where the checks live
 

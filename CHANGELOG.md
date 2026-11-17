@@ -2,7 +2,7 @@
 
 The history of WireWeaver as a whole, from its first YAML sketches to today, newest first. For the exact changes of
 a released or upcoming crate version, read that crate's own `CHANGELOG.md` (`wire_weaver/`, `wire_weaver_core/`,
-`ww_stdlib/*`, ...; shrink_wrap's and the ww_base crates' are in their own repositories): they are the authoritative record from 0.4.0 on. This file summarizes, per
+...; shrink_wrap's, the ww_base crates' and the ww_stdlib crates' are in their own repositories): they are the authoritative record from 0.4.0 on. This file summarizes, per
 version or era, what was added and changed, and which ideas first appeared there and are still part of WireWeaver.
 
 The project changed names several times: AML (2017-2019, before git), vhapi (2020), vhL with xPI and vhl-stdlib
@@ -134,6 +134,9 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - Snapshots found by crate name and version through `ww_snapshots` (EVO-80); `wire_weaver_snapshots` is gone. See the `ww_snapshots`, `wire_weaver_core`, `wire_weaver_evolution`, `wire_weaver_client`, `wire_weaver_cli`, `wire_weaver_py` and `ww_self` changelogs.
 - `ww_tape` series summaries in one pass with typed kernels (STD-133), integers up to 32 bits 5 to 11x faster; `just bench-summaries` measures them. See the `ww_tape` changelog.
 - `ww_tape` resume after a crash, memory sinks and describe additions (STD-132, breaking). See the `ww_tape` changelog.
+- **Breaking:** the standard library moved to vhrdtech/ww_stdlib: its API crates, `ww_bus_slave`, `ww_defmt_logger`, `ww_gpio_hl`, `ww_i2c_hl`, `ww_report`, `ww_pin_probe`, `ww_std_cli`, tests, examples, board bins and pages; take them by git there.
+- The book assembles ww_stdlib's pages and tracker from its `main` branch: `book_sources.toml` takes git sources. See the `ww_book` changelog.
+- Framework tests no longer read standard library crates: `tests/skipped_dep_api` and `skipped_root_api` stand in; `ww` takes `ww_std_cli` by git. See the `ww` changelog.
 
 ### Added
 

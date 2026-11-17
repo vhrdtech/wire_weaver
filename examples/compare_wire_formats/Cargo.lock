@@ -211,7 +211,7 @@ checksum = "00d174d5400e5e8fd687ad1049e2f578285fa914201b1af7e8b112a4546bd826"
 [[package]]
 name = "exact_units"
 version = "0.1.0"
-source = "git+https://github.com/romixlab/exact_units#6f582740fe94185277d36e4718b2dd45be33ebf5"
+source = "git+https://github.com/romixlab/exact_units#cd1fd9d41a28d3a4c3634c915e5712e75fe6455d"
 dependencies = [
  "libm",
  "serde",
@@ -947,7 +947,7 @@ dependencies = [
 [[package]]
 name = "ww_error"
 version = "0.1.0"
-source = "git+https://github.com/vhrdtech/ww_base#fbddc7e13b577a6f876aa1e5a4698eafc85eba8c"
+source = "git+https://github.com/vhrdtech/ww_base#3772b03543b011ace65ae6a80b53333d12d7da2d"
 dependencies = [
  "shrink_wrap",
  "ww_si",
@@ -956,7 +956,7 @@ dependencies = [
 [[package]]
 name = "ww_global"
 version = "0.2.0"
-source = "git+https://github.com/vhrdtech/ww_base#fbddc7e13b577a6f876aa1e5a4698eafc85eba8c"
+source = "git+https://github.com/vhrdtech/ww_base#3772b03543b011ace65ae6a80b53333d12d7da2d"
 dependencies = [
  "convert_case",
  "serde_json",
@@ -973,7 +973,7 @@ dependencies = [
 [[package]]
 name = "ww_numeric"
 version = "0.3.0"
-source = "git+https://github.com/vhrdtech/ww_base#fbddc7e13b577a6f876aa1e5a4698eafc85eba8c"
+source = "git+https://github.com/vhrdtech/ww_base#3772b03543b011ace65ae6a80b53333d12d7da2d"
 dependencies = [
  "serde",
  "shrink_wrap",
@@ -997,7 +997,7 @@ dependencies = [
 [[package]]
 name = "ww_si"
 version = "0.5.0"
-source = "git+https://github.com/vhrdtech/ww_base#fbddc7e13b577a6f876aa1e5a4698eafc85eba8c"
+source = "git+https://github.com/vhrdtech/ww_base#3772b03543b011ace65ae6a80b53333d12d7da2d"
 dependencies = [
  "exact_units",
  "shrink_wrap",
@@ -1022,7 +1022,7 @@ dependencies = [
 [[package]]
 name = "ww_version"
 version = "0.2.0"
-source = "git+https://github.com/vhrdtech/ww_base#fbddc7e13b577a6f876aa1e5a4698eafc85eba8c"
+source = "git+https://github.com/vhrdtech/ww_base#3772b03543b011ace65ae6a80b53333d12d7da2d"
 dependencies = [
  "hex",
  "semver",

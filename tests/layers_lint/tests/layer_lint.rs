@@ -2,7 +2,8 @@
 //! normal, build or dev dependency edge from a lower-layer crate to a higher-layer one that
 //! `layers.toml`'s `[[allow]]` list doesn't name; an allow-list line whose edge no longer exists
 //! fails too. R1: an API crate (`[api] crates`) reaches no runtime crate through its normal
-//! dependencies. See `/layers.toml` and `docs/evolution/crate_layers.md`.
+//! dependencies. See `/layers.toml` and `docs/evolution/crate_layers.md`. Every member of a workspace with
+//! `[workspace.lints]` has a `[lints]` table, whatever the toolchain.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -204,6 +205,42 @@ fn layers_file(root: &Path) -> LayersFile {
     let layers_toml = std::fs::read_to_string(root.join("layers.toml"))
         .expect("reading layers.toml at the repo root");
     toml::from_str(&layers_toml).expect("parsing layers.toml")
+}
+
+fn read_toml(manifest: &Path) -> toml::Table {
+    let text = std::fs::read_to_string(manifest)
+        .unwrap_or_else(|e| panic!("reading {}: {e}", manifest.display()));
+    toml::from_str(&text).unwrap_or_else(|e| panic!("parsing {}: {e}", manifest.display()))
+}
+
+/// Every member of a workspace that has `[workspace.lints]` has a `[lints]` table (`workspace = true`, or its own
+/// tables with a comment why). Cargo warns about a missing one only from 1.100 on; this catches it on any toolchain.
+#[test]
+fn every_crate_inherits_workspace_lints() {
+    let root = repo_root();
+    let mut missing = Vec::new();
+    for manifest in workspace_manifests(&root) {
+        let has_workspace_lints = read_toml(&manifest)
+            .get("workspace")
+            .and_then(|workspace| workspace.get("lints"))
+            .is_some();
+        if !has_workspace_lints {
+            continue;
+        }
+        let metadata = metadata_of(&manifest, &["--no-deps"]).unwrap_or_else(|e| {
+            panic!("cargo metadata --manifest-path {}: {e}", manifest.display())
+        });
+        for package in &metadata.packages {
+            if !read_toml(package.manifest_path.as_std_path()).contains_key("lints") {
+                missing.push(package.manifest_path.to_string());
+            }
+        }
+    }
+    assert!(
+        missing.is_empty(),
+        "crate(s) without a [lints] table in a workspace with [workspace.lints]; add `[lints]\\nworkspace = true`: \
+         {missing:?}"
+    );
 }
 
 /// `ww_plugin` is what an executable plugin (`ww-NAME`) takes its device arguments from, so it must not link the

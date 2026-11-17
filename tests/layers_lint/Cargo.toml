@@ -6,7 +6,7 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Layer lint: every workspace crate has a layer in layers.toml, no crate takes one above its own layer unless layers.toml allow-lists the edge (TEST-36), and no API crate reaches the runtime (API-68)."
+description = "Layer lint: every workspace crate has a layer in layers.toml, no crate takes one above its own layer unless layers.toml allow-lists the edge (TEST-36), no API crate reaches the runtime (API-68), and every crate has a [lints] table."
 
 [dev-dependencies]
 cargo_metadata.workspace = true

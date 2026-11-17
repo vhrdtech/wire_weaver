@@ -388,6 +388,17 @@ pub struct ClientMap {
 mod tests {
     use super::*;
 
+    /// Track definitions carry the crate's name and version, as the recorder wrote them before `api()` was the GID.
+    #[test]
+    fn api_is_the_crate_name_and_version() {
+        let v = api();
+        assert_eq!(v.crate_id, env!("CARGO_PKG_NAME"));
+        let n = |s: &str| s.parse::<u32>().unwrap();
+        assert_eq!(v.version.major.0, n(env!("CARGO_PKG_VERSION_MAJOR")));
+        assert_eq!(v.version.minor.0, n(env!("CARGO_PKG_VERSION_MINOR")));
+        assert_eq!(v.version.patch.0, n(env!("CARGO_PKG_VERSION_PATCH")));
+    }
+
     #[test]
     fn link_key_of_a_session_round_trips() {
         let session = Session {

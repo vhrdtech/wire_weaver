@@ -146,6 +146,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - **Breaking:** a client reports each link to the `Tap` its `ClientConfig::tap` source makes; no default recorder (TR-14). See the `wire_weaver_client` changelog.
 - A `#[ww_trait]` crate taken by git builds again over a build directory kept from an older commit; see `ww_snapshots`.
 - The crate walker finds a `[patch]` in an `include`d Cargo config file or a `--config`; see `ww_snapshots`.
+- The Tapes chapter lists all ten ww_tape pages; `figures.css` themes the chapter's SVG figures in light and dark.
 
 ### Added
 

@@ -4,6 +4,7 @@
 
 ### 🐛 Fixes
 
+- The crate walker resolves a dependency that two same-named packages share by its git source: a `Cargo.lock` entry names it without its `#rev`.
 - `Resolver` finds an earlier version's snapshot in the `api_snapshots/` of the crate at the version the lock pins (`CargoSources::locate_crate`); the checker no longer needs it in `~/.wire_weaver` (EVO-80).
 - `Resolver` scans `CARGO_HOME`'s git checkouts once, not on every lookup (`cargo::Fetched`); the checker's tests ran 10x faster (EVO-80).
 - `CargoSources` finds a `[patch]` in `.cargo/config.toml` of any directory above the workspace, as Cargo reads it; a sibling checkout patched from a parent folder had "no source".

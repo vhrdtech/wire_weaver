@@ -97,6 +97,17 @@ impl LockedPackage {
         ))
     }
 
+    /// Whether this package comes from `source` as a dependency entry names it: `git+URL` without the `#rev` the
+    /// package's own `source` carries, a registry in full.
+    fn is_from(&self, source: &str) -> bool {
+        self.source.as_deref().is_some_and(|own| {
+            own == source
+                || own
+                    .split_once('#')
+                    .is_some_and(|(unpinned, _)| unpinned == source)
+        })
+    }
+
     fn version_is(&self, version: &semver::Version) -> bool {
         semver::Version::parse(&self.version).is_ok_and(|v| &v == version)
     }
@@ -190,7 +201,7 @@ impl CargoSources {
                     lock.package.iter().filter(move |p| {
                         p.name == package
                             && version.is_none_or(|v| p.version == v)
-                            && source.is_none_or(|s| p.source.as_deref() == Some(s))
+                            && source.is_none_or(|s| p.is_from(s))
                     })
                 })
                 .collect(),
@@ -809,6 +820,44 @@ pub fn packages_under(dir: &Path, budget: &mut usize) -> Result<Vec<Package>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_dependency_entry_names_a_git_source_without_its_revision() {
+        let lock: CargoLock = toml::from_str(
+            r#"
+            [[package]]
+            name = "units"
+            version = "0.5.0"
+
+            [[package]]
+            name = "units"
+            version = "0.5.0"
+            source = "git+https://example.org/base#0123abcd"
+
+            [[package]]
+            name = "api"
+            version = "0.1.0"
+            dependencies = ["units 0.5.0 (git+https://example.org/base)"]
+            "#,
+        )
+        .unwrap();
+        let version = semver::Version::new(0, 1, 0);
+        let dependent = Dependent {
+            name: "api",
+            version: &version,
+            dir: Path::new("/nowhere/api"),
+        };
+        let spec = DepSpec::Git {
+            url: "https://example.org/base",
+        };
+        let locked = CargoSources::default()
+            .resolve(&lock, &dependent, "units", &spec)
+            .unwrap();
+        assert_eq!(
+            locked.source.as_deref(),
+            Some("git+https://example.org/base#0123abcd")
+        );
+    }
 
     #[test]
     fn locked_package_dir_finds_one_git_checkout() {

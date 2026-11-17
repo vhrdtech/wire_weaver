@@ -102,6 +102,7 @@
 
 ### 🐛 Fixes
 
+- `crossterm` is a dependency on Windows only, where `util::QuitKey` reads with it.
 - `ww udev` ends with an error saying it is not implemented yet (TOOL-37), not a panic.
 
 - `ww api save` and `ww api line` name `docs/evolution/versions.md` for the design line and several lines in one crate, where the rewritten Evolution chapter has them.

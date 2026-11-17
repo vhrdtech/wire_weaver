@@ -11,8 +11,7 @@ repository.workspace = true
 default = ["std"]
 std = []
 
-[dependencies]
-hex-literal.workspace = true
+[dev-dependencies]
 tests_common.workspace = true
 tokio = { workspace = true, features = ["sync", "rt-multi-thread", "rt", "macros", "test-util"] }
 tracing-subscriber.workspace = true

@@ -13,6 +13,11 @@ pub(crate) use defmt::{debug, error, info, trace, warn};
 #[cfg(all(feature = "log", not(feature = "defmt")))]
 pub(crate) use log::{debug, error, info, trace, warn};
 
+// Both features on (`--all-features`): defmt logs, `log` stays linked but unused, which cargo's
+// `unused_dependencies` lint would report.
+#[cfg(all(feature = "log", feature = "defmt"))]
+use log as _;
+
 #[cfg(not(any(feature = "defmt", feature = "log")))]
 mod noop {
     macro_rules! noop {

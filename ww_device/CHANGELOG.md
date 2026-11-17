@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### 🐛 Fixes
+
+- With both `log` and `defmt` on, cargo no longer reports `log` as an unused dependency.
+
 ### ⚠️ Breaking
 
 - A reply is flushed at once for a request at priority 4 and up (`Priority::URGENT`, EVO-76), read from the request's 3 priority bits; the reserved bit beside them is ignored. Hosts and devices are rebuilt together (`ww_client_server` EVO-76).

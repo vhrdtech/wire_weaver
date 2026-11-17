@@ -11,7 +11,7 @@ repository.workspace = true
 default = ["std"]
 std = []
 
-[dependencies]
+[dev-dependencies]
 anyhow.workspace = true
 fan_api.workspace = true
 quantities_api.workspace = true

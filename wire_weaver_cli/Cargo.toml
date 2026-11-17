@@ -11,6 +11,10 @@ license.workspace = true
 [target.'cfg(unix)'.dependencies]
 rustix.workspace = true
 
+# `q` on Windows (util::QuitKey)
+[target.'cfg(windows)'.dependencies]
+crossterm.workspace = true
+
 [features]
 # `cmd::tap::test_support`: a tapped in-process session for the tests of crates that register commands
 test-support = ["wire_weaver_client/in_process"]
@@ -21,8 +25,6 @@ clap = { workspace = true, features = ["derive", "env"] }
 clap_complete = { workspace = true, features = ["unstable-dynamic"] }
 cnt_core.workspace = true
 console.workspace = true
-# crossterm reads `q` on Windows (util::QuitKey)
-crossterm.workspace = true
 hex = { workspace = true, features = ["std"] }
 human-repr = "1.1"
 indicatif = "0.18"

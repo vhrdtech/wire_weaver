@@ -9,7 +9,6 @@ repository.workspace = true
 description = "Types of the wire-format conformance matrix (TEST-23), one property per case type."
 
 [dependencies]
-wire_weaver = { workspace = true, features = ["std"] }
 ww_api = { workspace = true, features = ["std"] }
 ww_keyed = { workspace = true, features = ["std"] }
 ww_self = { workspace = true, features = ["std"] }

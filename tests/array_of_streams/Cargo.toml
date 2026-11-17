@@ -11,7 +11,7 @@ repository.workspace = true
 default = ["std"]
 std = []
 
-[dependencies]
+[dev-dependencies]
 array_of_streams_api.workspace = true
 tests_common.workspace = true
 wire_weaver.workspace = true

@@ -7,7 +7,7 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
-[dependencies]
+[dev-dependencies]
 cross_version_api.workspace = true
 cross_version_old_api.workspace = true
 global_boot_api = { workspace = true, features = ["std"] }

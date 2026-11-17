@@ -316,7 +316,6 @@ name = "blinky_evolved"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "blinky_api",
  "blinky_api_evolved",
  "clap",
  "console",
@@ -375,7 +374,6 @@ name = "bounded"
 version = "0.1.0"
 dependencies = [
  "bounded_api",
- "hex-literal",
  "tests_common",
  "tokio",
  "tracing-subscriber",
@@ -695,7 +693,6 @@ dependencies = [
 name = "conformance_api"
 version = "0.1.0"
 dependencies = [
- "wire_weaver",
  "ww_api",
  "ww_keyed",
  "ww_self",
@@ -1104,7 +1101,6 @@ dependencies = [
  "serde_json",
  "tests_common",
  "tokio",
- "tracing-subscriber",
  "wire_weaver",
  "wire_weaver_client",
  "ww_client_server",
@@ -2094,7 +2090,6 @@ dependencies = [
  "serde_json",
  "wire_weaver",
  "ww_client_server",
- "ww_stream",
 ]
 
 [[package]]
@@ -2212,7 +2207,6 @@ checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
 name = "methods"
 version = "0.1.0"
 dependencies = [
- "hex-literal",
  "methods_api",
  "tests_common",
  "tokio",
@@ -2740,7 +2734,6 @@ dependencies = [
 name = "properties"
 version = "0.1.0"
 dependencies = [
- "hex-literal",
  "properties_api",
  "tests_common",
  "tokio",
@@ -3532,7 +3525,6 @@ dependencies = [
 name = "streams"
 version = "0.1.0"
 dependencies = [
- "hex-literal",
  "streams_api",
  "tests_common",
  "tokio",
@@ -4026,7 +4018,6 @@ dependencies = [
 name = "traits"
 version = "0.1.0"
 dependencies = [
- "hex-literal",
  "tests_common",
  "tokio",
  "tracing-subscriber",
@@ -4041,7 +4032,6 @@ dependencies = [
 name = "traits_api"
 version = "0.1.0"
 dependencies = [
- "wire_weaver",
  "ww_api",
 ]
 

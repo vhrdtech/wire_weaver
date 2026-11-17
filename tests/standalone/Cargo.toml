@@ -8,7 +8,7 @@ license.workspace = true
 repository.workspace = true
 
 # no dependency on standalone_units: generated code names its types through standalone_api's re-export
-[dependencies]
+[dev-dependencies]
 standalone_api.workspace = true
 tests_common.workspace = true
 tokio = { workspace = true, features = ["sync", "rt-multi-thread", "rt", "macros", "time"] }

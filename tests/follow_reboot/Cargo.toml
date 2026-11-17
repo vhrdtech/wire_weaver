@@ -12,7 +12,6 @@ anyhow.workspace = true
 follow_reboot_api = { workspace = true, features = ["std"] }
 semver.workspace = true
 tokio = { workspace = true, features = ["sync", "rt-multi-thread", "rt", "macros", "time"] }
-tracing-subscriber.workspace = true
 wire_weaver.workspace = true
 wire_weaver_client = { workspace = true, features = ["in_process"] }
 ww_client_server.workspace = true
@@ -22,6 +21,7 @@ ww_stm32_dfu = { workspace = true, features = ["sim"] }
 
 [dev-dependencies]
 tests_common.workspace = true
+tracing-subscriber.workspace = true
 
 [lints]
 workspace = true

@@ -7,7 +7,7 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
-[dependencies]
+[dev-dependencies]
 anyhow.workspace = true
 customary_api.workspace = true
 tests_common.workspace = true

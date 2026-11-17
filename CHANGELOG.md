@@ -152,6 +152,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - ww_tap's `LinkKey` and track names without std, and the tap decoder's record input; see `ww_tap`, `wire_weaver_client`.
 - The rustdoc trait of an API shows a keyed array's key companion (API-67); see the `wire_weaver_derive` changelog.
 - Every crate inherits the workspace lints (`[lints] workspace = true`); cargo 1.100 warned about 144 crates without it.
+- Dependencies cargo 1.100 reports unused are gone; `ww_device` and `wire_weaver_cli` changelogs name theirs.
 
 ### Added
 

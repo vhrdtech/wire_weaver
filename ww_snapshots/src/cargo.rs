@@ -424,8 +424,9 @@ impl CargoSources {
     /// The `Cargo.lock` the build `build` of the crate at `entry` (canonical) runs with. The one next to a crate
     /// isn't it when the crate is a dependency of another workspace (a git checkout, or a path dependency of a
     /// workspace around it: trybuild's, a `[patch]`), and Cargo doesn't tell rustc which one it is. So locks around
-    /// the build are tried, in this order: above rustc's working directory (the workspace root for a member),
-    /// above where Cargo was asked to build, the build's directories, `PWD`, and the nearest one above `entry`. The
+    /// the build are tried, in this order: above where Cargo was asked to build, `PWD`, the build's directories,
+    /// above rustc's working directory (the workspace root for a member, the package itself for a fetched one), and
+    /// the nearest one above `entry`. The
     /// first that lists `entry` and pins every git source Cargo compiled for this build ([Self::check_lock]) is
     /// taken. None for a crate from a git checkout: the locks of Cargo's git checkouts (`cargo install --git`).
     /// None at all: the nearest lock, unless one was ruled out by a git commit Cargo didn't compile, which is an
@@ -442,11 +443,11 @@ impl CargoSources {
         let externs = build.extern_dirs();
         let compiled = build.compiled();
         let candidates: Vec<PathBuf> = build
-            .cwd
+            .cargo_dirs
             .iter()
-            .chain(&build.cargo_dirs)
-            .chain(&build.dep_dirs)
             .chain(&build.pwd)
+            .chain(&build.dep_dirs)
+            .chain(&build.cwd)
             .filter_map(|dir| self.nearest_lock(dir))
             .chain(nearest.clone())
             .collect();
@@ -544,8 +545,8 @@ impl CargoSources {
 
     /// Whether `lock` is the one `entry` (named `entry_name`) is built with: it lists the package (a path package
     /// by name, a fetched one at `entry`), and pins every git source Cargo compiled: each of `externs` in a git
-    /// checkout, and for each git package in the tree of `entry` of which `compiled` has copies from the same
-    /// repository, one of those copies. Registry crates aren't compared: a lock may pin several versions of one,
+    /// checkout (as a path package when the lock is that checkout's own), and for each git package in the tree of
+    /// `entry` but `entry` of which `compiled` has copies from the same repository, one of those copies. Registry crates aren't compared: a lock may pin several versions of one,
     /// and a build compiles only those it needs. `Ok(None)` when `lock` doesn't list `entry`, `Ok` with what it pins
     /// for the tree of `entry` to tell candidates apart, `Err` with why not.
     fn check_lock(
@@ -571,15 +572,18 @@ impl CargoSources {
             .join("git")
             .join("checkouts");
         let checkouts = checkouts.canonicalize().unwrap_or(checkouts);
+        // a checkout's own lock names the other packages of its repository as path packages
+        let lock_root = lock.path.parent().and_then(|root| root.canonicalize().ok());
         for dir in externs.iter().filter(|dir| dir.starts_with(&checkouts)) {
             let Ok(name) = package_name(dir) else {
                 continue;
             };
+            let in_lock_tree = lock_root.as_ref().is_some_and(|root| dir.starts_with(root));
             let pinned = lock
                 .package
                 .iter()
                 .filter(|p| p.name == name)
-                .any(|p| self.fetched_at(p, dir));
+                .any(|p| (p.source.is_none() && in_lock_tree) || self.fetched_at(p, dir));
             if !pinned {
                 return Err(format!(
                     "pins no {name} at {}, the source Cargo compiled it from",
@@ -588,7 +592,9 @@ impl CargoSources {
             }
         }
         let tree = lock.tree(&roots);
-        for &i in &tree {
+        // `entry` itself is where the roots are: what `compiled` has of it is from earlier builds, this one is
+        // running
+        for &i in tree.iter().filter(|i| !roots.contains(i)) {
             let p = &lock.package[i];
             let Ok(Some(Source::Git { url, .. })) = p.source() else {
                 continue;

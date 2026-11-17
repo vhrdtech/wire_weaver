@@ -5,6 +5,7 @@
 ### 🐛 Fixes
 
 - In a proc macro of a crate built as a dependency, `CargoSources` uses the building workspace's `Cargo.lock`, checked against Cargo's dep-info, not the crate's own (API-14).
+- A crate from a git checkout builds again when the build directory keeps dep-info of an older commit; its sibling path members count as pinned (API-14).
 - The crate walker resolves a dependency that two same-named packages share by its git source: a `Cargo.lock` entry names it without its `#rev`.
 - `Resolver` finds an earlier version's snapshot in the `api_snapshots/` of the crate at the version the lock pins (`CargoSources::locate_crate`); the checker no longer needs it in `~/.wire_weaver` (EVO-80).
 - `Resolver` scans `CARGO_HOME`'s git checkouts once, not on every lookup (`cargo::Fetched`); the checker's tests ran 10x faster (EVO-80).

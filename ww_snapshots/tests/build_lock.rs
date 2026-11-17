@@ -297,3 +297,79 @@ fn a_path_dependency_of_an_outer_workspace_takes_a_lock_pinning_its_git_sources(
     assert_eq!(outer_lock.unwrap(), dep_api);
     assert_eq!(own_lock.unwrap(), dep_api);
 }
+
+/// A repository with two members, `host` using `#[ww_trait]` on `api`, taken by git: its checkout's own lock names
+/// both as path packages, the consumer's pins both by git. A build directory kept from a build at an older commit
+/// (a CI cache) still has dep-info of `host` at that commit while this one compiles it.
+#[test]
+fn a_git_checkout_with_sibling_members_and_dep_info_of_an_older_commit() {
+    const NEW: &str = "e35667e8951b186f2551451287756f6c05c5fcc8";
+    const OLD: &str = "ea63e8600000000000000000000000000000000";
+    let top = std::env::temp_dir().join(format!("ww_build_lock_sibling_{}", std::process::id()));
+    let _ = fs::remove_dir_all(&top);
+    let home = top.join("cargo_home");
+    let repo = home.join("git/checkouts/ww-0123");
+    for rev in [NEW, OLD] {
+        let checkout = repo.join(&rev[..7]);
+        write(
+            &checkout.join("Cargo.toml"),
+            "[workspace]\nmembers = [\"api\", \"host\"]\n",
+        );
+        for name in ["api", "host"] {
+            write(&checkout.join(name).join("Cargo.toml"), &manifest(name));
+            write(&checkout.join(name).join("src/lib.rs"), "");
+        }
+        write(
+            &checkout.join("Cargo.lock"),
+            &lock(&[("api", None, &[]), ("host", None, &["api"])]),
+        );
+    }
+    let new = repo.join(&NEW[..7]).canonicalize().unwrap();
+    let old = repo.join(&OLD[..7]).canonicalize().unwrap();
+    let consumer = top.join("consumer");
+    write(&consumer.join("Cargo.toml"), &manifest("consumer"));
+    let git = format!("git+https://github.com/x/ww#{NEW}");
+    write(
+        &consumer.join("Cargo.lock"),
+        &lock(&[
+            ("api", Some(git.clone()), &[]),
+            ("consumer", None, &["host"]),
+            ("host", Some(git), &["api"]),
+        ]),
+    );
+    // the build directory is outside the workspace (Cargo's `build.build-dir`)
+    let deps = top.join("build/debug/deps");
+    for (file, src) in [
+        ("api-1111111111111111", new.join("api")),
+        ("host-2222222222222222", old.join("host")),
+    ] {
+        write(
+            &deps.join(format!("{file}.d")),
+            &format!("{}: {}\n", deps.display(), src.join("src/lib.rs").display()),
+        );
+        write(&deps.join(format!("lib{file}.rmeta")), "");
+    }
+    let host = new.join("host");
+    let build = |cargo_dirs: Vec<PathBuf>| RustcBuild {
+        manifest_dir: host.clone(),
+        cwd: Some(host.clone()),
+        pwd: None,
+        cargo_dirs,
+        dep_dirs: vec![deps.clone()],
+        externs: vec![deps.join("libapi-1111111111111111.rmeta")],
+    };
+    let lock_of = |build: RustcBuild| {
+        let mut sources = CargoSources::default();
+        sources.entry_dir = Some(host.clone());
+        sources.cargo_home = Some(home.canonicalize().unwrap());
+        sources.rustc = Some(build);
+        sources.lock_path()
+    };
+    let from_consumer = lock_of(build(vec![consumer.clone()]));
+    // nothing names the consumer: the checkout's own lock, whose path member `api` is the one compiled
+    let own = lock_of(build(vec![]));
+    let consumer = consumer.canonicalize().unwrap();
+    fs::remove_dir_all(&top).unwrap();
+    assert_eq!(from_consumer.unwrap(), consumer.join("Cargo.lock"));
+    assert_eq!(own.unwrap(), new.join("Cargo.lock"));
+}

@@ -1024,7 +1024,7 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   full key (CLT-72). Needs a rule for several matches (all of them for `ww stream`, an error for one element).
 - ✅ **CLT-74 Python module as a library and a wheel** · `v0.5` — `wire_weaver_py` is a library crate whose `init(m)`
   fills the `wire_weaver._wire_weaver` module; the wheel is the `cdylib` crate `wire_weaver_wheel`
-  (`ww_tools/wire_weaver_wheel`, with `pyproject.toml`, the Python package, the tests and the console script).
+  (in vhrdtech/ww_tools: `wire_weaver_wheel`, with `pyproject.toml`, the Python package, the tests and the console script).
   [Docs](docs/python.md#installation).
 - 📋 **CLT-58 Local trait for nested levels and arrays** — one trait per nested level and resource arrays by index,
   `+observe` properties as a stream of updates, on the client, plain implementations and SRV-49's server.
@@ -1122,7 +1122,7 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   on any PC. The completion lists plugins on PATH and asks them for the words after their name (`ww dfu flash --<TAB>`
   gives the flags of `ww-chunky flash`). `wire_weaver_cli` is a library too: `wire_weaver_cli::plugin` is the plugin
   API (`DeviceArgs`, `Selection`, `take_exclusive`, `complete_if_requested`, `escape`), so a plugin has the connection
-  options, the config file and the completion of `ww`. `just check-clean-clone` builds `ww` from a fresh clone.
+  options, the config file and the completion of `ww`. `just check-clean-clone` of vhrdtech/ww_tools builds `ww` from a fresh clone.
 - 🚧 **CLT-33 `ww dfu flash`: updates of a chunky device** — `ww dfu flash <ELF|sealed image|bin>`, `status`,
   `confirm`, `revert` (`chunky_ww_cli/src/commands.rs` in chunky_mcu_updater; `ww dfu status | confirm | revert` also run in `wire_weaver_cli/src/cmd/dfu.rs`) on the host library `chunky_ww_host` of chunky_mcu_updater
   (NET-2), now `ww chunky flash` of chunky_mcu_updater's `chunky_ww_cli`, linked into `ww` (TOOL-39), or the
@@ -2219,18 +2219,11 @@ Unicast Data0 to one node over the same bus is TR-6.
   own tap and the command it forwards to (in process when the binary links it, else the plugin); the root command, help, completion and the run loop come from the registry.
   `wire_weaver_cli` is a library of the generic commands with no standard library API crate among its dependencies,
   `ww_std_cli` (`ww_stdlib/ww_std_cli`) holds `board`, `counters`, `dfu`, `pins`, `report` and the device parts of
-  `info` and `sync` (`InfoExtension`, `SyncExtension`), and the binary `ww` (`ww_tools/ww`) links both. Tests compare
+  `info` and `sync` (`InfoExtension`, `SyncExtension`), and the binary `ww` (vhrdtech/ww_tools) links both. Tests compare
   the registered commands with the expected list in both crates and in the binary's help.
   [Docs](docs/cli_reference.md#plugins).
-- 🚧 **TOOL-39 `ww` links its own repos' commands** · `v0.5` — the `ww` binary and the wire_weaver wheel compile in
-  the commands of logring and chunky_mcu_updater (`ww logring`, `ww chunky`, `ww dfu flash`), so a debug tool works
-  with no plugin; plugins stay for third-party tools. A forward (`dfu flash` to `chunky flash`) runs a registered
-  command in process with the device flags typed before and after it, and completes with it. `ww_tools/` is its own
-  workspace (`ww_tools/Cargo.toml`): logring and chunky take wire_weaver by git, so the root never depends on them,
-  and their wire_weaver crates are patched to this repository's. `layers.toml` `[outside]` names their crates, and
-  the layer lint checks only layer 7 links them. `wire_weaver.logring` in the wheel. Tests: the binary's command
-  list and its help, `ww logring` on an image, `ww dfu flash` help and completion with no plugin on PATH, pytest.
-  Open: `ww_tools/Cargo.lock` once logring and chunky_mcu_updater have these crates on their main.
+- **TOOL-39 ww-links-own-repos-commands** moved to vhrdtech/ww_tools (`FEATURES.md` there, 17 Nov 2026) with the `ww` binary and
+  the wheel crate it is about: logring's and chunky_mcu_updater's commands linked into `ww` and the wheel.
 - 📋 **TOOL-37 `ww udev` prints the rule** — the command exists and is documented but stops with an error naming
   this item (was a `todo!()` panic): it should print a udev rule for WireWeaver USB devices to pipe into
   `/etc/udev/rules.d/`.
@@ -2617,9 +2610,8 @@ Unicast Data0 to one node over the same bus is TR-6.
   lint also checks `layers.toml`'s `[api] crates`, the crates that describe an API (the stdlib API crates,
   `ww_timebase`, `ww_hub_api`): their normal dependencies, direct or transitive, reach no layer-5 crate beyond
   `ww_api`'s own closure, so no API crate pulls the runtime into a build; `[[api.allow]]` names what one still
-  reaches, with the refactor that removes it, and fails when no longer reached. `ww_tools/` (layer 7) is read
-  from its `Cargo.lock` with `--locked --offline`, never resolved or fetched; where that lock or the sources it
-  pins are missing, the test prints `skipped:` with the reason and leaves out ww_tools/ and its `[outside]` edges.
+  reaches, with the refactor that removes it, and fails when no longer reached. Layer 7 (the `ww` binary and the wheel) is
+  vhrdtech/ww_tools and not checked here.
 - 🚧 **TEST-9 Remaining test coverage** · `v0.5`:
   - [ ] properties: unimplemented, observe stream
   - [ ] streams: promise timeout

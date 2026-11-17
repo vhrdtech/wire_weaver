@@ -49,3 +49,6 @@ ww_tap.workspace = true
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt", "macros", "time", "sync"] }
 ww_version.workspace = true
+
+[lints]
+workspace = true

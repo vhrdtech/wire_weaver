@@ -18,3 +18,6 @@ ww_client_server.workspace = true
 [dev-dependencies]
 tests_common.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+
+[lints]
+workspace = true

@@ -20,3 +20,6 @@ std = ["wire_weaver/std", "dep:ww_tape", "ww_tape/std", "dep:tracing"]
 tracing = { version = "0.1", optional = true }
 wire_weaver.workspace = true
 ww_tape = { workspace = true, optional = true }
+
+[lints]
+workspace = true

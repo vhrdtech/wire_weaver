@@ -12,6 +12,14 @@ anyhow.workspace = true
 ww_self.workspace = true
 ww_tape = { workspace = true, features = ["std"] }
 
+# Own [lints] tables instead of `workspace = true`: Cargo can't add to inherited lints, so the workspace's
+# [workspace.lints.cargo] and [workspace.lints.rust] are repeated here.
+[lints.cargo]
+unused_workspace_dependencies = "deny"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(fuzzing)'] }
+
 # ww_tape's panic-class lints: no panic, overflow or unchecked index reachable from bundle or tape bytes (STD-131).
 [lints.clippy]
 unwrap_used = "deny"

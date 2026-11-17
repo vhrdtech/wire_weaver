@@ -21,3 +21,6 @@ local = ["std"]
 [dependencies]
 wire_weaver.workspace = true
 ww_api.workspace = true
+
+[lints]
+workspace = true

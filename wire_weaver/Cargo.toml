@@ -34,3 +34,6 @@ futures-core = { workspace = true, optional = true }
 shrink_wrap = { workspace = true, default-features = false }
 ww_api = { workspace = true, default-features = false }
 ww_version = { workspace = true, default-features = false }
+
+[lints]
+workspace = true

@@ -17,3 +17,6 @@ std = []
 
 [dependencies]
 ww_api = { workspace = true, features = ["std"] }
+
+[lints]
+workspace = true

@@ -21,3 +21,6 @@ very_large = []
 defmt = { workspace = true, optional = true }
 shrink_wrap.workspace = true
 ww_crc.workspace = true
+
+[lints]
+workspace = true

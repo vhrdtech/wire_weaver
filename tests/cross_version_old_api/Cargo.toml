@@ -18,3 +18,6 @@ std = ["ww_api/std", "global_boot_api/std"]
 [dependencies]
 global_boot_api = { workspace = true }
 ww_api = { workspace = true }
+
+[lints]
+workspace = true

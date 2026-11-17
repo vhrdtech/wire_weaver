@@ -19,3 +19,6 @@ ww_global.workspace = true
 [dev-dependencies]
 wire_weaver_core.workspace = true
 ww_self = { workspace = true, features = ["expr"] }
+
+[lints]
+workspace = true

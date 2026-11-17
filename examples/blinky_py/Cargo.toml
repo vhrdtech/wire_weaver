@@ -16,3 +16,6 @@ doc = false
 blinky.workspace = true
 pyo3.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }
+
+[lints]
+workspace = true

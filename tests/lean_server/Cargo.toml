@@ -19,3 +19,6 @@ ww_stream.workspace = true
 [dev-dependencies]
 hex = { workspace = true, features = ["std"] }
 serde_json.workspace = true
+
+[lints]
+workspace = true

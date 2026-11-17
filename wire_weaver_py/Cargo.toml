@@ -22,3 +22,6 @@ wire_weaver_core.workspace = true
 ww_error = { workspace = true, features = ["std"] }
 ww_hub.workspace = true
 ww_snapshots.workspace = true
+
+[lints]
+workspace = true

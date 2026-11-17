@@ -19,3 +19,6 @@ shrink_wrap = { workspace = true, default-features = false }
 wire_weaver_derive.workspace = true
 ww_error = { workspace = true, default-features = false }
 ww_version = { workspace = true, default-features = false }
+
+[lints]
+workspace = true

@@ -32,3 +32,6 @@ windows-sys = { workspace = true, features = ["Win32_Foundation", "Win32_Securit
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["io-util", "time", "rt", "macros"] }
+
+[lints]
+workspace = true

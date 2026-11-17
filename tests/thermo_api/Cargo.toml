@@ -29,3 +29,6 @@ ww_si = { workspace = true, features = ["time", "thermal", "dimensionless", "cou
 
 [dev-dependencies]
 wire_weaver_evolution = { workspace = true, features = ["source"] }
+
+[lints]
+workspace = true

@@ -53,3 +53,6 @@ required-features = ["ws"]
 name = "blinky_udp"
 path = "examples/udp.rs"
 required-features = ["udp"]
+
+[lints]
+workspace = true

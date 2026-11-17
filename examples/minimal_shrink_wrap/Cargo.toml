@@ -10,3 +10,6 @@ repository.workspace = true
 
 [dependencies]
 wire_weaver = { workspace = true, features = ["std"] }
+
+[lints]
+workspace = true

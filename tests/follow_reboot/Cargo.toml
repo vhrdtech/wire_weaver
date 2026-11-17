@@ -22,3 +22,6 @@ ww_stm32_dfu = { workspace = true, features = ["sim"] }
 
 [dev-dependencies]
 tests_common.workspace = true
+
+[lints]
+workspace = true

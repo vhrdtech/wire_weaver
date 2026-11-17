@@ -14,3 +14,6 @@ std = ["ww_api/std"]
 
 [dependencies]
 ww_api.workspace = true
+
+[lints]
+workspace = true

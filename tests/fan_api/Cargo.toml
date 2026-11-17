@@ -13,3 +13,6 @@ std = ["ww_si/std"]
 
 [dependencies]
 ww_si = { workspace = true, features = ["angle", "time"] }
+
+[lints]
+workspace = true

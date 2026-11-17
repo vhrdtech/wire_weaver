@@ -27,3 +27,6 @@ wire_weaver_core.workspace = true
 [[bench]]
 name = "bit_io"
 harness = false
+
+[lints]
+workspace = true

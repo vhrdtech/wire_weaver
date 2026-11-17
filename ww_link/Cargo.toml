@@ -24,3 +24,6 @@ wire_weaver.workspace = true
 ww_framer = { workspace = true, features = ["large", "very_large"] }
 ww_global.workspace = true
 ww_version.workspace = true
+
+[lints]
+workspace = true

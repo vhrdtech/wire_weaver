@@ -10,3 +10,6 @@ description = "Renders the docs site's Features page (docs/features_today.md) fr
 
 [dev-dependencies]
 ww_book.workspace = true
+
+[lints]
+workspace = true

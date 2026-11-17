@@ -54,6 +54,5 @@ ww_crc.workspace = true
 ww_lz4 = { workspace = true, features = ["std"] }
 ww_si = { workspace = true, features = ["std"] }
 
-[lints.rust]
-# `cargo fuzz` builds with `--cfg fuzzing`: the batch checks for fuzz/
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(fuzzing)'] }
+[lints]
+workspace = true

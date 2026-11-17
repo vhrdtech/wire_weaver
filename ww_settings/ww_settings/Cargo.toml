@@ -28,3 +28,6 @@ ww_settings_derive.workspace = true
 embassy-futures.workspace = true
 shrink_wrap = { workspace = true, features = ["std"] }
 ww_settings = { path = ".", features = ["dump"] }
+
+[lints]
+workspace = true

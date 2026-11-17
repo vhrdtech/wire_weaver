@@ -22,3 +22,6 @@ ww_api = { workspace = true }
 ww_keyed = { workspace = true }
 # a `+batched` property's wire form names `ww_si::Timed`
 ww_si = { workspace = true, features = ["i32"] }
+
+[lints]
+workspace = true

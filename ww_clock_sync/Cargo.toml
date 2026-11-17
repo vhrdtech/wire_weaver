@@ -9,3 +9,6 @@ repository.workspace = true
 
 [dependencies]
 wire_weaver_client = { workspace = true, features = ["clock_sync"] }
+
+[lints]
+workspace = true

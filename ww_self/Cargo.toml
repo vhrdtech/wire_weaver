@@ -48,6 +48,5 @@ ww_lz4 = { workspace = true, optional = true }
 ww_numeric.workspace = true
 ww_version.workspace = true
 
-[lints.rust]
-# `cargo fuzz` builds with `--cfg fuzzing`: the entry point for the `introspection` fuzz target
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(fuzzing)'] }
+[lints]
+workspace = true

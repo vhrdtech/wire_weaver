@@ -14,3 +14,6 @@ description = "Layer lint: every workspace crate has a layer in layers.toml, no 
 cargo_metadata.workspace = true
 serde.workspace = true
 toml.workspace = true
+
+[lints]
+workspace = true

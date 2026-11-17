@@ -19,3 +19,6 @@ std = ["ww_api/std", "ww_timebase/std"]
 [dependencies]
 ww_api.workspace = true
 ww_timebase.workspace = true
+
+[lints]
+workspace = true

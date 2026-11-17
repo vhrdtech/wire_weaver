@@ -14,3 +14,6 @@ std = ["shrink_wrap?/std"]
 
 [dependencies]
 shrink_wrap = { workspace = true, optional = true }
+
+[lints]
+workspace = true

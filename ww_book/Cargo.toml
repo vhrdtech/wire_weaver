@@ -17,3 +17,6 @@ anyhow.workspace = true
 serde = { workspace = true, features = ["std"] }
 toml.workspace = true
 ww_snapshots.workspace = true
+
+[lints]
+workspace = true

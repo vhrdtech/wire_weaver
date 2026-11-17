@@ -21,3 +21,6 @@ lz4_flex = { workspace = true, optional = true }
 lz4_flex = { workspace = true, features = ["std"] }
 proptest.workspace = true
 ww_lz4 = { path = ".", features = ["std"] }
+
+[lints]
+workspace = true

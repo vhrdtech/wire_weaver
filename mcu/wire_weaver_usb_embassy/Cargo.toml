@@ -20,3 +20,6 @@ embassy-time = "0.5"
 defmt = "1.0"
 wire_weaver = { workspace = true, default-features = false }
 ww_device = { workspace = true, features = ["defmt", "embassy-time"] }
+
+[lints]
+workspace = true

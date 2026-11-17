@@ -24,3 +24,6 @@ ww_hub_api = { workspace = true, features = ["std"] }
 ww_link = { workspace = true, features = ["std"] }
 ww_local_socket.workspace = true
 ww_stream = { workspace = true, features = ["std"] }
+
+[lints]
+workspace = true

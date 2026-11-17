@@ -59,3 +59,6 @@ wire_weaver_client = { workspace = true, features = ["in_process"] }
 ww_client_server.workspace = true
 ww_date_time = { workspace = true, features = ["std"] }
 ww_stream.workspace = true
+
+[lints]
+workspace = true

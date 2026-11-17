@@ -19,3 +19,6 @@ tracing-subscriber.workspace = true
 wire_weaver.workspace = true
 wire_weaver_client.workspace = true
 ww_client_server.workspace = true
+
+[lints]
+workspace = true

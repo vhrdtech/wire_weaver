@@ -26,3 +26,6 @@ ww_timebase = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync", "time", "io-util", "test-util"] }
+
+[lints]
+workspace = true

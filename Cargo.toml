@@ -54,6 +54,10 @@ license = "MIT"
 [workspace.lints.cargo]
 unused_workspace_dependencies = "deny"
 
+[workspace.lints.rust]
+# `cargo fuzz` builds with `--cfg fuzzing`: ww_self and ww_stream gate their fuzz entry points on it
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(fuzzing)'] }
+
 [workspace.dependencies]
 anyhow = "1"
 atomic-waker = { version = "1.1", features = ["portable-atomic"] }

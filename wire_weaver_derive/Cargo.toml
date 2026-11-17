@@ -23,3 +23,6 @@ subprocess = "1.2"
 syn = { workspace = true }
 wire_weaver_core.workspace = true
 ww_global.workspace = true
+
+[lints]
+workspace = true

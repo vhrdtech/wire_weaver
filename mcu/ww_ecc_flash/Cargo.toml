@@ -26,3 +26,6 @@ stm32h7 = []
 nmi-handler = ["stm32g0", "dep:cortex-m-rt"]
 # defmt::Format for Error, so a store's errors can be logged with defmt
 defmt = ["dep:defmt"]
+
+[lints]
+workspace = true

@@ -10,3 +10,6 @@ description = "Checks the docs site's vendored WireWeaver highlighter (DOC-11) a
 
 [dev-dependencies]
 ww_highlight.workspace = true
+
+[lints]
+workspace = true

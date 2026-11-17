@@ -19,3 +19,6 @@ std = ["fan_api/std", "ww_api/std", "ww_si/std"]
 fan_api = { workspace = true, default-features = false }
 ww_api.workspace = true
 ww_si = { workspace = true, features = ["time", "electrical", "mechanical", "angle", "information", "counting", "systems", "dimensionless", "photometric"] }
+
+[lints]
+workspace = true

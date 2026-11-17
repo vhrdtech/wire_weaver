@@ -14,3 +14,6 @@ description = "Checks that every public trait of the framework crates ww_client_
 syn.workspace = true
 toml.workspace = true
 ww_global.workspace = true
+
+[lints]
+workspace = true

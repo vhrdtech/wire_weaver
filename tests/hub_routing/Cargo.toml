@@ -12,3 +12,6 @@ repository.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 wire_weaver_client = { workspace = true, features = ["hub"] }
 ww_hub.workspace = true
+
+[lints]
+workspace = true

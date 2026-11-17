@@ -18,3 +18,6 @@ std = ["ww_api/std", "standalone_units/std"]
 [dependencies]
 standalone_units = { workspace = true, features = ["shrink_wrap"] }
 ww_api.workspace = true
+
+[lints]
+workspace = true

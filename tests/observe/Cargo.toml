@@ -21,3 +21,6 @@ wire_weaver_client.workspace = true
 ww_client_server.workspace = true
 ww_si.workspace = true
 ww_stream = { workspace = true, features = ["std"] }
+
+[lints]
+workspace = true

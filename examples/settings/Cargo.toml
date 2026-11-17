@@ -19,3 +19,6 @@ ww_settings = { workspace = true, features = ["fake-flash"] }
 [dev-dependencies]
 tests_common.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+
+[lints]
+workspace = true

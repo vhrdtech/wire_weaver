@@ -21,3 +21,6 @@ float = []
 [dependencies]
 ww_api.workspace = true
 ww_si = { workspace = true, features = ["electrical"] }
+
+[lints]
+workspace = true

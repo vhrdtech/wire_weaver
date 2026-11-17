@@ -23,3 +23,6 @@ ww_stream = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
 wire_weaver_core.workspace = true
+
+[lints]
+workspace = true

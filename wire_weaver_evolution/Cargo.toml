@@ -37,3 +37,6 @@ required-features = ["source"]
 [[test]]
 name = "snapshot_pairs"
 required-features = ["source"]
+
+[lints]
+workspace = true

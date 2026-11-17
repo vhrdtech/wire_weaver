@@ -23,3 +23,6 @@ ww_client_server.workspace = true
 
 [dev-dependencies]
 wire_weaver_core.workspace = true
+
+[lints]
+workspace = true

@@ -11,3 +11,6 @@ description = "Checks ww_link, ww_client_server, ww_timebase, ww_tap and the ww_
 [dev-dependencies]
 wire_weaver_evolution = { workspace = true, features = ["source"] }
 ww_snapshots.workspace = true
+
+[lints]
+workspace = true

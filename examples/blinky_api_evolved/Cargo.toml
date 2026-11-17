@@ -18,3 +18,6 @@ defmt = ["ww_api/defmt", "dep:defmt"]
 [dependencies]
 defmt = { workspace = true, optional = true }
 ww_api = { workspace = true }
+
+[lints]
+workspace = true

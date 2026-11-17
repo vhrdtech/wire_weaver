@@ -23,3 +23,6 @@ ww_si = { workspace = true, features = ["std", "electrical"] }
 
 [dev-dependencies]
 wire_weaver_core.workspace = true
+
+[lints]
+workspace = true

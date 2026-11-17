@@ -19,3 +19,6 @@ std = ["ww_api/std", "global_fixture_api/std"]
 [dependencies]
 global_fixture_api.workspace = true
 ww_api.workspace = true
+
+[lints]
+workspace = true

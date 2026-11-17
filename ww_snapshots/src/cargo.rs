@@ -1,14 +1,19 @@
-//! Where Cargo keeps the source of a git or registry dependency: the exact package is pinned by the `Cargo.lock` of
-//! the crate the walk started from, its source lies under `CARGO_HOME` once Cargo fetched it
+//! Where Cargo keeps the source of a git or registry dependency: the exact package is pinned by the `Cargo.lock` the
+//! crate the walk started from is built with (in a proc macro, that of the workspace being built, [crate::rustc]), its
+//! source lies under `CARGO_HOME` once Cargo fetched it
 //! (`git/checkouts/<repo>-<hash>/<short rev>/`, `registry/src/<index>/<name>-<version>/`). The same places answer
 //! where a crate of a given name and version is on this machine ([CargoSources::locate_version], [scan_fetched]),
 //! which is where its `api_snapshots/` are.
 
-use crate::limits::{CARGO_DIRS_SCANNED_MAX, CARGO_TREE_DIRS_MAX};
+use crate::limits::{
+    CARGO_DIRS_SCANNED_MAX, CARGO_LOCK_BYTES_MAX, CARGO_TREE_DIRS_MAX, CHECKOUT_LOCKS_MAX,
+};
+use crate::rustc::RustcBuild;
 use anyhow::{Context, Result, anyhow};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
@@ -37,14 +42,19 @@ pub type ReadNote = Box<dyn Fn(&Path)>;
 /// Cargo.lock and the fetched sources it points at, loaded once per walk.
 #[derive(Default)]
 pub struct CargoSources {
-    /// Crate the walk started from: the nearest `Cargo.lock` above it pins every git and registry dependency, also
-    /// those of dependencies (a git checkout's own `Cargo.lock` isn't the one in use).
+    /// Crate the walk started from: the `Cargo.lock` it is built with pins every git and registry dependency, also
+    /// those of dependencies (a git checkout's own `Cargo.lock` isn't the one in use). That is the nearest one above
+    /// it, except in a proc macro of a crate built as a dependency of another workspace ([Self::rustc]).
     pub entry_dir: Option<PathBuf>,
     /// `CARGO_HOME` to use instead of the environment's (tests).
     pub cargo_home: Option<PathBuf>,
     /// Called with every path read or looked into, `None` when nobody cares.
     pub reads: Option<ReadNote>,
+    /// The rustc build the walk runs in, `None` for the one of this process, if any ([RustcBuild::from_process]).
+    pub rustc: Option<RustcBuild>,
     lock: Option<Rc<CargoLock>>,
+    /// [Self::lock] is the one of the rustc build the walk runs in, checked against what it compiled.
+    lock_is_build: bool,
     /// Packages in a git checkout, by name, each with its directory.
     git_members: HashMap<PathBuf, Rc<HashMap<String, PathBuf>>>,
 }
@@ -66,6 +76,60 @@ struct LockedPackage {
     /// `name`, `name version` or `name version (source)`, as many as needed to tell same-named packages apart.
     #[serde(default)]
     dependencies: Vec<String>,
+}
+
+impl CargoLock {
+    /// Indices of the packages the entries of `locked.dependencies` name.
+    fn dependencies<'l>(&'l self, locked: &'l LockedPackage) -> impl Iterator<Item = usize> + 'l {
+        locked.dependencies.iter().flat_map(move |entry| {
+            let mut parts = entry.split_whitespace();
+            let name = parts.next().unwrap_or_default();
+            let version = parts.next();
+            let source = parts
+                .next()
+                .map(|s| s.trim_start_matches('(').trim_end_matches(')'));
+            (0..self.package.len()).filter(move |&i| {
+                let p = &self.package[i];
+                p.name == name
+                    && version.is_none_or(|v| p.version == v)
+                    && source.is_none_or(|s| p.is_from(s))
+            })
+        })
+    }
+
+    /// Indices of `roots` and every package they depend on, directly or not, sorted.
+    fn tree(&self, roots: &[usize]) -> Vec<usize> {
+        let mut seen = vec![false; self.package.len()];
+        let mut queue = roots.to_vec();
+        while let Some(i) = queue.pop() {
+            if std::mem::replace(&mut seen[i], true) {
+                continue;
+            }
+            queue.extend(self.dependencies(&self.package[i]));
+        }
+        (0..seen.len()).filter(|&i| seen[i]).collect()
+    }
+}
+
+/// The repository name in a git URL, the start of its directory in `git/checkouts/`.
+fn git_repo_name(url: &str) -> &str {
+    url.trim_end_matches('/')
+        .rsplit('/')
+        .next()
+        .unwrap_or_default()
+        .trim_end_matches(".git")
+}
+
+/// `[package] name` of the manifest in `dir`.
+fn package_name(dir: &Path) -> Result<String> {
+    let path = dir.join("Cargo.toml");
+    let contents =
+        fs::read_to_string(&path).with_context(|| format!("Failed to read {}", path.display()))?;
+    let head: ManifestHead =
+        toml::from_str(&contents).with_context(|| format!("Failed to parse {}", path.display()))?;
+    head.package
+        .map(|p| p.name)
+        .ok_or_else(|| anyhow!("no [package] in {}", path.display()))
 }
 
 enum Source<'a> {
@@ -189,21 +253,10 @@ impl CargoSources {
     ) -> Result<&'l LockedPackage> {
         let mut candidates: Vec<&LockedPackage> = match self.locked_dependent(lock, dependent)? {
             // the dependent's own list says exactly which one it uses
-            Some(locked) => locked
-                .dependencies
-                .iter()
-                .filter_map(|entry| {
-                    let mut parts = entry.split_whitespace();
-                    (parts.next() == Some(package)).then(|| (parts.next(), parts.next()))
-                })
-                .flat_map(|(version, source)| {
-                    let source = source.map(|s| s.trim_start_matches('(').trim_end_matches(')'));
-                    lock.package.iter().filter(move |p| {
-                        p.name == package
-                            && version.is_none_or(|v| p.version == v)
-                            && source.is_none_or(|s| p.is_from(s))
-                    })
-                })
+            Some(locked) => lock
+                .dependencies(locked)
+                .filter(|&i| lock.package[i].name == package)
+                .map(|i| &lock.package[i])
                 .collect(),
             None => lock.package.iter().filter(|p| p.name == package).collect(),
         };
@@ -265,13 +318,16 @@ impl CargoSources {
     /// `Cargo.lock` next to it is its publisher's, and Cargo doesn't tell a crate which lock it is built with (rustc
     /// runs in the crate's own directory). Its registry dependencies are then the newest matching version Cargo has,
     /// which is what a fresh resolve picks; git ones still follow the lock next to it.
-    fn entry_is_fetched(&self) -> Result<bool> {
-        let Some(entry_dir) = &self.entry_dir else {
+    fn entry_is_fetched(&mut self) -> Result<bool> {
+        let Some(entry_dir) = self.entry_dir.clone() else {
             return Ok(false);
         };
-        let home = self.cargo_home()?;
-        let home = home.canonicalize().unwrap_or(home);
-        Ok(entry_dir.starts_with(home.join("registry")) || entry_dir.starts_with(home.join("git")))
+        if !self.is_fetched(&entry_dir)? {
+            return Ok(false);
+        }
+        // the lock of the build at hand pins them as well
+        self.lock()?;
+        Ok(!self.lock_is_build)
     }
 
     /// Newest `registry/src/<index>/<package>-<version>/` that matches `version_req`.
@@ -314,31 +370,307 @@ impl CargoSources {
         }
         let entry_dir = self
             .entry_dir
-            .as_deref()
+            .clone()
             .ok_or_else(|| anyhow!("internal: crate walker entry crate not set"))?;
-        let path = entry_dir
-            .ancestors()
+        let nearest = self.nearest_lock(&entry_dir);
+        let entry = entry_dir
+            .canonicalize()
+            .unwrap_or_else(|_| entry_dir.clone());
+        let build = match &self.rustc {
+            Some(build) => Some(build.clone()),
+            None => RustcBuild::from_process(),
+        }
+        .filter(|build| build.compiles(&entry));
+        let lock = match build {
+            Some(build) => self.build_lock(&entry, nearest, &build)?,
+            None => {
+                let path = nearest.ok_or_else(|| {
+                    anyhow!(
+                        "no Cargo.lock in {} or above it, needed to find git and registry dependencies: run `cargo \
+                         fetch` there first",
+                        entry_dir.display()
+                    )
+                })?;
+                self.read_lock(&path)?
+            }
+        };
+        let lock = Rc::new(lock);
+        self.lock = Some(lock.clone());
+        Ok(lock)
+    }
+
+    /// The nearest `Cargo.lock` in `dir` or above it.
+    fn nearest_lock(&self, dir: &Path) -> Option<PathBuf> {
+        dir.ancestors()
             .map(|dir| dir.join("Cargo.lock"))
             .find(|path| {
                 self.note_parent(path);
                 path.exists()
             })
-            .ok_or_else(|| {
-                anyhow!(
-                    "no Cargo.lock in {} or above it, needed to find git and registry dependencies: run `cargo \
-                     fetch` there first",
-                    entry_dir.display()
-                )
-            })?;
-        self.note(&path);
-        let contents = fs::read_to_string(&path)
+    }
+
+    fn read_lock(&self, path: &Path) -> Result<CargoLock> {
+        self.note(path);
+        let mut contents = String::new();
+        fs::File::open(path)
+            .and_then(|f| f.take(CARGO_LOCK_BYTES_MAX).read_to_string(&mut contents))
             .with_context(|| format!("Failed to read {}", path.display()))?;
         let mut lock: CargoLock = toml::from_str(&contents)
             .with_context(|| format!("Failed to parse {}", path.display()))?;
-        lock.path = path;
-        let lock = Rc::new(lock);
-        self.lock = Some(lock.clone());
+        lock.path = path.to_path_buf();
         Ok(lock)
+    }
+
+    /// The `Cargo.lock` the build `build` of the crate at `entry` (canonical) runs with. The one next to a crate
+    /// isn't it when the crate is a dependency of another workspace (a git checkout, or a path dependency of a
+    /// workspace around it: trybuild's, a `[patch]`), and Cargo doesn't tell rustc which one it is. So locks around
+    /// the build are tried, in this order: above rustc's working directory (the workspace root for a member),
+    /// above where Cargo was asked to build, the build's directories, `PWD`, and the nearest one above `entry`. The
+    /// first that lists `entry` and pins every git source Cargo compiled for this build ([Self::check_lock]) is
+    /// taken. None for a crate from a git checkout: the locks of Cargo's git checkouts (`cargo install --git`).
+    /// None at all: the nearest lock, unless one was ruled out by a git commit Cargo didn't compile, which is an
+    /// error naming each lock looked at.
+    fn build_lock(
+        &mut self,
+        entry: &Path,
+        nearest: Option<PathBuf>,
+        build: &RustcBuild,
+    ) -> Result<CargoLock> {
+        let fetched = self.is_fetched(entry)?;
+        let entry_name =
+            package_name(entry).with_context(|| format!("the package in {}", entry.display()))?;
+        let externs = build.extern_dirs();
+        let compiled = build.compiled();
+        let candidates: Vec<PathBuf> = build
+            .cwd
+            .iter()
+            .chain(&build.cargo_dirs)
+            .chain(&build.dep_dirs)
+            .chain(&build.pwd)
+            .filter_map(|dir| self.nearest_lock(dir))
+            .chain(nearest.clone())
+            .collect();
+        let mut rejected: Vec<(PathBuf, String)> = vec![];
+        let mut looked: Vec<PathBuf> = vec![];
+        for path in candidates {
+            let path = path.canonicalize().unwrap_or(path);
+            if looked.contains(&path) {
+                continue;
+            }
+            looked.push(path.clone());
+            match self.verified_lock(&path, entry, &entry_name, &externs, &compiled) {
+                Ok(Some((lock, _))) => {
+                    self.lock_is_build = true;
+                    return Ok(lock);
+                }
+                Ok(None) => {}
+                Err(reason) => rejected.push((path, reason)),
+            }
+        }
+        if fetched {
+            let mut groups: Vec<(Vec<String>, CargoLock)> = vec![];
+            for path in self.checkout_locks(&entry_name)? {
+                if looked.contains(&path) {
+                    continue;
+                }
+                looked.push(path.clone());
+                match self.verified_lock(&path, entry, &entry_name, &externs, &compiled) {
+                    Ok(Some((lock, tree))) => {
+                        if !groups.iter().any(|(t, _)| t == &tree) {
+                            groups.push((tree, lock));
+                        }
+                    }
+                    Ok(None) => {}
+                    Err(reason) => rejected.push((path, reason)),
+                }
+            }
+            match groups.len() {
+                0 => {}
+                1 => {
+                    self.lock_is_build = true;
+                    return Ok(groups.remove(0).1);
+                }
+                _ => {
+                    return Err(anyhow!(
+                        "{entry_name} at {} is built with one of {}, which pin different dependencies for it, and \
+                         what Cargo compiled doesn't tell which: run cargo from the workspace being built",
+                        entry.display(),
+                        groups
+                            .iter()
+                            .map(|(_, l)| l.path.display().to_string())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    ));
+                }
+            }
+        }
+        if rejected.is_empty()
+            && let Some(nearest) = nearest
+        {
+            return self.read_lock(&nearest);
+        }
+        let mut msg = format!(
+            "{entry_name} at {} is built as a dependency of another workspace, and no Cargo.lock found pins the \
+             git sources Cargo compiled for it: the workspace's Cargo.lock decides which commit of a git \
+             dependency is used, not the one of {entry_name}. Run cargo from the workspace being built. \
+             Cargo.locks looked at:",
+            entry.display()
+        );
+        for (path, reason) in &rejected {
+            msg.push_str(&format!("\n  {}: {reason}", path.display()));
+        }
+        if rejected.is_empty() {
+            msg.push_str(" none lists it");
+        }
+        Err(anyhow!(msg))
+    }
+
+    /// The lock at `path` when [Self::check_lock] takes it, with what it pins for the tree of `entry`; `None` when
+    /// it doesn't list `entry`.
+    fn verified_lock(
+        &mut self,
+        path: &Path,
+        entry: &Path,
+        entry_name: &str,
+        externs: &[PathBuf],
+        compiled: &HashMap<String, Vec<PathBuf>>,
+    ) -> std::result::Result<Option<(CargoLock, Vec<String>)>, String> {
+        let lock = self.read_lock(path).map_err(|e| format!("{e:#}"))?;
+        match self.check_lock(&lock, entry, entry_name, externs, compiled)? {
+            Some(tree) => Ok(Some((lock, tree))),
+            None => Ok(None),
+        }
+    }
+
+    /// Whether `lock` is the one `entry` (named `entry_name`) is built with: it lists the package (a path package
+    /// by name, a fetched one at `entry`), and pins every git source Cargo compiled: each of `externs` in a git
+    /// checkout, and for each git package in the tree of `entry` of which `compiled` has copies from the same
+    /// repository, one of those copies. Registry crates aren't compared: a lock may pin several versions of one,
+    /// and a build compiles only those it needs. `Ok(None)` when `lock` doesn't list `entry`, `Ok` with what it pins
+    /// for the tree of `entry` to tell candidates apart, `Err` with why not.
+    fn check_lock(
+        &mut self,
+        lock: &CargoLock,
+        entry: &Path,
+        entry_name: &str,
+        externs: &[PathBuf],
+        compiled: &HashMap<String, Vec<PathBuf>>,
+    ) -> std::result::Result<Option<Vec<String>>, String> {
+        let roots: Vec<usize> = (0..lock.package.len())
+            .filter(|&i| {
+                let p = &lock.package[i];
+                p.name == entry_name && (p.source.is_none() || self.fetched_at(p, entry))
+            })
+            .collect();
+        if roots.is_empty() {
+            return Ok(None);
+        }
+        let checkouts = self
+            .cargo_home()
+            .map_err(|e| format!("{e:#}"))?
+            .join("git")
+            .join("checkouts");
+        let checkouts = checkouts.canonicalize().unwrap_or(checkouts);
+        for dir in externs.iter().filter(|dir| dir.starts_with(&checkouts)) {
+            let Ok(name) = package_name(dir) else {
+                continue;
+            };
+            let pinned = lock
+                .package
+                .iter()
+                .filter(|p| p.name == name)
+                .any(|p| self.fetched_at(p, dir));
+            if !pinned {
+                return Err(format!(
+                    "pins no {name} at {}, the source Cargo compiled it from",
+                    dir.display()
+                ));
+            }
+        }
+        let tree = lock.tree(&roots);
+        for &i in &tree {
+            let p = &lock.package[i];
+            let Ok(Some(Source::Git { url, .. })) = p.source() else {
+                continue;
+            };
+            let repo = format!("{}-", git_repo_name(url));
+            let copies: Vec<&PathBuf> = compiled
+                .get(&p.name.replace('-', "_"))
+                .into_iter()
+                .flatten()
+                .filter(|dir| {
+                    dir.strip_prefix(&checkouts).is_ok_and(|rel| {
+                        rel.components()
+                            .next()
+                            .is_some_and(|c| c.as_os_str().to_string_lossy().starts_with(&repo))
+                    })
+                })
+                .collect();
+            if !copies.is_empty() && !copies.iter().any(|dir| self.fetched_at(p, dir)) {
+                return Err(format!(
+                    "pins {} {} from {}, Cargo compiled it from {}",
+                    p.name,
+                    p.version,
+                    p.source.as_deref().unwrap_or_default(),
+                    copies
+                        .iter()
+                        .map(|d| d.display().to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ));
+            }
+        }
+        let mut pinned: Vec<String> = tree
+            .iter()
+            .filter(|i| !roots.contains(i))
+            .map(|&i| {
+                let p = &lock.package[i];
+                format!(
+                    "{} {} {}",
+                    p.name,
+                    p.version,
+                    p.source.as_deref().unwrap_or_default()
+                )
+            })
+            .collect();
+        pinned.sort();
+        Ok(Some(pinned))
+    }
+
+    /// Whether `locked`, a fetched package, is at `dir` (canonical).
+    fn fetched_at(&mut self, locked: &LockedPackage, dir: &Path) -> bool {
+        locked.source.is_some()
+            && self
+                .package_dir(locked)
+                .ok()
+                .flatten()
+                .and_then(|at| at.canonicalize().ok())
+                .is_some_and(|at| at == dir)
+    }
+
+    /// Whether `dir` is a source Cargo fetched: a registry crate or a git checkout.
+    fn is_fetched(&self, dir: &Path) -> Result<bool> {
+        let home = self.cargo_home()?;
+        let home = home.canonicalize().unwrap_or(home);
+        Ok(dir.starts_with(home.join("registry")) || dir.starts_with(home.join("git")))
+    }
+
+    /// The `Cargo.lock` at the root of each of Cargo's git checkouts that names `package`: a workspace built from
+    /// a checkout (`cargo install --git`) uses it.
+    fn checkout_locks(&self, package: &str) -> Result<Vec<PathBuf>> {
+        let checkouts = self.cargo_home()?.join("git").join("checkouts");
+        let needle = format!("name = \"{package}\"");
+        let mut budget = CHECKOUT_LOCKS_MAX;
+        let mut locks = vec![];
+        for repo in list_dirs(&checkouts, &mut budget) {
+            for rev in list_dirs(&repo, &mut budget) {
+                let path = rev.join("Cargo.lock");
+                if fs::read_to_string(&path).is_ok_and(|c| c.contains(&needle)) {
+                    locks.push(path);
+                }
+            }
+        }
+        Ok(locks)
     }
 
     fn cargo_home(&self) -> Result<PathBuf> {
@@ -348,7 +680,7 @@ impl CargoSources {
         }
     }
 
-    /// Directories holding `name` at `version` as the `Cargo.lock` above [Self::entry_dir] pins and places them:
+    /// Directories holding `name` at `version` as the `Cargo.lock` of [Self::entry_dir] pins and places them:
     /// Cargo's registry or git checkout for a fetched dependency, the workspace's own tree and its `[patch]`es for a
     /// path dependency. Empty when the lock doesn't list that version; a listed source Cargo hasn't fetched is
     /// skipped. An error without a lock. What this reads is not told to [Self::reads].
@@ -360,7 +692,7 @@ impl CargoSources {
         self.locate_locked(name, Some(version))
     }
 
-    /// Directories holding `name` at whichever version the `Cargo.lock` above [Self::entry_dir] pins, as
+    /// Directories holding `name` at whichever version the `Cargo.lock` of [Self::entry_dir] pins, as
     /// [Self::locate_version] places them: a crate's `api_snapshots/` keep its earlier versions too.
     pub fn locate_crate(&mut self, name: &str) -> Result<Vec<PathBuf>> {
         self.locate_locked(name, None)
@@ -406,7 +738,7 @@ impl CargoSources {
         Ok(self.lock()?.path.clone())
     }
 
-    /// The directory of every package the `Cargo.lock` above [Self::entry_dir] lists and Cargo has on this machine:
+    /// The directory of every package the `Cargo.lock` of [Self::entry_dir] lists and Cargo has on this machine:
     /// registry crates and git checkouts it fetched, the workspace's own tree and its `[patch]`es; one Cargo hasn't
     /// fetched is left out and named in the log. For a build script that embeds the snapshots of every crate a
     /// workspace uses ([crate::build]).
@@ -515,12 +847,7 @@ impl CargoSources {
     /// repository with that name is tried; one at `rev` has the same files whichever URL it came from.
     fn git_checkout(&self, url: &str, rev: &str) -> Result<PathBuf> {
         let checkouts = self.cargo_home()?.join("git").join("checkouts");
-        let repo = url
-            .trim_end_matches('/')
-            .rsplit('/')
-            .next()
-            .unwrap_or_default()
-            .trim_end_matches(".git");
+        let repo = git_repo_name(url);
         let prefix = format!("{repo}-");
         // a checkout fetched later is a new directory in these; a checkout itself never changes
         self.note(&checkouts);

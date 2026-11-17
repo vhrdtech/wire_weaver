@@ -21,6 +21,19 @@ pub const CARGO_DIRS_SCANNED_MAX: usize = 65_536;
 /// Directories looked into in one source tree (a git checkout, a workspace) for its packages, nearest first.
 pub const CARGO_TREE_DIRS_MAX: usize = 8192;
 
+/// Dep-info (`.d`) files read in the directories of one build ([crate::rustc::RustcBuild::compiled]).
+pub const DEP_INFO_FILES_MAX: usize = 65_536;
+
+/// What is read of one dep-info file: its first line names the crate's sources.
+pub const DEP_INFO_BYTES_MAX: u64 = 1 << 20;
+
+/// `Cargo.lock`s of Cargo's git checkouts looked into for the one a crate is built with
+/// ([crate::cargo::CargoSources]), when no workspace around the build has it.
+pub const CHECKOUT_LOCKS_MAX: usize = 4096;
+
+/// A `Cargo.lock` read.
+pub const CARGO_LOCK_BYTES_MAX: u64 = 64 << 20;
+
 /// A `.crate` or a repository archive as received, compressed.
 pub const ARCHIVE_BYTES_MAX: u64 = 64 << 20;
 

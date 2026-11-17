@@ -51,7 +51,8 @@ pub(crate) const PRELUDE_REEXPORTS: &[&str] = &["shrink_wrap", "ww_api", "ww_err
 /// Limitations:
 /// * Only ww_trait's defined in `src/lib.rs` are supported, types can also be in modules (`mod ty;` and `use ty::Ty`).
 /// * Path, git and registry dependencies are supported. Git and registry ones are found where Cargo fetched them
-///   (under `CARGO_HOME`), at the exact version the nearest `Cargo.lock` above `crate_path` pins.
+///   (under `CARGO_HOME`), at the exact version the `Cargo.lock` the build uses pins: the nearest one above
+///   `crate_path`, or in a proc macro of a crate built as a dependency, that of the workspace being built.
 pub fn load(
     crate_path: &Path,
     trait_name: Option<String>,
@@ -182,7 +183,7 @@ fn load_dep_walked(
 }
 
 /// Directory of the dependency `dep_name` of the crate at `crate_path`, as Cargo builds it: a path dependency, or
-/// the git or registry source the nearest `Cargo.lock` pins (`[patch]`es of that workspace included). For a crate
+/// the git or registry source the `Cargo.lock` of its build pins (`[patch]`es of that workspace included). For a crate
 /// kept in another repository (exact_units), whose snapshot is saved from the source a crate here uses.
 pub fn dependency_dir(crate_path: &Path, dep_name: &str) -> Result<PathBuf> {
     let mut scratch = Scratch::default();
@@ -761,7 +762,7 @@ impl Scratch {
         dirs
     }
 
-    /// The walk starts from the crate at `crate_path`: the `Cargo.lock` above it pins the git and registry
+    /// The walk starts from the crate at `crate_path`: the `Cargo.lock` it is built with pins the git and registry
     /// dependencies, and what finding them reads counts as read by the walk ([stamps]).
     fn enter(&mut self, crate_path: &Path) {
         self.sources.entry_dir = Some(crate_path.to_path_buf());

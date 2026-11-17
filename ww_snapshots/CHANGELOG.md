@@ -4,6 +4,7 @@
 
 ### 🐛 Fixes
 
+- In a proc macro of a crate built as a dependency, `CargoSources` uses the building workspace's `Cargo.lock`, checked against Cargo's dep-info, not the crate's own (API-14).
 - The crate walker resolves a dependency that two same-named packages share by its git source: a `Cargo.lock` entry names it without its `#rev`.
 - `Resolver` finds an earlier version's snapshot in the `api_snapshots/` of the crate at the version the lock pins (`CargoSources::locate_crate`); the checker no longer needs it in `~/.wire_weaver` (EVO-80).
 - `Resolver` scans `CARGO_HOME`'s git checkouts once, not on every lookup (`cargo::Fetched`); the checker's tests ran 10x faster (EVO-80).
@@ -11,6 +12,7 @@
 
 ### 🚀 Features
 
+- `rustc::RustcBuild`: the build a proc macro runs in, from rustc's arguments; `CargoSources::rustc` sets it (API-14).
 - `CargoSources::locked_package_dir`: the directory of one package the lock pins, such as a git dependency's checkout.
 - `cache::default_root` honors `WIRE_WEAVER_HOME` (EVO-80), so the cache, `sources.toml` and definitions move with it.
 - `Resolver::offline(workspace)` (EVO-80): the embedded sets and the sources a workspace's `Cargo.lock` pins, no cache, no fetch; `Resolver::cache_root()`; `CargoScan::unlocked`, whether a crate the lock doesn't list is looked for in all of `CARGO_HOME` (hosts: yes). `CargoScan` literals need the field.

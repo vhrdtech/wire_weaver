@@ -332,8 +332,12 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   source where Cargo fetched it (`CARGO_HOME`'s `git/checkouts/<repo>-*/<rev>/`, the member found by package name
   anywhere in the repository; `registry/src/*/<name>-<version>/`), clear errors naming `cargo fetch` when the lock
   or the source is missing. In a crate Cargo fetched itself (a published API crate's own `#[ww_trait]`, docs.rs),
-  crates.io dependencies are the newest matching version on disk, as the lock in use is out of reach. Tests
-  `wire_weaver_core` `crate_walker::tests` (a real `cargo fetch` of a local git repository), `docs/api/traits.md`.
+  crates.io dependencies are the newest matching version on disk, as the lock in use is out of reach. In a proc
+  macro of a crate built as a dependency of another workspace (a git checkout, a path `[patch]`), the lock is that
+  workspace's, found from rustc's view of the build and checked against the dep-info of what Cargo compiled; none
+  matching is an error naming each lock looked at. Tests
+  `wire_weaver_core` `crate_walker::tests` (a real `cargo fetch` of a local git repository), `ww_snapshots`
+  `tests/build_lock.rs`, `docs/api/traits.md`.
 - ✅ **API-50 Observe cells: sampling a level from an interrupt in place** — `ww_codegen!(.., observe_cells =
   "root_foc")` puts a level with `+batched` properties on a ring of atomics instead of `<Level>Sampler::sample`: a
   `const fn` `<Level>Cells<R>` (a `static`, or an `Arc`), one `<Level>Writer` with a setter per property (relaxed

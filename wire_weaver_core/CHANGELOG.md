@@ -33,6 +33,7 @@
 
 ### 🐛 Fixes
 
+- The crate walker in a git or path-patched dependency walks the commits the building workspace's lock pins, not its own lock's (API-14).
 - The walker finds a type reached through a glob import of a module that itself glob-imports another crate's module (API-68): a server's `use wire_weaver::prelude::*` sees `CommonError` through that prelude's `pub use ww_api::prelude::*`. Before, only a module that named the type itself was looked into, "Type CommonError not found". Test `a_glob_into_a_module_that_globs_another_crate`.
 - The crate walker also reads a `[patch]` in the workspace's `.cargo/config.toml`, so a dependency developed beside
   the workspace no longer fails with "has no source".

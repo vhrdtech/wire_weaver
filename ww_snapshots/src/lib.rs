@@ -31,6 +31,7 @@ pub mod fetch;
 pub mod file;
 pub mod limits;
 mod resolver;
+pub mod rustc;
 mod set;
 
 pub use dir::{Dir, SNAPSHOTS_DIR, SUPERSEDED_DIR};

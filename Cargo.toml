@@ -50,6 +50,9 @@ edition = "2024"
 repository = "https://github.com/vhrdtech/wire_weaver"
 license = "MIT"
 
+[workspace.lints.cargo]
+unused_workspace_dependencies = "deny"
+
 [workspace.dependencies]
 anyhow = "1"
 atomic-waker = { version = "1.1", features = ["portable-atomic"] }
@@ -113,7 +116,6 @@ windows-sys = "0.61"
 # .cargo/config.toml of the worktree (never committed), as the commented-out one below shows
 exact_units = { version = "0.1.0", git = "https://github.com/romixlab/exact_units", default-features = false }
 shrink_wrap = { version = "0.2.0", git = "https://github.com/romixlab/shrink_wrap", default-features = false }
-shrink_wrap_derive = { version = "0.2.0", git = "https://github.com/romixlab/shrink_wrap" }
 # the docs site's WireWeaver highlighter (DOC-11), vendored into docs/ and checked by tests/docs_highlight: by git
 # from ww_lsp, which owns it; Cargo.lock pins the commit
 ww_highlight = { git = "https://github.com/romixlab/ww_lsp" }
@@ -135,12 +137,10 @@ ww_tape = { version = "0.1.0", git = "https://github.com/vhrdtech/ww_tape", defa
 
 # framework crates, versioned together via [workspace.package] version
 wire_weaver = { version = "0.5.0", path = "./wire_weaver", default-features = false }
-wire_weaver_cli = { version = "0.5.0", path = "./wire_weaver_cli" }
 wire_weaver_client = { version = "0.5.0", path = "./wire_weaver_client" }
 wire_weaver_core = { version = "0.5.0", path = "./wire_weaver_core" }
 wire_weaver_derive = { version = "0.5.0", path = "./wire_weaver_derive" }
 wire_weaver_evolution = { version = "0.5.0", path = "./wire_weaver_evolution", default-features = false }
-wire_weaver_py = { version = "0.5.0", path = "./wire_weaver_py" }
 ww_api = { version = "0.5.0", path = "./ww_api", default-features = false }
 ww_book = { version = "0.5.0", path = "./ww_book" }
 ww_clock_sync = { version = "0.5.0", path = "./ww_clock_sync" }
@@ -188,7 +188,6 @@ dispatch_golden_api = { version = "0.1.0", path = "./tests/dispatch_golden_api" 
 dynamic_api = { version = "0.1.0", path = "./tests/dynamic_api" }
 fan_api = { version = "0.1.0", path = "./tests/fan_api" }
 flash_budget_api = { version = "0.1.0", path = "./tests/flash_budget_api", default-features = false }
-foc_observe_api = { version = "0.1.0", path = "./examples/foc_observe_api" }
 follow_reboot_api = { version = "0.1.0", path = "./tests/follow_reboot_api" }
 generics_api = { version = "0.1.0", path = "./tests/generics_api" }
 global_boot_api = { version = "0.1.0", path = "./tests/global_boot_api" }
@@ -209,7 +208,6 @@ multi_root_api = { version = "0.1.0", path = "./tests/multi_root_api" }
 observe_api = { version = "0.1.0", path = "./tests/observe_api" }
 observe_arrays_api = { version = "0.1.0", path = "./tests/observe_arrays_api" }
 observe_batched_api = { version = "0.1.0", path = "./tests/observe_batched_api" }
-power_stage_api = { version = "0.1.0", path = "./examples/power_stage_api" }
 properties_api = { version = "0.1.0", path = "./tests/properties_api" }
 quantities_api = { version = "0.1.0", path = "./tests/quantities_api" }
 recursive_api = { version = "0.1.0", path = "./tests/recursive_api" }
@@ -233,7 +231,6 @@ thermo_api_5_0_0 = { package = "thermo_api", version = "5.0.0", path = "./tests/
 thermo_devices = { version = "0.1.0", path = "./tests/thermo_devices" }
 traits_api = { version = "0.1.0", path = "./tests/traits_api" }
 wire_line_api = { version = "0.4.0", path = "./tests/wire_line_api" }
-wire_line_fixture_api = { version = "0.1.0", path = "./tests/wire_line_fixture_api" }
 wire_line_old_api = { version = "0.3.0", path = "./tests/wire_line_old_api" }
 
 # to develop exact_units or shrink_wrap side by side, checkouts next to this one (in .cargo/config.toml):

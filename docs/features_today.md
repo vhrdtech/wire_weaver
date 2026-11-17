@@ -493,7 +493,7 @@ feature tracker.
 - **[Positional tape reader](tape/format.md#reading-by-position)**: Reads tapes by offset from any byte source, also in the browser over HTTP range requests.
 - **[Tape sample codecs](tape/format.md#sample-codecs)**: Series columns stored as the device sends them, or coded lossless as bit-packed deltas, read in place by any range.
 - **[Tape series tracks](tape/format.md#series-tracks)**: A series track says its sample type, scale and exact period; segments mark gaps and prefix changes, and a received `Series<Fixed>` batch becomes chunk columns without a float.
-- **[Tape runs and media provisions](tape/format.md#sessions-media-and-damage)**: Tapes on SD cards and raw NAND read past gaps, never take stale blocks for data, and survive a damaged describe set.
+- **[Tape runs and media provisions](tape/format.md#sessions-media-and-damage)**: Tapes on SD cards and raw NAND read past gaps, never take stale blocks for data, and survive damaged definitions.
 - **[Tape payload codec](tape/format.md#payload-codec)**: Event payloads with bit-packed lengths, raw or lz4, salvaged item by item from a damaged chunk.
 - **[Tape track identity by name](tape/format.md#track-identity)**: A track's key hashes its resource names and the keys of keyed arrays, so two runs that number things differently give the same ids.
 - **[Tape summaries across scales](tape/format.md#tape-blocks)**: Series summaries stay exact when an autoranging device changes prefix: each block states its scale, nodes merge at a common one.
@@ -502,7 +502,7 @@ feature tracker.
 - **[Tape hardening](tape/format.md#tape-blocks)**: Tape readers take damaged or hostile files without a panic, an overflow or an unbounded allocation; every limit is a named cap.
 - **[Tape resume and additions](tape/recovery.md#resuming-after-a-crash)**: A crashed tape piece resumes to the bytes of an uninterrupted write; tracks added mid-piece reach every later describe copy.
 - **[Tape pieces on 4 KiB](tape/index.md#pieces-and-chains)**: Finished tape pieces end on a 4 KiB boundary, so many pieces clone back to back into one file without copying a byte.
-- **[Tape definitions on track 0](tape/index.md)**: Tracks, clocks and bundles are keyed records on track 0: adding one costs its own record, and every piece holds the current set. <span class="ww-status">in progress</span>
+- **[Tape definitions near their use](tape/index.md#state-tracks-and-near-use)**: Tracks, clocks, bundles and state items are records on track 0 and state tracks, put again only where not close behind their use.
 
 <p class="ww-features__more" markdown>Details and what is planned: [Evolution, versioning and compatibility](features.md#evolution-versioning-and-compatibility-evo), [Base types and quantities (ww_base)](std_library/features.md#base-types-and-quantities-ww_si-ww_numeric-ww_version-ww_date_time-ww_error-std), [Tapes (ww_tape)](tape/features.md#tapes-ww_tape-ww_tape_fuzz-ww_tape_benchmarks-std-new-items-tape) in the feature tracker.</p>
 

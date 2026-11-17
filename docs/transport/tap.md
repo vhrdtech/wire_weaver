@@ -65,7 +65,7 @@ parts. `ww_tape::TapeWriter` writes a capture the way databases write their logs
 renamed when finished, data synced by a `SyncPolicy`, a failed write or sync the end of the file), and
 `ww_tape::FileBlocks` reads its longest valid prefix, or on past damage with `Recovery::Resync`
 ([Files](../tape/format.md#files)). A capture ends with an index, a finish block and a tail; cutting a recording into
-several files is [tape pieces](../tape/format.md#tape-pieces). The describe blocks carry the device's API bundle, so
+several files is [tape pieces](../tape/format.md#tape-pieces). The definitions carry the device's API bundle, so
 `ww explain FILE` explains the requests and replies of a capture on any PC, without the device. A track's key hashes
 its resource names, so two runs give the same ids ([track identity](../tape/format.md#track-identity),
 `ww_tap::track_key`).

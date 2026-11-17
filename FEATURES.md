@@ -3173,6 +3173,7 @@ Unicast Data0 to one node over the same bus is TR-6.
 - **STD-132 `ww_tape` resume after a crash, sinks, describe additions** — moved to ww_tape's own repository with its id: [vhrdtech/ww_tape FEATURES.md](https://github.com/vhrdtech/ww_tape/blob/main/FEATURES.md).
 - **STD-133 `ww_tape` single-pass series summary kernels** — moved to ww_tape's own repository with its id: [vhrdtech/ww_tape FEATURES.md](https://github.com/vhrdtech/ww_tape/blob/main/FEATURES.md).
 - **STD-134 `ww_tape` finished pieces end on 4 KiB** — moved to ww_tape's own repository with its id: [vhrdtech/ww_tape FEATURES.md](https://github.com/vhrdtech/ww_tape/blob/main/FEATURES.md).
+- **STD-135 `ww_tape` definitions and state near their use on track 0, format version 1** — moved to ww_tape's own repository with its id: [vhrdtech/ww_tape FEATURES.md](https://github.com/vhrdtech/ww_tape/blob/main/FEATURES.md).
 - **EVO-8 Snapshots of crates.io crates** — superseded by EVO-80: a host fetches a published crate's snapshot from
   its `.crate` archive on crates.io, or from the crate's repository.
 - **STD-9 Stubs, for later: `ww_spi`** — superseded by STD-13: `ww_spi` is now a full IO-family trait (optional

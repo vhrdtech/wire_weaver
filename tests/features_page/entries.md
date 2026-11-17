@@ -474,7 +474,7 @@ feature tracker.
 - STD-124 | Positional tape reader | Reads tapes by offset from any byte source, also in the browser over HTTP range requests. | tape/format.md#reading-by-position
 - STD-119 | Tape sample codecs | Series columns stored as the device sends them, or coded lossless as bit-packed deltas, read in place by any range. | tape/format.md#sample-codecs
 - STD-127 | Tape series tracks | A series track says its sample type, scale and exact period; segments mark gaps and prefix changes, and a received `Series<Fixed>` batch becomes chunk columns without a float. | tape/format.md#series-tracks
-- STD-129 | Tape runs and media provisions | Tapes on SD cards and raw NAND read past gaps, never take stale blocks for data, and survive a damaged describe set. | tape/format.md#sessions-media-and-damage
+- STD-129 | Tape runs and media provisions | Tapes on SD cards and raw NAND read past gaps, never take stale blocks for data, and survive damaged definitions. | tape/format.md#sessions-media-and-damage
 - STD-126 | Tape payload codec | Event payloads with bit-packed lengths, raw or lz4, salvaged item by item from a damaged chunk. | tape/format.md#payload-codec
 - STD-125 | Tape track identity by name | A track's key hashes its resource names and the keys of keyed arrays, so two runs that number things differently give the same ids. | tape/format.md#track-identity
 - STD-128 | Tape summaries across scales | Series summaries stay exact when an autoranging device changes prefix: each block states its scale, nodes merge at a common one. | tape/format.md#tape-blocks
@@ -483,7 +483,7 @@ feature tracker.
 - STD-131 | Tape hardening | Tape readers take damaged or hostile files without a panic, an overflow or an unbounded allocation; every limit is a named cap. | tape/format.md#tape-blocks
 - STD-132 | Tape resume and additions | A crashed tape piece resumes to the bytes of an uninterrupted write; tracks added mid-piece reach every later describe copy. | tape/recovery.md#resuming-after-a-crash
 - STD-134 | Tape pieces on 4 KiB | Finished tape pieces end on a 4 KiB boundary, so many pieces clone back to back into one file without copying a byte. | tape/index.md#pieces-and-chains
-- STD-135 | Tape definitions on track 0 | Tracks, clocks and bundles are keyed records on track 0: adding one costs its own record, and every piece holds the current set. | tape/index.md
+- STD-135 | Tape definitions near their use | Tracks, clocks, bundles and state items are records on track 0 and state tracks, put again only where not close behind their use. | tape/index.md#state-tracks-and-near-use
 
 # Examples
 

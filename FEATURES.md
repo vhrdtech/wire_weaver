@@ -1402,8 +1402,11 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   allocation in steady state, losses counted in `LinkEvent::Lost`. `wire_weaver_client::tap::Decoder`: frame ↔
   message linkage, cross-check against the message records, framer and link statistics, request/reply pairing by
   seq feeding the TOOL-9 explain code. E2E tests over simulated USB (`tap/e2e_tests.rs`, `wire_weaver_cli`
-  `cmd/tap/tests.rs`): shared packets, split replies, a lost packet, stats, captures replayed identically. Open:
-  the tap of a ww server's clients (`ClientMap` records are defined, nothing writes them yet).
+  `cmd/tap/tests.rs`): shared packets, split replies, a lost packet, stats, captures replayed identically. Without
+  `std`, `ww_tap` is the hook and the record types, `LinkKey { medium, peer }` (a link named by its peer), `api()`
+  and `ids::stream_name` for a producer naming the tracks; the `Recorder` is behind `std`. The decoder's input is
+  records (`Decoder::record`, `session`, `gap`), `feed(&Block)` feeds a block's records through it (the e2e test
+  compares both). Open: the tap of a ww server's clients (`ClientMap` records are defined, nothing writes them yet).
 - ✅ **TR-15 Frame prefix and link setup token** · `v0.5` — stale frames after a reconnect are removed at the
   cause and each medium gets the checks it needs (`docs/transport/ww_link.md#setup-token`,
   `docs/transport/ww_framer.md#frame-prefix`): the host puts a random 64-bit token into link setup, the device

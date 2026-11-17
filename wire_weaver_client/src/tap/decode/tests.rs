@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use wire_weaver::prelude::{SerializeShrinkWrap, SerializeShrinkWrapOwned};
 use wire_weaver::shrink_wrap::RefVec;
 use ww_tap::{Framer, Medium};
 use ww_tape::{BlockKind, BodyCodec, FileBlocks, SyncPolicy, TapeWriter};
@@ -144,4 +145,54 @@ fn the_tape_and_tap_bundles_are_in_the_snapshots() {
             .expect("a snapshot of the current version");
         assert_eq!(bundle.ext_crates[0], api.make_owned());
     }
+}
+
+/// Records fed one by one: a session put again is not news, a gap is given out and counted.
+#[test]
+fn record_input_sessions_and_gaps() {
+    fn bytes(x: &impl SerializeShrinkWrap) -> Vec<u8> {
+        let mut buf = [0u8; 256];
+        x.to_ww_bytes(&mut buf).unwrap().to_vec()
+    }
+    let mut d = Decoder::default().with_resolver(crate::test_resolver());
+    let session = |peer: &str| {
+        let s = host_session(Medium::InProcessUsb, Framer::None, 64, peer);
+        SessionOwned::from_ww_bytes_owned(&bytes(&s)).unwrap()
+    };
+    d.session(0, 10, session("dev"));
+    d.record(
+        0,
+        ww_tap::ids::SESSION,
+        20,
+        &session("dev").to_ww_bytes_owned().unwrap(),
+    );
+    d.gap(0, 5);
+    let event = LinkEvent::Disconnected {
+        reason: "done",
+        keep_streams: false,
+    };
+    d.record(0, ww_tap::ids::EVENTS, 30, &bytes(&event));
+    d.session(1, 40, session("other"));
+    let mut seen = vec![];
+    while let Some(x) = d.next() {
+        seen.push(match x.what {
+            What::Session(s) => format!("{:?} {} session {}", x.link, x.t, s.peer),
+            What::Gap { items } => format!("{:?} {} gap {items}", x.link, x.t),
+            What::LinkEvent(_) => format!("{:?} {} event", x.link, x.t),
+            other => format!("{other:?}"),
+        });
+    }
+    assert_eq!(
+        seen,
+        [
+            "Some(0) 10 session dev",
+            "Some(0) 20 gap 5",
+            "Some(0) 30 event",
+            "Some(1) 40 session other"
+        ]
+    );
+    let stats = d.stats.take();
+    assert_eq!(stats.records_missed, 5);
+    assert_eq!((stats.from_ns, stats.to_ns), (Some(10), 40));
+    assert!(stats.report().contains("5 records missing from the input"));
 }

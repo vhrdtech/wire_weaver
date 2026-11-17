@@ -181,6 +181,8 @@ pub struct Stats {
     pub blocks_bad: u64,
     /// Records the producer reported lost ([ww_tap::LinkEvent::Lost]).
     pub records_lost: u64,
+    /// Records missing from the decoder's input ([Decoder::gap](super::Decoder::gap)).
+    pub records_missed: u64,
     /// Producer time the window covers, ns.
     pub from_ns: Option<u64>,
     pub to_ns: u64,
@@ -220,6 +222,9 @@ impl Stats {
             "window {secs:.3} s, {} blocks, {} blocks lost, {} records lost",
             self.blocks, self.blocks_lost, self.records_lost
         );
+        if self.records_missed > 0 {
+            _ = writeln!(s, "{} records missing from the input", self.records_missed);
+        }
         for (link, l) in &self.links {
             for (name, d) in [("tx", &l.tx), ("rx", &l.rx)] {
                 if d.frames == 0 && d.kinds.is_empty() {

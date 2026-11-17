@@ -10,7 +10,9 @@
 //!   without being told which one;
 //! - [Stats] of the framer and the link.
 //!
-//! Live and saved data go through the same code: [Decoder::feed] takes a block, wherever it came from.
+//! Its input is records: [Decoder::record] (and [Decoder::session]) per record of a link's tracks in time order,
+//! [Decoder::gap] for records missing from it. [Decoder::feed] takes a `ww_tape` block, wherever it came from, and
+//! feeds its records the same way.
 
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::sync::Arc;
@@ -71,6 +73,10 @@ pub enum What {
     LinkEvent(LinkEventOwned),
     Frame(FrameInfo),
     Message(MessageInfo),
+    /// Records of the link missing from the input ([Decoder::gap]).
+    Gap {
+        items: u64,
+    },
     /// Blocks missing by their seq: records in them are not seen.
     BlocksLost {
         blocks: u64,
@@ -330,23 +336,51 @@ impl Decoder {
             let (HOST_CLOCK, Ok(t)) = (at.clock, u64::try_from(at.ticks)) else {
                 continue;
             };
-            self.last_t = self.last_t.max(t);
-            self.stats.at(t);
-            let Some((link, stream)) = track_of(r.track) else {
-                continue;
-            };
-            // a session is a state record: only a changed one is news
-            if stream == ids::SESSION {
-                if let Ok(s) = SessionOwned::from_ww_bytes_owned(r.item)
-                    && self.links.get(&link).and_then(|l| l.session.as_ref()) != Some(&s)
-                {
-                    self.session(link, t, s);
-                }
-                continue;
+            match track_of(r.track) {
+                Some((link, stream)) => self.record(link, stream, t, r.item),
+                None => self.at(t),
             }
-            self.record(link, stream, t, r.item);
-            self.expire(link, t);
         }
+    }
+
+    /// A session of `link` at `t` (tap clock, ns), from its state track: only one that differs from the link's
+    /// current session is news, so a session put again near each use is given out once.
+    pub fn session(&mut self, link: u32, t: u64, s: SessionOwned) {
+        self.at(t);
+        self.session_changed(link, t, s);
+    }
+
+    /// A record of `link`'s `stream` ([ww_tap::ids]) at `t` (tap clock, ns): `item` is its ShrinkWrap bytes, as
+    /// [Link](ww_tap::Link) declares the stream. A record that doesn't decode is skipped.
+    ///
+    /// Records are fed in time order: a reader of several tracks merges them by time first.
+    pub fn record(&mut self, link: u32, stream: u32, t: u64, item: &[u8]) {
+        self.at(t);
+        if stream == ids::SESSION {
+            if let Ok(s) = SessionOwned::from_ww_bytes_owned(item) {
+                self.session_changed(link, t, s);
+            }
+            return;
+        }
+        self.stream_record(link, stream, t, item);
+        self.expire(link, t);
+    }
+
+    /// `items` records of `link` are missing from the input before the next one fed (the reader fell behind or the
+    /// producer could not keep them): given out as [What::Gap] and counted in [Stats::records_missed].
+    pub fn gap(&mut self, link: u32, items: u64) {
+        self.stats.records_missed += items;
+        self.out.push_back(Decoded {
+            link: Some(link),
+            t: self.last_t,
+            what: What::Gap { items },
+        });
+    }
+
+    /// The tap clock's time of a record fed: what has no time of its own is given out at the newest one.
+    fn at(&mut self, t: u64) {
+        self.last_t = self.last_t.max(t);
+        self.stats.at(t);
     }
 
     /// Give out what is still waiting (messages for frames that will not come), at the end of a capture.
@@ -411,7 +445,10 @@ impl Decoder {
         }
     }
 
-    fn session(&mut self, link: u32, t: u64, s: SessionOwned) {
+    fn session_changed(&mut self, link: u32, t: u64, s: SessionOwned) {
+        if self.links.get(&link).and_then(|l| l.session.as_ref()) == Some(&s) {
+            return;
+        }
         let l = self.links.entry(link).or_default();
         if l.session.as_ref().map(|o| &o.framer) != Some(&s.framer) {
             for dir in [Dir::Tx, Dir::Rx] {
@@ -441,7 +478,7 @@ impl Decoder {
         });
     }
 
-    fn record(&mut self, link: u32, stream: u32, t: u64, item: &[u8]) {
+    fn stream_record(&mut self, link: u32, stream: u32, t: u64, item: &[u8]) {
         match stream {
             ids::EVENTS => {
                 if let Ok(e) = LinkEventOwned::from_ww_bytes_owned(item) {

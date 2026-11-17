@@ -424,6 +424,13 @@ impl Monitor {
                 };
                 _ = writeln!(s, "{head} {text}");
             }
+            What::Gap { items } => {
+                _ = writeln!(
+                    s,
+                    "{head} {}",
+                    style(format!("{items} records missing from the input")).red()
+                );
+            }
             What::BlocksLost { blocks } => {
                 _ = writeln!(
                     s,

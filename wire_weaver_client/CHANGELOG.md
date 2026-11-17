@@ -2,6 +2,7 @@
 
 ### 🚀 Features
 
+- `tap::Decoder::record`, `session` and `gap`: the decoder takes a link's records one by one; `feed(&Block)` feeds them (TR-14).
 - `cache_introspection(resolver, ww_self_bytes, hash)` (EVO-80): puts a device's introspection data (its `api_impl::WW_SELF_BYTES`) into the resolver's cache, as a download would, for a host that knows the build of a device that doesn't send it.
 - `ClientConfig::resolver(&'static Resolver)` (EVO-80): the snapshot resolver of one connection, `Resolver::global()` by default; introspection, global trait paths and the local cache of downloaded APIs go through it, and a resolver without a cache keeps nothing on the machine.
 - A property, return value or stream item of a type without a definition decodes as `ValueOwned::Opaque` (EVO-80).
@@ -10,6 +11,7 @@
 
 ### ⚠️ Breaking
 
+- `tap::What::Gap { items }` and `Stats::records_missed`: exhaustive matches on `What` need the arm (TR-14).
 - `ClientConfig::tap` takes a `tap::TapSource`, which makes each link's `ww_tap::Tap` (a `Recorder` converts into one); `Command::Connect::tap` is an `Option<TapSource>`. `tap::default_recorder()` is removed: a client without a tap records nothing (TR-14).
 - `Command::RegisterTracer` gets its `TraceEvent`s straight from the link's tap, as they happen, without a recorder; `TraceEvent` is `Clone` and `Debug` (TR-14).
 - The tap decoder reads tape format 1: definitions on track 0; a session is news only when it changed (STD-135).

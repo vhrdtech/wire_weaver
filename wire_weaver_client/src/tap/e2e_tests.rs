@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicIsize, Ordering};
 use std::time::Duration;
 
 use tokio::sync::{mpsc, oneshot};
-use wire_weaver::shrink_wrap::UVlq32Backfill;
+use wire_weaver::shrink_wrap::{DeserializeShrinkWrapOwned, UVlq32Backfill};
 use ww_tape::FileBlocks;
 use ww_version::{FullVersionOwned, VersionOwned};
 
@@ -64,6 +64,40 @@ fn decode_all<'a>(blocks: impl Iterator<Item = ww_tape::Block<'a>>) -> (Vec<Deco
     let mut d = Decoder::default().with_resolver(crate::test_resolver());
     for b in blocks {
         d.feed(&b);
+    }
+    d.finish();
+    let mut out = vec![];
+    while let Some(x) = d.next() {
+        out.push(x);
+    }
+    (out, d.stats.take())
+}
+
+/// The same blocks, their records fed one by one through the decoder's record input as [Decoder::feed] orders them.
+fn decode_records<'a>(blocks: impl Iterator<Item = ww_tape::Block<'a>>) -> (Vec<Decoded>, Stats) {
+    let mut d = Decoder::default().with_resolver(crate::test_resolver());
+    for b in blocks {
+        let mut plain = vec![];
+        let decoded = b.decode(&mut plain).unwrap();
+        let mut records: Vec<_> = decoded.records().map(Result::unwrap).collect();
+        records.sort_by_key(|r| r.at.map(|at| at.ticks));
+        for r in records {
+            // definitions (clocks, tracks) are the store's, not records; this capture carries no bundle
+            let Some(at) = r.at.filter(|at| at.clock == ww_tap::HOST_CLOCK) else {
+                continue;
+            };
+            let (link, stream) = ww_tap::track_of(r.track).unwrap();
+            let t = u64::try_from(at.ticks).unwrap();
+            if stream == ww_tap::ids::SESSION {
+                d.session(
+                    link,
+                    t,
+                    ww_tap::SessionOwned::from_ww_bytes_owned(r.item).unwrap(),
+                );
+            } else {
+                d.record(link, stream, t, r.item);
+            }
+        }
     }
     d.finish();
     let mut out = vec![];
@@ -184,6 +218,16 @@ async fn linkage<F: UsbFramingProtocol + 'static>(path: &str) -> Stats {
         chunks.push(c);
     }
     let (live, stats) = decode_all(chunks.iter().map(|c| c.block()));
+    // the record input gives what the blocks give
+    let (by_record, by_record_stats) = decode_records(chunks.iter().map(|c| c.block()));
+    assert_eq!(format!("{by_record:?}"), format!("{live:?}"));
+    assert_eq!(
+        by_record_stats,
+        Stats {
+            blocks: 0,
+            ..stats.clone()
+        }
+    );
 
     // frame <-> message linkage
     let frames: Vec<&FrameInfo> = live

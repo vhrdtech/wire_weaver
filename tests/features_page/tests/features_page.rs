@@ -11,9 +11,9 @@ fn trackers(root: &Path) -> Vec<(String, Option<String>, String)> {
         None,
         std::fs::read_to_string(root.join("FEATURES.md")).unwrap(),
     )];
-    for source in ww_book::locate(root).unwrap() {
+    for source in ww_book::locate(root, ww_book::Update::Keep).unwrap() {
         if let Some(tracker) = source.tracker().unwrap() {
-            let page = source.source.into.join("features.md");
+            let page = source.source.into.join(source.source.tracker_page());
             trackers.push((
                 page.to_string_lossy().into_owned(),
                 Some(source.source.name().to_owned()),
@@ -59,7 +59,7 @@ fn entries_link_to_pages_that_exist() {
     let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
     let entries = std::fs::read_to_string(manifest.join("entries.md")).unwrap();
     let root = manifest.join("../..");
-    let sources = ww_book::locate(&root).unwrap();
+    let sources = ww_book::locate(&root, ww_book::Update::Keep).unwrap();
     let missing: Vec<String> = features_page::links(&entries)
         .into_iter()
         .filter(|page| ww_book::find_page(&root, &sources, Path::new(page)).is_none())

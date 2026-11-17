@@ -1,12 +1,15 @@
 //! Assembles the WireWeaver book from the pages of the repositories it takes by git. `book_sources.toml` at the
-//! repository root names each one by a package `Cargo.lock` pins, where its pages are relative to that package's
-//! directory, and the directory under `docs/` they go to. [assemble] copies them there with the repository's feature
-//! tracker as `features.md`, and writes a `.gitignore` naming the copies, so they never enter this repository.
+//! repository root names each one either by a package `Cargo.lock` pins, its pages relative to that package's
+//! directory, or by its git URL and branch, its pages relative to the repository's root in a checkout of that branch
+//! (no revision is pinned: the branch's latest commit, as for a git dependency); and the directory under `docs/` they
+//! go to. [assemble] copies them there with the repository's feature tracker as `features.md`, and writes a
+//! `.gitignore` naming the copies, so they never enter this repository.
 
 use anyhow::{Context, Result, bail, ensure};
 use serde::Deserialize;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use ww_snapshots::cargo::CargoSources;
 
 /// The file at the repository root that lists the sources.
@@ -15,27 +18,58 @@ pub const SOURCES_FILE: &str = "book_sources.toml";
 /// Most pages one source may bring.
 const PAGES_MAX: usize = 256;
 
+/// Environment variable naming the directory the checkouts of git sources are kept in.
+pub const CHECKOUTS_ENV: &str = "WW_BOOK_CHECKOUTS";
+
 /// One repository whose pages are part of the book.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Source {
-    /// A package of that repository, as `Cargo.lock` names it
-    pub package: String,
-    /// The repository's name as the book shows it; [Source::package] when left out
+    /// A package of that repository, as `Cargo.lock` names it; or [Source::git]
+    pub package: Option<String>,
+    /// The repository's git URL, taken at [Source::branch]; or [Source::package]
+    pub git: Option<String>,
+    /// The branch of [Source::git]
+    pub branch: Option<String>,
+    /// The repository's name as the book shows it; [Source::package], or the URL's last path segment, when left out
     pub name: Option<String>,
-    /// Directory of its pages, relative to the package's directory
+    /// Directory of its pages, relative to the package's directory (the repository root for a git source)
     pub pages: PathBuf,
     /// Directory under `docs/` the pages go to
     pub into: PathBuf,
-    /// Its feature tracker, relative to the package's directory
+    /// Its feature tracker, relative to the package's directory (the repository root for a git source)
     pub features: Option<PathBuf>,
+    /// File name of the tracker's page under [Source::into]; [TRACKER_PAGE] when left out
+    pub features_page: Option<String>,
 }
 
+/// File name of a tracker's page when its source names none.
+pub const TRACKER_PAGE: &str = "features.md";
+
 impl Source {
+    /// File name of the tracker's page under [Source::into].
+    pub fn tracker_page(&self) -> &str {
+        self.features_page.as_deref().unwrap_or(TRACKER_PAGE)
+    }
+
     /// The repository's name as the book shows it.
     pub fn name(&self) -> &str {
-        self.name.as_deref().unwrap_or(&self.package)
+        if let Some(name) = self.name.as_deref().or(self.package.as_deref()) {
+            return name;
+        }
+        let url = self.git.as_deref().unwrap_or_default().trim_end_matches('/');
+        let last = url.rsplit(['/', ':']).next().unwrap_or(url);
+        last.strip_suffix(".git").unwrap_or(last)
     }
+}
+
+/// Whether [locate] brings an existing checkout of a git source up to its branch.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Update {
+    /// Fetch the branch; keep the checkout as it is when the fetch fails (offline)
+    Fetch,
+    /// Use the checkout as it is; clone only one that is missing
+    Keep,
 }
 
 #[derive(Deserialize)]
@@ -45,13 +79,15 @@ struct SourcesFile {
     source: Vec<Source>,
 }
 
-/// A [Source] with the directory of its package in the checkout `Cargo.lock` pins.
+/// A [Source] with the directory of its package in the checkout `Cargo.lock` pins, or of its git checkout.
 #[derive(Debug, Clone)]
 pub struct Located {
     /// What `book_sources.toml` says
     pub source: Source,
-    /// The package's directory
+    /// The package's directory, or the git checkout's root
     pub dir: PathBuf,
+    /// The commit of a git source's checkout, and why it is not the branch's latest one when the fetch failed
+    pub commit: Option<(String, Option<String>)>,
 }
 
 impl Located {
@@ -72,40 +108,132 @@ impl Located {
     }
 }
 
-/// The sources `root/book_sources.toml` lists, located through `root`'s `Cargo.lock`.
-pub fn locate(root: &Path) -> Result<Vec<Located>> {
+/// The sources `root/book_sources.toml` lists: packages located through `root`'s `Cargo.lock`, git sources in their
+/// checkouts (see [checkouts_dir]), cloned when missing and fetched as `update` says.
+pub fn locate(root: &Path, update: Update) -> Result<Vec<Located>> {
     let path = root.join(SOURCES_FILE);
     let text = fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
     let file: SourcesFile =
         toml::from_str(&text).with_context(|| format!("parsing {}", path.display()))?;
-    let mut cargo = CargoSources::default();
-    cargo.entry_dir = Some(root.to_path_buf());
-    let dirs = cargo.locked_package_dirs().with_context(|| {
-        format!(
-            "finding the packages of {}",
-            root.join("Cargo.lock").display()
-        )
-    })?;
+    let mut package_dirs = None;
     file.source
         .into_iter()
         .map(|source| {
             ensure!(
                 source.into.is_relative() && !source.into.as_os_str().is_empty(),
                 "{SOURCES_FILE}: `into` of {} must be a directory under docs/",
-                source.package
+                source.name()
             );
-            let Some((_, _, dir)) = dirs.iter().find(|(name, _, _)| *name == source.package) else {
-                bail!(
-                    "{SOURCES_FILE}: {} is not in Cargo.lock, or Cargo has not fetched it yet (cargo fetch)",
-                    source.package
-                );
-            };
-            Ok(Located {
-                source,
-                dir: dir.clone(),
-            })
+            match (&source.package, &source.git, &source.branch) {
+                (Some(package), None, None) => {
+                    if package_dirs.is_none() {
+                        let mut cargo = CargoSources::default();
+                        cargo.entry_dir = Some(root.to_path_buf());
+                        package_dirs = Some(cargo.locked_package_dirs().with_context(|| {
+                            format!(
+                                "finding the packages of {}",
+                                root.join("Cargo.lock").display()
+                            )
+                        })?);
+                    }
+                    let dirs = package_dirs.as_ref().context("package dirs set above")?;
+                    let Some((_, _, dir)) = dirs.iter().find(|(name, _, _)| name == package) else {
+                        bail!(
+                            "{SOURCES_FILE}: {package} is not in Cargo.lock, or Cargo has not fetched it yet (cargo fetch)"
+                        );
+                    };
+                    Ok(Located {
+                        dir: dir.clone(),
+                        source,
+                        commit: None,
+                    })
+                }
+                (None, Some(url), Some(branch)) => {
+                    let dir = checkouts_dir()?.join(source.name());
+                    let commit = checkout(url, branch, &dir, update)?;
+                    Ok(Located {
+                        source,
+                        dir,
+                        commit: Some(commit),
+                    })
+                }
+                _ => bail!(
+                    "{SOURCES_FILE}: {} needs either `package`, or `git` with `branch`",
+                    source.name()
+                ),
+            }
         })
         .collect()
+}
+
+/// Where the checkouts of git sources are kept: [CHECKOUTS_ENV], else `ww_book/` in the user's cache directory
+/// (`$XDG_CACHE_HOME`, else `~/.cache`), shared by every checkout of this repository.
+pub fn checkouts_dir() -> Result<PathBuf> {
+    if let Some(dir) = std::env::var_os(CHECKOUTS_ENV) {
+        return Ok(PathBuf::from(dir));
+    }
+    let cache = match std::env::var_os("XDG_CACHE_HOME") {
+        Some(dir) => PathBuf::from(dir),
+        None => std::env::home_dir()
+            .context("no home directory for the checkouts of git sources")?
+            .join(".cache"),
+    };
+    Ok(cache.join("ww_book"))
+}
+
+/// Runs `git` with `args` in `dir`, returns its trimmed output.
+fn git(dir: Option<&Path>, args: &[&str]) -> Result<String> {
+    let mut command = Command::new("git");
+    if let Some(dir) = dir {
+        command.arg("-C").arg(dir);
+    }
+    let output = command
+        .args(args)
+        .output()
+        .with_context(|| format!("running git {}", args.join(" ")))?;
+    ensure!(
+        output.status.success(),
+        "git {} failed: {}",
+        args.join(" "),
+        String::from_utf8_lossy(&output.stderr).trim()
+    );
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_owned())
+}
+
+/// Brings the checkout of `url` at `dir` to `branch`: a clone when it is missing, else a fetch when `update` asks
+/// for one, which leaves the checkout as it is when it fails. Returns the checkout's commit and, when a fetch failed,
+/// why.
+fn checkout(url: &str, branch: &str, dir: &Path, update: Update) -> Result<(String, Option<String>)> {
+    let tracking = format!("refs/remotes/origin/{branch}");
+    if !dir.join(".git").exists() {
+        if let Some(parent) = dir.parent() {
+            fs::create_dir_all(parent).with_context(|| format!("creating {}", parent.display()))?;
+        }
+        let target = dir.to_string_lossy();
+        git(
+            None,
+            &["clone", "-q", "--single-branch", "--branch", branch, url, &target],
+        )
+        .with_context(|| format!("cloning {url} for the book"))?;
+        return Ok((git(Some(dir), &["rev-parse", "HEAD"])?, None));
+    }
+    let origin = git(Some(dir), &["remote", "get-url", "origin"])?;
+    ensure!(
+        origin == url,
+        "{} is a checkout of {origin}, not {url}: remove it to take the new URL",
+        dir.display()
+    );
+    let mut stale = None;
+    if update == Update::Fetch {
+        let refspec = format!("+refs/heads/{branch}:{tracking}");
+        match git(Some(dir), &["fetch", "-q", "origin", &refspec]) {
+            Ok(_) => {
+                git(Some(dir), &["checkout", "-q", "--detach", &tracking])?;
+            }
+            Err(e) => stale = Some(format!("{e:#}")),
+        }
+    }
+    Ok((git(Some(dir), &["rev-parse", "HEAD"])?, stale))
 }
 
 /// The pages (`*.md`) of a source's pages directory, by file name, sorted.
@@ -162,7 +290,13 @@ pub fn assemble(root: &Path, sources: &[Located]) -> Result<Vec<PathBuf>> {
         let previous = copied_before(&into)?;
         let mut names = pages(located)?;
         if located.source.features.is_some() {
-            names.push("features.md".to_owned());
+            let page = located.source.tracker_page();
+            ensure!(
+                page.ends_with(".md") && !page.contains(['/', '\\']) && !names.iter().any(|n| n == page),
+                "{SOURCES_FILE}: `features_page` of {} must be a file name ending in .md that is none of its pages",
+                located.source.name()
+            );
+            names.push(page.to_owned());
         }
         for name in &names {
             let target = into.join(name);
@@ -170,9 +304,9 @@ pub fn assemble(root: &Path, sources: &[Located]) -> Result<Vec<PathBuf>> {
                 !target.exists() || previous.contains(name),
                 "{} is in this repository and in {}'s pages: a page lives in one place",
                 target.display(),
-                located.source.package
+                located.source.name()
             );
-            let text = if name == "features.md" {
+            let text = if located.source.features.is_some() && name == located.source.tracker_page() {
                 tracker_page(located)?
             } else {
                 let from = located.pages_dir().join(name);
@@ -263,13 +397,17 @@ mod tests {
     fn located(dir: &Path) -> Located {
         Located {
             source: Source {
-                package: "fmt".to_owned(),
+                package: Some("fmt".to_owned()),
+                git: None,
+                branch: None,
                 name: None,
                 pages: "../docs".into(),
                 into: "serdes".into(),
                 features: Some("../FEATURES.md".into()),
+                features_page: None,
             },
             dir: dir.join("fmt"),
+            commit: None,
         }
     }
 
@@ -347,6 +485,54 @@ mod tests {
         assert_eq!(source.name(), "fmt");
         source.name = Some("fmt_repo".to_owned());
         assert_eq!(source.name(), "fmt_repo");
+        source.name = None;
+        source.package = None;
+        source.git = Some("https://github.com/vhrdtech/ww_stdlib.git".to_owned());
+        assert_eq!(source.name(), "ww_stdlib");
+    }
+
+    /// A git source is cloned at its branch, kept as it is without an update, fetched with one, and kept at its
+    /// commit when the fetch fails (offline).
+    #[test]
+    fn a_git_source_follows_its_branch() {
+        let dir = scratch("git_source");
+        let upstream = dir.join("upstream");
+        fs::create_dir_all(upstream.join("docs")).unwrap();
+        fs::write(upstream.join("docs/page.md"), "# One\n").unwrap();
+        let commit_all = |message: &str| {
+            git(Some(&upstream), &["add", "-A"]).unwrap();
+            git(
+                Some(&upstream),
+                &["-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false", "commit", "-qm", message],
+            )
+            .unwrap();
+            git(Some(&upstream), &["rev-parse", "HEAD"]).unwrap()
+        };
+        git(Some(&upstream), &["init", "-q", "-b", "main"]).unwrap();
+        let first = commit_all("one");
+        let url = upstream.to_string_lossy().into_owned();
+        let checkout_dir = dir.join("checkouts/upstream");
+
+        let cloned = checkout(&url, "main", &checkout_dir, Update::Keep).unwrap();
+        assert_eq!(cloned, (first.clone(), None));
+        fs::write(upstream.join("docs/page.md"), "# Two\n").unwrap();
+        let second = commit_all("two");
+        let kept = checkout(&url, "main", &checkout_dir, Update::Keep).unwrap();
+        assert_eq!(kept, (first.clone(), None));
+        let fetched = checkout(&url, "main", &checkout_dir, Update::Fetch).unwrap();
+        assert_eq!(fetched, (second.clone(), None));
+        assert_eq!(
+            fs::read_to_string(checkout_dir.join("docs/page.md")).unwrap(),
+            "# Two\n"
+        );
+
+        fs::remove_dir_all(&upstream).unwrap();
+        let offline = checkout(&url, "main", &checkout_dir, Update::Fetch).unwrap();
+        assert_eq!(offline.0, second);
+        assert!(offline.1.is_some(), "{offline:?}");
+        let other = checkout("https://example.org/other", "main", &checkout_dir, Update::Keep);
+        fs::remove_dir_all(&dir).unwrap();
+        assert!(format!("{:#}", other.unwrap_err()).contains("remove it"));
     }
 
     #[test]

@@ -1,7 +1,11 @@
 # Repositories whose pages are part of the book (ww_book, `just book-assemble`): pages live with their code. Each is
-# found through a package Cargo.lock pins; `pages` and `features` are relative to that package's directory, `into` is
-# the directory under docs/ the pages go to, so their links to the rest of the book keep working.
-# `name` is the repository's name as the Features page shows it, the package's when left out.
+# found either through a package Cargo.lock pins (`package`; `pages` and `features` relative to that package's
+# directory), or by its git URL and branch (`git`, `branch`; no revision is pinned, as for a git dependency: `pages`
+# and `features` relative to the repository root of a checkout kept in ~/.cache/ww_book/, or $WW_BOOK_CHECKOUTS).
+# `just book-assemble` fetches the branch and prints the commit it took; offline it takes the existing checkout.
+# `into` is the directory under docs/ the pages go to, so their links to the rest of the book keep working.
+# `name` is the repository's name as the Features page shows it, the package's (or the URL's last part) when left out.
+# `features_page` is the file name the tracker gets under `into`, `features.md` when left out.
 
 [[source]]
 package = "shrink_wrap"

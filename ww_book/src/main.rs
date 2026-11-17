@@ -12,12 +12,19 @@ fn main() -> Result<()> {
         );
     }
     let root = std::env::current_dir()?;
-    let sources = ww_book::locate(&root)?;
+    let sources = ww_book::locate(&root, ww_book::Update::Fetch)?;
     let written = ww_book::assemble(&root, &sources)?;
     for source in &sources {
+        let at = match &source.commit {
+            Some((commit, None)) => format!(" at {commit}"),
+            Some((commit, Some(why))) => {
+                format!(" at {commit}, the checkout as it was: fetching failed ({why})")
+            }
+            None => String::new(),
+        };
         println!(
-            "{} pages from {} into docs/{}",
-            source.source.package,
+            "{} pages from {} into docs/{}{at}",
+            source.source.name(),
             source.pages_dir().display(),
             source.source.into.display()
         );

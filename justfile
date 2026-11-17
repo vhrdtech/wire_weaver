@@ -23,6 +23,8 @@ test-all:
     cargo nextest run --workspace --no-fail-fast
     # a server built as a firmware is, without ww_client_server's multi and streams, refuses their requests (SRV-60)
     just test-lean-server
+    # the conformance corpus through Python (TEST-23)
+    just test-conformance-py
     # the docs site's Markdown extensions (the `bits` fence)
     uv run --group dev pytest -q docs_ext
     # ww_lz4's blocks decoded by C liblz4
@@ -52,6 +54,11 @@ test-facade-ui:
 # ww_lz4's blocks of a few streams decoded by C liblz4 (python-lz4 with the earlier bytes as dictionary)
 test-lz4-c:
     cargo run -q -p ww_lz4 --example liblz4_vectors | uv run -q --script ww_lz4/tests/liblz4/check.py
+
+# The conformance corpus through Python (TEST-23): wire_weaver_py of this checkout as the `wire_weaver` module
+[working-directory('tests/conformance_py')]
+test-conformance-py:
+    uv run --group dev pytest -q tests
 
 # Fill in the golden bytes of new conformance cases ("bytes": "?") from the derive and write docs/serdes/conformance_matrix.md (TEST-23)
 conformance-update:

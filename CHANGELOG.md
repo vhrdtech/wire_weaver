@@ -153,6 +153,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - The rustdoc trait of an API shows a keyed array's key companion (API-67); see the `wire_weaver_derive` changelog.
 - Every crate inherits the workspace lints (`[lints] workspace = true`); cargo 1.100 warned about 144 crates without it.
 - Dependencies cargo 1.100 reports unused are gone; `ww_device` and `wire_weaver_cli` changelogs name theirs.
+- The conformance corpus runs through Python here again: `tests/conformance_py` builds `wire_weaver_py` of the checkout (TEST-23).
 
 ### Added
 

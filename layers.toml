@@ -43,6 +43,7 @@ common_error = 5
 common_error_api = 5
 conformance = 5
 conformance_api = 5
+conformance_py = 5
 counted_stream_api = 5
 follow_reboot_api = 5
 global_boot_api = 5

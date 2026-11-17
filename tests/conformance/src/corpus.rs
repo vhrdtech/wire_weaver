@@ -1,4 +1,4 @@
-//! `corpus.json`: the cases, read the same way by every runner (this crate and `wire_weaver_py`'s
+//! `corpus.json`: the cases, read the same way by every runner (this crate and `tests/conformance_py`'s
 //! `tests/test_conformance.py`).
 
 use serde::Deserialize;

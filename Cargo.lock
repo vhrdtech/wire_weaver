@@ -701,6 +701,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "conformance_py"
+version = "0.1.0"
+dependencies = [
+ "pyo3",
+ "wire_weaver_py",
+]
+
+[[package]]
 name = "console"
 version = "0.16.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"

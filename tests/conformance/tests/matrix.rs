@@ -1,5 +1,5 @@
 //! The conformance matrix (TEST-23): every case of `corpus.json` through each consumer, one test per consumer.
-//! Python runs the same corpus in `wire_weaver_py/tests/test_conformance.py`.
+//! Python runs the same corpus in `tests/conformance_py/tests/test_conformance.py`.
 
 use conformance::corpus::{self, CONSUMERS, Direction, REQUANTIZE_CONSUMERS};
 use conformance::derive::Derive;

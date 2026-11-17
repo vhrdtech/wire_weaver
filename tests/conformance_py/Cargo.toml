@@ -1,0 +1,22 @@
+[package]
+name = "conformance_py"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "The conformance matrix's Python consumer (TEST-23): wire_weaver_py as an extension module, built by maturin."
+
+[lib]
+crate-type = ["cdylib"]
+# a Python extension module: its tests are the pytest files beside it, `just test-conformance-py`
+test = false
+doctest = false
+
+[dependencies]
+pyo3.workspace = true
+wire_weaver_py.workspace = true
+
+[lints]
+workspace = true

@@ -146,6 +146,7 @@ wire_weaver_client = { version = "0.5.0", path = "./wire_weaver_client" }
 wire_weaver_core = { version = "0.5.0", path = "./wire_weaver_core" }
 wire_weaver_derive = { version = "0.5.0", path = "./wire_weaver_derive" }
 wire_weaver_evolution = { version = "0.5.0", path = "./wire_weaver_evolution", default-features = false }
+wire_weaver_py = { version = "0.5.0", path = "./wire_weaver_py" }
 ww_api = { version = "0.5.0", path = "./ww_api", default-features = false }
 ww_book = { version = "0.5.0", path = "./ww_book" }
 ww_clock_sync = { version = "0.5.0", path = "./ww_clock_sync" }

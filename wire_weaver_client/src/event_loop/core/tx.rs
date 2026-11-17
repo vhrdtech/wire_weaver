@@ -345,6 +345,8 @@ impl TxCore {
         }
     }
 
+    /// The link's state for the residual a hub keeps across a reconnect (CLT-44).
+    #[cfg(any(feature = "hub", test))]
     pub fn link_part(&self) -> TxPart {
         let mut in_flight: Vec<SeqTy> = self.in_flight.iter().copied().collect();
         in_flight.sort_unstable();

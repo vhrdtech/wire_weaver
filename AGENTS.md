@@ -128,11 +128,12 @@ just jobs=4 test --changed   # caps CARGO_BUILD_JOBS / NEXTEST_TEST_THREADS at 4
 (nextest is required). To see what a `ww_codegen!`/`ww_impl!` call generates, add `debug_to_file =
 "../../target/some_name.rs"` to it and read that file; don't reason about macro output blind.
 
-CI (`.github/workflows/ci.yml`) fails on any warning; run `just lint` and the matching tests before calling a change
-done. Plain `cargo sort` flattens the grouped `[workspace.dependencies]`, always pass `-g`; project words go into
-`typos.toml`. Tests run with default features only (`defmt` breaks host linking). Crates under `examples/` and
-`tests/` are `publish = false`. `mcu/`, `examples_mcu/*` and `wire_weaver_tool` are separate workspaces (embedded
-targets, egui): build them from their directory or through `just`.
+CI (`.github/workflows/ci.yml`) fails on any warning, cargo's own included, on the toolchain `rust-toolchain.toml` pins
+for local builds too; run `just lint` and the matching tests before calling a change done. Plain `cargo sort` flattens
+the grouped `[workspace.dependencies]`, always pass `-g`; project words go into `typos.toml`. Tests run with default
+features only (`defmt` breaks host linking). Crates under `examples/` and `tests/` are `publish = false`. `mcu/`,
+`examples_mcu/*` and `wire_weaver_tool` are separate workspaces (embedded targets, egui): build them from their
+directory or through `just`.
 
 ### Test time limits
 

@@ -93,9 +93,10 @@ lint:
     cargo fmt --all --check
     cargo sort -w -g --check
     typos
-    cargo clippy --workspace --all-targets -- -D warnings
-    cargo clippy --workspace --all-targets --all-features -- -D warnings
-    RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --all-features
+    # cargo's own warnings (manifests, lints tables) are errors too, as in CI (setup-rust-toolchain's build-warnings)
+    CARGO_BUILD_WARNINGS=deny cargo clippy --workspace --all-targets -- -D warnings
+    CARGO_BUILD_WARNINGS=deny cargo clippy --workspace --all-targets --all-features -- -D warnings
+    CARGO_BUILD_WARNINGS=deny RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --all-features
     just lint-c
 
 # Build the shrink_wrap C runtime and sw_requantize.c (also with SW_NO_F64) on their own, warnings are errors (SW-43, CLT-54); the generated fixed-layout and head+tail C readers are checked in the shrink_wrap repository

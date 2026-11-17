@@ -1,7 +1,7 @@
 // ww_client_server 0.2.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 859a3a8e23956747fe9cb7fbcefa90716b2d229ca25e17ee71fb71bb464ac72a
-(magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [], crate_idx: 0, trait_name: "ww_client_server", items: [], compact_id: None, meta: None), types: [
+// shrink_wrap sha256: cc1714519a3d17012783b72974e5768fe11feb0ea0a3fe117e9d80e6fbd3d7d0
+(magic: 2837124336, ww_self_version: (major: 0, minor: 4, patch: 0), root: (docs: [], crate_idx: 0, trait_name: "ww_client_server", items: [], compact_id: None, meta: None), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "Fixed", signature: [
         226,
         246,

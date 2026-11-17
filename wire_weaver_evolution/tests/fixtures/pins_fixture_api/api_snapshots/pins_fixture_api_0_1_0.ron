@@ -1,7 +1,7 @@
 // pins_fixture_api 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: b0b28cca79652eabc2132349fbaaac31f956285fe3a6fe85f264ff9afab41d85
-(magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
+// shrink_wrap sha256: d60620af30538ce635f400ddb6edcaecad2090bb7b832cab89a95a3b0533dd72
+(magic: 2837124336, ww_self_version: (major: 0, minor: 4, patch: 0), root: (docs: [
     "Frozen fixture for `wire_weaver_evolution`\'s own `pins::refresh` tests (EVO-70, `tests/check.rs`): one embedded",
     "trait of a tests/ stand-in dependency (`pins_dep::ValueApi`, framework types only), no `ww_stdlib` crate, so",
     "the tests survive the `ww_stdlib` cut (P2401#16nov-0955h).",

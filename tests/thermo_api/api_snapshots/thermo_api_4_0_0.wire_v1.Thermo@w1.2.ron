@@ -1,7 +1,7 @@
 // thermo_api 4.0.0: API root wire_v1::Thermo at wire w1.2 and what it reaches, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 4b3ca219f84d68722832f6c1a3b4d13149883c5d1486d869eeff4523b272f7a3
-(magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
+// shrink_wrap sha256: b5791e5b5c6255a8ed10e1ea8835f40eaa29b2ea1dd418d3462ef7bee434fea9
+(magic: 2837124336, ww_self_version: (major: 0, minor: 4, patch: 0), root: (docs: [
     "The API of the multi-line bench (EVO-28, EVO-42), a small temperature logger, with every wire line still in use in",
     "one crate: [wire_v1] at w1.2, [wire_v2] at w2.1 and [wire_v3] at w3.0, one API root each, their wire versions in",
     "`Cargo.toml`\'s `[package.metadata.wire_weaver.roots]`. What more than one line uses unchanged is in [common], one",

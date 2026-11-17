@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### ⚠️ Breaking
+
+- `file::parse` refuses a snapshot of another model format than `ww_self::VERSION` before reading it, naming the re-save step (EVO-82); new `file::check_format`. Test `model_format_frozen` fails when the model changes without a new format.
+
 ### 🐛 Fixes
 
 - `CargoSources` finds a git dependency in the checkout of the URL its lock names; a repository fetched by https and ssh broke the walk (API-14).

@@ -1723,6 +1723,16 @@ Unicast Data0 to one node over the same bus is TR-6.
   generation bump. The dispatch golden `multi.multi_call` carries `"wire_change": "EVO-81 / ..."`; tests
   `dispatch_golden` `multi_empty_args_old_and_new_bytes_read_the_same` (16 old/new pairs from the pre-fix commit),
   `multi_call_old_request_gets_the_new_reply`, `empty_user_bytes_event_unchanged`.
+- ✅ **EVO-82 Snapshot files name their model format** · `v0.5` — `ww_self::VERSION`, written as every bundle's
+  `ww_self_version`, is the format of the API model, no longer the crate's version: it moves with every change of
+  the model's shape. The model's shape as serde and RON see it, every type of `ww_self` and the types it uses from
+  exact_units, ww_numeric, ww_version and shrink_wrap, is frozen with its format in
+  `ww_snapshots/tests/model_format.txt`: test `ww_snapshots` `model_format_frozen` fails when the model changes
+  without a new `VERSION`. A snapshot file of another format is refused before it is read, by `ww_snapshots` and by
+  the checker (`ww_snapshots::file::check_format`), with the step that re-saves it, instead of a RON error or a hash
+  mismatch (test `wire_weaver_evolution` `old_format`). Format 0.3.0 had held about 40 encodings: every stored
+  snapshot was rewritten once into 0.4.0 ([snapshots](docs/evolution/snapshots.md#model-format)). No device or
+  host depends on an older format.
 - ✅ **EVO-78 Evolution of keyed arrays** · `v0.5` — `keyed!` in the checker: adding one is compatible, removing
   one is a break, the key type is compared both ways, and keying another array is a break. Across a wire break a
   companion is matched by the array it keys, so it follows a moved or `#[moved_from]`-renamed array. `ww api diff`

@@ -5,8 +5,8 @@
 //! default, which current codegen may not write: the unchanged source would then differ from its snapshot only because
 //! wire_weaver was upgraded. So a field that a file has nowhere, in no instance of its struct, counts as not recorded
 //! there, and both sides are compared without it ([Recorded::leave_out]). This holds for any field added to the model
-//! later, without a list of fields or of `ww_self` versions (a field can be added without a `ww_self` bump in between
-//! releases).
+//! later, without a list of fields. A file of another model format (`ww_self_version`) is refused before it is read
+//! ([ww_snapshots::file::check_format]).
 
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
@@ -54,6 +54,7 @@ impl fmt::Display for Unrecorded {
 impl Recorded {
     /// Reads a bundle from a snapshot's RON text and what it recorded.
     pub fn parse(text: &str) -> Result<(ApiBundleOwned, Recorded), String> {
+        ww_snapshots::file::check_format(text).map_err(|e| format!("{e:#}"))?;
         let state = RefCell::new(State::default());
         let parsed = (|| {
             let mut de = ron::Deserializer::from_str(text).map_err(|e| e.to_string())?;

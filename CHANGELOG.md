@@ -156,6 +156,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - The conformance corpus runs through Python here again: `tests/conformance_py` builds `wire_weaver_py` of the checkout (TEST-23).
 - `rust-toolchain.toml` pins Rust 1.100.0 for local builds and CI; `just lint` fails on cargo's own warnings, as CI does.
 - The crate walker finds a git dependency fetched under two URLs (https and ssh) in the checkout Cargo built; see `ww_snapshots`.
+- **Breaking:** snapshot files carry model format 0.4.0 and a file of another format is refused with the re-save step (EVO-82); every stored snapshot was re-saved. See the `ww_self`, `ww_snapshots` and `wire_weaver_evolution` changelogs.
 
 ### Added
 

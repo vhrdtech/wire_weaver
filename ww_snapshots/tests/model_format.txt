@@ -1,0 +1,3377 @@
+ww_self model format 0.4.0
+ApiBundleOwned: Struct(
+    [
+        Named {
+            name: "magic",
+            value: U32,
+        },
+        Named {
+            name: "ww_self_version",
+            value: TypeName(
+                "VersionTriplet",
+            ),
+        },
+        Named {
+            name: "root",
+            value: TypeName(
+                "ApiLevelOwned",
+            ),
+        },
+        Named {
+            name: "types",
+            value: Seq(
+                TypeName(
+                    "TypeLocationOwned",
+                ),
+            ),
+        },
+        Named {
+            name: "traits",
+            value: Seq(
+                TypeName(
+                    "ApiLevelLocationOwned",
+                ),
+            ),
+        },
+        Named {
+            name: "ext_crates",
+            value: Seq(
+                TypeName(
+                    "FullVersionOwned",
+                ),
+            ),
+        },
+        Named {
+            name: "root_omitted",
+            value: Option(
+                Seq(
+                    U32,
+                ),
+            ),
+        },
+        Named {
+            name: "wire",
+            value: Option(
+                TypeName(
+                    "WireVersion",
+                ),
+            ),
+        },
+        Named {
+            name: "ext_wire",
+            value: Option(
+                Seq(
+                    Option(
+                        TypeName(
+                            "WireVersion",
+                        ),
+                    ),
+                ),
+            ),
+        },
+    ],
+)
+ApiItemKindOwned: Enum(
+    {
+        0: Named {
+            name: "Method",
+            value: Struct(
+                [
+                    Named {
+                        name: "args",
+                        value: Seq(
+                            TypeName(
+                                "ArgumentOwned",
+                            ),
+                        ),
+                    },
+                    Named {
+                        name: "return_ty",
+                        value: Option(
+                            TypeName(
+                                "TypeOwned",
+                            ),
+                        ),
+                    },
+                    Named {
+                        name: "errors",
+                        value: Option(
+                            Seq(
+                                TypeName(
+                                    "ErrorVariantOwned",
+                                ),
+                            ),
+                        ),
+                    },
+                ],
+            ),
+        },
+        1: Named {
+            name: "Property",
+            value: Struct(
+                [
+                    Named {
+                        name: "ty",
+                        value: TypeName(
+                            "TypeOwned",
+                        ),
+                    },
+                    Named {
+                        name: "access",
+                        value: TypeName(
+                            "PropertyAccess",
+                        ),
+                    },
+                    Named {
+                        name: "write_err_ty",
+                        value: Option(
+                            TypeName(
+                                "TypeOwned",
+                            ),
+                        ),
+                    },
+                    Named {
+                        name: "errors",
+                        value: Option(
+                            Seq(
+                                TypeName(
+                                    "ErrorVariantOwned",
+                                ),
+                            ),
+                        ),
+                    },
+                    Named {
+                        name: "batched",
+                        value: Option(
+                            TypeName(
+                                "Batching",
+                            ),
+                        ),
+                    },
+                ],
+            ),
+        },
+        2: Named {
+            name: "Stream",
+            value: Struct(
+                [
+                    Named {
+                        name: "ty",
+                        value: TypeName(
+                            "TypeOwned",
+                        ),
+                    },
+                    Named {
+                        name: "is_up",
+                        value: Bool,
+                    },
+                ],
+            ),
+        },
+        3: Named {
+            name: "Trait",
+            value: Struct(
+                [
+                    Named {
+                        name: "trait_idx",
+                        value: U32,
+                    },
+                    Named {
+                        name: "omitted",
+                        value: Option(
+                            Seq(
+                                U32,
+                            ),
+                        ),
+                    },
+                ],
+            ),
+        },
+        4: Named {
+            name: "FlowSink",
+            value: Struct(
+                [
+                    Named {
+                        name: "ty",
+                        value: TypeName(
+                            "TypeOwned",
+                        ),
+                    },
+                    Named {
+                        name: "flow",
+                        value: TypeName(
+                            "FlowControl",
+                        ),
+                    },
+                ],
+            ),
+        },
+        5: Named {
+            name: "StreamFn",
+            value: Struct(
+                [
+                    Named {
+                        name: "ty",
+                        value: TypeName(
+                            "TypeOwned",
+                        ),
+                    },
+                    Named {
+                        name: "delivery",
+                        value: TypeName(
+                            "Delivery",
+                        ),
+                    },
+                    Named {
+                        name: "args",
+                        value: Seq(
+                            TypeName(
+                                "ArgumentOwned",
+                            ),
+                        ),
+                    },
+                    Named {
+                        name: "return_ty",
+                        value: Option(
+                            TypeName(
+                                "TypeOwned",
+                            ),
+                        ),
+                    },
+                    Named {
+                        name: "errors",
+                        value: Option(
+                            Seq(
+                                TypeName(
+                                    "ErrorVariantOwned",
+                                ),
+                            ),
+                        ),
+                    },
+                    Named {
+                        name: "batched",
+                        value: Option(
+                            TypeName(
+                                "Batching",
+                            ),
+                        ),
+                    },
+                    Named {
+                        name: "batch_item_ty",
+                        value: Option(
+                            TypeName(
+                                "TypeOwned",
+                            ),
+                        ),
+                    },
+                ],
+            ),
+        },
+        6: Named {
+            name: "Keys",
+            value: Struct(
+                [
+                    Named {
+                        name: "of",
+                        value: U32,
+                    },
+                    Named {
+                        name: "key",
+                        value: TypeName(
+                            "TypeOwned",
+                        ),
+                    },
+                    Named {
+                        name: "event_ty",
+                        value: TypeName(
+                            "TypeOwned",
+                        ),
+                    },
+                ],
+            ),
+        },
+    },
+)
+ApiItemOwned: Struct(
+    [
+        Named {
+            name: "id",
+            value: U32,
+        },
+        Named {
+            name: "kind",
+            value: TypeName(
+                "ApiItemKindOwned",
+            ),
+        },
+        Named {
+            name: "multiplicity",
+            value: TypeName(
+                "Multiplicity",
+            ),
+        },
+        Named {
+            name: "since",
+            value: Option(
+                TypeName(
+                    "WireVersion",
+                ),
+            ),
+        },
+        Named {
+            name: "ident",
+            value: Str,
+        },
+        Named {
+            name: "docs",
+            value: Seq(
+                Str,
+            ),
+        },
+        Named {
+            name: "optional",
+            value: Option(
+                TypeName(
+                    "OptionalOwned",
+                ),
+            ),
+        },
+        Named {
+            name: "meta",
+            value: Option(
+                TypeName(
+                    "MetaOwned",
+                ),
+            ),
+        },
+        Named {
+            name: "identity",
+            value: Option(
+                Str,
+            ),
+        },
+    ],
+)
+ApiLevelLocationOwned: Enum(
+    {
+        0: Named {
+            name: "InLine",
+            value: Struct(
+                [
+                    Named {
+                        name: "level",
+                        value: TypeName(
+                            "ApiLevelOwned",
+                        ),
+                    },
+                    Named {
+                        name: "crate_idx",
+                        value: U32,
+                    },
+                ],
+            ),
+        },
+        1: Named {
+            name: "SkippedFullVersion",
+            value: Struct(
+                [
+                    Named {
+                        name: "crate_idx",
+                        value: U32,
+                    },
+                    Named {
+                        name: "trait_name",
+                        value: Str,
+                    },
+                    Named {
+                        name: "signature",
+                        value: Seq(
+                            U8,
+                        ),
+                    },
+                ],
+            ),
+        },
+        2: Named {
+            name: "SkippedCompactVersion",
+            value: Struct(
+                [
+                    Named {
+                        name: "version",
+                        value: TypeName(
+                            "CompactVersion",
+                        ),
+                    },
+                    Named {
+                        name: "trait_id",
+                        value: U32,
+                    },
+                    Named {
+                        name: "signature",
+                        value: Seq(
+                            U8,
+                        ),
+                    },
+                ],
+            ),
+        },
+    },
+)
+ApiLevelOwned: Struct(
+    [
+        Named {
+            name: "docs",
+            value: Seq(
+                Str,
+            ),
+        },
+        Named {
+            name: "crate_idx",
+            value: U32,
+        },
+        Named {
+            name: "trait_name",
+            value: Str,
+        },
+        Named {
+            name: "items",
+            value: Seq(
+                TypeName(
+                    "ApiItemOwned",
+                ),
+            ),
+        },
+        Named {
+            name: "compact_id",
+            value: Option(
+                U32,
+            ),
+        },
+        Named {
+            name: "meta",
+            value: Option(
+                TypeName(
+                    "MetaOwned",
+                ),
+            ),
+        },
+    ],
+)
+ArgumentOwned: Struct(
+    [
+        Named {
+            name: "ident",
+            value: Str,
+        },
+        Named {
+            name: "ty",
+            value: TypeName(
+                "TypeOwned",
+            ),
+        },
+        Named {
+            name: "default",
+            value: Option(
+                Str,
+            ),
+        },
+        Named {
+            name: "flatten",
+            value: Bool,
+        },
+    ],
+)
+BaseExpOwned: Struct(
+    [
+        Named {
+            name: "base",
+            value: TypeName(
+                "MarkerIdOwned",
+            ),
+        },
+        Named {
+            name: "exp",
+            value: TypeName(
+                "Exp",
+            ),
+        },
+    ],
+)
+BaseRuleOwned: Struct(
+    [
+        Named {
+            name: "exps",
+            value: Seq(
+                TypeName(
+                    "Exp",
+                ),
+            ),
+        },
+        Named {
+            name: "factor",
+            value: TypeName(
+                "MagnitudeParts",
+            ),
+        },
+    ],
+)
+Batching: Enum(
+    {
+        0: Named {
+            name: "Timed",
+            value: Unit,
+        },
+        1: Named {
+            name: "Untimed",
+            value: Unit,
+        },
+        2: Named {
+            name: "SharedClock",
+            value: Unit,
+        },
+        3: Named {
+            name: "Unknown",
+            value: NewType(
+                U32,
+            ),
+        },
+    },
+)
+BridgeDefOwned: Struct(
+    [
+        Named {
+            name: "si",
+            value: TypeName(
+                "MarkerIdOwned",
+            ),
+        },
+        Named {
+            name: "here",
+            value: TypeName(
+                "MarkerIdOwned",
+            ),
+        },
+        Named {
+            name: "factor",
+            value: TypeName(
+                "MagnitudeParts",
+            ),
+        },
+    ],
+)
+Character: Enum(
+    {
+        0: Named {
+            name: "Scalar",
+            value: Unit,
+        },
+        1: Named {
+            name: "Complex",
+            value: Unit,
+        },
+        2: Named {
+            name: "Vector",
+            value: Unit,
+        },
+    },
+)
+ClaimMode: Enum(
+    {
+        0: Named {
+            name: "Exclusive",
+            value: Unit,
+        },
+        1: Named {
+            name: "Shared",
+            value: Unit,
+        },
+        2: Named {
+            name: "Observe",
+            value: Unit,
+        },
+    },
+)
+CodeSpan: Struct(
+    [
+        Named {
+            name: "low",
+            value: I128,
+        },
+        Named {
+            name: "high",
+            value: I128,
+        },
+    ],
+)
+CodecDefOwned: Struct(
+    [
+        Named {
+            name: "id",
+            value: TypeName(
+                "MarkerIdOwned",
+            ),
+        },
+        Named {
+            name: "shape",
+            value: TypeName(
+                "CodecShapeOwned",
+            ),
+        },
+        Named {
+            name: "spare",
+            value: Seq(
+                TypeName(
+                    "CodeSpan",
+                ),
+            ),
+        },
+        Named {
+            name: "codes",
+            value: TypeName(
+                "CodeSpan",
+            ),
+        },
+        Named {
+            name: "nominal",
+            value: Option(
+                TypeName(
+                    "CodeSpan",
+                ),
+            ),
+        },
+        Named {
+            name: "curve",
+            value: Option(
+                TypeName(
+                    "CurveDefOwned",
+                ),
+            ),
+        },
+    ],
+)
+CodecShapeOwned: Enum(
+    {
+        0: Named {
+            name: "MuLaw",
+            value: Unit,
+        },
+        1: Named {
+            name: "ALaw",
+            value: Unit,
+        },
+        2: Named {
+            name: "Table",
+            value: NewType(
+                Seq(
+                    I128,
+                ),
+            ),
+        },
+        3: Named {
+            name: "Offset",
+            value: Struct(
+                [
+                    Named {
+                        name: "zero",
+                        value: I128,
+                    },
+                ],
+            ),
+        },
+        4: Named {
+            name: "MantissaExponent",
+            value: Struct(
+                [
+                    Named {
+                        name: "radix",
+                        value: I128,
+                    },
+                    Named {
+                        name: "exponents",
+                        value: I128,
+                    },
+                    Named {
+                        name: "mantissas",
+                        value: Seq(
+                            I128,
+                        ),
+                    },
+                    Named {
+                        name: "mantissa_offset",
+                        value: I128,
+                    },
+                    Named {
+                        name: "exponent_zero",
+                        value: I128,
+                    },
+                    Named {
+                        name: "exponent_step",
+                        value: I128,
+                    },
+                ],
+            ),
+        },
+        5: Named {
+            name: "Unknown",
+            value: NewType(
+                U32,
+            ),
+        },
+    },
+)
+CompactVersion: Struct(
+    [
+        Named {
+            name: "gid",
+            value: TypeName(
+                "GlobalTypeId",
+            ),
+        },
+        Named {
+            name: "major",
+            value: U32,
+        },
+        Named {
+            name: "minor",
+            value: U32,
+        },
+        Named {
+            name: "patch",
+            value: U32,
+        },
+    ],
+)
+CurveDefOwned: Struct(
+    [
+        Named {
+            name: "id",
+            value: TypeName(
+                "MarkerIdOwned",
+            ),
+        },
+        Named {
+            name: "referred",
+            value: TypeName(
+                "Referred",
+            ),
+        },
+        Named {
+            name: "unit",
+            value: TypeName(
+                "MarkerIdOwned",
+            ),
+        },
+        Named {
+            name: "scale",
+            value: Tuple(
+                [
+                    Bool,
+                    U128,
+                    U128,
+                    I32,
+                ],
+            ),
+        },
+        Named {
+            name: "low",
+            value: Tuple(
+                [
+                    Bool,
+                    U128,
+                    U128,
+                    I32,
+                ],
+            ),
+        },
+        Named {
+            name: "high",
+            value: Tuple(
+                [
+                    Bool,
+                    U128,
+                    U128,
+                    I32,
+                ],
+            ),
+        },
+        Named {
+            name: "segments",
+            value: Seq(
+                TypeName(
+                    "Segment",
+                ),
+            ),
+        },
+    ],
+)
+CurveForm: Enum(
+    {
+        0: Named {
+            name: "Affine",
+            value: Struct(
+                [
+                    Named {
+                        name: "gain",
+                        value: Tuple(
+                            [
+                                Bool,
+                                U128,
+                                U128,
+                                I32,
+                            ],
+                        ),
+                    },
+                    Named {
+                        name: "offset",
+                        value: Tuple(
+                            [
+                                Bool,
+                                U128,
+                                U128,
+                                I32,
+                            ],
+                        ),
+                    },
+                ],
+            ),
+        },
+        1: Named {
+            name: "Power",
+            value: Struct(
+                [
+                    Named {
+                        name: "gain",
+                        value: Tuple(
+                            [
+                                Bool,
+                                U128,
+                                U128,
+                                I32,
+                            ],
+                        ),
+                    },
+                    Named {
+                        name: "scale",
+                        value: Tuple(
+                            [
+                                Bool,
+                                U128,
+                                U128,
+                                I32,
+                            ],
+                        ),
+                    },
+                    Named {
+                        name: "shift",
+                        value: Tuple(
+                            [
+                                Bool,
+                                U128,
+                                U128,
+                                I32,
+                            ],
+                        ),
+                    },
+                    Named {
+                        name: "exponent",
+                        value: Tuple(
+                            [
+                                Bool,
+                                U128,
+                                U128,
+                                I32,
+                            ],
+                        ),
+                    },
+                    Named {
+                        name: "offset",
+                        value: Tuple(
+                            [
+                                Bool,
+                                U128,
+                                U128,
+                                I32,
+                            ],
+                        ),
+                    },
+                ],
+            ),
+        },
+        2: Named {
+            name: "Exp",
+            value: Struct(
+                [
+                    Named {
+                        name: "gain",
+                        value: Tuple(
+                            [
+                                Bool,
+                                U128,
+                                U128,
+                                I32,
+                            ],
+                        ),
+                    },
+                    Named {
+                        name: "base",
+                        value: TypeName(
+                            "ExpBase",
+                        ),
+                    },
+                    Named {
+                        name: "scale",
+                        value: Tuple(
+                            [
+                                Bool,
+                                U128,
+                                U128,
+                                I32,
+                            ],
+                        ),
+                    },
+                    Named {
+                        name: "shift",
+                        value: Tuple(
+                            [
+                                Bool,
+                                U128,
+                                U128,
+                                I32,
+                            ],
+                        ),
+                    },
+                    Named {
+                        name: "offset",
+                        value: Tuple(
+                            [
+                                Bool,
+                                U128,
+                                U128,
+                                I32,
+                            ],
+                        ),
+                    },
+                ],
+            ),
+        },
+        3: Named {
+            name: "RationalPower",
+            value: Struct(
+                [
+                    Named {
+                        name: "m1",
+                        value: Tuple(
+                            [
+                                Bool,
+                                U128,
+                                U128,
+                                I32,
+                            ],
+                        ),
+                    },
+                    Named {
+                        name: "m2",
+                        value: Tuple(
+                            [
+                                Bool,
+                                U128,
+                                U128,
+                                I32,
+                            ],
+                        ),
+                    },
+                    Named {
+                        name: "c1",
+                        value: Tuple(
+                            [
+                                Bool,
+                                U128,
+                                U128,
+                                I32,
+                            ],
+                        ),
+                    },
+                    Named {
+                        name: "c2",
+                        value: Tuple(
+                            [
+                                Bool,
+                                U128,
+                                U128,
+                                I32,
+                            ],
+                        ),
+                    },
+                    Named {
+                        name: "c3",
+                        value: Tuple(
+                            [
+                                Bool,
+                                U128,
+                                U128,
+                                I32,
+                            ],
+                        ),
+                    },
+                ],
+            ),
+        },
+        4: Named {
+            name: "Unknown",
+            value: NewType(
+                U32,
+            ),
+        },
+    },
+)
+Delivery: Enum(
+    {
+        0: Named {
+            name: "Plain",
+            value: Unit,
+        },
+        1: Named {
+            name: "Counted",
+            value: Unit,
+        },
+        2: Named {
+            name: "Reliable",
+            value: Unit,
+        },
+    },
+)
+DimWireOwned: Struct(
+    [
+        Named {
+            name: "system",
+            value: TypeName(
+                "MarkerIdOwned",
+            ),
+        },
+        Named {
+            name: "exps",
+            value: Seq(
+                TypeName(
+                    "Exp",
+                ),
+            ),
+        },
+        Named {
+            name: "bases",
+            value: Seq(
+                TypeName(
+                    "BaseExpOwned",
+                ),
+            ),
+        },
+    ],
+)
+ElementSize: Enum(
+    {
+        0: Named {
+            name: "Unsized",
+            value: Unit,
+        },
+        1: Named {
+            name: "UnsizedFinalStructure",
+            value: Unit,
+        },
+        2: Named {
+            name: "SelfDescribing",
+            value: Unit,
+        },
+        3: Named {
+            name: "Sized",
+            value: Struct(
+                [
+                    Named {
+                        name: "size_bits",
+                        value: U64,
+                    },
+                ],
+            ),
+        },
+    },
+)
+ErrorVariantOwned: Struct(
+    [
+        Named {
+            name: "ident",
+            value: Str,
+        },
+        Named {
+            name: "nested",
+            value: Option(
+                Seq(
+                    Str,
+                ),
+            ),
+        },
+    ],
+)
+Exp: Struct(
+    [
+        Named {
+            name: "halves",
+            value: I8,
+        },
+    ],
+)
+ExpBase: Enum(
+    {
+        0: Named {
+            name: "E",
+            value: Unit,
+        },
+        1: Named {
+            name: "Exactly",
+            value: NewType(
+                Tuple(
+                    [
+                        Bool,
+                        U128,
+                        U128,
+                        I32,
+                    ],
+                ),
+            ),
+        },
+        2: Named {
+            name: "Unknown",
+            value: NewType(
+                U32,
+            ),
+        },
+    },
+)
+FieldOwned: Struct(
+    [
+        Named {
+            name: "ident",
+            value: Option(
+                Str,
+            ),
+        },
+        Named {
+            name: "default",
+            value: Option(
+                TypeName(
+                    "ValueOwned",
+                ),
+            ),
+        },
+        Named {
+            name: "since",
+            value: Option(
+                TypeName(
+                    "WireVersion",
+                ),
+            ),
+        },
+        Named {
+            name: "ty",
+            value: TypeName(
+                "TypeOwned",
+            ),
+        },
+        Named {
+            name: "docs",
+            value: Seq(
+                Str,
+            ),
+        },
+        Named {
+            name: "slot",
+            value: Option(
+                U32,
+            ),
+        },
+        Named {
+            name: "series_opaque",
+            value: Bool,
+        },
+    ],
+)
+FieldsOwned: Enum(
+    {
+        0: Named {
+            name: "Named",
+            value: NewType(
+                Seq(
+                    TypeName(
+                        "FieldOwned",
+                    ),
+                ),
+            ),
+        },
+        1: Named {
+            name: "Unnamed",
+            value: NewType(
+                Seq(
+                    TypeName(
+                        "FieldOwned",
+                    ),
+                ),
+            ),
+        },
+        2: Named {
+            name: "Unit",
+            value: Unit,
+        },
+    },
+)
+FieldsValueOwned: Enum(
+    {
+        0: Named {
+            name: "Named",
+            value: NewType(
+                Seq(
+                    Tuple(
+                        [
+                            Str,
+                            TypeName(
+                                "ValueOwned",
+                            ),
+                        ],
+                    ),
+                ),
+            ),
+        },
+        1: Named {
+            name: "Unnamed",
+            value: NewType(
+                Seq(
+                    TypeName(
+                        "ValueOwned",
+                    ),
+                ),
+            ),
+        },
+        2: Named {
+            name: "Unit",
+            value: Unit,
+        },
+    },
+)
+FlowControl: Enum(
+    {
+        0: Named {
+            name: "Credit",
+            value: Unit,
+        },
+    },
+)
+FullVersionOwned: Struct(
+    [
+        Named {
+            name: "crate_id",
+            value: Str,
+        },
+        Named {
+            name: "version",
+            value: TypeName(
+                "VersionOwned",
+            ),
+        },
+    ],
+)
+FutureVersionOwned: Enum(
+    {
+        0: Named {
+            name: "Off",
+            value: Unit,
+        },
+        1: Named {
+            name: "Variant",
+            value: Struct(
+                [
+                    Named {
+                        name: "ident",
+                        value: Str,
+                    },
+                    Named {
+                        name: "bits",
+                        value: Option(
+                            U8,
+                        ),
+                    },
+                ],
+            ),
+        },
+    },
+)
+GenericArgOwned: Enum(
+    {
+        0: Named {
+            name: "Type",
+            value: NewType(
+                TypeName(
+                    "TypeOwned",
+                ),
+            ),
+        },
+        1: Named {
+            name: "Const",
+            value: NewType(
+                TypeName(
+                    "ValueOwned",
+                ),
+            ),
+        },
+        2: Named {
+            name: "ConstParam",
+            value: NewType(
+                U32,
+            ),
+        },
+    },
+)
+GenericParamKindOwned: Enum(
+    {
+        0: Named {
+            name: "Type",
+            value: Unit,
+        },
+        1: Named {
+            name: "Const",
+            value: Struct(
+                [
+                    Named {
+                        name: "ty",
+                        value: TypeName(
+                            "TypeOwned",
+                        ),
+                    },
+                ],
+            ),
+        },
+    },
+)
+GenericParamOwned: Struct(
+    [
+        Named {
+            name: "ident",
+            value: Str,
+        },
+        Named {
+            name: "kind",
+            value: TypeName(
+                "GenericParamKindOwned",
+            ),
+        },
+    ],
+)
+GlobalTypeId: Struct(
+    [
+        Named {
+            name: "id",
+            value: U32,
+        },
+    ],
+)
+IN: Enum(
+    {
+        0: Named {
+            name: "IN8",
+            value: Struct(
+                [
+                    Named {
+                        name: "bit_count",
+                        value: U8,
+                    },
+                    Named {
+                        name: "value",
+                        value: I8,
+                    },
+                ],
+            ),
+        },
+        1: Named {
+            name: "IN16",
+            value: Struct(
+                [
+                    Named {
+                        name: "bit_count",
+                        value: U8,
+                    },
+                    Named {
+                        name: "value",
+                        value: I16,
+                    },
+                ],
+            ),
+        },
+        2: Named {
+            name: "IN32",
+            value: Struct(
+                [
+                    Named {
+                        name: "bit_count",
+                        value: U8,
+                    },
+                    Named {
+                        name: "value",
+                        value: I32,
+                    },
+                ],
+            ),
+        },
+        3: Named {
+            name: "IN64",
+            value: Struct(
+                [
+                    Named {
+                        name: "bit_count",
+                        value: U8,
+                    },
+                    Named {
+                        name: "value",
+                        value: I64,
+                    },
+                ],
+            ),
+        },
+    },
+)
+InstanceOfOwned: Struct(
+    [
+        Named {
+            name: "type_idx",
+            value: U32,
+        },
+        Named {
+            name: "args",
+            value: Seq(
+                TypeName(
+                    "GenericArgOwned",
+                ),
+            ),
+        },
+    ],
+)
+ItemEnumOwned: Struct(
+    [
+        Named {
+            name: "size",
+            value: TypeName(
+                "ElementSize",
+            ),
+        },
+        Named {
+            name: "repr",
+            value: TypeName(
+                "Repr",
+            ),
+        },
+        Named {
+            name: "crate_idx",
+            value: U32,
+        },
+        Named {
+            name: "docs",
+            value: Seq(
+                Str,
+            ),
+        },
+        Named {
+            name: "ident",
+            value: Str,
+        },
+        Named {
+            name: "generics",
+            value: Seq(
+                TypeName(
+                    "GenericParamOwned",
+                ),
+            ),
+        },
+        Named {
+            name: "variants",
+            value: Seq(
+                TypeName(
+                    "VariantOwned",
+                ),
+            ),
+        },
+        Named {
+            name: "path",
+            value: Option(
+                Seq(
+                    Str,
+                ),
+            ),
+        },
+        Named {
+            name: "instance_of",
+            value: Option(
+                TypeName(
+                    "InstanceOfOwned",
+                ),
+            ),
+        },
+        Named {
+            name: "future_version",
+            value: Option(
+                TypeName(
+                    "FutureVersionOwned",
+                ),
+            ),
+        },
+    ],
+)
+ItemStructExtraOwned: Struct(
+    [
+        Named {
+            name: "transparent",
+            value: Bool,
+        },
+        Named {
+            name: "marker",
+            value: Option(
+                TypeName(
+                    "MarkerDefOwned",
+                ),
+            ),
+        },
+    ],
+)
+ItemStructOwned: Struct(
+    [
+        Named {
+            name: "size",
+            value: TypeName(
+                "ElementSize",
+            ),
+        },
+        Named {
+            name: "crate_idx",
+            value: U32,
+        },
+        Named {
+            name: "docs",
+            value: Seq(
+                Str,
+            ),
+        },
+        Named {
+            name: "ident",
+            value: Str,
+        },
+        Named {
+            name: "generics",
+            value: Seq(
+                TypeName(
+                    "GenericParamOwned",
+                ),
+            ),
+        },
+        Named {
+            name: "fields",
+            value: TypeName(
+                "FieldsOwned",
+            ),
+        },
+        Named {
+            name: "sparse",
+            value: Bool,
+        },
+        Named {
+            name: "path",
+            value: Option(
+                Seq(
+                    Str,
+                ),
+            ),
+        },
+        Named {
+            name: "instance_of",
+            value: Option(
+                TypeName(
+                    "InstanceOfOwned",
+                ),
+            ),
+        },
+        Named {
+            name: "extra",
+            value: Option(
+                TypeName(
+                    "ItemStructExtraOwned",
+                ),
+            ),
+        },
+    ],
+)
+Length: Enum(
+    {
+        0: Named {
+            name: "Fixed",
+            value: NewType(
+                U32,
+            ),
+        },
+        1: Named {
+            name: "Param",
+            value: NewType(
+                U32,
+            ),
+        },
+    },
+)
+MagnitudeParts: Struct(
+    [
+        Named {
+            name: "pow10",
+            value: I8,
+        },
+    ],
+)
+MarkerDefOwned: Enum(
+    {
+        0: Named {
+            name: "Unit",
+            value: NewType(
+                TypeName(
+                    "UnitDefOwned",
+                ),
+            ),
+        },
+        1: Named {
+            name: "Scale",
+            value: NewType(
+                TypeName(
+                    "ScaleDefOwned",
+                ),
+            ),
+        },
+        2: Named {
+            name: "Per",
+            value: Unit,
+        },
+        3: Named {
+            name: "Times",
+            value: Unit,
+        },
+        4: Named {
+            name: "Sqrt",
+            value: Unit,
+        },
+        5: Named {
+            name: "Pow10",
+            value: Unit,
+        },
+        6: Named {
+            name: "Pow2",
+            value: Unit,
+        },
+        7: Named {
+            name: "Rational",
+            value: Unit,
+        },
+        8: Named {
+            name: "FullScale",
+            value: Unit,
+        },
+        9: Named {
+            name: "FullScaleMax",
+            value: Unit,
+        },
+        10: Named {
+            name: "Unbounded",
+            value: Unit,
+        },
+        11: Named {
+            name: "Range",
+            value: Unit,
+        },
+        12: Named {
+            name: "RangeU64",
+            value: Unit,
+        },
+        13: Named {
+            name: "RangeDec",
+            value: Unit,
+        },
+        14: Named {
+            name: "Origin",
+            value: NewType(
+                TypeName(
+                    "OriginDefOwned",
+                ),
+            ),
+        },
+        15: Named {
+            name: "Angle",
+            value: Unit,
+        },
+        16: Named {
+            name: "Wrapping",
+            value: Unit,
+        },
+        17: Named {
+            name: "Saturating",
+            value: Unit,
+        },
+        18: Named {
+            name: "Product",
+            value: Unit,
+        },
+        19: Named {
+            name: "Quotient",
+            value: Unit,
+        },
+        20: Named {
+            name: "Of",
+            value: Unit,
+        },
+        21: Named {
+            name: "MaybeNan",
+            value: Unit,
+        },
+        22: Named {
+            name: "Base",
+            value: NewType(
+                TypeName(
+                    "UnitDefOwned",
+                ),
+            ),
+        },
+        23: Named {
+            name: "Quantity",
+            value: NewType(
+                TypeName(
+                    "QuantityDefOwned",
+                ),
+            ),
+        },
+        24: Named {
+            name: "System",
+            value: NewType(
+                TypeName(
+                    "SystemDefOwned",
+                ),
+            ),
+        },
+        25: Named {
+            name: "Reference",
+            value: NewType(
+                TypeName(
+                    "ReferenceDefOwned",
+                ),
+            ),
+        },
+        26: Named {
+            name: "Codec",
+            value: NewType(
+                TypeName(
+                    "CodecDefOwned",
+                ),
+            ),
+        },
+        27: Named {
+            name: "Finite",
+            value: Unit,
+        },
+        28: Named {
+            name: "Curve",
+            value: NewType(
+                TypeName(
+                    "CurveDefOwned",
+                ),
+            ),
+        },
+        29: Named {
+            name: "Transfer",
+            value: Unit,
+        },
+        30: Named {
+            name: "Unknown",
+            value: NewType(
+                U32,
+            ),
+        },
+    },
+)
+MarkerIdOwned: Struct(
+    [
+        Named {
+            name: "crate_name",
+            value: Str,
+        },
+        Named {
+            name: "name",
+            value: Str,
+        },
+    ],
+)
+MetaOwned: Struct(
+    [
+        Named {
+            name: "claim",
+            value: Option(
+                TypeName(
+                    "ClaimMode",
+                ),
+            ),
+        },
+        Named {
+            name: "shares",
+            value: Seq(
+                TypeName(
+                    "SharesOwned",
+                ),
+            ),
+        },
+        Named {
+            name: "labels",
+            value: Seq(
+                Str,
+            ),
+        },
+    ],
+)
+Multiplicity: Enum(
+    {
+        0: Named {
+            name: "Flat",
+            value: Unit,
+        },
+        1: Named {
+            name: "Array",
+            value: Struct(
+                [
+                    Named {
+                        name: "index_type_idx",
+                        value: Option(
+                            U32,
+                        ),
+                    },
+                ],
+            ),
+        },
+    },
+)
+NumericAnyTypeOwned: Enum(
+    {
+        0: Named {
+            name: "Base",
+            value: NewType(
+                TypeName(
+                    "NumericBaseType",
+                ),
+            ),
+        },
+        1: Named {
+            name: "SubType",
+            value: Struct(
+                [
+                    Named {
+                        name: "base",
+                        value: TypeName(
+                            "NumericBaseType",
+                        ),
+                    },
+                    Named {
+                        name: "kind",
+                        value: TypeName(
+                            "SubTypeKindOwned",
+                        ),
+                    },
+                ],
+            ),
+        },
+        2: Named {
+            name: "ShiftScale",
+            value: Struct(
+                [
+                    Named {
+                        name: "base",
+                        value: TypeName(
+                            "NumericBaseType",
+                        ),
+                    },
+                    Named {
+                        name: "shift",
+                        value: TypeName(
+                            "NumericValue",
+                        ),
+                    },
+                    Named {
+                        name: "scale",
+                        value: TypeName(
+                            "NumericValue",
+                        ),
+                    },
+                ],
+            ),
+        },
+    },
+)
+NumericBaseType: Enum(
+    {
+        0: Named {
+            name: "Nibble",
+            value: Unit,
+        },
+        1: Named {
+            name: "U8",
+            value: Unit,
+        },
+        2: Named {
+            name: "U16",
+            value: Unit,
+        },
+        3: Named {
+            name: "U32",
+            value: Unit,
+        },
+        4: Named {
+            name: "UNib32",
+            value: Unit,
+        },
+        5: Named {
+            name: "U64",
+            value: Unit,
+        },
+        6: Named {
+            name: "I32",
+            value: Unit,
+        },
+        7: Named {
+            name: "F32",
+            value: Unit,
+        },
+        8: Named {
+            name: "U128",
+            value: Unit,
+        },
+        9: Named {
+            name: "I8",
+            value: Unit,
+        },
+        10: Named {
+            name: "I16",
+            value: Unit,
+        },
+        11: Named {
+            name: "I64",
+            value: Unit,
+        },
+        12: Named {
+            name: "I128",
+            value: Unit,
+        },
+        13: Named {
+            name: "F16",
+            value: Unit,
+        },
+        14: Named {
+            name: "F64",
+            value: Unit,
+        },
+        15: Named {
+            name: "UB",
+            value: NewType(
+                U8,
+            ),
+        },
+        16: Named {
+            name: "IB",
+            value: NewType(
+                U8,
+            ),
+        },
+        17: Named {
+            name: "UN",
+            value: Unit,
+        },
+        18: Named {
+            name: "IN",
+            value: Unit,
+        },
+        19: Named {
+            name: "ULeb32",
+            value: Unit,
+        },
+        20: Named {
+            name: "ULeb64",
+            value: Unit,
+        },
+        21: Named {
+            name: "ULeb128",
+            value: Unit,
+        },
+        22: Named {
+            name: "ILeb32",
+            value: Unit,
+        },
+        23: Named {
+            name: "ILeb64",
+            value: Unit,
+        },
+        24: Named {
+            name: "ILeb128",
+            value: Unit,
+        },
+        25: Named {
+            name: "UQ",
+            value: Struct(
+                [
+                    Named {
+                        name: "m",
+                        value: U8,
+                    },
+                    Named {
+                        name: "n",
+                        value: U8,
+                    },
+                ],
+            ),
+        },
+        26: Named {
+            name: "IQ",
+            value: Struct(
+                [
+                    Named {
+                        name: "m",
+                        value: U8,
+                    },
+                    Named {
+                        name: "n",
+                        value: U8,
+                    },
+                ],
+            ),
+        },
+        27: Named {
+            name: "UVlq32",
+            value: Unit,
+        },
+        28: Named {
+            name: "UVlq64",
+            value: Unit,
+        },
+        29: Named {
+            name: "INib32",
+            value: Unit,
+        },
+    },
+)
+NumericValue: Enum(
+    {
+        0: Named {
+            name: "Nibble",
+            value: NewType(
+                U8,
+            ),
+        },
+        1: Named {
+            name: "U8",
+            value: NewType(
+                U8,
+            ),
+        },
+        2: Named {
+            name: "U16",
+            value: NewType(
+                U16,
+            ),
+        },
+        3: Named {
+            name: "U32",
+            value: NewType(
+                U32,
+            ),
+        },
+        4: Named {
+            name: "UNib32",
+            value: NewType(
+                U32,
+            ),
+        },
+        5: Named {
+            name: "U64",
+            value: NewType(
+                U64,
+            ),
+        },
+        6: Named {
+            name: "I32",
+            value: NewType(
+                I32,
+            ),
+        },
+        7: Named {
+            name: "F32",
+            value: NewType(
+                F32,
+            ),
+        },
+        8: Named {
+            name: "UN",
+            value: NewType(
+                TypeName(
+                    "UN",
+                ),
+            ),
+        },
+        9: Named {
+            name: "IN",
+            value: NewType(
+                TypeName(
+                    "IN",
+                ),
+            ),
+        },
+        10: Named {
+            name: "U128",
+            value: NewType(
+                U128,
+            ),
+        },
+        11: Named {
+            name: "I8",
+            value: NewType(
+                I8,
+            ),
+        },
+        12: Named {
+            name: "I16",
+            value: NewType(
+                I16,
+            ),
+        },
+        13: Named {
+            name: "I64",
+            value: NewType(
+                I64,
+            ),
+        },
+        14: Named {
+            name: "I128",
+            value: NewType(
+                I128,
+            ),
+        },
+        15: Named {
+            name: "F64",
+            value: NewType(
+                F64,
+            ),
+        },
+        16: Named {
+            name: "UVlq32",
+            value: NewType(
+                U32,
+            ),
+        },
+        17: Named {
+            name: "UVlq64",
+            value: NewType(
+                U64,
+            ),
+        },
+        18: Named {
+            name: "INib32",
+            value: NewType(
+                I32,
+            ),
+        },
+    },
+)
+OffsetParts: Struct(
+    [
+        Named {
+            name: "negative",
+            value: Bool,
+        },
+        Named {
+            name: "magnitude",
+            value: Option(
+                TypeName(
+                    "MagnitudeParts",
+                ),
+            ),
+        },
+    ],
+)
+OpaqueOwned: Struct(
+    [
+        Named {
+            name: "crate_version",
+            value: TypeName(
+                "FullVersionOwned",
+            ),
+        },
+        Named {
+            name: "type_name",
+            value: Str,
+        },
+        Named {
+            name: "signature",
+            value: Seq(
+                U8,
+            ),
+        },
+        Named {
+            name: "bytes",
+            value: Seq(
+                U8,
+            ),
+        },
+    ],
+)
+OptionalOwned: Struct(
+    [
+        Named {
+            name: "group",
+            value: Option(
+                Str,
+            ),
+        },
+    ],
+)
+OriginDefOwned: Struct(
+    [
+        Named {
+            name: "id",
+            value: TypeName(
+                "MarkerIdOwned",
+            ),
+        },
+        Named {
+            name: "unit",
+            value: TypeName(
+                "UnitDefOwned",
+            ),
+        },
+        Named {
+            name: "symbol",
+            value: Str,
+        },
+        Named {
+            name: "reference",
+            value: TypeName(
+                "ReferenceDefOwned",
+            ),
+        },
+        Named {
+            name: "offset",
+            value: TypeName(
+                "OffsetParts",
+            ),
+        },
+        Named {
+            name: "modulus",
+            value: Option(
+                TypeName(
+                    "MagnitudeParts",
+                ),
+            ),
+        },
+        Named {
+            name: "step",
+            value: TypeName(
+                "MagnitudeParts",
+            ),
+        },
+        Named {
+            name: "shown",
+            value: TypeName(
+                "OffsetParts",
+            ),
+        },
+    ],
+)
+PrefixPolicy: Enum(
+    {
+        0: Named {
+            name: "None",
+            value: Unit,
+        },
+        1: Named {
+            name: "Decimal",
+            value: Unit,
+        },
+        2: Named {
+            name: "DecimalAndBinary",
+            value: Unit,
+        },
+        3: Named {
+            name: "Only",
+            value: NewType(
+                TypeName(
+                    "PrefixSet",
+                ),
+            ),
+        },
+    },
+)
+PrefixSet: Struct(
+    [
+        Named {
+            name: "bits",
+            value: U32,
+        },
+    ],
+)
+PropertyAccess: Enum(
+    {
+        0: Named {
+            name: "Const",
+            value: Unit,
+        },
+        1: Named {
+            name: "ReadOnly",
+            value: Struct(
+                [
+                    Named {
+                        name: "observe",
+                        value: Bool,
+                    },
+                ],
+            ),
+        },
+        2: Named {
+            name: "ReadWrite",
+            value: Struct(
+                [
+                    Named {
+                        name: "observe",
+                        value: Bool,
+                    },
+                ],
+            ),
+        },
+        3: Named {
+            name: "WriteOnly",
+            value: Unit,
+        },
+    },
+)
+ProvenanceOwned: Enum(
+    {
+        0: Named {
+            name: "Defined",
+            value: Unit,
+        },
+        1: Named {
+            name: "Conventional",
+            value: Struct(
+                [
+                    Named {
+                        name: "source",
+                        value: Str,
+                    },
+                    Named {
+                        name: "year",
+                        value: U16,
+                    },
+                ],
+            ),
+        },
+        2: Named {
+            name: "Unknown",
+            value: NewType(
+                U32,
+            ),
+        },
+    },
+)
+QuantityDefOwned: Struct(
+    [
+        Named {
+            name: "id",
+            value: TypeName(
+                "MarkerIdOwned",
+            ),
+        },
+        Named {
+            name: "parent",
+            value: Option(
+                TypeName(
+                    "MarkerIdOwned",
+                ),
+            ),
+        },
+        Named {
+            name: "dim",
+            value: TypeName(
+                "DimWireOwned",
+            ),
+        },
+        Named {
+            name: "is_kind",
+            value: Bool,
+        },
+        Named {
+            name: "character",
+            value: TypeName(
+                "Character",
+            ),
+        },
+    ],
+)
+Range: Struct(
+    [
+        Named {
+            name: "start",
+            value: TypeName(
+                "NumericValue",
+            ),
+        },
+        Named {
+            name: "end",
+            value: TypeName(
+                "NumericValue",
+            ),
+        },
+    ],
+)
+RangeInclusive: Struct(
+    [
+        Named {
+            name: "start",
+            value: TypeName(
+                "NumericValue",
+            ),
+        },
+        Named {
+            name: "end",
+            value: TypeName(
+                "NumericValue",
+            ),
+        },
+    ],
+)
+ReferenceDefOwned: Struct(
+    [
+        Named {
+            name: "id",
+            value: TypeName(
+                "MarkerIdOwned",
+            ),
+        },
+        Named {
+            name: "name",
+            value: Str,
+        },
+        Named {
+            name: "how",
+            value: TypeName(
+                "ReferenceHow",
+            ),
+        },
+    ],
+)
+ReferenceHow: Enum(
+    {
+        0: Named {
+            name: "Exact",
+            value: Unit,
+        },
+        1: Named {
+            name: "RunTime",
+            value: Unit,
+        },
+        2: Named {
+            name: "TimeScale",
+            value: NewType(
+                TypeName(
+                    "TimeScaleDef",
+                ),
+            ),
+        },
+        3: Named {
+            name: "Unknown",
+            value: NewType(
+                U32,
+            ),
+        },
+    },
+)
+Referred: Enum(
+    {
+        0: Named {
+            name: "Scene",
+            value: Unit,
+        },
+        1: Named {
+            name: "Display",
+            value: Unit,
+        },
+        2: Named {
+            name: "Unknown",
+            value: NewType(
+                U32,
+            ),
+        },
+    },
+)
+Repr: Enum(
+    {
+        0: Named {
+            name: "Nibble",
+            value: Unit,
+        },
+        1: Named {
+            name: "BitAligned",
+            value: NewType(
+                U8,
+            ),
+        },
+        2: Named {
+            name: "UNib32",
+            value: Unit,
+        },
+        3: Named {
+            name: "ByteAlignedU8",
+            value: Unit,
+        },
+        4: Named {
+            name: "ByteAlignedU16",
+            value: Unit,
+        },
+        5: Named {
+            name: "ByteAlignedU32",
+            value: Unit,
+        },
+    },
+)
+Result: Enum(
+    {
+        0: Named {
+            name: "Ok",
+            value: NewType(
+                TypeName(
+                    "ValueOwned",
+                ),
+            ),
+        },
+        1: Named {
+            name: "Err",
+            value: NewType(
+                TypeName(
+                    "ValueOwned",
+                ),
+            ),
+        },
+    },
+)
+ScaleDefOwned: Struct(
+    [
+        Named {
+            name: "id",
+            value: TypeName(
+                "MarkerIdOwned",
+            ),
+        },
+        Named {
+            name: "symbol",
+            value: Str,
+        },
+        Named {
+            name: "magnitude",
+            value: TypeName(
+                "MagnitudeParts",
+            ),
+        },
+    ],
+)
+Segment: Struct(
+    [
+        Named {
+            name: "from",
+            value: Tuple(
+                [
+                    Bool,
+                    U128,
+                    U128,
+                    I32,
+                ],
+            ),
+        },
+        Named {
+            name: "form",
+            value: TypeName(
+                "CurveForm",
+            ),
+        },
+    ],
+)
+SetToOneOwned: Struct(
+    [
+        Named {
+            name: "symbol",
+            value: Str,
+        },
+        Named {
+            name: "si",
+            value: TypeName(
+                "MagnitudeParts",
+            ),
+        },
+    ],
+)
+SharesOwned: Struct(
+    [
+        Named {
+            name: "index",
+            value: Option(
+                U32,
+            ),
+        },
+        Named {
+            name: "pins",
+            value: Seq(
+                Str,
+            ),
+        },
+        Named {
+            name: "peripherals",
+            value: Seq(
+                Str,
+            ),
+        },
+    ],
+)
+SubTypeKindOwned: Enum(
+    {
+        0: Named {
+            name: "ValidRange",
+            value: Struct(
+                [
+                    Named {
+                        name: "start",
+                        value: TypeName(
+                            "NumericValue",
+                        ),
+                    },
+                    Named {
+                        name: "end",
+                        value: TypeName(
+                            "NumericValue",
+                        ),
+                    },
+                ],
+            ),
+        },
+        1: Named {
+            name: "ValidList",
+            value: NewType(
+                Seq(
+                    TypeName(
+                        "NumericValue",
+                    ),
+                ),
+            ),
+        },
+        2: Named {
+            name: "InvalidList",
+            value: NewType(
+                Seq(
+                    TypeName(
+                        "NumericValue",
+                    ),
+                ),
+            ),
+        },
+    },
+)
+SystemDefOwned: Struct(
+    [
+        Named {
+            name: "id",
+            value: TypeName(
+                "MarkerIdOwned",
+            ),
+        },
+        Named {
+            name: "bases",
+            value: Seq(
+                Str,
+            ),
+        },
+        Named {
+            name: "set_to_one",
+            value: Seq(
+                TypeName(
+                    "SetToOneOwned",
+                ),
+            ),
+        },
+        Named {
+            name: "by_dim",
+            value: Seq(
+                Option(
+                    TypeName(
+                        "BaseRuleOwned",
+                    ),
+                ),
+            ),
+        },
+        Named {
+            name: "by_quantity",
+            value: Seq(
+                TypeName(
+                    "BridgeDefOwned",
+                ),
+            ),
+        },
+        Named {
+            name: "no_rule",
+            value: Seq(
+                TypeName(
+                    "MarkerIdOwned",
+                ),
+            ),
+        },
+    ],
+)
+TimeCounting: Enum(
+    {
+        0: Named {
+            name: "EverySecond",
+            value: Unit,
+        },
+        1: Named {
+            name: "PosixDays",
+            value: Unit,
+        },
+        2: Named {
+            name: "Unknown",
+            value: NewType(
+                U32,
+            ),
+        },
+    },
+)
+TimeScaleDef: Struct(
+    [
+        Named {
+            name: "counting",
+            value: TypeName(
+                "TimeCounting",
+            ),
+        },
+        Named {
+            name: "zero",
+            value: TypeName(
+                "TimeZero",
+            ),
+        },
+    ],
+)
+TimeZero: Enum(
+    {
+        0: Named {
+            name: "Agreed",
+            value: Unit,
+        },
+        1: Named {
+            name: "RunTime",
+            value: Unit,
+        },
+        2: Named {
+            name: "Unknown",
+            value: NewType(
+                U32,
+            ),
+        },
+    },
+)
+TypeLocationOwned: Enum(
+    {
+        0: Named {
+            name: "InLine",
+            value: Struct(
+                [
+                    Named {
+                        name: "ty",
+                        value: TypeName(
+                            "TypeOwned",
+                        ),
+                    },
+                    Named {
+                        name: "crate_idx",
+                        value: U32,
+                    },
+                ],
+            ),
+        },
+        1: Named {
+            name: "SkippedFullVersion",
+            value: Struct(
+                [
+                    Named {
+                        name: "crate_idx",
+                        value: U32,
+                    },
+                    Named {
+                        name: "type_name",
+                        value: Str,
+                    },
+                    Named {
+                        name: "signature",
+                        value: Seq(
+                            U8,
+                        ),
+                    },
+                ],
+            ),
+        },
+    },
+)
+TypeOwned: Enum(
+    {
+        0: Named {
+            name: "Bool",
+            value: Unit,
+        },
+        1: Named {
+            name: "NumericAny",
+            value: NewType(
+                TypeName(
+                    "NumericAnyTypeOwned",
+                ),
+            ),
+        },
+        2: Named {
+            name: "OutOfLine",
+            value: Struct(
+                [
+                    Named {
+                        name: "type_idx",
+                        value: U32,
+                    },
+                ],
+            ),
+        },
+        3: Named {
+            name: "Flag",
+            value: Unit,
+        },
+        4: Named {
+            name: "String",
+            value: Unit,
+        },
+        5: Named {
+            name: "Vec",
+            value: NewType(
+                TypeName(
+                    "TypeOwned",
+                ),
+            ),
+        },
+        6: Named {
+            name: "Array",
+            value: Struct(
+                [
+                    Named {
+                        name: "len",
+                        value: TypeName(
+                            "Length",
+                        ),
+                    },
+                    Named {
+                        name: "ty",
+                        value: TypeName(
+                            "TypeOwned",
+                        ),
+                    },
+                ],
+            ),
+        },
+        7: Named {
+            name: "Tuple",
+            value: NewType(
+                Seq(
+                    TypeName(
+                        "TypeOwned",
+                    ),
+                ),
+            ),
+        },
+        8: Named {
+            name: "Struct",
+            value: NewType(
+                TypeName(
+                    "ItemStructOwned",
+                ),
+            ),
+        },
+        9: Named {
+            name: "Enum",
+            value: NewType(
+                TypeName(
+                    "ItemEnumOwned",
+                ),
+            ),
+        },
+        10: Named {
+            name: "Option",
+            value: Struct(
+                [
+                    Named {
+                        name: "some_ty",
+                        value: TypeName(
+                            "TypeOwned",
+                        ),
+                    },
+                ],
+            ),
+        },
+        11: Named {
+            name: "Result",
+            value: Struct(
+                [
+                    Named {
+                        name: "ok_ty",
+                        value: TypeName(
+                            "TypeOwned",
+                        ),
+                    },
+                    Named {
+                        name: "err_ty",
+                        value: TypeName(
+                            "TypeOwned",
+                        ),
+                    },
+                ],
+            ),
+        },
+        12: Named {
+            name: "Box",
+            value: NewType(
+                TypeName(
+                    "TypeOwned",
+                ),
+            ),
+        },
+        13: Named {
+            name: "Range",
+            value: NewType(
+                TypeName(
+                    "NumericBaseType",
+                ),
+            ),
+        },
+        14: Named {
+            name: "RangeInclusive",
+            value: NewType(
+                TypeName(
+                    "NumericBaseType",
+                ),
+            ),
+        },
+        15: Named {
+            name: "MaxLen",
+            value: Struct(
+                [
+                    Named {
+                        name: "max_len",
+                        value: TypeName(
+                            "Length",
+                        ),
+                    },
+                    Named {
+                        name: "ty",
+                        value: TypeName(
+                            "TypeOwned",
+                        ),
+                    },
+                ],
+            ),
+        },
+        16: Named {
+            name: "Instance",
+            value: Struct(
+                [
+                    Named {
+                        name: "type_idx",
+                        value: U32,
+                    },
+                    Named {
+                        name: "args",
+                        value: Seq(
+                            TypeName(
+                                "GenericArgOwned",
+                            ),
+                        ),
+                    },
+                ],
+            ),
+        },
+        17: Named {
+            name: "Param",
+            value: NewType(
+                U32,
+            ),
+        },
+        18: Named {
+            name: "Series",
+            value: NewType(
+                TypeName(
+                    "TypeOwned",
+                ),
+            ),
+        },
+    },
+)
+UN: Enum(
+    {
+        0: Named {
+            name: "UN8",
+            value: Struct(
+                [
+                    Named {
+                        name: "bit_count",
+                        value: U8,
+                    },
+                    Named {
+                        name: "value",
+                        value: U8,
+                    },
+                ],
+            ),
+        },
+        1: Named {
+            name: "UN16",
+            value: Struct(
+                [
+                    Named {
+                        name: "bit_count",
+                        value: U8,
+                    },
+                    Named {
+                        name: "value",
+                        value: U16,
+                    },
+                ],
+            ),
+        },
+        2: Named {
+            name: "UN32",
+            value: Struct(
+                [
+                    Named {
+                        name: "bit_count",
+                        value: U8,
+                    },
+                    Named {
+                        name: "value",
+                        value: U32,
+                    },
+                ],
+            ),
+        },
+        3: Named {
+            name: "UN64",
+            value: Struct(
+                [
+                    Named {
+                        name: "bit_count",
+                        value: U8,
+                    },
+                    Named {
+                        name: "value",
+                        value: U64,
+                    },
+                ],
+            ),
+        },
+    },
+)
+UnitDefOwned: Struct(
+    [
+        Named {
+            name: "id",
+            value: TypeName(
+                "MarkerIdOwned",
+            ),
+        },
+        Named {
+            name: "names",
+            value: TypeName(
+                "UnitNamesOwned",
+            ),
+        },
+        Named {
+            name: "dim",
+            value: TypeName(
+                "DimWireOwned",
+            ),
+        },
+        Named {
+            name: "quantity",
+            value: Option(
+                TypeName(
+                    "MarkerIdOwned",
+                ),
+            ),
+        },
+        Named {
+            name: "scale",
+            value: TypeName(
+                "MagnitudeParts",
+            ),
+        },
+        Named {
+            name: "provenance",
+            value: TypeName(
+                "ProvenanceOwned",
+            ),
+        },
+    ],
+)
+UnitNamesOwned: Struct(
+    [
+        Named {
+            name: "symbol",
+            value: Str,
+        },
+        Named {
+            name: "ascii",
+            value: Option(
+                Str,
+            ),
+        },
+        Named {
+            name: "long",
+            value: Str,
+        },
+        Named {
+            name: "plural",
+            value: Str,
+        },
+        Named {
+            name: "aliases",
+            value: Str,
+        },
+        Named {
+            name: "ucum",
+            value: Option(
+                Str,
+            ),
+        },
+        Named {
+            name: "prefixes",
+            value: TypeName(
+                "PrefixPolicy",
+            ),
+        },
+    ],
+)
+ValueOwned: Enum(
+    {
+        0: Named {
+            name: "Bool",
+            value: NewType(
+                Bool,
+            ),
+        },
+        1: Named {
+            name: "Numeric",
+            value: NewType(
+                TypeName(
+                    "NumericValue",
+                ),
+            ),
+        },
+        2: Named {
+            name: "String",
+            value: NewType(
+                Str,
+            ),
+        },
+        3: Named {
+            name: "Vec",
+            value: NewType(
+                Seq(
+                    TypeName(
+                        "ValueOwned",
+                    ),
+                ),
+            ),
+        },
+        4: Named {
+            name: "Array",
+            value: NewType(
+                Seq(
+                    TypeName(
+                        "ValueOwned",
+                    ),
+                ),
+            ),
+        },
+        5: Named {
+            name: "Tuple",
+            value: NewType(
+                Seq(
+                    TypeName(
+                        "ValueOwned",
+                    ),
+                ),
+            ),
+        },
+        6: Named {
+            name: "Struct",
+            value: Struct(
+                [
+                    Named {
+                        name: "fields",
+                        value: TypeName(
+                            "FieldsValueOwned",
+                        ),
+                    },
+                ],
+            ),
+        },
+        7: Named {
+            name: "Enum",
+            value: Struct(
+                [
+                    Named {
+                        name: "variant",
+                        value: Str,
+                    },
+                    Named {
+                        name: "fields",
+                        value: TypeName(
+                            "FieldsValueOwned",
+                        ),
+                    },
+                ],
+            ),
+        },
+        8: Named {
+            name: "Option",
+            value: NewType(
+                Option(
+                    TypeName(
+                        "ValueOwned",
+                    ),
+                ),
+            ),
+        },
+        9: Named {
+            name: "Result",
+            value: NewType(
+                TypeName(
+                    "Result",
+                ),
+            ),
+        },
+        10: Named {
+            name: "Range",
+            value: NewType(
+                TypeName(
+                    "Range",
+                ),
+            ),
+        },
+        11: Named {
+            name: "RangeInclusive",
+            value: NewType(
+                TypeName(
+                    "RangeInclusive",
+                ),
+            ),
+        },
+        12: Named {
+            name: "Opaque",
+            value: NewType(
+                TypeName(
+                    "OpaqueOwned",
+                ),
+            ),
+        },
+    },
+)
+VariantOwned: Struct(
+    [
+        Named {
+            name: "docs",
+            value: Seq(
+                Str,
+            ),
+        },
+        Named {
+            name: "ident",
+            value: Str,
+        },
+        Named {
+            name: "fields",
+            value: TypeName(
+                "FieldsOwned",
+            ),
+        },
+        Named {
+            name: "discriminant",
+            value: U32,
+        },
+        Named {
+            name: "since",
+            value: Option(
+                TypeName(
+                    "WireVersion",
+                ),
+            ),
+        },
+    ],
+)
+VersionOwned: Struct(
+    [
+        Named {
+            name: "major",
+            value: U32,
+        },
+        Named {
+            name: "minor",
+            value: U32,
+        },
+        Named {
+            name: "patch",
+            value: U32,
+        },
+        Named {
+            name: "pre",
+            value: Option(
+                Str,
+            ),
+        },
+        Named {
+            name: "build",
+            value: Option(
+                Str,
+            ),
+        },
+    ],
+)
+VersionTriplet: Struct(
+    [
+        Named {
+            name: "major",
+            value: U32,
+        },
+        Named {
+            name: "minor",
+            value: U32,
+        },
+        Named {
+            name: "patch",
+            value: U32,
+        },
+    ],
+)
+WireVersion: Struct(
+    [
+        Named {
+            name: "line",
+            value: U32,
+        },
+        Named {
+            name: "revision",
+            value: U32,
+        },
+    ],
+)

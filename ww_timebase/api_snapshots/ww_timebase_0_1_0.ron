@@ -1,7 +1,7 @@
 // ww_timebase 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: a8efa643d6c4ded268a3c28fe592094a78ea3a3a7ffc24f860b8da8aefc0ecf9
-(magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
+// shrink_wrap sha256: 5973b1e0f9926d3fda26147ba1342ade559acff91686d54d7872a1ac8826e032
+(magic: 2837124336, ww_self_version: (major: 0, minor: 4, patch: 0), root: (docs: [
     "Device time and synchronisation over WireWeaver.",
     "",
     "Every device has one free-running clock that timestamps everything it captures, as [Second]s since the clock",

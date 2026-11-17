@@ -65,6 +65,23 @@ the chain carries that directory along: the resolver looks there by signature, t
 [definition cache](../std_library/ww_self.md#the-definition-cache) of the host, then in the same version's snapshot in
 the other sources. See [superseded definitions](inside_the_checker.md#superseded-definitions-evo-68).
 
+## Model format
+
+A snapshot file is the RON of a bundle of the API model (`ww_self`), and its `ww_self_version` names the format of
+that model, `ww_self::VERSION`: not a crate version, but a number that moves whenever the model's shape changes (a
+field, a variant, a type the model takes from exact_units or ww_base). Every reader checks it first. A file of another
+format is refused with the step that fixes it, re-saving it with the current tool (`ww api save` in the crate at the
+commit of that version):
+
+```text
+saved in model format 0.3.0, this tool reads 0.4.0: re-save it (`ww api save` in the crate at the commit of that version)
+```
+
+Old formats are not read: a stored snapshot is re-saved when the format moves. The test `model_format_frozen` of
+`ww_snapshots` keeps the model's shape with its format in `ww_snapshots/tests/model_format.txt` and fails when the
+model changes without a new `ww_self::VERSION`; after the bump, `WW_UPDATE_MODEL_FORMAT=1 cargo nextest run -p
+ww_snapshots model_format` records the new shape.
+
 ## Sources and offline use
 
 `~/.wire_weaver/sources.toml` says what a fetch may do. A missing file means crates.io only.

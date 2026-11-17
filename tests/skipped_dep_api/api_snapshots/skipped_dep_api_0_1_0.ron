@@ -1,7 +1,7 @@
 // skipped_dep_api 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: aca4c94d0aac3653fd50a8ed15dede824badc1d04652d9349b49922fe9523cb7
-(magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
+// shrink_wrap sha256: a9b053fb728721367bd45cd618e4d4d7aae8ae20a3ae06c6d4cc5102d124a995
+(magic: 2837124336, ww_self_version: (major: 0, minor: 4, patch: 0), root: (docs: [
     "Stands in for a standard library crate (R7) in `wire_weaver_core`\'s snapshot tests: an API using these traits",
     "leaves their definitions out against this crate\'s snapshot. `Port` refers to `ww_si` quantities (which refer to",
     "`ww_numeric` and `exact_units`) and to `ww_error`\'s `CommonError`, as `ww_uart::Uart` does; `Bank` refers to",

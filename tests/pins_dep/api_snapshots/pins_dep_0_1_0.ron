@@ -1,7 +1,7 @@
 // pins_dep 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 7b7d47ed9a43320328520d2501ce462a003fc751931d6892d66cd80edd2f0c23
-(magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
+// shrink_wrap sha256: d24d4ffd1af0cd181a9018602d42c700b4926dfeec25473a6706a59aa7d2287d
+(magic: 2837124336, ww_self_version: (major: 0, minor: 4, patch: 0), root: (docs: [
     "Stand-in dependency for `wire_weaver_evolution`\'s own `pins::refresh` tests (EVO-70, `tests/check.rs`): a real",
     "workspace member, so its definitions resolve the way a real dependency\'s do, framework types only (`ww_api`).",
     "Its `src/lib.rs` is copied and edited in place by those tests to drive a changed dependency; never edited here",

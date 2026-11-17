@@ -14,7 +14,7 @@ use std::fs;
 use std::path::Path;
 use ww_self::ApiBundleOwned;
 use ww_self::snapshot;
-use ww_version::{FullVersionOwned, VersionOwned};
+use ww_version::{FullVersionOwned, VersionOwned, VersionTriplet};
 
 /// Extension of a snapshot file.
 pub const EXTENSION: &str = "ron";
@@ -129,8 +129,9 @@ pub fn parse(text: &str) -> Result<Snapshot> {
             snapshot::HASH_PREFIX.trim_end()
         );
     };
-    let bundle: ApiBundleOwned = ron::Options::default()
-        .with_recursion_limit(RON_RECURSION_LIMIT)
+    check_format(text)?;
+    let options = ron::Options::default().with_recursion_limit(RON_RECURSION_LIMIT);
+    let bundle: ApiBundleOwned = options
         .from_str(text)
         .map_err(|e| anyhow!("parsing RON: {e}"))?;
     let bytes = snapshot::encode(&bundle)?;
@@ -149,6 +150,34 @@ pub fn parse(text: &str) -> Result<Snapshot> {
         bytes,
         text: text.to_owned(),
     })
+}
+
+/// Checks that a snapshot's text is in the model format this build reads ([ww_self::VERSION]), before the rest of
+/// it is read: a file of another format is refused with the step that re-saves it.
+pub fn check_format(text: &str) -> Result<()> {
+    // the field is at the top of the file: reading it alone spares a second parse of the whole bundle
+    let Some((_, rest)) = text.split_once(FORMAT_FIELD) else {
+        bail!("no `{FORMAT_FIELD}` field: not a snapshot `ww api save` wrote");
+    };
+    let end = rest.find(')').map_or(rest.len(), |i| i + 1);
+    let format: VersionTriplet =
+        ron::from_str(&rest[..end]).map_err(|e| anyhow!("parsing `{FORMAT_FIELD}`: {e}"))?;
+    if format != ww_self::VERSION {
+        bail!(
+            "saved in model format {}, this tool reads {}: re-save it (`ww api save` in the crate at the commit of \
+             that version)",
+            format_triplet(&format),
+            format_triplet(&ww_self::VERSION)
+        );
+    }
+    Ok(())
+}
+
+/// The field of a bundle that names its model format, [ww_self::ApiBundle::ww_self_version].
+const FORMAT_FIELD: &str = "ww_self_version:";
+
+fn format_triplet(v: &VersionTriplet) -> String {
+    format!("{}.{}.{}", v.major.0, v.minor.0, v.patch.0)
 }
 
 /// `0.3.0` of a version.

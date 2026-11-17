@@ -1,7 +1,7 @@
 // thermo_api 2.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 80866c1937797a458328db6821526b6290de8641da9b259fceb6a73134262f13
-(magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
+// shrink_wrap sha256: 2cd80d34d709cfbf8b21e1c729d23b7aa835265c67e9cd3f425807b755965233
+(magic: 2837124336, ww_self_version: (major: 0, minor: 4, patch: 0), root: (docs: [
     "`thermo_api` 2.1.0 at wire w2.1: line 2 of the dual-driver bench (EVO-28), after a wire break of line 1.",
     "",
     "What broke against w1.2 (`../w1`):",
@@ -14,8 +14,8 @@
     "Unchanged: `read_once`, `mode`, the stream and sink, the channels, `uptime`, `RateError`, `Command` and the shared",
     "`ww_indication` trait. `self_test` is new in w2.1, so a w2.0 device doesn\'t have it.",
 ], crate_idx: 0, trait_name: "thermo_api", items: [
-    (id: 0, kind: Trait(trait_idx: 2, omitted: None), multiplicity: Flat, since: None, ident: "Thermo", docs: [], optional: None, meta: None),
-    (id: 1, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Channel", docs: [], optional: None, meta: None),
+    (id: 0, kind: Trait(trait_idx: 2, omitted: None), multiplicity: Flat, since: None, ident: "Thermo", docs: [], optional: None, meta: None, identity: None),
+    (id: 1, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Channel", docs: [], optional: None, meta: None, identity: None),
 ], compact_id: None, meta: None), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "units::Hertz", signature: [
         231,
@@ -248,10 +248,10 @@
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [], crate_idx: 0, trait_name: "Channel", items: [
-        (id: 0, kind: Property(ty: Bool, access: ReadWrite(observe: false), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "enabled", docs: [], optional: None, meta: None),
+        (id: 0, kind: Property(ty: Bool, access: ReadWrite(observe: false), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "enabled", docs: [], optional: None, meta: None, identity: None),
         (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 16)), errors: None), multiplicity: Flat, since: None, ident: "last", docs: [
             "The last sample taken on this channel.",
-        ], optional: None, meta: None),
+        ], optional: None, meta: None, identity: None),
     ], compact_id: None, meta: None), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, trait_name: "Indication", signature: [
         225,
@@ -268,11 +268,11 @@
             (ident: "config", ty: OutOfLine(type_idx: 5), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 6))), errors: None), multiplicity: Flat, since: None, ident: "configure", docs: [
             "Sets the sampling rate and mode together. `Busy` while a triggered sample is running.",
-        ], optional: None, meta: None),
+        ], optional: None, meta: None, identity: None),
         (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 16)), errors: None), multiplicity: Flat, since: None, ident: "read_once", docs: [
             "Takes one sample now, whatever the mode.",
-        ], optional: None, meta: None),
-        (id: 2, kind: Property(ty: OutOfLine(type_idx: 4), access: ReadWrite(observe: false), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "mode", docs: [], optional: None, meta: None),
+        ], optional: None, meta: None, identity: None),
+        (id: 2, kind: Property(ty: OutOfLine(type_idx: 4), access: ReadWrite(observe: false), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "mode", docs: [], optional: None, meta: None, identity: None),
         (id: 3, kind: Property(ty: Instance(type_idx: 3, args: [
             Type(OutOfLine(type_idx: 17)),
             Type(OutOfLine(type_idx: 18)),
@@ -283,19 +283,19 @@
             ])),
         ]), access: ReadWrite(observe: true), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "gain", docs: [
             "Amplifier gain, observable: the device changes it itself on overload.",
-        ], optional: None, meta: None),
+        ], optional: None, meta: None, identity: None),
         (id: 4, kind: Stream(ty: OutOfLine(type_idx: 16), is_up: true), multiplicity: Flat, since: None, ident: "samples", docs: [
             "Samples while `mode` is `Continuous`, and one per `Command::Trigger`.",
-        ], optional: None, meta: None),
+        ], optional: None, meta: None, identity: None),
         (id: 5, kind: Stream(ty: OutOfLine(type_idx: 19), is_up: false), multiplicity: Flat, since: None, ident: "commands", docs: [
             "Commands for the sampler, in order.",
-        ], optional: None, meta: None),
+        ], optional: None, meta: None, identity: None),
         (id: 6, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Array(index_type_idx: None), since: None, ident: "channel", docs: [
             "Input channels, 0-based on the wire.",
-        ], optional: None, meta: None),
+        ], optional: None, meta: None, identity: None),
         (id: 7, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "indication", docs: [
             "The status LED, a `ww_stdlib` trait both lines share.",
-        ], optional: None, meta: None),
+        ], optional: None, meta: None, identity: None),
         (id: 8, kind: Method(args: [
             (ident: "offset", ty: Instance(type_idx: 3, args: [
                 Type(OutOfLine(type_idx: 11)),
@@ -305,7 +305,7 @@
             ]), default: None, flatten: false),
         ], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "calibrate", docs: [
             "Adds `offset` to every sample from now on.",
-        ], optional: None, meta: None),
+        ], optional: None, meta: None, identity: None),
         (id: 9, kind: Property(ty: Instance(type_idx: 3, args: [
             Type(OutOfLine(type_idx: 20)),
             Type(OutOfLine(type_idx: 1)),
@@ -313,10 +313,10 @@
             Type(OutOfLine(type_idx: 14)),
         ]), access: ReadOnly(observe: false), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "uptime", docs: [
             "Time since boot.",
-        ], optional: None, meta: None),
+        ], optional: None, meta: None, identity: None),
         (id: 10, kind: Method(args: [], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 21))), errors: None), multiplicity: Flat, since: Some((line: 2, revision: 1)), ident: "self_test", docs: [
             "Checks the sensor. Added in w2.1.",
-        ], optional: None, meta: None),
+        ], optional: None, meta: None, identity: None),
     ], compact_id: None, meta: None), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "thermo_api", version: (major: 2, minor: 1, patch: 0, pre: None, build: None)),

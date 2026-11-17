@@ -1,7 +1,7 @@
 // thermo_api 5.0.0: API root wire_v2::Thermo at wire w6.0 and what it reaches, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 9565c30c76bce439f49b7cd66e9f944a8e6765e855c50d7661c976df9bf5e1fd
-(magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
+// shrink_wrap sha256: 39fa32e6f70af951d5f6556eb03c989d755d31b15b86f0937b2ac2cf5eb10a8e
+(magic: 2837124336, ww_self_version: (major: 0, minor: 4, patch: 0), root: (docs: [
     "`thermo_api` 5.0.0: lines 5 and 6 of the multi-line bench (EVO-28, EVO-42) at their first revisions, [wire_v1] at",
     "w5.0 before `calibrate` (w5.1) and `uptime` (w5.2), [wire_v2] at w6.0 before `self_test` (w6.1). Line 7 came with",
     "6.0.0. Firmware in the field may still run it; the bench\'s host has no client of it, it talks to it with the",

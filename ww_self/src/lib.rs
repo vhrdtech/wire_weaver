@@ -69,24 +69,11 @@ use ww_numeric::NumericValue;
 use ww_version::FullVersionOwned;
 
 pub const MAGIC: u32 = 0xA91B_14F0;
-/// Version of this crate, stored in [ApiBundle::ww_self_version], so that a reader knows which format a bundle
-/// (saved file or introspection data) was written in.
-pub const VERSION: VersionTriplet = VersionTriplet::new(
-    parse_u32(env!("CARGO_PKG_VERSION_MAJOR")),
-    parse_u32(env!("CARGO_PKG_VERSION_MINOR")),
-    parse_u32(env!("CARGO_PKG_VERSION_PATCH")),
-);
-
-const fn parse_u32(s: &str) -> u32 {
-    let b = s.as_bytes();
-    let mut i = 0;
-    let mut n = 0u32;
-    while i < b.len() {
-        n = n * 10 + (b[i] - b'0') as u32;
-        i += 1;
-    }
-    n
-}
+/// Format of the model, stored in [ApiBundle::ww_self_version], so that a reader knows which format a bundle (saved
+/// file or introspection data) was written in. Not the crate's version: it moves with every change of the model's
+/// shape (a field, a variant, a type of a dependency the model uses), which `ww_snapshots`' `model_format` test
+/// checks, and a snapshot file of another format is refused with the step that re-saves it.
+pub const VERSION: VersionTriplet = VersionTriplet::new(0, 4, 0);
 
 // TODO: add doc
 // TODO: add ufs
@@ -99,7 +86,7 @@ const fn parse_u32(s: &str) -> u32 {
 pub struct ApiBundle<'i> {
     /// [MAGIC] value
     pub magic: u32,
-    /// ww_self version used when generating this bundle.
+    /// Format of the model this bundle was written in, [VERSION] of the writer.
     pub ww_self_version: VersionTriplet,
     /// API entry point.
     pub root: ApiLevel<'i>,

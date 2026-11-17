@@ -27,5 +27,11 @@ ureq = { workspace = true, optional = true }
 ww_self = { workspace = true, features = ["std", "serde"] }
 ww_version = { workspace = true, features = ["std", "serde"] }
 
+[dev-dependencies]
+exact_units.workspace = true
+serde-reflection.workspace = true
+shrink_wrap.workspace = true
+ww_numeric.workspace = true
+
 [lints]
 workspace = true

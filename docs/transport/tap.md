@@ -28,9 +28,11 @@ The tap is the `ww_tap` crate (`no_std`). A transport calls its `Tap` at the two
 and `message(dir, kind, bytes)`; the event loop adds `link_event`. The tap only copies bytes and stamps a time:
 linking, statistics and decoding happen in the consumer, so the link pays for a copy and nothing more.
 
-- **Host.** Every `wire_weaver_client` event loop records into a `ww_tap::Recorder`: the process-wide
-  `tap::default_recorder()`, or the one named with `ClientConfig::tap(recorder)`. Nothing is copied while nobody
-  subscribes. `Command::RegisterTracer` and its `TraceEvent`s are an adapter over the same records.
+- **Host.** Every `wire_weaver_client` event loop reports its link to a `Tap` made for that link by the
+  `tap::TapSource` of `ClientConfig::tap(source)`: `TapSource::new(|| Box::new(my_tap))` for any `Tap`, or a
+  `ww_tap::Recorder` (it converts into one). A client without a tap copies nothing. `Command::RegisterTracer` and
+  its `TraceEvent`s come from the same hook: the data messages each way and the link's connects, disconnects and
+  errors.
 - **Device.** `ww_device`'s `FramedTx::with_tap` / `FramedRx::with_tap` take a tap; the default is `NoTap`, whose
   calls are empty and inline, so firmware without a tap is the same size as before (checked on an STM32G0 build).
   `ww_framer` itself has no callbacks: `ww_framer::pieces(frame)` walks a frame into its pieces with the same head

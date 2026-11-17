@@ -10,6 +10,8 @@
 
 ### ⚠️ Breaking
 
+- `ClientConfig::tap` takes a `tap::TapSource`, which makes each link's `ww_tap::Tap` (a `Recorder` converts into one); `Command::Connect::tap` is an `Option<TapSource>`. `tap::default_recorder()` is removed: a client without a tap records nothing (TR-14).
+- `Command::RegisterTracer` gets its `TraceEvent`s straight from the link's tap, as they happen, without a recorder; `TraceEvent` is `Clone` and `Debug` (TR-14).
 - The tap decoder reads tape format 1: definitions on track 0; a session is news only when it changed (STD-135).
 - Snapshot lookups take the resolver (EVO-80): `decode_introspection(bytes, resolver)`, `envelope::explain_request(bytes, root, resolver)`; `tap::Decoder::with_resolver` (default `Resolver::global()`).
 - `snapshots` is `ww_snapshots`: `Resolver::global().snapshot(v)` replaces `snapshots::get(v)`, `all()` is gone (EVO-80).

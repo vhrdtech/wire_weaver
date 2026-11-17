@@ -625,7 +625,7 @@ impl Transport for UsbSimTransport {
     async fn connect(
         &mut self,
         handle: DeviceHandle,
-        tap: ww_tap::RecorderLink,
+        tap: crate::tap::ClientTap,
         max_message_len: usize,
     ) -> Result<Opened<Tx, Rx>, String> {
         // an adopted link (CLT-44): the framers go on where the other program's stopped
@@ -753,7 +753,7 @@ impl Transport for UsbSimTransport {
 pub(crate) struct UsbSimTx {
     framer: TxFramer,
     writer: MessageWriter<SendHalf>,
-    tap: ww_tap::RecorderLink,
+    tap: crate::tap::ClientTap,
     claim: SharedClaim,
     max_packet: usize,
     seq_prefix: bool,
@@ -813,7 +813,7 @@ impl MessageTx for UsbSimTx {
 pub(crate) struct UsbSimRx {
     framer: RxFramer,
     reader: MessageReader<RecvHalf>,
-    tap: ww_tap::RecorderLink,
+    tap: crate::tap::ClientTap,
     /// Shared with [UsbSimTx]: released once both halves let go of the device
     claim: SharedClaim,
 }
@@ -878,7 +878,7 @@ mod tests {
         async fn connect(
             &mut self,
             _: DeviceHandle,
-            tap: ww_tap::RecorderLink,
+            tap: crate::tap::ClientTap,
             max_message_len: usize,
         ) -> Result<Opened<super::Tx, super::Rx>, String> {
             let target = UsbSimTarget {

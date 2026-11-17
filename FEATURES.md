@@ -1395,8 +1395,8 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
 - ✅ **TR-14 Link tap** · `v0.5` — what crosses a link, recorded at the transport edge (`docs/transport/tap.md`):
   `ww_tap` (`no_std` `Tap` / `NoTap`; records are streams of the `LinkTap` trait: session, link events, frames and
   messages each way, client map), taken by every `wire_weaver_client` transport and event loop
-  (`ClientConfig::tap`, `tap::default_recorder()`; `TraceEvent` / `RegisterTracer` an adapter over it, the iceoryx2
-  USB tracer removed) and by `ww_device`'s `FramedTx` / `FramedRx` (`with_tap`; with `NoTap` a G0 firmware is the
+  (`ClientConfig::tap(TapSource)`, a `Tap` per link, none by default; `TraceEvent` / `RegisterTracer` fed by the
+  same hook, the iceoryx2 USB tracer removed) and by `ww_device`'s `FramedTx` / `FramedRx` (`with_tap`; with `NoTap` a G0 firmware is the
   same size). `ww_framer::pieces(frame)` shares `FramedRx`'s head code, no callbacks in the framer. `Recorder`
   batches into pooled 64 KiB `ww_tape` blocks (STD-42) flushed when full or after `flush_time` (10 ms), no
   allocation in steady state, losses counted in `LinkEvent::Lost`. `wire_weaver_client::tap::Decoder`: frame ↔

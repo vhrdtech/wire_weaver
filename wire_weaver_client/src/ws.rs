@@ -82,7 +82,7 @@ impl Transport for WsTransport {
     async fn connect(
         &mut self,
         handle: DeviceHandle,
-        tap: ww_tap::RecorderLink,
+        tap: crate::tap::ClientTap,
         max_message_len: usize,
     ) -> Result<Opened<WsTx, WsRx>, String> {
         let url = handle
@@ -244,7 +244,7 @@ mod tests {
         async fn connect(
             &mut self,
             _: DeviceHandle,
-            tap: ww_tap::RecorderLink,
+            tap: crate::tap::ClientTap,
             max_message_len: usize,
         ) -> Result<Opened<WsTx, WsRx>, String> {
             WsTransport
@@ -324,7 +324,7 @@ mod tests {
         let r = transport
             .connect(
                 Box::new(format!("ws://{addr}/ww")),
-                crate::tap::default_recorder().link(),
+                crate::tap::ClientTap::default(),
                 crate::DEFAULT_MAX_MESSAGE_LEN,
             )
             .await;

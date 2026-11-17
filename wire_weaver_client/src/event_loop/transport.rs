@@ -155,7 +155,7 @@ pub(crate) trait Transport {
     fn connect(
         &mut self,
         handle: DeviceHandle,
-        tap: ww_tap::RecorderLink,
+        tap: crate::tap::ClientTap,
         max_message_len: usize,
     ) -> impl Future<Output = Result<Opened<Self::Tx, Self::Rx>, String>> + Send;
 

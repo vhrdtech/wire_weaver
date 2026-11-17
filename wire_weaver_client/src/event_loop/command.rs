@@ -37,8 +37,8 @@ pub enum Command {
         /// How long link setup may take, [ClientConfig::link_setup_timeout](crate::ClientConfig::link_setup_timeout).
         /// None - transport's default. Milliseconds, to keep [Command] small.
         link_setup_timeout_ms: Option<std::num::NonZeroU32>,
-        /// Where the link is recorded, [ClientConfig::tap](crate::ClientConfig::tap); None - the default recorder.
-        tap: Option<ww_tap::Recorder>,
+        /// What the link is reported to, [ClientConfig::tap](crate::ClientConfig::tap); None: no tap.
+        tap: Option<crate::tap::TapSource>,
         /// Who this client is, sent in link setup, [ClientConfig::client_meta](crate::ClientConfig::client_meta).
         client_meta: Option<Box<ww_link::ClientMetaOwned>>,
         /// When the link goes (the medium ends, the device sends `Disconnect`, it stops answering), counted and reliable

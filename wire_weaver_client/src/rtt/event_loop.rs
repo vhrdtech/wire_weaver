@@ -75,7 +75,7 @@ impl Transport for RttTransport {
     async fn connect(
         &mut self,
         handle: DeviceHandle,
-        tap: ww_tap::RecorderLink,
+        tap: crate::tap::ClientTap,
         max_message_len: usize,
     ) -> Result<Opened<Self::Tx, Self::Rx>, String> {
         let handle = handle

@@ -186,7 +186,7 @@ impl Transport for LocalSocketTransport {
     async fn connect(
         &mut self,
         handle: DeviceHandle,
-        tap: ww_tap::RecorderLink,
+        tap: crate::tap::ClientTap,
         max_message_len: usize,
     ) -> Result<Opened<LocalTx, LocalRx>, String> {
         let tunnel = match handle.downcast::<LocalTarget>() {
@@ -760,7 +760,7 @@ mod tests {
         async fn connect(
             &mut self,
             _: DeviceHandle,
-            tap: ww_tap::RecorderLink,
+            tap: crate::tap::ClientTap,
             max_message_len: usize,
         ) -> Result<Opened<LocalTx, LocalRx>, String> {
             LocalSocketTransport
@@ -844,7 +844,7 @@ mod tests {
                     path: path.clone(),
                     target: Target::Device(String::new()),
                 }),
-                crate::tap::default_recorder().link(),
+                crate::tap::ClientTap::default(),
                 crate::DEFAULT_MAX_MESSAGE_LEN,
             )
             .await;
@@ -873,7 +873,7 @@ mod tests {
                     path: path.clone(),
                     target: Target::Device("usb:c0de:cafe:1".into()),
                 }),
-                crate::tap::default_recorder().link(),
+                crate::tap::ClientTap::default(),
                 crate::DEFAULT_MAX_MESSAGE_LEN,
             )
             .await;

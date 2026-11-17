@@ -20,11 +20,10 @@ use crate::event_loop::command::{
 use crate::event_loop::rx_dispatcher::ResponseSender;
 use crate::event_loop::transport::LinkSetupPacing;
 use crate::global_paths::{AbsoluteRetry, GlobalPaths};
-use crate::tap::{LinkEvents, default_recorder, trace_events};
+use crate::tap::{ClientTap, LinkEvents};
 use crate::tracing::TraceEvent;
 use crate::{Error, SeqTy};
 use std::sync::Arc;
-use ww_tap::{Layers, Recorder, RecorderLink};
 
 const PING_INTERVAL: Duration = Duration::from_millis(ww_link::PING_INTERVAL_MS);
 /// Largest seq number that is serialized into 1 byte.
@@ -57,7 +56,7 @@ pub(crate) enum TxInput {
 pub(crate) enum TxOutput {
     /// Open a transport to the device behind this handle (from [Command::Connect]), its buffers taking messages up
     /// to the host's limit, then feed [TxInput::TransportUp] or [TxInput::TransportError].
-    Connect(DeviceHandle, RecorderLink, usize),
+    Connect(DeviceHandle, ClientTap, usize),
     /// Link message to write into the framer. Frames that fill up along the way are sent right away,
     /// a partially filled one is kept until [TxOutput::Flush].
     Send {
@@ -152,8 +151,6 @@ pub(crate) struct TxCore {
     scratch: Vec<u8>,
     /// Link events into the link's tap
     events: LinkEvents,
-    /// Where the link is recorded, from [Command::Connect]
-    recorder: Option<Recorder>,
     /// [Command::RegisterTracer] before the link exists, subscribed at connect
     pending_tracers: Vec<tokio::sync::mpsc::UnboundedSender<TraceEvent>>,
     /// The device's `DeviceInfo` bytes, for the session once the link is up
@@ -257,7 +254,6 @@ impl TxCore {
             output: VecDeque::new(),
             scratch: vec![0u8; DEFAULT_MAX_MESSAGE_LEN],
             events: LinkEvents::default(),
-            recorder: None,
             pending_tracers: Vec::new(),
             device_info: Vec::new(),
             exited_tx: None,
@@ -520,12 +516,10 @@ impl TxCore {
                 self.client_meta = client_meta;
                 self.token = super::new_setup_token();
                 self.phase = Phase::Connecting;
-                let recorder = tap.unwrap_or_else(|| default_recorder().clone());
-                let link = recorder.link();
+                let link = ClientTap::new(tap.as_ref());
                 for tx in self.pending_tracers.drain(..) {
-                    recorder.subscribe_fn(Layers::MESSAGES, trace_events(link.id(), tx));
+                    link.add_tracer(tx);
                 }
-                self.recorder = Some(recorder);
                 self.events.set(link.clone());
                 // an adopted link: the medium goes on where the other program's stopped, from what it left
                 let handle = match self.adopt.as_mut() {
@@ -550,13 +544,10 @@ impl TxCore {
                     keep_streams_on_loss,
                 }));
             }
-            Command::RegisterTracer { trace_event_tx } => {
-                match (&self.recorder, self.events.link()) {
-                    (Some(recorder), Some(link)) => recorder
-                        .subscribe_fn(Layers::MESSAGES, trace_events(link.id(), trace_event_tx)),
-                    _ => self.pending_tracers.push(trace_event_tx),
-                }
-            }
+            Command::RegisterTracer { trace_event_tx } => match self.events.link() {
+                Some(link) => link.add_tracer(trace_event_tx),
+                None => self.pending_tracers.push(trace_event_tx),
+            },
             Command::DisconnectKeepStreams {
                 disconnected_tx,
                 reason,

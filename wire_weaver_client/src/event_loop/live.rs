@@ -120,9 +120,10 @@ pub(crate) enum Outcome {
 mod with_hub {
     use std::time::Instant;
 
+    use crate::tap::ClientTap;
     use tokio::sync::{mpsc, oneshot};
     use tracing::{debug, info, warn};
-    use ww_tap::{Dir, RecorderLink, Tap};
+    use ww_tap::{Dir, Tap};
 
     use super::{Outcome, RxCtl};
     use crate::adopt::{HandoverOwned, LinkResidualOwned, TraitIdOwned};
@@ -137,7 +138,7 @@ mod with_hub {
         tx: &mut MediumTx,
         to_rx: &mpsc::UnboundedSender<ToRx>,
         rx_ctl: &mpsc::UnboundedSender<RxCtl>,
-        tap: &mut Option<RecorderLink>,
+        tap: &mut Option<ClientTap>,
         hub: Result<HubSide, Refused>,
     ) -> Outcome {
         let Some(claim) = tx.claim() else {
@@ -301,7 +302,7 @@ mod with_hub {
         core: &mut TxCore,
         tx: &mut Tx,
         to_rx: &mpsc::UnboundedSender<ToRx>,
-        tap: &mut Option<RecorderLink>,
+        tap: &mut Option<ClientTap>,
     ) -> Result<(), String> {
         while let Some(output) = core.poll_output() {
             match output {

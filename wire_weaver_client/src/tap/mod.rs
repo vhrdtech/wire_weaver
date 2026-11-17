@@ -1,17 +1,17 @@
-//! The link tap on the host (TR-14): every client event loop records what crosses its link into a
-//! [Recorder], the process-wide [default_recorder] unless the config names one
-//! ([ClientConfig::tap](crate::ClientConfig::tap)). Nothing is copied while nobody subscribes: a consumer
-//! subscribes to the recorder and gets `ww_tape` blocks of sessions, link events, messages and (opt in) frames.
+//! The link tap on the host (TR-14): every client event loop reports what crosses its link to a [Tap], one per
+//! link, made by the [TapSource] of [ClientConfig::tap](crate::ClientConfig::tap); without one nothing is copied.
+//! `Command::RegisterTracer`'s [TraceEvent]s come from the same place. A [Recorder] is a [TapSource]: it batches
+//! what its links report into `ww_tape` blocks for `ww monitor`, `ww stats` and `ww capture`.
 
-use std::sync::LazyLock;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use tokio::sync::mpsc;
-use wire_weaver::shrink_wrap::DeserializeShrinkWrap;
+use wire_weaver::shrink_wrap::{RefVec, UNib32};
 pub use ww_tap::{
     Chunk, Dir, Layers, LinkEvent, Recorder, RecorderConfig, RecorderLink, Session, Subscription,
     Tap, track_number, track_of,
 };
-use ww_tap::{Message, ids};
 
 use crate::tracing::TraceEvent;
 
@@ -20,6 +20,8 @@ pub mod decode;
 mod e2e_tests;
 mod reassembly;
 pub mod stats;
+#[cfg(test)]
+mod tests;
 
 pub use decode::{
     ApiInfo, Check, Decoded, Decoder, DecoderConfig, FrameInfo, MessageInfo, What,
@@ -29,76 +31,204 @@ pub use reassembly::{FrameOutcome, FramePart, PieceInfo, PieceOutcome, Reassembl
 pub use stats::{DirStats, LinkStats, PathStats, PrefixCounts, Stats};
 pub use ww_framer::prefix::{FrameCtx, FrameReport};
 
-static DEFAULT: LazyLock<Recorder> = LazyLock::new(Recorder::default);
+/// Makes the [Tap] of each link a client opens, [ClientConfig::tap](crate::ClientConfig::tap).
+#[derive(Clone)]
+pub struct TapSource(Arc<MakeTap>);
 
-/// The recorder of every client that doesn't name one.
-pub fn default_recorder() -> &'static Recorder {
-    &DEFAULT
+/// Boxed again so that [TapSource] is a thin pointer: `Command::Connect` carries it.
+type MakeTap = Box<dyn Fn() -> Box<dyn Tap + Send> + Send + Sync>;
+
+impl TapSource {
+    /// A source that calls `link` once for each link.
+    pub fn new(link: impl Fn() -> Box<dyn Tap + Send> + Send + Sync + 'static) -> Self {
+        TapSource(Arc::new(Box::new(link)))
+    }
+
+    fn link(&self) -> Box<dyn Tap + Send> {
+        (self.0)()
+    }
 }
 
-/// [TraceEvent]s of one link out of the recorder's blocks, for `Command::RegisterTracer`: requests and events are its
-/// data messages, connected, disconnected and errors its link events. Unsubscribes once the receiver is gone.
-pub(crate) fn trace_events(
-    link: u32,
-    tx: mpsc::UnboundedSender<TraceEvent>,
-) -> impl FnMut(&Chunk) -> bool + Send + 'static {
-    move |chunk| {
-        if tx.is_closed() {
-            return false;
+impl core::fmt::Debug for TapSource {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str("TapSource")
+    }
+}
+
+/// Every link recorded into the recorder.
+impl From<Recorder> for TapSource {
+    fn from(recorder: Recorder) -> Self {
+        TapSource::new(move || Box::new(recorder.link()))
+    }
+}
+
+/// The tap of one client link: the [TapSource]'s [Tap] and the tracers of `Command::RegisterTracer`. Clones share
+/// the link: the event loop's tx and rx tasks and the transport's halves report to it.
+#[derive(Clone, Default)]
+pub(crate) struct ClientTap(Arc<Shared>);
+
+#[derive(Default)]
+struct Shared {
+    /// A [TapSource] made a tap: frames and sessions are of use only to it.
+    has_tap: bool,
+    /// Tracers are registered: messages and link events are wanted.
+    tracing: AtomicBool,
+    state: Mutex<State>,
+}
+
+#[derive(Default)]
+struct State {
+    tap: Option<Box<dyn Tap + Send>>,
+    tracers: Vec<mpsc::UnboundedSender<TraceEvent>>,
+    /// The newest session, given again with the device's `DeviceInfo` once the link is set up.
+    session: Option<SessionHead>,
+}
+
+/// A [Session] without its `device_info`, owned.
+struct SessionHead {
+    side: ww_tap::Side,
+    medium: ww_tap::Medium,
+    framer: ww_tap::Framer,
+    frame_size: UNib32,
+    peer: String,
+}
+
+impl ClientTap {
+    /// The tap of a new link: `source`'s, else tracers only.
+    pub fn new(source: Option<&TapSource>) -> Self {
+        let tap = source.map(TapSource::link);
+        ClientTap(Arc::new(Shared {
+            has_tap: tap.is_some(),
+            tracing: AtomicBool::new(false),
+            state: Mutex::new(State {
+                tap,
+                ..State::default()
+            }),
+        }))
+    }
+
+    fn state(&self) -> MutexGuard<'_, State> {
+        self.0
+            .state
+            .lock()
+            .expect("a client tap's lock is not poisoned: no tap call panics while holding it")
+    }
+
+    /// `Command::RegisterTracer`: requests, events and link changes go to `tx` until its receiver is gone.
+    pub fn add_tracer(&self, tx: mpsc::UnboundedSender<TraceEvent>) {
+        self.state().tracers.push(tx);
+        self.0.tracing.store(true, Ordering::Relaxed);
+    }
+
+    /// Link setup is done: the newest session again, now with the device's `DeviceInfo` bytes, then
+    /// [LinkEvent::LinkReady].
+    pub fn link_ready(&mut self, device_info: &[u8]) {
+        {
+            let mut st = self.state();
+            let State { tap, session, .. } = &mut *st;
+            if let (Some(tap), Some(s)) = (tap, session) {
+                tap.session(&Session {
+                    side: s.side,
+                    medium: s.medium,
+                    framer: s.framer,
+                    frame_size: s.frame_size,
+                    peer: &s.peer,
+                    device_info: RefVec::Slice { slice: device_info },
+                });
+            }
         }
-        let block = chunk.block();
-        if block.kind != ww_tape::BlockKind::Records {
-            return true;
+        self.link_event(&LinkEvent::LinkReady);
+    }
+
+    /// `ev` to every tracer; those whose receiver is gone are dropped.
+    fn trace(&self, st: &mut State, ev: TraceEvent) {
+        st.tracers.retain(|tx| tx.send(ev.clone()).is_ok());
+        if st.tracers.is_empty() {
+            self.0.tracing.store(false, Ordering::Relaxed);
         }
-        let mut plain = Vec::new();
-        let Ok(block) = block.decode(&mut plain) else {
-            return true;
+    }
+}
+
+impl Tap for ClientTap {
+    fn wants_frames(&self) -> bool {
+        self.0.has_tap && self.state().tap.as_ref().is_some_and(|t| t.wants_frames())
+    }
+
+    fn wants_messages(&self) -> bool {
+        self.0.tracing.load(Ordering::Relaxed)
+            || (self.0.has_tap
+                && self
+                    .state()
+                    .tap
+                    .as_ref()
+                    .is_some_and(|t| t.wants_messages()))
+    }
+
+    fn session(&mut self, session: &Session<'_>) {
+        if !self.0.has_tap {
+            return;
+        }
+        let mut st = self.state();
+        st.session = Some(SessionHead {
+            side: session.side,
+            medium: session.medium,
+            framer: session.framer,
+            frame_size: session.frame_size,
+            peer: session.peer.to_owned(),
+        });
+        st.tap.as_deref_mut().session(session);
+    }
+
+    fn frame(&mut self, dir: Dir, bytes: &[u8]) {
+        if self.0.has_tap {
+            self.state().tap.as_deref_mut().frame(dir, bytes);
+        }
+    }
+
+    fn message(&mut self, dir: Dir, kind: u8, bytes: &[u8]) {
+        let mut st = self.state();
+        if let Some(tap) = &mut st.tap
+            && tap.wants_messages()
+        {
+            tap.message(dir, kind, bytes);
+        }
+        // tracers see the data messages: requests out, events (all but empty ones) in
+        if st.tracers.is_empty() || kind > ww_link::Kind::Data2 as u8 {
+            return;
+        }
+        let ev = match dir {
+            Dir::Tx => TraceEvent::Request {
+                bytes: bytes.to_vec(),
+            },
+            Dir::Rx if bytes.is_empty() => return,
+            Dir::Rx => TraceEvent::Event {
+                bytes: bytes.to_vec(),
+            },
         };
-        for r in block.records().flatten() {
-            let Some((l, stream)) = track_of(r.track) else {
-                continue;
-            };
-            if l != link {
-                continue;
-            }
-            let ev = match stream {
-                ids::TX_MESSAGES | ids::RX_MESSAGES => {
-                    let Ok(m) = Message::from_ww_bytes(r.item) else {
-                        continue;
-                    };
-                    if m.kind > ww_link::Kind::Data2 as u8 {
-                        continue;
-                    }
-                    let bytes = m.bytes.as_slice().to_vec();
-                    if stream == ids::TX_MESSAGES {
-                        TraceEvent::Request { bytes }
-                    } else if bytes.is_empty() {
-                        continue;
-                    } else {
-                        TraceEvent::Event { bytes }
-                    }
-                }
-                ids::EVENTS => match LinkEvent::from_ww_bytes(r.item) {
-                    Ok(LinkEvent::LinkReady) => TraceEvent::Connected {},
-                    Ok(LinkEvent::Disconnected {
-                        reason,
-                        keep_streams,
-                    }) => TraceEvent::Disconnected {
-                        reason: reason.to_string(),
-                        keep_streams,
-                    },
-                    Ok(LinkEvent::Error { what }) => TraceEvent::Error {
-                        reason: what.to_string(),
-                    },
-                    _ => continue,
-                },
-                _ => continue,
-            };
-            if tx.send(ev).is_err() {
-                return false;
-            }
+        self.trace(&mut st, ev);
+    }
+
+    fn link_event(&mut self, event: &LinkEvent<'_>) {
+        let mut st = self.state();
+        st.tap.as_deref_mut().link_event(event);
+        if st.tracers.is_empty() {
+            return;
         }
-        true
+        let ev = match event {
+            LinkEvent::LinkReady => TraceEvent::Connected {},
+            LinkEvent::Disconnected {
+                reason,
+                keep_streams,
+            } => TraceEvent::Disconnected {
+                reason: (*reason).to_owned(),
+                keep_streams: *keep_streams,
+            },
+            LinkEvent::Error { what } => TraceEvent::Error {
+                reason: (*what).to_owned(),
+            },
+            _ => return,
+        };
+        self.trace(&mut st, ev);
     }
 }
 
@@ -156,14 +286,14 @@ pub(crate) fn host_session<'i>(
 
 /// Link events of the cores, into the link's tap; nothing before the link exists.
 #[derive(Default)]
-pub(crate) struct LinkEvents(Option<RecorderLink>);
+pub(crate) struct LinkEvents(Option<ClientTap>);
 
 impl LinkEvents {
-    pub fn set(&mut self, link: RecorderLink) {
+    pub fn set(&mut self, link: ClientTap) {
         self.0 = Some(link);
     }
 
-    pub fn link(&self) -> Option<&RecorderLink> {
+    pub fn link(&self) -> Option<&ClientTap> {
         self.0.as_ref()
     }
 

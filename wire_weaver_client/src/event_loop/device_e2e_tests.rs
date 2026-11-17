@@ -98,7 +98,7 @@ impl Transport for PipeTransport {
     async fn connect(
         &mut self,
         _: DeviceHandle,
-        _: ww_tap::RecorderLink,
+        _: crate::tap::ClientTap,
         _max_message_len: usize,
     ) -> Result<Opened<HostTx, HostRx>, String> {
         self.0.take().ok_or("already connected".into())
@@ -459,7 +459,7 @@ impl Transport for StreamPipe {
     async fn connect(
         &mut self,
         _: DeviceHandle,
-        tap: ww_tap::RecorderLink,
+        tap: crate::tap::ClientTap,
         max_message_len: usize,
     ) -> Result<Opened<Self::Tx, Self::Rx>, String> {
         let (up, down) = self.0.take().ok_or("already connected")?;
@@ -958,7 +958,7 @@ async fn stream_open_error_fails_connect() {
         async fn connect(
             &mut self,
             _: DeviceHandle,
-            tap: ww_tap::RecorderLink,
+            tap: crate::tap::ClientTap,
             max_message_len: usize,
         ) -> Result<Opened<Self::Tx, Self::Rx>, String> {
             let config = StreamConfig {

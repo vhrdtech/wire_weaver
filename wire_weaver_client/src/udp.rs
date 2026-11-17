@@ -80,7 +80,7 @@ impl Transport for UdpTransport {
     async fn connect(
         &mut self,
         handle: DeviceHandle,
-        tap: ww_tap::RecorderLink,
+        tap: crate::tap::ClientTap,
         max_message_len: usize,
     ) -> Result<Opened<UdpTx, UdpRx>, String> {
         let addr = handle
@@ -132,7 +132,7 @@ async fn connect(addr: &str) -> std::io::Result<UdpSocket> {
 pub(crate) struct UdpTx {
     framer: TxFramer,
     socket: std::sync::Arc<UdpSocket>,
-    tap: ww_tap::RecorderLink,
+    tap: crate::tap::ClientTap,
 }
 
 impl UdpTx {
@@ -182,7 +182,7 @@ pub(crate) struct UdpRx {
     /// Receive buffer, a datagram is staged into the framer right away
     datagram: Vec<u8>,
     socket: std::sync::Arc<UdpSocket>,
-    tap: ww_tap::RecorderLink,
+    tap: crate::tap::ClientTap,
 }
 
 impl MessageRx for UdpRx {
@@ -246,7 +246,7 @@ mod tests {
         async fn connect(
             &mut self,
             _: DeviceHandle,
-            tap: ww_tap::RecorderLink,
+            tap: crate::tap::ClientTap,
             max_message_len: usize,
         ) -> Result<Opened<UdpTx, UdpRx>, String> {
             UdpTransport
@@ -402,7 +402,7 @@ mod tests {
         let r = UdpTransport
             .connect(
                 Box::new("no-such-host.invalid:9000".to_string()),
-                crate::tap::default_recorder().link(),
+                crate::tap::ClientTap::default(),
                 crate::DEFAULT_MAX_MESSAGE_LEN,
             )
             .await;

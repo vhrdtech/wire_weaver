@@ -43,8 +43,9 @@ use crate::event_loop::command::StreamOpenHook;
 use crate::event_loop::medium::{MediumRx, MediumTx};
 use crate::event_loop::rx_dispatcher::{ResponseSender, StreamUpdateSender};
 use crate::event_loop::transport::{MessageRx, MessageTx, Transport};
+use crate::tap::ClientTap;
 use ww_client_server::PathKindOwned;
-use ww_tap::{Dir, RecorderLink, Tap};
+use ww_tap::{Dir, Tap};
 
 pub(crate) use rx::{RxCore, RxInput, RxOutput, RxPart};
 #[cfg(feature = "hub")]
@@ -133,7 +134,7 @@ pub(crate) enum ToRx {
         token: u64,
         connected_tx: Option<oneshot::Sender<crate::device_info::ConnectionInfo>>,
         /// The link's tap, for rx's link events
-        link: ww_tap::RecorderLink,
+        link: crate::tap::ClientTap,
         /// See [Command::Connect]`::keep_streams_on_loss`
         keep_streams_on_loss: bool,
     },
@@ -245,7 +246,7 @@ pub(crate) async fn worker<T: Transport + 'static>(cmd_rx: mpsc::Receiver<Comman
     let (to_rx_tx, to_rx_rx) = mpsc::unbounded_channel::<ToRx>();
     let (to_tx_tx, to_tx_rx) = mpsc::unbounded_channel::<ToTx>();
     // rx endpoint is opened by the tx task (it handles Connect) and handed over
-    let (msg_rx_tx, msg_rx_rx) = oneshot::channel::<(MediumRx, RecorderLink)>();
+    let (msg_rx_tx, msg_rx_rx) = oneshot::channel::<(MediumRx, ClientTap)>();
     // a live handover (CLT-44) borrows the rx half
     let (rx_ctl_tx, rx_ctl_rx) = mpsc::unbounded_channel::<RxCtl>();
 
@@ -277,7 +278,7 @@ async fn tx_task<T: Transport>(
     mut connector: T,
     mut from_rx: mpsc::UnboundedReceiver<ToTx>,
     to_rx: mpsc::UnboundedSender<ToRx>,
-    msg_rx_tx: oneshot::Sender<(MediumRx, RecorderLink)>,
+    msg_rx_tx: oneshot::Sender<(MediumRx, ClientTap)>,
     #[cfg_attr(not(feature = "hub"), allow(unused_variables))] rx_ctl: mpsc::UnboundedSender<RxCtl>,
 ) -> (
     (TxCore, anyhow::Result<EventLoopExitReason>),
@@ -288,7 +289,7 @@ async fn tx_task<T: Transport>(
     let mut msg_tx: Option<MediumTx> = None;
     let mut msg_rx_tx = Some(msg_rx_tx);
     // records the messages this task sends
-    let mut tap: Option<RecorderLink> = None;
+    let mut tap: Option<ClientTap> = None;
     let mut connecting = Connecting::default();
 
     let result = loop {
@@ -440,7 +441,7 @@ async fn tx_task<T: Transport>(
 }
 
 async fn rx_task(
-    msg_rx_rx: oneshot::Receiver<(MediumRx, RecorderLink)>,
+    msg_rx_rx: oneshot::Receiver<(MediumRx, ClientTap)>,
     mut from_tx: mpsc::UnboundedReceiver<ToRx>,
     to_tx: mpsc::UnboundedSender<ToTx>,
     mut rx_ctl: mpsc::UnboundedReceiver<RxCtl>,
@@ -449,7 +450,7 @@ async fn rx_task(
     let mut msg_rx_rx = Some(msg_rx_rx);
     let mut msg_rx: Option<MediumRx> = None;
     // records the messages this task receives
-    let mut tap: Option<RecorderLink> = None;
+    let mut tap: Option<ClientTap> = None;
 
     loop {
         // Everything tx told us goes in first, see RxCore docs on ordering
@@ -571,7 +572,7 @@ fn on_ctl(
     core: &mut RxCore,
     msg_rx: &mut Option<MediumRx>,
     from_tx: &mut mpsc::UnboundedReceiver<ToRx>,
-    tap: &mut Option<RecorderLink>,
+    tap: &mut Option<ClientTap>,
 ) {
     match ctl {
         RxCtl::Lend(to) => {
@@ -2230,7 +2231,7 @@ mod tests {
             for _ in 0..4 {
                 tokio::task::yield_now().await;
             }
-            let link = crate::tap::default_recorder().link();
+            let link = crate::tap::ClientTap::default();
             assert!(
                 rx_half_tx
                     .send((

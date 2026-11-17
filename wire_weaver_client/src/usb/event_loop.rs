@@ -23,8 +23,9 @@ use crate::event_loop::transport::Paused;
 use crate::event_loop::transport::{
     MessageRx, MessageTx, Opened, SharedClaim, Transport, handover_requested,
 };
+use crate::tap::ClientTap;
 use ww_framer::prefix::FrameReport;
-use ww_tap::{Dir, RecorderLink, Tap};
+use ww_tap::{Dir, Tap};
 
 use crate::framing::{UsbRx as RxFramer, UsbTx as TxFramer};
 
@@ -40,7 +41,7 @@ pub(crate) struct NusbTx {
     framer: TxFramer,
     /// None while paused for a live handover
     sink: Option<Sink>,
-    tap: RecorderLink,
+    tap: ClientTap,
     /// Keeps the device open while endpoints are in use, and across a live handover's let go
     #[cfg_attr(not(feature = "local_socket"), allow(dead_code))]
     device: nusb::Device,
@@ -60,7 +61,7 @@ pub(crate) struct NusbRx {
     framer: RxFramer,
     /// None while paused for a live handover
     source: Option<Source>,
-    tap: RecorderLink,
+    tap: ClientTap,
     /// Shared with [NusbTx]: released once both halves let go of the interface
     #[cfg_attr(not(feature = "local_socket"), allow(dead_code))]
     claim: SharedClaim,
@@ -175,7 +176,7 @@ impl Transport for NusbTransport {
     async fn connect(
         &mut self,
         handle: DeviceHandle,
-        tap: ww_tap::RecorderLink,
+        tap: crate::tap::ClientTap,
         max_message_len: usize,
     ) -> Result<Opened<Tx, Rx>, String> {
         // an adopted link (CLT-44): the framers go on where the other program's stopped
@@ -549,7 +550,7 @@ mod tests {
         async fn connect(
             &mut self,
             _: DeviceHandle,
-            _: ww_tap::RecorderLink,
+            _: crate::tap::ClientTap,
             _max_message_len: usize,
         ) -> Result<Opened<MockTx, MockRx>, String> {
             self.0.take().ok_or("already connected".into())

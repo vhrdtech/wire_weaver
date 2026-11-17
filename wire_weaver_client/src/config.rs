@@ -52,7 +52,7 @@ pub struct ClientConfig {
     stream_queue_bytes: Option<usize>,
     no_stream_compression: bool,
     link_setup_timeout: Option<Duration>,
-    tap: Option<ww_tap::Recorder>,
+    tap: Option<crate::tap::TapSource>,
     client_meta: ClientMetaSetting,
     hub_mode: Option<HubMode>,
     hub_opens: Option<OpenCounter>,
@@ -182,8 +182,8 @@ pub(crate) struct ValidatedConfig {
     /// Global trait paths resolved from the device's introspection data (SRV-53): one per validated config, so a
     /// reconnect (same API) keeps what was resolved.
     pub(crate) global_paths: std::sync::Arc<crate::global_paths::GlobalPaths>,
-    /// [ClientConfig::tap], None for [crate::tap::default_recorder]
-    pub(crate) tap: Option<ww_tap::Recorder>,
+    /// [ClientConfig::tap], None: no tap
+    pub(crate) tap: Option<crate::tap::TapSource>,
     /// [ClientConfig::client_meta], resolved; None for [ClientConfig::no_client_meta]
     pub(crate) client_meta: Option<Box<ww_link::ClientMetaOwned>>,
     /// [ClientConfig::hub], else [crate::hub::MODE_ENV], else auto
@@ -871,11 +871,12 @@ impl ClientConfig {
         c
     }
 
-    /// Record this client's links into `recorder` (TR-14) instead of [crate::tap::default_recorder]: sessions, link
-    /// events, messages and frames, for a monitor or a capture subscribed to it.
-    pub fn tap(self, recorder: ww_tap::Recorder) -> Self {
+    /// Report what crosses each link this client opens to a tap of `source` (TR-14): sessions, link events,
+    /// messages and frames. A [Recorder](crate::tap::Recorder) records them for a monitor or a capture subscribed
+    /// to it.
+    pub fn tap(self, source: impl Into<crate::tap::TapSource>) -> Self {
         let mut c = self;
-        c.tap = Some(recorder);
+        c.tap = Some(source.into());
         c
     }
 

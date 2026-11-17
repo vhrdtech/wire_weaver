@@ -552,7 +552,7 @@ pub(crate) fn test_transport(path: &str) -> impl Transport + 'static {
         async fn connect(
             &mut self,
             _: DeviceHandle,
-            tap: ww_tap::RecorderLink,
+            tap: crate::tap::ClientTap,
             max_message_len: usize,
         ) -> Result<Opened<HostTx, HostRx>, String> {
             InProcessTransport
@@ -613,7 +613,7 @@ impl Transport for InProcessTransport {
     async fn connect(
         &mut self,
         handle: DeviceHandle,
-        tap: ww_tap::RecorderLink,
+        tap: crate::tap::ClientTap,
         max_message_len: usize,
     ) -> Result<Opened<HostTx, HostRx>, String> {
         let path = handle
@@ -788,7 +788,7 @@ pub(crate) struct ChannelTx {
     to_device: ToDevice,
     /// Some for a simulated USB or UDP device: messages are packed into packets or datagrams
     framer: Option<TxFramer>,
-    tap: ww_tap::RecorderLink,
+    tap: crate::tap::ClientTap,
 }
 
 /// Where a host sends to
@@ -864,7 +864,7 @@ impl RxFramer {
 /// Send a simulated USB packet or UDP datagram, recording it first.
 fn send_packet(
     to_device: &ToDevice,
-    tap: &mut ww_tap::RecorderLink,
+    tap: &mut crate::tap::ClientTap,
     packet: Vec<u8>,
 ) -> Result<(), String> {
     if tap.wants_frames() {
@@ -910,7 +910,7 @@ pub(crate) struct ChannelRx {
     message: Option<Message>,
     /// Some for a simulated USB or UDP device: packets or datagrams are reassembled into messages
     framer: Option<RxFramer>,
-    tap: ww_tap::RecorderLink,
+    tap: crate::tap::ClientTap,
 }
 
 impl MessageRx for ChannelRx {
@@ -973,7 +973,7 @@ mod tests {
         async fn connect(
             &mut self,
             _: DeviceHandle,
-            tap: ww_tap::RecorderLink,
+            tap: crate::tap::ClientTap,
             max_message_len: usize,
         ) -> Result<Opened<HostTx, HostRx>, String> {
             InProcessTransport

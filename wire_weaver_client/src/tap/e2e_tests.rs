@@ -130,7 +130,7 @@ async fn linkage<F: UsbFramingProtocol + 'static>(path: &str) -> Stats {
             max_seq: crate::DEFAULT_MAX_SEQ,
             max_message_len: crate::DEFAULT_MAX_MESSAGE_LEN as u32,
             link_setup_timeout_ms: None,
-            tap: Some(recorder.clone()),
+            tap: Some(recorder.clone().into()),
             client_meta: None,
             client_version: Box::new(crate::ClientApi::generated(
                 FullVersionOwned::new("test_api".into(), VersionOwned::new(0, 3, 0)),

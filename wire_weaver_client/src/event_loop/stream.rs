@@ -56,7 +56,7 @@ pub(crate) type StreamOpened<H, C, T> = Opened<StreamTx<H, C, T>, StreamRx<H, C,
 /// Messages up to `max_message_len` can be sent and received.
 pub(crate) async fn open<I, H, C, T>(
     config: StreamConfig,
-    tap: ww_tap::RecorderLink,
+    tap: crate::tap::ClientTap,
     max_message_len: usize,
     open: impl FnOnce() -> Result<I, String> + Send + 'static,
 ) -> Result<StreamOpened<H, C, T>, String>
@@ -205,7 +205,7 @@ pub(crate) struct StreamTx<H, C, T> {
     exited: watch::Receiver<bool>,
     error: Arc<OnceLock<String>>,
     name: &'static str,
-    tap: ww_tap::RecorderLink,
+    tap: crate::tap::ClientTap,
 }
 
 impl<H: Head<UserKind = u8>, C: Checksum, T: Tail> StreamTx<H, C, T> {
@@ -305,7 +305,7 @@ pub(crate) struct StreamRx<H: Head, C, T> {
     scanner: ww_link::hello::rtt::Scanner,
     error: Arc<OnceLock<String>>,
     name: &'static str,
-    tap: ww_tap::RecorderLink,
+    tap: crate::tap::ClientTap,
 }
 
 impl<H, C, T> MessageRx for StreamRx<H, C, T>
@@ -401,8 +401,10 @@ mod tests {
         read_chunk: 64,
     };
 
-    fn tap() -> ww_tap::RecorderLink {
-        ww_tap::Recorder::new(ww_tap::RecorderConfig::default()).link()
+    fn tap() -> crate::tap::ClientTap {
+        crate::tap::ClientTap::new(Some(
+            &ww_tap::Recorder::new(ww_tap::RecorderConfig::default()).into(),
+        ))
     }
 
     /// The hello goes outside the framer on a stream (EVO-23): the host writes the frozen bytes after what its framer

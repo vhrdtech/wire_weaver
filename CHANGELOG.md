@@ -11,6 +11,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
+- The features page no longer needs an entries.md edit when shrink_wrap, ww_base, ww_tape or ww_stdlib lands a feature (TEST-39).
 - **Breaking:** ww_tape, ww_tape_benchmarks, ww_tape_fuzz, the tape fuzz targets and golden files moved to vhrdtech/ww_tape; take ww_tape by git there.
 - The book assembles ww_tape's pages and feature tracker into the Tapes chapter, with its format reference; the link tap page keeps the tap's parts.
 - The lock takes `ww_tape` cc9160c, format version 1: definitions and state put near their use (STD-135); see the `ww_tap`, `wire_weaver_client` and `wire_weaver_cli` changelogs.

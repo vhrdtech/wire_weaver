@@ -2719,6 +2719,11 @@ Unicast Data0 to one node over the same bus is TR-6.
   absolute path of a dependency outside a board's workspace and two checkouts would order code differently; only
   changed files are written, so the second tree builds incrementally. `--compare` fails on any digest that changed or is in one
   snapshot only, naming the crate, or the board, build, profile, bin and section.
+- ✅ **TEST-39 The features page requires no edit for another repository's landing** — `tests/features_page`'s
+  completeness check (every done or in-progress item needs a line in `entries.md`) now applies only to this
+  repository's own `FEATURES.md`; a done item of shrink_wrap's, ww_base's, ww_tape's or ww_stdlib's own tracker
+  needs no line, taken as that repository's own tracker gives it, so a landing there (and the `Cargo.lock` refresh
+  that follows it) never breaks this repository's gate.
 
 ## Dropped and superseded
 

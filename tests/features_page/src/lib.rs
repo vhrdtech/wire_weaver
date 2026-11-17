@@ -2,10 +2,12 @@
 //! it is for, then its features by reading level, each with a short line and a link to its docs page. What the page
 //! says is kept by hand in `entries.md` next to this crate, what is done comes from this repository's own
 //! `FEATURES.md` and the trackers of the repositories whose pages the book assembles (`book_sources.toml`:
-//! shrink_wrap's, ww_base's and ww_stdlib's); [`render`] joins them and fails when they disagree, so a feature that
-//! is done can't miss the page. `exact_units`' own items are out of scope: `entries.md` points to its own feature
-//! tracker instead. The page is a golden file: `tests/features_page.rs` fails when it is stale, `just features-page`
-//! writes it.
+//! shrink_wrap's, ww_base's, ww_tape's and ww_stdlib's); [`render`] joins them and fails when they disagree, so a
+//! feature of this repository's own `FEATURES.md` that is done can't miss the page. A source repository's own item
+//! is taken as its tracker gives it and needs no line here: only this repository's own done or in-progress items
+//! require one, so landing a feature in one of those repositories never needs an edit here. `exact_units`' own
+//! items are out of scope too: `entries.md` points to its own feature tracker instead. The page is a golden file:
+//! `tests/features_page.rs` fails when it is stale, `just features-page` writes it.
 
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
@@ -304,8 +306,11 @@ fn check(tracker: &Tracker, entries: &Entries) -> Result<(), String> {
             Some(_) => {}
         }
     }
+    // Only this repository's own FEATURES.md requires a hand-written line for every done or in-progress item: a
+    // source repository's own tracker is taken as it gives it, so landing a feature there never needs an edit here.
     for (id, f) in &tracker.features {
-        if f.status.shown() && !seen.contains_key(id.as_str()) {
+        let is_own = tracker.areas[f.area].name.is_none();
+        if is_own && f.status.shown() && !seen.contains_key(id.as_str()) {
             problems.push(format!(
                 "FEATURES.md: {id} {} has no line in tests/features_page/entries.md: add one (or put it under \
                  `# {OMITTED}` with a reason)",
@@ -596,6 +601,41 @@ mod tests {
         let entries = ENTRIES.replace("SW-1 |", "SW-7 |");
         let err = render(&own(FEATURES), &entries).unwrap_err();
         assert!(err.contains("SW-7 is not in FEATURES.md"), "{err}");
+    }
+
+    /// A done item of another repository's tracker needs no line in `entries.md`: only this repository's own
+    /// `FEATURES.md` is checked for completeness (TEST-39).
+    #[test]
+    fn other_repos_items_need_no_line() {
+        let foreign = TrackerSource {
+            page: "tape/features.md",
+            name: Some("ww_tape"),
+            text: "## Tapes (`TAPE`)\n\n- ✅ **TAPE-2 writes say where they landed**: text\n",
+        };
+        let trackers = [
+            TrackerSource {
+                page: "features.md",
+                name: None,
+                text: FEATURES,
+            },
+            foreign,
+        ];
+        render(&trackers, ENTRIES).unwrap();
+
+        // Given a line, it still renders and is checked like any other entry.
+        let entries = ENTRIES.replace(
+            "## Advanced\n\n- SW-2, SW-3 | Two | Both. |",
+            "## Advanced\n\n- SW-2, SW-3 | Two | Both. |\n- TAPE-2 | Landed | Where. | tape/format.md",
+        );
+        let page = render(&trackers, &entries).unwrap();
+        assert!(
+            page.contains("- **[Landed](tape/format.md)**: Where.\n"),
+            "{page}"
+        );
+
+        let stale = entries.replace("TAPE-2 | Landed", "TAPE-9 | Landed");
+        let err = render(&trackers, &stale).unwrap_err();
+        assert!(err.contains("TAPE-9 is not in FEATURES.md"), "{err}");
     }
 
     #[test]

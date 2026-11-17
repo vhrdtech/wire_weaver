@@ -533,6 +533,7 @@ How WireWeaver is kept working: every change runs through CI, against the real c
 <p class="ww-features__level"><span class="ww-level ww-level--advanced"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6" class="ww-level__off"/></svg><span class="ww-level__label">Advanced</span></span></p>
 
 - **Continuous integration**: Formatting, lints, docs, tests, semver checks and firmware builds on every change.
+- **This page needs no edit for another repository**: Landing a feature in shrink_wrap, ww_base, ww_tape or ww_stdlib never breaks this repository's gate: their own trackers are taken as they give them.
 - **Integration tests**: Every API feature tested through the real host event loop and device server.
 - **Fuzzing**: The framer and `shrink_wrap`'s readers fed random input; more targets to come. <span class="ww-status">in progress</span>
 - **Test coverage**: A few remaining cases. <span class="ww-status">in progress</span>

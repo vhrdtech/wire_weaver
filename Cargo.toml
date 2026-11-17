@@ -33,10 +33,7 @@ members = [
     "ww_stdlib/*",
     "ww_stream",
     "ww_tap",
-    "ww_tape",
-    "ww_tape_benchmarks",
     "ww_tape_bundle",
-    "ww_tape_fuzz",
     "ww_timebase",
 ]
 
@@ -61,8 +58,6 @@ license = "MIT"
 [workspace.dependencies]
 anyhow = "1"
 atomic-waker = { version = "1.1", features = ["portable-atomic"] }
-# pure: no C or assembly build step; std (through ww_tape std) turns on run-time SIMD detection
-blake3 = { version = "1.8", default-features = false, features = ["pure"] }
 cargo_metadata = "0.23"
 cc = "1.2"
 clap = "4.5"
@@ -90,11 +85,8 @@ hex-literal = "1"
 interprocess = { version = "2.4", features = ["tokio"] }
 # commands of the ww command line register themselves from their own crate and module
 inventory = "0.3"
-# ww_tape_benchmarks: a pure-Rust Vorbis decoder for the speech data set
-lewton = { version = "0.10", default-features = false, features = ["ogg"] }
 libc = "0.2"
-libm = "0.2"
-# exact: ww_tape lz4 payload columns must compress to the same bytes (ww_tape/src/lz4.rs)
+# exact: ww_tape pins it, its lz4 payload columns must compress to the same bytes
 lz4_flex = { version = "=0.14.0", default-features = false, features = ["safe-decode", "checked-decode"] }
 nusb = { version = "0.2", features = ["tokio"] }
 portable-atomic = { version = "1.15", default-features = false, features = ["require-cas"] }
@@ -130,8 +122,6 @@ windows-sys = "0.61"
 # (`cargo update -p exact_units` / `-p shrink_wrap` moves it); to build against a local checkout, put a [patch] in
 # .cargo/config.toml of the worktree (never committed), as the commented-out one below shows
 exact_units = { version = "0.1.0", git = "https://github.com/romixlab/exact_units", default-features = false }
-# ww_tape_benchmarks: the motor simulation data set, by git from its own repository; Cargo.lock pins the commit
-motor_sim = { git = "https://github.com/vhrdtech/motor_sim", default-features = false }
 shrink_wrap = { version = "0.2.0", git = "https://github.com/romixlab/shrink_wrap", default-features = false }
 shrink_wrap_derive = { version = "0.2.0", git = "https://github.com/romixlab/shrink_wrap" }
 # the docs site's WireWeaver highlighter (DOC-11), vendored into docs/ and checked by tests/docs_highlight: by git
@@ -148,6 +138,10 @@ ww_keyed = { version = "0.1.0", git = "https://github.com/vhrdtech/ww_base", def
 ww_numeric = { version = "0.3.0", git = "https://github.com/vhrdtech/ww_base", default-features = false }
 ww_si = { version = "0.5.0", git = "https://github.com/vhrdtech/ww_base", default-features = false }
 ww_version = { version = "0.2.0", git = "https://github.com/vhrdtech/ww_base", default-features = false }
+
+# the tape block format (layer 3) lives in vhrdtech/ww_tape, taken by git: Cargo.lock pins the commit
+# (`cargo update -p ww_tape` moves it)
+ww_tape = { version = "0.1.0", git = "https://github.com/vhrdtech/ww_tape", default-features = false }
 
 # framework crates, versioned together via [workspace.package] version
 wire_weaver = { version = "0.5.0", path = "./wire_weaver", default-features = false }
@@ -185,7 +179,6 @@ ww_hub_api = { version = "0.1.0", path = "./ww_hub_api", default-features = fals
 ww_lz4 = { version = "0.1.0", path = "./ww_lz4" }
 ww_self = { version = "0.3.0", path = "./ww_self" }
 ww_tap = { version = "0.1.0", path = "./ww_tap", default-features = false }
-ww_tape = { version = "0.1.0", path = "./ww_tape", default-features = false }
 ww_tape_bundle = { version = "0.1.0", path = "./ww_tape_bundle" }
 ww_timebase = { version = "0.1.0", path = "./ww_timebase", default-features = false }
 
@@ -311,7 +304,6 @@ user_info_api = { version = "0.1.0", path = "./tests/user_info_api" }
 wire_line_api = { version = "0.4.0", path = "./tests/wire_line_api" }
 wire_line_fixture_api = { version = "0.1.0", path = "./tests/wire_line_fixture_api" }
 wire_line_old_api = { version = "0.3.0", path = "./tests/wire_line_old_api" }
-ww_tape_fuzz = { version = "0.1.0", path = "./ww_tape_fuzz" }
 
 # to develop exact_units or shrink_wrap side by side, checkouts next to this one (in .cargo/config.toml):
 # [patch."https://github.com/romixlab/exact_units"]
@@ -327,10 +319,3 @@ wire_weaver_core = { path = "./wire_weaver_core" }
 [profile.deploy]
 inherits = "release"
 incremental = true
-
-# ww_tape_fuzz decodes a million hostile blocks per decoder in a test: optimized, overflow checks still on
-[profile.test.package.ww_tape]
-opt-level = 3
-
-[profile.test.package.ww_tape_fuzz]
-opt-level = 3

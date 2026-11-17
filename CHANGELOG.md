@@ -11,6 +11,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
+- **Breaking:** ww_tape, ww_tape_benchmarks, ww_tape_fuzz, the tape fuzz targets and golden files moved to vhrdtech/ww_tape; take ww_tape by git there.
 - `ww` links logring's and chunky_mcu_updater's commands (`ww logring`, `ww chunky`, `ww dfu flash` in process), the wheel has `wire_weaver.logring`; `ww_tools/` is its own workspace (TOOL-39). See the `ww`, `wire_weaver_wheel`, `wire_weaver_cli` and `ww_std_cli` changelogs.
 - **Breaking:** ww_si, ww_numeric, ww_version, ww_global, ww_error, ww_date_time, ww_keyed and ww_crc moved to vhrdtech/ww_base; take them by git there.
 - The book assembles ww_base's pages and feature tracker into the standard library section; `tests/stdlib_evolution` checks ww_base's snapshots from its locked checkout.

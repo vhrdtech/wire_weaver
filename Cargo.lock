@@ -3191,17 +3191,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "lewton"
-version = "0.10.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "777b48df9aaab155475a83a7df3070395ea1ac6902f5cd062b8f2b028075c030"
-dependencies = [
- "byteorder",
- "ogg",
- "tinyvec",
-]
-
-[[package]]
 name = "libc"
 version = "0.2.189"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3497,14 +3486,6 @@ name = "module_paths_api"
 version = "0.1.0"
 dependencies = [
  "ww_api",
-]
-
-[[package]]
-name = "motor_sim"
-version = "0.2.4"
-source = "git+https://github.com/vhrdtech/motor_sim#35eab07da299ab091c6c8a1c1170ecc3553dd677"
-dependencies = [
- "libm",
 ]
 
 [[package]]
@@ -3810,15 +3791,6 @@ version = "0.1.0"
 dependencies = [
  "ww_api",
  "ww_si",
-]
-
-[[package]]
-name = "ogg"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6951b4e8bf21c8193da321bcce9c9dd2e13c858fe078bf9054a288b419ae5d6e"
-dependencies = [
- "byteorder",
 ]
 
 [[package]]
@@ -7360,6 +7332,7 @@ dependencies = [
 [[package]]
 name = "ww_tape"
 version = "0.1.0"
+source = "git+https://github.com/vhrdtech/ww_tape#a565eaae78499bec51787658df51507796e45e3c"
 dependencies = [
  "blake3",
  "crc",
@@ -7370,34 +7343,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "ww_tape_benchmarks"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "lewton",
- "libm",
- "motor_sim",
- "ww_tape",
-]
-
-[[package]]
 name = "ww_tape_bundle"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "ww_self",
- "ww_tape",
-]
-
-[[package]]
-name = "ww_tape_fuzz"
-version = "0.1.0"
-dependencies = [
- "blake3",
- "crc",
- "exact_units",
- "shrink_wrap",
  "ww_tape",
 ]
 

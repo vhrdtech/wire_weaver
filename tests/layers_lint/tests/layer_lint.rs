@@ -368,7 +368,7 @@ fn no_upward_crate_edges() {
     assert!(
         missing.is_empty(),
         "crate(s) found by `cargo metadata` but missing from layers.toml (every workspace crate \
-         needs a layer, 3 to 7): {missing:?}"
+         needs a layer, 4 to 7): {missing:?}"
     );
 
     let mut allow_used = vec![false; layers_file.allow.len()];

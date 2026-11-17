@@ -5,3 +5,4 @@
 ### 🚀 Features
 
 - First version: `name_path`, `key_in_bundle` and `NamePathError`, formerly `ww_tape`'s feature `bundle` (STD-125).
+- Takes `ww_tape` by git from vhrdtech/ww_tape.

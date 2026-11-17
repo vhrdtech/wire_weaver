@@ -1412,7 +1412,7 @@ mod builder {
                 let mut buf = vec![0u8; summary_len(&head)?];
                 let len = write_series_summary(
                     &mut buf,
-                    crate::BlockId::new(crate::RunTag::NONE, 0),
+                    crate::BlockId::new(crate::SessionTag::NONE, 0),
                     &head,
                     &refs,
                 )?;

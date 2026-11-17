@@ -355,7 +355,7 @@ impl DescribeSet {
     }
 
     /// Write the set as describe blocks of at most `block_len_max` bytes (a longer record gets a block of its own),
-    /// the `sticky` records after the definitions in order of track. A sticky record is on its track's clock. Blocks are numbered from `*id` on in its run,
+    /// the `sticky` records after the definitions in order of track. A sticky record is on its track's clock. Blocks are numbered from `*id` on in its session,
     /// which is left at the next number; `out` takes each block. The first block is marked [crate::FLAG_SET_FIRST], the
     /// last [crate::FLAG_SET_LAST], so a reader tells the whole set from part of it.
     pub fn write_blocks(

@@ -13,7 +13,7 @@
 //!
 //! ```text
 //! off size field
-//!  24 u32  run tag, as in every block
+//!  24 u32  session tag, as in every block
 //!  28 u32  head CRC: CRC-32C over bytes 0..28, then 32..entries offset
 //!  32 u32  entries offset from the block start
 //!  36 u32  tracks n in the directory, 0 in a checkpoint

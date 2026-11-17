@@ -1,7 +1,9 @@
 //! Chunk blocks: the chunk head (payload offset, segment shift, column table, counts and ticks), and the CRCs that
 //! cover it.
 
-use super::{Draw, Field, HEADER_FIELDS, LEN_FIELD, RUN, crc32c, get, hit, hit_some, seal, span};
+use super::{
+    Draw, Field, HEADER_FIELDS, LEN_FIELD, SESSION, crc32c, get, hit, hit_some, seal, span,
+};
 use ww_tape::chunk::{
     CHUNK_FIXED_LEN, COLUMN_ENTRY_LEN, MAX_COLUMNS, SEGMENT_SHIFT_MAX, SEGMENT_SHIFT_MIN,
     chunk_len, write_chunk,
@@ -51,7 +53,8 @@ pub(crate) fn column_fields(i: usize) -> [Field<'static>; 4] {
 pub(crate) fn build(head: &ChunkHead, columns: &[(ColumnSpec, &[u8])]) -> Vec<u8> {
     let specs: Vec<ColumnSpec> = columns.iter().map(|c| c.0).collect();
     let mut buf = vec![0u8; chunk_len(&specs, 0)];
-    let n = write_chunk(&mut buf, BlockId::new(RUN, 1), head, columns, 0).expect("a valid chunk");
+    let n =
+        write_chunk(&mut buf, BlockId::new(SESSION, 1), head, columns, 0).expect("a valid chunk");
     buf.truncate(n);
     buf
 }

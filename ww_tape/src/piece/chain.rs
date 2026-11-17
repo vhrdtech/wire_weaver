@@ -49,7 +49,7 @@ pub struct ChainReport {
     /// `links[i]` is between `order[i]` and `order[i + 1]`.
     pub links: Vec<ChainLink>,
     pub end: ChainEnd,
-    /// Two pieces with one sequence number or of another result than the first: left out of `order`.
+    /// Two pieces with one sequence number or of another owner than the first: left out of `order`.
     pub strays: Vec<usize>,
 }
 
@@ -73,10 +73,10 @@ pub fn check_chain(pieces: &[PieceSummary]) -> ChainReport {
         let same_seq = order
             .last()
             .is_some_and(|(_, l)| l.ident.seq == p.ident.seq);
-        let other_result = order
+        let other_owner = order
             .first()
-            .is_some_and(|(_, f)| f.ident.result != p.ident.result);
-        if same_seq || other_result {
+            .is_some_and(|(_, f)| f.ident.owner != p.ident.owner);
+        if same_seq || other_owner {
             strays.push(i);
         } else {
             order.push((i, p));

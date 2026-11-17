@@ -177,8 +177,8 @@ pub enum ClockOrigin {
     UnixEpoch,
     /// The start of a media file or stream (its time base).
     MediaStart,
-    /// The start of the producer's run.
-    RunStart,
+    /// The start of the producer's session.
+    SessionStart,
     /// The next epoch of the same counter: a long capture at fine ticks is cut into clock epochs so ticks stay in
     /// i64. Its epoch link fixes tick 0: a [ClockMap] from this clock to the previous epoch's clock with one segment
     /// from tick 0 to the end, slope 1, error 0 and `b0 > 0`, so tick 0 here is tick `b0` there

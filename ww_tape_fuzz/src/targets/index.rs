@@ -119,7 +119,7 @@ pub fn index(data: &[u8]) {
         .all(|e| e.offset.checked_add(u64::from(e.len)).is_some());
     let n = match write_index(
         &mut buf,
-        ww_tape::BlockId::new(ww_tape::RunTag::writable(1), 1),
+        ww_tape::BlockId::new(ww_tape::SessionTag::writable(1), 1),
         &head,
         &entries,
     ) {

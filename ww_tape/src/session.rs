@@ -1,30 +1,30 @@
-//! Runs: one writer's unbroken append, named by a [RunTag] in every block header.
+//! Sessions: one writer's unbroken append, named by a [SessionTag] in every block header.
 
-/// Names a run: one writer's unbroken append (a producer start, a device boot, an importer's pass over one source).
-/// Every block of the run carries it at header bytes 24..28, and seq counts from 0 in every run.
+/// Names a session: one writer's unbroken append (a producer start, a device boot, an importer's pass over one
+/// source). Every block of the session carries it at header bytes 24..28, and seq counts from 0 in every session.
 ///
-/// A tag a writer makes is never 0 nor `u32::MAX`, so a blank header (all 0x00 or all 0xFF) never names a run.
-/// [RunTag::NONE] (0) stands for no run: a block made before it is placed (a summary tree's, renumbered by
-/// [TapeWriter::defer_block](crate::TapeWriter::defer_block)) and a piece head that names no previous run.
+/// A tag a writer makes is never 0 nor `u32::MAX`, so a blank header (all 0x00 or all 0xFF) never names a session.
+/// [SessionTag::NONE] (0) stands for no session: a block made before it is placed (a summary tree's, renumbered by
+/// [TapeWriter::defer_block](crate::TapeWriter::defer_block)) and a piece head that names no previous session.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct RunTag(u32);
+pub struct SessionTag(u32);
 
-impl RunTag {
-    /// No run.
-    pub const NONE: RunTag = RunTag(0);
+impl SessionTag {
+    /// No session.
+    pub const NONE: SessionTag = SessionTag(0);
 
-    /// The tag as written in a header, any value (a reader's view: 0 and `u32::MAX` name no run a writer made).
+    /// The tag as written in a header, any value (a reader's view: 0 and `u32::MAX` name no session a writer made).
     pub const fn from_u32(v: u32) -> Self {
-        RunTag(v)
+        SessionTag(v)
     }
 
     /// `v` as a tag a writer may use: 0 becomes 1 and `u32::MAX` becomes `u32::MAX - 1`, as logring does for its
     /// tag.
     pub const fn writable(v: u32) -> Self {
         match v {
-            0 => RunTag(1),
-            u32::MAX => RunTag(u32::MAX - 1),
-            v => RunTag(v),
+            0 => SessionTag(1),
+            u32::MAX => SessionTag(u32::MAX - 1),
+            v => SessionTag(v),
         }
     }
 
@@ -33,12 +33,12 @@ impl RunTag {
     }
 
     /// Whether a writer could have made it: neither 0 nor `u32::MAX`.
-    pub const fn is_run(self) -> bool {
+    pub const fn is_session(self) -> bool {
         self.0 != 0 && self.0 != u32::MAX
     }
 
     /// A tag from `seed` (a device's unique id, a free-running timer at boot, an ADC noise read; or anything that
-    /// names the run, for a deterministic writer): the first 4 bytes of BLAKE3 in key derivation mode
+    /// names the session, for a deterministic writer): the first 4 bytes of BLAKE3 in key derivation mode
     /// ("ww_tape run tag") over it, made [writable](Self::writable). The same seed gives the same tag.
     pub fn from_seed(seed: &[u8]) -> Self {
         let mut h = blake3::Hasher::new_derive_key("ww_tape run tag");
@@ -48,7 +48,7 @@ impl RunTag {
         Self::writable(u32::from_le_bytes(out))
     }
 
-    /// The tag of the run that starts a piece chain at the piece with `id`: [Self::from_seed] over the id, so a
+    /// The tag of the session that starts a piece chain at the piece with `id`: [Self::from_seed] over the id, so a
     /// deterministic writer gives the same bytes for the same input. Piece ids are derived from the result id
     /// ([crate::PieceId::first]).
     pub fn of_piece(id: &crate::PieceId) -> Self {
@@ -69,37 +69,37 @@ impl RunTag {
     }
 }
 
-/// Which block of which run: the identity a block header carries (run tag at 24..28, seq at 16..24).
+/// Which block of which session: the identity a block header carries (session tag at 24..28, seq at 16..24).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct BlockId {
-    pub run: RunTag,
+    pub session: SessionTag,
     pub seq: u64,
 }
 
 impl BlockId {
-    pub const fn new(run: RunTag, seq: u64) -> Self {
-        BlockId { run, seq }
+    pub const fn new(session: SessionTag, seq: u64) -> Self {
+        BlockId { session, seq }
     }
 
-    /// The id of the block after this one in the same run.
+    /// The id of the block after this one in the same session.
     #[must_use]
     pub const fn next(self) -> Self {
         BlockId {
-            run: self.run,
+            session: self.session,
             seq: self.seq.wrapping_add(1),
         }
     }
 }
 
-/// What a tape's bytes are kept on: says where a reader takes a new run.
+/// What a tape's bytes are kept on: says where a reader takes a new session.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub enum Medium {
-    /// A file: any describe block (another producer run appended) or piece head (concatenated pieces) may start a
-    /// new run. A reader finds pieces from the end of the file.
+    /// A file: any describe block (another producer session appended) or piece head (concatenated pieces) may start
+    /// a new session. A reader finds pieces from the end of the file.
     #[default]
     File,
     /// A raw medium (SD card, NAND, a partition) that may hold stale blocks of earlier lives behind the end of data:
-    /// a new run starts only at a piece head naming the run just ended ([crate::PieceHead::prev_run]), and a reader
-    /// walks forward from the start or a hint, never from the medium's end.
+    /// a new session starts only at a piece head naming the session just ended ([crate::PieceHead::prev_session]),
+    /// and a reader walks forward from the start or a hint, never from the medium's end.
     Raw,
 }

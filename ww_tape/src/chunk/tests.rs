@@ -2,7 +2,7 @@ use super::*;
 use crate::tests::id;
 use crate::{
     Block, BlockError, BlockId, BlockWriter, ClockTime, Describe, DescribeSet, FileBlocks,
-    FileError, Layout, Producer, Recovery, RunTag, SyncPolicy, TapeWriter, set_id,
+    FileError, Layout, Producer, Recovery, SessionTag, SyncPolicy, TapeWriter, set_id,
 };
 
 fn raw(kind: ColumnKind, param: u16, bytes: &[u8]) -> (ColumnSpec, &[u8]) {
@@ -329,17 +329,17 @@ fn padding_puts_the_payload_on_the_alignment() {
 fn renumbered_blocks_stay_good() {
     let (head, cols) = series(0, 70_000);
     let mut bytes = encode(&head, &series_columns(&cols), 1, 33);
-    let other = BlockId::new(RunTag::writable(9), 42);
+    let other = BlockId::new(SessionTag::writable(9), 42);
     set_id(&mut bytes, other).unwrap();
     let b = Block::read(&bytes).unwrap();
-    assert_eq!((b.run, b.seq), (other.run, 42));
+    assert_eq!((b.session, b.seq), (other.session, 42));
     let mut buf = [0u8; 64];
     let mut w = BlockWriter::new(&mut buf, BlockKind::Records, id(3), &[1]).unwrap();
     w.push(1, ClockTime::new(1, 5), &[b"x"]).unwrap();
     let len = w.finish();
     set_id(&mut buf[..len], other.next()).unwrap();
     let b = Block::read(&buf[..len]).unwrap();
-    assert_eq!((b.run, b.seq), (other.run, 43));
+    assert_eq!((b.session, b.seq), (other.session, 43));
 }
 
 /// Column lengths whose sum overflows a usize make a chunk too long, never a wrapped length.

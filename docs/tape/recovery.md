@@ -53,8 +53,8 @@ makes every item of the chunk suspect, since the column decodes as a whole.
 1. It creates the file as `NAME.partial` and syncs the file and its directory, so the name can't vanish in a crash.
 2. It syncs the data by a policy: never, every N blocks, or at most an interval apart (1 s by default). What a crash can
    lose is bounded by the policy.
-3. At the finish it writes the final index, the describe backup, the finish block and the tail, then renames the file to
-   `NAME` and syncs the directory again.
+3. At the finish it writes the final index, the describe backup, the finish block (padded so the piece ends on 4 KiB)
+   and the tail, then renames the file to `NAME` and syncs the directory again.
 
 A failed write or sync ends the file. The writer reports it and refuses every later write; it never retries, because
 after a failed `fsync` Linux may drop the unwritten pages, and a second `fsync` then succeeds without them. A file that
@@ -67,7 +67,9 @@ from the newest checkpoint and then by a scan that stops at the first bad block.
 last block the producer wrote, and cuts off the rest: a torn block, and the checkpoint, copy or end sequence the writer
 had placed after that block. It then places those again by the same rules, so a resumed piece ends with the same bytes,
 and the same content hash, as one written without the crash. The producer passes the same writer options it wrote the
-piece with (`TapeWriter::options` gives them), and writes again from the sequence number `next_seq` reports.
+piece with (`TapeWriter::options` gives them), and writes again from the sequence number `next_seq` reports. A piece
+found with its finish (a crash after the finish, before the rename) is opened again the same way: its finish and tail
+are cut off, and the next finish pads the piece to 4 KiB again.
 
 The resume checks those options against the layout the piece's describe set states, before it cuts or writes anything.
 Options with another chunk alignment would place blocks the way the file says it doesn't, and a reader trusts the
@@ -98,26 +100,31 @@ The recording loses the torn block and whatever the writer had not yet synced: a
 Everything else reads, including the describe set and the summary blocks written so far. The content hash can't be
 checked, because the finish block was never written; that is how a reader knows the file was not closed.
 
-## Runs and stale data
+## Sessions and stale data
 
 On a file, the end of the data is the end of the file. On a raw medium, such as an SD card or raw NAND flash written
 without a file system, it is not: the card may hold an older, longer recording behind the current one, and that
 recording's blocks are as valid as the new ones.
 
-A **run** is one writer's unbroken append: a producer start, a device boot. Every block of a run carries the same 32-bit
-**run tag** in its header, and its sequence numbers count from 0. A writer picks the tag at random, or derives it from
-the piece id when the same input must give the same bytes; never 0 nor FFFFFFFFh, so a blank header never names a run. A
-reader keeps to one run at a time. A good block of another run is **stale**, unless a new run may start there.
+A **session** is one writer's unbroken append: a producer start, a device boot. Every block of a session carries the same 32-bit
+**session tag** in its header, and its sequence numbers count from 0. A writer picks the tag at random, or derives it from
+the piece id when the same input must give the same bytes; never 0 nor FFFFFFFFh, so a blank header never names a session. A
+reader keeps to one session at a time. A good block of another session is **stale**, unless a new session may start there.
 
-Where a new run may start depends on the **medium**:
+Where a new session may start depends on the **medium**:
 
 - In a file, any describe block (another producer appended its blocks) or any piece head (files concatenated) may start
-  a run.
-- On a raw medium, a new run starts only at a piece head that names the run just ended as its previous run. Stale data
-  from an earlier recording names some other run and is never taken, even when it starts with a piece head of its own.
+  a session.
+- On a raw medium, a new session starts only at a piece head that names the session just ended as its previous session. Stale data
+  from an earlier recording names some other session and is never taken, even when it starts with a piece head of its own.
 
 A raw medium is therefore read forward, from its start or from a hint the medium layer gives, never from its end, where
 a stale tail could pass for the newest piece.
+
+A finished piece is a multiple of 4 KiB long on a raw medium too, so a piece that starts on a 4 KiB boundary ends on
+one. The medium's layout record is unchanged by it: `gap_max` and `resume_align` say where a writer goes on after a
+blank or bad stretch, and a piece appended after a finished one starts on a resume place whenever `resume_align`
+divides 4 KiB (a 512-byte sector).
 
 ### Blank space and gaps
 
@@ -135,7 +142,7 @@ writer may skip and where it resumes:
 | raw NAND | two erase blocks | one page |
 
 Past a blank or bad stretch, a reader reads one block header at the first non-blank byte and at each resume place within
-the longest gap. A good block of the current run that goes on with the data there makes the stretch a **gap**: reported
+the longest gap. A good block of the current session that goes on with the data there makes the stretch a **gap**: reported
 with its length, and the walk goes on. When there is none, the stretch is the end of the data.
 
 The format bounds what a reader pays per gap. A valid layout allows at most 64 MiB of gap with at most 8192 resume
@@ -144,21 +151,21 @@ and nothing after it is read: an erased 64 GB card costs one gap's worth of head
 
 ### Duplicates
 
-A writer that retried a write may leave the same block twice. The same run and sequence number twice is a **duplicate**,
+A writer that retried a write may leave the same block twice. The same session and sequence number twice is a **duplicate**,
 not a cut. With the same bytes, the second copy is dropped. With other bytes, the later copy is taken and the
 replacement is reported.
 
 ### Example: a logger card recorded twice
 
-A data logger records to an SD card as a raw medium. Its first recording, run A, filled 100 MiB. The card is reused: run
+A data logger records to an SD card as a raw medium. Its first recording, session A, filled 100 MiB. The card is reused: session
 B writes 30 MiB from the start, then the power fails during a write.
 
 A reader walks forward from the start of the card. It takes B's blocks up to the torn one, then probes for B's next
-block within 4 MiB. It finds only A's old blocks, which carry A's run tag and don't start with a piece head naming B.
+block within 4 MiB. It finds only A's old blocks, which carry A's session tag and don't start with a piece head naming B.
 They are stale, so the data ends at the torn block, and none of A's 70 remaining MiB is mistaken for B's.
 
-When the logger boots again, it finds the same end of data and writes its next run after it, starting with a piece head
-that names B as the previous run. That run, C, is taken by the next reader; A's leftovers beyond C stay stale.
+When the logger boots again, it finds the same end of data and writes its next session after it, starting with a piece head
+that names B as the previous session. That session, C, is taken by the next reader; A's leftovers beyond C stay stale.
 
 ## What a damaged file still gives
 
@@ -204,10 +211,10 @@ point below names its source.
 
 - **A tag per write session.** LTO marks every data set with a write pass number that grows whenever data is
   overwritten, so a reader tells current data from residue (ECMA-319, §13.5.16). UBI stamps an image sequence number on
-  every eraseblock for the same reason (Linux `ubi-media.h`). The run tag does this job. It is random instead of a
+  every eraseblock for the same reason (Linux `ubi-media.h`). The session tag does this job. It is random instead of a
   counter, because a wiped card or a device without stored state has no counter to continue.
 - **Nothing after the end is data.** LTO declares data recorded after the end-of-data set inaccessible and invalid
-  (ECMA-319, §13.4.3). The format has no end-of-data block, since a crash leaves none; blank space and the run tag mark
+  (ECMA-319, §13.4.3). The format has no end-of-data block, since a crash leaves none; blank space and the session tag mark
   the end instead.
 - **Erased is not always zero.** NAND erases to 0xFF (Micron TN-29-19). An SD card reads 0 or 1 after an erase, by
   vendor (SD Physical Layer Simplified Specification 9.10, §4.3.5.1), and eMMC reports which (JESD84-A441). So blank is
@@ -248,7 +255,7 @@ The format does not do everything. These limits follow from the design:
   checkpoint lists it. A damaged block where a scan stopped has no known kind; the piece reports it as its cut.
 - **A damaged chunk head costs the chunk.** The head CRC protects the payload's CRC segments, not itself.
 - **lz4 payload columns.** One bad byte makes every item of the chunk suspect.
-- **32-bit run tags.** Stale data matches the current run by chance with probability 2⁻³² per stale run.
+- **32-bit session tags.** Stale data matches the current session by chance with probability 2⁻³² per stale session.
 - **MLC paired pages.** On MLC NAND, a power cut can corrupt an earlier, already synced page paired with the one being
   programmed. Keeping unsynced writes away from synced pages is the medium layer's task, not the format's.
 - **The content hash needs a finished piece.** An unfinished or cut-off piece has no hash to check.
@@ -261,4 +268,4 @@ The format does not do everything. These limits follow from the design:
 
 ## See also
 
-- [The link tap](../transport/tap.md#runs-media-and-damage): runs, media, gaps and describe copies as a reference.
+- [The link tap](../transport/tap.md#sessions-media-and-damage): sessions, media, gaps and describe copies as a reference.

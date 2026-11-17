@@ -7,7 +7,7 @@
 //!
 //! ```text
 //! off size field
-//!  24 u32  run tag, as in every block
+//!  24 u32  session tag, as in every block
 //!  28 u32  head CRC: CRC-32C over bytes 0..28, then 32..payload offset
 //!  32 u32  payload offset from the block start (in an aligned file a multiple of the alignment in the file)
 //!  36 u32  track number (TrackDef::number)
@@ -314,10 +314,14 @@ pub const fn chunk_padding(offset: u64, head_len: usize, alignment: u32) -> Opti
         return None;
     };
     // only the low bits count: the end modulo 2^64 has them
-    let end = offset.wrapping_add(len_u64(head_len));
-    // alignment is a power of two: the distance to the next multiple is the low bits of -end
+    Some(to_boundary(offset.wrapping_add(len_u64(head_len)), mask))
+}
+
+/// Bytes from `end` to the next multiple of the power of two `mask + 1`; at most `mask`.
+pub(crate) const fn to_boundary(end: u64, mask: u32) -> usize {
+    // the distance to the next multiple is the low bits of -end
     let [b0, b1, b2, b3, ..] = end.wrapping_neg().to_le_bytes();
-    Some(u32_len(u32::from_le_bytes([b0, b1, b2, b3]) & mask))
+    u32_len(u32::from_le_bytes([b0, b1, b2, b3]) & mask)
 }
 
 /// Bytes of a whole chunk block: head, `padding`, payload and CRC; saturating at `usize::MAX`, a length over

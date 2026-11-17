@@ -40,7 +40,7 @@ resource path it comes from, and the clock its times count.
 A **clock** is anything that counts time: the host's nanosecond clock, a device's microsecond timer since boot, an audio
 codec's sample clock. Its definition (`ClockDef`) gives an exact rate in ticks per second, an exact resolution, and an
 **origin**: what tick 0 is. The origin is an identity, never a number. It may be a device's boot, the Unix epoch, the
-start of a media file, the start of the producer's run, or nothing known (a free-running counter).
+start of a media file, the start of the producer's session, or nothing known (a free-running counter).
 
 A **tick** is one step of a clock, and every record time is a signed 64-bit count of ticks. Rates are exact fractions,
 so clocks that are not whole numbers of hertz stay exact. A video at 60000/1001 frames per second lives on its stream's
@@ -91,17 +91,17 @@ crystal drifts against the host.
 
 A tape is a sequence of **blocks**. Every block has a 32-byte header, a body and a CRC-32C checksum over everything
 before it. The header starts with the magic `WWTP` and gives the block's version, its kind, its total length, a count
-(records, items or entries, by kind), a sequence number and a run tag. A file is blocks appended back to back, never
+(records, items or entries, by kind), a sequence number and a session tag. A file is blocks appended back to back, never
 padded between them; a live feed sends one block per message.
 
 The header and the trailing CRC are the same in every version of the format. A reader can therefore check any block and
 skip it by its length, even a block of a kind or version it doesn't know. A later version changes only the bodies, and
 an old reader takes a block it doesn't understand as one it skips, not as damage.
 
-The **sequence number** counts a writer's blocks from 0, so a gap in it says how many blocks were lost. The **run tag**
-names one writer's unbroken append: a producer's start, a device's boot. The run tag is how a reader tells current data
-from stale data left on a medium by an earlier recording; [Damage and recovery](recovery.md#runs-and-stale-data)
-explains it.
+The **sequence number** counts a writer's blocks from 0, so a gap in it says how many blocks were lost. The **session
+tag** names one writer's unbroken append: a producer's start, a device's boot. The session tag is how a reader tells
+current data from stale data left on a medium by an earlier recording; [Damage and
+recovery](recovery.md#sessions-and-stale-data) explains it.
 
 The block kinds fall into four groups:
 
@@ -181,9 +181,10 @@ top.
                 ├─────────────────────────────┤
                 │ final index    ◄──────┐     │ every block again, by track
                 │ describe backup       │     │
-                │ finish         ◄──┐   │     │ BLAKE3 hash of all bytes before it
+                │ finish         ◄──┐   │     │ BLAKE3 hash of all bytes before it,
+                │                   │   │     │ zero padding to the 4 KiB end
                 │ tail (164 B) ─────┴───┘     │ piece length, where the finish is
-   end of file ─► └─────────────────────────────┘
+   end of file ─► └─────────────────────────────┘ a multiple of 4 KiB from the start
 ```
 
 A reader of a finished file starts at the end. It reads the last 164 bytes, the **tail**, which give the piece's length
@@ -211,12 +212,20 @@ make retention simple (delete the oldest piece), and a crash costs only the piec
 The pieces of one recording form a **chain**, checked in both directions. Each piece head names the previous piece by
 the content hash in its finish block. The tail cannot name the next piece's hash, since that piece isn't written yet, so
 it names the next piece's id instead, derived from its own id and hash at the cut. The next head repeats that id. Each
-piece also names the recording it belongs to (the result id), its sequence number in the chain, and for each track where
+piece also names the recording it belongs to (the owner id, opaque to `ww_tape`), its sequence number in the chain, and for each track where
 its items continue.
 
 Pieces written back to back are one valid tape: `cat 00000000.wwt 00000001.wwt` gives a file any reader takes. A reader
 finds the last piece's tail at the end, the piece's start from it, and the previous piece's tail just before that start,
-so it walks back through concatenated pieces with one small read each. A chain whose first pieces were deleted reads as
+so it walks back through concatenated pieces with one small read each. An unfinished piece after them (one being
+written, or cut off by a crash) is found from its checkpoints or by a scan, and the finished ones still by their tails.
+
+A finished piece is a multiple of 4 KiB long. The writer pads the finish block with zeros so the tail, still the last
+bytes of the piece, ends on the boundary; the padding is part of the finish block and its CRC, and the content hash
+covers the bytes before the finish as before. Files are then cloned back to back on btrfs and XFS (`cp --reflink`,
+`copy_file_range`, which `std::io::copy` uses between files on Linux): one file holds many pieces with no byte copied
+and nothing between them. Only the end is aligned: blocks inside a piece stay where the writer put them, and a piece
+without a finish ends where it ends, until a resume finishes it on a boundary. A chain whose first pieces were deleted reads as
 "head cut", not as damage.
 
 ### Reading by position

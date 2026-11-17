@@ -3,14 +3,14 @@
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-use super::{FinishState, PieceHead, PieceId, PieceIdent, ResultId, TAIL_LEN, TrackStart};
+use super::{FinishState, OwnerId, PieceHead, PieceId, PieceIdent, TAIL_LEN, TrackStart};
 use crate::index::IndexError;
 use crate::reader::{ByteSource, TapeReader};
 use crate::sink::{Files, SinkFactory};
 use crate::writer::{
     Finished, NextPiece, Resumed, TapeWriter, WriteError, WriterOptions, block_id,
 };
-use crate::{BlockKind, ChunkHead, ColumnSpec, HEADER_LEN, RunTag};
+use crate::{BlockKind, ChunkHead, ColumnSpec, HEADER_LEN, SessionTag};
 
 /// When a [PieceChain] cuts to a new piece; checked before each chunk. Zero or None turns a limit off.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
@@ -50,37 +50,37 @@ pub struct ChainOptions {
 }
 
 impl PieceChain<Files> {
-    /// Start chain `chain` of `result` in `dir` (which must exist) with its first piece file, see
+    /// Start chain `chain` of `owner` in `dir` (which must exist) with its first piece file, see
     /// [Self::create_on].
     pub fn create(
         dir: &Path,
-        result: ResultId,
+        owner: OwnerId,
         chain: u64,
         tracks: &[TrackStart],
         options: ChainOptions,
     ) -> Result<Self, WriteError> {
-        Self::create_on(Files, dir, result, chain, tracks, options)
+        Self::create_on(Files, dir, owner, chain, tracks, options)
     }
 
-    /// Reopen chain `chain` of `result` in `dir` after a crash, see [Self::resume_on].
+    /// Reopen chain `chain` of `owner` in `dir` after a crash, see [Self::resume_on].
     pub fn resume(
         dir: &Path,
-        result: ResultId,
+        owner: OwnerId,
         chain: u64,
         options: ChainOptions,
     ) -> Result<(Self, Resumed), WriteError> {
-        Self::resume_on(Files, dir, result, chain, options)
+        Self::resume_on(Files, dir, owner, chain, options)
     }
 }
 
 impl<F: SinkFactory> PieceChain<F> {
-    /// Start chain `chain` of `result` under `dir` with its first piece, on the sink `factory` makes, id
-    /// [PieceId::first_of] `(result, chain)`; `tracks` say where items of tracks carried over from elsewhere continue
-    /// (empty for a new recording). Each chain of a result takes its own number, so its pieces and run tag are its own.
+    /// Start chain `chain` of `owner` under `dir` with its first piece, on the sink `factory` makes, id
+    /// [PieceId::first_of] `(owner, chain)`; `tracks` say where items of tracks carried over from elsewhere continue
+    /// (empty for a new recording). Each chain of a owner takes its own number, so its pieces and session tag are its own.
     pub fn create_on(
         mut factory: F,
         dir: &Path,
-        result: ResultId,
+        owner: OwnerId,
         chain: u64,
         tracks: &[TrackStart],
         options: ChainOptions,
@@ -90,7 +90,7 @@ impl<F: SinkFactory> PieceChain<F> {
         writer.set_alignment(options.writer.alignment)?;
         writer.set_index_policy(options.writer.index);
         writer.set_describe_repeat(options.writer.describe_repeat);
-        writer.begin_piece(&first_head(result, chain), tracks)?;
+        writer.begin_piece(&first_head(owner, chain), tracks)?;
         Ok(PieceChain {
             factory,
             dir: dir.to_path_buf(),
@@ -102,7 +102,7 @@ impl<F: SinkFactory> PieceChain<F> {
         })
     }
 
-    /// Reopen chain `chain` of `result` under `dir` after a crash: the finished pieces are read from their tails
+    /// Reopen chain `chain` of `owner` under `dir` after a crash: the finished pieces are read from their tails
     /// ([Self::finished]), the unfinished last one is resumed ([TapeWriter::resume_on]; when its head's describe copy
     /// was cut off, the piece before's newest describe set is written again). After a crash between a cut's finish
     /// and the next piece's start, the next piece is started as the cut would have. `options` are the ones the chain
@@ -110,7 +110,7 @@ impl<F: SinkFactory> PieceChain<F> {
     pub fn resume_on(
         mut factory: F,
         dir: &Path,
-        result: ResultId,
+        owner: OwnerId,
         chain: u64,
         options: ChainOptions,
     ) -> Result<(Self, Resumed), WriteError> {
@@ -133,7 +133,7 @@ impl<F: SinkFactory> PieceChain<F> {
                 if w.bytes() == 0 {
                     // cut off inside its head: the piece starts again (a first piece without carried-over tracks)
                     match finished.last() {
-                        None => w.begin_piece(&first_head(result, chain), &[])?,
+                        None => w.begin_piece(&first_head(owner, chain), &[])?,
                         Some((done, last)) => w.begin_next(next_piece(done, last)?)?,
                     }
                 }
@@ -265,16 +265,16 @@ impl<F: SinkFactory> PieceChain<F> {
     }
 }
 
-/// The head of the first piece of chain `chain` of `result`.
-fn first_head(result: ResultId, chain: u64) -> PieceHead {
+/// The head of the first piece of chain `chain` of `owner`.
+fn first_head(owner: OwnerId, chain: u64) -> PieceHead {
     PieceHead {
         ident: PieceIdent {
-            id: PieceId::first_of(&result, chain),
-            result,
+            id: PieceId::first_of(&owner, chain),
+            owner,
             seq: 0,
         },
         prev: None,
-        prev_run: RunTag::NONE,
+        prev_session: SessionTag::NONE,
     }
 }
 
@@ -285,7 +285,7 @@ fn next_piece(done: &Finished, last: &LastPiece) -> Result<NextPiece, WriteError
         done,
         last.next_tracks.clone(),
         last.describe.clone(),
-        last.run,
+        last.session,
         last.next_seq,
     )
 }
@@ -297,7 +297,7 @@ struct LastPiece {
     next_tracks: Vec<TrackStart>,
     /// The newest describe set: the backup before the finish
     describe: Vec<Vec<u8>>,
-    run: RunTag,
+    session: SessionTag,
     next_seq: u64,
 }
 
@@ -319,7 +319,7 @@ fn read_finished<B: ByteSource<Error = std::io::Error>>(
             "a finished piece of a chain has a head, a finish and a tail",
         ));
     };
-    // the tail carries the run and seq of the last counted block of the piece
+    // the tail carries the session and seq of the last counted block of the piece
     let tail_at = p
         .end
         .checked_sub(crate::reader::wide(TAIL_LEN))
@@ -348,7 +348,7 @@ fn read_finished<B: ByteSource<Error = std::io::Error>>(
             head: *head,
             next_tracks: crate::index::next_starts(starts, ranges),
             describe,
-            run: id.run,
+            session: id.session,
             next_seq,
         },
     ))

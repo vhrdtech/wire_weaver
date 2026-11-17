@@ -6,10 +6,10 @@ use std::path::Path;
 use crate::pieces::records;
 use shrink_wrap::prelude::*;
 use ww_tape::index::IndexPolicy;
-use ww_tape::piece::{PieceHead, PieceId, PieceIdent, ResultId};
+use ww_tape::piece::{OwnerId, PieceHead, PieceId, PieceIdent};
 use ww_tape::{
     BlockId, BlockKind, ClockDef, ClockOrigin, Describe, DescribeSet, EventsDef, FLAG_SET_ADD,
-    FileBlocks, FullVersion, Layout, Magnitude, MemSink, Producer, Recovery, RunTag, Segment,
+    FileBlocks, FullVersion, Layout, Magnitude, MemSink, Producer, Recovery, Segment, SessionTag,
     SyncPolicy, TapeReader, TapeSink, TapeWriter, TrackDef, TrackKind, Version, WriteError,
     WriterOptions, clock_key, track_key,
 };
@@ -129,16 +129,16 @@ fn begin(o: WriterOptions) -> TapeWriter<MemSink> {
     let mut w = TapeWriter::create_on(MemSink::new(Path::new("p")), o.sync);
     w.set_index_policy(o.index);
     w.set_describe_repeat(o.describe_repeat);
-    let result = ResultId([5; 32]);
+    let owner = OwnerId([5; 32]);
     w.begin_piece(
         &PieceHead {
             ident: PieceIdent {
-                id: PieceId::first(&result),
-                result,
+                id: PieceId::first(&owner),
+                owner,
                 seq: 0,
             },
             prev: None,
-            prev_run: RunTag::NONE,
+            prev_session: SessionTag::NONE,
         },
         &[],
     )
@@ -328,7 +328,7 @@ fn the_next_piece_of_a_cut_starts_with_the_additions() {
         writer: o,
         cut: ww_tape::CutPolicy::default(),
     };
-    let mut c = ww_tape::PieceChain::create(&dir, ResultId([6; 32]), 0, &[], opts).unwrap();
+    let mut c = ww_tape::PieceChain::create(&dir, OwnerId([6; 32]), 0, &[], opts).unwrap();
     let w = c.writer().unwrap();
     let mut set = DescribeSet::new();
     set.insert(&Describe::Producer(Producer { name: "additions" }))

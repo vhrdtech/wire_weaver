@@ -3,9 +3,9 @@
 use std::io::{self, Read};
 
 use crate::reader::{OwnedBlock, report_len, wide};
-use crate::walk::{Head, RunState, Verdict};
+use crate::walk::{Head, SessionState, Verdict};
 use crate::{
-    Block, BlockError, GAP_CHECKS_MAX, HEADER_LEN, MAGIC, Medium, RunTag, block_len, is_blank,
+    Block, BlockError, GAP_CHECKS_MAX, HEADER_LEN, MAGIC, Medium, SessionTag, block_len, is_blank,
 };
 
 /// Bytes a [FileBlocks] asks its reader for at once, at least: the buffer grows by at most this much ahead of the
@@ -89,25 +89,25 @@ pub enum FileError {
         offset: u64,
         len: u64,
     },
-    /// A blank or bad stretch of `len` bytes at `offset` that the run's data goes on after, within the layout's
+    /// A blank or bad stretch of `len` bytes at `offset` that the session's data goes on after, within the layout's
     /// [gap](crate::Layout::gap_max): a writer could not go on there (a failed program, a bad block, a torn unit,
     /// page padding). The walk goes on after it.
     Gap {
         offset: u64,
         len: u64,
     },
-    /// A good block at `offset` with the run and seq of the block before it but other bytes: the later copy wins,
+    /// A good block at `offset` with the session and seq of the block before it but other bytes: the later copy wins,
     /// it comes next. (A copy with the same bytes is dropped silently.)
     Replaced {
         offset: u64,
-        run: RunTag,
+        session: SessionTag,
         seq: u64,
     },
-    /// [Recovery::Resync]: a good block of run `run` at `offset`, `len` bytes, where no run may start: stale data
+    /// [Recovery::Resync]: a good block of session `session` at `offset`, `len` bytes, where no session may start: stale data
     /// (an earlier life of a medium), never data. Skipped by its length.
     Stale {
         offset: u64,
-        run: RunTag,
+        session: SessionTag,
         len: u64,
     },
 }
@@ -115,16 +115,16 @@ pub enum FileError {
 /// Why a [Recovery::Prefix] walk stopped before the end of the file.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Cut {
-    /// The bytes there are not a good block (bad magic, length or CRC), and no block of the run follows within the
+    /// The bytes there are not a good block (bad magic, length or CRC), and no block of the session follows within the
     /// layout's gap.
     Bad(BlockError),
     /// The file ends inside a block (a writer stopped mid-way), `len` bytes of it are there.
     Truncated { len: u64 },
-    /// A data block's seq is not after the one before it in its run: not this file's next block. (Describe, index,
+    /// A data block's seq is not after the one before it in its session: not this file's next block. (Describe, index,
     /// finish, tail and piece head blocks take no part in the order.)
     SeqBackwards { seq: u64, after: u64 },
-    /// A good block of run `run` where no run may start ([Medium]): stale data behind the end of data.
-    Stale { run: RunTag },
+    /// A good block of session `session` where no session may start ([Medium]): stale data behind the end of data.
+    Stale { session: SessionTag },
 }
 
 impl core::fmt::Display for FileError {
@@ -141,7 +141,9 @@ impl core::fmt::Display for FileError {
                     Cut::SeqBackwards { seq, after } => {
                         write!(f, "block seq {seq} after {after}")
                     }
-                    Cut::Stale { run } => write!(f, "a block of another run ({:08x})", run.get()),
+                    Cut::Stale { session } => {
+                        write!(f, "a block of another session ({:08x})", session.get())
+                    }
                 }
             }
             FileError::Bad {
@@ -161,15 +163,23 @@ impl core::fmt::Display for FileError {
                     "a gap of {len} bytes at byte {offset}, the data goes on after it"
                 )
             }
-            FileError::Replaced { offset, run, seq } => write!(
+            FileError::Replaced {
+                offset,
+                session,
+                seq,
+            } => write!(
                 f,
-                "block {seq} of run {:08x} again at byte {offset} with other bytes: the later copy is taken",
-                run.get()
+                "block {seq} of session {:08x} again at byte {offset} with other bytes: the later copy is taken",
+                session.get()
             ),
-            FileError::Stale { offset, run, len } => write!(
+            FileError::Stale {
+                offset,
+                session,
+                len,
+            } => write!(
                 f,
-                "a stale block of another run ({:08x}) at byte {offset}, {len} bytes skipped",
-                run.get()
+                "a stale block of another session ({:08x}) at byte {offset}, {len} bytes skipped",
+                session.get()
             ),
         }
     }
@@ -180,15 +190,15 @@ impl std::error::Error for FileError {}
 /// What a reader does at damage.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum Recovery {
-    /// The longest valid prefix: stop at the first block with a bad magic, length or CRC, a cut one, one of a run
+    /// The longest valid prefix: stop at the first block with a bad magic, length or CRC, a cut one, one of a session
     /// that may not start there, or a seq that goes backwards, and report where ([FileError::Cut]). What a crash
     /// leaves (a cut last block, blank preallocated space) reads as the file up to there. Where the layout allows
-    /// gaps ([crate::Layout::gap_max]), a blank or bad stretch the run's data goes on after is a [FileError::Gap],
+    /// gaps ([crate::Layout::gap_max]), a blank or bad stretch the session's data goes on after is a [FileError::Gap],
     /// not the end. The default.
     #[default]
     Prefix,
     /// Salvage: report a bad block and read on at the next block magic one byte after its start ([FileError::Bad]);
-    /// no seq check; a block of a run that may not start there is reported ([FileError::Stale]) and skipped. A
+    /// no seq check; a block of a session that may not start there is reported ([FileError::Stale]) and skipped. A
     /// chunk block whose head is good (head CRC) but whose payload isn't is handed out instead, with
     /// [Block::is_intact] false and its bad segments marked ([crate::Chunk::bad_segments]), and the walk goes on
     /// after it by its length. Any byte may start a block, also in a file aligned for its chunk payloads: a block is
@@ -197,7 +207,7 @@ pub enum Recovery {
 }
 
 /// Reads blocks one after the other from a byte stream into one reused buffer, see [Recovery] for what happens at
-/// damage and [Medium] for where a new run may start. Blank bytes ([is_blank]: 0x00 or 0xFF) where the next block
+/// damage and [Medium] for where a new session may start. Blank bytes ([is_blank]: 0x00 or 0xFF) where the next block
 /// would start, up to the end, are the end (preallocated space, an erased or trimmed medium); on a raw medium so are
 /// blank bytes longer than the layout's [gap](crate::Layout::gap_max), and nothing after them is read.
 pub struct FileBlocks<R> {
@@ -209,8 +219,8 @@ pub struct FileBlocks<R> {
     current: Option<Checked>,
     offset: u64,
     eof: bool,
-    /// The run and seq taken so far, the gap rules
-    walk: RunState,
+    /// The session and seq taken so far, the gap rules
+    walk: SessionState,
     /// A Prefix walk was cut: nothing more
     done: bool,
     /// The block at the start of `buf` replaces the one taken before with its id (reported already)
@@ -245,7 +255,7 @@ impl<R: Read> FileBlocks<R> {
             current: None,
             offset: 0,
             eof: false,
-            walk: RunState::new(Medium::File),
+            walk: SessionState::new(Medium::File),
             done: false,
             replacing: false,
         }
@@ -336,7 +346,7 @@ impl<R: Read> FileBlocks<R> {
     }
 
     /// Pass over blank bytes from here: true when they are the end, running to the end of the file or, on a raw
-    /// medium, longer than the layout's gap (what follows is no data of this run, and isn't read).
+    /// medium, longer than the layout's gap (what follows is no data of this session, and isn't read).
     fn skip_blank(&mut self) -> Result<bool, FileError> {
         let start = self.offset;
         loop {
@@ -474,7 +484,7 @@ impl<R: Read> FileBlocks<R> {
             v => v,
         };
         self.replacing = false;
-        let (run, seq) = (b.run, b.seq);
+        let (session, seq) = (b.session, b.seq);
         if matches!(verdict, Verdict::Take) {
             self.walk.take(&b);
         }
@@ -489,19 +499,19 @@ impl<R: Read> FileBlocks<R> {
                 self.replacing = true;
                 Err(FileError::Replaced {
                     offset: self.offset,
-                    run,
+                    session,
                     seq,
                 })
             }
-            (Verdict::Stale(run), Recovery::Prefix) => {
-                Err(self.cut(self.offset, Cut::Stale { run }))
+            (Verdict::Stale(session), Recovery::Prefix) => {
+                Err(self.cut(self.offset, Cut::Stale { session }))
             }
-            (Verdict::Stale(run), Recovery::Resync) => {
+            (Verdict::Stale(session), Recovery::Resync) => {
                 let offset = self.offset;
                 self.consume(c.len)?;
                 Err(FileError::Stale {
                     offset,
-                    run,
+                    session,
                     len: wide(c.len),
                 })
             }
@@ -511,10 +521,10 @@ impl<R: Read> FileBlocks<R> {
         }
     }
 
-    /// A blank or bad stretch started at `start` (`buf` is past its blank bytes): the run's data going on within
+    /// A blank or bad stretch started at `start` (`buf` is past its blank bytes): the session's data going on within
     /// the layout's gap is a [FileError::Gap], else the stretch is the end of data, cut for `error`. `here` is the
     /// good block right after blank bytes. Probes are read one header at a time, the bytes before each passed over;
-    /// at most [GAP_CHECKS_MAX] whose header [may resume](RunState::may_resume) the walk are checked whole.
+    /// at most [GAP_CHECKS_MAX] whose header [may resume](SessionState::may_resume) the walk are checked whole.
     fn after_stretch(
         &mut self,
         start: u64,

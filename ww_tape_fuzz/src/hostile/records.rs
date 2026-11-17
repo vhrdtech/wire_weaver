@@ -1,7 +1,7 @@
 //! Records and describe blocks: the clock table, record heads, time deltas, item lengths, the coded body's decoded
 //! length and the describe records of a layout.
 
-use super::{Draw, HEADER_FIELDS, HEADER_LEN, LEN_FIELD, RUN, hit, seal};
+use super::{Draw, HEADER_FIELDS, HEADER_LEN, LEN_FIELD, SESSION, hit, seal};
 use shrink_wrap::prelude::*;
 use ww_tape::body::DECODED_BODY_MAX;
 use ww_tape::lz4::{lz4_encode, lz4_max_len};
@@ -151,7 +151,7 @@ pub fn records(data: &[u8]) -> Vec<u8> {
     .to_u8();
     b[6..8].copy_from_slice(&flags.to_le_bytes());
     b[12..16].copy_from_slice(&(n as u32).to_le_bytes());
-    b[24..28].copy_from_slice(&RUN.get().to_le_bytes());
+    b[24..28].copy_from_slice(&SESSION.get().to_le_bytes());
     b.extend_from_slice(&body);
     b.extend_from_slice(&[0; 4]);
     let len = b.len() as u32;

@@ -10,12 +10,12 @@ use std::sync::OnceLock;
 use shrink_wrap::prelude::UNib32;
 use ww_tape::chunk::ChunkHead;
 use ww_tape::index::IndexPolicy;
-use ww_tape::piece::{PieceHead, PieceId, PieceIdent, ResultId};
+use ww_tape::piece::{OwnerId, PieceHead, PieceId, PieceIdent};
 use ww_tape::reader::Found;
 use ww_tape::{
     ALIGNMENT, BlockId, BlockKind, BlockWriter, ClockDef, ClockOrigin, ClockTime, Codec,
     ColumnKind, ColumnSpec, Describe, DescribeSet, EndMode, Layout, Magnitude, MemSink, Producer,
-    RunTag, SyncPolicy, TapeReader, TapeSink, TapeWriter, WriterOptions, clock_key,
+    SessionTag, SyncPolicy, TapeReader, TapeSink, TapeWriter, WriterOptions, clock_key,
 };
 
 /// Rounds of blocks in a template piece.
@@ -83,15 +83,15 @@ fn template(aligned: bool, head: bool) -> Vec<u8> {
     w.set_index_policy(o.index);
     w.set_describe_repeat(o.describe_repeat);
     if head {
-        let result = ResultId([1; 32]);
+        let owner = OwnerId([1; 32]);
         let h = PieceHead {
             ident: PieceIdent {
-                id: PieceId::first(&result),
-                result,
+                id: PieceId::first(&owner),
+                owner,
                 seq: 0,
             },
             prev: None,
-            prev_run: RunTag::NONE,
+            prev_session: SessionTag::NONE,
         };
         w.begin_piece(&h, &[]).expect("a head writes");
     }

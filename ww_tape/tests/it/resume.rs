@@ -10,7 +10,7 @@ use ww_tape::index::IndexPolicy;
 use ww_tape::piece::{PieceId, piece_name};
 use ww_tape::{
     ALIGNMENT, BlockKind, ChainOptions, CutPolicy, FileBlocks, Files, Layout, MemSink, MemTapes,
-    PieceChain, PieceHead, PieceIdent, Recovery, ResultId, RunTag, SinkFactory, SyncPolicy,
+    OwnerId, PieceChain, PieceHead, PieceIdent, Recovery, SessionTag, SinkFactory, SyncPolicy,
     TapeReader, TapeSink, TapeWriter, WriteError, WriterOptions,
 };
 
@@ -106,15 +106,15 @@ fn options(alignment: u32) -> WriterOptions {
 }
 
 fn head() -> PieceHead {
-    let result = ResultId([3; 32]);
+    let owner = OwnerId([3; 32]);
     PieceHead {
         ident: PieceIdent {
-            id: PieceId::first(&result),
-            result,
+            id: PieceId::first(&owner),
+            owner,
             seq: 0,
         },
         prev: None,
-        prev_run: RunTag::NONE,
+        prev_session: SessionTag::NONE,
     }
 }
 
@@ -397,11 +397,11 @@ fn a_chain_in_memory_reads_and_matches_files() {
             ..Default::default()
         },
     };
-    let result = ResultId([5; 32]);
+    let owner = OwnerId([5; 32]);
     let mem = MemTapes::new();
     let mut in_mem =
-        PieceChain::create_on(mem.clone(), Path::new("mem"), result, 1, &[], opts).unwrap();
-    let mut on_disk = PieceChain::create(&dir, result, 1, &[], opts).unwrap();
+        PieceChain::create_on(mem.clone(), Path::new("mem"), owner, 1, &[], opts).unwrap();
+    let mut on_disk = PieceChain::create(&dir, owner, 1, &[], opts).unwrap();
     for op in ops(10) {
         apply_chain(&mut in_mem, op);
         apply_chain(&mut on_disk, op);
@@ -462,7 +462,7 @@ fn chain_options() -> ChainOptions {
 
 /// The pieces of a chain of `ops` written to `dir` without a crash, and the seq of each call's block.
 fn reference_chain(dir: &Path, ops: &[Op]) -> (Vec<PathBuf>, Vec<u64>) {
-    let mut c = PieceChain::create(dir, ResultId([9; 32]), 0, &[], chain_options()).unwrap();
+    let mut c = PieceChain::create(dir, OwnerId([9; 32]), 0, &[], chain_options()).unwrap();
     let mut seqs = vec![];
     for op in ops {
         apply_chain(&mut c, *op);
@@ -511,7 +511,7 @@ fn a_chain_cut_anywhere_resumes_to_the_same_pieces() {
                 let partial = ww_tape::writer::partial_name(&d.join(piece_name(i as u64)));
                 std::fs::write(partial, &piece[..cut]).unwrap();
             }
-            let (mut c, _) = PieceChain::resume(&d, ResultId([9; 32]), 0, chain_options())
+            let (mut c, _) = PieceChain::resume(&d, OwnerId([9; 32]), 0, chain_options())
                 .unwrap_or_else(|e| panic!("piece {i}, cut {cut:?}: {e}"));
             assert_eq!(c.finished().len(), i);
             let next = c.writer().unwrap().next_seq();
@@ -537,7 +537,7 @@ fn a_chain_cut_anywhere_resumes_to_the_same_pieces() {
     }
     // a chain whose last piece is complete takes no more
     assert!(matches!(
-        PieceChain::resume(&want_dir, ResultId([9; 32]), 0, chain_options()),
+        PieceChain::resume(&want_dir, OwnerId([9; 32]), 0, chain_options()),
         Err(ww_tape::WriteError::Ended(ww_tape::FinishState::Complete))
     ));
     std::fs::remove_dir_all(&dir).unwrap();
@@ -551,14 +551,14 @@ fn a_chain_in_memory_resumes() {
     let (paths, seqs) = reference_chain(&tmp, &ops);
     let mem = MemTapes::new();
     let dir = Path::new("a");
-    let mut c = PieceChain::create_on(mem.clone(), dir, ResultId([9; 32]), 0, &[], chain_options())
-        .unwrap();
+    let mut c =
+        PieceChain::create_on(mem.clone(), dir, OwnerId([9; 32]), 0, &[], chain_options()).unwrap();
     for op in &ops[..ops.len() / 2] {
         apply_chain(&mut c, *op);
     }
     drop(c);
     let (mut c, resumed) =
-        PieceChain::resume_on(mem.clone(), dir, ResultId([9; 32]), 0, chain_options()).unwrap();
+        PieceChain::resume_on(mem.clone(), dir, OwnerId([9; 32]), 0, chain_options()).unwrap();
     assert!(!resumed.entries.is_empty());
     assert!(!c.finished().is_empty());
     let next = c.writer().unwrap().next_seq();
@@ -577,6 +577,6 @@ fn a_chain_in_memory_resumes() {
     }
     // no piece of a chain in a place: nothing to resume
     assert!(Files.finished(&tmp.join("none")).unwrap().is_none());
-    assert!(PieceChain::resume(&tmp.join("none"), ResultId([9; 32]), 0, chain_options()).is_err());
+    assert!(PieceChain::resume(&tmp.join("none"), OwnerId([9; 32]), 0, chain_options()).is_err());
     std::fs::remove_dir_all(&tmp).unwrap();
 }

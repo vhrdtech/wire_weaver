@@ -1,7 +1,7 @@
 //! Series tracks: the describe record of the track (shape, period, scale) and its segment records (first index,
 //! grid index, grid tick, scale, the record's time), in a describe block and a records block.
 
-use super::{Draw, RUN, describe_block, records_block};
+use super::{Draw, SESSION, describe_block, records_block};
 use shrink_wrap::prelude::*;
 use ww_tape::{
     BlockId, Describe, FullVersion, Magnitude, Ratio64, SampleShape, Segment, SeriesDef,
@@ -76,7 +76,7 @@ pub fn series(data: &[u8]) -> Vec<u8> {
         channels,
     };
     let item = track_item(shape, period, scale);
-    let mut out = describe_block(BlockId::new(RUN, 0), &[&item]);
+    let mut out = describe_block(BlockId::new(SESSION, 0), &[&item]);
     // segments, valid ones first, then hostile fields
     let mut segs: Vec<SeriesSegment> = vec![];
     let mut first = u64::from(d.u16());
@@ -124,6 +124,6 @@ pub fn series(data: &[u8]) -> Vec<u8> {
         let i = d.below(records.len());
         records[i].1 = d.value(64, &[], &[records[i].1 as u64]) as i64;
     }
-    out.extend(records_block(BlockId::new(RUN, 0), &records));
+    out.extend(records_block(BlockId::new(SESSION, 0), &records));
     out
 }

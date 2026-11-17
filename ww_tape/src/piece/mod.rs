@@ -8,7 +8,7 @@
 //!
 //! A writer cuts a recording into pieces at chunk boundaries ([PieceChain]). The head names the
 //! previous piece by its content hash and its id; the previous piece's tail names this piece's id, derived at the cut
-//! from the previous piece's id and the content hash in its finish ([PieceId::after]), so the chain is checked both ways ([check_chain]). Each piece carries the result id, its
+//! from the previous piece's id and the content hash in its finish ([PieceId::after]), so the chain is checked both ways ([check_chain]). Each piece carries the owner id, its
 //! sequence number in the chain and, per track, where its items continue (head) and the items and ticks it holds
 //! (finish). A chain whose first piece is gone reads as head cut, not as damage.
 //!
@@ -17,12 +17,17 @@
 //! at the very end of the file, [TAIL_LEN] bytes, so a reader finds it with one read and from it the finish, the
 //! indexes and the start of the piece; the tail of the piece before is just before that start.
 //!
+//! A finished piece is a multiple of [PIECE_ALIGN] (4 KiB) long: the writer pads the finish block's body with zeros
+//! ([finish_padding]), so the tail, still the piece's last bytes, ends on the boundary. Pieces then clone back to back
+//! (reflinks on btrfs or XFS) with nothing between them. Only the end is aligned; the blocks inside stay where they
+//! are, and a piece without a finish ends where it ends.
+//!
 //! Layouts after the 32-byte block header (the header's count: tracks), little endian:
 //!
 //! ```text
 //! piece head (kind 10)
-//!  32 [16] piece id                 48 [32] result id               80 u64 sequence number in the chain
-//!  88 u32  flags: bit 0 has a previous piece                        92 u32 previous run tag (0: none or unknown)
+//!  32 [16] piece id                 48 [32] owner id                80 u64 sequence number in the chain
+//!  88 u32  flags: bit 0 has a previous piece                        92 u32 previous session tag (0: none or unknown)
 //!  96 [32] previous piece's content hash                           128 [16] previous piece's id
 //! 144 ...  tracks × 32: id u64, number u32, reserved u32, next item u64 (the first item number this piece holds),
 //!          from tick i64 (no item of the track here starts before it)
@@ -32,27 +37,32 @@
 //!  40 [32] content hash: BLAKE3 of the piece's bytes before this block
 //!  72 u64  newest checkpoint index offset    80 u64 last final index offset    88 u64 describe backup offset
 //!          (u64::MAX for none)
-//!  96 [16] piece id    112 [16] next piece id    128 [32] result id    160 u64 sequence number
-//! 168 u32  flags: bit 0 the piece has a head    172 u32 reserved
+//!  96 [16] piece id    112 [16] next piece id    128 [32] owner id    160 u64 sequence number
+//! 168 u32  flags: bit 0 the piece has a head    172 u32 padding: zero bytes after the tracks, below [PIECE_ALIGN]
 //! 176 ...  tracks × 56: id u64, number u32, chunks u32, first item u64, items u64, first tick i64, last tick i64,
 //!          latest end i64 (of the chunk blocks in the piece)
+//!     ...  padding zeros, covered by the CRC
 //!
 //! tail (kind 9), TAIL_LEN bytes, the last of the piece
 //!  32 u64  piece length, from the piece's start to the end of this block
 //!  40 u64  finish offset    48 u32 finish length    52 u8 state    53 u8 flags (as the finish's)    54 u16 reserved
-//!  56 [32] content hash    88 [16] piece id    104 [16] next piece id    120 [32] result id    152 u64 sequence
+//!  56 [32] content hash    88 [16] piece id    104 [16] next piece id    120 [32] owner id    152 u64 sequence
 //! 160 u32  CRC
 //! ```
 //!
-//! Offsets are from the start of the piece. Ids are opaque: a piece id is 16 bytes, a result id 32 (the producer's,
-//! e.g. a SHA-256 of a run record); all zeros is none.
+//! Offsets are from the start of the piece. Ids are opaque to `ww_tape`, their meaning the application's: a piece id
+//! is 16 bytes, an owner id 32 (e.g. a hash the producer derives); all zeros is none.
 
 use crate::bytes::{array, le_i64, le_u8, le_u32, le_u64, put, put_i64, put_u32, put_u64};
+use crate::chunk::{len_u64, to_boundary, u32_len};
 use crate::index::{IndexError, NONE, seal};
-use crate::{Block, BlockId, BlockKind, CRC_LEN, HEADER_LEN, RunTag, put_header};
+use crate::{Block, BlockId, BlockKind, CRC_LEN, HEADER_LEN, SessionTag, put_header};
 
 /// Bytes of a tail block.
 pub const TAIL_LEN: usize = 164;
+/// A finished piece's length is a multiple of this: 4 KiB, [crate::ALIGNMENT].
+pub const PIECE_ALIGN: u32 = crate::ALIGNMENT;
+const _: () = assert!(PIECE_ALIGN.is_power_of_two(), "padding takes the low bits");
 /// Bytes of the fixed part of a piece head body.
 const HEAD_FIXED_LEN: usize = 112;
 const HEAD_TRACK_LEN: usize = 32;
@@ -71,9 +81,9 @@ const FLAG_PIECE: u8 = 1;
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
 pub struct PieceId(pub [u8; 16]);
 
-/// Names the result (producer run) a piece belongs to.
+/// Names the owner of a piece, opaque to `ww_tape`: an application reads it its own way.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
-pub struct ResultId(pub [u8; 32]);
+pub struct OwnerId(pub [u8; 32]);
 
 /// BLAKE3 of a piece's bytes before its finish block.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
@@ -93,16 +103,16 @@ impl PieceId {
         Self::derive("ww_tape piece id", &[&hash.0, &id.0])
     }
 
-    /// The id of the first piece of chain 0 of `result`: [Self::first_of] `(result, 0)`.
-    pub fn first(result: &ResultId) -> PieceId {
-        Self::first_of(result, 0)
+    /// The id of the first piece of chain 0 of `owner`: [Self::first_of] `(owner, 0)`.
+    pub fn first(owner: &OwnerId) -> PieceId {
+        Self::first_of(owner, 0)
     }
 
-    /// The id of the first piece of chain `chain` of `result` (several chains of one result, such as one per
-    /// source): as [Self::after] over the result id and the chain number, u64 little endian ("ww_tape first
+    /// The id of the first piece of chain `chain` of `owner` (several chains of one owner, such as one per
+    /// source): as [Self::after] over the owner id and the chain number, u64 little endian ("ww_tape first
     /// piece").
-    pub fn first_of(result: &ResultId, chain: u64) -> PieceId {
-        Self::derive("ww_tape first piece", &[&result.0, &chain.to_le_bytes()])
+    pub fn first_of(owner: &OwnerId, chain: u64) -> PieceId {
+        Self::derive("ww_tape first piece", &[&owner.0, &chain.to_le_bytes()])
     }
 
     /// The first 16 bytes of BLAKE3 in key derivation mode over `parts`; never all zeros.
@@ -156,7 +166,7 @@ impl FinishState {
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct PieceIdent {
     pub id: PieceId,
-    pub result: ResultId,
+    pub owner: OwnerId,
     /// 0 for the first piece of a chain, +1 per piece.
     pub seq: u64,
 }
@@ -199,11 +209,12 @@ pub struct PieceHead {
     pub ident: PieceIdent,
     /// The previous piece's content hash and id; None for the first piece of a chain.
     pub prev: Option<(ContentHash, PieceId)>,
-    /// The run of the block before this piece head on the medium: the run that ended where a writer appending to
-    /// a medium found the end of data, or the piece's own run at a cut. [RunTag::NONE] when the writer started at
-    /// the medium's start or can't know. On raw media a reader takes a new run only at a piece head naming the run
-    /// just ended, so stale blocks behind the end of data never pass for a new run.
-    pub prev_run: RunTag,
+    /// The session of the block before this piece head on the medium: the session that ended where a writer
+    /// appending to a medium found the end of data, or the piece's own session at a cut. [SessionTag::NONE] when
+    /// the writer started at the medium's start or can't know. On raw media a reader takes a new session only at a
+    /// piece head naming the session just ended, so stale blocks behind the end of data never pass for a new
+    /// session.
+    pub prev_session: SessionTag,
 }
 
 /// Bytes of a block of `fixed` bytes of body and `tracks` rows of `row` bytes; `usize::MAX`, longer than any block,
@@ -250,7 +261,7 @@ pub fn write_piece_head(
 fn fill_piece_head(b: &mut [u8], head: &PieceHead, tracks: &[TrackStart]) -> Option<()> {
     b.get_mut(HEADER_LEN..)?.fill(0);
     put_ident(b, 32, 48, 80, &head.ident)?;
-    put_u32(b, 92, head.prev_run.get())?;
+    put_u32(b, 92, head.prev_session.get())?;
     if let Some((hash, id)) = head.prev {
         put_u32(b, 88, FLAG_HAS_PREV)?;
         put(b, 96, hash.0)?;
@@ -273,40 +284,50 @@ fn fill_piece_head(b: &mut [u8], head: &PieceHead, tracks: &[TrackStart]) -> Opt
 fn put_ident(
     b: &mut [u8],
     id_at: usize,
-    result_at: usize,
+    owner_at: usize,
     seq_at: usize,
     ident: &PieceIdent,
 ) -> Option<()> {
     put(b, id_at, ident.id.0)?;
-    put(b, result_at, ident.result.0)?;
+    put(b, owner_at, ident.owner.0)?;
     put_u64(b, seq_at, ident.seq)
 }
 
-fn get_ident(b: &[u8], id_at: usize, result_at: usize, seq_at: usize) -> Option<PieceIdent> {
+fn get_ident(b: &[u8], id_at: usize, owner_at: usize, seq_at: usize) -> Option<PieceIdent> {
     Some(PieceIdent {
         id: PieceId(array(b, id_at)?),
-        result: ResultId(array(b, result_at)?),
+        owner: OwnerId(array(b, owner_at)?),
         seq: le_u64(b, seq_at)?,
     })
 }
 
-/// Check a good block is of `kind` and holds `fixed` bytes of body plus `row` bytes for each of its count; returns
-/// the rows.
+/// Check a good block is of `kind`.
+fn of_kind(block: &Block<'_>, kind: BlockKind) -> Result<(), IndexError> {
+    if block.kind != kind || !block.body_known() {
+        return Err(IndexError::Kind);
+    }
+    Ok(())
+}
+
+/// Check a good block is of `kind` and holds `fixed` bytes of body plus `row` bytes for each of its count, then
+/// `padding` bytes; returns the rows.
 fn body<'b>(
     block: &Block<'b>,
     kind: BlockKind,
     fixed: usize,
     row: usize,
+    padding: usize,
 ) -> Result<&'b [u8], IndexError> {
-    if block.kind != kind || !block.body_known() {
-        return Err(IndexError::Kind);
-    }
+    of_kind(block, kind)?;
     let n = usize::try_from(block.record_count).ok();
-    if n.map(|n| block_len_of(fixed, n, row)) != Some(block.len()) {
+    if n.map(|n| block_len_of(fixed, n, row).saturating_add(padding)) != Some(block.len()) {
         return Err(IndexError::BadHead);
     }
     let at = HEADER_LEN.checked_add(fixed);
-    let end = block.len().checked_sub(CRC_LEN);
+    let end = block
+        .len()
+        .checked_sub(CRC_LEN)
+        .and_then(|e| e.checked_sub(padding));
     at.zip(end)
         .and_then(|(at, end)| block.bytes().get(at..end))
         .ok_or(IndexError::BadHead)
@@ -323,7 +344,13 @@ pub struct PieceHeadBlock<'b> {
 impl<'b> PieceHeadBlock<'b> {
     /// The piece head of a good block.
     pub fn read(block: &Block<'b>) -> Result<Self, IndexError> {
-        let rows = body(block, BlockKind::PieceHead, HEAD_FIXED_LEN, HEAD_TRACK_LEN)?;
+        let rows = body(
+            block,
+            BlockKind::PieceHead,
+            HEAD_FIXED_LEN,
+            HEAD_TRACK_LEN,
+            0,
+        )?;
         let head = read_piece_head(block.bytes()).ok_or(IndexError::BadHead)?;
         Ok(PieceHeadBlock { head, rows })
     }
@@ -357,7 +384,7 @@ fn read_piece_head(b: &[u8]) -> Option<PieceHead> {
     Some(PieceHead {
         ident: get_ident(b, 32, 48, 80)?,
         prev,
-        prev_run: RunTag::from_u32(le_u32(b, 92)?),
+        prev_session: SessionTag::from_u32(le_u32(b, 92)?),
     })
 }
 
@@ -378,9 +405,19 @@ pub struct Finish {
     pub next: Option<PieceId>,
 }
 
-/// Bytes of a finish block with `tracks`.
+/// Bytes of a finish block with `tracks`, without padding.
 pub const fn finish_len(tracks: usize) -> usize {
     block_len_of(FINISH_FIXED_LEN, tracks, FINISH_TRACK_LEN)
+}
+
+/// Zero bytes a finish block of `tracks` placed at `finish_offset` in its piece is padded with, so the piece ends,
+/// after its tail, on a multiple of [PIECE_ALIGN]; below [PIECE_ALIGN].
+pub const fn finish_padding(finish_offset: u64, tracks: usize) -> usize {
+    // only the low bits count: the end modulo 2^64 has them
+    let end = finish_offset
+        .wrapping_add(len_u64(finish_len(tracks)))
+        .wrapping_add(len_u64(TAIL_LEN));
+    to_boundary(end, PIECE_ALIGN.wrapping_sub(1))
 }
 
 fn opt(v: Option<u64>) -> u64 {
@@ -391,18 +428,25 @@ fn get_opt(b: &[u8], at: usize) -> Option<Option<u64>> {
     le_u64(b, at).map(|v| Some(v).filter(|v| *v != NONE))
 }
 
-/// Write a finish block into `buf`; returns its length.
+/// Write a finish block with `padding` zero bytes after its tracks into `buf` (at least [finish_len] plus `padding`
+/// long); returns its length. A padding of [PIECE_ALIGN] or more is refused.
 pub fn write_finish(
     buf: &mut [u8],
     id: BlockId,
     finish: &Finish,
     tracks: &[TrackRange],
+    padding: usize,
 ) -> Result<usize, IndexError> {
-    let len = finish_len(tracks.len());
+    let pad = u32::try_from(padding)
+        .ok()
+        .filter(|p| *p < PIECE_ALIGN)
+        .ok_or(IndexError::Invalid("finish padding of 4 KiB or more"))?;
+    let len = finish_len(tracks.len()).saturating_add(padding);
     let (b, count) = block_buf(buf, len, tracks.len())?;
     put_header(b, BlockKind::Finish, len, count, id)
         .ok_or(IndexError::Invalid("longer than a block"))?;
     fill_finish(b, finish, tracks).ok_or(IndexError::Invalid("finish layout"))?;
+    put_u32(b, 172, pad).ok_or(IndexError::Invalid("finish layout"))?;
     seal(b);
     Ok(len)
 }
@@ -449,7 +493,18 @@ pub struct FinishBlock<'b> {
 impl<'b> FinishBlock<'b> {
     /// The finish of a good block.
     pub fn read(block: &Block<'b>) -> Result<Self, IndexError> {
-        let rows = body(block, BlockKind::Finish, FINISH_FIXED_LEN, FINISH_TRACK_LEN)?;
+        of_kind(block, BlockKind::Finish)?;
+        let padding = le_u32(block.bytes(), 172)
+            .filter(|p| *p < PIECE_ALIGN)
+            .map(u32_len)
+            .ok_or(IndexError::BadHead)?;
+        let rows = body(
+            block,
+            BlockKind::Finish,
+            FINISH_FIXED_LEN,
+            FINISH_TRACK_LEN,
+            padding,
+        )?;
         let finish = read_finish(block.bytes()).ok_or(IndexError::BadHead)?;
         Ok(FinishBlock { finish, rows })
     }

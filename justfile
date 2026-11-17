@@ -14,8 +14,8 @@ default:
 # (uses our internal tooling when available, otherwise falls back to the full suite).
 test *flags:
     if [ "{{flags}}" = "--changed" ]; then \
-        if command -v tpm >/dev/null 2>&1; then tpm test changed -- cargo nextest run --workspace; \
-        else echo "tpm not found; running the full test suite instead" >&2; {{just_executable()}} test-all; fi; \
+        if command -v changed-tests >/dev/null 2>&1; then f=$(changed-tests --base master) && if [ -n "$f" ]; then cargo nextest run --workspace -E "$f"; fi; \
+        else echo "changed-tests not found; running the full test suite instead" >&2; {{just_executable()}} test-all; fi; \
     else {{just_executable()}} test-all {{flags}}; fi
 
 # Test everything

@@ -39,9 +39,9 @@ use wire_weaver_client::ww_tape::{
 };
 
 #[cfg(any(test, feature = "test-support"))]
-mod flags;
+mod attached;
 #[cfg(any(test, feature = "test-support"))]
-use flags::Attached;
+use attached::Attached;
 #[cfg(any(test, feature = "test-support"))]
 pub mod test_support;
 

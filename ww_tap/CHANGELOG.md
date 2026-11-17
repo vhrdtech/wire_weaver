@@ -4,6 +4,9 @@
 
 ### ⚠️ Breaking
 
+- The recorder writes tape format 1: a session is a state record, put to consumers that lack it (STD-135).
+- A consumer that joins or misses a block is put every open definition before its next block (STD-135).
+- A closed link's tracks are closed: a consumer joining later doesn't get them (STD-135).
 - The recorder's blocks carry a random run tag per recorder, counted from seq 0 (STD-129).
 - Track keys hash the name path `link[i].<stream>` and the crate name only: tracks get new ids (STD-125).
 - The recorder's tracks are `TrackKind::Events` instants in the describe set (STD-127).

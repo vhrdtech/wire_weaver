@@ -7,32 +7,38 @@ use ww_tape::{BlockKind, BodyCodec, FileBlocks, SyncPolicy, TapeWriter};
 use super::*;
 use crate::tap::{Layers, LinkEvent, Recorder, RecorderConfig, Tap, host_session};
 
-/// A capture's describe backup ([TapeWriter::finish]) is a copy of the newest describe run, with the session it held
-/// then. A session set up after that run and a disconnect come before the backup: read on to it, the copy is not a
-/// third session.
+/// A writer puts a session again past its near and copies it after its first write. A reader that read on to such
+/// a record has seen that session: it is not a third one. A reader that starts at it takes it.
 #[test]
-fn describe_backup_is_not_a_new_session() {
+fn a_session_put_again_is_not_a_new_session() {
     let (recorder, clock) = Recorder::with_fake_clock(RecorderConfig::default());
     let sub = recorder.subscribe(Layers::ALL, 64);
     let mut link = recorder.link();
     link.session(&host_session(Medium::InProcessUsb, Framer::None, 64, "dev"));
-    // a bundle hands over a describe block at once: the newest describe run, with the first session
+    // a bundle hands over a block of definitions at once
     recorder.add_bundle(b"hash", b"bundle");
     *clock.lock().unwrap() += Duration::from_millis(1);
     let mut set_up = host_session(Medium::InProcessUsb, Framer::None, 64, "dev");
     set_up.device_info = RefVec::Slice { slice: &[1, 2, 3] };
     link.session(&set_up);
-    link.link_event(&LinkEvent::Disconnected {
-        reason: "done",
-        keep_streams: false,
-    });
-    recorder.flush();
+    for _ in 0..8 {
+        link.link_event(&LinkEvent::Disconnected {
+            reason: "done",
+            keep_streams: false,
+        });
+        recorder.flush();
+    }
 
     let dir = std::env::temp_dir().join(format!("ww_decode_backup_{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("cap.wwtape");
     let _ = std::fs::remove_file(&path);
     let mut writer = TapeWriter::create(&path, SyncPolicy::None).unwrap();
+    // copies every few blocks, so the session is copied in this short capture
+    writer.set_near_policy(ww_tape::NearPolicy {
+        copy_spacing: 256,
+        ..ww_tape::NearPolicy::default()
+    });
     while let Some(chunk) = sub.try_recv() {
         writer.write_block(chunk.bytes()).unwrap();
     }
@@ -52,19 +58,26 @@ fn describe_backup_is_not_a_new_session() {
             other => format!("{other:?}"),
         });
     }
-    assert_eq!(seen, ["session 0", "session 3", "disconnected"]);
-    // a reader that starts at the backup never read the run's own describe blocks: the copy's session is news
+    let mut want = vec!["session 0".to_owned(), "session 3".to_owned()];
+    want.extend(std::iter::repeat_n("disconnected".to_owned(), 8));
+    assert_eq!(seen, want);
+    // a reader that starts at the session's copy never read its first write: the copy is news
     let bytes = std::fs::read(&path).unwrap();
     let mut blocks = FileBlocks::new(&bytes[..]);
     let mut all = vec![];
     while let Some(b) = blocks.next_good(|e| panic!("{e}")) {
         all.push(b.bytes().to_vec());
     }
-    let copy = |b: &Vec<u8>| ww_tape::Block::read(b).unwrap().is_copy();
-    let last = all.iter().rposition(copy).unwrap();
-    let first = all[..=last].iter().rposition(|b| !copy(b)).unwrap() + 1;
+    let session_track = ww_tap::recorder::track_number(0, ww_tap::ids::SESSION);
+    let holds_session = |b: &Vec<u8>| {
+        let b = ww_tape::Block::read(b).unwrap();
+        b.is_repeat() && b.records().any(|r| r.unwrap().track == session_track)
+    };
+    let last = all.iter().rposition(holds_session).unwrap();
+    let first_write = all.iter().position(holds_session).unwrap();
+    assert!(last > first_write + 1, "the session is copied");
     let mut decoder = Decoder::default().with_resolver(crate::test_resolver());
-    for b in &all[first..] {
+    for b in &all[last..] {
         decoder.feed(&ww_tape::Block::read(b).unwrap());
     }
     decoder.finish();
@@ -74,7 +87,7 @@ fn describe_backup_is_not_a_new_session() {
             seen.push(s.device_info.len());
         }
     }
-    assert_eq!(seen, [0]);
+    assert_eq!(seen, [3]);
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -94,7 +107,8 @@ fn a_bad_coded_body_is_reported() {
     recorder.flush();
     let mut records = None;
     while let Some(chunk) = sub.try_recv() {
-        if chunk.block().kind == BlockKind::Records {
+        let b = chunk.block();
+        if b.kind == BlockKind::Records && b.first_track() != Some(0) {
             records = Some(chunk.bytes().to_vec());
         }
     }

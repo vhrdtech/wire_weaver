@@ -25,7 +25,7 @@ use ww_tap::{
     Dir, FrameOwned, HOST_CLOCK, LinkEventOwned, MessageOwned, SessionOwned, WALL_CLOCK, ids,
     track_of,
 };
-use ww_tape::{Block, BlockKind, Describe};
+use ww_tape::{Block, Describe};
 
 use super::reassembly::{FrameOutcome, FramePart, HelloFrame, Reassembled, Reassembler, walker};
 use super::stats::Stats;
@@ -188,8 +188,6 @@ struct LinkState {
     device: Option<DeviceInfoOwned>,
     root: Option<DynResource>,
     root_tried: bool,
-    /// The session came from a describe block, its record may still follow
-    described: bool,
     tx: DirState,
     rx: DirState,
     requests: HashMap<u32, RequestSent>,
@@ -208,7 +206,7 @@ impl LinkState {
 pub struct Decoder {
     config: DecoderConfig,
     links: BTreeMap<u32, LinkState>,
-    /// API bundles by the hash bytes of their `ApiHashPair::no_docs`, from describe blocks or added
+    /// API bundles by the hash bytes of their `ApiHashPair::no_docs`, from definitions or added
     bundles: HashMap<Vec<u8>, Arc<ApiBundleOwned>>,
     lookup: Option<BundleLookup>,
     /// [Self::with_resolver]: puts back what a bundle left out, and its cache root is the local cache.
@@ -216,8 +214,6 @@ pub struct Decoder {
     next_seq: Option<u64>,
     /// Session of the blocks fed last
     session: Option<ww_tape::SessionTag>,
-    /// Session whose own describe blocks were fed: a copy of them adds nothing
-    described: Option<ww_tape::SessionTag>,
     wall_ns_at_zero: Option<u64>,
     /// Time of the newest record fed, for what has no time of its own (lost blocks).
     last_t: u64,
@@ -241,7 +237,6 @@ impl Decoder {
             resolver: ww_snapshots::Resolver::global(),
             next_seq: None,
             session: None,
-            described: None,
             wall_ns_at_zero: None,
             last_t: 0,
             out: VecDeque::new(),
@@ -249,7 +244,7 @@ impl Decoder {
         }
     }
 
-    /// Look device API bundles up here when no describe block carries them (e.g. the local cache).
+    /// Look device API bundles up here when no definition carries them (e.g. the local cache).
     pub fn with_lookup(mut self, lookup: BundleLookup) -> Self {
         self.lookup = Some(lookup);
         self
@@ -271,7 +266,7 @@ impl Decoder {
         }))
     }
 
-    /// Wall clock (ns since the Unix epoch) at tap clock time 0, once a describe block mapped the one to the other.
+    /// Wall clock (ns since the Unix epoch) at tap clock time 0, once a definition mapped the one to the other.
     pub fn wall_ns_at_zero(&self) -> Option<u64> {
         self.wall_ns_at_zero
     }
@@ -289,14 +284,6 @@ impl Decoder {
     /// Decode a block; what it gives is taken with [Decoder::next].
     pub fn feed(&mut self, block: &Block<'_>) {
         self.stats.blocks += 1;
-        // a copy a writer made (a repeat, the backup before the finish, the next piece's start): its sticky records
-        // are the state of the session it copies, older than the records read since that session's own describe blocks; a
-        // reader that starts at the copy takes them
-        let copy = block.is_copy();
-        if block.kind == BlockKind::Describe && !copy {
-            self.described = Some(block.session);
-        }
-        let stale_sticky = copy && self.described == Some(block.session);
         // seq counts per session: a new session starts counting again
         if self.session != Some(block.session) {
             self.session = Some(block.session);
@@ -336,14 +323,9 @@ impl Decoder {
         records.sort_by_key(|r| r.at.map(|at| at.ticks));
         for r in records {
             let Some(at) = r.at else {
-                if block.kind == BlockKind::Describe {
-                    self.describe(r.item);
-                }
+                self.describe(r.item);
                 continue;
             };
-            if stale_sticky {
-                continue;
-            }
             // the tap clock counts ns from the recorder's start: a time before it isn't the tap's
             let (HOST_CLOCK, Ok(t)) = (at.clock, u64::try_from(at.ticks)) else {
                 continue;
@@ -353,13 +335,12 @@ impl Decoder {
             let Some((link, stream)) = track_of(r.track) else {
                 continue;
             };
-            // describe blocks repeat sessions: only a changed one is news
-            if block.kind == BlockKind::Describe && stream == ids::SESSION {
+            // a session is a state record: only a changed one is news
+            if stream == ids::SESSION {
                 if let Ok(s) = SessionOwned::from_ww_bytes_owned(r.item)
                     && self.links.get(&link).and_then(|l| l.session.as_ref()) != Some(&s)
                 {
                     self.session(link, t, s);
-                    self.links.entry(link).or_default().described = true;
                 }
                 continue;
             }
@@ -462,16 +443,6 @@ impl Decoder {
 
     fn record(&mut self, link: u32, stream: u32, t: u64, item: &[u8]) {
         match stream {
-            ids::SESSION => {
-                if let Ok(s) = SessionOwned::from_ww_bytes_owned(item) {
-                    let l = self.links.entry(link).or_default();
-                    // a new link's describe block already gave its first session
-                    if std::mem::take(&mut l.described) && l.session.as_ref() == Some(&s) {
-                        return;
-                    }
-                    self.session(link, t, s);
-                }
-            }
             ids::EVENTS => {
                 if let Ok(e) = LinkEventOwned::from_ww_bytes_owned(item) {
                     if let LinkEventOwned::Lost { records } = &e {
@@ -860,7 +831,7 @@ pub fn kind_name(kind: u8) -> &'static str {
     }
 }
 
-/// A bundle as stored in a describe block or a cache is as the device sent it: traits and types it left out because
+/// A bundle as stored in a definition or a cache is as the device sent it: traits and types it left out because
 /// they are known from snapshots are put back, and generic types instantiated, as the client does on connect.
 fn ready(
     mut bundle: ApiBundleOwned,

@@ -382,9 +382,14 @@ async fn monitor_capture_and_explain_file_agree() {
     let path = dir.join("cap.wwtape");
     let _ = std::fs::remove_file(&path);
     let mut writer = TapeWriter::create(&path, SyncPolicy::default()).unwrap();
+    // the writer's own session holds its layout, ahead of the tap's blocks
+    let own = writer.session();
     let stop = AtomicBool::new(true);
     consume(&mut feed, &stop, |b| {
-        file.extend_from_slice(b.bytes());
+        // full repeats are left out on both sides: the file holds the tap's and the writer's own
+        if !b.is_repeat() {
+            file.extend_from_slice(b.bytes());
+        }
         writer.write_block(b.bytes())?;
         for (m, out) in monitors.iter_mut().zip(&mut live) {
             m.block(b, out)?;
@@ -401,15 +406,18 @@ async fn monitor_capture_and_explain_file_agree() {
     assert!(report.contains("add: 8"), "{report}");
     let live = live.map(|b| String::from_utf8(b).unwrap());
 
-    // `ww capture` wrote the same blocks, besides its own describe copies, index, finish and tail; `ww explain FILE`
-    // prints the same text
+    // `ww capture` wrote the same blocks, besides its own layout, full repeats, index, finish and tail; `ww explain
+    // FILE` prints the same text
     assert_eq!(writer.finish().unwrap().path, path);
     let written = std::fs::read(&path).unwrap();
     let mut blocks = wire_weaver_client::ww_tape::FileBlocks::new(&written[..]);
     let mut producer = vec![];
     while let Some(b) = blocks.next_block() {
         let b = b.unwrap();
-        if !b.is_copy() && !wire_weaver_client::ww_tape::index::is_structural(b.kind) {
+        if !b.is_repeat()
+            && !wire_weaver_client::ww_tape::index::is_structural(b.kind)
+            && b.session != own
+        {
             producer.extend_from_slice(b.bytes());
         }
     }

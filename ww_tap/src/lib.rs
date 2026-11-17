@@ -143,7 +143,7 @@ pub trait LinkTap {
 /// The streams of one link; tracks of a capture are `link[id].<stream>`.
 #[ww_trait]
 pub trait Link {
-    /// The link's session, updated when it is set up (sticky: repeated in every describe block).
+    /// The link's session, updated when it is set up (sticky: repeated in every full repeat).
     stream!(session: Session<'i>);
     /// Connects, disconnects, errors, lost records.
     stream!(events: LinkEvent<'i>);

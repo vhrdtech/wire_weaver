@@ -7,13 +7,18 @@
 //! fall behind, records are dropped and counted, and the next block opens with a [LinkEvent::Lost] on the link: a
 //! gap is visible, never silent, and the link is never stalled.
 //!
-//! Describe blocks (the producer, the track of every link, API bundles added with [Recorder::add_bundle] and the
-//! newest session of every link) are written before the first records block, when links are added, when a consumer
-//! subscribes and after records were lost, never by time: a consumer joining late gets them when it joins.
+//! Definitions (the producer, its clocks, the tracks of every link, API bundles added with [Recorder::add_bundle])
+//! are records on track 0: what is new is handed over as a block of definitions before the next records block, a
+//! bundle at once. A link's session track is a state track: its newest session is put, never written in a records
+//! block. What a consumer has is kept per consumer: one that subscribes, or that misses a block (its queue was full),
+//! has nothing behind it, and before its next block it is handed a block of puts ([ww_tape::FLAG_REPEAT]) with every
+//! open definition and the newest session of every link; a new session is put to every consumer at once. A closed
+//! link's tracks are closed: a consumer that joins later doesn't get them. Nothing is written by time.
 //!
-//! Record times are nanoseconds of the recorder's own clock ([HOST_CLOCK], origin the recorder's start); the
-//! describe set maps it to the wall clock ([WALL_CLOCK]) read once at the start.
+//! Record times are nanoseconds of the recorder's own clock ([HOST_CLOCK], origin the recorder's start); a definition
+//! maps it to the wall clock ([WALL_CLOCK]) read once at the start.
 
+use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, Weak, mpsc};
 use std::time::{Duration, Instant, SystemTime};
@@ -22,8 +27,8 @@ use wire_weaver::prelude::*;
 use wire_weaver::shrink_wrap::SerializeShrinkWrap;
 use ww_tape::{
     Block, BlockId, BlockKind, BlockState, BlockWriter, ClockDef, ClockMap, ClockOrigin, ClockTime,
-    Describe, DescribeSet, FullVersion, Magnitude, MapSegment, Producer, Segment, SessionTag,
-    Sticky, TrackDef, Version,
+    Describe, FullVersion, ItemHash, Magnitude, MapSegment, Open, Producer, RecordRef, Segment,
+    SessionTag, Slot, TrackDef, TrackRepeat, Version,
 };
 
 use crate::{Dir, Frame, LinkEvent, Message, Session, Tap, ids};
@@ -40,7 +45,7 @@ pub struct RecorderConfig {
     pub flush_time: Duration,
     /// Flush on time from a background thread. Off for tests that drive [Recorder::poll_flush] themselves.
     pub background_flush: bool,
-    /// What the producer is, for people (in the describe block).
+    /// What the producer is, for people (in its definition).
     pub name: String,
 }
 
@@ -170,6 +175,28 @@ struct Sink {
     id: u64,
     layers: Layers,
     kind: SinkKind,
+    /// Whether it took every block since it was handed all open definitions
+    whole: bool,
+    /// The newest session of each link it was handed, by link
+    sessions: BTreeMap<u32, ItemHash>,
+}
+
+impl Sink {
+    /// It missed a block: nothing is behind it any more.
+    fn behind(&mut self) {
+        self.whole = false;
+        self.sessions.clear();
+    }
+}
+
+/// What became of a block handed to a consumer.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+enum Delivery {
+    Taken,
+    /// Its queue was full: it misses the block
+    Missed,
+    /// It is gone
+    Gone,
 }
 
 struct Inner {
@@ -203,11 +230,9 @@ struct Current {
 }
 
 struct LinkState {
-    /// Newest session record bytes
-    session: Option<Vec<u8>>,
+    /// Newest session record: its time, bytes and hash
+    session: Option<(ClockTime, Vec<u8>, ItemHash)>,
     lost: u64,
-    /// Every [RecorderLink] of it is gone: left out of describe blocks
-    closed: bool,
 }
 
 struct State {
@@ -216,17 +241,20 @@ struct State {
     /// Session and seq of the next block: a random session per recorder
     next: BlockId,
     links: Vec<LinkState>,
-    bundles: Vec<(Vec<u8>, Vec<u8>)>,
+    /// Hashes of the bundles defined
+    bundles: Vec<Vec<u8>>,
     sinks: Vec<Sink>,
     next_sink: u64,
-    describe_due: bool,
+    /// The open definitions
+    open: Open,
+    /// Definitions not handed over yet, as items
+    pending: Vec<Vec<u8>>,
     scratch: Vec<u8>,
-    wall_ns_at_zero: u64,
 }
 
 /// The recorder's clock: ns since it started. Record times count it.
 pub const HOST_CLOCK: u32 = 1;
-/// The wall clock, ns since the Unix epoch, mapped from [HOST_CLOCK] in the describe set.
+/// The wall clock, ns since the Unix epoch, mapped from [HOST_CLOCK] in the definitions.
 pub const WALL_CLOCK: u32 = 2;
 
 /// Track number of a link's stream: links take 7 numbers each, from 1 on.
@@ -328,9 +356,9 @@ impl Recorder {
                 bundles: Vec::new(),
                 sinks: Vec::new(),
                 next_sink: 0,
-                describe_due: true,
+                open: Open::new(),
+                pending: Vec::new(),
                 scratch: Vec::new(),
-                wall_ns_at_zero,
             }),
             frames: AtomicBool::new(false),
             messages: AtomicBool::new(false),
@@ -338,6 +366,7 @@ impl Recorder {
             flusher: Mutex::new(None),
             config,
         });
+        inner.define_producer(&mut inner.state.lock().unwrap(), wall_ns_at_zero);
         if inner.config.background_flush {
             let weak = Arc::downgrade(&inner);
             let flush_time = inner.config.flush_time;
@@ -366,9 +395,8 @@ impl Recorder {
         st.links.push(LinkState {
             session: None,
             lost: 0,
-            closed: false,
         });
-        st.describe_due = true;
+        self.inner.define_link(&mut st, id);
         RecorderLink {
             recorder: self.clone(),
             link: id,
@@ -380,24 +408,30 @@ impl Recorder {
         }
     }
 
-    /// Add an API bundle to the describe blocks (the tap's own types, a device's API), by its hash; once per hash.
+    /// Define an API bundle (the tap's own types, a device's API), by its hash; once per hash.
     pub fn add_bundle(&self, hash: &[u8], bytes: &[u8]) {
         let mut st = self.inner.state.lock().unwrap();
-        if st.bundles.iter().any(|(h, _)| h == hash) {
+        if st.bundles.iter().any(|h| h == hash) {
             return;
         }
-        st.bundles.push((hash.to_vec(), bytes.to_vec()));
-        st.describe_due = true;
+        st.bundles.push(hash.to_vec());
+        Inner::define(
+            &mut st,
+            &Describe::Bundle {
+                hash: RefVec::Slice { slice: hash },
+                bytes: RefVec::Slice { slice: bytes },
+            },
+        );
         // handed over now, not with the next block: the block being filled may already hold the first
-        // messages that need this bundle, and a describe block after it would come too late for a live reader
+        // messages that need this bundle, and a block of definitions after it would come too late for a live reader
         if !st.sinks.is_empty() {
             self.inner.flush_current(&mut st);
-            self.inner.describe(&mut st);
+            self.inner.flush_definitions(&mut st);
         }
     }
 
     /// Blocks into a bounded queue of `queue` blocks: a consumer that falls further behind misses blocks (a gap in
-    /// their seq). Starts with a describe block.
+    /// their seq). Starts with a full repeat.
     pub fn subscribe(&self, layers: Layers, queue: usize) -> Subscription {
         let (tx, rx) = mpsc::sync_channel(queue.max(1));
         let id = self.inner.add_sink(layers, SinkKind::Queue(tx));
@@ -409,7 +443,7 @@ impl Recorder {
     }
 
     /// Every block to `f`, called under the recorder's lock (keep it short); `f` returns false to unsubscribe.
-    /// Starts with a describe block.
+    /// Starts with a full repeat.
     pub fn subscribe_fn(&self, layers: Layers, f: impl FnMut(&Chunk) -> bool + Send + 'static) {
         self.inner.add_sink(layers, SinkKind::Fn(Box::new(f)));
     }
@@ -455,14 +489,20 @@ impl Inner {
 
     fn add_sink(&self, layers: Layers, kind: SinkKind) -> u64 {
         let mut st = self.state.lock().unwrap();
-        // what the others had pending goes to them, the new one starts with a description
+        // what the others had pending goes to them, the new one starts with everything put
         self.flush_current(&mut st);
+        self.flush_definitions(&mut st);
         let id = st.next_sink;
         st.next_sink += 1;
-        st.sinks.push(Sink { id, layers, kind });
+        st.sinks.push(Sink {
+            id,
+            layers,
+            kind,
+            whole: false,
+            sessions: BTreeMap::new(),
+        });
+        self.catch_up(&mut st);
         self.update_layers(&st);
-        st.describe_due = true;
-        self.describe(&mut st);
         id
     }
 
@@ -513,8 +553,9 @@ impl Inner {
         if st.current.is_some() {
             return true;
         }
-        if st.describe_due && !st.sinks.is_empty() {
-            self.describe(st);
+        if !st.sinks.is_empty() {
+            self.flush_definitions(st);
+            self.catch_up(st);
         }
         let Some(mut buf) = self.take_block(st) else {
             return false;
@@ -542,20 +583,19 @@ impl Inner {
                 };
                 let track = track_number(link as u32, ids::EVENTS);
                 _ = self.push(st, track, now, &ev);
-                st.describe_due = true;
             }
         }
         true
     }
 
-    /// Serialize `item` into the scratch buffer and push it into the current block.
+    /// Serialize `item` into the scratch buffer and push it into the current block; its length in the scratch.
     fn push<T: SerializeShrinkWrap>(
         &self,
         st: &mut State,
         track: u32,
         now: u64,
         item: &T,
-    ) -> Result<(), ()> {
+    ) -> Result<usize, ()> {
         let bytes = encode(&mut st.scratch, item).map_err(|_| ())?;
         let len = bytes.len();
         let cur = st.current.as_mut().ok_or(())?;
@@ -564,22 +604,35 @@ impl Inner {
         let at = ClockTime::new(HOST_CLOCK, now as i64);
         let r = w.push(track, at, &[&st.scratch[..len]]);
         cur.state = w.into_state();
-        r.map_err(|_| ())
+        r.map(|()| len).map_err(|_| ())
     }
 
     fn record<T: SerializeShrinkWrap>(&self, track: u32, item: &T) {
         let mut st = self.state.lock().unwrap();
         let st = &mut *st;
+        let now = self.now();
+        // the newest session of a link is kept whether anyone listens or not, and put: after the records before it
+        if let Some((link, ids::SESSION)) = track_of(track) {
+            if let Ok(bytes) = encode(&mut st.scratch, item)
+                && let Some(l) = st.links.get_mut(link as usize)
+            {
+                let at = ClockTime::new(HOST_CLOCK, now as i64);
+                l.session = Some((at, bytes.to_vec(), ItemHash::of(bytes)));
+            }
+            self.flush_current(st);
+            self.flush_definitions(st);
+            self.catch_up(st);
+            return;
+        }
         if st.sinks.is_empty() {
             return;
         }
-        let now = self.now();
         for attempt in 0..2 {
             if !self.open(st, now) {
                 break;
             }
             match self.push(st, track, now, item) {
-                Ok(()) => return,
+                Ok(_) => return,
                 Err(()) if attempt == 0 => self.flush_current(st),
                 Err(()) => {
                     tracing::warn!("tap record does not fit an empty block, dropped");
@@ -609,57 +662,94 @@ impl Inner {
         self.update_layers(st);
     }
 
-    /// Write and hand over describe blocks (not pooled: rare, and bundles can be large).
-    fn describe(&self, st: &mut State) {
-        st.describe_due = false;
-        let mut set = DescribeSet::new();
-        let mut add = |d: &Describe<'_>| {
-            if let Err(e) = set.insert(d) {
-                tracing::warn!("tap describe record left out: {e}");
+    /// Open `d`, checked against the open definitions, and add it to the pending ones unless the open one of its
+    /// slot is the same bytes.
+    fn define(st: &mut State, d: &Describe<'_>) {
+        let defined = ww_tape::open::encode(d).and_then(|item| {
+            st.open.check_batch([(d, item.as_slice())])?;
+            Ok(item)
+        });
+        let item = match defined {
+            Ok(item) => item,
+            Err(e) => {
+                tracing::warn!("tap definition left out: {e}");
+                return;
             }
         };
-        add(&Describe::Producer(Producer {
-            name: &self.config.name,
-        }));
-        let api = api();
-        let api_root = ww_tape::api_root_id(api.crate_id);
-        add(&Describe::Clock(ClockDef {
-            number: UNib32(HOST_CLOCK),
-            // a session of the recorder is a clock of its own
-            key: ww_tape::clock_key(api_root, &[], st.wall_ns_at_zero),
-            rate: Magnitude::pow10(9).into(),
-            resolution: Magnitude::pow10(-9).into(),
-            origin: ClockOrigin::SessionStart,
-            label: "tap",
-        }));
-        add(&Describe::Clock(ClockDef {
-            number: UNib32(WALL_CLOCK),
-            key: ww_tape::UNIX_CLOCK_KEY,
-            rate: Magnitude::pow10(9).into(),
-            resolution: Magnitude::pow10(-9).into(),
-            origin: ClockOrigin::UnixEpoch,
-            label: "wall",
-        }));
-        let segments = [MapSegment::offset(0, st.wall_ns_at_zero as i64)];
-        add(&Describe::Map(ClockMap {
-            from: UNib32(HOST_CLOCK),
-            to: UNib32(WALL_CLOCK),
-            segments: RefVec::Slice { slice: &segments },
-        }));
-        for (hash, bytes) in &st.bundles {
-            add(&Describe::Bundle {
-                hash: RefVec::Slice { slice: hash },
-                bytes: RefVec::Slice { slice: bytes },
-            });
+        let slot = Slot::of_definition(d, || ItemHash::of(&item));
+        if st.open.get(&slot) == Some(item.as_slice()) {
+            return;
         }
-        for link in 0..st.links.len() as u32 {
-            if st.links[link as usize].closed {
-                continue;
-            }
-            for stream in 0..7u32 {
-                let path = [UNib32(ids::LINK), UNib32(link), UNib32(stream)];
-                let label = format!("link[{link}].{}", STREAM_NAMES[stream as usize]);
-                add(&Describe::Track(TrackDef {
+        st.open.insert(d, &item);
+        st.pending.push(item);
+    }
+
+    /// Close the tracks of link `link`: a consumer that joins later doesn't get them.
+    fn close_link(st: &mut State, link: u32) {
+        let tracks: Vec<u32> = (0..7u32).map(|stream| track_number(link, stream)).collect();
+        for t in &tracks {
+            st.open.close(*t);
+        }
+        st.pending.retain(|item| {
+            !matches!(Slot::of(0, item), Some(Slot::Track { number }) if tracks.contains(&number))
+        });
+        if let Some(l) = st.links.get_mut(link as usize) {
+            l.session = None;
+        }
+    }
+
+    /// Define the producer, its clock and the wall clock it maps to, read `wall_ns_at_zero` at its start.
+    fn define_producer(&self, st: &mut State, wall_ns_at_zero: u64) {
+        Self::define(
+            st,
+            &Describe::Producer(Producer {
+                name: &self.config.name,
+            }),
+        );
+        let api_root = ww_tape::api_root_id(api().crate_id);
+        Self::define(
+            st,
+            &Describe::Clock(ClockDef {
+                number: UNib32(HOST_CLOCK),
+                // a session of the recorder is a clock of its own
+                key: ww_tape::clock_key(api_root, &[], wall_ns_at_zero),
+                rate: Magnitude::pow10(9).into(),
+                resolution: Magnitude::pow10(-9).into(),
+                origin: ClockOrigin::SessionStart,
+                label: "tap",
+            }),
+        );
+        Self::define(
+            st,
+            &Describe::Clock(ClockDef {
+                number: UNib32(WALL_CLOCK),
+                key: ww_tape::UNIX_CLOCK_KEY,
+                rate: Magnitude::pow10(9).into(),
+                resolution: Magnitude::pow10(-9).into(),
+                origin: ClockOrigin::UnixEpoch,
+                label: "wall",
+            }),
+        );
+        let segments = [MapSegment::offset(0, wall_ns_at_zero as i64)];
+        Self::define(
+            st,
+            &Describe::Map(ClockMap {
+                from: UNib32(HOST_CLOCK),
+                to: UNib32(WALL_CLOCK),
+                segments: RefVec::Slice { slice: &segments },
+            }),
+        );
+    }
+
+    /// Define the tracks of link `link`.
+    fn define_link(&self, st: &mut State, link: u32) {
+        let api = api();
+        for stream in 0..7u32 {
+            let path = [UNib32(ids::LINK), UNib32(link), UNib32(stream)];
+            let label = format!("link[{link}].{}", STREAM_NAMES[stream as usize]);
+            Self::define(
+                st,
+                &Describe::Track(TrackDef {
                     number: UNib32(track_number(link, stream)),
                     key: track_key(link, stream),
                     clock: UNib32(HOST_CLOCK),
@@ -670,48 +760,169 @@ impl Inner {
                     keys: RefVec::Slice { slice: &[] },
                     item: None,
                     label: &label,
-                    sticky: stream == ids::SESSION,
+                    repeat: if stream == ids::SESSION {
+                        TrackRepeat::STATE
+                    } else {
+                        TrackRepeat::Stream
+                    },
                     kind: ww_tape::TrackKind::Events(ww_tape::EventsDef::INSTANTS),
-                }));
-            }
+                }),
+            );
         }
-        let now = self.now() as i64;
-        let sticky: Vec<Sticky<'_>> = st
-            .links
+    }
+
+    /// Hand the pending definitions over to every consumer as counted blocks of definitions (not pooled: rare, and
+    /// bundles can be large). With nobody to hand them to they are dropped, no seq spent: a consumer that joins is
+    /// put every open definition.
+    fn flush_definitions(&self, st: &mut State) {
+        if st.pending.is_empty() {
+            return;
+        }
+        let pending = core::mem::take(&mut st.pending);
+        if st.sinks.is_empty() {
+            return;
+        }
+        let records: Vec<RecordRef<'_>> = pending
             .iter()
-            .enumerate()
-            .filter(|(_, l)| !l.closed)
-            .filter_map(|(link, l)| {
-                Some(Sticky {
-                    track: track_number(link as u32, ids::SESSION),
-                    at: ClockTime::new(HOST_CLOCK, now),
-                    item: l.session.as_deref()?,
-                })
+            .map(|item| RecordRef {
+                track: 0,
+                at: None,
+                item,
             })
             .collect();
-        let mut blocks = Vec::new();
-        let written = set.write_blocks(&mut st.next, self.config.block_size, &sticky, |b| {
-            blocks.push(b.to_vec());
+        let mut next = st.next;
+        let blocks = blocks_of(&records, self.config.block_size, 0, || {
+            let id = next;
+            next = id.next();
+            id
         });
-        if let Err(e) = written {
-            tracing::warn!("tap describe blocks not written: {e}");
-        }
+        st.next = next;
         for bytes in blocks {
-            let len = bytes.len();
-            let chunk = Chunk(Arc::new(ChunkBuf { bytes, len }));
-            deliver(&mut st.sinks, &chunk);
+            deliver(&mut st.sinks, &chunk_of(bytes));
         }
         self.update_layers(st);
     }
+
+    /// Put to each consumer what it doesn't have: every open definition to one that isn't whole, and the newest
+    /// session of every link it wasn't handed. Blocks of puts carry the seq of the block before them.
+    fn catch_up(&self, st: &mut State) {
+        let id = BlockId::new(st.next.session, st.next.seq.saturating_sub(1));
+        let mut sinks = core::mem::take(&mut st.sinks);
+        sinks.retain_mut(|sink| {
+            let mut records = Vec::new();
+            if !sink.whole {
+                let mut defs: Vec<(&Slot, &[u8])> = st.open.definitions().collect();
+                defs.sort_by_key(|(slot, _)| put_order(slot));
+                records.extend(defs.into_iter().map(|(_, item)| RecordRef {
+                    track: 0,
+                    at: None,
+                    item,
+                }));
+            }
+            let mut sessions = Vec::new();
+            for (link, l) in st.links.iter().enumerate() {
+                let Some((at, bytes, hash)) = &l.session else {
+                    continue;
+                };
+                let link = link as u32;
+                if sink.sessions.get(&link) != Some(hash) {
+                    sessions.push((link, *hash));
+                    records.push(RecordRef {
+                        track: track_number(link, ids::SESSION),
+                        at: Some(*at),
+                        item: bytes,
+                    });
+                }
+            }
+            if records.is_empty() {
+                return true;
+            }
+            let blocks = blocks_of(
+                &records,
+                self.config.block_size,
+                ww_tape::FLAG_REPEAT,
+                || id,
+            );
+            for bytes in blocks {
+                match deliver_to(sink, &chunk_of(bytes)) {
+                    Delivery::Taken => {}
+                    Delivery::Missed => {
+                        sink.behind();
+                        return true;
+                    }
+                    Delivery::Gone => return false,
+                }
+            }
+            sink.whole = true;
+            sink.sessions.extend(sessions);
+            true
+        });
+        st.sinks = sinks;
+    }
 }
 
-fn deliver(sinks: &mut Vec<Sink>, chunk: &Chunk) {
-    sinks.retain_mut(|s| match &mut s.kind {
+/// Where a definition goes in a block of puts: what the others name first.
+fn put_order(slot: &Slot) -> u8 {
+    match slot {
+        Slot::Producer | Slot::Layout => 0,
+        Slot::Clock { .. } => 1,
+        Slot::Map { .. } => 2,
+        Slot::Own { .. } => 3,
+        _ => 4,
+    }
+}
+
+/// `records` as record blocks of at most `block_size` bytes with header flags `flags`, numbered by `next_id`; a
+/// record that fails to go into a block is left out, and logged.
+fn blocks_of(
+    records: &[RecordRef<'_>],
+    block_size: usize,
+    flags: u16,
+    next_id: impl FnMut() -> BlockId,
+) -> Vec<Vec<u8>> {
+    let mut out = Vec::new();
+    let written = ww_tape::open::write_records(records, block_size, flags, next_id, |b| {
+        out.push(b.to_vec());
+        Ok::<(), ww_tape::DescribeError>(())
+    });
+    if let Err(e) = written {
+        tracing::warn!("tap definitions not written: {e}");
+    }
+    out
+}
+
+fn chunk_of(bytes: Vec<u8>) -> Chunk {
+    let len = bytes.len();
+    Chunk(Arc::new(ChunkBuf { bytes, len }))
+}
+
+/// Hand `chunk` to `sink`.
+fn deliver_to(sink: &mut Sink, chunk: &Chunk) -> Delivery {
+    match &mut sink.kind {
         SinkKind::Queue(tx) => match tx.try_send(chunk.clone()) {
-            Ok(()) | Err(mpsc::TrySendError::Full(_)) => true,
-            Err(mpsc::TrySendError::Disconnected(_)) => false,
+            Ok(()) => Delivery::Taken,
+            Err(mpsc::TrySendError::Full(_)) => Delivery::Missed,
+            Err(mpsc::TrySendError::Disconnected(_)) => Delivery::Gone,
         },
-        SinkKind::Fn(f) => f(chunk),
+        SinkKind::Fn(f) => {
+            if f(chunk) {
+                Delivery::Taken
+            } else {
+                Delivery::Gone
+            }
+        }
+    }
+}
+
+/// Hand `chunk` to every consumer: one that misses it has nothing behind it any more, one that is gone goes.
+fn deliver(sinks: &mut Vec<Sink>, chunk: &Chunk) {
+    sinks.retain_mut(|s| match deliver_to(s, chunk) {
+        Delivery::Taken => true,
+        Delivery::Missed => {
+            s.behind();
+            true
+        }
+        Delivery::Gone => false,
     });
 }
 
@@ -757,10 +968,7 @@ impl Drop for LinkShared {
     fn drop(&mut self) {
         if let Some(inner) = self.recorder.upgrade() {
             let mut st = inner.state.lock().unwrap();
-            if let Some(l) = st.links.get_mut(self.link as usize) {
-                l.closed = true;
-                l.session = None;
-            }
+            Inner::close_link(&mut st, self.link);
         }
     }
 }
@@ -804,12 +1012,6 @@ impl Tap for RecorderLink {
     }
 
     fn session(&mut self, session: &Session<'_>) {
-        let mut scratch = Vec::new();
-        if let Ok(bytes) = encode(&mut scratch, session) {
-            let bytes = bytes.to_vec();
-            let mut st = self.recorder.inner.state.lock().unwrap();
-            st.links[self.link as usize].session = Some(bytes);
-        }
         self.recorder.record(self.link, ids::SESSION, session);
     }
 
@@ -857,7 +1059,10 @@ impl RecorderLink {
     pub fn link_ready(&mut self, device_info: &[u8]) {
         let session = {
             let st = self.recorder.inner.state.lock().unwrap();
-            st.links[self.link as usize].session.clone()
+            st.links[self.link as usize]
+                .session
+                .as_ref()
+                .map(|(_, bytes, _)| bytes.clone())
         };
         if let Some(bytes) = session
             && let Ok(s) = Session::from_ww_bytes(&bytes)

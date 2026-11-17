@@ -502,6 +502,7 @@ feature tracker.
 - **[Tape hardening](tape/format.md#tape-blocks)**: Tape readers take damaged or hostile files without a panic, an overflow or an unbounded allocation; every limit is a named cap.
 - **[Tape resume and additions](tape/recovery.md#resuming-after-a-crash)**: A crashed tape piece resumes to the bytes of an uninterrupted write; tracks added mid-piece reach every later describe copy.
 - **[Tape pieces on 4 KiB](tape/index.md#pieces-and-chains)**: Finished tape pieces end on a 4 KiB boundary, so many pieces clone back to back into one file without copying a byte.
+- **[Tape definitions on track 0](tape/index.md)**: Tracks, clocks and bundles are keyed records on track 0: adding one costs its own record, and every piece holds the current set. <span class="ww-status">in progress</span>
 
 <p class="ww-features__more" markdown>Details and what is planned: [Evolution, versioning and compatibility](features.md#evolution-versioning-and-compatibility-evo), [Base types and quantities (ww_base)](std_library/features.md#base-types-and-quantities-ww_si-ww_numeric-ww_version-ww_date_time-ww_error-std), [Tapes (ww_tape)](tape/features.md#tapes-ww_tape-ww_tape_fuzz-ww_tape_benchmarks-std-new-items-tape) in the feature tracker.</p>
 

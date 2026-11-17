@@ -224,7 +224,7 @@ impl LiveTap {
     }
 }
 
-/// Put the API bundles a capture needs into the describe blocks: the tap's own (its records are ordinary
+/// Define the API bundles a capture needs: the tap's own (its records are ordinary
 /// wire_weaver types) and the device's as it sent it (the decoder puts the snapshot-known traits back), so a capture is explained without the device or a local cache.
 fn add_bundles(recorder: &Recorder, device: &DynClient) {
     let tap = wire_weaver_client::ww_tap::api().make_owned();

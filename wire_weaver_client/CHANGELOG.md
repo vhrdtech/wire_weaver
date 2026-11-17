@@ -10,6 +10,7 @@
 
 ### ⚠️ Breaking
 
+- The tap decoder reads tape format 1: definitions on track 0; a session is news only when it changed (STD-135).
 - Snapshot lookups take the resolver (EVO-80): `decode_introspection(bytes, resolver)`, `envelope::explain_request(bytes, root, resolver)`; `tap::Decoder::with_resolver` (default `Resolver::global()`).
 - `snapshots` is `ww_snapshots`: `Resolver::global().snapshot(v)` replaces `snapshots::get(v)`, `all()` is gone (EVO-80).
 - `ErrorList` gains `common` (STD-16): the `CommonError(..)` entry of an item's list; `with_common_error_list` on `PreparedCall<T, Error>`, `PreparedWrite<Error>` and `PreparedStreamOpen` (items without an error type); opening a stream function returning plain `T` gives `(T, stream)` (`OpenValue<T>`).

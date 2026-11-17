@@ -40,8 +40,6 @@ exclude = [
     "fuzz",
     "tests/thermo_api_old",
     "wire_weaver_tool",
-    # the shipped tools, their own workspace: they link logring and chunky_mcu_updater, which build on this one
-    "ww_tools",
 ]
 
 [workspace.package]

@@ -1,2 +1,2 @@
 [alias]
-ww = 'run --manifest-path ww_tools/Cargo.toml -p ww --bin ww --'
+ww = 'run -p wire_weaver_cli --example ww_generic --'

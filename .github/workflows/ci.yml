@@ -22,6 +22,8 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
 
+# The toolchain is rust-toolchain.toml's (setup-rust-toolchain reads it), the one local builds use; the nightly jobs
+# name theirs.
 jobs:
   fmt:
     name: rustfmt
@@ -121,27 +123,8 @@ jobs:
         env:
           MIRIFLAGS: -Zmiri-many-seeds=0..16
 
-  # the shipped tools, their own workspace: ww and the wheel with logring's and chunky's commands (TOOL-39)
-  tools:
-    name: ww_tools
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ww_tools
-    steps:
-      - uses: actions/checkout@v7
-      - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y libudev-dev
-      - uses: actions-rust-lang/setup-rust-toolchain@v2
-        with:
-          components: clippy
-      - uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-nextest
-      - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
-      - run: cargo nextest run --workspace
-
-  # the conformance matrix's Python consumer (TEST-23); the derive, dynamic and C consumers run in `test`
+  # the conformance matrix's Python consumer (TEST-23): wire_weaver_py of this commit built by maturin; the derive,
+  # dynamic and C consumers run in `test`. The shipped wheel, ww and their tests are vhrdtech/ww_tools's CI.
   conformance-py:
     name: conformance (Python)
     runs-on: ubuntu-latest
@@ -151,8 +134,8 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libudev-dev
       - uses: actions-rust-lang/setup-rust-toolchain@v2
       - uses: astral-sh/setup-uv@v10.2.0
-      - run: uv run --group dev pytest -q tests/test_conformance.py
-        working-directory: ww_tools/wire_weaver_wheel
+      - run: uv run --group dev pytest -q tests
+        working-directory: tests/conformance_py
 
   # ww_lz4's blocks decoded by C liblz4 (python-lz4)
   lz4-c:

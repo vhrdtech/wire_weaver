@@ -25,6 +25,7 @@ members = [
     "ww_link",
     "ww_local_socket",
     "ww_lz4",
+    "ww_plugin",
     "ww_self",
     "ww_settings/*",
     "ww_snapshots",
@@ -162,6 +163,7 @@ ww_stream = { version = "0.5.0", path = "./ww_stream", default-features = false 
 ww_client_server = { version = "0.2.0", path = "./ww_client_server", default-features = false }
 ww_hub_api = { version = "0.1.0", path = "./ww_hub_api", default-features = false }
 ww_lz4 = { version = "0.1.0", path = "./ww_lz4" }
+ww_plugin = { version = "0.1.0", path = "./ww_plugin" }
 ww_self = { version = "0.3.0", path = "./ww_self" }
 ww_tap = { version = "0.1.0", path = "./ww_tap", default-features = false }
 ww_tape_bundle = { version = "0.1.0", path = "./ww_tape_bundle" }

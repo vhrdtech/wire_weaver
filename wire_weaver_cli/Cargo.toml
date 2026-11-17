@@ -40,6 +40,7 @@ tracing-subscriber.workspace = true
 wire_weaver.workspace = true
 wire_weaver_client = { workspace = true, features = ["picoboot", "stm32_dfu", "hub", "rtt"] }
 ww_hub.workspace = true
+ww_plugin.workspace = true
 ww_hub_api = { workspace = true, features = ["std"] }
 ww_snapshots.workspace = true
 

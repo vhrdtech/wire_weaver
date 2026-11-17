@@ -173,6 +173,7 @@ ww_hub = 5
 ww_hub_api = 5
 ww_link = 5
 ww_local_socket = 5
+ww_plugin = 5
 ww_settings = 5
 ww_settings_derive = 5
 ww_stream = 5

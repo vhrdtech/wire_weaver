@@ -2217,6 +2217,11 @@ Unicast Data0 to one node over the same bus is TR-6.
   fault-confinement counters, `TtConfig`'s TURCF/TTOCF register fields, `XlFrame`'s protocol code and acceptance
   field) got a real one; none of them turned out to want a unit instead.
   `docs/evolution/checker_tool.md#unit-suffix-hints-tool-22`.
+- ✅ **TOOL-40 `ww_plugin`: the plugin arguments without the hub** · `v0.5` — `DeviceArgs`, `Selection`, `Setting`, `Source`,
+  `Untrusted`, the device completers and the plugin protocol helpers (`complete_if_requested`, `selection_env`,
+  `connect`, `take_exclusive`) live in crate `ww_plugin`, which has no `ww_hub` in its tree (`tests/layers_lint`
+  `ww_plugin_is_free_of_the_hub`). `wire_weaver_cli` re-exports them at their old paths (`device`, `plugin`,
+  `untrusted`, `complete`), so a plugin may depend on `ww_plugin` alone and not link the hub.
 - ✅ **TOOL-36 Commands register themselves** · `v0.5` — each `ww` command registers a `CommandDef` with `inventory`
   (`wire_weaver_cli::registry`): its `clap` command, the global flags it shows, how it connects, its log level, its
   own tap and the command it forwards to (in process when the binary links it, else the plugin); the root command, help, completion and the run loop come from the registry.

@@ -11,14 +11,14 @@ mod api_tree;
 pub mod cli;
 pub mod cmd;
 pub mod complete;
-pub mod device;
 pub mod plugin;
 pub mod registry;
-pub mod untrusted;
 pub mod util;
 mod value_fmt;
 
 pub use registry::Program;
+/// The device selection and the escaping of untrusted strings live in `ww_plugin` (no `ww_hub`); these are the old paths.
+pub use ww_plugin::{device, untrusted};
 
 /// The `ww` command line: what the `ww` binary runs. `program` is the binary's name and `--version` text.
 pub fn main(program: Program) -> Result<()> {

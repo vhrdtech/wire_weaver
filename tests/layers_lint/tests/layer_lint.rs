@@ -206,6 +206,32 @@ fn layers_file(root: &Path) -> LayersFile {
     toml::from_str(&layers_toml).expect("parsing layers.toml")
 }
 
+/// `ww_plugin` is what an executable plugin (`ww-NAME`) takes its device arguments from, so it must not link the
+/// hub: no `ww_hub` in its closure over normal, build and dev edges (`cargo tree -p ww_plugin -i ww_hub` finds
+/// nothing).
+#[test]
+fn ww_plugin_is_free_of_the_hub() {
+    let root = repo_root();
+    let graph = collect_graph(&root, &[root.join("Cargo.toml")]);
+    assert!(
+        graph.local_crates.contains("ww_plugin"),
+        "ww_plugin is a crate of the root workspace"
+    );
+    let mut reached = BTreeSet::new();
+    let mut pending = vec!["ww_plugin".to_owned()];
+    while let Some(from) = pending.pop() {
+        for (edge_from, to) in &graph.edges {
+            if *edge_from == from && reached.insert(to.clone()) {
+                pending.push(to.clone());
+            }
+        }
+    }
+    assert!(
+        !reached.contains("ww_hub"),
+        "ww_plugin reaches ww_hub through its dependencies: {reached:?}"
+    );
+}
+
 /// R1: a crate named in `layers.toml`'s `[api] crates` describes an API and never runs one, so its normal
 /// dependencies, direct or transitive, reach no layer-5 crate (`wire_weaver` first of all) beyond what `ww_api`'s
 /// own closure holds. Dev dependencies are free: a test may drive the API through the runtime.

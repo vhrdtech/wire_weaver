@@ -4539,6 +4539,7 @@ dependencies = [
  "ww_hub",
  "ww_hub_api",
  "ww_numeric",
+ "ww_plugin",
  "ww_settings",
  "ww_si",
  "ww_snapshots",
@@ -4877,6 +4878,20 @@ dependencies = [
  "defmt 1.1.1",
  "serde",
  "shrink_wrap",
+]
+
+[[package]]
+name = "ww_plugin"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "clap_complete",
+ "console",
+ "semver",
+ "tokio",
+ "toml",
+ "wire_weaver_client",
 ]
 
 [[package]]

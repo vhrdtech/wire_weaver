@@ -19,13 +19,13 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 use wire_weaver_client::ClientConfig;
 
-pub(crate) const CONFIG_FILE: &str = "ww.toml";
+pub const CONFIG_FILE: &str = "ww.toml";
 /// Table in ww.toml holding device selection settings.
-pub(crate) const DEVICE_TABLE: &str = "device";
+pub const DEVICE_TABLE: &str = "device";
 
 /// Setting names, same for command line flags (with '-' instead of '_'), ww.toml keys and environment variables
 /// (upper case with `WW_` prefix).
-pub(crate) const KEYS: [&str; 13] = [
+pub const KEYS: [&str; 13] = [
     "serial",
     "label",
     "product",
@@ -42,8 +42,7 @@ pub(crate) const KEYS: [&str; 13] = [
 ];
 
 /// Settings holding a number (integers in ww.toml).
-pub(crate) const NUMERIC_KEYS: [&str; 3] =
-    ["timeout_ms", "link_setup_timeout_ms", "probe_speed_khz"];
+pub const NUMERIC_KEYS: [&str; 3] = ["timeout_ms", "link_setup_timeout_ms", "probe_speed_khz"];
 
 /// Filters describing a USB device, which a device behind a debug probe doesn't have.
 const USB_KEYS: [&str; 6] = [
@@ -226,7 +225,7 @@ impl Selection {
         self.get("rtt")
     }
 
-    pub(crate) fn get(&self, key: &str) -> Option<&str> {
+    pub fn get(&self, key: &str) -> Option<&str> {
         self.settings
             .iter()
             .find(|s| s.key == key)
@@ -278,7 +277,10 @@ impl Selection {
 
     /// Over RTT the device isn't known before connecting: checks `api` on the connected device. Nothing to do over
     /// USB, where the device was picked by it.
-    pub fn check_connected(&self, api: &wire_weaver::ww_version::FullVersionOwned) -> Result<()> {
+    pub fn check_connected(
+        &self,
+        api: &wire_weaver_client::ww_version::FullVersionOwned,
+    ) -> Result<()> {
         if self.rtt().is_none() {
             return Ok(());
         }
@@ -454,7 +456,7 @@ fn check_chip(chip: &str) -> Result<()> {
 }
 
 /// An ELF path from ww.toml is relative to the file's directory, from a flag or env variable to the current one.
-pub(crate) fn elf_path(s: &Setting) -> PathBuf {
+pub fn elf_path(s: &Setting) -> PathBuf {
     let path = PathBuf::from(&s.value);
     match &s.source {
         Source::File(file) if path.is_relative() => {
@@ -530,7 +532,7 @@ fn probe_names(probes: &[wire_weaver_client::ProbeInfo]) -> String {
 }
 
 impl Source {
-    pub(crate) fn describe(&self, key: &str) -> String {
+    pub fn describe(&self, key: &str) -> String {
         match self {
             Source::Flag => format!("--{}", key.replace('_', "-")),
             Source::Env => env_var(key),
@@ -569,7 +571,7 @@ fn apply(config: ClientConfig, key: &str, value: &str) -> Result<ClientConfig> {
     })
 }
 
-pub(crate) fn parse_api(s: &str) -> Result<(String, VersionReq)> {
+pub fn parse_api(s: &str) -> Result<(String, VersionReq)> {
     match s.split_once('@') {
         Some((gid, req)) => Ok((
             gid.to_string(),
@@ -818,7 +820,7 @@ mod tests {
     /// Over RTT `api` is checked on the device once connected, over USB it picked the device already.
     #[test]
     fn api_checked_after_connecting_over_rtt() {
-        use wire_weaver::ww_version::{FullVersionOwned, VersionOwned};
+        use wire_weaver_client::ww_version::{FullVersionOwned, VersionOwned};
         let selection = |rtt: bool| {
             let mut settings = vec![setting("api", "g0b1re_api@^0.2", file())];
             if rtt {

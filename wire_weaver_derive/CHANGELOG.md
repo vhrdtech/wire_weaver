@@ -62,6 +62,7 @@
 
 ### 🐛 Fixes
 
+- A global id error names the ledger where it now lives, ww_base's `ww_global/wire_weaver_gid.json`.
 - `ww_codegen!` called from a `macro_rules!` no longer warns `unused import` on its `_SOURCE_MARKER` re-export.
 - Drop the unused `relative-path` dependency (cargo-machete).
 - `ww_codegen!` names types the API uses by their module path (API-46): a type in a `pub mod` of the API crate works

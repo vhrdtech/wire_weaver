@@ -19,7 +19,7 @@ pub fn ww_trait(attr: TokenStream, item: TokenStream) -> TokenStream {
     if !attr.is_empty() {
         return Error::new_spanned(
             attr,
-            "a trait's global id is not written in code: add `crate::Trait` to ww_global/wire_weaver_gid.json, \
+            "a trait's global id is not written in code: add `crate::Trait` to ww_base's ww_global/wire_weaver_gid.json, \
              the codegen looks it up by name (API-20); a wire version belongs to the crate's Cargo.toml, \
              `[package.metadata.wire_weaver] wire = \"w1.0\"` (EVO-31)",
         )

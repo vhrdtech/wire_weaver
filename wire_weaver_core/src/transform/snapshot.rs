@@ -1419,8 +1419,18 @@ mod tests {
     }
 
     fn exact_units_dir() -> std::path::PathBuf {
-        let ww_si = Path::new(env!("CARGO_MANIFEST_DIR")).join("../ww_stdlib/ww_si");
-        crate::dependency_dir(&ww_si, "exact_units").unwrap()
+        crate::dependency_dir(&base_dir("ww_si"), "exact_units").unwrap()
+    }
+
+    /// A crate of the ww_base repository, from the checkout `Cargo.lock` pins.
+    fn base_dir(name: &str) -> std::path::PathBuf {
+        let mut sources = ww_snapshots::cargo::CargoSources::default();
+        sources.entry_dir = Some(Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf());
+        sources.locked_package_dir(name).unwrap()
+    }
+
+    fn load_base(name: &str) -> ApiBundleOwned {
+        load_crate(&base_dir(name)).unwrap()
     }
 
     /// The API of the crate at `relative_path` as `ww_codegen!` loads it, with the resolver codegen leaves known
@@ -1485,8 +1495,8 @@ mod tests {
 
         // Quantity refers to ww_numeric types, which are skipped in the ww_si snapshot as well
         let snapshots = [
-            load("../ww_stdlib/ww_si"),
-            load("../ww_stdlib/ww_numeric"),
+            load_base("ww_si"),
+            load_base("ww_numeric"),
             load_exact_units(),
         ];
         let resolve = from_snapshots(&snapshots);
@@ -1518,9 +1528,9 @@ mod tests {
         };
         let snapshots = [
             load("../ww_stdlib/ww_gpio"),
-            load("../ww_stdlib/ww_si"),
-            load("../ww_stdlib/ww_numeric"),
-            load("../ww_stdlib/ww_error"),
+            load_base("ww_si"),
+            load_base("ww_numeric"),
+            load_base("ww_error"),
             load_exact_units(),
         ];
         let resolve = from_snapshots(&snapshots);
@@ -1559,9 +1569,9 @@ mod tests {
             .expect("a skipped ww_uart trait");
         let snapshots = [
             load("../ww_stdlib/ww_uart"),
-            load("../ww_stdlib/ww_si"),
-            load("../ww_stdlib/ww_numeric"),
-            load("../ww_stdlib/ww_error"),
+            load_base("ww_si"),
+            load_base("ww_numeric"),
+            load_base("ww_error"),
             load_exact_units(),
         ];
         let resolve = from_snapshots(&snapshots);
@@ -1770,17 +1780,29 @@ mod tests {
             .reference(true)
     }
 
-    /// Snapshots are saved for the current source of each crate whose snapshots APIs are skipped against: ww_global,
-    /// the link tap's records, exact_units (in its own repository: from the source ww_si uses) and ww_stdlib.
+    /// Snapshots are saved for the current source of each crate whose snapshots APIs are skipped against: the link
+    /// tap's records, ww_timebase, exact_units and the ww_base crates (in their own repositories: from the checkouts
+    /// `Cargo.lock` pins) and ww_stdlib.
     #[test]
     fn snapshots_are_up_to_date() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
         let mut crate_paths = vec![
-            root.join("ww_global"),
             root.join("ww_tap"),
             root.join("ww_timebase"),
             exact_units_dir(),
         ];
+        crate_paths.extend(
+            [
+                "ww_date_time",
+                "ww_error",
+                "ww_global",
+                "ww_keyed",
+                "ww_numeric",
+                "ww_si",
+                "ww_version",
+            ]
+            .map(base_dir),
+        );
         // host tools without an API, skipped as `just save-snapshots` skips them
         let no_api = ["ww_std_cli", "ww_report", "ww_pin_probe"];
         for entry in std::fs::read_dir(root.join("ww_stdlib")).unwrap() {

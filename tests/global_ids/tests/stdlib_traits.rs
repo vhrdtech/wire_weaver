@@ -1,5 +1,6 @@
-//! Every public `#[ww_trait]` / `#[ww_api_root]` in `ww_stdlib` has an id in `ww_global/wire_weaver_gid.json` (or is
-//! listed in its `no_id`), and every trait entry of a `ww_stdlib` crate names a trait that exists (or is retired).
+//! Every public `#[ww_trait]` / `#[ww_api_root]` in `ww_stdlib` has an id in ww_base's
+//! `ww_global/wire_weaver_gid.json` (or is listed in its `no_id`), and every trait entry of a `ww_stdlib` crate names
+//! a trait that exists (or is retired).
 //! `ww_client_server` and `ww_timebase` left `ww_stdlib/` for the repo root (R5) but are walked here too, so their
 //! traits (`ww_timebase::Clock`) stay covered.
 
@@ -88,7 +89,7 @@ fn every_stdlib_trait_has_an_id() {
         if ww_global::trait_id(crate_name, trait_name).is_none() && !NO_ID.contains(&name.as_str())
         {
             errors.push(format!(
-                "`{name}` has no id: add it to ww_global/wire_weaver_gid.json (see the ranges in its README) or to `no_id`"
+                "`{name}` has no id: add it to ww_base's ww_global/wire_weaver_gid.json (see the ranges in its README) or to `no_id`"
             ));
         }
     }

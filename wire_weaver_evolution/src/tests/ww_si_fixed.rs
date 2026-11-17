@@ -4,7 +4,7 @@
 use super::*;
 
 fn ww_si_dep() -> String {
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../ww_stdlib/ww_si");
+    let path = base_dir("ww_si");
     format!("ww_si = {{ path = {:?} }}\n", path.canonicalize().unwrap())
 }
 
@@ -324,7 +324,7 @@ fn exact_scales_of_the_same_value_are_compatible() {
 #[test]
 fn a_missing_generic_definition_is_an_error_naming_it() {
     let dep = {
-        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../ww_stdlib/ww_si");
+        let path = base_dir("ww_si");
         format!(
             "ww_si = {{ path = {:?}, features = [\"counting\"] }}\n",
             path.canonicalize().unwrap()

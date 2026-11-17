@@ -1,5 +1,5 @@
-//! Every saved snapshot of `ww_global`, `ww_tap`, `ww_client_server`, `ww_timebase` and the `ww_stdlib` crates,
-//! checked against the snapshot of the version before it, as `ww api check <snapshot>` does: both the crate and
+//! Every saved snapshot of `ww_tap`, `ww_client_server`, `ww_timebase`, the `ww_stdlib` crates and the ww_base crates
+//! (from the checkout `Cargo.lock` pins), checked against the snapshot of the version before it, as `ww api check <snapshot>` does: both the crate and
 //! the wire version must be bumped enough (EVO-27). A wrong wire version on an older snapshot, or a released
 //! snapshot that changed, shows here, not only when someone runs the check by hand.
 
@@ -7,10 +7,9 @@ use std::path::{Path, PathBuf};
 use wire_weaver_evolution::snapshot_files::SNAPSHOTS_DIR;
 use wire_weaver_evolution::{Check, Outcome};
 
-/// The crate directories `just save-snapshots` saves snapshots of.
+/// The crate directories `just save-snapshots` saves snapshots of, then the ww_base crates with snapshots.
 fn snapshot_crates(root: &Path) -> Vec<PathBuf> {
     let mut crates = vec![
-        root.join("ww_global"),
         root.join("ww_tap"),
         root.join("ww_client_server"),
         root.join("ww_timebase"),
@@ -22,6 +21,19 @@ fn snapshot_crates(root: &Path) -> Vec<PathBuf> {
         .collect();
     stdlib.sort();
     crates.extend(stdlib);
+    let mut sources = ww_snapshots::cargo::CargoSources::default();
+    sources.entry_dir = Some(root.to_path_buf());
+    for name in [
+        "ww_date_time",
+        "ww_error",
+        "ww_global",
+        "ww_keyed",
+        "ww_numeric",
+        "ww_si",
+        "ww_version",
+    ] {
+        crates.push(sources.locked_package_dir(name).unwrap());
+    }
     crates
 }
 

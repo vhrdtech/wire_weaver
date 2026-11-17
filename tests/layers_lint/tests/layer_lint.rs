@@ -258,8 +258,8 @@ fn api_crates_are_free_of_the_runtime() {
     let graph = collect_graph(&root, &[root.join("Cargo.toml")], &BTreeSet::new());
     let allowed = graph.normal_closure("ww_api");
     assert!(
-        allowed.contains("ww_version"),
-        "ww_api's normal closure should hold ww_version, found {allowed:?}"
+        allowed.contains("wire_weaver_derive"),
+        "ww_api's normal closure should hold wire_weaver_derive, found {allowed:?}"
     );
 
     let mut allow_used = vec![false; layers_file.api.allow.len()];
@@ -368,7 +368,7 @@ fn no_upward_crate_edges() {
     assert!(
         missing.is_empty(),
         "crate(s) found by `cargo metadata` but missing from layers.toml (every workspace crate \
-         needs a layer, 2 to 7): {missing:?}"
+         needs a layer, 3 to 7): {missing:?}"
     );
 
     let mut allow_used = vec![false; layers_file.allow.len()];

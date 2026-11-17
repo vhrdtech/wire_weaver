@@ -36,7 +36,7 @@ ww_client_server = { path = "../../ww_client_server", default-features = false }
 ww_settings = { path = "../../ww_settings/ww_settings", default-features = false, features = ["defmt"], optional = true }
 ww_stream = { path = "../../ww_stream", default-features = false, optional = true }
 ww_gpio = { path = "../../ww_stdlib/ww_gpio", default-features = false, optional = true }
-ww_si = { path = "../../ww_stdlib/ww_si", default-features = false, features = ["electrical", "f32"] }
+ww_si = { git = "https://github.com/vhrdtech/ww_base", default-features = false, features = ["electrical", "f32"] }
 
 [features]
 # settings_api::SettingsDemo kept in flash through ww_settings, for the settings bin

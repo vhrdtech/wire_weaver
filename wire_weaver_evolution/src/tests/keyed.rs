@@ -3,9 +3,9 @@
 
 use super::*;
 
-/// A crate depending on this checkout's `ww_keyed`, as an API with `keyed!` must.
+/// A crate depending on `ww_keyed` (ww_base's checkout `Cargo.lock` pins), as an API with `keyed!` must.
 fn keyed_deps() -> String {
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../ww_stdlib/ww_keyed");
+    let path = base_dir("ww_keyed");
     format!(
         "ww_keyed = {{ path = {:?} }}\n",
         path.canonicalize().unwrap()

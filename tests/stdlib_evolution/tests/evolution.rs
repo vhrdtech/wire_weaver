@@ -8,8 +8,10 @@
 //! same, or `ww api save <crate>` for one at the repo root). `ww_link` is checked here too: its link setup
 //! payloads (`DeviceInfo`, `LinkSetup`, ...) are on its wire line, whose line is the link generation of the frozen
 //! hello (EVO-71), so a break there asks for `w2.0` and the hello follows. `ww_client_server` and `ww_timebase`
-//! left `ww_stdlib/` for the repo root (R5) but are still checked here, as `ww_link` is. `ww_global` and `ww_tap`
-//! are checked here too, and consecutive saved versions of every crate.
+//! left `ww_stdlib/` for the repo root (R5) but are still checked here, as `ww_link` is. `ww_tap` is checked here
+//! too, and consecutive saved versions of every crate. The ww_base crates (`ww_global`, `ww_si`, `ww_numeric`,
+//! `ww_version`, `ww_error`, `ww_date_time`, `ww_keyed`) are checked from the checkout `Cargo.lock` pins: ww_base
+//! has no `wire_weaver_evolution` (its layer is below it), so this crate keeps checking them.
 
 use std::path::{Path, PathBuf};
 use wire_weaver_evolution::Check;
@@ -43,9 +45,40 @@ fn ww_link() {
     check_at(Path::new("ww_link"));
 }
 
+/// A crate of ww_base, checked in the checkout `Cargo.lock` pins.
+fn check_base(name: &str) {
+    Check::new(base_dir(name))
+        .require_current(true)
+        .strict(true)
+        .assert();
+}
+
+/// The ww_base crates with API snapshots.
+const BASE_CRATES: [&str; 7] = [
+    "ww_date_time",
+    "ww_error",
+    "ww_global",
+    "ww_keyed",
+    "ww_numeric",
+    "ww_si",
+    "ww_version",
+];
+
+/// The directory of a ww_base crate in the checkout `Cargo.lock` pins.
+fn base_dir(name: &str) -> PathBuf {
+    let mut sources = ww_snapshots::cargo::CargoSources::default();
+    sources.entry_dir = Some(root());
+    sources.locked_package_dir(name).unwrap()
+}
+
 #[test]
 fn ww_global() {
-    check_at(Path::new("ww_global"));
+    check_base("ww_global");
+}
+
+#[test]
+fn ww_keyed() {
+    check_base("ww_keyed");
 }
 
 #[test]
@@ -58,12 +91,11 @@ fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
 
-/// The crates whose `api_snapshots/` are saved here: ww_global, ww_tap, ww_link, ww_timebase, ww_client_server and
-/// the stdlib.
+/// The crates whose `api_snapshots/` are saved here: ww_tap, ww_link, ww_timebase, ww_client_server and the
+/// stdlib, then the ww_base crates from the checkout `Cargo.lock` pins.
 fn crate_dirs() -> Vec<PathBuf> {
     let root = root();
     let mut crate_dirs = vec![
-        root.join("ww_global"),
         root.join("ww_tap"),
         root.join("ww_link"),
         root.join("ww_timebase"),
@@ -75,6 +107,7 @@ fn crate_dirs() -> Vec<PathBuf> {
             crate_dirs.push(path);
         }
     }
+    crate_dirs.extend(BASE_CRATES.map(base_dir));
     crate_dirs
 }
 
@@ -153,7 +186,7 @@ fn ww_counters() {
 
 #[test]
 fn ww_date_time() {
-    check("ww_date_time");
+    check_base("ww_date_time");
 }
 
 #[test]
@@ -163,7 +196,7 @@ fn ww_dfu() {
 
 #[test]
 fn ww_error() {
-    check("ww_error");
+    check_base("ww_error");
 }
 
 #[test]
@@ -218,7 +251,7 @@ fn ww_memory() {
 
 #[test]
 fn ww_numeric() {
-    check("ww_numeric");
+    check_base("ww_numeric");
 }
 
 #[test]
@@ -248,7 +281,7 @@ fn ww_sd() {
 
 #[test]
 fn ww_si() {
-    check("ww_si");
+    check_base("ww_si");
 }
 
 #[test]
@@ -283,7 +316,7 @@ fn ww_user_info() {
 
 #[test]
 fn ww_version() {
-    check("ww_version");
+    check_base("ww_version");
 }
 
 /// Every skipped trait and type in a saved snapshot is found in the snapshot of its crate, with the same signature.

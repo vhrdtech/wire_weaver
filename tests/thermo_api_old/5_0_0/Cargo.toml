@@ -18,4 +18,4 @@ std = ["ww_api/std", "ww_si/std"]
 
 [dependencies]
 ww_api = { path = "../../../ww_api", default-features = false }
-ww_si = { path = "../../../ww_stdlib/ww_si", default-features = false, features = ["time", "thermal", "dimensionless", "counting"] }
+ww_si = { git = "https://github.com/vhrdtech/ww_base", default-features = false, features = ["time", "thermal", "dimensionless", "counting"] }

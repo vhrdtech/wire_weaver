@@ -21,15 +21,11 @@ test *flags:
 # Test everything
 test-all:
     cargo nextest run --workspace --no-fail-fast
-    # a firmware's SeriesStore sizes, compare and conversions, with the number types up to 32 bits only
-    cargo nextest run -p ww_numeric --no-default-features --features u32,i32,f32 --test store --test integer
-    cargo nextest run -p ww_si --no-default-features --features time,electrical,u32,i32,f32 --test store --test narrow
     # a server built as a firmware is, without ww_client_server's multi and streams, refuses their requests (SRV-60)
     just test-lean-server
-    # ww_crc and ww_block's crc32/crc32_update without std, at every table size (TR-31)
-    cargo nextest run -p ww_crc -p ww_block --no-default-features
-    cargo nextest run -p ww_crc -p ww_block --no-default-features --features ww_crc/table-256
-    cargo nextest run -p ww_crc --features table-slice16
+    # ww_block's crc32/crc32_update without std, bitwise and with ww_crc's 256-entry table (TR-31)
+    cargo nextest run -p ww_block --no-default-features
+    cargo nextest run -p ww_block --no-default-features --features ww_crc/table-256
     # the docs site's Markdown extensions (the `bits` fence)
     uv run --group dev pytest -q docs_ext
     # ww_lz4's blocks decoded by C liblz4
@@ -88,10 +84,6 @@ test-power-cut:
 dfu-transcripts:
     DFU_TRANSCRIPTS=update cargo nextest run -p dfu_scenarios
 
-# Append ids newly assigned in ww_global/wire_weaver_gid.json to its append-only lock (API-20)
-gid-lock:
-    GID_LOCK=update cargo nextest run -p ww_global assigned_ids
-
 # Regenerate the docs site's Features page (docs/features_today.md) from FEATURES.md and tests/features_page/entries.md (DOC-9)
 features-page:
     FEATURES_PAGE=update cargo nextest run -p features_page
@@ -133,11 +125,6 @@ check-core:
     # check ww_device with features used on embedded targets
     @cargo check -p ww_device --features=defmt,embassy-time
     @cargo check -p ww_device --features=defmt,embassy-net,ws,udp
-    # check ww_si with no number type and with a few (NumericValue variants are features)
-    @cargo check -p ww_si --no-default-features
-    @cargo check -p ww_si --no-default-features --features=f32,u16,defmt
-    # Fixed on a firmware: no number type of NumericValue beyond what it enables (u64 storage without the u64 feature)
-    @cargo check -p ww_si --no-default-features --features=time,information,counting,dimensionless,u16
     # the ww_tape positional reader builds for the browser, without std (STD-124)
     @cargo check -p ww_tape --no-default-features --features=alloc --target wasm32-unknown-unknown
 
@@ -246,12 +233,12 @@ install-cli: install
 deploy:
     just -f ww_tools/justfile deploy
 
-# Save API snapshots of ww_global, ww_tap, ww_timebase, ww_link, ww_client_server and the wire line fixture, then of
-# the ww_stdlib crates, into each crate's api_snapshots/. Pass --force to overwrite snapshots of versions that were
-# never published.
+# Save API snapshots of ww_tap, ww_timebase, ww_link, ww_client_server and the wire line fixture, then of the
+# ww_stdlib crates, into each crate's api_snapshots/ (the ww_base crates save theirs in ww_base). Pass --force to
+# overwrite snapshots of versions that were never published.
 save-snapshots *args:
     cargo build -q -p wire_weaver_cli --example ww_generic
-    for crate in ww_global ww_tap ww_timebase ww_link ww_client_server tests/wire_line_fixture_api; do \
+    for crate in ww_tap ww_timebase ww_link ww_client_server tests/wire_line_fixture_api; do \
         target/debug/examples/ww_generic api save $crate {{ args }} || exit 1; \
     done
     just save-stdlib-snapshots {{ args }}

@@ -1816,6 +1816,13 @@ mod tests {
     mod wire_lines;
     mod ww_si_fixed;
 
+    /// A crate of the ww_base repository, from the checkout `Cargo.lock` pins.
+    fn base_dir(name: &str) -> PathBuf {
+        let mut sources = ww_snapshots::cargo::CargoSources::default();
+        sources.entry_dir = Some(PathBuf::from(env!("CARGO_MANIFEST_DIR")));
+        sources.locked_package_dir(name).unwrap()
+    }
+
     /// Load a crate bundle from source, as `ww api save` would, by writing a throwaway crate.
     fn load(version: &str, lib_rs: &str) -> ApiBundleOwned {
         load_with(version, lib_rs, "")

@@ -19,11 +19,9 @@ members = [
     "ww_bus_slave",
     "ww_client_server",
     "ww_clock_sync",
-    "ww_crc",
     "ww_defmt_logger",
     "ww_device",
     "ww_framer",
-    "ww_global",
     "ww_hub",
     "ww_hub_api",
     "ww_link",
@@ -140,6 +138,17 @@ shrink_wrap_derive = { version = "0.2.0", git = "https://github.com/romixlab/shr
 # from ww_lsp, which owns it; Cargo.lock pins the commit
 ww_highlight = { git = "https://github.com/romixlab/ww_lsp" }
 
+# the base types and identity crates (layer 2) live in vhrdtech/ww_base, taken by git: Cargo.lock pins the commit
+# (`cargo update -p ww_si` moves them all)
+ww_crc = { version = "0.5.0", git = "https://github.com/vhrdtech/ww_base" }
+ww_date_time = { version = "0.1.0", git = "https://github.com/vhrdtech/ww_base", default-features = false }
+ww_error = { version = "0.1.0", git = "https://github.com/vhrdtech/ww_base", default-features = false }
+ww_global = { version = "0.2.0", git = "https://github.com/vhrdtech/ww_base" }
+ww_keyed = { version = "0.1.0", git = "https://github.com/vhrdtech/ww_base", default-features = false }
+ww_numeric = { version = "0.3.0", git = "https://github.com/vhrdtech/ww_base", default-features = false }
+ww_si = { version = "0.5.0", git = "https://github.com/vhrdtech/ww_base", default-features = false }
+ww_version = { version = "0.2.0", git = "https://github.com/vhrdtech/ww_base", default-features = false }
+
 # framework crates, versioned together via [workspace.package] version
 wire_weaver = { version = "0.5.0", path = "./wire_weaver", default-features = false }
 wire_weaver_cli = { version = "0.5.0", path = "./wire_weaver_cli" }
@@ -152,7 +161,6 @@ ww_api = { version = "0.5.0", path = "./ww_api", default-features = false }
 ww_book = { version = "0.5.0", path = "./ww_book" }
 ww_bus_slave = { version = "0.5.0", path = "./ww_bus_slave" }
 ww_clock_sync = { version = "0.5.0", path = "./ww_clock_sync" }
-ww_crc = { version = "0.5.0", path = "./ww_crc" }
 ww_defmt_logger = { version = "0.5.0", path = "./ww_defmt_logger" }
 ww_device = { version = "0.5.0", path = "./ww_device" }
 ww_framer = { version = "0.5.0", path = "./ww_framer", default-features = false }
@@ -173,7 +181,6 @@ ww_stream = { version = "0.5.0", path = "./ww_stream", default-features = false 
 
 # framework-level base types, each crate has its own version
 ww_client_server = { version = "0.2.0", path = "./ww_client_server", default-features = false }
-ww_global = { version = "0.2.0", path = "./ww_global" }
 ww_hub_api = { version = "0.1.0", path = "./ww_hub_api", default-features = false }
 ww_lz4 = { version = "0.1.0", path = "./ww_lz4" }
 ww_self = { version = "0.3.0", path = "./ww_self" }
@@ -188,9 +195,7 @@ ww_block = { version = "0.1.0", path = "./ww_stdlib/ww_block", default-features 
 ww_board_info = { version = "0.3.0", path = "./ww_stdlib/ww_board_info", default-features = false }
 ww_can_bus = { version = "0.1.0", path = "./ww_stdlib/ww_can_bus", default-features = false }
 ww_counters = { version = "0.1.0", path = "./ww_stdlib/ww_counters", default-features = false }
-ww_date_time = { version = "0.1.0", path = "./ww_stdlib/ww_date_time", default-features = false }
 ww_dfu = { version = "0.1.0", path = "./ww_stdlib/ww_dfu", default-features = false }
-ww_error = { version = "0.1.0", path = "./ww_stdlib/ww_error", default-features = false }
 ww_firmware_info = { version = "0.1.0", path = "./ww_stdlib/ww_firmware_info", default-features = false }
 ww_gpio = { version = "0.1.0", path = "./ww_stdlib/ww_gpio", default-features = false }
 ww_gpio_hl = { version = "0.1.0", path = "./ww_stdlib/ww_gpio_hl" }
@@ -198,23 +203,19 @@ ww_i2c = { version = "0.1.0", path = "./ww_stdlib/ww_i2c", default-features = fa
 ww_i2c_hl = { version = "0.1.0", path = "./ww_stdlib/ww_i2c_hl" }
 ww_indication = { version = "0.1.0", path = "./ww_stdlib/ww_indication", default-features = false }
 ww_interned = { version = "0.1.0", path = "./ww_stdlib/ww_interned", default-features = false }
-ww_keyed = { version = "0.1.0", path = "./ww_stdlib/ww_keyed", default-features = false }
 ww_log = { version = "0.1.0", path = "./ww_stdlib/ww_log", default-features = false }
 ww_logic_analyzer = { version = "0.1.0", path = "./ww_stdlib/ww_logic_analyzer", default-features = false }
 ww_memory = { version = "0.1.0", path = "./ww_stdlib/ww_memory", default-features = false }
-ww_numeric = { version = "0.3.0", path = "./ww_stdlib/ww_numeric", default-features = false }
 ww_onewire = { version = "0.1.0", path = "./ww_stdlib/ww_onewire", default-features = false }
 ww_pin_diag = { version = "0.1.0", path = "./ww_stdlib/ww_pin_diag", default-features = false }
 ww_pwm = { version = "0.1.0", path = "./ww_stdlib/ww_pwm", default-features = false }
 ww_recorder = { version = "0.1.0", path = "./ww_stdlib/ww_recorder", default-features = false }
 ww_sd = { version = "0.1.0", path = "./ww_stdlib/ww_sd", default-features = false }
-ww_si = { version = "0.5.0", path = "./ww_stdlib/ww_si", default-features = false }
 ww_signal_generator = { version = "0.1.0", path = "./ww_stdlib/ww_signal_generator", default-features = false }
 ww_spi = { version = "0.1.0", path = "./ww_stdlib/ww_spi", default-features = false }
 ww_uart = { version = "0.1.0", path = "./ww_stdlib/ww_uart", default-features = false }
 ww_uid = { version = "0.1.0", path = "./ww_stdlib/ww_uid", default-features = false }
 ww_user_info = { version = "0.1.0", path = "./ww_stdlib/ww_user_info", default-features = false }
-ww_version = { version = "0.2.0", path = "./ww_stdlib/ww_version", default-features = false }
 
 # examples and tests, not published
 all_gpio_api = { version = "0.1.0", path = "./examples/all_gpio_api" }

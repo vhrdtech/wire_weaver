@@ -281,7 +281,13 @@ mod tests {
             dep("ww_api", "ww_api")
         );
         if keyed {
-            deps += &dep("ww_keyed", "ww_stdlib/ww_keyed");
+            let mut sources = ww_snapshots::cargo::CargoSources::default();
+            sources.entry_dir = Some(Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf());
+            let ww_keyed = sources.locked_package_dir("ww_keyed").unwrap();
+            deps += &format!(
+                "ww_keyed = {{ path = {:?} }}\n",
+                ww_keyed.display().to_string()
+            );
         }
         deps
     }

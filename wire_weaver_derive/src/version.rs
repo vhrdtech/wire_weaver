@@ -23,7 +23,7 @@ pub(crate) fn compact_version(args: TokenStream) -> TokenStream {
             Ok(ident) => ident,
             Err(e) => {
                 let msg = format!(
-                    "compact_version! takes a trait name (or nothing for the crate), ids live only in ww_global/wire_weaver_gid.json: {e}"
+                    "compact_version! takes a trait name (or nothing for the crate), ids live only in ww_base's ww_global/wire_weaver_gid.json: {e}"
                 );
                 return quote! { compile_error!(#msg) };
             }

@@ -6,7 +6,7 @@ use super::*;
 use ww_self::ApiLevelLocationOwned;
 
 fn ww_si_dep() -> String {
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../ww_stdlib/ww_si");
+    let path = base_dir("ww_si");
     format!(
         "ww_si = {{ path = {:?}, features = [\"customary\"] }}\n",
         path.canonicalize().unwrap()

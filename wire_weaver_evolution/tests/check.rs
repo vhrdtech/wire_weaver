@@ -3,7 +3,7 @@
 use std::path::{Path, PathBuf};
 use wire_weaver_evolution::snapshot_files::SNAPSHOTS_DIR;
 use wire_weaver_evolution::{
-    Change, Check, CrateCache, Outcome, RootsOutcome, Rule, SaveStatus, Saved,
+    Change, Check, CrateCache, Outcome, RootsOutcome, Rule, SaveStatus, Saved, pins,
 };
 
 const API: &str = r#"
@@ -2178,4 +2178,194 @@ fn snapshot_in_another_order_is_saved_again_once() {
         ww_snapshots::file::render_ron(&canonical).unwrap()
     );
     assert_eq!(save_one(c.path(), false).status, SaveStatus::UpToDate);
+}
+
+/// This crate's own frozen fixture (EVO-70, no `ww_stdlib` crate): `pins_fixture_api` embeds a dependency's trait
+/// the way the former `nucleo_g0b1re_api` one did (now `vhrdtech/ww_stdlib`'s own `nucleo_g0b1re_fixture`), so
+/// `pins::refresh` keeps a test here now that `ww_stdlib` left this repository (P2401#16nov-0955h).
+fn pins_fixture() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/pins_fixture_api")
+}
+
+/// `pins_dep` is a real workspace member (`tests/pins_dep`), not a throwaway path dependency: the resolver that
+/// decodes a `SkippedFullVersion` signature finds a crate's definitions by name and version among the walked
+/// workspace's own crates, so the embedded dependency a frozen fixture pins needs to be one of those, the same way
+/// the former `ww_stdlib` crates were.
+fn pins_dep_source() -> PathBuf {
+    repo().join("tests/pins_dep")
+}
+
+fn pins_fixture_snapshot(crate_dir: &Path) -> PathBuf {
+    crate_dir
+        .join(SNAPSHOTS_DIR)
+        .join("pins_fixture_api_0_1_0.ron")
+}
+
+fn repo() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .to_path_buf()
+}
+
+/// The fixture copied into `c`: its path dependencies made absolute, `pins_dep` pointed at `dep_dir` (the real
+/// `tests/pins_dep` without one), with its saved snapshot alongside.
+fn copy_pins_fixture(c: &TestCrate, dep_dir: Option<&Path>) {
+    let fixture = pins_fixture();
+    let mut cargo_toml = std::fs::read_to_string(fixture.join("Cargo.toml"))
+        .unwrap()
+        .replace(
+            "path = \"../../../../",
+            &format!("path = \"{}/", repo().display()),
+        );
+    if let Some(dep_dir) = dep_dir {
+        let real = format!("path = \"{}/tests/pins_dep\"", repo().display());
+        assert!(cargo_toml.contains(&real), "{cargo_toml}");
+        cargo_toml = cargo_toml.replace(&real, &format!("path = \"{}\"", dep_dir.display()));
+    }
+    std::fs::write(c.path().join("Cargo.toml"), cargo_toml).unwrap();
+    let lib_rs = std::fs::read_to_string(fixture.join("src/lib.rs")).unwrap();
+    std::fs::write(c.path().join("src/lib.rs"), lib_rs).unwrap();
+    let snapshots = c.path().join(SNAPSHOTS_DIR);
+    std::fs::create_dir_all(&snapshots).unwrap();
+    for entry in std::fs::read_dir(fixture.join(SNAPSHOTS_DIR)).unwrap() {
+        let path = entry.unwrap().path();
+        std::fs::copy(&path, snapshots.join(path.file_name().unwrap())).unwrap();
+    }
+}
+
+/// A copy of `pins_dep` (the fixture's embedded dependency) under `c`, its `src/lib.rs` changed by `edit`: a
+/// dependency change in place, as a session makes one to a crate it doesn't own.
+fn changed_pins_dep(c: &TestCrate, edit: impl Fn(String) -> String) -> PathBuf {
+    let dep = c.path().join("pins_dep");
+    std::fs::create_dir_all(dep.join("src")).unwrap();
+    let source = pins_dep_source();
+    let lib_rs = std::fs::read_to_string(source.join("src/lib.rs")).unwrap();
+    let changed = edit(lib_rs.clone());
+    assert_ne!(changed, lib_rs, "the edit changed nothing");
+    std::fs::write(dep.join("src/lib.rs"), changed).unwrap();
+    std::fs::write(
+        dep.join("Cargo.toml"),
+        format!(
+            "[package]\nname = \"pins_dep\"\nversion = \"0.1.0\"\nedition = \"2024\"\npublish = false\n\n\
+             [package.metadata.wire_weaver]\nwire = \"w1.0\"\n\n[dependencies]\n\
+             ww_api = {{ path = \"{}/ww_api\", default-features = false }}\n",
+            repo().display()
+        ),
+    )
+    .unwrap();
+    dep
+}
+
+const PINS_DEP_ID: &str = "    pub id: MaxLen<RefVec<'i, u8>, 16>,";
+
+/// [Check] of `c` against the frozen fixture's saved snapshot, through `cache`.
+fn check_pins_fixture(c: &TestCrate, cache: &CrateCache) -> Outcome {
+    Check::new(c.path())
+        .against(pins_fixture_snapshot(c.path()))
+        .cache(cache.clone())
+        .run()
+        .unwrap()
+}
+
+/// `pins::refresh` on this crate's own fixture, no `ww_stdlib` involved (EVO-70): a pin that still matches its
+/// dependency's current signature is left alone.
+#[test]
+fn pins_refresh_leaves_a_current_pin_alone() {
+    let c = TestCrate::new("pins-unchanged");
+    copy_pins_fixture(&c, None);
+    let cache = CrateCache::default();
+    let outcome = check_pins_fixture(&c, &cache);
+    assert_eq!(outcome.verdict().unwrap(), "no changes", "{outcome}");
+
+    let snapshot = pins_fixture_snapshot(c.path());
+    let before = std::fs::read_to_string(&snapshot).unwrap();
+    let refreshed = pins::refresh(c.path(), Some(&snapshot), false, false, &cache).unwrap();
+    assert!(refreshed.refreshed.is_empty(), "{:?}", refreshed.refreshed);
+    assert_eq!(std::fs::read_to_string(&snapshot).unwrap(), before);
+}
+
+/// A compatible change of `pins_dep` (the embedded dependency, its id's max length raised) passes the fixture's
+/// check, and `pins::refresh` updates only the pin's bytes (EVO-70): before, any change of an embedded definition
+/// read as "definitions changed" against the fixture, and sessions edited the pinned signatures by hand.
+#[test]
+fn pins_refresh_updates_a_compatible_dependency_change() {
+    let c = TestCrate::new("pins-compatible");
+    let dep = changed_pins_dep(&c, |lib_rs| {
+        lib_rs.replace(PINS_DEP_ID, "    pub id: MaxLen<RefVec<'i, u8>, 32>,")
+    });
+    copy_pins_fixture(&c, Some(&dep));
+    let cache = CrateCache::default();
+    let snapshot = pins_fixture_snapshot(c.path());
+    let outcome = check_pins_fixture(&c, &cache);
+    let Outcome::Compared(comparison) = &outcome else {
+        panic!("{outcome:?}")
+    };
+    assert_eq!(comparison.report.change, Change::Compatible, "{outcome}");
+    assert!(pins::wire_compatible(&comparison.report));
+
+    let saved = std::fs::read_to_string(&snapshot).unwrap();
+    let refreshed = pins::refresh(c.path(), Some(&snapshot), false, false, &cache).unwrap();
+    let what: Vec<_> = refreshed
+        .refreshed
+        .iter()
+        .map(|r| r.what.as_str())
+        .collect();
+    assert_eq!(
+        what,
+        ["trait pins_dep::ValueApi"],
+        "{:?}",
+        refreshed.refreshed
+    );
+    let text = std::fs::read_to_string(&snapshot).unwrap();
+    assert_ne!(text, saved);
+    // only the pin's bytes changed
+    assert_eq!(text.lines().count(), saved.lines().count());
+
+    let outcome = check_pins_fixture(&c, &cache);
+    assert_eq!(outcome.verdict().unwrap(), "no changes", "{outcome}");
+}
+
+/// A breaking change of `pins_dep` (the id's type) fails the fixture's check, and `pins::refresh` refuses it
+/// unless the break is accepted on purpose (EVO-70).
+#[test]
+fn pins_refresh_requires_accept_breaking_for_a_breaking_dependency_change() {
+    let c = TestCrate::new("pins-breaking");
+    let dep = changed_pins_dep(&c, |lib_rs| lib_rs.replace(PINS_DEP_ID, "    pub id: u32,"));
+    copy_pins_fixture(&c, Some(&dep));
+    let cache = CrateCache::default();
+    let snapshot = pins_fixture_snapshot(c.path());
+    let outcome = check_pins_fixture(&c, &cache);
+    let Outcome::Compared(comparison) = &outcome else {
+        panic!("{outcome:?}")
+    };
+    assert_eq!(comparison.report.change, Change::Breaking, "{outcome}");
+    assert!(!pins::wire_compatible(&comparison.report));
+
+    let saved = std::fs::read_to_string(&snapshot).unwrap();
+    let err = pins::refresh(c.path(), Some(&snapshot), false, false, &cache).unwrap_err();
+    has_all(&err, &["field `id`", "--accept-breaking"]);
+    assert_eq!(std::fs::read_to_string(&snapshot).unwrap(), saved);
+
+    // accepted on purpose: refreshed, and the fixture then compares clean
+    pins::refresh(c.path(), Some(&snapshot), true, false, &cache).unwrap();
+    let outcome = check_pins_fixture(&c, &cache);
+    assert_eq!(outcome.verdict().unwrap(), "no changes", "{outcome}");
+}
+
+/// `pins::refresh` of a crate without a saved snapshot errors, whether the path given doesn't exist or the
+/// crate's current version was simply never saved (EVO-70).
+#[test]
+fn pins_refresh_errors_without_a_snapshot() {
+    let c = TestCrate::new("pins-no-snapshot");
+    copy_pins_fixture(&c, None);
+    let cache = CrateCache::default();
+
+    let missing = c.path().join(SNAPSHOTS_DIR).join("not_saved.ron");
+    let err = pins::refresh(c.path(), Some(&missing), false, false, &cache).unwrap_err();
+    has_all(&err, &["no such snapshot to refresh"]);
+
+    std::fs::remove_dir_all(c.path().join(SNAPSHOTS_DIR)).unwrap();
+    let err = pins::refresh(c.path(), None, false, false, &cache).unwrap_err();
+    has_all(&err, &["no such snapshot to refresh"]);
 }

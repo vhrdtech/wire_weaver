@@ -116,6 +116,7 @@ observe_arrays = 5
 observe_arrays_api = 5
 observe_batched = 5
 observe_batched_api = 5
+pins_dep = 5
 power_stage_api = 5
 properties = 5
 properties_api = 5

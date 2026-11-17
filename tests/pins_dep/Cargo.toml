@@ -1,0 +1,16 @@
+[package]
+name = "pins_dep"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Stand-in dependency for wire_weaver_evolution's own pins::refresh tests (EVO-70)"
+
+# Wire version of the API (EVO-31): link setup decides on its line, `#[since]` names its revisions
+[package.metadata.wire_weaver]
+wire = "w1.0"
+
+[dependencies]
+ww_api.workspace = true

@@ -56,6 +56,7 @@
 
 ### 🚀 Features
 
+- `pins::refresh` has its own framework-only fixture test again (EVO-70), lost when `nucleo_g0b1re_api` moved to `vhrdtech/ww_stdlib`: `tests/fixtures/pins_fixture_api`, `tests/pins_dep`.
 - `keyed!` companions in the checker (EVO-78): added, removed, key type changed; across a break matched by the array they key.
 - `ww api diff` names a `keyed!` item as written, `keyed!(flow by FlowKey)` (API-67, EVO-78).
 - Test fixture `nucleo_g0b1re_api`: its tests require a wire-compatible verdict against its saved snapshot instead of "no changes", so a compatible change of the live `ww_stdlib` it follows by path passes and a break fails, naming it; the EVO-13 checks run on a copy with refreshed pins. New tests `compatible_stdlib_change_passes_the_fixture` and `breaking_stdlib_change_fails_the_fixture` (EVO-70).

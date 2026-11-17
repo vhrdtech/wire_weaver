@@ -1,0 +1,15 @@
+# A tiny frozen API crate for wire_weaver_evolution's own pins::refresh tests (EVO-70, tests/check.rs): framework
+# types only (ww_api, pins_dep's tests/ stand-in), no ww_stdlib crate, so these tests outlive the ww_stdlib cut
+# (P2401#16nov-0955h). Its snapshot is refreshed by the tests themselves, never by `just refresh-fixture-pins`.
+
+[package.metadata.wire_weaver]
+wire = "w1.0"
+[package]
+name = "pins_fixture_api"
+version = "0.1.0"
+edition = "2024"
+description = "Frozen fixture for wire_weaver_evolution's pins::refresh tests"
+
+[dependencies]
+ww_api = { path = "../../../../ww_api", default-features = false }
+pins_dep = { path = "../../../../tests/pins_dep" }

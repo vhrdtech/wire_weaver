@@ -1,13 +1,14 @@
 //! Pinned references of a frozen snapshot brought in line with the source (EVO-70): the signatures by which a
 //! snapshot names other crates' traits and types it leaves out (`SkippedFullVersion`), and the versions of those
 //! crates (`ext_crates`), rewritten to what the crate's current source gives, everything else of the file kept byte
-//! for byte. For a fixture that stands for a released API but follows the live `ww_stdlib` by path on purpose, such
-//! as `wire_weaver_evolution`'s `nucleo_g0b1re_api` with its old-format snapshot (EVO-13): a stdlib change reaches it
-//! at once, and its pins are refreshed by this tool, never by hand. Saving the snapshot again would rewrite it in the
-//! current format and lose what it stands for.
+//! for byte. For a fixture that stands for a released API but follows one of its dependencies by path on purpose,
+//! such as `wire_weaver_evolution`'s own `tests/fixtures/pins_fixture_api` (`tests/check.rs`) or `ww_stdlib`'s
+//! `nucleo_g0b1re_fixture`: a dependency change reaches it at once, and its pins are refreshed by this tool, never
+//! by hand. Saving the snapshot again would rewrite it in the current format and lose what it stands for.
 //!
 //! The pins are refreshed only while the source stays wire-compatible with the snapshot: a break of an embedded
-//! definition is refused, naming what broke, unless it is accepted on purpose (a stated wire break of the stdlib).
+//! definition is refused, naming what broke, unless it is accepted on purpose (a stated wire break of the
+//! dependency).
 
 use crate::snapshot_files;
 use crate::{Change, Check, CrateCache, Outcome, Report, WireBump};

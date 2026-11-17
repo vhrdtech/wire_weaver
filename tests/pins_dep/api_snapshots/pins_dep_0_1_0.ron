@@ -1,0 +1,23 @@
+// pins_dep 0.1.0 traits and types, saved by `ww api save`.
+// Do not edit, bump the crate version and save a new snapshot instead.
+// shrink_wrap sha256: 7b7d47ed9a43320328520d2501ce462a003fc751931d6892d66cd80edd2f0c23
+(magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
+    "Stand-in dependency for `wire_weaver_evolution`\'s own `pins::refresh` tests (EVO-70, `tests/check.rs`): a real",
+    "workspace member, so its definitions resolve the way a real dependency\'s do, framework types only (`ww_api`).",
+    "Its `src/lib.rs` is copied and edited in place by those tests to drive a changed dependency; never edited here",
+    "by hand.",
+], crate_idx: 0, trait_name: "pins_dep", items: [
+    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "ValueApi", docs: [], optional: None, meta: None, identity: None),
+], compact_id: None, meta: None), types: [
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "Value", generics: [], fields: Named([
+        (ident: Some("id"), default: None, since: None, ty: MaxLen(max_len: Fixed(16), ty: Vec(NumericAny(Base(U8)))), docs: [], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+], traits: [
+    InLine(level: (docs: [], crate_idx: 0, trait_name: "ValueApi", items: [
+        (id: 0, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 0)), errors: None), multiplicity: Flat, since: None, ident: "value", docs: [], optional: None, meta: None, identity: None),
+    ], compact_id: None, meta: None), crate_idx: 0),
+], ext_crates: [
+    (crate_id: "pins_dep", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
+    Some((line: 1, revision: 0)),
+]))

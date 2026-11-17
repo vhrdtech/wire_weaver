@@ -138,6 +138,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - **Breaking:** the standard library moved to vhrdtech/ww_stdlib: its API crates, `ww_bus_slave`, `ww_defmt_logger`, `ww_gpio_hl`, `ww_i2c_hl`, `ww_report`, `ww_pin_probe`, `ww_std_cli`, tests, examples, board bins and pages; take them by git there.
 - The book assembles ww_stdlib's pages and tracker from its `main` branch: `book_sources.toml` takes git sources. See the `ww_book` changelog.
 - Framework tests no longer read standard library crates: `tests/skipped_dep_api` and `skipped_root_api` stand in; `ww` takes `ww_std_cli` by git. See the `ww` changelog.
+- `pins::refresh` gets back a test fixture free of `ww_stdlib`, lost when `nucleo_g0b1re_api` moved out. See the `wire_weaver_evolution` changelog.
 
 ### Added
 

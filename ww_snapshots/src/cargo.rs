@@ -433,6 +433,30 @@ impl CargoSources {
         Ok(dirs)
     }
 
+    /// The directory of the one package named `name` that [Self::locked_package_dirs] finds: for a git dependency,
+    /// Cargo's checkout of the commit `Cargo.lock` pins. An error when there is none or more than one.
+    pub fn locked_package_dir(&mut self, name: &str) -> Result<PathBuf> {
+        let lock = self.lock_path()?;
+        let mut found: Vec<PathBuf> = self
+            .locked_package_dirs()?
+            .into_iter()
+            .filter(|(n, _, _)| n == name)
+            .map(|(_, _, dir)| dir)
+            .collect();
+        found.dedup();
+        match found.len() {
+            1 => Ok(found.remove(0)),
+            0 => Err(anyhow!(
+                "{name} is not in {}, or Cargo has not fetched it yet (cargo fetch)",
+                lock.display()
+            )),
+            n => Err(anyhow!(
+                "{n} packages named {name} in {}: {found:?}",
+                lock.display()
+            )),
+        }
+    }
+
     /// Where Cargo put the source of `locked`, `None` for a path dependency.
     fn package_dir(&mut self, locked: &LockedPackage) -> Result<Option<PathBuf>> {
         match locked.source()? {
@@ -785,6 +809,18 @@ pub fn packages_under(dir: &Path, budget: &mut usize) -> Result<Vec<Package>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn locked_package_dir_finds_one_git_checkout() {
+        let mut sources = CargoSources {
+            entry_dir: Some(PathBuf::from(env!("CARGO_MANIFEST_DIR"))),
+            ..Default::default()
+        };
+        let exact_units = sources.locked_package_dir("exact_units").unwrap();
+        assert!(exact_units.join("Cargo.toml").is_file(), "{exact_units:?}");
+        let err = sources.locked_package_dir("no_such_package").unwrap_err();
+        assert!(err.to_string().contains("not in"), "{err}");
+    }
 
     #[test]
     fn patch_of_the_workspace_puts_a_git_dependency_at_a_path() {

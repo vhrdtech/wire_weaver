@@ -22,6 +22,7 @@ pub use crate_walker::{
     load_own_with_paths, load_with_hints, publishable,
 };
 pub use errors::ErrorListError;
+pub use keyed::{KeyedMacroArgs, array_index_ty, keys_ident};
 pub use moved_from::MovedFrom;
 pub use snapshot::{
     SourceNotes, load_crate, load_crate_with_notes, load_root, load_root_with_notes,

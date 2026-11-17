@@ -19,6 +19,7 @@
 
 ### 🚀 Features
 
+- `internal::{KeyedMacroArgs, array_index_ty, keys_ident}`: `keyed!` parsing for the derive's doc trait (API-67).
 - Codegen stores device APIs under `WIRE_WEAVER_HOME` when set (EVO-80), `~/.wire_weaver` otherwise.
 - Generated servers have `api_impl::WW_SELF_BYTES` also with introspection off (EVO-80), so a host or test can seed its cache with them; firmware that doesn't send them doesn't keep them.
 - Client codegen of `keyed!(flow by FlowKey)` (CLT-72): `flow_by(&key)` gives the element's client (its index for an array of properties or streams), `flow_key(index)` and `flow_keys()`, each also `_blocking`. A client crate of a keyed API depends on `ww_keyed`.

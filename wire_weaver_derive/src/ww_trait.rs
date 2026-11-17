@@ -10,8 +10,8 @@ use syn::{
 use wire_weaver_core::internal::ww_self::ApiBundleOwned;
 use wire_weaver_core::internal::ww_self::errors::error_list_docs;
 use wire_weaver_core::internal::{
-    ErrorListError, PropertyAccess, PropertyMacroArgs, StreamAndImplMacroArgs, WireVersion,
-    parse_wire_arg,
+    ErrorListError, KeyedMacroArgs, PropertyAccess, PropertyMacroArgs, StreamAndImplMacroArgs,
+    WireVersion, array_index_ty, keys_ident, parse_wire_arg,
 };
 use wire_weaver_core::load;
 
@@ -325,6 +325,30 @@ fn doc_trait(
                             #(#docs)*
                             #notes
                             fn #ident (#index) -> impl #ext_trait;
+                        });
+                    }
+                    "keyed" => {
+                        let args: KeyedMacroArgs =
+                            parse2(tokens).map_err(|e| format!("keyed!: {e}"))?;
+                        let of = args.of.to_string();
+                        let ident = Ident::new(&keys_ident(&of), args.of.span());
+                        let index = array_index_ty(item_trait, &of)
+                            .map_err(|e| format!("keyed!({of} by ..): {e}"))?
+                            .map(|ty| ty.to_token_stream())
+                            .unwrap_or_else(|| quote! { #ww_api::shrink_wrap::UNib32 });
+                        let key = &args.key;
+                        let ww_keyed = crate::crate_paths::ww_keyed();
+                        let notes = notes([
+                            Some(format!(
+                                "Key companion of `{of}[]`: `index_of(key)`, `key[index]` and the `keys` stream."
+                            )),
+                            since,
+                            meta_note(&item_macro.attrs),
+                        ]);
+                        items.extend(quote! {
+                            #(#docs)*
+                            #notes
+                            fn #ident () -> #ww_api::api_doc::Keys<#ww_keyed::KeyEvent<#index, #key>>;
                         });
                     }
                     // reserved!(..) only takes up resource ids, nothing to show

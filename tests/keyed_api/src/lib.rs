@@ -59,3 +59,20 @@ pub struct Endpoint {
     derive(Debug, PartialEq, Eq, Clone, Copy)
 )]
 pub struct Port(pub u16);
+
+/// The doc trait shows the key companion as `flow_keys() -> Keys<KeyEvent<..>>` (API-67): checked by the compiler.
+#[expect(
+    dead_code,
+    reason = "compile-time check of the doc trait's signature, never called"
+)]
+mod doc_trait {
+    use super::*;
+    use ww_api::api_doc::Keys;
+    use ww_keyed::KeyEvent;
+
+    fn keys(_: fn() -> Keys<KeyEvent<UNib32, FlowKey>>) {}
+
+    fn dissector<T: Dissector>() {
+        keys(T::flow_keys);
+    }
+}

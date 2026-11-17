@@ -19,6 +19,7 @@
 
 ### 🚀 Features
 
+- The doc trait of `#[ww_trait]` shows `keyed!(flow by FlowKey)` as `fn flow_keys() -> Keys<ww_keyed::KeyEvent<I, FlowKey>>` (API-67); the API crate's `ww_keyed` dependency is no longer reported unused.
 - `ww_codegen!(.., observe_elements = K)` (API-63): how many elements of each trait level under resource arrays hosts observe at the same time, 4 when left out.
 - `#[moved_from(w2.1, Thermo::self_test)]` on a resource (EVO-40) is noted in the rustdoc trait next to `#[since]`, as "Moved from `w2.1, Thermo::self_test`.", every link of a chain
 - `ww_codegen!(dep::Trait for Name, client = "sub_level")` generates one client of a sub-trait reached by path, and `sub_levels = [dep::Trait => path::Name, ..]` on a `std_client` makes its accessors return that client wherever its tree has the trait (CLT-68): one client type for a trait the lines of a crate share, a `ww_stdlib` one or the crate's own (`thermo_api::common::Channel`), checked at compile time to be the same trait. `sub_levels` without a client is an error.

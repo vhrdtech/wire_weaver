@@ -14,6 +14,7 @@
 //! | `sink!(tx: [u8]);`            | `fn tx() -> Sink<[u8]>`                             |
 //! | `ww_impl!(gpio: Gpio);`       | `fn gpio() -> impl Gpio`                            |
 //! | `stream!(adc[]: u16);`        | `fn adc(index: UNib32) -> Stream<u16>`              |
+//! | `keyed!(flow by FlowKey);`    | `fn flow_keys() -> Keys<KeyEvent<UNib32, FlowKey>>` |
 //!
 //! Access mode, flow control and `#[since]` are added to the end of each resource's documentation.
 //!
@@ -32,3 +33,7 @@ pub struct Stream<T: ?Sized>(PhantomData<T>);
 
 /// Sink of `T` items from a client to a device, see [streams](https://ww.vhrd.tech/api/streams/).
 pub struct Sink<T: ?Sized>(PhantomData<T>);
+
+/// Key companion of a keyed array (`keyed!(flow by FlowKey)`): `index_of`, `key[]` and the `keys` stream whose items
+/// are `E` (`ww_keyed::KeyEvent<I, FlowKey>`), see [keyed arrays](https://ww.vhrd.tech/api/arrays/).
+pub struct Keys<E: ?Sized>(PhantomData<E>);

@@ -21,10 +21,12 @@ use ww_self::{
     TypeLocationOwned, TypeOwned,
 };
 
-/// `keyed!(flow by FlowKey)`
-struct KeyedMacroArgs {
-    of: Ident,
-    key: Type,
+/// Arguments of `keyed!(flow by FlowKey)`.
+pub struct KeyedMacroArgs {
+    /// The array it keys: `flow`.
+    pub of: Ident,
+    /// The key type: `FlowKey`.
+    pub key: Type,
 }
 
 impl Parse for KeyedMacroArgs {
@@ -43,7 +45,7 @@ impl Parse for KeyedMacroArgs {
 }
 
 /// Name of the key companion of the array `of`: `flow_keys`.
-pub(crate) fn keys_ident(of: &str) -> String {
+pub fn keys_ident(of: &str) -> String {
     format!("{of}_keys")
 }
 
@@ -178,7 +180,11 @@ pub(crate) fn reject_keys_ident_collisions(items: &[ApiItemOwned]) -> Result<()>
 }
 
 /// The index type written in the array's brackets (`flow[FlowIdx]`), `None` for `flow[]`.
-fn array_index_ty(item_trait: &syn::ItemTrait, of: &str) -> Result<Option<PathSegment>> {
+///
+/// # Errors
+///
+/// No stream, sink, property or trait array named `of` in `item_trait`, or its macro arguments don't parse.
+pub fn array_index_ty(item_trait: &syn::ItemTrait, of: &str) -> Result<Option<PathSegment>> {
     for item in &item_trait.items {
         let TraitItem::Macro(item_macro) = item else {
             continue;

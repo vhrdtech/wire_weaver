@@ -48,6 +48,19 @@ pub(crate) fn ww_version() -> TokenStream {
     }
 }
 
+/// The `ww_keyed` crate, a dependency of every API crate with a `keyed!` item: as the user's `Cargo.toml` names it,
+/// else `::ww_keyed`, so the compiler names the missing dependency.
+pub(crate) fn ww_keyed() -> TokenStream {
+    match crate_name("ww_keyed") {
+        Ok(FoundCrate::Itself) => quote! { crate },
+        Ok(FoundCrate::Name(name)) => {
+            let name = ident(&name);
+            quote! { ::#name }
+        }
+        Err(_) => quote! { ::ww_keyed },
+    }
+}
+
 fn ident(name: &str) -> Ident {
     Ident::new(name, Span::call_site())
 }

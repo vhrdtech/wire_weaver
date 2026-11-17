@@ -95,6 +95,8 @@ proptest = "1.11"
 pyo3 = "0.29"
 quote = "1.0"
 ron = { version = "0.12", features = ["integer128"] }
+# Cargo's hash of a git URL, the name of its checkout directory (ww_snapshots)
+rustc-stable-hash = "0.1"
 rustix = { version = "1", default-features = false, features = ["std", "termios"] }
 semver = "1.0"
 serde = { version = "1.0", default-features = false, features = ["derive"] }

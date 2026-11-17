@@ -155,6 +155,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - Dependencies cargo 1.100 reports unused are gone; `ww_device` and `wire_weaver_cli` changelogs name theirs.
 - The conformance corpus runs through Python here again: `tests/conformance_py` builds `wire_weaver_py` of the checkout (TEST-23).
 - `rust-toolchain.toml` pins Rust 1.100.0 for local builds and CI; `just lint` fails on cargo's own warnings, as CI does.
+- The crate walker finds a git dependency fetched under two URLs (https and ssh) in the checkout Cargo built; see `ww_snapshots`.
 
 ### Added
 

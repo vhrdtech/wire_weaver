@@ -17,6 +17,7 @@ anyhow.workspace = true
 elsa.workspace = true
 flate2 = { workspace = true, optional = true }
 ron.workspace = true
+rustc-stable-hash.workspace = true
 semver.workspace = true
 serde = { workspace = true, features = ["std"] }
 tar = { workspace = true, optional = true }

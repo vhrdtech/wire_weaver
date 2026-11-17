@@ -14,6 +14,7 @@ use anyhow::{Context, Result, anyhow};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs;
+use std::hash::{Hash, Hasher};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -112,13 +113,77 @@ impl CargoLock {
     }
 }
 
-/// The repository name in a git URL, the start of its directory in `git/checkouts/`.
-fn git_repo_name(url: &str) -> &str {
-    url.trim_end_matches('/')
-        .rsplit('/')
-        .next()
-        .unwrap_or_default()
-        .trim_end_matches(".git")
+/// The URL Cargo identifies a git source by, as its `CanonicalUrl` makes it from `url` (a URL as `Cargo.lock` writes
+/// it, already normalized): no query or fragment, no trailing `/`, no `.git` at the end, and a GitHub URL in `https`
+/// and lower case. Two spellings of one repository with different canonical URLs are two sources to Cargo.
+fn canonical_git_url(url: &str) -> String {
+    let url = url.split(['?', '#']).next().unwrap_or_default();
+    let (scheme, rest) = url.split_once("://").unwrap_or(("", url));
+    let path_start = rest.find('/').unwrap_or(rest.len());
+    let (authority, path) = rest.split_at(path_start);
+    let mut path = path.to_owned();
+    if path.len() > 1 && path.ends_with('/') {
+        path.pop();
+    }
+    let mut scheme = scheme.to_owned();
+    if !scheme.contains('+') {
+        let host = authority.rsplit('@').next().unwrap_or_default();
+        let host = host.split(':').next().unwrap_or_default();
+        if host == "github.com" {
+            "https".clone_into(&mut scheme);
+            path = path.to_lowercase();
+        }
+        if let Some(stripped) = path.strip_suffix(".git") {
+            path = stripped.to_owned();
+        }
+    }
+    format!("{scheme}://{authority}{path}")
+}
+
+/// The last path segment of a canonical git URL ([canonical_git_url]), `_empty` for none: the start of its checkout
+/// directory's name.
+fn git_repo_name(canonical: &str) -> &str {
+    let path = canonical
+        .split_once("://")
+        .map_or(canonical, |(_, rest)| rest)
+        .split_once('/')
+        .map_or("", |(_, path)| path);
+    match path.rsplit('/').next() {
+        Some(repo) if !repo.is_empty() => repo,
+        _ => "_empty",
+    }
+}
+
+/// Whether `dir_name` is a directory in `git/checkouts/` of a repository named `repo` ([git_repo_name]), under any
+/// URL: `<repo>-<16 hex digits>`, maybe with `-shallow`.
+fn is_checkout_of(dir_name: &str, repo: &str) -> bool {
+    let Some(hash) = dir_name
+        .strip_prefix(repo)
+        .and_then(|rest| rest.strip_prefix('-'))
+    else {
+        return false;
+    };
+    let hash = hash.strip_suffix("-shallow").unwrap_or(hash);
+    hash.len() == 16 && hash.bytes().all(|b| b.is_ascii_hexdigit())
+}
+
+/// The directory in `git/checkouts/` Cargo checks out the git source `url` into.
+///
+/// It is `<repo>-<hash>`: `<repo>` is the last path segment of Cargo's canonical URL (no query, fragment, trailing
+/// `/` or `.git`; GitHub in `https` and lower case), `<hash>` Cargo's stable hash of it (SipHash-1-3 128 of
+/// `rustc-stable-hash`, the low 64 bits in little-endian hex). Cargo before 1.85 hashed differently; edition 2024,
+/// which the walk's crates need, needs Cargo 1.85.
+pub fn git_checkout_dir_name(url: &str) -> String {
+    let canonical = canonical_git_url(url);
+    let repo = git_repo_name(&canonical);
+    let mut hasher = rustc_stable_hash::StableSipHasher128::new();
+    canonical.as_str().hash(&mut hasher);
+    let hash: String = Hasher::finish(&hasher)
+        .to_le_bytes()
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect();
+    format!("{repo}-{hash}")
 }
 
 /// `[package] name` of the manifest in `dir`.
@@ -600,7 +665,8 @@ impl CargoSources {
             let Ok(Some(Source::Git { url, .. })) = p.source() else {
                 continue;
             };
-            let repo = format!("{}-", git_repo_name(url));
+            let canonical = canonical_git_url(url);
+            let repo = git_repo_name(&canonical);
             let copies: Vec<&PathBuf> = compiled
                 .get(&p.name.replace('-', "_"))
                 .into_iter()
@@ -609,7 +675,7 @@ impl CargoSources {
                     dir.strip_prefix(&checkouts).is_ok_and(|rel| {
                         rel.components()
                             .next()
-                            .is_some_and(|c| c.as_os_str().to_string_lossy().starts_with(&repo))
+                            .is_some_and(|c| is_checkout_of(&c.as_os_str().to_string_lossy(), repo))
                     })
                 })
                 .collect();
@@ -850,22 +916,18 @@ impl CargoSources {
             })
     }
 
-    /// `git/checkouts/<repo>-<hash>/<short rev>/`: `<hash>` is Cargo's hash of the URL, so every checkout of a
-    /// repository with that name is tried; one at `rev` has the same files whichever URL it came from.
+    /// `git/checkouts/<repo>-<hash>/<short rev>/` ([git_checkout_dir_name]), or its `-shallow` twin: the one checkout
+    /// Cargo builds `url` at `rev` from. A repository fetched under two URLs has two checkouts, and Cargo compiles
+    /// from the one of the URL the lock names.
     fn git_checkout(&self, url: &str, rev: &str) -> Result<PathBuf> {
         let checkouts = self.cargo_home()?.join("git").join("checkouts");
-        let repo = git_repo_name(url);
-        let prefix = format!("{repo}-");
+        let name = git_checkout_dir_name(url);
+        let repo_dirs = [
+            checkouts.join(&name),
+            checkouts.join(format!("{name}-shallow")),
+        ];
         // a checkout fetched later is a new directory in these; a checkout itself never changes
         self.note(&checkouts);
-        let mut repo_dirs: Vec<PathBuf> = fs::read_dir(&checkouts)
-            .into_iter()
-            .flatten()
-            .flatten()
-            .filter(|e| e.file_name().to_string_lossy().starts_with(&prefix))
-            .map(|e| e.path())
-            .collect();
-        repo_dirs.sort();
         for repo_dir in repo_dirs {
             self.note(&repo_dir);
             let mut revs: Vec<PathBuf> = fs::read_dir(&repo_dir)
@@ -885,7 +947,7 @@ impl CargoSources {
             }
         }
         Err(anyhow!(
-            "no checkout of {url} at {rev} in {}/{repo}-*/: run `cargo fetch` first",
+            "no checkout of {url} at {rev} in {}/{name}/: run `cargo fetch` first",
             checkouts.display()
         ))
     }
@@ -1183,6 +1245,51 @@ mod tests {
             locked.source.as_deref(),
             Some("git+https://example.org/base#0123abcd")
         );
+    }
+
+    /// Names of directories Cargo 1.100 made for these URLs.
+    #[test]
+    fn git_checkout_dir_name_is_the_one_cargo_makes() {
+        for (url, dir) in [
+            (
+                "ssh://git@github.com/romixlab/pd_bench",
+                "pd_bench-d39ac3f38ae5ecd4",
+            ),
+            (
+                "ssh://git@github.com/romixlab/pd_bench.git",
+                "pd_bench-d39ac3f38ae5ecd4",
+            ),
+            (
+                "https://github.com/romixlab/pd_bench",
+                "pd_bench-1cc6b6947041e225",
+            ),
+            (
+                "https://github.com/romixlab/exact_units",
+                "exact_units-0e04409aaab251a0",
+            ),
+            (
+                "https://github.com/RomixLab/Exact_Units.git/?branch=main#0123abcd",
+                "exact_units-0e04409aaab251a0",
+            ),
+            (
+                "https://github.com/embassy-rs/embassy",
+                "embassy-c08a80187403f815",
+            ),
+            (
+                "https://github.com/romixlab/embassy",
+                "embassy-977f720069a36616",
+            ),
+        ] {
+            assert_eq!(git_checkout_dir_name(url), dir, "{url}");
+        }
+    }
+
+    #[test]
+    fn a_checkout_of_a_repository_is_told_from_one_of_a_longer_name() {
+        assert!(is_checkout_of("base-d39ac3f38ae5ecd4", "base"));
+        assert!(is_checkout_of("base-d39ac3f38ae5ecd4-shallow", "base"));
+        assert!(!is_checkout_of("base-ext-d39ac3f38ae5ecd4", "base"));
+        assert!(!is_checkout_of("base-1111", "base"));
     }
 
     #[test]

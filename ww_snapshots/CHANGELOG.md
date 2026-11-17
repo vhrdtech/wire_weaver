@@ -4,6 +4,7 @@
 
 ### 🐛 Fixes
 
+- `CargoSources` finds a git dependency in the checkout of the URL its lock names; a repository fetched by https and ssh broke the walk (API-14).
 - In a proc macro of a crate built as a dependency, `CargoSources` uses the building workspace's `Cargo.lock`, checked against Cargo's dep-info, not the crate's own (API-14).
 - A crate from a git checkout builds again when the build directory keeps dep-info of an older commit; its sibling path members count as pinned (API-14).
 - `CargoSources` reads a `[patch]` as Cargo does: `include`d config files, `CARGO_HOME/config.toml`, the build's `--config`; config wins over the manifest (API-14).
@@ -14,6 +15,7 @@
 
 ### 🚀 Features
 
+- `cargo::git_checkout_dir_name`: the `git/checkouts/` directory Cargo makes for a git URL.
 - `rustc::RustcBuild`: the build a proc macro runs in, from rustc's arguments; `CargoSources::rustc` sets it (API-14).
 - `RustcBuild::cargo_cwd` and `cargo_configs`: where the build's Cargo runs and its `--config` arguments.
 - `CargoSources::locked_package_dir`: the directory of one package the lock pins, such as a git dependency's checkout.

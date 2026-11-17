@@ -2390,6 +2390,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustc-stable-hash"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "781442f29170c5c93b7185ad559492601acdc71d5bb0706f5868094f45cfcd08"
+
+[[package]]
 name = "rustc_version"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3607,6 +3613,7 @@ dependencies = [
  "anyhow",
  "elsa",
  "ron 0.12.2",
+ "rustc-stable-hash",
  "semver",
  "serde",
  "toml",

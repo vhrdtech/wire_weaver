@@ -4,12 +4,23 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
-use ww_snapshots::cargo::{CargoSources, DepSpec, Dependent};
+use ww_snapshots::cargo::{CargoSources, DepSpec, Dependent, git_checkout_dir_name};
 use ww_snapshots::rustc::RustcBuild;
 
 const USED: &str = "aaaaaaa0000000000000000000000000000000000";
 const OWN: &str = "bbbbbbb0000000000000000000000000000000000";
 const LIB: &str = "ccccccc0000000000000000000000000000000000";
+/// The repository of `dep_api`, and a second spelling of it (a symlink to it): Cargo checks out each URL apart.
+const BASE: &str = "file:///repos/base";
+const MIRROR: &str = "file:///links/base";
+const LIBR: &str = "file:///repos/libr";
+
+/// Cargo's checkout of `url` at `rev` in `home`.
+fn checkout(home: &Path, url: &str, rev: &str) -> PathBuf {
+    home.join("git/checkouts")
+        .join(git_checkout_dir_name(url))
+        .join(&rev[..7])
+}
 
 struct Layout {
     top: PathBuf,
@@ -17,6 +28,8 @@ struct Layout {
     lib_host: PathBuf,
     /// `dep_api` at the commit the consumer workspace pins, which Cargo compiled.
     dep_api: PathBuf,
+    /// The URL the consumer takes `dep_api` from.
+    base: &'static str,
     consumer: PathBuf,
     deps: PathBuf,
 }
@@ -48,16 +61,19 @@ fn manifest(name: &str) -> String {
 }
 
 /// `lib_host` comes from the repository `libr` at [LIB], whose own lock pins `dep_api` at [OWN], never fetched; the
-/// consumer workspace (in `consumer`) pins it at [USED].
-fn layout(name: &str, consumer: impl FnOnce(&Path) -> PathBuf) -> Layout {
+/// consumer workspace (in `consumer`) pins it at [USED] from `base`. Cargo has fetched `dep_api` at [USED] under both
+/// [BASE] and [MIRROR].
+fn layout(name: &str, base: &'static str, consumer: impl FnOnce(&Path) -> PathBuf) -> Layout {
     let top = std::env::temp_dir().join(format!("ww_build_lock_{name}_{}", std::process::id()));
     let _ = fs::remove_dir_all(&top);
     let home = top.join("cargo_home");
-    let base = home.join("git/checkouts/base-1111").join(&USED[..7]);
-    let dep_api = base.join("dep_api");
-    write(&dep_api.join("Cargo.toml"), &manifest("dep_api"));
-    write(&dep_api.join("src/lib.rs"), "");
-    let libr = home.join("git/checkouts/libr-2222").join(&LIB[..7]);
+    for url in [BASE, MIRROR] {
+        let dep_api = checkout(&home, url, USED).join("dep_api");
+        write(&dep_api.join("Cargo.toml"), &manifest("dep_api"));
+        write(&dep_api.join("src/lib.rs"), "");
+    }
+    let dep_api = checkout(&home, base, USED).join("dep_api");
+    let libr = checkout(&home, LIBR, LIB);
     write(
         &libr.join("Cargo.toml"),
         "[workspace]\nmembers = [\"lib_host\"]\n",
@@ -67,11 +83,7 @@ fn layout(name: &str, consumer: impl FnOnce(&Path) -> PathBuf) -> Layout {
     write(
         &libr.join("Cargo.lock"),
         &lock(&[
-            (
-                "dep_api",
-                Some(format!("git+file:///repos/base#{OWN}")),
-                &[],
-            ),
+            ("dep_api", Some(format!("git+{BASE}#{OWN}")), &[]),
             ("lib_host", None, &["dep_api"]),
         ]),
     );
@@ -81,16 +93,8 @@ fn layout(name: &str, consumer: impl FnOnce(&Path) -> PathBuf) -> Layout {
         &consumer.join("Cargo.lock"),
         &lock(&[
             ("consumer", None, &["lib_host"]),
-            (
-                "dep_api",
-                Some(format!("git+file:///repos/base#{USED}")),
-                &[],
-            ),
-            (
-                "lib_host",
-                Some(format!("git+file:///repos/libr#{LIB}")),
-                &["dep_api"],
-            ),
+            ("dep_api", Some(format!("git+{base}#{USED}")), &[]),
+            ("lib_host", Some(format!("git+{LIBR}#{LIB}")), &["dep_api"]),
         ]),
     );
     // the build directory is outside the workspace (Cargo's `build.build-dir`)
@@ -109,6 +113,7 @@ fn layout(name: &str, consumer: impl FnOnce(&Path) -> PathBuf) -> Layout {
         home: home.canonicalize().unwrap(),
         lib_host: lib_host.canonicalize().unwrap(),
         dep_api: dep_api.canonicalize().unwrap(),
+        base,
         consumer,
         deps,
     }
@@ -145,16 +150,14 @@ impl Layout {
             version: &version,
             dir: &self.lib_host,
         };
-        let spec = DepSpec::Git {
-            url: "file:///repos/base",
-        };
+        let spec = DepSpec::Git { url: self.base };
         sources.locate(&dependent, "dep_api", &spec)
     }
 }
 
 #[test]
 fn a_git_dependency_is_walked_at_the_commit_the_consumer_lock_pins() {
-    let layout = layout("pwd", |top| top.join("consumer"));
+    let layout = layout("pwd", BASE, |top| top.join("consumer"));
     // its own lock: a checkout that isn't there, or the wrong commit when it happens to be
     let own = layout.locate(None).unwrap_err();
     let found = layout.locate(Some(layout.build(Some(&layout.consumer), true)));
@@ -180,22 +183,33 @@ fn a_git_dependency_is_walked_at_the_commit_the_consumer_lock_pins() {
             err.contains("built as a dependency of another workspace"),
             "{err}"
         );
-        assert!(err.contains("libr-2222/ccccccc/Cargo.lock"), "{err}");
+        let libr_lock = format!("{}/ccccccc/Cargo.lock", git_checkout_dir_name(LIBR));
+        assert!(err.contains(&libr_lock), "{err}");
         assert!(err.contains(&layout.dep_api.display().to_string()), "{err}");
     }
     assert!(lost.contains("pins no dep_api at"), "{lost}");
     assert!(
-        transitive.contains(&format!(
-            "pins dep_api 0.1.0 from git+file:///repos/base#{OWN}"
-        )),
+        transitive.contains(&format!("pins dep_api 0.1.0 from git+{BASE}#{OWN}")),
         "{transitive}"
     );
+}
+
+/// A repository Cargo fetched under two URLs has a checkout per URL: the one of the URL the lock names is what Cargo
+/// compiled, whichever comes first in the directory.
+#[test]
+fn a_repository_fetched_under_two_urls_is_walked_in_the_checkout_of_the_locked_one() {
+    for (name, base) in [("url_base", BASE), ("url_mirror", MIRROR)] {
+        let layout = layout(name, base, |top| top.join("consumer"));
+        let found = layout.locate(Some(layout.build(Some(&layout.consumer), true)));
+        fs::remove_dir_all(&layout.top).unwrap();
+        assert_eq!(found.unwrap(), layout.dep_api, "{base}");
+    }
 }
 
 #[test]
 fn a_workspace_installed_from_a_checkout_is_found_among_the_checkouts() {
     // `cargo install --git`: the workspace is a checkout itself, the build directory a temporary one
-    let layout = layout("install", |top| {
+    let layout = layout("install", BASE, |top| {
         top.join("cargo_home/git/checkouts/consumer-3333/ddddddd")
     });
     let found = layout.locate(Some(layout.build(None, false)));
@@ -211,10 +225,7 @@ fn a_path_dependency_of_an_outer_workspace_takes_a_lock_pinning_its_git_sources(
     let top = std::env::temp_dir().join(format!("ww_build_lock_path_{}", std::process::id()));
     let _ = fs::remove_dir_all(&top);
     let home = top.join("cargo_home");
-    let dep_api = home
-        .join("git/checkouts/base-1111")
-        .join(&USED[..7])
-        .join("dep_api");
+    let dep_api = checkout(&home, BASE, USED).join("dep_api");
     write(&dep_api.join("Cargo.toml"), &manifest("dep_api"));
     write(&dep_api.join("src/lib.rs"), "");
     let flags = home.join("registry/src/index.crates.io-abc/flags-2.0.0");
@@ -223,7 +234,7 @@ fn a_path_dependency_of_an_outer_workspace_takes_a_lock_pinning_its_git_sources(
         "[package]\nname = \"flags\"\nversion = \"2.0.0\"\n",
     );
     write(&flags.join("src/lib.rs"), "");
-    let git = format!("git+file:///repos/base#{USED}");
+    let git = format!("git+{BASE}#{USED}");
     let registry = "registry+https://github.com/rust-lang/crates.io-index";
     let repo = top.join("repo");
     let timebase = repo.join("timebase");
@@ -287,9 +298,7 @@ fn a_path_dependency_of_an_outer_workspace_takes_a_lock_pinning_its_git_sources(
             version: &version,
             dir: &timebase,
         };
-        let spec = DepSpec::Git {
-            url: "file:///repos/base",
-        };
+        let spec = DepSpec::Git { url: BASE };
         sources.locate(&dependent, "dep_api", &spec)
     };
     let outer_lock = locate(build(vec![outer.clone()]));
@@ -312,7 +321,9 @@ fn a_git_checkout_with_sibling_members_and_dep_info_of_an_older_commit() {
     let top = std::env::temp_dir().join(format!("ww_build_lock_sibling_{}", std::process::id()));
     let _ = fs::remove_dir_all(&top);
     let home = top.join("cargo_home");
-    let repo = home.join("git/checkouts/ww-0123");
+    let repo = home
+        .join("git/checkouts")
+        .join(git_checkout_dir_name("https://github.com/x/ww"));
     for rev in [NEW, OLD] {
         let checkout = repo.join(&rev[..7]);
         write(

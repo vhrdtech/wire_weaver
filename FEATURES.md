@@ -3555,7 +3555,9 @@ Unicast Data0 to one node over the same bus is TR-6.
   lint also checks `layers.toml`'s `[api] crates`, the crates that describe an API (the stdlib API crates,
   `ww_timebase`, `ww_hub_api`): their normal dependencies, direct or transitive, reach no layer-5 crate beyond
   `ww_api`'s own closure, so no API crate pulls the runtime into a build; `[[api.allow]]` names what one still
-  reaches, with the refactor that removes it, and fails when no longer reached.
+  reaches, with the refactor that removes it, and fails when no longer reached. `ww_tools/` (layer 7) is read
+  from its `Cargo.lock` with `--locked --offline`, never resolved or fetched; where that lock or the sources it
+  pins are missing, the test prints `skipped:` with the reason and leaves out ww_tools/ and its `[outside]` edges.
 - 🚧 **TEST-9 Remaining test coverage** · `v0.5`:
   - [ ] properties: unimplemented, observe stream
   - [ ] streams: promise timeout

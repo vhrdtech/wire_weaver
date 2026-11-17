@@ -2,13 +2,14 @@
 //! normal, build or dev dependency edge from a lower-layer crate to a higher-layer one that
 //! `layers.toml`'s `[[allow]]` list doesn't name; an allow-list line whose edge no longer exists
 //! fails too. A crate of another repository that this one links (`[outside]`: logring's, chunky's) is depended on only
-//! from its layer or above. R1: an API crate (`[api] crates`) reaches no runtime crate through its normal
+//! from its layer or above; `ww_tools/` is read from its `Cargo.lock` without resolving or fetching, and skipped
+//! with a printed reason where that lock or its sources are missing. R1: an API crate (`[api] crates`) reaches no runtime crate through its normal
 //! dependencies. See `/layers.toml` and `docs/evolution/crate_layers.md`.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
-use cargo_metadata::{DependencyKind, MetadataCommand, PackageId};
+use cargo_metadata::{DependencyKind, Metadata, MetadataCommand, PackageId};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -91,8 +92,8 @@ fn repo_root() -> PathBuf {
         .to_path_buf()
 }
 
-/// Every workspace in the repo: the root (`tests/*`, `examples/*`, `ww_stdlib/*`, ... are members
-/// of it already), `mcu/`, `fuzz/`, `wire_weaver_tool/` and `ww_tools/` (excluded from the root on
+/// Every workspace in the repo but `ww_tools/` (`ww_tools_graph`): the root (`tests/*`, `examples/*`,
+/// `ww_stdlib/*`, ... are members of it already), `mcu/`, `fuzz/`, `wire_weaver_tool/` (excluded from the root on
 /// purpose, AGENTS.md), and every board under `examples_mcu/`, each its own package outside any workspace.
 fn workspace_manifests(root: &Path) -> Vec<PathBuf> {
     let mut manifests = vec![
@@ -100,7 +101,6 @@ fn workspace_manifests(root: &Path) -> Vec<PathBuf> {
         root.join("mcu/Cargo.toml"),
         root.join("fuzz/Cargo.toml"),
         root.join("wire_weaver_tool/Cargo.toml"),
-        root.join("ww_tools/Cargo.toml"),
     ];
     let examples_mcu = root.join("examples_mcu");
     let mut boards: Vec<PathBuf> = std::fs::read_dir(&examples_mcu)
@@ -113,24 +113,66 @@ fn workspace_manifests(root: &Path) -> Vec<PathBuf> {
     manifests
 }
 
-/// Every local crate name (path-sourced, i.e. not registry or git, and inside the repo: a `[patch]` to a
-/// sibling checkout is another repository) found in one workspace's `cargo metadata`, every
-/// normal/build/dev dependency edge between two such crates, and every edge to a crate of `outside`. A
-/// dependency the resolver lists more than once (several targets) collapses to one edge: the
-/// layer check only cares whether an edge exists, not how many places it comes from.
-fn local_crates_and_edges_of(root: &Path, manifest: &Path, outside: &BTreeSet<String>) -> Graph {
-    // --locked, not --frozen: mcu/, fuzz/ and wire_weaver_tool/ are separate workspaces (AGENTS.md)
-    // that CI checks in their own job, so a plain `cargo test` of the root workspace may never have
-    // fetched their dependencies; --locked still refuses to re-resolve Cargo.lock, only allowing a
-    // fetch of exactly what it already pins.
-    // in the workspace's own directory: its `.cargo/config.toml` applies, as in a build there
+/// `cargo metadata` of one workspace with `options`, run in the workspace's own directory so its
+/// `.cargo/config.toml` applies, as in a build there.
+fn metadata_of(manifest: &Path, options: &[&str]) -> Result<Metadata, cargo_metadata::Error> {
     let dir = manifest.parent().expect("a manifest is in a directory");
-    let metadata = MetadataCommand::new()
+    MetadataCommand::new()
         .manifest_path(manifest)
         .current_dir(dir)
-        .other_options(["--locked".to_string()])
+        .other_options(
+            options
+                .iter()
+                .map(|option| (*option).to_owned())
+                .collect::<Vec<_>>(),
+        )
         .exec()
+}
+
+/// Every local crate name of one workspace, read with `--locked`: mcu/, fuzz/ and wire_weaver_tool/ are separate
+/// workspaces (AGENTS.md) that CI checks in their own job, so a plain `cargo test` of the root workspace may never
+/// have fetched their dependencies; --locked refuses to re-resolve Cargo.lock and fetches only what it pins.
+fn local_crates_and_edges_of(root: &Path, manifest: &Path, outside: &BTreeSet<String>) -> Graph {
+    let metadata = metadata_of(manifest, &["--locked"])
         .unwrap_or_else(|e| panic!("cargo metadata --manifest-path {}: {e}", manifest.display()));
+    graph_of(root, manifest, metadata, outside)
+}
+
+/// `ww_tools/`'s crates and edges, read from its `Cargo.lock` with `--locked --offline`: it takes logring's and
+/// chunky_mcu_updater's crates by git, which this repository's own tests must neither resolve nor fetch. `Err`
+/// says why it can't be read here: no lock (committed only once those crates are on their main), or sources the
+/// lock pins that this machine has not fetched.
+fn ww_tools_graph(root: &Path, outside: &BTreeSet<String>) -> Result<Graph, String> {
+    let manifest = root.join("ww_tools/Cargo.toml");
+    let lock = root.join("ww_tools/Cargo.lock");
+    if !lock.is_file() {
+        return Err(format!("{} is missing", lock.display()));
+    }
+    match metadata_of(&manifest, &["--locked", "--offline"]) {
+        Ok(metadata) => Ok(graph_of(root, &manifest, metadata, outside)),
+        Err(cargo_metadata::Error::CargoMetadata { stderr }) if stderr.contains("(--offline)") => {
+            let cause = stderr
+                .lines()
+                .rev()
+                .find(|line| !line.trim().is_empty())
+                .unwrap_or_default();
+            Err(format!(
+                "a source ww_tools/Cargo.lock pins is not on this machine: {}",
+                cause.trim()
+            ))
+        }
+        Err(e) => panic!(
+            "cargo metadata --locked --offline --manifest-path {}: {e}",
+            manifest.display()
+        ),
+    }
+}
+
+/// Every local crate name (path-sourced, i.e. not registry or git, and inside the repo: a `[patch]` to a
+/// sibling checkout is another repository) of one workspace's `metadata`, every normal/build/dev dependency edge
+/// between two such crates, and every edge to a crate of `outside`. A dependency the resolver lists more than
+/// once (several targets) collapses to one edge: the layer check only cares whether an edge exists.
+fn graph_of(root: &Path, manifest: &Path, metadata: Metadata, outside: &BTreeSet<String>) -> Graph {
     let local: BTreeSet<String> = metadata
         .packages
         .iter()
@@ -291,12 +333,33 @@ fn no_upward_crate_edges() {
 
     let manifests = workspace_manifests(&root);
     let outside: BTreeSet<String> = layers_file.outside.keys().cloned().collect();
+    let (mut graph, ww_tools) = std::thread::scope(|scope| {
+        let ww_tools = scope.spawn(|| ww_tools_graph(&root, &outside));
+        let graph = collect_graph(&root, &manifests, &outside);
+        (
+            graph,
+            ww_tools
+                .join()
+                .expect("the ww_tools metadata thread panicked"),
+        )
+    });
+    // printed on success too (.config/nextest.toml), so a skip is seen, never a silent pass
+    let ww_tools_read = match ww_tools {
+        Ok(ww_tools) => {
+            graph.extend(ww_tools);
+            true
+        }
+        Err(reason) => {
+            eprintln!("skipped: ww_tools/ and its [outside] edges are not checked: {reason}");
+            false
+        }
+    };
     let Graph {
         local_crates,
         edges,
         outside_edges,
         ..
-    } = collect_graph(&root, &manifests, &outside);
+    } = graph;
 
     let missing: Vec<&String> = local_crates
         .iter()
@@ -332,7 +395,7 @@ fn no_upward_crate_edges() {
     }
     let unlinked: Vec<&String> = outside
         .iter()
-        .filter(|name| !outside_edges.iter().any(|(_, to)| to == *name))
+        .filter(|name| ww_tools_read && !outside_edges.iter().any(|(_, to)| to == *name))
         .collect();
     assert!(
         unlinked.is_empty(),

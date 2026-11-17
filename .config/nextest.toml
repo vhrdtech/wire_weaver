@@ -16,6 +16,11 @@ command = { command-line = ".config/test-home.sh", relative-to = "workspace-root
 filter = "all()"
 setup = "test-home"
 
+# The layer lint prints why it skipped ww_tools/ (no lock, or sources not fetched): shown on a pass too
+[[profile.default.overrides]]
+filter = 'package(layers_lint) & test(=no_upward_crate_edges)'
+success-output = "immediate"
+
 # CI runners (and coverage instrumentation) are slower: never less time than the default
 [profile.ci]
 slow-timeout = { period = "15s", terminate-after = 2 }
@@ -24,6 +29,11 @@ fail-fast = false
 [[profile.ci.scripts]]
 filter = "all()"
 setup = "test-home"
+
+# The layer lint prints why it skipped ww_tools/ (no lock, or sources not fetched): shown on a pass too
+[[profile.ci.overrides]]
+filter = 'package(layers_lint) & test(=no_upward_crate_edges)'
+success-output = "immediate"
 
 # `just test-power-cut`: ww_settings power cuts at every step in release, tens of seconds per test
 [profile.power-cut]

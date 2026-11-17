@@ -1336,7 +1336,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c54e03a951783e8b327515db3f2a2fd0e3bed362a96b066f341ce66ed49b4ead"
 dependencies = [
  "data-encoding",
- "syn 3.0.3",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -1986,7 +1986,7 @@ dependencies = [
 [[package]]
 name = "exact_units"
 version = "0.1.0"
-source = "git+https://github.com/romixlab/exact_units#4512b29640fa631c7149e5ffafabc46108c20536"
+source = "git+https://github.com/romixlab/exact_units#6f582740fe94185277d36e4718b2dd45be33ebf5"
 dependencies = [
  "defmt 1.1.1",
  "libm",
@@ -2026,6 +2026,9 @@ checksum = "da7c62ceae207dd37ea5b845da6a0696c799f85e97da1ab5b7910be3c1c80223"
 [[package]]
 name = "features_page"
 version = "0.1.0"
+dependencies = [
+ "ww_book",
+]
 
 [[package]]
 name = "filedescriptor"
@@ -5007,14 +5010,12 @@ checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 [[package]]
 name = "shrink_wrap"
 version = "0.2.0"
+source = "git+https://github.com/romixlab/shrink_wrap#26a7987c5aa9fa3c6a5c8fb2049b5aecbd162da1"
 dependencies = [
  "defmt 1.1.1",
  "either",
- "hex-literal",
  "paste",
- "proptest",
  "serde",
- "serde_json",
  "shrink_wrap_derive",
 ]
 
@@ -5032,6 +5033,7 @@ dependencies = [
 [[package]]
 name = "shrink_wrap_derive"
 version = "0.2.0"
+source = "git+https://github.com/romixlab/shrink_wrap#26a7987c5aa9fa3c6a5c8fb2049b5aecbd162da1"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -5087,16 +5089,6 @@ name = "siphasher"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "33f4fe9184a62d842c9ef383018f3306d8ba224fd9d836f56d7288308847c256"
-
-[[package]]
-name = "size_bench"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "object 0.40.0",
- "rustc-demangle",
-]
 
 [[package]]
 name = "slab"

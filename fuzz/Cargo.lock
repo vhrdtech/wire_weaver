@@ -235,7 +235,7 @@ checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
 [[package]]
 name = "exact_units"
 version = "0.1.0"
-source = "git+https://github.com/romixlab/exact_units#4512b29640fa631c7149e5ffafabc46108c20536"
+source = "git+https://github.com/romixlab/exact_units#6f582740fe94185277d36e4718b2dd45be33ebf5"
 dependencies = [
  "libm",
  "serde",
@@ -260,7 +260,6 @@ version = "0.0.0"
 dependencies = [
  "arbitrary",
  "libfuzzer-sys",
- "shrink_wrap",
  "ww_framer",
  "ww_link",
  "ww_self",
@@ -612,6 +611,7 @@ checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 [[package]]
 name = "shrink_wrap"
 version = "0.2.0"
+source = "git+https://github.com/romixlab/shrink_wrap#26a7987c5aa9fa3c6a5c8fb2049b5aecbd162da1"
 dependencies = [
  "either",
  "paste",
@@ -622,6 +622,7 @@ dependencies = [
 [[package]]
 name = "shrink_wrap_derive"
 version = "0.2.0"
+source = "git+https://github.com/romixlab/shrink_wrap#26a7987c5aa9fa3c6a5c8fb2049b5aecbd162da1"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",

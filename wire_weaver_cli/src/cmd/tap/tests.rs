@@ -388,7 +388,7 @@ async fn monitor_capture_and_explain_file_agree() {
     let own = writer.session();
     let stop = AtomicBool::new(true);
     consume(&mut feed, &stop, |b| {
-        // full repeats are left out on both sides: the file holds the tap's and the writer's own
+        // puts are left out on both sides: the file holds the writer's own, by its own near rule
         if !b.is_repeat() {
             file.extend_from_slice(b.bytes());
         }
@@ -408,7 +408,7 @@ async fn monitor_capture_and_explain_file_agree() {
     assert!(report.contains("add: 8"), "{report}");
     let live = live.map(|b| String::from_utf8(b).unwrap());
 
-    // `ww capture` wrote the same blocks, besides its own layout, full repeats, index, finish and tail; `ww explain
+    // `ww capture` wrote the same blocks, besides its own layout, puts, index, finish and tail; `ww explain
     // FILE` prints the same text
     assert_eq!(writer.finish().unwrap().path, path);
     let written = std::fs::read(&path).unwrap();

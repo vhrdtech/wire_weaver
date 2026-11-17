@@ -1,6 +1,6 @@
 // ww_tap 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: cdf7c477e8ae4cd36321ee3fb242a8a8f19ad0c77ad6f4cc7aead0b211001cc0
+// shrink_wrap sha256: 80d4c445841a9c0503650c319156643c287f48154f708753f248f72af6959e79
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "The link tap: what crosses a wire_weaver link, recorded at the transport edge, for monitors, statistics and",
     "captures (TR-14).",
@@ -176,7 +176,7 @@
         "The streams of one link; tracks of a capture are `link[id].<stream>`.",
     ], crate_idx: 0, trait_name: "Link", items: [
         (id: 0, kind: Stream(ty: OutOfLine(type_idx: 0), is_up: true), multiplicity: Flat, since: None, ident: "session", docs: [
-            "The link\'s session, updated when it is set up (sticky: repeated in every describe block).",
+            "The link\'s session, updated when it is set up (a state track: put near each use).",
         ], optional: None, meta: None, identity: None),
         (id: 1, kind: Stream(ty: OutOfLine(type_idx: 1), is_up: true), multiplicity: Flat, since: None, ident: "events", docs: [
             "Connects, disconnects, errors, lost records.",

@@ -194,16 +194,9 @@ check-examples-mcu-rp2:
     @cargo check --features udp_ncm
     @cargo check --no-default-features --features rtt_target --bin rp2_ww_rtt
 
-# Build ww and install it: ww_tools/'s recipe (ww, the wheel and their tests live in that workspace and its justfile)
-install:
-    just -f ww_tools/justfile install
-
-# Old name of install, kept for people and docs
-install-cli: install
-
-# Bring this PC up to main and install ww: ww_tools/'s recipe
-deploy:
-    just -f ww_tools/justfile deploy
+# No install or deploy recipe here: ww and the Python wheel are built and installed from vhrdtech/ww_tools
+# (`cargo install --git https://github.com/vhrdtech/ww_tools ww`, or `just install` in that repository).
+# Recipes below that need a ww for this repository's own work use wire_weaver_cli's example `ww_generic`.
 
 # Save API snapshots of ww_tap, ww_timebase, ww_link, ww_client_server and the test fixtures other crates' tests
 # read, into each crate's api_snapshots/, with wire_weaver_cli's generic `ww` (the ww_base and ww_stdlib crates save

@@ -1,5 +1,5 @@
 # Layer lint (TEST-36, tests/layers_lint): the target layer, 4 to 7, of every crate in every workspace
-# of this repo: the root workspace, mcu/, examples_mcu/*, fuzz/, wire_weaver_tool/ and ww_tools/
+# of this repo: the root workspace, mcu/, examples_mcu/*, fuzz/ and wire_weaver_tool/
 # (docs/evolution/crate_layers.md). A crate the test finds through `cargo metadata` but not listed
 # here fails it.
 #
@@ -7,8 +7,7 @@
 # vhrdtech/ww_base: ww_si, ww_numeric, ww_version, ww_global, ww_error, ww_date_time, ww_keyed, ww_crc)
 # and layer 3 (storage: ww_tape of vhrdtech/ww_tape) are their own repositories, taken by git, so they
 # never appear here; so is layer 6, the standard APIs with their helpers and tools (vhrdtech/ww_stdlib).
-# Layer 7 holds the shipped tools of ww_tools/ and the crates of other repositories built on this one that
-# they link ([outside] below).
+# Layer 7, the shipped tools (the ww binary and the Python wheel), is vhrdtech/ww_tools: no crate of it is here.
 #
 # A lower-layer crate may not depend on a higher-layer one (tests/layers_lint fails any such edge,
 # normal, build or dev, that `[[allow]]` below does not name); same-layer edges are fine.
@@ -180,21 +179,6 @@ ww_stream = 5
 ww_tap = 5
 ww_timebase = 5
 
-
-# Layer 7: the shipped tools (ww_tools/, their own workspace), everything of every layer built in,
-# with the commands of the repositories built on this one ([outside])
-ww = 7
-wire_weaver_wheel = 7
-
-# Crates of other repositories that build on this one, linked by the shipped tools: only a crate of
-# their layer or above may depend on them (tests/layers_lint). They take wire_weaver by git, which
-# ww_tools/Cargo.toml patches to the crates here. The lint reads ww_tools/ from its Cargo.lock offline,
-# and prints a skip with the reason where that lock or its sources are missing.
-[outside]
-chunky_ww_cli = 7
-ww_std_cli = 6
-logring_py = 7
-logring_ww_cli = 7
 
 # API crates (R1): a crate that defines `#[ww_trait]` APIs describes an API and never runs one. Its normal
 # dependencies, direct or transitive, reach no layer-5 crate (`wire_weaver` first of all) beyond what `ww_api`'s

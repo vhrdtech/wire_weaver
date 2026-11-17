@@ -14,9 +14,10 @@ Read `docs/index.md` first, then `docs/serdes/shrink_wrap.md` and `wire_format.m
 `docs/serdes/showcase.md` (byte-verified tricks), `docs/api/overview.md`, `docs/types.md`, and
 `docs/evolution/overview.md` with `versions.md` and `rules.md`. The SerDes pages but the conformance ones live in the
 shrink_wrap repository, the pages of `ww_si`, `ww_numeric`, `ww_version`, `ww_error`, `ww_date_time` and the units in
-the ww_base repository: `just book-assemble` copies them into `docs/serdes/` and `docs/std_library/` (git-ignored)
-from the checkouts `Cargo.lock` pins (`book_sources.toml`, `ww_book`). Prefer the docs (`docs/`, built with zensical) to the
-source; where they are unclear, the source and its comments are authoritative.
+the ww_base repository, the Tapes chapter in the ww_tape repository: `just book-assemble` copies them into
+`docs/serdes/`, `docs/std_library/` and `docs/tape/` (git-ignored) from the checkouts `Cargo.lock` pins
+(`book_sources.toml`, `ww_book`). Prefer the docs (`docs/`, built with zensical) to the source; where they are
+unclear, the source and its comments are authoritative.
 
 ## Numbers are typed: never a bare integer or float
 
@@ -212,7 +213,7 @@ The codegen pipeline (read `wire_weaver_derive`, then `wire_weaver_core`):
   ones), `ww_device` (sans-IO `DeviceLink`, async `Server` with `wait()`/`handle()`, `blocking::Server`; RTT,
   WebSocket, UDP and `embassy-net` behind features), `mcu/wire_weaver_usb_embassy` (embassy-usb class).
 - **Device-side crates**: `ww_stream` (streams, observe), `ww_settings`, `ww_bus_slave` (I2C/SPI slave, SRV-26),
-  `mcu/ww_ecc_flash` (`EccSafeFlash`, `docs/api/ecc_flash.md`), `ww_lz4`, `ww_tape`, `ww_defmt_logger`.
+  `mcu/ww_ecc_flash` (`EccSafeFlash`, `docs/api/ecc_flash.md`), `ww_lz4`, `ww_defmt_logger`.
 - **Host tools**: `wire_weaver_cli` (library: the generic `ww` commands and the registry each command registers
   with, `registry::CommandDef`), `ww_stdlib/ww_std_cli` (the standard library's commands), `ww_tools/ww` (the `ww`
   binary, `cargo ww`; plugins `ww NAME` run `ww-NAME` from PATH), `ww_hub`/`ww_hub_api` (the per-user hub),
@@ -221,8 +222,9 @@ The codegen pipeline (read `wire_weaver_derive`, then `wire_weaver_core`):
   `ww_tools/` is its own workspace (layer 7): it links logring's and chunky_mcu_updater's commands by git and patches
   their wire_weaver crates to the ones here; nothing in the root workspace depends on them, and no root recipe
   builds it (`ww_tools/justfile` has its recipes; the root's use the examples `ww_generic` and `ww_stdlib`). Nothing
-  here depends on another repository by path (`just check-clean-clone`); `exact_units` and the ww_base crates come
-  by git, with the commit tracked in `Cargo.lock`, never pinned in `Cargo.toml`.
+  here depends on another repository by path (`just check-clean-clone`); `exact_units`, the ww_base crates and
+  `ww_tape` (vhrdtech/ww_tape: the tape format, its benchmarks, fuzz targets and golden files) come by git, with
+  the commit tracked in `Cargo.lock`, never pinned in `Cargo.toml`.
 - **`ww_stdlib/`**: reusable API traits and types for unrelated projects (GPIO, I2C, SPI, UART, CAN, DFU, logs, ...;
   canonical home `vhrdtech/ww_stdlib`); units, numbers, versions, dates and common errors are ww_base's. Reuse or extend one of these before inventing a
   project-local equivalent.
@@ -243,8 +245,8 @@ The codegen pipeline (read `wire_weaver_derive`, then `wire_weaver_core`):
   working examples of a macro argument or type (`tests/quantities_api` for units). `tests_common::start_device`
   runs the server on `ww_device::Server` in a thread through the real host event loop (`drop_requests`, `send`).
   `tests/conformance` is the conformance matrix.
-- **`fuzz/`**: framer, link, introspection, series and tape fuzz targets (`just fuzz-*`); shrink_wrap's are in its
-  repository.
+- **`fuzz/`**: framer, link, introspection and series fuzz targets (`just fuzz-*`); shrink_wrap's and ww_tape's are in
+  their repositories.
 
 ## The core pattern
 

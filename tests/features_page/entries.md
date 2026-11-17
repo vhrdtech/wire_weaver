@@ -464,23 +464,23 @@ feature tracker.
 ## Nomicon
 
 - STD-1 | Request and event model | `ww_client_server`, the messages every call is made of. | std_library/ww_client_server.md
-- STD-42 | Tape blocks | `ww_tape`: the generic blocks of track records that live feeds and log files (link captures) are made of. | transport/tap.md#tape-blocks
-- STD-117 | Tape clocks and describe | Clocks with exact rates, clock maps, typed items and track dimensions in tapes; deterministic bytes. | transport/tap.md#tape-blocks
-- STD-118 | Tape chunk blocks | Self-locating chunk blocks, 4 KiB aligned payloads and a CRC per 64 KiB segment, so damage costs one segment. | transport/tap.md#tape-blocks
-- STD-120 | Tape event times | Event times stored at about 1.5 bytes per periodic item and 3.8 for bursty ones, searched and decoded in place with SIMD. | transport/tap.md#tape-blocks
-- STD-121 | Tape summary blocks | A stored item tree for events and mergeable min, max, sum and power summaries for series, so an overview reads a few hundred KB, never the items. | transport/tap.md#tape-blocks
-- STD-122 | Tape index, finish and tail | Checkpoint and final indexes, a BLAKE3 content hash and a tail found from the end: a crash costs the open chunk. | transport/tap.md#index-finish-and-tail
-- STD-123 | Tape pieces | One recording as a chain of complete files, linked both ways; a deleted first piece reads as head cut. | transport/tap.md#tape-pieces
-- STD-124 | Positional tape reader | Reads tapes by offset from any byte source, also in the browser over HTTP range requests. | transport/tap.md#reading-by-position
-- STD-119 | Tape sample codecs | Series columns stored as the device sends them, or coded lossless as bit-packed deltas, read in place by any range. | transport/tap.md#sample-codecs
-- STD-127 | Tape series tracks | A series track says its sample type, scale and exact period; segments mark gaps and prefix changes, and a received `Series<Fixed>` batch becomes chunk columns without a float. | transport/tap.md#series-tracks
-- STD-129 | Tape runs and media provisions | Tapes on SD cards and raw NAND read past gaps, never take stale blocks for data, and survive a damaged describe set. | transport/tap.md#sessions-media-and-damage
-- STD-126 | Tape payload codec | Event payloads with bit-packed lengths, raw or lz4, salvaged item by item from a damaged chunk. | transport/tap.md#payload-codec
-- STD-125 | Tape track identity by name | A track's key hashes its resource names and the keys of keyed arrays, so two runs that number things differently give the same ids. | transport/tap.md#track-identity
-- STD-128 | Tape summaries across scales | Series summaries stay exact when an autoranging device changes prefix: each block states its scale, nodes merge at a common one. | transport/tap.md#tape-blocks
-- STD-130 | Tape ALP float codec | Floats that began as decimals stored as bit-packed integers, other floats by their front bits, lossless and read in place. | transport/tap.md#sample-codecs
-- STD-133 | Tape summary kernels | Series summaries in one vectorised pass: complex i16 at about 5 GB/s on one core, bit for bit the same results. | transport/tap.md#tape-blocks
-- STD-131 | Tape hardening | Tape readers take damaged or hostile files without a panic, an overflow or an unbounded allocation; every limit is a named cap. | transport/tap.md#tape-blocks
+- STD-42 | Tape blocks | `ww_tape`: the generic blocks of track records that live feeds and log files (link captures) are made of. | tape/format.md#tape-blocks
+- STD-117 | Tape clocks and describe | Clocks with exact rates, clock maps, typed items and track dimensions in tapes; deterministic bytes. | tape/format.md#tape-blocks
+- STD-118 | Tape chunk blocks | Self-locating chunk blocks, 4 KiB aligned payloads and a CRC per 64 KiB segment, so damage costs one segment. | tape/format.md#tape-blocks
+- STD-120 | Tape event times | Event times stored at about 1.5 bytes per periodic item and 3.8 for bursty ones, searched and decoded in place with SIMD. | tape/format.md#tape-blocks
+- STD-121 | Tape summary blocks | A stored item tree for events and mergeable min, max, sum and power summaries for series, so an overview reads a few hundred KB, never the items. | tape/format.md#tape-blocks
+- STD-122 | Tape index, finish and tail | Checkpoint and final indexes, a BLAKE3 content hash and a tail found from the end: a crash costs the open chunk. | tape/format.md#index-finish-and-tail
+- STD-123 | Tape pieces | One recording as a chain of complete files, linked both ways; a deleted first piece reads as head cut. | tape/format.md#tape-pieces
+- STD-124 | Positional tape reader | Reads tapes by offset from any byte source, also in the browser over HTTP range requests. | tape/format.md#reading-by-position
+- STD-119 | Tape sample codecs | Series columns stored as the device sends them, or coded lossless as bit-packed deltas, read in place by any range. | tape/format.md#sample-codecs
+- STD-127 | Tape series tracks | A series track says its sample type, scale and exact period; segments mark gaps and prefix changes, and a received `Series<Fixed>` batch becomes chunk columns without a float. | tape/format.md#series-tracks
+- STD-129 | Tape runs and media provisions | Tapes on SD cards and raw NAND read past gaps, never take stale blocks for data, and survive a damaged describe set. | tape/format.md#sessions-media-and-damage
+- STD-126 | Tape payload codec | Event payloads with bit-packed lengths, raw or lz4, salvaged item by item from a damaged chunk. | tape/format.md#payload-codec
+- STD-125 | Tape track identity by name | A track's key hashes its resource names and the keys of keyed arrays, so two runs that number things differently give the same ids. | tape/format.md#track-identity
+- STD-128 | Tape summaries across scales | Series summaries stay exact when an autoranging device changes prefix: each block states its scale, nodes merge at a common one. | tape/format.md#tape-blocks
+- STD-130 | Tape ALP float codec | Floats that began as decimals stored as bit-packed integers, other floats by their front bits, lossless and read in place. | tape/format.md#sample-codecs
+- STD-133 | Tape summary kernels | Series summaries in one vectorised pass: complex i16 at about 5 GB/s on one core, bit for bit the same results. | tape/format.md#tape-blocks
+- STD-131 | Tape hardening | Tape readers take damaged or hostile files without a panic, an overflow or an unbounded allocation; every limit is a named cap. | tape/format.md#tape-blocks
 - STD-132 | Tape resume and additions | A crashed tape piece resumes to the bytes of an uninterrupted write; tracks added mid-piece reach every later describe copy. | tape/recovery.md#resuming-after-a-crash
 - STD-134 | Tape pieces on 4 KiB | Finished tape pieces end on a 4 KiB boundary, so many pieces clone back to back into one file without copying a byte. | tape/index.md#pieces-and-chains
 

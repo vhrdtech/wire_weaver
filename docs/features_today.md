@@ -483,27 +483,27 @@ feature tracker.
 <p class="ww-features__level"><span class="ww-level ww-level--nomicon"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6"/></svg><span class="ww-level__label">Nomicon</span></span></p>
 
 - **[Request and event model](std_library/ww_client_server.md)**: `ww_client_server`, the messages every call is made of.
-- **[Tape blocks](transport/tap.md#tape-blocks)**: `ww_tape`: the generic blocks of track records that live feeds and log files (link captures) are made of.
-- **[Tape clocks and describe](transport/tap.md#tape-blocks)**: Clocks with exact rates, clock maps, typed items and track dimensions in tapes; deterministic bytes.
-- **[Tape chunk blocks](transport/tap.md#tape-blocks)**: Self-locating chunk blocks, 4 KiB aligned payloads and a CRC per 64 KiB segment, so damage costs one segment.
-- **[Tape event times](transport/tap.md#tape-blocks)**: Event times stored at about 1.5 bytes per periodic item and 3.8 for bursty ones, searched and decoded in place with SIMD.
-- **[Tape summary blocks](transport/tap.md#tape-blocks)**: A stored item tree for events and mergeable min, max, sum and power summaries for series, so an overview reads a few hundred KB, never the items.
-- **[Tape index, finish and tail](transport/tap.md#index-finish-and-tail)**: Checkpoint and final indexes, a BLAKE3 content hash and a tail found from the end: a crash costs the open chunk.
-- **[Tape pieces](transport/tap.md#tape-pieces)**: One recording as a chain of complete files, linked both ways; a deleted first piece reads as head cut.
-- **[Positional tape reader](transport/tap.md#reading-by-position)**: Reads tapes by offset from any byte source, also in the browser over HTTP range requests.
-- **[Tape sample codecs](transport/tap.md#sample-codecs)**: Series columns stored as the device sends them, or coded lossless as bit-packed deltas, read in place by any range.
-- **[Tape series tracks](transport/tap.md#series-tracks)**: A series track says its sample type, scale and exact period; segments mark gaps and prefix changes, and a received `Series<Fixed>` batch becomes chunk columns without a float.
-- **[Tape runs and media provisions](transport/tap.md#sessions-media-and-damage)**: Tapes on SD cards and raw NAND read past gaps, never take stale blocks for data, and survive a damaged describe set.
-- **[Tape payload codec](transport/tap.md#payload-codec)**: Event payloads with bit-packed lengths, raw or lz4, salvaged item by item from a damaged chunk.
-- **[Tape track identity by name](transport/tap.md#track-identity)**: A track's key hashes its resource names and the keys of keyed arrays, so two runs that number things differently give the same ids.
-- **[Tape summaries across scales](transport/tap.md#tape-blocks)**: Series summaries stay exact when an autoranging device changes prefix: each block states its scale, nodes merge at a common one.
-- **[Tape ALP float codec](transport/tap.md#sample-codecs)**: Floats that began as decimals stored as bit-packed integers, other floats by their front bits, lossless and read in place.
-- **[Tape summary kernels](transport/tap.md#tape-blocks)**: Series summaries in one vectorised pass: complex i16 at about 5 GB/s on one core, bit for bit the same results.
-- **[Tape hardening](transport/tap.md#tape-blocks)**: Tape readers take damaged or hostile files without a panic, an overflow or an unbounded allocation; every limit is a named cap.
+- **[Tape blocks](tape/format.md#tape-blocks)**: `ww_tape`: the generic blocks of track records that live feeds and log files (link captures) are made of.
+- **[Tape clocks and describe](tape/format.md#tape-blocks)**: Clocks with exact rates, clock maps, typed items and track dimensions in tapes; deterministic bytes.
+- **[Tape chunk blocks](tape/format.md#tape-blocks)**: Self-locating chunk blocks, 4 KiB aligned payloads and a CRC per 64 KiB segment, so damage costs one segment.
+- **[Tape event times](tape/format.md#tape-blocks)**: Event times stored at about 1.5 bytes per periodic item and 3.8 for bursty ones, searched and decoded in place with SIMD.
+- **[Tape summary blocks](tape/format.md#tape-blocks)**: A stored item tree for events and mergeable min, max, sum and power summaries for series, so an overview reads a few hundred KB, never the items.
+- **[Tape index, finish and tail](tape/format.md#index-finish-and-tail)**: Checkpoint and final indexes, a BLAKE3 content hash and a tail found from the end: a crash costs the open chunk.
+- **[Tape pieces](tape/format.md#tape-pieces)**: One recording as a chain of complete files, linked both ways; a deleted first piece reads as head cut.
+- **[Positional tape reader](tape/format.md#reading-by-position)**: Reads tapes by offset from any byte source, also in the browser over HTTP range requests.
+- **[Tape sample codecs](tape/format.md#sample-codecs)**: Series columns stored as the device sends them, or coded lossless as bit-packed deltas, read in place by any range.
+- **[Tape series tracks](tape/format.md#series-tracks)**: A series track says its sample type, scale and exact period; segments mark gaps and prefix changes, and a received `Series<Fixed>` batch becomes chunk columns without a float.
+- **[Tape runs and media provisions](tape/format.md#sessions-media-and-damage)**: Tapes on SD cards and raw NAND read past gaps, never take stale blocks for data, and survive a damaged describe set.
+- **[Tape payload codec](tape/format.md#payload-codec)**: Event payloads with bit-packed lengths, raw or lz4, salvaged item by item from a damaged chunk.
+- **[Tape track identity by name](tape/format.md#track-identity)**: A track's key hashes its resource names and the keys of keyed arrays, so two runs that number things differently give the same ids.
+- **[Tape summaries across scales](tape/format.md#tape-blocks)**: Series summaries stay exact when an autoranging device changes prefix: each block states its scale, nodes merge at a common one.
+- **[Tape ALP float codec](tape/format.md#sample-codecs)**: Floats that began as decimals stored as bit-packed integers, other floats by their front bits, lossless and read in place.
+- **[Tape summary kernels](tape/format.md#tape-blocks)**: Series summaries in one vectorised pass: complex i16 at about 5 GB/s on one core, bit for bit the same results.
+- **[Tape hardening](tape/format.md#tape-blocks)**: Tape readers take damaged or hostile files without a panic, an overflow or an unbounded allocation; every limit is a named cap.
 - **[Tape resume and additions](tape/recovery.md#resuming-after-a-crash)**: A crashed tape piece resumes to the bytes of an uninterrupted write; tracks added mid-piece reach every later describe copy.
 - **[Tape pieces on 4 KiB](tape/index.md#pieces-and-chains)**: Finished tape pieces end on a 4 KiB boundary, so many pieces clone back to back into one file without copying a byte.
 
-<p class="ww-features__more" markdown>Details and what is planned: [Evolution, versioning and compatibility](features.md#evolution-versioning-and-compatibility-evo), [Base types and quantities (ww_base)](std_library/features.md#base-types-and-quantities-ww_si-ww_numeric-ww_version-ww_date_time-ww_error-std) in the feature tracker.</p>
+<p class="ww-features__more" markdown>Details and what is planned: [Evolution, versioning and compatibility](features.md#evolution-versioning-and-compatibility-evo), [Base types and quantities (ww_base)](std_library/features.md#base-types-and-quantities-ww_si-ww_numeric-ww_version-ww_date_time-ww_error-std), [Tapes (ww_tape)](tape/features.md#tapes-ww_tape-ww_tape_fuzz-ww_tape_benchmarks-std-new-items-tape) in the feature tracker.</p>
 
 ## Examples
 

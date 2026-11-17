@@ -16,3 +16,10 @@ name = "ww_base"
 pages = "../docs"
 into = "std_library"
 features = "../FEATURES.md"
+
+# ww_tape: the Tapes chapter (the format, events and series, damage and recovery, the format reference)
+[[source]]
+package = "ww_tape"
+pages = "../docs"
+into = "tape"
+features = "../FEATURES.md"

@@ -184,7 +184,8 @@ nav = [
     { "Tape" = [
             "tape/index.md",
             "tape/events_and_series.md",
-            "tape/recovery.md"
+            "tape/recovery.md",
+            "tape/format.md"
         ]
     },
     { "Examples and templates" = [
@@ -216,7 +217,8 @@ nav = [
     { "Feature tracker" = [
             { "WireWeaver" = "features.md" },
             { "shrink_wrap" = "serdes/features.md" },
-            { "ww_base" = "std_library/features.md" }
+            { "ww_base" = "std_library/features.md" },
+            { "ww_tape" = "tape/features.md" }
         ]
     }
 ]

@@ -8,4 +8,4 @@ and keys' shrink_wrap bytes for keyed arrays. `key_in_bundle` gives the key unde
 checks a track's key against the bundle stored in the tape.
 
 The crate sits at layer 4 (API description), above both `ww_tape` (layer 3, storage) and `ww_self`: the tape format
-itself knows no API model. Docs: [track identity](https://github.com/vhrdtech/wire_weaver/blob/master/docs/transport/tap.md#track-identity).
+itself knows no API model. Docs: [track identity](https://github.com/vhrdtech/ww_tape/blob/main/docs/format.md#track-identity).

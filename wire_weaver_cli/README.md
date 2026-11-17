@@ -7,16 +7,10 @@ Lists connected USB devices with their API id, runs introspection and USB loopba
 Install from git with cargo (the binary ends up in `~/.cargo/bin`):
 
 ```sh
-cargo install --git https://github.com/vhrdtech/wire_weaver ww
+cargo install --git https://github.com/vhrdtech/ww_tools ww
 ```
 
-From a local checkout of this repository:
-
-```sh
-just install
-```
-
-With the internal release tool on PATH, it builds `ww` with the `deploy` profile and installs it into the kept-releases stack in `~/.local/bin`, the only `ww` on `PATH` (a stale `~/.cargo/bin/ww` is moved to the trash). `just deploy` pulls main first and checks that `ww --version` shows its commit. `just install` works anywhere: without that tool it runs `cargo install --locked --path ww_tools/ww` instead.
+The `ww` binary and its install recipes live in [vhrdtech/ww_tools](https://github.com/vhrdtech/ww_tools). This crate is the library of the generic commands.
 
 ### Shell completions
 
@@ -34,8 +28,7 @@ Elvish and PowerShell are supported as well (`COMPLETE=elvish`, `COMPLETE=powers
 
 ### Quick testing during development
 
-`just install` (also available as `just install-cli`) builds the current checkout and installs it as described above. Alternatively, run it without installing from anywhere in the repository
-with `cargo ww <args>` (alias from `.cargo/config.toml`).
+Run the generic commands without installing from anywhere in the repository with `cargo ww <args>` (alias from `.cargo/config.toml`, the example `ww_generic`: no standard library or logring commands).
 
 ## Usage
 

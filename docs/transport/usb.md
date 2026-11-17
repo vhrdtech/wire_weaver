@@ -24,7 +24,7 @@ user label or API (`user_label_eq`, `implements_api`), or just "any WireWeaver d
 read from string descriptors, so the host doesn't have to open a device to know what it is.
 
 `ww list` shows every connected device with its API (install the CLI with
-`cargo install --git https://github.com/vhrdtech/wire_weaver ww`):
+`cargo install --git https://github.com/vhrdtech/ww_tools ww`):
 
 ```
 $ ww list

@@ -18,11 +18,12 @@ Everything is pure Rust, the wheel needs no system libraries.
 
 ## Installation
 
-The module is built with [maturin](https://www.maturin.rs), from a checkout of the repository (a Rust toolchain is
-needed):
+The wheel is built with [maturin](https://www.maturin.rs), from a checkout of
+[vhrdtech/ww_tools](https://github.com/vhrdtech/ww_tools), which holds the wheel crate `wire_weaver_wheel` (a Rust
+toolchain is needed). This repository holds the library `wire_weaver_py` it wraps:
 
 ```sh
-cd ww_tools/wire_weaver_wheel
+cd wire_weaver_wheel
 uvx maturin build --release        # wheel in target/wheels/, `uv pip install` it anywhere
 uvx maturin develop --release      # or install into the active virtual environment
 ```
@@ -35,7 +36,7 @@ uvx maturin develop --release      # or install into the active virtual environm
 
 ## Interactive console
 
-From `ww_tools/` (the shipped tools' workspace, with its own justfile), `just py` builds the module into `ww_tools/wire_weaver_wheel/.venv` (only when Rust sources changed)
+From the root of the vhrdtech/ww_tools checkout, `just py` builds the module into `wire_weaver_wheel/.venv` (only when Rust sources changed)
 and opens a Python prompt with `ww` imported and the device connected as `dev`, if exactly one is found or a filter
 is given:
 

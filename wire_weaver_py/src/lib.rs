@@ -443,7 +443,7 @@ fn register_python_self_hosting(py: Python<'_>) {
 }
 
 /// Fills `m`, the `wire_weaver._wire_weaver` module, with the classes, functions and exceptions of this crate; the
-/// `#[pymodule]` of the wheel crate (`ww_tools/wire_weaver_wheel`) calls it.
+/// `#[pymodule]` of the wheel crate (`wire_weaver_wheel` in vhrdtech/ww_tools) calls it.
 pub fn init(m: &Bound<'_, PyModule>) -> PyResult<()> {
     register_python_self_hosting(m.py());
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;

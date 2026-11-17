@@ -335,7 +335,7 @@ driver of several lines reaches its sub-traits by path, through the shared clien
 A script, `ww` or a test bench usually has no generated client at all: the dynamic client
 (`wire_weaver_client::DynClient`) and Python read the API from the device's own introspection data, so one script
 talks to every line with no client per line. `tests/thermo/tests/dynamic.rs` and
-`ww_tools/wire_weaver_wheel/tests/test_thermo_lines.py` run the bench's scenario this way.
+`wire_weaver_wheel/tests/test_thermo_lines.py` (vhrdtech/ww_tools) run the bench's scenario this way.
 
 - **Values in another scale or storage need no code.** A `Fixed` is read as a quantity with its unit and scale
   (`DynQuantity`, `ww.Quantity`), so 21.5 °C reads the same from 0.01 K in an `i16` and 0.001 K in an `i32`. A

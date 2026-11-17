@@ -244,7 +244,7 @@ USB enumeration. Two notebooks, or a notebook and the `ww` CLI, share a board th
 `connect_blocking()` (what every Python call uses, since `pyo3` releases the GIL around it rather than running on
 an async task) reaches a local socket or the hub the same way `connect()` does; `tests/hub_pytest_device` hosts the
 ww hub and an in-process test device in one binary (no real hardware), so the wheel's pytest suite
-(`ww_tools/wire_weaver_wheel/tests/test_hub.py`) covers the kernel-restart reconnect and two Python processes sharing
+(`wire_weaver_wheel/tests/test_hub.py` in vhrdtech/ww_tools) covers the kernel-restart reconnect and two Python processes sharing
 one device without it.
 
 ## The `ww hub` command (TOOL-17)

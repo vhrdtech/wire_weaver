@@ -6,7 +6,7 @@ description = "Python module talking to any WireWeaver device, with its API buil
 edition.workspace = true
 repository.workspace = true
 license.workspace = true
-publish = false # distributed as a Python wheel, built by ww_tools/wire_weaver_wheel
+publish = false # distributed as a Python wheel, built by wire_weaver_wheel in vhrdtech/ww_tools
 
 [features]
 # RTT over a debug probe (probe-rs), no system libraries needed; the wheel turns it on

@@ -124,7 +124,7 @@ way needs no per-device code when two firmwares store the same value in other sc
 
 ## Interactive console
 
-From the workspace root, `just py` builds the module (when Rust sources changed) and opens a Python prompt with `ww`
+From the root of the vhrdtech/ww_tools checkout, `just py` builds the module (when Rust sources changed) and opens a Python prompt with `ww`
 imported and the device connected as `dev`, if exactly one is found or a filter is given:
 
 ```sh
@@ -138,8 +138,9 @@ just py --help
 ## Building
 
 ```sh
-just test-py                       # build into ww_tools/wire_weaver_wheel/.venv and run the tests
-cd ww_tools/wire_weaver_wheel      # the wheel crate, where pyproject.toml is
+# in vhrdtech/ww_tools:
+just test-py                       # build into wire_weaver_wheel/.venv and run the tests
+cd wire_weaver_wheel               # the wheel crate, where pyproject.toml is
 uvx maturin build --release        # wheel in target/wheels/
 uvx maturin develop                # install into the active venv
 ```

@@ -1,6 +1,6 @@
 //! Wire-format conformance matrix (TEST-23, `docs/serdes/conformance.md`): one corpus of cases (`corpus.json`: a
 //! type, a value, the golden bytes), sent through every consumer of the wire format: the Rust derive's owned and
-//! borrowed types, the `ww_self` dynamic client, Python (`wire_weaver_py/tests/test_conformance.py`) and C (the
+//! borrowed types, the `ww_self` dynamic client, Python (`wire_weaver_wheel/tests/test_conformance.py` in vhrdtech/ww_tools) and C (the
 //! runtime and the generated fixed-layout readers). A case a consumer can't express yet carries a gap mark with the reason; the tests fail
 //! when a mark is missing or no longer needed, so nothing is skipped silently.
 //!

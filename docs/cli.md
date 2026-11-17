@@ -13,18 +13,14 @@ properties, asks any device what it is and what it counted, and tests the link.
 Install from git with cargo (the binary ends up in `~/.cargo/bin`):
 
 ```sh
-cargo install --git https://github.com/vhrdtech/wire_weaver ww
+cargo install --git https://github.com/vhrdtech/ww_tools ww
 ```
 
-From a local checkout of the repository, `just install` (in the root or in `ww_tools/`, whose justfile has the
-tools' recipes: install, deploy, test, lint, py) builds `ww` with the `deploy` profile and installs it. It works anywhere: with the internal release tool on PATH it goes into the kept-releases stack in
-`~/.local/bin` (the only `ww` on `PATH`), otherwise through `cargo install --locked --path ww_tools/ww`. `ww_tools/` is its own Cargo workspace: it
-links the commands of ww_stdlib (`ww_std_cli`), logring (`ww logring`) and chunky_mcu_updater (`ww chunky`), which take WireWeaver by git;
-the root's own recipes never build it (`just save-snapshots` uses the example `ww_generic`).
-`just deploy` pulls main first and checks `ww --version`.
-
-Inside the repository it can also be run without installing, with `cargo ww <args>` (alias from
-`.cargo/config.toml`). `just install` (also `just install-cli`) installs the current checkout as above, which is handy when testing changes to the tool itself.
+The `ww` binary, which links the commands of ww_stdlib (`ww_std_cli`), logring (`ww logring`) and chunky_mcu_updater
+(`ww chunky`), and its recipes (install, deploy, test, lint) live in the
+[vhrdtech/ww_tools](https://github.com/vhrdtech/ww_tools) repository. This repository holds the library of the generic
+commands (`wire_weaver_cli`). Inside it, `cargo ww <args>` runs the generic commands only (alias from
+`.cargo/config.toml`, the example `ww_generic`), which is handy when testing changes to the library itself.
 
 !!! note "Linux permissions"
     Listing devices works without any setup, but opening one (`introspect`, `info`, ...) needs read/write access

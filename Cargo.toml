@@ -284,6 +284,7 @@ series_api = { version = "0.1.0", path = "./tests/series_api" }
 settings_api = { version = "0.1.0", path = "./examples/settings_api" }
 shared_sub_level_api = { version = "0.1.0", path = "./tests/shared_sub_level_api" }
 shrink_wrap_c = { version = "0.1.0", path = "./shrink_wrap_c" }
+skipped_dep_api = { version = "0.1.0", path = "./tests/skipped_dep_api", default-features = false }
 standalone_api = { version = "0.1.0", path = "./tests/standalone_api" }
 standalone_units = { version = "0.1.0", path = "./tests/standalone_units" }
 streams_api = { version = "0.1.0", path = "./tests/streams_api" }

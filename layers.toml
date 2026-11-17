@@ -127,6 +127,8 @@ shared_sub_level = 5
 shared_sub_level_api = 5
 shrink_wrap_c = 5
 size_bench_reply = 5
+skipped_dep_api = 5
+skipped_root_api = 5
 standalone = 5
 standalone_api = 5
 standalone_units = 5
@@ -286,6 +288,8 @@ crates = [
     "global_boot_api",
     "global_fixture_api",
     "global_paths_api",
+    "skipped_dep_api",
+    "skipped_root_api",
     "wire_line_fixture_api",
     "ww_adc",
     "ww_block",

@@ -155,7 +155,7 @@ mod tests {
 
     #[test]
     fn left_out_definitions_are_cached_by_signature() {
-        let crate_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../examples/uart_api");
+        let crate_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/skipped_root_api");
         let (full, _, _, paths) = crate::load_with_hints(&crate_path, None, false).unwrap();
         let resolver = Resolver::new().with_crate_dirs(paths.crate_dirs());
         let sent = crate::transform::skip_known(&full, &resolver).unwrap();
@@ -201,8 +201,11 @@ mod tests {
             );
             checked += 1;
         }
-        // ww_uart's Uart trait, with the ww_si types it uses inside its canonical bundle
-        assert!(checked >= 1, "uart_api leaves out ww_uart definitions");
+        // skipped_dep_api's traits, with the ww_si types they use inside their canonical bundles
+        assert!(
+            checked >= 1,
+            "skipped_root_api leaves out skipped_dep_api definitions"
+        );
         // an unknown signature is not there
         let version = sent.ext_crates.last().unwrap();
         assert!(

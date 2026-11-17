@@ -909,17 +909,17 @@ mod tests {
     use ww_version::{FullVersionOwned, WireVersion};
 
     #[test]
-    fn ww_uart_snapshot() {
-        let crate_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../ww_stdlib/ww_uart");
+    fn dependency_crate_snapshot() {
+        let crate_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/skipped_dep_api");
         let bundle = load_crate(&crate_path).unwrap();
-        assert_eq!(bundle.root.trait_name, "ww_uart");
+        assert_eq!(bundle.root.trait_name, "skipped_dep_api");
         let crates: Vec<_> = bundle
             .ext_crates
             .iter()
             .map(|c| c.crate_id.as_str())
             .collect();
         // in the order of first use from the root (EVO-77)
-        assert_eq!(crates, ["ww_uart", "ww_si", "exact_units"]);
+        assert_eq!(crates, ["skipped_dep_api", "ww_si", "exact_units"]);
 
         // own types in-line, exact_units and ww_si ones only referenced, nothing they refer to is left over
         for location in &bundle.types {
@@ -1017,9 +1017,9 @@ mod tests {
         );
         let err = load_crate(&crate_path).unwrap_err();
         assert!(format!("{err:#}").contains("snapshot per root"), "{err:#}");
-        let one_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../examples/uart_api");
+        let one_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/skipped_root_api");
         assert!(crate::transform::api_roots(&one_root).unwrap().is_empty());
-        assert!(load_root(&one_root, "Uart").is_err());
+        assert!(load_root(&one_root, "Port").is_err());
     }
 
     /// A w0 root next to a released one in one crate (EVO-41): a shared item's revision of the released line doesn't
@@ -1402,11 +1402,11 @@ mod tests {
     #[test]
     fn traits_are_not_duplicated() {
         // Bank refers to Pin, both are saved once
-        let crate_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../ww_stdlib/ww_gpio");
+        let crate_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/skipped_dep_api");
         let bundle = load_crate(&crate_path).unwrap();
         let names: Vec<_> = bundle.root.items.iter().map(|i| i.ident.as_str()).collect();
-        assert_eq!(names, ["Bank", "Pin"]);
-        assert_eq!(bundle.traits.len(), 2);
+        assert_eq!(names, ["Bank", "Pin", "Port"]);
+        assert_eq!(bundle.traits.len(), 3);
     }
 
     fn load(relative_path: &str) -> ApiBundleOwned {
@@ -1483,10 +1483,9 @@ mod tests {
 
     #[test]
     fn skipped_type_signature_matches_its_crate_snapshot() {
-        let uart = load("../ww_stdlib/ww_uart");
-        let quantity = type_idx(&uart, "Quantity");
-        let TypeLocationOwned::SkippedFullVersion { signature, .. } =
-            &uart.types[quantity as usize]
+        let dep = load("../tests/skipped_dep_api");
+        let quantity = type_idx(&dep, "Quantity");
+        let TypeLocationOwned::SkippedFullVersion { signature, .. } = &dep.types[quantity as usize]
         else {
             panic!("Quantity is not skipped");
         };
@@ -1500,18 +1499,18 @@ mod tests {
             load_exact_units(),
         ];
         let resolve = from_snapshots(&snapshots);
-        assert!(type_signatures(&uart, quantity, &no_resolve).is_err());
+        assert!(type_signatures(&dep, quantity, &no_resolve).is_err());
         assert_eq!(
             signature,
-            &type_signatures(&uart, quantity, &resolve)
+            &type_signatures(&dep, quantity, &resolve)
                 .unwrap()
                 .reference(true)
         );
 
-        let volt = type_idx(&uart, "units::Volt");
+        let volt = type_idx(&dep, "units::Volt");
         assert_ne!(
             signature,
-            &type_signatures(&uart, volt, &resolve)
+            &type_signatures(&dep, volt, &resolve)
                 .unwrap()
                 .reference(true)
         );
@@ -1519,15 +1518,15 @@ mod tests {
 
     #[test]
     fn skipped_trait_signature_matches_its_crate_snapshot() {
-        let all_gpio = load("../examples/all_gpio_api");
-        let bank = trait_idx(&all_gpio, "Bank");
+        let root = load("../tests/skipped_root_api");
+        let bank = trait_idx(&root, "Bank");
         let ApiLevelLocationOwned::SkippedFullVersion { signature, .. } =
-            &all_gpio.traits[bank as usize]
+            &root.traits[bank as usize]
         else {
             panic!("Bank is not skipped");
         };
         let snapshots = [
-            load("../ww_stdlib/ww_gpio"),
+            load("../tests/skipped_dep_api"),
             load_base("ww_si"),
             load_base("ww_numeric"),
             load_base("ww_error"),
@@ -1536,16 +1535,16 @@ mod tests {
         let resolve = from_snapshots(&snapshots);
         assert_eq!(
             signature,
-            &trait_signatures(&all_gpio, bank, &resolve)
+            &trait_signatures(&root, bank, &resolve)
                 .unwrap()
                 .reference(true)
         );
-        // same when starting from the ww_gpio snapshot itself
-        let gpio = &snapshots[0];
-        let gpio_bank = trait_idx(gpio, "Bank");
+        // same when starting from the dependency's snapshot itself
+        let dep = &snapshots[0];
+        let dep_bank = trait_idx(dep, "Bank");
         assert_eq!(
             signature,
-            &trait_signatures(gpio, gpio_bank, &resolve)
+            &trait_signatures(dep, dep_bank, &resolve)
                 .unwrap()
                 .reference(true)
         );
@@ -1553,10 +1552,10 @@ mod tests {
 
     #[test]
     fn trait_signature_resolves_through_several_snapshots() {
-        // uart_api uses ww_uart traits, which refer to ww_si types, which refer to ww_numeric types, and to
-        // ww_error's CommonError
-        let uart_api = load("../examples/uart_api");
-        let (idx, signature) = uart_api
+        // skipped_root_api uses skipped_dep_api traits, which refer to ww_si types, which refer to ww_numeric
+        // types, and to ww_error's CommonError
+        let root = load("../tests/skipped_root_api");
+        let (idx, signature) = root
             .traits
             .iter()
             .enumerate()
@@ -1566,9 +1565,9 @@ mod tests {
                 }
                 _ => None,
             })
-            .expect("a skipped ww_uart trait");
+            .expect("a skipped skipped_dep_api trait");
         let snapshots = [
-            load("../ww_stdlib/ww_uart"),
+            load("../tests/skipped_dep_api"),
             load_base("ww_si"),
             load_base("ww_numeric"),
             load_base("ww_error"),
@@ -1577,18 +1576,18 @@ mod tests {
         let resolve = from_snapshots(&snapshots);
         assert_eq!(
             signature,
-            &trait_signatures(&uart_api, idx, &resolve)
+            &trait_signatures(&root, idx, &resolve)
                 .unwrap()
                 .reference(true)
         );
-        assert!(trait_signatures(&uart_api, idx, &from_snapshots(&snapshots[..2])).is_err());
+        assert!(trait_signatures(&root, idx, &from_snapshots(&snapshots[..2])).is_err());
     }
 
-    /// Codegen leaves out ww_uart and ww_si definitions, putting them back from snapshots gives the same API.
+    /// Codegen leaves out skipped_dep_api and ww_si definitions, putting them back from snapshots gives the same API.
     #[test]
     fn known_definitions_are_left_out_and_put_back() {
         use shrink_wrap::SerializeShrinkWrapOwned;
-        let (full, resolver) = walked("../examples/uart_api");
+        let (full, resolver) = walked("../tests/skipped_root_api");
         let sent = skip_known(&full, &resolver).unwrap();
         assert!(
             sent.traits
@@ -1611,7 +1610,7 @@ mod tests {
     /// A definition that differs from its snapshot (e.g., changed without a version bump) is kept in-line.
     #[test]
     fn changed_definition_is_kept_in_line() {
-        let (mut full, resolver) = walked("../examples/uart_api");
+        let (mut full, resolver) = walked("../tests/skipped_root_api");
         let ApiLevelLocationOwned::InLine { level, .. } = &mut full.traits[0] else {
             panic!("expected an in-line trait");
         };
@@ -1628,7 +1627,7 @@ mod tests {
     #[test]
     fn definition_with_other_docs_is_left_out() {
         use ww_self::signature::Match;
-        let (mut full, resolver) = walked("../examples/uart_api");
+        let (mut full, resolver) = walked("../tests/skipped_root_api");
         let ApiLevelLocationOwned::InLine { level, .. } = &mut full.traits[0] else {
             panic!("expected an in-line trait");
         };
@@ -1782,7 +1781,7 @@ mod tests {
 
     /// Snapshots are saved for the current source of each crate whose snapshots APIs are skipped against: the link
     /// tap's records, ww_timebase, exact_units, the ww_base crates and ww_tape (in their own repositories: from the
-    /// checkouts `Cargo.lock` pins) and ww_stdlib.
+    /// checkouts `Cargo.lock` pins) and the tests' stand-in `skipped_dep_api`.
     #[test]
     fn snapshots_are_up_to_date() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
@@ -1804,17 +1803,7 @@ mod tests {
             ]
             .map(base_dir),
         );
-        // host tools without an API, skipped as `just save-snapshots` skips them
-        let no_api = ["ww_std_cli", "ww_report", "ww_pin_probe"];
-        for entry in std::fs::read_dir(root.join("ww_stdlib")).unwrap() {
-            let path = entry.unwrap().path();
-            let host_tool = path
-                .file_name()
-                .is_some_and(|name| no_api.iter().any(|n| name == *n));
-            if path.join("Cargo.toml").exists() && !host_tool {
-                crate_paths.push(path);
-            }
-        }
+        crate_paths.push(root.join("tests/skipped_dep_api"));
         let hint =
             "run `just save-snapshots` (with --force for versions that were never published)";
         for crate_path in crate_paths {

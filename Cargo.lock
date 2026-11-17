@@ -5063,6 +5063,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "33f4fe9184a62d842c9ef383018f3306d8ba224fd9d836f56d7288308847c256"
 
 [[package]]
+name = "skipped_dep_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver_evolution",
+ "ww_api",
+ "ww_si",
+]
+
+[[package]]
+name = "skipped_root_api"
+version = "0.1.0"
+dependencies = [
+ "skipped_dep_api",
+ "ww_api",
+]
+
+[[package]]
 name = "slab"
 version = "0.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"

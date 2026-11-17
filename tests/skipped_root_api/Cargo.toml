@@ -1,0 +1,20 @@
+[package]
+name = "skipped_root_api"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Test API root made only of skipped_dep_api's traits: used by wire_weaver_core's snapshot and definition cache tests instead of uart_api and all_gpio_api (R7)."
+
+# Wire version of the API (EVO-31)
+[package.metadata.wire_weaver]
+wire = "w1.0"
+
+[features]
+std = ["ww_api/std", "skipped_dep_api/std"]
+
+[dependencies]
+skipped_dep_api = { workspace = true, default-features = false }
+ww_api.workspace = true

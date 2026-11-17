@@ -1,0 +1,162 @@
+// skipped_dep_api 0.1.0 traits and types, saved by `ww api save`.
+// Do not edit, bump the crate version and save a new snapshot instead.
+// shrink_wrap sha256: aca4c94d0aac3653fd50a8ed15dede824badc1d04652d9349b49922fe9523cb7
+(magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
+    "Stands in for a standard library crate (R7) in `wire_weaver_core`\'s snapshot tests: an API using these traits",
+    "leaves their definitions out against this crate\'s snapshot. `Port` refers to `ww_si` quantities (which refer to",
+    "`ww_numeric` and `exact_units`) and to `ww_error`\'s `CommonError`, as `ww_uart::Uart` does; `Bank` refers to",
+    "`Pin`, as `ww_gpio::Bank` does.",
+], crate_idx: 0, trait_name: "skipped_dep_api", items: [
+    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Bank", docs: [], optional: None, meta: None, identity: None),
+    (id: 1, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "Pin", docs: [], optional: None, meta: None, identity: None),
+    (id: 2, kind: Trait(trait_idx: 2, omitted: None), multiplicity: Flat, since: None, ident: "Port", docs: [], optional: None, meta: None, identity: None),
+], compact_id: None, meta: None), types: [
+    InLine(ty: Enum((size: Unsized, repr: BitAligned(1), crate_idx: 0, docs: [
+        "Level of a [Pin].",
+    ], ident: "Level", generics: [], variants: [
+        (docs: [
+            "Low.",
+        ], ident: "Low", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "High.",
+        ], ident: "High", fields: Unit, discriminant: 1, since: None),
+    ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Settings of a [Port].",
+    ], ident: "PortConfig", generics: [], fields: Named([
+        (ident: Some("io_level"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 2, args: [
+            Type(OutOfLine(type_idx: 5)),
+            Type(OutOfLine(type_idx: 4)),
+        ])), docs: [
+            "Line voltage; `None` leaves it as it is.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 1, type_name: "Quantity", signature: [
+        177,
+        199,
+        35,
+        25,
+        231,
+        20,
+        125,
+        21,
+        134,
+        214,
+        73,
+        153,
+        74,
+        156,
+        170,
+        244,
+    ]),
+    SkippedFullVersion(crate_idx: 2, type_name: "units::Second", signature: [
+        176,
+        71,
+        213,
+        183,
+        163,
+        190,
+        249,
+        131,
+        167,
+        149,
+        168,
+        126,
+        75,
+        17,
+        20,
+        62,
+    ]),
+    SkippedFullVersion(crate_idx: 2, type_name: "Unbounded", signature: [
+        117,
+        194,
+        53,
+        38,
+        149,
+        154,
+        238,
+        33,
+        55,
+        18,
+        202,
+        102,
+        156,
+        182,
+        138,
+        5,
+    ]),
+    SkippedFullVersion(crate_idx: 2, type_name: "units::Volt", signature: [
+        216,
+        18,
+        221,
+        138,
+        45,
+        140,
+        195,
+        88,
+        150,
+        173,
+        63,
+        134,
+        54,
+        13,
+        101,
+        149,
+    ]),
+], traits: [
+    InLine(level: (docs: [
+        "A bank of pins.",
+    ], crate_idx: 0, trait_name: "Bank", items: [
+        (id: 0, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Array(index_type_idx: None), since: None, ident: "pin", docs: [
+            "The pins of the bank.",
+        ], optional: None, meta: None, identity: None),
+        (id: 1, kind: Method(args: [], return_ty: Some(String), errors: None), multiplicity: Flat, since: None, ident: "name", docs: [
+            "Name of the bank.",
+        ], optional: None, meta: None, identity: None),
+    ], compact_id: None, meta: None), crate_idx: 0),
+    InLine(level: (docs: [
+        "One pin of a [Bank].",
+    ], crate_idx: 0, trait_name: "Pin", items: [
+        (id: 0, kind: Method(args: [
+            (ident: "level", ty: OutOfLine(type_idx: 0), default: None, flatten: false),
+        ], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "set_level", docs: [
+            "Drives the pin.",
+        ], optional: None, meta: None, identity: None),
+        (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 0)), errors: Some([
+            (ident: "CommonError", nested: Some([
+                "Unsupported",
+            ])),
+        ])), multiplicity: Flat, since: None, ident: "level", docs: [
+            "Level the pin reads.",
+        ], optional: None, meta: None, identity: None),
+    ], compact_id: None, meta: None), crate_idx: 0),
+    InLine(level: (docs: [
+        "A port with a configurable line level.",
+    ], crate_idx: 0, trait_name: "Port", items: [
+        (id: 0, kind: Method(args: [
+            (ident: "config", ty: OutOfLine(type_idx: 1), default: None, flatten: false),
+        ], return_ty: Some(OutOfLine(type_idx: 1)), errors: Some([
+            (ident: "CommonError", nested: Some([
+                "Unsupported",
+                "InUse",
+            ])),
+        ])), multiplicity: Flat, since: None, ident: "configure", docs: [
+            "Applies `config`, answers what was set.",
+        ], optional: None, meta: None, identity: None),
+        (id: 1, kind: Method(args: [
+            (ident: "duration", ty: Instance(type_idx: 2, args: [
+                Type(OutOfLine(type_idx: 3)),
+                Type(OutOfLine(type_idx: 4)),
+            ]), default: None, flatten: false),
+        ], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "send_break", docs: [
+            "Holds the line low for `duration`.",
+        ], optional: None, meta: None, identity: None),
+    ], compact_id: None, meta: None), crate_idx: 0),
+], ext_crates: [
+    (crate_id: "skipped_dep_api", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_si", version: (major: 0, minor: 5, patch: 0, pre: None, build: None)),
+    (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
+    Some((line: 1, revision: 0)),
+    Some((line: 5, revision: 0)),
+]))

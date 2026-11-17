@@ -45,9 +45,15 @@ consumer dropped them: the steady state allocates nothing. When a consumer falls
 held, records are dropped and counted, and the next block on the link opens with a `LinkEvent::Lost { records }`: a
 gap is always visible, and the link itself is never held up.
 
-Subscribe with `Recorder::subscribe(layers, queue)` (a bounded queue of blocks; a consumer that falls further behind
-misses blocks, seen as a gap in their numbers) or `Recorder::subscribe_fn`. `Layers::MESSAGES` leaves frames out,
-`Layers::ALL` has them.
+Subscribe with `Recorder::subscribe(layers, queue)` (a bounded queue of at least two blocks; a consumer that falls
+further behind misses blocks, seen as a gap in their numbers) or `Recorder::subscribe_fn`. `Layers::MESSAGES` leaves
+frames out, `Layers::ALL` has them. A consumer that misses blocks is never left without a sign: its next block comes
+after a `LinkEvent::Lost` for each link it lost records of, and `Subscription::stats` (or `Recorder::consumers` for
+all of them) counts the blocks it missed, the records it lost and since when it has been behind.
+
+A link that closes records `LinkEvent::Closed` on its events track before its tracks go. A relay that keeps the tap's
+definitions, as `ww capture` does, drops that link's tracks when it sees the event (`recorder::drop_closed_links`), so
+its definitions don't grow with every link ever seen.
 
 ## Records
 

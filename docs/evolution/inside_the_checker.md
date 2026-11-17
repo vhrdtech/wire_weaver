@@ -134,7 +134,7 @@ a refresh in place changes, in `api_snapshots/superseded/`, one file per definit
 snapshot saved before EVO-69 names the definition by its signature with docs):
 
 ```text
-ww_stdlib/ww_error/api_snapshots/superseded/ww_error_0_1_0-type-CommonError-bb2c2d7eb9d06d70.ww
+ww_error/api_snapshots/superseded/ww_error_0_1_0-type-CommonError-bb2c2d7eb9d06d70.ww  (in ww_base)
 ww_stdlib/ww_indication/api_snapshots/superseded/ww_indication_0_1_0-trait-Indication-e1b197f7361f73a6.ww
 ```
 
@@ -155,9 +155,9 @@ A refresh that happened before these files existed is made up for from git histo
 keep what the current one no longer has.
 
 ```sh
-git show <earlier-commit>:ww_stdlib/ww_error/api_snapshots/ww_error_0_1_0.ron > old.ron
-ww api keep-superseded old.ron --current ww_stdlib/ww_error/api_snapshots/ww_error_0_1_0.ron \
-    --into ww_stdlib/ww_error/api_snapshots/superseded
+git show <earlier-commit>:ww_stdlib/ww_indication/api_snapshots/ww_indication_0_1_0.ron > old.ron
+ww api keep-superseded old.ron --current ww_stdlib/ww_indication/api_snapshots/ww_indication_0_1_0.ron \
+    --into ww_stdlib/ww_indication/api_snapshots/superseded
 ```
 
 The earlier snapshot must parse with today's model, and the definitions of other crates it refers to must be known,

@@ -2,9 +2,9 @@
 //! it is for, then its features by reading level, each with a short line and a link to its docs page. What the page
 //! says is kept by hand in `entries.md` next to this crate, what is done comes from this repository's own
 //! `FEATURES.md` and the trackers of the repositories whose pages the book assembles (`book_sources.toml`:
-//! shrink_wrap's); [`render`] joins them and fails when they disagree, so a feature that is done can't miss the
-//! page. `exact_units`' own items are out of scope: `entries.md` points to its own feature tracker instead. The
-//! page is a golden file: `tests/features_page.rs` fails when it is stale, `just features-page` writes it.
+//! shrink_wrap's and ww_base's); [`render`] joins them and fails when they disagree, so a feature that is done can't
+//! miss the page. `exact_units`' own items are out of scope: `entries.md` points to its own feature tracker instead.
+//! The page is a golden file: `tests/features_page.rs` fails when it is stale, `just features-page` writes it.
 
 use std::collections::BTreeMap;
 use std::fmt::Write as _;

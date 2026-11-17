@@ -1,9 +1,18 @@
 # Repositories whose pages are part of the book (ww_book, `just book-assemble`): pages live with their code. Each is
 # found through a package Cargo.lock pins; `pages` and `features` are relative to that package's directory, `into` is
 # the directory under docs/ the pages go to, so their links to the rest of the book keep working.
+# `name` is the repository's name as the Features page shows it, the package's when left out.
 
 [[source]]
 package = "shrink_wrap"
 pages = "../docs"
 into = "serdes"
+features = "../FEATURES.md"
+
+# ww_base: the pages of ww_si, ww_numeric, ww_version, ww_error, ww_date_time and the units, in the standard library
+[[source]]
+package = "ww_si"
+name = "ww_base"
+pages = "../docs"
+into = "std_library"
 features = "../FEATURES.md"

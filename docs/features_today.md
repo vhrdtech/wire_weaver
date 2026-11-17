@@ -288,7 +288,7 @@ layer checks on connect that both ends speak the same protocol.
 - **[Link tap](transport/tap.md)**: Every frame, message and link event of a link recorded and decoded: which packet a request went out in, what a lost packet took with it.
 - **[USB throughput on small MCUs](transport/usb_internals.md)**: Measured and tuned on an STM32G0 so far. <span class="ww-status">in progress</span>
 
-<p class="ww-features__more" markdown>Details and what is planned: [Transports and protocols](features.md#transports-and-protocols-tr), [Server / device side](features.md#server-device-side-srv), [Evolution, versioning and compatibility](features.md#evolution-versioning-and-compatibility-evo) in the feature tracker.</p>
+<p class="ww-features__more" markdown>Details and what is planned: [Transports and protocols](features.md#transports-and-protocols-tr), [Checksums (ww_base)](std_library/features.md#checksums-ww_crc-tr), [Server / device side](features.md#server-device-side-srv), [Evolution, versioning and compatibility](features.md#evolution-versioning-and-compatibility-evo) in the feature tracker.</p>
 
 ## Introspection
 
@@ -371,7 +371,7 @@ round, and tell you before a release when a change would break that.
 - **[Definitions from another revision](std_library/ww_self.md#the-definition-cache)**: A device built from an unpublished revision still connects, with a warning.
 - **[Units compared by meaning](evolution/units_by_meaning.md)**: `Milli` → `Pow10<-3>` passes as the same value; lbf·s → N·s is caught as breaking with the factor, as are another zero of a point or a wrapping number on one side.
 
-<p class="ww-features__more" markdown>Details and what is planned: [Evolution, versioning and compatibility](features.md#evolution-versioning-and-compatibility-evo), [Transports and protocols](features.md#transports-and-protocols-tr), [Client / host side](features.md#client-host-side-clt) in the feature tracker.</p>
+<p class="ww-features__more" markdown>Details and what is planned: [Evolution, versioning and compatibility](features.md#evolution-versioning-and-compatibility-evo), [Transports and protocols](features.md#transports-and-protocols-tr), [Client / host side](features.md#client-host-side-clt), [Evolution of these crates' types and the id ledger (ww_base)](std_library/features.md#evolution-of-these-crates-types-and-the-id-ledger-ww_global-evo) in the feature tracker.</p>
 
 ## Tools
 
@@ -503,7 +503,7 @@ feature tracker.
 - **[Tape resume and additions](tape/recovery.md#resuming-after-a-crash)**: A crashed tape piece resumes to the bytes of an uninterrupted write; tracks added mid-piece reach every later describe copy.
 - **[Tape pieces on 4 KiB](tape/index.md#pieces-and-chains)**: Finished tape pieces end on a 4 KiB boundary, so many pieces clone back to back into one file without copying a byte.
 
-<p class="ww-features__more" markdown>Details and what is planned: [Evolution, versioning and compatibility](features.md#evolution-versioning-and-compatibility-evo) in the feature tracker.</p>
+<p class="ww-features__more" markdown>Details and what is planned: [Evolution, versioning and compatibility](features.md#evolution-versioning-and-compatibility-evo), [Base types and quantities (ww_base)](std_library/features.md#base-types-and-quantities-ww_si-ww_numeric-ww_version-ww_date_time-ww_error-std) in the feature tracker.</p>
 
 ## Examples
 

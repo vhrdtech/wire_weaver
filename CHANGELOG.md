@@ -2,7 +2,7 @@
 
 The history of WireWeaver as a whole, from its first YAML sketches to today, newest first. For the exact changes of
 a released or upcoming crate version, read that crate's own `CHANGELOG.md` (`wire_weaver/`, `wire_weaver_core/`,
-`ww_stdlib/*`, ...; shrink_wrap's is in its own repository): they are the authoritative record from 0.4.0 on. This file summarizes, per
+`ww_stdlib/*`, ...; shrink_wrap's and the ww_base crates' are in their own repositories): they are the authoritative record from 0.4.0 on. This file summarizes, per
 version or era, what was added and changed, and which ideas first appeared there and are still part of WireWeaver.
 
 The project changed names several times: AML (2017-2019, before git), vhapi (2020), vhL with xPI and vhl-stdlib
@@ -12,6 +12,8 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 ## [Unreleased]
 
 - `ww` links logring's and chunky_mcu_updater's commands (`ww logring`, `ww chunky`, `ww dfu flash` in process), the wheel has `wire_weaver.logring`; `ww_tools/` is its own workspace (TOOL-39). See the `ww`, `wire_weaver_wheel`, `wire_weaver_cli` and `ww_std_cli` changelogs.
+- **Breaking:** ww_si, ww_numeric, ww_version, ww_global, ww_error, ww_date_time, ww_keyed and ww_crc moved to vhrdtech/ww_base; take them by git there.
+- The book assembles ww_base's pages and feature tracker into the standard library section; `tests/stdlib_evolution` checks ww_base's snapshots from its locked checkout.
 - **Breaking:** shrink_wrap, shrink_wrap_derive, the size bench, fuzz targets and SerDes pages moved to romixlab/shrink_wrap; take them by git there.
 - The C runtime is `shrink_wrap_c/`; a generated server's reply size is `just size-bench-reply` (TEST-17).
 - The book assembles shrink_wrap's pages and feature tracker from its locked checkout (`ww_book`, `just book-assemble`).

@@ -72,7 +72,7 @@ shorter on the wire, so the ranges go by encoded size:
 | 64-511  | 1.5 byte | all other reusable traits                                                               |
 | 512+    | 2 bytes  | link and protocol crates                                                                |
 
-Ids are assigned by hand in `ww_global/wire_weaver_gid.json` and nowhere else: code never carries the number. The
+Ids are assigned by hand in `ww_global/wire_weaver_gid.json` ([ww_base](https://github.com/vhrdtech/ww_base)) and nowhere else: code never carries the number. The
 codegen looks a trait's id up by its crate and trait name (`<TRAIT>_COMPACT_GID`, `ApiLevel::compact_id` in the API
 model), so moving a trait to another module, reordering traits or adding a sibling trait changes nothing. A rename or
 a move to another crate keeps the id (the old name goes into `aliases`), ids are never reused (a removed trait is

@@ -18,17 +18,19 @@ const BATCHES: u32 = 30;
 
 struct Timer {
     best_ns: [f64; Case::ALL.len()],
+    calls: u32,
+    batches: u32,
 }
 
 impl Meter for Timer {
     fn measure(&mut self, case: Case, _run: usize, work: &mut dyn FnMut()) {
         let i = Case::ALL.iter().position(|c| *c == case).unwrap();
-        for _ in 0..BATCHES {
+        for _ in 0..self.batches {
             let start = Instant::now();
-            for _ in 0..CALLS {
+            for _ in 0..self.calls {
                 work();
             }
-            let ns = start.elapsed().as_nanos() as f64 / CALLS as f64 / case.ops() as f64;
+            let ns = start.elapsed().as_nanos() as f64 / self.calls as f64 / case.ops() as f64;
             if ns < self.best_ns[i] {
                 self.best_ns[i] = ns;
             }
@@ -37,8 +39,21 @@ impl Meter for Timer {
 }
 
 fn main() {
+    // libtest's arguments, as a test runner passes them (nextest with `--all-targets`, as CI runs it): `--list`
+    // names one benchmark and nothing ignored; a run without `--bench` is a smoke run, every case once, as libtest
+    // runs a benchmark in test mode.
+    let args: Vec<String> = std::env::args().collect();
+    if args.iter().any(|a| a == "--list") {
+        if !args.iter().any(|a| a == "--ignored") {
+            println!("bit_io: benchmark");
+        }
+        return;
+    }
+    let bench = args.iter().any(|a| a == "--bench");
     let mut timer = Timer {
         best_ns: [f64::MAX; Case::ALL.len()],
+        calls: if bench { CALLS } else { 1 },
+        batches: if bench { BATCHES } else { 1 },
     };
     let reports = bit_io::run(&mut timer);
     println!(

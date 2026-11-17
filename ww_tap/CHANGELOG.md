@@ -2,11 +2,22 @@
 
 ## Unreleased
 
+### 🚀 Features
+
+- `ConsumerStats` on `Subscription::stats` and `Recorder::consumers`: blocks missed, records lost, behind since when (STD-135).
+- A consumer's next block after a miss comes after a `LinkEvent::Lost` of each link it lost records of (STD-135).
+- `recorder::drop_closed_links`: a relay drops a closed link's tracks from its `Definitions` (STD-135).
+
+### 🐛 Fixes
+
+- The recorder shares its definitions and sessions with the puts it makes, and makes none for a full queue (STD-135).
+
 ### ⚠️ Breaking
 
 - The recorder writes tape format 1: a session is a state record, put to consumers that lack it (STD-135).
 - Each consumer is put only what its next block needs and lacks within near; no producer record is sent (STD-135).
-- A consumer whose queue can't take a block and its puts misses both (STD-135).
+- A consumer whose queue can't take a block gets the puts that fit, a block at a time, and misses the block (STD-135).
+- `LinkEvent::Closed` ends a link's records; `subscribe` queues hold at least `QUEUE_MIN` (2) blocks (STD-135).
 - The recorder's blocks carry a random run tag per recorder, counted from seq 0 (STD-129).
 - Track keys hash the name path `link[i].<stream>` and the crate name only: tracks get new ids (STD-125).
 - The recorder's tracks are `TrackKind::Events` instants in the describe set (STD-127).

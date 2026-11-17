@@ -324,8 +324,25 @@ fn a_new_session_is_put_to_every_consumer() {
     }
 }
 
-/// A consumer whose queue can't take a block with the puts in front of it misses both: it never gets a records
-/// block without what the block needs, and gets the puts with the next block it can take.
+/// The [LinkEvent::Lost] events of `chunk`: (link, records lost).
+fn lost_events(chunk: &Chunk) -> Vec<(u32, u64)> {
+    data(chunk)
+        .into_iter()
+        .filter_map(|(track, item)| {
+            let (link, ids::EVENTS) = track_of(track)? else {
+                return None;
+            };
+            match LinkEventOwned::from_ww_bytes_owned(&item).ok()? {
+                LinkEventOwned::Lost { records } => Some((link, records.0)),
+                _ => None,
+            }
+        })
+        .collect()
+}
+
+/// A consumer whose queue can't take a block with the puts in front of it gets the puts that fit and misses the
+/// block: it never gets a records block without what the block needs; the miss is counted, and its next block comes
+/// after a Lost event of the link (reading side review 3, point 1).
 #[test]
 fn a_consumer_without_room_for_the_puts_misses_the_block() {
     let (rec, _t) = Recorder::with_fake_clock(config());
@@ -336,22 +353,29 @@ fn a_consumer_without_room_for_the_puts_misses_the_block() {
     let sub = rec.subscribe(Layers::MESSAGES, 3);
     first.message(Dir::Tx, 4, b"a");
     rec.flush();
-    // puts and a block on link 0: one place left, the second link's block needs two
+    // puts and a block on link 0: one place left, the second link's block needs two: the puts go alone
     second.message(Dir::Tx, 4, b"lost");
     rec.flush();
     let mut stream = drain(&sub);
-    assert_eq!(kinds(&stream), [Held::Puts, Held::Data]);
+    assert_eq!(kinds(&stream), [Held::Puts, Held::Data, Held::Puts]);
+    assert!(track_labels(&stream[2..]).contains(&"link[1].tx_messages".to_owned()));
+    let stats = sub.stats();
+    assert_eq!((stats.blocks_missed, stats.records_lost), (1, 1));
+    assert!(stats.behind_since.is_some());
+    assert_eq!(rec.consumers(), [stats]);
     second.message(Dir::Tx, 4, b"next");
     rec.flush();
     let next = drain(&sub);
-    assert_eq!(kinds(&next), [Held::Puts, Held::Data]);
-    assert!(track_labels(&next[..1]).contains(&"link[1].tx_messages".to_owned()));
+    assert_eq!(kinds(&next), [Held::Puts, Held::Data, Held::Data]);
+    assert_eq!(lost_events(&next[1]), [(1, 1)]);
+    assert_eq!(sub.stats().behind_since, None, "up to date again");
     stream.extend(next);
     assert_whole(&stream);
 }
 
 /// A consumer that misses a block now and then is not put everything again: what it took stays behind it, so the
-/// next block it takes needs no puts.
+/// next block it takes needs no puts but the events track its Lost event goes on; the Lost block takes the missed
+/// block's seq.
 #[test]
 fn a_consumer_that_misses_a_block_is_not_put_everything_again() {
     let (rec, _t) = Recorder::with_fake_clock(config());
@@ -369,9 +393,20 @@ fn a_consumer_that_misses_a_block_is_not_put_everything_again() {
     link.message(Dir::Tx, 4, b"next");
     rec.flush();
     let next = drain(&slow);
-    assert_eq!(kinds(&next), [Held::Data]);
-    let seqs: Vec<u64> = stream.iter().chain(&next).map(|c| c.block().seq).collect();
-    assert_eq!(seqs[3] - seqs[2], 2, "the missed block is a gap in seq");
+    assert_eq!(kinds(&next), [Held::Puts, Held::Data, Held::Data]);
+    assert_eq!(track_labels(&next[..1]), ["link[0].events"]);
+    assert_eq!(lost_events(&next[1]), [(0, 1)]);
+    let seqs: Vec<u64> = stream
+        .iter()
+        .chain(&next)
+        .filter(|c| held(c) == Held::Data)
+        .map(|c| c.block().seq)
+        .collect();
+    assert_eq!(
+        seqs[2] - seqs[1],
+        1,
+        "the Lost block in the missed block's place"
+    );
     stream.extend(next);
     assert_whole(&stream);
     let all = drain(&fast);
@@ -379,6 +414,106 @@ fn a_consumer_that_misses_a_block_is_not_put_everything_again() {
         kinds(&all),
         [Held::Puts, Held::Data, Held::Data, Held::Data, Held::Data]
     );
+    assert_eq!(fast.stats().blocks_missed, 0);
+}
+
+/// No queue is too small: a consumer asking for a queue of one block (it gets [QUEUE_MIN]), behind definitions
+/// longer than a block, gets the puts a block at a time and then its data, as long as it reads (reading side review
+/// 3, point 1).
+#[test]
+fn a_small_queue_is_never_starved() {
+    let (rec, _t) = Recorder::with_fake_clock(config());
+    rec.add_bundle(b"tape", &[1; 3000]);
+    rec.add_bundle(b"tap", &[2; 3000]);
+    let mut link = rec.link();
+    link.session(&session());
+    let sub = rec.subscribe(Layers::MESSAGES, 1);
+    let mut stream = Vec::new();
+    for k in 0..16u8 {
+        link.message(Dir::Tx, 4, &[k]);
+        rec.flush();
+        stream.extend(drain(&sub));
+        if stream
+            .iter()
+            .any(|c| held(c) == Held::Data && !data(c).is_empty() && lost_events(c).is_empty())
+        {
+            break;
+        }
+    }
+    assert!(
+        stream
+            .iter()
+            .any(|c| held(c) == Held::Data && lost_events(c).is_empty()),
+        "a block of data came: {:?}",
+        kinds(&stream)
+    );
+    assert!(sub.stats().blocks_missed > 0, "the misses are counted");
+    assert_whole(&stream);
+}
+
+/// A consumer that reads nothing is behind and its misses count up, for it and for the recorder; nothing is made
+/// for it while its queue is full: the blocks of puts aren't made (reading side review 3, points 1 and 2).
+#[test]
+fn a_consumer_that_reads_nothing_is_counted_behind() {
+    let (rec, t) = Recorder::with_fake_clock(config());
+    let mut link = rec.link();
+    link.session(&session());
+    let sub = rec.subscribe(Layers::MESSAGES, 2);
+    *t.lock().unwrap() += Duration::from_millis(5);
+    for k in 0..10u8 {
+        link.message(Dir::Tx, 4, &[k]);
+        rec.flush();
+    }
+    let stats = sub.stats();
+    assert!(stats.blocks_missed >= 8, "{stats:?}");
+    assert_eq!(stats.records_lost, stats.blocks_missed);
+    assert!(stats.behind_since.is_some());
+    // the definitions a block needs are shared with the recorder's, not copied
+    let st = rec.inner.state.lock().unwrap();
+    let needs = Needs::of(&st, [track_number(0, ids::TX_MESSAGES)]);
+    for n in needs.records.iter().filter(|n| n.track == 0) {
+        let held = st.defs.held(&n.slot).unwrap();
+        assert!(Arc::ptr_eq(&n.item, &held.item));
+    }
+}
+
+/// A link that goes says so in the stream, in a block whose tracks are still put: a relay of the stream drops the
+/// link's tracks from its definitions, which don't grow with every link ever seen (reading side review 3, point 7).
+#[test]
+fn a_closed_link_is_said_in_the_stream_and_a_relay_drops_it() {
+    let (rec, _t) = Recorder::with_fake_clock(config());
+    let sub = rec.subscribe(Layers::MESSAGES, 64);
+    let mut link = rec.link();
+    link.session(&session());
+    link.message(Dir::Tx, 4, b"x");
+    drop(link);
+    let stream = drain(&sub);
+    assert_whole(&stream);
+    let closed = stream
+        .iter()
+        .filter(|c| held(c) == Held::Data)
+        .flat_map(data)
+        .any(|(track, item)| {
+            track == track_number(0, ids::EVENTS)
+                && LinkEventOwned::from_ww_bytes_owned(&item) == Ok(LinkEventOwned::Closed)
+        });
+    assert!(closed, "the stream says the link closed");
+    let mut w = ww_tape::TapeWriter::create_on(
+        ww_tape::MemSink::new(std::path::Path::new("relay")),
+        ww_tape::SyncPolicy::None,
+    );
+    let mut defs = Definitions::new();
+    let mut dropped = 0;
+    for c in &stream {
+        w.relay_block(&mut defs, c.bytes()).unwrap();
+        dropped += drop_closed_links(&mut defs, &c.block());
+    }
+    assert_eq!(dropped, 1);
+    assert!(
+        (0..7).all(|s| defs.track(track_number(0, s)).is_none()),
+        "the link's tracks are dropped"
+    );
+    assert_eq!(defs.tracks().count(), 0, "no other link was open");
 }
 
 /// A closed link's tracks are closed: a consumer is put the tracks of the open links only.

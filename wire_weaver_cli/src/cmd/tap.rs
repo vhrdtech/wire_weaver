@@ -530,8 +530,12 @@ fn link_event_line(e: &LinkEventOwned) -> String {
         ),
         LinkEventOwned::Error { what } => format!("error: {what}"),
         LinkEventOwned::Lost { records } => {
-            format!("{} records lost (no free block in the recorder)", records.0)
+            format!(
+                "{} records lost (no free block in the recorder, or no room in this consumer's queue)",
+                records.0
+            )
         }
+        LinkEventOwned::Closed => "link closed".into(),
         other => format!("{other:?} (a newer ww_tap's)"),
     }
 }
@@ -938,6 +942,7 @@ pub(crate) async fn capture(
                     return Ok(writer.tick()?);
                 };
                 writer.relay_block(&mut defs, b.bytes())?;
+                wire_weaver_client::ww_tap::recorder::drop_closed_links(&mut defs, b);
                 if let Some(n) = next_seq
                     && b.seq > n
                 {

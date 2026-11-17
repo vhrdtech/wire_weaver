@@ -7,7 +7,7 @@ use ww_tape::{BlockKind, BodyCodec, FileBlocks, SyncPolicy, TapeWriter};
 use super::*;
 use crate::tap::{Layers, LinkEvent, Recorder, RecorderConfig, Tap, host_session};
 
-/// A writer puts a session again past its near and copies it after its first write. A reader that read on to such
+/// A link's set-up session is put after its first one. A reader that read on to such
 /// a record has seen that session: it is not a third one. A reader that starts at it takes it.
 #[test]
 fn a_session_put_again_is_not_a_new_session() {
@@ -76,7 +76,8 @@ fn a_session_put_again_is_not_a_new_session() {
     };
     let last = all.iter().rposition(holds_session).unwrap();
     let first_write = all.iter().position(holds_session).unwrap();
-    assert!(last > first_write + 1, "the session is copied");
+    // the set-up session's put, after the first one's
+    assert!(last > first_write, "the session is put again");
     let mut decoder = Decoder::default().with_resolver(crate::test_resolver());
     for b in &all[last..] {
         decoder.feed(&ww_tape::Block::read(b).unwrap());

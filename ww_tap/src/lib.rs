@@ -321,9 +321,13 @@ pub enum LinkEvent<'i> {
     },
     /// A transport or protocol error.
     Error { what: &'i str },
-    /// Records the producer couldn't keep (no free block, every one held by consumers), counted since the last such
-    /// event; the gap is between this event and the record before it.
+    /// Records the producer couldn't keep (no free block, every one held by consumers), or this consumer missed (no
+    /// room in its queue), counted since the last such event; the gap is between this event and the record before
+    /// it.
     Lost { records: UVlq64 },
+    /// The link is gone: its tracks get no more records. A relay of the stream drops their definitions
+    /// (`recorder::drop_closed_links`), so they don't pile up with every link ever seen.
+    Closed,
 }
 
 /// Server only: a client's request as the server sent it on to the device.

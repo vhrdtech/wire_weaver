@@ -174,6 +174,7 @@ fn run(
         };
         if let Some(w) = &mut writer {
             w.relay_block(&mut defs, b.bytes())?;
+            wire_weaver_client::ww_tap::recorder::drop_closed_links(&mut defs, b);
         }
         if let Some(m) = &mut monitor {
             m.block(b, &mut out)?;

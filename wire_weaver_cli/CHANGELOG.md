@@ -8,6 +8,7 @@
 
 ### 🐛 Bug Fixes
 
+- `ww tap` and `ww capture` relays drop a closed link's tracks from their definitions; `link closed` is shown (STD-135).
 - `ww --no-config PLUGIN` hands the plugin `WW_NO_CONFIG=true`, which its `--no-config` takes; `1` was refused (CLT-47).
 
 ### ⚠️ Breaking

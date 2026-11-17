@@ -1,6 +1,6 @@
 // ww_tap 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 80d4c445841a9c0503650c319156643c287f48154f708753f248f72af6959e79
+// shrink_wrap sha256: 0e359cee36a7c34475895d9e9d5054528516b77bac2652ab9b862b49df9e037c
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "The link tap: what crosses a wire_weaver link, recorded at the transport edge, for monitors, statistics and",
     "captures (TR-14).",
@@ -61,11 +61,16 @@
             (ident: Some("what"), default: None, since: None, ty: String, docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
         (docs: [
-            "Records the producer couldn\'t keep (no free block, every one held by consumers), counted since the last such",
-            "event; the gap is between this event and the record before it.",
+            "Records the producer couldn\'t keep (no free block, every one held by consumers), or this consumer missed (no",
+            "room in its queue), counted since the last such event; the gap is between this event and the record before",
+            "it.",
         ], ident: "Lost", fields: Named([
             (ident: Some("records"), default: None, since: None, ty: NumericAny(Base(UVlq64)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 4, since: None),
+        (docs: [
+            "The link is gone: its tracks get no more records. A relay of the stream drops their definitions",
+            "(`recorder::drop_closed_links`), so they don\'t pile up with every link ever seen.",
+        ], ident: "Closed", fields: Unit, discriminant: 5, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A frame as it crossed the medium.",

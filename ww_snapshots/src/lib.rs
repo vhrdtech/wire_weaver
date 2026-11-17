@@ -25,6 +25,7 @@
 pub mod build;
 pub mod cache;
 pub mod cargo;
+mod cargo_config;
 pub mod dir;
 #[cfg(feature = "fetch")]
 pub mod fetch;

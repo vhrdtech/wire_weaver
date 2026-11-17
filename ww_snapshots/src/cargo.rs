@@ -5,6 +5,7 @@
 //! where a crate of a given name and version is on this machine ([CargoSources::locate_version], [scan_fetched]),
 //! which is where its `api_snapshots/` are.
 
+use crate::cargo_config;
 use crate::limits::{
     CARGO_DIRS_SCANNED_MAX, CARGO_LOCK_BYTES_MAX, CARGO_TREE_DIRS_MAX, CHECKOUT_LOCKS_MAX,
 };
@@ -910,52 +911,44 @@ impl CargoSources {
 impl CargoSources {
     /// Directory of `package` as a `[patch.<source>]` of the workspace whose `Cargo.lock` is `lock_path` puts it: a
     /// git or registry dependency that Cargo resolves to a path there (a checkout of exact_units or shrink_wrap
-    /// developed beside this one). The manifest's `[patch]` tables first, then those of `.cargo/config.toml` in the
-    /// workspace root and each directory above it, nearest first, as Cargo reads them; a config's paths are
-    /// relative to the directory holding its `.cargo`.
+    /// developed beside this one). Cargo's configuration first, as Cargo reads it ([crate::cargo_config]) from
+    /// where the build's Cargo runs (the workspace root when that isn't known), then the manifest's `[patch]`
+    /// tables: a config's patch wins over the manifest's.
     fn patched_dir(&self, lock_path: &Path, package: &str) -> Result<Option<PathBuf>> {
         let root = lock_path.parent().unwrap_or(Path::new("."));
-        if let Some(dir) = self.patch_in(&root.join("Cargo.toml"), package)? {
-            return Ok(Some(root.join(dir)));
+        let build = match &self.rustc {
+            Some(build) => Some(build.clone()),
+            None => RustcBuild::from_process(),
+        };
+        // Cargo reads its configuration from where it runs; a lock that isn't that build's has its own
+        let cargo_cwd = build
+            .as_ref()
+            .and_then(|b| b.cargo_cwd.clone())
+            .filter(|cwd| self.lock_is_build || cwd.starts_with(root) || root.starts_with(cwd));
+        let no_configs = vec![];
+        let cli = match (&cargo_cwd, &build) {
+            (Some(_), Some(build)) => &build.cargo_configs,
+            _ => &no_configs,
+        };
+        let cargo_home = self.cargo_home().ok();
+        let sources = cargo_config::ConfigSources {
+            cli,
+            cwd: cargo_cwd.as_deref().unwrap_or(root),
+            cargo_home: cargo_home.as_deref(),
+        };
+        if let Some(dir) = cargo_config::patch_path(&sources, package, &|path| self.note(path))? {
+            return Ok(Some(dir));
         }
-        for dir in root.ancestors().take(CONFIG_ANCESTORS_MAX) {
-            if let Some(path) = self.patch_in(&dir.join(".cargo").join("config.toml"), package)? {
-                return Ok(Some(dir.join(path)));
-            }
-        }
-        Ok(None)
-    }
-
-    /// The path the `[patch]` tables of the TOML file `path` give `package`, if any.
-    fn patch_in(&self, path: &Path, package: &str) -> Result<Option<String>> {
-        self.note(path);
-        let Ok(contents) = fs::read_to_string(path) else {
+        let manifest = root.join("Cargo.toml");
+        self.note(&manifest);
+        let Ok(contents) = fs::read_to_string(&manifest) else {
             return Ok(None);
         };
-        let file: toml::Table = toml::from_str(&contents)
-            .with_context(|| format!("Failed to parse {}", path.display()))?;
-        let Some(patch) = file.get("patch").and_then(|p| p.as_table()) else {
-            return Ok(None);
-        };
-        for deps in patch.values().filter_map(|deps| deps.as_table()) {
-            for (name, dep) in deps {
-                let Some(dep) = dep.as_table() else { continue };
-                let renamed = dep.get("package").and_then(|p| p.as_str());
-                if renamed.unwrap_or(name) != package {
-                    continue;
-                }
-                if let Some(dir) = dep.get("path").and_then(|p| p.as_str()) {
-                    return Ok(Some(dir.to_owned()));
-                }
-            }
-        }
-        Ok(None)
+        let table: toml::Table = toml::from_str(&contents)
+            .with_context(|| format!("Failed to parse {}", manifest.display()))?;
+        Ok(cargo_config::patch_in(&table, package).map(|dir| root.join(dir)))
     }
 }
-
-/// How many directories, from the workspace root up, [CargoSources::patched_dir] looks into for a
-/// `.cargo/config.toml`.
-const CONFIG_ANCESTORS_MAX: usize = 64;
 
 /// `CARGO_HOME`: the environment's, else `~/.cargo`.
 pub fn default_cargo_home() -> Result<PathBuf> {

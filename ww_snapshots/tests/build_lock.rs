@@ -123,6 +123,8 @@ impl Layout {
             cwd: Some(self.lib_host.clone()),
             pwd: pwd.map(Path::to_path_buf),
             cargo_dirs: vec![],
+            cargo_cwd: None,
+            cargo_configs: vec![],
             dep_dirs: vec![self.deps.clone()],
             externs: if extern_dep {
                 vec![self.deps.join("libdep_api-0123456789abcdef.rmeta")]
@@ -266,6 +268,8 @@ fn a_path_dependency_of_an_outer_workspace_takes_a_lock_pinning_its_git_sources(
         cwd: Some(timebase.clone()),
         pwd: None,
         cargo_dirs,
+        cargo_cwd: None,
+        cargo_configs: vec![],
         dep_dirs: vec![deps.clone()],
         externs: vec![
             deps.join("libdep_api-0123456789abcdef.rmeta"),
@@ -355,6 +359,8 @@ fn a_git_checkout_with_sibling_members_and_dep_info_of_an_older_commit() {
         cwd: Some(host.clone()),
         pwd: None,
         cargo_dirs,
+        cargo_cwd: None,
+        cargo_configs: vec![],
         dep_dirs: vec![deps.clone()],
         externs: vec![deps.join("libapi-1111111111111111.rmeta")],
     };

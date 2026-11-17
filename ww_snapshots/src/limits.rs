@@ -31,6 +31,12 @@ pub const DEP_INFO_BYTES_MAX: u64 = 1 << 20;
 /// ([crate::cargo::CargoSources]), when no workspace around the build has it.
 pub const CHECKOUT_LOCKS_MAX: usize = 4096;
 
+/// A Cargo config file read for its `[patch]` (`.cargo/config.toml`, an `include` of it, a `--config` file).
+pub const CARGO_CONFIG_BYTES_MAX: u64 = 1 << 20;
+
+/// Cargo config files read for one `[patch]` lookup, includes counted: bounds an include cycle too.
+pub const CARGO_CONFIG_INCLUDES_MAX: usize = 256;
+
 /// A `Cargo.lock` read.
 pub const CARGO_LOCK_BYTES_MAX: u64 = 64 << 20;
 

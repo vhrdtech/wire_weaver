@@ -24,6 +24,10 @@ pub struct RustcBuild {
     /// Where the Cargo that started rustc was asked to build: its working directory and the directory of its
     /// `--manifest-path` (Linux: the parent process; empty elsewhere or behind a rustc wrapper).
     pub cargo_dirs: Vec<PathBuf>,
+    /// The working directory of the Cargo that started rustc, as [Self::cargo_dirs] learns it.
+    pub cargo_cwd: Option<PathBuf>,
+    /// Its `--config` arguments, in order (`KEY=VALUE` or a file).
+    pub cargo_configs: Vec<String>,
     /// `--out-dir` and every `-L dependency=`: where the crates compiled for this build are, with their dep-info.
     pub dep_dirs: Vec<PathBuf>,
     /// The file of each `--extern` dependency (`lib<name>-<hash>.rmeta` or `.rlib`).
@@ -38,7 +42,10 @@ impl RustcBuild {
         let mut build = Self::from_args(std::env::args_os().skip(1), PathBuf::from(manifest_dir))?;
         build.cwd = std::env::current_dir().ok();
         build.pwd = std::env::var_os("PWD").map(PathBuf::from);
-        build.cargo_dirs = cargo_dirs();
+        let cargo = cargo_command();
+        build.cargo_dirs = cargo.dirs;
+        build.cargo_cwd = cargo.cwd;
+        build.cargo_configs = cargo.configs;
         Some(build)
     }
 
@@ -152,35 +159,79 @@ impl RustcBuild {
     }
 }
 
-/// [RustcBuild::cargo_dirs] of this process.
+/// What the command line of the Cargo that started this process says.
+#[derive(Default)]
+struct CargoCommand {
+    /// [RustcBuild::cargo_dirs]
+    dirs: Vec<PathBuf>,
+    /// [RustcBuild::cargo_cwd]
+    cwd: Option<PathBuf>,
+    /// [RustcBuild::cargo_configs]
+    configs: Vec<String>,
+}
+
+/// The [CargoCommand] of this process's parent.
 #[cfg(target_os = "linux")]
-fn cargo_dirs() -> Vec<PathBuf> {
+fn cargo_command() -> CargoCommand {
     let parent = Path::new("/proc").join(std::os::unix::process::parent_id().to_string());
-    let mut dirs: Vec<PathBuf> = fs::read_link(parent.join("cwd")).into_iter().collect();
+    let cwd = fs::read_link(parent.join("cwd")).ok();
     let mut cmdline = Vec::new();
     let read = fs::File::open(parent.join("cmdline"))
         .and_then(|f| f.take(DEP_INFO_BYTES_MAX).read_to_end(&mut cmdline));
-    if read.is_ok() {
-        let args: Vec<&str> = cmdline
+    let args: Vec<&str> = if read.is_ok() {
+        cmdline
             .split(|&b| b == 0)
             .filter_map(|a| std::str::from_utf8(a).ok())
-            .collect();
-        let manifest = args.iter().enumerate().find_map(|(i, arg)| match *arg {
-            "--manifest-path" => args.get(i + 1).copied(),
-            arg => arg.strip_prefix("--manifest-path="),
-        });
-        if let Some(manifest) = manifest {
-            let base = dirs.first().cloned().unwrap_or_default();
-            dirs.extend(base.join(manifest).parent().map(Path::to_path_buf));
-        }
-    }
-    dirs
+            .collect()
+    } else {
+        vec![]
+    };
+    command_of(cwd, &args)
 }
 
-/// [RustcBuild::cargo_dirs] of this process: none outside Linux.
+/// The [CargoCommand] of this process's parent: nothing outside Linux.
 #[cfg(not(target_os = "linux"))]
-fn cargo_dirs() -> Vec<PathBuf> {
-    vec![]
+fn cargo_command() -> CargoCommand {
+    CargoCommand::default()
+}
+
+/// The [CargoCommand] of a Cargo started in `cwd` with `args`.
+#[cfg_attr(
+    not(target_os = "linux"),
+    expect(dead_code, reason = "only Linux tells the parent's command line")
+)]
+fn command_of(cwd: Option<PathBuf>, args: &[&str]) -> CargoCommand {
+    let mut command = CargoCommand {
+        dirs: cwd.iter().cloned().collect(),
+        cwd,
+        configs: vec![],
+    };
+    let base = command.cwd.clone().unwrap_or_default();
+    let mut args = args.iter().copied();
+    while let Some(arg) = args.next() {
+        // everything after `--` is for the program Cargo runs
+        if arg == "--" {
+            break;
+        }
+        let (flag, value) = match arg.split_once('=') {
+            Some((flag, value)) if flag.starts_with("--") => (flag, Some(value)),
+            _ => (arg, None),
+        };
+        match flag {
+            "--manifest-path" => {
+                if let Some(manifest) = value.or_else(|| args.next()) {
+                    command
+                        .dirs
+                        .extend(base.join(manifest).parent().map(Path::to_path_buf));
+                }
+            }
+            "--config" => command
+                .configs
+                .extend(value.or_else(|| args.next()).map(str::to_owned)),
+            _ => {}
+        }
+    }
+    command
 }
 
 /// The first source an absolute dep-info file `d` names, the crate's root file; `None` for a relative one.
@@ -249,5 +300,27 @@ mod tests {
             [PathBuf::from("/build/debug/deps/libapi-0123.rmeta")]
         );
         assert!(RustcBuild::from_args(["--test"].map(OsString::from), PathBuf::new()).is_none());
+    }
+
+    #[test]
+    fn cargo_arguments_name_the_manifest_and_the_configs() {
+        let args = [
+            "cargo",
+            "build",
+            "--config",
+            "a.toml",
+            "--manifest-path=sub/Cargo.toml",
+            "--config=patch.crates-io.x.path='x'",
+            "--",
+            "--config",
+            "not_cargo",
+        ];
+        let command = command_of(Some(PathBuf::from("/ws")), &args);
+        assert_eq!(
+            command.dirs,
+            [PathBuf::from("/ws"), PathBuf::from("/ws/sub")]
+        );
+        assert_eq!(command.cwd, Some(PathBuf::from("/ws")));
+        assert_eq!(command.configs, ["a.toml", "patch.crates-io.x.path='x'"]);
     }
 }

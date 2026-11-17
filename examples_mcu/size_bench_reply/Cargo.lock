@@ -164,7 +164,7 @@ checksum = "b74b56ffa8bb2830709a538c2cbcae9aa062db0d2a42563bfb09bdaae44020eb"
 [[package]]
 name = "size_bench"
 version = "0.1.0"
-source = "git+https://github.com/romixlab/shrink_wrap#26a7987c5aa9fa3c6a5c8fb2049b5aecbd162da1"
+source = "git+https://github.com/romixlab/shrink_wrap#c0f11d8e4855d1a97c19a76ae2fc360af1ea4eaf"
 dependencies = [
  "anyhow",
  "clap",

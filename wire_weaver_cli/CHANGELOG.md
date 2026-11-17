@@ -1,5 +1,9 @@
 ## Unreleased
 
+### ⚠️ Breaking
+
+- The `ww` binary moved to vhrdtech/ww_tools: install it with `cargo install --git https://github.com/vhrdtech/ww_tools ww`; the root recipes `install`, `install-cli` and `deploy` are removed, and `cargo ww` runs the example `ww_generic` (generic commands only).
+
 ### 🚀 Features
 
 - A forward runs a registered command of its plugin's name in process (`registry::forward`), with the device flags typed before and after it; the completion uses that command (TOOL-39).

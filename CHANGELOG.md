@@ -15,7 +15,6 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - **Breaking:** ww_tape, ww_tape_benchmarks, ww_tape_fuzz, the tape fuzz targets and golden files moved to vhrdtech/ww_tape; take ww_tape by git there.
 - The book assembles ww_tape's pages and feature tracker into the Tapes chapter, with its format reference; the link tap page keeps the tap's parts.
 - The lock takes `ww_tape` cc9160c, format version 1: definitions and state put near their use (STD-135); see the `ww_tap`, `wire_weaver_client` and `wire_weaver_cli` changelogs.
-- `ww` links logring's and chunky_mcu_updater's commands (`ww logring`, `ww chunky`, `ww dfu flash` in process), the wheel has `wire_weaver.logring`; `ww_tools/` is its own workspace (TOOL-39). See the `ww`, `wire_weaver_wheel`, `wire_weaver_cli` and `ww_std_cli` changelogs.
 - **Breaking:** ww_si, ww_numeric, ww_version, ww_global, ww_error, ww_date_time, ww_keyed and ww_crc moved to vhrdtech/ww_base; take them by git there.
 - The book assembles ww_base's pages and feature tracker into the standard library section; `tests/stdlib_evolution` checks ww_base's snapshots from its locked checkout.
 - **Breaking:** shrink_wrap, shrink_wrap_derive, the size bench, fuzz targets and SerDes pages moved to romixlab/shrink_wrap; take them by git there.
@@ -139,6 +138,8 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - The book assembles ww_stdlib's pages and tracker from its `main` branch: `book_sources.toml` takes git sources. See the `ww_book` changelog.
 - Framework tests no longer read standard library crates: `tests/skipped_dep_api` and `skipped_root_api` stand in; `ww` takes `ww_std_cli` by git. See the `ww` changelog.
 - `pins::refresh` gets back a test fixture free of `ww_stdlib`, lost when `nucleo_g0b1re_api` moved out. See the `wire_weaver_evolution` changelog.
+- `tests/layers_lint` reads only this repository's workspaces: ww_tools and `layers.toml`'s `[outside]` table are gone, every other check stays.
+- **Breaking:** `ww_tools/` (the `ww` binary and the `wire_weaver_wheel` Python wheel, layer 7) moved to vhrdtech/ww_tools, with TOOL-39; `just install`, `just install-cli` and `just deploy` are gone here, install with `cargo install --git https://github.com/vhrdtech/ww_tools ww`; `cargo ww` runs the generic commands only. See the `wire_weaver_cli` and `wire_weaver_py` changelogs.
 
 ### Added
 

@@ -57,7 +57,11 @@ impl Source {
         if let Some(name) = self.name.as_deref().or(self.package.as_deref()) {
             return name;
         }
-        let url = self.git.as_deref().unwrap_or_default().trim_end_matches('/');
+        let url = self
+            .git
+            .as_deref()
+            .unwrap_or_default()
+            .trim_end_matches('/');
         let last = url.rsplit(['/', ':']).next().unwrap_or(url);
         last.strip_suffix(".git").unwrap_or(last)
     }
@@ -200,21 +204,56 @@ fn git(dir: Option<&Path>, args: &[&str]) -> Result<String> {
     Ok(String::from_utf8_lossy(&output.stdout).trim().to_owned())
 }
 
+/// Clones `url` at `branch` into `dir`: into a directory of its own beside it first, then renamed, so a process
+/// running at the same time (tests do) never sees a half-made checkout; when another one got there first, its
+/// checkout is kept.
+fn clone(url: &str, branch: &str, dir: &Path) -> Result<()> {
+    let parent = dir
+        .parent()
+        .with_context(|| format!("{} has no parent directory", dir.display()))?;
+    fs::create_dir_all(parent).with_context(|| format!("creating {}", parent.display()))?;
+    let name = dir.file_name().unwrap_or_default().to_string_lossy();
+    let staging = parent.join(format!(".{name}.clone-{}", std::process::id()));
+    if staging.exists() {
+        fs::remove_dir_all(&staging).with_context(|| format!("removing {}", staging.display()))?;
+    }
+    let target = staging.to_string_lossy();
+    git(
+        None,
+        &[
+            "clone",
+            "-q",
+            "--single-branch",
+            "--branch",
+            branch,
+            url,
+            &target,
+        ],
+    )
+    .with_context(|| format!("cloning {url} for the book"))?;
+    if fs::rename(&staging, dir).is_err() {
+        ensure!(
+            dir.join(".git").exists(),
+            "moving the clone of {url} to {} failed",
+            dir.display()
+        );
+        fs::remove_dir_all(&staging).with_context(|| format!("removing {}", staging.display()))?;
+    }
+    Ok(())
+}
+
 /// Brings the checkout of `url` at `dir` to `branch`: a clone when it is missing, else a fetch when `update` asks
 /// for one, which leaves the checkout as it is when it fails. Returns the checkout's commit and, when a fetch failed,
 /// why.
-fn checkout(url: &str, branch: &str, dir: &Path, update: Update) -> Result<(String, Option<String>)> {
+fn checkout(
+    url: &str,
+    branch: &str,
+    dir: &Path,
+    update: Update,
+) -> Result<(String, Option<String>)> {
     let tracking = format!("refs/remotes/origin/{branch}");
     if !dir.join(".git").exists() {
-        if let Some(parent) = dir.parent() {
-            fs::create_dir_all(parent).with_context(|| format!("creating {}", parent.display()))?;
-        }
-        let target = dir.to_string_lossy();
-        git(
-            None,
-            &["clone", "-q", "--single-branch", "--branch", branch, url, &target],
-        )
-        .with_context(|| format!("cloning {url} for the book"))?;
+        clone(url, branch, dir)?;
         return Ok((git(Some(dir), &["rev-parse", "HEAD"])?, None));
     }
     let origin = git(Some(dir), &["remote", "get-url", "origin"])?;
@@ -292,7 +331,9 @@ pub fn assemble(root: &Path, sources: &[Located]) -> Result<Vec<PathBuf>> {
         if located.source.features.is_some() {
             let page = located.source.tracker_page();
             ensure!(
-                page.ends_with(".md") && !page.contains(['/', '\\']) && !names.iter().any(|n| n == page),
+                page.ends_with(".md")
+                    && !page.contains(['/', '\\'])
+                    && !names.iter().any(|n| n == page),
                 "{SOURCES_FILE}: `features_page` of {} must be a file name ending in .md that is none of its pages",
                 located.source.name()
             );
@@ -306,7 +347,8 @@ pub fn assemble(root: &Path, sources: &[Located]) -> Result<Vec<PathBuf>> {
                 target.display(),
                 located.source.name()
             );
-            let text = if located.source.features.is_some() && name == located.source.tracker_page() {
+            let text = if located.source.features.is_some() && name == located.source.tracker_page()
+            {
                 tracker_page(located)?
             } else {
                 let from = located.pages_dir().join(name);
@@ -503,7 +545,17 @@ mod tests {
             git(Some(&upstream), &["add", "-A"]).unwrap();
             git(
                 Some(&upstream),
-                &["-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false", "commit", "-qm", message],
+                &[
+                    "-c",
+                    "user.name=t",
+                    "-c",
+                    "user.email=t@t",
+                    "-c",
+                    "commit.gpgsign=false",
+                    "commit",
+                    "-qm",
+                    message,
+                ],
             )
             .unwrap();
             git(Some(&upstream), &["rev-parse", "HEAD"]).unwrap()
@@ -530,7 +582,12 @@ mod tests {
         let offline = checkout(&url, "main", &checkout_dir, Update::Fetch).unwrap();
         assert_eq!(offline.0, second);
         assert!(offline.1.is_some(), "{offline:?}");
-        let other = checkout("https://example.org/other", "main", &checkout_dir, Update::Keep);
+        let other = checkout(
+            "https://example.org/other",
+            "main",
+            &checkout_dir,
+            Update::Keep,
+        );
         fs::remove_dir_all(&dir).unwrap();
         assert!(format!("{:#}", other.unwrap_err()).contains("remove it"));
     }

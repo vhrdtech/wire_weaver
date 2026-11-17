@@ -31,12 +31,12 @@ use wire_weaver::prelude::*;
 use wire_weaver::shrink_wrap::SerializeShrinkWrap;
 use ww_tape::{
     Block, BlockId, BlockKind, BlockState, BlockWriter, ClockDef, ClockMap, ClockOrigin, ClockTime,
-    DefinitionKind, Definitions, Describe, FullVersion, ItemHash, Magnitude, MapSegment, RecordRef,
-    Segment, SessionTag, Slot, StatePolicy, TrackDef, TrackRepeat, Version,
+    DefinitionKind, Definitions, Describe, ItemHash, Magnitude, MapSegment, RecordRef, Segment,
+    SessionTag, Slot, StatePolicy, TrackDef, TrackRepeat,
     writer::near::{Near, NearPolicy, Rule},
 };
 
-use crate::{Dir, Frame, LinkEvent, Message, Session, Tap, ids};
+use crate::{Dir, Frame, LinkEvent, Message, Session, Tap, api, ids};
 
 /// Settings of a [Recorder].
 #[derive(Clone, Debug)]
@@ -354,9 +354,7 @@ pub fn track_number(link: u32, stream: u32) -> u32 {
 ///
 /// When `stream` is not one of [ids]' streams.
 pub fn track_key(link: u32, stream: u32) -> u64 {
-    let name = STREAM_NAMES
-        .get(stream as usize)
-        .expect("stream is one of ids' streams");
+    let name = ids::stream_name(stream).expect("stream is one of ids' streams");
     ww_tape::track_key(
         ww_tape::api_root_id(api().crate_id),
         &[
@@ -372,39 +370,6 @@ pub fn track_of(number: u32) -> Option<(u32, u32)> {
     let n = number.checked_sub(1)?;
     Some((n / 7, n % 7))
 }
-
-/// The API the tap's tracks are in: this crate.
-pub fn api() -> FullVersion<'static> {
-    FullVersion::new(
-        env!("CARGO_PKG_NAME"),
-        Version::new(
-            const_parse(env!("CARGO_PKG_VERSION_MAJOR")),
-            const_parse(env!("CARGO_PKG_VERSION_MINOR")),
-            const_parse(env!("CARGO_PKG_VERSION_PATCH")),
-        ),
-    )
-}
-
-const fn const_parse(s: &str) -> u32 {
-    let b = s.as_bytes();
-    let mut i = 0;
-    let mut v = 0;
-    while i < b.len() {
-        v = v * 10 + (b[i] - b'0') as u32;
-        i += 1;
-    }
-    v
-}
-
-const STREAM_NAMES: [&str; 7] = [
-    "session",
-    "events",
-    "tx_frames",
-    "rx_frames",
-    "tx_messages",
-    "rx_messages",
-    "client_map",
-];
 
 impl Default for Recorder {
     fn default() -> Self {
@@ -819,7 +784,10 @@ impl Inner {
         let api = api();
         for stream in 0..7u32 {
             let path = [UNib32(ids::LINK), UNib32(link), UNib32(stream)];
-            let label = format!("link[{link}].{}", STREAM_NAMES[stream as usize]);
+            let label = format!(
+                "link[{link}].{}",
+                ids::stream_name(stream).expect("one of ids' streams")
+            );
             Self::define(
                 st,
                 &Describe::Track(TrackDef {

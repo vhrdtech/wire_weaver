@@ -13,6 +13,7 @@ wire = "w1.0"
 
 [features]
 default = []
+# The Recorder: batches records into ww_tape blocks; frozen until the eventfull tap replaces it
 std = ["wire_weaver/std", "dep:ww_tape", "ww_tape/std", "dep:tracing"]
 
 [dependencies]

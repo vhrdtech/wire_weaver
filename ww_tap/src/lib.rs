@@ -9,7 +9,8 @@
 //! without a tap compiles them away.
 //!
 //! The records are ordinary wire_weaver types, streams of the [LinkTap] trait, so a capture is described by its API
-//! bundle like any device log: one track per link and stream ([Link]), Session sticky. With the `std` feature,
+//! bundle like any device log: one track per link and stream ([Link]), Session sticky. A producer that writes them as
+//! tracks names them with [api] and [ids]; a link named by its peer is keyed by [LinkKey]. With the `std` feature,
 //! [Recorder] batches them into `ww_tape` blocks.
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -169,6 +170,26 @@ pub mod ids {
     pub const TX_MESSAGES: u32 = 4;
     pub const RX_MESSAGES: u32 = 5;
     pub const CLIENT_MAP: u32 = 6;
+
+    /// The name of a [Link](crate::Link) stream by its id, as in a track's name path `link[n].<stream>`; None for an
+    /// id that is not a stream.
+    pub const fn stream_name(stream: u32) -> Option<&'static str> {
+        Some(match stream {
+            SESSION => "session",
+            EVENTS => "events",
+            TX_FRAMES => "tx_frames",
+            RX_FRAMES => "rx_frames",
+            TX_MESSAGES => "tx_messages",
+            RX_MESSAGES => "rx_messages",
+            CLIENT_MAP => "client_map",
+            _ => return None,
+        })
+    }
+}
+
+/// The API the tap's tracks are in: this crate's name and version, as in its bundle ([LINK_TAP_FULL_GID]).
+pub const fn api() -> FullVersion<'static> {
+    LINK_TAP_FULL_GID
 }
 
 /// The start of a link: everything a decoder needs to re-run the framer and find the API bundle.
@@ -330,6 +351,27 @@ pub enum LinkEvent<'i> {
     Closed,
 }
 
+/// The key of a link in [LinkTap]'s `link[]` when links are named by their peer: one device keeps its tracks
+/// across reconnects.
+///
+/// Its bytes are hashed into the tracks' keys, so a new field gives every keyed tap track a new key.
+#[derive_shrink_wrap(owned(feature = "std"), derive(Debug, PartialEq, Eq, Clone))]
+pub struct LinkKey<'i> {
+    pub medium: Medium,
+    /// [Session::peer] of the link's first session.
+    pub peer: &'i str,
+}
+
+impl<'i> LinkKey<'i> {
+    /// The key of the link that `session` starts.
+    pub fn of(session: &Session<'i>) -> Self {
+        LinkKey {
+            medium: session.medium,
+            peer: session.peer,
+        }
+    }
+}
+
 /// Server only: a client's request as the server sent it on to the device.
 #[derive_shrink_wrap(
     borrowed,
@@ -340,4 +382,25 @@ pub struct ClientMap {
     pub client: UNib32,
     pub client_seq: UNib32,
     pub device_seq: UNib32,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn link_key_of_a_session_round_trips() {
+        let session = Session {
+            side: Side::Host,
+            medium: Medium::Usb,
+            framer: Framer::None,
+            frame_size: UNib32(64),
+            peer: "SN-1234",
+            device_info: RefVec::Slice { slice: &[] },
+        };
+        let key = LinkKey::of(&session);
+        let mut buf = [0u8; 32];
+        let bytes = key.to_ww_bytes(&mut buf).unwrap();
+        assert_eq!(LinkKey::from_ww_bytes(bytes).unwrap(), key);
+    }
 }

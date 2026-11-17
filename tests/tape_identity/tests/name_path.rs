@@ -140,6 +140,26 @@ fn tap_keys_match_its_bundle() {
     }
 }
 
+/// A producer outside ww_tap names the tap's tracks from its public API and ww_tape alone, as the recorder does.
+#[test]
+fn tap_keys_from_the_public_names() {
+    use ww_tap::ids;
+    assert_eq!(ww_tap::api(), ww_tap::LINK_TAP_FULL_GID);
+    assert_eq!(ww_tap::api().crate_id, "ww_tap");
+    for stream in [ids::SESSION, ids::EVENTS, ids::TX_MESSAGES, ids::CLIENT_MAP] {
+        let path = [
+            Segment::Name("link"),
+            Segment::Index(5),
+            Segment::Name(ids::stream_name(stream).unwrap()),
+        ];
+        assert_eq!(
+            track_key(api_root_id(ww_tap::api().crate_id), &path),
+            ww_tap::track_key(5, stream)
+        );
+    }
+    assert_eq!(ids::stream_name(7), None);
+}
+
 /// A resource renamed with `#[moved_from]` within its trait across a break keeps its key: `gain` on line 2 is
 /// `amp_gain` on line 3, its identity name still `gain` (INT-17). The API root id ignores the crate's major.
 #[test]

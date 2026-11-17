@@ -4,6 +4,9 @@
 
 ### 🚀 Features
 
+- `LinkKey { medium, peer }`: the key of a link named by its peer, made from its first `Session` (TR-14).
+- `api()` and `ids::stream_name` without `std`: a producer outside the crate names the tap's tracks (TR-14).
+
 - `ConsumerStats` on `Subscription::stats` and `Recorder::consumers`: blocks missed, records lost, behind since when (STD-135).
 - A consumer's next block after a miss comes after a `LinkEvent::Lost` of each link it lost records of (STD-135).
 - `recorder::drop_closed_links`: a relay drops a closed link's tracks from its `Definitions` (STD-135).

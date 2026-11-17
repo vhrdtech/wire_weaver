@@ -11,6 +11,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
+- `tests_common::resolver()` resolves over the workspace of the test that runs, not tests_common's own: a workspace taking tests_common by git finds its own API crates' snapshots.
 - The crate walker in a crate built as a dependency follows the building workspace's Cargo.lock, not the crate's own; see `ww_snapshots`.
 - The features page no longer needs an entries.md edit when shrink_wrap, ww_base, ww_tape or ww_stdlib lands a feature (TEST-39).
 - **Breaking:** ww_tape, ww_tape_benchmarks, ww_tape_fuzz, the tape fuzz targets and golden files moved to vhrdtech/ww_tape; take ww_tape by git there.

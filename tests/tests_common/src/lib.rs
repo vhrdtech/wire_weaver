@@ -17,10 +17,14 @@ use wire_weaver_client::in_process::{self, TokioClock};
 /// Message buffers of the test device (`ww_device::Server` scratch, in-process link).
 pub const MAX_MESSAGE_LEN: usize = 1024;
 
-/// The resolver test clients connect with (`ClientConfig::resolver`): [Resolver::offline] over this workspace, with
-/// a cache of this test process's own under the temp dir. It finds the snapshots a build here sees, never fetches
-/// and reads nothing of this machine's `~/.wire_weaver`; the devices a test starts put their introspection data
-/// into its cache ([DeviceApi]).
+/// The resolver test clients connect with (`ClientConfig::resolver`): [Resolver::offline] over the workspace of the
+/// test that runs, with a cache of this test process's own under the temp dir. It finds the snapshots a build there
+/// sees, its own API crates included, never fetches and reads nothing of this machine's `~/.wire_weaver`; the
+/// devices a test starts put their introspection data into its cache ([DeviceApi]).
+///
+/// # Panics
+///
+/// When the test binary runs outside Cargo and nextest from a current directory that no longer exists.
 ///
 /// [Resolver::offline]: wire_weaver_client::snapshots::Resolver::offline
 pub fn resolver() -> &'static wire_weaver_client::snapshots::Resolver {
@@ -29,12 +33,20 @@ pub fn resolver() -> &'static wire_weaver_client::snapshots::Resolver {
             let cache = std::env::temp_dir()
                 .join("ww_tests_cache")
                 .join(std::process::id().to_string());
-            wire_weaver_client::snapshots::Resolver::offline(std::path::Path::new(env!(
-                "CARGO_MANIFEST_DIR"
-            )))
-            .with_cache(&cache)
+            wire_weaver_client::snapshots::Resolver::offline(&test_workspace()).with_cache(&cache)
         });
     &RESOLVER
+}
+
+/// A directory of the workspace whose test runs: the `CARGO_MANIFEST_DIR` Cargo and nextest give a test binary when
+/// they run it, else the current directory. Never this crate's own directory, which is inside WireWeaver's git
+/// checkout for a workspace that takes tests_common by git: its `Cargo.lock` lists none of that workspace's crates.
+fn test_workspace() -> std::path::PathBuf {
+    match std::env::var_os("CARGO_MANIFEST_DIR") {
+        Some(dir) => dir.into(),
+        None => std::env::current_dir()
+            .expect("a test runs from Cargo or from an existing current directory"),
+    }
 }
 
 /// A test device's API identity and introspection data, from its generated `api_impl`: [api!] makes one.

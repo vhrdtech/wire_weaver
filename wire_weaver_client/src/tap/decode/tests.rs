@@ -131,3 +131,15 @@ fn a_bad_coded_body_is_reported() {
     );
     assert_eq!(decoder.stats.blocks_bad, 1);
 }
+
+/// A capture carries the tape's and the tap's own bundles (`ww capture`): both crates' current versions have a
+/// snapshot, so a version bump without `just save-snapshots` fails here.
+#[test]
+fn the_tape_and_tap_bundles_are_in_the_snapshots() {
+    for api in [ww_tape::api(), ww_tap::api()] {
+        let bundle = crate::test_resolver()
+            .snapshot(&api.make_owned())
+            .expect("a snapshot of the current version");
+        assert_eq!(bundle.ext_crates[0], api.make_owned());
+    }
+}

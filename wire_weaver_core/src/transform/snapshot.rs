@@ -1422,7 +1422,7 @@ mod tests {
         crate::dependency_dir(&base_dir("ww_si"), "exact_units").unwrap()
     }
 
-    /// A crate of the ww_base repository, from the checkout `Cargo.lock` pins.
+    /// A crate of another repository (ww_base, ww_tape), from the checkout `Cargo.lock` pins.
     fn base_dir(name: &str) -> std::path::PathBuf {
         let mut sources = ww_snapshots::cargo::CargoSources::default();
         sources.entry_dir = Some(Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf());
@@ -1781,8 +1781,8 @@ mod tests {
     }
 
     /// Snapshots are saved for the current source of each crate whose snapshots APIs are skipped against: the link
-    /// tap's records, ww_timebase, exact_units and the ww_base crates (in their own repositories: from the checkouts
-    /// `Cargo.lock` pins) and ww_stdlib.
+    /// tap's records, ww_timebase, exact_units, the ww_base crates and ww_tape (in their own repositories: from the
+    /// checkouts `Cargo.lock` pins) and ww_stdlib.
     #[test]
     fn snapshots_are_up_to_date() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
@@ -1800,6 +1800,7 @@ mod tests {
                 "ww_numeric",
                 "ww_si",
                 "ww_version",
+                "ww_tape",
             ]
             .map(base_dir),
         );

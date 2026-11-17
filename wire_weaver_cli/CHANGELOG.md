@@ -24,6 +24,7 @@
 
 ### 🚀 Features
 
+- `ww capture` stores `ww_tape`'s bundle next to the tap's, so a capture's definitions decode without `ww_tape` (STD-135).
 - Commands register themselves (TOOL-36): `wire_weaver_cli::registry::CommandDef` with `inventory`, a crate linking the library adds commands, `ww info` and `ww sync` take extensions (`InfoExtension`, `SyncExtension`).
 - `ww info --format json` on an STM32 bootloader that doesn't read its flash prints an object with `readable: false` (was a text line).
 

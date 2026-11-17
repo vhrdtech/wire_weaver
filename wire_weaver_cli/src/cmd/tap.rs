@@ -224,16 +224,22 @@ impl LiveTap {
     }
 }
 
-/// Define the API bundles a capture needs: the tap's own (its records are ordinary
-/// wire_weaver types) and the device's as it sent it (the decoder puts the snapshot-known traits back), so a capture is explained without the device or a local cache.
+/// Define the API bundles a capture needs: the tape's own (its definitions are ordinary wire_weaver types), the
+/// tap's (so are its records) and the device's as it sent it (the decoder puts the snapshot-known traits back), so a
+/// capture is explained without the device or a local cache.
 fn add_bundles(recorder: &Recorder, device: &DynClient) {
-    let tap = wire_weaver_client::ww_tap::api().make_owned();
-    if let Some(bundle) = wire_weaver_client::snapshots::Resolver::global().snapshot(&tap)
-        && let Ok(bytes) =
-            wire_weaver::shrink_wrap::SerializeShrinkWrapOwned::to_ww_bytes_owned(bundle)
-    {
-        let hash = wire_weaver_client::ww_self::signature::api_hash(&bytes);
-        recorder.add_bundle(&hash, &bytes);
+    for api in [
+        wire_weaver_client::ww_tape::api(),
+        wire_weaver_client::ww_tap::api(),
+    ] {
+        if let Some(bundle) =
+            wire_weaver_client::snapshots::Resolver::global().snapshot(&api.make_owned())
+            && let Ok(bytes) =
+                wire_weaver::shrink_wrap::SerializeShrinkWrapOwned::to_ww_bytes_owned(bundle)
+        {
+            let hash = wire_weaver_client::ww_self::signature::api_hash(&bytes);
+            recorder.add_bundle(&hash, &bytes);
+        }
     }
     if let Some(i) = device.device_introspect()
         && let Ok(bytes) = wire_weaver::shrink_wrap::SerializeShrinkWrapOwned::to_ww_bytes_owned(

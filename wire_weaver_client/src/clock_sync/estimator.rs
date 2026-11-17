@@ -5,7 +5,7 @@
 //! It takes time as numbers (nanoseconds), never reads a clock or sleeps, so tests drive it with simulated devices.
 //!
 //! ```
-//! use ww_clock_sync::{Estimator, EstimatorConfig, Sample};
+//! use wire_weaver_client::clock_sync::{Estimator, EstimatorConfig, Sample};
 //!
 //! // a device whose clock runs 1 % fast and started 5 s before the host's clock
 //! let device = |host_ns: u64| ((host_ns + 5_000_000_000) as f64 * 1.01) as u64;

@@ -1,9 +1,0 @@
-//! ww_tape's payload codec on any bytes: a chunk block's payloads read and salvage without panic; payloads built
-//! from the input read back exactly and survive, without panic, a flipped bit and input bytes written over their
-//! columns (a good head over a damaged payload, as salvage meets it), every item not marked suspect reading as
-//! written.
-#![no_main]
-
-use libfuzzer_sys::fuzz_target;
-
-fuzz_target!(|data: &[u8]| ww_tape_fuzz::targets::payloads(data));

@@ -88,7 +88,6 @@ const BUILDS: &[Build] = &[
     },
     build("mcu_qemu_m4f", "default", &[]),
     build("nucleo_h743zi2", "default", &[]),
-    build("nucleo_h743zi2", "streams", &["--features", "streams"]),
     build("nucleo_h743zi2", "settings", &["--features", "settings"]),
     build("nucleo_g0b1re", "usb", &["--features", "usb"]),
     build(
@@ -110,7 +109,6 @@ const BUILDS: &[Build] = &[
         ],
     ),
     build("usb_stm32h725ig", "default", &[]),
-    build("usb_stm32h725ig", "streams", &["--features", "streams"]),
     build("rp2", "default", &[]),
     build("rp2", "usb", &["--features", "usb"]),
     build("rp2", "ws_ncm", &["--features", "ws_ncm"]),
@@ -124,17 +122,6 @@ const BUILDS: &[Build] = &[
             "rtt_target",
             "--bin",
             "rp2_ww_rtt",
-        ],
-    ),
-    build(
-        "rp2",
-        "usb_log",
-        &[
-            "--no-default-features",
-            "--features",
-            "usb_log",
-            "--bin",
-            "rp2_usb_log",
         ],
     ),
     build("ecc_flash_g0b1", "default", &[]),

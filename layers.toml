@@ -6,8 +6,9 @@
 # Layer 0 (shrink_wrap), layer 1 (exact_units), layer 2 (the base types and identity crates of
 # vhrdtech/ww_base: ww_si, ww_numeric, ww_version, ww_global, ww_error, ww_date_time, ww_keyed, ww_crc)
 # and layer 3 (storage: ww_tape of vhrdtech/ww_tape) are their own repositories, taken by git, so they
-# never appear here. Layer 7 holds the shipped tools
-# of ww_tools/ and the crates of applications built on this repo that they link ([outside] below).
+# never appear here; so is layer 6, the standard APIs with their helpers and tools (vhrdtech/ww_stdlib).
+# Layer 7 holds the shipped tools of ww_tools/ and the crates of other repositories built on this one that
+# they link ([outside] below).
 #
 # A lower-layer crate may not depend on a higher-layer one (tests/layers_lint fails any such edge,
 # normal, build or dev, that `[[allow]]` below does not name); same-layer edges are fine.
@@ -47,8 +48,13 @@ counted_stream_api = 5
 follow_reboot_api = 5
 global_boot_api = 5
 global_fixture_api = 5
+global_ids = 5
 global_paths_api = 5
+mcu_qemu = 5
+nucleo_h743zi2 = 5
+stdlib_evolution = 5
 tape_identity = 5
+usb_fdcan_h725ig = 5
 wire_line_fixture_api = 5
 consts = 5
 consts_api = 5
@@ -173,100 +179,11 @@ ww_stream = 5
 ww_tap = 5
 ww_timebase = 5
 
-# Layer 6 — standard APIs (incl. their helpers, tests and examples)
-all_gpio = 6
-all_gpio_api = 6
-block_sd = 6
-block_sd_api = 6
-board_info = 6
-board_info_api = 6
-counters = 6
-counters_api = 6
-defmt_log = 6
-defmt_log_api = 6
-device_report = 6
-device_report_api = 6
-dfu = 6
-dfu_api = 6
-dfu_app_api = 6
-dfu_lean_app_api = 6
-dfu_scenarios = 6
-dfu_updater_api = 6
-firmware_info = 6
-firmware_info_api = 6
-global_ids = 6
-indication = 6
-indication_api = 6
-io_adc = 6
-io_adc_api = 6
-io_can = 6
-io_can_api = 6
-io_can_group = 6
-io_can_group_api = 6
-io_gpio = 6
-io_gpio_api = 6
-io_i2c = 6
-io_i2c_api = 6
-io_onewire = 6
-io_onewire_api = 6
-io_pwm = 6
-io_pwm_api = 6
-io_spi = 6
-io_spi_api = 6
-io_uart = 6
-io_uart_api = 6
-log_defmt = 6
-log_defmt_api = 6
-mcu_qemu = 6
-nucleo_h743zi2 = 6
-pin_diag = 6
-pin_diag_api = 6
-recorder_groups = 6
-recorder_groups_api = 6
-stdlib_evolution = 6
-uart = 6
-uart_api = 6
-uid = 6
-uid_api = 6
-usb_fdcan_h725ig = 6
-user_info = 6
-user_info_api = 6
-ww_adc = 6
-ww_block = 6
-ww_board_info = 6
-ww_bus_slave = 6
-ww_can_bus = 6
-ww_counters = 6
-ww_defmt_logger = 6
-ww_dfu = 6
-ww_firmware_info = 6
-ww_gpio = 6
-ww_gpio_hl = 6
-ww_i2c = 6
-ww_i2c_hl = 6
-ww_indication = 6
-ww_interned = 6
-ww_log = 6
-ww_logic_analyzer = 6
-ww_memory = 6
-ww_onewire = 6
-ww_pin_diag = 6
-ww_pin_probe = 6
-ww_pwm = 6
-ww_recorder = 6
-ww_report = 6
-ww_std_cli = 6
 
 # Layer 7: the shipped tools (ww_tools/, their own workspace), everything of every layer built in,
 # with the commands of the repositories built on this one ([outside])
 ww = 7
 wire_weaver_wheel = 7
-ww_sd = 6
-ww_signal_generator = 6
-ww_spi = 6
-ww_uart = 6
-ww_uid = 6
-ww_user_info = 6
 
 # Crates of other repositories that build on this one, linked by the shipped tools: only a crate of
 # their layer or above may depend on them (tests/layers_lint). They take wire_weaver by git, which
@@ -274,6 +191,7 @@ ww_user_info = 6
 # and prints a skip with the reason where that lock or its sources are missing.
 [outside]
 chunky_ww_cli = 7
+ww_std_cli = 6
 logring_py = 7
 logring_ww_cli = 7
 
@@ -291,46 +209,12 @@ crates = [
     "skipped_dep_api",
     "skipped_root_api",
     "wire_line_fixture_api",
-    "ww_adc",
-    "ww_block",
-    "ww_board_info",
-    "ww_can_bus",
-    "ww_counters",
-    "ww_dfu",
-    "ww_firmware_info",
-    "ww_gpio",
     "ww_hub_api",
-    "ww_i2c",
-    "ww_indication",
-    "ww_interned",
-    "ww_log",
-    "ww_logic_analyzer",
-    "ww_memory",
-    "ww_onewire",
-    "ww_pin_diag",
-    "ww_pwm",
-    "ww_recorder",
-    "ww_sd",
-    "ww_signal_generator",
-    "ww_spi",
     "ww_timebase",
-    "ww_uart",
-    "ww_uid",
-    "ww_user_info",
 ]
 
-# Runtime crates an API crate still reaches, each with the refactor that removes it; an entry no longer reached
-# fails the test. `ww_board_info::record` runs the settings store over a flash image (STD-101) and belongs in a
-# helper crate beside the API, as `ww_bus_slave` sits beside `ww_i2c`.
-[[api.allow]]
-from = "ww_board_info"
-reaches = "ww_settings"
-refactor = "ww_board_info record helper crate"
-
-[[api.allow]]
-from = "ww_board_info"
-reaches = "ww_settings_derive"
-refactor = "ww_board_info record helper crate"
+# Runtime crates an API crate still reaches, each with the refactor that removes it, as `[[api.allow]]` entries
+# (`from`, `reaches`, `refactor`); an entry no longer reached fails the test. None is left.
 
 # Known upward edges, as `[[allow]]` entries (`from`, `to`, `refactor`), each removed by the refactor named in it.
 # None is left. An edge no longer present in `cargo metadata` fails the test: drop its entry in the same change

@@ -1,5 +1,5 @@
 # The shipped tools (layer 7): the `ww` binary and the wire_weaver wheel, with every command of every layer and
-# of the repositories built on this one (logring, chunky_mcu_updater). Its own workspace, excluded from the root:
+# of the repositories built on this one (ww_stdlib, logring, chunky_mcu_updater). Its own workspace, excluded from the root:
 # those repositories take wire_weaver by git, so the root workspace never depends on them, and a breaking change
 # here leaves only this workspace waiting for them to follow. Their git copies of wire_weaver crates are patched
 # to the crates of this repository, so one registry and one set of types serve all commands.
@@ -25,22 +25,31 @@ pyo3 = "0.29"
 wire_weaver_cli = { version = "0.5.0", path = "../wire_weaver_cli" }
 wire_weaver_py = { version = "0.5.0", path = "../wire_weaver_py" }
 ww_snapshots = { version = "0.5.0", path = "../ww_snapshots" }
-ww_std_cli = { version = "0.5.0", path = "../ww_stdlib/ww_std_cli" }
+# the standard library's commands: by git from ww_stdlib, Cargo.lock pins the commit (`cargo update -p ww_std_cli`)
+ww_std_cli = { version = "0.5.0", git = "https://github.com/vhrdtech/ww_stdlib" }
 
-# logring and chunky_mcu_updater take these by git: the crates of this repository instead, and shrink_wrap
-# and the base crates (ww_si, ww_numeric, ...) from their own repositories, as the crates here take them
+# ww_stdlib, logring and chunky_mcu_updater take these by git: the crates of this repository instead, and
+# shrink_wrap, the base crates (ww_si, ww_numeric, ...) and the standard library's (ww_dfu) from their own
+# repositories, as the crates here take them
 [patch."https://github.com/vhrdtech/wire_weaver"]
 shrink_wrap = { git = "https://github.com/romixlab/shrink_wrap" }
 shrink_wrap_derive = { git = "https://github.com/romixlab/shrink_wrap" }
 wire_weaver = { path = "../wire_weaver" }
 wire_weaver_cli = { path = "../wire_weaver_cli" }
 wire_weaver_client = { path = "../wire_weaver_client" }
+wire_weaver_core = { path = "../wire_weaver_core" }
+wire_weaver_evolution = { path = "../wire_weaver_evolution" }
+ww_api = { path = "../ww_api" }
 ww_client_server = { path = "../ww_client_server" }
 ww_device = { path = "../ww_device" }
-ww_dfu = { path = "../ww_stdlib/ww_dfu" }
+ww_dfu = { git = "https://github.com/vhrdtech/ww_stdlib" }
+ww_framer = { path = "../ww_framer" }
 ww_global = { git = "https://github.com/vhrdtech/ww_base" }
+ww_link = { path = "../ww_link" }
+ww_lz4 = { path = "../ww_lz4" }
 ww_numeric = { git = "https://github.com/vhrdtech/ww_base" }
 ww_self = { path = "../ww_self" }
+ww_settings = { path = "../ww_settings/ww_settings" }
 ww_si = { git = "https://github.com/vhrdtech/ww_base" }
 ww_snapshots = { path = "../ww_snapshots" }
 ww_stream = { path = "../ww_stream" }

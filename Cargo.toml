@@ -16,10 +16,8 @@ members = [
     "wire_weaver_py",
     "ww_api",
     "ww_book",
-    "ww_bus_slave",
     "ww_client_server",
     "ww_clock_sync",
-    "ww_defmt_logger",
     "ww_device",
     "ww_framer",
     "ww_hub",
@@ -30,7 +28,6 @@ members = [
     "ww_self",
     "ww_settings/*",
     "ww_snapshots",
-    "ww_stdlib/*",
     "ww_stream",
     "ww_tap",
     "ww_tape_bundle",
@@ -64,18 +61,14 @@ clap = "4.5"
 clap_complete = "4.6"
 cnt = "0.4"
 cnt_core = "0.5"
-cnt_view = "0.5"
 console = "0.16"
 convert_case = "0.11"
 crc = "3.4"
 crossterm = "0.29"
 defmt = "1.1"
-defmt-decoder = "1.1"
 # memoised snapshots handed out as references for as long as the resolver lives (ww_snapshots)
 elsa = "1.11"
 embassy-futures = "0.1"
-embedded-hal = "1.0"
-embedded-hal-async = "1.0"
 embedded-storage-async = "0.4.2"
 # gzip of a .crate or repository archive, pure Rust (miniz_oxide)
 flate2 = { version = "1.1", default-features = false, features = ["rust_backend"] }
@@ -95,7 +88,6 @@ proc-macro2 = "1.0"
 proptest = "1.11"
 pyo3 = "0.29"
 quote = "1.0"
-ratatui = "0.30"
 ron = { version = "0.12", features = ["integer128"] }
 rustix = { version = "1", default-features = false, features = ["std", "termios"] }
 semver = "1.0"
@@ -153,9 +145,7 @@ wire_weaver_evolution = { version = "0.5.0", path = "./wire_weaver_evolution", d
 wire_weaver_py = { version = "0.5.0", path = "./wire_weaver_py" }
 ww_api = { version = "0.5.0", path = "./ww_api", default-features = false }
 ww_book = { version = "0.5.0", path = "./ww_book" }
-ww_bus_slave = { version = "0.5.0", path = "./ww_bus_slave" }
 ww_clock_sync = { version = "0.5.0", path = "./ww_clock_sync" }
-ww_defmt_logger = { version = "0.5.0", path = "./ww_defmt_logger" }
 ww_device = { version = "0.5.0", path = "./ww_device" }
 ww_framer = { version = "0.5.0", path = "./ww_framer", default-features = false }
 ww_hub = { version = "0.5.0", path = "./ww_hub" }
@@ -163,12 +153,9 @@ ww_link = { version = "0.5.0", path = "./ww_link", default-features = false }
 ww_local_socket = { version = "0.5.0", path = "./ww_local_socket", default-features = false }
 # Its own repo since CLT-21; a registry version once picoboot_host is on crates.io.
 ww_picoboot = { package = "picoboot_host", git = "https://github.com/vhrdtech/picoboot_host", tag = "v0.1.0", default-features = false }
-ww_pin_probe = { version = "0.5.0", path = "./ww_stdlib/ww_pin_probe" }
-ww_report = { version = "0.5.0", path = "./ww_stdlib/ww_report" }
 ww_settings = { version = "0.5.0", path = "./ww_settings/ww_settings" }
 ww_settings_derive = { version = "0.5.0", path = "./ww_settings/ww_settings_derive" }
 ww_snapshots = { version = "0.5.0", path = "./ww_snapshots" }
-ww_std_cli = { version = "0.5.0", path = "./ww_stdlib/ww_std_cli" }
 # CLT-34: a crate of its own like picoboot_host, to move to its own repo.
 ww_stm32_dfu = { package = "stm32_dfu_host", version = "0.1.0", path = "./stm32_dfu_host", default-features = false }
 ww_stream = { version = "0.5.0", path = "./ww_stream", default-features = false }
@@ -182,43 +169,12 @@ ww_tap = { version = "0.1.0", path = "./ww_tap", default-features = false }
 ww_tape_bundle = { version = "0.1.0", path = "./ww_tape_bundle" }
 ww_timebase = { version = "0.1.0", path = "./ww_timebase", default-features = false }
 
-# ww_stdlib, each crate has its own version
-ww_adc = { version = "0.3.0", path = "./ww_stdlib/ww_adc", default-features = false }
-ww_block = { version = "0.1.0", path = "./ww_stdlib/ww_block", default-features = false }
-ww_board_info = { version = "0.3.0", path = "./ww_stdlib/ww_board_info", default-features = false }
-ww_can_bus = { version = "0.1.0", path = "./ww_stdlib/ww_can_bus", default-features = false }
-ww_counters = { version = "0.1.0", path = "./ww_stdlib/ww_counters", default-features = false }
-ww_dfu = { version = "0.1.0", path = "./ww_stdlib/ww_dfu", default-features = false }
-ww_firmware_info = { version = "0.1.0", path = "./ww_stdlib/ww_firmware_info", default-features = false }
-ww_gpio = { version = "0.1.0", path = "./ww_stdlib/ww_gpio", default-features = false }
-ww_gpio_hl = { version = "0.1.0", path = "./ww_stdlib/ww_gpio_hl" }
-ww_i2c = { version = "0.1.0", path = "./ww_stdlib/ww_i2c", default-features = false }
-ww_i2c_hl = { version = "0.1.0", path = "./ww_stdlib/ww_i2c_hl" }
-ww_indication = { version = "0.1.0", path = "./ww_stdlib/ww_indication", default-features = false }
-ww_interned = { version = "0.1.0", path = "./ww_stdlib/ww_interned", default-features = false }
-ww_log = { version = "0.1.0", path = "./ww_stdlib/ww_log", default-features = false }
-ww_logic_analyzer = { version = "0.1.0", path = "./ww_stdlib/ww_logic_analyzer", default-features = false }
-ww_memory = { version = "0.1.0", path = "./ww_stdlib/ww_memory", default-features = false }
-ww_onewire = { version = "0.1.0", path = "./ww_stdlib/ww_onewire", default-features = false }
-ww_pin_diag = { version = "0.1.0", path = "./ww_stdlib/ww_pin_diag", default-features = false }
-ww_pwm = { version = "0.1.0", path = "./ww_stdlib/ww_pwm", default-features = false }
-ww_recorder = { version = "0.1.0", path = "./ww_stdlib/ww_recorder", default-features = false }
-ww_sd = { version = "0.1.0", path = "./ww_stdlib/ww_sd", default-features = false }
-ww_signal_generator = { version = "0.1.0", path = "./ww_stdlib/ww_signal_generator", default-features = false }
-ww_spi = { version = "0.1.0", path = "./ww_stdlib/ww_spi", default-features = false }
-ww_uart = { version = "0.1.0", path = "./ww_stdlib/ww_uart", default-features = false }
-ww_uid = { version = "0.1.0", path = "./ww_stdlib/ww_uid", default-features = false }
-ww_user_info = { version = "0.1.0", path = "./ww_stdlib/ww_user_info", default-features = false }
-
 # examples and tests, not published
-all_gpio_api = { version = "0.1.0", path = "./examples/all_gpio_api" }
 args_evolution_api = { version = "0.1.0", path = "./tests/args_evolution_api" }
 array_of_streams_api = { version = "0.1.0", path = "./tests/array_of_streams_api" }
 blinky = { version = "0.1.0", path = "./examples/blinky" }
 blinky_api = { version = "0.1.0", path = "./examples/blinky_api" }
 blinky_api_evolved = { version = "0.1.1", path = "./examples/blinky_api_evolved" }
-block_sd_api = { version = "0.1.0", path = "./tests/block_sd_api" }
-board_info_api = { version = "0.1.0", path = "./tests/board_info_api" }
 bounded_api = { version = "0.1.0", path = "./tests/bounded_api" }
 cfg_variants_api = { version = "0.1.0", path = "./tests/cfg_variants_api" }
 cfg_variants_narrow_api = { version = "0.1.0", path = "./tests/cfg_variants_narrow_api", default-features = false, features = ["std"] }
@@ -226,21 +182,13 @@ common_error = { version = "0.1.0", path = "./tests/common_error" }
 common_error_api = { version = "0.1.0", path = "./tests/common_error_api" }
 conformance_api = { version = "0.1.0", path = "./tests/conformance_api" }
 consts_api = { version = "0.1.0", path = "./tests/consts_api" }
-counters_api = { version = "0.1.0", path = "./tests/counters_api" }
 credit_sink_api = { version = "0.1.0", path = "./tests/credit_sink_api" }
 cross_version_api = { version = "0.4.0", path = "./tests/cross_version_api" }
 cross_version_old_api = { version = "0.3.0", path = "./tests/cross_version_old_api" }
 customary_api = { version = "0.1.0", path = "./tests/customary_api" }
-defmt_log_api = { version = "0.1.0", path = "./examples/defmt_log_api", default-features = false }
-device_report_api = { version = "0.1.0", path = "./tests/device_report_api" }
-dfu_api = { version = "0.1.0", path = "./tests/dfu_api" }
-dfu_app_api = { version = "0.1.0", path = "./tests/dfu_app_api" }
-dfu_lean_app_api = { version = "0.1.0", path = "./tests/dfu_lean_app_api" }
-dfu_updater_api = { version = "0.1.0", path = "./tests/dfu_updater_api" }
 dispatch_golden_api = { version = "0.1.0", path = "./tests/dispatch_golden_api" }
 dynamic_api = { version = "0.1.0", path = "./tests/dynamic_api" }
 fan_api = { version = "0.1.0", path = "./tests/fan_api" }
-firmware_info_api = { version = "0.1.0", path = "./tests/firmware_info_api" }
 flash_budget_api = { version = "0.1.0", path = "./tests/flash_budget_api", default-features = false }
 foc_observe_api = { version = "0.1.0", path = "./examples/foc_observe_api" }
 follow_reboot_api = { version = "0.1.0", path = "./tests/follow_reboot_api" }
@@ -250,23 +198,12 @@ global_fixture_api = { version = "0.1.0", path = "./tests/global_fixture_api" }
 hub_api = { version = "0.1.0", path = "./tests/hub_api" }
 hub_pytest_device_api = { version = "0.1.0", path = "./tests/hub_pytest_device_api" }
 hub_reconnect_api = { version = "0.1.0", path = "./tests/hub_reconnect_api" }
-indication_api = { version = "0.1.0", path = "./tests/indication_api" }
 introspect_compressed_api = { version = "0.1.0", path = "./tests/introspect_compressed_api" }
-io_adc_api = { version = "0.1.0", path = "./tests/io_adc_api" }
-io_can_api = { version = "0.1.0", path = "./tests/io_can_api" }
-io_can_group_api = { version = "0.1.0", path = "./tests/io_can_group_api" }
-io_gpio_api = { version = "0.1.0", path = "./tests/io_gpio_api" }
-io_i2c_api = { version = "0.1.0", path = "./tests/io_i2c_api" }
-io_onewire_api = { version = "0.1.0", path = "./tests/io_onewire_api" }
-io_pwm_api = { version = "0.1.0", path = "./tests/io_pwm_api" }
-io_spi_api = { version = "0.1.0", path = "./tests/io_spi_api" }
 io_timebase_api = { version = "0.1.0", path = "./tests/io_timebase_api" }
-io_uart_api = { version = "0.1.0", path = "./tests/io_uart_api" }
 keyed = { version = "0.1.0", path = "./tests/keyed" }
 keyed_api = { version = "0.1.0", path = "./tests/keyed_api" }
 large_messages_api = { version = "0.1.0", path = "./tests/large_messages_api" }
 local_trait_api = { version = "0.1.0", path = "./examples/local_trait_api" }
-log_defmt_api = { version = "0.1.0", path = "./tests/log_defmt_api" }
 methods_api = { version = "0.1.0", path = "./tests/methods_api" }
 module_paths_api = { version = "0.1.0", path = "./tests/module_paths_api" }
 multi_req_api = { version = "0.1.0", path = "./tests/multi_req_api" }
@@ -274,11 +211,9 @@ multi_root_api = { version = "0.1.0", path = "./tests/multi_root_api" }
 observe_api = { version = "0.1.0", path = "./tests/observe_api" }
 observe_arrays_api = { version = "0.1.0", path = "./tests/observe_arrays_api" }
 observe_batched_api = { version = "0.1.0", path = "./tests/observe_batched_api" }
-pin_diag_api = { version = "0.1.0", path = "./tests/pin_diag_api" }
 power_stage_api = { version = "0.1.0", path = "./examples/power_stage_api" }
 properties_api = { version = "0.1.0", path = "./tests/properties_api" }
 quantities_api = { version = "0.1.0", path = "./tests/quantities_api" }
-recorder_groups_api = { version = "0.1.0", path = "./tests/recorder_groups_api" }
 recursive_api = { version = "0.1.0", path = "./tests/recursive_api" }
 series_api = { version = "0.1.0", path = "./tests/series_api" }
 settings_api = { version = "0.1.0", path = "./examples/settings_api" }
@@ -299,9 +234,6 @@ thermo_api = { version = "6.0.0", path = "./tests/thermo_api" }
 thermo_api_5_0_0 = { package = "thermo_api", version = "5.0.0", path = "./tests/thermo_api_old/5_0_0" }
 thermo_devices = { version = "0.1.0", path = "./tests/thermo_devices" }
 traits_api = { version = "0.1.0", path = "./tests/traits_api" }
-uart_api = { version = "0.1.0", path = "./examples/uart_api" }
-uid_api = { version = "0.1.0", path = "./tests/uid_api" }
-user_info_api = { version = "0.1.0", path = "./tests/user_info_api" }
 wire_line_api = { version = "0.4.0", path = "./tests/wire_line_api" }
 wire_line_fixture_api = { version = "0.1.0", path = "./tests/wire_line_fixture_api" }
 wire_line_old_api = { version = "0.3.0", path = "./tests/wire_line_old_api" }

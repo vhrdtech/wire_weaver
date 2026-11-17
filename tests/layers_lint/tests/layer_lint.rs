@@ -93,7 +93,7 @@ fn repo_root() -> PathBuf {
 }
 
 /// Every workspace in the repo but `ww_tools/` (`ww_tools_graph`): the root (`tests/*`, `examples/*`,
-/// `ww_stdlib/*`, ... are members of it already), `mcu/`, `fuzz/`, `wire_weaver_tool/` (excluded from the root on
+/// `ww_settings/*`, ... are members of it already), `mcu/`, `fuzz/`, `wire_weaver_tool/` (excluded from the root on
 /// purpose, AGENTS.md), and every board under `examples_mcu/`, each its own package outside any workspace.
 fn workspace_manifests(root: &Path) -> Vec<PathBuf> {
     let mut manifests = vec![

@@ -33,14 +33,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "all_gpio_api"
-version = "0.1.0"
-dependencies = [
- "ww_api",
- "ww_gpio",
-]
-
-[[package]]
 name = "anyhow"
 version = "1.0.102"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -53,15 +45,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "516b6b4f0e40d50dcda9365d53964ec74560ad4284da2e7fc97122cd83174516"
 dependencies = [
  "stable_deref_trait",
-]
-
-[[package]]
-name = "atomic-waker"
-version = "1.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
-dependencies = [
- "portable-atomic",
 ]
 
 [[package]]
@@ -1108,7 +1091,6 @@ dependencies = [
 name = "nucleo_h743zi2"
 version = "0.1.0"
 dependencies = [
- "all_gpio_api",
  "blinky_api",
  "cnt",
  "cortex-m",
@@ -1128,10 +1110,8 @@ dependencies = [
  "wire_weaver",
  "wire_weaver_usb_embassy",
  "ww_client_server",
- "ww_gpio",
  "ww_settings",
  "ww_si",
- "ww_stream",
 ]
 
 [[package]]
@@ -2059,14 +2039,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ww_gpio"
-version = "0.1.0"
-dependencies = [
- "ww_api",
- "ww_si",
-]
-
-[[package]]
 name = "ww_link"
 version = "0.5.0"
 dependencies = [
@@ -2154,17 +2126,6 @@ dependencies = [
  "tracing",
  "ww_self",
  "ww_version",
-]
-
-[[package]]
-name = "ww_stream"
-version = "0.5.0"
-dependencies = [
- "atomic-waker",
- "portable-atomic",
- "wire_weaver",
- "ww_client_server",
- "ww_si",
 ]
 
 [[package]]

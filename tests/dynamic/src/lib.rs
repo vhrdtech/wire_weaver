@@ -635,15 +635,12 @@ mod tests {
             .to_ww_bytes_owned()
             .unwrap()
         };
-        let user_info = ww_global::trait_id("ww_user_info", "UserInfo")
-            .unwrap()
-            .id
-            .0;
-        let e = explain_request(&request(user_info), None, tests_common::resolver());
+        let clock = ww_global::trait_id("ww_timebase", "Clock").unwrap().id.0;
+        let e = explain_request(&request(clock), None, tests_common::resolver());
         let path = part(&e.explained.parts, "path");
         assert_eq!(path.ty, "PathKind::GlobalCompact");
         assert!(
-            e.title.starts_with("Request Read ww_user_info::UserInfo."),
+            e.title.starts_with("Request Read ww_timebase::Clock."),
             "{}",
             e.title
         );
@@ -666,7 +663,11 @@ mod tests {
             "{}",
             note(4000)
         );
-        assert!(note(0).contains("crate ww_log"), "{}", note(0));
+        assert!(
+            note(513).contains("crate ww_client_server"),
+            "{}",
+            note(513)
+        );
     }
 
     #[test]

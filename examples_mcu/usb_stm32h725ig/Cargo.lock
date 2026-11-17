@@ -21,14 +21,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "all_gpio_api"
-version = "0.1.0"
-dependencies = [
- "ww_api",
- "ww_gpio",
-]
-
-[[package]]
 name = "anyhow"
 version = "1.0.104"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -65,17 +57,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5deb64efa5bd81e31fcd1938615a6d98c82eafcbcd787162b6f63b91d6bac5b3"
 dependencies = [
  "rustc_version",
-]
-
-[[package]]
-name = "bbqueue"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68917624e17aad88607cb5a5936f6da9b607c48c711e4e9ed101e7189aed28c2"
-dependencies = [
- "const-init",
- "critical-section",
- "maitake-sync",
 ]
 
 [[package]]
@@ -188,12 +169,6 @@ dependencies = [
  "quote",
  "syn 3.0.3",
 ]
-
-[[package]]
-name = "const-init"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4bd422bfb4f24a97243f60b6a4443e63d810c925d8da4bb2d8fde26a7c1d57ec"
 
 [[package]]
 name = "const-oid"
@@ -1054,22 +1029,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ecbdfe44b1bd960b68170b417450a628c43f7cf56bb3c5317e61cb230ee7f226"
 
 [[package]]
-name = "maitake-sync"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d77c365d697828821727b9bc09e6bc3c518b8c63804e79e1be5a5ae091a7c5f"
-dependencies = [
- "cordyceps",
- "critical-section",
- "loom",
- "mutex-traits",
- "mycelium-bitfield",
- "pin-project",
- "portable-atomic",
- "tracing",
-]
-
-[[package]]
 name = "managed"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1089,18 +1048,6 @@ name = "memchr"
 version = "2.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
-
-[[package]]
-name = "mutex-traits"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3929f2b5633d29cf7b6624992e5f3c1e9334f1193423e12d17be4faf678cde3f"
-
-[[package]]
-name = "mycelium-bitfield"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "24e0cc5e2c585acbd15c5ce911dff71e1f4d5313f43345873311c4f5efd741cc"
 
 [[package]]
 name = "nb"
@@ -1207,26 +1154,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e04d3a0849e241d7dfce834c83b1c5edc8622009e8dd51a12ba1927c32f05496"
 dependencies = [
  "pest",
-]
-
-[[package]]
-name = "pin-project"
-version = "1.1.13"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2466b2336ed02bcdca6b294417127b90ec92038d1d5c4fbeac971a922e0e0924"
-dependencies = [
- "pin-project-internal",
-]
-
-[[package]]
-name = "pin-project-internal"
-version = "1.1.13"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c96395f0a926bc13b1c17622aaddda1ecb55d49c8f1bf9777e4d877800a43f8b"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.119",
 ]
 
 [[package]]
@@ -1769,14 +1696,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6f5e870be6c3b371b77fe0ee0bafb859fa4964b4404c27de1d380043c4dda20"
 
 [[package]]
-name = "uart_api"
-version = "0.1.0"
-dependencies = [
- "ww_api",
- "ww_uart",
-]
-
-[[package]]
 name = "ucd-trie"
 version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1808,8 +1727,6 @@ dependencies = [
 name = "usb_fdcan_h725ig"
 version = "0.1.0"
 dependencies = [
- "all_gpio_api",
- "bbqueue",
  "blinky_api",
  "cnt",
  "cortex-m",
@@ -1828,14 +1745,11 @@ dependencies = [
  "power_stage_api",
  "static_cell",
  "stm32-metapac",
- "uart_api",
  "wire_weaver",
  "wire_weaver_usb_embassy",
  "ww_client_server",
- "ww_gpio",
  "ww_si",
  "ww_stream",
- "ww_uart",
 ]
 
 [[package]]
@@ -2093,14 +2007,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ww_gpio"
-version = "0.1.0"
-dependencies = [
- "ww_api",
- "ww_si",
-]
-
-[[package]]
 name = "ww_keyed"
 version = "0.1.0"
 source = "git+https://github.com/vhrdtech/ww_base#fbddc7e13b577a6f876aa1e5a4698eafc85eba8c"
@@ -2194,14 +2100,6 @@ name = "ww_tap"
 version = "0.1.0"
 dependencies = [
  "wire_weaver",
-]
-
-[[package]]
-name = "ww_uart"
-version = "0.1.0"
-dependencies = [
- "ww_api",
- "ww_si",
 ]
 
 [[package]]

@@ -23,9 +23,6 @@ test-all:
     cargo nextest run --workspace --no-fail-fast
     # a server built as a firmware is, without ww_client_server's multi and streams, refuses their requests (SRV-60)
     just test-lean-server
-    # ww_block's crc32/crc32_update without std, bitwise and with ww_crc's 256-entry table (TR-31)
-    cargo nextest run -p ww_block --no-default-features
-    cargo nextest run -p ww_block --no-default-features --features ww_crc/table-256
     # the docs site's Markdown extensions (the `bits` fence)
     uv run --group dev pytest -q docs_ext
     # ww_lz4's blocks decoded by C liblz4
@@ -76,20 +73,9 @@ miri:
 test-power-cut:
     cargo nextest run -p ww_settings --release --profile power-cut --test power_cut
 
-# Regenerate the ww_dfu scenario transcripts (tests/dfu_scenarios/transcripts, included by docs/std_library/ww_dfu_ab.md and ww_dfu_one_slot.md)
-dfu-transcripts:
-    DFU_TRANSCRIPTS=update cargo nextest run -p dfu_scenarios
-
 # Regenerate the docs site's Features page (docs/features_today.md) from FEATURES.md and tests/features_page/entries.md (DOC-9)
 features-page:
     FEATURES_PAGE=update cargo nextest run -p features_page
-
-# Rebuild the crash symbolizer's test ELFs from ww_stdlib/ww_report/tests/crash_fw (CLT-59); recheck the tests' addresses with `llvm-objdump -d` after
-[working-directory('ww_stdlib/ww_report/tests/crash_fw')]
-crash-fw-elf:
-    cargo build --release
-    cp target/thumbv6m-none-eabi/release/crash_fw ../crash_fw.elf
-    llvm-objcopy --strip-debug ../crash_fw.elf ../crash_fw_nodebug.elf
 
 # Regenerate the WireWeaver and ShrinkWrap logos in docs/assets (light, dark, 2x PNG; needs rsvg-convert)
 logos:
@@ -159,13 +145,11 @@ check-examples-mcu-qemu:
 check-examples-mcu-nucleo-h743zi2:
     # Checking nucleo_h743zi2
     @cargo check
-    @cargo check --features streams
     @cargo check --features settings
 
 [working-directory('examples_mcu/nucleo_h743zi2')]
 upload-examples-mcu-nucleo-h743zi2:
     mx3 fw upload --bin blinky --release --rename usb_nucleo_h743zi2_blinky
-    mx3 fw upload --bin all_gpio --release --rename usb_nucleo_h743zi2_all_gpio
 
 [working-directory('examples_mcu/nucleo_g0b1re')]
 check-examples-mcu-nucleo-g0b1re:
@@ -200,7 +184,6 @@ hw-ecc-flash-h7:
 check-examples-mcu-stm32h725ig:
     # Checking usb_stm32h725ig
     @cargo check
-    @cargo check --features streams
 
 [working-directory('examples_mcu/rp2')]
 check-examples-mcu-rp2:
@@ -210,11 +193,6 @@ check-examples-mcu-rp2:
     @cargo check --features ws_ncm
     @cargo check --features udp_ncm
     @cargo check --no-default-features --features rtt_target --bin rp2_ww_rtt
-    @cargo check --no-default-features --features usb_log --bin rp2_usb_log
-
-[working-directory('examples_mcu/usb_stm32h725ig')]
-upload-examples-mcu-usb-stm32h725ig:
-    mx3 fw upload --bin uart --release --rename usb_b135_uart
 
 # Build ww and install it: ww_tools/'s recipe (ww, the wheel and their tests live in that workspace and its justfile)
 install:
@@ -227,32 +205,14 @@ install-cli: install
 deploy:
     just -f ww_tools/justfile deploy
 
-# Save API snapshots of ww_tap, ww_timebase, ww_link, ww_client_server and the wire line fixture, then of the
-# ww_stdlib crates, into each crate's api_snapshots/ (the ww_base crates save theirs in ww_base). Pass --force to
-# overwrite snapshots of versions that were never published.
+# Save API snapshots of ww_tap, ww_timebase, ww_link, ww_client_server and the test fixtures other crates' tests
+# read, into each crate's api_snapshots/, with wire_weaver_cli's generic `ww` (the ww_base and ww_stdlib crates save
+# theirs in their own repositories). Pass --force to overwrite snapshots of versions that were never published.
 save-snapshots *args:
     cargo build -q -p wire_weaver_cli --example ww_generic
     for crate in ww_tap ww_timebase ww_link ww_client_server tests/wire_line_fixture_api tests/skipped_dep_api; do \
         target/debug/examples/ww_generic api save $crate {{ args }} || exit 1; \
     done
-    just save-stdlib-snapshots {{ args }}
-    # the frozen fixture that follows the stdlib by path: its pins follow too (EVO-70)
-    just refresh-fixture-pins
-
-# Save API snapshots of the ww_stdlib crates, with ww_std_cli's `ww` (generic and standard library commands)
-save-stdlib-snapshots *args:
-    cargo build -q -p ww_std_cli --example ww_stdlib
-    # ww_std_cli, ww_report and ww_pin_probe are host tools without an API
-    for crate in ww_stdlib/*/; do \
-        case "$(basename $crate)" in ww_std_cli|ww_report|ww_pin_probe) continue;; esac; \
-        target/debug/examples/ww_stdlib api save $crate {{ args }} || exit 1; \
-    done
-
-# Refresh the pinned stdlib signatures of the nucleo_g0b1re_api evolution fixture to the stdlib's current source,
-# keeping its old snapshot format (EVO-70). Refused on a wire break, unless --accept-breaking.
-refresh-fixture-pins *args:
-    cargo build -q -p wire_weaver_cli --example ww_generic
-    target/debug/examples/ww_generic api refresh-pins wire_weaver_evolution/tests/fixtures/nucleo_g0b1re_api {{ args }}
 
 pre-commit:
     cargo sort -w -g

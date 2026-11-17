@@ -1,8 +1,7 @@
-//! Every public `#[ww_trait]` / `#[ww_api_root]` in `ww_stdlib` has an id in ww_base's
-//! `ww_global/wire_weaver_gid.json` (or is listed in its `no_id`), and every trait entry of a `ww_stdlib` crate names
-//! a trait that exists (or is retired).
-//! `ww_client_server` and `ww_timebase` left `ww_stdlib/` for the repo root (R5) but are walked here too, so their
-//! traits (`ww_timebase::Clock`) stay covered.
+//! Every public `#[ww_trait]` / `#[ww_api_root]` of the framework crates that define traits for every device
+//! (`ww_client_server`, `ww_timebase`) has an id in ww_base's `ww_global/wire_weaver_gid.json` (or is listed in its
+//! `no_id`), and every trait entry of such a crate names a trait that exists (or is retired). The standard library's
+//! traits are checked in the ww_stdlib repository.
 
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -45,19 +44,11 @@ fn traits_in(items: &[syn::Item], crate_name: &str, out: &mut BTreeSet<String>) 
     }
 }
 
-/// `crate::Trait` of every public API trait in `ww_stdlib`, plus `ww_client_server` and `ww_timebase` which left
-/// `ww_stdlib/` for the repo root (R5), and the crate names.
-fn stdlib_traits() -> (BTreeSet<String>, BTreeSet<String>) {
+/// `crate::Trait` of every public API trait in `ww_client_server` and `ww_timebase`, and the crate names.
+fn framework_traits() -> (BTreeSet<String>, BTreeSet<String>) {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let stdlib = root.join("ww_stdlib");
     let (mut traits, mut crates) = (BTreeSet::new(), BTreeSet::new());
-    let mut dirs: Vec<PathBuf> = std::fs::read_dir(&stdlib)
-        .unwrap()
-        .map(|entry| entry.unwrap().path())
-        .collect();
-    dirs.push(root.join("ww_client_server"));
-    dirs.push(root.join("ww_timebase"));
-    for dir in dirs {
+    for dir in [root.join("ww_client_server"), root.join("ww_timebase")] {
         let Ok(manifest) = std::fs::read_to_string(dir.join("Cargo.toml")) else {
             continue;
         };
@@ -76,12 +67,11 @@ fn stdlib_traits() -> (BTreeSet<String>, BTreeSet<String>) {
 }
 
 #[test]
-fn every_stdlib_trait_has_an_id() {
-    let (traits, crates) = stdlib_traits();
+fn every_framework_trait_has_an_id() {
+    let (traits, crates) = framework_traits();
     assert!(
-        traits.len() > 40,
-        "found only {} traits, is the walk broken?",
-        traits.len()
+        traits.contains("ww_timebase::Clock"),
+        "ww_timebase::Clock not found, is the walk broken? {traits:?}"
     );
     let mut errors = vec![];
     for name in &traits {
@@ -100,15 +90,19 @@ fn every_stdlib_trait_has_an_id() {
         let (crate_name, _) = e.split();
         if crates.contains(crate_name) && !traits.contains(e.name) {
             errors.push(format!(
-                "id {} names `{}`, which is not a public ww_trait in ww_stdlib: rename (old name into `aliases`) or mark it `retired`",
+                "id {} names `{}`, which is not a public ww_trait of its crate: rename (old name into `aliases`) or mark it `retired`",
                 e.id, e.name
             ));
         }
     }
-    for name in NO_ID {
+    // the ledger also lists traits of other repositories (the standard library's): only these crates' here
+    for name in NO_ID.iter().filter(|name| {
+        name.split_once("::")
+            .is_some_and(|(c, _)| crates.contains(c))
+    }) {
         assert!(
             traits.contains(*name),
-            "no_id lists `{name}`, which is not a public ww_trait in ww_stdlib"
+            "no_id lists `{name}`, which is not a public ww_trait of its crate"
         );
     }
     assert!(errors.is_empty(), "{}", errors.join("\n"));

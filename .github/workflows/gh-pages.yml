@@ -5,9 +5,11 @@ on:
     paths:
       - 'zensical.toml'
       - 'docs/**'
-      # pages of other repositories come with a lock bump (book_sources.toml)
+      # pages of package sources come with a lock bump (book_sources.toml)
       - 'Cargo.lock'
       - 'book_sources.toml'
+  # pages of git sources (ww_stdlib) follow their branch without a change here: publish them by hand
+  workflow_dispatch:
 
 permissions:
   contents: write

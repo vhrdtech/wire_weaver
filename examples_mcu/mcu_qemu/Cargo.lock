@@ -431,16 +431,13 @@ dependencies = [
  "portable-atomic",
  "static_cell",
  "wire_weaver",
- "ww_bus_slave",
  "ww_client_server",
  "ww_crc",
  "ww_date_time",
  "ww_framer",
- "ww_i2c",
  "ww_keyed",
  "ww_link",
  "ww_si",
- "ww_spi",
  "ww_stream",
  "ww_timebase",
 ]
@@ -1048,17 +1045,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ww_bus_slave"
-version = "0.5.0"
-dependencies = [
- "wire_weaver",
- "ww_error",
- "ww_i2c",
- "ww_si",
- "ww_spi",
-]
-
-[[package]]
 name = "ww_client_server"
 version = "0.2.0"
 dependencies = [
@@ -1111,14 +1097,6 @@ dependencies = [
  "convert_case",
  "serde_json",
  "ww_version",
-]
-
-[[package]]
-name = "ww_i2c"
-version = "0.1.0"
-dependencies = [
- "ww_api",
- "ww_si",
 ]
 
 [[package]]
@@ -1196,14 +1174,6 @@ dependencies = [
  "tracing",
  "ww_self",
  "ww_version",
-]
-
-[[package]]
-name = "ww_spi"
-version = "0.1.0"
-dependencies = [
- "ww_api",
- "ww_si",
 ]
 
 [[package]]

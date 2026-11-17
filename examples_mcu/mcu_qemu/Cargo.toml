@@ -40,9 +40,6 @@ ww_framer = { path = "../../ww_framer" }
 ww_link = { path = "../../ww_link" }
 # for its table-* features (the CRC-32 of ww_link's UDP framing), e.g. `--features ww_crc/table-256`
 ww_crc = { git = "https://github.com/vhrdtech/ww_base" }
-ww_bus_slave = { path = "../../ww_bus_slave" }
-ww_i2c = { path = "../../ww_stdlib/ww_i2c", default-features = false }
-ww_spi = { path = "../../ww_stdlib/ww_spi", default-features = false }
 ww_si = { git = "https://github.com/vhrdtech/ww_base", default-features = false, features = ["electrical", "angle", "dimensionless", "information", "counting", "time", "i32", "u32"] }
 counted_stream_api = { path = "../../tests/counted_stream_api", default-features = false, optional = true }
 bounded_api = { path = "../../tests/bounded_api", default-features = false }
@@ -194,13 +191,6 @@ bench = false
 [[bin]]
 name = "qemu-bit-io"
 path = "src/bin/bit_io.rs"
-test = false
-doctest = false
-bench = false
-
-[[bin]]
-name = "qemu-bus-slave"
-path = "src/bin/bus_slave.rs"
 test = false
 doctest = false
 bench = false

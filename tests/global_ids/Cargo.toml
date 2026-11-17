@@ -6,7 +6,7 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Checks that every public trait of ww_stdlib has an id in the ww_global registry (API-20)."
+description = "Checks that every public trait of the framework crates ww_client_server and ww_timebase has an id in the ww_global registry (API-20)."
 
 [dependencies]
 

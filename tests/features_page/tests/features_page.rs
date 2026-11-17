@@ -16,7 +16,7 @@ fn trackers(root: &Path) -> Vec<(String, Option<String>, String)> {
             let page = source.source.into.join("features.md");
             trackers.push((
                 page.to_string_lossy().into_owned(),
-                Some(source.source.package.clone()),
+                Some(source.source.name().to_owned()),
                 tracker,
             ));
         }

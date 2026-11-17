@@ -21,12 +21,21 @@ const PAGES_MAX: usize = 256;
 pub struct Source {
     /// A package of that repository, as `Cargo.lock` names it
     pub package: String,
+    /// The repository's name as the book shows it; [Source::package] when left out
+    pub name: Option<String>,
     /// Directory of its pages, relative to the package's directory
     pub pages: PathBuf,
     /// Directory under `docs/` the pages go to
     pub into: PathBuf,
     /// Its feature tracker, relative to the package's directory
     pub features: Option<PathBuf>,
+}
+
+impl Source {
+    /// The repository's name as the book shows it.
+    pub fn name(&self) -> &str {
+        self.name.as_deref().unwrap_or(&self.package)
+    }
 }
 
 #[derive(Deserialize)]
@@ -241,6 +250,7 @@ mod tests {
         Located {
             source: Source {
                 package: "fmt".to_owned(),
+                name: None,
                 pages: "../docs".into(),
                 into: "serdes".into(),
                 features: Some("../FEATURES.md".into()),
@@ -293,6 +303,14 @@ mod tests {
             Some(root.join("docs/serdes/own.md"))
         );
         fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_source_is_shown_by_its_name_or_package() {
+        let mut source = located(Path::new("/nowhere")).source;
+        assert_eq!(source.name(), "fmt");
+        source.name = Some("fmt_repo".to_owned());
+        assert_eq!(source.name(), "fmt_repo");
     }
 
     #[test]

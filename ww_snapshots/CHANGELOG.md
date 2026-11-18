@@ -8,6 +8,7 @@
 
 ### 🐛 Fixes
 
+- `Resolver::read_error` names a version whose file existed but could not be read (an old or damaged model format), so a caller can tell that apart from truly having no snapshot; `Resolver::snapshot` answering `None` either way once let codegen inline a dependency whose snapshot was merely unreadable (EVO-82).
 - `CargoSources` finds a git dependency in the checkout of the URL its lock names; a repository fetched by https and ssh broke the walk (API-14).
 - `CargoSources::locked_package_dir` looks up only the named package, not every crate the lock lists (1.8 s to 0.08 s).
 - In a proc macro of a crate built as a dependency, `CargoSources` uses the building workspace's `Cargo.lock`, checked against Cargo's dep-info, not the crate's own (API-14).

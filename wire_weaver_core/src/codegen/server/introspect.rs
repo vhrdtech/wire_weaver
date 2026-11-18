@@ -139,6 +139,14 @@ pub(crate) fn introspect_prepare(
     let resolver = ww_snapshots::Resolver::new().with_crate_dirs(crate_dirs);
     let sent = match crate::transform::skip_known(api_bundle, &resolver) {
         Ok(sent) => sent,
+        // a dependency's snapshot file exists but cannot be read: never inline its whole API over this, stop the
+        // build instead (EVO-82, the bug that silently bloated usb_io_fw's introspection data 50x)
+        Err(e)
+            if e.downcast_ref::<crate::transform::UnreadableDependencySnapshot>()
+                .is_some() =>
+        {
+            panic!("{e}")
+        }
         Err(e) => {
             eprintln!(
                 "Failed to leave known traits and types out of the introspection data: {e:?}"
@@ -213,5 +221,55 @@ impl Visit<'_> for ContainsDocs {
         if !docs.is_empty() {
             self.contains = true;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    /// A dependency's snapshot (here `ww_si`'s) that exists in an old model format (EVO-82) must stop codegen with
+    /// the same re-save error the checker and `ww_snapshots`' readers give, never fall back to inlining its whole
+    /// API into the introspection data: that fallback once bloated usb_io_fw's `WW_SELF_BYTES` 50x and overflowed
+    /// its flash with no error or warning.
+    #[test]
+    #[should_panic(expected = "this tool reads")]
+    fn an_unreadable_dependency_snapshot_stops_codegen_instead_of_inlining() {
+        let crate_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/skipped_dep_api");
+        let (full, _hints, _unreasoned, _paths) =
+            crate::load_with_hints(&crate_path, Some("Port".into()), false).unwrap();
+        let ww_si_idx = full
+            .ext_crates
+            .iter()
+            .position(|c| c.crate_id == "ww_si")
+            .expect("skipped_dep_api depends on ww_si");
+        let version = full.ext_crates[ww_si_idx].clone();
+
+        let dir = std::env::temp_dir()
+            .join("ww_core_introspect_tests")
+            .join(format!("unreadable_dep-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let snapshots_dir = dir.join(ww_snapshots::SNAPSHOTS_DIR);
+        std::fs::create_dir_all(&snapshots_dir).unwrap();
+        let file_name = format!(
+            "{}_{}_{}_{}.ron",
+            version.crate_id,
+            version.version.major.0,
+            version.version.minor.0,
+            version.version.patch.0
+        );
+        std::fs::write(
+            snapshots_dir.join(file_name),
+            "// an old snapshot\n\
+             // shrink_wrap sha256: 0000000000000000000000000000000000000000000000000000000000000000\n\
+             (ww_self_version: (major: 0, minor: 1, patch: 0))\n",
+        )
+        .unwrap();
+
+        let crate_dirs = vec![dir.clone()];
+        // panics: ww_si's snapshot exists but is unreadable, so this must refuse rather than inline it
+        introspect_prepare(&full, &crate_dirs, false, IntrospectCompression::None);
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 }

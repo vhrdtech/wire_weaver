@@ -115,6 +115,10 @@ pub struct Resolver {
     superseded: FrozenMap<SupersededKey, Box<Option<ApiBundleOwned>>>,
     origins: Mutex<HashMap<FullVersionOwned, Origin>>,
     missing: Mutex<HashSet<FullVersionOwned>>,
+    /// A version whose file some source had but could not read (an old or damaged model format, EVO-82), by the
+    /// message to show: [Self::snapshot] answers `None` for it too, so a caller that would otherwise take that for
+    /// "truly no snapshot" must check [Self::read_error] first.
+    read_errors: Mutex<HashMap<FullVersionOwned, String>>,
     /// [Self::cargo_dirs] by source position and version: a scan of `CARGO_HOME` looks into thousands of
     /// directories, and every superseded definition of a version asks for the same ones.
     cargo_dirs: Mutex<HashMap<(usize, FullVersionOwned), Vec<PathBuf>>>,
@@ -140,6 +144,7 @@ impl Resolver {
             superseded: FrozenMap::new(),
             origins: Mutex::new(HashMap::new()),
             missing: Mutex::new(HashSet::new()),
+            read_errors: Mutex::new(HashMap::new()),
             cargo_dirs: Mutex::new(HashMap::new()),
             fetched: Mutex::new(HashMap::new()),
         }
@@ -362,12 +367,22 @@ impl Resolver {
         lock(&self.origins).get(version).cloned()
     }
 
+    /// The message of `version`'s read error, when [Self::snapshot] answered `None` for it not because no source
+    /// had a file, but because a source had one and it could not be read (an old or damaged model format, EVO-82):
+    /// the checker and `ww_snapshots`' own readers already refuse such a file with the step that re-saves it (see
+    /// [mod@crate::file]); a caller about to treat [Self::snapshot]'s `None` as "nothing known, safe to leave
+    /// in-line" must check here first and refuse instead of silently inlining the dependency's whole API.
+    pub fn read_error(&self, version: &FullVersionOwned) -> Option<String> {
+        lock(&self.read_errors).get(version).cloned()
+    }
+
     /// Forgets which versions had no snapshot, so the next lookup tries the sources again (a set was embedded, a
     /// file arrived).
     pub fn forget_misses(&self) {
         lock(&self.missing).clear();
         lock(&self.cargo_dirs).clear();
         lock(&self.fetched).clear();
+        lock(&self.read_errors).clear();
     }
 
     /// The snapshot of `version` in every source that has one, in chain order; only the first with `first`. A hit
@@ -388,7 +403,7 @@ impl Resolver {
                 }
                 Place::Dir(dir, is_cache) => {
                     past_cache |= is_cache;
-                    if let Some(snapshot) = read_snapshot(dir, version) {
+                    if let Some(snapshot) = self.read_snapshot(dir, version) {
                         let origin = if is_cache {
                             Origin::Cache
                         } else {
@@ -400,7 +415,7 @@ impl Resolver {
                 Place::Cargo(scan) => {
                     for crate_dir in self.cargo_dirs(index, scan, version) {
                         let dir = Dir::of_crate(&crate_dir);
-                        if let Some(snapshot) = read_snapshot(&dir, version) {
+                        if let Some(snapshot) = self.read_snapshot(&dir, version) {
                             if past_cache {
                                 self.store(&dir);
                             }
@@ -433,6 +448,19 @@ impl Resolver {
             }
         }
         found
+    }
+
+    /// A directory's snapshot of `version`, `None` for a directory that has none; a damaged or outdated file
+    /// (EVO-82) is named in the log, remembered for [Self::read_error] and counts as none here too.
+    fn read_snapshot(&self, dir: &Dir, version: &FullVersionOwned) -> Option<file::Snapshot> {
+        match dir.snapshot(version) {
+            Ok(found) => found,
+            Err(e) => {
+                warn!("{e:#}");
+                lock(&self.read_errors).insert(version.clone(), format!("{e:#}"));
+                None
+            }
+        }
     }
 
     /// Copies a crate's snapshots found outside the cache into it, so the next process finds them there.
@@ -673,17 +701,6 @@ impl Resolver {
     }
 }
 
-/// A directory's snapshot of `version`; a damaged file is named in the log and counts as none.
-fn read_snapshot(dir: &Dir, version: &FullVersionOwned) -> Option<file::Snapshot> {
-    match dir.snapshot(version) {
-        Ok(found) => found,
-        Err(e) => {
-            warn!("{e:#}");
-            None
-        }
-    }
-}
-
 impl std::fmt::Debug for Source {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -787,6 +804,35 @@ mod tests {
         assert!(resolver.snapshot(&other).is_none());
         let bad = FullVersionOwned::new("../dep".into(), VersionOwned::new(0, 1, 0));
         assert!(resolver.snapshot(&bad).is_none());
+    }
+
+    /// A file that exists but is in an old model format (EVO-82) is not a usable snapshot, but it is not "no
+    /// snapshot" either: [Resolver::snapshot] still answers `None`, so a caller must check [Resolver::read_error]
+    /// before treating that `None` as safe to inline.
+    #[test]
+    fn an_unreadable_file_is_remembered_as_a_read_error_not_a_miss() {
+        let root = scratch("unreadable");
+        let version = FullVersionOwned::new("dep".into(), VersionOwned::new(0, 1, 0));
+        let dir = Dir::of_crate(&root);
+        fs::create_dir_all(dir.path()).unwrap();
+        fs::write(
+            dir.file_path(&version),
+            "// old\n// shrink_wrap sha256: 0000000000000000000000000000000000000000000000000000000000000000\n\
+             (ww_self_version: (major: 0, minor: 1, patch: 0))\n",
+        )
+        .unwrap();
+        let resolver = Resolver::new().with_crate_dirs([root.clone()]);
+        assert!(resolver.snapshot(&version).is_none());
+        let error = resolver
+            .read_error(&version)
+            .expect("the resolver remembers why the file could not be read");
+        assert!(error.contains("this tool reads"), "{error}");
+        assert!(error.contains("ww api save"), "{error}");
+        // a version with no file at all is a miss, not a read error
+        let missing = FullVersionOwned::new("other".into(), VersionOwned::new(0, 1, 0));
+        assert!(resolver.snapshot(&missing).is_none());
+        assert!(resolver.read_error(&missing).is_none());
+        fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]

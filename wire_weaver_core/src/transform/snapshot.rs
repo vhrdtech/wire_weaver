@@ -509,11 +509,29 @@ fn skip_foreign(bundle: &mut ApiBundleOwned) -> Result<()> {
     })
 }
 
+/// A dependency's snapshot exists but could not be read (an old or damaged model format, EVO-82): [skip_known]
+/// refuses to decide whether it is known, rather than silently inlining its whole API, and this is how a caller
+/// tells that refusal apart from any other error [skip_known] may return.
+#[derive(Debug)]
+pub struct UnreadableDependencySnapshot(pub String);
+
+impl std::fmt::Display for UnreadableDependencySnapshot {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl std::error::Error for UnreadableDependencySnapshot {}
+
 /// Bundle as sent by a device: traits and types known from the snapshots `resolver` finds (codegen: the walked
 /// crates' own `api_snapshots/`, [CratePaths::crate_dirs](super::CratePaths::crate_dirs)) are replaced with
 /// references to them, if they have the same definition (shape signature) as in the snapshot, docs aside: the
 /// reference carries the device's own docs signature, so a host still sees when they differ (EVO-69). Everything
 /// only used by them is dropped. The API root itself is kept in-line.
+///
+/// A dependency whose snapshot file exists but cannot be read is never treated as having none: that would silently
+/// inline its whole API instead of leaving it out (EVO-82, the bug that bloated usb_io_fw's introspection data
+/// 50x and overflowed its flash with no error). Such a file fails with [UnreadableDependencySnapshot] instead.
 pub fn skip_known(bundle: &ApiBundleOwned, resolver: &Resolver) -> Result<ApiBundleOwned> {
     let mut bundle = bundle.clone();
     skip(&mut bundle, |bundle, entry| {
@@ -538,6 +556,13 @@ pub fn skip_known(bundle: &ApiBundleOwned, resolver: &Resolver) -> Result<ApiBun
         };
         let version = bundle.crate_version(crate_idx)?;
         let Some(snapshot) = resolver.snapshot(version) else {
+            if let Some(error) = resolver.read_error(version) {
+                return Err(anyhow::Error::new(UnreadableDependencySnapshot(format!(
+                    "{} {}: its snapshot cannot be read, refusing to inline it instead: {error}",
+                    version.crate_id,
+                    ww_snapshots::file::triplet(&version.version),
+                ))));
+            }
             return Ok(None);
         };
         let (signature, known_signature) = match entry {

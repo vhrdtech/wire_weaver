@@ -1,0 +1,26 @@
+[package]
+name = "ww_dns_sd"
+version.workspace = true
+authors.workspace = true
+description = "Announces WireWeaver WebSocket servers on the LAN over DNS-SD as _wireweaver._tcp"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+default = ["mdns"]
+# The in-process mDNS responder (mdns-sd on its own thread): nothing to install on the box
+mdns = ["dep:mdns-sd"]
+# Registration with the system's Avahi daemon over D-Bus (zbus, blocking API on its own executor thread)
+avahi = ["dep:zbus"]
+
+[dependencies]
+if-addrs.workspace = true
+mdns-sd = { workspace = true, optional = true }
+thiserror.workspace = true
+tracing.workspace = true
+ww_version.workspace = true
+zbus = { workspace = true, optional = true }
+
+[lints]
+workspace = true

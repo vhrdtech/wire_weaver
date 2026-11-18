@@ -18,8 +18,9 @@ let blinky = Blinky::config(|c| c.websocket_url("ws://192.168.1.10:8080/ww"))
 ```
 
 Everything above the medium is the same as with [USB](usb.md) or [RTT](rtt.md): [link setup](ww_link.md), version
-check, introspection, pings, timeouts, streams. There is no discovery, so device filters (serial, label, ...) are not
-checked before connecting, and only plain `ws://` is supported, no `wss://`.
+check, introspection, pings, timeouts, streams. The client takes a URL: it doesn't browse for
+[announced servers](#announcing-on-the-lan) yet, so device filters (serial, label, ...) are not checked before
+connecting, and only plain `ws://` is supported, no `wss://`.
 
 ## Device side
 
@@ -53,6 +54,79 @@ server.run(&mut state).await;
 adapter, runs `embassy-net` with a static address and a small DHCP server (`edge-dhcp`), so the host is configured
 automatically, and serves the blinky API at `ws://192.168.7.1:8080/ww`. Run it with `just run rp2 ww_ws_ncm` from
 `examples_mcu/rp2`, then blink from the host with `cargo run -p blinky --features ws --example blinky_ws`.
+
+## Announcing on the LAN
+
+A WebSocket server on a LAN can announce itself over DNS-SD (multicast DNS), so that clients and people find it
+without a typed address: `avahi-browse -r _wireweaver._tcp` on Linux, `dns-sd -B _wireweaver._tcp` on macOS. The
+`ww_dns_sd` crate does it for any server, on any runtime or none: its calls block for a moment (a message to the
+responder's thread or a D-Bus round trip) and return.
+
+```rust
+use ww_dns_sd::{Advertiser, InstanceId, InstanceName, ResponderChoice, ServiceRecord, Txt};
+
+let txt = Txt::new(
+    "/ww",
+    &my_api::MY_API_FULL_GID,
+    Some(my_api::MY_API_WIRE_VERSION),
+    InstanceId::new("tv-living-room")?,
+)?;
+let record = ServiceRecord::new(InstanceName::new("Living room TV")?, port, txt)
+    .with_addresses(ww_dns_sd::interface_addresses(Some("eth0"))?)?;
+let mut advertiser = Advertiser::new(ww_dns_sd::start_responder(ResponderChoice::Auto)?, record)?;
+// later, when the interface's addresses changed (a new DHCP lease):
+advertiser.set_addresses(ww_dns_sd::interface_addresses(Some("eth0"))?)?;
+// dropping the advertiser withdraws the record
+```
+
+What is announced, as service type `_wireweaver._tcp`:
+
+| Part | Value |
+|---|---|
+| Instance name | the caller's, one DNS label (63 bytes), shown to people browsing |
+| Host name | `ww-<id>.local`, its own, so it never collides with the machine's |
+| Addresses | the caller's, each only on the interface whose subnet holds it |
+| Port | the WebSocket server's |
+| TXT `path` | the request path of the upgrade, `/ww` |
+| TXT `api` | the API crate and version, `blinky_api@0.1.0` |
+| TXT `wire` | the wire version of the API root, `w1.0`; left out when unknown |
+| TXT `id` | a stable instance id the caller keeps, `a-z`, `0-9` and `-` |
+
+`Advertiser::set_addresses` follows a change: the same set in another order sends nothing, a new set replaces the
+old one (browsers may report the instance gone for a moment), no addresses withdraw the record until some come
+back. Dropping the advertiser withdraws it with a goodbye, so browsers see it go at once. A process that dies
+without dropping it leaves the record in caches until its TTL runs out (Avahi drops a dead client's records by
+itself).
+
+Two responders, each behind a feature of `ww_dns_sd`:
+
+- `MdnsResponder` (feature `mdns`, on by default) answers in-process: the `mdns-sd` crate on its own thread, joined to
+  the mDNS group on every interface, nothing to install. It shares port 5353 with Avahi or systemd-resolved on the
+  same box.
+- `AvahiResponder` (feature `avahi`) registers with the system's Avahi daemon over D-Bus (`zbus`), where the
+  in-process one can't run: port 5353 held without `SO_REUSEPORT`, a sandbox without multicast. Avahi must be
+  installed and running there.
+
+`start_responder(ResponderChoice::Auto)` starts the in-process one and falls back to Avahi when it fails to start;
+`InProcess` and `Avahi` pick one. Multicast DNS stays on its link: a server in a VM behind NAT, or on another subnet,
+is not seen from the LAN.
+
+`examples/blinky`'s `blinky_ws_device` serves the blinky API over WebSocket from a PC and announces it: `cargo run -p
+blinky --features ws --example blinky_ws_device -- --id blinky-demo --interface eth0`.
+
+!!! warning "Everything announced reaches the whole LAN"
+
+    Every device on the link sees the record, unauthenticated: the server's addresses and port, the API it serves
+    with its version, and the instance id. Announcing makes a server easy to find; it was reachable before by
+    anyone who could guess or scan the port, and a WebSocket server takes any client that connects
+    (peer authentication is planned as TR-24, `ws-auth`). Announce only a server that may be found by everyone on
+    that network, never put a secret in the TXT keys or the id (hash a machine id with an application key rather
+    than announcing it raw), and pass only the addresses of the interfaces meant for it.
+
+`ww_dns_sd` itself reads nothing from the network except through its responder: `mdns-sd` parses incoming
+queries (bounded by its packet size), Avahi does so in its own daemon. Every value the caller passes is checked
+against DNS limits before anything is sent: the instance name, the id, the path, each `key=value` within 255
+bytes, at most 16 addresses.
 
 ## Simulated WebSocket in tests
 

@@ -19,6 +19,7 @@ members = [
     "ww_client_server",
     "ww_clock_sync",
     "ww_device",
+    "ww_dns_sd",
     "ww_framer",
     "ww_hub",
     "ww_hub_api",
@@ -81,12 +82,16 @@ flate2 = { version = "1.1", default-features = false, features = ["rust_backend"
 futures-core = { version = "0.3", default-features = false, features = ["alloc"] }
 hex = { version = "0.4", default-features = false }
 hex-literal = "1"
+# interface addresses and indices (ww_dns_sd)
+if-addrs = { version = "0.15", default-features = false }
 interprocess = { version = "2.4", features = ["tokio"] }
 # commands of the ww command line register themselves from their own crate and module
 inventory = "0.3"
 libc = "0.2"
 # exact: ww_tape pins it, its lz4 payload columns must compress to the same bytes
 lz4_flex = { version = "=0.14.0", default-features = false, features = ["safe-decode", "checked-decode"] }
+# the in-process mDNS responder (ww_dns_sd), runtime free; its async API is off
+mdns-sd = { version = "0.22", default-features = false }
 nusb = { version = "0.2", features = ["tokio"] }
 portable-atomic = { version = "1.15", default-features = false, features = ["require-cas"] }
 proc-macro-crate = "3"
@@ -118,6 +123,8 @@ tracing-subscriber = "0.3"
 ureq = { version = "3.5", default-features = false, features = ["rustls"] }
 widestring = "1"
 windows-sys = "0.61"
+# Avahi over D-Bus (ww_dns_sd avahi): the blocking API on its own async-io executor thread
+zbus = { version = "5", default-features = false, features = ["async-io", "blocking-api"] }
 
 # exact_units and shrink_wrap live in their own repositories, taken by git: Cargo.lock pins the commit
 # (`cargo update -p exact_units` / `-p shrink_wrap` moves it); to build against a local checkout, put a [patch] in
@@ -154,6 +161,7 @@ ww_api = { version = "0.5.0", path = "./ww_api", default-features = false }
 ww_book = { version = "0.5.0", path = "./ww_book" }
 ww_clock_sync = { version = "0.5.0", path = "./ww_clock_sync" }
 ww_device = { version = "0.5.0", path = "./ww_device" }
+ww_dns_sd = { version = "0.5.0", path = "./ww_dns_sd", default-features = false }
 ww_framer = { version = "0.5.0", path = "./ww_framer", default-features = false }
 ww_hub = { version = "0.5.0", path = "./ww_hub" }
 ww_link = { version = "0.5.0", path = "./ww_link", default-features = false }

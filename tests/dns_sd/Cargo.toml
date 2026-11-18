@@ -1,0 +1,18 @@
+[package]
+name = "dns_sd"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dev-dependencies]
+if-addrs.workspace = true
+mdns-sd.workspace = true
+ww_dns_sd = { workspace = true, features = ["mdns", "avahi"] }
+ww_version.workspace = true
+zbus = { workspace = true, features = ["p2p"] }
+
+[lints]
+workspace = true

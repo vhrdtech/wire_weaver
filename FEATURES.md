@@ -1444,6 +1444,16 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   (`{4987DAA6-F852-4B79-A4C8-8C0E0648C845}`), and `const fn`s `usb_self_id_version_descriptor` /
   `usb_version_descriptor` encoding their payloads (a 4-byte crate tag plus major.minor.patch, each saturated to
   `u8::MAX`). `wire_weaver_usb_embassy` uses them, descriptor bytes unchanged.
+- ✅ **TR-32 WebSocket servers announce themselves over DNS-SD** · `v0.5` — crate `ww_dns_sd`
+  (`docs/transport/websocket.md#announcing-on-the-lan`): service type `_wireweaver._tcp`, the caller's instance name,
+  port and addresses (each only on the interface whose subnet holds it), host `ww-<id>.local`, TXT `path`, `api`,
+  `wire`, `id`, all checked against DNS limits. `Advertiser` publishes while there are addresses, follows
+  `set_addresses`, withdraws on drop. Responders: in-process `MdnsResponder` (`mdns-sd` on its own thread, feature
+  `mdns`, default) and `AvahiResponder` over D-Bus (feature `avahi`); `start_responder(Auto)` falls back to Avahi.
+  Tests `tests/dns_sd`: a browser on loopback sees a record appear, change address and go; a fake Avahi over
+  peer-to-peer D-Bus sees the calls. Example `blinky_ws_device`, checked with `avahi-browse` on a LAN PC with both
+  responders. Announces to the whole LAN: no peer authentication until TR-24 (planned). Client-side discovery is
+  not there yet.
 - 💡 **TR-5 USB CDC-NCM extras** — test on Windows, macOS, iOS and Android; serve files from an SD card over HTTP;
   mass storage with a README.
 - 📋 **TR-6 CAN** · `v0.5.x` — `ww_client_server` on Data0 to one node of a CAN or CAN FD bus by its node id, over

@@ -5043,7 +5043,7 @@ dependencies = [
 [[package]]
 name = "ww_tape"
 version = "0.1.0"
-source = "git+https://github.com/vhrdtech/ww_tape#665af6c5d3d05f03edfbcd93439ff6dad63a3fbb"
+source = "git+https://github.com/vhrdtech/ww_tape#d2e47f7fc5835c4f8888230f5148f35843a54a10"
 dependencies = [
  "blake3",
  "crc",

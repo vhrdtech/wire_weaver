@@ -8392,6 +8392,16 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
   generation bump. The dispatch golden <code>multi.multi_call</code> carries <code>"wire_change": "EVO-81 / ..."</code>; tests
   <code>dispatch_golden</code> <code>multi_empty_args_old_and_new_bytes_read_the_same</code> (16 old/new pairs from the pre-fix commit),
   <code>multi_call_old_request_gets_the_new_reply</code>, <code>empty_user_bytes_event_unchanged</code>.</li>
+<li>✅ <strong>EVO-82 Snapshot files name their model format</strong> · <code>v0.5</code> — <code>ww_self::VERSION</code>, written as every bundle's
+  <code>ww_self_version</code>, is the format of the API model, no longer the crate's version: it moves with every change of
+  the model's shape. The model's shape as serde and RON see it, every type of <code>ww_self</code> and the types it uses from
+  exact_units, ww_numeric, ww_version and shrink_wrap, is frozen with its format in
+  <code>ww_snapshots/tests/model_format.txt</code>: test <code>ww_snapshots</code> <code>model_format_frozen</code> fails when the model changes
+  without a new <code>VERSION</code>. A snapshot file of another format is refused before it is read, by <code>ww_snapshots</code> and by
+  the checker (<code>ww_snapshots::file::check_format</code>), with the step that re-saves it, instead of a RON error or a hash
+  mismatch (test <code>wire_weaver_evolution</code> <code>old_format</code>). Format 0.3.0 had held about 40 encodings: every stored
+  snapshot was rewritten once into 0.4.0 (<a href="../docs/evolution/snapshots/#model-format">snapshots</a>). No device or
+  host depends on an older format.</li>
 <li>✅ <strong>EVO-78 Evolution of keyed arrays</strong> · <code>v0.5</code> — <code>keyed!</code> in the checker: adding one is compatible, removing
   one is a break, the key type is compared both ways, and keying another array is a break. Across a wire break a
   companion is matched by the array it keys, so it follows a moved or <code>#[moved_from]</code>-renamed array. <code>ww api diff</code>

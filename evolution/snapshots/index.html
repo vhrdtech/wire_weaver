@@ -2773,6 +2773,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#model-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Model format
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#sources-and-offline-use" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6455,6 +6466,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#model-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Model format
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#sources-and-offline-use" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6674,12 +6696,24 @@ by its old signature. <code>ww api save</code> keeps the replaced definition in 
 the chain carries that directory along: the resolver looks there by signature, then in the
 <a href="../../std_library/ww_self/#the-definition-cache">definition cache</a> of the host, then in the same version's snapshot in
 the other sources. See <a href="../inside_the_checker/#superseded-definitions-evo-68">superseded definitions</a>.</p>
+<h2 id="model-format">Model format<a class="headerlink" href="#model-format" title="Permanent link">&para;</a></h2>
+<p>A snapshot file is the RON of a bundle of the API model (<code>ww_self</code>), and its <code>ww_self_version</code> names the format of
+that model, <code>ww_self::VERSION</code>: not a crate version, but a number that moves whenever the model's shape changes (a
+field, a variant, a type the model takes from exact_units or ww_base). Every reader checks it first. A file of another
+format is refused with the step that fixes it, re-saving it with the current tool (<code>ww api save</code> in the crate at the
+commit of that version):</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>saved in model format 0.3.0, this tool reads 0.4.0: re-save it (`ww api save` in the crate at the commit of that version)
+</span></code></pre></div>
+<p>Old formats are not read: a stored snapshot is re-saved when the format moves. The test <code>model_format_frozen</code> of
+<code>ww_snapshots</code> keeps the model's shape with its format in <code>ww_snapshots/tests/model_format.txt</code> and fails when the
+model changes without a new <code>ww_self::VERSION</code>; after the bump, <code>WW_UPDATE_MODEL_FORMAT=1 cargo nextest run -p
+ww_snapshots model_format</code> records the new shape.</p>
 <h2 id="sources-and-offline-use">Sources and offline use<a class="headerlink" href="#sources-and-offline-use" title="Permanent link">&para;</a></h2>
 <p><code>~/.wire_weaver/sources.toml</code> says what a fetch may do. A missing file means crates.io only.</p>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">offline</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="w">                      </span><span class="c1"># no fetch at all; WW_OFFLINE=1 does the same for one run</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="k">[repositories]</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">my_api</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">url</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;https://github.com/owner/my_api&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">ref</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;main&quot;</span><span class="w"> </span><span class="p">}</span><span class="w">   </span><span class="c1"># a crate not on crates.io</span>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">offline</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="w">                      </span><span class="c1"># no fetch at all; WW_OFFLINE=1 does the same for one run</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="k">[repositories]</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">my_api</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">url</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;https://github.com/owner/my_api&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">ref</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;main&quot;</span><span class="w"> </span><span class="p">}</span><span class="w">   </span><span class="c1"># a crate not on crates.io</span>
 </span></code></pre></div>
 <p>A repository's archive is fetched at <code>ref</code>, the default branch when absent. Old versions' files never leave a
 crate's <code>api_snapshots/</code>, so the default branch has every version's snapshot. Only GitHub repositories are fetched
@@ -6695,19 +6729,19 @@ client's cache (<code>tests_common::api!</code>), as described in <a href="../..
 <h2 id="embedding-snapshots-in-an-application">Embedding snapshots in an application<a class="headerlink" href="#embedding-snapshots-in-an-application" title="Permanent link">&para;</a></h2>
 <p>An application that must work offline embeds the snapshots at build time. A <code>build.rs</code> writes the set from the
 workspace's <code>Cargo.lock</code>:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1">// build.rs</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="k">fn</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="n">ww_snapshots</span><span class="p">::</span><span class="n">build</span><span class="p">::</span><span class="n">workspace_set</span><span class="p">(</span><span class="s">&quot;stdlib_set.rs&quot;</span><span class="p">)</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">        </span><span class="p">.</span><span class="n">unwrap_or_else</span><span class="p">(</span><span class="o">|</span><span class="n">e</span><span class="o">|</span><span class="w"> </span><span class="fm">panic!</span><span class="p">(</span><span class="s">&quot;embedding API snapshots: {e:#}&quot;</span><span class="p">));</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="p">}</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1">// build.rs</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">fn</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="n">ww_snapshots</span><span class="p">::</span><span class="n">build</span><span class="p">::</span><span class="n">workspace_set</span><span class="p">(</span><span class="s">&quot;stdlib_set.rs&quot;</span><span class="p">)</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">        </span><span class="p">.</span><span class="n">unwrap_or_else</span><span class="p">(</span><span class="o">|</span><span class="n">e</span><span class="o">|</span><span class="w"> </span><span class="fm">panic!</span><span class="p">(</span><span class="s">&quot;embedding API snapshots: {e:#}&quot;</span><span class="p">));</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>The application includes it and registers it before it talks to a device:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">static</span><span class="w"> </span><span class="n">STDLIB</span><span class="p">:</span><span class="w"> </span><span class="nc">ww_snapshots</span><span class="p">::</span><span class="n">Set</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="fm">include!</span><span class="p">(</span><span class="fm">concat!</span><span class="p">(</span><span class="fm">env!</span><span class="p">(</span><span class="s">&quot;OUT_DIR&quot;</span><span class="p">),</span><span class="w"> </span><span class="s">&quot;/stdlib_set.rs&quot;</span><span class="p">));</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="k">fn</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="n">ww_snapshots</span><span class="p">::</span><span class="n">embed</span><span class="p">(</span><span class="o">&amp;</span><span class="n">STDLIB</span><span class="p">);</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span><span class="c1">// ...</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="p">}</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">static</span><span class="w"> </span><span class="n">STDLIB</span><span class="p">:</span><span class="w"> </span><span class="nc">ww_snapshots</span><span class="p">::</span><span class="n">Set</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="fm">include!</span><span class="p">(</span><span class="fm">concat!</span><span class="p">(</span><span class="fm">env!</span><span class="p">(</span><span class="s">&quot;OUT_DIR&quot;</span><span class="p">),</span><span class="w"> </span><span class="s">&quot;/stdlib_set.rs&quot;</span><span class="p">));</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="k">fn</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="n">ww_snapshots</span><span class="p">::</span><span class="n">embed</span><span class="p">(</span><span class="o">&amp;</span><span class="n">STDLIB</span><span class="p">);</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span><span class="c1">// ...</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>Every crate the lock names that has an <code>api_snapshots/</code> directory is embedded, superseded definitions included,
 each file checked at build time. The embedded set is the first source of the process-wide resolver,
@@ -6718,7 +6752,7 @@ is seen by every crate of the process.</p>
 type unknown, nothing after it in the same message can be either. The dynamic client then yields one opaque value for
 the property, return value or stream item: the crate, its version, the type's name, the signature and the raw bytes
 (<code>ww_self::Value::Opaque</code>). <code>ww</code> prints it with the fix:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>&lt;opaque my_api::Status 0.3.0 0x0a1f...: no snapshot of my_api 0.3.0, see `ww api fetch`&gt;
+<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>&lt;opaque my_api::Status 0.3.0 0x0a1f...: no snapshot of my_api 0.3.0, see `ww api fetch`&gt;
 </span></code></pre></div>
 <p>Python gets a <code>ww.Opaque</code> object with the same fields. Sending a value into such a type is refused with the same
 message. A device never sends an opaque value: it exists on the host only.</p>

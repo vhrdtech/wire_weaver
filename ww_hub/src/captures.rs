@@ -111,8 +111,10 @@ pub struct HubHost {
 #[derive(Clone, Debug)]
 pub struct SavePath {
     path: PathBuf,
-    /// The file [SavePath::create] made: removed again if the save fails
-    created: Arc<OnceLock<FileId>>,
+    /// A duplicate of the file [SavePath::create] made, held open so its inode stays allocated: a filesystem that
+    /// reuses a freed inode number right away (seen on ext4, not on tmpfs) could else make a file put there since
+    /// look like the one this made.
+    created: Arc<OnceLock<std::fs::File>>,
 }
 
 impl PartialEq for SavePath {
@@ -208,18 +210,23 @@ impl SavePath {
                 .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC);
         }
         let file = options.open(&self.path)?;
-        let _ = self.created.set(FileId::of(&file.metadata()?));
+        let pin = file.try_clone()?;
+        let _ = self.created.set(pin);
         Ok(file)
     }
 
     /// The save failed: the file [SavePath::create] made goes, so that a retry at the same path can create it.
     /// A file another process put there since is left alone. Why the file stays, if it does.
     fn remove_created(&self) -> Result<(), String> {
-        let Some(created) = self.created.get() else {
+        let Some(pin) = self.created.get() else {
+            return Ok(());
+        };
+        // the held-open duplicate can only report the inode this made, never one reused since
+        let Ok(created) = pin.metadata().map(|m| FileId::of(&m)) else {
             return Ok(());
         };
         match std::fs::symlink_metadata(&self.path) {
-            Ok(m) if FileId::of(&m) == *created => std::fs::remove_file(&self.path).map_err(|e| {
+            Ok(m) if FileId::of(&m) == created => std::fs::remove_file(&self.path).map_err(|e| {
                 tracing::warn!("ww hub: can't remove {}: {e}", self.path.display());
                 format!("the half-written file stays: {e}")
             }),

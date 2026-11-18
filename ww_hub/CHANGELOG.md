@@ -11,6 +11,7 @@
 
 ### 🐛 Fixes
 
+- `SavePath::remove_created` (SRV-64) keeps a duplicate of the file it made open, so its inode can't be reused by a later file at the same path before the check runs, as a filesystem that frees inode numbers right away (ext4, not tmpfs) could let happen.
 - A client that connected before the hub's idle check is served: the accept loop prefers accepting to the idle check and counts a connection at accept, not once its task first runs, so the hub can't exit idle with a client in its accept queue.
 - `Adopt::commit` answers within `wire_weaver_client::adopt::ADOPT_COMMIT_TIMEOUT` (10 s, CLT-44), with an `Open` error when opening the device takes longer.
 - A request kind the hub doesn't know reads as `RequestKind::Unknown` now (SRV-60); claims refuse it as before, when it didn't decode.

@@ -9,6 +9,7 @@
 ### 🐛 Fixes
 
 - `CargoSources` finds a git dependency in the checkout of the URL its lock names; a repository fetched by https and ssh broke the walk (API-14).
+- `CargoSources::locked_package_dir` looks up only the named package, not every crate the lock lists (1.8 s to 0.08 s).
 - In a proc macro of a crate built as a dependency, `CargoSources` uses the building workspace's `Cargo.lock`, checked against Cargo's dep-info, not the crate's own (API-14).
 - A crate from a git checkout builds again when the build directory keeps dep-info of an older commit; its sibling path members count as pinned (API-14).
 - `CargoSources` reads a `[patch]` as Cargo does: `include`d config files, `CARGO_HOME/config.toml`, the build's `--config`; config wins over the manifest (API-14).

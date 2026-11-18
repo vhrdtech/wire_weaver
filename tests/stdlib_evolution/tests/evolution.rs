@@ -104,23 +104,15 @@ fn crate_dirs() -> Vec<PathBuf> {
 fn resolver() -> Resolver {
     let mut sources = ww_snapshots::cargo::CargoSources::default();
     sources.entry_dir = Some(root());
-    let exact_units: Vec<PathBuf> = sources
-        .locked_package_dirs()
-        .unwrap()
-        .into_iter()
-        .filter(|(name, _, _)| name == "exact_units")
-        .map(|(_, _, dir)| dir)
-        .collect();
-    assert!(
-        !exact_units.is_empty(),
-        "exact_units is not in Cargo's sources"
-    );
-    Resolver::new().with_crate_dirs(crate_dirs().into_iter().chain(exact_units))
+    let exact_units = sources.locked_package_dir("exact_units").unwrap();
+    Resolver::new().with_crate_dirs(crate_dirs().into_iter().chain([exact_units]))
 }
 
-/// Consecutive versions in each crate's `api_snapshots/` follow the rules: every crate of [crate_dirs].
+/// Consecutive versions in each crate's `api_snapshots/` follow the rules: every crate of [crate_dirs], with the
+/// snapshots they refer to from [resolver] only.
 #[test]
 fn saved_snapshots_evolve_correctly() {
+    let resolver = resolver();
     for crate_dir in crate_dirs() {
         let dir = ww_snapshots::Dir::of_crate(&crate_dir);
         let mut snapshots: Vec<_> = dir
@@ -128,13 +120,23 @@ fn saved_snapshots_evolve_correctly() {
             .unwrap()
             .into_iter()
             .map(|(version, path)| {
-                let bundle = wire_weaver_evolution::snapshot_files::parse(&path).unwrap();
-                (version, bundle)
+                let snapshot = wire_weaver_evolution::snapshot_files::read(&path).unwrap();
+                (version, snapshot)
             })
             .collect();
         snapshots.sort_by_key(|(v, _)| (v.version.major.0, v.version.minor.0, v.version.patch.0));
         for pair in snapshots.windows(2) {
-            let report = wire_weaver_evolution::compare(&pair[0].1, &pair[1].1).unwrap();
+            let (old, new) = (&pair[0].1, &pair[1].1);
+            let report = wire_weaver_evolution::compare_recorded(
+                &resolver,
+                &old.bundle,
+                &old.recorded,
+                &new.bundle,
+                &new.recorded,
+                &[],
+                &[],
+            )
+            .unwrap();
             report
                 .check_version()
                 .unwrap_or_else(|e| panic!("{}: {e}: {:?}", crate_dir.display(), report.breaking));

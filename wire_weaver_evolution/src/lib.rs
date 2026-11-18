@@ -1357,10 +1357,12 @@ impl<'a> Checker<'a> {
             let mut old_to_new = TypeCheck::new(self.old, self.new, OLD, NEW)
                 .strict_bounds(true)
                 .compare_signatures(self.signatures)
-                .definitions(self.definitions);
+                .definitions(self.definitions)
+                .resolver(self.resolver);
             let mut new_to_old = TypeCheck::new(self.new, self.old, NEW, OLD)
                 .compare_signatures(self.signatures)
-                .definitions(self.definitions);
+                .definitions(self.definitions)
+                .resolver(self.resolver);
             let result = old_to_new
                 .check(old_ty, new_ty)
                 .and_then(|_| new_to_old.check(new_ty, old_ty));

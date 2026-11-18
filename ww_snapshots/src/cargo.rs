@@ -816,11 +816,20 @@ impl CargoSources {
     /// fetched is left out and named in the log. For a build script that embeds the snapshots of every crate a
     /// workspace uses ([crate::build]).
     pub fn locked_package_dirs(&mut self) -> Result<Vec<(String, semver::Version, PathBuf)>> {
+        self.locked_dirs_named(|_| true)
+    }
+
+    /// [Self::locked_package_dirs] of the packages whose name `keep` takes: only those are looked up, so finding one
+    /// package doesn't resolve the directory of every crate the lock lists.
+    fn locked_dirs_named(
+        &mut self,
+        keep: impl Fn(&str) -> bool,
+    ) -> Result<Vec<(String, semver::Version, PathBuf)>> {
         let lock = self.lock()?;
         let root = lock.path.parent().unwrap_or(Path::new("."));
         let mut tree: Option<Vec<Package>> = None;
         let mut dirs = vec![];
-        for locked in &lock.package {
+        for locked in lock.package.iter().filter(|p| keep(&p.name)) {
             let Ok(version) = semver::Version::parse(&locked.version) else {
                 continue;
             };
@@ -854,9 +863,8 @@ impl CargoSources {
     pub fn locked_package_dir(&mut self, name: &str) -> Result<PathBuf> {
         let lock = self.lock_path()?;
         let mut found: Vec<PathBuf> = self
-            .locked_package_dirs()?
+            .locked_dirs_named(|n| n == name)?
             .into_iter()
-            .filter(|(n, _, _)| n == name)
             .map(|(_, _, dir)| dir)
             .collect();
         found.dedup();

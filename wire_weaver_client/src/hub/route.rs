@@ -284,7 +284,9 @@ mod route_tests {
             let e =
                 block_on(route(&config(HubMode::Required), "usb:c0de:cafe:1", true)).unwrap_err();
             assert!(
-                e.to_string().contains("cargo install wire_weaver_cli"),
+                e.to_string().contains(
+                    "cargo install --locked --git https://github.com/vhrdtech/ww_tools ww"
+                ),
                 "{e}"
             );
         });

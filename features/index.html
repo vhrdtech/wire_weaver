@@ -420,6 +420,8 @@
       
         
       
+        
+      
     
     
     
@@ -4565,6 +4567,8 @@
       
         
       
+        
+      
     
     
     
@@ -4750,6 +4754,33 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../transport/keep_trying/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Keep trying
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
     
     
       
@@ -4778,10 +4809,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_7" >
         
           
-          <label class="md-nav__link" for="__nav_7_6" id="__nav_7_6_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_7_7" id="__nav_7_7_label" tabindex="0">
             
   
   
@@ -4799,8 +4830,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_6_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_7_6">
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_7_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7_7">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -5004,10 +5035,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_7" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_8" >
         
           
-          <label class="md-nav__link" for="__nav_7_7" id="__nav_7_7_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_7_8" id="__nav_7_8_label" tabindex="0">
             
   
   
@@ -5025,8 +5056,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_7_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_7_7">
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_8_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7_8">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -7862,6 +7893,18 @@ observing), SRV-46 (peer identity).
   in the command channel the residual keeps: a keeper task holds the channel between event loops and answers every
   command that comes in (<code>prepared_connection.rs</code>'s <code>keep</code>). Tested in <code>tests/methods</code>
   (<code>call_while_disconnected_fails_at_once</code>).
+- 🚧 <strong>CLT-75 Keep-trying connections</strong> · <code>v0.5</code> — <code>PreparedConnection::connect_keep_trying()</code> returns the client at
+  once and connects in the background, again whenever the link goes: each attempt tries the config's addresses in
+  order (<code>ClientConfig::websocket_urls</code>, <code>in_process_paths</code>; <code>connect()</code> and <code>reconnect()</code> too), backoff and give-up
+  time from <code>ClientConfig::keep_trying</code> (<code>KeepTrying</code>, <code>Backoff</code>); calls fail with <code>Disconnected</code> while there is no
+  link, streams, observed levels and sinks resume after each reconnect (<code>resume_streams</code>);
+  <code>ConnectionEvent::Connecting</code> / <code>Connected</code> and <code>Commander::connection_state()</code> (<code>ConnectionState</code>) tell the app.
+  The first connect learns the device's API and every clone of the handle sees it. A WebSocket address that doesn't
+  answer within the link setup timeout fails instead of holding the attempt for the OS's TCP connect timeout. The
+  keeper's times run on tokio's clock. See <code>docs/transport/keep_trying.md</code>; tested in <code>tests/keep_trying</code> on the simulated WebSocket
+  (TR-22, <code>tests_common::start_device_async_ws</code>) on the paused clock. Missing: tests over simulated UDP (TR-21) and
+  USB, a check with a real WebSocket over a LAN (a phone that loses Wi-Fi), and observers opened before the first
+  connect (they fail with <code>Disconnected</code> until then).
 - 🚧 <strong>CLT-39 Hub routing in <code>connect</code></strong> · <code>v0.5.x</code> — direct by default, the hub when it pays off: a device the hub
   holds is reached through it, and repeated short connections (N opens within T seconds, shell-launched calls weighted)
   move a device into the hub, so a loop of <code>ww</code> calls doesn't re-open it every time. <code>HubMode</code> <code>Auto</code>, <code>Prefer</code>,
@@ -8114,6 +8157,16 @@ observing), SRV-46 (peer identity).
   (<code>{4987DAA6-F852-4B79-A4C8-8C0E0648C845}</code>), and <code>const fn</code>s <code>usb_self_id_version_descriptor</code> /
   <code>usb_version_descriptor</code> encoding their payloads (a 4-byte crate tag plus major.minor.patch, each saturated to
   <code>u8::MAX</code>). <code>wire_weaver_usb_embassy</code> uses them, descriptor bytes unchanged.</li>
+<li>✅ <strong>TR-32 WebSocket servers announce themselves over DNS-SD</strong> · <code>v0.5</code> — crate <code>ww_dns_sd</code>
+  (<code>docs/transport/websocket.md#announcing-on-the-lan</code>): service type <code>_wireweaver._tcp</code>, the caller's instance name,
+  port and addresses (each only on the interface whose subnet holds it), host <code>ww-&lt;id&gt;.local</code>, TXT <code>path</code>, <code>api</code>,
+  <code>wire</code>, <code>id</code>, all checked against DNS limits. <code>Advertiser</code> publishes while there are addresses, follows
+  <code>set_addresses</code>, withdraws on drop. Responders: in-process <code>MdnsResponder</code> (<code>mdns-sd</code> on its own thread, feature
+  <code>mdns</code>, default) and <code>AvahiResponder</code> over D-Bus (feature <code>avahi</code>); <code>start_responder(Auto)</code> falls back to Avahi.
+  Tests <code>tests/dns_sd</code>: a browser on loopback sees a record appear, change address and go; a fake Avahi over
+  peer-to-peer D-Bus sees the calls. Example <code>blinky_ws_device</code>, checked with <code>avahi-browse</code> on a LAN PC with both
+  responders. Announces to the whole LAN: no peer authentication until TR-24 (planned). Client-side discovery is
+  not there yet.</li>
 <li>💡 <strong>TR-5 USB CDC-NCM extras</strong> — test on Windows, macOS, iOS and Android; serve files from an SD card over HTTP;
   mass storage with a README.</li>
 <li>📋 <strong>TR-6 CAN</strong> · <code>v0.5.x</code> — <code>ww_client_server</code> on Data0 to one node of a CAN or CAN FD bus by its node id, over
@@ -9151,8 +9204,8 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
   <code>embassy-net</code>, so Ethernet needs no transport work, only an example.</li>
 <li>🚧 <strong>EX-10 Reconnect demo</strong> · <code>v0.5.x</code> — keep reconnecting with streams and UI feedback; <code>disconnect_keep_streams</code>.
   Done: <code>Commander::reconnect()</code> (re-selects the device with the stored config on any transport, restarts the loop
-  on the kept command channel, <code>resume_streams()</code>). Missing: <code>connect_keep_trying</code> (retry until the device is back),
-  UI feedback, the demo itself.</li>
+  on the kept command channel, <code>resume_streams()</code>), <code>connect_keep_trying</code> (CLT-75). Missing: UI feedback, the demo
+  itself.</li>
 <li>📋 <strong>EX-12 Hubris based example</strong> with sync code · <code>v0.5.x</code>.</li>
 <li>📋 <strong>EX-13 Advanced example / project template</strong>.</li>
 <li>📋 <strong>EX-16 Host service</strong> — an API whose plain implementation is called in-process and served on a local socket

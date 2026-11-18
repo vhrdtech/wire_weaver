@@ -422,6 +422,8 @@
       
         
       
+        
+      
     
     
     
@@ -4567,6 +4569,8 @@
       
         
       
+        
+      
     
     
     
@@ -4783,6 +4787,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#announcing-on-the-lan" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Announcing on the LAN
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#simulated-websocket-in-tests" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -4846,6 +4861,33 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../keep_trying/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Keep trying
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
     
     
       
@@ -4877,10 +4919,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_7" >
         
           
-          <label class="md-nav__link" for="__nav_7_6" id="__nav_7_6_label" tabindex="">
+          <label class="md-nav__link" for="__nav_7_7" id="__nav_7_7_label" tabindex="">
             
   
   
@@ -4898,8 +4940,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_6_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_7_6">
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_7_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7_7">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -5106,10 +5148,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_7" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_8" >
         
           
-          <label class="md-nav__link" for="__nav_7_7" id="__nav_7_7_label" tabindex="">
+          <label class="md-nav__link" for="__nav_7_8" id="__nav_7_8_label" tabindex="">
             
   
   
@@ -5127,8 +5169,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_7_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_7_7">
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_8_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7_8">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -6425,6 +6467,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#announcing-on-the-lan" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Announcing on the LAN
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#simulated-websocket-in-tests" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6499,8 +6552,11 @@ or a gateway in front of devices on other media.</p>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="p">.</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
 </span></code></pre></div>
 <p>Everything above the medium is the same as with <a href="../usb/">USB</a> or <a href="../rtt/">RTT</a>: <a href="../ww_link/">link setup</a>, version
-check, introspection, pings, timeouts, streams. There is no discovery, so device filters (serial, label, ...) are not
-checked before connecting, and only plain <code>ws://</code> is supported, no <code>wss://</code>.</p>
+check, introspection, pings, timeouts, streams. The client takes a URL: it doesn't browse for
+<a href="#announcing-on-the-lan">announced servers</a> yet, so device filters (serial, label, ...) are not checked before
+connecting, and only plain <code>ws://</code> is supported, no <code>wss://</code>.</p>
+<p><code>websocket_urls([..])</code> gives several URLs, tried in order until one answers; <code>connect_keep_trying()</code> makes a client
+that connects when the device comes up and again whenever the link goes (<a href="../keep_trying/">keep-trying connections</a>).</p>
 <h2 id="device-side">Device side<a class="headerlink" href="#device-side" title="Permanent link">&para;</a></h2>
 <p>The <code>ws</code> feature of <code>ww_device</code> is the device end: <code>ww_device::ws::WsTx</code> / <code>WsRx</code> implement <code>MessageTx</code> /
 <code>MessageRx</code> with the <a href="#wire-format">wire format</a> below, on top of any TCP-like <code>ws::Socket</code> (accept one client at a time, read, write).
@@ -6530,6 +6586,101 @@ They run the same <a href="../ww_link/#how-the-device-runs-it">Server</a> loop a
 adapter, runs <code>embassy-net</code> with a static address and a small DHCP server (<code>edge-dhcp</code>), so the host is configured
 automatically, and serves the blinky API at <code>ws://192.168.7.1:8080/ww</code>. Run it with <code>just run rp2 ww_ws_ncm</code> from
 <code>examples_mcu/rp2</code>, then blink from the host with <code>cargo run -p blinky --features ws --example blinky_ws</code>.</p>
+<h2 id="announcing-on-the-lan">Announcing on the LAN<a class="headerlink" href="#announcing-on-the-lan" title="Permanent link">&para;</a></h2>
+<p>A WebSocket server on a LAN can announce itself over DNS-SD (multicast DNS), so that clients and people find it
+without a typed address: <code>avahi-browse -r _wireweaver._tcp</code> on Linux, <code>dns-sd -B _wireweaver._tcp</code> on macOS. The
+<code>ww_dns_sd</code> crate does it for any server, on any runtime or none: its calls block for a moment (a message to the
+responder's thread or a D-Bus round trip) and return.</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_dns_sd</span><span class="p">::{</span><span class="n">Advertiser</span><span class="p">,</span><span class="w"> </span><span class="n">InstanceId</span><span class="p">,</span><span class="w"> </span><span class="n">InstanceName</span><span class="p">,</span><span class="w"> </span><span class="n">ResponderChoice</span><span class="p">,</span><span class="w"> </span><span class="n">ServiceRecord</span><span class="p">,</span><span class="w"> </span><span class="n">Txt</span><span class="p">};</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="kd">let</span><span class="w"> </span><span class="n">txt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Txt</span><span class="p">::</span><span class="n">new</span><span class="p">(</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="s">&quot;/ww&quot;</span><span class="p">,</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="o">&amp;</span><span class="n">my_api</span><span class="p">::</span><span class="n">MY_API_FULL_GID</span><span class="p">,</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="nb">Some</span><span class="p">(</span><span class="n">my_api</span><span class="p">::</span><span class="n">MY_API_WIRE_VERSION</span><span class="p">),</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="n">InstanceId</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="s">&quot;tv-living-room&quot;</span><span class="p">)</span><span class="o">?</span><span class="p">,</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="kd">let</span><span class="w"> </span><span class="n">record</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ServiceRecord</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">InstanceName</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="s">&quot;Living room TV&quot;</span><span class="p">)</span><span class="o">?</span><span class="p">,</span><span class="w"> </span><span class="n">port</span><span class="p">,</span><span class="w"> </span><span class="n">txt</span><span class="p">)</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">    </span><span class="p">.</span><span class="n">with_addresses</span><span class="p">(</span><span class="n">ww_dns_sd</span><span class="p">::</span><span class="n">interface_addresses</span><span class="p">(</span><span class="nb">Some</span><span class="p">(</span><span class="s">&quot;eth0&quot;</span><span class="p">))</span><span class="o">?</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">advertiser</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Advertiser</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">ww_dns_sd</span><span class="p">::</span><span class="n">start_responder</span><span class="p">(</span><span class="n">ResponderChoice</span><span class="p">::</span><span class="n">Auto</span><span class="p">)</span><span class="o">?</span><span class="p">,</span><span class="w"> </span><span class="n">record</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="c1">// later, when the interface&#39;s addresses changed (a new DHCP lease):</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="n">advertiser</span><span class="p">.</span><span class="n">set_addresses</span><span class="p">(</span><span class="n">ww_dns_sd</span><span class="p">::</span><span class="n">interface_addresses</span><span class="p">(</span><span class="nb">Some</span><span class="p">(</span><span class="s">&quot;eth0&quot;</span><span class="p">))</span><span class="o">?</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="c1">// dropping the advertiser withdraws the record</span>
+</span></code></pre></div>
+<p>What is announced, as service type <code>_wireweaver._tcp</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Part</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Instance name</td>
+<td>the caller's, one DNS label (63 bytes), shown to people browsing</td>
+</tr>
+<tr>
+<td>Host name</td>
+<td><code>ww-&lt;id&gt;.local</code>, its own, so it never collides with the machine's</td>
+</tr>
+<tr>
+<td>Addresses</td>
+<td>the caller's, each only on the interface whose subnet holds it</td>
+</tr>
+<tr>
+<td>Port</td>
+<td>the WebSocket server's</td>
+</tr>
+<tr>
+<td>TXT <code>path</code></td>
+<td>the request path of the upgrade, <code>/ww</code></td>
+</tr>
+<tr>
+<td>TXT <code>api</code></td>
+<td>the API crate and version, <code>blinky_api@0.1.0</code></td>
+</tr>
+<tr>
+<td>TXT <code>wire</code></td>
+<td>the wire version of the API root, <code>w1.0</code>; left out when unknown</td>
+</tr>
+<tr>
+<td>TXT <code>id</code></td>
+<td>a stable instance id the caller keeps, <code>a-z</code>, <code>0-9</code> and <code>-</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>Advertiser::set_addresses</code> follows a change: the same set in another order sends nothing, a new set replaces the
+old one (browsers may report the instance gone for a moment), no addresses withdraw the record until some come
+back. Dropping the advertiser withdraws it with a goodbye, so browsers see it go at once. A process that dies
+without dropping it leaves the record in caches until its TTL runs out (Avahi drops a dead client's records by
+itself).</p>
+<p>Two responders, each behind a feature of <code>ww_dns_sd</code>:</p>
+<ul>
+<li><code>MdnsResponder</code> (feature <code>mdns</code>, on by default) answers in-process: the <code>mdns-sd</code> crate on its own thread, joined to
+  the mDNS group on every interface, nothing to install. It shares port 5353 with Avahi or systemd-resolved on the
+  same box.</li>
+<li><code>AvahiResponder</code> (feature <code>avahi</code>) registers with the system's Avahi daemon over D-Bus (<code>zbus</code>), where the
+  in-process one can't run: port 5353 held without <code>SO_REUSEPORT</code>, a sandbox without multicast. Avahi must be
+  installed and running there.</li>
+</ul>
+<p><code>start_responder(ResponderChoice::Auto)</code> starts the in-process one and falls back to Avahi when it fails to start;
+<code>InProcess</code> and <code>Avahi</code> pick one. Multicast DNS stays on its link: a server in a VM behind NAT, or on another subnet,
+is not seen from the LAN.</p>
+<p><code>examples/blinky</code>'s <code>blinky_ws_device</code> serves the blinky API over WebSocket from a PC and announces it: <code>cargo run -p
+blinky --features ws --example blinky_ws_device -- --id blinky-demo --interface eth0</code>.</p>
+<div class="admonition warning">
+<p class="admonition-title">Everything announced reaches the whole LAN</p>
+<p>Every device on the link sees the record, unauthenticated: the server's addresses and port, the API it serves
+with its version, and the instance id. Announcing makes a server easy to find; it was reachable before by
+anyone who could guess or scan the port, and a WebSocket server takes any client that connects
+(peer authentication is planned as TR-24, <code>ws-auth</code>). Announce only a server that may be found by everyone on
+that network, never put a secret in the TXT keys or the id (hash a machine id with an application key rather
+than announcing it raw), and pass only the addresses of the interfaces meant for it.</p>
+</div>
+<p><code>ww_dns_sd</code> itself reads nothing from the network except through its responder: <code>mdns-sd</code> parses incoming
+queries (bounded by its packet size), Avahi does so in its own daemon. Every value the caller passes is checked
+against DNS limits before anything is sent: the instance name, the id, the path, each <code>key=value</code> within 255
+bytes, at most 16 addresses.</p>
 <h2 id="simulated-websocket-in-tests">Simulated WebSocket in tests<a class="headerlink" href="#simulated-websocket-in-tests" title="Permanent link">&para;</a></h2>
 <p>With the client's <code>in_process</code> and <code>ws</code> features, <code>wire_weaver_client::in_process::ws_device(path)</code> registers a device
 that speaks WebSocket over an in-memory pipe instead of TCP (TR-22). The host connects with
@@ -6542,7 +6693,7 @@ this way (<code>1L-UPD-BULK</code>, <code>2R-APP-STEP</code>) and keeps one run 
 through. The same holds for UDP, see <a href="../udp/#simulated-udp-in-tests">Simulated UDP in tests</a>.</p>
 <h2 id="wire-format">Wire format<a class="headerlink" href="#wire-format" title="Permanent link">&para;</a></h2>
 <p>Each <a href="../ww_link/">ww_link</a> message is one binary WebSocket message:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>| kind: u8 | payload ... |
+<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>| kind: u8 | payload ... |
 </span></code></pre></div>
 <p><code>kind</code> is <code>ww_link::Kind</code>, the payload is what the same message carries over other media. The hello is frozen in this form, kind
 <code>04</code> and its payload (<a href="../ww_link/#the-frozen-hello">the frozen hello</a>, <code>ww_link::hello::ws</code>). WebSocket has its own

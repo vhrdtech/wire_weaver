@@ -6859,7 +6859,8 @@ size around it, as <code>wr.write</code> does.</p>
   sees garbage. The builder is <code>#[must_use]</code>, but that only catches one that is never used at all.</li>
 <li><strong><code>MaxLen&lt;RefVec&lt;'i, T&gt;, N&gt;</code></strong>: start it with <code>RefVecBuilder::with_max_len(&amp;mut wr, N)</code>, push <code>N + 1</code> fails with
   <code>Error::MaxLenExceeded</code> and writes nothing. A <code>BufWriter</code> keeps lengths as <code>u16</code> until they are encoded, so the
-  65 536<sup>th</sup> push fails with <code>Error::LenTooLong</code>.</li>
+  65 536<sup>th</sup> push fails with <code>Error::LenTooLong</code> (not with the <code>len32</code> feature, see
+  <a href="../wire_format/#the-fifo-of-lengths">the FIFO of lengths</a>).</li>
 </ul>
 <p><code>RefVecBuilderOwned&lt;T&gt;</code> is the same builder for a <code>BufWriterOwned</code> and <code>SerializeShrinkWrapOwned</code> elements, with the
 same bytes.</p>

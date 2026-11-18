@@ -8516,7 +8516,7 @@ difference small: <code>examples_mcu/usb_stm32h725ig</code>'s <code>all_gpio</co
 <li><strong>It replaces <code>memcpy</code> for the whole firmware</strong>, every crate in it: HAL, drivers, buffer copies of the
   transport, not only <code>shrink_wrap</code>'s moves.</li>
 <li><strong>The loop can be turned back into a call of <code>memcpy</code></strong>: LLVM recognizes a byte copy loop and replaces it with
-  <code>memcpy</code>, which here is the function itself, an endless recursion. <code>compiler_builtins</code> is built with
+  <code>memcpy</code>, which is then the function itself, an endless recursion. <code>compiler_builtins</code> is built with
   <code>#![no_builtins]</code> against this; the code below uses a volatile store. With the nightly of October 2026 LLVM
   leaves the loop alone without it as well, in <code>memcpy</code> and in <code>__aeabi_memcpy</code>, but nothing promises that.
   Check the disassembly when changing it.</li>

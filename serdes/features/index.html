@@ -7091,7 +7091,8 @@ for humans and AI agents alike.</p>
   and the conformance case <code>stdlib.si.quantity.unknown_scale</code> (derive, dynamic, Python; C gap API-26).</li>
 <li>✅ <strong>DER-26 The derive accepts only what it writes</strong>: the type names <code>uleb32</code>..<code>ileb128</code> (never written, a panic
   in codegen) and the field attribute <code>#[id = N]</code> (read and not used) are gone; an enum without any variant, and
-  <code>#[flag]</code> or <code>#[default = ..]</code> on a tuple variant's field, are errors that name the cause.</li>
+  <code>#[flag]</code> or <code>#[default = ..]</code> on a tuple variant's field, are errors that name the cause. A discriminant of
+  <code>ub32</code> is written (it panicked the macro); a width of 0 or above 32 bits is an error.</li>
 </ul>
 <h2 id="testing-and-code-size-test">Testing and code size (<code>TEST</code>)<a class="headerlink" href="#testing-and-code-size-test" title="Permanent link">&para;</a></h2>
 <ul>

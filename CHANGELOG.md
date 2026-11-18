@@ -11,6 +11,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
+- `just test-all` runs `cargo test --workspace --doc` as CI does (nextest never ran doctests, so a broken one stayed hidden); see the `ww_api` changelog for the one this caught.
 - A failed `save` no longer risks deleting a file put at its path since, on a filesystem that reuses a freed inode number right away; see `ww_hub`.
 - The hub serves a client that connected before its idle check; its idle and keep tests no longer race the client's first connect; see `ww_hub`.
 - New crate `ww_plugin` (TOOL-40): device arguments and plugin protocol without `ww_hub`, moved out of `wire_weaver_cli`, which re-exports them; see the `ww_plugin` and `wire_weaver_cli` changelogs.

@@ -21,6 +21,8 @@ test *flags:
 # Test everything
 test-all:
     cargo nextest run --workspace --no-fail-fast
+    # doctests: nextest doesn't run them, so plain cargo test for this one case
+    cargo test --workspace --doc
     # a server built as a firmware is, without ww_client_server's multi and streams, refuses their requests (SRV-60)
     just test-lean-server
     # the conformance corpus through Python (TEST-23)

@@ -52,7 +52,8 @@ pub(crate) const PRELUDE_REEXPORTS: &[&str] = &["shrink_wrap", "ww_api", "ww_err
 /// * Only ww_trait's defined in `src/lib.rs` are supported, types can also be in modules (`mod ty;` and `use ty::Ty`).
 /// * Path, git and registry dependencies are supported. Git and registry ones are found where Cargo fetched them
 ///   (under `CARGO_HOME`), at the exact version the `Cargo.lock` the build uses pins: the nearest one above
-///   `crate_path`, or in a proc macro of a crate built as a dependency, that of the workspace being built.
+///   `crate_path`, or in a proc macro of a crate built as a dependency, that of the workspace being built, or outside
+///   a build, that of the current directory's workspace when it pins `crate_path` as a dependency.
 pub fn load(
     crate_path: &Path,
     trait_name: Option<String>,
@@ -2266,8 +2267,18 @@ mod tests {
     }
 
     fn load_with_cargo_home(api: &Path, cargo_home: &Path) -> Result<ApiBundleOwned> {
+        load_in_workspace(api, cargo_home, None)
+    }
+
+    /// The crate at `api`, walked for the workspace at `workspace` (the current directory's when `None`).
+    fn load_in_workspace(
+        api: &Path,
+        cargo_home: &Path,
+        workspace: Option<&Path>,
+    ) -> Result<ApiBundleOwned> {
         let mut scratch = Scratch::default();
         scratch.sources.cargo_home = Some(cargo_home.to_path_buf());
+        scratch.sources.workspace = workspace.map(Path::to_path_buf);
         let manifest = ManifestContext::load(api)?;
         let features = manifest.default_features();
         load_inner(manifest, features, None, &mut scratch)
@@ -2333,6 +2344,103 @@ mod tests {
         assert_eq!(
             crate_names(&bundle),
             [("api".into(), 1), ("dep_api".into(), 3)]
+        );
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A crate walked in its git checkout from a workspace that depends on it (the evolution checker over a ww_base
+    /// crate) resolves its own dependencies by that workspace's `Cargo.lock`, not by the one in its checkout, which
+    /// pins a commit Cargo never fetched; walked standalone, by its own. Real `cargo fetch`es of local repositories.
+    #[test]
+    fn git_checkout_walked_with_the_workspace_lock() {
+        let dir = scratch_dir("workspace_lock");
+        let git = |repo: &Path, args: &[&str]| {
+            run(Command::new("git")
+                .args(["-c", "user.name=t", "-c", "user.email=t@t", "-c"])
+                .args(["commit.gpgsign=false", "-c", "init.defaultBranch=main"])
+                .args(args)
+                .current_dir(repo)
+                .env("GIT_CONFIG_GLOBAL", "/dev/null")
+                .env("GIT_CONFIG_NOSYSTEM", "1"))
+        };
+        let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".into());
+        let cargo_in = |dir: &Path, home: &Path, args: &[&str]| {
+            run(Command::new(&cargo)
+                .args(args)
+                .current_dir(dir)
+                .env("CARGO_HOME", home)
+                .env("CARGO_NET_GIT_FETCH_WITH_CLI", "false"))
+        };
+        let dep_repo = dir.join("dep_repo");
+        let commit_dep = |version: &str| {
+            write_dep_api(&dep_repo, &format!("\"{version}\"\n\n[workspace]"));
+            git(&dep_repo, &["add", "."]);
+            git(&dep_repo, &["commit", "-q", "-m", version]);
+        };
+        git(&dir, &["init", "-q", "dep_repo"]);
+        commit_dep("0.1.0");
+        let dep_url = format!("file://{}", dep_repo.display());
+
+        // the API's repository locks dep_api 0.1.0, fetched only into a CARGO_HOME of its own
+        let api_repo = dir.join("api_repo");
+        write_api_crate(&api_repo, &format!("{{ git = \"{dep_url}\" }}"));
+        cargo_in(
+            &api_repo,
+            &dir.join("api_home"),
+            &["generate-lockfile", "-q"],
+        );
+        git(&api_repo, &["init", "-q"]);
+        git(&api_repo, &["add", "."]);
+        git(&api_repo, &["commit", "-q", "-m", "api"]);
+        let own_lock = fs::read_to_string(api_repo.join("Cargo.lock")).unwrap();
+        let own_rev = own_lock
+            .lines()
+            .find_map(|line| line.strip_prefix("source = \"git+")?.split('#').nth(1))
+            .unwrap()
+            .trim_end_matches('"')
+            .to_owned();
+
+        // the workspace at hand takes the API by git and locks dep_api 0.2.0
+        commit_dep("0.2.0");
+        let workspace = dir.join("workspace");
+        write(
+            &workspace.join("Cargo.toml"),
+            &format!(
+                "[package]\nname = \"host\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[workspace]\n\n\
+                 [dependencies]\napi = {{ git = \"file://{}\" }}\n",
+                api_repo.display()
+            ),
+        );
+        write(&workspace.join("src/lib.rs"), "");
+        let cargo_home = dir.join("cargo_home");
+        cargo_in(&workspace, &cargo_home, &["generate-lockfile", "-q"]);
+        cargo_in(&workspace, &cargo_home, &["fetch", "-q"]);
+        let api_checkouts: Vec<PathBuf> = fs::read_dir(cargo_home.join("git/checkouts"))
+            .unwrap()
+            .map(|e| e.unwrap().path())
+            .filter(|p| {
+                p.file_name()
+                    .unwrap()
+                    .to_string_lossy()
+                    .starts_with("api_repo-")
+            })
+            .flat_map(|repo| fs::read_dir(repo).unwrap().map(|e| e.unwrap().path()))
+            .collect();
+        let [api] = &api_checkouts[..] else {
+            panic!("one checkout of api_repo: {api_checkouts:?}");
+        };
+
+        let bundle = load_in_workspace(api, &cargo_home, Some(&workspace)).unwrap();
+        assert_eq!(
+            crate_names(&bundle),
+            [("api".into(), 1), ("dep_api".into(), 2)]
+        );
+        // a workspace that doesn't pin the checkout leaves it to its own lock
+        let err = load_in_workspace(api, &cargo_home, Some(&dir)).unwrap_err();
+        let err = format!("{err:#}");
+        assert!(
+            err.contains("no checkout of") && err.contains(&own_rev),
+            "{err}"
         );
         fs::remove_dir_all(&dir).unwrap();
     }

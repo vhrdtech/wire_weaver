@@ -36,6 +36,7 @@
 
 ### 🐛 Fixes
 
+- `Check` of a crate in a dependency's git checkout (the ww_base crates from wire_weaver's tests) resolves its dependencies by the current workspace's `Cargo.lock`, not the checkout's own, which may pin commits Cargo never fetched (API-14).
 - The checker compares types with the resolver it was given, not `Resolver::global()`, whose first miss scanned every Cargo git checkout (EVO-80).
 - Moving types or a `#[ww_trait]` of a crate from `lib.rs` into a `pub mod` (re-exported, same paths) is no change (EVO-75): the checker compares both sides in `ww_self::order::canonical_order`, so `ww api check` no longer reports "compatible changes, order of items" and asks for a bump, and `Check::save` keeps the saved snapshot as it is (`SaveStatus::UpToDate`) instead of rewriting it in the new order.
 - The docs links in the checker's messages point at the rewritten Evolution chapter: the wire version, the design line, your API's version and several lines in one crate are in `docs/evolution/versions.md` now (they were in `rules.md`).

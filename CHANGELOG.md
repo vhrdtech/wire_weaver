@@ -162,6 +162,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - The hub records (SRV-64): `ww_hub_api::Captures`, `ww_hub::CaptureHost` injected by the hosting program, `Command::SetTap`; see the `ww_hub_api`, `ww_hub`, `wire_weaver_client`, `wire_weaver_cli` and `wire_weaver_py` changelogs.
 - New crate `ww_dns_sd` (TR-32): WebSocket servers announce themselves on the LAN over DNS-SD as `_wireweaver._tcp`; see its changelog.
 - Keep-trying connections (CLT-75): a client that connects when the device comes up and reconnects by itself; see `wire_weaver_client`.
+- The evolution checker and `ww api` walk a dependency's checkout by the current workspace's Cargo.lock, not the checkout's own; see `ww_snapshots`.
 
 ### Added
 

@@ -8,6 +8,7 @@
 
 ### 🐛 Fixes
 
+- Outside a build, `CargoSources` resolves a crate walked in a dependency's checkout by the lock of the workspace at hand (new field `workspace`, the current directory's by default), not the checkout's own; the evolution checker failed on a fresh `CARGO_HOME` (API-14).
 - `Resolver::read_error` names a version whose file existed but could not be read (an old or damaged model format), so a caller can tell that apart from truly having no snapshot; `Resolver::snapshot` answering `None` either way once let codegen inline a dependency whose snapshot was merely unreadable (EVO-82).
 - `CargoSources` finds a git dependency in the checkout of the URL its lock names; a repository fetched by https and ssh broke the walk (API-14).
 - `CargoSources::locked_package_dir` looks up only the named package, not every crate the lock lists (1.8 s to 0.08 s).

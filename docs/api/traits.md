@@ -98,7 +98,9 @@ the `Cargo.lock` of the crate being built pins, in Cargo's own copy under `CARGO
 `registry/src/`). Cargo fetches them before it compiles anything, so this just works in a build; a tool reading an
 API crate that was never built (`ww api ...`) asks for `cargo fetch` first. Inside an API crate that Cargo fetched
 itself (one your project depends on, or a docs.rs build) only its publisher's `Cargo.lock` is at hand, so its
-crates.io dependencies are read at the newest matching version Cargo has.
+crates.io dependencies are read at the newest matching version Cargo has. A tool or test run in a workspace (`ww api
+check`, the evolution checker) that reads a crate where Cargo put it for that workspace follows the workspace's
+`Cargo.lock`, not the one in the crate's checkout.
 
 Host code written for `ww_gpio::Bank` then works with any device that has a bank somewhere in its API, whatever the
 device, the path or the transport: see [Trait attachments](trait_attachments.md). A host can also call a trait by

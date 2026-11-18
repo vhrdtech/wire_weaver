@@ -54,8 +54,12 @@ pub struct CargoSources {
     pub reads: Option<ReadNote>,
     /// The rustc build the walk runs in, `None` for the one of this process, if any ([RustcBuild::from_process]).
     pub rustc: Option<RustcBuild>,
+    /// The workspace at hand outside a rustc build: the one a tool or test runs in. A walk that starts in a crate
+    /// outside it which its `Cargo.lock` places (a git checkout or registry crate it pins, a `[patch]` path) uses
+    /// that lock, not the crate's own. `None` for the current directory's.
+    pub workspace: Option<PathBuf>,
     lock: Option<Rc<CargoLock>>,
-    /// [Self::lock] is the one of the rustc build the walk runs in, checked against what it compiled.
+    /// [Self::lock] is the one of the build or the workspace at hand, not the nearest one above the entry crate.
     lock_is_build: bool,
     /// Packages in a git checkout, by name, each with its directory.
     git_members: HashMap<PathBuf, Rc<HashMap<String, PathBuf>>>,
@@ -449,20 +453,62 @@ impl CargoSources {
         .filter(|build| build.compiles(&entry));
         let lock = match build {
             Some(build) => self.build_lock(&entry, nearest, &build)?,
-            None => {
-                let path = nearest.ok_or_else(|| {
+            None => match self.workspace_lock(&entry)? {
+                Some(lock) => {
+                    self.lock_is_build = true;
+                    lock
+                }
+                None => {
+                    let path = nearest.ok_or_else(|| {
                     anyhow!(
                         "no Cargo.lock in {} or above it, needed to find git and registry dependencies: run `cargo \
                          fetch` there first",
                         entry_dir.display()
                     )
                 })?;
-                self.read_lock(&path)?
-            }
+                    self.read_lock(&path)?
+                }
+            },
         };
         let lock = Rc::new(lock);
         self.lock = Some(lock.clone());
         Ok(lock)
+    }
+
+    /// The `Cargo.lock` of the workspace at hand ([Self::workspace]) when it places `entry` (canonical) outside its
+    /// own tree: a git or registry package it pins Cargo fetched at `entry`, or a path package a `[patch]` of that
+    /// workspace puts there. A crate walked from a tool or test of that workspace (the evolution checker over a
+    /// git dependency's checkout) is built with this lock, and the one in its checkout pins other commits, which
+    /// Cargo may never have fetched. `None` when the workspace has no lock, or `entry` is in its tree (the nearest
+    /// lock decides) or not placed by it (a crate walked standalone, by its own lock).
+    fn workspace_lock(&mut self, entry: &Path) -> Result<Option<CargoLock>> {
+        let workspace = match &self.workspace {
+            Some(dir) => dir.clone(),
+            None => std::env::current_dir().context("the current directory")?,
+        };
+        let Some(path) = self.nearest_lock(&workspace) else {
+            return Ok(None);
+        };
+        let path = path.canonicalize().unwrap_or(path);
+        if path.parent().is_some_and(|root| entry.starts_with(root)) {
+            return Ok(None);
+        }
+        let entry_name =
+            package_name(entry).with_context(|| format!("the package in {}", entry.display()))?;
+        let lock = self.read_lock(&path)?;
+        for p in lock.package.iter().filter(|p| p.name == entry_name) {
+            let placed = if p.source.is_some() {
+                self.fetched_at(p, entry)
+            } else {
+                self.patched_dir(&path, &entry_name)?
+                    .and_then(|dir| dir.canonicalize().ok())
+                    .is_some_and(|dir| dir == entry)
+            };
+            if placed {
+                return Ok(Some(lock));
+            }
+        }
+        Ok(None)
     }
 
     /// The nearest `Cargo.lock` in `dir` or above it.

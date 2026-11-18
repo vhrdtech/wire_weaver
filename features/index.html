@@ -7029,9 +7029,11 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
   crates.io dependencies are the newest matching version on disk, as the lock in use is out of reach. In a proc
   macro of a crate built as a dependency of another workspace (a git checkout, a path <code>[patch]</code>), the lock is that
   workspace's, found from rustc's view of the build and checked against the dep-info of what Cargo compiled; none
-  matching is an error naming each lock looked at. Tests
-  <code>wire_weaver_core</code> <code>crate_walker::tests</code> (a real <code>cargo fetch</code> of a local git repository), <code>ww_snapshots</code>
-  <code>tests/build_lock.rs</code>, <code>docs/api/traits.md</code>.</li>
+  matching is an error naming each lock looked at. Outside a build (the evolution checker, <code>ww api</code>), a crate walked
+  in a git checkout, a registry copy or a <code>[patch]</code> path that the current directory's workspace pins resolves by that
+  workspace's lock; one it doesn't pin, by its own. Tests
+  <code>wire_weaver_core</code> <code>crate_walker::tests</code> (a real <code>cargo fetch</code> of a local git repository,
+  <code>git_checkout_walked_with_the_workspace_lock</code>), <code>ww_snapshots</code> <code>tests/build_lock.rs</code>, <code>docs/api/traits.md</code>.</li>
 <li>✅ <strong>API-50 Observe cells: sampling a level from an interrupt in place</strong> — <code>ww_codegen!(.., observe_cells =
   "root_foc")</code> puts a level with <code>+batched</code> properties on a ring of atomics instead of <code>&lt;Level&gt;Sampler::sample</code>: a
   <code>const fn</code> <code>&lt;Level&gt;Cells&lt;R&gt;</code> (a <code>static</code>, or an <code>Arc</code>), one <code>&lt;Level&gt;Writer</code> with a setter per property (relaxed

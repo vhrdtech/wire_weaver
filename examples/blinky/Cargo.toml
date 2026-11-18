@@ -26,9 +26,13 @@ anyhow.workspace = true
 clap = { workspace = true, features = ["derive"] }
 console.workspace = true
 shlex = "1.3"
-tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net", "io-util", "signal"] }
 tracing = "0.1"
 tracing-subscriber.workspace = true
+wire_weaver_client = { workspace = true, features = ["in_process"] }
+ww_client_server.workspace = true
+ww_device = { workspace = true, features = ["ws"] }
+ww_dns_sd = { workspace = true, features = ["mdns", "avahi"] }
 ww_self = { workspace = true }
 
 [[example]]
@@ -47,6 +51,11 @@ required-features = ["rtt"]
 [[example]]
 name = "blinky_ws"
 path = "examples/ws.rs"
+required-features = ["ws"]
+
+[[example]]
+name = "blinky_ws_device"
+path = "examples/ws_device.rs"
 required-features = ["ws"]
 
 [[example]]

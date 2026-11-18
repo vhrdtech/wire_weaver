@@ -1,0 +1,204 @@
+//! The blinky API served over WebSocket from this PC and announced on the LAN over DNS-SD as `_wireweaver._tcp`.
+//! The LED is a log line. Every 5 s the interface's addresses are read again and the record follows a change;
+//! Ctrl-C withdraws it.
+//!
+//! `cargo run -p blinky --features ws --example blinky_ws_device -- --id blinky-demo`, then from another PC on the
+//! LAN: `avahi-browse -r -t _wireweaver._tcp`, and `blinky_ws --url ws://<address>:8080/ww` blinks it.
+
+use std::num::NonZeroU16;
+use std::time::Duration;
+
+use anyhow::Result;
+use clap::{Parser, ValueEnum};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::{TcpListener, TcpStream};
+use wire_weaver::prelude::*;
+use wire_weaver::{MessageSink, WireWeaverAsyncApiBackend};
+use wire_weaver_client::in_process::TokioClock;
+use ww_device::LinkConfig;
+use ww_device::ws::{WsBuffers, WsConnection, ws_server};
+use ww_dns_sd::{
+    Advertiser, InstanceId, InstanceName, ResponderChoice, ServiceRecord, Txt, interface_addresses,
+    start_responder,
+};
+
+#[derive(Parser)]
+struct Args {
+    /// TCP port of the WebSocket server
+    #[arg(long, default_value_t = NonZeroU16::new(8080).expect("not zero"))]
+    port: NonZeroU16,
+    /// Instance name shown when browsing
+    #[arg(long, default_value = "blinky demo")]
+    name: String,
+    /// Stable instance id, a-z, 0-9 and -
+    #[arg(long)]
+    id: String,
+    /// Interface whose addresses are announced; every interface but loopback when left out
+    #[arg(long)]
+    interface: Option<String>,
+    /// Responder that announces the record
+    #[arg(long, value_enum, default_value_t = Responder::Auto)]
+    responder: Responder,
+}
+
+#[derive(Copy, Clone, ValueEnum)]
+enum Responder {
+    Auto,
+    InProcess,
+    Avahi,
+}
+
+const MAX_MESSAGE_LEN: usize = 1024;
+const PATH: &str = "/ww";
+const ADDRESS_CHECK_INTERVAL: Duration = Duration::from_secs(5);
+
+fn main() -> Result<()> {
+    tracing_subscriber::fmt::init();
+    let args = Args::parse();
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()?;
+    // the medium is not Send (NoopRawMutex, as on embassy): everything runs on one LocalSet
+    rt.block_on(tokio::task::LocalSet::new().run_until(run(args)))
+}
+
+async fn run(args: Args) -> Result<()> {
+    let listener = TcpListener::bind(("0.0.0.0", args.port.get())).await?;
+
+    let txt = Txt::new(
+        PATH,
+        &blinky_api::BLINKY_API_FULL_GID,
+        Some(blinky_api::BLINKY_API_WIRE_VERSION),
+        InstanceId::new(args.id)?,
+    )?;
+    let record = ServiceRecord::new(InstanceName::new(args.name)?, args.port, txt)
+        .with_addresses(interface_addresses(args.interface.as_deref())?)?;
+    let responder = start_responder(match args.responder {
+        Responder::Auto => ResponderChoice::Auto,
+        Responder::InProcess => ResponderChoice::InProcess,
+        Responder::Avahi => ResponderChoice::Avahi,
+    })?;
+    let mut advertiser = Advertiser::new(responder, record)?;
+    println!(
+        "serving ws://0.0.0.0:{}{PATH}, announced at {:?}",
+        args.port,
+        advertiser.record().addresses()
+    );
+
+    let conn = WsConnection::new(TokioSocket {
+        listener,
+        stream: None,
+    });
+    let link_config = LinkConfig::new(
+        blinky_api::BLINKY_API_FULL_GID,
+        blinky_api::BLINKY_API_WIRE_VERSION,
+        server_impl::api_hash(),
+        server_impl::image_facts(),
+        ww_client_server::COMPACT_VERSION,
+    );
+    let mut buffers = Box::new(WsBuffers::<MAX_MESSAGE_LEN>::new());
+    let mut server = ws_server(link_config, &conn, TokioClock::new(), &mut buffers);
+    let mut state = ServerState;
+    let mut check = tokio::time::interval(ADDRESS_CHECK_INTERVAL);
+    loop {
+        tokio::select! {
+            ready = server.wait() => {
+                if let Some(event) = server.handle(ready, &mut state).await {
+                    println!("{event:?}");
+                }
+            }
+            _ = check.tick() => {
+                if advertiser.set_addresses(interface_addresses(args.interface.as_deref())?)? {
+                    println!("addresses changed, announced at {:?}", advertiser.record().addresses());
+                }
+            }
+            _ = tokio::signal::ctrl_c() => break,
+        }
+    }
+    advertiser.withdraw()?;
+    println!("record withdrawn");
+    Ok(())
+}
+
+/// [ww_device::ws::Socket] on a tokio listener, one client at a time.
+struct TokioSocket {
+    listener: TcpListener,
+    stream: Option<TcpStream>,
+}
+
+impl ww_device::ws::Socket for TokioSocket {
+    type Error = std::io::Error;
+
+    async fn accept(&mut self) {
+        self.stream = None;
+        loop {
+            match self.listener.accept().await {
+                Ok((stream, peer)) => {
+                    if let Err(e) = stream.set_nodelay(true) {
+                        println!("{peer}: TCP_NODELAY: {e}");
+                    }
+                    println!("client {peer}");
+                    self.stream = Some(stream);
+                    return;
+                }
+                Err(e) => println!("accept: {e}"),
+            }
+        }
+    }
+
+    async fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        match &mut self.stream {
+            Some(s) => s.read(buf).await,
+            None => Ok(0),
+        }
+    }
+
+    async fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        match &mut self.stream {
+            Some(s) => s.write(bytes).await,
+            None => Err(std::io::ErrorKind::NotConnected.into()),
+        }
+    }
+}
+
+struct ServerState;
+
+impl WireWeaverAsyncApiBackend for ServerState {
+    type Medium = ();
+
+    async fn process_bytes<'a>(
+        &mut self,
+        out: &mut EventWriter<'_, impl MessageSink>,
+        medium: (),
+        data: &[u8],
+        scratch: &'a mut [u8],
+    ) -> Result<&'a [u8], shrink_wrap::Error> {
+        self.process_request_bytes(data, scratch, out, medium).await
+    }
+
+    fn version(&self) -> FullVersion<'_> {
+        blinky_api::BLINKY_API_FULL_GID
+    }
+}
+
+mod server_impl {
+    wire_weaver::ww_codegen!(
+        blinky_api :: BlinkyApi for super::ServerState,
+        server = true, no_alloc = true, use_async = true,
+        method_model = "_=immediate",
+        property_model = "_=get_set",
+        introspect = "with_docs",
+    );
+}
+
+impl ServerState {
+    async fn led_on(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {
+        println!("LED on");
+        Ready(())
+    }
+
+    async fn led_off(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {
+        println!("LED off");
+        Ready(())
+    }
+}

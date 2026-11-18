@@ -59,6 +59,8 @@ pub struct ClientConfig {
     holder_mode: Option<crate::holders::Mode>,
     /// [ClientConfig::hub_reconnect]; None: the default
     hub_reconnect: Option<Option<Duration>>,
+    /// [ClientConfig::keep_trying]; None: the default
+    keep_trying: Option<crate::KeepTrying>,
     /// [ClientConfig::clock_sync]; None: [crate::clock_sync::ENV], else on
     #[cfg(feature = "clock_sync")]
     clock_sync: Option<bool>,
@@ -196,6 +198,10 @@ pub(crate) struct ValidatedConfig {
     pub(crate) holder_mode: crate::holders::Mode,
     /// [ClientConfig::hub_reconnect]: give up after this long without a link, None: don't reconnect
     pub(crate) hub_reconnect: Option<Duration>,
+    /// [ClientConfig::keep_trying]
+    pub(crate) keep_trying: crate::KeepTrying,
+    /// Made by `connect_keep_trying()` (CLT-75): every link that goes is connected again, its streams wait for it
+    pub(crate) keeps_trying: bool,
     /// [ClientConfig::clock_sync]: the connection steers the device's clock, with these options
     #[cfg(feature = "clock_sync")]
     pub(crate) clock_sync: Option<crate::clock_sync::Options>,
@@ -289,8 +295,8 @@ pub(crate) enum ConfigPiece {
     /// `.usb_vid_pid(1, 2).no_ww_usb().can()` will try to connect over CAN Bus using USB-CAN bridge
     NoWwUsb,
 
-    /// Connect to a networked device via WebSocket, `ws://host:port/path`.
-    WebSocketUrl { url: String },
+    /// Connect to a networked device via WebSocket, `ws://host:port/path`: the first of these that answers.
+    WebSocketUrl { urls: Vec<String> },
     /// Consider WebSocket as a connection interface, [WebSocketUrl](Self::WebSocketUrl) is required to select a device
     /// (there is no discovery yet).
     WebSocket,
@@ -327,7 +333,8 @@ pub(crate) enum ConfigPiece {
 
     /// Connect to a device running in the same process via lock-free channel.
     /// Can be used for testing purposes or to create virtual devices.
-    InProcessPath { path: String },
+    /// The first of these paths that has a device registered.
+    InProcessPath { paths: Vec<String> },
     /// Negate previous InProcess related filters or exclude InProcess from the interfaces to try.
     NoInProcess,
 
@@ -415,6 +422,9 @@ impl ClientConfig {
         if s.link_setup_timeout.is_some_and(|t| t.is_zero()) {
             bail!("link_setup_timeout must not be zero");
         }
+        if let Some(k) = &s.keep_trying {
+            k.backoff.check()?;
+        }
         let cmd_queue_size = s.cmd_queue_size.unwrap_or(crate::DEFAULT_CMD_QUEUE_SIZE);
         if !(1..=65_534).contains(&cmd_queue_size) {
             bail!("Wrong cmd queue size of {cmd_queue_size}");
@@ -480,6 +490,8 @@ impl ClientConfig {
             hub_opens: s.hub_opens.unwrap_or_else(OpenCounter::from_env),
             holder_mode: s.holder_mode.unwrap_or(crate::holders::Mode::Direct),
             hub_reconnect: s.hub_reconnect.unwrap_or(Some(DEFAULT_HUB_GIVE_UP)),
+            keep_trying: s.keep_trying.unwrap_or_default(),
+            keeps_trying: false,
             #[cfg(feature = "clock_sync")]
             clock_sync: s
                 .clock_sync
@@ -542,8 +554,17 @@ impl ClientConfig {
     /// Device filters (serial, label, etc.) are not checked, the device is not known before connecting. Device API is
     /// checked during link setup anyway.
     pub fn websocket_url(self, url: impl Into<String>) -> Self {
+        self.websocket_urls([url])
+    }
+
+    /// Connect over WebSocket to the first of `urls` that answers, in order (CLT-75), see [Self::websocket_url]: a
+    /// device's LAN address before its VPN one, a discovered address before a typed one. `connect()`,
+    /// `reconnect()` and `connect_keep_trying()` (each attempt) try them in order; `connect_blocking()` takes the
+    /// first. Replaces the URLs set before.
+    pub fn websocket_urls(self, urls: impl IntoIterator<Item = impl Into<String>>) -> Self {
         let mut f = self;
-        f.pieces.push(ConfigPiece::WebSocketUrl { url: url.into() });
+        let urls = urls.into_iter().map(Into::into).collect();
+        f.pieces.push(ConfigPiece::WebSocketUrl { urls });
         f
     }
 
@@ -621,6 +642,14 @@ impl ClientConfig {
     pub fn hub_reconnect(self, give_up: Option<Duration>) -> Self {
         let mut c = self;
         c.hub_reconnect = Some(give_up);
+        c
+    }
+
+    /// How a connection made by `connect_keep_trying()` tries (CLT-75): the wait between attempts and when it stops
+    /// trying, default [KeepTrying::default](crate::KeepTrying::default). Other connections are not affected.
+    pub fn keep_trying(self, keep_trying: crate::KeepTrying) -> Self {
+        let mut c = self;
+        c.keep_trying = Some(keep_trying);
         c
     }
 
@@ -754,8 +783,15 @@ impl ClientConfig {
 
     /// Select in-process node by path
     pub fn in_process_path(self, path: String) -> Self {
+        self.in_process_paths([path])
+    }
+
+    /// Select the first in-process node of `paths` that is registered, in order, as [Self::websocket_urls] does
+    /// for WebSocket URLs. Replaces the paths set before.
+    pub fn in_process_paths(self, paths: impl IntoIterator<Item = impl Into<String>>) -> Self {
         let mut f = self;
-        f.pieces.push(ConfigPiece::InProcessPath { path });
+        let paths = paths.into_iter().map(Into::into).collect();
+        f.pieces.push(ConfigPiece::InProcessPath { paths });
         f
     }
 
@@ -1162,7 +1198,9 @@ impl ValidatedConfig {
                                 api_gid,
                                 version_req,
                             } => format!("API = {api_gid} {version_req}"),
-                            ConfigPiece::WebSocketUrl { url } => format!("WebSocket URL = {url}"),
+                            ConfigPiece::WebSocketUrl { urls } => {
+                                format!("WebSocket URL = {}", urls.join(" or "))
+                            }
                             ConfigPiece::UdpAddr { addr } => format!("UDP address = {addr}"),
                             // the filters after it pick the probe
                             ConfigPiece::Rtt { target, .. } => format!("RTT to {target}"),
@@ -1171,6 +1209,52 @@ impl ValidatedConfig {
                 )
             })
             .collect()
+    }
+
+    /// One config per address to try, in order (CLT-75): the effective [ClientConfig::websocket_urls] and
+    /// [ClientConfig::in_process_paths] lists each split into one address per config, everything else as it is.
+    /// Just this config when no list has more than one address.
+    pub(crate) fn alternatives(&self) -> Vec<ValidatedConfig> {
+        let mut alternatives = vec![self.clone()];
+        let lists = [
+            self.last_piece(ConfigPieceDiscriminants::WebSocketUrl),
+            self.last_piece(ConfigPieceDiscriminants::InProcessPath),
+        ];
+        for at in lists.into_iter().flatten() {
+            let addresses = match &self.pieces[at] {
+                ConfigPiece::WebSocketUrl { urls } => urls,
+                ConfigPiece::InProcessPath { paths } => paths,
+                _ => unreachable!("last_piece found one of these two kinds"),
+            };
+            if addresses.len() < 2 {
+                continue;
+            }
+            alternatives = alternatives
+                .into_iter()
+                .flat_map(|config| {
+                    addresses.iter().map(move |address| {
+                        let mut one = config.clone();
+                        one.pieces[at] = match &one.pieces[at] {
+                            ConfigPiece::WebSocketUrl { .. } => ConfigPiece::WebSocketUrl {
+                                urls: vec![address.clone()],
+                            },
+                            _ => ConfigPiece::InProcessPath {
+                                paths: vec![address.clone()],
+                            },
+                        };
+                        one
+                    })
+                })
+                .collect();
+        }
+        alternatives
+    }
+
+    /// Index of the last piece of `kind`: the one in effect.
+    fn last_piece(&self, kind: ConfigPieceDiscriminants) -> Option<usize> {
+        self.pieces
+            .iter()
+            .rposition(|p| ConfigPieceDiscriminants::from(p) == kind)
     }
 
     /// USB filters select a probe when RTT is used, not a device to connect to over USB

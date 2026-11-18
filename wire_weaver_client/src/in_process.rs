@@ -567,16 +567,20 @@ pub(crate) fn try_connect(
     c: &ValidatedConfig,
     cmd_rx: &mut Option<mpsc::Receiver<Command>>,
 ) -> Result<Selected, anyhow::Error> {
-    let Some(path) = c.pieces.iter().rev().find_map(|p| match p {
-        ConfigPiece::InProcessPath { path } => Some(path.clone()),
+    let Some(paths) = c.pieces.iter().rev().find_map(|p| match p {
+        ConfigPiece::InProcessPath { paths } => Some(paths),
         _ => None,
     }) else {
         bail!("Internal error: in-process selected without a path");
     };
-    if !DEVICES.lock().unwrap().contains_key(&path) {
+    let registered = {
+        let devices = DEVICES.lock().unwrap();
+        paths.iter().find(|p| devices.contains_key(*p)).cloned()
+    };
+    let Some(path) = registered else {
         let unmatched = devices().into_iter().map(device_info).collect();
         return Ok(Selected::NotFound { unmatched });
-    }
+    };
     let Some(cmd_rx) = cmd_rx.take() else {
         bail!("Internal error: cmd_rx is None");
     };

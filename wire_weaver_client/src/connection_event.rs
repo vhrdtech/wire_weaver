@@ -1,5 +1,7 @@
-//! What happens to a client's connection (CLT-40): the link went, and, for a connection through the ww hub, the
-//! client connected again by itself. From [Commander::connection_events](crate::Commander::connection_events).
+//! What happens to a client's connection (CLT-40, CLT-75): the link went, and, for a connection through the ww hub or
+//! a keep-trying one, the client connected again by itself. From
+//! [Commander::connection_events](crate::Commander::connection_events) and
+//! [Commander::connection_state](crate::Commander::connection_state).
 
 use std::time::Duration;
 
@@ -59,6 +61,12 @@ impl std::fmt::Display for GapReason {
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum ConnectionEvent {
+    /// A keep-trying connection (CLT-75) starts attempt `attempt` (1 for the first since the link went, or since the
+    /// connection was made), trying its addresses in order.
+    Connecting { attempt: u32 },
+    /// A keep-trying connection (CLT-75) connected for the first time, at `address` (as `DeviceInfo::location` names
+    /// it), after `attempts` attempts. Later connects are [Self::Reconnected].
+    Connected { address: String, attempts: u32 },
     /// The link went. Calls in flight failed with [Error::Disconnected](crate::Error::Disconnected), and so does
     /// every call until a reconnect (they are never sent again by themselves). With `reconnecting`, the client
     /// connects again by itself (a connection through the hub, [crate::ClientConfig::hub_reconnect], or one handed to
@@ -85,6 +93,20 @@ pub enum ConnectionEvent {
     /// The client stopped trying: no reconnect within the give-up time, a device with another API, versions the hub
     /// doesn't serve. The waiting streams end; connect a new client to go on.
     GaveUp { error: String },
+}
+
+/// Where a connection is now, see [Commander::connection_state](crate::Commander::connection_state): what
+/// [ConnectionEvent]s told so far, for an app that shows it rather than following every event.
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum ConnectionState {
+    /// Not connected, and trying: attempt `attempt` runs or waits for its turn (0 before the first one).
+    Connecting { attempt: u32 },
+    /// Connected to the device at `address` (as `DeviceInfo::location` names it).
+    Connected { address: String },
+    /// Not connected, and not trying: the link went on a connection that doesn't reconnect by itself, `disconnect()`
+    /// was asked for, or the client gave up ([ConnectionEvent::GaveUp]).
+    Disconnected,
 }
 
 /// The numbers above are `ww_local_socket`'s, which the client links only with the `local_socket` feature.

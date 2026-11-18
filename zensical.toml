@@ -166,6 +166,7 @@ nav = [
             "transport/rtt.md",
             "transport/websocket.md",
             "transport/udp.md",
+            { "Keep trying" = "transport/keep_trying.md" },
             { "Advanced" = [
                     { "USB inside" = "transport/usb_internals.md" },
                     "transport/ww_link.md",

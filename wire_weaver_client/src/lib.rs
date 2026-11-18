@@ -17,6 +17,7 @@ pub mod envelope;
 mod error;
 mod error_list;
 pub(crate) mod event_loop;
+mod keep_trying;
 /// The evolution checker, now its own crate (EVO-11): `wire_weaver_evolution`.
 pub use wire_weaver_evolution as evolution;
 pub use ww_si;
@@ -64,9 +65,10 @@ pub use client::sink::Sink;
 pub use client::stream::{RawStreamEvent, Stream, StreamError, TypedStreamEvent};
 pub use client_meta::{ClientKind, ClientMeta};
 pub use config::{ClientApi, ClientConfig, ClientLine, DEFAULT_HUB_GIVE_UP};
-pub use connection_event::{ConnectionEvent, GapReason};
+pub use connection_event::{ConnectionEvent, ConnectionState, GapReason};
 pub use device_info::{ApiInfo, DeviceApiInfo, DeviceInfo, MessageLimit, UsbLocation};
 pub use event_loop::commander::Commander;
+pub use keep_trying::{Backoff, KeepTrying};
 pub use wire_weaver::Priority;
 pub use ww_stream::StreamCursor;
 

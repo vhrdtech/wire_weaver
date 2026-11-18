@@ -1,0 +1,98 @@
+---
+level: basic
+---
+
+# Keep-trying connections
+
+A phone app on Wi-Fi, a dashboard next to a board that reboots, a tool started before the device is up: they want a
+client that exists at once, connects when the device answers, and connects again whenever the link goes.
+`connect_keep_trying()` makes one (CLT-75).
+
+```rust
+let tv = Tv::config(|c| {
+    c.websocket_urls(["ws://192.168.1.95:7590/ww", "ws://tv.tailnet:7590/ww"])
+        .keep_trying(KeepTrying::default())
+})
+.connect_keep_trying()?; // returns at once, connects in the background
+
+let mut events = tv.cmd.connection_events();
+while let Ok(event) = events.recv().await {
+    match event {
+        ConnectionEvent::Connecting { attempt } => show_connecting(attempt),
+        ConnectionEvent::Connected { address, .. } => {
+            show_connected(&address);
+            // observers opened now go on through every later reconnect
+            volume = Some(tv.observe_volume(on_change(Duration::from_millis(50))).subscribe().await?);
+        }
+        ConnectionEvent::Disconnected { .. } => show_offline(),
+        ConnectionEvent::Reconnected { .. } => show_back(),
+        ConnectionEvent::GaveUp { error } => break,
+        _ => {}
+    }
+}
+```
+
+It runs on the caller's tokio runtime and needs one (an error says so otherwise).
+
+## What it does
+
+- **The handle at once.** `connect_keep_trying()` returns the client before any connection; the first attempt starts
+  right away in a task of its own.
+- **Addresses in order.** Each attempt tries the config's addresses in order, the first that answers wins:
+  `ClientConfig::websocket_urls([..])` for WebSocket (a LAN address before a VPN one, a discovered one before a typed
+  one), `in_process_paths([..])` for in-process devices. A WebSocket address that doesn't answer within the
+  transport's link setup timeout (1 s) counts as failed, so a host gone from the LAN doesn't hold the next address
+  for the minutes a TCP connect can take. `connect()` and `reconnect()` try the same lists in the same order;
+  `connect_blocking()` takes the first address.
+- **Backoff.** Between attempts the client waits `KeepTrying::backoff`: `first` after the first failed attempt,
+  doubled after each further one up to `max` (`Backoff::NETWORK`: 100 ms up to 5 s). Each new gap starts from
+  `first` again.
+- **Calls.** Until the link is up, and while it is down again, every call fails at once with `Error::Disconnected`,
+  as do calls in flight when the link goes. None is sent again by itself: a call may have reached the device before
+  the link went, and calls aren't idempotent in general.
+- **Streams and observers.** After each reconnect, counted and reliable streams resume from their cursor, observed
+  trait levels are subscribed again (`ObserveEvent::Resumed`), sinks are registered again: the same path as
+  [`disconnect().keep_streams()` and `Commander::resume_streams()`](../api/stream_reliability.md). Plain streams end
+  with the link; open them again after `Reconnected`. Streams and observers open only while connected: open them after
+  `Connected`.
+- **Stopping.** `disconnect()` stops trying; dropping the last handle ends everything. `KeepTrying::give_up`
+  (`None` by default: never) stops after that long without a link, the first connect included: the waiting streams
+  end and `GaveUp` says why.
+
+## Events and state
+
+`Commander::connection_events()` is a broadcast receiver of what happens, from the moment it is called:
+
+| Event | When |
+|---|---|
+| `Connecting { attempt }` | an attempt starts, 1 for the first since the link went (or since the client was made) |
+| `AttemptFailed { attempt, error, retry_in }` | it failed, the next comes after `retry_in` |
+| `Connected { address, attempts }` | the first connect, at `address` (as `DeviceInfo::location` names it) |
+| `Disconnected { reason, reconnecting }` | the link went, `GapReason` says why |
+| `Reconnected { gap, attempts, resumed }` | connected again, `resumed` streams and levels went on |
+| `GaveUp { error }` | no more attempts |
+
+`Commander::connection_state()` is a `watch` of where the connection is now, for an app that shows it rather than
+following every event (and can't miss the first ones): `ConnectionState::Connecting { attempt }`,
+`Connected { address }` or `Disconnected` (not trying).
+
+## The device's API
+
+Until the first connect the client assumes the device runs the client's own API; a client that speaks several wire
+lines ([EVO-28](../evolution/multi_line_host.md)) assumes its first one. The first connect learns the device's API as
+`connect()` does (link setup, introspection data when the device's API differs from the client's, the resource
+check), and every clone of the handle sees it. A device on another wire line than the assumed one, or one with
+another API on a later reconnect (other firmware), ends the trying with `GaveUp`: make a new client for it.
+
+## Through the hub
+
+A connection through the ww hub reconnects by itself already ([CLT-40](hub.md#reconnect-after-a-hub-restart-clt-40)),
+with its own backoff (10 ms up to 1 s) and give-up time (`ClientConfig::hub_reconnect`). A keep-trying connection
+follows its own settings on every transport.
+
+## Tests
+
+`tests/keep_trying` runs a generated client against a generated server on the
+[simulated WebSocket](websocket.md#simulated-websocket-in-tests) (`tests_common::start_device_async_ws`), on tokio's
+paused clock: the server starts after the client, goes away and comes back while an observer keeps delivering; the
+first address with a server wins; the waits between attempts and the give-up time are the configured ones.

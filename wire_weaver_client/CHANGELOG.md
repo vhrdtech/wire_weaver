@@ -2,6 +2,10 @@
 
 ### 🚀 Features
 
+- `PreparedConnection::connect_keep_trying()` (CLT-75): the client at once, connecting in the background and again whenever the link goes; streams and observers resume.
+- `ClientConfig::keep_trying(KeepTrying)` with `Backoff` (CLT-75): the wait between attempts and the give-up time of a keep-trying connection.
+- `ClientConfig::websocket_urls` and `in_process_paths` (CLT-75): several addresses, tried in order by each connect until one answers.
+- `ConnectionEvent::Connecting` / `Connected` and `Commander::connection_state()` (`ConnectionState`): where a connection is (CLT-75).
 - `ForwardSink::sent(tag, seq)` (SRV-64): the device seq a forwarded request goes out with, as it goes out, whether or not it is ever answered; a no-op unless overridden.
 - A link's tap that panics (or whose making panics) is dropped; the link goes on and `TapSource::on_lost` hears of it (SRV-64).
 - `Command::SetTap { tap }` (SRV-64): a running link is reported to a new tap, or to none; the new tap first gets the link's newest session and, once set up, `LinkReady`. Before `Connect` it replaces the connect's tap.
@@ -25,6 +29,8 @@
 
 ### 🐛 Fixes
 
+- A WebSocket address that doesn't answer fails after the link setup timeout instead of the OS's TCP connect timeout (CLT-75).
+- A hub reconnect's backoff and give-up time run on tokio's clock: a test on the paused clock moves them (CLT-75).
 - `HubUnavailable::NoExecutable` names the install of ww_tools' `ww` instead of `cargo install wire_weaver_cli`, which has no binary.
 - A live handover's commit waits for the hub's answer, `adopt::ADOPT_COMMIT_WAIT`, instead of the 1 s default (CLT-44): a loaded hub opening the device was taken as gone, and the holder's paused calls failed.
 - The cache of downloaded APIs is written whole and renamed into place: a reader never sees half a file.

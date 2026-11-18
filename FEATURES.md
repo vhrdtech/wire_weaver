@@ -1193,6 +1193,18 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   in the command channel the residual keeps: a keeper task holds the channel between event loops and answers every
   command that comes in (`prepared_connection.rs`'s `keep`). Tested in `tests/methods`
   (`call_while_disconnected_fails_at_once`).
+- 🚧 **CLT-75 Keep-trying connections** · `v0.5` — `PreparedConnection::connect_keep_trying()` returns the client at
+  once and connects in the background, again whenever the link goes: each attempt tries the config's addresses in
+  order (`ClientConfig::websocket_urls`, `in_process_paths`; `connect()` and `reconnect()` too), backoff and give-up
+  time from `ClientConfig::keep_trying` (`KeepTrying`, `Backoff`); calls fail with `Disconnected` while there is no
+  link, streams, observed levels and sinks resume after each reconnect (`resume_streams`);
+  `ConnectionEvent::Connecting` / `Connected` and `Commander::connection_state()` (`ConnectionState`) tell the app.
+  The first connect learns the device's API and every clone of the handle sees it. A WebSocket address that doesn't
+  answer within the link setup timeout fails instead of holding the attempt for the OS's TCP connect timeout. The
+  keeper's times run on tokio's clock. See `docs/transport/keep_trying.md`; tested in `tests/keep_trying` on the simulated WebSocket
+  (TR-22, `tests_common::start_device_async_ws`) on the paused clock. Missing: tests over simulated UDP (TR-21) and
+  USB, a check with a real WebSocket over a LAN (a phone that loses Wi-Fi), and observers opened before the first
+  connect (they fail with `Disconnected` until then).
 - 🚧 **CLT-39 Hub routing in `connect`** · `v0.5.x` — direct by default, the hub when it pays off: a device the hub
   holds is reached through it, and repeated short connections (N opens within T seconds, shell-launched calls weighted)
   move a device into the hub, so a loop of `ww` calls doesn't re-open it every time. `HubMode` `Auto`, `Prefer`,
@@ -2489,8 +2501,8 @@ Unicast Data0 to one node over the same bus is TR-6.
   `embassy-net`, so Ethernet needs no transport work, only an example.
 - 🚧 **EX-10 Reconnect demo** · `v0.5.x` — keep reconnecting with streams and UI feedback; `disconnect_keep_streams`.
   Done: `Commander::reconnect()` (re-selects the device with the stored config on any transport, restarts the loop
-  on the kept command channel, `resume_streams()`). Missing: `connect_keep_trying` (retry until the device is back),
-  UI feedback, the demo itself.
+  on the kept command channel, `resume_streams()`), `connect_keep_trying` (CLT-75). Missing: UI feedback, the demo
+  itself.
 - 📋 **EX-12 Hubris based example** with sync code · `v0.5.x`.
 - 📋 **EX-13 Advanced example / project template**.
 - 📋 **EX-16 Host service** — an API whose plain implementation is called in-process and served on a local socket

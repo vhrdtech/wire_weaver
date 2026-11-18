@@ -26,7 +26,7 @@ use crate::{
 };
 use std::collections::HashMap;
 use std::marker::PhantomData;
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::{Arc, Mutex, OnceLock, Weak};
 use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
 use tracing::{debug, warn};
@@ -65,6 +65,9 @@ pub struct Commander {
     device_introspect: Option<IntrospectBundle>,
     /// Whether client resources can be used with the connected device, see [Commander::resolve_api_match].
     api_match: ApiMatch,
+    /// A keep-trying connection's device facts, set by its first connect (CLT-75) and read before the three fields
+    /// above, which hold what the client expects until then. `None` for every other Commander.
+    learned: Option<Arc<OnceLock<DeviceFacts>>>,
     /// Connected with [ClientConfig::traits_only](crate::ClientConfig::traits_only): device API unknown, absolute
     /// paths are refused.
     pub(crate) traits_only: bool,
@@ -156,6 +159,7 @@ pub(crate) struct WeakCommander {
     client_introspect: Option<IntrospectBundle>,
     device_introspect: Option<IntrospectBundle>,
     api_match: ApiMatch,
+    learned: Option<Arc<OnceLock<DeviceFacts>>>,
     traits_only: bool,
     global_paths: Arc<GlobalPaths>,
     resolver: &'static Resolver,
@@ -184,6 +188,7 @@ impl WeakCommander {
             client_introspect: self.client_introspect.clone(),
             device_introspect: self.device_introspect.clone(),
             api_match: self.api_match.clone(),
+            learned: self.learned.clone(),
             traits_only: self.traits_only,
             global_paths: self.global_paths.clone(),
             resolver: self.resolver,
@@ -203,6 +208,13 @@ impl WeakCommander {
             },
         })
     }
+}
+
+/// What a [Commander] knows of the device it talks to, see [Commander::learn].
+pub(crate) struct DeviceFacts {
+    connected_device: DeviceApiInfo,
+    device_introspect: Option<IntrospectBundle>,
+    api_match: ApiMatch,
 }
 
 /// Values of `const` items read on a connection (API-36), by request path (serialized [PathKindOwned]): response
@@ -226,6 +238,7 @@ impl Commander {
             client_introspect: None,
             device_introspect: None,
             api_match: ApiMatch::NoClientApi,
+            learned: None,
             traits_only: false,
             global_paths: GlobalPaths::new(Resolver::global()),
             resolver: Resolver::global(),
@@ -490,11 +503,11 @@ impl Commander {
     /// Logs "documentation updated" for a device that came back with the same API and other docs, see
     /// [DeviceApiInfo::docs_updated_since].
     pub(crate) fn note_docs_updated(&self, info: &DeviceApiInfo) {
-        if info.docs_updated_since(&self.connected_device) {
+        if info.docs_updated_since(self.connected()) {
             tracing::info!(
                 "{}: documentation updated (API hash with docs {} -> {}), the API is the same",
                 info.user_api_version.crate_id,
-                self.connected_device.user_api_hash.with_docs,
+                self.connected().user_api_hash.with_docs,
                 info.user_api_hash.with_docs,
             );
         }
@@ -522,7 +535,7 @@ impl Commander {
         self.keys.clear();
         let info = reconnect.run(&self.transport_cmd_tx).await?;
         self.note_docs_updated(&info);
-        if info.user_api_hash.no_docs != self.connected_device.user_api_hash.no_docs {
+        if info.user_api_hash.no_docs != self.connected().user_api_hash.no_docs {
             let e = self.reconnected_elsewhere_error(info);
             // the link just came up on the wrong API: leave the Commander disconnected, not stuck on a connection
             // this `reconnect` (or `reconnect_as`) can't take over without a fresh `disconnect().keep_streams()`
@@ -553,12 +566,12 @@ impl Commander {
         self.keys.clear();
         let info = reconnect.run(&self.transport_cmd_tx).await?;
         self.note_docs_updated(&info);
-        if info.user_api_hash.no_docs == self.connected_device.user_api_hash.no_docs {
+        if info.user_api_hash.no_docs == self.connected().user_api_hash.no_docs {
             self.resume_streams().await?;
             return T::try_from_cmd(self.clone());
         }
         let same_line = matches!(
-            (self.connected_device.user_api_wire, info.user_api_wire),
+            (self.connected().user_api_wire, info.user_api_wire),
             (Some(old), Some(new)) if old.same_line(&new)
         );
         if same_line {
@@ -586,7 +599,7 @@ impl Commander {
     /// the device changed line (CLT-63), else the generic "its API differs" [Error::IncompatibleResource]. Also used
     /// by the hub-supervised reconnect (CLT-40), which gives up the same way: it has no `T` to pick a client with.
     pub(crate) fn reconnected_elsewhere_error(&self, info: DeviceApiInfo) -> Error {
-        match (self.connected_device.user_api_wire, info.user_api_wire) {
+        match (self.connected().user_api_wire, info.user_api_wire) {
             (Some(old_wire), Some(new_wire)) if !old_wire.same_line(&new_wire) => {
                 Error::ReconnectedOnAnotherLine {
                     device: Box::new(info.user_api_version),
@@ -734,7 +747,7 @@ impl Commander {
         extract: crate::observe::Extract<U, T>,
     ) -> PreparedObserve<U, T> {
         let entries = crate::observe::LevelConfig::to_entries(&cfg);
-        let image_facts = self.connected_device.image_facts;
+        let image_facts = self.connected().image_facts;
         let resolved = self
             .check_observe_supported()
             .and_then(|()| crate::client::observe::check_samples_taken(image_facts, &entries))
@@ -765,7 +778,7 @@ impl Commander {
 
     /// Observing needs `ww_client_server` 0.2 (API-38) on the device.
     fn check_observe_supported(&self) -> Result<(), Error> {
-        let model = &self.connected_device.api_model_version;
+        let model = &self.connected().api_model_version;
         if model.crate_id.is_empty() {
             // not connected through link setup (tests), nothing known
             return Ok(());
@@ -942,7 +955,7 @@ impl Commander {
     pub fn introspect(&self) -> Introspect {
         Introspect::new(
             self.transport(),
-            self.connected_device.user_api_hash.clone(),
+            self.connected().user_api_hash.clone(),
             self.resolver,
         )
     }
@@ -956,7 +969,7 @@ impl Commander {
     }
 
     pub fn info(&self) -> &DeviceApiInfo {
-        &self.connected_device
+        self.connected()
     }
 
     pub(crate) fn set_reconnect(&mut self, reconnect: Arc<Reconnect>) {
@@ -973,6 +986,13 @@ impl Commander {
         }
     }
 
+    /// Where the connection is now (CLT-75): connecting (and which attempt), connected (and where), or not trying.
+    /// Changes as [Self::connection_events] tell; `None` for a Commander made by hand or connected with
+    /// `connect_blocking`.
+    pub fn connection_state(&self) -> Option<tokio::sync::watch::Receiver<crate::ConnectionState>> {
+        self.reconnect.as_ref().map(|r| r.state.clone())
+    }
+
     /// A handle that doesn't keep the connection alive, for the keeper that reconnects through the hub (CLT-40).
     pub(crate) fn downgrade(&self) -> WeakCommander {
         WeakCommander {
@@ -986,6 +1006,7 @@ impl Commander {
             client_introspect: self.client_introspect.clone(),
             device_introspect: self.device_introspect.clone(),
             api_match: self.api_match.clone(),
+            learned: self.learned.clone(),
             traits_only: self.traits_only,
             global_paths: self.global_paths.clone(),
             resolver: self.resolver,
@@ -1016,13 +1037,36 @@ impl Commander {
     /// runtime to run it on (a blocking connect from a plain thread).
     #[cfg(feature = "clock_sync")]
     pub(crate) fn start_clock_sync(&mut self, start: crate::clock_sync::Start) {
-        let Ok(rt) = tokio::runtime::Handle::try_current() else {
+        if let Some(senders) = self.prepare_clock_sync() {
+            self.run_clock_sync(senders, start);
+        }
+    }
+
+    /// The clock steering's handle for [Self::clock_sync], before its task runs ([Self::run_clock_sync]): `None`
+    /// without a tokio runtime to run it on.
+    #[cfg(feature = "clock_sync")]
+    pub(crate) fn prepare_clock_sync(&mut self) -> Option<crate::clock_sync::auto::Senders> {
+        if tokio::runtime::Handle::try_current().is_err() {
             debug!("no tokio runtime: the connection doesn't steer the device's clock");
+            return None;
+        }
+        let (shared, senders) = crate::clock_sync::prepare();
+        self.clock_sync = Some(shared);
+        Some(senders)
+    }
+
+    /// Starts the steering task [Self::prepare_clock_sync] prepared.
+    #[cfg(feature = "clock_sync")]
+    pub(crate) fn run_clock_sync(
+        &self,
+        senders: crate::clock_sync::auto::Senders,
+        start: crate::clock_sync::Start,
+    ) {
+        let (Ok(rt), Some(shared)) = (tokio::runtime::Handle::try_current(), &self.clock_sync)
+        else {
             return;
         };
-        let (shared, senders) = crate::clock_sync::prepare();
-        self.clock_sync = Some(shared.clone());
-        crate::clock_sync::start(&rt, &shared, senders, self.downgrade(), start);
+        crate::clock_sync::start(&rt, shared, senders, self.downgrade(), start);
     }
 
     pub(crate) fn cmd_tx(&self) -> &mpsc::Sender<Command> {
@@ -1138,7 +1182,66 @@ impl Commander {
     }
 
     pub fn device_introspect(&self) -> Option<&IntrospectBundle> {
-        self.device_introspect.as_ref()
+        match self.learned() {
+            Some(facts) => facts.device_introspect.as_ref(),
+            None => self.device_introspect.as_ref(),
+        }
+    }
+
+    /// The facts a keep-trying connection learned on its first connect (CLT-75), shared by every clone; `None` before
+    /// it, and for every other Commander, whose own fields hold them.
+    fn learned(&self) -> Option<&DeviceFacts> {
+        self.learned.as_deref().and_then(OnceLock::get)
+    }
+
+    /// The device this Commander is connected to (or was, or expects before a keep-trying connection's first connect).
+    fn connected(&self) -> &DeviceApiInfo {
+        match self.learned() {
+            Some(facts) => &facts.connected_device,
+            None => &self.connected_device,
+        }
+    }
+
+    fn api_match(&self) -> &ApiMatch {
+        match self.learned() {
+            Some(facts) => &facts.api_match,
+            None => &self.api_match,
+        }
+    }
+
+    /// Makes this a keep-trying connection's Commander (CLT-75): its clones see what [Self::learn] sets later.
+    pub(crate) fn expect_learned(&mut self) {
+        self.learned = Some(Arc::new(OnceLock::new()));
+    }
+
+    /// Publishes this clone's device facts to every clone of a keep-trying connection, once, on its first connect
+    /// (CLT-75). Returns false when they were published already, or this Commander isn't a keep-trying one.
+    pub(crate) fn learn(&self) -> bool {
+        let Some(learned) = &self.learned else {
+            return false;
+        };
+        learned
+            .set(DeviceFacts {
+                connected_device: self.connected_device.clone(),
+                device_introspect: self.device_introspect.clone(),
+                api_match: self.api_match.clone(),
+            })
+            .is_ok()
+    }
+
+    /// The device facts were learned already (CLT-75), or are this Commander's own from the start.
+    pub(crate) fn has_learned(&self) -> bool {
+        self.learned.as_ref().is_none_or(|l| l.get().is_some())
+    }
+
+    /// This clone's own device facts, for a keep-trying connection's first connect to fill in before [Self::learn]:
+    /// the device, and the client's introspection data as the device's when its API is the client's.
+    pub(crate) fn set_connected_device(&mut self, info: DeviceApiInfo) {
+        self.device_introspect = self
+            .client_introspect
+            .clone()
+            .filter(|client| client.api_hash.no_docs == info.user_api_hash.no_docs);
+        self.connected_device = info;
     }
 
     // pub fn set_client_introspect_bytes(&mut self, ww_bytes: &[u8], api_signature: &[u8]) {
@@ -1149,7 +1252,7 @@ impl Commander {
     // }
 
     pub fn device_api_info(&self) -> &DeviceApiInfo {
-        &self.connected_device
+        self.connected()
     }
 
     /// The request path for `path`: a trait client's base path in place of a global one, or a global path the
@@ -1273,14 +1376,14 @@ impl Commander {
         let PathKindOwned::Absolute { path } = path_kind else {
             return Ok(());
         };
-        let compat = match &self.api_match {
+        let compat = match self.api_match() {
             ApiMatch::NoClientApi | ApiMatch::Identical => return Ok(()),
             ApiMatch::Checked(compat) | ApiMatch::DeviceApiUnknown(compat) => compat,
             ApiMatch::DesignLineUnknown(compat, wire) => {
                 return match compat.resolve(path) {
                     Some(resource) => Err(Error::DesignLineUnchecked {
                         resource: resource.name,
-                        device: Box::new(self.connected_device.user_api_version.clone()),
+                        device: Box::new(self.connected().user_api_version.clone()),
                         wire: *wire,
                     }),
                     None => Ok(()),
@@ -1290,7 +1393,7 @@ impl Commander {
         let Some(resource) = compat.resolve(path) else {
             return Ok(());
         };
-        let device = || Box::new(self.connected_device.user_api_version.clone());
+        let device = || Box::new(self.connected().user_api_version.clone());
         match resource.verdict {
             Verdict::Compatible => self.check_version(&resource.since),
             Verdict::Missing => {
@@ -1322,7 +1425,7 @@ impl Commander {
         for marker in markers {
             let device_wire = match marker.device_wire {
                 Some(wire) => wire,
-                None if marker.root => match self.connected_device.user_api_wire {
+                None if marker.root => match self.connected().user_api_wire {
                     Some(wire) => wire,
                     None => continue,
                 },
@@ -1330,7 +1433,7 @@ impl Commander {
             };
             if !has_since(device_wire, marker.since) {
                 return Err(Error::OlderProtocol {
-                    device: Box::new(self.connected_device.user_api_version.clone()),
+                    device: Box::new(self.connected().user_api_version.clone()),
                     crate_id: marker.crate_id.clone(),
                     device_wire,
                     required: marker.since,

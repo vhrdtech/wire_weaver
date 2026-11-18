@@ -1,0 +1,25 @@
+[package]
+name = "keep_trying"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+default = ["std"]
+std = []
+
+[dev-dependencies]
+keep_trying_api.workspace = true
+tests_common = { workspace = true, features = ["ws"] }
+tokio = { workspace = true, features = ["sync", "rt", "macros", "time", "test-util"] }
+wire_weaver.workspace = true
+wire_weaver_client = { workspace = true, features = ["in_process", "ws"] }
+ww_client_server.workspace = true
+ww_si = { workspace = true, features = ["counting"] }
+ww_stream = { workspace = true, features = ["std"] }
+
+[lints]
+workspace = true

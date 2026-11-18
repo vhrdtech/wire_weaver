@@ -35,8 +35,9 @@ pub(crate) fn try_connect(
     c: &ValidatedConfig,
     cmd_rx: &mut Option<mpsc::Receiver<Command>>,
 ) -> Result<Selected, anyhow::Error> {
+    // connect_to() splits a list into one config per URL, connect_blocking() takes the first
     let Some(url) = c.pieces.iter().rev().find_map(|p| match p {
-        ConfigPiece::WebSocketUrl { url } => Some(url.clone()),
+        ConfigPiece::WebSocketUrl { urls } => urls.first().cloned(),
         _ => None,
     }) else {
         // no discovery yet, nothing to list
@@ -88,8 +89,12 @@ impl Transport for WsTransport {
         let url = handle
             .downcast::<String>()
             .map_err(|_| "expected WebSocket URL".to_string())?;
-        let (ws, _response) = connect(&url, max_message_len)
+        // an address that doesn't answer (a host gone from the LAN) would hold the attempt for the OS's TCP connect
+        // timeout, minutes; a keep-trying connection's next address waits behind it (CLT-75)
+        let timeout = self.link_setup_timeout();
+        let (ws, _response) = tokio::time::timeout(timeout, connect(&url, max_message_len))
             .await
+            .map_err(|_| format!("{url}: no answer within {timeout:?}"))?
             .map_err(|e| format!("{url}: {e}"))?;
         // one message per WebSocket message, no frames of its own
         let mut tap = tap;

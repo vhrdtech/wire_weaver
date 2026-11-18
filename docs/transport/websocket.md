@@ -22,6 +22,9 @@ check, introspection, pings, timeouts, streams. The client takes a URL: it doesn
 [announced servers](#announcing-on-the-lan) yet, so device filters (serial, label, ...) are not checked before
 connecting, and only plain `ws://` is supported, no `wss://`.
 
+`websocket_urls([..])` gives several URLs, tried in order until one answers; `connect_keep_trying()` makes a client
+that connects when the device comes up and again whenever the link goes ([keep-trying connections](keep_trying.md)).
+
 ## Device side
 
 The `ws` feature of `ww_device` is the device end: `ww_device::ws::WsTx` / `WsRx` implement `MessageTx` /

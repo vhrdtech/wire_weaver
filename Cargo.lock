@@ -2244,6 +2244,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "keep_trying"
+version = "0.1.0"
+dependencies = [
+ "keep_trying_api",
+ "tests_common",
+ "tokio",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_client_server",
+ "ww_si",
+ "ww_stream",
+]
+
+[[package]]
+name = "keep_trying_api"
+version = "0.1.0"
+dependencies = [
+ "ww_api",
+ "ww_si",
+]
+
+[[package]]
 name = "keyed"
 version = "0.1.0"
 dependencies = [

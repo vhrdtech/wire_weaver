@@ -887,7 +887,8 @@ record itself. Still:
 - The hub runs on any tokio runtime, a multi-thread one too: a capture that ends while its device is being tapped
   for it is untapped again.
 - A program that goes away (even killed) leaves nothing: its part in captures ends with its last connection, and
-  its watches with the connection they were made on.
+  its watches with the connection they were made on. Not yet while a save it asked for hangs: that connection's
+  cleanup waits for the save's answer.
 - A capture lives in the hub: nothing of it survives a hub restart or a handover (SRV-30) unless it was saved.
 
 ## Who holds a device (CLT-38)

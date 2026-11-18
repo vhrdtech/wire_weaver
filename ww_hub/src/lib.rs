@@ -917,7 +917,11 @@ impl Hub {
 
     /// A claim came or went: the clock steering looks whether a device is held whole now (SRV-32).
     fn claims_changed(&self) {
-        self.steering.lock().unwrap().poke();
+        // also from `client_left` while unwinding ([ClientLeft]): a poisoned lock must not abort the process
+        self.steering
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .poke();
     }
 
     /// Drops the claims whose ttl ran out (checked as the hub goes, so a lent device is returned on time).
@@ -1329,7 +1333,6 @@ async fn answer(tx: &mut SendHalf, version: &str, status: Status) -> io::Result<
     tx.write_all(&Answer::new(status, version).encode()).await
 }
 
-/// Counts a connection while it lives, so the hub isn't idle meanwhile.
 /// Ends client `.1`'s presence when its connection's task ends, however it ends (a panic too): its entry, claims and
 /// parts in captures never outlive it.
 struct ClientLeft<'a>(&'a Arc<Hub>, u32);
@@ -1340,6 +1343,7 @@ impl Drop for ClientLeft<'_> {
     }
 }
 
+/// Counts a connection while it lives, so the hub isn't idle meanwhile.
 struct ConnectionGuard<'a>(&'a Hub);
 
 impl<'a> ConnectionGuard<'a> {
@@ -1351,7 +1355,12 @@ impl<'a> ConnectionGuard<'a> {
 
 impl Drop for ConnectionGuard<'_> {
     fn drop(&mut self) {
-        let mut state = self.0.state.lock().unwrap();
+        // also while unwinding: a poisoned lock must not abort the process
+        let mut state = self
+            .0
+            .state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         state.connections -= 1;
         state.last_active = Instant::now();
     }

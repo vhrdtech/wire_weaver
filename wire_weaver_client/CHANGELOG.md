@@ -2,6 +2,8 @@
 
 ### 🚀 Features
 
+- `ForwardSink::sent(tag, seq)` (SRV-64): the device seq a forwarded request goes out with, as it goes out, whether or not it is ever answered; a no-op unless overridden.
+- `Command::SetTap { tap }` (SRV-64): a running link is reported to a new tap, or to none; the new tap first gets the link's newest session and, once set up, `LinkReady`. Before `Connect` it replaces the connect's tap.
 - `tap::Decoder::record`, `session` and `gap`: the decoder takes a link's records one by one; `feed(&Block)` feeds them (TR-14).
 - `cache_introspection(resolver, ww_self_bytes, hash)` (EVO-80): puts a device's introspection data (its `api_impl::WW_SELF_BYTES`) into the resolver's cache, as a download would, for a host that knows the build of a device that doesn't send it.
 - `ClientConfig::resolver(&'static Resolver)` (EVO-80): the snapshot resolver of one connection, `Resolver::global()` by default; introspection, global trait paths and the local cache of downloaded APIs go through it, and a resolver without a cache keeps nothing on the machine.
@@ -22,6 +24,7 @@
 
 ### 🐛 Fixes
 
+- `HubUnavailable::NoExecutable` names the install of ww_tools' `ww` instead of `cargo install wire_weaver_cli`, which has no binary.
 - A live handover's commit waits for the hub's answer, `adopt::ADOPT_COMMIT_WAIT`, instead of the 1 s default (CLT-44): a loaded hub opening the device was taken as gone, and the holder's paused calls failed.
 - The cache of downloaded APIs is written whole and renamed into place: a reader never sees half a file.
 - A common error answered as the protocol's error event is checked against the item's `#[errors(..)]` list like the device's own error (STD-16); before, it bypassed the strict check.

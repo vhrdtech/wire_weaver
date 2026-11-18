@@ -138,6 +138,12 @@ pub enum Command {
         trace_event_tx: mpsc::UnboundedSender<TraceEvent>,
     },
 
+    /// Report the link to a tap of `tap` from now on, or to none: what [ClientConfig::tap](crate::ClientConfig::tap)
+    /// sets at connect, for a link that runs already (the hub taps a device only while a capture of it exists). The
+    /// new tap first gets the link's newest session and, once set up, [LinkEvent::LinkReady](ww_tap::LinkEvent); a
+    /// tap replaced is dropped. Before [Command::Connect] it replaces the connect's tap.
+    SetTap { tap: Option<crate::tap::TapSource> },
+
     // RecycleBuffer(Vec<u8>),
     // GetStats,
     /// Link loopback and speed test: round trips, host → device and device → host, `test_duration` each.
@@ -194,7 +200,8 @@ impl Command {
             | Command::ForwardFlush
             | Command::Adopt { .. }
             | Command::GlobalPaths(_)
-            | Command::RegisterTracer { .. } => {}
+            | Command::RegisterTracer { .. }
+            | Command::SetTap { .. } => {}
         }
     }
 }
@@ -250,6 +257,11 @@ impl Adopted {
 /// is one). Dropped when the event loop ends.
 pub trait ForwardSink: Send {
     fn forward(&mut self, forwarded: Forwarded);
+
+    /// The [Command::Forward] with `tag` goes out with the device seq `seq`: its [Forwarded::Reply]s and
+    /// [Forwarded::Failed] carry the same tag. Called once per forwarded request that expects an answer, as it is
+    /// handed to the link, whether or not an answer ever comes. Does nothing unless overridden.
+    fn sent(&mut self, _tag: u64, _seq: SeqTy) {}
 }
 
 impl ForwardSink for mpsc::UnboundedSender<Forwarded> {

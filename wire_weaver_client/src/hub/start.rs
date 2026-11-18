@@ -92,8 +92,8 @@ impl fmt::Display for HubUnavailable {
             HubUnavailable::NotRunning => write!(f, "no ww hub runs"),
             HubUnavailable::NoExecutable => write!(
                 f,
-                "no ww hub executable found: install `ww` (cargo install wire_weaver_cli), set {EXE_ENV}, or call \
-                 ww_hub::main_if_hub() first in main"
+                "no ww hub executable found: install `ww` (cargo install --locked --git \
+                 https://github.com/vhrdtech/ww_tools ww), set {EXE_ENV}, or call ww_hub::main_if_hub() first in main"
             ),
             HubUnavailable::NotReady { socket } => write!(
                 f,

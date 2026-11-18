@@ -216,6 +216,9 @@ impl RxDispatcher {
         let prune_at = now + timeout;
         let release_at = prune_at.max(now + LATE_REPLY_WINDOW);
         self.forwards.insert(seq, (tag, prune_at, release_at));
+        if let Some(sink) = &mut self.forward_sink {
+            sink.sent(tag, seq);
+        }
     }
 
     /// Tell the forward sink that the request with `tag` won't be answered.

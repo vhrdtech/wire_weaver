@@ -69,8 +69,8 @@ pub(crate) struct ClientTap(Arc<Shared>);
 
 #[derive(Default)]
 struct Shared {
-    /// A [TapSource] made a tap: frames and sessions are of use only to it.
-    has_tap: bool,
+    /// A [TapSource] made a tap: frames and sessions are of use only to it. Changed by [ClientTap::set_tap].
+    has_tap: AtomicBool,
     /// Tracers are registered: messages and link events are wanted.
     tracing: AtomicBool,
     state: Mutex<State>,
@@ -80,8 +80,11 @@ struct Shared {
 struct State {
     tap: Option<Box<dyn Tap + Send>>,
     tracers: Vec<mpsc::UnboundedSender<TraceEvent>>,
-    /// The newest session, given again with the device's `DeviceInfo` once the link is set up.
+    /// The newest session, given again with the device's `DeviceInfo` once the link is set up, and to a tap set
+    /// later ([ClientTap::set_tap]).
     session: Option<SessionHead>,
+    /// The device's `DeviceInfo` bytes once the link is set up, for a tap set later.
+    device_info: Option<Vec<u8>>,
 }
 
 /// A [Session] without its `device_info`, owned.
@@ -93,12 +96,25 @@ struct SessionHead {
     peer: String,
 }
 
+impl SessionHead {
+    fn with_info<'a>(&'a self, device_info: &'a [u8]) -> Session<'a> {
+        Session {
+            side: self.side,
+            medium: self.medium,
+            framer: self.framer,
+            frame_size: self.frame_size,
+            peer: &self.peer,
+            device_info: RefVec::Slice { slice: device_info },
+        }
+    }
+}
+
 impl ClientTap {
     /// The tap of a new link: `source`'s, else tracers only.
     pub fn new(source: Option<&TapSource>) -> Self {
         let tap = source.map(TapSource::link);
         ClientTap(Arc::new(Shared {
-            has_tap: tap.is_some(),
+            has_tap: AtomicBool::new(tap.is_some()),
             tracing: AtomicBool::new(false),
             state: Mutex::new(State {
                 tap,
@@ -125,19 +141,30 @@ impl ClientTap {
     pub fn link_ready(&mut self, device_info: &[u8]) {
         {
             let mut st = self.state();
+            st.device_info = Some(device_info.to_vec());
             let State { tap, session, .. } = &mut *st;
             if let (Some(tap), Some(s)) = (tap, session) {
-                tap.session(&Session {
-                    side: s.side,
-                    medium: s.medium,
-                    framer: s.framer,
-                    frame_size: s.frame_size,
-                    peer: &s.peer,
-                    device_info: RefVec::Slice { slice: device_info },
-                });
+                tap.session(&s.with_info(device_info));
             }
         }
         self.link_event(&LinkEvent::LinkReady);
+    }
+
+    /// `Command::SetTap`: the link is reported to a tap of `source` from now on, or to none. The new tap first gets
+    /// what it missed of the link: its newest session (with the device's `DeviceInfo` once the link is set up) and,
+    /// for a link already set up, [LinkEvent::LinkReady]. A tap replaced is dropped without a further call.
+    pub fn set_tap(&self, source: Option<&TapSource>) {
+        let mut tap = source.map(TapSource::link);
+        let mut st = self.state();
+        if let (Some(tap), Some(s)) = (&mut tap, &st.session) {
+            let info = st.device_info.as_deref().unwrap_or_default();
+            tap.session(&s.with_info(info));
+            if st.device_info.is_some() {
+                tap.link_event(&LinkEvent::LinkReady);
+            }
+        }
+        self.0.has_tap.store(tap.is_some(), Ordering::Relaxed);
+        st.tap = tap;
     }
 
     /// `ev` to every tracer; those whose receiver is gone are dropped.
@@ -151,12 +178,13 @@ impl ClientTap {
 
 impl Tap for ClientTap {
     fn wants_frames(&self) -> bool {
-        self.0.has_tap && self.state().tap.as_ref().is_some_and(|t| t.wants_frames())
+        self.0.has_tap.load(Ordering::Relaxed)
+            && self.state().tap.as_ref().is_some_and(|t| t.wants_frames())
     }
 
     fn wants_messages(&self) -> bool {
         self.0.tracing.load(Ordering::Relaxed)
-            || (self.0.has_tap
+            || (self.0.has_tap.load(Ordering::Relaxed)
                 && self
                     .state()
                     .tap
@@ -165,9 +193,7 @@ impl Tap for ClientTap {
     }
 
     fn session(&mut self, session: &Session<'_>) {
-        if !self.0.has_tap {
-            return;
-        }
+        // kept without a tap too: one set later starts with it
         let mut st = self.state();
         st.session = Some(SessionHead {
             side: session.side,
@@ -180,7 +206,7 @@ impl Tap for ClientTap {
     }
 
     fn frame(&mut self, dir: Dir, bytes: &[u8]) {
-        if self.0.has_tap {
+        if self.0.has_tap.load(Ordering::Relaxed) {
             self.state().tap.as_deref_mut().frame(dir, bytes);
         }
     }

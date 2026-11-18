@@ -153,6 +153,8 @@ pub(crate) struct TxCore {
     events: LinkEvents,
     /// [Command::RegisterTracer] before the link exists, subscribed at connect
     pending_tracers: Vec<tokio::sync::mpsc::UnboundedSender<TraceEvent>>,
+    /// [Command::SetTap] before the link exists, in place of the connect's tap
+    pending_tap: Option<Option<crate::tap::TapSource>>,
     /// The device's `DeviceInfo` bytes, for the session once the link is up
     device_info: Vec<u8>,
 
@@ -255,6 +257,7 @@ impl TxCore {
             scratch: vec![0u8; DEFAULT_MAX_MESSAGE_LEN],
             events: LinkEvents::default(),
             pending_tracers: Vec::new(),
+            pending_tap: None,
             device_info: Vec::new(),
             exited_tx: None,
             disconnected_tx: None,
@@ -518,6 +521,7 @@ impl TxCore {
                 self.client_meta = client_meta;
                 self.token = super::new_setup_token();
                 self.phase = Phase::Connecting;
+                let tap = self.pending_tap.take().unwrap_or(tap);
                 let link = ClientTap::new(tap.as_ref());
                 for tx in self.pending_tracers.drain(..) {
                     link.add_tracer(tx);
@@ -549,6 +553,10 @@ impl TxCore {
             Command::RegisterTracer { trace_event_tx } => match self.events.link() {
                 Some(link) => link.add_tracer(trace_event_tx),
                 None => self.pending_tracers.push(trace_event_tx),
+            },
+            Command::SetTap { tap } => match self.events.link() {
+                Some(link) => link.set_tap(tap.as_ref()),
+                None => self.pending_tap = Some(tap),
             },
             Command::DisconnectKeepStreams {
                 disconnected_tx,

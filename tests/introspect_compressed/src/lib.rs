@@ -477,6 +477,7 @@ mod tests {
             state_dir: None,
             resolver: tests_common::resolver(),
             captures: None,
+            saves_exit_wait: ww_hub::SAVES_EXIT_WAIT,
             adopt_attach: Duration::from_secs(5),
         })
         .unwrap()

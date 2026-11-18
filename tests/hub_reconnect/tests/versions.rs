@@ -44,6 +44,7 @@ async fn old_client_vs_hub_that_dropped_its_version() {
         state_dir: None,
         resolver: tests_common::resolver(),
         captures: None,
+        saves_exit_wait: ww_hub::SAVES_EXIT_WAIT,
     })
     .unwrap()
     .unwrap();

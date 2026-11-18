@@ -487,7 +487,7 @@ pub const MAX_PATH_LEN: usize = 4096;
 pub const MAX_CAPTURES: usize = 64;
 /// Client instances sharing one capture ([Captures::start]).
 pub const MAX_CAPTURE_CLIENTS: usize = 16;
-/// Captures a relaying hub's client instance holds at once.
+/// Captures relaying hubs hold at once, all of them together.
 pub const MAX_RELAY_CAPTURES: usize = 4;
 /// A [CapturePage] is at most this long on the wire: the hub fills pages up to it. One entry always fits.
 pub const MAX_CAPTURE_PAGE_BYTES: usize = 49_152;
@@ -526,8 +526,13 @@ pub type RamMax = Bytes<u64, RangeU64<RAM_MAX_MIN, RAM_MAX_MAX>>;
 /// capture host answers [CaptureError::NotAvailable] ([HubStatus::captures] says so beforehand).
 ///
 /// A relaying hub (`ClientMeta` kind `Hub`; federation, SRV-33, has no trust model yet) may only `start` and `stop`,
-/// at most [MAX_RELAY_CAPTURES] captures per client instance; every other method is refused
+/// at most [MAX_RELAY_CAPTURES] captures for all relaying hubs together; every other method is refused
 /// [CaptureError::NotAllowed]: a remote peer would write files, read traffic, or touch others' captures on this PC.
+/// What a relaying hub asks for never widens a capture others started (what it records, its RAM limit).
+///
+/// Who has a part in a capture, and who is a relaying hub, is what the client says of itself (its `ClientMeta`
+/// instance id and kind): it holds between programs of the same OS user, the only ones the hub's socket lets in.
+/// Federation must take the principal from the transport before these checks mean anything across PCs.
 ///
 /// `client_map` records each forwarded request as it is sent, with the device seq it went out with, whether or not an
 /// answer ever comes.
@@ -556,11 +561,11 @@ pub trait Captures {
     ) -> Result<SaveInfo<'i>, CaptureError<'i>>;
 
     /// Ends the capture for every client and drops what is in RAM. A file it was saved to stays as written. Only a
-    /// client instance with a part in the capture may.
+    /// client instance with a part in the capture may (the instance id the client gave, see [Captures]).
     fn discard(id: CaptureId) -> Result<(), CaptureError<'i>>;
 
     /// Changes the capture's RAM limit while it runs, for every client. Only a client instance with a part in the
-    /// capture may.
+    /// capture may (the instance id the client gave, see [Captures]).
     fn set_ram_max(id: CaptureId, ram_max: RamMax) -> Result<(), CaptureError<'i>>;
 
     /// The captures the hub holds, by id, from the first after `after`: as many as fit [MAX_CAPTURE_PAGE_BYTES];
@@ -697,12 +702,14 @@ pub struct CaptureEntry<'i> {
     pub options: CaptureOptions,
     /// The file it is saved to, `None` while unsaved.
     pub saved_to: Option<&'i str>,
-    /// Client instances that started it and haven't stopped it: the connection each asked on, a [ClientEntry::id]
-    /// (`Hub::clients` has the rest).
+    /// Client instances that started it and haven't stopped it: a connection of each that is open now, a
+    /// [ClientEntry::id] (`Hub::clients` has the rest).
     pub clients: MaxLen<RefVec<'i, u32>, MAX_CAPTURE_CLIENTS>,
     /// Open watches of it, over every connection.
     pub watches: u32,
     pub stats: CaptureStats,
+    /// A tap of the capture panicked (a capture host's bug) and was dropped: that link records no more.
+    pub broken: bool,
 }
 
 /// Counters of a capture, kept by the capture host.
@@ -815,11 +822,13 @@ pub enum CaptureError<'i> {
     Exists,
     /// The capture is saved already, to another path
     Saved { path: &'i str },
-    /// More than [MAX_CAPTURES] captures, [MAX_CAPTURE_CLIENTS] clients of one, [MAX_RELAY_CAPTURES] of a relaying
-    /// hub, or [MAX_WATCHES] watches on this connection
+    /// More than [MAX_CAPTURES] captures, [MAX_CAPTURE_CLIENTS] clients of one, [MAX_RELAY_CAPTURES] of relaying
+    /// hubs, or [MAX_WATCHES] watches on this connection
     TooMany,
     /// The capture host failed
     Host { why: &'i str },
+    /// The hub is exiting: no new capture or save
+    Closing,
 }
 
 ww_api::api_error!(CaptureError<'i>);
@@ -853,10 +862,11 @@ impl core::fmt::Display for CaptureErrorOwned {
             CaptureErrorOwned::TooMany => write!(
                 f,
                 "too many: captures (at most {MAX_CAPTURES}), clients of one capture (at most {MAX_CAPTURE_CLIENTS}), \
-                 captures of a relaying hub (at most {MAX_RELAY_CAPTURES}) or watches on this connection (at most \
+                 captures of relaying hubs (at most {MAX_RELAY_CAPTURES}) or watches on this connection (at most \
                  {MAX_WATCHES})"
             ),
             CaptureErrorOwned::Host { why } => write!(f, "the capture host failed: {why}"),
+            CaptureErrorOwned::Closing => write!(f, "the ww hub is exiting"),
             CaptureErrorOwned::Unknown(n) => write!(f, "capture error {n} of a newer hub"),
         }
     }

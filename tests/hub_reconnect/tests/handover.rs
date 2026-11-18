@@ -33,6 +33,7 @@ fn config(dir: &Path, version: &str) -> HubConfig {
         state_dir: None,
         resolver: tests_common::resolver(),
         captures: None,
+        saves_exit_wait: ww_hub::SAVES_EXIT_WAIT,
     }
 }
 

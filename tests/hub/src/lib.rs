@@ -305,6 +305,8 @@ mod tests {
             adopt_attach: std::time::Duration::from_secs(5),
             resolver: tests_common::resolver(),
             captures,
+            // a test's exit with a save in flight waits briefly
+            saves_exit_wait: Duration::from_millis(100),
         })
         .unwrap()
         .expect("no other hub in this dir");

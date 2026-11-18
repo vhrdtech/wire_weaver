@@ -76,8 +76,12 @@ pub(crate) enum ToDevice {
     },
     /// Whether the device is steered changed (SRV-31): its linger is looked at again
     Recheck,
-    /// A capture of the device began (SRV-64): its taps go on the device's links, it stays open while recorded
-    Capture(Arc<dyn crate::HostCapture>),
+    /// A capture of the device began (SRV-64): its taps (`None` when the host couldn't make them) go on the device's
+    /// links, it stays open while recorded
+    Capture(
+        Arc<dyn crate::HostCapture>,
+        Option<wire_weaver_client::tap::TapSource>,
+    ),
     /// This capture of the device ended: its taps come off, unless another capture took its place since
     Untap(Arc<dyn crate::HostCapture>),
 }
@@ -191,8 +195,8 @@ pub(crate) async fn open(hub: &Arc<Hub>, key: &str, slot: Slot) -> Result<Device
     };
     // recorded from the link's first frame
     let capture = hub.captures.as_ref().and_then(|c| c.of_device(key));
-    let config = match &capture {
-        Some(cap) => config.tap(cap.source()),
+    let config = match capture.as_ref().and_then(|cap| hub.tap_source(cap)) {
+        Some(source) => config.tap(source),
         None => config,
     };
     let cmd = match wire_weaver_client::PreparedConnection::<Raw>::new(config)
@@ -240,8 +244,8 @@ pub(crate) async fn adopt(
         .ok_or_else(|| format!("no transport for {key}"))?
         .resolver(hub.resolver);
     let capture = hub.captures.as_ref().and_then(|c| c.of_device(key));
-    let config = match &capture {
-        Some(cap) => config.tap(cap.source()),
+    let config = match capture.as_ref().and_then(|cap| hub.tap_source(cap)) {
+        Some(source) => config.tap(source),
         None => config,
     };
     // the event loop goes on with the link; the medium that opens the device by its key reads what its kind left
@@ -428,11 +432,13 @@ impl ForwardSink for Router {
                 None => return,
             },
         };
-        capture.client_map(ww_tap::ClientMap {
+        let map = ww_tap::ClientMap {
             client: UNib32(client),
             client_seq: UNib32(client_seq),
             device_seq: UNib32(seq),
-        });
+        };
+        // on the device's event loop: a host that panics loses this map, never the device
+        let _ = crate::captures::host("client_map", || capture.client_map(map));
     }
 
     fn forward(&mut self, forwarded: Forwarded) {
@@ -875,9 +881,8 @@ impl State {
                 }
             },
             ToDevice::Recheck => {}
-            ToDevice::Capture(capture) => {
+            ToDevice::Capture(capture, tap) => {
                 if !is_current(&self.capture, &capture) {
-                    let tap = Some(capture.source());
                     self.set_capture(Some(capture));
                     self.send(Command::SetTap { tap })?;
                 }
@@ -1434,5 +1439,98 @@ mod tests {
         level.apply(2, &cfg(vec![], false, None), 4);
         assert!(level.entries.is_empty());
         assert!(level.merged().entries.is_empty());
+    }
+}
+
+#[cfg(test)]
+mod capture_tests {
+    use super::*;
+
+    struct Cap;
+
+    impl crate::HostCapture for Cap {
+        fn source(&self) -> wire_weaver_client::tap::TapSource {
+            wire_weaver_client::tap::TapSource::new(|| Box::new(ww_tap::NoTap))
+        }
+        fn set_options(&self, _: &ww_hub_api::CaptureOptions) {}
+        fn client_map(&self, _: ww_tap::ClientMap) {}
+        fn save(&self, _: &crate::SavePath) -> Result<crate::Saved, String> {
+            Ok(Default::default())
+        }
+        fn watch(&self, _: ww_hub_api::Pressure) -> Result<Box<dyn crate::HostWatch>, String> {
+            Err("none".into())
+        }
+        fn stats(&self) -> ww_hub_api::CaptureStats {
+            Default::default()
+        }
+        fn tap_lost(&self, _: &str) {}
+        fn end(&self) {}
+        fn discard(&self) {}
+    }
+
+    fn state() -> State {
+        State {
+            tunnels: BTreeMap::new(),
+            next_tag: 1,
+            pending: HashMap::new(),
+            streams: HashMap::new(),
+            observed: HashMap::new(),
+            introspect: Introspect::None,
+            bundle: None,
+            bundle_waiters: vec![],
+            key: "dev".into(),
+            resolver: wire_weaver_client::snapshots::Resolver::global(),
+            loopback_owner: None,
+            keep: false,
+            stamp: 0,
+            routes: Default::default(),
+            out: vec![],
+            capture: None,
+        }
+    }
+
+    fn set_taps(state: &State) -> usize {
+        state
+            .out
+            .iter()
+            .filter(|c| matches!(c, Command::SetTap { .. }))
+            .count()
+    }
+
+    /// The end of capture A reaches the device after capture B of it began (the order two tasks of the hub happen to
+    /// run in): B keeps its taps.
+    #[test]
+    fn a_late_untap_leaves_the_new_capture_tapped() {
+        let a: Arc<dyn crate::HostCapture> = Arc::new(Cap);
+        let b: Arc<dyn crate::HostCapture> = Arc::new(Cap);
+        let mut state = state();
+        state
+            .on_message(ToDevice::Capture(a.clone(), None))
+            .unwrap();
+        state
+            .on_message(ToDevice::Capture(b.clone(), None))
+            .unwrap();
+        state.on_message(ToDevice::Untap(a)).unwrap();
+        assert!(state.capture.as_ref().is_some_and(|c| Arc::ptr_eq(c, &b)));
+        assert_eq!(
+            set_taps(&state),
+            2,
+            "tapped for A, then for B; never untapped"
+        );
+        state.on_message(ToDevice::Untap(b)).unwrap();
+        assert!(state.capture.is_none());
+        assert_eq!(set_taps(&state), 3);
+    }
+
+    /// A counted-tag request that fails before it goes out leaves no client map waiting for it.
+    #[test]
+    fn a_failed_request_leaves_no_map() {
+        let mut state = state();
+        state.routes.tagged().insert(7, (1, 2));
+        state.on_forwarded(Forwarded::Failed {
+            tag: 7,
+            error: wire_weaver_client::Error::Timeout,
+        });
+        assert!(state.routes.tagged().is_empty());
     }
 }

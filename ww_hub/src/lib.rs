@@ -101,6 +101,8 @@ pub struct HubConfig {
     /// What records the devices' links for `ww_hub_api::Captures` (SRV-64): eventfull's, given by the program hosting
     /// the hub ([HubHost]); `None`: the hub records nothing and says so (`HubStatus::captures`).
     pub captures: Option<Arc<dyn CaptureHost>>,
+    /// How long an exiting hub waits for running saves before it ends every capture ([SAVES_EXIT_WAIT]).
+    pub saves_exit_wait: Duration,
 }
 
 impl HubConfig {
@@ -150,6 +152,7 @@ impl HubConfig {
             },
             resolver: Resolver::global(),
             captures: None,
+            saves_exit_wait: SAVES_EXIT_WAIT,
         })
     }
 }
@@ -225,11 +228,18 @@ pub fn run_blocking() -> io::Result<Exit> {
 /// [run_blocking] with this config. Not from a thread that runs a tokio runtime: from an async program, call it
 /// with `tokio::task::spawn_blocking`.
 pub fn run_blocking_with(config: HubConfig) -> io::Result<Exit> {
-    tokio::runtime::Builder::new_current_thread()
+    let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
-        .build()?
-        .block_on(serve(config))
+        .build()?;
+    let exit = runtime.block_on(serve(config));
+    // dropping the runtime would wait for every blocking task: a save stuck on a hung file system (named in the log
+    // by `end_captures`) would keep the process alive after the hub let go of hub.lock
+    runtime.shutdown_timeout(RUNTIME_SHUTDOWN_WAIT);
+    exit
 }
+
+/// How long an exited hub's runtime waits for its blocking tasks before the process goes on without them.
+const RUNTIME_SHUTDOWN_WAIT: Duration = Duration::from_secs(1);
 
 /// Runs the hub until it is idle for [HubConfig::idle_exit], is shut down, or finds another hub running. Started with
 /// [HANDOVER_ENV] set, it takes over from the running hub first ([Bound::take_over]).
@@ -294,9 +304,10 @@ impl From<io::Error> for TakeOverError {
 const HANDOVER_LOCK_TIMEOUT: Duration = Duration::from_secs(5);
 /// How long an exiting hub waits for its connections to send what they still have (replies, `Disconnect`).
 const EXIT_DRAIN: Duration = Duration::from_millis(500);
-/// How long an exiting hub waits for running saves of captures (SRV-64) before it ends them: a save writes what was
-/// in RAM, and a file system that hangs must not keep the hub up for ever.
-const SAVES_EXIT_WAIT: Duration = Duration::from_secs(10);
+/// How long an exiting hub waits for running saves of captures (SRV-64) before it ends them, by default
+/// ([HubConfig::saves_exit_wait]): a save writes what was in RAM, and a file system that hangs must not keep the hub
+/// up for ever.
+pub const SAVES_EXIT_WAIT: Duration = Duration::from_secs(10);
 
 /// A hub that holds `hub.lock` and listens, not serving yet: [run](Self::run) does. Split from [serve] so a host
 /// (tests, an app hosting the hub) knows it is up and can stop it.
@@ -470,7 +481,7 @@ impl Bound {
         #[cfg(unix)]
         let _ = std::fs::remove_file(&self.socket);
         // running saves finish, then every capture ends: files closed as written, RAM dropped
-        self.hub.end_captures(SAVES_EXIT_WAIT).await;
+        self.hub.end_captures(self.config.saves_exit_wait).await;
         // tunnels see their device go
         let slots: Vec<_> = self.hub.devices.lock().unwrap().values().cloned().collect();
         for slot in slots {
@@ -631,6 +642,27 @@ fn free_id(next: &mut u32, taken: impl Fn(u32) -> bool) -> u32 {
     }
 }
 
+/// An exited hub's runtime doesn't wait for a blocking task that never returns (a save on a hung file system):
+/// `shutdown_timeout` gives up on it, where dropping the runtime would wait for ever.
+#[cfg(test)]
+#[test]
+fn shutdown_leaves_a_stuck_blocking_task() {
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    let (started_tx, started) = std::sync::mpsc::channel();
+    let (_never, stuck) = std::sync::mpsc::channel::<()>();
+    runtime.block_on(async {
+        tokio::task::spawn_blocking(move || {
+            started_tx.send(()).unwrap();
+            let _ = stuck.recv();
+        });
+    });
+    started.recv().unwrap();
+    runtime.shutdown_timeout(Duration::ZERO);
+}
+
 #[cfg(test)]
 #[test]
 fn client_ids_stay_below_31_bits() {
@@ -750,9 +782,9 @@ impl Hub {
                     return;
                 }
                 let id = self.client_joined(peer);
+                let _left = ClientLeft(&self, id);
                 debug!("ww hub: client {id} ({peer:?}) connected");
                 api::serve_connection(self.clone(), id, rx, tx).await;
-                self.client_left(id);
                 debug!("ww hub: client {id} left");
             }
             Target::Device(key) if preamble.adopt.is_some() => {
@@ -764,6 +796,7 @@ impl Hub {
                     let _ = answer(&mut tx, &self.version, Status::UnknownDevice).await;
                     return;
                 };
+                let left = ClientLeft(&self, w.tunnel);
                 if answer(&mut tx, &self.version, Status::Ok).await.is_ok() {
                     debug!(
                         "ww hub: client {} ({peer:?}) goes on with its adopted link to {key}",
@@ -773,10 +806,11 @@ impl Hub {
                 } else {
                     let _ = w.device.tx.send(device::ToDevice::Leave { id: w.tunnel });
                 }
-                self.client_left(w.tunnel);
+                drop(left);
             }
             Target::Device(key) => {
                 let id = self.client_joined(peer);
+                let _left = ClientLeft(&self, id);
                 let queue = tunnel::TunnelQueue::new();
                 match device::join(&self, &key, id, &queue).await {
                     Ok(handle) => {
@@ -792,7 +826,6 @@ impl Hub {
                         let _ = answer(&mut tx, &self.version, status).await;
                     }
                 }
-                self.client_left(id);
             }
         }
     }
@@ -828,7 +861,11 @@ impl Hub {
     }
 
     pub(crate) fn client_left(self: &Arc<Self>, id: u32) {
-        let mut state = self.state.lock().unwrap();
+        // also from a connection's task unwinding ([ClientLeft]): a poisoned lock must not abort the process
+        let mut state = self
+            .state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let owner = owner_of(&state, id);
         state.clients.remove(&id);
         // the instance's last connection: its claims and its part in captures go (SRV-34, SRV-64)
@@ -839,10 +876,8 @@ impl Hub {
         };
         drop(state);
         self.claims_released(&gone);
-        if last && let Some(captures) = &self.captures {
-            for ended in captures.owner_left(&owner) {
-                self.capture_ended(ended);
-            }
+        if last {
+            self.capture_owner_left(&owner);
         }
         let _ = self.events.send(ww_hub_api::EventOwned::ClientLeft { id });
     }
@@ -1295,6 +1330,16 @@ async fn answer(tx: &mut SendHalf, version: &str, status: Status) -> io::Result<
 }
 
 /// Counts a connection while it lives, so the hub isn't idle meanwhile.
+/// Ends client `.1`'s presence when its connection's task ends, however it ends (a panic too): its entry, claims and
+/// parts in captures never outlive it.
+struct ClientLeft<'a>(&'a Arc<Hub>, u32);
+
+impl Drop for ClientLeft<'_> {
+    fn drop(&mut self) {
+        self.0.client_left(self.1);
+    }
+}
+
 struct ConnectionGuard<'a>(&'a Hub);
 
 impl<'a> ConnectionGuard<'a> {

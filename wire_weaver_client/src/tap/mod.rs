@@ -33,19 +33,54 @@ pub use ww_framer::prefix::{FrameCtx, FrameReport};
 
 /// Makes the [Tap] of each link a client opens, [ClientConfig::tap](crate::ClientConfig::tap).
 #[derive(Clone)]
-pub struct TapSource(Arc<MakeTap>);
+pub struct TapSource(Arc<Source>);
 
-/// Boxed again so that [TapSource] is a thin pointer: `Command::Connect` carries it.
-type MakeTap = Box<dyn Fn() -> Box<dyn Tap + Send> + Send + Sync>;
+/// Behind an [Arc] so that [TapSource] is a thin pointer: `Command::Connect` carries it.
+struct Source {
+    make: Box<dyn Fn() -> Box<dyn Tap + Send> + Send + Sync>,
+    lost: Option<Lost>,
+}
+
+/// See [TapSource::on_lost].
+type Lost = Box<dyn Fn(&str) + Send + Sync>;
 
 impl TapSource {
     /// A source that calls `link` once for each link.
     pub fn new(link: impl Fn() -> Box<dyn Tap + Send> + Send + Sync + 'static) -> Self {
-        TapSource(Arc::new(Box::new(link)))
+        TapSource(Arc::new(Source {
+            make: Box::new(link),
+            lost: None,
+        }))
     }
 
-    fn link(&self) -> Box<dyn Tap + Send> {
-        (self.0)()
+    /// This source's taps, and `lost` called when one panics: the link drops that tap and goes on without it, and
+    /// `lost` gets why (the tap's owner marks its recording broken).
+    pub fn on_lost(self, lost: impl Fn(&str) + Send + Sync + 'static) -> Self {
+        TapSource(Arc::new(Source {
+            make: Box::new(move || (self.0.make)()),
+            lost: Some(Box::new(lost)),
+        }))
+    }
+
+    /// A new tap, `None` when making it panicked.
+    fn link(&self) -> Option<Box<dyn Tap + Send>> {
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| (self.0.make)())) {
+            Ok(tap) => Some(tap),
+            Err(_) => {
+                self.lost("making the tap panicked");
+                None
+            }
+        }
+    }
+
+    /// Tells the source's owner that a tap of it is gone.
+    fn lost(&self, why: &str) {
+        tracing::warn!("a link's tap is lost: {why}; the link goes on without it");
+        if let Some(lost) = &self.0.lost
+            && std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| lost(why))).is_err()
+        {
+            tracing::warn!("a tap source's `lost` panicked too");
+        }
     }
 }
 
@@ -79,6 +114,8 @@ struct Shared {
 #[derive(Default)]
 struct State {
     tap: Option<Box<dyn Tap + Send>>,
+    /// Where [State::tap] came from: told when it panics
+    source: Option<TapSource>,
     tracers: Vec<mpsc::UnboundedSender<TraceEvent>>,
     /// The newest session, given again with the device's `DeviceInfo` once the link is set up, and to a tap set
     /// later ([ClientTap::set_tap]).
@@ -112,12 +149,13 @@ impl SessionHead {
 impl ClientTap {
     /// The tap of a new link: `source`'s, else tracers only.
     pub fn new(source: Option<&TapSource>) -> Self {
-        let tap = source.map(TapSource::link);
+        let tap = source.and_then(TapSource::link);
         ClientTap(Arc::new(Shared {
             has_tap: AtomicBool::new(tap.is_some()),
             tracing: AtomicBool::new(false),
             state: Mutex::new(State {
                 tap,
+                source: source.cloned(),
                 ..State::default()
             }),
         }))
@@ -157,7 +195,8 @@ impl ClientTap {
     /// for a link already set up, [LinkEvent::LinkReady]. A tap replaced is dropped without a further call.
     pub fn set_tap(&self, source: Option<&TapSource>) {
         let mut st = self.state();
-        st.tap = source.map(TapSource::link);
+        st.tap = source.and_then(TapSource::link);
+        st.source = source.cloned();
         self.0.has_tap.store(st.tap.is_some(), Ordering::Relaxed);
         if let Some(s) = st.session.take() {
             let info = st.device_info.take();
@@ -181,8 +220,8 @@ impl ClientTap {
 }
 
 impl State {
-    /// `f` on the tap, if there is one. A tap that panics (a capture host's bug) is dropped with a warning instead
-    /// of taking the link's event loop down with it.
+    /// `f` on the tap, if there is one. A tap that panics (a capture host's bug) is dropped, its source told
+    /// ([TapSource::on_lost]), instead of taking the link's event loop down with it.
     fn call<R: Default>(
         &mut self,
         shared: &Shared,
@@ -194,9 +233,17 @@ impl State {
         match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| f(tap))) {
             Ok(r) => r,
             Err(_) => {
-                tracing::warn!("a link's tap panicked: the link goes on without it");
-                self.tap = None;
                 shared.has_tap.store(false, Ordering::Relaxed);
+                let tap = self.tap.take();
+                // its drop is the host's code too
+                let dropped = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| drop(tap)));
+                let why = match dropped {
+                    Ok(()) => "the tap panicked",
+                    Err(_) => "the tap panicked, and again when dropped",
+                };
+                if let Some(source) = &self.source {
+                    source.lost(why);
+                }
                 R::default()
             }
         }

@@ -27,10 +27,23 @@ use super::*;
 struct MemHost {
     captures: Mutex<Vec<Arc<MemCapture>>>,
     changed: Arc<tokio::sync::Notify>,
+    /// Calls that panic, by name: a host's bugs
+    bugs: Arc<Mutex<std::collections::HashSet<&'static str>>>,
+    /// The next save waits on this until released
+    save_gate: Arc<Mutex<Option<std::sync::mpsc::Receiver<()>>>>,
+}
+
+/// Panics if the test made `what` a bug of the host.
+fn bug(bugs: &Mutex<std::collections::HashSet<&'static str>>, what: &'static str) {
+    assert!(
+        !bugs.lock().unwrap().contains(what),
+        "a capture host's bug in {what}"
+    );
 }
 
 impl CaptureHost for MemHost {
     fn start(&self, key: &str, options: &CaptureOptions) -> Result<Arc<dyn HostCapture>, String> {
+        bug(&self.bugs, "start");
         let cap = Arc::new_cyclic(|me| MemCapture {
             me: me.clone(),
             key: key.to_string(),
@@ -47,6 +60,10 @@ impl CaptureHost for MemHost {
             panic_messages: AtomicBool::new(false),
             started: std::time::Instant::now(),
             changed: self.changed.clone(),
+            bugs: self.bugs.clone(),
+            save_gate: self.save_gate.clone(),
+            saving: AtomicBool::new(false),
+            tap_lost: AtomicBool::new(false),
         });
         self.captures.lock().unwrap().push(cap.clone());
         self.changed.notify_waiters();
@@ -121,6 +138,12 @@ struct MemCapture {
     panic_messages: AtomicBool,
     started: std::time::Instant,
     changed: Arc<tokio::sync::Notify>,
+    bugs: Arc<Mutex<std::collections::HashSet<&'static str>>>,
+    save_gate: Arc<Mutex<Option<std::sync::mpsc::Receiver<()>>>>,
+    /// A save waits at the gate
+    saving: AtomicBool,
+    /// The hub said a tap of it was lost
+    tap_lost: AtomicBool,
 }
 
 impl MemCapture {
@@ -184,6 +207,7 @@ fn write_recs(file: &mut std::fs::File, recs: &[Rec]) -> std::io::Result<()> {
 
 impl HostCapture for MemCapture {
     fn source(&self) -> TapSource {
+        bug(&self.bugs, "source");
         let cap = self.self_arc();
         TapSource::new(move || {
             let link = LinkNo(cap.links.fetch_add(1, Ordering::Relaxed) as u32);
@@ -195,16 +219,29 @@ impl HostCapture for MemCapture {
     }
 
     fn set_options(&self, options: &CaptureOptions) {
+        bug(&self.bugs, "set_options");
         *self.options.lock().unwrap() = *options;
         self.changed.notify_waiters();
     }
 
     fn client_map(&self, map: ClientMap) {
+        bug(&self.bugs, "client_map");
         self.maps.lock().unwrap().push(map);
         self.changed.notify_waiters();
     }
 
     fn save(&self, to: &SavePath) -> Result<Saved, String> {
+        let gate = self.save_gate.lock().unwrap().take();
+        if let Some(gate) = gate {
+            self.saving.store(true, Ordering::Relaxed);
+            self.changed.notify_waiters();
+            let _ = gate.recv();
+            self.saving.store(false, Ordering::Relaxed);
+        }
+        assert!(
+            !self.ended.load(Ordering::Relaxed),
+            "never ended while saving"
+        );
         let mut file = to.create().map_err(|e| e.to_string())?;
         if self.fail_save.load(Ordering::Relaxed) {
             let _ = file.write_all(b"half a file");
@@ -221,6 +258,7 @@ impl HostCapture for MemCapture {
     }
 
     fn watch(&self, pressure: Pressure) -> Result<Box<dyn HostWatch>, String> {
+        bug(&self.bugs, "watch");
         let next = self.ring.lock().unwrap().next_no;
         Ok(Box::new(MemWatch {
             cap: self.self_arc(),
@@ -231,6 +269,7 @@ impl HostCapture for MemCapture {
     }
 
     fn stats(&self) -> CaptureStats {
+        bug(&self.bugs, "stats");
         let ring = self.ring.lock().unwrap();
         CaptureStats {
             links: self.links.load(Ordering::Relaxed) as u32,
@@ -240,6 +279,11 @@ impl HostCapture for MemCapture {
             dropped_producer: Fixed::new(0),
             dropped_ram: Fixed::new(ring.dropped_ram),
         }
+    }
+
+    fn tap_lost(&self, _why: &str) {
+        self.tap_lost.store(true, Ordering::Relaxed);
+        self.changed.notify_waiters();
     }
 
     fn end(&self) {
@@ -1104,4 +1148,149 @@ async fn a_panicking_tap_leaves_the_link_going() {
     assert_eq!(a.dev.add(3, 4).call().await.unwrap(), 7);
     assert_eq!(entries(&a).await.len(), 1);
     bench.stop().await;
+}
+
+/// A capture host that panics in any call leaves the hub serving, and nothing behind: no capture listed, no tap on
+/// the device.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn host_panics_leave_nothing_behind() {
+    let (bench, host) = recording("cap-bugs");
+    let a = bench.program("alice").await;
+    let b = bench.program("bob").await;
+    assert_eq!(a.dev.add(1, 2).call().await.unwrap(), 3);
+    let set_bug = |what: &'static str, on: bool| {
+        let mut bugs = host.bugs.lock().unwrap();
+        match on {
+            true => bugs.insert(what),
+            false => bugs.remove(what),
+        };
+    };
+    let key = || MaxLen::new(bench.key.clone()).unwrap();
+    let host_error = |e| matches!(device_error(e), CaptureErrorOwned::Host { .. });
+
+    set_bug("start", true);
+    assert!(host_error(
+        a.hub
+            .captures()
+            .start(key(), options(true, true))
+            .call()
+            .await
+            .expect_err("host bug")
+    ));
+    set_bug("start", false);
+    assert!(entries(&a).await.is_empty());
+
+    let id = bench.start_capture(&a, options(false, false)).await;
+    let cap = host.only();
+    set_bug("set_options", true);
+    assert_eq!(bench.start_capture(&b, options(true, true)).await, id);
+    set_bug("set_options", false);
+    set_bug("stats", true);
+    assert_eq!(entries(&a).await[0].stats, CaptureStats::default());
+    set_bug("stats", false);
+    set_bug("watch", true);
+    assert!(host_error(
+        a.hub
+            .captures()
+            .watch(id, Pressure::Everything)
+            .call()
+            .await
+            .expect_err("host bug")
+    ));
+    set_bug("watch", false);
+    set_bug("client_map", true);
+    assert_eq!(a.dev.add(2, 3).call().await.unwrap(), 5);
+    set_bug("client_map", false);
+    a.hub.captures().stop(id).call().await.unwrap();
+    b.hub.captures().stop(id).call().await.unwrap();
+    host.until("untapped", || {
+        cap.taps_dropped.load(Ordering::Relaxed) == cap.links.load(Ordering::Relaxed)
+    })
+    .await;
+
+    // the host can't make the taps: the capture says it is broken, the device goes on
+    set_bug("source", true);
+    let id = bench.start_capture(&a, options(true, true)).await;
+    let cap = host.nth(1);
+    host.until("tap lost", || cap.tap_lost.load(Ordering::Relaxed))
+        .await;
+    assert!(entries(&a).await[0].broken);
+    assert_eq!(a.dev.add(3, 4).call().await.unwrap(), 7);
+    set_bug("source", false);
+    a.hub.captures().stop(id).call().await.unwrap();
+    assert!(entries(&a).await.is_empty());
+    assert_eq!(
+        a.hub.info().call().await.unwrap().hub_version,
+        ww_hub::HUB_VERSION
+    );
+    bench.stop().await;
+}
+
+/// A save runs on a thread of its own: the hub answers other connections meanwhile (the saving one waits for its
+/// answer). The capture's last stop waits for the save, which then ends it, its file closed as written.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_stop_during_a_save_ends_the_capture_after_it() {
+    let (bench, host) = recording("cap-save-stop");
+    let dir = temp("save-stop");
+    let a = bench.program("alice").await;
+    // saves without a part in it: alice's stop is the last
+    let c = bench.program("carol").await;
+    let id = bench.start_capture(&a, options(true, true)).await;
+    let cap = host.only();
+    let (go, gate) = std::sync::mpsc::channel();
+    *host.save_gate.lock().unwrap() = Some(gate);
+    let file = dir.join("run.capture");
+    let saving = {
+        let hub = HubClient::try_from_cmd(c.hub.cmd().clone()).unwrap();
+        let path = MaxLen::new(file.display().to_string()).unwrap();
+        tokio::spawn(async move { hub.captures().save(id, path).call().await })
+    };
+    host.until("saving", || cap.saving.load(Ordering::Relaxed))
+        .await;
+    assert_eq!(
+        a.hub.info().call().await.unwrap().hub_version,
+        ww_hub::HUB_VERSION
+    );
+    a.hub.captures().stop(id).call().await.unwrap();
+    assert!(!cap.ended.load(Ordering::Relaxed), "waits for the save");
+    assert!(entries(&a).await.is_empty(), "ending: listed no more");
+    go.send(()).unwrap();
+    saving.await.unwrap().expect("saved");
+    host.until("ended", || cap.ended.load(Ordering::Relaxed))
+        .await;
+    assert!(!cap.discarded.load(Ordering::Relaxed), "saved: ended, kept");
+    assert!(file.exists());
+    let _ = std::fs::remove_dir_all(&dir);
+    bench.stop().await;
+}
+
+/// The hub exits while a save hangs: it waits its `saves_exit_wait`, exits, and the capture ends once the save
+/// returns.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn exit_with_a_save_in_flight() {
+    let (bench, host) = recording("cap-save-exit");
+    let dir = temp("save-exit");
+    let a = bench.program("alice").await;
+    let id = bench.start_capture(&a, options(true, true)).await;
+    let cap = host.only();
+    let (go, gate) = std::sync::mpsc::channel();
+    *host.save_gate.lock().unwrap() = Some(gate);
+    let file = dir.join("run.capture");
+    let saving = {
+        let hub = HubClient::try_from_cmd(a.hub.cmd().clone()).unwrap();
+        let path = MaxLen::new(file.display().to_string()).unwrap();
+        tokio::spawn(async move { hub.captures().save(id, path).call().await })
+    };
+    host.until("saving", || cap.saving.load(Ordering::Relaxed))
+        .await;
+    bench.stop().await;
+    assert!(
+        !cap.ended.load(Ordering::Relaxed),
+        "never ended while saving"
+    );
+    go.send(()).unwrap();
+    host.until("ended after the save", || cap.ended.load(Ordering::Relaxed))
+        .await;
+    drop(saving);
+    let _ = std::fs::remove_dir_all(&dir);
 }

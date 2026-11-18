@@ -3,7 +3,7 @@
 ### 🚀 Features
 
 - `ForwardSink::sent(tag, seq)` (SRV-64): the device seq a forwarded request goes out with, as it goes out, whether or not it is ever answered; a no-op unless overridden.
-- A link's tap that panics is dropped with a warning; the link goes on (SRV-64).
+- A link's tap that panics (or whose making panics) is dropped; the link goes on and `TapSource::on_lost` hears of it (SRV-64).
 - `Command::SetTap { tap }` (SRV-64): a running link is reported to a new tap, or to none; the new tap first gets the link's newest session and, once set up, `LinkReady`. Before `Connect` it replaces the connect's tap.
 - `tap::Decoder::record`, `session` and `gap`: the decoder takes a link's records one by one; `feed(&Block)` feeds them (TR-14).
 - `cache_introspection(resolver, ww_self_bytes, hash)` (EVO-80): puts a device's introspection data (its `api_impl::WW_SELF_BYTES`) into the resolver's cache, as a download would, for a host that knows the build of a device that doesn't send it.

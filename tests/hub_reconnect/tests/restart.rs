@@ -30,6 +30,7 @@ fn bind(dir: &Path) -> (tokio::task::JoinHandle<Exit>, Shutdown) {
         state_dir: None,
         resolver: tests_common::resolver(),
         captures: None,
+        saves_exit_wait: ww_hub::SAVES_EXIT_WAIT,
     })
     .unwrap()
     .expect("no other hub in this dir");

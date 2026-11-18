@@ -46,6 +46,7 @@ async fn a_newer_program_replaces_the_running_hub() {
         state_dir: None,
         resolver: tests_common::resolver(),
         captures: None,
+        saves_exit_wait: ww_hub::SAVES_EXIT_WAIT,
     })
     .unwrap()
     .unwrap();

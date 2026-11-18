@@ -486,7 +486,10 @@ mod server {
                 .and_then(|(r, owner, _)| r.discard(&owner, id));
             RpcResult::Ready(match discarded {
                 Ok(ended) => {
-                    self.hub.capture_ended(ended);
+                    // `None`: ends when its running save returns
+                    if let Some(ended) = ended {
+                        self.hub.capture_ended(ended);
+                    }
                     Ok(())
                 }
                 Err(e) => Err((*e).into()),
@@ -516,7 +519,7 @@ mod server {
             RpcResult::Ready(
                 self.hub
                     .captures_for(self.id, Act::List)
-                    .map(|(r, _, _)| r.page(after))
+                    .map(|(r, _, _)| r.page(after, |owner| self.hub.live_connection(owner)))
                     .map_err(|e| (*e).into()),
             )
         }
@@ -581,13 +584,17 @@ mod server {
             path: String,
         ) -> Result<SaveInfoOwned, Box<CaptureErrorOwned>> {
             let (registry, _, _) = self.hub.captures_for(self.id, Act::Save)?;
-            let running = registry.save_running();
+            let running = registry.save_running(&path);
             let hub = self.hub.clone();
             // the path's checks and the save touch the file system, which may hang (a network mount): never on the
-            // hub's one thread
+            // hub's one thread. The capture's end waits for the save, also when this connection goes meanwhile.
             tokio::task::spawn_blocking(move || {
                 let _running = running;
-                hub.registry()?.save(id, &path)
+                let (result, ended) = hub.registry()?.save(id, &path);
+                if let Some(ended) = ended {
+                    hub.capture_ended(ended);
+                }
+                result
             })
             .await
             .unwrap_or_else(|e| {

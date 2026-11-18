@@ -25,6 +25,7 @@ fn config(dir: &Path, idle_ms: u64) -> HubConfig {
         state_dir: None,
         resolver: test_resolver(),
         captures: None,
+        saves_exit_wait: crate::SAVES_EXIT_WAIT,
     }
 }
 

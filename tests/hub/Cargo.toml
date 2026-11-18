@@ -21,6 +21,7 @@ ww_hub.workspace = true
 ww_hub_api = { workspace = true, features = ["std"] }
 ww_local_socket.workspace = true
 ww_si = { workspace = true, features = ["std", "time"] }
+ww_tap.workspace = true
 ww_timebase = { workspace = true, features = ["std"] }
 
 [lints]

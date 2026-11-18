@@ -15,6 +15,7 @@
 
 mod adopt;
 mod api;
+mod captures;
 mod claims;
 pub mod client;
 mod device;
@@ -40,6 +41,8 @@ use tracing::{debug, info, warn};
 use wire_weaver_client::snapshots::Resolver;
 use ww_local_socket::files::{HUB_LOCK, HUB_SOCKET};
 use ww_local_socket::{Answer, Peer, Preamble, PreambleError, Status, Target};
+
+pub use captures::{CaptureHost, HostCapture, HostWatch, HubHost, SavePath, Saved};
 
 /// `ww_hub` version: a newer hub replaces an older one (SRV-30).
 pub const HUB_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -95,6 +98,9 @@ pub struct HubConfig {
     /// What the hub opens devices with and decodes their introspection data through
     /// ([wire_weaver_client::ClientConfig::resolver]): [Resolver::global] normally.
     pub resolver: &'static Resolver,
+    /// What records the devices' links for `ww_hub_api::Captures` (SRV-64): eventfull's, given by the program hosting
+    /// the hub ([HubHost]); `None`: the hub records nothing and says so (`HubStatus::captures`).
+    pub captures: Option<Arc<dyn CaptureHost>>,
 }
 
 impl HubConfig {
@@ -143,6 +149,7 @@ impl HubConfig {
                 Err(_) => adopt::ATTACH_TIMEOUT,
             },
             resolver: Resolver::global(),
+            captures: None,
         })
     }
 }
@@ -174,8 +181,14 @@ impl Shutdown {
 /// started with `--hub-version` (a client choosing the newest hub executable asks so), prints [HUB_VERSION] and
 /// exits; returns otherwise, after telling `wire_weaver_client` that this executable can serve as the hub. Put it
 /// first in `main` of an app that should be able to host the hub itself, so a user who has only that app installed
-/// still gets one (CLT-39).
+/// still gets one (CLT-39). A hub served so records nothing: [main_if_hub_with] gives it a [CaptureHost].
 pub fn main_if_hub() {
+    main_if_hub_with(HubHost::default())
+}
+
+/// [main_if_hub], the hub served with what `host` gives it: a program that records (`ww`, the Python wheel) passes
+/// its [CaptureHost] maker.
+pub fn main_if_hub_with(host: HubHost) {
     if std::env::args_os().nth(1).as_deref()
         == Some(std::ffi::OsStr::new(wire_weaver_client::hub::VERSION_ARG))
     {
@@ -186,7 +199,12 @@ pub fn main_if_hub() {
         wire_weaver_client::hub::register_self_hosting(HUB_VERSION);
         return;
     }
-    let code = match run_blocking() {
+    let code = match HubConfig::from_env().and_then(|config| {
+        run_blocking_with(HubConfig {
+            captures: host.captures.map(|make| make()),
+            ..config
+        })
+    }) {
         Ok(Exit::Idle | Exit::Shutdown | Exit::AlreadyRunning | Exit::Handover) => 0,
         Err(e) => {
             eprintln!("ww hub: {e}");
@@ -395,6 +413,7 @@ impl Bound {
             adopt_attach: config.adopt_attach,
             adoptions: Mutex::new(Default::default()),
             resolver: config.resolver,
+            captures: config.captures.clone().map(captures::Registry::new),
         });
         Bound {
             config,
@@ -562,6 +581,8 @@ pub(crate) struct Hub {
     pub(crate) adopt_attach: Duration,
     /// Adopted links whose program's tunnel hasn't connected yet (CLT-44), by adoption id
     pub(crate) adoptions: Mutex<std::collections::HashMap<u64, adopt::Waiting>>,
+    /// Captures (SRV-64), `None` without a [CaptureHost]
+    pub(crate) captures: Option<captures::Registry>,
 }
 
 pub(crate) struct State {
@@ -603,6 +624,21 @@ fn started_by() -> String {
 }
 
 impl Hub {
+    /// What `Hub::info` answers.
+    pub(crate) fn info(&self) -> ww_hub_api::HubInfoOwned {
+        ww_hub_api::HubInfoOwned {
+            hub_version: self.version.clone(),
+            // ww_hub is versioned with the framework crates (workspace version)
+            ww_version: env!("CARGO_PKG_VERSION").to_string(),
+            pid: std::process::id(),
+            exe: std::env::current_exe()
+                .map(|p| p.display().to_string())
+                .unwrap_or_default(),
+            started_ms: self.started_ms,
+            socket: self.socket.display().to_string(),
+        }
+    }
+
     /// Seconds until the hub exits if nothing connects (`None`: it won't while connected or kept), and seconds left of
     /// `keep` (`None`: not kept).
     pub(crate) fn timers(&self) -> (u32, Option<u32>, Option<u32>, u32) {
@@ -756,13 +792,19 @@ impl Hub {
         let mut state = self.state.lock().unwrap();
         let owner = owner_of(&state, id);
         state.clients.remove(&id);
-        // the instance's last connection: its claims go (SRV-34)
-        let gone = match state.clients.keys().any(|c| owner_of(&state, *c) == owner) {
-            true => vec![],
-            false => state.claims.drop_owner(&owner),
+        // the instance's last connection: its claims and its part in captures go (SRV-34, SRV-64)
+        let last = !state.clients.keys().any(|c| owner_of(&state, *c) == owner);
+        let gone = match last {
+            true => state.claims.drop_owner(&owner),
+            false => vec![],
         };
         drop(state);
         self.claims_released(&gone);
+        if last && let Some(captures) = &self.captures {
+            for ended in captures.owner_left(&owner) {
+                self.capture_ended(ended);
+            }
+        }
         let _ = self.events.send(ww_hub_api::EventOwned::ClientLeft { id });
     }
 

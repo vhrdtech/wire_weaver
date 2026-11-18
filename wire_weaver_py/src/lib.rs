@@ -371,19 +371,35 @@ fn hub(py: Python<'_>, timeout: Option<f64>) -> PyResult<Device> {
     })
 }
 
+/// What the hub `run_hub` serves gets, [set_hub_host].
+static HUB_HOST: std::sync::OnceLock<ww_hub::HubHost> = std::sync::OnceLock::new();
+
+/// Gives the hub this module serves (`run_hub`) what `host` holds: the wheel crate (vhrdtech/ww_tools, layer 7) passes
+/// eventfull's capture host, so the hub records (SRV-64). Call it before the module is initialised; the first call
+/// wins. Without it the hub records nothing.
+pub fn set_hub_host(host: ww_hub::HubHost) {
+    let _ = HUB_HOST.set(host);
+}
+
 /// Runs the ww hub (CLT-39) until it is idle, shut down, or finds another hub running; exit code for
 /// `sys.exit(...)`. `python -m wire_weaver.hub` calls this when started with `WW_HUB_SERVE` set, the same as
-/// `ww_hub::main_if_hub()` for a Rust program.
+/// `ww_hub::main_if_hub_with()` for a Rust program, with what [set_hub_host] gave.
 #[pyfunction]
 fn run_hub(py: Python<'_>) -> PyResult<i32> {
-    py.detach(ww_hub::run_blocking)
-        .map(|exit| match exit {
-            ww_hub::Exit::Idle
-            | ww_hub::Exit::Shutdown
-            | ww_hub::Exit::AlreadyRunning
-            | ww_hub::Exit::Handover => 0,
+    let captures = HUB_HOST.get().and_then(|h| h.captures);
+    py.detach(|| {
+        ww_hub::run_blocking_with(ww_hub::HubConfig {
+            captures: captures.map(|make| make()),
+            ..ww_hub::HubConfig::from_env()?
         })
-        .map_err(|e| WireWeaverError::new_err(format!("ww hub: {e}")))
+    })
+    .map(|exit| match exit {
+        ww_hub::Exit::Idle
+        | ww_hub::Exit::Shutdown
+        | ww_hub::Exit::AlreadyRunning
+        | ww_hub::Exit::Handover => 0,
+    })
+    .map_err(|e| WireWeaverError::new_err(format!("ww hub: {e}")))
 }
 
 fn semver_req(req: &str) -> PyResult<wire_weaver_client::ww_version::semver::VersionReq> {

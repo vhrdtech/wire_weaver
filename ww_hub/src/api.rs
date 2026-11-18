@@ -5,20 +5,28 @@ use std::sync::Arc;
 
 use interprocess::local_socket::tokio::{RecvHalf, SendHalf};
 use tokio::sync::broadcast::error::RecvError;
-use tracing::debug;
+use tracing::{debug, warn};
 use wire_weaver::prelude::*;
 use wire_weaver_client::in_process::TokioClock;
 use wire_weaver_client::local_socket::device::connection_medium;
 use ww_device::LinkEvent;
 use ww_hub_api::{
-    AdoptErrorOwned, ClaimEntryOwned, ClaimErrorOwned, ClientEntryOwned, DeviceEntryOwned,
-    HandoverError, HubInfoOwned, HubStatusOwned, ReleaseError, SyncEntryOwned, TakeErrorOwned,
+    AdoptErrorOwned, CaptureEntryOwned, CaptureErrorOwned, CaptureId, CaptureOptions,
+    ClaimEntryOwned, ClaimErrorOwned, ClientEntryOwned, DeviceEntryOwned, HandoverError,
+    HubInfoOwned, HubStatusOwned, MAX_WATCHES, Pressure, RamMax, RecordBatchOwned, ReleaseError,
+    SaveInfoOwned, SyncEntryOwned, TakeErrorOwned, WatchId,
 };
 
 use crate::Hub;
+use crate::captures::{HostWatch, SavePath, WatchCount};
 
-/// Longest message on a hub API connection, both ways: device and client lists of a busy bench fit.
-const MAX_MESSAGE_LEN: usize = 16 * 1024;
+/// Longest message on a hub API connection, both ways: device and client lists of a busy bench fit, and a watch's
+/// record batch (`ww_hub_api::MAX_BATCH_BYTES`) with its stream header.
+const MAX_MESSAGE_LEN: usize = 64 * 1024;
+
+/// A watch's batch from its task to the connection: the watch's index, its generation (a batch of a closed watch
+/// isn't sent on one opened at the same index after), the batch, `None` once the capture ended.
+type BatchMsg = (u32, u64, Option<RecordBatchOwned>);
 
 /// Serves the hub API to one client until it leaves.
 pub(crate) async fn serve_connection(hub: Arc<Hub>, id: u32, rx: RecvHalf, tx: SendHalf) {
@@ -40,12 +48,18 @@ pub(crate) async fn serve_connection(hub: Arc<Hub>, id: u32, rx: RecvHalf, tx: S
         &mut scratch,
         &mut event_scratch,
     );
+    // one batch in flight: a client slower than its watches makes their tasks wait, which makes the host's cursors
+    // fall behind, never the device (SRV-64)
+    let (batch_tx, mut batches) = tokio::sync::mpsc::channel::<BatchMsg>(1);
     let mut backend = server::Server {
         hub: hub.clone(),
         id,
         events_open: false,
         stats_open: false,
         adopting: None,
+        watches: (0..MAX_WATCHES).map(|_| None).collect(),
+        next_generation: 0,
+        batch_tx,
     };
     let mut events = hub.events.subscribe();
     let mut stats = hub.sync_stats.subscribe();
@@ -80,6 +94,27 @@ pub(crate) async fn serve_connection(hub: Arc<Hub>, id: u32, rx: RecvHalf, tx: S
                 Err(RecvError::Lagged(n)) => debug!("ww hub: client {id} missed {n} events"),
                 Err(RecvError::Closed) => break,
             },
+            Some((w, generation, batch)) = batches.recv() => {
+                let slot = &mut backend.watches[w as usize];
+                if slot.as_ref().is_none_or(|s| s.generation != generation) {
+                    continue;
+                }
+                match batch {
+                    Some(batch) if server.is_up() => {
+                        let sent = server::api_impl::stream_data_ser()
+                            .captures()
+                            .watches(w)
+                            .records_send(&batch, &mut server.sink())
+                            .await;
+                        if let Err(e) = sent {
+                            warn!("ww hub: client {id}: watch {w} batch not sent: {e:?}");
+                        }
+                    }
+                    Some(_) => {}
+                    // the capture ended
+                    None => *slot = None,
+                }
+            }
             entry = stats.recv() => match entry {
                 Ok(entry) if backend.stats_open && server.is_up() => {
                     let _ = server::api_impl::stream_data_ser()
@@ -98,6 +133,11 @@ pub(crate) async fn serve_connection(hub: Arc<Hub>, id: u32, rx: RecvHalf, tx: S
 
 mod server {
     use super::*;
+    use ww_si::Fixed;
+
+    /// What a watch's batch may take of a message: [MAX_MESSAGE_LEN] less the stream's header.
+    const BATCH_BYTES: usize = ww_hub_api::MAX_BATCH_BYTES;
+    const _: () = assert!(BATCH_BYTES + 1024 <= MAX_MESSAGE_LEN);
 
     pub struct Server {
         pub hub: Arc<Hub>,
@@ -109,21 +149,32 @@ mod server {
         pub stats_open: bool,
         /// `Adopt::prepare` (CLT-44), until the commit; dropped with the connection
         pub adopting: Option<crate::adopt::Prepared>,
+        /// `Captures::watch`es of this connection, by index in `watches[]` (SRV-64); dropped with the connection
+        pub watches: Vec<Option<WatchSlot>>,
+        pub next_generation: u64,
+        /// Where the watches' tasks send their batches
+        pub batch_tx: tokio::sync::mpsc::Sender<BatchMsg>,
+    }
+
+    /// One watch: its cursor until the stream opens, then the task that reads it.
+    pub struct WatchSlot {
+        pub generation: u64,
+        pub cursor: Option<Box<dyn HostWatch>>,
+        pub task: Option<tokio::task::JoinHandle<()>>,
+        pub _count: WatchCount,
+    }
+
+    impl Drop for WatchSlot {
+        fn drop(&mut self) {
+            if let Some(task) = &self.task {
+                task.abort();
+            }
+        }
     }
 
     impl Server {
         async fn info(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<HubInfoOwned> {
-            RpcResult::Ready(HubInfoOwned {
-                hub_version: self.hub.version.clone(),
-                // ww_hub is versioned with the framework crates (workspace version)
-                ww_version: env!("CARGO_PKG_VERSION").to_string(),
-                pid: std::process::id(),
-                exe: std::env::current_exe()
-                    .map(|p| p.display().to_string())
-                    .unwrap_or_default(),
-                started_ms: self.hub.started_ms,
-                socket: self.hub.socket.display().to_string(),
-            })
+            RpcResult::Ready(self.hub.info())
         }
 
         async fn status(
@@ -137,6 +188,7 @@ mod server {
                 exits_in_s,
                 keep_left_s,
                 connections,
+                captures: self.hub.captures.is_some(),
             })
         }
 
@@ -372,6 +424,193 @@ mod server {
                     Err(AdoptErrorOwned::UnknownId.into())
                 }
             })
+        }
+    }
+
+    /// `Captures` (SRV-64).
+    impl Server {
+        async fn captures_start(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+            key: MaxLen<String, { ww_hub_api::MAX_KEY_LEN }>,
+            options: CaptureOptions,
+        ) -> RpcResult<Result<CaptureId, wire_weaver::Error<'_, CaptureErrorOwned>>> {
+            RpcResult::Ready(
+                self.hub
+                    .capture_start(self.id, &key, options)
+                    .await
+                    .map_err(|e| (*e).into()),
+            )
+        }
+
+        async fn captures_stop(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+            id: CaptureId,
+        ) -> RpcResult<Result<(), wire_weaver::Error<'_, CaptureErrorOwned>>> {
+            let stopped = self.hub.registry().and_then(|r| {
+                let owner = crate::owner_of(&self.hub.state.lock().unwrap(), self.id);
+                r.stop(&owner, id)
+            });
+            RpcResult::Ready(match stopped {
+                Ok(ended) => {
+                    if let Some(ended) = ended {
+                        self.hub.capture_ended(ended);
+                    }
+                    Ok(())
+                }
+                Err(e) => Err((*e).into()),
+            })
+        }
+
+        async fn captures_save(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+            id: CaptureId,
+            path: MaxLen<String, { ww_hub_api::MAX_PATH_LEN }>,
+        ) -> RpcResult<Result<SaveInfoOwned, wire_weaver::Error<'_, CaptureErrorOwned>>> {
+            RpcResult::Ready(self.save(id, &path).await.map_err(|e| (*e).into()))
+        }
+
+        async fn captures_discard(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+            id: CaptureId,
+        ) -> RpcResult<Result<(), wire_weaver::Error<'_, CaptureErrorOwned>>> {
+            RpcResult::Ready(match self.hub.registry().and_then(|r| r.discard(id)) {
+                Ok(ended) => {
+                    self.hub.capture_ended(ended);
+                    Ok(())
+                }
+                Err(e) => Err((*e).into()),
+            })
+        }
+
+        async fn captures_set_ram_max(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+            id: CaptureId,
+            ram_max: RamMax,
+        ) -> RpcResult<Result<(), wire_weaver::Error<'_, CaptureErrorOwned>>> {
+            RpcResult::Ready(
+                self.hub
+                    .registry()
+                    .and_then(|r| r.set_ram_max(id, ram_max))
+                    .map_err(|e| (*e).into()),
+            )
+        }
+
+        async fn captures_captures(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+        ) -> RpcResult<MaxLen<Vec<CaptureEntryOwned>, { ww_hub_api::MAX_CAPTURES }>> {
+            let entries = match &self.hub.captures {
+                Some(r) => r.entries(|c| crate::client_entry(&self.hub.state.lock().unwrap(), c)),
+                None => vec![],
+            };
+            RpcResult::Ready(MaxLen::new_unchecked(entries))
+        }
+
+        async fn captures_watch(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+            id: CaptureId,
+            pressure: Pressure,
+        ) -> RpcResult<Result<WatchId, wire_weaver::Error<'_, CaptureErrorOwned>>> {
+            RpcResult::Ready(self.watch(id, pressure).map_err(|e| (*e).into()))
+        }
+
+        fn valid_indices_root_captures_watches(&mut self) -> ValidIndices<'_> {
+            ValidIndices::range_u32(0..MAX_WATCHES as u32)
+        }
+
+        async fn captures_watches_records(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+            index_chain: [ww_client_server::ResourceIndex; 1],
+        ) -> RpcResult<()> {
+            let w = index_chain[0].get().0;
+            if let Some(slot) = self.watches.get_mut(w as usize).and_then(Option::as_mut)
+                && let Some(mut cursor) = slot.cursor.take()
+            {
+                let (tx, generation) = (self.batch_tx.clone(), slot.generation);
+                slot.task = Some(tokio::spawn(async move {
+                    while let Some(batch) = cursor.next(BATCH_BYTES).await {
+                        if tx.send((w, generation, Some(batch))).await.is_err() {
+                            return;
+                        }
+                    }
+                    let _ = tx.send((w, generation, None)).await;
+                }));
+            }
+            RpcResult::Ready(())
+        }
+
+        async fn close_captures_watches_records(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+            index_chain: [ww_client_server::ResourceIndex; 1],
+        ) {
+            if let Some(slot) = self.watches.get_mut(index_chain[0].get().0 as usize) {
+                *slot = None;
+            }
+        }
+
+        async fn sideband_captures_watches_records(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+            _index_chain: [ww_client_server::ResourceIndex; 1],
+            _sideband: ww_client_server::StreamSideband,
+        ) -> Option<ww_client_server::StreamSideband> {
+            None
+        }
+
+        async fn save(
+            &mut self,
+            id: CaptureId,
+            path: &str,
+        ) -> Result<SaveInfoOwned, Box<CaptureErrorOwned>> {
+            let registry = self.hub.registry()?;
+            self.hub.may_save_or_watch(self.id)?;
+            let path = SavePath::check(path)?;
+            let capture = registry.saving(id, &path)?;
+            let to = path.clone();
+            // writes what is in RAM: not on the hub's one thread
+            let saved = tokio::task::spawn_blocking(move || capture.save(&to))
+                .await
+                .unwrap_or_else(|e| Err(format!("the save panicked: {e}")));
+            match saved {
+                Ok(saved) => Ok(SaveInfoOwned {
+                    path: path.path().display().to_string(),
+                    records: Fixed::new(saved.records),
+                    dropped: Fixed::new(saved.dropped),
+                }),
+                Err(why) => {
+                    registry.save_failed(id);
+                    Err(CaptureErrorOwned::Host { why }.into())
+                }
+            }
+        }
+
+        fn watch(
+            &mut self,
+            id: CaptureId,
+            pressure: Pressure,
+        ) -> Result<WatchId, Box<CaptureErrorOwned>> {
+            let registry = self.hub.registry()?;
+            self.hub.may_save_or_watch(self.id)?;
+            let Some(w) = self.watches.iter().position(Option::is_none) else {
+                return Err(CaptureErrorOwned::TooMany.into());
+            };
+            let (cursor, count) = registry.watch(id, pressure)?;
+            self.next_generation += 1;
+            self.watches[w] = Some(WatchSlot {
+                generation: self.next_generation,
+                cursor: Some(cursor),
+                task: None,
+                _count: count,
+            });
+            Ok(WatchId(w as u32))
         }
     }
 

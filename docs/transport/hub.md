@@ -819,6 +819,56 @@ hub's steering is `Paused`: the device is still read, so the fit stays current, 
 device coasts in holdover; steering goes on as soon as the claim goes. A lent device is closed, so its steering
 stops and starts again when it is opened after the lend.
 
+## Captures: recording through the hub (SRV-64)
+
+A hub records the links of the devices it holds while a program asks it to: `ww_hub_api::Captures`. It taps a device
+only while a capture of it exists (opening it for that if needed, and keeping it open), with the link tap of
+`docs/transport/tap.md`: sessions, link events, frames and messages both ways, and for each forwarded request which
+client sent it under which seq (`ww_tap::ClientMap`, recorded as the request goes out, so a request that is never
+answered is mapped too). Recording reads traffic and changes nothing on the device, so it needs no claim.
+
+The hub keeps no records itself: the program hosting it passes a capture host (`ww_hub::CaptureHost`, eventfull's)
+in `HubConfig::captures`, through `ww_hub::main_if_hub_with(HubHost { captures })`, `wire_weaver_cli::Program::hub`
+or `wire_weaver_py::set_hub_host`. The `ww` of vhrdtech/ww_tools and the Python wheel pass it; a test host or an
+example doesn't, and its hub answers `CaptureError::NotAvailable` naming itself and who started it.
+`HubStatus::captures` and `ww hub status` (`recording: yes`, or `recording: no (built without eventfull)`) say it
+beforehand.
+
+| Call | What it does |
+|---|---|
+| `start(key, options)` | records the device; several programs share one capture: one id, what to record united, the largest RAM limit, the first one's link naming |
+| `stop(id)` | this program's part ends; the capture ends with the last one, or when the last one's connections close |
+| `save(id, path)` | writes what is in the hub's RAM now, then everything after, to a new file at `path`, until the capture ends |
+| `discard(id)` | ends the capture for everyone, drops what is in RAM; a saved file stays as written |
+| `set_ram_max(id, bytes)` | the capture's RAM limit while unsaved (default 32 MiB, 64 KiB to 16 GiB) |
+| `captures()` | every capture: device, options, file, clients, watches, counters |
+| `watch(id, pressure)` | a cursor over the capture, its batches on the stream `watches[w].records` |
+
+A watch reads with a pressure policy: `RealTime { behind_max }` skips to the newest records when it is further
+behind and sends a `FellBehind` gap; `Everything` reads in order as fast as the client takes it and gets a
+`RamLimit` gap for what the capture dropped at its RAM limit before the watch got there. The device's event loop
+never waits for a watch: the taps push into the capture host, and each watch's cursor is read by a task of its own
+that hands the connection one batch at a time, so a slow client only makes its cursor fall behind.
+
+### Trust and limits
+
+Every connection is the hub's own OS user (the socket checks it), so a capture gives a program nothing it couldn't
+record itself. Still:
+
+- `save` writes as the hub's user at a path another process chose. The path must be absolute (the hub's working
+  directory isn't the client's), without `.` or `..` segments, in an existing directory, and must name no existing
+  file or symlink; the file is created with `O_EXCL`, so nothing is ever overwritten (`BadPath`, `Exists`). A
+  capture is saved once (`Saved`).
+- A client whose link setup says it is a hub (`ClientKind::Hub`, the federation path, SRV-33) may start captures but
+  neither save nor watch them (`NotAllowed`) until federation has a trust model.
+- Every list and string is bounded by a constant of `ww_hub_api`, checked when decoded: `MAX_KEY_LEN`,
+  `MAX_PATH_LEN`, `MAX_CAPTURES` captures per hub, `MAX_WATCHES` watches per connection, `MAX_BATCH_ENTRIES` entries
+  and `MAX_BATCH_BYTES` per batch, `MAX_ITEM_LEN` per record (a longer one is a `TooLong` gap), `MAX_LINK_KEY_LEN`,
+  and the RAM limit between `RAM_MAX_MIN` and `RAM_MAX_MAX`.
+- A program that goes away (even killed) leaves nothing: its part in captures ends with its last connection, and
+  its watches with the connection they were made on.
+- A capture lives in the hub: nothing of it survives a hub restart or a handover (SRV-30) unless it was saved.
+
 ## Who holds a device (CLT-38)
 
 Every program linking `wire_weaver_client` that opens a USB interface or an RTT probe writes a lock file first,

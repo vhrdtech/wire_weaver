@@ -157,6 +157,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - `rust-toolchain.toml` pins Rust 1.100.0 for local builds and CI; `just lint` fails on cargo's own warnings, as CI does.
 - The crate walker finds a git dependency fetched under two URLs (https and ssh) in the checkout Cargo built; see `ww_snapshots`.
 - **Breaking:** snapshot files carry model format 0.4.0 and a file of another format is refused with the re-save step (EVO-82); every stored snapshot was re-saved. See the `ww_self`, `ww_snapshots` and `wire_weaver_evolution` changelogs.
+- The hub records (SRV-64): `ww_hub_api::Captures`, `ww_hub::CaptureHost` injected by the hosting program, `Command::SetTap`; see the `ww_hub_api`, `ww_hub`, `wire_weaver_client`, `wire_weaver_cli` and `wire_weaver_py` changelogs.
 
 ### Added
 

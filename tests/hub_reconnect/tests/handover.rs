@@ -32,6 +32,7 @@ fn config(dir: &Path, version: &str) -> HubConfig {
         adopt_attach: std::time::Duration::from_secs(5),
         state_dir: None,
         resolver: tests_common::resolver(),
+        captures: None,
     }
 }
 

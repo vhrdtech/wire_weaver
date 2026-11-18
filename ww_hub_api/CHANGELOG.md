@@ -9,6 +9,8 @@
 
 ### 🚀 Features
 
+- `HubStatus::captures`: whether the hub records (SRV-64), `false` from an older hub.
+- `Captures` at `Hub::captures` (SRV-64): `start(key, CaptureOptions) -> CaptureId`, `stop`, `save(id, path) -> SaveInfo`, `discard`, `set_ram_max(id, RamMax)`, `captures() -> CaptureEntry`s, `watch(id, Pressure) -> WatchId` and `watches[w].records`, a stream of `RecordBatch` (`WatchEntry::Link`, `Record`, `Gap` with `GapCause`); `CaptureError` with `NotAvailable { hub, started_by }` and its `Display` text. Every length and count is bounded by a constant (`MAX_KEY_LEN`, `MAX_PATH_LEN`, `MAX_CAPTURES`, `MAX_WATCHES`, `MAX_BATCH_ENTRIES`, `MAX_BATCH_BYTES`, `MAX_ITEM_LEN`, `MAX_LINK_KEY_LEN`, `RAM_MAX_MIN`/`MAX`/`DEFAULT`). Depends on `ww_si` (`time`, `information`, `counting`).
 - `api_error!` for `TakeError`, `ClaimError`, `ReleaseError`, `AdoptError`, `HandoverError` and their `Owned` forms (STD-16): the hub's handlers `?` them into `wire_weaver::Error`.
 - `DeviceState::Lent { claim }` (SRV-32): a device lent out with `Claims::lend`, with the claim naming who borrowed it and what for; it was listed as free (or not at all) while lent. Wire-compatible addition: an older client reads it as an unknown state.
 - `Adopt` (CLT-44) at `Hub::adopt`: `prepare(snapshot) -> Result<u64, AdoptError>` and `commit(id) -> Result<(), AdoptError>`, a direct holder handing its live link to the hub in two steps; `AdoptError` (`Versions`, `Snapshot`, `Busy`, `UnknownId`, `Open`). Wire-compatible addition (a new item of the root).

@@ -4,6 +4,8 @@
 
 ### 🚀 Features
 
+- `HubHost` and `main_if_hub_with(HubHost)`: the program hosting the hub gives it its capture host; `main_if_hub()` is `main_if_hub_with(HubHost::default())`, a hub that records nothing.
+- Captures (SRV-64): `CaptureHost`, `HostCapture`, `HostWatch`, `Saved`, `SavePath` and `HubConfig::captures`; the hub serves `ww_hub_api::Captures` through the host (`NotAvailable` without one), taps a device only while a capture of it exists (opened for it and kept open), maps each forwarded request to its client as it goes out, checks `save` paths (absolute, no `.`/`..`, existing directory, new file only, created with `O_EXCL`) and refuses save and watch to a relaying hub. A slow watch only makes its cursor fall behind, never the device.
 - Serves clients by generation (EVO-23): a client that says its generations in the preamble is served when its link, shrink_wrap and API model generations are the hub's own (or in `window.rs`'s generation windows), whatever its versions, and refused with status 4 naming the layer otherwise. A client from before the generations is judged by its `ww_link` and `ww_client_server` versions as before; the version windows are gone (they were empty).
 - A client through the hub gets the device's `ImageFacts` in its `DeviceInfo` (SRV-56), as on a direct link.
 
@@ -20,6 +22,7 @@
 
 ### ⚠️ Breaking
 
+- `HubConfig` has the field `captures`: a struct literal needs `captures: None` (or a host).
 - `HubConfig` has the new field `resolver` (EVO-80): the snapshot resolver of the hub's device connections, `Resolver::global()` from `from_env()`. Struct literals need it.
 - A claim's refusal (SRV-34) is the common error `InUse { by }` (`ErrorKind::Common`, STD-16) for every item, instead of a `Common(InUse)` value of the item's own error type and a `UserStr` for items without one: the hub no longer needs the device's API model to refuse, and clients read it as `CallError::Common` / `Error::common()`.
 - `HubConfig` has the new field `adopt_attach` (CLT-44, `ADOPT_ATTACH_ENV`, 5 s by default): struct literals need it.

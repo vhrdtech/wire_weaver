@@ -1737,6 +1737,7 @@ dependencies = [
  "ww_hub_api",
  "ww_local_socket",
  "ww_si",
+ "ww_tap",
  "ww_timebase",
 ]
 
@@ -4855,6 +4856,7 @@ dependencies = [
  "ww_hub_api",
  "ww_local_socket",
  "ww_si",
+ "ww_tap",
  "ww_timebase",
 ]
 
@@ -4863,6 +4865,7 @@ name = "ww_hub_api"
 version = "0.1.0"
 dependencies = [
  "ww_api",
+ "ww_si",
  "ww_timebase",
 ]
 

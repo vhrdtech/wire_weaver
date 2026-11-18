@@ -476,6 +476,7 @@ mod tests {
             sync_options: wire_weaver_client::clock_sync::Options::default(),
             state_dir: None,
             resolver: tests_common::resolver(),
+            captures: None,
             adopt_attach: Duration::from_secs(5),
         })
         .unwrap()

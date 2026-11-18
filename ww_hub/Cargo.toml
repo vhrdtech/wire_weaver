@@ -22,6 +22,7 @@ ww_error = { workspace = true, features = ["std"] }
 ww_hub_api = { workspace = true, features = ["std"] }
 ww_local_socket = { workspace = true, features = ["socket"] }
 ww_si = { workspace = true, features = ["std", "time"] }
+ww_tap.workspace = true
 ww_timebase = { workspace = true, features = ["std"] }
 
 [dev-dependencies]

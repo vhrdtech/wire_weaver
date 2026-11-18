@@ -24,7 +24,7 @@ pub use ww_plugin::{device, untrusted};
 pub fn main(program: Program) -> Result<()> {
     registry::set_program(program);
     // started by a client as the user's hub (WW_HUB_SERVE set): serves until idle and exits, otherwise does nothing
-    ww_hub::main_if_hub();
+    ww_hub::main_if_hub_with(program.hub);
     // answers shell completion requests (COMPLETE=<shell> set) and exits, otherwise does nothing
     complete::complete(|| complete::with_plugins(cli::root_command));
     tokio::runtime::Builder::new_multi_thread()

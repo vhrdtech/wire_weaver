@@ -6,6 +6,7 @@ mod clock_sync;
 
 #[cfg(test)]
 mod tests {
+    mod captures;
     use std::path::PathBuf;
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
@@ -254,6 +255,17 @@ mod tests {
         window: Option<Duration>,
         image_facts: wire_weaver::ww_version::ImageFacts,
     ) -> Bench {
+        start_hub(name, linger, window, image_facts, None)
+    }
+
+    /// [start_as] with a hub recording through `captures` (SRV-64).
+    fn start_hub(
+        name: &str,
+        linger: Duration,
+        window: Option<Duration>,
+        image_facts: wire_weaver::ww_version::ImageFacts,
+        captures: Option<Arc<dyn ww_hub::CaptureHost>>,
+    ) -> Bench {
         let _ = tracing_subscriber::fmt::try_init();
         let seen = Arc::new(Mutex::new(Seen::default()));
         let path = format!("hub/{name}");
@@ -292,6 +304,7 @@ mod tests {
             state_dir: None,
             adopt_attach: std::time::Duration::from_secs(5),
             resolver: tests_common::resolver(),
+            captures,
         })
         .unwrap()
         .expect("no other hub in this dir");

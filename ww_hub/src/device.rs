@@ -15,6 +15,7 @@ use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::Instant;
 use tracing::{debug, info, warn};
+use wire_weaver::shrink_wrap::UNib32;
 use wire_weaver_client::adopt::{HandoverOwned, LinkResidualOwned};
 use wire_weaver_client::internal::{Adopted, Command, ForwardSink, Forwarded};
 use wire_weaver_client::ww_client_server::observe::{
@@ -75,6 +76,9 @@ pub(crate) enum ToDevice {
     },
     /// Whether the device is steered changed (SRV-31): its linger is looked at again
     Recheck,
+    /// A capture of the device began (its taps go on the device's links, it stays open while recorded) or ended
+    /// (SRV-64)
+    Capture(Option<Arc<dyn crate::HostCapture>>),
 }
 
 /// One slot per device key: whoever opens or closes the device holds it, so a tunnel joins either the running task or
@@ -184,6 +188,12 @@ pub(crate) async fn open(hub: &Arc<Hub>, key: &str, slot: Slot) -> Result<Device
         debug!("ww hub: no transport for device key {key:?}");
         return Err(Status::UnknownDevice);
     };
+    // recorded from the link's first frame
+    let capture = hub.captures.as_ref().and_then(|c| c.of_device(key));
+    let config = match &capture {
+        Some(cap) => config.tap(cap.source()),
+        None => config,
+    };
     let cmd = match wire_weaver_client::PreparedConnection::<Raw>::new(config)
         .connect()
         .await
@@ -205,9 +215,11 @@ pub(crate) async fn open(hub: &Arc<Hub>, key: &str, slot: Slot) -> Result<Device
     })
     .await
     .map_err(|_| Status::UnknownDevice)?;
-    start(hub, key, slot, cmd, routes, sink, |_| {})
-        .await
-        .ok_or(Status::UnknownDevice)
+    start(hub, key, slot, cmd, routes, sink, |state| {
+        state.set_capture(capture)
+    })
+    .await
+    .ok_or(Status::UnknownDevice)
 }
 
 /// Opens the device going on with a direct holder's live link (CLT-44): the holder's tunnel `tunnel` is joined
@@ -226,6 +238,11 @@ pub(crate) async fn adopt(
     let config = config_for(key)
         .ok_or_else(|| format!("no transport for {key}"))?
         .resolver(hub.resolver);
+    let capture = hub.captures.as_ref().and_then(|c| c.of_device(key));
+    let config = match &capture {
+        Some(cap) => config.tap(cap.source()),
+        None => config,
+    };
     // the event loop goes on with the link; the medium that opens the device by its key reads what its kind left
     let adopted = Adopted::new(
         &link,
@@ -252,6 +269,7 @@ pub(crate) async fn adopt(
         streams, observed, ..
     } = link;
     start(hub, key, slot, cmd, routes, sink, move |state| {
+        state.set_capture(capture);
         state.tunnels.insert(tunnel, queue);
         for path in streams {
             state.streams.insert(
@@ -322,6 +340,7 @@ async fn start(
         stamp: 0,
         routes,
         out: vec![],
+        capture: None,
     };
     init(&mut state);
     let device = Arc::new(Device {
@@ -355,6 +374,11 @@ struct Routes {
     tunnels: std::sync::Mutex<BTreeMap<u32, Arc<TunnelQueue>>>,
     /// The client whose loopback messages went out last, 0 for none
     loopback_owner: std::sync::atomic::AtomicU32,
+    /// The device's capture (SRV-64): told which client each forwarded request is, as it goes out
+    capture: std::sync::RwLock<Option<Arc<dyn crate::HostCapture>>>,
+    /// While captured: the client and seq of requests forwarded with a counted tag (stream opens, introspection),
+    /// until they go out
+    tagged: std::sync::Mutex<HashMap<u64, (u32, u32)>>,
 }
 
 impl Routes {
@@ -372,6 +396,25 @@ struct Router {
 }
 
 impl ForwardSink for Router {
+    fn sent(&mut self, tag: u64, seq: wire_weaver_client::SeqTy) {
+        let capture = self.routes.capture.read().unwrap();
+        let Some(capture) = capture.as_ref() else {
+            return;
+        };
+        let (client, client_seq) = match tag & DIRECT != 0 {
+            true => (((tag >> 32) as u32) & 0x7FFF_FFFF, tag as u32),
+            false => match self.routes.tagged.lock().unwrap().remove(&tag) {
+                Some(owner) => owner,
+                None => return,
+            },
+        };
+        capture.client_map(ww_tap::ClientMap {
+            client: UNib32(client),
+            client_seq: UNib32(client_seq),
+            device_seq: UNib32(seq),
+        });
+    }
+
     fn forward(&mut self, forwarded: Forwarded) {
         match forwarded {
             Forwarded::Reply { tag, event, .. } if tag & DIRECT != 0 => {
@@ -522,6 +565,8 @@ struct State {
     /// Commands for the event loop, decided with the state held and sent before it is let go: the device gets them
     /// in the order they were decided
     out: Vec<Command>,
+    /// The device's capture (SRV-64): tapped, kept open
+    capture: Option<Arc<dyn crate::HostCapture>>,
 }
 
 /// An open device: its state, shared by its tunnels (requests) and its task (answers, joins and leaves).
@@ -691,7 +736,8 @@ impl Task {
                         break;
                     }
                     let tunnels = state.tunnels.len();
-                    keep = state.keep;
+                    // recorded: open while the capture lasts
+                    keep = state.keep || state.capture.is_some();
                     drop(state);
                     self.hub.tunnels_changed(&self.key, tunnels);
                     idle_since = match tunnels == 0 {
@@ -809,6 +855,18 @@ impl State {
                 }
             },
             ToDevice::Recheck => {}
+            ToDevice::Capture(capture) => {
+                let same = match (&capture, &self.capture) {
+                    (Some(a), Some(b)) => Arc::ptr_eq(a, b),
+                    (None, None) => true,
+                    _ => false,
+                };
+                if !same {
+                    let tap = capture.as_ref().map(|c| c.source());
+                    self.set_capture(capture);
+                    self.send(Command::SetTap { tap })?;
+                }
+            }
             ToDevice::Close => {
                 let _ = self.send(
                     Command::disconnect_and_exit(wire_weaver::DisconnectReason::RequestByUser).0,
@@ -817,6 +875,15 @@ impl State {
             }
         }
         Ok(())
+    }
+
+    /// The device's capture from now on (SRV-64), for the [Router] too.
+    fn set_capture(&mut self, capture: Option<Arc<dyn crate::HostCapture>>) {
+        *self.routes.capture.write().unwrap() = capture.clone();
+        if capture.is_none() {
+            self.routes.tagged.lock().unwrap().clear();
+        }
+        self.capture = capture;
     }
 
     /// Queues a command for the event loop, sent by whoever holds the state.
@@ -974,6 +1041,9 @@ impl State {
             }
             let tag = self.next_tag;
             self.next_tag += 1;
+            if self.capture.is_some() {
+                self.routes.tagged.lock().unwrap().insert(tag, (id, seq));
+            }
             self.pending.insert(
                 tag,
                 Pending {

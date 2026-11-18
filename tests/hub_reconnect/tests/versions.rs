@@ -43,6 +43,7 @@ async fn old_client_vs_hub_that_dropped_its_version() {
         adopt_attach: std::time::Duration::from_secs(5),
         state_dir: None,
         resolver: tests_common::resolver(),
+        captures: None,
     })
     .unwrap()
     .unwrap();

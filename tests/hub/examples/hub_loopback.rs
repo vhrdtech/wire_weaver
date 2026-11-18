@@ -197,6 +197,7 @@ async fn main() {
         sync_options: wire_weaver_client::clock_sync::Options::default(),
         state_dir: None,
         resolver: tests_common::resolver(),
+        captures: None,
         adopt_attach: std::time::Duration::from_secs(5),
     };
     // the hub on a runtime of its own, one thread as `ww_hub::run_blocking` (`HUB_RT=multi`: a multi-thread one)

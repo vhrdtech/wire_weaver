@@ -2,12 +2,14 @@
 
 ### ⚠️ Breaking
 
+- `Program` has the field `hub: ww_hub::HubHost` (SRV-64): what the hub the binary hosts gets (its capture host); `HubHost::default()` for a hub that records nothing.
 - The `ww` binary moved to vhrdtech/ww_tools: install it with `cargo install --git https://github.com/vhrdtech/ww_tools ww`; the root recipes `install`, `install-cli` and `deploy` are removed, and `cargo ww` runs the example `ww_generic` (generic commands only).
 - The global `--monitor`, `--monitor-bytes`, `--monitor-bits` and `--capture` flags are removed; use `ww monitor` and `ww capture` (TOOL-14).
 - `GlobalFlags::DeviceAndTap`, `DeviceUse::tap` and `DeviceUse::untapped` are removed: a command that connects shows `GlobalFlags::Device`.
 
 ### 🚀 Features
 
+- `ww hub status` says whether the hub records: `recording: yes` or `recording: no (built without eventfull)`; `ww hub serve` and a hub started from the binary get `Program::hub` (SRV-64).
 - `device`, `untrusted`, the device `complete` functions and `plugin::{complete_if_requested, selection_env, connect, take_exclusive}` moved to the new crate `ww_plugin` (no `ww_hub`); they stay available at their old paths by re-export, so plugins compile unchanged (TOOL-40).
 - `ww monitor` prints a decoder gap as records missing from the input (TR-14).
 - A forward runs a registered command of its plugin's name in process (`registry::forward`), with the device flags typed before and after it; the completion uses that command (TOOL-39).

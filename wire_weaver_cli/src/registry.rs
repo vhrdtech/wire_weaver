@@ -29,6 +29,9 @@ pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a>>;
 pub struct Program {
     pub name: &'static str,
     pub version: &'static str,
+    /// What the hub this binary hosts gets (`ww hub serve`, a hub started from it): its capture host, so the hub
+    /// records (SRV-64). `HubHost::default()`: it records nothing.
+    pub hub: ww_hub::HubHost,
 }
 
 static PROGRAM: OnceLock<Program> = OnceLock::new();
@@ -43,6 +46,7 @@ pub fn program() -> Program {
     *PROGRAM.get_or_init(|| Program {
         name: "ww",
         version: env!("CARGO_PKG_VERSION"),
+        hub: ww_hub::HubHost::default(),
     })
 }
 

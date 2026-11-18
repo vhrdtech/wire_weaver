@@ -8,6 +8,9 @@
 //! usual rules (`docs/evolution/rules.md`), area by area in its own sub-trait.
 
 use ww_api::prelude::*;
+use ww_si::prefix::One;
+use ww_si::units::Record;
+use ww_si::{Bytes, Fixed, Nanos, RangeU64};
 
 #[ww_api_root]
 pub trait Hub {
@@ -37,6 +40,9 @@ pub trait Hub {
 
     /// Live link handover from a program holding a device directly (CLT-44).
     ww_impl!(adopt: Adopt);
+
+    /// Recording of devices' links (SRV-64): captures, saving them, live watches.
+    ww_impl!(captures: Captures);
 }
 
 /// A program holding a device directly hands its live link to the hub (CLT-44, `docs/transport/hub.md`): the hub goes
@@ -240,6 +246,10 @@ pub struct HubStatus<'i> {
     pub keep_left_s: Option<u32>,
     /// Open connections of any kind (programs on the hub API and on devices).
     pub connections: u32,
+    /// The hub records: its host gave it a capture host, so [Captures::start] works. A hub without one answers
+    /// [CaptureError::NotAvailable].
+    #[default = false]
+    pub captures: bool,
 }
 
 /// Why [Hub::handover] was refused.
@@ -468,3 +478,362 @@ pub enum Event<'i> {
         key: &'i str,
     },
 }
+
+/// Longest device key [Captures::start] takes.
+pub const MAX_KEY_LEN: usize = 1024;
+/// Longest path [Captures::save] takes.
+pub const MAX_PATH_LEN: usize = 4096;
+/// Captures a hub holds at once: [Captures::captures] lists at most this many.
+pub const MAX_CAPTURES: usize = 64;
+/// Watches one connection holds at once ([Captures::watch]), and the length of `watches[]`.
+pub const MAX_WATCHES: usize = 16;
+/// Entries in one [RecordBatch].
+pub const MAX_BATCH_ENTRIES: usize = 256;
+/// Longest record item in a [RecordBatch]: a longer one is sent as a [GapCause::TooLong] gap.
+pub const MAX_ITEM_LEN: usize = 32_768;
+/// Longest link key in a [WatchEntry::Link] (`ww_tap::LinkKey`'s bytes).
+pub const MAX_LINK_KEY_LEN: usize = 1024;
+/// A [RecordBatch] is at most this long on the wire: the hub fills batches up to it.
+pub const MAX_BATCH_BYTES: usize = 49_152;
+/// Smallest RAM limit of a capture: 64 KiB.
+pub const RAM_MAX_MIN: u64 = 65_536;
+/// Largest RAM limit of a capture: 16 GiB.
+pub const RAM_MAX_MAX: u64 = 17_179_869_184;
+/// RAM limit of a capture that asks for none: 32 MiB, about 1 s at 40 MB/s, minutes at a USB device's few hundred
+/// KB/s.
+pub const RAM_MAX_DEFAULT: u64 = 33_554_432;
+
+/// A capture's RAM limit: what of its records the hub keeps in memory while it isn't saved; at the limit the oldest
+/// go, counted, and an [Pressure::Everything] watch behind them gets a [GapCause::RamLimit] gap.
+pub type RamMax = Bytes<u64, RangeU64<RAM_MAX_MIN, RAM_MAX_MAX>>;
+
+/// Records the links of the hub's devices (SRV-64): sessions, link events, frames and messages both ways, and which
+/// client sent which request (`ww_tap::ClientMap`). A capture is a run of the hub's capture host (eventfull), kept in
+/// the hub's RAM up to its limit until it is saved to a file. The hub taps a device only while a capture of it
+/// exists, opening it for that if needed; recording reads traffic and changes nothing on the device, so it needs no
+/// claim.
+///
+/// A capture belongs to the client instances that started it (as claims do, `Claims`): it ends when the last one
+/// stops it or leaves, and a file it was saved to is then closed as written. A hub whose host gave it no capture host
+/// answers [CaptureError::NotAvailable] ([HubStatus::captures] says so beforehand).
+///
+/// Requests from another hub (a relaying hub, `ClientMeta` kind `Hub`; federation, SRV-33, has no trust model yet) are
+/// refused [CaptureError::NotAllowed] for `save` and `watch`: a remote peer would write files and read traffic on this
+/// PC.
+///
+/// `client_map` records each forwarded request as it is sent, with the device seq it went out with, whether or not an
+/// answer ever comes.
+#[ww_trait]
+pub trait Captures {
+    /// Records the device `key` (opened if needed, kept open while recorded). Several clients share one capture of a
+    /// device: the same id, `record` the union of what they asked for, `ram_max` the largest; `links` is fixed by the
+    /// first start. Starting a capture this client instance has already is answered with its id.
+    fn start(
+        key: MaxLen<&'i str, MAX_KEY_LEN>,
+        options: CaptureOptions,
+    ) -> Result<CaptureId, CaptureError<'i>>;
+
+    /// This client instance's interest in the capture ends; the capture ends when no client is left.
+    fn stop(id: CaptureId) -> Result<(), CaptureError<'i>>;
+
+    /// Saves the capture to `path` on the hub's PC as a project file with one run: what is in the hub's RAM now, then
+    /// everything after, until the capture ends. `path` is absolute, names no existing file (nothing is overwritten)
+    /// and its directory exists; the hub writes it as its own user.
+    fn save(
+        id: CaptureId,
+        path: MaxLen<&'i str, MAX_PATH_LEN>,
+    ) -> Result<SaveInfo<'i>, CaptureError<'i>>;
+
+    /// Ends the capture for every client and drops what is in RAM. A file it was saved to stays as written.
+    fn discard(id: CaptureId) -> Result<(), CaptureError<'i>>;
+
+    /// Changes the capture's RAM limit while it runs, for every client.
+    fn set_ram_max(id: CaptureId, ram_max: RamMax) -> Result<(), CaptureError<'i>>;
+
+    /// Every capture the hub holds.
+    fn captures() -> MaxLen<RefVec<'i, CaptureEntry<'i>>, MAX_CAPTURES>;
+
+    /// A watch of the capture: its records from now on, sent on `watches[w].records` once that stream is opened,
+    /// read as `pressure` says. Ends with the stream's close, the capture's end, or the connection.
+    fn watch(id: CaptureId, pressure: Pressure) -> Result<WatchId, CaptureError<'i>>;
+
+    ww_impl!(watches[]: Watch);
+}
+
+/// A watch of a capture ([Captures::watch]), at its [WatchId] in `watches[]`.
+#[ww_trait]
+pub trait Watch {
+    /// Batches of the capture's records, in order per link and stream: a link before its records, gaps where records
+    /// were skipped, with their cause.
+    stream!(records: RecordBatch<'i>);
+}
+
+/// A capture of the hub, unique while the hub runs.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)
+)]
+pub struct CaptureId(pub u32);
+
+/// A watch of one connection: its index in `watches[]`, below [MAX_WATCHES].
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)
+)]
+pub struct WatchId(pub u32);
+
+/// A link of a capture: `n` of its track paths `link[n]`, in the order the capture saw the link (by peer: the
+/// peer's first link).
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)
+)]
+pub struct LinkNo(pub u32);
+
+/// What a capture records, see [Captures::start].
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Clone, Copy, Debug, PartialEq, Eq)
+)]
+pub struct CaptureOptions {
+    /// What is recorded besides sessions and link events.
+    pub record: RecordWhat,
+    pub links: LinkIds,
+    /// RAM limit, `None` for [RAM_MAX_DEFAULT].
+    pub ram_max: Option<RamMax>,
+}
+
+/// What a capture records besides sessions and link events, always recorded.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Clone, Copy, Debug, Default, PartialEq, Eq)
+)]
+pub struct RecordWhat {
+    /// Frames both ways, as the medium carries them.
+    pub frames: bool,
+    /// Link messages both ways.
+    pub messages: bool,
+}
+
+/// How a capture names its links in track paths.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Clone, Copy, Debug, Default, PartialEq, Eq),
+    ww_repr = unib32
+)]
+pub enum LinkIds {
+    /// `link[{peer}]`: one row per device across reconnects
+    #[default]
+    ByPeer,
+    /// `link[n]` in the order of connections: one row per connection
+    ByIndex,
+}
+
+/// How a watch reads a capture faster than the client takes it.
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Clone, Copy, Debug, PartialEq, Eq), ww_repr = unib32)]
+pub enum Pressure {
+    /// Real time or nothing: when the watch is more than `behind_max` behind the newest record, it skips to the
+    /// newest and sends a [GapCause::FellBehind] gap.
+    RealTime { behind_max: Behind },
+    /// Everything, in order, as fast as the client reads; skips only what the capture dropped at its RAM limit
+    /// before the watch got to it ([GapCause::RamLimit]).
+    Everything,
+}
+
+/// How far a [Pressure::RealTime] watch may fall behind.
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Clone, Copy, Debug, PartialEq, Eq), ww_repr = unib32)]
+pub enum Behind {
+    Records(Fixed<Record, One, u64>),
+    /// In the capture's clock
+    Time(Nanos<u64>),
+}
+
+/// See [Captures::save].
+#[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq, Eq))]
+pub struct SaveInfo<'i> {
+    /// The file, as given.
+    pub path: &'i str,
+    /// Records written when `save` answered: what was in RAM.
+    pub records: Fixed<Record, One, u64>,
+    /// Records the capture dropped at its RAM limit before the save: the file lacks them at its start.
+    pub dropped: Fixed<Record, One, u64>,
+}
+
+/// One capture, see [Captures::captures].
+#[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq, Eq))]
+pub struct CaptureEntry<'i> {
+    pub id: CaptureId,
+    /// The device, as in [DeviceEntry::key].
+    pub key: &'i str,
+    /// What it records, for all its clients together.
+    pub options: CaptureOptions,
+    /// The file it is saved to, `None` while unsaved.
+    pub saved_to: Option<&'i str>,
+    /// Client instances that started it and haven't stopped it.
+    pub clients: MaxLen<RefVec<'i, ClientEntry<'i>>, MAX_CAPTURES>,
+    /// Open watches of it, over every connection.
+    pub watches: u32,
+    pub stats: CaptureStats,
+}
+
+/// Counters of a capture, kept by the capture host.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Clone, Copy, Debug, Default, PartialEq, Eq)
+)]
+pub struct CaptureStats {
+    /// Links seen.
+    pub links: u32,
+    /// Records kept.
+    pub records: Fixed<Record, One, u64>,
+    /// Their item bytes.
+    pub bytes: Bytes<u64>,
+    /// Held in RAM now.
+    pub ram: Bytes<u64>,
+    /// Records the producer couldn't keep (the store fell behind).
+    pub dropped_producer: Fixed<Record, One, u64>,
+    /// Records dropped unsaved at the RAM limit.
+    pub dropped_ram: Fixed<Record, One, u64>,
+}
+
+/// One message of [Watch::records].
+#[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq, Eq))]
+pub struct RecordBatch<'i> {
+    pub entries: MaxLen<RefVec<'i, WatchEntry<'i>>, MAX_BATCH_ENTRIES>,
+}
+
+/// One entry of a [RecordBatch].
+#[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq, Eq), ww_repr = unib32)]
+pub enum WatchEntry<'i> {
+    /// A link the watch hasn't announced yet, before any of its records: its key (`ww_tap::LinkKey`'s bytes), empty
+    /// when it is named by index
+    Link {
+        link: LinkNo,
+        key: MaxLen<RefVec<'i, u8>, MAX_LINK_KEY_LEN>,
+    },
+    /// A record: the item's bytes (`ww_tap::Session`, `LinkEvent`, `Frame`, `Message` or `ClientMap`, as `stream`
+    /// says), stamped in the capture's clock
+    Record {
+        link: LinkNo,
+        stream: TapStream,
+        tick: Nanos<u64>,
+        item: MaxLen<RefVec<'i, u8>, MAX_ITEM_LEN>,
+    },
+    /// Records of a link's stream the watch skipped, stamped `from` to `to`
+    Gap {
+        link: LinkNo,
+        stream: TapStream,
+        records: Fixed<Record, One, u64>,
+        from: Nanos<u64>,
+        to: Nanos<u64>,
+        cause: GapCause,
+    },
+}
+
+/// A stream of a link (`ww_tap::Link`, in its declaration order, `ww_tap::ids`).
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Clone, Copy, Debug, PartialEq, Eq, Hash),
+    ww_repr = unib32
+)]
+pub enum TapStream {
+    Session,
+    Events,
+    TxFrames,
+    RxFrames,
+    TxMessages,
+    RxMessages,
+    ClientMap,
+}
+
+/// Why a watch skipped records, see [WatchEntry::Gap].
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Clone, Copy, Debug, PartialEq, Eq),
+    ww_repr = unib32
+)]
+pub enum GapCause {
+    /// A [Pressure::RealTime] watch was more than its limit behind
+    FellBehind,
+    /// The capture dropped them unsaved at its RAM limit before the watch read them
+    RamLimit,
+    /// The record is longer than [MAX_ITEM_LEN]
+    TooLong,
+}
+
+/// Why a [Captures] call failed.
+#[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq, Eq), ww_repr = unib32)]
+pub enum CaptureError<'i> {
+    /// The hub records nothing: its host gave it no capture host (a test host or an example). `hub` names it,
+    /// `started_by` who started it ([HubStatus::started_by])
+    NotAvailable {
+        hub: HubInfo<'i>,
+        started_by: &'i str,
+    },
+    /// No device with this key, or it can't be opened
+    UnknownDevice,
+    /// No capture with this id, or this client instance has no part in it (`stop`)
+    UnknownCapture,
+    /// This client may not do it: a relaying hub's request to save or watch
+    NotAllowed { why: &'i str },
+    /// `save`'s path is refused: not absolute, `..` in it, no such directory, ...
+    BadPath { why: &'i str },
+    /// `save`'s path names a file that exists: nothing is overwritten
+    Exists,
+    /// The capture is saved already, to another path
+    Saved { path: &'i str },
+    /// More than [MAX_CAPTURES] captures, or [MAX_WATCHES] watches on this connection
+    TooMany,
+    /// The capture host failed
+    Host { why: &'i str },
+}
+
+ww_api::api_error!(CaptureError<'i>);
+#[cfg(feature = "std")]
+ww_api::api_error!(CaptureErrorOwned);
+
+#[cfg(feature = "std")]
+impl core::fmt::Display for CaptureErrorOwned {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            CaptureErrorOwned::NotAvailable { hub, started_by } => {
+                let by = match started_by.is_empty() {
+                    true => String::new(),
+                    false => format!(", started by {started_by}"),
+                };
+                write!(
+                    f,
+                    "recording is not available: the running ww hub {} ({}{by}) is built without it; stop it with \
+                     `ww hub stop`, and the next program starts a hub that records",
+                    hub.hub_version, hub.exe
+                )
+            }
+            CaptureErrorOwned::UnknownDevice => write!(f, "no such device, or it can't be opened"),
+            CaptureErrorOwned::UnknownCapture => write!(f, "no such capture"),
+            CaptureErrorOwned::NotAllowed { why } => write!(f, "not allowed: {why}"),
+            CaptureErrorOwned::BadPath { why } => write!(f, "path refused: {why}"),
+            CaptureErrorOwned::Exists => write!(f, "the file exists: nothing is overwritten"),
+            CaptureErrorOwned::Saved { path } => {
+                write!(f, "the capture is saved already, to {path}")
+            }
+            CaptureErrorOwned::TooMany => write!(
+                f,
+                "too many captures (at most {MAX_CAPTURES}) or watches on this connection (at most {MAX_WATCHES})"
+            ),
+            CaptureErrorOwned::Host { why } => write!(f, "the capture host failed: {why}"),
+            CaptureErrorOwned::Unknown(n) => write!(f, "capture error {n} of a newer hub"),
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for CaptureErrorOwned {}

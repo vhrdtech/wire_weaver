@@ -71,6 +71,7 @@ pub(crate) async fn hub(cmd: HubCommand) -> Result<()> {
     match cmd {
         HubCommand::Serve { idle_exit } => {
             let mut config = ww_hub::HubConfig::from_env()?;
+            config.captures = crate::registry::program().hub.captures.map(|make| make());
             if let Some(s) = idle_exit {
                 config.idle_exit = Duration::from_secs(s);
             }
@@ -239,6 +240,14 @@ async fn status() -> Result<()> {
         plural(clients.len()),
         st.connections,
         plural(st.connections as usize)
+    );
+    println!(
+        "{}{}",
+        key("recording"),
+        match st.captures {
+            true => "yes",
+            false => "no (built without eventfull)",
+        }
     );
     let open = devices
         .iter()

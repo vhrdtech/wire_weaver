@@ -24,6 +24,7 @@ fn config(dir: &Path, idle_ms: u64) -> HubConfig {
         adopt_attach: std::time::Duration::from_secs(5),
         state_dir: None,
         resolver: test_resolver(),
+        captures: None,
     }
 }
 

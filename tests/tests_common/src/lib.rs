@@ -590,6 +590,29 @@ enum Media {
     /// this path (`wire_weaver_client::usb_sim`): hosts in other processes take turns holding it.
     #[cfg(feature = "local_socket")]
     UsbSim(std::path::PathBuf, usize),
+    /// The simulated WebSocket (`in_process::ws_device`), served on the test's runtime and `LocalSet`.
+    #[cfg(feature = "ws")]
+    Ws,
+}
+
+/// Like [start_device_async], but over the simulated WebSocket (feature `ws`, `in_process::ws_device`): the device
+/// runs as a task of the calling test's runtime, on its `LocalSet` (the `ww_device::ws` medium is not `Send`), so
+/// tokio's paused clock drives both ends. Hosts reach it with `in_process_path(path)`. Dropping the [TestDevice]
+/// stops it and unregisters the path, as a server that goes away; starting another under the same path brings it
+/// back.
+///
+/// # Panics
+///
+/// Outside a `LocalSet`.
+#[cfg(feature = "ws")]
+pub fn start_device_async_ws<S: TestProcessEventsAsync<Medium = ()> + Send + 'static>(
+    path: &str,
+    server: S,
+    version: FullVersion<'static>,
+    wire: WireVersion,
+    api: DeviceApi,
+) -> TestDevice {
+    start_on(path, Media::Ws, AsyncServer(server), version, wire, api, ())
 }
 
 /// Like [start_device_async], but a simulated USB device on a local socket at `socket` (feature `local_socket`,
@@ -780,6 +803,20 @@ fn start_with<S: Process + Send + 'static>(
             });
             usb_sim = Some(ready.recv().expect("the device listens"));
         }
+        #[cfg(feature = "ws")]
+        Media::Ws => {
+            use ww_device::ws::{WS_OVERHEAD, WsConnection, WsRx, WsTx};
+            // registered now: a host connecting right after this returns finds it
+            let port = in_process::ws_device(path);
+            tokio::task::spawn_local(async move {
+                let conn = WsConnection::new(port);
+                let mut tx_buf = vec![0u8; MAX_MESSAGE_LEN + WS_OVERHEAD];
+                let mut rx_buf = vec![0u8; MAX_MESSAGE_LEN + WS_OVERHEAD];
+                let tx = WsTx::new(&conn, &mut tx_buf);
+                let rx = WsRx::new(&conn, &mut rx_buf);
+                serve(config, tx, rx, backend, medium, from_test, links).await
+            });
+        }
     }
     TestDevice {
         #[cfg(feature = "local_socket")]
@@ -822,7 +859,8 @@ async fn serve<S: Process>(
         &mut event_scratch,
     )
     .with_medium(medium);
-    let started = std::time::Instant::now();
+    // tokio's clock: a device on a test's paused runtime polls on it
+    let started = tokio::time::Instant::now();
     let mut tick = tokio::time::interval(std::time::Duration::from_millis(1));
     loop {
         // an event-driven device sleeps until its own wakeup, the others poll every millisecond

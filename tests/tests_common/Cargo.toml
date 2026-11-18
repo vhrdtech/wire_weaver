@@ -10,6 +10,8 @@ repository.workspace = true
 [features]
 # Devices served on a local socket (start_device_async_ipc), for a hub in another process to open
 local_socket = ["dep:ww_local_socket", "wire_weaver_client/local_socket"]
+# Devices served over the simulated WebSocket on the test's own runtime (start_device_async_ws)
+ws = ["wire_weaver_client/ws", "ww_device/ws"]
 
 [dependencies]
 tokio = { workspace = true, features = ["sync", "rt", "time", "macros"] }

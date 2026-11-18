@@ -76,9 +76,10 @@ pub(crate) enum ToDevice {
     },
     /// Whether the device is steered changed (SRV-31): its linger is looked at again
     Recheck,
-    /// A capture of the device began (its taps go on the device's links, it stays open while recorded) or ended
-    /// (SRV-64)
-    Capture(Option<Arc<dyn crate::HostCapture>>),
+    /// A capture of the device began (SRV-64): its taps go on the device's links, it stays open while recorded
+    Capture(Arc<dyn crate::HostCapture>),
+    /// This capture of the device ended: its taps come off, unless another capture took its place since
+    Untap(Arc<dyn crate::HostCapture>),
 }
 
 /// One slot per device key: whoever opens or closes the device holds it, so a tunnel joins either the running task or
@@ -385,6 +386,21 @@ impl Routes {
     fn queue(&self, tunnel: u32) -> Option<Arc<TunnelQueue>> {
         self.tunnels.lock().unwrap().get(&tunnel).cloned()
     }
+
+    fn tagged(&self) -> std::sync::MutexGuard<'_, HashMap<u64, (u32, u32)>> {
+        self.tagged
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+}
+
+/// Whether `capture` is the device's capture now: a word about another one (ended since, or replaced) changes
+/// nothing.
+pub(crate) fn is_current(
+    current: &Option<Arc<dyn crate::HostCapture>>,
+    capture: &Arc<dyn crate::HostCapture>,
+) -> bool {
+    current.as_ref().is_some_and(|c| Arc::ptr_eq(c, capture))
 }
 
 /// The device's event loop forwards here, on its receive task: answers to plain requests and loopback echoes go
@@ -397,13 +413,17 @@ struct Router {
 
 impl ForwardSink for Router {
     fn sent(&mut self, tag: u64, seq: wire_weaver_client::SeqTy) {
-        let capture = self.routes.capture.read().unwrap();
+        let capture = self
+            .routes
+            .capture
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let Some(capture) = capture.as_ref() else {
             return;
         };
         let (client, client_seq) = match tag & DIRECT != 0 {
             true => (((tag >> 32) as u32) & 0x7FFF_FFFF, tag as u32),
-            false => match self.routes.tagged.lock().unwrap().remove(&tag) {
+            false => match self.routes.tagged().remove(&tag) {
                 Some(owner) => owner,
                 None => return,
             },
@@ -856,15 +876,16 @@ impl State {
             },
             ToDevice::Recheck => {}
             ToDevice::Capture(capture) => {
-                let same = match (&capture, &self.capture) {
-                    (Some(a), Some(b)) => Arc::ptr_eq(a, b),
-                    (None, None) => true,
-                    _ => false,
-                };
-                if !same {
-                    let tap = capture.as_ref().map(|c| c.source());
-                    self.set_capture(capture);
+                if !is_current(&self.capture, &capture) {
+                    let tap = Some(capture.source());
+                    self.set_capture(Some(capture));
                     self.send(Command::SetTap { tap })?;
+                }
+            }
+            ToDevice::Untap(ended) => {
+                if is_current(&self.capture, &ended) {
+                    self.set_capture(None);
+                    self.send(Command::SetTap { tap: None })?;
                 }
             }
             ToDevice::Close => {
@@ -878,10 +899,15 @@ impl State {
     }
 
     /// The device's capture from now on (SRV-64), for the [Router] too.
+    /// A lock poisoned by a panic elsewhere is taken as it is: the capture is one value, always whole.
     fn set_capture(&mut self, capture: Option<Arc<dyn crate::HostCapture>>) {
-        *self.routes.capture.write().unwrap() = capture.clone();
+        *self
+            .routes
+            .capture
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = capture.clone();
         if capture.is_none() {
-            self.routes.tagged.lock().unwrap().clear();
+            self.routes.tagged().clear();
         }
         self.capture = capture;
     }
@@ -1042,7 +1068,7 @@ impl State {
             let tag = self.next_tag;
             self.next_tag += 1;
             if self.capture.is_some() {
-                self.routes.tagged.lock().unwrap().insert(tag, (id, seq));
+                self.routes.tagged().insert(tag, (id, seq));
             }
             self.pending.insert(
                 tag,
@@ -1139,6 +1165,8 @@ impl State {
                 }
             }
             Forwarded::Failed { tag, error } => {
+                // a request that failed before it went out was never mapped
+                self.routes.tagged().remove(&tag);
                 let Some(pending) = self.pending.remove(&tag) else {
                     return;
                 };

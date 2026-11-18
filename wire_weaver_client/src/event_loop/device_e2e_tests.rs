@@ -835,7 +835,7 @@ fn old_session_packets(messages: &[ww_link::Message<'_>], keep: usize) -> Vec<Pa
     packets
 }
 
-/// What a previous session left on the way is never taken for the new one (SRV-64): a DeviceInfo and LinkReady
+/// What a previous session left on the way is never taken for the new one (TR-15): a DeviceInfo and LinkReady
 /// already in the device's IN buffer (from a device that would be incompatible, so taking it fails the connection),
 /// the first packets of a split message the old host never read, and on the other side a half-sent request and a
 /// LinkSetup of the old host. The setup token sorts them out; the device's framer starts a new session on

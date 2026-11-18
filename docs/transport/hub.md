@@ -837,12 +837,15 @@ beforehand.
 | Call | What it does |
 |---|---|
 | `start(key, options)` | records the device; several programs share one capture: one id, what to record united, the largest RAM limit, the first one's link naming |
-| `stop(id)` | this program's part ends; the capture ends with the last one, or when the last one's connections close |
+| `stop(id)` | this program's part ends; the capture ends with the last one, or when the last one's connections close: a saved capture's file is closed as written, an unsaved one's records are dropped |
 | `save(id, path)` | writes what is in the hub's RAM now, then everything after, to a new file at `path`, until the capture ends |
-| `discard(id)` | ends the capture for everyone, drops what is in RAM; a saved file stays as written |
-| `set_ram_max(id, bytes)` | the capture's RAM limit while unsaved (default 32 MiB, 64 KiB to 16 GiB) |
-| `captures()` | every capture: device, options, file, clients, watches, counters |
+| `discard(id)` | ends the capture for everyone, drops what is in RAM; a saved file stays as written; only for a program with a part in it |
+| `set_ram_max(id, bytes)` | the capture's RAM limit while unsaved (default 32 MiB, 64 KiB to 16 GiB); only for a program with a part in it |
+| `captures(after)` | the captures after `after`, one message's worth (`more` says whether to ask again): device, options, file, client connection ids, watches, counters |
 | `watch(id, pressure)` | a cursor over the capture, its batches on the stream `watches[w].records` |
+
+A capture nobody holds never records on: a program that wants to record a long run stays connected, and the capture
+and its file end with its last connection. The hub's exit ends every capture too, after waiting for running saves.
 
 A watch reads with a pressure policy: `RealTime { behind_max }` skips to the newest records when it is further
 behind and sends a `FellBehind` gap; `Everything` reads in order as fast as the client takes it and gets a
@@ -857,14 +860,21 @@ record itself. Still:
 
 - `save` writes as the hub's user at a path another process chose. The path must be absolute (the hub's working
   directory isn't the client's), without `.` or `..` segments, in an existing directory, and must name no existing
-  file or symlink; the file is created with `O_EXCL`, so nothing is ever overwritten (`BadPath`, `Exists`). A
-  capture is saved once (`Saved`).
-- A client whose link setup says it is a hub (`ClientKind::Hub`, the federation path, SRV-33) may start captures but
-  neither save nor watch them (`NotAllowed`) until federation has a trust model.
+  file or symlink; the file is created with `O_EXCL | O_NOFOLLOW` and mode `0600` (a capture can hold secrets), so
+  nothing is ever overwritten and only the user reads it (`BadPath`, `Exists`). A capture is saved once (`Saved`);
+  a failed save removes the file it created, so the same path works on a retry. The path's checks and the save run
+  on a blocking thread: a hung network mount holds up only that save.
+- What each caller may do is one allow-list in the hub, deny by default. A client whose link setup says it is a hub
+  (`ClientKind::Hub`, the federation path, SRV-33) may only `start` and `stop`, at most `MAX_RELAY_CAPTURES`
+  captures per client instance (`NotAllowed`, `TooMany`), until federation has a trust model. `discard` and
+  `set_ram_max` need a part in the capture: one program never drops or shrinks another's recording.
 - Every list and string is bounded by a constant of `ww_hub_api`, checked when decoded: `MAX_KEY_LEN`,
-  `MAX_PATH_LEN`, `MAX_CAPTURES` captures per hub, `MAX_WATCHES` watches per connection, `MAX_BATCH_ENTRIES` entries
-  and `MAX_BATCH_BYTES` per batch, `MAX_ITEM_LEN` per record (a longer one is a `TooLong` gap), `MAX_LINK_KEY_LEN`,
-  and the RAM limit between `RAM_MAX_MIN` and `RAM_MAX_MAX`.
+  `MAX_PATH_LEN`, `MAX_CAPTURES` captures per hub, `MAX_CAPTURE_CLIENTS` client instances per capture,
+  `MAX_WATCHES` watches per connection, `MAX_BATCH_ENTRIES` entries and `MAX_BATCH_BYTES` per batch,
+  `MAX_CAPTURE_PAGE_BYTES` per page of `captures()`, `MAX_ITEM_LEN` per record (a longer one is a `TooLong` gap),
+  `MAX_LINK_KEY_LEN`, and the RAM limit between `RAM_MAX_MIN` and `RAM_MAX_MAX`.
+- A capture host that panics doesn't take the hub with it: the hub never calls it holding its registry's lock, a tap
+  that panics is dropped from its link, and the link goes on.
 - A program that goes away (even killed) leaves nothing: its part in captures ends with its last connection, and
   its watches with the connection they were made on.
 - A capture lives in the hub: nothing of it survives a hub restart or a handover (SRV-30) unless it was saved.

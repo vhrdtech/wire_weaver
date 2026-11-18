@@ -483,8 +483,14 @@ pub enum Event<'i> {
 pub const MAX_KEY_LEN: usize = 1024;
 /// Longest path [Captures::save] takes.
 pub const MAX_PATH_LEN: usize = 4096;
-/// Captures a hub holds at once: [Captures::captures] lists at most this many.
+/// Captures a hub holds at once.
 pub const MAX_CAPTURES: usize = 64;
+/// Client instances sharing one capture ([Captures::start]).
+pub const MAX_CAPTURE_CLIENTS: usize = 16;
+/// Captures a relaying hub's client instance holds at once.
+pub const MAX_RELAY_CAPTURES: usize = 4;
+/// A [CapturePage] is at most this long on the wire: the hub fills pages up to it. One entry always fits.
+pub const MAX_CAPTURE_PAGE_BYTES: usize = 49_152;
 /// Watches one connection holds at once ([Captures::watch]), and the length of `watches[]`.
 pub const MAX_WATCHES: usize = 16;
 /// Entries in one [RecordBatch].
@@ -514,12 +520,14 @@ pub type RamMax = Bytes<u64, RangeU64<RAM_MAX_MIN, RAM_MAX_MAX>>;
 /// claim.
 ///
 /// A capture belongs to the client instances that started it (as claims do, `Claims`): it ends when the last one
-/// stops it or leaves, and a file it was saved to is then closed as written. A hub whose host gave it no capture host
-/// answers [CaptureError::NotAvailable] ([HubStatus::captures] says so beforehand).
+/// stops it or leaves. A saved capture's file is then closed as written; an unsaved one's records are dropped. A
+/// capture nobody holds never records on: a program that wants to record stays connected. Only a client instance
+/// with a part in a capture (it started or joined it) may `discard` it or `set_ram_max`. A hub whose host gave it no
+/// capture host answers [CaptureError::NotAvailable] ([HubStatus::captures] says so beforehand).
 ///
-/// Requests from another hub (a relaying hub, `ClientMeta` kind `Hub`; federation, SRV-33, has no trust model yet) are
-/// refused [CaptureError::NotAllowed] for `save` and `watch`: a remote peer would write files and read traffic on this
-/// PC.
+/// A relaying hub (`ClientMeta` kind `Hub`; federation, SRV-33, has no trust model yet) may only `start` and `stop`,
+/// at most [MAX_RELAY_CAPTURES] captures per client instance; every other method is refused
+/// [CaptureError::NotAllowed]: a remote peer would write files, read traffic, or touch others' captures on this PC.
 ///
 /// `client_map` records each forwarded request as it is sent, with the device seq it went out with, whether or not an
 /// answer ever comes.
@@ -527,31 +535,37 @@ pub type RamMax = Bytes<u64, RangeU64<RAM_MAX_MIN, RAM_MAX_MAX>>;
 pub trait Captures {
     /// Records the device `key` (opened if needed, kept open while recorded). Several clients share one capture of a
     /// device: the same id, `record` the union of what they asked for, `ram_max` the largest; `links` is fixed by the
-    /// first start. Starting a capture this client instance has already is answered with its id.
+    /// first start. Starting a capture this client instance has already is answered with its id. At most
+    /// [MAX_CAPTURE_CLIENTS] client instances share one capture.
     fn start(
         key: MaxLen<&'i str, MAX_KEY_LEN>,
         options: CaptureOptions,
     ) -> Result<CaptureId, CaptureError<'i>>;
 
-    /// This client instance's interest in the capture ends; the capture ends when no client is left.
+    /// This client instance's interest in the capture ends; the capture ends when no client is left: its file, if
+    /// saved, is closed as written, else its records are dropped.
     fn stop(id: CaptureId) -> Result<(), CaptureError<'i>>;
 
     /// Saves the capture to `path` on the hub's PC as a project file with one run: what is in the hub's RAM now, then
-    /// everything after, until the capture ends. `path` is absolute, names no existing file (nothing is overwritten)
-    /// and its directory exists; the hub writes it as its own user.
+    /// everything after, until the capture ends (its last client stops it or leaves). `path` is absolute, names no
+    /// existing file (nothing is overwritten) and its directory exists; the hub writes it as its own user, readable
+    /// only by that user. A failed save removes the file it created.
     fn save(
         id: CaptureId,
         path: MaxLen<&'i str, MAX_PATH_LEN>,
     ) -> Result<SaveInfo<'i>, CaptureError<'i>>;
 
-    /// Ends the capture for every client and drops what is in RAM. A file it was saved to stays as written.
+    /// Ends the capture for every client and drops what is in RAM. A file it was saved to stays as written. Only a
+    /// client instance with a part in the capture may.
     fn discard(id: CaptureId) -> Result<(), CaptureError<'i>>;
 
-    /// Changes the capture's RAM limit while it runs, for every client.
+    /// Changes the capture's RAM limit while it runs, for every client. Only a client instance with a part in the
+    /// capture may.
     fn set_ram_max(id: CaptureId, ram_max: RamMax) -> Result<(), CaptureError<'i>>;
 
-    /// Every capture the hub holds.
-    fn captures() -> MaxLen<RefVec<'i, CaptureEntry<'i>>, MAX_CAPTURES>;
+    /// The captures the hub holds, by id, from the first after `after`: as many as fit [MAX_CAPTURE_PAGE_BYTES];
+    /// [CapturePage::more] says whether to ask again after the last one.
+    fn captures(after: Option<CaptureId>) -> Result<CapturePage<'i>, CaptureError<'i>>;
 
     /// A watch of the capture: its records from now on, sent on `watches[w].records` once that stream is opened,
     /// read as `pressure` says. Ends with the stream's close, the capture's end, or the connection.
@@ -665,6 +679,14 @@ pub struct SaveInfo<'i> {
     pub dropped: Fixed<Record, One, u64>,
 }
 
+/// Captures from [Captures::captures].
+#[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq, Eq))]
+pub struct CapturePage<'i> {
+    pub entries: MaxLen<RefVec<'i, CaptureEntry<'i>>, MAX_CAPTURES>,
+    /// More captures follow the last entry.
+    pub more: bool,
+}
+
 /// One capture, see [Captures::captures].
 #[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq, Eq))]
 pub struct CaptureEntry<'i> {
@@ -675,8 +697,9 @@ pub struct CaptureEntry<'i> {
     pub options: CaptureOptions,
     /// The file it is saved to, `None` while unsaved.
     pub saved_to: Option<&'i str>,
-    /// Client instances that started it and haven't stopped it.
-    pub clients: MaxLen<RefVec<'i, ClientEntry<'i>>, MAX_CAPTURES>,
+    /// Client instances that started it and haven't stopped it: the connection each asked on, a [ClientEntry::id]
+    /// (`Hub::clients` has the rest).
+    pub clients: MaxLen<RefVec<'i, u32>, MAX_CAPTURE_CLIENTS>,
     /// Open watches of it, over every connection.
     pub watches: u32,
     pub stats: CaptureStats,
@@ -783,7 +806,8 @@ pub enum CaptureError<'i> {
     UnknownDevice,
     /// No capture with this id, or this client instance has no part in it (`stop`)
     UnknownCapture,
-    /// This client may not do it: a relaying hub's request to save or watch
+    /// This client may not do it: a relaying hub's request other than `start` and `stop`, or `discard` and
+    /// `set_ram_max` of a capture it has no part in
     NotAllowed { why: &'i str },
     /// `save`'s path is refused: not absolute, `..` in it, no such directory, ...
     BadPath { why: &'i str },
@@ -791,7 +815,8 @@ pub enum CaptureError<'i> {
     Exists,
     /// The capture is saved already, to another path
     Saved { path: &'i str },
-    /// More than [MAX_CAPTURES] captures, or [MAX_WATCHES] watches on this connection
+    /// More than [MAX_CAPTURES] captures, [MAX_CAPTURE_CLIENTS] clients of one, [MAX_RELAY_CAPTURES] of a relaying
+    /// hub, or [MAX_WATCHES] watches on this connection
     TooMany,
     /// The capture host failed
     Host { why: &'i str },
@@ -827,7 +852,9 @@ impl core::fmt::Display for CaptureErrorOwned {
             }
             CaptureErrorOwned::TooMany => write!(
                 f,
-                "too many captures (at most {MAX_CAPTURES}) or watches on this connection (at most {MAX_WATCHES})"
+                "too many: captures (at most {MAX_CAPTURES}), clients of one capture (at most {MAX_CAPTURE_CLIENTS}), \
+                 captures of a relaying hub (at most {MAX_RELAY_CAPTURES}) or watches on this connection (at most \
+                 {MAX_WATCHES})"
             ),
             CaptureErrorOwned::Host { why } => write!(f, "the capture host failed: {why}"),
             CaptureErrorOwned::Unknown(n) => write!(f, "capture error {n} of a newer hub"),

@@ -294,6 +294,9 @@ impl From<io::Error> for TakeOverError {
 const HANDOVER_LOCK_TIMEOUT: Duration = Duration::from_secs(5);
 /// How long an exiting hub waits for its connections to send what they still have (replies, `Disconnect`).
 const EXIT_DRAIN: Duration = Duration::from_millis(500);
+/// How long an exiting hub waits for running saves of captures (SRV-64) before it ends them: a save writes what was
+/// in RAM, and a file system that hangs must not keep the hub up for ever.
+const SAVES_EXIT_WAIT: Duration = Duration::from_secs(10);
 
 /// A hub that holds `hub.lock` and listens, not serving yet: [run](Self::run) does. Split from [serve] so a host
 /// (tests, an app hosting the hub) knows it is up and can stop it.
@@ -466,6 +469,8 @@ impl Bound {
         // still holding hub.lock: nobody else can have bound the name since
         #[cfg(unix)]
         let _ = std::fs::remove_file(&self.socket);
+        // running saves finish, then every capture ends: files closed as written, RAM dropped
+        self.hub.end_captures(SAVES_EXIT_WAIT).await;
         // tunnels see their device go
         let slots: Vec<_> = self.hub.devices.lock().unwrap().values().cloned().collect();
         for slot in slots {
@@ -598,6 +603,42 @@ pub(crate) struct State {
     pub(crate) open: BTreeMap<String, u32>,
     /// Claims on resources of devices (SRV-34)
     pub(crate) claims: claims::Claims,
+}
+
+/// Client ids stay below this: a forwarded request's tag carries its client in 31 bits (`device::direct_tag`), and a
+/// capture's client map names the client by it.
+const CLIENT_ID_END: u32 = 1 << 31;
+
+impl State {
+    /// An id no connected client has, from 1 below [CLIENT_ID_END], wrapping.
+    fn new_client_id(&mut self) -> u32 {
+        let clients = &self.clients;
+        free_id(&mut self.next_client, |id| clients.contains_key(&id))
+    }
+}
+
+/// `next`, or the first after it that isn't `taken`, from 1 below [CLIENT_ID_END], wrapping; `next` moves past it.
+fn free_id(next: &mut u32, taken: impl Fn(u32) -> bool) -> u32 {
+    loop {
+        let id = *next;
+        *next = match id + 1 >= CLIENT_ID_END {
+            true => 1,
+            false => id + 1,
+        };
+        if !taken(id) {
+            return id;
+        }
+    }
+}
+
+#[cfg(test)]
+#[test]
+fn client_ids_stay_below_31_bits() {
+    let mut next = CLIENT_ID_END - 2;
+    assert_eq!(free_id(&mut next, |_| false), CLIENT_ID_END - 2);
+    assert_eq!(free_id(&mut next, |_| false), CLIENT_ID_END - 1);
+    // wraps, skipping ids still connected
+    assert_eq!(free_id(&mut next, |id| id == 1), 2);
 }
 
 /// A program connected to the hub's API: the OS's pid for it, and what its link setup said (CLT-41) once up.
@@ -758,8 +799,7 @@ impl Hub {
 
     fn client_joined(&self, peer: Peer) -> u32 {
         let mut state = self.state.lock().unwrap();
-        let id = state.next_client;
-        state.next_client += 1;
+        let id = state.new_client_id();
         state.clients.insert(
             id,
             Client {
@@ -774,8 +814,7 @@ impl Hub {
     /// A new client id for another connection of the program behind client `like` (an adopted link's tunnel, CLT-44).
     pub(crate) fn client_like(&self, like: u32) -> u32 {
         let mut state = self.state.lock().unwrap();
-        let id = state.next_client;
-        state.next_client += 1;
+        let id = state.new_client_id();
         let peer_pid = state.clients.get(&like).and_then(|c| c.peer_pid);
         state.clients.insert(
             id,

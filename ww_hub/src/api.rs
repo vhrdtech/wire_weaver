@@ -11,14 +11,14 @@ use wire_weaver_client::in_process::TokioClock;
 use wire_weaver_client::local_socket::device::connection_medium;
 use ww_device::LinkEvent;
 use ww_hub_api::{
-    AdoptErrorOwned, CaptureEntryOwned, CaptureErrorOwned, CaptureId, CaptureOptions,
+    AdoptErrorOwned, CaptureErrorOwned, CaptureId, CaptureOptions, CapturePageOwned,
     ClaimEntryOwned, ClaimErrorOwned, ClientEntryOwned, DeviceEntryOwned, HandoverError,
     HubInfoOwned, HubStatusOwned, MAX_WATCHES, Pressure, RamMax, RecordBatchOwned, ReleaseError,
     SaveInfoOwned, SyncEntryOwned, TakeErrorOwned, WatchId,
 };
 
 use crate::Hub;
-use crate::captures::{HostWatch, SavePath, WatchCount};
+use crate::captures::{Act, HostWatch, WatchCount};
 
 /// Longest message on a hub API connection, both ways: device and client lists of a busy bench fit, and a watch's
 /// record batch (`ww_hub_api::MAX_BATCH_BYTES`) with its stream header.
@@ -133,7 +133,6 @@ pub(crate) async fn serve_connection(hub: Arc<Hub>, id: u32, rx: RecvHalf, tx: S
 
 mod server {
     use super::*;
-    use ww_si::Fixed;
 
     /// What a watch's batch may take of a message: [MAX_MESSAGE_LEN] less the stream's header.
     const BATCH_BYTES: usize = ww_hub_api::MAX_BATCH_BYTES;
@@ -448,10 +447,10 @@ mod server {
             _cx: &mut Context<'_, impl EventOut>,
             id: CaptureId,
         ) -> RpcResult<Result<(), wire_weaver::Error<'_, CaptureErrorOwned>>> {
-            let stopped = self.hub.registry().and_then(|r| {
-                let owner = crate::owner_of(&self.hub.state.lock().unwrap(), self.id);
-                r.stop(&owner, id)
-            });
+            let stopped = self
+                .hub
+                .captures_for(self.id, Act::Stop)
+                .and_then(|(r, owner, _)| r.stop(&owner, id));
             RpcResult::Ready(match stopped {
                 Ok(ended) => {
                     if let Some(ended) = ended {
@@ -469,7 +468,11 @@ mod server {
             id: CaptureId,
             path: MaxLen<String, { ww_hub_api::MAX_PATH_LEN }>,
         ) -> RpcResult<Result<SaveInfoOwned, wire_weaver::Error<'_, CaptureErrorOwned>>> {
-            RpcResult::Ready(self.save(id, &path).await.map_err(|e| (*e).into()))
+            RpcResult::Ready(
+                self.save(id, path.as_str().to_string())
+                    .await
+                    .map_err(|e| (*e).into()),
+            )
         }
 
         async fn captures_discard(
@@ -477,7 +480,11 @@ mod server {
             _cx: &mut Context<'_, impl EventOut>,
             id: CaptureId,
         ) -> RpcResult<Result<(), wire_weaver::Error<'_, CaptureErrorOwned>>> {
-            RpcResult::Ready(match self.hub.registry().and_then(|r| r.discard(id)) {
+            let discarded = self
+                .hub
+                .captures_for(self.id, Act::Discard)
+                .and_then(|(r, owner, _)| r.discard(&owner, id));
+            RpcResult::Ready(match discarded {
                 Ok(ended) => {
                     self.hub.capture_ended(ended);
                     Ok(())
@@ -494,8 +501,8 @@ mod server {
         ) -> RpcResult<Result<(), wire_weaver::Error<'_, CaptureErrorOwned>>> {
             RpcResult::Ready(
                 self.hub
-                    .registry()
-                    .and_then(|r| r.set_ram_max(id, ram_max))
+                    .captures_for(self.id, Act::SetRamMax)
+                    .and_then(|(r, owner, _)| r.set_ram_max(&owner, id, ram_max))
                     .map_err(|e| (*e).into()),
             )
         }
@@ -503,12 +510,15 @@ mod server {
         async fn captures_captures(
             &mut self,
             _cx: &mut Context<'_, impl EventOut>,
-        ) -> RpcResult<MaxLen<Vec<CaptureEntryOwned>, { ww_hub_api::MAX_CAPTURES }>> {
-            let entries = match &self.hub.captures {
-                Some(r) => r.entries(|c| crate::client_entry(&self.hub.state.lock().unwrap(), c)),
-                None => vec![],
-            };
-            RpcResult::Ready(MaxLen::new_unchecked(entries))
+            after: Option<CaptureId>,
+        ) -> RpcResult<Result<CapturePageOwned, wire_weaver::Error<'_, CaptureErrorOwned>>>
+        {
+            RpcResult::Ready(
+                self.hub
+                    .captures_for(self.id, Act::List)
+                    .map(|(r, _, _)| r.page(after))
+                    .map_err(|e| (*e).into()),
+            )
         }
 
         async fn captures_watch(
@@ -568,28 +578,24 @@ mod server {
         async fn save(
             &mut self,
             id: CaptureId,
-            path: &str,
+            path: String,
         ) -> Result<SaveInfoOwned, Box<CaptureErrorOwned>> {
-            let registry = self.hub.registry()?;
-            self.hub.may_save_or_watch(self.id)?;
-            let path = SavePath::check(path)?;
-            let capture = registry.saving(id, &path)?;
-            let to = path.clone();
-            // writes what is in RAM: not on the hub's one thread
-            let saved = tokio::task::spawn_blocking(move || capture.save(&to))
-                .await
-                .unwrap_or_else(|e| Err(format!("the save panicked: {e}")));
-            match saved {
-                Ok(saved) => Ok(SaveInfoOwned {
-                    path: path.path().display().to_string(),
-                    records: Fixed::new(saved.records),
-                    dropped: Fixed::new(saved.dropped),
-                }),
-                Err(why) => {
-                    registry.save_failed(id);
-                    Err(CaptureErrorOwned::Host { why }.into())
+            let (registry, _, _) = self.hub.captures_for(self.id, Act::Save)?;
+            let running = registry.save_running();
+            let hub = self.hub.clone();
+            // the path's checks and the save touch the file system, which may hang (a network mount): never on the
+            // hub's one thread
+            tokio::task::spawn_blocking(move || {
+                let _running = running;
+                hub.registry()?.save(id, &path)
+            })
+            .await
+            .unwrap_or_else(|e| {
+                Err(CaptureErrorOwned::Host {
+                    why: format!("the save panicked: {e}"),
                 }
-            }
+                .into())
+            })
         }
 
         fn watch(
@@ -597,8 +603,7 @@ mod server {
             id: CaptureId,
             pressure: Pressure,
         ) -> Result<WatchId, Box<CaptureErrorOwned>> {
-            let registry = self.hub.registry()?;
-            self.hub.may_save_or_watch(self.id)?;
+            let (registry, _, _) = self.hub.captures_for(self.id, Act::Watch)?;
             let Some(w) = self.watches.iter().position(Option::is_none) else {
                 return Err(CaptureErrorOwned::TooMany.into());
             };

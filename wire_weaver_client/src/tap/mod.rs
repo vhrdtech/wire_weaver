@@ -123,11 +123,13 @@ impl ClientTap {
         }))
     }
 
+    /// The state, also after a panic while it was held: a tap that panics is dropped ([State::call]), the rest is
+    /// always whole.
     fn state(&self) -> MutexGuard<'_, State> {
         self.0
             .state
             .lock()
-            .expect("a client tap's lock is not poisoned: no tap call panics while holding it")
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
     /// `Command::RegisterTracer`: requests, events and link changes go to `tx` until its receiver is gone.
@@ -142,9 +144,9 @@ impl ClientTap {
         {
             let mut st = self.state();
             st.device_info = Some(device_info.to_vec());
-            let State { tap, session, .. } = &mut *st;
-            if let (Some(tap), Some(s)) = (tap, session) {
-                tap.session(&s.with_info(device_info));
+            if let Some(s) = st.session.take() {
+                st.call(&self.0, |tap| tap.session(&s.with_info(device_info)));
+                st.session = Some(s);
             }
         }
         self.link_event(&LinkEvent::LinkReady);
@@ -154,17 +156,19 @@ impl ClientTap {
     /// what it missed of the link: its newest session (with the device's `DeviceInfo` once the link is set up) and,
     /// for a link already set up, [LinkEvent::LinkReady]. A tap replaced is dropped without a further call.
     pub fn set_tap(&self, source: Option<&TapSource>) {
-        let mut tap = source.map(TapSource::link);
         let mut st = self.state();
-        if let (Some(tap), Some(s)) = (&mut tap, &st.session) {
-            let info = st.device_info.as_deref().unwrap_or_default();
-            tap.session(&s.with_info(info));
-            if st.device_info.is_some() {
-                tap.link_event(&LinkEvent::LinkReady);
-            }
+        st.tap = source.map(TapSource::link);
+        self.0.has_tap.store(st.tap.is_some(), Ordering::Relaxed);
+        if let Some(s) = st.session.take() {
+            let info = st.device_info.take();
+            st.call(&self.0, |tap| {
+                tap.session(&s.with_info(info.as_deref().unwrap_or_default()));
+                if info.is_some() {
+                    tap.link_event(&LinkEvent::LinkReady);
+                }
+            });
+            (st.session, st.device_info) = (Some(s), info);
         }
-        self.0.has_tap.store(tap.is_some(), Ordering::Relaxed);
-        st.tap = tap;
     }
 
     /// `ev` to every tracer; those whose receiver is gone are dropped.
@@ -176,20 +180,38 @@ impl ClientTap {
     }
 }
 
+impl State {
+    /// `f` on the tap, if there is one. A tap that panics (a capture host's bug) is dropped with a warning instead
+    /// of taking the link's event loop down with it.
+    fn call<R: Default>(
+        &mut self,
+        shared: &Shared,
+        f: impl FnOnce(&mut (dyn Tap + Send)) -> R,
+    ) -> R {
+        let Some(tap) = self.tap.as_deref_mut() else {
+            return R::default();
+        };
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| f(tap))) {
+            Ok(r) => r,
+            Err(_) => {
+                tracing::warn!("a link's tap panicked: the link goes on without it");
+                self.tap = None;
+                shared.has_tap.store(false, Ordering::Relaxed);
+                R::default()
+            }
+        }
+    }
+}
+
 impl Tap for ClientTap {
     fn wants_frames(&self) -> bool {
-        self.0.has_tap.load(Ordering::Relaxed)
-            && self.state().tap.as_ref().is_some_and(|t| t.wants_frames())
+        self.0.has_tap.load(Ordering::Relaxed) && self.state().call(&self.0, |t| t.wants_frames())
     }
 
     fn wants_messages(&self) -> bool {
         self.0.tracing.load(Ordering::Relaxed)
             || (self.0.has_tap.load(Ordering::Relaxed)
-                && self
-                    .state()
-                    .tap
-                    .as_ref()
-                    .is_some_and(|t| t.wants_messages()))
+                && self.state().call(&self.0, |t| t.wants_messages()))
     }
 
     fn session(&mut self, session: &Session<'_>) {
@@ -202,22 +224,22 @@ impl Tap for ClientTap {
             frame_size: session.frame_size,
             peer: session.peer.to_owned(),
         });
-        st.tap.as_deref_mut().session(session);
+        st.call(&self.0, |tap| tap.session(session));
     }
 
     fn frame(&mut self, dir: Dir, bytes: &[u8]) {
         if self.0.has_tap.load(Ordering::Relaxed) {
-            self.state().tap.as_deref_mut().frame(dir, bytes);
+            self.state().call(&self.0, |tap| tap.frame(dir, bytes));
         }
     }
 
     fn message(&mut self, dir: Dir, kind: u8, bytes: &[u8]) {
         let mut st = self.state();
-        if let Some(tap) = &mut st.tap
-            && tap.wants_messages()
-        {
-            tap.message(dir, kind, bytes);
-        }
+        st.call(&self.0, |tap| {
+            if tap.wants_messages() {
+                tap.message(dir, kind, bytes);
+            }
+        });
         // tracers see the data messages: requests out, events (all but empty ones) in
         if st.tracers.is_empty() || kind > ww_link::Kind::Data2 as u8 {
             return;
@@ -236,7 +258,7 @@ impl Tap for ClientTap {
 
     fn link_event(&mut self, event: &LinkEvent<'_>) {
         let mut st = self.state();
-        st.tap.as_deref_mut().link_event(event);
+        st.call(&self.0, |tap| tap.link_event(event));
         if st.tracers.is_empty() {
             return;
         }

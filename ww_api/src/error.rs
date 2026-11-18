@@ -53,26 +53,39 @@ impl<'i, E> From<CommonError<'i>> for Error<'i, E> {
 /// `From<XError>` for [Error], so a handler's `?` takes the API's own error: one line per error enum, in its crate.
 ///
 /// A blanket `From<E>` would overlap with `From<CommonError>` at `E = CommonError`, so each error enum names
-/// itself, with its lifetime, and the owned type where the crate makes one:
+/// itself. One with a borrowed field names its lifetime, plus the owned type where the crate makes one; one
+/// without a lifetime names itself alone:
 ///
 /// ```
 /// use ww_api::prelude::*;
 ///
 /// #[derive_shrink_wrap(owned(feature = "std"), derive(Debug, PartialEq, Eq, Clone), ww_repr = unib32)]
-/// pub enum SensorError {
+/// pub enum SensorError<'i> {
 ///     /// The sensor did not answer.
 ///     Nack,
 ///     /// The sensor's reply was {reason}.
 ///     Garbled { reason: MaxLen<&'i str, 16> },
 /// }
-/// ww_api::api_error!(SensorError);
+/// ww_api::api_error!(SensorError<'i>);
 /// #[cfg(feature = "std")]
-/// ww_api::api_error!(SensorError);
+/// ww_api::api_error!(SensorErrorOwned);
 ///
-/// fn read() -> Result<u16, Error<'static, SensorError>> {
+/// #[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Debug, PartialEq, Eq, Clone), ww_repr = unib32)]
+/// pub enum ActuatorError {
+///     /// The actuator did not reach its target.
+///     Jammed,
+/// }
+/// ww_api::api_error!(ActuatorError);
+///
+/// fn read() -> Result<u16, Error<'static, SensorError<'static>>> {
 ///     Err(SensorError::Nack)?
 /// }
 /// assert_eq!(read().unwrap_err().api(), Some(&SensorError::Nack));
+///
+/// fn act() -> Result<(), Error<'static, ActuatorError>> {
+///     Err(ActuatorError::Jammed)?
+/// }
+/// assert_eq!(act().unwrap_err().api(), Some(&ActuatorError::Jammed));
 /// ```
 #[macro_export]
 macro_rules! api_error {

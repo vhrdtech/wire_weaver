@@ -1,5 +1,9 @@
 ## Unreleased
 
+### 🐛 Fixes
+
+- `api_error!`'s doc example compiles: the error enum borrowing a field names its lifetime (`SensorError<'i>`), with its owned type and a second, lifetime-free error enum showing the macro's other form.
+
 ### ⚠️ Breaking
 
 - The prelude has no `HasCommon` (STD-16); every API error enum declares `api_error!(XError)` so handlers can `?` it into `Error<'_, XError>`.

@@ -1,0 +1,7214 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Wire format and API code generator with rich type system and no alloc for embedded systems">
+      
+      
+        <meta name="author" content="Roman Isaikin">
+      
+      
+        <link rel="canonical" href="https://ww.vhrd.tech/serdes/features/">
+      
+      
+      
+        <link rel="prev" href="../../features/">
+      
+      
+        <link rel="next" href="../../std_library/features/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/wire_weaver_favicon.svg">
+      <meta name="generator" content="zensical-0.1.2">
+    
+    
+      
+        <title>shrink_wrap - WireWeaver</title>
+      
+    
+    
+      
+        
+      
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.ebb7f775.min.css">
+      
+        
+          
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.b60ce83d.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=IBM+Plex+Sans:300,300i,400,400i,500,500i,700,700i%7CIBM+Plex+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"IBM Plex Sans";--md-code-font:"IBM Plex Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/vhrd.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/ww_highlight.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/figures.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer" aria-hidden="true"></label>
+    <div data-md-component="skip">
+      <a href="#__skip" class="md-skip">
+        Skip to content
+      </a>
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="WireWeaver" class="md-header__button md-logo" aria-label="WireWeaver" data-md-component="logo">
+      
+  <img src="../../assets/wire_weaver_icon_small.svg" alt="WireWeaver">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+      <span class="md-visually-hidden">Navigation</span>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            WireWeaver
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              shrink_wrap
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-sun-moon" viewBox="0 0 24 24"><path d="M12 2v2M14.837 16.385a6 6 0 1 1-7.223-7.222c.624-.147.97.66.715 1.248a4 4 0 0 0 5.26 5.259c.589-.255 1.396.09 1.248.715M16 12a4 4 0 0 0-4-4M19 5l-1.256 1.256M20 12h2"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to system preference"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to system preference" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-moon" viewBox="0 0 24 24"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+          <span class="md-visually-hidden">Search</span>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
+  <button type="button" class="md-search__button">
+    Search
+  </button>
+</div>
+      
+    
+    <div class="md-header__source">
+      
+        <a href="https://github.com/vhrdtech/wire_weaver" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    vhrdtech/wire_weaver
+  </div>
+</a>
+      
+    </div>
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../.." class="md-tabs__link">
+          
+  
+  Home
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../features_today/" class="md-tabs__link">
+        
+  
+  Features
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../shrink_wrap/" class="md-tabs__link">
+          
+  
+  SerDes
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/overview/" class="md-tabs__link">
+          
+  
+  API
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../evolution/overview/" class="md-tabs__link">
+          
+  
+  Evolution
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../std_library/overview/" class="md-tabs__link">
+          
+  
+  Standard library
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../transport/overview/" class="md-tabs__link">
+          
+  
+  Transport protocols
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../tape/" class="md-tabs__link">
+          
+  
+  Tape
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../examples/examples/" class="md-tabs__link">
+          
+  
+  Examples and templates
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../cli/" class="md-tabs__link">
+          
+  
+  Dev tools
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../articles/series/" class="md-tabs__link">
+          
+  
+  Articles
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+      
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../features/" class="md-tabs__link">
+          
+  
+  Feature tracker
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="WireWeaver" class="md-nav__button md-logo" aria-label="WireWeaver" data-md-component="logo">
+      
+  <img src="../../assets/wire_weaver_icon_small.svg" alt="WireWeaver">
+
+    </a>
+    WireWeaver
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/vhrdtech/wire_weaver" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    vhrdtech/wire_weaver
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_1" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../.." class="md-nav__link ">
+              
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-home" viewBox="0 0 24 24"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Home
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_1" id="__nav_1_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_1">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Home
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../levels/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-signal" viewBox="0 0 24 24"><path d="M2 20h.01M7 20v-4M12 20v-8M17 20V8M22 4v16"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Reading levels
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features_today/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-list-checks" viewBox="0 0 24 24"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Features
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  SerDes
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  SerDes
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../shrink_wrap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ShrinkWrap
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../derive/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Derive
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../types/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Built-in types
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Advanced
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_3_4">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Advanced
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../size_assumptions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Size assumptions
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../derive_reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Derive reference
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../special_types/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Special types
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../series/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Series&lt;T&gt;: compressed sequences of any derived type
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../layouts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Fixed and sparse layouts
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../showcase/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Showcase
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../use_cases/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Use cases
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../c/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ShrinkWrap in C
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_5" id="__nav_3_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Nomicon
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_3_5">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Nomicon
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../wire_format/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Wire format internals
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../code_size/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Code size on small CPUs
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../conformance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Conformance corpus
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../conformance_matrix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Conformance matrix
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  API
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_4">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  API
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Getting started
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/folder_structure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Folder structure
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/methods/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Methods
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/properties/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Properties
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/streams/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Streams
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/traits/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Traits
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Errors
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_8" id="__nav_4_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Advanced
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_8_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_4_8">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Advanced
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/arrays/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Arrays
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/handlers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Sync and async handlers
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/local_trait/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Local trait
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/large_messages/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Large messages and result sets
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/optional_items/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Optional items
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/introspection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Introspection data
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/metadata/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Metadata: claims, pins, labels
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/multi_requests/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Multi requests
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/observing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Observing properties
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/batching/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Batching streams and properties
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/stream_compression/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Compressed streams
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Versioning
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/settings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Settings store
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/ecc_flash/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ECC-safe flash
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/bus_slave/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  I2C and SPI slave engine
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_9" id="__nav_4_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Nomicon
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_9_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_4_9">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Nomicon
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/counted_streams/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Counted and reliable streams
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/stream_reliability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Stream delivery
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/stream_stores/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Stream stores
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/credit_sinks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Credit sinks and sideband
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/stream_protocol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Stream protocol
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/trait_attachments/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Trait attachments
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/addressing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Addressing
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Evolution
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_5">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Evolution
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../evolution/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Evolving an API
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_2" id="__nav_5_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Advanced
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_2_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_5_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Advanced
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../evolution/versions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Versions and wire lines
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../evolution/rules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  What can change
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../evolution/checker_tool/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The evolution checker
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../evolution/snapshots/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Finding snapshots
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../evolution/units_by_meaning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Units compared by meaning
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../evolution/multi_line_host/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  A host for several wire lines
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../evolution/crate_layers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Changing WireWeaver itself
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_3" id="__nav_5_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Nomicon
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_5_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Nomicon
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../evolution/inside_the_checker/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Inside the checker
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Standard library
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_6">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Standard library
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_6_2" id="__nav_6_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  I/O
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_2_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_6_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  I/O
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/io_family/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  IO trait family
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_gpio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_gpio
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_uart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_uart
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_can_bus/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_can_bus
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_i2c/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_i2c
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_i2c_hl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_i2c_hl
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_spi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_spi
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_onewire/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_onewire
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_adc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_adc
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_pwm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_pwm
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_timebase/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_timebase
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_logic_analyzer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_logic_analyzer
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_signal_generator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_signal_generator
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_memory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_memory
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_pin_diag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_pin_diag
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_block/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_block
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_sd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_sd
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_can_bus_reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_can_bus reference
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_6_3" id="__nav_6_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Device contract
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_6_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Device contract
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/device_contract/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Device contract
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_firmware_info/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_firmware_info
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_board_info/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_board_info
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_uid/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_uid
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_user_info/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_user_info
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_log/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_log
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_indication/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_indication
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_dfu/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_dfu
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_counters/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_counters
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_recorder/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_recorder
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_dfu_ab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_dfu: A/B
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_dfu_one_slot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_dfu: one slot
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_dfu_internals/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_dfu: internals
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_6_4" id="__nav_6_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Data types
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_4_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_6_4">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Data types
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_si/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_si
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/exact_units/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units in an API
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/customary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: imperial and US customary
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/magnitude/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: magnitudes
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/points/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: points
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/units_in_the_model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: units in the model
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/rounding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: rounding
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/indices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: indices
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_error/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_error
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_date_time/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_date_time
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_numeric/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_numeric
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_6_5" id="__nav_6_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Framework
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_5_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_6_5">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Framework
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_version/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_version
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_client_server/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_client_server
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_self/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_self
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Transport protocols
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Transport protocols
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../transport/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../transport/usb/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  USB
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../transport/rtt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  RTT
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../transport/websocket/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  WebSocket
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../transport/udp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  UDP
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_6" id="__nav_7_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Advanced
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_6_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7_6">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Advanced
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../transport/usb_internals/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  USB inside
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../transport/ww_link/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Link layer
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../transport/ww_framer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Framer
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../transport/follow_reboot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Following a reboot
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../transport/tap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The link tap
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../transport/hub/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Local sockets and the hub
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_7" id="__nav_7_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Nomicon
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_7_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7_7">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Nomicon
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../transport/ww_framer_wire/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Framer wire format
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../tape/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Tape
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8" id="__nav_8_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_8">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Tape
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tape/concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Tape concepts
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tape/writing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Writing a tape
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tape/pieces_and_files/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Pieces and files
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tape/reading/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Reading a tape
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tape/events_and_series/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Events and series
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tape/numbers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Numbers
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tape/recovery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Damage and recovery
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tape/logring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Tapes and logring
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tape/format/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Format reference
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Examples and templates
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_9">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Examples and templates
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Examples and Templates
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/vhrdtech/wire_weaver_template" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  wire_weaver_template repo
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_9_3" id="__nav_9_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Advanced
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_9_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_9_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Advanced
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/motor_demo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Motor controller demo
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Dev tools
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_10">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Dev tools
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Command line tool
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Python
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_10_3" id="__nav_10_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Advanced
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_10_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_10_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Advanced
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli_reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  CLI reference
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python_advanced/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Python: more
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev_tool/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Dev GUI tool
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Articles
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_11">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Articles
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../articles/series/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Everything Series
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../articles/units_budget/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  What Fixed costs on a microcontroller
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../articles/flash_budget/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  What a server costs in flash
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Feature tracker
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_12">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Feature tracker
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-list-checks" viewBox="0 0 24 24"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  WireWeaver
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-list-checks" viewBox="0 0 24 24"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  shrink_wrap
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-list-checks" viewBox="0 0 24 24"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  shrink_wrap
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#how-to-use-this-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        How to use this file
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#wire-format-shrink_wrap-sw" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Wire format (<code>shrink_wrap</code>, <code>SW</code>)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#derive-macro-shrink_wrap_derive-der" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Derive macro (<code>shrink_wrap_derive</code>, <code>DER</code>)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-and-code-size-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Testing and code size (<code>TEST</code>)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dropped-and-superseded" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Dropped and superseded
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/features/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-list-checks" viewBox="0 0 24 24"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_base
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tape/features/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-list-checks" viewBox="0 0 24 24"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_tape
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/stdlib_features/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-list-checks" viewBox="0 0 24 24"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_stdlib
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  
+                    
+                    
+                    
+                      
+                    
+                    
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
+                  
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#how-to-use-this-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        How to use this file
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#wire-format-shrink_wrap-sw" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Wire format (<code>shrink_wrap</code>, <code>SW</code>)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#derive-macro-shrink_wrap_derive-der" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Derive macro (<code>shrink_wrap_derive</code>, <code>DER</code>)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-and-code-size-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Testing and code size (<code>TEST</code>)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dropped-and-superseded" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Dropped and superseded
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+
+              
+              <article class="md-content__inner md-typeset">
+                <a id="__skip" tabindex="-1"></a>
+                
+  
+    
+
+  
+
+
+  <a class="ww-level ww-level--advanced" href="../../levels/" title="Reading level: Advanced. What the levels mean">
+    <svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true">
+      <rect x="0" y="7" width="3.2" height="5" rx="0.6"/>
+      <rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/>
+      <rect x="10.8" y="0" width="3.2" height="12" rx="0.6" class="ww-level__off"/>
+    </svg>
+    <span class="ww-level__label">Advanced</span>
+  </a>
+
+  
+  
+                  
+
+  
+  
+
+
+<h1 id="shrink_wrap-features-and-roadmap">shrink_wrap features and roadmap<a class="headerlink" href="#shrink_wrap-features-and-roadmap" title="Permanent link">&para;</a></h1>
+<p>This file is the single source of truth for what shrink_wrap supports, what is being worked on and what is planned,
+for humans and AI agents alike.</p>
+<h2 id="how-to-use-this-file">How to use this file<a class="headerlink" href="#how-to-use-this-file" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Status</strong> of each item:</li>
+<li>✅ done</li>
+<li>🚧 in progress or partially done (the note says what is missing)</li>
+<li>📋 planned</li>
+<li>💡 idea, not committed to</li>
+<li>⛔ blocked (the note says on what)</li>
+<li>🔍 probably done or obsolete, needs a check before closing</li>
+<li>🧪 done and tested on the host, the check on hardware is still open (the note says what to check)</li>
+<li>🐛 known bug, not yet fixed (the note says how to hit it)</li>
+<li><strong>Target</strong> is the release an item is planned for (<code>v0.5</code> is WireWeaver's next release, which these items were
+  planned with). No tag means not scheduled.</li>
+<li><strong>IDs</strong> (<code>SW-3</code>, <code>DER-8</code>) are stable: never renumber or reuse one. New items take the next free number of their
+  area. Use the ID in commit messages, CHANGELOG entries and code <code>TODO</code>s (<code>// TODO(SW-20): ...</code>). When talking to
+  people, name an ID with a short slug from its title (<code>SW-3 string-and-vec</code>), never bare.</li>
+<li>The items came from WireWeaver's <code>FEATURES.md</code> with their IDs, where shrink_wrap was developed. IDs of other areas
+  (<code>EVO</code>, <code>SRV</code>, <code>CLT</code>, <code>API</code>, <code>STD</code>, <code>TEST</code>, ...) and paths outside this repository's crates (<code>tests/conformance</code>,
+  <code>wire_weaver_core</code>, <code>docs/api/..</code>) are <a href="https://github.com/vhrdtech/wire_weaver">wire_weaver</a>'s. The C runtime
+  (<code>shrink_wrap_c</code>: SW-43, SW-66, SW-75) and the conformance corpus (SW-67) stayed there, with their items.</li>
+<li>Items are grouped by area. Each area lists what works first (✅), then open items ordered by target.</li>
+<li>When finishing work, update the item in the same change: mark it ✅, move it up to the done items of its area and
+  add a pointer (docs page, crate, test or example). Don't delete done items. Move items that turn out to be obsolete
+  to <a href="#dropped-and-superseded">Dropped and superseded</a> with a one-line reason.</li>
+<li>New ideas go into the matching area as 💡. Small code-level gaps stay as <code>TODO</code> comments in the source; only those
+  that limit users or block a feature get an item here.</li>
+</ul>
+<h2 id="wire-format-shrink_wrap-sw">Wire format (<code>shrink_wrap</code>, <code>SW</code>)<a class="headerlink" href="#wire-format-shrink_wrap-sw" title="Permanent link">&para;</a></h2>
+<ul>
+<li>✅ <strong>SW-1 Structs, plain enums and data enums</strong>, discriminant type selection with <code>ww_repr</code>.</li>
+<li>✅ <strong>SW-2 <code>Option</code> and <code>Result</code></strong>, also inside <code>Vec</code>, as one-bit flags.</li>
+<li>✅ <strong>SW-3 <code>String</code> and <code>Vec&lt;T&gt;</code></strong>, with special handling of <code>Vec&lt;u8&gt;</code>.</li>
+<li>✅ <strong>SW-4 Fixed size arrays, tuples and the unit type <code>()</code></strong>.</li>
+<li>✅ <strong>SW-5 Bit-aligned integers</strong>: nibbles and <code>u1</code>..<code>u32</code> (<code>un</code>); <code>un8</code>/<code>un16</code> are forwarded to <code>un32</code> for smaller
+  flash.</li>
+<li>✅ <strong>SW-6 Variable length numbers</strong>: <code>UNib32</code>, <code>UVlq32</code>, and <code>UVlq32Backfill</code> for values known only after the rest
+  is serialized.</li>
+<li>✅ <strong>SW-7 Borrowed and owned types</strong>: <code>Sized</code> and <code>Unsized</code> traits, <code>RefStr</code>/<code>RefVec</code>, borrowed types by default and
+  <code>Owned</code> variants generated automatically.</li>
+<li>✅ <strong>SW-8 Evolvable by default</strong>: every struct and enum is <code>Unsized</code>; <code>final_structure</code>, <code>self_describing</code> and
+  <code>sized</code> are opt-ins.</li>
+<li>✅ <strong>SW-9 <code>TailBytes</code> / <code>TailBytesOwned</code></strong>: bytes that take up the rest of the buffer, written without a size; only
+  valid as the last item. Generated API code puts them in place of byte slices, e.g. for return values and
+  property values.</li>
+<li>✅ <strong>SW-10 <code>EitherAnyVec</code></strong>: zero-copy, no-alloc array of <code>Either</code> elements of any types, with the L/R flags packed
+  in groups of 8 instead of padding each element. Packs e.g. a list of <code>Result</code>s tightly; used for multi-read
+  and multi-call results (only multi-read exists so far).</li>
+<li>✅ <strong>SW-55 <code>OptionAnyVec</code></strong>: zero-copy, no-alloc array of <code>Option</code> slots of any types (numbers, structs, lists,
+  strings, a nested <code>OptionAnyVec</code> for a child level), only the present values written, in slot order without
+  padding between them. A presence header up front in the smallest of four modes (all, dense bits, two-level bits,
+  index list), self-delimiting so that readers with fewer or more slots than the writer read it (slots are only
+  appended); a malformed header is an error. Writer takes the present set up front (<code>SetBits</code> over a bitset, any
+  increasing iterator), <code>OptionAnyVecWriter</code> / in-place <code>OptionAnyVecBuilder</code>. For a trait level's properties in one
+  update (API-38). See <code>docs/special_types.md#optionanyvec-sparse-slots-of-any-types</code>, <code>docs/showcase.md</code>.</li>
+<li>✅ <strong>SW-68 Word-wide bit writer and reader</strong>, the same bytes: <code>BitWriter</code> with a 32-bit accumulator flushed a word
+  at a time, <code>BitSink::put_block</code> for packed blocks, <code>write_un*</code> / <code>write_bool</code> / <code>UNib32</code> and the reader's
+  <code>read_un*</code> / <code>UNib32</code> through one 4-byte window and one bounds check per call. The FOC observe poll on an STM32H725
+  75.5 k cycles instead of 99.9 k at <code>opt-level = 3</code> (121.5 k against 172.2 k at <code>"z"</code>), a FOC level batch from the
+  store 36.8 k instead of 58.9 k; reads of UN numbers and <code>UNib32</code> take 0.4-0.6x the instructions on a Cortex-M4F;
+  about 1.5 KB more flash at <code>"z"</code>. See <code>docs/articles/series.md#the-bit-writer-and-reader-a-word-at-a-time</code>,
+  <code>examples_mcu/mcu_qemu/src/bit_io.rs</code> (<code>qemu-bit-io</code>, <code>qemu-m4f-bit-io</code>, <code>stm32h725ig-bit-io-cycles</code>).</li>
+<li>✅ <strong>SW-64 <code>Series</code> written straight from a <code>SeriesStore</code></strong>, column by column, the same bytes as the item walk:
+  <code>SeriesStore::columnar</code> / <code>write_store</code> (leaves, <code>Option</code>, arrays, tuples, derived structs and enums, by hand for
+  <code>NumericValue</code>) and <code>series::write_store_series</code>, used by <code>ww_stream</code>'s batchers on their own. Needs one variant
+  per enum and <code>Option</code> over the rows (a prefix change falls back to the walk). One FOC level batch (21 x
+  <code>Series&lt;T&gt;</code> + clock, n = 32, <code>DeltaPacked</code>): 74.9 k instructions on a Cortex-M3 instead of 143.5 k, 100 k cycles on
+  an STM32H725 instead of 312 k (60 k against 125 k at <code>opt-level = 3</code>). See
+  <code>docs/series.md#from-the-store-column-by-column</code>, <code>shrink_wrap/src/series/store_write_tests.rs</code>,
+  <code>examples_mcu/mcu_qemu</code> (<code>qemu-store-columns</code>).</li>
+<li>✅ <strong>SW-63 Fast and small <code>Series</code> encoding on MCUs</strong>, the same bytes: about 6x fewer instructions per item on
+  a Cortex-M3/M4F (<code>Series&lt;Timed&lt;Ampere&gt;&gt;</code>, n = 32: 341 with a fixed codec, 969 with <code>SMALLEST</code>; 25 200 cycles per
+  batch of 32 on an STM32H725), and codec policies fixed at compile time (<code>SeriesPolicy</code>, <code>FixedCodecs</code>,
+  <code>DeltaPacked</code>, the <code>no_std</code> default of <code>ww_stream</code>'s batcher) that link only their own codecs: 15 KB of encoder
+  flash on a Cortex-M3 instead of 91 KB (25 KB with a run-time <code>CodecPolicy</code>). See
+  <code>docs/series.md#cpu-and-flash-on-an-mcu</code>, <code>examples_mcu/mcu_qemu</code>, <code>examples_mcu/qemu_icount</code>.</li>
+<li>✅ <strong>SW-62 <code>SeriesStore</code> and series size bounds</strong>: room for <code>N</code> items of a <code>series</code> type as a struct of arrays
+  (<code>empty_store</code>, <code>set</code>, <code>get</code>), derived for structs (field stores) and enums (discriminants and every data
+  variant's fields), by hand for <code>ww_numeric::NumericValue</code> (a variant byte and one payload as wide as the widest
+  variant enabled): <code>Timed&lt;Ampere&gt;</code> takes 12 bytes per item with number types up to 32 bits, against 24 as items.
+  <code>SeriesColumns::MAX_ITEM_BITS</code> / <code>MAX_FIXED_BITS</code> and <code>Series::max_bytes(n)</code>: the worst case of a batch under any
+  codec policy, <code>None</code> for strings and opaque fields. <code>series(no_store)</code> leaves the derived store out. Piece 1 of
+  API-41. See <code>docs/series.md#collecting-items-on-a-device-seriesstore</code>,
+  <code>shrink_wrap/src/series/store_tests.rs</code>, <code>ww_stdlib/ww_si/tests/store.rs</code>.</li>
+<li>✅ <strong>SW-61 <code>RefVecBuilder&lt;T&gt;</code>: a list written in place</strong>, element by element (<code>push</code>, <code>extend</code>, <code>push_with</code> for a
+  nested builder or an element written by hand), <code>finish</code> writes the count; same bytes as <code>RefVec::Slice</code>, as the
+  whole buffer, a struct field or an element of another list. A failed push undoes its element, <code>with_max_len</code> for
+  <code>MaxLen&lt;RefVec&lt;..&gt;, N&gt;</code>, <code>RefVecBuilderOwned</code> for <code>BufWriterOwned</code>. A byte list also has <code>extend_from_slice</code> and
+  <code>write_bytes_with</code> (a byte blob written by other means), which replace <code>RefVecU8Builder</code>.
+  See <code>docs/special_types.md#refvecbuilder-lists-written-in-place</code>,
+  <code>shrink_wrap/tests/ref_vec_builder.rs</code>.</li>
+<li>✅ <strong>SW-59 Tuple and unit structs in the derive</strong>: <code>struct Celsius(f32);</code>, <code>struct Pair&lt;'i&gt;(u8, &amp;'i str);</code>,
+  <code>struct Marker;</code> in every layout and size assumption, same bytes as the struct with the fields named; positional
+  names <code>_0</code>, <code>_1</code>, ... in consts, C names and errors. <code>#[flag]</code> needs named fields. The API model has them as
+  unnamed fields, dynamic clients and Python (a tuple, a single field its value, a unit <code>None</code>) read and write them.
+  A unit struct is evolvable (it records its length inside a parent); with <code>sized</code>, <code>final_structure</code>,
+  <code>self_describing</code> or <code>fixed_layout</code> it is a compile error, as it could never change.
+  See <code>docs/types.md</code>, <code>shrink_wrap/tests/tuple_structs.rs</code>, <code>tests/dynamic</code>.</li>
+<li>✅ <strong>SW-76 A refused value with its numbers</strong> — a <code>validate = path</code> function may return
+  <code>shrink_wrap::refused::Refused</code> (the stored number read and the rule it broke: a range <code>low..=high</code>, NaN, ±∞, zero,
+  a code that means no value) instead of a plain <code>Error</code>. The read still fails with <code>SubtypeOutOfRange</code>, so <code>Error</code>
+  stays a fieldless <code>u32</code> on firmware; with the <code>refused</code> feature (on with <code>std</code>) a reader made with
+  <code>with_refusal_slot(&amp;slot)</code> writes it into the caller's <code>refused::Slot</code>, shared by every reader split off it and by
+  no other read, one pointer more in <code>BufReader</code> (40 to 48 B on a 64-bit host); <code>from_ww_bytes_explained</code> makes one
+  and returns a <code>ReadError</code> (<code>"6000 is out of 1..=5000"</code>), the first refusal of the read. Without the feature (firmware) the reader doesn't grow and
+  the numbers are dropped where they are made. A <code>Series</code> item's hook reports the plain error only. exact_units'
+  <code>Fixed</code>, <code>Index</code>, <code>IndexFrom1</code>, <code>Niched</code> and <code>Coded</code> hooks moving to it is exact_units' side. Tests
+  <code>shrink_wrap/tests/refused.rs</code>, <code>docs/derive_reference.md#validate-path</code>.</li>
+<li>✅ <strong>SW-58 <code>validate = path</code> derive directive</strong>: a function checking every struct value just read, so a derived
+  type (and the API model it gives to dynamic clients) can still reject out-of-range data; used by <code>ww_date_time::Year</code>.</li>
+<li>✅ <strong>SW-57 <code>ArrayString&lt;N&gt;</code> / <code>ArrayVec&lt;T, N&gt;</code></strong>: owned, no-alloc string/list types backed by a fixed-size
+  array, same bytes on the wire as <code>&amp;str</code>/<code>String</code> and <code>Vec&lt;T&gt;</code>, for an owned no-alloc field (a <code>value_on_changed</code>
+  field of a string/list property in a <code>no_alloc</code> server, a settings value); <code>Error::MaxLenExceeded</code> rather than a
+  cut value, for serializing, deserializing, <code>push_str</code>/<code>push</code> and <code>TryFrom&lt;&amp;str&gt;</code> alike.
+  <code>docs/special_types.md#arraystring-arrayvec-owned-values-without-an-allocator</code>.</li>
+<li>✅ <strong>SW-11 Alloc writer</strong> <code>BufWriterOwned</code>, <code>SerializeShrinkWrap</code> for <code>&amp;[u8]</code>, <code>String</code> as UFS.</li>
+<li>✅ <strong>SW-12 In-place builders</strong> used by the server codegen (event and error builders), and the manual
+  patch-the-discriminant-later pattern (<code>docs/showcase.md</code>).</li>
+<li>✅ <strong>SW-13 Binary format documented</strong> in <code>docs/wire_format.md</code>, worked tricks in <code>docs/showcase.md</code>.</li>
+<li>✅ <strong>SW-14 Usable standalone</strong> as a dense data storage format (<code>examples/minimal_shrink_wrap</code>,
+  <code>examples/compare_wire_formats</code>).</li>
+<li>✅ <strong>SW-34 Smaller code on small CPUs</strong>: <code>BufReader</code> / <code>BufWriter</code> reads and writes that keep an error instead of
+  returning it (<code>read_u8_latch</code>, <code>write_u32_latch</code>, .., <code>latched()</code>), used by <code>#[derive_shrink_wrap]</code> for plain
+  fields with one check per type; <code>Error</code> without payloads; one shared integer read and write; no division in
+  <code>UNib32</code>. 19 to 20 % less code for a derived request/reply codec on RV32IC and Cortex-M0, same wire format.
+  Numbers, where the rest goes and what is left to do: <code>docs/code_size.md</code> (measured by TEST-17).</li>
+<li>✅ <strong>SW-36 No length FIFO code for types without lengths</strong>: <code>SerializeShrinkWrap::PUSHES_LEN</code>, computed by
+  <code>#[derive_shrink_wrap]</code> from the fields (default <code>true</code> unless <code>Sized</code>), lets <code>to_ww_bytes</code> and
+  <code>BufWriter::finish_for::&lt;T&gt;()</code> end with <code>finish_no_lens()</code> at compile time, so the FIFO encoder is not linked:
+  about 510 bytes less per such encoder on RV32IC (a struct of plain fields 1476 → 964). For types with lengths
+  <code>encode_len_fifo</code> / <code>write_nib</code> are smaller (<code>vec_ser</code> 1378 → 1142). Same wire format
+  (<code>shrink_wrap/tests/pushes_len.rs</code>, <code>docs/code_size.md</code> steps 4 and 5).</li>
+<li>✅ <strong>SW-37 <code>RefVec</code> of plain numbers without the decode pass</strong>: a list of <code>u8</code>..<code>u128</code>, <code>i8</code>..<code>i128</code>, <code>f32</code> or
+  <code>f64</code> finds its end with one bounds check instead of reading every element (4096 bytes: 10 µs → 6 ns on a host),
+  same result, errors and reader state as the pass, same wire format (<code>shrink_wrap/tests/ref_vec_skip.rs</code>,
+  <code>just fuzz-shrink-wrap-ref-vec</code>). Costs 50 to 140 bytes of code in a decoder with such a list. Other <code>Sized</code> types
+  keep the pass on purpose (stride is not <code>size_bits</code>, elements are validated there):
+  <code>docs/code_size.md</code>.</li>
+<li>✅ <strong>SW-38 Latched reads of <code>U1</code>..<code>U64</code> / <code>I2</code>..<code>I64</code> fields</strong>: read like the integers of SW-34, with one error
+  check per type (through a hidden <code>DeserializeShrinkWrap::des_shrink_wrap_latch</code>); a bit-packed struct decodes in
+  40 bytes less on RV32IC (886 → 846), 88 on RV32I. Same wire format, results and errors as reading field by field
+  (<code>shrink_wrap/tests/latched_reads.rs</code>, <code>just fuzz-shrink-wrap-latched</code>). <code>Nibble</code>, <code>u64</code> and varints are not
+  latched: one such field costs more than it saves (<code>docs/code_size.md</code>).</li>
+<li>✅ <strong>SW-41 First error in types that mix latched and other fields</strong>: an error kept by a <code>_latch</code> read stops the
+  reader (reads with a <code>Result</code> return it, no read moves), so a derived decoder with lists or nested types next to
+  plain fields returns the first error again, as before SW-34. 20 bytes on a request/reply decoder (RV32IC), four
+  forms measured (<code>docs/code_size.md</code>, <code>shrink_wrap/tests/latched_errors.rs</code>).</li>
+<li>✅ <strong>SW-44 Fixed-layout fast path</strong>: <code>#[derive_shrink_wrap]</code> sees when a type's encoding is a fixed little-endian
+  byte layout (a <code>sized</code> or <code>final_structure</code> struct, a <code>sized</code> or <code>self_describing</code> enum with a <code>u8</code> / <code>u16</code> / <code>u32</code>
+  <code>ww_repr</code>; fields only <code>u8</code>..<code>u64</code>, <code>i8</code>..<code>i64</code>, <code>f32</code>, <code>f64</code> and arrays of them) and generates an offset const
+  per field, <code>ENCODED_LEN</code>, and <code>from_fixed</code> / <code>to_fixed</code> that load and store at those offsets on the slice, no
+  <code>BufReader</code> / <code>BufWriter</code>, nothing generic. The <code>fixed_layout</code> directive makes it a requirement (and allows
+  nested fixed-layout types): a <code>bool</code>, <code>Option</code>, list, string, varint or bit-packed field is a compile error naming
+  the field. Same bytes as <code>ser_shrink_wrap</code> (<code>shrink_wrap/tests/fixed_layout.rs</code>, 2000 random values per type).
+  <code>FixedLayout::write_c</code> prints the matching C reader (offset defines and <code>static inline</code> loads on a checked view,
+  SW-79) from the same
+  derive, <code>fixed_layout::write_c_header</code> a whole header: the first generated C of API-26. Code size on Cortex-M0
+  for a header of eight integers: decode 484 → 276 bytes, encode 888 → 462 (<code>docs/code_size.md</code>). First user:
+  chunky_mcu_updater's plan format (PROTO-3); it serves the busgen idea for types
+  without dynamic fields. Open: arrays of nested types, a C writer, 16-bit <code>char</code> targets in the C reader.</li>
+<li>✅ <strong>SW-45 Bit fields and a variable last field in the fixed-layout fast path</strong>: <code>bool</code>, <code>U1</code>..<code>U32</code>,
+  <code>I2</code>..<code>I32</code> and <code>Nibble</code> get compile-time bit offsets (most significant bit first, a <code>Nibble</code> on a 4-bit boundary,
+  a byte field after them starting a fresh byte, as <code>BufWriter</code> packs them) and are read and written with shifts and
+  masks, in Rust and in the C reader (<code>sw_fixed_bits</code>, <code>sw_fixed_sbits</code>). <code>Option&lt;T&gt;</code>, <code>Result&lt;T, E&gt;</code> and enums of
+  unequal variants are allowed as the last field (one rule for all variable-length fields); their flags are bit
+  fields, also where <code>#[flag]</code> moves them. <code>MIN_LEN</code> and <code>fixed_len()</code> next to <code>ENCODED_LEN</code> (the longest, the
+  buffer to have ready). A nested type cannot share a byte with bits of its parent: a compile error says so. Every
+  refusal says why and what to use instead. Byte-equal to <code>ser_shrink_wrap</code> on mixed bit runs, a run at the end,
+  options, results, relocated flags and enum variants with both (<code>shrink_wrap/tests/fixed_layout.rs</code>); the
+  generated C is built and run with every warning an error (<code>just lint-c</code>). A bit-packed sample on Cortex-M0:
+  decode 652 → 276 bytes, encode 1034 → 560.</li>
+<li>✅ <strong>SW-46 Fixed head, sequential tail (<code>head_tail</code>)</strong>: an opt-in wire format of its own for types with lists,
+  strings and options anywhere. The head holds every fixed-width field at a constant offset (numbers, arrays, bit
+  fields as in SW-45) plus a <code>u16</code> count per list or string, the flag bit of each <code>Option</code> / <code>Result</code> and the head
+  of each nested type; the tail holds the variable parts in field order. An enum is its tag, then its variant's
+  head and tail. Generated by <code>#[derive_shrink_wrap(head_tail)]</code>: offset consts, <code>HEAD_LEN</code>, <code>from_head_tail</code> /
+  <code>to_head_tail</code> / <code>head_tail_len</code>, the <code>HeadTail</code> trait (also implemented for every fixed-layout type) and a C reader
+  (checked views since SW-79, <code>shrink_wrap::head_tail::write_c_header</code>), built and run by
+  <code>just lint-c</code>. Non-generic, size first: no <code>BufReader</code> / <code>BufWriter</code>, no length FIFO, no reversed lengths; the
+  tail is a cursor (<code>head_tail::Tail</code>) that takes lengths it already knows. Lists are <code>head_tail::List&lt;'i, T&gt;</code> (items
+  numbers or fixed-layout types of one length, read when iterated). No sw serdes and no owned version: one type,
+  one format. Tests: exact bytes, round trips, every truncation, 200 000 random buffers, UTF-8, counts over u16
+  (<code>shrink_wrap/tests/head_tail.rs</code>). busgen's request and reply enums (size bench <code>busgen_ht</code>): 4626 bytes on
+  Cortex-M0 and 6004 on RV32IC, against 4408 / 5762 hand-written and 6652 / 8210 derived.
+  Open: <code>head_tail</code> types as ww API arguments (they have no sw serdes), lists of variable-length items, a C writer,
+  <code>u8</code> counts for short lists (<code>MaxLen</code>).</li>
+<li>✅ <strong>SW-79 Checked C views of fixed-layout and <code>head_tail</code> types</strong>: the generated C readers no longer take a bare
+  pointer. <code>&lt;name&gt;_view(buf, len, &amp;v)</code> checks that the <code>len</code> bytes hold a whole value (every flag, tag, nested value
+  and list count followed, an unknown enum tag refused) and makes a view, <code>&lt;name&gt;_view_t</code>; every reader takes a view,
+  so there is no way to read a field without the length check. A view's <code>len</code> is the value's length (the next value
+  of a stream starts there). Readers stay inside the view: an index past an array or list reads 0, an <code>Option</code> /
+  <code>Result</code> payload, an enum variant (<code>&lt;enum&gt;_as_&lt;variant&gt;</code>) and a list item of a fixed-layout type are <code>int</code> readers
+  with an out parameter that return -1 when it is not there. A caller that ignores a -1 reads zeros, never
+  through <code>NULL</code>: every reader of an empty view reads 0 and a failed <code>int</code> reader leaves an empty view in <code>*out</code>.
+  A type over 65535 bytes is an <code>#error</code> where <code>size_t</code> is 16 bits. Views and <code>int</code> readers are <code>SW_NODISCARD</code>
+  (<code>warn_unused_result</code> on gcc and clang). No allocation; list lengths are checked before <code>count * size</code> can wrap
+  on a 16-bit <code>size_t</code>. Same acceptance and lengths as Rust's <code>from_fixed</code> / <code>head_tail::read</code> (a C string is
+  bytes: no UTF-8 check), checked on valid, truncated, empty, NULL, changed and random buffers of every test type
+  with AddressSanitizer and UBSan and buffers of exactly the case's length (<code>c_views_check_bounds</code> in
+  <code>shrink_wrap/tests/fixed_layout.rs</code> and <code>head_tail.rs</code>), and in the conformance matrix (a view from exactly the
+  golden bytes, refused on every shorter prefix). C99 with <code>-pedantic -Wconversion -Wsign-conversion -Werror</code> on
+  the host, MSP430, Cortex-M0 and RV32. Cost on Cortex-M0 at <code>-Os</code>: 4 bytes per reading function over the old
+  readers with a hand-written length check, and about 6 more for the empty-view check (clang <code>-Os</code>, thumbv6m: 9
+  fixed-layout readers 148 → 204 bytes, 5 <code>head_tail</code> readers +24 bytes and an 8-byte empty view in <code>.rodata</code> per
+  <code>_as_&lt;variant&gt;</code> used). Raised on chunky_mcu_updater PR #6.</li>
+<li>✅ <strong>SW-52 <code>head_tail</code> views and variant writers</strong>: <code>Type::view(buf)</code> gives a <code>TypeView&lt;'_&gt;</code> without making the
+  value: the lengths checked and the tail walked once, the head's fields read by accessors at their offsets when
+  called (the same code as <code>from_head_tail</code>, one field at a time), lists, strings, options and nested views kept
+  from the walk; an enum's view is an enum of its variants' views (a tuple variant of one nested type holds its
+  view). Every enum variant gets <code>Enum::write_&lt;variant&gt;(buf, fields..)</code>: the bytes of <code>to_head_tail</code> for that
+  variant without making the value (the same <code>write_ht</code> code). <code>HeadTail::View</code> / <code>view_ht</code>, <code>head_tail::view</code>.
+  Tests: values back from every accessor, writers byte-equal to <code>to_head_tail</code>, every truncation, 200 000 random
+  buffers agreeing with <code>from_head_tail</code>. Size bench <code>busgen_view</code>: 4988 bytes on RV32IC and 3894 on Cortex-M0, 13 %
+  and 12 % below the hand-written codec; busgen's firmware 5608 / 5090 bytes (UART / I2C image, fpga_tools BUS-12).
+  View types are always <code>pub</code> (the <code>View</code> of a public trait). Open: lazy views of nested fixed-layout types (read
+  when the view is made), a writer for structs.</li>
+<li>✅ <strong>SW-53 Numbers through <code>fixed_layout::Le</code>, out of line on RISC-V</strong>: generated fixed-layout and <code>head_tail</code> code
+  reads and writes multi-byte numbers with <code>Le::ld</code> / <code>Le::st</code> on the bytes at the field (<code>fixed_layout::at</code>), one
+  function per type on RISC-V (no unaligned loads), inline elsewhere (on Cortex-M0 the byte loads are smaller than
+  the calls, measured). Under LTO <code>ld</code> passes its pointer through <code>black_box</code>: argument promotion would otherwise
+  move the load into every caller. Bit-field bytes cleared once per head. <code>busgen_ht</code> on RV32IC 6004 → 5658; a type
+  read or written in one place grows (<code>fixed_ser</code> 498 → 612, docs/code_size.md).</li>
+<li>✅ <strong>SW-54 <code>#[cfg]</code> on <code>head_tail</code> enum variants</strong>: passed to everything generated for the variant (consts, arms,
+  view, writer, C text); a variant compiled out keeps its tag and reads as an unknown one. busgen's firmware builds
+  only its bitstream family's requests with it.</li>
+<li>✅ <strong>SW-39 Byte-wise <code>memcpy</code>, measured, advice for very small targets</strong>: a firmware's own <code>memcpy</code> (and
+  <code>__aeabi_memcpy</code> on Arm) of 22 bytes instead of the word-wise one of <code>compiler_builtins</code>: 324 bytes less on
+  RV32IC, 304 on Cortex-M0, for every image that moves a value, at the price of speed and of replacing <code>memcpy</code> for
+  the whole firmware. Code and downsides in <code>docs/code_size.md</code> ("Build settings"), measured with
+  <code>just size-bench --fw-features byte_memcpy</code>. Nothing in <code>shrink_wrap</code> depends on it.</li>
+<li>✅ <strong>SW-40 Bit reads stay out of the lengths in the last byte</strong>: <code>read_un8</code>..<code>read_un64</code> (and <code>U1</code>..<code>U64</code>,
+  <code>I2</code>..<code>I64</code>) no longer read into the length nibble the last byte shares with the forward data, and a length is
+  no longer read from bits the forward side has read; both are <code>OutOfBounds..</code> errors. Malformed input only, every
+  message the writers produce decodes as before. Checked against a bit-level model in every reader state of 1 to
+  3 byte buffers (<code>buf_reader.rs</code> <code>bounds_every_state_every_read</code>) and by round trips of random messages
+  (<code>shrink_wrap/tests/rev_nibble_bounds.rs</code>).</li>
+<li>✅ <strong>SW-81 An empty byte list writes no alignment in the borrowed derive</strong>: a <code>RefVec&lt;u8&gt;</code> field of a borrowed
+  type (<code>ser_shrink_wrap_vec_u8</code>) wrote a padding byte for an empty list that started mid-byte, where every other
+  writer and every reader take nothing; a field after it that starts mid-byte was read one byte early (a <code>ww_tape</code>
+  <code>TrackDef</code> with an empty <code>bundle</code> failed with <code>OutOfBoundsReadUN</code>, a bool after the list read back wrong). The
+  borrowed derive now writes the owned derive's bytes; bytes written before the fix still read where they did.
+  Tests <code>shrink_wrap/tests/empty_byte_list.rs</code> (a property test: borrowed and owned give the same bytes), conformance
+  cases <code>struct.bytes.empty_end</code>, <code>struct.bytes.empty_mid</code>, <code>struct.bytes.mid</code>.</li>
+<li>✅ <strong>SW-35 Exact <code>ElementSize</code> of enums</strong>: a <code>sized</code> / <code>self_describing</code> enum reports the discriminant plus one
+  variant (<code>ElementSize::one_of</code>) instead of the sum of all variants without the discriminant; <code>sized</code> with variants
+  of different sizes is a compile error; user types inside arrays, tuples, ranges and options are counted. Same wire
+  format (<code>shrink_wrap/tests/enum_size.rs</code>, <code>docs/size_assumptions.md</code>). Unblocks reading <code>RefVec&lt;Sized T&gt;</code> in place.</li>
+<li>✅ <strong>SW-33 <code>UVlq64</code></strong>: byte-based variable length <code>u64</code>, same big endian VLQ encoding as <code>UVlq32</code>, 1 to 10 bytes,
+  <code>uvlq64</code> field type in <code>#[derive_shrink_wrap(..)]</code>, <code>BufReader::read_uvlq64</code>/<code>BufWriter</code>/<code>BufWriterOwned::write_uvlq64</code>
+  (<code>shrink_wrap/src/vlq64.rs</code>, <code>docs/types.md</code>, <code>docs/showcase.md</code>). No <code>UVlq64Backfill</code> (not asked for).</li>
+<li>✅ <strong>SW-19 Bounded lists and strings <code>MaxLen&lt;T, N&gt;</code></strong>: a <code>RefVec</code>, <code>Vec</code>, <code>&amp;str</code> or <code>String</code> with at most <code>N</code>
+  elements, same bytes as <code>T</code> (a bound can be added, raised or removed without a new wire form), checked on
+  serialize and deserialize (<code>Error::MaxLenExceeded</code>, never truncated). Works in derived types and in every API
+  position (arguments, returns, properties, stream and sink items), visible in introspection
+  (<code>ww_self::Type::MaxLen</code>), honoured by the dynamic client and Python; raising a bound is compatible, lowering or
+  adding one breaking (<code>ww api check</code>). <code>SerializeShrinkWrap::MAX_SIZE: Option&lt;MaxSize&gt;</code>, the worst-case size of a
+  type whose every part is bounded, feeds API-18. <code>docs/types.md</code>, <code>docs/evolution/rules.md</code>,
+  <code>shrink_wrap/tests/max_len.rs</code>, <code>tests/bounded</code>, <code>examples_mcu/mcu_qemu</code> (<code>qemu-bounded</code>).</li>
+<li>✅ <strong>SW-15 Handle end of buffer when reading evolved fields</strong>: a field with <code>#[default = ..]</code> reads as its default
+  only when it starts at the end of the data and runs out of it (<code>Error::is_read_eob</code>); a truncated or malformed
+  value is an error. The flag of an evolved <code>Option</code> / <code>Result</code> falls back with it, <code>#[default]</code> works on any type
+  and its value is used (an <code>Option</code> was always <code>None</code>). Same in the <code>ww_self</code> dynamic decoder. Padding bits of the
+  old data's last byte read as 0, so bit-sized fields default to their zero value. Decided: no implicit defaults
+  for <code>Vec</code>/<code>String</code>/<code>Option</code> fields without <code>#[default]</code>, the attribute is what marks a field as added later
+  (and what <code>ww api check</code> looks for). <code>docs/derive.md#evolving-types</code>, <code>shrink_wrap/tests/evolution.rs</code>.</li>
+<li>✅ <strong>SW-16 <code>FutureVersion</code> enum variant</strong>: an enum ending with <code>#[future_version] Unknown(u32)</code> reads an unknown
+  discriminant into it instead of failing with <code>EnumFutureVersionOrMalformedData</code>, and writes it back; an <code>Unsized</code>
+  enum skips the newer variant's fields with its size slot, <code>sized</code> / <code>self_describing</code> ones only survive new unit
+  variants. No wire number of its own, no change to <code>ELEMENT_SIZE</code>, left out of the API model. The <code>ww_self</code>
+  dynamic decoder reads an unknown variant of an <code>Unsized</code> enum as <code>&lt;unknown N&gt;</code>. Added by default since SW-47.
+  <code>docs/derive.md#enum-variants-from-a-newer-version</code>, <code>shrink_wrap/tests/evolution.rs</code>.</li>
+<li>✅ <strong>SW-48 Bit-sized fields and variant payloads</strong>: <code>U1</code>..<code>U64</code> / <code>I2</code>..<code>I64</code> (<code>u7</code>, <code>ub10</code>, <code>i2</code>.. in the API
+  model) as struct fields, enum variant payloads and <code>#[ww_trait]</code> method arguments, returns and properties, packed
+  bit after bit with a sub-byte discriminant: <code>enum I2cAddress { Seven(U7), Ten(U10) }</code> with <code>ww_repr = u1,
+  self_describing</code> takes 8 or 11 bits instead of 16 or 24 with <code>u8</code> / <code>u16</code>. Server and client codegen (it panicked
+  on such a method argument), <code>I16</code> (was missing), <code>From</code> / <code>TryFrom</code> to and from the backing integer. The dynamic
+  client and Python already handled them, now tested byte for byte against derived types; the C runtime has the
+  bit reads. Same wire format (<code>shrink_wrap/tests/sub_byte.rs</code>, <code>tests/dynamic</code>, <code>tests/methods</code>,
+  <code>docs/showcase.md#bit-sized-fields-and-variant-payloads-a-7-or-10-bit-i2c-address</code>).</li>
+<li>✅ <strong>SW-47 <code>#[future_version]</code> variant by default</strong>: the derive adds <code>Unknown(u32)</code> to every <code>Unsized</code> enum with a
+  free discriminant; <code>no_future_version</code> opts out (framework enums whose readers must fail: <code>ww_self</code> model,
+  <code>MultiIndex</code>), <code>future_version = Name</code> renames it, <code>final_structure</code> / <code>self_describing</code> / <code>sized</code> enums only get it
+  when written. A Rust API change of every such enum (exhaustive matches need the arm), not of the wire or the API
+  model. <code>docs/derive.md#enum-variants-from-a-newer-version</code>, <code>shrink_wrap/tests/evolution.rs</code>.</li>
+<li>📋 <strong>SW-77 Store columns across a prefix change</strong> — <code>write_store_series</code> (SW-64) writes nothing when an enum or
+  <code>Option</code> tag changes in the rows (a ww_si prefix that autoranges, a number type), and the batch is rebuilt item by
+  item and walked: 5x the instructions of a store column on a Cortex-M3 at <code>opt-level = "z"</code> (16.7 k against 3.3 k
+  per column of 32), 4.5x at 3. The wire already has the runs and the restarts; the store writer would write the
+  tag runs from the store's arrays and the numeric column in segments, restarting at each run boundary, the same
+  bytes as the walk. Measured by <code>examples_mcu/mcu_qemu</code>'s <code>qemu-dyn-prefix-auto</code> and <code>stm32h725ig-dyn-prefix-cycles</code>
+  (<code>docs/series.md#a-prefix-per-item</code>); the round trip and conformance case are in
+  (<code>stdlib.si.timed.series.prefix_change</code>).</li>
+<li>💡 <strong>SW-78 A cheaper one-tag check for store columns</strong> — <code>SeriesStore::columnar</code> scans every row of a ww_si
+  quantity's prefix and number-type arrays before a store column is written: 2 x ~200 instructions per column of
+  32 on a Cortex-M3 at <code>opt-level = "z"</code>, about 60 % of what a <code>Quantity</code> column costs over a <code>Fixed</code> one from the
+  store (<code>docs/series.md#a-prefix-per-item</code>). Comparing the arrays a word at a time, or a flag the store
+  keeps as rows are set, would take most of it.</li>
+<li>📋 <strong>SW-17 Const / magic type</strong> · <code>v0.5</code> — a simple type with a generic parameter that serializes a constant value or
+  byte string and checks it on deserialization, failing on a mismatch. For example the <code>magic</code> field in
+  <code>ww_self</code> (a plain <code>u32</code> today).</li>
+<li>✅ <strong>SW-18 Size-of-enclosing-type field</strong> <code>TailSize&lt;N&gt;</code>: a field the derive macro fills in with the size of the rest
+  of the value once it is serialized (a <code>UVlq32</code> right-justified in <code>N</code> bytes, 1 to 5), in any position, nested types
+  each with their own. Readers bound the value by it (a longer buffer stops at the right byte, a truncated one
+  errors, newer trailing fields are skipped) or skip it without parsing. Fields before it must be <code>Sized</code> or
+  <code>SelfDescribing</code>, checked at compile time. <code>docs/special_types.md</code>, showcase.</li>
+<li>✅ <strong>SW-60 <code>Series&lt;T&gt;</code>: columnar compressed sequences of any derive type</strong> — a list of <code>T</code> (structs, enums with
+  data, <code>Option</code>, nested) written column by column, one column per leaf field: numbers as a numeric column whose
+  predictor (raw, delta, delta of delta) and coder (SW-31 prefix code, bit-packed blocks of 8, constant, plain) the
+  writer picks per column, floats plain or SW-32 XOR, enum tags, bools, <code>Option</code> presence and strings as runs (a value
+  and one entry per change); a column restarts where an earlier enum field (a ww_si prefix) changes. 3 to 8 times
+  smaller than a plain <code>Vec&lt;T&gt;</code> of ADC samples, self-contained per batch: the column codecs (numeric, 128-bit,
+  float, runs, codec choice by counting bits or a fixed <code>CodecPolicy</code>, no alloc, malformed input an error), the
+  <code>Series&lt;'i, T&gt;</code> / <code>SeriesOwned&lt;T&gt;</code> types and the <code>SeriesColumns</code> trait with impls for the primitives, <code>Option</code>,
+  tuples, arrays, strings and bytes (one-pass validating skim, parallel item iteration, evolvable structs both ways,
+  the design's examples and size tables as golden bytes), fuzz targets <code>shrink-wrap-series-columns</code> and
+  <code>shrink-wrap-series-type</code>; the opt-in <code>series</code> directive of <code>#[derive_shrink_wrap]</code> for structs (also generic,
+  DER-14) and enums, <code>#[series(opaque)]</code> fields, compile errors naming the field for what v1 doesn't take, on
+  <code>ww_si</code> quantities and <code>ww_numeric::NumericValue</code> (<code>shrink_wrap/tests/series_derive.rs</code>,
+  <code>ww_stdlib/ww_si/tests/series.rs</code>); docs (<code>docs/series.md</code>, the layout in
+  <code>docs/wire_format.md#seriest</code>, worked bytes in <code>docs/showcase.md#compressed-columns-seriest</code>).
+  <code>Series&lt;T&gt;</code> is usable today in any property, method or stream item; a dynamic (non-generated) decoder and
+  batching a stream or property into <code>Series&lt;Timed&lt;T&gt;&gt;</code> automatically build on it as their own items (CLT-29,
+  API-41), not blocking this one.</li>
+<li>📋 <strong>SW-42 <code>MAX_SIZE</code> on owned types</strong> · <code>v0.5.x</code> — <code>SerializeShrinkWrapOwned</code> has no worst-case size yet, only
+  the borrowed trait has (SW-19); host code sizing a buffer for an owned value uses the borrowed type's.</li>
+<li>📋 <strong>SW-20 Sub-type numbers</strong> · <code>v0.5.x</code> — numbers restricted to a range, like <code>10..=25</code>, or a set with gaps, like
+  <code>0..=8, 12, 16</code>; checked on serialization and deserialization, possibly using fewer bits on the wire
+  (<code>docs/types.md</code>, "Subtypes").</li>
+<li>📋 <strong>SW-21 Multi-dimensional arrays</strong> (2D, 3D).</li>
+<li>✅ <strong>SW-70 Hot bit paths: no forced inlining at <code>opt-level = "z"</code></strong> · <code>v0.5</code> — flash diet. shrink_wrap's
+  <code>#[inline(always)]</code> sorted by measurement: the one-line wrappers (integer reads and writes, <code>_latch</code> methods, trait
+  defaults) stay forced, inlining them is free in size; so do the <code>Series</code> store and observe-cell paths (as hints a
+  FOC row capture went 266 -&gt; 1456 instructions). The private bit helpers of the writer and reader are <code>#[inline]</code>
+  hints; a firmware picks with shrink_wrap's <code>fast-io</code> feature (forced, as before; on with <code>std</code>) or
+  <code>optimize-speed</code> (Rust 1.101 or nightly, <code>#[optimize(speed)]</code> on the bit primitives and <code>Series</code> loops), first a <code>--cfg</code>. Lists of plain numbers share one non-generic
+  length-and-bytes path. Measured (thumbv6m): TEST-30 floor −740 B at <code>fw-z</code>, ±0 at <code>fw-3</code>; Donguru −824 B at <code>z</code>,
+  −892 B at <code>3</code>; task-side series and bit-field encoding 5-22 % slower at <code>z</code> by default, ±0 with <code>fast-io</code>, 1-3 %
+  faster with <code>optimize-speed</code> (+208 B). The planned 2.5-3.5 KB of "duplicate copies" were mostly call sequences:
+  <code>#[inline(never)]</code> on every derived serdes made Donguru 1.9 KB larger. See
+  <code>docs/code_size.md#hot-paths-at-opt-level-z</code>.</li>
+<li>✅ <strong>SW-74 Reader and writer plumbing out of the serdes copies</strong> · <code>v0.5</code> — flash diet. The 31.7 KB of
+  <code>BufReader</code>/<code>BufWriter</code> code inlined into Donguru's serdes had four big shapes, found with <code>fw_budget --attribute
+  --sites</code> (TEST-32): <code>latched()</code>'s <code>take()</code> (239 copies, 1.1 KB), the <code>Result&lt;BufReader&gt;</code> copied out after
+  <code>split()?</code> in <code>read::&lt;T&gt;</code> (45 copies, 1.1 KB), <code>BufReader::new</code> / <code>BufWriter::new</code> (65 + 41 copies, 2.2 KB) and the
+  <code>Result&lt;UnsizedBuilder&gt;</code> in <code>write::&lt;T&gt;</code> (67 copies, 0.7 KB). Fixed in the shape of the code: <code>latched()</code> stores
+  only an error it clears; one out-of-line <code>split_sized</code> writes the sub-reader in place; <code>begin_unsized</code> /
+  <code>end_unsized</code> keep the builder in registers; the constructors are <code>#[inline(never)]</code> unless the <code>fast-io</code>
+  feature (SW-70's switch, a <code>--cfg shrink_wrap_hot</code> before; <code>std</code> turns it on). An out-of-line <code>latched()</code>
+  was larger on both cores and was left inline. Measured: Donguru −3,984 B at <code>z</code>, −18,176 B at <code>3</code>, −2,708 B with <code>fast-io</code>; rePort −6,360 B; the
+  TEST-30 floor −76 to −336 B; instructions at <code>z</code> within ±0.6 %, at <code>3</code> the bit-io micro loops on a local reader or
+  writer up to 2.2x (restored with <code>fast-io</code>), dispatch ±1.3 % except a call with an argument (+4.8 %). No wire
+  change. <code>docs/articles/flash_budget.md#sw-74-reader-and-writer-plumbing</code>.</li>
+<li>🚧 <strong>SW-22 Fuzz <code>shrink_wrap</code></strong> — <code>fuzz/</code> has several <code>shrink_wrap</code> targets: <code>shrink-wrap-tail-size</code> (<code>TailSize</code>
+  types round-tripped, random bytes into their readers), <code>shrink-wrap-latched</code> (SW-38's one-error-check-per-type
+  reads against <code>read_field</code>), <code>shrink-wrap-ref-vec</code> (SW-37) came with its feature, <code>shrink-wrap-option-any-vec</code>
+  with SW-55 and DER-13 (sparse structs), <code>shrink-wrap-series-columns</code> and <code>shrink-wrap-series-type</code> with SW-60,
+  <code>shrink-wrap-nesting</code> with the nesting depth limit (recursive types at random limits). Round-trip every built-in
+  type and the derive's features.</li>
+<li>🔍 <strong>SW-23 Tuple enum variants evolution</strong> — check that tuple variants evolve as <code>docs/evolution/rules.md</code> says
+  (fields can be appended) and add a test.</li>
+<li>💡 <strong>SW-65 Aligned plain <code>Series</code> columns</strong> — numbers byte-aligned and little-endian at their width (numeric
+  escape <code>11 11</code>, float codec <code>0010</code>, an <code>AlignedPlain</code> policy), copied from a <code>SeriesStore</code>: 34 k cycles per FOC
+  level batch on an STM32H725 at <code>opt-level = 3</code> against 60 k for column-wise <code>DeltaPacked</code> (SW-64), for 2.3x the
+  bytes. Built and measured on branch <code>s/18oct2026-memcpy-fast-sw65</code>, not landed; may come back after observe cells
+  and a <code>u32</code> payload in <code>NumericValueStore</code>.</li>
+<li>✅ <strong>SW-24 <code>INib32</code>: a signed nibble varint, zigzag over <code>UNib32</code></strong> — small negative values stay as short as
+  small positive ones (<code>INib32(-4)</code> and <code>INib32(4)</code> both 1 nibble). A field type and a <code>#[wire(INib32)]</code> field
+  attribute (reuses <code>Error::MalformedUNib32</code>: on the wire it <em>is</em> a <code>UNib32</code>); in <code>Series</code> columns and the dynamic
+  (<code>ww_self</code>) value/<code>Series</code>/<code>expr</code> paths it is a plain signed 32-bit number, not re-zigzagged there (the column
+  codec's own signed delta/zigzag already compacts it). <code>wire_weaver_py</code> converts it like <code>i32</code>
+  (<code>int</code>/<code>"int32"</code> numpy dtype, not <code>UNib32</code>'s unsigned group); <code>wire_weaver_evolution</code> gives it <code>UNib32</code>'s size
+  class. Not wired into <code>ww_repr</code>/enum discriminants (a field type, not a discriminant type) — a genuinely new ask.
+  Conformance cases (<code>docs/conformance.md</code>) pass the Rust derive, the dynamic client, Python and <code>explain</code>;
+  the C runtime has no <code>Op::INib32</code> of its own yet, only <code>UNib32</code> (gap-marked, SW-75).
+  <code>NumericBaseType</code>/<code>NumericValue::INib32</code> is breaking (neither enum has a catch-all for an unknown variant):
+  <code>ww_numeric</code> 0.3.0, wire line w2.0, <code>#[since = "w2.0"]</code>; dependents re-saved, none bump their own version.</li>
+<li>💡 <strong>SW-25 In-place builder for server handlers</strong> · <code>v0.5.x</code> — a new step-by-step / partial builder (e.g. for a
+  <code>RefVec</code>) might be useful with the new <code>Context</code> in server handlers, to write replies and events straight
+  into the buffer. It might not work out.</li>
+<li>💡 <strong>SW-26 Map support</strong> — <code>HashMap</code>/<code>BTreeMap</code>, probably as a <code>Vec</code> of <code>(K, V)</code>.</li>
+<li>💡 <strong>SW-27 In-place editing</strong> of serialized data.</li>
+<li>💡 <strong>SW-28 Compression wrappers</strong> — the time-series part is done as <code>Series&lt;T&gt;</code> (SW-60, with the SW-31 delta and
+  SW-32 XOR codes); in-place dictionary compression as <code>Compression&lt;T&gt;</code> (strings?) stays an idea.</li>
+<li>💡 <strong>SW-29 Flatten support</strong> — apply a type's layout across struct/enum boundaries.</li>
+<li>💡 <strong>SW-30 <code>derive_shrink_wrap</code> on a whole module at once</strong>. For definitions in separate files with own syntax, see
+  <a href="https://github.com/vhrdtech/wire_weaver/blob/master/FEATURES.md">standalone definition files</a>.</li>
+<li>💡 <strong>SW-56 Tri-state slots in <code>OptionAnyVec</code></strong> — absent / value / error per slot, e.g. a property update that says
+  why one value is missing. The header has room for it: mode nibbles <code>4..=15</code> are reserved (a reader fails on them
+  today), so 2-valued vecs don't pay for it.</li>
+<li>🧪 <strong>SW-69 No core::fmt Debug of shrink_wrap types on a device</strong> · <code>v0.5</code> — flash diet: the variant names of
+  <code>shrink_wrap::Error</code> (<code>OutOfBoundsReadU8</code>, ..., about 450 B) and the <code>core::fmt</code> machinery behind them used to
+  land in flash because the type's <code>#[derive(Debug)]</code> always carried them. <code>shrink_wrap::Error</code> keeps implementing
+  <code>Debug</code> (<code>std::error::Error</code> needs it, <code>unwrap()</code> / <code>expect()</code> on <code>no_std</code> must still compile), but by hand now:
+  the variant names only with <code>std</code>, a numeric code without (<code>shrink_wrap::Error(17)</code>); <code>defmt::Format</code> (feature
+  <code>defmt</code>) still has the names, as <code>.defmt</code> symbols never loaded into flash. <code>Display</code> (which formats through
+  <code>Debug</code>) follows. Found two on-target callers that reached for <code>core::fmt::Debug</code> because there was no
+  <code>defmt::Format</code> alternative, fixed instead of worked around: the <code>examples_mcu/nucleo_{g0b1re,h743zi2}</code>
+  <code>settings.rs</code> bins no longer wrap <code>ww_settings::Error</code> / <code>LoadReport</code> in <code>defmt::Debug2Format</code> (both already
+  derive <code>defmt::Format</code>), and <code>ww_stream::store::RamRingError</code> now derives <code>defmt::Format</code> behind a new <code>defmt</code>
+  feature, so <code>examples_mcu/rp2</code>'s <code>usb_log.rs</code> logs its log-store error without <code>Debug2Format</code> either. Same wire
+  format; only the printed text of a <code>no_std</code> build without <code>defmt</code> changes. Not yet measured: TEST-30 checks that
+  the variant names are not linked; est. 0.5-1 KB.</li>
+<li>✅ <strong>SW-71 Unit variants of a mixed enum decode apart</strong> · <code>v0.5</code> — flash diet: des <code>exact_units::Prefix</code> was 574 B
+  (5 copies in Donguru). The cost is the mix: a <code>match</code> with field-reading arms keeps LLVM's jump table and one arm
+  per tag. A fully fieldless enum already folds to about 48 B, so it needs nothing. The derive now puts the longest
+  run of consecutive unit tags behind a range check, and those arms fold to a tag -&gt; variant map, without any table of
+  our own. It does so for a run of at least 4 with at least 2 data arms (1 with <code>niche</code>). <code>Prefix</code>, decoded alone on
+  M0+: 624 -&gt; 324 B at <code>fw-z</code>, 576 -&gt; 460 B at <code>fw-3</code>. The ~100 B first estimated left out its three data arms and the
+  catch-all, which stay. Same bytes on the wire. Test <code>shrink_wrap/tests/enum_unit_run.rs</code>.</li>
+<li>✅ <strong>SW-72 <code>MaxLen&lt;_, N&gt;</code> checks through one helper</strong> · <code>v0.5</code> — flash diet: ser <code>MaxLen&lt;_, N&gt;</code> was monomorphised
+  per bound (9 instances, 296 B in Donguru: <code>&amp;str</code> for N = 16, 32, 64, 128, <code>RefVec&lt;u8&gt;</code> for 16, 20, 32, 512) though
+  the bodies differ only in N. <code>new</code>, <code>ser_shrink_wrap</code>, <code>ser_shrink_wrap_owned</code> and <code>des_shrink_wrap</code>'s <code>check_len</code>
+  now share one <code>check_max_len(len, max)</code> (<code>shrink_wrap/src/max_len.rs</code>); same error and bytes on the
+  wire. Measured on TEST-30's <code>flash-budget</code> harness (added <code>MaxLenBounds8</code>/<code>16</code> to <code>tests/flash_budget_api</code>,
+  the API had no <code>MaxLen</code> before): <code>#[inline(never)]</code>, as the item asked for, does <strong>not</strong> save the estimated
+  200-250 B — it costs 10 to 53 B more per bounded resource on thumbv6m, <code>fw-z</code>/<code>fw-3</code>, because a different <code>N</code>
+  still has to reach the call as an argument, so nothing byte-identical is left to merge, and the call itself is
+  overhead a plain inlined <code>if len &gt; max</code> didn't pay. Left as a plain <code>fn</code> (no <code>#[inline(never)]</code>): the compiler
+  folds it back in at every site, so the result is one copy of the logic in source and the same bytes as before
+  in the binary, not fewer. <code>docs/articles/flash_budget.md</code> has the numbers.</li>
+<li>💡 <strong>SW-73 Panic-free indexing in BufReader / BufWriter</strong> — flash diet, to evaluate: the slice indexing and
+  <code>copy_from_slice</code> in shrink_wrap's reader and writer keep panic paths (670 B of file paths, <code>copy_from_slice</code> 636 B
+  and <code>index</code>/<code>index_mut</code> about 2 KB in Donguru's isolated build) though the reader and writer already report
+  <code>OutOfBounds</code> errors. <code>get()</code> / checked copies where the bound isn't proved; measure instructions too. Est. 1-2 KB.</li>
+</ul>
+<h2 id="derive-macro-shrink_wrap_derive-der">Derive macro (<code>shrink_wrap_derive</code>, <code>DER</code>)<a class="headerlink" href="#derive-macro-shrink_wrap_derive-der" title="Permanent link">&para;</a></h2>
+<ul>
+<li>✅ <strong>DER-1 <code>#[derive_shrink_wrap(..)]</code> attribute</strong> with clear syntax, no hidden magic and good error messages
+  (<code>docs/derive.md</code>); replaced <code>#[derive(ShrinkWrap)]</code>.</li>
+<li>✅ <strong>DER-2 Discriminant checks</strong>: discriminants must fit <code>ww_repr</code>, implicit ones are numbered like in Rust.</li>
+<li>✅ <strong>DER-3 <code>#[default = ..]</code> for evolved fields</strong> and <code>#[flag]</code> relocation.</li>
+<li>✅ <strong>DER-4 <code>TailBytes</code> must be last</strong>: rejected anywhere but as the last field of a struct or enum variant, and nested
+  in <code>Option</code>, <code>Vec</code>, tuples or arrays (<code>check_tail_bytes_position</code>), like <code>UVlq32Backfill</code> must be first.</li>
+<li>✅ <strong>DER-10 Generic arguments on user field types</strong>: <code>Foo&lt;u8&gt;</code>, <code>Wrapper&lt;'i, T&gt;</code> are emitted as written,
+  <code>Wrapper&lt;'i, T&gt;</code> maps to <code>WrapperOwned&lt;T&gt;</code> in the owned variant (<code>docs/derive.md</code>, type mapping; test
+  <code>shrink_wrap/tests/generic_external.rs</code>).</li>
+<li>✅ <strong>DER-14 Generics on derived types</strong>: structs and enums with type parameters (<code>struct Timed&lt;T&gt; { t: Second,
+  value: T }</code>, <code>enum Reading&lt;'i, T&gt;</code>), const parameters of any type (<code>struct Buf&lt;const N: usize&gt; { data: [u8; N] }</code>,
+  <code>MaxLen&lt;&amp;'i str, N&gt;</code>, <code>const STRICT: bool</code>), defaults and where clauses, also with a lifetime (<code>Tagged&lt;'i, T&gt;</code> /
+  <code>TaggedOwned&lt;T&gt;</code>); each impl bounds the type parameters by its trait (serdes, owned serdes, <code>SeriesColumns</code>) on top
+  of the bounds and where clause as written, the size of <code>T</code> and <code>N</code> is part of the type's. <code>series</code>, <code>display</code>,
+  <code>validate</code> and <code>discriminants</code> take generics, <code>fixed_layout</code>, <code>head_tail</code> and <code>sparse</code> reject them
+  (<code>docs/derive_reference.md#generics</code>; tests <code>shrink_wrap/tests/generic_items.rs</code>, <code>series_derive.rs</code>;
+  <code>ww_si::Timed&lt;T&gt;</code>). In APIs and the API model: API-43.</li>
+<li>✅ <strong>DER-15 <code>PhantomData</code> fields</strong>: <code>PhantomData&lt;T&gt;</code> is zero bits (<code>Sized { size_bits: 0 }</code>, like <code>()</code>) borrowed
+  and owned, and a <code>SeriesColumns</code> with no columns, for any <code>T</code>; the derive leaves a type parameter used only inside
+  <code>PhantomData&lt;..&gt;</code> without the serdes / <code>SeriesColumns</code> bounds of DER-14, so <code>struct Quantity&lt;U&gt; { value: i32,
+  _unit: PhantomData&lt;U&gt; }</code> works with a bare unit marker and writes the same bytes as without the field
+  (<code>docs/derive_reference.md#generics</code>; test <code>shrink_wrap/tests/phantom_data.rs</code>). For <code>ww_si</code> units.</li>
+<li>✅ <strong>DER-17 <code>#[default = ..]</code> fields default in serde too</strong>: a type deriving <code>serde::Deserialize</code> (through
+  <code>derive(..)</code> or a <code>cfg_attr</code>) gets <code>#[serde(default = ..)]</code> on each <code>#[default = ..]</code> field of a struct or struct
+  variant, so RON or JSON written before the field was added still reads; for saved <code>ww_self</code> API snapshots when a
+  later model field isn't an <code>Option</code> (EVO-13) (<code>docs/derive.md#evolving-types</code>; test
+  <code>shrink_wrap/tests/serde_default.rs</code>).</li>
+<li>✅ <strong>DER-19 <code>#[wire(W)]</code> field attribute</strong>: a field keeps a plain Rust integer (<code>i8</code>, <code>u16</code>, <code>u64</code>, ..) and is
+  written as a narrower or variable-length wire type (<code>#[wire(I4)] i8</code>, <code>#[wire(UNib32)] u64</code>, <code>#[wire(U12)] u16</code>):
+  checked on write (<code>Error::SubtypeOutOfRange</code>, never a cut value), widened on read, same bytes as a field of type W
+  (runtime trait <code>shrink_wrap::WireAs</code>). Struct and enum fields, <code>#[default = ..]</code>, <code>sized</code>/<code>final_structure</code>,
+  <code>#[cfg_attr(pred, wire(W))]</code>, <code>series</code> columns (<code>series::Wired&lt;W, T&gt;</code>, a W column). The API model records W (the
+  walker reads it, also inside <code>cfg_attr</code>), so the dynamic client, Python and C need nothing new
+  (<code>docs/derive_reference.md#wirew-field-attribute</code>; tests <code>shrink_wrap/tests/wire_as.rs</code>, conformance
+  <code>wire.*</code>). For <code>ww_si</code> exact units (design notes in internal tracking).</li>
+<li>💡 <strong>DER-21 <code>#[wire(W)]</code> beyond plain fields</strong> — inside <code>Option</code>, arrays and lists (<code>Option&lt;#[wire] u8&gt;</code> has no
+  syntax yet: a wrapper type or <code>#[wire(Option&lt;U4&gt;)]</code>), and in <code>fixed_layout</code> / <code>head_tail</code> types, which reject
+  the attribute with a compile error naming DER-21 today.</li>
+<li>✅ <strong>DER-18 <code>transparent</code> derive directive</strong>: a struct with one field that isn't zero bits (<code>PhantomData</code>, <code>()</code>)
+  takes that field's size class (<code>ELEMENT_SIZE</code>, <code>PUSHES_LEN</code>, <code>MAX_SIZE</code>), series columns, store and cells, and
+  writes exactly its bytes in every position, borrowed and owned, generic, with <code>validate</code> and <code>display</code>; compile
+  errors name the type for zero or two real fields and for the directives it excludes. Recorded in the API model
+  (<code>ItemStructExtra::transparent</code>, read by the walker, <code>ValueOwned</code>'s decoder and <code>Series</code> columns, so the <code>ww</code> CLI and
+  <code>wire_weaver_py</code> read it too). For <code>ww_si::Fixed</code> (STD-55), where a <code>final_structure</code> wrapper was
+  <code>UnsizedFinalStructure</code> even around a <code>u64</code> and couldn't sit in a <code>sized</code> parent. Also fixed: a generic parameter
+  named <code>P</code>, <code>I</code>, <code>S</code> or <code>C</code> clashing with the derive's own in series code (<code>PhantomData&lt;(U, P)&gt;</code> included), and
+  <code>#[repr(..)]</code> of a derived struct being dropped (<code>docs/derive_reference.md#transparent</code>; tests
+  <code>shrink_wrap/tests/transparent.rs</code>, <code>phantom_data.rs</code>, conformance cases <code>transparent.*</code>). The evolution
+  checker compares wrappers by meaning: EVO-15.</li>
+<li>✅ <strong>DER-20 Unit-typed fields cost what plain fields cost</strong>: a <code>transparent</code> wrapper (DER-18, e.g.
+  <code>exact_units::Fixed</code>) inside a derived struct is written and read on exactly the path of its inner plain field:
+  the latched <code>write_*_latch</code> / <code>des_shrink_wrap_latch</code> calls with one error check per type (SW-34, SW-38), not the
+  wrapper's own <code>ser_shrink_wrap</code> with a checked write per field. Hidden <code>ser_shrink_wrap_latch</code> (borrowed and owned)
+  with <code>BufWriter::write_field</code>, used by the derive for every user-type field; a wrapper with <code>validate</code> (<code>Fixed</code>'s
+  bounds) keeps a value out of range as the latched error (<code>BufReader::refuse_latch</code>, the first refusal wins). TEST-27 had measured +2 to 15 instructions and +4 to 42 bytes per struct encode/decode on M0, M4F and
+  M33 before it; same wire format (<code>docs/derive_reference.md#transparent</code>,
+  <code>docs/code_size.md#transparent-fields</code>; test <code>shrink_wrap/tests/transparent.rs</code>
+  <code>fields_are_latched_like_the_plain_field</code>, fuzz <code>shrink_wrap_latched</code>).</li>
+<li>✅ <strong>DER-11 Field type from a macro_rules <code>$T:ty</code> fragment</strong>: accepted like the type written directly, instead of
+  rejected as an unsupported <code>syn::Type::Group</code> (test <code>shrink_wrap/tests/macro_ty_fragment.rs</code>).</li>
+<li>✅ <strong>DER-12 <code>Display</code> from doc comments</strong>: a <code>display</code> directive writes <code>core::fmt::Display</code> and
+  <code>core::error::Error</code> (borrowed and owned) from the first doc line of each variant/struct, <code>{field}</code> filled in,
+  <code>#[display("..")]</code> to override; a variant with neither is a compile error. Error enums need no hand-written
+  <code>Display</code> on hosts (<code>docs/derive_reference.md</code>; test <code>shrink_wrap/tests/display.rs</code>).</li>
+<li>✅ <strong>DER-13 Sparse structs</strong>: <code>#[derive_shrink_wrap(sparse, ..)]</code> on a struct of <code>Option&lt;T&gt;</code> fields (borrowed and
+  owned) encodes it as an <code>OptionAnyVec</code> (SW-55), one slot per field in declaration order or at <code>#[slot = N]</code>
+  (increasing, gaps allowed, a present value in a gap is <code>Error::OptionAnyVecUnknownSlot</code>); a nested sparse struct
+  is one slot. Fields are only appended. A non-<code>Option</code> field or a combination with <code>final_structure</code> / <code>sized</code> /
+  <code>self_describing</code> / <code>fixed_layout</code> / <code>head_tail</code> is a compile error. For the per trait level <code>&lt;Level&gt;Update</code> of
+  SRV-18 (<code>docs/layouts.md</code>, <code>docs/evolution/rules.md</code>; test <code>shrink_wrap/tests/sparse.rs</code>, fuzz
+  <code>shrink-wrap-option-any-vec</code>). <code>ww_self</code> carries the flag (<code>ItemStruct::sparse</code>, <code>Field::slot</code>, TOOL-11), so a
+  dynamic decoder (<code>ValueOwned</code>, the <code>ww</code> CLI, <code>wire_weaver_py</code>) reads a sparse struct correctly.</li>
+<li>📋 <strong>DER-5 <code>#[since = "w1.2"]</code> on fields</strong> — generate correct evolution code from it (the derive keeps the text,
+  <code>wire_weaver_core</code> reads it as a wire revision, EVO-24).</li>
+<li>📋 <strong>DER-6 Check that <code>TailBytes</code> ends the outer type too</strong> — a struct ending in <code>TailBytes</code> used as a non-last field
+  of an outer <code>sized</code> / <code>final_structure</code> type ("last in the first <code>Unsized</code> type on the way up") is not visible to
+  the derive; needs a marker on the type, e.g. an associated const, and a compile-time assertion in the outer type.</li>
+<li>📋 <strong>DER-7 Prefix enum discriminants</strong> · <code>v0.5.x</code>.</li>
+<li>💡 <strong>DER-16 Where clauses naming the borrowed lifetime, for owned types</strong> — a generic type bounded on its
+  lifetime (<code>enum Batched&lt;'i, T&gt; where Timed&lt;T&gt;: SeriesColumns&lt;'i&gt;</code>) can't be derived with <code>owned</code>: the owned side
+  has no <code>'i</code> and would need the bound as <code>for&lt;'i&gt; SeriesColumns&lt;'i&gt;</code>. <code>ww_client_server::observe::Batched</code> /
+  <code>BatchedOwned</code> (API-39) are written by hand for that.</li>
+<li>✅ <strong>DER-8 <code>#[cfg(..)]</code> on enum variants</strong> — a variant keeps its discriminant in every configuration, a build without
+  it reads <code>Error::EnumVariantDisabled</code> (<code>docs/derive_reference.md</code>). First user: <code>ww_numeric::NumericValue</code>, one cargo
+  feature per number type (32 to 8 bytes in RAM with 32-bit types only). Not yet: <code>#[cfg]</code> on fields (it would change
+  the wire format, should be a compile error), <code>ww_si</code> enums.</li>
+<li>✅ <strong>DER-23 A field written as a user type</strong>: <code>#[wire(W)]</code> (DER-19) with any <code>W: WireAs&lt;T&gt;</code>, not only integers: a
+  field keeps a handle in Rust and writes the value it stands for (a one-byte handle in Rust, a full <code>Magnitude</code> on
+  the wire; <code>exact_units::Prefix</code>'s families use the integer form, <code>Pow10(#[wire(i8)] Pow10Exp)</code>). In a <code>Series</code> the field is an opaque run of
+  <code>W</code>'s bytes (<code>series::WiredOpaque</code>, the model marks it series-opaque) while store and cells keep the handle. Tests
+  <code>shrink_wrap/tests/wire_as_user.rs</code>.</li>
+<li>✅ <strong>DER-24 An enum's tag in a niche</strong>: <code>niche</code> leaves the <code>#[repr]</code> the derive gives an enum (<code>u32</code> for <code>unib32</code>)
+  out, so Rust keeps the tag in a field's spare values (<code>exact_units::Prefix</code> with its families and <code>Unknown(u16)</code> is 4 B, not 8).
+  The same bytes, <code>discriminant()</code> a <code>match</code>. Whether <code>niche</code> becomes the default for every enum is open (Roman).
+  Tests <code>shrink_wrap/tests/niche.rs</code>.</li>
+<li>✅ <strong>DER-25 Narrow tag-only catch-all for <code>niche</code> enums</strong> — <code>#[future_version] Unknown(u16)</code> (or <code>u8</code>) on
+  a <code>self_describing</code> / <code>niche</code> enum (DER-24) such as <code>Prefix</code>: the catch-all holds the tag only, so it doesn't widen
+  the enum the way SW-47's <code>Unknown(u32)</code> would (<code>Prefix</code> 4 B instead of 8). The rule it enforces (Roman, 28 Oct
+  2026): every variant added after the enum's first release is tag-only, its numbers packed into the <code>UNib32</code> tag,
+  never bytes after it, so an older reader yields <code>Unknown(tag)</code>, skips the self-describing value and decodes the
+  rest of the message. The derive (a known discriminant beyond the field is a compile error, a read one fails as
+  without the catch-all, series tag store of the field's type; also as <code>cfg_attr(feature = .., future_version)</code>), the
+  width in the API model (<code>FutureVersion::Variant::bits</code>, <code>None</code> for <code>u32</code> so older models keep their bytes), the
+  dynamic client and the evolution checker (an appended discriminant beyond it is breaking), <code>exact_units::Prefix</code>,
+  and the conformance case <code>stdlib.si.quantity.unknown_scale</code> (derive, dynamic, Python; C gap API-26).</li>
+</ul>
+<h2 id="testing-and-code-size-test">Testing and code size (<code>TEST</code>)<a class="headerlink" href="#testing-and-code-size-test" title="Permanent link">&para;</a></h2>
+<ul>
+<li>✅ <strong>TEST-17 <code>shrink_wrap</code> code size bench</strong>: <code>just size-bench</code> builds one bare firmware image per test case
+  (plain struct, enum, list, bit fields, <code>Option</code>, decode or encode only, the request/reply codec of a small
+  softcore firmware and the same by hand) for RV32I, RV32IC, Cortex-M0 and Cortex-M4F/M7 and prints <code>.text</code> +
+  <code>.rodata</code>, or the largest symbols (<code>size_bench</code>, results in <code>docs/code_size.md</code>).</li>
+</ul>
+<h2 id="dropped-and-superseded">Dropped and superseded<a class="headerlink" href="#dropped-and-superseded" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>SW-80 A small-field bit read without the word read</strong> — dropped (Roman, 14 Nov 2026): real firmware links the bit
+  reader anyway. It was a read for bit fields of 8 bits or less that would spare a firmware without wider ones
+  shrink_wrap's word read (about 250 B on a Cortex-M0+, since EVO-76 linked by every server for <code>Request</code>'s 3-bit
+  priority). Tried while landing EVO-76: a <code>take_bits8</code> behind <code>read_un8</code> / <code>read_un8_latch</code> brought the one-method
+  floor from +260 to +108 B, but <code>bits_de</code> (<code>just size-bench</code>, small and wide fields together) grew 704 → 888 B on
+  thumbv6m, as both reads are linked.</li>
+<li><strong>SW-31 <code>Delta</code> / <code>DeltaOfDelta</code></strong>, <strong>SW-32 <code>XorFloat</code></strong>, <strong>SW-50 compressed sequences in APIs</strong> — superseded by
+  <code>Series&lt;T&gt;</code> (SW-60): its numeric columns use the SW-31 prefix code with the delta or delta of delta predictor, its
+  float columns the SW-32 XOR code, plus packed, constant and plain and the smallest picked per column, in every API
+  position and in dynamic clients and Python (CLT-29); the types were removed (18 Oct 2026).</li>
+</ul>
+
+
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-circle-arrow-up" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4M12 16V8"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../../features/" class="md-footer__link md-footer__link--prev" aria-label="Previous: WireWeaver">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                WireWeaver
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../../std_library/features/" class="md-footer__link md-footer__link--next" aria-label="Next: ww_base">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                ww_base
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2026 vhrdtech
+    </div>
+  
+  
+    Made with
+    <a href="https://zensical.org/" target="_blank" rel="noopener">
+      Zensical
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+    <a href="https://github.com/vhrdtech" target="_blank" rel="noopener" title="vhrdtech on GitHub" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M216.5 362.5c-66-8-112.5-55.5-112.5-117 0-25 9-52 24-70-6.5-16.5-5.5-51.5 2-66 20-2.5 47 8 63 22.5 19-6 39-9 63.5-9s44.5 3 62.5 8.5c15.5-14 43-24.5 63-22 7 13.5 8 48.5 1.5 65.5 16 19 24.5 44.5 24.5 70.5 0 61.5-46.5 108-113.5 116.5 17 11 28.5 35 28.5 62.5v52c0 15 12.5 23.5 27.5 17.5C441 459.5 512 369 512 257 512 115.5 397 0 255.5 0S0 115.5 0 257c0 111 70.5 203 165.5 237.5 13.5 5 26.5-4 26.5-17.5v-40c-7 3-16 5-24 5-33 0-52.5-18-66.5-51.5-5.5-13.5-11.5-21.5-23-23-6-.5-8-3-8-6 0-6 10-10.5 20-10.5 14.5 0 27 9 40 27.5 10 14.5 20.5 21 33 21s20.5-4.5 32-16c8.5-8.5 15-16 21-21"/></svg>
+    </a>
+  
+    
+    
+    
+    
+    <a href="https://www.linkedin.com/company/vhrdtech/" target="_blank" rel="noopener" title="vhrdtech on LinkedIn" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M416 32H31.9C14.3 32 0 46.5 0 64.3v383.4C0 465.5 14.3 480 31.9 480H416c17.6 0 32-14.5 32-32.3V64.3c0-17.8-14.4-32.3-32-32.3M135.4 416H69V202.2h66.5V416zM102.2 96a38.5 38.5 0 1 1 0 77 38.5 38.5 0 1 1 0-77m282.1 320h-66.4V312c0-24.8-.5-56.7-34.5-56.7-34.6 0-39.9 27-39.9 54.9V416h-66.4V202.2h63.7v29.2h.9c8.9-16.8 30.6-34.5 62.9-34.5 67.2 0 79.7 44.3 79.7 101.9z"/></svg>
+    </a>
+  
+    
+    
+    
+    
+    <a href="https://vhrd.tech" target="_blank" rel="noopener" title="vhrd.tech website" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M351.9 280H161c2.9 64.5 17.2 123.9 37.5 167.4 11.4 24.5 23.7 41.8 35.1 52.4 11.2 10.5 18.9 12.2 22.9 12.2s11.7-1.7 22.9-12.2c11.4-10.6 23.7-28 35.1-52.4 20.3-43.5 34.6-102.9 37.5-167.4zm-191-48h190.9c-2.8-64.5-17.1-123.9-37.4-167.4-11.4-24.4-23.7-41.8-35.1-52.4C268.1 1.7 260.4 0 256.4 0s-11.7 1.7-22.9 12.2c-11.4 10.6-23.7 28-35.1 52.4-20.3 43.5-34.6 102.9-37.5 167.4m-48 0c3.5-85.6 25.6-165.1 57.9-217.3C78.7 47.3 10.9 131.2 1.5 232zM1.5 280c9.4 100.8 77.2 184.7 169.3 217.3-32.3-52.2-54.4-131.7-57.9-217.3zm398.4 0c-3.5 85.6-25.6 165.1-57.9 217.3 92.1-32.7 159.9-116.5 169.3-217.3zm111.4-48C501.9 131.2 434.1 47.3 342 14.7c32.3 52.2 54.4 131.7 57.9 217.3z"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog" role="status" aria-atomic="true">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      
+      
+        
+        
+      <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["announce.dismiss","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.path","navigation.sections","navigation.tabs","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../../assets/javascripts/workers/search.719e0d91.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.3cb411a8.min.js"></script>
+      
+        <script src="../../javascripts/ww_highlight.js"></script>
+      
+    
+  </body>
+</html>

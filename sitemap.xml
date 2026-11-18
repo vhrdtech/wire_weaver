@@ -13,9 +13,6 @@
         <loc>https://ww.vhrd.tech/api/batching/</loc>
       </url>
       <url>
-        <loc>https://ww.vhrd.tech/api/bus_slave/</loc>
-      </url>
-      <url>
         <loc>https://ww.vhrd.tech/api/counted_streams/</loc>
       </url>
       <url>
@@ -133,6 +130,9 @@
         <loc>https://ww.vhrd.tech/evolution/rules/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/evolution/snapshots/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/evolution/units_by_meaning/</loc>
       </url>
       <url>
@@ -175,6 +175,9 @@
         <loc>https://ww.vhrd.tech/serdes/derive_reference/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/serdes/features/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/serdes/layouts/</loc>
       </url>
       <url>
@@ -199,6 +202,9 @@
         <loc>https://ww.vhrd.tech/serdes/wire_format/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/std_library/bus_slave/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/std_library/customary/</loc>
       </url>
       <url>
@@ -206,6 +212,9 @@
       </url>
       <url>
         <loc>https://ww.vhrd.tech/std_library/exact_units/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/std_library/features/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/std_library/indices/</loc>
@@ -224,6 +233,9 @@
       </url>
       <url>
         <loc>https://ww.vhrd.tech/std_library/rounding/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/std_library/stdlib_features/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/std_library/units_in_the_model/</loc>
@@ -340,10 +352,34 @@
         <loc>https://ww.vhrd.tech/tape/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/tape/concepts/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/tape/events_and_series/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/tape/features/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/tape/format/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/tape/logring/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/tape/numbers/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/tape/pieces_and_files/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/tape/reading/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/tape/recovery/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/tape/writing/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/transport/follow_reboot/</loc>

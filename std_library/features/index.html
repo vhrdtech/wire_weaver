@@ -12,25 +12,25 @@
         <meta name="author" content="Roman Isaikin">
       
       
-        <link rel="canonical" href="https://ww.vhrd.tech/api/bus_slave/">
+        <link rel="canonical" href="https://ww.vhrd.tech/std_library/features/">
       
       
       
-        <link rel="prev" href="../ecc_flash/">
+        <link rel="prev" href="../../serdes/features/">
       
       
-        <link rel="next" href="../counted_streams/">
+        <link rel="next" href="../../tape/features/">
       
       
         
       
       
       <link rel="icon" href="../../assets/wire_weaver_favicon.svg">
-      <meta name="generator" content="zensical-0.1.1">
+      <meta name="generator" content="zensical-0.1.2">
     
     
       
-        <title>I2C and SPI slave engine - WireWeaver</title>
+        <title>ww_base - WireWeaver</title>
       
     
     
@@ -64,6 +64,8 @@
       <link rel="stylesheet" href="../../stylesheets/vhrd.css">
     
       <link rel="stylesheet" href="../../stylesheets/ww_highlight.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/figures.css">
     
     <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
@@ -121,7 +123,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              I2C and SPI slave engine
+              ww_base
             
           </span>
         </div>
@@ -294,8 +296,6 @@
   
   
   
-    
-  
   
     
       
@@ -322,8 +322,8 @@
     
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../overview/" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../api/overview/" class="md-tabs__link">
           
   
   API
@@ -387,7 +387,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../std_library/overview/" class="md-tabs__link">
+        <a href="../overview/" class="md-tabs__link">
           
   
   Standard library
@@ -446,6 +446,20 @@
       
         
           
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
         
       
         
@@ -562,15 +576,35 @@
   
   
   
+    
   
-    <li class="md-tabs__item">
-      <a href="../../features/" class="md-tabs__link">
+  
+    
+      
+      
         
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../features/" class="md-tabs__link">
+          
   
   Feature tracker
 
-      </a>
-    </li>
+        </a>
+      </li>
+    
   
 
       
@@ -1381,10 +1415,8 @@
       
   
   
-    
   
   
-  
     
     
       
@@ -1410,22 +1442,19 @@
     
     
       
-        
-        
-      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
         
           
-          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
             
   
   
@@ -1443,7 +1472,7 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
             <label class="md-nav__title" for="__nav_4">
               <span class="md-nav__icon md-icon"></span>
               
@@ -1460,7 +1489,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../overview/" class="md-nav__link">
+      <a href="../../api/overview/" class="md-nav__link">
         
   
   
@@ -1487,7 +1516,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../folder_structure/" class="md-nav__link">
+      <a href="../../api/folder_structure/" class="md-nav__link">
         
   
   
@@ -1514,7 +1543,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../methods/" class="md-nav__link">
+      <a href="../../api/methods/" class="md-nav__link">
         
   
   
@@ -1541,7 +1570,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../properties/" class="md-nav__link">
+      <a href="../../api/properties/" class="md-nav__link">
         
   
   
@@ -1568,7 +1597,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../streams/" class="md-nav__link">
+      <a href="../../api/streams/" class="md-nav__link">
         
   
   
@@ -1595,7 +1624,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../traits/" class="md-nav__link">
+      <a href="../../api/traits/" class="md-nav__link">
         
   
   
@@ -1622,7 +1651,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../errors/" class="md-nav__link">
+      <a href="../../api/errors/" class="md-nav__link">
         
   
   
@@ -1646,10 +1675,8 @@
                   
   
   
-    
   
   
-  
     
     
       
@@ -1688,21 +1715,18 @@
     
       
       
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_8" >
         
           
-          
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_8" checked>
-        
-          
-          <label class="md-nav__link" for="__nav_4_8" id="__nav_4_8_label" tabindex="">
+          <label class="md-nav__link" for="__nav_4_8" id="__nav_4_8_label" tabindex="0">
             
   
   
@@ -1720,7 +1744,7 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_8_label" aria-expanded="true">
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_8_label" aria-expanded="false">
             <label class="md-nav__title" for="__nav_4_8">
               <span class="md-nav__icon md-icon"></span>
               
@@ -1737,7 +1761,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../arrays/" class="md-nav__link">
+      <a href="../../api/arrays/" class="md-nav__link">
         
   
   
@@ -1764,7 +1788,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../handlers/" class="md-nav__link">
+      <a href="../../api/handlers/" class="md-nav__link">
         
   
   
@@ -1791,7 +1815,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../local_trait/" class="md-nav__link">
+      <a href="../../api/local_trait/" class="md-nav__link">
         
   
   
@@ -1818,7 +1842,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../large_messages/" class="md-nav__link">
+      <a href="../../api/large_messages/" class="md-nav__link">
         
   
   
@@ -1845,7 +1869,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../optional_items/" class="md-nav__link">
+      <a href="../../api/optional_items/" class="md-nav__link">
         
   
   
@@ -1872,7 +1896,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../introspection/" class="md-nav__link">
+      <a href="../../api/introspection/" class="md-nav__link">
         
   
   
@@ -1899,7 +1923,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../metadata/" class="md-nav__link">
+      <a href="../../api/metadata/" class="md-nav__link">
         
   
   
@@ -1926,7 +1950,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../multi_requests/" class="md-nav__link">
+      <a href="../../api/multi_requests/" class="md-nav__link">
         
   
   
@@ -1953,7 +1977,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../observing/" class="md-nav__link">
+      <a href="../../api/observing/" class="md-nav__link">
         
   
   
@@ -1980,7 +2004,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../batching/" class="md-nav__link">
+      <a href="../../api/batching/" class="md-nav__link">
         
   
   
@@ -2007,7 +2031,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../stream_compression/" class="md-nav__link">
+      <a href="../../api/stream_compression/" class="md-nav__link">
         
   
   
@@ -2034,7 +2058,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../versioning/" class="md-nav__link">
+      <a href="../../api/versioning/" class="md-nav__link">
         
   
   
@@ -2061,7 +2085,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../settings/" class="md-nav__link">
+      <a href="../../api/settings/" class="md-nav__link">
         
   
   
@@ -2088,7 +2112,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../ecc_flash/" class="md-nav__link">
+      <a href="../../api/ecc_flash/" class="md-nav__link">
         
   
   
@@ -2112,36 +2136,10 @@
                   
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  I2C and SPI slave engine
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="././" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../bus_slave/" class="md-nav__link">
         
   
   
@@ -2156,71 +2154,6 @@
   
 
       </a>
-      
-        
-
-
-<nav class="md-nav md-nav--secondary" aria-label="On this page">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      On this page
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#two-sides" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Two sides
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#i2c" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        I2C
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#spi" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        SPI
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#cost-per-byte" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Cost per byte
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -2264,20 +2197,17 @@
       
       
         
-          
-          
-        
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_9" >
         
           
-          <label class="md-nav__link" for="__nav_4_9" id="__nav_4_9_label" tabindex="">
+          <label class="md-nav__link" for="__nav_4_9" id="__nav_4_9_label" tabindex="0">
             
   
   
@@ -2312,7 +2242,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../counted_streams/" class="md-nav__link">
+      <a href="../../api/counted_streams/" class="md-nav__link">
         
   
   
@@ -2339,7 +2269,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../stream_reliability/" class="md-nav__link">
+      <a href="../../api/stream_reliability/" class="md-nav__link">
         
   
   
@@ -2366,7 +2296,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../stream_stores/" class="md-nav__link">
+      <a href="../../api/stream_stores/" class="md-nav__link">
         
   
   
@@ -2393,7 +2323,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../credit_sinks/" class="md-nav__link">
+      <a href="../../api/credit_sinks/" class="md-nav__link">
         
   
   
@@ -2420,7 +2350,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../stream_protocol/" class="md-nav__link">
+      <a href="../../api/stream_protocol/" class="md-nav__link">
         
   
   
@@ -2447,7 +2377,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../trait_attachments/" class="md-nav__link">
+      <a href="../../api/trait_attachments/" class="md-nav__link">
         
   
   
@@ -2474,7 +2404,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../addressing/" class="md-nav__link">
+      <a href="../../api/addressing/" class="md-nav__link">
         
   
   
@@ -2618,6 +2548,8 @@
       
         
       
+        
+      
     
     
     
@@ -2731,6 +2663,33 @@
     
   
   The evolution checker
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../evolution/snapshots/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Finding snapshots
 
     
   </span>
@@ -3002,7 +2961,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/overview/" class="md-nav__link">
+      <a href="../overview/" class="md-nav__link">
         
   
   
@@ -3118,7 +3077,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/io_family/" class="md-nav__link">
+      <a href="../io_family/" class="md-nav__link">
         
   
   
@@ -3145,7 +3104,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/ww_gpio/" class="md-nav__link">
+      <a href="../ww_gpio/" class="md-nav__link">
         
   
   
@@ -3172,7 +3131,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/ww_uart/" class="md-nav__link">
+      <a href="../ww_uart/" class="md-nav__link">
         
   
   
@@ -3199,7 +3158,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/ww_can_bus/" class="md-nav__link">
+      <a href="../ww_can_bus/" class="md-nav__link">
         
   
   
@@ -3226,7 +3185,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/ww_i2c/" class="md-nav__link">
+      <a href="../ww_i2c/" class="md-nav__link">
         
   
   
@@ -3253,7 +3212,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/ww_i2c_hl/" class="md-nav__link">
+      <a href="../ww_i2c_hl/" class="md-nav__link">
         
   
   
@@ -3280,7 +3239,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/ww_spi/" class="md-nav__link">
+      <a href="../ww_spi/" class="md-nav__link">
         
   
   
@@ -3307,7 +3266,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/ww_onewire/" class="md-nav__link">
+      <a href="../ww_onewire/" class="md-nav__link">
         
   
   
@@ -3334,7 +3293,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/ww_adc/" class="md-nav__link">
+      <a href="../ww_adc/" class="md-nav__link">
         
   
   
@@ -3361,7 +3320,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/ww_pwm/" class="md-nav__link">
+      <a href="../ww_pwm/" class="md-nav__link">
         
   
   
@@ -3388,7 +3347,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/ww_timebase/" class="md-nav__link">
+      <a href="../ww_timebase/" class="md-nav__link">
         
   
   
@@ -3415,7 +3374,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/ww_logic_analyzer/" class="md-nav__link">
+      <a href="../ww_logic_analyzer/" class="md-nav__link">
         
   
   
@@ -3442,7 +3401,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/ww_signal_generator/" class="md-nav__link">
+      <a href="../ww_signal_generator/" class="md-nav__link">
         
   
   
@@ -3469,7 +3428,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/ww_memory/" class="md-nav__link">
+      <a href="../ww_memory/" class="md-nav__link">
         
   
   
@@ -3496,7 +3455,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/ww_pin_diag/" class="md-nav__link">
+      <a href="../ww_pin_diag/" class="md-nav__link">
         
   
   
@@ -3523,7 +3482,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/ww_block/" class="md-nav__link">
+      <a href="../ww_block/" class="md-nav__link">
         
   
   
@@ -3550,7 +3509,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/ww_sd/" class="md-nav__link">
+      <a href="../ww_sd/" class="md-nav__link">
         
   
   
@@ -3577,7 +3536,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/ww_can_bus_reference/" class="md-nav__link">
+      <a href="../ww_can_bus_reference/" class="md-nav__link">
         
   
   
@@ -3692,7 +3651,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/device_contract/" class="md-nav__link">
+      <a href="../device_contract/" class="md-nav__link">
         
   
   
@@ -3719,7 +3678,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/ww_firmware_info/" class="md-nav__link">
+      <a href="../ww_firmware_info/" class="md-nav__link">
         
   
   
@@ -3746,7 +3705,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/ww_board_info/" class="md-nav__link">
+      <a href="../ww_board_info/" class="md-nav__link">
         
   
   
@@ -3773,7 +3732,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/ww_uid/" class="md-nav__link">
+      <a href="../ww_uid/" class="md-nav__link">
         
   
   
@@ -3800,7 +3759,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/ww_user_info/" class="md-nav__link">
+      <a href="../ww_user_info/" class="md-nav__link">
         
   
   
@@ -3827,7 +3786,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/ww_log/" class="md-nav__link">
+      <a href="../ww_log/" class="md-nav__link">
         
   
   
@@ -3854,7 +3813,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/ww_indication/" class="md-nav__link">
+      <a href="../ww_indication/" class="md-nav__link">
         
   
   
@@ -3881,7 +3840,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/ww_dfu/" class="md-nav__link">
+      <a href="../ww_dfu/" class="md-nav__link">
         
   
   
@@ -3908,7 +3867,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/ww_counters/" class="md-nav__link">
+      <a href="../ww_counters/" class="md-nav__link">
         
   
   
@@ -3935,7 +3894,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/ww_recorder/" class="md-nav__link">
+      <a href="../ww_recorder/" class="md-nav__link">
         
   
   
@@ -3962,7 +3921,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/ww_dfu_ab/" class="md-nav__link">
+      <a href="../ww_dfu_ab/" class="md-nav__link">
         
   
   
@@ -3989,7 +3948,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/ww_dfu_one_slot/" class="md-nav__link">
+      <a href="../ww_dfu_one_slot/" class="md-nav__link">
         
   
   
@@ -4016,7 +3975,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/ww_dfu_internals/" class="md-nav__link">
+      <a href="../ww_dfu_internals/" class="md-nav__link">
         
   
   
@@ -4127,7 +4086,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/ww_si/" class="md-nav__link">
+      <a href="../ww_si/" class="md-nav__link">
         
   
   
@@ -4154,7 +4113,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/exact_units/" class="md-nav__link">
+      <a href="../exact_units/" class="md-nav__link">
         
   
   
@@ -4181,7 +4140,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/customary/" class="md-nav__link">
+      <a href="../customary/" class="md-nav__link">
         
   
   
@@ -4208,7 +4167,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/magnitude/" class="md-nav__link">
+      <a href="../magnitude/" class="md-nav__link">
         
   
   
@@ -4235,7 +4194,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/points/" class="md-nav__link">
+      <a href="../points/" class="md-nav__link">
         
   
   
@@ -4262,7 +4221,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/units_in_the_model/" class="md-nav__link">
+      <a href="../units_in_the_model/" class="md-nav__link">
         
   
   
@@ -4289,7 +4248,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/rounding/" class="md-nav__link">
+      <a href="../rounding/" class="md-nav__link">
         
   
   
@@ -4316,7 +4275,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/indices/" class="md-nav__link">
+      <a href="../indices/" class="md-nav__link">
         
   
   
@@ -4343,7 +4302,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/ww_error/" class="md-nav__link">
+      <a href="../ww_error/" class="md-nav__link">
         
   
   
@@ -4370,7 +4329,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/ww_date_time/" class="md-nav__link">
+      <a href="../ww_date_time/" class="md-nav__link">
         
   
   
@@ -4397,7 +4356,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/ww_numeric/" class="md-nav__link">
+      <a href="../ww_numeric/" class="md-nav__link">
         
   
   
@@ -4492,7 +4451,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/ww_version/" class="md-nav__link">
+      <a href="../ww_version/" class="md-nav__link">
         
   
   
@@ -4519,7 +4478,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/ww_client_server/" class="md-nav__link">
+      <a href="../ww_client_server/" class="md-nav__link">
         
   
   
@@ -4546,7 +4505,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../std_library/ww_self/" class="md-nav__link">
+      <a href="../ww_self/" class="md-nav__link">
         
   
   
@@ -5137,6 +5096,20 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -5197,6 +5170,114 @@
   
   
     <li class="md-nav__item">
+      <a href="../../tape/concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Tape concepts
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tape/writing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Writing a tape
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tape/pieces_and_files/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Pieces and files
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tape/reading/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Reading a tape
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../tape/events_and_series/" class="md-nav__link">
         
   
@@ -5224,6 +5305,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../../tape/numbers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Numbers
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../tape/recovery/" class="md-nav__link">
         
   
@@ -5232,6 +5340,60 @@
     
   
   Damage and recovery
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tape/logring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Tapes and logring
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tape/format/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Format reference
 
     
   </span>
@@ -5886,6 +6048,74 @@
       
   
   
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Feature tracker
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_12">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Feature tracker
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
   
   
     <li class="md-nav__item">
@@ -5898,7 +6128,7 @@
   <span class="md-ellipsis">
     
   
-  Feature tracker
+  WireWeaver
 
     
   </span>
@@ -5906,6 +6136,224 @@
   
 
       </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../serdes/features/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-list-checks" viewBox="0 0 24 24"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  shrink_wrap
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-list-checks" viewBox="0 0 24 24"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_base
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-list-checks" viewBox="0 0 24 24"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_base
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#how-to-use-this-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        How to use this file
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#base-types-and-quantities-ww_si-ww_numeric-ww_version-ww_date_time-ww_error-std" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Base types and quantities (<code>ww_si</code>, <code>ww_numeric</code>, <code>ww_version</code>, <code>ww_date_time</code>, <code>ww_error</code>, <code>STD</code>)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#evolution-of-these-crates-types-and-the-id-ledger-ww_global-evo" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Evolution of these crates' types and the id ledger (<code>ww_global</code>, <code>EVO</code>)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#checksums-ww_crc-tr" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Checksums (<code>ww_crc</code>, <code>TR</code>)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tape/features/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-list-checks" viewBox="0 0 24 24"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_tape
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stdlib_features/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-list-checks" viewBox="0 0 24 24"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_stdlib
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
     </li>
   
 
@@ -5951,10 +6399,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#two-sides" class="md-nav__link">
+  <a href="#how-to-use-this-file" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Two sides
+        How to use this file
       </span>
     </span>
   </a>
@@ -5962,10 +6410,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#i2c" class="md-nav__link">
+  <a href="#base-types-and-quantities-ww_si-ww_numeric-ww_version-ww_date_time-ww_error-std" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        I2C
+        Base types and quantities (<code>ww_si</code>, <code>ww_numeric</code>, <code>ww_version</code>, <code>ww_date_time</code>, <code>ww_error</code>, <code>STD</code>)
       </span>
     </span>
   </a>
@@ -5973,10 +6421,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#spi" class="md-nav__link">
+  <a href="#evolution-of-these-crates-types-and-the-id-ledger-ww_global-evo" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        SPI
+        Evolution of these crates' types and the id ledger (<code>ww_global</code>, <code>EVO</code>)
       </span>
     </span>
   </a>
@@ -5984,10 +6432,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#cost-per-byte" class="md-nav__link">
+  <a href="#checksums-ww_crc-tr" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Cost per byte
+        Checksums (<code>ww_crc</code>, <code>TR</code>)
       </span>
     </span>
   </a>
@@ -6009,109 +6457,6 @@
 
 
 
-
-  <nav class="md-path" aria-label="Navigation" >
-    <ol class="md-path__list">
-      
-      
-        
-  
-  
-    
-    
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-    
-    
-    
-    
-      <li class="md-path__item">
-        <a href="../overview/" class="md-path__link">
-          
-  
-  <span class="md-ellipsis">
-    API
-  </span>
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-    
-    
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-    
-    
-    
-    
-      <li class="md-path__item">
-        <a href="../arrays/" class="md-path__link">
-          
-  
-  <span class="md-ellipsis">
-    Advanced
-  </span>
-
-        </a>
-      </li>
-    
-  
-
-      
-    </ol>
-  </nav>
 
               
               <article class="md-content__inner md-typeset">
@@ -6140,180 +6485,152 @@
   
 
 
-<h1 id="i2c-and-spi-slave-engine">I2C and SPI slave engine<a class="headerlink" href="#i2c-and-spi-slave-engine" title="Permanent link">&para;</a></h1>
-<p>A device that implements the <code>slave</code> group of <a href="../../std_library/ww_i2c/#slave-mode"><code>ww_i2c</code></a> or
-<a href="../../std_library/ww_spi/#slave-mode"><code>ww_spi</code></a> stands in for a chip on another master's bus. What it answers, when
-a host update takes effect, what happens when the host is too slow and what each event says is fixed by the API;
-the <code>ww_bus_slave</code> crate does all of it, so a firmware only wires its peripheral's interrupts to it. It is <code>no_std</code>,
-sans-IO and needs no allocator.</p>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[dependencies]</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">ww_bus_slave</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;0.5&quot;</span>
-</span></code></pre></div>
-<h2 id="two-sides">Two sides<a class="headerlink" href="#two-sides" title="Permanent link">&para;</a></h2>
-<p><code>I2cSlave</code> and <code>SpiSlave</code> are plain structs with <code>&amp;mut self</code> methods of two kinds:</p>
+<h1 id="ww_base-features-and-roadmap">ww_base features and roadmap<a class="headerlink" href="#ww_base-features-and-roadmap" title="Permanent link">&para;</a></h1>
+<p>This file is the single source of truth for what the ww_base crates support, what is being worked on and what is
+planned, for humans and AI agents alike.</p>
+<h2 id="how-to-use-this-file">How to use this file<a class="headerlink" href="#how-to-use-this-file" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Interrupt side</strong>, called per byte from the peripheral's interrupt handler: an address matched, a byte came, a
-  byte is wanted, a stop; CS edges for SPI.</li>
-<li><strong>Task side</strong>, called from the API handlers: <code>configure</code> when the <code>slave_events</code> / <code>slave_frames</code> stream opens,
-  <code>disable</code> when it closes, <code>map_write</code> / <code>map_read</code>, <code>push_answer</code> for each item of the <code>slave_answers</code> sink
-  (<code>free_answer_slots</code> is how many credits it may give), <code>clear_answers</code>, and <code>peek_event</code> / <code>pop_event</code> /
-  <code>take_dropped</code> to move events into the counted stream.</li>
+<li><strong>Status</strong> of each item:</li>
+<li>✅ done</li>
+<li>🚧 in progress or partially done (the note says what is missing)</li>
+<li>📋 planned</li>
+<li>💡 idea, not committed to</li>
+<li>⛔ blocked (the note says on what)</li>
+<li>🔍 probably done or obsolete, needs a check before closing</li>
+<li>🧪 done and tested on the host, the check on hardware is still open (the note says what to check)</li>
+<li>🐛 known bug, not yet fixed (the note says how to hit it)</li>
+<li><strong>Target</strong> is the release an item is planned for (<code>v0.5</code> is WireWeaver's next release, which these items were
+  planned with). No tag means not scheduled.</li>
+<li><strong>IDs</strong> (<code>STD-3</code>, <code>EVO-16</code>, <code>TR-31</code>) are stable: never renumber or reuse one. New items take the next free number
+  of their area. Use the ID in commit messages, CHANGELOG entries and code <code>TODO</code>s (<code>// TODO(STD-74): ...</code>). When
+  talking to people, name an ID with a short slug from its title (<code>STD-3 ww-si-and-numeric</code>), never bare.</li>
+<li>The items came from WireWeaver's <code>FEATURES.md</code> with their IDs, where these crates were developed. The areas are
+  WireWeaver's: an item here is one whose code lives in this repository's crates. IDs not listed here (<code>SW</code>, <code>DER</code>,
+  <code>API</code>, <code>SRV</code>, <code>CLT</code>, <code>INT</code>, <code>TEST</code>, ...) and paths outside this repository's crates (<code>tests/quantities</code>,
+  <code>tests/conformance</code>, <code>wire_weaver_client</code>, <code>docs/api/..</code>) are <a href="https://github.com/vhrdtech/wire_weaver">wire_weaver</a>'s,
+  or <a href="https://github.com/romixlab/shrink_wrap">shrink_wrap</a>'s and <a href="https://github.com/romixlab/exact_units">exact_units</a>'s
+  where they name those crates. The walker, model and client sides of these types stay with WireWeaver.</li>
+<li>Items are grouped by area. Each area lists what works first (✅), then open items ordered by target.</li>
+<li>When finishing work, update the item in the same change: mark it ✅, move it up to the done items of its area and
+  add a pointer (docs page, crate, test or example). Don't delete done items. Move items that turn out to be obsolete
+  to a "Dropped and superseded" section with a one-line reason.</li>
+<li>New ideas go into the matching area as 💡. Small code-level gaps stay as <code>TODO</code> comments in the source; only those
+  that limit users or block a feature get an item here.</li>
 </ul>
-<p>The firmware decides how the two share the engine, usually a critical-section mutex in a <code>static</code>. <code>new</code> is a
-<code>const fn</code>, so the engine (map, queue and event ring, a few KB) is built in place in that <code>static</code> and never
-passes through the stack:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">type</span><span class="w"> </span><span class="nc">Slave</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ww_bus_slave</span><span class="p">::</span><span class="n">I2cSlave</span><span class="o">&lt;</span><span class="mi">256</span><span class="p">,</span><span class="w"> </span><span class="mi">64</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="mi">64</span><span class="p">,</span><span class="w"> </span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="mi">64</span><span class="o">&gt;</span><span class="p">;</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">static</span><span class="w"> </span><span class="n">SLAVE</span><span class="p">:</span><span class="w"> </span><span class="nc">Mutex</span><span class="o">&lt;</span><span class="n">CriticalSectionRawMutex</span><span class="p">,</span><span class="w"> </span><span class="n">RefCell</span><span class="o">&lt;</span><span class="n">Slave</span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Mutex</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">RefCell</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">Slave</span><span class="p">::</span><span class="n">new</span><span class="p">()));</span>
-</span></code></pre></div>
-<p>The const parameters are the sizes: register map bytes, room for staged host updates (each takes 6 bytes more than
-its data), answer slots and their length, events and the bytes kept per event. They are what the device reports in
-<code>I2cSlaveCapabilities</code> / <code>SpiSlaveCapabilities</code> (<code>map_len</code>, <code>queue_len</code>), together with what the peripheral can do
-(the stretch limit, <code>Nack</code>, 10-bit addresses, the clock).</p>
-<p>Times are <code>u32</code> microseconds of the device clock, wrapping, the unit the events carry.</p>
-<h2 id="i2c">I2C<a class="headerlink" href="#i2c" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Peripheral event</th>
-<th>Call</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Address matched (start or repeated start)</td>
-<td><code>address(read, now)</code>; it says whether to acknowledge</td>
-</tr>
-<tr>
-<td>Byte written by the master</td>
-<td><code>write(byte, now)</code></td>
-</tr>
-<tr>
-<td>Master reads a byte</td>
-<td><code>read(now)</code>: <code>ReadByte::Byte(b)</code> to send, or <code>ReadByte::Stretch</code></td>
-</tr>
-<tr>
-<td>Repeated start reported on its own</td>
-<td><code>restart(now)</code></td>
-</tr>
-<tr>
-<td>Stop</td>
-<td><code>stop(now)</code>, then wake the task</td>
-</tr>
-<tr>
-<td>Bus error</td>
-<td><code>bus_error(now)</code></td>
-</tr>
-</tbody>
-</table>
-<p><code>write</code> and <code>read</code> see the direction themselves when a peripheral reports no address match (DW_apb_i2c on the
-RP2040/RP2350 reports bytes, <code>RD_REQ</code> and <code>STOP_DET</code>): a byte of the other direction ends the transfer going on as a
-repeated start.</p>
+<h2 id="base-types-and-quantities-ww_si-ww_numeric-ww_version-ww_date_time-ww_error-std">Base types and quantities (<code>ww_si</code>, <code>ww_numeric</code>, <code>ww_version</code>, <code>ww_date_time</code>, <code>ww_error</code>, <code>STD</code>)<a class="headerlink" href="#base-types-and-quantities-ww_si-ww_numeric-ww_version-ww_date_time-ww_error-std" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Stretching.</strong> With <code>I2cSlaveUnderrun::Stretch</code>, <code>read</code> answers <code>Stretch</code> when no answer is queued and records
-  <code>I2cSlaveEvent::ReadWaiting</code> for the task to send at once. The firmware leaves the TX register empty (DW_apb_i2c
-  and STM32 hold SCL low on their own meanwhile), arms a timer for <code>stretch_deadline()</code>, and calls <code>resume(now)</code> when
-  it fires and after each <code>push_answer</code>: it gives the byte to send once the answer is there or the limit passed.</li>
-<li><strong><code>Nack</code>.</strong> <code>acks_address()</code> says whether the address should be acknowledged now. A peripheral that acknowledges by
-  itself has its slave address enabled by it after <code>configure</code>, <code>push_answer</code> and <code>stop</code>.</li>
-<li><strong>A TX FIFO loaded ahead.</strong> Bytes <code>read</code> gave that the master didn't clock out (it NACKed earlier) are taken back
-  with <code>unsent(n)</code> before <code>stop</code>, so the register pointer and the answer stay where the master left them.</li>
-<li><strong>Host updates</strong> of the map made during a transaction wait for its stop (<code>map_write</code> stages them; <code>Busy</code> when the
-  staging room is full: try again once <code>is_idle()</code>), so a master never reads half of a multi-byte value.</li>
+<li>✅ <strong>STD-2 <code>ww_version</code></strong>.</li>
+<li>✅ <strong>STD-3 <code>ww_si</code></strong> and <strong><code>ww_numeric</code></strong>.</li>
+<li>✅ <strong>STD-4 <code>ww_date_time</code></strong>.</li>
+<li>✅ <strong>STD-16 Common errors</strong> · <code>v0.5</code> — <code>ww_error::CommonError</code> (<code>Unsupported</code>, <code>InvalidArgument</code>, <code>InUse</code>, <code>Busy</code>,
+  <code>WrongState</code>, <code>NoPower</code>, <code>Refused</code>, <code>Timeout</code>, <code>Fault</code>, bounded strings), re-exported as
+  <code>ww_api::prelude::CommonError</code>, is an error every item of every API can return, beside the API's own error enum
+  and without a variant in it: the protocol carries it as <code>ww_client_server::ErrorKind::Common</code> (wire <code>w2.0</code>), a
+  handler returns <code>Result&lt;T, wire_weaver::Error&lt;'_, E&gt;&gt;</code> (<code>Common</code> or <code>Api</code>, <code>?</code> takes both through <code>api_error!</code>) or
+  <code>Result&lt;T, CommonError&gt;</code> for an item without an error type, the client gets <code>CallError::Common</code> or
+  <code>Error::common()</code>, <code>#[errors(..)]</code> lists them as <code>CommonError(Busy, InUse)</code> on any item. Tools read the event, no
+  crate name is matched: Python <code>RemoteError.common</code>, <code>ww</code> prints its text, <code>CommonError::DOCS</code> gives names and doc
+  lines. Every <code>ww_stdlib</code> API crate uses it; <code>ww_counters</code>, <code>ww_log</code>, <code>ww_timebase</code> and <code>ww_uart</code> lost their error
+  enums, which held nothing else. The server side is SRV-63.
+  <code>docs/ww_error.md</code>, <code>docs/api/errors.md#common-errors</code>, <code>tests/common_error</code>, <code>wire_weaver_py</code>
+  <code>test_errors.py</code>.</li>
+<li>✅ <strong>STD-23 <code>ww_si</code> / <code>ww_numeric</code> extended</strong> · <code>v0.5</code> — quantity groups and host helpers as cargo features,
+  <code>Second</code> as a device timestamp (wrap rule, host <code>Unwrapper</code>), constructors, conversions and comparisons across
+  prefixes and storage, <code>UVlq32</code> / <code>UVlq64</code> storage, <code>Baud</code> for baud rates (STD-13), <code>Ratio</code>, <code>Torque</code> and
+  <code>Timed&lt;T&gt;</code> (EX-11). <code>docs/ww_si.md</code>,
+  <code>docs/ww_numeric.md</code>. Zero-overhead typed quantities (<code>Volt&lt;u16, Milli&gt;</code>) are not part of it.</li>
+<li>✅ <strong>STD-38 <code>ww_si</code> 0.2: one generic <code>Quantity&lt;U: Unit&gt;</code></strong> · <code>v0.5</code> — every quantity is
+  <code>Quantity&lt;U&gt; { prefix, value, PhantomData&lt;U&gt; }</code> with a zero-size marker per unit in <code>ww_si::units</code> and the 0.1 names
+  as aliases (<code>KiloGram</code> → <code>Gram</code>); <code>Dim</code>, <code>Scale</code>, <code>UnitExpr</code>, <code>Unit</code> (own markers in API crates), <code>Per</code> / <code>Times</code>;
+  constructors, <code>quantize</code>, conversions (<code>to_si_f64</code> through each unit's scale), <code>with_prefix</code>, <code>same_repr</code>,
+  comparisons, <code>Display</code> / <code>Debug</code> / <code>defmt</code> written once; unit algebra checked by the compiler against a product
+  table verified at compile time; <code>units::by_name</code>. Same bytes on the wire as 0.1. <code>docs/ww_si.md</code>,
+  <code>ww_si/tests</code>; the 0.2.0 snapshot holds <code>Quantity</code>, every marker and <code>Per</code> / <code>Times</code>, so devices
+  leave them out of their introspection data. Other crates' call sites moved to the new constructors; the motor demo's
+  own helpers (<code>units.rs</code>) and <code>Load</code> units are the follow-up piece; <code>BaseUnit</code> is replaced by STD-37 (run-time units).</li>
+<li>✅ <strong>STD-37 <code>ww_si</code> units known only at run time</strong> · <code>v0.5</code> — <code>SIExpr&lt;'i&gt;</code> { <code>Named { name, symbol, dim, scale }</code>,
+  <code>Mul</code>, <code>Div</code>, <code>Pow</code> } (recursive through <code>RefBox</code>, API-44) and <code>AnyQuantity&lt;'i&gt; { prefix, value, unit }</code>: the
+  marker model on the wire, <code>Dim</code> as seven 4-bit exponents (<code>sized</code>), <code>Scale</code> too. A marker's <code>UnitExpr</code> maps one to
+  one onto an <code>SIExpr</code> (<code>Unit::SI_EXPR</code>, <code>SIExpr::of</code>, <code>SIExprOwned::from</code>; back <code>==</code> and <code>known()</code>), shown, named
+  and converted to SI by the same code as typed units, walks bounded by <code>MAX_UNIT_DEPTH</code>. <code>ww_adc::ChannelInfo::unit</code>
+  is one; <code>BaseUnit</code>, <code>SIExp</code>, <code>INib8P3</code> are removed. <code>docs/ww_si.md#units-known-only-at-run-time</code> (byte
+  layouts), <code>ww_si/tests/dynamic.rs</code>, <code>tests/io_adc</code>. Dynamic clients, <code>ww</code> and Python show an
+  <code>AnyQuantity</code> like the typed quantity of its unit (CLT-31's <code>DynQuantity</code>, both rendered by the public <code>ww_si::tree</code>
+  walk), a device's own unit with its dimension and scale; writes take any quantity whose unit has a dimension.
+  <code>tests/quantities</code> (an <code>AnyQuantity</code> property through the in-process transport), <code>wire_weaver_py/tests</code>.</li>
+<li>✅ <strong>STD-43 <code>ww_si</code> without wide integers on small targets</strong> · <code>v0.5</code> — comparisons, <code>with_prefix</code>, the exact
+  arithmetic and the integer conversions of quantities work on <code>ww_numeric::Integer</code> (sign and a magnitude as wide as
+  the widest enabled number type): with types up to 32 bits only <code>u32</code> code, no <code>i64</code> / <code>i128</code> and no <code>f64</code> without
+  float types. <code>to_i32_in</code> / <code>to_u32_in</code> / <code>to_u32_wrapping_in</code>; <code>to_i128_in</code> only with 64- or 128-bit types. 6 KiB
+  less flash on Donguru (thumbv6m, <code>opt-level = "z"</code>). <code>docs/ww_si.md#conversions-and-comparisons</code>,
+  <code>ww_si/tests/narrow.rs</code> and <code>ww_numeric/tests/integer.rs</code> (run with 32-bit types only too).
+  STD-102 replaced these methods with <code>to_in</code> / <code>rescaled</code> / <code>rescaled_exact</code> on exact_units' kernel.</li>
+<li>✅ <strong>STD-102 <code>ww_si</code> on exact_units' integer kernel</strong> · <code>v0.5</code> — conversions, comparisons and bounds of <code>Quantity</code>
+  run on exact_units' NUM-13 kernel (<code>PrefixRatio</code>, <code>Prefix::rescale</code> / <code>cmp_scaled</code>) at the width of the enabled
+  number types, for every scale (SI, binary, <code>Pow10</code>, <code>Pow2</code>, <code>FullScale</code>); the <code>i128</code> / <code>f64</code> slow paths
+  (<code>ops.rs</code>) are gone. One conversion names its policy: <code>to_in::&lt;T&gt;(prefix, Rounding, Overflow)</code> replaces
+  <code>to_u32_in</code>, <code>to_i32_in</code>, <code>to_u32_wrapping_in</code> and <code>to_i128_in</code>; <code>rescaled(prefix, Rounding, Overflow)</code> and
+  <code>rescaled_exact(prefix)</code> replace <code>with_prefix</code>. No float code on a device without the <code>f32</code> feature (a float
+  target is a compile error there), <code>f64</code> on hosts only; no wire change (corpus unchanged, 8 new bounded-quantity
+  cases). Results are those of the old arithmetic (<code>ww_si/tests/oracle.rs</code>, proptests against it). QEMU
+  M3 (<code>qemu-si-convert</code>, <code>fw-z</code> / <code>fw-3</code> instructions, before → after, exact_units at 1819d9f): KiB→B 6145/6508 →
+  596/299, FullScale→mV 7346/7553 → 921/582, <code>to_fixed</code> 4340/4548 → 100/81, same prefix 99/44 → 70/34, mV→V 154/71
+  → 139/96, ms→µs 153/90 → 140/98, µs &lt; ms 184/112 → 176/119, bounded decode 413/325 → 464/316, <code>steps</code> 342/71 →
+  293/100. Flash of the bench 34.1 → 18.1 KB (<code>fw-z</code>), 47.8 → 27.6 KB (<code>fw-3</code>). Donguru <code>.text</code> 305,256 → 290,664
+  B, rePort 402,548 → 392,812 B (measured at exact_units 15cd9f5). TEST-33 is a gate now. <code>docs/ww_si.md#conversions-and-comparisons</code>.</li>
+<li>✅ <strong>STD-107 <code>AnyQuantity</code> by reference</strong> · <code>v0.5</code> — the run-time side of exact_units UNIT-7 (piece 4): an <code>AnyQuantity</code> carries a compacted <code>SIExpr</code>, a <code>Ref</code> by <code>MarkerId</code> for each unit a <code>UnitTable</code> lists (the API's model) and a <code>Def</code> otherwise; <code>From&lt;Quantity&lt;U&gt;&gt;</code> gives <code>Def</code>s, so a value reads alone anywhere. <code>to_si_f64</code>, <code>display</code> and <code>AnyQuantityOwned::to_fixed</code> take the table, <code>to_quantity::&lt;U&gt;()</code> resolves through <code>U</code>'s own definition, <code>compact_in</code> (no_std, an arena) and <code>AnyQuantityOwned::compact</code> / <code>resolve</code>; <code>Display</code> reads through <code>units::TABLE</code>. <code>Volt</code> by reference is 17 bytes of unit instead of 31. ww_si re-exports <code>UnitTable</code>, <code>UnitDef</code>, <code>MarkerId</code>, <code>CompactError</code>. A tape (<code>ww_tape</code>) with an <code>AnyQuantity</code> of an API's own <code>Rpm</code> decodes from the bundle stored in it (<code>tests/quantities</code> <code>tape_decodes_a_reference_from_its_bundle</code>). <a href="../ww_si/#units-known-only-at-run-time">Docs</a>.</li>
+<li>✅ <strong>STD-110 <code>Timed.t</code> as a device point</strong> · <code>v0.5</code> — the wire_weaver side of exact_units PT-4 point 4: <code>ww_si::Timed&lt;V, Tm = DeviceMicros&lt;u32&gt;&gt;</code>, <code>t</code> a <code>Point&lt;DeviceBoot, Fixed&lt;Second, Micro, u32&gt;&gt;</code> (µs since boot in a <code>u32</code>, wraps every 71.6 minutes) instead of a <code>Second</code>, its storage's bytes alone on the wire (wire change EVO-51). <code>Tm</code> is any <code>ww_si::TimePoint</code>: a <code>Point</code> in seconds of a linear origin in integer storage (<code>DeviceMillis&lt;u16&gt;</code>, a 32768 Hz RTC as <code>Pow2&lt;-15&gt;</code>, <code>UnixMicros&lt;u64&gt;</code>), with <code>Full</code> (the point in 64 bits), <code>low</code>, <code>wrapping_add</code> and <code>steps</code> for the device; <code>TimeStep&lt;Tm&gt;</code> is its step. <code>TimeUnwrapper&lt;Tm&gt;</code> gets the full point back on the host, sharing its core with the dynamic <code>Unwrapper</code> (which stays for <code>Second</code> times: stream heads, observe times, <code>Clock::now()</code>). A batched stream picks its <code>Tm</code> with <code>batched(time = ..)</code> (API-61), typed clients hand items out with the full point (CLT-70), the dynamic client and Python as a <code>Second</code> / <code>Quantity</code> in the point's step. Store 11 bytes per <code>Timed&lt;Ampere&gt;</code> (12), 32 <code>Timed&lt;Volt&gt;</code> in 21 bytes (22). Conformance cases <code>stdlib.si.timed.default</code>, <code>.millis_u16</code>, <code>.series</code>; tests in <code>ww_si</code> (<code>time_unwrap</code>, <code>store</code>, <code>series</code>), <code>tests/streams_batched</code> (<code>slow_stream_in_millis</code>). <a href="../ww_si/#timed-values">Docs</a>.</li>
+<li>✅ <strong>STD-116 Run-time scales in APIs</strong> · <code>v0.5</code> — the wire_weaver side of exact_units NUM-42: <code>ww_si</code> re-exports <code>RunScale</code> (an exact positive scale known at run time, <code>num / den · 2^pow2</code>, one canonical form, refused on decode otherwise), <code>Scaled&lt;U, T&gt;</code> (a number at such a scale, the unit in the type) and <code>Ticks&lt;T&gt;</code> (<code>Scaled&lt;Second, T&gt;</code>, a stream's own time base). The walker reads both as the derived structs, a <code>Scaled</code>'s unit its first type argument; the dynamic client and Python read and write them as those structs (showing a <code>Scaled</code> as a quantity is CLT-71). STD-77 stays for a scale that lives in another field or resource. Conformance cases <code>stdlib.si.run_scale.ntsc</code>, <code>.rejected</code>, <code>stdlib.si.ticks</code>; test <code>run_time_scales</code> in <code>tests/quantities</code>. <a href="../ww_si/#run-time-scales">Docs</a>.</li>
+<li>✅ <strong>STD-60 Angle, information and counted things as dimensions</strong> · <code>v0.5</code> — <code>Dim&lt;'i&gt;</code> has rad and bit as
+  base dimensions and up to four counted bases known by crate and marker name (<code>Item</code>, <code>Sample</code>, <code>Frame</code>, <code>Packet</code>,
+  <code>Cycle</code>, <code>Block</code>, <code>Sector</code>, <code>Chunk</code>, <code>Char</code>, <code>Code</code>, feature <code>counting</code>, an API's own with <code>ww_si::counted!</code>;
+  <code>Bit</code>, <code>Nibble</code>, <code>Byte</code>, <code>Halfword</code>, <code>Word</code>, <code>Doubleword</code>, feature <code>information</code>) and a root flag for half
+  exponents (V/√Hz, <code>Dim::sqrt</code>): bytes don't convert into % or rad, <code>AngularVelocity</code> isn't <code>Hertz</code>,
+  <code>Per&lt;Sample, Second&gt; × Second</code> is a <code>Sample</code>, bytes of a sample only through <code>Per&lt;Byte, Sample&gt;</code>; checked at
+  compile time (<code>Unit::DIM</code>) and at run time (<code>SIExpr</code>, <code>wire_weaver_client::DynUnit</code>, Python <code>Quantity.dim</code>).
+  <code>Torque</code> is J/rad (written N·m). Wire change EVO-16. <code>Dim</code> itself lives in <code>exact_units</code> (NUM-1).
+  <a href="../ww_si/#dimensions">ww_si dimensions</a>, <code>ww_si/tests/quantities.rs</code>.</li>
+<li>✅ <strong>STD-59 Runtime <code>ww_si</code> improvements</strong> · <code>v0.5</code> — <code>Quantity</code> on <code>exact_units</code>' units, one unit system.
+  <code>Prefix</code> without a table (Roman, 28 Oct 2026): named SI and binary prefixes (<code>Kibi</code> .. <code>Tebi</code>), the families
+  <code>Pow10(i8)</code>, <code>Pow2(i8)</code> and <code>FullScale(bits)</code> (<code>32768·1/65535</code>, a Q format, <code>Pow10&lt;-4&gt;</code>), and <code>Unknown(u16)</code> for
+  scale kinds of a newer version (DER-25): 4 B in RAM on host, M0, M4F and M33, <code>Volt</code> 12 B as before; named prefixes
+  keep their one nibble on the wire, a family takes one byte more. Other scales (a BAM's π/2¹⁵) go to <code>AnyQuantity</code>,
+  which holds any <code>Fixed</code> exactly. <code>Quantity&lt;U, B = Unbounded&gt;</code> with bounds checked on construction and decode, <code>B</code>
+  explicit in the model; <code>Quantity::try_from_fixed</code> and Fixed/Quantity parity proptests; conformance cases (derive,
+  dynamic, Python; C gap API-26); docs (<a href="../ww_si/#quantity-fixed-or-anyquantity"><code>ww_si</code></a>). The
+  client-side bounds check is CLT-54.</li>
+<li>📋 <strong>STD-53 <code>Volt</code> with a <code>u16</code> value fails to decode on a device</strong> — <code>I2cConfig { io_level:
+  Some(Volt::milli(3300u16)), .. }</code> from the host gets <code>ArgsDesFailed</code> on the rePort B200A firmware, the same level as
+  a <code>u32</code> value works (report-i2c-master bench run, 27 Oct 2026). Find where the <code>ww_si</code> value storage / numeric
+  type differs between the host's writer and the no_std reader, fix it there, and add the case to the conformance
+  corpus.</li>
+<li>📋 <strong>STD-74 The runtime side catches up</strong> · <code>v0.5</code> — <code>Quantity</code>, <code>AnyQuantity</code> and <code>SIExpr</code> get the exact magnitude,
+  the °C point / interval split, levels and sentinels, so <code>ww_si</code> never lags behind <code>exact_units</code>; the <code>Fixed</code> ↔
+  <code>Quantity</code> parity test (STD-59) covers kinds, points, levels and sentinels too: same result or same refusal.</li>
 </ul>
-<h2 id="spi">SPI<a class="headerlink" href="#spi" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Peripheral event</th>
-<th>Call</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>TX FIFO has room (also before CS goes active)</td>
-<td><code>miso()</code>: the byte to load</td>
-</tr>
-<tr>
-<td>CS asserted</td>
-<td><code>cs_asserted(now)</code></td>
-</tr>
-<tr>
-<td>Byte received</td>
-<td><code>mosi(byte)</code></td>
-</tr>
-<tr>
-<td>RX FIFO overflowed</td>
-<td><code>overrun()</code></td>
-</tr>
-<tr>
-<td>CS released</td>
-<td><code>cs_released(now)</code>, then wake the task</td>
-</tr>
-</tbody>
-</table>
-<p>SPI has no clock stretching, so a frame's answer has to be in the TX FIFO before the master clocks: the frame picks
-its answer at its first <code>miso()</code> call, usually right after the previous CS release. An answer queued after that goes
-to the next frame; a firmware that can empty its TX FIFO calls <code>rewind()</code> before CS and loads again, and the new
-answer goes out in this frame.</p>
-<p>With the register map, the address arrives on MOSI while MISO already runs: a byte loaded before the address is
-complete goes out as <code>idle</code>, and the master's dummy bytes (<code>SpiRegisters::dummy_bytes</code>, before read data only) are
-the time the device has. With a FIFO <code>d</code> bytes deep, <code>dummy_bytes &gt;= d - 1</code> gives every data byte right; with fewer,
-the first data bytes come out as <code>idle</code> and the map data starts that many bytes in (the record shows what was sent).
-Host updates of the map wait for the CS release as on I2C; a <code>Busy</code> <code>map_write</code> is tried again after the next
-release, which empties the staging room. The engine takes 8-bit words only; <code>configure</code> answers <code>Unsupported</code> for
-others.</p>
-<h2 id="cost-per-byte">Cost per byte<a class="headerlink" href="#cost-per-byte" title="Permanent link">&para;</a></h2>
-<p>Instructions per hook call on a Cortex-M3 under QEMU (<code>examples_mcu/mcu_qemu</code>, bin <code>qemu-bus-slave</code>, counted with
-<code>examples_mcu/qemu_icount</code>), each including the bench loop and call, about 10 instructions:</p>
-<table>
-<thead>
-<tr>
-<th>Case</th>
-<th><code>opt-level = 3</code></th>
-<th><code>opt-level = "z"</code></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>I2C register map, master writes, per byte</td>
-<td>69</td>
-<td>66</td>
-</tr>
-<tr>
-<td>I2C register map, master reads, per byte</td>
-<td>58</td>
-<td>59</td>
-</tr>
-<tr>
-<td>I2C answer queue, master reads, per byte</td>
-<td>76</td>
-<td>82</td>
-</tr>
-<tr>
-<td>I2C address + one byte + stop</td>
-<td>194</td>
-<td>218</td>
-</tr>
-<tr>
-<td>SPI register map read frame, <code>miso</code> + <code>mosi</code> per byte</td>
-<td>96</td>
-<td>100</td>
-</tr>
-<tr>
-<td>SPI answer queue frame, <code>miso</code> + <code>mosi</code> per byte</td>
-<td>85</td>
-<td>93</td>
-</tr>
-<tr>
-<td>SPI CS asserted + one byte + CS released</td>
-<td>232</td>
-<td>240</td>
-</tr>
-</tbody>
-</table>
-<p>At 150 MHz (RP2350) 100 instructions are under a microsecond: an I2C byte at 1 MHz takes 9 µs, so the engine is
-far from the limit there; for SPI, a FIFO and the dummy bytes are what keep up with a fast clock, not the per-byte
-cost alone. Instructions are not cycles: measure on the target for the exact time.</p>
+<h2 id="evolution-of-these-crates-types-and-the-id-ledger-ww_global-evo">Evolution of these crates' types and the id ledger (<code>ww_global</code>, <code>EVO</code>)<a class="headerlink" href="#evolution-of-these-crates-types-and-the-id-ledger-ww_global-evo" title="Permanent link">&para;</a></h2>
+<ul>
+<li>✅ <strong>EVO-4 Global traits referenced by hash</strong>, global type registry (<code>ww_global</code>): one id per <code>crate::Trait</code> for every
+  public <code>ww_stdlib</code> trait, by hand in <code>wire_weaver_gid.json</code>, renames keep the id through <code>aliases</code>, ids never
+  reused (<code>retired</code>), <code>assigned_ids.lock</code> append-only and checked; <code>ww api check</code> flags a changed id (API-20).</li>
+<li>✅ <strong>EVO-16 <code>ww_si::Dim</code> with angle, information and counted bases</strong> · <code>v0.5</code> — the wire change of <code>Dim</code> that
+  STD-60 brings, in <code>SIExpr</code> / <code>AnyQuantity</code> and in the <code>ww_si</code> snapshot: no longer <code>sized</code> but <code>final_structure</code>,
+  nine 4-bit exponents (rad and bit appended to the seven SI ones), a root bit and four optional counted bases
+  (crate and marker name); a non-canonical <code>Dim</code> is refused on decode. Volt is <code>d2 1f 00 00 00 00</code>. <code>Scale</code> gains
+  <code>Exact</code> (an <code>ExactScale</code>, a degree is exactly π/180) in the same break. Conformance cases <code>stdlib.si.dim.*</code>
+  (<code>tests/conformance/corpus.json</code>), <a href="../ww_si/#units-known-only-at-run-time">ww_si</a>.</li>
+<li>✅ <strong>EVO-36 <code>SIExpr</code> references</strong> · <code>v0.5</code> — the wire change of STD-107: <code>SIExpr</code>'s leaves are <code>Def(UnitDef)</code> (variant 0) and <code>Ref(MarkerId)</code> (variant 1, new), so <code>Mul</code>, <code>Div</code>, <code>Pow</code> and <code>Sqrt</code> move up one place (2..5); an <code>AnyQuantity</code> a client writes names the API's units by reference. Conformance cases <code>stdlib.si.si_expr.sqrt</code>, <code>decibel_loss_per_hundred_metres</code> and <code>rejected</code> carry the mark; <code>si_expr.ref</code>, <code>ref_per</code> and <code>any_quantity.*</code> are new. No device or host uses the format.</li>
+<li>✅ <strong>EVO-51 <code>Timed.t</code> as a device point on the wire</strong> · <code>v0.5</code> — the wire change of STD-110: <code>Timed&lt;V&gt;</code> was <code>t: Second</code> (a prefix nibble, a tagged <code>NumericValue</code>) and is <code>t: Tm</code>, the bytes of the point's storage; <code>ww_si</code> 0.5.0 on a new wire line, <code>w5.0</code>, the stdlib snapshots naming a <code>ww_si</code> type saved again. New conformance cases <code>stdlib.si.timed.default</code>, <code>.millis_u16</code> and <code>.series</code> (no sealed case changed).</li>
+<li>✅ <strong>EVO-58 Typed, bounded calendar fields of <code>ww_date_time</code></strong> · <code>v0.5</code> — the wire change of <code>ww_date_time</code> (wire line <code>w1.0</code> -&gt; <code>w2.0</code>): <code>NaiveDate::month</code> and <code>day</code> are <code>IndexFrom1&lt;Month, U4, Range&lt;1, 12&gt;&gt;</code> and <code>IndexFrom1&lt;Day, U5, Range&lt;1, 31&gt;&gt;</code>, <code>NaiveTime::secs</code> is <code>Fixed&lt;Second, One, U17, Range&lt;0, 86_399&gt;&gt;</code> and <code>frac</code> <code>Option&lt;Fixed&lt;Second, Nano, U31, Range&lt;0, 1_999_999_999&gt;&gt;&gt;</code>, <code>OtherTimezone::FixedOffset::secs</code> is <code>Fixed&lt;Second, One, I18, Range&lt;-86_399, 86_399&gt;&gt;</code>. The bytes are the same, the new bounds are checked on decode (<code>SubtypeOutOfRange</code>), so a bound added is a break. Types embedding <code>DateTime</code> (<code>ww_board_info</code>, <code>ww_firmware_info</code>, <code>ww_timebase</code>) move to a new wire line with it. No device or host uses the format.</li>
+</ul>
+<h2 id="checksums-ww_crc-tr">Checksums (<code>ww_crc</code>, <code>TR</code>)<a class="headerlink" href="#checksums-ww_crc-tr" title="Permanent link">&para;</a></h2>
+<ul>
+<li>✅ <strong>TR-31 <code>ww_crc</code>, one CRC crate</strong> · <code>v0.5</code> — the CRCs of <code>ww_framer</code>, <code>ww_link</code>, <code>ww_block</code>, <code>ww_settings</code>
+  and <code>ww_stream</code> are statics of <code>ww_crc</code> (<code>CRC32_ISO_HDLC</code>, <code>CRC32C</code>, <code>CRC16_USB</code>, <code>CRC16_IBM_SDLC</code>, <code>CRC8_SMBUS</code>),
+  so a firmware links one table per algorithm, its size picked once with <code>table-256</code> or <code>table-slice16</code> (bitwise
+  without; the crates' <code>std</code> features turn on <code>table-slice16</code>). <code>ww_link</code> no longer depends on <code>ww_block</code> for its
+  UDP CRC-32. Docs: <code>docs/transport/ww_framer.md#checksum-and-tail</code>; tests in <code>ww_crc</code> at every table size.</li>
+</ul>
 
 
 
@@ -6357,7 +6674,7 @@ cost alone. Instructions are not cycles: measure on the target for the exact tim
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../ecc_flash/" class="md-footer__link md-footer__link--prev" aria-label="Previous: ECC-safe flash">
+          <a href="../../serdes/features/" class="md-footer__link md-footer__link--prev" aria-label="Previous: shrink_wrap">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
@@ -6367,20 +6684,20 @@ cost alone. Instructions are not cycles: measure on the target for the exact tim
                 Previous
               </span>
               <div class="md-ellipsis">
-                ECC-safe flash
+                shrink_wrap
               </div>
             </div>
           </a>
         
         
           
-          <a href="../counted_streams/" class="md-footer__link md-footer__link--next" aria-label="Next: Counted and reliable streams">
+          <a href="../../tape/features/" class="md-footer__link md-footer__link--next" aria-label="Next: ww_tape">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Counted and reliable streams
+                ww_tape
               </div>
             </div>
             <div class="md-footer__button md-icon">

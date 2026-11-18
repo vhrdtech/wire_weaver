@@ -5453,6 +5453,34 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#captures-recording-through-the-hub-srv-64" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Captures: recording through the hub (SRV-64)
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Captures: recording through the hub (SRV-64)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#trust-and-limits" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Trust and limits
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#who-holds-a-device-clt-38" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -7399,6 +7427,34 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#captures-recording-through-the-hub-srv-64" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Captures: recording through the hub (SRV-64)
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Captures: recording through the hub (SRV-64)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#trust-and-limits" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Trust and limits
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#who-holds-a-device-clt-38" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -8581,6 +8637,100 @@ a connection through the hub leaves it to the hub.</p>
 hub's steering is <code>Paused</code>: the device is still read, so the fit stays current, but no steer point is sent and the
 device coasts in holdover; steering goes on as soon as the claim goes. A lent device is closed, so its steering
 stops and starts again when it is opened after the lend.</p>
+<h2 id="captures-recording-through-the-hub-srv-64">Captures: recording through the hub (SRV-64)<a class="headerlink" href="#captures-recording-through-the-hub-srv-64" title="Permanent link">&para;</a></h2>
+<p>A hub records the links of the devices it holds while a program asks it to: <code>ww_hub_api::Captures</code>. It taps a device
+only while a capture of it exists (opening it for that if needed, and keeping it open), with the link tap of
+<code>docs/transport/tap.md</code>: sessions, link events, frames and messages both ways, and for each forwarded request which
+client sent it under which seq (<code>ww_tap::ClientMap</code>, recorded as the request goes out, so a request that is never
+answered is mapped too). Recording reads traffic and changes nothing on the device, so it needs no claim.</p>
+<p>The hub keeps no records itself: the program hosting it passes a capture host (<code>ww_hub::CaptureHost</code>, eventfull's)
+in <code>HubConfig::captures</code>, through <code>ww_hub::main_if_hub_with(HubHost { captures })</code>, <code>wire_weaver_cli::Program::hub</code>
+or <code>wire_weaver_py::set_hub_host</code>. The <code>ww</code> of vhrdtech/ww_tools and the Python wheel pass it; a test host or an
+example doesn't, and its hub answers <code>CaptureError::NotAvailable</code> naming itself and who started it.
+<code>HubStatus::captures</code> and <code>ww hub status</code> (<code>recording: yes</code>, or <code>recording: no (built without eventfull)</code>) say it
+beforehand.</p>
+<table>
+<thead>
+<tr>
+<th>Call</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>start(key, options)</code></td>
+<td>records the device; several programs share one capture: one id, what to record united, the largest RAM limit, the first one's link naming</td>
+</tr>
+<tr>
+<td><code>stop(id)</code></td>
+<td>this program's part ends; the capture ends with the last one, or when the last one's connections close: a saved capture's file is closed as written, an unsaved one's records are dropped</td>
+</tr>
+<tr>
+<td><code>save(id, path)</code></td>
+<td>writes what is in the hub's RAM now, then everything after, to a new file at <code>path</code>, until the capture ends; later requests on the same connection wait for its answer, other connections are served</td>
+</tr>
+<tr>
+<td><code>discard(id)</code></td>
+<td>ends the capture for everyone, drops what is in RAM; a saved file stays as written; only for a program with a part in it</td>
+</tr>
+<tr>
+<td><code>set_ram_max(id, bytes)</code></td>
+<td>the capture's RAM limit while unsaved (default 32 MiB, 64 KiB to 16 GiB); only for a program with a part in it</td>
+</tr>
+<tr>
+<td><code>captures(after)</code></td>
+<td>the captures after <code>after</code>, one message's worth (<code>more</code> says whether to ask again): device, options, file, client connection ids, watches, counters</td>
+</tr>
+<tr>
+<td><code>watch(id, pressure)</code></td>
+<td>a cursor over the capture, its batches on the stream <code>watches[w].records</code></td>
+</tr>
+</tbody>
+</table>
+<p>A capture nobody holds never records on: a program that wants to record a long run stays connected, and the capture
+and its file end with its last connection. A capture whose last client goes while its save runs ends when the save
+returns: ended if it went through, discarded if it failed or a <code>discard</code> came meanwhile. The hub's exit refuses new
+captures and saves (<code>Closing</code>), waits up to <code>HubConfig::saves_exit_wait</code> (10 s) for running saves, then ends every
+capture; a save still hung is named in the log, and the process doesn't wait for it.</p>
+<p>A watch reads with a pressure policy: <code>RealTime { behind_max }</code> skips to the newest records when it is further
+behind and sends a <code>FellBehind</code> gap; <code>Everything</code> reads in order as fast as the client takes it and gets a
+<code>RamLimit</code> gap for what the capture dropped at its RAM limit before the watch got there. The device's event loop
+never waits for a watch: the taps push into the capture host, and each watch's cursor is read by a task of its own
+that hands the connection one batch at a time, so a slow client only makes its cursor fall behind.</p>
+<h3 id="trust-and-limits">Trust and limits<a class="headerlink" href="#trust-and-limits" title="Permanent link">&para;</a></h3>
+<p>Every connection is the hub's own OS user (the socket checks it), so a capture gives a program nothing it couldn't
+record itself. Still:</p>
+<ul>
+<li><code>save</code> writes as the hub's user at a path another process chose. The path must be absolute (the hub's working
+  directory isn't the client's), without <code>.</code> or <code>..</code> segments, in an existing directory, and must name no existing
+  file or symlink; the file is created with <code>O_EXCL | O_NOFOLLOW</code> and mode <code>0600</code> (a capture can hold secrets), so
+  nothing is ever overwritten and only the user reads it (<code>BadPath</code>, <code>Exists</code>). A capture is saved once (<code>Saved</code>);
+  a failed save removes the file it created, so the same path works on a retry. The path's checks and the save run
+  on a blocking thread: a hung network mount holds up only that save.</li>
+<li>What each caller may do is one allow-list in the hub, deny by default. A client whose link setup says it is a hub
+  (<code>ClientKind::Hub</code>, the federation path, SRV-33) may only <code>start</code> and <code>stop</code>, at most <code>MAX_RELAY_CAPTURES</code>
+  captures for all relaying hubs together (<code>NotAllowed</code>, <code>TooMany</code>), until federation has a trust model; what it asks
+  for never widens a capture a local program started. <code>discard</code> and <code>set_ram_max</code> need a part in the capture: one
+  program never drops or shrinks another's recording.</li>
+<li>Both rest on what the client says of itself: its <code>ClientMeta</code> instance id (who has a part) and kind (who relays).
+  That holds between programs of one OS user, the only ones the socket lets in; federation must take the principal
+  from the transport before these checks mean anything across PCs.</li>
+<li>Every list and string is bounded by a constant of <code>ww_hub_api</code>, checked when decoded: <code>MAX_KEY_LEN</code>,
+  <code>MAX_PATH_LEN</code>, <code>MAX_CAPTURES</code> captures per hub, <code>MAX_CAPTURE_CLIENTS</code> client instances per capture,
+  <code>MAX_WATCHES</code> watches per connection, <code>MAX_BATCH_ENTRIES</code> entries and <code>MAX_BATCH_BYTES</code> per batch,
+  <code>MAX_CAPTURE_PAGE_BYTES</code> per page of <code>captures()</code>, <code>MAX_ITEM_LEN</code> per record (a longer one is a <code>TooLong</code> gap),
+  <code>MAX_LINK_KEY_LEN</code>, and the RAM limit between <code>RAM_MAX_MIN</code> and <code>RAM_MAX_MAX</code>.</li>
+<li>A capture host that panics doesn't take the hub with it: every call into it is caught and never made holding the
+  registry's lock; a tap that panics (or can't be made) is dropped from its link, the link goes on, the host is told
+  (<code>HostCapture::tap_lost</code>) and <code>captures()</code> lists the capture as <code>broken</code>. A client's connection that ends in any
+  way, a panic too, ends its part in captures.</li>
+<li>The hub runs on any tokio runtime, a multi-thread one too: a capture that ends while its device is being tapped
+  for it is untapped again.</li>
+<li>A program that goes away (even killed) leaves nothing: its part in captures ends with its last connection, and
+  its watches with the connection they were made on. Not yet while a save it asked for hangs: that connection's
+  cleanup waits for the save's answer.</li>
+<li>A capture lives in the hub: nothing of it survives a hub restart or a handover (SRV-30) unless it was saved.</li>
+</ul>
 <h2 id="who-holds-a-device-clt-38">Who holds a device (CLT-38)<a class="headerlink" href="#who-holds-a-device-clt-38" title="Permanent link">&para;</a></h2>
 <p>Every program linking <code>wire_weaver_client</code> that opens a USB interface or an RTT probe writes a lock file first,
 whether or not a hub is involved — this is always on, not behind a feature flag. The registry lives under the

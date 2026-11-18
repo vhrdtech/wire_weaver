@@ -7300,7 +7300,7 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
   wire_weaver device with its own API (<code>ww_hub_api</code>). Today a second program gets "busy". Pieces: SRV-28 process and
   API, SRV-29 device multiplexing, SRV-30 version skew, SRV-31 clock sync, SRV-32 exclusive locks, SRV-33 federation (SRV-36..40),
   SRV-34 per-resource claims, TR-16, CLT-38..41, CLT-43, CLT-44, TOOL-17, TOOL-18; prerequisite API-21 (done). Later API groups: logs to several viewers, shared
-  captures (TR-14's <code>ClientMap</code>), labels and settings, fault notifications, published (virtual) devices.</li>
+  captures (SRV-64), labels and settings, fault notifications, published (virtual) devices.</li>
 <li>🧪 <strong>SRV-28 Hub process and its API</strong> · <code>v0.5.x</code> — crates <code>ww_hub_api</code> (<code>Hub</code>: <code>info</code>, <code>handover</code>, <code>shutdown</code>,
   <code>keep</code>; <code>Registry</code>: <code>devices</code>, <code>clients</code>, <code>take</code>, <code>events</code>) and <code>ww_hub</code> (<code>docs/transport/hub.md</code>): one hub per
   user (<code>hub.lock</code>), the socket with the preamble picking the hub API or a device, the API served with generated
@@ -7319,6 +7319,14 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
   direct, 16 B round trips over USB FS 10-25 % fewer on an idle PC, 3-13 % under load, from the two extra process
   wakes). Tested on Linux; check on macOS and Windows open. Limits: sinks and the sideband of a shared stream are the
   first client's, streams on trait paths are not counted per client.</li>
+<li>🚧 <strong>SRV-64 Captures through the hub</strong> · <code>v0.5.x</code> — <code>ww_hub_api::Captures</code> (<code>start</code>, <code>stop</code>, <code>save</code>, <code>discard</code>,
+  <code>set_ram_max</code>, <code>captures</code>, <code>watch</code> with a pressure policy and the <code>watches[w].records</code> stream of <code>RecordBatch</code>es)
+  and <code>HubStatus::captures</code>; <code>ww_hub</code> records through an injected <code>CaptureHost</code> (<code>HubConfig::captures</code>,
+  <code>HubHost</code>, <code>main_if_hub_with</code>, <code>wire_weaver_cli::Program::hub</code>, <code>wire_weaver_py::set_hub_host</code>), taps a device
+  only while captured (<code>Command::SetTap</code> on a running link), maps each forwarded request to its client as it goes
+  out (<code>ForwardSink::sent</code>), checks <code>save</code> paths (absolute, new file only) and refuses save and watch to a relaying
+  hub (<code>docs/transport/hub.md#captures-recording-through-the-hub-srv-64</code>, <code>tests/hub</code> <code>captures</code>). Missing:
+  eventfull's capture host (P2555 piece 8), so no shipped hub records yet.</li>
 <li>🧪 <strong>SRV-42 Device flushes by priority, also deferred replies</strong> · <code>v0.5.x</code> — the device answers by the request's
   priority (CLT-50): <code>Context::priority()</code> and <code>ReplyTo::priority</code> carry it to handlers, a reply to an urgent
   request is flushed at once from <code>Server::handle</code>, and a deferred one (generated <code>&lt;method&gt;_send_return(out,

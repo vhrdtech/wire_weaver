@@ -11,6 +11,7 @@
 
 ### 🐛 Fixes
 
+- A client that connected before the hub's idle check is served: the accept loop prefers accepting to the idle check and counts a connection at accept, not once its task first runs, so the hub can't exit idle with a client in its accept queue.
 - `Adopt::commit` answers within `wire_weaver_client::adopt::ADOPT_COMMIT_TIMEOUT` (10 s, CLT-44), with an `Open` error when opening the device takes longer.
 - A request kind the hub doesn't know reads as `RequestKind::Unknown` now (SRV-60); claims refuse it as before, when it didn't decode.
 - Reads and builds request and event paths as `ww_client_server::ResourceIndex`es (STD-115, `ww_client_server`'s breaking change); the bytes are the same.

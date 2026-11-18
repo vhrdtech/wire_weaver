@@ -398,15 +398,7 @@ impl Bound {
     ) -> Bound {
         let (shutdown, _) = watch::channel(None);
         let hub = Arc::new(Hub {
-            state: Mutex::new(State {
-                clients: BTreeMap::new(),
-                next_client: 1,
-                connections: 0,
-                last_active: Instant::now(),
-                keep_until: None,
-                open: BTreeMap::new(),
-                claims: Default::default(),
-            }),
+            state: Mutex::new(State::new(Instant::now())),
             devices: Mutex::new(BTreeMap::new()),
             linger: config.linger,
             steering: Mutex::new(sync::Steering::new(config.sync, config.sync_linger)),
@@ -453,19 +445,22 @@ impl Bound {
         let watcher = tokio::spawn(devices::watch(self.hub.clone()));
         let exit = loop {
             tokio::select! {
+                // a client that connected before the idle check is served: accept goes first, and counts the
+                // connection before the next check can run
+                biased;
+                exit = async { shutdown.wait_for(Option::is_some).await.ok().and_then(|e| *e) } => {
+                    break exit.unwrap_or(Exit::Shutdown);
+                }
                 accepted = self.listener.accept() => match accepted {
                     Ok((stream, peer)) => {
-                        let hub = self.hub.clone();
-                        tokio::spawn(async move { hub.connection(stream, peer).await });
+                        let guard = ConnectionGuard::new(self.hub.clone());
+                        tokio::spawn(async move { guard.0.clone().connection(stream, peer, guard).await });
                     }
                     Err(e) => {
                         warn!("ww hub: accept failed: {e}");
                         tokio::time::sleep(Duration::from_millis(100)).await;
                     }
                 },
-                exit = async { shutdown.wait_for(Option::is_some).await.ok().and_then(|e| *e) } => {
-                    break exit.unwrap_or(Exit::Shutdown);
-                }
                 _ = tokio::time::sleep(IDLE_CHECK) => {
                     self.hub.expire_claims();
                     if self.hub.idle_for() >= self.config.idle_exit {
@@ -621,6 +616,32 @@ pub(crate) struct State {
 const CLIENT_ID_END: u32 = 1 << 31;
 
 impl State {
+    fn new(now: Instant) -> State {
+        State {
+            clients: BTreeMap::new(),
+            next_client: 1,
+            connections: 0,
+            last_active: now,
+            keep_until: None,
+            open: BTreeMap::new(),
+            claims: Default::default(),
+        }
+    }
+
+    /// How long the hub has been idle at `now`: zero while connected, holding a device or kept, else since the last
+    /// connection closed or `keep` ran out, whichever came later.
+    fn idle_for(&self, now: Instant) -> Duration {
+        if self.connections > 0 || !self.open.is_empty() || self.keep_until.is_some_and(|k| k > now)
+        {
+            return Duration::ZERO;
+        }
+        let since = match self.keep_until {
+            Some(k) => k.max(self.last_active),
+            None => self.last_active,
+        };
+        now - since
+    }
+
     /// An id no connected client has, from 1 below [CLIENT_ID_END], wrapping.
     fn new_client_id(&mut self) -> u32 {
         let clients = &self.clients;
@@ -737,23 +758,16 @@ impl Hub {
     }
 
     fn idle_for(&self) -> Duration {
-        let state = self.state.lock().unwrap();
-        let now = Instant::now();
-        if state.connections > 0
-            || !state.open.is_empty()
-            || state.keep_until.is_some_and(|k| k > now)
-        {
-            return Duration::ZERO;
-        }
-        let since = match state.keep_until {
-            Some(k) => k.max(state.last_active),
-            None => state.last_active,
-        };
-        now - since
+        self.state.lock().unwrap().idle_for(Instant::now())
     }
 
-    async fn connection(self: Arc<Self>, stream: ww_local_socket::Stream, peer: Peer) {
-        let _guard = ConnectionGuard::new(&self);
+    /// Serves one accepted connection; `_guard` counted it at accept.
+    async fn connection(
+        self: Arc<Self>,
+        stream: ww_local_socket::Stream,
+        peer: Peer,
+        _guard: ConnectionGuard,
+    ) {
         let (mut rx, mut tx) = stream.split();
         let preamble = match tokio::time::timeout(PREAMBLE_TIMEOUT, Preamble::read(&mut rx)).await {
             Err(_) => {
@@ -1344,16 +1358,16 @@ impl Drop for ClientLeft<'_> {
 }
 
 /// Counts a connection while it lives, so the hub isn't idle meanwhile.
-struct ConnectionGuard<'a>(&'a Hub);
+struct ConnectionGuard(Arc<Hub>);
 
-impl<'a> ConnectionGuard<'a> {
-    fn new(hub: &'a Hub) -> Self {
+impl ConnectionGuard {
+    fn new(hub: Arc<Hub>) -> Self {
         hub.state.lock().unwrap().connections += 1;
         ConnectionGuard(hub)
     }
 }
 
-impl Drop for ConnectionGuard<'_> {
+impl Drop for ConnectionGuard {
     fn drop(&mut self) {
         // also while unwinding: a poisoned lock must not abort the process
         let mut state = self

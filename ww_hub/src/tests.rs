@@ -114,12 +114,27 @@ async fn hub_serves_by_generation() {
     assert_eq!(hub.await.unwrap(), Exit::Shutdown);
 }
 
+/// A client that connected before the hub's first idle check is served, however long the hub took to get there:
+/// it connects while the hub isn't running yet.
 #[tokio::test]
 async fn exits_when_idle_not_while_a_client_is_connected() {
     let dir = runtime_dir("idle");
-    let (hub, _shutdown) = start(&dir, 300).await;
-    let (answer, conn) = hello(&dir, Target::Hub).await;
+    let bound = Bound::bind(config(&dir, 300))
+        .unwrap()
+        .expect("no other hub");
+    let (stream, _) = ww_local_socket::connect(&dir.join(HUB_SOCKET))
+        .await
+        .unwrap();
+    let (mut rx, mut tx) = stream.split();
+    tx.write_all(&Preamble::new(Target::Hub).encode())
+        .await
+        .unwrap();
+    // the hub's idle time runs from bind
+    tokio::time::sleep(Duration::from_millis(400)).await;
+    let hub = tokio::spawn(bound.run());
+    let answer = Answer::read(&mut rx).await.unwrap();
     assert_eq!(answer.status, Status::Ok);
+    let conn = interprocess::local_socket::tokio::Stream::reunite(rx, tx).unwrap();
     tokio::time::sleep(Duration::from_millis(800)).await;
     assert!(!hub.is_finished(), "a connected client keeps the hub up");
     let left = Instant::now();
@@ -182,10 +197,12 @@ mod api {
             .expect("connect to the hub API")
     }
 
+    /// Not idle exit: a client's first connect takes longer than a short idle time (resolving snapshots), so with
+    /// one the hub could be gone before it connects. `keep_holds_the_hub_past_its_idle_time` covers keep's timing.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn info_clients_keep_shutdown() {
         let dir = runtime_dir("api");
-        let (hub, _shutdown) = start(&dir, 300).await;
+        let (hub, _shutdown) = start(&dir, 60_000).await;
         let client = connect(&dir).await;
 
         let info = client.info().call().await.unwrap();
@@ -205,12 +222,15 @@ mod api {
         let devices = client.registry().devices().call().await.unwrap();
         assert!(devices.iter().all(|d| !d.key.is_empty()), "{devices:?}");
 
-        // keep holds the hub up after the client leaves, past the idle timeout; 5 s, as disconnect, sleep and the
-        // next connect take ~0.8 s and longer on a loaded PC (keep(1) left the hub gone before the reconnect)
         client.keep(5).call().await.unwrap();
+        let status = client.status().call().await.unwrap();
+        // seconds left, rounded up: 5 unless this call took over a second
+        assert!(matches!(status.keep_left_s, Some(1..=5)), "{status:?}");
+        assert_eq!(status.exits_in_s, None, "{status:?}");
+        client.keep(0).call().await.unwrap();
+        let status = client.status().call().await.unwrap();
+        assert_eq!(status.keep_left_s, None, "{status:?}");
         client.disconnect().asynch().await.unwrap();
-        tokio::time::sleep(Duration::from_millis(600)).await;
-        assert!(!hub.is_finished(), "kept");
 
         let client = connect(&dir).await;
         client.shutdown().call().await.unwrap();
@@ -244,4 +264,23 @@ mod api {
         shutdown.shutdown();
         hub.await.unwrap();
     }
+}
+
+/// Kept, the hub isn't idle until keep runs out, and its idle time counts from then; a connection or a later close
+/// holds it the same way.
+#[test]
+fn keep_holds_the_hub_past_its_idle_time() {
+    let t0 = Instant::now();
+    let s = Duration::from_secs;
+    let mut state = State::new(t0);
+    assert_eq!(state.idle_for(t0 + s(2)), s(2));
+    state.keep_until = Some(t0 + s(5));
+    assert_eq!(state.idle_for(t0 + s(4)), Duration::ZERO);
+    assert_eq!(state.idle_for(t0 + s(5)), Duration::ZERO);
+    assert_eq!(state.idle_for(t0 + s(6)), s(1));
+    state.connections = 1;
+    assert_eq!(state.idle_for(t0 + s(10)), Duration::ZERO);
+    state.connections = 0;
+    state.last_active = t0 + s(8);
+    assert_eq!(state.idle_for(t0 + s(10)), s(2));
 }

@@ -11,6 +11,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
+- The hub serves a client that connected before its idle check; its idle and keep tests no longer race the client's first connect; see `ww_hub`.
 - New crate `ww_plugin` (TOOL-40): device arguments and plugin protocol without `ww_hub`, moved out of `wire_weaver_cli`, which re-exports them; see the `ww_plugin` and `wire_weaver_cli` changelogs.
 - `tests_common::resolver()` resolves over the workspace of the test that runs, not tests_common's own: a workspace taking tests_common by git finds its own API crates' snapshots.
 - The crate walker in a crate built as a dependency follows the building workspace's Cargo.lock, not the crate's own; see `ww_snapshots`.

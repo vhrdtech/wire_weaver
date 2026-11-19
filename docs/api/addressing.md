@@ -59,7 +59,7 @@ could mean anything. `ww dfu reboot` in the [CLI](../cli.md) does exactly this.
 
 `CompactVersion` is the short form: the trait's id in the
 [ww_global registry](https://github.com/vhrdtech/wire_weaver/tree/master/ww_global) and its crate's version numbers,
-all `UNib32`. A `ww_user_info::UserInfo` read takes 6 bytes this way and 24 with `FullVersion`.
+all `UNib32`. A `ww_user_info::UserInfo` read takes 7 bytes this way and 24 with `FullVersion`.
 
 Every public trait in `ww_stdlib` has an id, one per trait, keyed `crate::Trait`, in the same number space as the few
 crates that have one (`ww_log` = 0, `wire_weaver_usb_link` = 512, `ww_client_server` = 513). Small numbers are
@@ -68,8 +68,8 @@ shorter on the wire, so the ranges go by encoded size:
 | Ids     | Size     | For                                                                                     |
 |---------|----------|-----------------------------------------------------------------------------------------|
 | 0-7     | 1 nibble | `ww_log` (crate) and `ww_log::LogDefmt` only, 2-7 kept free                              |
-| 8-63    | 1 byte   | the device contract and common IO: firmware and board info, identity, counters, firmware update, clock, indication, GPIO, UART, I2C, SPI, CAN, ADC, PWM |
-| 64-511  | 1.5 byte | all other reusable traits                                                               |
+| 8-63    | 1 byte   | the device contract and common IO: firmware and board info, identity, firmware update, clock, indication, GPIO, UART, I2C, SPI, CAN, ADC, PWM |
+| 64-511  | 1.5 byte | all other reusable traits; 144-151 the device contract read rarely, where the payload outweighs the id (last reset, user info, counters, firmware inventory) |
 | 512+    | 2 bytes  | link and protocol crates                                                                |
 | 2^30    | 5.5 bytes | `ww_log::LogText`, the first id of 11 nibbles: a text log spends far more per record than on the id |
 

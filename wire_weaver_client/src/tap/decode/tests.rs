@@ -3,7 +3,7 @@ use std::time::Duration;
 use wire_weaver::prelude::{SerializeShrinkWrap, SerializeShrinkWrapOwned};
 use wire_weaver::shrink_wrap::RefVec;
 use ww_tap::{Framer, Medium};
-use ww_tape::{BlockKind, BodyCodec, FileBlocks, SyncPolicy, TapeWriter};
+use ww_tape::{BlockKind, BodyCodec, FileBlocks, SyncPolicy};
 
 use super::*;
 use crate::tap::{Layers, LinkEvent, Recorder, RecorderConfig, Tap, host_session};
@@ -34,7 +34,7 @@ fn a_session_put_again_is_not_a_new_session() {
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("cap.wwtape");
     let _ = std::fs::remove_file(&path);
-    let mut writer = TapeWriter::create(&path, SyncPolicy::None).unwrap();
+    let mut writer = ww_tape_fs::writer::create(&path, SyncPolicy::None).unwrap();
     // copies every few blocks, so the session is copied in this short capture
     writer.set_near_policy(ww_tape::NearPolicy {
         copy_spacing: 256,

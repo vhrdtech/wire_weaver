@@ -3,7 +3,8 @@
 
 use super::*;
 use std::thread::JoinHandle;
-use wire_weaver_client::ww_tape::FileSink;
+use wire_weaver_client::ww_tape::TapeWriter;
+use wire_weaver_client::ww_tape_fs::{FileSink, writer::create};
 
 /// The running tap of one client: its recorder (for the client's config) and the thread printing and writing.
 pub(crate) struct Attached {
@@ -21,8 +22,7 @@ impl Attached {
         out: Box<dyn Write + Send>,
         resolver: &'static Resolver,
     ) -> Result<Self> {
-        let mut writer = TapeWriter::create(capture, SyncPolicy::default())
-            .map_err(|e| anyhow::Error::new(e).context(capture.display().to_string()))?;
+        let mut writer = create(capture, SyncPolicy::default()).map_err(anyhow::Error::new)?;
         let (mut feed, recorder) = LiveFeed::new(LiveTap::new(Layer::Frame));
         writer.set_clock(recorder.tape_clock());
         let stop = Arc::new(AtomicBool::new(false));
@@ -79,7 +79,7 @@ fn run(
         Ok(())
     });
     monitor.finish(&mut out)?;
-    let current = writer.current_path().to_path_buf();
+    let current = writer.sink().current_path().to_path_buf();
     result.with_context(|| format!("capture stopped, {} kept as it is", current.display()))?;
     let path = writer.sink().path().to_path_buf();
     writer.finish()?;

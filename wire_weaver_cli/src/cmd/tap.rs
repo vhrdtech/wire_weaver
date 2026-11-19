@@ -35,8 +35,9 @@ use wire_weaver_client::ww_self::ApiBundleOwned;
 use wire_weaver_client::ww_self::explain::PartKind;
 use wire_weaver_client::ww_tap::{LinkEventOwned, SessionOwned};
 use wire_weaver_client::ww_tape::{
-    Block, Definitions, FileBlocks, FsError, MAGIC, Recovery, SyncPolicy, TapeWriter, WriteError,
+    Block, Definitions, FileBlocks, MAGIC, Recovery, SyncPolicy, WriteError,
 };
+use wire_weaver_client::ww_tape_fs::{FsError, writer};
 
 #[cfg(any(test, feature = "test-support"))]
 mod attached;
@@ -907,9 +908,9 @@ pub(crate) async fn capture(
     tap.add_bundles(&device);
     let policy = args.sync.0;
     let writer = if args.append {
-        TapeWriter::append(&args.output, policy)
+        writer::append(&args.output, policy)
     } else {
-        TapeWriter::create(&args.output, policy)
+        writer::create(&args.output, policy)
     }
     .map_err(|e| match e {
         WriteError::Sink {
@@ -919,7 +920,8 @@ pub(crate) async fn capture(
             "{} exists: --append to add to it, or another name",
             p.display()
         ),
-        e => anyhow::Error::new(e).context(args.output.display().to_string()),
+        // its text names the step, the file and the kind once
+        e => anyhow::Error::new(e),
     })?;
     let (mut feed, recorder) = LiveFeed::new(tap);
     let clock = recorder.tape_clock();
@@ -929,7 +931,7 @@ pub(crate) async fn capture(
             writer.set_clock(clock);
             writer.set_producer(PRODUCER);
             let mut defs = Definitions::new();
-            let shown = writer.current_path().display().to_string();
+            let shown = writer.sink().current_path().display().to_string();
             let bar = ProgressBar::new_spinner().with_style(
                 ProgressStyle::with_template("{spinner} {msg} ({elapsed})").expect("template"),
             );
@@ -958,7 +960,7 @@ pub(crate) async fn capture(
             });
             bar.finish_and_clear();
             let (blocks, bytes) = (writer.blocks(), writer.bytes());
-            let current = writer.current_path().to_path_buf();
+            let current = writer.sink().current_path().to_path_buf();
             result
                 .with_context(|| format!("capture stopped, {} kept as it is", current.display()))?;
             let path = writer.sink().path().to_path_buf();

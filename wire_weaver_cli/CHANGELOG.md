@@ -2,7 +2,8 @@
 
 ### ⚠️ Breaking
 
-- `ww capture` writes ww_tape 2bfdd07's layout; `ww explain` and `ww stats --file` still read older captures' records.
+- `ww capture` errors read `creating a writer: FILE: locked by another writer`, step, file and kind once (ww_tape S2).
+- `ww capture` writes ww_tape b3b6172's layout; `ww explain` and `ww stats --file` still read older captures' records.
 - `ww capture` keeps `FILE.lock` beside the capture while writing: removed at the end on unix, left on Windows.
 - `Program` has the field `hub: ww_hub::HubHost` (SRV-64): what the hub the binary hosts gets (its capture host); `HubHost::default()` for a hub that records nothing.
 - The `ww` binary moved to vhrdtech/ww_tools: install it with `cargo install --git https://github.com/vhrdtech/ww_tools ww`; the root recipes `install`, `install-cli` and `deploy` are removed, and `cargo ww` runs the example `ww_generic` (generic commands only).

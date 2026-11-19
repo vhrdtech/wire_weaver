@@ -99,6 +99,7 @@ ww_stm32_dfu.workspace = true
 ww_stream = { workspace = true, features = ["std"] }
 ww_tap = { workspace = true, features = ["std"] }
 ww_tape = { workspace = true, features = ["std"] }
+ww_tape_fs.workspace = true
 ww_timebase = { workspace = true, features = ["std"], optional = true }
 ww_version = { workspace = true, features = ["std"] }
 

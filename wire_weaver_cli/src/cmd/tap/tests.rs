@@ -381,7 +381,8 @@ async fn monitor_capture_and_explain_file_agree() {
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("cap.wwtape");
     let _ = std::fs::remove_file(&path);
-    let mut writer = TapeWriter::create(&path, SyncPolicy::default()).unwrap();
+    let mut writer =
+        wire_weaver_client::ww_tape_fs::writer::create(&path, SyncPolicy::default()).unwrap();
     writer.set_producer(PRODUCER);
     let mut defs = Definitions::new();
     // the writer's own session holds its layout, ahead of the tap's blocks

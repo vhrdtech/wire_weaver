@@ -149,6 +149,8 @@ ww_version = { version = "0.2.0", git = "https://github.com/vhrdtech/ww_base", d
 # the tape block format (layer 3) lives in vhrdtech/ww_tape, taken by git: Cargo.lock pins the commit
 # (`cargo update -p ww_tape` moves it)
 ww_tape = { version = "0.1.0", git = "https://github.com/vhrdtech/ww_tape", default-features = false }
+# files of ww_tape (file sink, piece files, their lock), from the same repository
+ww_tape_fs = { git = "https://github.com/vhrdtech/ww_tape" }
 
 # framework crates, versioned together via [workspace.package] version
 wire_weaver = { version = "0.5.0", path = "./wire_weaver", default-features = false }

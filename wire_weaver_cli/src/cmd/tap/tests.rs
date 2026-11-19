@@ -410,7 +410,8 @@ async fn monitor_capture_and_explain_file_agree() {
 
     // `ww capture` wrote the same blocks, besides its own layout, puts, index, finish and tail; `ww explain
     // FILE` prints the same text
-    assert_eq!(writer.finish().unwrap().path, path);
+    assert_eq!(writer.sink().path(), path);
+    writer.finish().unwrap();
     let written = std::fs::read(&path).unwrap();
     let mut blocks = wire_weaver_client::ww_tape::FileBlocks::new(&written[..]);
     let mut producer = vec![];
@@ -676,6 +677,10 @@ async fn sigterm_finishes_the_capture_file() {
     assert!(
         !path.with_file_name("cap.wwtape.partial").exists(),
         "not left partial"
+    );
+    assert!(
+        !path.with_file_name("cap.wwtape.lock").exists(),
+        "the writer's lock file goes with the writer"
     );
     assert!(is_capture(path.to_str().unwrap()));
     let text = replayed(&path, Layer::Api, tests_common::resolver());

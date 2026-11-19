@@ -175,6 +175,22 @@ fn flush_after_flush_time_on_the_fake_clock() {
     assert!(sub.try_recv().is_none(), "no empty blocks");
 }
 
+/// A writer storing the recorder's blocks reads the recorder's clock: syncs on the fake clock in tests.
+#[test]
+fn tape_clock_is_the_recorders() {
+    let (rec, t) = Recorder::with_fake_clock(config());
+    let clock = rec.tape_clock();
+    let start = clock.now_ms().expect("a clock");
+    *t.lock().unwrap() += Duration::from_millis(1500);
+    assert_eq!(clock.now_ms(), Some(start + 1500));
+    let mut w = ww_tape::TapeWriter::create_on(
+        ww_tape::MemSink::new(),
+        ww_tape::SyncPolicy::Interval(Duration::from_secs(1)),
+    );
+    w.set_clock(rec.tape_clock());
+    assert_eq!(w.clock().now_ms(), Some(start + 1500));
+}
+
 #[test]
 fn full_block_is_handed_over_and_the_record_goes_into_the_next() {
     let (rec, _t) = Recorder::with_fake_clock(config());
@@ -498,10 +514,7 @@ fn a_closed_link_is_said_in_the_stream_and_a_relay_drops_it() {
                 && LinkEventOwned::from_ww_bytes_owned(&item) == Ok(LinkEventOwned::Closed)
         });
     assert!(closed, "the stream says the link closed");
-    let mut w = ww_tape::TapeWriter::create_on(
-        ww_tape::MemSink::new(std::path::Path::new("relay")),
-        ww_tape::SyncPolicy::None,
-    );
+    let mut w = ww_tape::TapeWriter::create_on(ww_tape::MemSink::new(), ww_tape::SyncPolicy::None);
     let mut defs = Definitions::new();
     let mut dropped = 0;
     for c in &stream {

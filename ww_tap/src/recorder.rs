@@ -313,6 +313,12 @@ impl Clock {
     }
 }
 
+impl ww_tape::Clock for Clock {
+    fn now_ms(&self) -> u64 {
+        self.now().as_millis() as u64
+    }
+}
+
 struct Current {
     buf: Arc<ChunkBuf>,
     state: BlockState,
@@ -435,6 +441,12 @@ impl Recorder {
     /// [HOST_CLOCK] now, ns: what record times count.
     pub fn now_ns(&self) -> u64 {
         self.inner.clock.now().as_nanos() as u64
+    }
+
+    /// The recorder's clock as a [ww_tape::TapeWriter]'s ([ww_tape::TapeWriter::set_clock]): a writer storing the
+    /// recorder's blocks syncs and checkpoints on the time its records count, the fake one in tests.
+    pub fn tape_clock(&self) -> ww_tape::ClockRef {
+        ww_tape::ClockRef::new(self.inner.clock.clone())
     }
 
     /// A new link: its tracks are added, records go through the returned [Tap].
@@ -807,6 +819,9 @@ impl Inner {
                         TrackRepeat::Stream
                     },
                     kind: ww_tape::TrackKind::Events(ww_tape::EventsDef::INSTANTS),
+                    // zeros: the owner of the piece; the link's tracks belong to the capture itself
+                    owner: [0; 32],
+                    relations: RefVec::Slice { slice: &[] },
                 }),
             );
         }

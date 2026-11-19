@@ -2,6 +2,8 @@
 
 ### ⚠️ Breaking
 
+- `ww capture` writes ww_tape 2bfdd07's layout; `ww explain` and `ww stats --file` still read older captures' records.
+- `ww capture` keeps `FILE.lock` beside the capture while writing: removed at the end on unix, left on Windows.
 - `Program` has the field `hub: ww_hub::HubHost` (SRV-64): what the hub the binary hosts gets (its capture host); `HubHost::default()` for a hub that records nothing.
 - The `ww` binary moved to vhrdtech/ww_tools: install it with `cargo install --git https://github.com/vhrdtech/ww_tools ww`; the root recipes `install`, `install-cli` and `deploy` are removed, and `cargo ww` runs the example `ww_generic` (generic commands only).
 - The global `--monitor`, `--monitor-bytes`, `--monitor-bits` and `--capture` flags are removed; use `ww monitor` and `ww capture` (TOOL-14).
@@ -18,6 +20,7 @@
 
 ### 🐛 Bug Fixes
 
+- `ww capture` keeps the writer's error cause ("Caused by: ...") instead of flattening it into one line.
 - `ww tap` and `ww capture` relays drop a closed link's tracks from their definitions; `link closed` is shown (STD-135).
 - `ww --no-config PLUGIN` hands the plugin `WW_NO_CONFIG=true`, which its `--no-config` takes; `1` was refused (CLT-47).
 

@@ -4,6 +4,7 @@
 
 ### 🚀 Features
 
+- `Recorder::tape_clock`: a `ww_tape::ClockRef` on the recorder's clock, so a storing writer syncs on fake time in tests.
 - `LinkKey { medium, peer }`: the key of a link named by its peer, made from its first `Session` (TR-14).
 - `api()` (same name and version as before) and `ids::stream_name` without `std`, for producers outside the crate (TR-14).
 
@@ -17,6 +18,7 @@
 
 ### ⚠️ Breaking
 
+- Built on ww_tape 2bfdd07: recorder tracks carry the piece's owner (zeros) and no relations; head and index rows changed (ww_tape TAPE-8).
 - The recorder writes tape format 1: a session is a state record, put to consumers that lack it (STD-135).
 - Each consumer is put only what its next block needs and lacks within near; no producer record is sent (STD-135).
 - A consumer whose queue can't take a block gets the puts that fit, a block at a time, and misses the block (STD-135).

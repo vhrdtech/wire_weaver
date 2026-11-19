@@ -35,7 +35,7 @@ use wire_weaver_client::ww_self::ApiBundleOwned;
 use wire_weaver_client::ww_self::explain::PartKind;
 use wire_weaver_client::ww_tap::{LinkEventOwned, SessionOwned};
 use wire_weaver_client::ww_tape::{
-    Block, Definitions, FileBlocks, MAGIC, Recovery, SyncPolicy, TapeWriter, WriteError,
+    Block, Definitions, FileBlocks, FsError, MAGIC, Recovery, SyncPolicy, TapeWriter, WriteError,
 };
 
 #[cfg(any(test, feature = "test-support"))]
@@ -912,16 +912,21 @@ pub(crate) async fn capture(
         TapeWriter::create(&args.output, policy)
     }
     .map_err(|e| match e {
-        WriteError::Exists(p) => anyhow!(
+        WriteError::Sink {
+            error: FsError::Exists(p),
+            ..
+        } => anyhow!(
             "{} exists: --append to add to it, or another name",
             p.display()
         ),
-        e => anyhow!("{}: {e}", args.output.display()),
+        e => anyhow::Error::new(e).context(args.output.display().to_string()),
     })?;
     let (mut feed, recorder) = LiveFeed::new(tap);
+    let clock = recorder.tape_clock();
     let (path, blocks, bytes, lost) =
         run_live(device, recorder, args.duration, stop, move |stop| {
             let mut writer = writer;
+            writer.set_clock(clock);
             writer.set_producer(PRODUCER);
             let mut defs = Definitions::new();
             let shown = writer.current_path().display().to_string();
@@ -956,7 +961,8 @@ pub(crate) async fn capture(
             let current = writer.current_path().to_path_buf();
             result
                 .with_context(|| format!("capture stopped, {} kept as it is", current.display()))?;
-            let path = writer.finish()?.path;
+            let path = writer.sink().path().to_path_buf();
+            writer.finish()?;
             Ok((path, blocks, bytes, lost))
         })
         .await?;

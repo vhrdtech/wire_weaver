@@ -42,6 +42,9 @@ pub struct Source {
     pub features: Option<PathBuf>,
     /// File name of the tracker's page under [Source::into]; [TRACKER_PAGE] when left out
     pub features_page: Option<String>,
+    /// URL of the repository's own book, which builds its pages apart from this one: they are not copied, and the
+    /// tracker's links to them point into that book
+    pub book: Option<String>,
 }
 
 /// File name of a tracker's page when its source names none.
@@ -304,6 +307,9 @@ pub fn find_page(root: &Path, sources: &[Located], page: &Path) -> Option<PathBu
         return Some(own);
     }
     sources.iter().find_map(|located| {
+        if located.source.book.is_some() {
+            return None;
+        }
         let rest = page.strip_prefix(&located.source.into).ok()?;
         let path = located.pages_dir().join(rest);
         path.is_file().then_some(path)
@@ -333,7 +339,11 @@ pub fn assemble(root: &Path, sources: &[Located]) -> Result<Vec<PathBuf>> {
         let into = root.join("docs").join(&located.source.into);
         fs::create_dir_all(&into).with_context(|| format!("creating {}", into.display()))?;
         let previous = copied_before(&into)?;
-        let mut names = pages(located)?;
+        let mut names = if located.source.book.is_some() {
+            vec![]
+        } else {
+            pages(located)?
+        };
         if located.source.features.is_some() {
             let page = located.source.tracker_page();
             ensure!(
@@ -482,13 +492,46 @@ fn tracker_page(located: &Located) -> Result<String> {
     let tracker = located
         .tracker()?
         .context("tracker_page is only called for a source with a tracker")?;
-    let tracker = match pages_from_tracker(&located.source) {
-        Some(prefix) => tracker.replace(&format!("]({prefix}/"), "]("),
-        None => tracker,
+    let tracker = match (pages_from_tracker(&located.source), &located.source.book) {
+        (Some(prefix), Some(book)) => links_into_book(&tracker, &prefix, book),
+        (Some(prefix), None) => tracker.replace(&format!("]({prefix}/"), "]("),
+        (None, _) => tracker,
     };
     Ok(format!(
         "---\nicon: lucide/list-checks\nlevel: advanced\n---\n\n{tracker}"
     ))
+}
+
+/// `tracker` with each link to a page under `prefix` (`[x](docs/wire.md#bits)`) pointing to that page in `book`, as
+/// the book's site serves it: `wire.md#bits` at `<book>/wire/#bits`, `index.md` at `<book>/`.
+fn links_into_book(tracker: &str, prefix: &str, book: &str) -> String {
+    let marker = format!("]({prefix}/");
+    let book = book.trim_end_matches('/');
+    let mut out = String::with_capacity(tracker.len());
+    let mut rest = tracker;
+    while let Some(at) = rest.find(&marker) {
+        let after = &rest[at + marker.len()..];
+        let Some(end) = after.find(')') else {
+            break;
+        };
+        let (page, anchor) = after[..end]
+            .split_once('#')
+            .map_or((&after[..end], None), |(page, anchor)| (page, Some(anchor)));
+        let page = page.strip_suffix(".md").unwrap_or(page);
+        let dir = match page.strip_suffix("index") {
+            Some(parent) if parent.is_empty() || parent.ends_with('/') => parent.to_owned(),
+            _ => format!("{page}/"),
+        };
+        out.push_str(&rest[..at]);
+        out.push_str(&format!("]({book}/{dir}"));
+        if let Some(anchor) = anchor {
+            out.push_str(&format!("#{anchor}"));
+        }
+        out.push(')');
+        rest = &after[end + 1..];
+    }
+    out.push_str(rest);
+    out
 }
 
 /// The pages directory as the tracker's links write it, relative to the tracker's directory (`docs`), when it is
@@ -522,6 +565,7 @@ mod tests {
                 into: "serdes".into(),
                 features: Some("../FEATURES.md".into()),
                 features_page: None,
+                book: None,
             },
             dir: dir.join("fmt"),
             commit: None,
@@ -635,6 +679,37 @@ mod tests {
             page.ends_with("[wire](wire.md#bits), [site](https://x.org/docs/a)\n"),
             "{page}"
         );
+    }
+
+    #[test]
+    fn a_source_with_a_book_of_its_own_brings_only_its_tracker() {
+        let dir = scratch("own_book");
+        fs::create_dir_all(dir.join("other/docs")).unwrap();
+        fs::create_dir_all(dir.join("other/fmt")).unwrap();
+        fs::write(dir.join("other/docs/wire.md"), "# Wire\n").unwrap();
+        fs::write(
+            dir.join("other/FEATURES.md"),
+            "[wire](docs/wire.md#bits), [home](docs/index.md), [it](docs/wire.md)\n",
+        )
+        .unwrap();
+        let root = dir.join("book");
+        fs::create_dir_all(root.join("docs")).unwrap();
+        let mut source = located(&dir.join("other"));
+        source.source.book = Some("https://fmt.example/book/".to_owned());
+        let sources = [source];
+        let written = assemble(&root, &sources).unwrap();
+        let page = fs::read_to_string(root.join("docs/serdes/features.md")).unwrap();
+        let found = find_page(&root, &sources, Path::new("serdes/wire.md"));
+        fs::remove_dir_all(&dir).unwrap();
+        assert_eq!(written, [PathBuf::from("docs/serdes/features.md")]);
+        assert!(
+            page.ends_with(
+                "[wire](https://fmt.example/book/wire/#bits), [home](https://fmt.example/book/), \
+                 [it](https://fmt.example/book/wire/)\n"
+            ),
+            "{page}"
+        );
+        assert_eq!(found, None);
     }
 
     #[test]

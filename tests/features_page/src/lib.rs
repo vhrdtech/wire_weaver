@@ -125,7 +125,7 @@ struct Entry {
     ids: Vec<String>,
     name: String,
     line: String,
-    /// A page under `docs/`, maybe with an anchor.
+    /// A page under `docs/`, maybe with an anchor, or an `https://` page of another book.
     link: Option<String>,
     /// Line number in `entries.md`, for errors.
     at: usize,
@@ -233,7 +233,7 @@ pub fn render(trackers: &[TrackerSource<'_>], entries: &str) -> Result<String, S
     Ok(out)
 }
 
-/// The doc pages `entries` links to, without anchors, relative to `docs/`.
+/// The doc pages `entries` links to, without anchors, relative to `docs/`; links to other books are left out.
 pub fn links(entries: &str) -> Vec<String> {
     let Ok(entries) = parse_entries(entries) else {
         return Vec::new();
@@ -244,6 +244,7 @@ pub fn links(entries: &str) -> Vec<String> {
         .flat_map(|a| &a.levels)
         .flat_map(|(_, items)| items)
         .filter_map(|e| e.link.as_deref())
+        .filter(|l| !l.starts_with(BOOK_LINK))
         .map(|l| l.split_once('#').map_or(l, |(page, _)| page).to_string())
         .collect();
     links.sort();
@@ -471,6 +472,9 @@ fn parse_entries(src: &str) -> Result<Entries, String> {
     }
 }
 
+/// How a link to a page of another book (a repository with a book of its own, `book` in `book_sources.toml`) starts.
+const BOOK_LINK: &str = "https://";
+
 /// `SW-1, SW-2 | name | line | link` (the link may be empty).
 fn parse_entry(item: &str, at: usize) -> Result<Entry, String> {
     let parts: Vec<&str> = item.split('|').map(str::trim).collect();
@@ -487,9 +491,11 @@ fn parse_entry(item: &str, at: usize) -> Result<Entry, String> {
             "entries.md:{at}: the name and the line can't be empty"
         ));
     }
-    if link.contains("://") || link.starts_with('/') || link.contains(' ') {
+    let other_book = link.starts_with(BOOK_LINK) && link.len() > BOOK_LINK.len();
+    if (link.contains("://") && !other_book) || link.starts_with('/') || link.contains(' ') {
         return Err(format!(
-            "entries.md:{at}: the link is a page under docs/, like `api/streams.md#stream-functions`"
+            "entries.md:{at}: the link is a page under docs/, like `api/streams.md#stream-functions`, or a page of \
+             another book, like `https://vhrdtech.github.io/ww_tape/format/#tape-pieces`"
         ));
     }
     Ok(Entry {
@@ -652,6 +658,26 @@ mod tests {
     fn links_without_anchors() {
         let entries = ENTRIES.replace("serdes/derive.md", "serdes/derive.md#quick-start");
         assert_eq!(links(&entries), ["serdes/derive.md"]);
+    }
+
+    #[test]
+    fn links_to_another_book() {
+        let entries = ENTRIES.replace(
+            "serdes/derive.md",
+            "https://vhrdtech.github.io/ww_tape/format/#tape-pieces",
+        );
+        let page = render(&own(FEATURES), &entries).unwrap();
+        assert!(
+            page.contains("[Structs](https://vhrdtech.github.io/ww_tape/format/#tape-pieces)"),
+            "{page}"
+        );
+        assert!(links(&entries).is_empty());
+        let err = render(
+            &own(FEATURES),
+            &ENTRIES.replace("serdes/derive.md", "http://x.org/a"),
+        )
+        .unwrap_err();
+        assert!(err.contains("a page of another book"), "{err}");
     }
 
     #[test]

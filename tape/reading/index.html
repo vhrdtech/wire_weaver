@@ -6586,7 +6586,7 @@ signal. This page explains how <code>TapeReader</code> gets there with few reads
 at a place, and what it does with damage. It assumes <a href="../concepts/">Tape concepts</a>.</p>
 <h2 id="byte-sources">Byte sources<a class="headerlink" href="#byte-sources" title="Permanent link">&para;</a></h2>
 <p><code>TapeReader</code> reads through a <strong>byte source</strong> (<code>ByteSource</code>): anything that has a length and reads bytes at an offset. A
-byte slice, a file and the bytes of a memory sink being written (<code>MemSink::tape</code>) are byte sources, and an HTTP resource read by range requests can be
+byte slice, a file (<code>ww_tape_fs::FileSource</code>) and the bytes of a memory sink being written (<code>MemSink::tape</code>) are byte sources, and an HTTP resource read by range requests can be
 one. The reader needs no file system and no threads, so it also builds for WebAssembly and runs in a browser: it needs the
 crate's <code>alloc</code> feature, not <code>std</code>. The block walk <code>FileBlocks</code> of the last section needs <code>std</code>.</p>
 <h2 id="opening-from-the-tails">Opening from the tails<a class="headerlink" href="#opening-from-the-tails" title="Permanent link">&para;</a></h2>

@@ -5300,6 +5300,45 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="The writer and its sink">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#files" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Files
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#memory" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Memory
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#without-the-standard-library" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Without the standard library
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -6530,6 +6569,45 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="The writer and its sink">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#files" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Files
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#memory" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Memory
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#without-the-standard-library" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Without the standard library
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -6709,43 +6787,63 @@ concepts</a>.</p>
 <h2 id="the-writer-and-its-sink">The writer and its sink<a class="headerlink" href="#the-writer-and-its-sink" title="Permanent link">&para;</a></h2>
 <p><code>TapeWriter</code> appends the producer's blocks and adds the blocks a piece needs around them: the definitions and state each
 block needs, checkpoints, the final index, the finish and the tail. The producer makes the data; the writer places it.</p>
-<p>The writer puts its bytes into a <strong>sink</strong>. Two sinks come with <code>ww_tape</code>:</p>
+<p>The writer puts its bytes into a <strong>sink</strong>, any type that implements <code>TapeSink</code>: a sink appends, syncs, reports its
+size, completes the piece at the finish (a file takes its final name), and for a resume reads back at an offset and
+truncates. Two sinks come with the crates:</p>
 <ul>
-<li><code>FileSink</code>, the default, writes a file. <code>TapeWriter::create(path, sync)</code> creates it as <code>NAME.partial</code> and renames it
-  to <code>NAME</code> at the finish. It refuses a <code>NAME</code> that is there and a <code>NAME.partial</code> a crash left with bytes in it
-  (<code>FsError::Exists</code>), and never empties a file: reopen such a piece with <code>TapeWriter::resume</code>, or remove it. A
-  <code>NAME.partial</code> renamed or replaced between its open and its lock is refused too (<code>FsError::Replaced</code>). <code>TapeWriter::append(path, sync)</code> appends to a file in a new session, and creates the file when it isn't there.
-  One writer writes a file at a time: a file sink holds a lock on <code>NAME.lock</code> beside the file (a name of 251 bytes
-  or more, which leaves no room for the suffix, gets <code>HASH.lock</code>, the BLAKE3 hash of the name in hex), and a second sink of
-  the file, in this process or another, is refused (<code>FsError::Locked</code>). Only writers open the lock file, so readers
-  that open and close the file never let the lock go. On unix it is a POSIX record lock, which a child process forked
-  meanwhile doesn't hold, so a resume right after a writer is dropped is never refused because of a child. On unix the lock
-  file goes when the writer lets go; on Windows it stays, since removing it could race the next holder. A lock file
-  left behind, by Windows or by a crash, holds no lock and is taken as it is. One file has one lock
-  whatever name reaches it: the lock file is named after the file's canonical name, links resolved and <code>.partial</code>
-  dropped, and writers of one process are also kept apart by the file's identity, so a hard link is refused there
-  too. Two processes writing one file through two hard-linked names are not refused: their blocks interleave into a
-  file that reads as damaged. A device, such as a raw SD card, is locked itself; a FIFO, a socket or a directory is refused
-  (<code>FsError::NotAFile</code>).</li>
-<li><code>MemSink</code> keeps the bytes in memory, where a <code>TapeReader</code> reads them while they are written. Tests use it to cut a
-  piece at any byte and check what a reader makes of it.</li>
+<li><code>MemSink</code>, in <code>ww_tape</code>, keeps the bytes in memory, where a <code>TapeReader</code> reads them while they are written. Tests use
+  it to cut a piece at any byte and check what a reader makes of it.</li>
+<li><code>FileSink</code>, in the crate <code>ww_tape_fs</code>, writes a file.</li>
 </ul>
-<p>A chain of pieces takes a <strong>store of tapes</strong> instead (<code>Tapes</code>), which makes the sink of each piece under a key: <code>Files</code>
-makes files in a directory, key <code>seq</code> the file <code>00000000.wwt</code> counted up, and <code>MemTapes</code> keeps every piece in memory
-under its key. Any other place, such as a raw SD card or a network store, needs its own <code>TapeSink</code> and <code>Tapes</code>: a sink
-appends, syncs, reports its size, completes the piece at the finish (a file takes its final name), and for a resume
-reads back at an offset and truncates. Each sink and store has its own error type (<code>FsError</code>, <code>MemError</code>), which a
-<code>WriteError</code> carries in <code>WriteError::Sink</code>; a store refuses a tape that is there already or held by another writer.
-<code>MemError&lt;K&gt;</code> names the refused tape by its key, a value of the store's key type <code>K</code>.</p>
+<p>A chain of pieces takes a <strong>store of tapes</strong> instead (<code>Tapes</code>), which makes the sink of each piece under a key:
+<code>MemTapes</code> keeps every piece in memory under its key, and <code>ww_tape_fs::Files</code> makes files in a directory, key <code>seq</code> the
+file <code>00000000.wwt</code> counted up. Any other place, such as a raw SD card or a network store, needs its own <code>TapeSink</code> and
+<code>Tapes</code>. Each sink and store has its own error type (<code>MemError</code>, <code>ww_tape_fs::FsError</code>), which a <code>WriteError</code> carries
+in <code>WriteError::Sink</code>; a store refuses a tape that is there already or held by another writer. <code>MemError&lt;K&gt;</code> names the
+refused tape by its key, a value of the store's key type <code>K</code>.</p>
+<p>The writer's settings are its <code>WriterOptions</code>: the sync policy, the index policy, the layout (how blocks are placed),
+the producer's name and the near policy. The writer puts the layout and the producer at the start of every piece. They
+are the writer's own, and a caller can't write them.</p>
+<h3 id="files">Files<a class="headerlink" href="#files" title="Permanent link">&para;</a></h3>
+<p>Everything that names a path is in <code>ww_tape_fs</code>, so <code>ww_tape</code> itself builds without a file system. Its <code>writer</code> module
+opens a writer on a path:</p>
+<ul>
+<li><code>ww_tape_fs::writer::create(path, sync)</code> creates the file as <code>NAME.partial</code> and renames it to <code>NAME</code> at the finish.
+  It refuses a <code>NAME</code> that is there and a <code>NAME.partial</code> a crash left with bytes in it (<code>FsError::Exists</code>), and never
+  empties a file: reopen such a piece with <code>ww_tape_fs::writer::resume</code>, or remove it. A <code>NAME.partial</code> renamed or
+  replaced between its open and its lock is refused too (<code>FsError::Replaced</code>).</li>
+<li><code>ww_tape_fs::writer::append(path, sync)</code> appends to a file in a new session, and creates the file when it isn't
+  there.</li>
+<li><code>ww_tape_fs::writer::resume(path, options)</code> reopens the unfinished piece of <code>path</code> (see below), and
+  <code>ww_tape_fs::writer::cut(writer, next_path)</code> ends the piece and starts the next one in a new file.</li>
+</ul>
+<p>Its <code>chain</code> module opens a chain of pieces in a directory, or in one file: <code>ww_tape_fs::chain::create</code> and
+<code>ww_tape_fs::chain::resume</code>. Each of these functions only makes the sink or the store and hands it to the writer's own
+constructor (<code>TapeWriter::create_on</code>, <code>append_on</code>, <code>resume_on</code>, <code>cut_with</code>, <code>PieceChain::create_on</code>, <code>resume_on</code>), which
+a sink of any other kind uses the same way.</p>
+<p>One writer writes a file at a time: a file sink holds a lock on <code>NAME.lock</code> beside the file (a name of 251 bytes or
+more, which leaves no room for the suffix, gets <code>HASH.lock</code>, the BLAKE3 hash of the name in hex), and a second sink of
+the file, in this process or another, is refused (<code>FsError::Locked</code>). Only writers open the lock file, so readers that
+open and close the file never let the lock go. On unix it is a POSIX record lock, which a child process forked meanwhile
+doesn't hold, so a resume right after a writer is dropped is never refused because of a child. On unix the lock file
+goes when the writer lets go; on Windows it stays, since removing it could race the next holder. A lock file left
+behind, by Windows or by a crash, holds no lock and is taken as it is.</p>
+<p>One file has one lock whatever name reaches it: the lock file is named after the file's canonical name, links resolved
+and <code>.partial</code> dropped, and writers of one process are also kept apart by the file's identity, so a hard link is
+refused there too. Two processes writing one file through two hard-linked names are not refused: their blocks
+interleave into a file that reads as damaged. A device, such as a raw SD card, is locked itself; a FIFO, a socket or a
+directory is refused (<code>FsError::NotAFile</code>).</p>
+<p>An error names the step, the file and the kind of failure or refusal in its first line, such as <code>creating a writer:
+/data/x.wwt: locked by another writer</code>, so a log line of that text alone says what went wrong. Where the system
+reported an error (a full disk, a missing directory), that error is the source of the first, and is not repeated in it.</p>
+<h3 id="memory">Memory<a class="headerlink" href="#memory" title="Permanent link">&para;</a></h3>
 <p>A <code>MemSink</code> of a chain reserves the room of the chain's cut size (<code>CutPolicy::bytes</code> plus <code>CUT_SLACK</code>) when its piece starts, so a reader's <code>read_at</code> never waits for the piece to be copied into a bigger buffer. <code>MemTapes::remove(key)</code> takes a finished piece out of the map: a reader that holds its <code>MemTape</code> reads on, the piece still being written is refused (<code>MemError::Unfinished</code>), and what remains of the chain reads as a head cut, each piece giving its definitions and newest state from its own head. A chain with removed pieces is not resumed.</p>
+<h3 id="without-the-standard-library">Without the standard library<a class="headerlink" href="#without-the-standard-library" title="Permanent link">&para;</a></h3>
 <p>The writer, the chain and resume need only an allocator, not the standard library, so firmware or a browser can write
 tapes on a sink of its own. Two defaults change without the standard library. A new writer has no session, since it has
 no random source: it writes nothing until <code>TapeWriter::set_session</code> gives it one (<code>SessionTag::from_seed</code> over a
 device id or a boot timer) or a piece head does (<code>begin_piece</code>, and every piece of a chain). It has no clock either, so
 no sync, checkpoint or cut falls due by time until <code>WriterOptions::clock</code> gives it one.</p>
-<p>The writer's settings are its <code>WriterOptions</code>: the sync policy, the index policy, the layout (how blocks are placed),
-the producer's name and the near policy. The writer puts the layout and the producer at the start of every piece. They
-are the writer's own, and a caller can't write them.</p>
 <h2 id="what-the-application-does-with-its-definitions">What the application does with its definitions<a class="headerlink" href="#what-the-application-does-with-its-definitions" title="Permanent link">&para;</a></h2>
 <p>The writer keeps no table of definitions. The application keeps the definitions of what it works on in a <code>Definitions</code>
 container and passes it, by reference, with every call that writes data. It does three things:</p>
@@ -6769,7 +6867,7 @@ behind, so a block usually costs no definitions at all.</p>
 </span></code></pre></div>
 <p>Here <code>clock</code> and the two tracks are <code>Describe</code> values (a <code>ClockDef</code> and two <code>TrackDef</code>s), and <code>readings</code> is a finished
 records block from a <code>BlockWriter</code> (see below). The repository runs these lines
-as a test (<code>ww_tape/tests/it/book.rs</code>).</p>
+as a test (<code>ww_tape_tests/tests/it/book.rs</code>).</p>
 <p>How many definitions to hold is the application's choice; <code>Definitions::len</code> and <code>Definitions::bytes</code> say how much is
 held. For example, a recorder of 10 000 sensors holds 10 000 track definitions and passes them with each block. A block
 of 3 sensors' readings gets those 3 definitions and their clock written before it, once per 32 MiB plus one copy. A track
@@ -6785,8 +6883,10 @@ lies near the data that needs it.</p>
   gives back where it landed (<code>Placed</code>: its <code>offset</code> from the start of the piece and its <code>len</code>), or <code>None</code> for a block
   of puts, which lands as no single block of its own. Use record blocks for tracks that produce a few items at a time.</li>
 <li><strong>Chunks.</strong> Hand a chunk head and its columns to <code>TapeWriter::write_chunk</code>, which encodes the chunk block and gives
-  back where it landed (<code>Placed</code>). <code>PieceChain::write_chunk</code> gives back a <code>ChunkPlaced</code> too: the same, with the seq of
-  the piece it landed in, since a call may cut to a new piece first. <code>PieceChain::write_block</code> gives back nothing. Use chunks for tracks with many items.</li>
+  back where it landed (<code>Placed</code>), with the chunk's unit hash as the writer states it in the index entry (<code>unit</code>; a
+  record block's is <code>UnitHash::NONE</code>). The writer states it and does not verify it, so a writer in the same process can
+  fold range hashes without reading the piece back. <code>PieceChain::write_chunk</code> gives back a <code>ChunkPlaced</code> too: the same,
+  with the seq of the piece it landed in, since a call may cut to a new piece first. <code>PieceChain::write_block</code> gives back nothing. Use chunks for tracks with many items.</li>
 <li><strong>Deferred blocks.</strong> Hand small blocks that may wait, such as summary blocks, to <code>TapeWriter::defer_block</code>. The writer
   puts their definitions at once. In an aligned file it places the block in the gap before a chunk's payload, at most
   <code>DEFER_WINDOW</code> (1 MiB) of writes later; in a file that isn't aligned it places the block at once.</li>
@@ -6910,9 +7010,10 @@ when it was written. A producer that wants checkpoints by time as well sets <cod
 a checkpoint waits for the gap before the next chunk payload.</p>
 <h2 id="cuts-ending-one-piece-and-starting-the-next">Cuts: ending one piece and starting the next<a class="headerlink" href="#cuts-ending-one-piece-and-starting-the-next" title="Permanent link">&para;</a></h2>
 <p>A <strong>cut</strong> ends the current piece and starts the next piece of the chain. Only a piece of a chain can be cut: a writer
-starts one with <code>TapeWriter::begin_piece</code>, which writes the piece head first in the file. <code>TapeWriter::cut(next_path)</code>
-places every deferred block, writes the final index, the finish and the tail, renames the file, and returns the
-finished piece (<code>Finished</code>) and a writer on the next piece. The next piece starts with a piece head and the layout and producer. Its definitions and state are put again at
+starts one with <code>TapeWriter::begin_piece</code>, which writes the piece head first in the file. <code>TapeWriter::cut_with(tapes, key)</code>
+places every deferred block, writes the final index, the finish and the tail, finishes the sink (a file takes its final
+name), and returns the finished piece (<code>Finished</code>) and a writer on the next piece, in a new sink the store makes under <code>key</code>;
+<code>ww_tape_fs::writer::cut(writer, next_path)</code> does it with the file <code>next_path</code>. The next piece starts with a piece head and the layout and producer. Its definitions and state are put again at
 their first uses, since near is measured inside a piece.</p>
 <p><code>PieceChain</code> writes a whole chain and cuts by itself by a <code>CutPolicy</code>, which has three limits: <code>bytes</code>, <code>chunks</code> and
 <code>interval</code>, an age counted from the piece's start or its resume. A limit of 0 or <code>None</code> is off, and the first limit
@@ -6947,8 +7048,9 @@ writer for raw media passes a producer's blocks with <code>TapeWriter::adopt_blo
 writer's own session and gives back where it landed (<code>Placed</code>), <code>None</code> for a block of puts. A jump in the producer's
 sequence numbers stays a jump in the writer's, so a reader still sees blocks that were lost on the way.</p>
 <h2 id="resuming-after-a-crash">Resuming after a crash<a class="headerlink" href="#resuming-after-a-crash" title="Permanent link">&para;</a></h2>
-<p><code>TapeWriter::resume(path, options)</code> reopens the unfinished piece of <code>path</code>, the file <code>NAME.partial</code> that
-<code>TapeWriter::create(NAME)</code> wrote, and goes on writing the same piece. It returns the writer and a <code>Resumed</code>, which says
+<p><code>TapeWriter::resume_on(sink, options)</code> reopens the unfinished piece in a sink and goes on writing the same piece. For a
+file, <code>ww_tape_fs::writer::resume(path, options)</code> opens the file <code>NAME.partial</code> that <code>ww_tape_fs::writer::create(NAME)</code>
+wrote and resumes it. It returns the writer and a <code>Resumed</code>, which says
 how many bytes it kept and dropped and where the piece was cut. It works in three steps:</p>
 <ol>
 <li>It finds the piece as a reader would: by its tail when it has one, else from the newest checkpoint and a scan after
@@ -7031,7 +7133,7 @@ A piece whose finish and tail read whole (a crash after the finish, before the r
 it, writes nothing and returns <code>WriteError::Ended</code>. Junk a crash left after the tail (garbage, a torn block) is cut
 off first; a good block there refuses (<code>ResumeError::GoodBlockAfterCut</code>). A piece cut inside its end is opened again: its final index and
 finish are cut off, and the next finish pads the piece to 4 KiB again.</p>
-<p><code>PieceChain::resume</code> does the same for a chain. It reads the finished pieces back from their tails and resumes the last,
+<p><code>PieceChain::resume_on</code> (<code>ww_tape_fs::chain::resume</code> for files) does the same for a chain. It reads the finished pieces back from their tails and resumes the last,
 or starts the next piece when the crash came between a cut's finish and the next piece's start, renaming a finished
 piece the crash left as <code>NAME.partial</code>. A chain whose last piece already ended complete or aborted is refused with
 <code>WriteError::Ended</code>. A chain in one file (<code>PieceTapes::One</code>) is not refused there: it starts a new piece behind the

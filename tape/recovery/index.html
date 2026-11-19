@@ -6820,7 +6820,8 @@ makes every item of the chunk suspect, since the column decodes as a whole.</p>
 after a failed <code>fsync</code> Linux may drop the unwritten pages, and a second <code>fsync</code> then succeeds without them. A file that
 still ends in <code>.partial</code> was never finished.</p>
 <h3 id="resuming-after-a-crash">Resuming after a crash<a class="headerlink" href="#resuming-after-a-crash" title="Permanent link">&para;</a></h3>
-<p><code>TapeWriter::resume</code> reopens <code>NAME.partial</code> and continues the same piece. It reads the piece the way <code>TapeReader</code> does,
+<p><code>ww_tape_fs::writer::resume</code> reopens <code>NAME.partial</code> and continues the same piece (<code>TapeWriter::resume_on</code> on any
+other sink). It reads the piece the way <code>TapeReader</code> does,
 from the newest checkpoint and then by a scan that stops at the first bad block. It keeps every good block up to the
 end of the piece's data, and cuts off the rest: a torn block, an end sequence, and puts marked <code>FLAG_WITH_NEXT</code> that
 end what it keeps (they belong with a block that didn't survive). The resume replays every block it keeps, so the
@@ -6840,8 +6841,8 @@ a gap.</p>
 <p>The writer holds no definitions of its own, so a resume needs none from the file: the application passes its
 definitions with each call, as before the crash, and the writer puts what each block needs again where it doesn't lie
 near behind.</p>
-<p>For example, a recorder loses power while writing piece 3 of a chain. On restart it calls <code>PieceChain::resume</code> with the
-directory and the chain options. The chain reads pieces 0 to 2 back from their tails, reopens <code>00000003.wwt.partial</code>,
+<p>For example, a recorder loses power while writing piece 3 of a chain. On restart it calls <code>ww_tape_fs::chain::resume</code>
+with the directory and the chain options. The chain reads pieces 0 to 2 back from their tails, reopens <code>00000003.wwt.partial</code>,
 and the recorder goes on from the first block the file lacks. A crash between finishing one piece and creating the next
 resumes too: the chain creates the next piece.</p>
 <p>A chain written into one file (<code>PieceTapes::One</code>) resumes the same way. The chain finds the pieces by their tails from
@@ -6849,9 +6850,10 @@ the end of the file, then resumes the unfinished last piece behind the finished 
 last piece is finished. The finished pieces keep every byte. A resume cuts off only a torn end of the last piece; a last
 piece whose head is damaged is refused (<code>WriteError::Index</code>), since keeping its blocks would leave them outside the
 chain, and dropping them would lose more than a torn end.</p>
-<p>A writer writes through a <strong>sink</strong>: a file (<code>FileSink</code>) or memory (<code>MemSink</code>). A memory sink reads back as a byte source,
-so <code>TapeReader</code> reads a piece while it is being written, and tests drive crashes by cutting the bytes anywhere.
-<code>PieceChain</code> takes a store of tapes (<code>Tapes</code>) that makes the sink for each piece under a key, <code>Files</code> or <code>MemTapes</code>.</p>
+<p>A writer writes through a <strong>sink</strong>: memory (<code>MemSink</code>) or a file (<code>ww_tape_fs::FileSink</code>). A memory sink reads back as a
+byte source, so <code>TapeReader</code> reads a piece while it is being written, and tests drive crashes by cutting the bytes
+anywhere. <code>PieceChain</code> takes a store of tapes (<code>Tapes</code>) that makes the sink for each piece under a key, <code>MemTapes</code> or
+<code>ww_tape_fs::Files</code>.</p>
 <h3 id="example-a-recorder-that-lost-power">Example: a recorder that lost power<a class="headerlink" href="#example-a-recorder-that-lost-power" title="Permanent link">&para;</a></h3>
 <p>A recorder on a PC writes a tape of several tracks, 50 MiB so far, with the default sync interval of 1 s. The power
 fails. On disk is <code>capture.wwt.partial</code>: every block up to the last sync, and perhaps part of the block being written.</p>

@@ -6797,7 +6797,11 @@ correction, or a file system. A block kind is reserved for parity blocks, but no
   payload is handed out with its bad CRC segments marked, and the walk goes on after it by its length. In a stretch
   that Prefix reads past as a gap, Resync hands out the good blocks too, also a session that starts there and the
   blocks after it. Past the gap, the walk goes on with the session it had, where Prefix does. So Resync reads every
-  block Prefix reads.</li>
+  block Prefix reads.
+  Resync has no seq check, but it remembers the last 65536 data blocks it handed out (<code>RESYNC_SEQS_MAX</code>): a good
+  block of one of their session and seq with other bytes is a conflict (<code>FileError::Conflict</code>, naming both), never a
+  block of its own; a copy with the same bytes is none. The first of the two was handed out already, so
+  a caller that keeps what a salvage hands out holds it back or can take it back.</li>
 </ul>
 <p>Inside a damaged events chunk, a reader can still <strong>salvage</strong> items. The time codec and the payload lengths are stored
 per group of 128 items, and each group's record must agree with its neighbours: offsets that chain, ticks in order,
@@ -6824,10 +6828,12 @@ writer knows again what it put and where. A damaged block the index still lists 
 item unknown, so the next put of such a slot writes. The producer passes the same writer options it wrote the piece
 with (<code>TapeWriter::options</code> gives them) and gives again every call from the block <code>next_seq</code> reports, with the same
 definitions: a resumed piece then ends with the same bytes, and the same content hash, as one written without the
-crash. A piece found with its finish (a crash after the finish, before the rename) is opened again the same way: its
-finish and tail are cut off, and the next finish pads the piece to 4 KiB again.</p>
+crash. A piece whose finish and tail read whole (a crash after the finish, before the rename) is complete: the resume
+renames it, writes nothing and returns <code>WriteError::Ended</code>; junk after the tail is cut off first, a good block there
+refuses. A piece cut inside its end is opened again the same way:
+its final index and finish are cut off, and the next finish pads the piece to 4 KiB again.</p>
 <p>The resume checks those options against the piece before it cuts or writes anything. The newest layout and producer
-the piece kept must be the ones the options give (<code>WriteError::Layout</code>, <code>WriteError::Producer</code>, each naming both).
+the piece kept must be the ones the options give (<code>InputError::Layout</code>, <code>InputError::Producer</code>, each naming both).
 Options with another chunk alignment would place blocks the way the file says it doesn't, and a reader trusts the
 layout when it looks for the end of the data. The layout's gap settings need no check, because the writer never leaves
 a gap.</p>
@@ -6838,9 +6844,14 @@ near behind.</p>
 directory and the chain options. The chain reads pieces 0 to 2 back from their tails, reopens <code>00000003.wwt.partial</code>,
 and the recorder goes on from the first block the file lacks. A crash between finishing one piece and creating the next
 resumes too: the chain creates the next piece.</p>
+<p>A chain written into one file (<code>PieceTapes::One</code>) resumes the same way. The chain finds the pieces by their tails from
+the end of the file, then resumes the unfinished last piece behind the finished ones, or starts a new piece when the
+last piece is finished. The finished pieces keep every byte. A resume cuts off only a torn end of the last piece; a last
+piece whose head is damaged is refused (<code>WriteError::Index</code>), since keeping its blocks would leave them outside the
+chain, and dropping them would lose more than a torn end.</p>
 <p>A writer writes through a <strong>sink</strong>: a file (<code>FileSink</code>) or memory (<code>MemSink</code>). A memory sink reads back as a byte source,
 so <code>TapeReader</code> reads a piece while it is being written, and tests drive crashes by cutting the bytes anywhere.
-<code>PieceChain</code> takes a factory that makes the sink for each piece, <code>Files</code> or <code>MemTapes</code>.</p>
+<code>PieceChain</code> takes a store of tapes (<code>Tapes</code>) that makes the sink for each piece under a key, <code>Files</code> or <code>MemTapes</code>.</p>
 <h3 id="example-a-recorder-that-lost-power">Example: a recorder that lost power<a class="headerlink" href="#example-a-recorder-that-lost-power" title="Permanent link">&para;</a></h3>
 <p>A recorder on a PC writes a tape of several tracks, 50 MiB so far, with the default sync interval of 1 s. The power
 fails. On disk is <code>capture.wwt.partial</code>: every block up to the last sync, and perhaps part of the block being written.</p>

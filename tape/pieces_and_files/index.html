@@ -5353,6 +5353,45 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#writing-a-chain-into-one-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Writing a chain into one file
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tracks-of-several-owners" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Tracks of several owners
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-tracks-hash" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A track's hash
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="A track&#x27;s hash">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
   <a href="#the-4-kib-end-and-cloning" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6490,6 +6529,45 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#writing-a-chain-into-one-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Writing a chain into one file
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tracks-of-several-owners" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Tracks of several owners
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-tracks-hash" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A track's hash
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="A track&#x27;s hash">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
   <a href="#the-4-kib-end-and-cloning" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6572,8 +6650,8 @@
 
 <h1 id="pieces-and-files">Pieces and files<a class="headerlink" href="#pieces-and-files" title="Permanent link">&para;</a></h1>
 <p>A recording that runs for days doesn't fit one file well. This page explains how <code>ww_tape</code> cuts a recording into pieces,
-how the pieces stay checked as one chain, how many pieces can live in one file, what a copy of a file keeps, and how one
-item is addressed in all of them. It assumes <a href="../concepts/">Tape concepts</a> and <a href="../writing/">Writing a tape</a>.</p>
+how the pieces stay checked as one chain, how many pieces can live in one file, how tracks of several owners and each
+track's hash work, what a copy of a file keeps, and how one item is addressed in all of them. It assumes <a href="../concepts/">Tape concepts</a> and <a href="../writing/">Writing a tape</a>.</p>
 <h2 id="why-pieces">Why pieces<a class="headerlink" href="#why-pieces" title="Permanent link">&para;</a></h2>
 <p>A piece is a complete tape: it has its own definitions, index, content hash and tail, and it reads without any other
 piece. Cutting a recording into pieces gives three things:</p>
@@ -6637,7 +6715,9 @@ tag.</p>
 <p><code>ww_tape::piece::check_chain</code> takes a <code>PieceSummary</code> of each piece at hand (<code>PieceInfo::summary</code> gives one for a
 piece a <code>TapeReader</code> found), puts them in order and reports each link between neighbours, whether the
 chain's start was deleted (<code>head_cut</code>), how it ends, and pieces that don't belong (<code>ChainReport</code>; <code>is_whole</code> when all is
-well). Each piece head also says, per track, which item number the piece starts with and the tick before which none of
+well). A piece whose head is damaged keeps its place by the ident its finish carries, linked one way (<code>HeadLost</code>); a
+piece whose head is of an integrity level the reader doesn't handle is listed in <code>refused</code>, and every lookup in it
+returns that level's error. Each piece head also says, per track, which item number the piece starts with and the tick before which none of
 its items start (<code>TrackStart</code>). A reader of one piece so knows where its items fall in the whole recording.</p>
 <h2 id="many-pieces-in-one-file">Many pieces in one file<a class="headerlink" href="#many-pieces-in-one-file" title="Permanent link">&para;</a></h2>
 <p>Pieces written back to back are one valid tape. A reader finds the last piece's tail at the end of the file, the piece's
@@ -6687,8 +6767,66 @@ the tail just before its start, which gives piece 1's length and so its start (2
 file (3). Each piece head names the piece before it by that piece's content hash.</figcaption>
 </figure>
 
-<p>So <code>cat 00000000.wwt 00000001.wwt &gt; all.wwt</code> gives a file any reader takes. An application that wants one file per
-recording appends pieces to one file this way.</p>
+<p>So <code>cat 00000000.wwt 00000001.wwt &gt; all.wwt</code> gives a file any reader takes.</p>
+<h3 id="writing-a-chain-into-one-file">Writing a chain into one file<a class="headerlink" href="#writing-a-chain-into-one-file" title="Permanent link">&para;</a></h3>
+<p>An application chooses per chain whether each piece gets a file of its own or every piece goes into one file. A chain
+of many files suits retention, since old pieces are deleted file by file. One file per recording suits an application
+that keeps a recording as one document, such as a project file.</p>
+<p><code>ChainOptions::tapes</code> makes the choice. <code>PieceTapes::Each</code>, the default, writes <code>00000000.wwt</code>, <code>00000001.wwt</code> and so
+on. <code>PieceTapes::One</code> writes every piece into the one file the chain was created with. A cut then ends the piece and
+starts the next one right behind it in the same file (<code>TapeWriter::cut_in_place</code>), and the bytes are the same as the
+pieces of a chain of many files placed back to back. One writer writes a file at a time.</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kd">let</span><span class="w"> </span><span class="n">options</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ChainOptions</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">    </span><span class="n">tapes</span><span class="p">:</span><span class="w"> </span><span class="nc">PieceTapes</span><span class="p">::</span><span class="n">One</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="o">..</span><span class="n">ChainOptions</span><span class="p">::</span><span class="n">default</span><span class="p">()</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="p">};</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">chain</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PieceChain</span><span class="p">::</span><span class="n">create</span><span class="p">(</span><span class="n">path</span><span class="p">,</span><span class="w"> </span><span class="n">owner</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="p">[],</span><span class="w"> </span><span class="n">options</span><span class="p">.</span><span class="n">clone</span><span class="p">())</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">chain</span><span class="p">.</span><span class="n">write_chunk</span><span class="p">(</span><span class="n">defs</span><span class="p">,</span><span class="w"> </span><span class="n">head</span><span class="p">,</span><span class="w"> </span><span class="n">columns</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="kd">let</span><span class="w"> </span><span class="n">first</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">chain</span><span class="p">.</span><span class="n">finish</span><span class="p">()</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="c1">// opened again: a new piece behind the finished one</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="kd">let</span><span class="w"> </span><span class="p">(</span><span class="k">mut</span><span class="w"> </span><span class="n">chain</span><span class="p">,</span><span class="w"> </span><span class="n">_</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PieceChain</span><span class="p">::</span><span class="n">resume</span><span class="p">(</span><span class="n">path</span><span class="p">,</span><span class="w"> </span><span class="n">owner</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">options</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">chain</span><span class="p">.</span><span class="n">write_chunk</span><span class="p">(</span><span class="n">defs</span><span class="p">,</span><span class="w"> </span><span class="n">head</span><span class="p">,</span><span class="w"> </span><span class="n">columns</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="kd">let</span><span class="w"> </span><span class="n">second</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">chain</span><span class="p">.</span><span class="n">finish</span><span class="p">()</span><span class="o">?</span><span class="p">;</span>
+</span></code></pre></div>
+<p>The first session leaves one finished piece in the file. The second session finds it, adds a piece behind it, and
+returns both pieces; the repository runs these lines as a test (<code>ww_tape/tests/it/book.rs</code>).</p>
+<p>Opening the file again goes through <code>PieceChain::resume</code> with the same options. The chain finds the last piece by the
+tails, as a reader does. An unfinished last piece, cut off by a crash, is resumed under the same rules as a piece in a
+file of its own (<a href="../writing/#resuming-after-a-crash">Resuming after a crash</a>). A last piece that was finished starts a
+new piece behind it. Every session that opens the file and closes it therefore adds at least one piece. The new piece
+has a session tag of its own, and its head names the last piece by its content hash and id, so <code>check_chain</code> sees one
+linked chain. For example, an editor that opens a project, records for a minute and closes it adds one piece each time.</p>
+<h2 id="tracks-of-several-owners">Tracks of several owners<a class="headerlink" href="#tracks-of-several-owners" title="Permanent link">&para;</a></h2>
+<p>Each track definition names an <strong>owner</strong>: <code>TrackDef::owner</code>, 32 bytes that <code>ww_tape</code> doesn't interpret. Zeros, the
+default, mean the owner of the piece. The owner is not part of the track's identity, so it changes neither the track key
+nor the id. A track is known by its id together with its owner.</p>
+<p>Two definitions with the same key and different owners are therefore two tracks. Each has its own item numbers, its own
+rows in the piece head and the finish, and its own hash. For example, an application that records two devices of the
+same type into one tape defines each device's tracks with the same keys, and with the device's id as the owner.</p>
+<h2 id="a-tracks-hash">A track's hash<a class="headerlink" href="#a-tracks-hash" title="Permanent link">&para;</a></h2>
+<p>Every track has a running hash, the <strong>track hash</strong> (<code>TrackHash</code>). It starts as 32 zero bytes and takes in each chunk of
+the track and each of its records as they are written. Puts and copies, which repeat what is already on the tape, are
+left out. The piece head states each track's hash before the piece, and the finish states it after; <code>Finished::tracks</code>
+reports it when a piece ends.</p>
+<p>The hash depends only on the track's own data, not on where the data lies. A track written alone or among other tracks,
+in one piece or many, in one file or many, ends with the same hash. Two recordings hold the same data for a track
+exactly when their hashes match, and a subset copy that keeps a track's chunks and records unchanged ends with the
+original's hash. <a href="../format/">The file format</a> lists the bytes the hash takes in.</p>
+<p>The hash of a part of a track works the same way. Folded from 32 zero bytes over a run of whole chunks, it depends only
+on those chunks. <code>TapeReader::range_hash</code> gives it for the chunks that hold any item of an item range. The writer stores
+each chunk's share of the hash in the chunk's index entry, so the fold reads only the index, never a payload. Where the
+index is damaged or missing, the reader reads the chunks and computes the same hash; a damaged chunk of the track is
+an error there as by the index, bytes no block explains are counted (<code>RangeHash::skipped</code>), and a chunk written again
+folds once. Entries that name one block twice or overlap are refused (<code>IndexError::BadEntries</code>), from a final index,
+checkpoints or a scan alike, and the reader reads the chunks instead. The fold from the index is the hash the writer
+stated, checked by the index's CRCs, not a check of the payloads: <code>RangeHash::stated</code> counts the chunks folded that way, <code>RangeHash::read</code> those hashed from their bytes. The strict check (<code>TapeReader::verify</code>: the content
+hash, each entry against its block, each finish row against its track's fold) and every read of a chunk check those,
+and a chunk marked <code>FLAG_PAYLOAD_UNCHECKED</code> is refused there. An index entry of a kind the reader doesn't fold is
+counted in <code>RangeHash::skipped</code>, never dropped unsaid, and a chunk the fold reads must be the one its entry names, with
+the range it states. A piece of a level
+that leaves payloads unchecked states no unit hash (<code>ENTRY_UNHASHED</code>), so no fold takes one. For example, a program that
+processed items 1,000 to 50,000 of a track can record the range hash of its input, and anyone can later check that a
+file still holds exactly that input. A track's records are not chunks, so a range hash leaves them out.</p>
 <h3 id="the-4-kib-end-and-cloning">The 4 KiB end and cloning<a class="headerlink" href="#the-4-kib-end-and-cloning" title="Permanent link">&para;</a></h3>
 <p>A finished piece is a multiple of 4 KiB long. The writer pads the finish block with zeros up to the boundary, so the
 tail, still the last bytes of the piece, ends on it. The padding is part of the finish block and its CRC; the content

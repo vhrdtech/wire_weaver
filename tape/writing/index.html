@@ -6712,16 +6712,37 @@ block needs, checkpoints, the final index, the finish and the tail. The producer
 <p>The writer puts its bytes into a <strong>sink</strong>. Two sinks come with <code>ww_tape</code>:</p>
 <ul>
 <li><code>FileSink</code>, the default, writes a file. <code>TapeWriter::create(path, sync)</code> creates it as <code>NAME.partial</code> and renames it
-  to <code>NAME</code> at the finish. It refuses a <code>NAME</code> that is there (<code>WriteError::Exists</code>) and writes over a
-  <code>NAME.partial</code> left behind; reopen such a piece with <code>TapeWriter::resume</code> to keep it. <code>TapeWriter::append(path, sync)</code> appends to a file in a new session, and creates the file when it isn't there.</li>
+  to <code>NAME</code> at the finish. It refuses a <code>NAME</code> that is there and a <code>NAME.partial</code> a crash left with bytes in it
+  (<code>FsError::Exists</code>), and never empties a file: reopen such a piece with <code>TapeWriter::resume</code>, or remove it. A
+  <code>NAME.partial</code> renamed or replaced between its open and its lock is refused too (<code>FsError::Replaced</code>). <code>TapeWriter::append(path, sync)</code> appends to a file in a new session, and creates the file when it isn't there.
+  One writer writes a file at a time: a file sink holds a lock on <code>NAME.lock</code> beside the file (a name of 251 bytes
+  or more, which leaves no room for the suffix, gets <code>HASH.lock</code>, the BLAKE3 hash of the name in hex), and a second sink of
+  the file, in this process or another, is refused (<code>FsError::Locked</code>). Only writers open the lock file, so readers
+  that open and close the file never let the lock go. On unix it is a POSIX record lock, which a child process forked
+  meanwhile doesn't hold, so a resume right after a writer is dropped is never refused because of a child. On unix the lock
+  file goes when the writer lets go; on Windows it stays, since removing it could race the next holder. A lock file
+  left behind, by Windows or by a crash, holds no lock and is taken as it is. One file has one lock
+  whatever name reaches it: the lock file is named after the file's canonical name, links resolved and <code>.partial</code>
+  dropped, and writers of one process are also kept apart by the file's identity, so a hard link is refused there
+  too. Two processes writing one file through two hard-linked names are not refused: their blocks interleave into a
+  file that reads as damaged. A device, such as a raw SD card, is locked itself; a FIFO, a socket or a directory is refused
+  (<code>FsError::NotAFile</code>).</li>
 <li><code>MemSink</code> keeps the bytes in memory, where a <code>TapeReader</code> reads them while they are written. Tests use it to cut a
   piece at any byte and check what a reader makes of it.</li>
 </ul>
-<p>A chain of pieces takes a <strong>sink factory</strong> instead, which makes the sink of each piece: <code>Files</code> makes files in a
-directory, and <code>MemTapes</code> keeps every piece in memory under its name. Any other place, such as a raw SD card or a
-network store, needs its own <code>TapeSink</code>: a sink appends, syncs, reports its size and its path, gives the piece its
-final name at the finish, and for a resume reads back at an offset and truncates.</p>
-<p>A <code>MemSink</code> of a chain reserves the room of the chain's cut size (<code>CutPolicy::bytes</code> plus <code>CUT_SLACK</code>) when its piece starts, so a reader's <code>read_at</code> never waits for the piece to be copied into a bigger buffer. <code>MemTapes::remove(path)</code> takes a finished piece out of the map: a reader that holds its <code>MemTape</code> reads on, the piece still being written is refused (<code>WriteError::Unfinished</code>), and what remains of the chain reads as a head cut, each piece giving its definitions and newest state from its own head. A chain with removed pieces is not resumed.</p>
+<p>A chain of pieces takes a <strong>store of tapes</strong> instead (<code>Tapes</code>), which makes the sink of each piece under a key: <code>Files</code>
+makes files in a directory, key <code>seq</code> the file <code>00000000.wwt</code> counted up, and <code>MemTapes</code> keeps every piece in memory
+under its key. Any other place, such as a raw SD card or a network store, needs its own <code>TapeSink</code> and <code>Tapes</code>: a sink
+appends, syncs, reports its size, completes the piece at the finish (a file takes its final name), and for a resume
+reads back at an offset and truncates. Each sink and store has its own error type (<code>FsError</code>, <code>MemError</code>), which a
+<code>WriteError</code> carries in <code>WriteError::Sink</code>; a store refuses a tape that is there already or held by another writer.
+<code>MemError&lt;K&gt;</code> names the refused tape by its key, a value of the store's key type <code>K</code>.</p>
+<p>A <code>MemSink</code> of a chain reserves the room of the chain's cut size (<code>CutPolicy::bytes</code> plus <code>CUT_SLACK</code>) when its piece starts, so a reader's <code>read_at</code> never waits for the piece to be copied into a bigger buffer. <code>MemTapes::remove(key)</code> takes a finished piece out of the map: a reader that holds its <code>MemTape</code> reads on, the piece still being written is refused (<code>MemError::Unfinished</code>), and what remains of the chain reads as a head cut, each piece giving its definitions and newest state from its own head. A chain with removed pieces is not resumed.</p>
+<p>The writer, the chain and resume need only an allocator, not the standard library, so firmware or a browser can write
+tapes on a sink of its own. Two defaults change without the standard library. A new writer has no session, since it has
+no random source: it writes nothing until <code>TapeWriter::set_session</code> gives it one (<code>SessionTag::from_seed</code> over a
+device id or a boot timer) or a piece head does (<code>begin_piece</code>, and every piece of a chain). It has no clock either, so
+no sync, checkpoint or cut falls due by time until <code>WriterOptions::clock</code> gives it one.</p>
 <p>The writer's settings are its <code>WriterOptions</code>: the sync policy, the index policy, the layout (how blocks are placed),
 the producer's name and the near policy. The writer puts the layout and the producer at the start of every piece. They
 are the writer's own, and a caller can't write them.</p>
@@ -6733,7 +6754,8 @@ container and passes it, by reference, with every call that writes data. It does
    <code>define_all</code>. The container checks each definition against those it holds: a track must name a clock held, and a
    clock epoch must come with its link to the epoch before. Nothing is written yet.</li>
 <li>It passes the container with every write of data (<code>write_block</code>, <code>write_chunk</code>, <code>defer_block</code>) and every put. Data on
-   a track the container doesn't hold is refused.</li>
+   a track the container doesn't hold is refused, and so is a chunk or summary whose head names the track's number
+   under another id than its definition's (<code>DescribeError::TrackId</code>).</li>
 <li>It drops a track it stops working on with <code>Definitions::close</code>. The clocks, maps and bundles no held track names go
    with it. Nothing is written for that either.</li>
 </ol>
@@ -6871,6 +6893,11 @@ how much that can be:</p>
 so the last blocks are synced even when no new block comes; with <code>IndexPolicy::interval</code> set, <code>tick</code> also
 places a checkpoint when its time is up. In an unaligned file the checkpoint goes in at once; in an aligned file <code>tick</code>
 only marks it due, and it goes into the gap before the next chunk. <code>TapeWriter::sync</code> syncs at once.</p>
+<p>The writer reads time only through its clock, <code>WriterOptions::clock</code> (<code>TapeWriter::set_clock</code>). With <code>std</code> the
+default is the system's monotonic clock (<code>ClockRef::SYSTEM</code>, a <code>SystemClock</code>), so two default options are equal.
+Without <code>std</code> there is no clock by default, <code>ClockRef::NONE</code>, and then no interval is ever due: only the block and
+byte rules apply. Firmware passes its own <code>Clock</code>, and a test passes a clock it moves by hand. Time decides only
+when a writer syncs, places a checkpoint or cuts, never the bytes.</p>
 <p>A failed write or sync ends the file. The writer reports it and refuses every later write. It never retries, because
 after a failed <code>fsync</code> Linux may drop the pages it couldn't write, and a second <code>fsync</code> then succeeds without them.</p>
 <h2 id="checkpoints">Checkpoints<a class="headerlink" href="#checkpoints" title="Permanent link">&para;</a></h2>
@@ -6892,6 +6919,10 @@ their first uses, since near is measured inside a piece.</p>
 reached cuts. The chain checks the policy before each chunk, so a cut by policy never comes after the last chunk and
 never leaves a piece without data. The chain also cuts before any write that would need more state entries than the
 piece's index may hold (<code>IndexPolicy::state_entries_max</code>), and <code>PieceChain::cut_now</code> cuts at once.</p>
+<p>A chain writes each piece into a tape of its own, or, with <code>ChainOptions::tapes</code> set to <code>PieceTapes::One</code>, every
+piece into one tape. <code>TapeWriter::cut_in_place</code> is the cut of a writer into one file: the next piece starts right
+behind the finished one in the same sink, and the file keeps its name. <a href="../pieces_and_files/#writing-a-chain-into-one-file">Pieces and
+files</a> explains when to choose which.</p>
 <p>Nothing waits for a cut. Durability comes from the sync policy and the checkpoints, which work inside a piece; the cut
 only bounds how large one file grows. A slow input, such as one log line a minute, is written in a record block as it
 comes, synced within the sync interval, and readable by a reader of the unfinished piece at once. Cutting by age is
@@ -6923,9 +6954,19 @@ how many bytes it kept and dropped and where the piece was cut. It works in thre
 <li>It finds the piece as a reader would: by its tail when it has one, else from the newest checkpoint and a scan after
    it, else by a scan from the start. A scan stops at the first bad block.</li>
 <li>It keeps every byte up to the end of the last good block. It cuts off the rest: a torn block, an end of piece, and
-   blocks marked <code>FLAG_WITH_NEXT</code> at the end of what it keeps, since the block they belong with didn't survive.</li>
-<li>It replays the kept blocks to rebuild the writer as it was: the content hash, the index entries, the track ranges,
-   the record of what lies near, the session and the next sequence number.</li>
+   blocks marked <code>FLAG_WITH_NEXT</code> at the end of what it keeps, since the block they belong with didn't survive. When a
+   good block of the piece's sessions lies behind the bytes the reader didn't take, cutting would lose more than a
+   torn end: the resume refuses (<code>ResumeError::GoodBlockAfterCut</code>) and leaves the bytes as they are. It looks
+   <code>RESUME_LOOK_MAX</code> bytes far and reads at most <code>RESUME_PROBES_MAX</code> places whole. When either runs out before the
+   end of the bytes, it can't tell the rest holds no good block: it refuses (<code>ResumeError::LookSpent</code>) and leaves the
+   bytes as they are. With no block kept, a good block of any session counts. When the bytes it keeps claim
+   so many blocks that don't read that a reader's content-hash walk stops trying blocks before their end
+   (<code>WALK_MISS_PER_BYTE_MAX</code>), a block written after them would not verify: the resume refuses
+   (<code>ResumeError::HashWalkSpent</code>) and leaves the bytes as they are.</li>
+<li>It replays the kept bytes to rebuild the writer as it was: the content hash, the index entries, the track ranges,
+   the record of what lies near, the session and the next sequence number. It walks them as a reader's verify does:
+   a good block wherever the walk meets one, and in bytes no block explains, a block the index lists is a damaged
+   block kept by its entry when it ends before the next good block; other bytes are junk, kept and never listed.</li>
 </ol>
 <figure class="ww-figure" markdown="0">
 <svg class="ww-svg" viewBox="0 0 680 236" width="680" height="236" role="img" aria-label="An unfinished piece after a crash: a resume keeps every byte up to its last good block of data and cuts off the puts marked FLAG_WITH_NEXT after it and the torn block; the producer gives the call again and the same bytes are written" xmlns="http://www.w3.org/2000/svg">
@@ -6985,13 +7026,30 @@ puts again what it uses and needs no record of which puts reached the disk. The 
 needs none from the file: the application passes its own, as before the crash.</p>
 <p>A resume checks the options against the piece before it cuts or writes anything. Pass the options the piece was written
 with; <code>TapeWriter::options</code> gives them. A layout or producer other than the newest the piece kept is refused
-(<code>WriteError::Layout</code>, <code>WriteError::Producer</code>), because the writer would place blocks the way the file says it doesn't.
-A piece found with its finish (a crash after the finish, before the rename) is opened again: its finish and tail are cut
-off, and the next finish pads the piece to 4 KiB again.</p>
+(<code>InputError::Layout</code>, <code>InputError::Producer</code>), because the writer would place blocks the way the file says it doesn't.
+A piece whose finish and tail read whole (a crash after the finish, before the rename) is complete: the resume renames
+it, writes nothing and returns <code>WriteError::Ended</code>. Junk a crash left after the tail (garbage, a torn block) is cut
+off first; a good block there refuses (<code>ResumeError::GoodBlockAfterCut</code>). A piece cut inside its end is opened again: its final index and
+finish are cut off, and the next finish pads the piece to 4 KiB again.</p>
 <p><code>PieceChain::resume</code> does the same for a chain. It reads the finished pieces back from their tails and resumes the last,
-or starts the next piece when the crash came between a cut's finish and the next piece's start. A chain whose last piece
-already ended complete or aborted is refused with <code>WriteError::Ended</code>. <a href="../recovery/#resuming-after-a-crash">Damage and
+or starts the next piece when the crash came between a cut's finish and the next piece's start, renaming a finished
+piece the crash left as <code>NAME.partial</code>. A chain whose last piece already ended complete or aborted is refused with
+<code>WriteError::Ended</code>. A chain in one file (<code>PieceTapes::One</code>) is not refused there: it starts a new piece behind the
+finished last one, so each session that opens the file adds a piece. A
+last piece whose piece head is damaged is refused in both cases, because the blocks after the head would form a piece
+with no link to the chain. <a href="../recovery/#resuming-after-a-crash">Damage and
 recovery</a> follows a recorder through a power cut.</p>
+<p>A chain resume also restores the newest value of each monotone relation. It takes the range relation's top from every
+finished piece's index entries, which it reads anyway. The other relations' values are in chunks: for each track it reads
+one chunk, the track's last in the newest finished piece that holds a chunk of it, at most <code>MAX_BLOCK_LEN</code> (64 MiB). A
+resume of a chain of N tracks therefore reads up to N chunks besides each piece's head, finish, tail and index. Where
+that chunk doesn't read, the track's next chunk is refused (<code>DescribeError::RelationUnread</code>). The writer can't vouch
+for an order it can't read, so only the caller goes on: <code>TapeWriter::accept_relation_break(defs, track, relation,
+from)</code> checks the track's next chunk against <code>from</code> for that relation and marks it as a <a href="../format/#tape-blocks">relation
+break</a> (<code>FLAG_RELATION_BREAK</code>), which readers see. The break waits for the track's next chunk
+through cuts; a crash before that chunk drops it, and the resumed writer refuses again. The writer marks a chunk it
+encodes itself; a caller's block carries the flag (<code>mark_relation_break</code>) exactly when a break waits, else
+<code>InputError::Flags</code>.</p>
 <h2 id="same-input-same-bytes">Same input, same bytes<a class="headerlink" href="#same-input-same-bytes" title="Permanent link">&para;</a></h2>
 <p>A writer given the same input writes the same bytes. Blocks hold no wall time, puts and copies follow from the bytes
 before them, and checkpoints and cuts are placed by bytes. A producer that seals blocks on a timer, adds checkpoints by

@@ -6743,8 +6743,21 @@ through the index, and from the chunk to the item by its position. <a href="../p
 files</a> explains why items are addressed this way.</p>
 <h2 id="checking-a-piece">Checking a piece<a class="headerlink" href="#checking-a-piece" title="Permanent link">&para;</a></h2>
 <p><code>TapeReader::verify(i)</code> hashes piece <code>i</code>'s bytes before its finish and compares the result with the content hash the
-finish states. A match proves the piece unchanged since it was written. <code>TapeReader::chain</code> checks the links between the
-pieces at hand: each piece head against the piece before it, and each tail's next id against the next piece.</p>
+finish states. A match proves the piece unchanged since it was written. It also replays the piece block by block as its
+writer placed them, so a writer that lied in its index or finish fails too: each entry of the final index must be the
+entry its writer makes of the block at its offset (offset, length, kind, track, items, ticks, a chunk's unit hash of its
+bytes and the range of its range relation from its own column), and each finish row must state the hash its track's
+listed blocks fold to, from the head row's, or say it incomplete exactly where the head or a damaged block a resume
+kept leaves units out. The index and the walk must be the same set. Every block walked that its writer lists is listed,
+except a byte-identical copy of the listed block before it (a block written again), which adds to no track. Every entry
+names a block walked, or a damaged block in bytes no block explains that ends before the next block walked and before
+the finish. Each monotone relation of a track starts each chunk at or above the chunk before it, but at a chunk marked
+a <a href="../format/#tape-blocks">relation break</a>; else verify gives <code>ReadError::RelationOrder</code>, as <code>TapeReader::track_entries</code>
+does for the range relation's ranges. Each block and entry costs a bounded number of steps. The final index is read as the piece is walked: its
+track lists, each in file order, are merged into one stream, so verify holds one entry per list and the entries of one
+block, whatever the piece's size. A final index of more than <code>VERIFY_LISTS_MAX</code> track lists names more tracks than a
+writer gives a piece, and doesn't hold. <code>TapeReader::chain</code> checks the links between the pieces at hand: each piece head against the piece before it,
+and each tail's next id against the next piece.</p>
 <p>A piece without a finish has no hash to check. That is how a reader knows the piece wasn't closed.</p>
 <h2 id="damage-and-salvage">Damage and salvage<a class="headerlink" href="#damage-and-salvage" title="Permanent link">&para;</a></h2>
 <p>Every block carries a CRC-32C, and a reader checks it before using the block. Most damage therefore costs one block, and

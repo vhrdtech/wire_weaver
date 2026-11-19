@@ -11,6 +11,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
+- Tapes and logring have books of their own: the book keeps a short page on each, linking there (DOC-12).
 - ww_tape moves to b3b6172: its file layer is `ww_tape_fs`; see `wire_weaver_client` and `wire_weaver_cli`.
 - ww_tape moves to 2bfdd07 (track owner, relations, keyed stores, lock files); see `ww_tap` and `wire_weaver_cli`.
 - `just test-all` runs `cargo test --workspace --doc` as CI does (nextest never ran doctests, so a broken one stayed hidden); see the `ww_api` changelog for the one this caught.

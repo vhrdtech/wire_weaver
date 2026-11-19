@@ -6,6 +6,8 @@
 # `into` is the directory under docs/ the pages go to, so their links to the rest of the book keep working.
 # `name` is the repository's name as the Features page shows it, the package's (or the URL's last part) when left out.
 # `features_page` is the file name the tracker gets under `into`, `features.md` when left out.
+# `book` is the URL of a repository's own book, built apart from this one: its pages are not copied, only its tracker,
+# whose links to them point into that book.
 
 [[source]]
 package = "shrink_wrap"
@@ -21,12 +23,13 @@ pages = "../docs"
 into = "std_library"
 features = "../FEATURES.md"
 
-# ww_tape: the Tapes chapter (the format, events and series, damage and recovery, the format reference)
+# ww_tape: its feature tracker; its pages are the ww_tape book (docs/tapes.md points there)
 [[source]]
 package = "ww_tape"
 pages = "../docs"
 into = "tape"
 features = "../FEATURES.md"
+book = "https://vhrdtech.github.io/ww_tape/"
 
 # ww_stdlib: the pages of the standard library's API crates, helpers and tools; no crate of it is locked here
 [[source]]

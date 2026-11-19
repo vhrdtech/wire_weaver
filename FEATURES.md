@@ -2566,6 +2566,11 @@ Unicast Data0 to one node over the same bus is TR-6.
   (`docs/javascripts/ww_tokens.json`, `ww_lsp tokens --json`, the names of its semantic tokens, exact_units' from its
   tables); this site vendors copies, and `tests/docs_highlight` fails when they differ from the ww_lsp `Cargo.lock`
   pins. Colours reuse the theme's `--md-code-hl-*-color` variables for both palettes.
+- ✅ **DOC-12 Tapes and logring in books of their own**: the ww_tape book (in the ww_tape repository) and the logring
+  book (in the logring repository) build apart from this one; `docs/tapes.md` and `docs/logring.md` say what each is
+  and link there, and no book includes another. `book_sources.toml` gives ww_tape a `book` URL: `ww-book assemble`
+  copies only its feature tracker, whose links point into the ww_tape book, and `entries.md` may link an
+  `https://` page of such a book, so the Features page keeps its Tape items.
 
 ## Testing, CI and performance (`TEST`)
 

@@ -14,10 +14,11 @@ Read `docs/index.md` first, then `docs/serdes/shrink_wrap.md` and `wire_format.m
 `docs/serdes/showcase.md` (byte-verified tricks), `docs/api/overview.md`, `docs/types.md`, and
 `docs/evolution/overview.md` with `versions.md` and `rules.md`. The SerDes pages but the conformance ones live in the
 shrink_wrap repository, the pages of `ww_si`, `ww_numeric`, `ww_version`, `ww_error`, `ww_date_time` and the units in
-the ww_base repository, the Tapes chapter in the ww_tape repository, the standard library's API pages in the
-ww_stdlib repository: `just book-assemble` copies them into `docs/serdes/`, `docs/std_library/` and `docs/tape/`
-(git-ignored) from the checkouts `Cargo.lock` pins, and ww_stdlib's from its `main` branch (`book_sources.toml`,
-`ww_book`). Prefer the docs (`docs/`, built with zensical) to the source; where they are unclear, the source and its
+the ww_base repository, the standard library's API pages in the ww_stdlib repository: `just book-assemble` copies
+them into `docs/serdes/` and `docs/std_library/` (git-ignored) from the checkouts `Cargo.lock` pins, and
+ww_stdlib's from its `main` branch (`book_sources.toml`, `ww_book`); of ww_tape only its feature tracker comes, into
+`docs/tape/`. Tapes and logring have books of their own in their repositories, linked by URL from `docs/tapes.md`
+and `docs/logring.md`, never included. Prefer the docs (`docs/`, built with zensical) to the source; where they are unclear, the source and its
 comments are authoritative.
 
 ## Numbers are typed: never a bare integer or float

@@ -6652,7 +6652,7 @@ could mean anything. <code>ww dfu reboot</code> in the <a href="../../cli/">CLI<
 <h2 id="global-trait-addressing-compactversion">Global trait addressing (CompactVersion)<a class="headerlink" href="#global-trait-addressing-compactversion" title="Permanent link">&para;</a></h2>
 <p><code>CompactVersion</code> is the short form: the trait's id in the
 <a href="https://github.com/vhrdtech/wire_weaver/tree/master/ww_global">ww_global registry</a> and its crate's version numbers,
-all <code>UNib32</code>. A <code>ww_user_info::UserInfo</code> read takes 6 bytes this way and 24 with <code>FullVersion</code>.</p>
+all <code>UNib32</code>. A <code>ww_user_info::UserInfo</code> read takes 7 bytes this way and 24 with <code>FullVersion</code>.</p>
 <p>Every public trait in <code>ww_stdlib</code> has an id, one per trait, keyed <code>crate::Trait</code>, in the same number space as the few
 crates that have one (<code>ww_log</code> = 0, <code>wire_weaver_usb_link</code> = 512, <code>ww_client_server</code> = 513). Small numbers are
 shorter on the wire, so the ranges go by encoded size:</p>
@@ -6673,17 +6673,22 @@ shorter on the wire, so the ranges go by encoded size:</p>
 <tr>
 <td>8-63</td>
 <td>1 byte</td>
-<td>the device contract and common IO: firmware and board info, identity, counters, firmware update, clock, indication, GPIO, UART, I2C, SPI, CAN, ADC, PWM</td>
+<td>the device contract and common IO: firmware and board info, identity, firmware update, clock, indication, GPIO, UART, I2C, SPI, CAN, ADC, PWM</td>
 </tr>
 <tr>
 <td>64-511</td>
 <td>1.5 byte</td>
-<td>all other reusable traits</td>
+<td>all other reusable traits; 144-151 the device contract read rarely, where the payload outweighs the id (last reset, user info, counters, firmware inventory)</td>
 </tr>
 <tr>
 <td>512+</td>
 <td>2 bytes</td>
 <td>link and protocol crates</td>
+</tr>
+<tr>
+<td>2^30</td>
+<td>5.5 bytes</td>
+<td><code>ww_log::LogText</code>, the first id of 11 nibbles: a text log spends far more per record than on the id</td>
 </tr>
 </tbody>
 </table>

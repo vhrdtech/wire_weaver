@@ -29,7 +29,7 @@ package = "ww_tape"
 pages = "../docs"
 into = "tape"
 features = "../FEATURES.md"
-book = "https://vhrdtech.github.io/ww_tape/"
+book = "https://tape.vhrd.tech/"
 
 # ww_stdlib: the pages of the standard library's API crates, helpers and tools; no crate of it is locked here
 [[source]]

@@ -487,26 +487,26 @@ feature tracker.
 <p class="ww-features__level"><span class="ww-level ww-level--nomicon"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6"/></svg><span class="ww-level__label">Nomicon</span></span></p>
 
 - **[Request and event model](std_library/ww_client_server.md)**: `ww_client_server`, the messages every call is made of.
-- **[Tape blocks](https://vhrdtech.github.io/ww_tape/format/#tape-blocks)**: `ww_tape`: the generic blocks of track records that live feeds and log files (link captures) are made of.
-- **[Tape clocks and describe](https://vhrdtech.github.io/ww_tape/format/#tape-blocks)**: Clocks with exact rates, clock maps, typed items and track dimensions in tapes; deterministic bytes.
-- **[Tape chunk blocks](https://vhrdtech.github.io/ww_tape/format/#tape-blocks)**: Self-locating chunk blocks, 4 KiB aligned payloads and a CRC per 64 KiB segment, so damage costs one segment.
-- **[Tape event times](https://vhrdtech.github.io/ww_tape/format/#tape-blocks)**: Event times stored at about 1.5 bytes per periodic item and 3.8 for bursty ones, searched and decoded in place with SIMD.
-- **[Tape summary blocks](https://vhrdtech.github.io/ww_tape/format/#tape-blocks)**: A stored item tree for events and mergeable min, max, sum and power summaries for series, so an overview reads a few hundred KB, never the items.
-- **[Tape index, finish and tail](https://vhrdtech.github.io/ww_tape/format/#index-finish-and-tail)**: Checkpoint and final indexes, a BLAKE3 content hash and a tail found from the end: a crash costs the open chunk.
-- **[Tape pieces](https://vhrdtech.github.io/ww_tape/format/#tape-pieces)**: One recording as a chain of complete files, linked both ways; a deleted first piece reads as head cut.
-- **[Positional tape reader](https://vhrdtech.github.io/ww_tape/format/#reading-by-position)**: Reads tapes by offset from any byte source, also in the browser over HTTP range requests.
-- **[Tape sample codecs](https://vhrdtech.github.io/ww_tape/format/#sample-codecs)**: Series columns stored as the device sends them, or coded lossless as bit-packed deltas, read in place by any range.
-- **[Tape series tracks](https://vhrdtech.github.io/ww_tape/format/#series-tracks)**: A series track says its sample type, scale and exact period; segments mark gaps and prefix changes, and a received `Series<Fixed>` batch becomes chunk columns without a float.
-- **[Tape runs and media provisions](https://vhrdtech.github.io/ww_tape/format/#sessions-media-and-damage)**: Tapes on SD cards and raw NAND read past gaps, never take stale blocks for data, and survive damaged definitions.
-- **[Tape payload codec](https://vhrdtech.github.io/ww_tape/format/#payload-codec)**: Event payloads with bit-packed lengths, raw or lz4, salvaged item by item from a damaged chunk.
-- **[Tape track identity by name](https://vhrdtech.github.io/ww_tape/format/#track-identity)**: A track's key hashes its resource names and the keys of keyed arrays, so two runs that number things differently give the same ids.
-- **[Tape summaries across scales](https://vhrdtech.github.io/ww_tape/format/#tape-blocks)**: Series summaries stay exact when an autoranging device changes prefix: each block states its scale, nodes merge at a common one.
-- **[Tape ALP float codec](https://vhrdtech.github.io/ww_tape/format/#sample-codecs)**: Floats that began as decimals stored as bit-packed integers, other floats by their front bits, lossless and read in place.
-- **[Tape summary kernels](https://vhrdtech.github.io/ww_tape/format/#tape-blocks)**: Series summaries in one vectorised pass: complex i16 at about 5 GB/s on one core, bit for bit the same results.
-- **[Tape hardening](https://vhrdtech.github.io/ww_tape/format/#tape-blocks)**: Tape readers take damaged or hostile files without a panic, an overflow or an unbounded allocation; every limit is a named cap.
-- **[Tape resume and additions](https://vhrdtech.github.io/ww_tape/recovery/#resuming-after-a-crash)**: A crashed tape piece resumes to the bytes of an uninterrupted write; tracks added mid-piece reach every later describe copy.
-- **[Tape pieces on 4 KiB](https://vhrdtech.github.io/ww_tape/#pieces-and-chains)**: Finished tape pieces end on a 4 KiB boundary, so many pieces clone back to back into one file without copying a byte.
-- **[Tape definitions near their use](https://vhrdtech.github.io/ww_tape/#state-tracks-and-near-use)**: Tracks, clocks, bundles and state items are records on track 0 and state tracks, put again only where not close behind their use.
+- **[Tape blocks](https://tape.vhrd.tech/format/#tape-blocks)**: `ww_tape`: the generic blocks of track records that live feeds and log files (link captures) are made of.
+- **[Tape clocks and describe](https://tape.vhrd.tech/format/#tape-blocks)**: Clocks with exact rates, clock maps, typed items and track dimensions in tapes; deterministic bytes.
+- **[Tape chunk blocks](https://tape.vhrd.tech/format/#tape-blocks)**: Self-locating chunk blocks, 4 KiB aligned payloads and a CRC per 64 KiB segment, so damage costs one segment.
+- **[Tape event times](https://tape.vhrd.tech/format/#tape-blocks)**: Event times stored at about 1.5 bytes per periodic item and 3.8 for bursty ones, searched and decoded in place with SIMD.
+- **[Tape summary blocks](https://tape.vhrd.tech/format/#tape-blocks)**: A stored item tree for events and mergeable min, max, sum and power summaries for series, so an overview reads a few hundred KB, never the items.
+- **[Tape index, finish and tail](https://tape.vhrd.tech/format/#index-finish-and-tail)**: Checkpoint and final indexes, a BLAKE3 content hash and a tail found from the end: a crash costs the open chunk.
+- **[Tape pieces](https://tape.vhrd.tech/format/#tape-pieces)**: One recording as a chain of complete files, linked both ways; a deleted first piece reads as head cut.
+- **[Positional tape reader](https://tape.vhrd.tech/format/#reading-by-position)**: Reads tapes by offset from any byte source, also in the browser over HTTP range requests.
+- **[Tape sample codecs](https://tape.vhrd.tech/format/#sample-codecs)**: Series columns stored as the device sends them, or coded lossless as bit-packed deltas, read in place by any range.
+- **[Tape series tracks](https://tape.vhrd.tech/format/#series-tracks)**: A series track says its sample type, scale and exact period; segments mark gaps and prefix changes, and a received `Series<Fixed>` batch becomes chunk columns without a float.
+- **[Tape runs and media provisions](https://tape.vhrd.tech/format/#sessions-media-and-damage)**: Tapes on SD cards and raw NAND read past gaps, never take stale blocks for data, and survive damaged definitions.
+- **[Tape payload codec](https://tape.vhrd.tech/format/#payload-codec)**: Event payloads with bit-packed lengths, raw or lz4, salvaged item by item from a damaged chunk.
+- **[Tape track identity by name](https://tape.vhrd.tech/format/#track-identity)**: A track's key hashes its resource names and the keys of keyed arrays, so two runs that number things differently give the same ids.
+- **[Tape summaries across scales](https://tape.vhrd.tech/format/#tape-blocks)**: Series summaries stay exact when an autoranging device changes prefix: each block states its scale, nodes merge at a common one.
+- **[Tape ALP float codec](https://tape.vhrd.tech/format/#sample-codecs)**: Floats that began as decimals stored as bit-packed integers, other floats by their front bits, lossless and read in place.
+- **[Tape summary kernels](https://tape.vhrd.tech/format/#tape-blocks)**: Series summaries in one vectorised pass: complex i16 at about 5 GB/s on one core, bit for bit the same results.
+- **[Tape hardening](https://tape.vhrd.tech/format/#tape-blocks)**: Tape readers take damaged or hostile files without a panic, an overflow or an unbounded allocation; every limit is a named cap.
+- **[Tape resume and additions](https://tape.vhrd.tech/recovery/#resuming-after-a-crash)**: A crashed tape piece resumes to the bytes of an uninterrupted write; tracks added mid-piece reach every later describe copy.
+- **[Tape pieces on 4 KiB](https://tape.vhrd.tech/#pieces-and-chains)**: Finished tape pieces end on a 4 KiB boundary, so many pieces clone back to back into one file without copying a byte.
+- **[Tape definitions near their use](https://tape.vhrd.tech/#state-tracks-and-near-use)**: Tracks, clocks, bundles and state items are records on track 0 and state tracks, put again only where not close behind their use.
 
 <p class="ww-features__more" markdown>Details and what is planned: [Standard APIs (ww_stdlib)](std_library/stdlib_features.md#standard-apis-std), [Evolution, versioning and compatibility](features.md#evolution-versioning-and-compatibility-evo), [Base types and quantities (ww_base)](std_library/features.md#base-types-and-quantities-ww_si-ww_numeric-ww_version-ww_date_time-ww_error-std), [Tapes (ww_tape)](tape/features.md#tapes-ww_tape-ww_tape_codecs-ww_tape_fuzz-ww_tape_benchmarks-ww_tape_codecs_benchmarks-std-new-items-tape) in the feature tracker.</p>
 

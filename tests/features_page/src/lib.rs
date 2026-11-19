@@ -495,7 +495,7 @@ fn parse_entry(item: &str, at: usize) -> Result<Entry, String> {
     if (link.contains("://") && !other_book) || link.starts_with('/') || link.contains(' ') {
         return Err(format!(
             "entries.md:{at}: the link is a page under docs/, like `api/streams.md#stream-functions`, or a page of \
-             another book, like `https://vhrdtech.github.io/ww_tape/format/#tape-pieces`"
+             another book, like `https://tape.vhrd.tech/format/#tape-pieces`"
         ));
     }
     Ok(Entry {
@@ -664,11 +664,11 @@ mod tests {
     fn links_to_another_book() {
         let entries = ENTRIES.replace(
             "serdes/derive.md",
-            "https://vhrdtech.github.io/ww_tape/format/#tape-pieces",
+            "https://tape.vhrd.tech/format/#tape-pieces",
         );
         let page = render(&own(FEATURES), &entries).unwrap();
         assert!(
-            page.contains("[Structs](https://vhrdtech.github.io/ww_tape/format/#tape-pieces)"),
+            page.contains("[Structs](https://tape.vhrd.tech/format/#tape-pieces)"),
             "{page}"
         );
         assert!(links(&entries).is_empty());

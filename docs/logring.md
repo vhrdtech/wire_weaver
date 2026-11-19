@@ -4,8 +4,8 @@ level: basic
 
 # logring
 
-[logring](https://vhrdtech.github.io/logring/) is a log store for embedded devices that keeps WireWeaver items. It has
-a book of its own, the [logring book](https://vhrdtech.github.io/logring/). This page says what logring is for and
+[logring](https://lr.vhrd.tech/) is a log store for embedded devices that keeps WireWeaver items. It has
+a book of its own, the [logring book](https://lr.vhrd.tech/). This page says what logring is for and
 where it meets the rest of WireWeaver.
 
 ## What logring keeps
@@ -29,6 +29,6 @@ fault, a technician reads the card on a PC and exports the last few days of both
 
 ## Where to read more
 
-The [logring book](https://vhrdtech.github.io/logring/) explains the ring, power-cut recovery, reading logs on a PC and
-the format on the medium. Its page [Tapes and logring](https://vhrdtech.github.io/logring/tapes_and_logring/) compares
+The [logring book](https://lr.vhrd.tech/) explains the ring, power-cut recovery, reading logs on a PC and
+the format on the medium. Its page [Tapes and logring](https://lr.vhrd.tech/tapes_and_logring/) compares
 a logring with a [tape](tapes.md) and says when to use which.

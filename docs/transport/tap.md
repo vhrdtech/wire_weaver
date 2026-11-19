@@ -68,16 +68,16 @@ log is by its device's, and every frame and message has a number, so the decoder
 ## Capture files
 
 A capture is tape blocks appended back to back. The tape format has a book of its own, the [ww_tape
-book](https://vhrdtech.github.io/ww_tape/): what a file holds, how time is stored and what survives damage, with a
-[format reference](https://vhrdtech.github.io/ww_tape/format/) of its parts. `ww_tape::TapeWriter` writes a capture the
+book](https://tape.vhrd.tech/): what a file holds, how time is stored and what survives damage, with a
+[format reference](https://tape.vhrd.tech/format/) of its parts. `ww_tape::TapeWriter` writes a capture the
 way databases write their logs (a new file as `NAME.partial`, renamed when finished, data synced by a `SyncPolicy`, a
 failed write or sync the end of the file), and `ww_tape::FileBlocks` reads its longest valid prefix, or on past damage
-with `Recovery::Resync` ([Files](https://vhrdtech.github.io/ww_tape/format/#files)). A capture ends with an index, a
+with `Recovery::Resync` ([Files](https://tape.vhrd.tech/format/#files)). A capture ends with an index, a
 finish block and a tail; cutting a recording into several files is [tape
-pieces](https://vhrdtech.github.io/ww_tape/format/#tape-pieces). The definitions carry the device's API bundle, so `ww
+pieces](https://tape.vhrd.tech/format/#tape-pieces). The definitions carry the device's API bundle, so `ww
 explain FILE` explains the requests and replies of a capture on any PC, without the device. A track's key hashes its
 resource names, so two runs give the same ids ([track
-identity](https://vhrdtech.github.io/ww_tape/format/#track-identity), `ww_tap::track_key`).
+identity](https://tape.vhrd.tech/format/#track-identity), `ww_tap::track_key`).
 
 ## Decoding
 

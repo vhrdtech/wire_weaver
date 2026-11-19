@@ -6,7 +6,7 @@ level: basic
 
 A **tape** is how WireWeaver records data over time: what a device streamed, what crossed a link, what a program
 computed from either. The `ww_tape` crate writes and reads tapes, and the format has a book of its own, the
-[ww_tape book](https://vhrdtech.github.io/ww_tape/). This page says what a tape is for and where it meets the rest of
+[ww_tape book](https://tape.vhrd.tech/). This page says what a tape is for and where it meets the rest of
 WireWeaver.
 
 ## What a tape holds
@@ -31,6 +31,6 @@ touched, and a reader says what was lost.
 
 ## Where to read more
 
-The [ww_tape book](https://vhrdtech.github.io/ww_tape/) explains the concepts, writing and reading tapes, events and
+The [ww_tape book](https://tape.vhrd.tech/) explains the concepts, writing and reading tapes, events and
 series, recovery after damage, and the format block by block. Its [feature tracker](tape/features.md) is part of this
 book's feature tracker too.

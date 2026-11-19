@@ -71,6 +71,7 @@ shorter on the wire, so the ranges go by encoded size:
 | 8-63    | 1 byte   | the device contract and common IO: firmware and board info, identity, counters, firmware update, clock, indication, GPIO, UART, I2C, SPI, CAN, ADC, PWM |
 | 64-511  | 1.5 byte | all other reusable traits                                                               |
 | 512+    | 2 bytes  | link and protocol crates                                                                |
+| 2^30    | 5.5 bytes | `ww_log::LogText`, the first id of 11 nibbles: a text log spends far more per record than on the id |
 
 Ids are assigned by hand in `ww_global/wire_weaver_gid.json` ([ww_base](https://github.com/vhrdtech/ww_base)) and nowhere else: code never carries the number. The
 codegen looks a trait's id up by its crate and trait name (`<TRAIT>_COMPACT_GID`, `ApiLevel::compact_id` in the API

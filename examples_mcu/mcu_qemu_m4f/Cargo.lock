@@ -302,7 +302,7 @@ checksum = "00d174d5400e5e8fd687ad1049e2f578285fa914201b1af7e8b112a4546bd826"
 [[package]]
 name = "exact_units"
 version = "0.1.0"
-source = "git+https://github.com/romixlab/exact_units#f2f368ee08afcf44dd51ad01fb36834ccf92e8f8"
+source = "git+https://github.com/romixlab/exact_units#7383e5273eb345567c0b8f9a89777a7011d30996"
 dependencies = [
  "defmt",
  "libm",
@@ -710,7 +710,7 @@ checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 [[package]]
 name = "shrink_wrap"
 version = "0.2.0"
-source = "git+https://github.com/romixlab/shrink_wrap#f133dd1bd5de40a0d2c8666cbab64f6f988a399d"
+source = "git+https://github.com/romixlab/shrink_wrap#40f816d47b67eda14f8992dc0d51d96c7ec0bd61"
 dependencies = [
  "defmt",
  "either",
@@ -722,7 +722,7 @@ dependencies = [
 [[package]]
 name = "shrink_wrap_derive"
 version = "0.2.0"
-source = "git+https://github.com/romixlab/shrink_wrap#f133dd1bd5de40a0d2c8666cbab64f6f988a399d"
+source = "git+https://github.com/romixlab/shrink_wrap#40f816d47b67eda14f8992dc0d51d96c7ec0bd61"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -1073,7 +1073,7 @@ dependencies = [
 [[package]]
 name = "ww_error"
 version = "0.1.0"
-source = "git+https://github.com/vhrdtech/ww_base#d0641addf68e617fe05911a61dd63e8c93b38fc5"
+source = "git+https://github.com/vhrdtech/ww_base#dfd312c026fd48af65f716252b35b55c66549498"
 dependencies = [
  "defmt",
  "shrink_wrap",
@@ -1083,7 +1083,7 @@ dependencies = [
 [[package]]
 name = "ww_global"
 version = "0.2.0"
-source = "git+https://github.com/vhrdtech/ww_base#d0641addf68e617fe05911a61dd63e8c93b38fc5"
+source = "git+https://github.com/vhrdtech/ww_base#dfd312c026fd48af65f716252b35b55c66549498"
 dependencies = [
  "convert_case",
  "serde_json",
@@ -1100,7 +1100,7 @@ dependencies = [
 [[package]]
 name = "ww_numeric"
 version = "0.3.0"
-source = "git+https://github.com/vhrdtech/ww_base#d0641addf68e617fe05911a61dd63e8c93b38fc5"
+source = "git+https://github.com/vhrdtech/ww_base#dfd312c026fd48af65f716252b35b55c66549498"
 dependencies = [
  "defmt",
  "serde",
@@ -1125,7 +1125,7 @@ dependencies = [
 [[package]]
 name = "ww_si"
 version = "0.5.0"
-source = "git+https://github.com/vhrdtech/ww_base#d0641addf68e617fe05911a61dd63e8c93b38fc5"
+source = "git+https://github.com/vhrdtech/ww_base#dfd312c026fd48af65f716252b35b55c66549498"
 dependencies = [
  "defmt",
  "exact_units",
@@ -1163,7 +1163,7 @@ dependencies = [
 [[package]]
 name = "ww_version"
 version = "0.2.0"
-source = "git+https://github.com/vhrdtech/ww_base#d0641addf68e617fe05911a61dd63e8c93b38fc5"
+source = "git+https://github.com/vhrdtech/ww_base#dfd312c026fd48af65f716252b35b55c66549498"
 dependencies = [
  "defmt",
  "hex",

@@ -5386,7 +5386,7 @@ dependencies = [
 [[package]]
 name = "ww_tape"
 version = "0.1.0"
-source = "git+https://github.com/vhrdtech/ww_tape#b3b61729fbdd1da7eff48f49dfdfd3927561623d"
+source = "git+https://github.com/vhrdtech/ww_tape#f00018a538b8c5a1c182256ae41b98bb0f40e6a9"
 dependencies = [
  "blake3",
  "exact_units",
@@ -5408,7 +5408,7 @@ dependencies = [
 [[package]]
 name = "ww_tape_codecs"
 version = "0.1.0"
-source = "git+https://github.com/vhrdtech/ww_tape#b3b61729fbdd1da7eff48f49dfdfd3927561623d"
+source = "git+https://github.com/vhrdtech/ww_tape#f00018a538b8c5a1c182256ae41b98bb0f40e6a9"
 dependencies = [
  "crc",
  "lz4_flex",
@@ -5417,7 +5417,7 @@ dependencies = [
 [[package]]
 name = "ww_tape_fs"
 version = "0.1.0"
-source = "git+https://github.com/vhrdtech/ww_tape#b3b61729fbdd1da7eff48f49dfdfd3927561623d"
+source = "git+https://github.com/vhrdtech/ww_tape#f00018a538b8c5a1c182256ae41b98bb0f40e6a9"
 dependencies = [
  "blake3",
  "rustix",

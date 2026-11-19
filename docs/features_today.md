@@ -508,7 +508,7 @@ feature tracker.
 - **[Tape pieces on 4 KiB](tape/index.md#pieces-and-chains)**: Finished tape pieces end on a 4 KiB boundary, so many pieces clone back to back into one file without copying a byte.
 - **[Tape definitions near their use](tape/index.md#state-tracks-and-near-use)**: Tracks, clocks, bundles and state items are records on track 0 and state tracks, put again only where not close behind their use.
 
-<p class="ww-features__more" markdown>Details and what is planned: [Standard APIs (ww_stdlib)](std_library/stdlib_features.md#standard-apis-std), [Evolution, versioning and compatibility](features.md#evolution-versioning-and-compatibility-evo), [Base types and quantities (ww_base)](std_library/features.md#base-types-and-quantities-ww_si-ww_numeric-ww_version-ww_date_time-ww_error-std), [Tapes (ww_tape)](tape/features.md#tapes-ww_tape-ww_tape_fuzz-ww_tape_benchmarks-std-new-items-tape) in the feature tracker.</p>
+<p class="ww-features__more" markdown>Details and what is planned: [Standard APIs (ww_stdlib)](std_library/stdlib_features.md#standard-apis-std), [Evolution, versioning and compatibility](features.md#evolution-versioning-and-compatibility-evo), [Base types and quantities (ww_base)](std_library/features.md#base-types-and-quantities-ww_si-ww_numeric-ww_version-ww_date_time-ww_error-std), [Tapes (ww_tape)](tape/features.md#tapes-ww_tape-ww_tape_codecs-ww_tape_fuzz-ww_tape_benchmarks-ww_tape_codecs_benchmarks-std-new-items-tape) in the feature tracker.</p>
 
 ## Examples
 

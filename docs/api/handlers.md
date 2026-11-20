@@ -2,7 +2,7 @@
 level: advanced
 ---
 
-# Sync and async handlers
+# Sync, async and shared handlers
 
 A server generated with `use_async = true` expects every user handler to be an `async fn`, and with
 `use_async = false` every handler to be a plain `fn`. Most handlers of a device never wait for anything (they read a
@@ -67,3 +67,61 @@ it is.
 `ww api scaffold <api_crate> --use-async --handler-model "<model>"` writes `async fn` or `fn` per item to match, and
 passes the model on to the `ww_codegen!` call it prints. To change an existing server, set `handler_model`, then let
 the compiler list the handlers that are now the wrong kind.
+
+## Shared and exclusive handlers
+
+A host server can serve several requests of a connection at the same time: a slow call doesn't hold up a quick
+read. Two requests can only run side by side if neither changes the server, so their handlers take `&self`.
+`receiver_model` says which items are such (SRV-65):
+
+```rust
+mod server_impl {
+    wire_weaver::ww_codegen!(
+        sensor_api :: Sensor for super::Server,
+        server = true, no_alloc = false, use_async = true,
+        receiver_model = "status|sensors.*|channel.level=shared",
+    );
+}
+```
+
+- Every item is `exclusive` unless the model says `shared`; `_=shared, motor.*=exclusive` turns it around. The
+  patterns work as in `handler_model`, and a pattern that matches no shareable item is a compile error.
+- Only calls and reads can be shared: a method, a readable property's getter, a key companion's `index_of` and
+  `key`. A property's setter, streams, sinks, observing and `const` items stay exclusive whatever the model says.
+- A shared item's handler takes `&self`. So does the `valid_indices_<..>` of every array on its path, and the one of
+  a keyed array whose `key` is shared. State a shared handler changes sits behind its own lock or atomic.
+- A server that sets no `receiver_model` is generated as before: every handler takes `&mut self`.
+
+With a model, the server gets a second entry beside `process_request_bytes`:
+
+| Generated                                   | Takes          | Serves                                              |
+|---------------------------------------------|----------------|-----------------------------------------------------|
+| `process_request_bytes(&mut self, ..)`      | every request  | everything, shared items included, alone             |
+| `process_shared_bytes(&self, ..)`           | shared ones    | calls, reads, multi calls and multi reads of shared items |
+| `is_shared(bytes) -> bool`                  | request bytes  | which of the two entries a request goes to           |
+
+`is_shared` takes no `self`: a runtime asks it while an exclusive request holds the server. It says yes to a `Call`,
+`Read`, `MultiCall` or `MultiRead` of a shared item, on an absolute or a global trait path, and never to a request
+with `seq` 0. The shared entry answers anything else with `OperationNotSupported` at the request site
+`err_seq::REQUEST_NOT_SHARED`. The two entries share the level tree's code generation, so a shared request is
+answered with the same bytes through either. A deferred method can be shared: it keeps its `ReplyTo` behind a lock
+and answers later with `<method>_send_return`, as before.
+
+`process_request_from` and `process_shared_from` take the connection's `origin: &CallContext` (its peer and
+connection id) before the bytes; handlers read it from `cx.call()`, with the request's own `seq` and `priority`. The
+plain entries pass a peer the transport doesn't identify. A host runtime calls them through
+`wire_weaver::WireWeaverSharedApiBackend`.
+
+A firmware doesn't call the new entries. They are generic over the event sink, so one that isn't called is never
+compiled in, and `process_request_bytes` is the same code as without a model.
+
+A shared item whose handler takes `&mut self` doesn't compile: the error points at the `ww_codegen!` call.
+
+```text
+error[E0596]: cannot borrow data in a `&` reference as mutable
+   = `self` is a `&` reference, so it cannot be borrowed as mutable
+```
+
+`ww api scaffold <api_crate> --receiver-model "<model>"` writes `&self` where the model needs it and passes the model
+on to the `ww_codegen!` call. `tests/shared_handlers` has a blocking `no_alloc` and an async server with every path
+shape: levels, arrays, a keyed array, multi requests, a deferred method and a global trait path.

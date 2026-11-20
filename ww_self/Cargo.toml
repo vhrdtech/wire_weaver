@@ -25,6 +25,7 @@ std = [
     "dep:sha2",
     "dep:ww_lz4",
     "ww_lz4/std",
+    "dep:ww_error",
 ]
 # serde for the AST's types
 serde = [
@@ -47,7 +48,7 @@ serde = { workspace = true, optional = true }
 sha2 = { workspace = true, optional = true }
 shrink_wrap.workspace = true
 syn = { workspace = true, optional = true }
-ww_error.workspace = true
+ww_error = { workspace = true, optional = true }
 ww_lz4 = { workspace = true, optional = true }
 ww_numeric.workspace = true
 ww_version.workspace = true

@@ -266,6 +266,7 @@
 
 ### 🐛 Fixes
 
+* Builds without its `std` feature again: the error-message module is std-only, `ww_error` an optional dependency.
 * `expr::Call::Write.value` is boxed (clippy `large_enum_variant`): `Call` held a bare `syn::Expr` next to a plain
   `String` variant, four times its size. Tool-side only (`parse_call`, the `ww` CLI, the dynamic client), never on
   the wire.

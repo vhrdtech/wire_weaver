@@ -11,6 +11,7 @@
 mod alloc;
 #[cfg(feature = "std")]
 pub use alloc::{HUMAN_DEFINITION_MAX_NODES, StreamFnRef, qualified_name};
+#[cfg(feature = "std")]
 mod common;
 #[cfg(feature = "std")]
 pub mod compressed;

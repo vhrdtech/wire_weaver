@@ -7882,14 +7882,14 @@ own, in alternating rounds, and compares the medians:</p>
 </thead>
 <tbody>
 <tr>
-<td>donguru (USB FS)</td>
+<td>portwright (USB FS)</td>
 <td>16 B</td>
 <td>3373 → 2883 (−15 %)</td>
 <td>8859 → 7440 msg/s</td>
 <td>26118 → 26111 msg/s</td>
 </tr>
 <tr>
-<td>donguru (USB FS)</td>
+<td>portwright (USB FS)</td>
 <td>max</td>
 <td>350 → 345 (−1 %)</td>
 <td>735 → 767 kB/s</td>
@@ -8177,7 +8177,7 @@ and reopen of the same board with <code>WW_LIVE_HANDOVER=off</code>:</p>
 the device sends before the next answers; it is there either way. The hub's trace shows no <code>Hello</code>,
 <code>LinkSetup</code> or control transfer to the device at the adoption.</p>
 <h2 id="version-skew-and-handover-srv-30">Version skew and handover (SRV-30)<a class="headerlink" href="#version-skew-and-handover-srv-30" title="Permanent link">&para;</a></h2>
-<p>Programs on one PC are built at different times: <code>dg</code> with one WireWeaver release, the rePort GUI with another, one
+<p>Programs on one PC are built at different times: <code>pw</code> with one WireWeaver release, the rePort GUI with another, one
 hub for both. Three layers keep that working, each under WireWeaver's own <a href="../../evolution/versions/#the-ww-hub-and-version-skew">evolution rules</a>:</p>
 <ol>
 <li><strong>The preamble</strong> is frozen (<a href="#wire-format">Wire format</a>): any client and any hub can exchange their versions and a
@@ -8329,7 +8329,7 @@ by the client instance, gone with its last connection or its ttl, listed by <cod
 <p><code>hub::Exclusive::take(key, meta, purpose)</code> takes it only when a hub runs and holds the device; otherwise the program
 holds the device directly, which is exclusive by itself, and gets <code>None</code>. <code>meta</code> has to be the <code>ClientMeta</code> the
 device connection was made with: the claim belongs to its instance id, so that connection's calls go through. Another
-program's exclusive in the way is an error naming it (<code>usb:..: in use: dg pid 4711 (flashing), lent</code>). <code>ww dfu
+program's exclusive in the way is an error naming it (<code>usb:..: in use: pw pid 4711 (flashing), lent</code>). <code>ww dfu
 reboot | flash | confirm | revert</code> take it this way (<a href="../../cli_reference/#ww-dfu"><code>ww dfu</code></a>); <code>flash</code> keeps it across
 the device's reset into the trial, since the claim is by device key and the program's hub connection stays up.</p>
 <h3 id="lending-to-a-program-that-isnt-wireweaver">Lending to a program that isn't WireWeaver<a class="headerlink" href="#lending-to-a-program-that-isnt-wireweaver" title="Permanent link">&para;</a></h3>
@@ -8351,7 +8351,7 @@ the hub holds it. <code>ww hub lend DEVICE -- CMD</code> asks the hub to let it 
 </ol>
 <p><code>hub::Lend::take(key, purpose)</code> is the same from a program; without a running hub it is <code>None</code> and the command just
 runs. Reconnecting clients wait while the device is lent and come back when it is returned (CLT-40).</p>
-<p>On one of our dev PCs (22 Oct 2026), Donguru lent to a J-Link reset while <code>ww sync</code> watched it through the hub:</p>
+<p>On one of our dev PCs (22 Oct 2026), Portwright lent to a J-Link reset while <code>ww sync</code> watched it through the hub:</p>
 <div class="language-sh highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>ww<span class="w"> </span>hub<span class="w"> </span>lend<span class="w"> </span>204B319B5431<span class="w"> </span>--<span class="w"> </span>probe-rs<span class="w"> </span>reset<span class="w"> </span>--probe<span class="w"> </span><span class="m">1366</span>:0105<span class="w"> </span>--chip<span class="w"> </span>STM32G0B1RETx
 </span></code></pre></div>
 <p>The hub paused its steering and closed the device 7 ms after the ask, had it open again 3 ms after the return (the
@@ -8381,12 +8381,12 @@ steerer for the devices of its user; programs see its steering through the API i
 <li><strong>Pace.</strong> <code>HubConfig::sync_options</code> (<code>wire_weaver_client::clock_sync::Options</code>): readings and steer points ten times a second until
   the device says <code>Locked</code>, then five readings and one steer point a second.</li>
 </ul>
-<p>Measured on one of our dev PCs (22 Oct 2026, Donguru and B135 on USB full speed, <code>ww sync</code> as the view):</p>
+<p>Measured on one of our dev PCs (22 Oct 2026, Portwright and B135 on USB full speed, <code>ww sync</code> as the view):</p>
 <table>
 <thead>
 <tr>
 <th></th>
-<th>Donguru</th>
+<th>Portwright</th>
 <th>B135</th>
 </tr>
 </thead>
@@ -8583,8 +8583,8 @@ match holders::claim(&amp;key, Mode::Direct) {
 </span><span id="__span-14-11"><a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a>```text
 </span><span id="__span-14-12"><a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a>key = usb:046d:c52b:ABCD1234:0
 </span><span id="__span-14-13"><a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a>pid = 4821
-</span><span id="__span-14-14"><a id="__codelineno-14-14" name="__codelineno-14-14" href="#__codelineno-14-14"></a>program = dg
-</span><span id="__span-14-15"><a id="__codelineno-14-15" name="__codelineno-14-15" href="#__codelineno-14-15"></a>exe = /home/user/.cargo/bin/dg
+</span><span id="__span-14-14"><a id="__codelineno-14-14" name="__codelineno-14-14" href="#__codelineno-14-14"></a>program = pw
+</span><span id="__span-14-15"><a id="__codelineno-14-15" name="__codelineno-14-15" href="#__codelineno-14-15"></a>exe = /home/user/.cargo/bin/pw
 </span><span id="__span-14-16"><a id="__codelineno-14-16" name="__codelineno-14-16" href="#__codelineno-14-16"></a>mode = direct
 </span><span id="__span-14-17"><a id="__codelineno-14-17" name="__codelineno-14-17" href="#__codelineno-14-17"></a>since = 1771234567
 </span><span id="__span-14-18"><a id="__codelineno-14-18" name="__codelineno-14-18" href="#__codelineno-14-18"></a>ww_version = 0.5.0
@@ -8602,7 +8602,7 @@ written by an older program lacks them and reads with those fields empty.</p>
 <h3 id="busy-errors-name-the-holder">Busy errors name the holder<a class="headerlink" href="#busy-errors-name-the-holder" title="Permanent link">&para;</a></h3>
 <p>A connection refused because another WireWeaver program already holds the device says who, from that program's
 own lock file content (<code>Holder</code>'s <code>Display</code>):</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>device is already open by another WireWeaver program or connection; held by dg, pid 4711, Cli, roman@pc1, direct,
+<div class="language-text highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>device is already open by another WireWeaver program or connection; held by pw, pid 4711, Cli, roman@pc1, direct,
 </span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>since 14:02:03 UTC; to share a device between programs, let the ww hub hold it: `ww hub take`, or WW_HUB=prefer for
 </span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>both programs (a hub comes with `ww`: cargo install wire_weaver_cli)
 </span></code></pre></div>

@@ -6483,7 +6483,7 @@ default is <code>"none"</code>. <code>ww api scaffold --introspect with_docs --i
 <td>-4,312 B</td>
 </tr>
 <tr>
-<td>Donguru (STM32G0, async server, <code>opt-level = "z"</code>)</td>
+<td>Portwright (STM32G0, async server, <code>opt-level = "z"</code>)</td>
 <td>148,188 B</td>
 <td>3,974 -&gt; 3,056 B</td>
 <td>-920 B</td>
@@ -6491,7 +6491,7 @@ default is <code>"none"</code>. <code>ww api scaffold --introspect with_docs --i
 </tbody>
 </table>
 <p>The answer is sent as for a plain bundle, so the option costs no code: the flash saved is what the bundle shrinks
-(Donguru's 2 B more are alignment). LZ4 does about 1.3-1.45x on this data, mostly doc text; it pays off for a
+(Portwright's 2 B more are alignment). LZ4 does about 1.3-1.45x on this data, mostly doc text; it pays off for a
 device with a large API or many doc comments.</p>
 <p>The API's identity doesn't change: the hashes stay those of the uncompressed bundle, so a compressed and a plain
 build of the same API have the same <code>API_ID</code>, share their cache entries, and are compared by the evolution rules

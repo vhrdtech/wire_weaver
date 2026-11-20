@@ -6682,7 +6682,7 @@ which the host knows, they pinpoint one place. The host prints them as one line:
 <p>The item kind, the request kind and the error kind tell apart what shares a number: a decode failure of a method's
 arguments and of a property's value are both 1, one comes with <code>ArgsDesFailed</code> on a call, the other with
 <code>PropertyDesFailed</code> on a write. Since the same step of every item is the same constant, the firmware's error arms
-are shared code (Donguru: 1.5 KiB less flash at <code>opt-level = "z"</code> than one number per site, 1.7 KiB at 3). <code>Error::site()</code> sorts a number into its
+are shared code (Portwright: 1.5 KiB less flash at <code>opt-level = "z"</code> than one number per site, 1.7 KiB at 3). <code>Error::site()</code> sorts a number into its
 range.</p>
 <h2 id="devices-and-hosts-of-different-versions">Devices and hosts of different versions<a class="headerlink" href="#devices-and-hosts-of-different-versions" title="Permanent link">&para;</a></h2>
 <p>An error enum grows: a later firmware may return a variant an older host has never heard of. Every <code>Unsized</code> enum

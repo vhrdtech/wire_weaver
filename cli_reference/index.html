@@ -7841,13 +7841,13 @@ for illustration, not a measurement):</p>
 </span><span id="__span-24-3"><a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>DEVICE                STATE   SOURCE  STEERED BY      RESIDUAL          ERROR    RATE            SLEW     RTT     SAMPLES  NOTE
 </span><span id="__span-24-4"><a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a>B135 USB-FDCAN 3445   locked  host    ww pid 81234    -31 µs ±75 µs     95 µs    +4.612 ppm      +0 µs    150 µs  240
 </span><span id="__span-24-5"><a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a>rePort bench-2        locked  host    ww pid 81234    +84 µs ±400 µs    480 µs   +12.880 ppm     +3 µs    800 µs  240
-</span><span id="__span-24-6"><a id="__codelineno-24-6" name="__codelineno-24-6" href="#__codelineno-24-6"></a>Donguru A1B2C3        locked  host    ww pid 81234    -620 µs ±700 µs   1.10 ms  -2003.204 ppm   -41 µs   1.40 ms 240
+</span><span id="__span-24-6"><a id="__codelineno-24-6" name="__codelineno-24-6" href="#__codelineno-24-6"></a>Portwright A1B2C3        locked  host    ww pid 81234    -620 µs ±700 µs   1.10 ms  -2003.204 ppm   -41 µs   1.40 ms 240
 </span><span id="__span-24-7"><a id="__codelineno-24-7" name="__codelineno-24-7" href="#__codelineno-24-7"></a>✓ all 3 within 2.00 ms for 4.1 s
 </span><span id="__span-24-8"><a id="__codelineno-24-8" name="__codelineno-24-8" href="#__codelineno-24-8"></a>Phase: 704 µs apart across 3 devices (±700 µs)
 </span><span id="__span-24-9"><a id="__codelineno-24-9" name="__codelineno-24-9" href="#__codelineno-24-9"></a>q or Ctrl+C to stop
 </span></code></pre></div>
 <p>On a terminal this one view is all there is, from the start, redrawn every second: who steers the devices, the table,
-how far they converged (<code>2 of 3 within 2.00 ms, waiting for Donguru A1B2C3</code> until all are within, then since when)
+how far they converged (<code>2 of 3 within 2.00 ms, waiting for Portwright A1B2C3</code> until all are within, then since when)
 and the phase spread. Into a pipe it prints lines instead (no colour): who steers, a line each time a device converges
 or falls out and when all of them are within, and the table once at the end:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>✓ B135 USB-FDCAN 3445 converged after 1.2 s: locked, residual -31 µs (within 2.00 ms)
@@ -7958,15 +7958,15 @@ holds devices and serves every program, and the question "who has my device?" fo
 </span><span id="__span-26-4"><a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a>pid        4711
 </span><span id="__span-26-5"><a id="__codelineno-26-5" name="__codelineno-26-5" href="#__codelineno-26-5"></a>exe        /home/me/.cargo/bin/ww
 </span><span id="__span-26-6"><a id="__codelineno-26-6" name="__codelineno-26-6" href="#__codelineno-26-6"></a>socket     /run/user/1000/ww/hub.sock
-</span><span id="__span-26-7"><a id="__codelineno-26-7" name="__codelineno-26-7" href="#__codelineno-26-7"></a>started by dg (pid 4690), up 12m 31s
+</span><span id="__span-26-7"><a id="__codelineno-26-7" name="__codelineno-26-7" href="#__codelineno-26-7"></a>started by pw (pid 4690), up 12m 31s
 </span><span id="__span-26-8"><a id="__codelineno-26-8" name="__codelineno-26-8" href="#__codelineno-26-8"></a>clients    2 programs, 2 connections
 </span><span id="__span-26-9"><a id="__codelineno-26-9" name="__codelineno-26-9" href="#__codelineno-26-9"></a>devices    3 known, 1 open through the hub
 </span><span id="__span-26-10"><a id="__codelineno-26-10" name="__codelineno-26-10" href="#__codelineno-26-10"></a>idle exit  after 5m 00s without connections, counted from the last program leaving
 </span><span id="__span-26-11"><a id="__codelineno-26-11" name="__codelineno-26-11" href="#__codelineno-26-11"></a>
 </span><span id="__span-26-12"><a id="__codelineno-26-12" name="__codelineno-26-12" href="#__codelineno-26-12"></a>KEY                             PRODUCT         STATE        CONNECTIONS
 </span><span id="__span-26-13"><a id="__codelineno-26-13" name="__codelineno-26-13" href="#__codelineno-26-13"></a>usb:c0de:cafe:18AC50C211FFB7C1  b200_usb_io     open (hub)   1
-</span><span id="__span-26-14"><a id="__codelineno-26-14" name="__codelineno-26-14" href="#__codelineno-26-14"></a>usb:c0de:cafe:204B319B5431      donguru         free         0
-</span><span id="__span-26-15"><a id="__codelineno-26-15" name="__codelineno-26-15" href="#__codelineno-26-15"></a>usb:c0de:cafe:344533413431      B135 USB-FDCAN  held by dg (pid 4690, direct)  0
+</span><span id="__span-26-14"><a id="__codelineno-26-14" name="__codelineno-26-14" href="#__codelineno-26-14"></a>usb:c0de:cafe:204B319B5431      portwright         free         0
+</span><span id="__span-26-15"><a id="__codelineno-26-15" name="__codelineno-26-15" href="#__codelineno-26-15"></a>usb:c0de:cafe:344533413431      B135 USB-FDCAN  held by pw (pid 4690, direct)  0
 </span></code></pre></div>
 <table>
 <thead>

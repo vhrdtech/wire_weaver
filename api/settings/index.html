@@ -6553,7 +6553,7 @@ bytes as a blob (a length and the bytes). That is what lets a firmware skip a sl
 writes the record again, and drop a retired one, which a plain <a href="../../serdes/layouts/#sparse-a-struct-of-optional-fields"><code>sparse</code></a>
 struct can't do (its values carry no length). The cost is a length nibble and byte alignment per stored field.</p>
 <p>In flash each record is an item: a 12-byte header (length, key, a 32-bit sequence number per key, CRC-32) and the
-record, padded to the flash word. Sizes for a Donguru-like group (label, a <code>bool</code>, an enum, two <code>u16</code>, a UART
+record, padded to the flash word. Sizes for a Portwright-like group (label, a <code>bool</code>, an enum, two <code>u16</code>, a UART
 configuration), measured with <code>record::encode</code> and <code>Store::footprint</code>:</p>
 <table>
 <thead>

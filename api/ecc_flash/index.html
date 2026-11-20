@@ -6560,7 +6560,7 @@ cache lines of the word are invalidated before the read. Keep the store region n
 error on a cache linefill may be reported imprecisely, and an imprecise bus error is not ignored.</p>
 <h2 id="tested-so-far">Tested so far<a class="headerlink" href="#tested-so-far" title="Permanent link">&para;</a></h2>
 <ul>
-<li>STM32G0B1 (Donguru B153A), <code>examples_mcu/ecc_flash_g0b1</code>: a sequential-storage map on <code>EccSafeFlash</code> in bank 2,
+<li>STM32G0B1 (Portwright B153A), <code>examples_mcu/ecc_flash_g0b1</code>: a sequential-storage map on <code>EccSafeFlash</code> in bank 2,
   reset by SysTick at a random time while it stores, 3000 boots: every committed value loads, nothing corrupt.</li>
 <li>What a reset does to a flash operation on G0 (<code>src/bin/reset_cut.rs</code> there): a system reset waits for it. Erases
   cut 1-20 ms into their ~22 ms still leave the page fully erased, programs stop between double words. So a reset

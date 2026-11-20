@@ -1,4 +1,6 @@
 
+
+
 <!doctype html>
 <html lang="en" class="no-js">
   <head>
@@ -16,6 +18,7 @@
       
       
       
+      
         <link rel="prev" href="../articles/flash_budget/">
       
       
@@ -26,7 +29,7 @@
       
       
       <link rel="icon" href="../assets/wire_weaver_favicon.svg">
-      <meta name="generator" content="zensical-0.1.2">
+      <meta name="generator" content="zensical-0.1.3">
     
     
       
@@ -37,12 +40,13 @@
       
         
       
-      <link rel="stylesheet" href="../assets/stylesheets/modern/main.ebb7f775.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/modern/main.e2cf241e.min.css">
       
         
           
         
         <link rel="stylesheet" href="../assets/stylesheets/modern/palette.b60ce83d.min.css">
+      
       
       
 
@@ -9125,11 +9129,12 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
   instruction on thumbv6m, thumbv7em and thumbv8m.main at <code>fw-z</code> and <code>fw-3</code>: range check and <code>Series</code> encode
   identical everywhere, <code>Series</code> decode at <code>fw-3</code>; struct encode/decode differ by the derive's per-field write for a
   <code>Fixed</code> (a few instructions). STD-63's rounding conversions were measured against hand-written ones on M0 and M4F at <code>z</code> and <code>3</code> (the exact_units book's <a href="https://exact.vhrd.tech/fixed_point/cost/">Cost on Cortex-M</a>). STD-72 adds nothing of its own to measure: its markers are zero-size types and <code>Fixed::convert</code> is <code>Fixed::to</code>'s compile-time factor, so the <code>to</code> measurements cover it. See <code>docs/articles/units_budget.md</code>.</li>
-<li>✅ <strong>TEST-36 Layer lint</strong>: <code>/layers.toml</code> gives every crate of every workspace in the repo (root,
-  <code>mcu/</code>, <code>examples_mcu/*</code>, <code>fuzz/</code>, <code>wire_weaver_tool/</code>) a target layer, 0 to 6, per the architecture
-  layers design; a crate <code>cargo metadata</code> finds but the table doesn't list fails. <code>tests/layers_lint</code>
-  reads each workspace's <code>cargo metadata</code> (normal, build and dev edges) and fails on a lower-layer
-  crate taking a higher one, unless <code>layers.toml</code>'s <code>[[allow]]</code> names the edge with the refactor
+<li>✅ <strong>TEST-36 Layer lint</strong>: <code>/layers.toml</code> is the crate map: it gives every crate of every workspace in the repo
+  (root, <code>mcu/</code>, <code>examples_mcu/*</code>, <code>fuzz/</code>, <code>wire_weaver_tool/</code>) a layer, says which layers each layer may take,
+  and lists the git crates of other repositories with their layer; spirit_level's map lints read it as well
+  (<code>[map-file]</code>); a crate <code>cargo metadata</code> finds but the map doesn't list fails. <code>tests/layers_lint</code>
+  reads each workspace's <code>cargo metadata</code> (normal, build and dev edges) and fails on a crate taking one whose
+  layer its own layer does not allow, unless <code>layers.toml</code>'s <code>[[allow]]</code> names the edge with the refactor
   (<code>R1</code>..<code>R10</code>) that removes it; a named edge that no longer exists fails too, so the allow-list
   shrinks as the refactors land. First run: 22 allow-listed edges (<code>R4</code>, <code>R7</code>, <code>R8</code>). With <code>R1</code> (API-68) the
   lint also checks <code>layers.toml</code>'s <code>[api] crates</code>, the crates that describe an API (the stdlib API crates,
@@ -9618,7 +9623,8 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
       <script id="__config" type="application/json">{"annotate":null,"base":"..","features":["announce.dismiss","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.path","navigation.sections","navigation.tabs","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../assets/javascripts/workers/search.719e0d91.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
     
     
-      <script src="../assets/javascripts/bundle.3cb411a8.min.js"></script>
+      <script src="../assets/javascripts/bundle.9e76c64c.min.js"></script>
+      
       
         <script src="../javascripts/ww_highlight.js"></script>
       

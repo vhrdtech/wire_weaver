@@ -32,6 +32,8 @@ test-all:
     just test-ecc-flash
     # facade!'s compile errors (CLT-64): trybuild, too slow for nextest's hang limit
     just test-facade-ui
+    # the client alone, as a downstream crate builds it: no dev-dependency or workspace member adds tokio features
+    cargo check -p wire_weaver_client --lib
     # no f32, f64 or 128-bit code from ww_si's device operations where a firmware didn't opt into floats (TEST-33)
     just no-float-guard
 

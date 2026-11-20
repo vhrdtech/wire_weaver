@@ -1,5 +1,9 @@
 ## Unreleased
 
+### 🐛 Fixes
+
+- Builds outside this workspace again: tokio's `rt-multi-thread`, needed by `block_in_place` on `Commander` drop, is on.
+
 ### 📚 Documentation
 
 - A README, crate-level docs, a comment on every cargo feature, and a fixed broken doc link in the `in_process` module docs.

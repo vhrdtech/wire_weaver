@@ -85,7 +85,7 @@ semver.workspace = true
 sha2.workspace = true
 strum = { workspace = true, features = ["derive"] }
 thiserror.workspace = true
-tokio = { workspace = true, features = ["sync", "rt", "time", "macros"] }
+tokio = { workspace = true, features = ["sync", "rt", "rt-multi-thread", "time", "macros"] } # rt-multi-thread: block_in_place when a Commander drops
 tokio-tungstenite = { workspace = true, optional = true }
 tracing.workspace = true
 wire_weaver = { workspace = true, features = ["std"] }

@@ -138,6 +138,7 @@ impl<S: Socket> MessageTx for WsTx<'_, S> {
             return Err(WsError::Closed);
         }
         let mut written = 0;
+        // spirit-level: allow(lock-held-across) the async mutex hands the one socket between Tx and Rx, which [Server] never runs at once
         while written < len {
             match inner.socket.write(&self.buf[written..len]).await {
                 Ok(0) => {
@@ -223,6 +224,7 @@ impl<'a, S: Socket> WsRx<'a, S> {
             self.start = 0;
         }
         let mut inner = self.conn.inner.lock().await;
+        // spirit-level: allow(lock-held-across) the async mutex hands the one socket between Tx and Rx, which [Server] never runs at once
         match inner.socket.read(&mut self.buf[self.end..]).await {
             Ok(0) => Err(WsError::Closed),
             Ok(n) => {
@@ -237,6 +239,7 @@ impl<'a, S: Socket> WsRx<'a, S> {
     async fn write_response(&mut self, bytes: &[u8]) -> Result<(), ()> {
         let conn = self.conn;
         let mut inner = conn.inner.lock().await;
+        // spirit-level: allow(lock-held-across) the async mutex hands the one socket between Tx and Rx, which [Server] never runs at once
         while self.written < bytes.len() {
             match inner.socket.write(&bytes[self.written..]).await {
                 Ok(n) if n > 0 => self.written += n,
@@ -313,6 +316,7 @@ impl<S: Socket> MessageRx for WsRx<'_, S> {
                 Phase::Accept => {
                     let mut inner = self.conn.inner.lock().await;
                     inner.open = false;
+                    // spirit-level: allow(lock-held-across) the async mutex hands the one socket between Tx and Rx, which [Server] never runs at once
                     inner.socket.accept().await;
                     drop(inner);
                     self.start = 0;

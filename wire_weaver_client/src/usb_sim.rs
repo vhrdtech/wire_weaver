@@ -368,18 +368,20 @@ impl<F: UsbFramingProtocol> ww_device::PacketSink for UsbSink<F> {
             "packet longer than the endpoint's max packet size"
         );
         loop {
-            let sent = {
-                let mut holder = self.bus.holder.lock().unwrap();
-                match holder.as_ref() {
-                    Some((_, to_host)) => {
-                        let sent = to_host.send((PACKET, packet.to_vec())).is_ok();
-                        if !sent {
+            let holder = self.bus.holder.lock().unwrap().clone();
+            let sent = match holder {
+                Some((id, to_host)) => {
+                    let sent = to_host.send((PACKET, packet.to_vec())).is_ok();
+                    if !sent {
+                        let mut holder = self.bus.holder.lock().unwrap();
+                        // a new host may have claimed the interface in between: release only the gone one
+                        if holder.as_ref().is_some_and(|h| h.0 == id) {
                             *holder = None;
                         }
-                        sent
                     }
-                    None => false,
+                    sent
                 }
+                None => false,
             };
             if sent {
                 return Ok(());

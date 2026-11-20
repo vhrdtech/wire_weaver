@@ -180,8 +180,7 @@ impl ww_device::MessageTx for DeviceTx {
     type Error = Disconnected;
 
     async fn write_message(&mut self, kind: u8, message: &[u8]) -> Result<(), Disconnected> {
-        let to_host = self.to_host.lock().unwrap();
-        let to_host = to_host.as_ref().ok_or(Disconnected)?;
+        let to_host = self.to_host.lock().unwrap().clone().ok_or(Disconnected)?;
         to_host
             .send((kind, message.to_vec()))
             .map_err(|_| Disconnected)
@@ -319,8 +318,7 @@ impl<F: UsbFramingProtocol> ww_device::PacketSink for UsbSink<F> {
             packet.len() <= self.max_packet_size,
             "packet longer than the endpoint's max packet size"
         );
-        let to_host = self.to_host.lock().unwrap();
-        let to_host = to_host.as_ref().ok_or(Disconnected)?;
+        let to_host = self.to_host.lock().unwrap().clone().ok_or(Disconnected)?;
         to_host.send((0, packet.to_vec())).map_err(|_| Disconnected)
     }
 }
@@ -418,6 +416,7 @@ impl ww_device::udp::DatagramSocket for UdpPort {
     /// Cancel-safe: tokio's recv() does not lose datagrams when dropped. A datagram longer than `buf` is truncated.
     async fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, UdpAddr), Disconnected> {
         let mut datagrams = self.datagrams.lock().await;
+        // spirit-level: allow(lock-held-across) the async mutex only turns `&self` into the receiver's `&mut`: recv_from is its one user
         // cannot end: the registry holds a sender while the device is registered, and only drop unregisters it
         let (from, datagram) = datagrams.recv().await.ok_or(Disconnected)?;
         let len = datagram.len().min(buf.len());
@@ -427,11 +426,12 @@ impl ww_device::udp::DatagramSocket for UdpPort {
 
     /// A datagram to a host that is gone (or never was) is lost, as over UDP.
     async fn send_to(&self, datagram: &[u8], addr: UdpAddr) -> Result<(), Disconnected> {
-        let mut hosts = self.to_host.lock().unwrap();
-        if let Some(host) = hosts.get(&addr)
+        let host = self.to_host.lock().unwrap().get(&addr).cloned();
+        if let Some(host) = host
             && host.send((0, datagram.to_vec())).is_err()
         {
-            hosts.remove(&addr);
+            // addresses are never reused, so the entry is still this closed sender's
+            self.to_host.lock().unwrap().remove(&addr);
         }
         Ok(())
     }

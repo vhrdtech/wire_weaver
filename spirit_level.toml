@@ -255,13 +255,6 @@ expires = "2026-12-15"
 # --- locks and shared state: P2401#20nov-1155c removes these ---
 
 [[exceptions]]
-lint = "lock-held-across"
-crates = ["wire_weaver_client", "ww_device", "ww_hub"]
-level = "allow"
-reason = "lock guards held across await or I/O; P2401#20nov-1155c (locks and shared state) removes them"
-expires = "2026-12-15"
-
-[[exceptions]]
 lint = "lock-unwrap"
 crates = [
     "follow_reboot",

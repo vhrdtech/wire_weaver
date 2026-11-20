@@ -164,6 +164,7 @@ pub(crate) async fn join(
 ) -> Result<DeviceHandle, Status> {
     let slot = hub.device_slot(key);
     let mut guard = slot.lock().await;
+    // spirit-level: allow(lock-held-across) the slot's async lock is held until the device's task is in it, so one task opens a device; the send is an unbounded channel's and never waits
     if let Some(handle) = guard.as_ref()
         && handle
             .tx
@@ -604,6 +605,7 @@ pub(crate) struct Device {
 }
 
 impl Device {
+    // spirit-level: allow(lock-held-across) the async state lock keeps requests in seq order into the event loop: seq is assigned and the request sent under one guard
     /// A client's request: forwarded with a seq of the device's, or answered by the hub. Straight from the client's
     /// tunnel to the event loop, no task in between. `last` of what the client wrote at once: the device gets the
     /// batch now, with the flush right behind the request, so the event loop takes both in one go.
@@ -674,6 +676,7 @@ impl Device {
         Some((seq, claims::in_use_reply(&by, seq)))
     }
 
+    // spirit-level: allow(lock-held-across) the async state lock keeps requests in seq order into the event loop: seq is assigned and the request sent under one guard
     pub(crate) async fn loopback(
         &self,
         id: u32,

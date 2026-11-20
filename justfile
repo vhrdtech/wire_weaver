@@ -75,8 +75,8 @@ dispatch-golden-update:
 # Observe cells under miri: the ring's writer and reader on two threads over many interleavings (about a minute);
 # shrink_wrap's SeriesCells round trips run under miri in its own repository (`just miri` there)
 miri:
-    cargo +nightly miri test -p ww_stream --features std --lib in_place
-    MIRIFLAGS="-Zmiri-many-seeds=0..16" cargo +nightly miri test -p ww_stream --features std --lib cells_tests
+    cargo +nightly-2026-11-19 miri test -p ww_stream --features std --lib in_place
+    MIRIFLAGS="-Zmiri-many-seeds=0..16" cargo +nightly-2026-11-19 miri test -p ww_stream --features std --lib cells_tests
 
 # ww_settings power cuts at every step of every write and erase (release; `just test` samples them in debug)
 test-power-cut:
@@ -301,16 +301,16 @@ deps-ext:
 # Fuzz ww_framer
 [working-directory('fuzz')]
 fuzz-framer:
-    cargo +nightly fuzz run framer-tx-rx -- -max_len=32768
+    cargo +nightly-2026-11-19 fuzz run framer-tx-rx -- -max_len=32768
 
 # Fuzz the framer with a frame prefix over a lossy channel (UDP configuration)
 [working-directory('fuzz')]
 fuzz-framer-lossy:
-    cargo +nightly fuzz run framer-lossy -- -max_len=32768
+    cargo +nightly-2026-11-19 fuzz run framer-lossy -- -max_len=32768
 
 # Fuzz the link setup hello (EVO-23)
 [working-directory('fuzz')]
 fuzz-link-hello:
-    cargo +nightly fuzz run link-hello -- -max_len=64
+    cargo +nightly-2026-11-19 fuzz run link-hello -- -max_len=64
 
 # ww_tape's fuzz targets, golden files and benchmarks live in vhrdtech/ww_tape, with their recipes in its justfile

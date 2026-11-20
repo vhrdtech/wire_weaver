@@ -1,7 +1,7 @@
 //! Firmware of line 1, `thermo_api::wire_v1`, simulated.
 
 use crate::Shared;
-use crate::locked::Locked;
+use tests_common::locked::Locked;
 use thermo_api::common::{Command, IndicationMode, RateError};
 use thermo_api::wire_v1::{Mode, Sample};
 use wire_weaver::prelude::*;

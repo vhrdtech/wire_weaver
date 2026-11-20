@@ -1,7 +1,7 @@
 //! Firmware of `thermo_api` 5.0.0's line 6 at w6.0, its first revision, simulated: `w2.rs` without `self_test`.
 
 use crate::Shared;
-use crate::locked::Locked;
+use tests_common::locked::Locked;
 use thermo_api_5_0_0::common::{Command, Config, IndicationMode, Mode, RateError, Sample};
 use wire_weaver::prelude::*;
 use ww_si::prefix::{Centi, Milli, One};

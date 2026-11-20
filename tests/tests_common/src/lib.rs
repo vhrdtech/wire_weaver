@@ -2,7 +2,7 @@
 //! `in_process` transport. Tests drive it with a generated client, exactly as a real device over USB, link setup,
 //! timeouts and streams included.
 
-mod locked;
+pub mod locked;
 
 use crate::locked::Locked;
 use std::pin::Pin;

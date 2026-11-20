@@ -1,10 +1,10 @@
-//! The one place this crate takes a lock and decides what poison means: a poisoned lock panics, as the thread that
-//! poisoned it did, and the unit restarts clean.
+//! The one place the test crates take a lock and decide what poison means: a poisoned lock panics, as the thread that
+//! poisoned it did, and the test fails.
 
 use std::sync::{Mutex, MutexGuard};
 
 /// Takes a [Mutex], panicking when it is poisoned.
-pub(crate) trait Locked<T: ?Sized> {
+pub trait Locked<T: ?Sized> {
     /// The guard; panics when another thread panicked while holding the lock.
     fn locked(&self) -> MutexGuard<'_, T>;
 }

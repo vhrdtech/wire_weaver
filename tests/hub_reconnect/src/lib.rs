@@ -2,10 +2,8 @@
 //! is served in the tests' own process: as `inproc:` for a hub in that process too (shut down and bound again), on a
 //! local socket (`ipc:`) for `hub_dev`, a hub in another process that is killed and started again by the client.
 
-mod locked;
-
-use crate::locked::Locked;
 use std::sync::{Arc, Mutex};
+use tests_common::locked::Locked;
 
 use tests_common::TestDevice;
 use wire_weaver::prelude::*;

@@ -2,7 +2,7 @@
 //! and `uptime`.
 
 use crate::Shared;
-use crate::locked::Locked;
+use tests_common::locked::Locked;
 use thermo_api_5_0_0::common::{Command, IndicationMode, RateError};
 use thermo_api_5_0_0::wire_v1::{Mode, Sample};
 use wire_weaver::prelude::*;

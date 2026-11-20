@@ -5,7 +5,6 @@
 use std::sync::{Arc, Mutex};
 use wire_weaver::ww_version::WireVersion;
 
-mod locked;
 pub mod w1;
 pub mod w2;
 pub mod w3;

@@ -1,7 +1,6 @@
-//! R9: fails on any crate (in any workspace of this repo) missing from `layers.toml`, and on any
-//! normal, build or dev dependency edge from a lower-layer crate to a higher-layer one that
-//! `layers.toml`'s `[[allow]]` list doesn't name; an allow-list line whose edge no longer exists
-//! fails too. R1: an API crate (`[api] crates`) reaches no runtime crate through its normal
+//! R9: fails on any crate (in any workspace of this repo) missing from the crate map `layers.toml`, and on any
+//! normal, build or dev dependency edge to a crate whose layer the source crate's layer does not allow, unless
+//! `layers.toml`'s `[[allow]]` list names it; an allow-list line whose edge no longer exists fails too. R1: an API crate (`[api] crates`) reaches no runtime crate through its normal
 //! dependencies. See `/layers.toml` and `docs/evolution/crate_layers.md`. Every member of a workspace with
 //! `[workspace.lints]` has a `[lints]` table, whatever the toolchain.
 
@@ -11,13 +10,33 @@ use std::path::{Path, PathBuf};
 use cargo_metadata::{DependencyKind, Metadata, MetadataCommand, PackageId};
 use serde::Deserialize;
 
+/// The crate map (spirit_level reads the same file); `[external]` and the keys spirit_level alone reads are skipped.
 #[derive(Deserialize)]
 struct LayersFile {
-    layers: BTreeMap<String, u8>,
+    layers: BTreeMap<String, Layer>,
+    crates: BTreeMap<String, CrateEntry>,
     #[serde(default)]
     allow: Vec<AllowEntry>,
     #[serde(default)]
     api: ApiCrates,
+}
+
+/// `[layers.<name>]`: the layers a crate of this layer may depend on, its own included when listed.
+#[derive(Deserialize)]
+struct Layer {
+    allow: Vec<String>,
+}
+
+/// `[crates]`: the layer of one crate.
+#[derive(Deserialize)]
+struct CrateEntry {
+    layer: String,
+}
+
+impl LayersFile {
+    fn layer_of(&self, name: &str) -> Option<&str> {
+        self.crates.get(name).map(|entry| entry.layer.as_str())
+    }
 }
 
 /// `[api] crates`: the crates that describe an API and never run one (R1), and `[[api.allow]]`, the runtime
@@ -37,7 +56,7 @@ struct ApiAllowEntry {
 }
 
 /// The layer of the framework runtime and host: what an API crate's normal closure may not reach.
-const RUNTIME_LAYER: u8 = 5;
+const RUNTIME_LAYER: &str = "runtime";
 
 /// The crates and edges one or more workspaces' `cargo metadata` found: every local crate, every normal, build or
 /// dev edge between two of them, and the normal edges alone (what a `[dependencies]` entry pulls into a build).
@@ -297,7 +316,7 @@ fn api_crates_are_free_of_the_runtime() {
             .filter(|reached| {
                 !layers_file.api.crates.contains(reached)
                     && (*reached == "wire_weaver"
-                        || layers_file.layers.get(*reached) == Some(&RUNTIME_LAYER))
+                        || layers_file.layer_of(reached) == Some(RUNTIME_LAYER))
             })
             .filter(|reached| {
                 match layers_file
@@ -361,20 +380,34 @@ fn no_upward_crate_edges() {
 
     let missing: Vec<&String> = local_crates
         .iter()
-        .filter(|name| !layers_file.layers.contains_key(name.as_str()))
+        .filter(|name| layers_file.layer_of(name).is_none())
         .collect();
     assert!(
         missing.is_empty(),
         "crate(s) found by `cargo metadata` but missing from layers.toml (every workspace crate \
-         needs a layer, 4 to 7): {missing:?}"
+         needs an entry under [crates] with its layer): {missing:?}"
+    );
+    let unknown: Vec<(&String, &String)> = layers_file
+        .crates
+        .iter()
+        .filter(|(_, entry)| !layers_file.layers.contains_key(&entry.layer))
+        .map(|(name, entry)| (name, &entry.layer))
+        .collect();
+    assert!(
+        unknown.is_empty(),
+        "crate(s) in layers.toml with a layer that [layers] does not declare: {unknown:?}"
     );
 
     let mut allow_used = vec![false; layers_file.allow.len()];
     let mut violations = Vec::new();
     for (from, to) in &edges {
-        let from_layer = layers_file.layers[from];
-        let to_layer = layers_file.layers[to];
-        if from_layer < to_layer {
+        let from_layer = layers_file.crates[from].layer.as_str();
+        let to_layer = layers_file.crates[to].layer.as_str();
+        if !layers_file.layers[from_layer]
+            .allow
+            .iter()
+            .any(|allowed| allowed == to_layer)
+        {
             match layers_file.allow.iter().position(|a| &a.from == from && &a.to == to) {
                 Some(i) => allow_used[i] = true,
                 None => violations.push(format!(
@@ -385,7 +418,7 @@ fn no_upward_crate_edges() {
     }
     assert!(
         violations.is_empty(),
-        "upward crate edge(s), a lower layer depending on a higher one:\n{}",
+        "crate edge(s) to a layer the source crate's layer does not allow:\n{}",
         violations.join("\n")
     );
 

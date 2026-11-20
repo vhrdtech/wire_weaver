@@ -1,190 +1,235 @@
-# Layer lint (TEST-36, tests/layers_lint): the target layer, 4 to 7, of every crate in every workspace
-# of this repo: the root workspace, mcu/, examples_mcu/*, fuzz/ and wire_weaver_tool/
-# (docs/evolution/crate_layers.md). A crate the test finds through `cargo metadata` but not listed
-# here fails it.
+# The crate map of this repository: the layer of every crate in every workspace (the root workspace, mcu/,
+# examples_mcu/*, fuzz/ and wire_weaver_tool/), which layers each layer may depend on, and the crates of other
+# repositories taken by git (docs/evolution/crate_layers.md). spirit_level reads it as its crate map
+# (spirit_level.toml `[map-file]`); tests/layers_lint (TEST-36) reads it too, with its own `[api]` and `[[allow]]`
+# tables. A crate `cargo metadata` finds but the map does not list fails both.
 #
-# Layer 0 (shrink_wrap), layer 1 (exact_units), layer 2 (the base types and identity crates of
-# vhrdtech/ww_base: ww_si, ww_numeric, ww_version, ww_global, ww_error, ww_date_time, ww_keyed, ww_crc)
-# and layer 3 (storage: ww_tape of vhrdtech/ww_tape) are their own repositories, taken by git, so they
-# never appear here; so is layer 6, the standard APIs with their helpers and tools (vhrdtech/ww_stdlib).
-# Layer 7, the shipped tools (the ww binary and the Python wheel), is vhrdtech/ww_tools: no crate of it is here.
-#
-# A lower-layer crate may not depend on a higher-layer one (tests/layers_lint fails any such edge,
-# normal, build or dev, that `[[allow]]` below does not name); same-layer edges are fine.
+# The numbered layers of the stack: 0 the wire format (shrink_wrap), 1 units (exact_units), 2 the base types and
+# identity crates (vhrdtech/ww_base: ww_si, ww_numeric, ww_version, ww_global, ww_error, ww_date_time, ww_keyed,
+# ww_crc), 3 storage (ww_tape of vhrdtech/ww_tape), 4 API description, 5 framework runtime and host, 6 the standard
+# APIs (vhrdtech/ww_stdlib) and 7 the shipped tools (the ww binary and the Python wheel, vhrdtech/ww_tools). Layers 0
+# to 3 are other repositories, listed under `[external]`; 6 and 7 build on this repository, so nothing here takes
+# them. A crate may depend on its own layer and the layers below it (tests/layers_lint holds normal, build and dev
+# edges to that unless `[[allow]]` below names the edge; spirit_level's layer-edges checks normal and build edges).
 
-[layers]
-# Layer 4 — API description
-wire_weaver_core = 4
-wire_weaver_derive = 4
-wire_weaver_evolution = 4
-ww_lz4 = 4
-ww_snapshots = 4
-ww_api = 4
-ww_self = 4
-ww_tape_bundle = 4
+[layers.wire_format]
+desc = "Layer 0, the wire format: shrink_wrap (romixlab/shrink_wrap)"
+allow = ["wire_format"]
+licence = "MIT"
 
-# Layer 5 — framework runtime and host (incl. its tests, examples and benches)
-args_evolution = 5
-args_evolution_api = 5
-array_of_streams = 5
-array_of_streams_api = 5
-blinky = 5
-blinky_api = 5
-blinky_api_evolved = 5
-blinky_evolved = 5
-blinky_py = 5
-bounded = 5
-bounded_api = 5
-cannify_micro_g0b1cetxn = 5
-cfg_variants = 5
-cfg_variants_api = 5
-cfg_variants_narrow_api = 5
-common_error = 5
-common_error_api = 5
-conformance = 5
-conformance_api = 5
-conformance_py = 5
-counted_stream_api = 5
-follow_reboot_api = 5
-global_boot_api = 5
-global_fixture_api = 5
-global_ids = 5
-global_paths_api = 5
-mcu_qemu = 5
-nucleo_h743zi2 = 5
-stdlib_evolution = 5
-tape_identity = 5
-usb_fdcan_h725ig = 5
-wire_line_fixture_api = 5
-consts = 5
-consts_api = 5
-credit_sink = 5
-credit_sink_api = 5
-cross_version = 5
-cross_version_api = 5
-cross_version_old_api = 5
-customary = 5
-customary_api = 5
-dispatch_golden = 5
-dispatch_golden_api = 5
-docs_highlight = 5
-dynamic = 5
-dynamic_api = 5
-ecc_flash_g0b1 = 5
-ecc_flash_h7 = 5
-fan_api = 5
-features_page = 5
-flash_budget_api = 5
-foc_observe_api = 5
-follow_reboot = 5
-fuzz = 5
-fw_budget = 5
-generics = 5
-generics_api = 5
-hub = 5
-hub_api = 5
-hub_pytest_device = 5
-hub_pytest_device_api = 5
-hub_reconnect = 5
-hub_reconnect_api = 5
-hub_routing = 5
-introspect_compressed = 5
-introspect_compressed_api = 5
-io_timebase = 5
-io_timebase_api = 5
-keyed = 5
-keyed_api = 5
-large_messages = 5
-large_messages_api = 5
-layers_lint = 5
-lean_server = 5
-local_trait = 5
-local_trait_api = 5
-mcu_qemu_m4f = 5
-methods = 5
-methods_api = 5
-minimal_shrink_wrap = 5
-module_paths = 5
-module_paths_api = 5
-multi_req = 5
-multi_req_api = 5
-multi_root = 5
-multi_root_api = 5
-keep_trying = 5
-keep_trying_api = 5
-observe = 5
-observe_api = 5
-observe_arrays = 5
-observe_arrays_api = 5
-observe_batched = 5
-observe_batched_api = 5
-pins_dep = 5
-power_stage_api = 5
-properties = 5
-properties_api = 5
-qemu_icount = 5
-quantities = 5
-quantities_api = 5
-recursive = 5
-recursive_api = 5
-rp2 = 5
-series = 5
-series_api = 5
-settings = 5
-settings_api = 5
-shared_sub_level = 5
-shared_sub_level_api = 5
-shrink_wrap_c = 5
-size_bench_reply = 5
-skipped_dep_api = 5
-skipped_root_api = 5
-standalone = 5
-standalone_api = 5
-standalone_units = 5
-stm32_dfu_host = 5
-streams = 5
-streams_api = 5
-streams_batched = 5
-streams_batched_api = 5
-streams_borrowed_error = 5
-streams_borrowed_error_api = 5
-streams_reliable = 5
-streams_reliable_api = 5
-tap_api = 5
-tests_common = 5
-thermo = 5
-thermo_api = 5
-thermo_devices = 5
-traits = 5
-traits_api = 5
-wire_line = 5
-wire_line_api = 5
-wire_line_old_api = 5
-wire_weaver = 5
-wire_weaver_cli = 5
-wire_weaver_client = 5
-wire_weaver_py = 5
-wire_weaver_tool = 5
-wire_weaver_usb_embassy = 5
-ww_client_server = 5
-ww_book = 5
-ww_clock_sync = 5
-ww_device = 5
-ww_dns_sd = 5
-dns_sd = 5
-ww_ecc_flash = 5
-ww_framer = 5
-ww_hub = 5
-ww_hub_api = 5
-ww_link = 5
-ww_local_socket = 5
-ww_plugin = 5
-ww_settings = 5
-ww_settings_derive = 5
-ww_stream = 5
-ww_tap = 5
-ww_timebase = 5
+[layers.units]
+desc = "Layer 1, units and Fixed: exact_units (romixlab/exact_units)"
+allow = ["wire_format", "units"]
+licence = "MIT"
 
+[layers.base]
+desc = "Layer 2, the base types and identity crates (vhrdtech/ww_base)"
+allow = ["wire_format", "units", "base"]
+licence = "MIT"
+
+[layers.storage]
+desc = "Layer 3, storage: the tape format (vhrdtech/ww_tape)"
+allow = ["wire_format", "units", "base", "storage"]
+licence = "MIT"
+
+[layers.api_description]
+desc = "Layer 4, API description: the API model, codegen, the derive macros, snapshots and the evolution checker"
+allow = ["wire_format", "units", "base", "storage", "api_description"]
+licence = "MIT"
+
+[layers.runtime]
+desc = "Layer 5, framework runtime and host, with its tests, examples, benches and firmware examples"
+allow = ["wire_format", "units", "base", "storage", "api_description", "runtime"]
+licence = "MIT"
+
+[crates]
+wire_weaver_core = { layer = "api_description" }
+wire_weaver_derive = { layer = "api_description" }
+wire_weaver_evolution = { layer = "api_description" }
+ww_api = { layer = "api_description", no_std = true }
+ww_lz4 = { layer = "api_description", no_std = true }
+ww_self = { layer = "api_description", no_std = true }
+ww_snapshots = { layer = "api_description" }
+ww_tape_bundle = { layer = "api_description" }
+args_evolution = { layer = "runtime" }
+args_evolution_api = { layer = "runtime" }
+array_of_streams = { layer = "runtime" }
+array_of_streams_api = { layer = "runtime" }
+blinky = { layer = "runtime" }
+blinky_api = { layer = "runtime", no_std = true }
+blinky_api_evolved = { layer = "runtime", no_std = true }
+blinky_evolved = { layer = "runtime" }
+blinky_py = { layer = "runtime" }
+bounded = { layer = "runtime" }
+bounded_api = { layer = "runtime", no_std = true }
+cfg_variants = { layer = "runtime" }
+cfg_variants_api = { layer = "runtime", no_std = true }
+cfg_variants_narrow_api = { layer = "runtime", no_std = true }
+common_error = { layer = "runtime" }
+common_error_api = { layer = "runtime" }
+conformance = { layer = "runtime" }
+conformance_api = { layer = "runtime" }
+conformance_py = { layer = "runtime" }
+consts = { layer = "runtime" }
+consts_api = { layer = "runtime", no_std = true }
+counted_stream_api = { layer = "runtime", no_std = true }
+credit_sink = { layer = "runtime" }
+credit_sink_api = { layer = "runtime" }
+cross_version = { layer = "runtime" }
+cross_version_api = { layer = "runtime", no_std = true }
+cross_version_old_api = { layer = "runtime", no_std = true }
+customary = { layer = "runtime" }
+customary_api = { layer = "runtime", no_std = true }
+dispatch_golden = { layer = "runtime" }
+dispatch_golden_api = { layer = "runtime", no_std = true }
+dns_sd = { layer = "runtime" }
+docs_highlight = { layer = "runtime" }
+dynamic = { layer = "runtime" }
+dynamic_api = { layer = "runtime" }
+fan_api = { layer = "runtime", no_std = true }
+features_page = { layer = "runtime" }
+flash_budget_api = { layer = "runtime", no_std = true }
+foc_observe_api = { layer = "runtime", no_std = true }
+follow_reboot = { layer = "runtime" }
+follow_reboot_api = { layer = "runtime", no_std = true }
+generics = { layer = "runtime" }
+generics_api = { layer = "runtime", no_std = true }
+global_boot_api = { layer = "runtime", no_std = true }
+global_fixture_api = { layer = "runtime", no_std = true }
+global_ids = { layer = "runtime" }
+global_paths_api = { layer = "runtime", no_std = true }
+hub = { layer = "runtime" }
+hub_api = { layer = "runtime" }
+hub_pytest_device = { layer = "runtime" }
+hub_pytest_device_api = { layer = "runtime" }
+hub_reconnect = { layer = "runtime" }
+hub_reconnect_api = { layer = "runtime" }
+hub_routing = { layer = "runtime" }
+introspect_compressed = { layer = "runtime" }
+introspect_compressed_api = { layer = "runtime", no_std = true }
+io_timebase = { layer = "runtime" }
+io_timebase_api = { layer = "runtime", no_std = true }
+keep_trying = { layer = "runtime" }
+keep_trying_api = { layer = "runtime" }
+keyed = { layer = "runtime" }
+keyed_api = { layer = "runtime", no_std = true }
+large_messages = { layer = "runtime" }
+large_messages_api = { layer = "runtime" }
+layers_lint = { layer = "runtime" }
+lean_server = { layer = "runtime", no_std = true }
+local_trait = { layer = "runtime" }
+local_trait_api = { layer = "runtime", no_std = true }
+methods = { layer = "runtime" }
+methods_api = { layer = "runtime" }
+minimal_shrink_wrap = { layer = "runtime" }
+module_paths = { layer = "runtime" }
+module_paths_api = { layer = "runtime", no_std = true }
+multi_req = { layer = "runtime" }
+multi_req_api = { layer = "runtime" }
+multi_root = { layer = "runtime" }
+multi_root_api = { layer = "runtime", no_std = true }
+observe = { layer = "runtime" }
+observe_api = { layer = "runtime" }
+observe_arrays = { layer = "runtime" }
+observe_arrays_api = { layer = "runtime" }
+observe_batched = { layer = "runtime" }
+observe_batched_api = { layer = "runtime", no_std = true }
+pins_dep = { layer = "runtime", no_std = true }
+power_stage_api = { layer = "runtime", no_std = true }
+properties = { layer = "runtime" }
+properties_api = { layer = "runtime" }
+quantities = { layer = "runtime" }
+quantities_api = { layer = "runtime", no_std = true }
+recursive = { layer = "runtime" }
+recursive_api = { layer = "runtime", no_std = true }
+series = { layer = "runtime" }
+series_api = { layer = "runtime", no_std = true }
+settings = { layer = "runtime" }
+settings_api = { layer = "runtime", no_std = true }
+shared_sub_level = { layer = "runtime" }
+shared_sub_level_api = { layer = "runtime", no_std = true }
+shrink_wrap_c = { layer = "runtime" }
+skipped_dep_api = { layer = "runtime", no_std = true }
+skipped_root_api = { layer = "runtime", no_std = true }
+standalone = { layer = "runtime" }
+standalone_api = { layer = "runtime", no_std = true }
+standalone_units = { layer = "runtime", no_std = true }
+stdlib_evolution = { layer = "runtime" }
+stm32_dfu_host = { layer = "runtime" }
+streams = { layer = "runtime" }
+streams_api = { layer = "runtime" }
+streams_batched = { layer = "runtime" }
+streams_batched_api = { layer = "runtime", no_std = true }
+streams_borrowed_error = { layer = "runtime" }
+streams_borrowed_error_api = { layer = "runtime" }
+streams_reliable = { layer = "runtime" }
+streams_reliable_api = { layer = "runtime" }
+tap_api = { layer = "runtime", no_std = true }
+tape_identity = { layer = "runtime" }
+tests_common = { layer = "runtime" }
+thermo = { layer = "runtime" }
+thermo_api = { layer = "runtime", no_std = true }
+thermo_devices = { layer = "runtime" }
+traits = { layer = "runtime" }
+traits_api = { layer = "runtime" }
+wire_line = { layer = "runtime" }
+wire_line_api = { layer = "runtime", no_std = true }
+wire_line_fixture_api = { layer = "runtime", no_std = true }
+wire_line_old_api = { layer = "runtime", no_std = true }
+wire_weaver = { layer = "runtime", no_std = true }
+wire_weaver_cli = { layer = "runtime" }
+wire_weaver_client = { layer = "runtime" }
+wire_weaver_py = { layer = "runtime" }
+ww_book = { layer = "runtime" }
+ww_client_server = { layer = "runtime", no_std = true }
+ww_clock_sync = { layer = "runtime" }
+ww_device = { layer = "runtime", no_std = true }
+ww_dns_sd = { layer = "runtime" }
+ww_framer = { layer = "runtime", no_std = true }
+ww_hub = { layer = "runtime" }
+ww_hub_api = { layer = "runtime", no_std = true }
+ww_link = { layer = "runtime", no_std = true }
+ww_local_socket = { layer = "runtime" }
+ww_plugin = { layer = "runtime" }
+ww_settings = { layer = "runtime", no_std = true }
+ww_settings_derive = { layer = "runtime" }
+ww_stream = { layer = "runtime", no_std = true }
+ww_tap = { layer = "runtime", no_std = true }
+ww_timebase = { layer = "runtime", no_std = true }
+cannify_micro_g0b1cetxn = { layer = "runtime", workspace = "examples_mcu/nucleo_g0b1re" }
+ecc_flash_g0b1 = { layer = "runtime", workspace = "examples_mcu/ecc_flash_g0b1" }
+ecc_flash_h7 = { layer = "runtime", workspace = "examples_mcu/ecc_flash_h7" }
+fuzz = { layer = "runtime", workspace = "fuzz" }
+fw_budget = { layer = "runtime", workspace = "examples_mcu/fw_budget" }
+mcu_qemu = { layer = "runtime", workspace = "examples_mcu/mcu_qemu" }
+mcu_qemu_m4f = { layer = "runtime", workspace = "examples_mcu/mcu_qemu_m4f" }
+nucleo_h743zi2 = { layer = "runtime", workspace = "examples_mcu/nucleo_h743zi2" }
+qemu_icount = { layer = "runtime", workspace = "examples_mcu/qemu_icount" }
+rp2 = { layer = "runtime", workspace = "examples_mcu/rp2" }
+size_bench_reply = { layer = "runtime", workspace = "examples_mcu/size_bench_reply" }
+usb_fdcan_h725ig = { layer = "runtime", workspace = "examples_mcu/usb_stm32h725ig" }
+wire_weaver_tool = { layer = "runtime", workspace = "wire_weaver_tool" }
+wire_weaver_usb_embassy = { layer = "runtime", workspace = "mcu" }
+ww_ecc_flash = { layer = "runtime", workspace = "mcu" }
+
+# Crates of other repositories, taken by git without a pin (Cargo.lock records the commit), each with its layer.
+[external]
+shrink_wrap = { git = "https://github.com/romixlab/shrink_wrap", role = "wire_format" }
+size_bench = { git = "https://github.com/romixlab/shrink_wrap", role = "wire_format" }
+size_bench_rt = { git = "https://github.com/romixlab/shrink_wrap", role = "wire_format" }
+exact_units = { git = "https://github.com/romixlab/exact_units", role = "units" }
+ww_crc = { git = "https://github.com/vhrdtech/ww_base", role = "base" }
+ww_date_time = { git = "https://github.com/vhrdtech/ww_base", role = "base" }
+ww_error = { git = "https://github.com/vhrdtech/ww_base", role = "base" }
+ww_global = { git = "https://github.com/vhrdtech/ww_base", role = "base" }
+ww_keyed = { git = "https://github.com/vhrdtech/ww_base", role = "base" }
+ww_numeric = { git = "https://github.com/vhrdtech/ww_base", role = "base" }
+ww_si = { git = "https://github.com/vhrdtech/ww_base", role = "base" }
+ww_version = { git = "https://github.com/vhrdtech/ww_base", role = "base" }
+ww_tape = { git = "https://github.com/vhrdtech/ww_tape", role = "storage" }
+ww_tape_fs = { git = "https://github.com/vhrdtech/ww_tape", role = "storage" }
+ww_highlight = { git = "https://github.com/romixlab/ww_lsp", role = "runtime" }
+picoboot_host = { git = "https://github.com/vhrdtech/picoboot_host", role = "runtime" }
 
 # API crates (R1): a crate that defines `#[ww_trait]` APIs describes an API and never runs one. Its normal
 # dependencies, direct or transitive, reach no layer-5 crate (`wire_weaver` first of all) beyond what `ww_api`'s

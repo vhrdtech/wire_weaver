@@ -1,6 +1,11 @@
 # spirit_level configuration: https://github.com/romixlab/spirit_level (book: configuration)
 extends = ["big", "ai"]
 
+# The crate map is layers.toml, which tests/layers_lint reads too; its [api] and [[allow]] tables are that test's.
+[map-file]
+path = "layers.toml"
+foreign = ["api", "allow"]
+
 # Override a lint: a level and/or parameters, always with a reason, optionally an expiry.
 # [lints.crate-lines]
 # level = "deny"
@@ -112,6 +117,10 @@ level = "deny"
 allow = ["cc", "io-kit-sys", "pyo3", "pyo3-ffi", "ring", "wasm-bindgen-shared"]
 reason = "pure-Rust crates only, the listed ones named with their reason in AGENTS.md"
 
+[lints.contract-snapshot]
+base = "origin/master"
+reason = "work merges into master; the local master branch may lag behind origin/master"
+
 # Lints that cannot run yet. A deny-level lint that cannot run fails spl check, so each is off until its task.
 
 [lints.cargo-no-std]
@@ -124,42 +133,7 @@ level = "allow"
 reason = "needs the crate map; P2401#20nov-1155h (crate map) adds it from layers.toml and turns this lint on"
 expires = "2026-12-15"
 
-[lints.contract-snapshot]
-level = "allow"
-reason = "needs the crate map; P2401#20nov-1155h (crate map) adds it from layers.toml and turns this lint on"
-expires = "2026-12-15"
-
-[lints.crate-folder-layer]
-level = "allow"
-reason = "needs the crate map; P2401#20nov-1155h (crate map) adds it from layers.toml and turns this lint on"
-expires = "2026-12-15"
-
-[lints.external-form]
-level = "allow"
-reason = "needs the crate map; P2401#20nov-1155h (crate map) adds it from layers.toml and turns this lint on"
-expires = "2026-12-15"
-
-[lints.forbidden-closure]
-level = "allow"
-reason = "needs the crate map; P2401#20nov-1155h (crate map) adds it from layers.toml and turns this lint on"
-expires = "2026-12-15"
-
-[lints.layer-edges]
-level = "allow"
-reason = "needs the crate map; P2401#20nov-1155h (crate map) adds it from layers.toml and turns this lint on"
-expires = "2026-12-15"
-
-[lints.map-complete]
-level = "allow"
-reason = "needs the crate map; P2401#20nov-1155h (crate map) adds it from layers.toml and turns this lint on"
-expires = "2026-12-15"
-
 [lints.map-licence]
-level = "allow"
-reason = "needs the crate map; P2401#20nov-1155h (crate map) adds it from layers.toml and turns this lint on"
-expires = "2026-12-15"
-
-[lints.third-party-placement]
 level = "allow"
 reason = "needs the crate map; P2401#20nov-1155h (crate map) adds it from layers.toml and turns this lint on"
 expires = "2026-12-15"

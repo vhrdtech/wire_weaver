@@ -920,6 +920,21 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   `ww api scaffold` prints the signatures; the transform refuses `Result<T, CommonError>` and a property error type
   `CommonError`. Flash: see the `ww_client_server` changelog. `docs/api/errors.md#common-errors`,
   `tests/common_error`, `tests/dispatch_golden`.
+- ✅ **SRV-65 Shared handlers** · `v0.5` — `ww_codegen!(.., receiver_model = "status|sensors.*=shared")` marks items
+  shared, in the pattern DSL of `handler_model`; every item is exclusive by default. A shared method's handler, a
+  shared readable property's getter, a key companion's `index_of` and `key` and the `valid_indices_*` on their path
+  take `&self`; setters, streams, sinks, observing and `const` items stay exclusive. The server then also gets
+  `process_shared_bytes(&self, ..)`, the same level tree with only the shared items (calls, reads, multi calls and
+  multi reads, global trait paths, deferred methods), and `is_shared(bytes)`, an associated fn that says which entry a
+  request goes to (never for seq 0). Every server gets `process_request_from(origin, ..)` (and `process_shared_from`)
+  that hand the connection's `CallContext` to handlers; `wire_weaver::WireWeaverSharedApiBackend` is what a host
+  runtime (SRV-12) calls. `ww api scaffold --receiver-model` writes the receivers. A server without a model is
+  generated as before: `process_request_bytes` is the same code (generated code diffed against master), the new
+  entries are generic over the event sink, so a firmware that doesn't call them doesn't link them; `just
+  flash-budget` (thumbv6m, `fw-z` and `fw-3`, sync and `use_async`) prints the same bytes as master 6ff8717b.
+  `tests/shared_handlers` (blocking `no_alloc` and async allocating servers, every request through both entries,
+  side-by-side calls, origins; a trybuild case for a `&mut self` handler of a shared item),
+  [docs](docs/api/handlers.md#shared-and-exclusive-handlers).
 - 📋 **SRV-59 Marking an element's change from another task** — `ObserveSignal` (SRV-25) has a bit per observable
   property of the flat levels; a property of a level under resource arrays (API-63) is marked on the server,
   `mark_changed_<name>(index_chain)`, so an interrupt or another task can't mark it without the server state. Needs a

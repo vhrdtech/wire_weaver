@@ -101,6 +101,77 @@ While a handler runs, the connection keeps working. It reads further requests in
 link and writes out the events that the handler sends, such as stream items. A handler can send as many events as it
 likes before it returns its reply, and the client receives them in order, before the reply.
 
+## Sending without being asked
+
+A service also sends on its own: stream items when something happens, and the values of observed properties when
+they change. A device does this in its main loop, between requests. A host backend does it in the three methods of
+the `Backend` trait, which the connection calls between requests.
+
+| Method | What it is for |
+|---|---|
+| `wait` | Completes when the backend has something to send. The connection waits on it while no request runs. |
+| `next_wake` | The time the backend wants to send next, such as the time an observed property is due. |
+| `poll` | Sends what is due. It runs after every request, when `wait` completes and at `next_wake`. |
+
+All three have defaults that do nothing, so a backend that only answers requests needs one line:
+
+```rust
+impl wire_weaver_server::Backend for Backend {}
+```
+
+`wait` is dropped whenever a request arrives, so it must be cancel-safe: anything it took in before it was dropped
+stays in the backend. `poll` always runs to its end before the next request starts.
+
+### One value for all clients
+
+An observed property of a host service usually belongs to the service, and any client may change it. Each
+connection has its own `ObserveState`, because each client chooses what it observes and how often. A write
+therefore has to reach the backends of the other connections.
+
+`Fanout<T>` carries such news. It gives every subscriber a queue of its own. A subscriber that reads slowly loses
+its oldest items and learns how many, and it never delays the sender or the other subscribers.
+
+```rust
+struct Shared {
+    mode: Mutex<u8>,
+    mode_changed: Fanout<()>,
+}
+
+impl Backend {
+    async fn set_mode(&mut self, _cx: &mut Context<'_, impl EventOut>, value: u8) -> SetResult<CommonError<'_>> {
+        *self.shared.mode.lock().unwrap() = value;
+        self.shared.mode_changed.send(()); // every connection hears of it
+        Set
+    }
+}
+
+impl wire_weaver_server::Backend for Backend {
+    async fn wait(&mut self) {
+        // `mode_changes` is this connection's `shared.mode_changed.subscribe()`
+        if self.mode_changes.recv().await.is_some() {
+            self.mode_changed = true;
+        }
+    }
+
+    fn next_wake(&mut self, now: Instant) -> Option<Instant> {
+        self.observe.next_wake(now.as_micros()).map(Instant::from_micros)
+    }
+
+    async fn poll(&mut self, out: &mut EventWriter<'_, impl MessageSink>, medium: (), now: Instant) {
+        if std::mem::take(&mut self.mode_changed) {
+            self.mark_changed_mode();
+        }
+        let mut buf = std::mem::take(&mut self.update_buf);
+        let _ = self.poll_properties(out, medium, now.as_micros(), &mut buf).await;
+        self.update_buf = buf;
+    }
+}
+```
+
+A stream that every listening client follows works the same way: the open handler subscribes, `wait` takes items
+in, and `poll` sends them with the generated `stream_data_ser().<name>_send(&item, out)`. See
+[Observing properties](observing.md) for `ObserveState`, `mark_changed_<name>` and `poll_properties`.
+
 ## Limits
 
 `Limits` bounds what a server and each connection may hold. `Server::new(clock).limits(limits)` sets them.

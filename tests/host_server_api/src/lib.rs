@@ -15,4 +15,8 @@ trait HostServer {
     fn big(len: u32) -> RefVec<'i, u8>;
     /// See `burst`
     stream!(numbers: u32);
+    /// What the service tells every client that listens
+    stream!(news: u32);
+    /// One value for all clients: a write by one reaches the observers among the others
+    property!(rw+observe mode: u8);
 }

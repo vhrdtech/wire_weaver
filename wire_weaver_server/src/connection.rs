@@ -5,13 +5,15 @@ use std::future::{Future, Pending, pending, poll_fn};
 use std::pin::{Pin, pin};
 use std::task::Poll;
 
-use wire_weaver::{ConnectionId, DisconnectReason, EventWriter, Peer, WireWeaverAsyncApiBackend};
+use futures_util::future::select;
+use wire_weaver::{ConnectionId, DisconnectReason, EventWriter, Peer};
 use ww_device::link::{Phase, Received, Transmit};
 use ww_device::{
     Clock, DeviceLink, LinkConfig, LinkEvent, MessageRx, MessageTx, PeerMeta, PeerVersion,
     SendError,
 };
 
+use crate::backend::Backend;
 use crate::lifecycle::{Lifecycle, Stage};
 use crate::outbox::{Outbox, OutboxSink};
 use crate::server::{Limits, MakeBackend};
@@ -40,8 +42,18 @@ struct Done {
     reply: Option<(usize, usize)>,
 }
 
+/// What the work a connection waited on came to.
+enum Finished {
+    /// A request ran.
+    Answer(Done),
+    /// The backend has something to do on its own.
+    Woke,
+    /// The backend did it; the event buffer comes back.
+    Polled(Vec<u8>),
+}
+
 enum Step {
-    Done(Done),
+    Done(Finished),
     Events,
     /// A message came; false when reading failed.
     Message(bool),
@@ -55,8 +67,8 @@ enum Flow {
     Continue,
     /// Link setup finished.
     Up,
-    /// The request that ran is answered.
-    Answered,
+    /// The work the step was given is done.
+    Finished,
     /// The connection is over.
     End,
 }
@@ -71,8 +83,10 @@ struct Conn<'a, Tx, Rx, C> {
     /// Requests read and not started yet, oldest first.
     pending: VecDeque<Vec<u8>>,
     outbox: &'a Outbox,
-    /// The reply and event buffers of the request that runs next.
-    buffers: Option<(Vec<u8>, Vec<u8>)>,
+    /// Replies are built here; `None` while a request has it.
+    reply_buffer: Option<Vec<u8>>,
+    /// Events are built here; `None` while a request or the backend's own work has it.
+    event_buffer: Option<Vec<u8>>,
     limits: Limits,
     life: &'a Lifecycle,
     /// The server's stage as this connection last saw it.
@@ -80,16 +94,16 @@ struct Conn<'a, Tx, Rx, C> {
 }
 
 /// No request runs.
-const IDLE: Option<Pin<&mut Pending<Done>>> = None;
+const IDLE: Option<Pin<&mut Pending<Finished>>> = None;
 
 impl<Tx: MessageTx, Rx: MessageRx, C: Clock> Conn<'_, Tx, Rx, C> {
     /// Wait for the next thing to do and do it. `work` is the request that runs, if one does.
-    async fn step<W: Future<Output = Done>>(&mut self, work: Option<Pin<&mut W>>) -> Flow {
+    async fn step<W: Future<Output = Finished>>(&mut self, work: Option<Pin<&mut W>>) -> Flow {
         let step = self.wait(work).await;
         self.handle(step).await
     }
 
-    async fn wait<W: Future<Output = Done>>(&mut self, mut work: Option<Pin<&mut W>>) -> Step {
+    async fn wait<W: Future<Output = Finished>>(&mut self, mut work: Option<Pin<&mut W>>) -> Step {
         let deadline = self.link.poll_timeout();
         let clock = &self.clock;
         // a server that shuts down takes no new requests; a full queue pushes back on the client
@@ -130,9 +144,16 @@ impl<Tx: MessageTx, Rx: MessageRx, C: Clock> Conn<'_, Tx, Rx, C> {
         let now = self.clock.now();
         let mut flow = Flow::Continue;
         match step {
-            Step::Done(done) => {
-                self.answer(done).await;
-                flow = Flow::Answered;
+            Step::Done(finished) => {
+                match finished {
+                    Finished::Answer(done) => self.answer(done).await,
+                    Finished::Woke => {}
+                    Finished::Polled(events) => {
+                        self.send_events().await;
+                        self.event_buffer = Some(events);
+                    }
+                }
+                flow = Flow::Finished;
             }
             Step::Events => self.send_events().await,
             Step::Message(false) => self.link.on_transport_down(),
@@ -222,7 +243,8 @@ impl<Tx: MessageTx, Rx: MessageRx, C: Clock> Conn<'_, Tx, Rx, C> {
         {
             self.link.flush_now();
         }
-        self.buffers = Some((done.scratch, done.events));
+        self.reply_buffer = Some(done.scratch);
+        self.event_buffer = Some(done.events);
     }
 
     async fn loopback(&mut self, repeat: u32, seq: u32, data: &[u8]) {
@@ -272,14 +294,14 @@ impl<Tx: MessageTx, Rx: MessageRx, C: Clock> Conn<'_, Tx, Rx, C> {
 }
 
 /// Run one request through the backend.
-async fn call<B: WireWeaverAsyncApiBackend>(
+async fn call<B: Backend>(
     backend: &mut B,
     medium: B::Medium,
     outbox: &Outbox,
     request: Vec<u8>,
     mut scratch: Vec<u8>,
     mut events: Vec<u8>,
-) -> Done {
+) -> Finished {
     let base = scratch.as_ptr().addr();
     let size = scratch.len();
     let mut out = EventWriter::new(OutboxSink(outbox), &mut events);
@@ -300,12 +322,25 @@ async fn call<B: WireWeaverAsyncApiBackend>(
         }
         Err(_) => None,
     };
-    Done {
+    Finished::Answer(Done {
         request,
         scratch,
         events,
         reply,
-    }
+    })
+}
+
+/// Let the backend send what is due.
+async fn poll<B: Backend>(
+    backend: &mut B,
+    medium: B::Medium,
+    outbox: &Outbox,
+    now: ww_device::Instant,
+    mut events: Vec<u8>,
+) -> Finished {
+    let mut out = EventWriter::new(OutboxSink(outbox), &mut events);
+    backend.poll(&mut out, medium, now).await;
+    Finished::Polled(events)
 }
 
 /// Serve one accepted connection until its link goes down or the server stops.
@@ -314,7 +349,7 @@ pub(crate) async fn run<M: MakeBackend>(
     config: LinkConfig<'_>,
     tx: impl MessageTx,
     mut rx: impl MessageRx,
-    clock: impl Clock,
+    clock: impl Clock + Clone,
     id: ConnectionId,
     peer: Peer,
     make: &M,
@@ -334,7 +369,8 @@ pub(crate) async fn run<M: MakeBackend>(
         link_scratch: vec![0; buffer_len],
         pending: VecDeque::new(),
         outbox: &outbox,
-        buffers: Some((vec![0; buffer_len], vec![0; buffer_len])),
+        reply_buffer: Some(vec![0; buffer_len]),
+        event_buffer: Some(vec![0; buffer_len]),
         limits,
         life,
         stage: Stage::Run,
@@ -349,7 +385,7 @@ pub(crate) async fn run<M: MakeBackend>(
         match conn.step(IDLE).await {
             Flow::Up => break,
             Flow::End => return,
-            Flow::Continue | Flow::Answered => {
+            Flow::Continue | Flow::Finished => {
                 if conn.stage != Stage::Run {
                     return;
                 }
@@ -368,32 +404,75 @@ pub(crate) async fn run<M: MakeBackend>(
     let medium = make.medium(&info);
 
     loop {
-        let Some(request) = conn.pending.pop_front() else {
+        if let Some(request) = conn.pending.pop_front() {
+            let scratch = conn
+                .reply_buffer
+                .take()
+                .expect("the buffer comes back with every answer");
+            let events = conn
+                .event_buffer
+                .take()
+                .expect("the buffer comes back with every answer");
+            let mut work = pin!(call(
+                &mut backend,
+                medium,
+                &outbox,
+                request,
+                scratch,
+                events
+            ));
+            loop {
+                match conn.step(Some(work.as_mut())).await {
+                    Flow::Finished => break,
+                    Flow::End => return,
+                    Flow::Continue | Flow::Up => {}
+                }
+            }
+        } else {
             if conn.stage != Stage::Run {
                 // shutting down and nothing left to answer
                 conn.disconnect().await;
                 return;
             }
-            if conn.step(IDLE).await == Flow::End {
-                return;
+            // nothing to answer: until a request comes, or the backend has work of its own
+            let wake = backend.next_wake(conn.clock.now());
+            let clock = conn.clock.clone();
+            let mut idle = pin!(async {
+                let timer = async {
+                    match wake {
+                        Some(at) => clock.wait_until(at).await,
+                        None => pending().await,
+                    }
+                };
+                select(pin!(backend.wait()), pin!(timer)).await;
+                Finished::Woke
+            });
+            let woke = loop {
+                match conn.step(Some(idle.as_mut())).await {
+                    Flow::Finished => break true,
+                    Flow::End => return,
+                    Flow::Continue | Flow::Up => {
+                        if !conn.pending.is_empty() || conn.stage != Stage::Run {
+                            break false;
+                        }
+                    }
+                }
+            };
+            if !woke {
+                // the request first: the backend's turn comes after it
+                continue;
             }
-            continue;
-        };
-        let (scratch, events) = conn
-            .buffers
+        }
+        // the backend's own turn, to its end
+        let events = conn
+            .event_buffer
             .take()
-            .expect("the buffers come back with every answer");
-        let mut work = pin!(call(
-            &mut backend,
-            medium,
-            &outbox,
-            request,
-            scratch,
-            events
-        ));
+            .expect("the buffer comes back with every answer");
+        let now = conn.clock.now();
+        let mut work = pin!(poll(&mut backend, medium, &outbox, now, events));
         loop {
             match conn.step(Some(work.as_mut())).await {
-                Flow::Answered => break,
+                Flow::Finished => break,
                 Flow::End => return,
                 Flow::Continue | Flow::Up => {}
             }

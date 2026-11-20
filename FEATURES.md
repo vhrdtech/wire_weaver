@@ -621,12 +621,12 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   `ww_device::Clock`, connections run inside the future (no spawner, backends need not be `Send`). Done: the
   `Listener` trait and the in-process listener (any peer can be given), requests of a connection in order while the
   connection keeps reading, pinging and writing queued events, `Limits` (connections, queued requests and events,
-  message length) that push back instead of dropping, graceful shutdown with a grace time
-  ([Host server](docs/api/host_server.md), `tests/host_server`).
+  message length) that push back instead of dropping, graceful shutdown with a grace time, the `Backend` hook for
+  what a connection sends on its own (`wait`, `next_wake`, `poll`: stream items, observed properties) and `Fanout`,
+  one sender with a queue per subscriber ([Host server](docs/api/host_server.md), `tests/host_server`).
   Missing: the `Overloaded` error kind with a cap across connections and a `Shutdown` disconnect reason; the
-  connection's `CallContext` (peer, connection id) in handlers and calls side by side (after SRV-65); event pumps
-  and a fan-out helper for streams; a hook for a backend's own event sources and observed properties; listeners
-  over byte streams (TR-19), the local socket and an inherited fd (systemd socket activation); a spawner for
+  connection's `CallContext` (peer, connection id) in handlers and calls side by side (after SRV-65), with event
+  pumps for streams that flow while calls run; listeners over byte streams (TR-19), the local socket and an inherited fd (systemd socket activation); a spawner for
   multi-threaded runtimes. Then `ww_hub` serves its API on it.
 - 📋 **SRV-46 Peer identity and policy** — who called, from the transport only (SO_PEERCRED, `getpeereid`, the
   Windows user, a key handed in with a stream, the address), never from `ClientMeta`; a listener policy (same user by

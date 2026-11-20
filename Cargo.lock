@@ -1672,6 +1672,7 @@ dependencies = [
  "wire_weaver_server",
  "ww_client_server",
  "ww_device",
+ "ww_stream",
 ]
 
 [[package]]

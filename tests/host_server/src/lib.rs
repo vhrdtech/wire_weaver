@@ -15,10 +15,11 @@ mod tests {
     use wire_weaver_client::in_process::TokioClock;
     use wire_weaver_client::{Commander, WwClient};
     use wire_weaver_server::in_process::InProcessListener;
-    use wire_weaver_server::{Connection, Limits, Server};
+    use wire_weaver_server::{Connection, Fanout, Limits, Server, Subscription};
+    use ww_device::Instant;
+    use ww_stream::observe::ObserveLimits;
 
     /// What every connection's backend shares.
-    #[derive(Default)]
     struct Shared {
         gates: Mutex<[bool; 4]>,
         opened: Notify,
@@ -26,6 +27,23 @@ mod tests {
         waiting: AtomicU32,
         /// The connections the factory made backends for.
         connections: Mutex<Vec<Connection>>,
+        news: Fanout<u32>,
+        mode: Mutex<u8>,
+        mode_changed: Fanout<()>,
+    }
+
+    impl Default for Shared {
+        fn default() -> Self {
+            Shared {
+                gates: Mutex::default(),
+                opened: Notify::new(),
+                waiting: AtomicU32::new(0),
+                connections: Mutex::default(),
+                news: Fanout::new(8),
+                mode: Mutex::default(),
+                mode_changed: Fanout::new(1),
+            }
+        }
     }
 
     impl Shared {
@@ -58,6 +76,66 @@ mod tests {
     struct Backend {
         shared: Arc<Shared>,
         id: u32,
+        /// The service's news, while this client has the stream open.
+        news: Option<Subscription<u32>>,
+        /// News taken in and not sent yet.
+        news_ready: Vec<u32>,
+        mode_changes: Subscription<()>,
+        /// Another connection wrote `mode`.
+        mode_changed: bool,
+        observe: api_impl::ObserveState,
+        /// Updates of observed properties are built here.
+        update_buf: Vec<u8>,
+    }
+
+    impl wire_weaver_server::Backend for Backend {
+        /// News for this client, or a write to `mode` by any client.
+        async fn wait(&mut self) {
+            std::future::poll_fn(|cx| {
+                let mut woke = false;
+                while let std::task::Poll::Ready(Some(_)) = self.mode_changes.poll_recv(cx) {
+                    self.mode_changed = true;
+                    woke = true;
+                }
+                if let Some(news) = &mut self.news {
+                    while let std::task::Poll::Ready(Some(item)) = news.poll_recv(cx) {
+                        self.news_ready.extend(item.ok());
+                        woke = true;
+                    }
+                }
+                if woke {
+                    std::task::Poll::Ready(())
+                } else {
+                    std::task::Poll::Pending
+                }
+            })
+            .await;
+        }
+
+        fn next_wake(&mut self, now: Instant) -> Option<Instant> {
+            self.observe
+                .next_wake(now.as_micros())
+                .map(Instant::from_micros)
+        }
+
+        async fn poll(
+            &mut self,
+            out: &mut EventWriter<'_, impl MessageSink>,
+            medium: (),
+            now: Instant,
+        ) {
+            for item in std::mem::take(&mut self.news_ready) {
+                let _ = api_impl::stream_data_ser().news_send(&item, out).await;
+            }
+            if std::mem::take(&mut self.mode_changed) {
+                self.mark_changed_mode();
+            }
+            let mut buf = std::mem::take(&mut self.update_buf);
+            let _ = self
+                .poll_properties(out, medium, now.as_micros(), &mut buf)
+                .await;
+            self.update_buf = buf;
+        }
     }
 
     impl Backend {
@@ -96,6 +174,44 @@ mod tests {
             len: u32,
         ) -> RpcResult<Vec<u8>> {
             Ready(vec![7; len as usize])
+        }
+
+        async fn news(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {
+            self.news = Some(self.shared.news.subscribe());
+            Ready(())
+        }
+
+        async fn close_news(&mut self, _cx: &mut Context<'_, impl EventOut>) {
+            self.news = None;
+        }
+
+        async fn sideband_news(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+            _sideband: ww_client_server::StreamSideband,
+        ) -> Option<ww_client_server::StreamSideband> {
+            None
+        }
+
+        async fn set_mode(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+            value: u8,
+        ) -> SetResult<CommonError<'_>> {
+            *self.shared.mode.lock().unwrap() = value;
+            self.shared.mode_changed.send(());
+            Set
+        }
+
+        async fn get_mode(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+        ) -> GetResult<u8, CommonError<'_>> {
+            Value(*self.shared.mode.lock().unwrap())
+        }
+
+        fn observe_state(&mut self) -> &mut api_impl::ObserveState {
+            &mut self.observe
         }
 
         async fn numbers(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {
@@ -197,6 +313,12 @@ mod tests {
                     Backend {
                         shared: for_backends.clone(),
                         id: connection.id.0,
+                        news: None,
+                        news_ready: vec![],
+                        mode_changes: for_backends.mode_changed.subscribe(),
+                        mode_changed: false,
+                        observe: api_impl::ObserveState::new(ObserveLimits::DEFAULT),
+                        update_buf: vec![0; MESSAGE_LEN_MAX],
                     }
                 };
                 Server::new(TokioClock::new())
@@ -364,6 +486,69 @@ mod tests {
         assert_eq!(too_big.limit.get() as usize, MESSAGE_LEN_MAX);
         // the connection goes on
         assert_eq!(client.echo(1).call().await.unwrap(), 1);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn news_reaches_every_client_that_listens() {
+        let bench = Bench::start("host_server/news", small());
+        let listeners = [
+            bench.connect().await,
+            bench.connect().await,
+            bench.connect().await,
+        ];
+        let deaf = bench.connect().await;
+        let mut streams = vec![];
+        for client in &listeners {
+            streams.push(client.news().call().await.unwrap());
+        }
+        soon("three subscribers", async {
+            while bench.shared.news.subscribers() != 3 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await;
+        for n in 1..=5 {
+            bench.shared.news.send(n);
+        }
+        for stream in &mut streams {
+            for n in 1..=5 {
+                assert_eq!(soon("news", stream.recv()).await.unwrap(), n);
+            }
+        }
+        // a client leaves: its subscription goes with its backend
+        drop(streams.pop());
+        drop(deaf);
+        let [_, _, gone] = listeners;
+        drop(gone);
+        soon("two subscribers", async {
+            while bench.shared.news.subscribers() != 2 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await;
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn a_write_by_one_client_reaches_the_observers_among_the_others() {
+        use wire_weaver_client::observe::on_change;
+        let bench = Bench::start("host_server/observe", small());
+        let writer = bench.connect().await;
+        let watcher = bench.connect().await;
+        let mut mode = watcher
+            .observe_mode(on_change(Duration::from_millis(1)))
+            .subscribe()
+            .await
+            .unwrap();
+        // what it is when the observing starts
+        assert_eq!(soon("the first value", mode.recv()).await.unwrap().value, 0);
+        writer.write_mode(5).write().await.unwrap();
+        assert_eq!(
+            soon("the written value", mode.recv()).await.unwrap().value,
+            5
+        );
+        writer.write_mode(6).write().await.unwrap();
+        assert_eq!(soon("the next value", mode.recv()).await.unwrap().value, 6);
+        assert_eq!(watcher.read_mode().read().await.unwrap(), 6);
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

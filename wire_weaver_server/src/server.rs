@@ -9,6 +9,7 @@ use futures_util::stream::{FuturesUnordered, StreamExt};
 use wire_weaver::{ConnectionId, WireWeaverAsyncApiBackend};
 use ww_device::{Clock, LinkConfig};
 
+use crate::backend::Backend;
 use crate::connection::{self, Connection};
 use crate::lifecycle::{Lifecycle, Stage};
 use crate::listener::Listener;
@@ -47,7 +48,7 @@ impl Default for Limits {
 /// own implements the trait and says which medium a connection is.
 pub trait MakeBackend {
     /// The generated server, with the state of one connection.
-    type Backend: WireWeaverAsyncApiBackend;
+    type Backend: Backend;
 
     /// The backend of `connection`.
     fn make(&self, connection: &Connection) -> Self::Backend;
@@ -62,7 +63,7 @@ pub trait MakeBackend {
 impl<F, B> MakeBackend for F
 where
     F: Fn(&Connection) -> B,
-    B: WireWeaverAsyncApiBackend<Medium = ()>,
+    B: Backend<Medium = ()>,
 {
     type Backend = B;
 

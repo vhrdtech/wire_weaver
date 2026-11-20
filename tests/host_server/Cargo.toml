@@ -16,6 +16,7 @@ wire_weaver_client = { workspace = true, features = ["in_process"] }
 wire_weaver_server = { workspace = true, features = ["in_process"] }
 ww_client_server.workspace = true
 ww_device.workspace = true
+ww_stream = { workspace = true, features = ["std"] }
 
 [lints]
 workspace = true

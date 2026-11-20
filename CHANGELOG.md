@@ -170,6 +170,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - Keep-trying connections (CLT-75): a client that connects when the device comes up and reconnects by itself; see `wire_weaver_client`.
 - The evolution checker and `ww api` walk a dependency's checkout by the current workspace's Cargo.lock, not the checkout's own; see `ww_snapshots`.
 - The `minimal-shrink-wrap` example's package renames to `minimal_shrink_wrap`, matching every other crate's underscore convention.
+- The README carries a generated crate table and a crates.io/docs.rs badge for every published crate, plus a book badge.
 
 ### Added
 

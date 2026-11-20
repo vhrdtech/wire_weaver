@@ -417,13 +417,6 @@ reason = "crates without crate-level docs; P2401#20nov-1155b (crate packaging) r
 expires = "2026-12-15"
 
 [[exceptions]]
-lint = "crate-table"
-paths = ["README.md"]
-level = "allow"
-reason = "the README has no crate table; P2401#20nov-1155b (crate packaging) removes them"
-expires = "2026-12-15"
-
-[[exceptions]]
 lint = "feature-docs"
 crates = [
     "args_evolution",
@@ -523,13 +516,6 @@ crates = [
 ]
 level = "allow"
 reason = "features without a comment; P2401#20nov-1155b (crate packaging) removes them"
-expires = "2026-12-15"
-
-[[exceptions]]
-lint = "readme-badges"
-paths = ["README.md"]
-level = "allow"
-reason = "badges of the published crates; most are not on crates.io yet; P2401#20nov-1155b (crate packaging) removes them"
 expires = "2026-12-15"
 
 [[exceptions]]

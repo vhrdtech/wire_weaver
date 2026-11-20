@@ -7,6 +7,7 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Stream functions whose error type borrows (API-35): plain and counted streams that refuse a second open with a server-borrowed error."
 
 [features]
 default = ["std"]

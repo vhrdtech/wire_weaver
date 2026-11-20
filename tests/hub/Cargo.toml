@@ -7,6 +7,7 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Device tunnels through the ww hub (SRV-29): several clients of one in-process device, each through its own tunnel"
 
 [dev-dependencies]
 hub_api.workspace = true

@@ -7,6 +7,7 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "CLT-21 end to end without hardware: a simulated device reboots into the boot ROM, takes a new image over PICOBOOT and boots it"
 
 [dependencies]
 anyhow.workspace = true

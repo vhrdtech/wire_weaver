@@ -7,6 +7,7 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Tests credit-based flow control for sinks (API-28) end to end"
 
 [features]
 default = ["std"]

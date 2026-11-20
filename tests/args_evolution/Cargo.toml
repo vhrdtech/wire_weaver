@@ -7,6 +7,7 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Tests EVO-22 (arguments that evolve): trailing defaulted arguments and #[flatten] struct arguments, through the generated and dynamic clients"
 
 [features]
 default = ["std"]

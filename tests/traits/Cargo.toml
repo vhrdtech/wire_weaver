@@ -7,6 +7,7 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Tests of traits_api's trait composition and addressing: sub-traits nested, in arrays and shared/claimable through the hub."
 
 [features]
 default = ["std"]

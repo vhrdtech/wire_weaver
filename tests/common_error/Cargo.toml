@@ -7,6 +7,7 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Tests common errors (STD-16) through a generated server, the generated client and the dynamic client"
 
 [dependencies]
 common_error_api.workspace = true

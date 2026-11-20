@@ -7,6 +7,7 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Server of a keyed array (SRV-62): answers index_of, key[i], a multi read of all keys and the keys stream"
 
 [features]
 default = ["std"]

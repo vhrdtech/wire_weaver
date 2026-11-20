@@ -7,6 +7,7 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Test API of tests/streams: plain streams and sinks, user-defined item types, an array of streams, and sideband values."
 
 # Wire version of the API (EVO-31): link setup decides on its line, `#[since]` names its revisions
 [package.metadata.wire_weaver]

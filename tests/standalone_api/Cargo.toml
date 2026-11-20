@@ -7,6 +7,7 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Test API using standalone_units' types, a dependency that isn't a wire_weaver API crate (API-60); used by tests/standalone."
 
 # Wire version of the API (EVO-31): link setup decides on its line, `#[since]` names its revisions
 [package.metadata.wire_weaver]

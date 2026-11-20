@@ -7,6 +7,7 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Tests of messages over the device's scratch buffers and over the link's limit (CLT-55)"
 
 [dev-dependencies]
 exact_units.workspace = true

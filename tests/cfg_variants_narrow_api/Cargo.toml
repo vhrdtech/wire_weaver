@@ -7,6 +7,7 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "The firmware build of the #[cfg] enum variants API (DER-8): same source as cfg_variants_api, without wide/float"
 
 # Wire version of the API (EVO-31): link setup decides on its line, `#[since]` names its revisions
 [package.metadata.wire_weaver]

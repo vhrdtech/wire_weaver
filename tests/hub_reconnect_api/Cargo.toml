@@ -7,6 +7,7 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "API of the hub reconnect tests (CLT-40, SRV-30): calls to count, and a counted stream to resume"
 
 # Wire version of the API (EVO-31): link setup decides on its line, `#[since]` names its revisions
 [package.metadata.wire_weaver]

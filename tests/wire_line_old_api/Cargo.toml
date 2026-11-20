@@ -7,6 +7,7 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "The API of tests/wire_line at its old version, wire w2.3, as firmware already in the field runs it."
 
 [features]
 default = ["std"]

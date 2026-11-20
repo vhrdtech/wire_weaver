@@ -31,19 +31,6 @@ crates = [
 ]
 reason = "the no_std device-side crates that firmware links"
 
-# Test crates exist to be built and run by the test suite, never read or published as packages.
-[[exceptions]]
-lint = "readme-per-crate"
-paths = ["tests/**"]
-level = "allow"
-reason = "a test crate is not read as a package: its purpose is in its lib.rs and the docs page of the feature it tests"
-
-[[exceptions]]
-lint = "package-description"
-paths = ["tests/**"]
-level = "allow"
-reason = "a test crate is publish = false and never listed on a registry, so it has no package description"
-
 [[crate-tiers]]
 tiers = ["egui"]
 crates = ["wire_weaver_tool"]

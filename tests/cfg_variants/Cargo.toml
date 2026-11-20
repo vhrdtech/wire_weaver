@@ -7,6 +7,7 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Tests #[cfg] enum variants (DER-8) across a host and a firmware build with different features"
 
 [dev-dependencies]
 cfg_variants_api.workspace = true

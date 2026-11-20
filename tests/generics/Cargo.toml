@@ -7,6 +7,7 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Generic user types in an API (API-43) through generated server and client code, introspection data and the dynamic client"
 
 [features]
 default = ["std"]

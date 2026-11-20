@@ -7,6 +7,7 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Generic user types in an API (API-43): type and const parameters, generic enums, a lifetime next to a parameter, and type aliases"
 
 # Wire version of the API (EVO-31): link setup decides on its line, `#[since]` names its revisions
 [package.metadata.wire_weaver]

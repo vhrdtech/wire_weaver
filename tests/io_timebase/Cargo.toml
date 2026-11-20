@@ -7,6 +7,7 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "ww_timebase end to end: a mock server through tests_common::start_device, the generated client through the real host event loop"
 
 [dev-dependencies]
 io_timebase_api.workspace = true

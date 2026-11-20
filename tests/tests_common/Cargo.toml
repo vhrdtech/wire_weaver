@@ -7,6 +7,7 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Shared test support: runs a generated server on ww_device::Server in a device thread against the host event loop, for every tests/* integration test."
 
 [features]
 # Devices served on a local socket (start_device_async_ipc), for a hub in another process to open

@@ -7,6 +7,7 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "End-to-end tests of batched observe (API-39): Samples mode, Batched::One, and a shared sample_times column"
 
 [features]
 default = ["std"]

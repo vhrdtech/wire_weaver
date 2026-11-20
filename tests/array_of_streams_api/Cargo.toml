@@ -7,6 +7,7 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Test API of tests/array_of_streams: nested arrays of sub-traits, each with a stream and an array of streams"
 
 [features]
 default = ["std"]

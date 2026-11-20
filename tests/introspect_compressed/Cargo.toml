@@ -7,6 +7,7 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Compressed introspection data (INT-16): checks a server using introspect_compression = \"lz4\" against a plain one"
 
 [dev-dependencies]
 introspect_compressed_api.workspace = true

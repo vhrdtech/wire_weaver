@@ -7,6 +7,7 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "A second API crate with a unit of its own named like one of quantities_api's, for unit identity tests (UNIT-7)"
 
 [features]
 default = ["std"]

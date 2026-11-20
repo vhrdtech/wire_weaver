@@ -7,6 +7,7 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Tests const items (API-36): served from the server's consts impl, read by clients once per connection"
 
 [dev-dependencies]
 consts_api.workspace = true

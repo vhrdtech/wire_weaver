@@ -7,6 +7,7 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Simulated firmware of every line of the thermo_api bench (EVO-28), on tests_common's in-process link."
 
 [[bin]]
 name = "thermo_pytest_devices"

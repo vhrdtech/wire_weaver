@@ -7,6 +7,7 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "A crate not built on wire_weaver (API-60): plain data types with shrink_wrap only as an optional dependency, used by tests/standalone_api."
 
 # the wire format is optional, as in exact_units: types derive it behind `cfg_attr(feature = "shrink_wrap", ..)`
 [features]

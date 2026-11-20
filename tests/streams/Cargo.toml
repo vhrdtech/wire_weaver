@@ -7,6 +7,7 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Tests of streams_api's basic stream and sink dispatch: plain streams and sinks, user-defined item types, an array of streams, and sideband values."
 
 [features]
 default = ["std"]

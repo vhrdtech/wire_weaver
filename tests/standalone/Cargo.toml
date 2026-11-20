@@ -7,6 +7,7 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Host-side tests of standalone_api's types through a generated client, where the dependency isn't a wire_weaver API crate (API-60)."
 
 # no dependency on standalone_units: generated code names its types through standalone_api's re-export
 [dev-dependencies]

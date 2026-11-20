@@ -7,6 +7,7 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "ww_si quantities through the dynamic client (CLT-31): values read and shown with their units"
 
 [features]
 default = ["std"]

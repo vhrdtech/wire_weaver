@@ -7,6 +7,7 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "A host driver for every wire line of thermo_api (EVO-28, EVO-42): one generated client per line behind one facade."
 
 [dependencies]
 thermo_api.workspace = true

@@ -7,6 +7,7 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Keyed resource arrays (API-67): a packet dissector whose flows a client addresses by their key, not by index"
 
 [package.metadata.wire_weaver]
 wire = "w1.0"

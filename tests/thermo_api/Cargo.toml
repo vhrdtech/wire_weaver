@@ -7,6 +7,7 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "The API of the multi-line bench (EVO-28, EVO-42): a small temperature logger with every wire line still in use."
 
 # Every wire line still in use, one root per module (EVO-37, EVO-42). Lines 1 to 3 were the crates 1.x, 2.x and 3.x;
 # 4.0.0 held them all. 5.0.0 (R7) moved `indication` off `ww_indication` (leaving this repo) onto a local stand-in

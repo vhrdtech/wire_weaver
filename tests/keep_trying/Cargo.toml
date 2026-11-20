@@ -7,6 +7,7 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Keep-trying connections end to end (CLT-75): a generated client made with connect_keep_trying() against a generated server"
 
 [features]
 default = ["std"]

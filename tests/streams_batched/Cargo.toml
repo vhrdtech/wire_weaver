@@ -7,6 +7,7 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Batched streams end to end (API-41): plain, counted and reliable streams collected and sent as one Series per event."
 
 [features]
 default = ["std"]

@@ -7,6 +7,7 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Link setup decides on the wire line, not the crate version (EVO-25): old firmware on an old line connecting to a host built against a newer one."
 
 [dev-dependencies]
 tests_common.workspace = true

@@ -7,6 +7,7 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Counted and reliable streams end to end (API-30, API-31): positions, device losses, the store, status reads, close and resume with backfill."
 
 [features]
 default = ["std"]

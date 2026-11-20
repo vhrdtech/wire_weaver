@@ -7,6 +7,7 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Tests cross-version calls (API-20, CLT-10) through global trait paths after a wire-incompatible API change"
 
 [dev-dependencies]
 cross_version_api.workspace = true

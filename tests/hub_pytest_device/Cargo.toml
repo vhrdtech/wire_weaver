@@ -7,6 +7,7 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Hosts the ww hub and in-process test devices for wire_weaver_py's pytest tests (TOOL-18), no real hardware needed"
 
 [[bin]]
 name = "hub_pytest_device"

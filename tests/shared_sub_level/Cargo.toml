@@ -7,6 +7,7 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Tests of one sub-level client shared by two wire lines (CLT-68)"
 
 [dev-dependencies]
 observe_api.workspace = true

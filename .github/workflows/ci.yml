@@ -54,6 +54,28 @@ jobs:
       - uses: actions/checkout@v7
       - uses: crate-ci/typos@v1
 
+  spl:
+    name: spirit_level
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # the commit lints read the branch's history against master
+          fetch-depth: 0
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libudev-dev
+      - uses: actions-rust-lang/setup-rust-toolchain@v2
+        with:
+          components: clippy
+      # the tools spl's adapters run (`spl tools needed`)
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: just,cargo-deny,cargo-machete,typos,taplo-cli,cargo-semver-checks
+      - run: cargo install --locked --git https://github.com/romixlab/spirit_level spirit_level_cli
+      # the assembled book pages first, so the link and nav lints see them
+      - run: just book-assemble
+      - run: just spl
+
   clippy:
     name: clippy
     runs-on: ubuntu-latest

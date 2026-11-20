@@ -90,7 +90,7 @@ features-page:
 logos:
     uv run docs/assets/src/logos.py
 
-# What CI checks besides the tests: formatting, manifests, typos, clippy and rustdoc, warnings are errors
+# What CI checks besides the tests: formatting, manifests, typos, clippy and rustdoc, warnings are errors, then spirit_level
 lint:
     cargo fmt --all --check
     cargo sort -w -g --check
@@ -100,6 +100,7 @@ lint:
     CARGO_BUILD_WARNINGS=deny cargo clippy --workspace --all-targets --all-features -- -D warnings
     CARGO_BUILD_WARNINGS=deny RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --all-features
     just lint-c
+    just spl
 
 # spirit_level's lints of spirit_level.toml, after the book pages are assembled so its link and nav lints see them
 spl: book-assemble

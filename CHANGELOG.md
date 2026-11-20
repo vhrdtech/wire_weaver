@@ -11,6 +11,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
+- `just lint` and CI run spirit_level (`spirit_level.toml`); every crate declares `rust-version = "1.99"`.
 - Tapes and logring have books of their own: the book keeps a short page on each, linking there (DOC-12).
 - ww_tape moves to b3b6172: its file layer is `ww_tape_fs`; see `wire_weaver_client` and `wire_weaver_cli`.
 - ww_tape moves to 2bfdd07 (track owner, relations, keyed stores, lock files); see `ww_tap` and `wire_weaver_cli`.

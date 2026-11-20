@@ -176,6 +176,7 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 - **[Errors that say where](api/errors.md#where-on-the-device-an-error-came-from)**: A device's error names the site that raised it, by a number that is the same in every firmware.
 - **[Who asked](api/local_trait.md#who-asked-callcontext)**: Every call carries a small `CallContext`: the peer as the transport saw it, priority, deadline and trace, the same for a request a server handles and a call in the same process.
 - **[Sync handlers in an async server](api/handlers.md)**: Handlers that never wait are plain `fn`s, only the ones that await are `async`: less flash.
+- **[Shared handlers](api/handlers.md#shared-and-exclusive-handlers)**: Calls and reads of the items you mark shared take `&self`, so a host server can run them side by side; the rest stays `&mut self`.
 - **[Observed properties](api/observing.md#the-device-side)**: The device sends property changes within the budget each host asked for.
 - **[Event-driven observe](api/observing.md#the-server-loop)**: The device sleeps until an observed property is due, and wakes at once when one changes.
 - **[ECC-safe STM32 flash](api/ecc_flash.md)**: Reads a flash word broken by a power cut as zeros (stores) or as an ECC error (bootloaders) instead of crashing. <span class="ww-status">hardware check open</span>

@@ -232,13 +232,6 @@ expires = "2026-12-15"
 # --- dependencies: P2401#20nov-1154c removes these ---
 
 [[exceptions]]
-lint = "default-features-off"
-paths = ["Cargo.toml"]
-level = "allow"
-reason = "workspace dependencies with their default features on; P2401#20nov-1154c (dependencies) removes them"
-expires = "2026-12-15"
-
-[[exceptions]]
 lint = "deny-advisories"
 crates = [
     "args_evolution",

@@ -379,13 +379,6 @@ reason = "rustdoc warnings with every feature; P2401#20nov-1155b (crate packagin
 expires = "2026-12-15"
 
 [[exceptions]]
-lint = "crate-dir-name"
-crates = ["minimal-shrink-wrap"]
-level = "allow"
-reason = "a crate whose folder name differs from its name; P2401#20nov-1155b (crate packaging) removes them"
-expires = "2026-12-15"
-
-[[exceptions]]
 lint = "crate-docs"
 crates = [
     "array_of_streams",
@@ -630,7 +623,7 @@ expires = "2026-12-15"
 lint = "assert-message"
 crates = [
     "lean_server",
-    "minimal-shrink-wrap",
+    "minimal_shrink_wrap",
     "stm32_dfu_host",
     "wire_weaver_client",
     "wire_weaver_core",

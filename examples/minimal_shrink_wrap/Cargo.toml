@@ -1,5 +1,5 @@
 [package]
-name = "minimal-shrink-wrap"
+name = "minimal_shrink_wrap"
 version.workspace = true
 publish = false
 authors.workspace = true

@@ -169,6 +169,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - New crate `ww_dns_sd` (TR-32): WebSocket servers announce themselves on the LAN over DNS-SD as `_wireweaver._tcp`; see its changelog.
 - Keep-trying connections (CLT-75): a client that connects when the device comes up and reconnects by itself; see `wire_weaver_client`.
 - The evolution checker and `ww api` walk a dependency's checkout by the current workspace's Cargo.lock, not the checkout's own; see `ww_snapshots`.
+- The `minimal-shrink-wrap` example's package renames to `minimal_shrink_wrap`, matching every other crate's underscore convention.
 
 ### Added
 

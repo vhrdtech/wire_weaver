@@ -232,13 +232,6 @@ expires = "2026-12-15"
 # --- dependencies: P2401#20nov-1154c removes these ---
 
 [[exceptions]]
-lint = "dead-features"
-crates = ["wire_weaver_client"]
-level = "allow"
-reason = "features nothing uses; P2401#20nov-1154c (dependencies) removes them"
-expires = "2026-12-15"
-
-[[exceptions]]
 lint = "default-features-off"
 paths = ["Cargo.toml"]
 level = "allow"

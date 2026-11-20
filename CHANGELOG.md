@@ -174,6 +174,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - Every crate has a README, crate-level docs, and a comment on every cargo feature; see each crate's own changelog.
 - `cargo doc --workspace --no-deps` builds without warnings: six stale intra-doc links to feature-gated items now read as plain code.
 - Every `tests/*` crate also has a README and a Cargo.toml description naming what it tests.
+- `wire_weaver_client` drops its empty `can`, `i2c` and `uart` features; see its changelog.
 
 ### Added
 

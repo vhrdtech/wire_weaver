@@ -41,14 +41,8 @@ ws = [
 ]
 # UDP, one ww_framer frame per datagram
 udp = ["tokio/net"]
-# CAN Bus using USB or Ethernet to CAN bridges or socketcan on Linux
-can = []
 # RTT over JTAG/SWD
 rtt = ["dep:probe-rs"]
-# I2C using USB or Ethernet to I2C bridges or kernel I2C interface on Linux
-i2c = []
-# UART using USB or Ethernet to UART bridges or system provided serial ports
-uart = []
 # device running in the same process (simulators, tests)
 in_process = [
     "dep:ww_device",

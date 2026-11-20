@@ -1,5 +1,6 @@
 [package]
 name = "rp2"
+license = "MIT"
 edition = "2024"
 version = "0.1.0"
 

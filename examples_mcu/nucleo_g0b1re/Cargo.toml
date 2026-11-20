@@ -2,6 +2,7 @@
 
 [package]
 name = "cannify_micro_g0b1cetxn"
+license = "MIT"
 version = "0.1.0"
 edition = "2024"
 

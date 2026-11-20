@@ -133,11 +133,6 @@ level = "allow"
 reason = "needs the crate map; P2401#20nov-1155h (crate map) adds it from layers.toml and turns this lint on"
 expires = "2026-12-15"
 
-[lints.map-licence]
-level = "allow"
-reason = "needs the crate map; P2401#20nov-1155h (crate map) adds it from layers.toml and turns this lint on"
-expires = "2026-12-15"
-
 [lints.unsafe-allow-list]
 level = "allow"
 reason = "needs the crate map; P2401#20nov-1155h (crate map) adds it from layers.toml and turns this lint on"

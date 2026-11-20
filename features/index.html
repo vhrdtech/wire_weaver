@@ -7663,6 +7663,13 @@ observing), SRV-46 (peer identity).
   in the command channel the residual keeps: a keeper task holds the channel between event loops and answers every
   command that comes in (<code>prepared_connection.rs</code>'s <code>keep</code>). Tested in <code>tests/methods</code>
   (<code>call_while_disconnected_fails_at_once</code>).
+- 🚧 <strong>CLT-79 Where a connect's time goes</strong> · <code>v0.5</code> — a connect opens a debug <code>tracing</code> span per step
+  (<code>wire_weaver_client::connect_spans</code>: validate, select, link, open, learn, introspect), and <code>just connect-bench</code>
+  (<code>wire_weaver_client_benchmarks</code>) times them for in-process devices or a blinky board on USB, async, blocking or
+  dynamic, one client or many at once, with an empty cache and a warm one. It found a dropped <code>Commander</code> blocking
+  its tokio worker for 50 ms (fixed, <code>commander_drop_on_a_worker_lets_the_loop_answer</code>). See
+  <a href="../docs/transport/overview/#where-a-connects-time-goes">Transport protocols</a>. Missing: the full-speed USB run
+  (Nucleo G0B1RE).
 - 🚧 <strong>CLT-75 Keep-trying connections</strong> · <code>v0.5</code> — <code>PreparedConnection::connect_keep_trying()</code> returns the client at
   once and connects in the background, again whenever the link goes: each attempt tries the config's addresses in
   order (<code>ClientConfig::websocket_urls</code>, <code>in_process_paths</code>; <code>connect()</code> and <code>reconnect()</code> too), backoff and give-up

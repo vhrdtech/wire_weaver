@@ -4690,6 +4690,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#where-a-connects-time-goes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Where a connect's time goes
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#how-the-layers-fit" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6213,6 +6224,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#where-a-connects-time-goes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Where a connect's time goes
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#how-the-layers-fit" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6326,6 +6348,51 @@ placeholders without code yet).</p>
 </span></code></pre></div>
 <p><code>connect_blocking()</code> does the same without an async runtime of your own. After connecting, every transport behaves
 the same: link setup with a version check, introspection, pings and timeouts, streams.</p>
+<h2 id="where-a-connects-time-goes">Where a connect's time goes<a class="headerlink" href="#where-a-connects-time-goes" title="Permanent link">&para;</a></h2>
+<p>A connect runs in steps, each a debug <code>tracing</code> span named in <code>wire_weaver_client::connect_spans</code>, so any subscriber
+can time them:</p>
+<table>
+<thead>
+<tr>
+<th>Span</th>
+<th>Step</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ww_connect</code></td>
+<td>the whole <code>connect()</code> or <code>connect_blocking()</code></td>
+</tr>
+<tr>
+<td><code>ww_connect_validate</code></td>
+<td>the config is checked, the client's own introspection data prepared</td>
+</tr>
+<tr>
+<td><code>ww_connect_select</code></td>
+<td>a transport finds the device and starts the event loop (USB: the device list)</td>
+</tr>
+<tr>
+<td><code>ww_connect_link</code></td>
+<td>until the link is up and the device's API version known</td>
+</tr>
+<tr>
+<td><code>ww_connect_open</code></td>
+<td>within the link step: the medium is opened (USB: open and claim the interface)</td>
+</tr>
+<tr>
+<td><code>ww_connect_learn</code></td>
+<td>the device's API: introspection data unless the client has it, the API match</td>
+</tr>
+<tr>
+<td><code>ww_connect_introspect</code></td>
+<td>within the learn step: introspection data from the cache or the device</td>
+</tr>
+</tbody>
+</table>
+<p><code>just connect-bench</code> prints these per round, for in-process devices or a blinky board on USB (<code>--transport usb</code>),
+with the generated async or blocking client or <code>DynClient</code> (<code>--client</code>), one client or many at once (<code>--clients</code>).
+It runs a new process with an empty cache, then one with the machine's own: the first round of each is a cold
+connect, later rounds are warm.</p>
 <h2 id="how-the-layers-fit">How the layers fit<a class="headerlink" href="#how-the-layers-fit" title="Permanent link">&para;</a></h2>
 <p>Messages from the generated code are packed into frames by the <a href="../ww_framer/">framer</a>: many small messages share
 one USB packet or UDP datagram, a big one is split across several. The <a href="../ww_link/">link layer</a> on top of it sets up

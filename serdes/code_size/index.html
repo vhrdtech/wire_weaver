@@ -8479,7 +8479,7 @@ turns it on for all of them, which only costs size, never correctness. <code>opt
 </span></code></pre></div>
 <p>The constructors are out of line by default because a firmware makes readers and writers in dozens of per-type
 copies (<code>dispatch::des::&lt;T&gt;</code>, <code>to_ww_bytes</code>, ..): inlined, each is about 20 bytes of stores, a call about 8 (SW-74,
-Donguru −968 B). The price is at <code>opt-level = 3</code>, in a function that makes a reader or writer and uses it in a tight
+Portwright −968 B). The price is at <code>opt-level = 3</code>, in a function that makes a reader or writer and uses it in a tight
 loop: its address goes to <code>new</code>, so LLVM no longer keeps its fields in registers (64 nibbles read in 983 instructions
 before, 2189 after; <code>fast-io</code> gives 983 back). Readers and writers passed to a decoder or encoder
 by <code>&amp;mut</code> are in memory either way. Numbers in <a href="../../articles/flash_budget/#sw-74-reader-and-writer-plumbing">the flash budget</a>.</p>
@@ -8512,7 +8512,7 @@ against the same commit before SW-70; flash from builds of the same checkout pat
 <td style="text-align: right;">±0</td>
 </tr>
 <tr>
-<td>Donguru firmware, <code>z</code> / <code>3</code>, with the shared path for lists of plain numbers</td>
+<td>Portwright firmware, <code>z</code> / <code>3</code>, with the shared path for lists of plain numbers</td>
 <td style="text-align: right;">−824 / −892 B</td>
 <td style="text-align: right;"></td>
 <td style="text-align: right;"></td>

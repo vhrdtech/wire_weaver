@@ -154,6 +154,9 @@
         <loc>https://ww.vhrd.tech/levels/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/logring/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/python/</loc>
       </url>
       <url>
@@ -349,37 +352,10 @@
         <loc>https://ww.vhrd.tech/std_library/ww_version/</loc>
       </url>
       <url>
-        <loc>https://ww.vhrd.tech/tape/</loc>
-      </url>
-      <url>
-        <loc>https://ww.vhrd.tech/tape/concepts/</loc>
-      </url>
-      <url>
-        <loc>https://ww.vhrd.tech/tape/events_and_series/</loc>
-      </url>
-      <url>
         <loc>https://ww.vhrd.tech/tape/features/</loc>
       </url>
       <url>
-        <loc>https://ww.vhrd.tech/tape/format/</loc>
-      </url>
-      <url>
-        <loc>https://ww.vhrd.tech/tape/logring/</loc>
-      </url>
-      <url>
-        <loc>https://ww.vhrd.tech/tape/numbers/</loc>
-      </url>
-      <url>
-        <loc>https://ww.vhrd.tech/tape/pieces_and_files/</loc>
-      </url>
-      <url>
-        <loc>https://ww.vhrd.tech/tape/reading/</loc>
-      </url>
-      <url>
-        <loc>https://ww.vhrd.tech/tape/recovery/</loc>
-      </url>
-      <url>
-        <loc>https://ww.vhrd.tech/tape/writing/</loc>
+        <loc>https://ww.vhrd.tech/tapes/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/transport/follow_reboot/</loc>

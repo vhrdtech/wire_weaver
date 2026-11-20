@@ -166,3 +166,55 @@ pub fn start_device_usb_sim(socket: &std::path::Path) -> (TestDevice, Arc<Mutex<
     );
     (device, seen)
 }
+
+/// Set in the child process [`in_child_with_env`] starts: the test's runtime dir.
+const CHILD_DIR_ENV: &str = "HUB_RECONNECT_CHILD_DIR";
+
+/// The file the child process writes beside its runtime dir (which the test may remove) when the test it was started
+/// for runs, so a misspelt test name fails.
+fn child_ran_file(dir: &std::path::Path) -> std::path::PathBuf {
+    dir.with_extension("ran")
+}
+
+/// Runs test `test` of this test binary in a child process whose environment has `vars` and
+/// [`RUNTIME_DIR_ENV`](ww_local_socket::RUNTIME_DIR_ENV) set, so no test sets a variable of its own process
+/// (`std::env::set_var` is unsafe code, which the workspace forbids).
+///
+/// In the test's own process it makes the fresh runtime dir `<temp>/<prefix>-<pid>`, runs the child and returns
+/// `None` once the child passed: the test then returns. In the child it returns the runtime dir.
+///
+/// # Panics
+///
+/// In the test's own process, when the child fails, cannot start, or never reaches this call (`test` is not the
+/// calling test's name).
+pub fn in_child_with_env(
+    test: &str,
+    prefix: &str,
+    vars: &[(&str, &str)],
+) -> Option<std::path::PathBuf> {
+    if let Some(dir) = std::env::var_os(CHILD_DIR_ENV) {
+        let dir = std::path::PathBuf::from(dir);
+        std::fs::write(child_ran_file(&dir), test)
+            .expect("marking the child's run in its runtime dir");
+        return Some(dir);
+    }
+    let dir = std::env::temp_dir().join(format!("{prefix}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let _ = std::fs::remove_file(child_ran_file(&dir));
+    std::fs::create_dir_all(&dir).expect("creating the test's runtime dir");
+    let status =
+        std::process::Command::new(std::env::current_exe().expect("the path of the test binary"))
+            .args([test, "--exact", "--nocapture"])
+            .env(CHILD_DIR_ENV, &dir)
+            .env(ww_local_socket::RUNTIME_DIR_ENV, &dir)
+            .envs(vars.iter().copied())
+            .status()
+            .expect("starting the test binary again");
+    assert!(
+        status.success(),
+        "{test} failed in its child process: {status}"
+    );
+    let ran = std::fs::remove_file(child_ran_file(&dir)).is_ok();
+    assert!(ran, "the child process ran no test named {test}");
+    None
+}

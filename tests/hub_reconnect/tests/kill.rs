@@ -40,16 +40,17 @@ async fn hub_pid() -> u32 {
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn hub_killed_under_load_clients_come_back() {
     let _ = tracing_subscriber::fmt::try_init();
-    let dir = std::env::temp_dir().join(format!("ww-hub-kill-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
-    // SAFETY: the only test of this binary, set before anything reads them
-    unsafe {
-        std::env::set_var(ww_local_socket::RUNTIME_DIR_ENV, &dir);
-        std::env::set_var(wire_weaver_client::hub::EXE_ENV, HUB_DEV);
-        // a hub a failed test leaves behind goes soon
-        std::env::set_var(ww_hub::IDLE_EXIT_ENV, "5");
-    }
+    let Some(dir) = hub_reconnect::in_child_with_env(
+        "hub_killed_under_load_clients_come_back",
+        "ww-hub-kill",
+        &[
+            (wire_weaver_client::hub::EXE_ENV, HUB_DEV),
+            // a hub a failed test leaves behind goes soon
+            (ww_hub::IDLE_EXIT_ENV, "5"),
+        ],
+    ) else {
+        return;
+    };
 
     // the device outlives the hub: served by this process, opened by the hub as `ipc:<socket>`
     let (_device, seen) = hub_reconnect::start_device_ipc(&dir.join("dev.sock"));

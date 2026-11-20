@@ -18,21 +18,20 @@ use ww_hub_api::DeviceStateOwned;
 
 const HUB_DEV: &str = env!("CARGO_BIN_EXE_hub_dev");
 
-/// A fresh runtime dir with the environment the client finds the hub by; each test runs in its own process.
-fn setup(name: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("ww-live-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
-    // SAFETY: set before anything reads them, nextest runs each test in a process of its own
-    unsafe {
-        std::env::set_var(ww_local_socket::RUNTIME_DIR_ENV, &dir);
-        std::env::set_var(wire_weaver_client::hub::EXE_ENV, HUB_DEV);
-        // a hub a failed test leaves behind goes soon
-        std::env::set_var(ww_hub::IDLE_EXIT_ENV, "5");
-        // an adopted link whose program died goes soon
-        std::env::set_var(ww_hub::ADOPT_ATTACH_ENV, "300");
-    }
-    dir
+/// A fresh runtime dir, in a child process with the environment the client finds the hub by
+/// ([`hub_reconnect::in_child_with_env`]); `None` in the test's own process once the child passed.
+fn setup(test: &str, name: &str) -> Option<PathBuf> {
+    hub_reconnect::in_child_with_env(
+        test,
+        &format!("ww-live-{name}"),
+        &[
+            (wire_weaver_client::hub::EXE_ENV, HUB_DEV),
+            // a hub a failed test leaves behind goes soon
+            (ww_hub::IDLE_EXIT_ENV, "5"),
+            // an adopted link whose program died goes soon
+            (ww_hub::ADOPT_ATTACH_ENV, "300"),
+        ],
+    )
 }
 
 /// The holder in another process, and its lines as they come.
@@ -181,7 +180,9 @@ fn adds_once(seen: &std::sync::Mutex<hub_reconnect::Seen>) -> BTreeSet<u32> {
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn a_holder_hands_its_live_link_to_the_hub() {
     let _ = tracing_subscriber::fmt::try_init();
-    let dir = setup("handover");
+    let Some(dir) = setup("a_holder_hands_its_live_link_to_the_hub", "handover") else {
+        return;
+    };
     let socket = dir.join("dev.sock");
     let (device, seen) = hub_reconnect::start_device_usb_sim(&socket);
     let key = wire_weaver_client::usb_sim::key_for(&socket);
@@ -333,7 +334,12 @@ async fn holder_in_commit(
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn the_hub_dying_in_the_commit_leaves_the_holder_going_on() {
     let _ = tracing_subscriber::fmt::try_init();
-    let dir = setup("hub-dies");
+    let Some(dir) = setup(
+        "the_hub_dying_in_the_commit_leaves_the_holder_going_on",
+        "hub-dies",
+    ) else {
+        return;
+    };
     let socket = dir.join("dev.sock");
     let (device, _seen) = hub_reconnect::start_device_usb_sim(&socket);
     let key = wire_weaver_client::usb_sim::key_for(&socket);
@@ -387,7 +393,12 @@ async fn the_hub_dying_in_the_commit_leaves_the_holder_going_on() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn the_holder_dying_in_the_commit_leaves_the_device_with_the_hub() {
     let _ = tracing_subscriber::fmt::try_init();
-    let dir = setup("holder-dies");
+    let Some(dir) = setup(
+        "the_holder_dying_in_the_commit_leaves_the_device_with_the_hub",
+        "holder-dies",
+    ) else {
+        return;
+    };
     let socket = dir.join("dev.sock");
     let (device, _seen) = hub_reconnect::start_device_usb_sim(&socket);
     let key = wire_weaver_client::usb_sim::key_for(&socket);
@@ -436,7 +447,12 @@ async fn the_holder_dying_in_the_commit_leaves_the_device_with_the_hub() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn an_interface_grabbed_in_the_gap_ends_in_a_reconnect_through_the_hub() {
     let _ = tracing_subscriber::fmt::try_init();
-    let dir = setup("grabbed");
+    let Some(dir) = setup(
+        "an_interface_grabbed_in_the_gap_ends_in_a_reconnect_through_the_hub",
+        "grabbed",
+    ) else {
+        return;
+    };
     let socket = dir.join("dev.sock");
     let (device, _seen) = hub_reconnect::start_device_usb_sim(&socket);
     let (mut holder, _, asker) = holder_in_commit(&socket, &device).await;
@@ -474,7 +490,9 @@ async fn a_prepared_adoption_goes_with_its_connection() {
     use wire_weaver_client::usb_sim::UsbSimResidualOwned;
 
     let _ = tracing_subscriber::fmt::try_init();
-    let dir = setup("prepared");
+    let Some(dir) = setup("a_prepared_adoption_goes_with_its_connection", "prepared") else {
+        return;
+    };
     let socket = dir.join("dev.sock");
     let (device, _seen) = hub_reconnect::start_device_usb_sim(&socket);
     let key = wire_weaver_client::usb_sim::key_for(&socket);
@@ -571,7 +589,12 @@ async fn a_prepared_adoption_goes_with_its_connection() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn answers_waiting_in_the_device_reach_the_holder() {
     let _ = tracing_subscriber::fmt::try_init();
-    let dir = setup("waiting-answers");
+    let Some(dir) = setup(
+        "answers_waiting_in_the_device_reach_the_holder",
+        "waiting-answers",
+    ) else {
+        return;
+    };
     let socket = dir.join("dev.sock");
     let (device, seen) = hub_reconnect::start_device_usb_sim(&socket);
     let (mut holder, before, asker) = holder_in_commit(&socket, &device).await;

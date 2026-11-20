@@ -16,19 +16,18 @@ use ww_hub_api::DeviceStateOwned;
 
 const HUB_DEV: &str = env!("CARGO_BIN_EXE_hub_dev");
 
-/// A fresh runtime dir with the environment the client finds the hub by; each test runs in its own process.
-fn setup(name: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("ww-polite-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
-    // SAFETY: set before anything reads them, nextest runs each test in a process of its own
-    unsafe {
-        std::env::set_var(ww_local_socket::RUNTIME_DIR_ENV, &dir);
-        std::env::set_var(wire_weaver_client::hub::EXE_ENV, HUB_DEV);
-        // a hub a failed test leaves behind goes soon
-        std::env::set_var(ww_hub::IDLE_EXIT_ENV, "5");
-    }
-    dir
+/// A fresh runtime dir, in a child process with the environment the client finds the hub by
+/// ([`hub_reconnect::in_child_with_env`]); `None` in the test's own process once the child passed.
+fn setup(test: &str, name: &str) -> Option<PathBuf> {
+    hub_reconnect::in_child_with_env(
+        test,
+        &format!("ww-polite-{name}"),
+        &[
+            (wire_weaver_client::hub::EXE_ENV, HUB_DEV),
+            // a hub a failed test leaves behind goes soon
+            (ww_hub::IDLE_EXIT_ENV, "5"),
+        ],
+    )
 }
 
 /// The holder in another process, and its lines as they come.
@@ -95,7 +94,12 @@ async fn stop_hub() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn a_command_line_holder_hands_the_device_to_the_hub() {
     let _ = tracing_subscriber::fmt::try_init();
-    let dir = setup("handover");
+    let Some(dir) = setup(
+        "a_command_line_holder_hands_the_device_to_the_hub",
+        "handover",
+    ) else {
+        return;
+    };
     let socket = dir.join("dev.sock");
     let (_device, seen) = hub_reconnect::start_device_ipc(&socket);
     let key = format!("ipc:{}", socket.display());
@@ -161,7 +165,9 @@ async fn a_command_line_holder_hands_the_device_to_the_hub() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn a_gui_holder_refuses_and_is_named() {
     let _ = tracing_subscriber::fmt::try_init();
-    let dir = setup("refusal");
+    let Some(dir) = setup("a_gui_holder_refuses_and_is_named", "refusal") else {
+        return;
+    };
     let socket = dir.join("dev.sock");
     let (_device, _seen) = hub_reconnect::start_device_ipc(&socket);
     let key = format!("ipc:{}", socket.display());

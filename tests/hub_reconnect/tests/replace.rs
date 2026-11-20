@@ -24,14 +24,13 @@ fn hub_dev(arg: &str) -> String {
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn a_newer_program_replaces_the_running_hub() {
     let _ = tracing_subscriber::fmt::try_init();
-    let dir = std::env::temp_dir().join(format!("ww-hub-replace-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
-    // SAFETY: the only test of this binary, set before anything reads them
-    unsafe {
-        std::env::set_var(ww_local_socket::RUNTIME_DIR_ENV, &dir);
-        std::env::set_var(ww_hub::IDLE_EXIT_ENV, "5");
-    }
+    let Some(dir) = hub_reconnect::in_child_with_env(
+        "a_newer_program_replaces_the_running_hub",
+        "ww-hub-replace",
+        &[(ww_hub::IDLE_EXIT_ENV, "5")],
+    ) else {
+        return;
+    };
     let (_device, _seen) = hub_reconnect::start_device_ipc(&dir.join("dev.sock"));
     let key = format!("ipc:{}", dir.join("dev.sock").display());
     let old = Bound::bind(HubConfig {

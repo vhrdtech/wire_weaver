@@ -96,6 +96,64 @@ pub struct Located {
     pub dir: PathBuf,
     /// The commit of a git source's checkout, and why it is not the branch's latest one when the fetch failed
     pub commit: Option<(String, Option<String>)>,
+    /// Where its repository's files are on the web, when it comes by git
+    pub repository: Option<Repository>,
+}
+
+/// A source's repository at the commit the book takes, for the tracker's links to files that are not pages.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Repository {
+    /// URL of the repository's files at the commit, a path to follow: `https://github.com/owner/repo/blob/<commit>`
+    pub files: String,
+    /// The repository's root on disk
+    pub root: PathBuf,
+}
+
+impl Repository {
+    /// The repository of git URL `url` (`.git` and a trailing `/` dropped) at `commit`, checked out at `root`.
+    fn at(url: &str, commit: &str, root: PathBuf) -> Self {
+        let url = url.trim_end_matches('/');
+        let url = url.strip_suffix(".git").unwrap_or(url);
+        Self {
+            files: format!("{url}/blob/{commit}"),
+            root,
+        }
+    }
+
+    /// The repository of a package Cargo took by git: its URL and commit from the lock's `source`
+    /// (`git+URL?query#commit`), its root the nearest directory above `dir` holding `.cargo-ok` (Cargo's checkout)
+    /// or `.git` (a `[patch]` checkout). `None` for a package from a registry or the workspace's own tree.
+    fn of_package(source: &str, dir: &Path) -> Option<Self> {
+        let (url, commit) = source.strip_prefix("git+")?.split_once('#')?;
+        let url = url.split_once('?').map_or(url, |(url, _)| url);
+        let root = dir
+            .ancestors()
+            .find(|d| d.join(".cargo-ok").exists() || d.join(".git").exists())?;
+        Some(Self::at(url, commit, root.to_path_buf()))
+    }
+}
+
+/// The `source` of each package `root/Cargo.lock` lists, by name.
+fn locked_sources(root: &Path) -> Result<Vec<(String, String)>> {
+    #[derive(Deserialize)]
+    struct Lock {
+        #[serde(default)]
+        package: Vec<LockedPackage>,
+    }
+    #[derive(Deserialize)]
+    struct LockedPackage {
+        name: String,
+        source: Option<String>,
+    }
+    let path = root.join("Cargo.lock");
+    let text = fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
+    let lock: Lock =
+        toml::from_str(&text).with_context(|| format!("parsing {}", path.display()))?;
+    Ok(lock
+        .package
+        .into_iter()
+        .filter_map(|p| Some((p.name, p.source?)))
+        .collect())
 }
 
 impl Located {
@@ -124,6 +182,7 @@ pub fn locate(root: &Path, update: Update) -> Result<Vec<Located>> {
     let file: SourcesFile =
         toml::from_str(&text).with_context(|| format!("parsing {}", path.display()))?;
     let mut package_dirs = None;
+    let mut sources = None;
     file.source
         .into_iter()
         .map(|source| {
@@ -150,19 +209,30 @@ pub fn locate(root: &Path, update: Update) -> Result<Vec<Located>> {
                             "{SOURCES_FILE}: {package} is not in Cargo.lock, or Cargo has not fetched it yet (cargo fetch)"
                         );
                     };
+                    if sources.is_none() {
+                        sources = Some(locked_sources(root)?);
+                    }
+                    let repository = sources
+                        .iter()
+                        .flatten()
+                        .find(|(name, _)| name == package)
+                        .and_then(|(_, locked)| Repository::of_package(locked, dir));
                     Ok(Located {
                         dir: dir.clone(),
                         source,
                         commit: None,
+                        repository,
                     })
                 }
                 (None, Some(url), Some(branch)) => {
                     let dir = checkouts_dir()?.join(source.name());
                     let commit = checkout(url, branch, &dir, update)?;
+                    let repository = Some(Repository::at(url, &commit.0, dir.clone()));
                     Ok(Located {
                         source,
                         dir,
                         commit: Some(commit),
+                        repository,
                     })
                 }
                 _ => bail!(
@@ -487,12 +557,22 @@ fn copied_before(dir: &Path) -> Result<Vec<String>> {
 }
 
 /// A source's feature tracker as a page of the book. Its links into its own pages directory (`](docs/ww_si.md)` in a
-/// tracker next to `docs/`) point beside it, where the book has those pages.
+/// tracker next to `docs/`) point beside it, where the book has those pages; its links to other files of its
+/// repository (`](ww_tape_example/README.md)`) point to them in the repository on the web.
 fn tracker_page(located: &Located) -> Result<String> {
     let tracker = located
         .tracker()?
         .context("tracker_page is only called for a source with a tracker")?;
-    let tracker = match (pages_from_tracker(&located.source), &located.source.book) {
+    let prefix = pages_from_tracker(&located.source);
+    let tracker = match (&located.repository, &located.source.features) {
+        (Some(repository), Some(features)) => {
+            let tracker_dir = located.dir.join(features);
+            let tracker_dir = tracker_dir.parent().unwrap_or(&located.dir);
+            links_into_repository(&tracker, prefix.as_deref(), tracker_dir, repository)
+        }
+        _ => tracker,
+    };
+    let tracker = match (prefix, &located.source.book) {
         (Some(prefix), Some(book)) => links_into_book(&tracker, &prefix, book),
         (Some(prefix), None) => tracker.replace(&format!("]({prefix}/"), "]("),
         (None, _) => tracker,
@@ -534,6 +614,67 @@ fn links_into_book(tracker: &str, prefix: &str, book: &str) -> String {
     out
 }
 
+/// `tracker` with each relative link (`[x](ww_tape_example/README.md#run)`) that is not to a page under `prefix`
+/// pointing to that file in `repository`; `tracker_dir` is the tracker's directory on disk. A link that leaves the
+/// repository's root stays as it is.
+fn links_into_repository(
+    tracker: &str,
+    prefix: Option<&str>,
+    tracker_dir: &Path,
+    repository: &Repository,
+) -> String {
+    let root = lexical(&repository.root);
+    let tracker_dir = lexical(tracker_dir);
+    let mut out = String::with_capacity(tracker.len());
+    let mut rest = tracker;
+    while let Some(at) = rest.find("](") {
+        let after = &rest[at + 2..];
+        let Some(end) = after.find(')') else {
+            break;
+        };
+        let target = &after[..end];
+        let (path, anchor) = target
+            .split_once('#')
+            .map_or((target, None), |(path, anchor)| (path, Some(anchor)));
+        let is_page = prefix.is_some_and(|prefix| path.starts_with(&format!("{prefix}/")));
+        let is_relative = !path.is_empty()
+            && !path.contains("://")
+            && !path.starts_with('/')
+            && !path.starts_with("mailto:")
+            && !path.contains(char::is_whitespace);
+        let file = lexical(&tracker_dir.join(path));
+        out.push_str(&rest[..at + 2]);
+        match file.strip_prefix(&root) {
+            Ok(file) if is_relative && !is_page => {
+                out.push_str(&format!("{}/{}", repository.files, file.to_string_lossy()));
+                if let Some(anchor) = anchor {
+                    out.push_str(&format!("#{anchor}"));
+                }
+            }
+            _ => out.push_str(target),
+        }
+        out.push(')');
+        rest = &after[end + 1..];
+    }
+    out.push_str(rest);
+    out
+}
+
+/// `path` with its `.` and `..` components resolved without the file system.
+fn lexical(path: &Path) -> PathBuf {
+    let mut out = PathBuf::new();
+    for component in path.components() {
+        match component {
+            std::path::Component::CurDir => {}
+            std::path::Component::ParentDir => {
+                out.pop();
+            }
+            other => out.push(other),
+        }
+    }
+    out
+}
+
 /// The pages directory as the tracker's links write it, relative to the tracker's directory (`docs`), when it is
 /// below that directory.
 fn pages_from_tracker(source: &Source) -> Option<String> {
@@ -569,6 +710,7 @@ mod tests {
             },
             dir: dir.join("fmt"),
             commit: None,
+            repository: None,
         }
     }
 
@@ -710,6 +852,37 @@ mod tests {
             "{page}"
         );
         assert_eq!(found, None);
+    }
+
+    #[test]
+    fn tracker_links_to_other_files_point_into_the_repository() {
+        let dir = scratch("repository_links");
+        fs::create_dir_all(dir.join("other/docs")).unwrap();
+        fs::create_dir_all(dir.join("other/fmt")).unwrap();
+        fs::write(dir.join("other/.cargo-ok"), "").unwrap();
+        fs::write(dir.join("other/docs/wire.md"), "# Wire\n").unwrap();
+        fs::write(
+            dir.join("other/FEATURES.md"),
+            "[wire](docs/wire.md), [ex](example/README.md#run), [out](../x.md), [site](https://x.org/a)\n",
+        )
+        .unwrap();
+        let root = dir.join("book");
+        fs::create_dir_all(root.join("docs")).unwrap();
+        let mut source = located(&dir.join("other"));
+        source.repository = Repository::of_package(
+            "git+https://github.com/o/fmt?branch=main#abc123",
+            &source.dir,
+        );
+        assemble(&root, &[source]).unwrap();
+        let page = fs::read_to_string(root.join("docs/serdes/features.md")).unwrap();
+        fs::remove_dir_all(&dir).unwrap();
+        assert!(
+            page.ends_with(
+                "[wire](wire.md), [ex](https://github.com/o/fmt/blob/abc123/example/README.md#run), \
+                 [out](../x.md), [site](https://x.org/a)\n"
+            ),
+            "{page}"
+        );
     }
 
     #[test]

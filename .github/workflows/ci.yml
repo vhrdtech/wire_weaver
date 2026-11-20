@@ -67,6 +67,8 @@ jobs:
       - uses: actions-rust-lang/setup-rust-toolchain@v2
         with:
           components: clippy
+      # cargo-msrv builds with the declared rust-version (Cargo.toml [workspace.package])
+      - run: rustup toolchain install 1.99.0 --profile minimal
       # the tools spl's adapters run (`spl tools needed`)
       - uses: taiki-e/install-action@v2
         with:

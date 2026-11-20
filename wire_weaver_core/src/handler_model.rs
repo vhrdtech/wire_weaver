@@ -4,35 +4,14 @@
 //! Without it every handler follows `use_async`. With it, each item (method, property, stream, sink) is matched by
 //! its dotted path in the API tree (`device.settings.vbus_mode`), the first pattern that matches the whole path
 //! decides, `_` is the default for the rest (`use_async` when there is no `_`):
-//! `handler_model = "device.settings.*|meter.reading=async, _=sync"`. A pattern is a regex without `,`, `=` or
-//! whitespace; `.` also matches the dot between levels.
-use anyhow::Error;
-use pest::Parser;
-use regex::Regex;
+//! `handler_model = "device.settings.*|meter.reading=async, _=sync"`. The pattern syntax is
+//! [crate::pattern_model]'s.
+use crate::pattern_model::{PatternKind, PatternModel, PatternModelItem};
 
-mod private {
-    use pest_derive::Parser;
-
-    #[derive(Parser)]
-    #[grammar = "grammar/handler_model.pest"]
-    pub(super) struct HandlerModelParser;
-}
-use private::Rule;
-
-#[derive(Default, Debug)]
-pub struct HandlerModel {
-    pub default: Option<HandlerKind>,
-    pub items: Vec<HandlerModelItem>,
-}
-
-#[derive(Debug)]
-pub struct HandlerModelItem {
-    /// The pattern as written, for error messages.
-    pub pattern: String,
-    /// The pattern anchored at both ends.
-    pub regex: Regex,
-    pub kind: HandlerKind,
-}
+/// Which handlers are `async fn`, by item path.
+pub type HandlerModel = PatternModel<HandlerKind>;
+/// One `pattern=sync|async` of a [HandlerModel].
+pub type HandlerModelItem = PatternModelItem<HandlerKind>;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum HandlerKind {
@@ -40,50 +19,24 @@ pub enum HandlerKind {
     Async,
 }
 
-impl HandlerModel {
-    pub fn parse(input: &str) -> Result<HandlerModel, Error> {
-        let pairs = match private::HandlerModelParser::parse(Rule::handler_model, input) {
-            Ok(pairs) => pairs,
-            Err(e) => return Err(Error::msg(format!("{e}"))),
-        };
-        let mut handler_model = HandlerModel::default();
-        for item in pairs {
-            if item.as_rule() != Rule::item {
-                continue;
-            }
-            let mut item = item.into_inner();
-            let pattern = item.next().unwrap().as_str();
-            let kind = match item.next().unwrap().into_inner().next().unwrap().as_rule() {
-                Rule::sync => HandlerKind::Sync,
-                Rule::async_ => HandlerKind::Async,
-                _ => unreachable!(),
-            };
-            if pattern == "_" {
-                if handler_model.default.is_some() {
-                    return Err(Error::msg("multiple defaults (`_=..`) in handler_model"));
-                }
-                handler_model.default = Some(kind);
-                continue;
-            }
-            let regex = Regex::new(&format!("^(?:{pattern})$"))?;
-            handler_model.items.push(HandlerModelItem {
-                pattern: pattern.to_string(),
-                regex,
-                kind,
-            });
-        }
-        Ok(handler_model)
-    }
+impl PatternKind for HandlerKind {
+    const MODEL: &'static str = "handler_model";
+    const KEYWORDS: &'static str = "`sync` or `async`";
 
+    fn from_keyword(keyword: &str) -> Option<Self> {
+        match keyword {
+            "sync" => Some(HandlerKind::Sync),
+            "async" => Some(HandlerKind::Async),
+            _ => None,
+        }
+    }
+}
+
+impl HandlerModel {
     /// Kind of the handlers of the item at `path` (dotted, `device.settings.vbus_mode`): the first matching
     /// pattern, else `_`, else what `use_async` says.
     pub fn pick(&self, path: &str, use_async: bool) -> HandlerKind {
-        for item in &self.items {
-            if item.regex.is_match(path) {
-                return item.kind;
-            }
-        }
-        self.default.unwrap_or(if use_async {
+        self.pick_written(path).unwrap_or(if use_async {
             HandlerKind::Async
         } else {
             HandlerKind::Sync
@@ -97,26 +50,19 @@ impl HandlerModel {
         paths: impl Iterator<Item = &'a str> + Clone,
         use_async: bool,
     ) -> Vec<String> {
-        let mut errors = vec![];
-        for item in &self.items {
-            if !paths.clone().any(|p| item.regex.is_match(p)) {
-                errors.push(format!(
-                    "handler_model: `{}` matches no method, property or stream of the API",
-                    item.pattern
-                ));
-            }
-            if !use_async && item.kind == HandlerKind::Async {
-                errors.push(format!(
-                    "handler_model: `{}=async` in a blocking server (use_async = false): its handlers can't be async",
-                    item.pattern
-                ));
-            }
-        }
-        if !use_async && self.default == Some(HandlerKind::Async) {
-            errors.push(
-                "handler_model: `_=async` in a blocking server (use_async = false): its handlers can't be async"
-                    .into(),
-            );
+        let mut errors = self.unmatched(paths, "method, property or stream of the API");
+        if !use_async {
+            let async_patterns = self
+                .items
+                .iter()
+                .filter(|item| item.kind == HandlerKind::Async)
+                .map(|item| item.pattern.as_str())
+                .chain((self.default == Some(HandlerKind::Async)).then_some("_"));
+            errors.extend(async_patterns.map(|pattern| {
+                format!(
+                    "handler_model: `{pattern}=async` in a blocking server (use_async = false): its handlers can't be async"
+                )
+            }));
         }
         errors
     }
@@ -155,6 +101,8 @@ mod tests {
         let paths = ["plug.vbus_cycle", "plug.vbus"];
         assert_eq!(m.check(paths.iter().copied(), true).len(), 1);
         assert_eq!(m.check(paths.iter().copied(), false).len(), 2);
+        let m = HandlerModel::parse("_=async").unwrap();
+        assert_eq!(m.check(paths.iter().copied(), false).len(), 1);
     }
 
     #[test]

@@ -11,6 +11,7 @@ pub mod handler_model;
 pub mod layout;
 mod local_registry;
 pub mod method_model;
+pub mod pattern_model;
 pub mod property_model;
 pub mod transform;
 

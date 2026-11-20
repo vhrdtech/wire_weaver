@@ -1,0 +1,66 @@
+# cargo-deny policy of the root workspace (`cargo deny check`, also run by `just lint` through spl check).
+
+[graph]
+all-features = true
+
+[advisories]
+ignore = [
+    # ruzstd 0.8.3 comes from cnt_core, which reads release .tar.zst archives with it; cnt_core moves to ruzstd 0.9
+    # in P2602#20nov-1418
+    { id = "RUSTSEC-2026-0344", reason = "cnt_core takes ruzstd 0.8; P2602#20nov-1418 moves it to 0.9" },
+    # unmaintained, no fixed version: probe-rs 0.32, the newest, decodes its target descriptions with bincode 2
+    { id = "RUSTSEC-2025-0141", reason = "bincode 2 through probe-rs 0.32 (feature rtt); goes when probe-rs drops it" },
+]
+
+[licenses]
+# permissive licences, and MPL-2.0 (file-level copyleft: option-ext, serialport, used unmodified)
+allow = [
+    "0BSD",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BSL-1.0",
+    "CC0-1.0",
+    "CDLA-Permissive-2.0",
+    "ISC",
+    "MIT",
+    "MIT-0",
+    "MPL-2.0",
+    "Unicode-3.0",
+    "Unlicense",
+    "Zlib",
+]
+confidence-threshold = 0.9
+
+[bans]
+multiple-versions = "deny"
+wildcards = "deny"
+allow-wildcard-paths = true
+# second versions only other crates pull in; each goes when its puller moves on
+skip = [
+    { crate = "base64@0.22.1", reason = "edge-http 0.8 and probe-rs 0.32; ureq takes 0.23" },
+    { crate = "bitflags@1.3.2", reason = "defmt 1.1" },
+    { crate = "defmt@0.3.100", reason = "embassy-net-driver 0.2 and smoltcp 0.13; 0.3.100 forwards to defmt 1" },
+    { crate = "embedded-hal@0.2.7", reason = "embassy-time 0.5 implements both embedded-hal versions" },
+    { crate = "getrandom@0.2.17", reason = "ring 0.17 (rustls for ureq)" },
+    { crate = "io-kit-sys@0.4.1", reason = "serialport 4.10 (probe-rs); nusb takes 0.5" },
+    { crate = "mach2@0.4.3", reason = "serialport 4.10 (probe-rs) and its io-kit-sys 0.4" },
+    { crate = "nb@0.1.3", reason = "embedded-hal 0.2 (embassy-time)" },
+    { crate = "nix@0.26.4", reason = "serialport 4.10 (probe-rs)" },
+    { crate = "object@0.39.1", reason = "probe-rs 0.32" },
+    { crate = "ruzstd@0.8.3", reason = "cnt_core; P2602#20nov-1418 moves it to 0.9" },
+    { crate = "syn@2.0.119", reason = "proc macros of dependencies (defmt, pest, bitbybit, docsplay, ...); the workspace takes syn 3" },
+    { crate = "thermo_api@5.0.0", reason = "tests/thermo_api_old: the old API version the evolution tests talk to" },
+    { crate = "windows-sys@0.52.0", reason = "ring 0.17 and serialport 4.10" },
+]
+skip-tree = [
+    { crate = "serde-reflection@0.7.0", depth = 2, reason = "thiserror 1 of serde-reflection 0.7, the newest (ww_snapshots tests)" },
+]
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+# the framework's own repositories: exact_units, shrink_wrap, cnt, ww_lsp (romixlab), ww_base, ww_tape, picoboot (vhrdtech)
+[sources.allow-org]
+github = ["romixlab", "vhrdtech"]

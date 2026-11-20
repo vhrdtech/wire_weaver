@@ -232,64 +232,6 @@ expires = "2026-12-15"
 # --- dependencies: P2401#20nov-1154c removes these ---
 
 [[exceptions]]
-lint = "deny-advisories"
-crates = [
-    "args_evolution",
-    "conformance",
-    "dns_sd",
-    "wire_weaver_cli",
-]
-level = "allow"
-reason = "cargo-deny advisories; P2401#20nov-1154c (dependencies) removes them"
-expires = "2026-12-15"
-
-[[exceptions]]
-lint = "deny-bans"
-crates = [
-    "args_evolution",
-    "blinky_py",
-    "dns_sd",
-    "stdlib_evolution",
-    "thermo",
-    "wire_weaver_cli",
-]
-level = "allow"
-reason = "cargo-deny bans; P2401#20nov-1154c (dependencies) removes them"
-expires = "2026-12-15"
-
-[[exceptions]]
-lint = "deny-licenses"
-paths = ["deny.toml"]
-level = "allow"
-reason = "no deny.toml licence policy yet; P2401#20nov-1154c (dependencies) removes them"
-expires = "2026-12-15"
-
-[[exceptions]]
-lint = "deny-sources"
-crates = [
-    "args_evolution",
-    "cfg_variants",
-    "conformance",
-    "cross_version",
-    "dns_sd",
-    "docs_highlight",
-    "follow_reboot",
-    "hub",
-    "large_messages",
-    "tape_identity",
-]
-level = "allow"
-reason = "cargo-deny sources; P2401#20nov-1154c (dependencies) removes them"
-expires = "2026-12-15"
-
-[[exceptions]]
-lint = "duplicate-versions"
-paths = ["Cargo.lock"]
-level = "allow"
-reason = "duplicate dependency versions; P2401#20nov-1154c (dependencies) removes them"
-expires = "2026-12-15"
-
-[[exceptions]]
 lint = "no-sys-crates"
 paths = ["Cargo.lock"]
 level = "allow"

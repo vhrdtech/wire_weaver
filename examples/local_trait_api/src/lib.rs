@@ -25,7 +25,7 @@ pub struct Snapshot<'i> {
     pub step: u32,
 }
 
-#[derive_shrink_wrap(owned(feature = "std"), derive(Debug, PartialEq, Eq), ww_repr = u4)]
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Debug, PartialEq, Eq), ww_repr = u4)]
 pub enum CounterError {
     DivByZero,
 }

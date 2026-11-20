@@ -3,7 +3,11 @@
 use ww_api::prelude::*;
 
 /// A raw sensor reading, as the ADC gives it.
-#[derive_shrink_wrap(borrowed, owned, derive(Debug, Clone, Copy, PartialEq, Eq))]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Debug, Clone, Copy, PartialEq, Eq)
+)]
 pub struct Code(pub u16);
 
 /// A channel of the sensor, the same on both lines.

@@ -239,8 +239,8 @@ fan_api = { version = "0.1.0", path = "./tests/fan_api" }
 flash_budget_api = { version = "0.1.0", path = "./tests/flash_budget_api", default-features = false }
 follow_reboot_api = { version = "0.1.0", path = "./tests/follow_reboot_api" }
 generics_api = { version = "0.1.0", path = "./tests/generics_api" }
-global_boot_api = { version = "0.1.0", path = "./tests/global_boot_api" }
-global_fixture_api = { version = "0.1.0", path = "./tests/global_fixture_api" }
+global_boot_api = { version = "0.1.0", path = "./tests/global_boot_api", default-features = false }
+global_fixture_api = { version = "0.1.0", path = "./tests/global_fixture_api", default-features = false }
 hub_api = { version = "0.1.0", path = "./tests/hub_api" }
 hub_pytest_device_api = { version = "0.1.0", path = "./tests/hub_pytest_device_api" }
 hub_reconnect_api = { version = "0.1.0", path = "./tests/hub_reconnect_api" }

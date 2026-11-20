@@ -20,7 +20,7 @@ std = ["ww_api/std", "ww_si/std"]
 
 [dependencies]
 ww_api.workspace = true
-ww_si = { workspace = true, features = ["electrical", "dimensionless"] }
+ww_si = { workspace = true, features = ["electrical", "dimensionless", "time"] }
 
 [lints]
 workspace = true

@@ -18,8 +18,8 @@ default = ["std"]
 std = ["ww_api/std", "ww_keyed/std", "ww_si/std"]
 
 [dependencies]
-ww_api = { workspace = true, features = ["std"] }
-ww_keyed = { workspace = true, features = ["std"] }
+ww_api.workspace = true
+ww_keyed.workspace = true
 ww_si = { workspace = true, features = ["time", "information"] }
 
 [lints]

@@ -3,7 +3,11 @@
 use ww_api::prelude::*;
 
 /// A raw sensor reading.
-#[derive_shrink_wrap(borrowed, owned, derive(Debug, Clone, Copy, PartialEq, Eq))]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Debug, Clone, Copy, PartialEq, Eq)
+)]
 pub struct Code(pub u16);
 
 /// A channel of the sensor: on the root in line 1, under `probe` and as the `aux[]` array in line 2.
@@ -24,7 +28,7 @@ pub trait Indication {
 /// A device indication mode, see [Indication::mode].
 #[derive_shrink_wrap(
     borrowed,
-    owned,
+    owned(feature = "std"),
     derive(Debug, Clone, Copy, PartialEq, Eq),
     ww_repr = nib
 )]

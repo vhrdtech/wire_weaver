@@ -85,7 +85,7 @@ impl DeviceApi {
     /// Put the introspection data into [resolver]'s cache, as a client that downloaded it from the device would
     /// have: a test client then knows the API also of a device built with introspection off. Once per API in a
     /// process.
-    fn seed(&self) {
+    pub fn seed(&self) {
         if self.ww_self_bytes.is_empty() {
             return;
         }

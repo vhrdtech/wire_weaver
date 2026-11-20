@@ -1661,6 +1661,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e712f64ec3850b98572bffac52e2c6f282b29fe6c5fa6d42334b30be438d95c1"
 
 [[package]]
+name = "host_server"
+version = "0.1.0"
+dependencies = [
+ "host_server_api",
+ "tests_common",
+ "tokio",
+ "wire_weaver",
+ "wire_weaver_client",
+ "wire_weaver_server",
+ "ww_client_server",
+ "ww_device",
+]
+
+[[package]]
+name = "host_server_api"
+version = "0.1.0"
+dependencies = [
+ "ww_api",
+]
+
+[[package]]
 name = "http"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4772,6 +4793,17 @@ dependencies = [
  "wire_weaver_core",
  "ww_error",
  "ww_hub",
+]
+
+[[package]]
+name = "wire_weaver_server"
+version = "0.5.0"
+dependencies = [
+ "futures-util",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_client_server",
+ "ww_device",
 ]
 
 [[package]]

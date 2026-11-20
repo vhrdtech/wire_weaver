@@ -1,0 +1,23 @@
+[package]
+name = "wire_weaver_server"
+version.workspace = true
+authors.workspace = true
+description = "WireWeaver host server: many connections to one API, on any async runtime"
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[features]
+default = []
+# The in-process listener: clients of the same process connect by path (tests, simulators)
+in_process = ["dep:wire_weaver_client"]
+
+[dependencies]
+futures-util = { workspace = true, features = ["alloc", "std"] }
+wire_weaver = { workspace = true, features = ["std"] }
+wire_weaver_client = { workspace = true, features = ["in_process"], optional = true }
+ww_client_server = { workspace = true, features = ["std"] }
+ww_device.workspace = true
+
+[lints]
+workspace = true

@@ -615,12 +615,19 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   informing the device.
 - 📋 **SRV-10 Collect error codes into an ELF section** for easier error decoding · `v0.5.x`.
 - 📋 **SRV-11 Link statistics** in `ww_device` (`TODO(SRV-11)` in `link.rs`).
-- 📋 **SRV-12 Host server runtime** — `wire_weaver_server` (std, tokio), the counterpart of `wire_weaver_client`:
-  many concurrent clients, each connection driving `ww_device::DeviceLink` with its peer from the transport;
-  listeners for the local socket, an in-memory pair for tests and an inherited fd (systemd socket activation);
-  per-connection inherent backends (the hub's pattern) or a shared trait backend (SRV-49); limits on connections and
-  requests in flight, graceful shutdown, a stream fan-out helper; `serve()` is a future on the program's own runtime,
-  so a process can embed a small server. Then `ww_hub` serves its API on it.
+- 🚧 **SRV-12 Host server runtime** — `wire_weaver_server`, the counterpart of `wire_weaver_client`: many clients on
+  one API, each connection driving `ww_device::DeviceLink` with its own backend from a factory and its peer from the
+  transport. No async runtime in it: `Server::serve` is a future for the program's executor, timers are a
+  `ww_device::Clock`, connections run inside the future (no spawner, backends need not be `Send`). Done: the
+  `Listener` trait and the in-process listener (any peer can be given), requests of a connection in order while the
+  connection keeps reading, pinging and writing queued events, `Limits` (connections, queued requests and events,
+  message length) that push back instead of dropping, graceful shutdown with a grace time
+  ([Host server](docs/api/host_server.md), `tests/host_server`).
+  Missing: the `Overloaded` error kind with a cap across connections and a `Shutdown` disconnect reason; the
+  connection's `CallContext` (peer, connection id) in handlers and calls side by side (after SRV-65); event pumps
+  and a fan-out helper for streams; a hook for a backend's own event sources and observed properties; listeners
+  over byte streams (TR-19), the local socket and an inherited fd (systemd socket activation); a spawner for
+  multi-threaded runtimes. Then `ww_hub` serves its API on it.
 - 📋 **SRV-46 Peer identity and policy** — who called, from the transport only (SO_PEERCRED, `getpeereid`, the
   Windows user, a key handed in with a stream, the address), never from `ClientMeta`; a listener policy (same user by
   default, a uid/gid allow-list, or any user with the identity passed through) with socket modes to match, and an

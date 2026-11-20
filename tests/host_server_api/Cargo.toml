@@ -1,0 +1,21 @@
+[package]
+name = "host_server_api"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[package.metadata.wire_weaver]
+wire = "w1.0"
+
+[features]
+default = ["std"]
+std = []
+
+[dependencies]
+ww_api = { workspace = true, features = ["std"] }
+
+[lints]
+workspace = true

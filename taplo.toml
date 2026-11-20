@@ -1,0 +1,13 @@
+# taplo, run by spirit_level's taplo-fmt lint
+
+# zensical.toml spreads inline tables over lines (TOML 1.1), which taplo cannot parse
+exclude = ["target/**", "**/target/**", "zensical.toml"]
+
+[formatting]
+# as wide as the Rust code
+column_width = 120
+indent_string = "    "
+# keep the hand-chosen layout of arrays, comments and long inline tables
+array_auto_collapse = false
+align_comments = false
+inline_table_expand = false

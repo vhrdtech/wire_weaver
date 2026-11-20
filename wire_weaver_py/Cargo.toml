@@ -4,6 +4,7 @@ version.workspace = true
 authors.workspace = true
 description = "Python module talking to any WireWeaver device, with its API built at runtime from introspection data"
 edition.workspace = true
+rust-version.workspace = true
 repository.workspace = true
 license.workspace = true
 publish = false # distributed as a Python wheel, built by wire_weaver_wheel in vhrdtech/ww_tools

@@ -4,8 +4,10 @@ version = "0.1.0"
 authors.workspace = true
 description = "API of the ww hub: the per-user process that holds devices and serves every program (SRV-13)"
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 
 # Wire version of the API (EVO-31): link setup decides on its line, `#[since]` names its revisions
 [package.metadata.wire_weaver]

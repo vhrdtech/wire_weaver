@@ -4,8 +4,10 @@ version.workspace = true
 authors.workspace = true
 description = "#[derive(Settings)] for ww_settings groups"
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 
 [lib]
 proc-macro = true

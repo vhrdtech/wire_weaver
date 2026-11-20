@@ -4,8 +4,10 @@ version.workspace = true
 authors.workspace = true
 description = "Counted and reliable WireWeaver streams: positions, loss accounting, acknowledgements, stores, backfill"
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 
 [features]
 default = []
@@ -40,7 +42,7 @@ nor-flash = ["log-store", "dep:embedded-storage-async"]
 atomic-waker.workspace = true
 cnt = { workspace = true, optional = true }
 defmt = { workspace = true, optional = true }
-embedded-sdmmc-types = { version = "0.1", optional = true }
+embedded-sdmmc-types = { workspace = true, optional = true }
 embedded-storage-async = { workspace = true, optional = true }
 portable-atomic.workspace = true
 wire_weaver.workspace = true

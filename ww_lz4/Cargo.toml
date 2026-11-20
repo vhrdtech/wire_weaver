@@ -4,8 +4,10 @@ version = "0.1.0"
 authors.workspace = true
 description = "Streaming LZ4 block encoder for no_std and no alloc: one standard LZ4 block per chunk, history kept across chunks"
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 
 [features]
 default = []
@@ -20,7 +22,7 @@ lz4_flex = { workspace = true, optional = true }
 [dev-dependencies]
 lz4_flex = { workspace = true, features = ["std"] }
 proptest.workspace = true
-ww_lz4 = { path = ".", features = ["std"] }
+ww_lz4 = { workspace = true, features = ["std"] }
 
 [lints]
 workspace = true

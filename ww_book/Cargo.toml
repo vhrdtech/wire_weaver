@@ -4,6 +4,7 @@ version.workspace = true
 authors.workspace = true
 description = "Assembles the WireWeaver book: copies the pages and feature trackers of the repositories it takes by git into docs/"
 edition.workspace = true
+rust-version.workspace = true
 repository.workspace = true
 license.workspace = true
 publish = false

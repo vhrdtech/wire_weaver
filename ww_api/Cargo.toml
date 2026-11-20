@@ -1,11 +1,13 @@
 [package]
 name = "ww_api"
 edition.workspace = true
+rust-version.workspace = true
 version.workspace = true
 authors.workspace = true
 description = "What a WireWeaver API crate needs to describe an API: the macros, the markers and the wire format's prelude, without the runtime"
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 documentation = "https://vhrdtech.github.io/wire_weaver"
 
 [features]

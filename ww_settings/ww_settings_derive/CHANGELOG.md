@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### ⚠️ Breaking
+
+- Declares `rust-version = "1.99"`: cargo of an older Rust refuses the crate.
+
 ### 🚀 Features
 
 - First version (STD-32): `#[derive(Settings)]` for `ww_settings` groups, compile errors for a missing

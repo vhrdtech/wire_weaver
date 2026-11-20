@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### ⚠️ Breaking
+
+- Declares `rust-version = "1.99"`: cargo of an older Rust refuses the crate.
+
 ### 🚀 Features
 
 - First version: `name_path`, `key_in_bundle` and `NamePathError`, formerly `ww_tape`'s feature `bundle` (STD-125).

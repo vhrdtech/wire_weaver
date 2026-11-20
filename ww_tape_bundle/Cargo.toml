@@ -4,8 +4,10 @@ version = "0.1.0"
 authors.workspace = true
 description = "Name paths and keys of ww_tape tracks from an API bundle (ww_self): name_path, key_in_bundle"
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 
 [dependencies]
 anyhow.workspace = true

@@ -4,8 +4,13 @@ version.workspace = true
 authors.workspace = true
 description.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 repository.workspace = true
+homepage.workspace = true
 license.workspace = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+libc.workspace = true
 
 [features]
 default = ["usb", "clock_sync"]
@@ -51,22 +56,19 @@ hub = [
     "dep:ww_hub_api",
 ] # connect() through the ww hub when it holds the device or it pays off (CLT-39), starts the hub if needed
 
-[target.'cfg(target_os = "macos")'.dependencies]
-libc = "0.2"
-
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Diagnostics_ToolHelp"] }
+windows-sys = { workspace = true, features = ["Win32_Foundation", "Win32_System_Diagnostics_ToolHelp"] }
 
 [dependencies]
 anyhow.workspace = true
-either = "1"
+either.workspace = true
 exact_units = { workspace = true, features = ["information"] }
-futures-lite = "2.6"
-futures-util = { version = "0.3", default-features = false, features = ["sink"], optional = true }
+futures-lite.workspace = true
+futures-util = { workspace = true, features = ["sink"], optional = true }
 hex = { workspace = true, features = ["std"] }
 interprocess = { workspace = true, optional = true }
 nusb.workspace = true # TODO: try to use without tokio?
-probe-rs = { version = "0.32", default-features = false, features = ["builtin-targets", "builtin-formats"], optional = true }
+probe-rs = { workspace = true, features = ["builtin-targets", "builtin-formats"], optional = true }
 ron.workspace = true
 semver.workspace = true
 sha2.workspace = true
@@ -74,7 +76,7 @@ strum.workspace = true # EnumDiscriminants-generated code refers to it, even tho
 strum_macros.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["sync", "rt", "time", "macros"] }
-tokio-tungstenite = { version = "0.30", optional = true }
+tokio-tungstenite = { workspace = true, optional = true }
 tracing.workspace = true
 wire_weaver = { workspace = true, features = ["std"] }
 wire_weaver_evolution.workspace = true
@@ -106,7 +108,7 @@ ww_version = { workspace = true, features = ["std"] }
 [dev-dependencies]
 crc.workspace = true
 tokio = { workspace = true, features = ["net", "rt-multi-thread", "test-util"] }
-trybuild = "1"
+trybuild.workspace = true
 wire_weaver_core = { workspace = true }
 ww_device = { workspace = true, features = ["udp", "ws"] }
 ww_self = { workspace = true, features = ["fuzz"] }

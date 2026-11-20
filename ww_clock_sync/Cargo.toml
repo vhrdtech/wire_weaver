@@ -4,8 +4,10 @@ version.workspace = true
 authors.workspace = true
 description = "Host clock sync for WireWeaver devices: fits each device's clock against the host's and steers it onto UTC (ww_timebase::Clock)"
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 
 [dependencies]
 wire_weaver_client = { workspace = true, features = ["clock_sync"] }

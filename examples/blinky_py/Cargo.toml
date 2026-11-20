@@ -1,8 +1,10 @@
 [package]
 name = "blinky_py"
 version = "0.1.0"
+description = "Python wheel of the blinky example client"
 publish = false
 edition.workspace = true
+rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true

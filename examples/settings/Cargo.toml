@@ -1,8 +1,10 @@
 [package]
 name = "settings"
 version = "0.1.0"
+description = "Two settings kept across a reboot by ww_settings on a simulated flash"
 publish = false
 edition.workspace = true
+rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true

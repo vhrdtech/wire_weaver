@@ -4,6 +4,7 @@ version = "0.1.0"
 publish = false
 description = "APIs of the flash budget of a server (TEST-30): a floor and variants with more resources of one kind each"
 edition.workspace = true
+rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true

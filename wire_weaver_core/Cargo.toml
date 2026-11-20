@@ -1,10 +1,12 @@
 [package]
 name = "wire_weaver_core"
 edition.workspace = true
+rust-version.workspace = true
 version.workspace = true
 authors.workspace = true
 description = "Core types, AST and codegen of wire_weaver - API code generator for microcontrollers"
 repository.workspace = true
+homepage.workspace = true
 license.workspace = true
 documentation = "https://vhrdtech.github.io/wire_weaver"
 
@@ -14,15 +16,15 @@ std = ["shrink_wrap/std"]
 
 [dependencies]
 anyhow.workspace = true
-cargo_toml = "1.0"
+cargo_toml.workspace = true
 convert_case.workspace = true
 exact_units = { workspace = true, features = ["std", "shrink_wrap", "systems"] }
 hex = { workspace = true, features = ["std"] }
-pest = "2.8"
-pest_derive = { version = "2.8", features = ["grammar-extras"] }
+pest.workspace = true
+pest_derive = { workspace = true, features = ["grammar-extras"] }
 proc-macro2 = { workspace = true }
 quote = { workspace = true }
-regex = "1.12"
+regex.workspace = true
 ron.workspace = true
 semver.workspace = true
 serde = { workspace = true, features = ["std"] }

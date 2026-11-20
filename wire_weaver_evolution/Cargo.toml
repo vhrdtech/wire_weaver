@@ -4,7 +4,9 @@ version.workspace = true
 authors.workspace = true
 description = "WireWeaver evolution checker: compares an API crate with its saved snapshots and tells which version position to bump."
 edition.workspace = true
+rust-version.workspace = true
 repository.workspace = true
+homepage.workspace = true
 license.workspace = true
 
 [features]

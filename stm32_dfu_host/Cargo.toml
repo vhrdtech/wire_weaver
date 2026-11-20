@@ -4,6 +4,7 @@ version = "0.1.0"
 authors.workspace = true
 description = "Host for the STM32 system bootloader's USB DFU (DfuSe) in Rust on nusb: list, read the memory layout, erase, write with read-back verify, jump to flash"
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 keywords = ["stm32", "dfu", "dfuse", "bootloader", "usb"]
@@ -21,7 +22,7 @@ elf = ["dep:object"]
 
 [dependencies]
 nusb = { workspace = true, optional = true }
-object = { version = "0.40", default-features = false, features = ["read_core", "elf"], optional = true }
+object = { workspace = true, features = ["read_core", "elf"], optional = true }
 thiserror.workspace = true
 tokio = { workspace = true, features = ["time"] }
 

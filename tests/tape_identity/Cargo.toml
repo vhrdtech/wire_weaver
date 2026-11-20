@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Tests of ww_tape track identity by name path (STD-125) over real API bundles"
 publish = false
 edition.workspace = true
+rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true

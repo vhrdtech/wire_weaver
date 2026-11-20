@@ -48,3 +48,36 @@ reason = "a test crate is publish = false and never listed on a registry, so it 
 tiers = ["egui"]
 crates = ["wire_weaver_tool"]
 reason = "the egui viewer"
+
+# The framework crates are released to crates.io together (AGENTS.md, "Changelogs, commits and versions"); examples
+# and tests are publish = false.
+[lints.publish-false]
+published = [
+    "wire_weaver",
+    "wire_weaver_cli",
+    "wire_weaver_client",
+    "wire_weaver_core",
+    "wire_weaver_derive",
+    "wire_weaver_evolution",
+    "ww_api",
+    "ww_client_server",
+    "ww_clock_sync",
+    "ww_device",
+    "ww_dns_sd",
+    "ww_framer",
+    "ww_hub",
+    "ww_hub_api",
+    "ww_link",
+    "ww_local_socket",
+    "ww_lz4",
+    "ww_plugin",
+    "ww_self",
+    "ww_settings",
+    "ww_settings_derive",
+    "ww_snapshots",
+    "ww_stream",
+    "ww_tap",
+    "ww_tape_bundle",
+    "ww_timebase",
+]
+reason = "the framework crates are released together; every other crate is publish = false"

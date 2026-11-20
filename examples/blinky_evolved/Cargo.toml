@@ -1,8 +1,10 @@
 [package]
 name = "blinky_evolved"
 version = "0.1.0"
+description = "Client of the evolved blinky API, run against devices of either version"
 publish = false
 edition.workspace = true
+rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -18,7 +20,7 @@ anyhow.workspace = true
 clap = { workspace = true, features = ["derive"] }
 console.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
-tracing = "0.1"
+tracing.workspace = true
 tracing-subscriber.workspace = true
 ww_self = { workspace = true }
 

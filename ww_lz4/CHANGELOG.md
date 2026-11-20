@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### ⚠️ Breaking
+
+- Declares `rust-version = "1.99"`: cargo of an older Rust refuses the crate.
+
 ### 🚀 Features
 
 - `Encoder::init(slot, keep)`: sets an encoder up in place in a `static`'s `MaybeUninit` (a `StaticCell`'s `uninit()`); a `static` built by the `const fn new` keeps its whole buffer as an initializer in flash (20 KiB for `Encoder<4096, 12288>` on Donguru).

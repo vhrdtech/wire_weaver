@@ -4,8 +4,10 @@ version.workspace = true
 authors.workspace = true
 description = "Announces WireWeaver WebSocket servers on the LAN over DNS-SD as _wireweaver._tcp"
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 
 [features]
 default = ["mdns"]

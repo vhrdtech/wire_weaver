@@ -4,8 +4,10 @@ version.workspace = true
 authors.workspace = true
 description = "Power-cut safe settings store for devices: a struct of fields with defaults, kept as an evolvable shrink_wrap record in NOR flash"
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 
 [features]
 default = []
@@ -27,7 +29,7 @@ ww_settings_derive.workspace = true
 [dev-dependencies]
 embassy-futures.workspace = true
 shrink_wrap = { workspace = true, features = ["std"] }
-ww_settings = { path = ".", features = ["dump"] }
+ww_settings = { workspace = true, features = ["dump"] }
 
 [lints]
 workspace = true

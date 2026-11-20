@@ -24,6 +24,7 @@
 
 ### ⚠️ Breaking
 
+- Declares `rust-version = "1.99"`: cargo of an older Rust refuses the crate.
 - `HubConfig` has the fields `captures` and `saves_exit_wait`: a struct literal needs `captures: None` (or a host) and `saves_exit_wait: SAVES_EXIT_WAIT`.
 - `HubConfig` has the new field `resolver` (EVO-80): the snapshot resolver of the hub's device connections, `Resolver::global()` from `from_env()`. Struct literals need it.
 - A claim's refusal (SRV-34) is the common error `InUse { by }` (`ErrorKind::Common`, STD-16) for every item, instead of a `Common(InUse)` value of the item's own error type and a `UserStr` for items without one: the hub no longer needs the device's API model to refuse, and clients read it as `CallError::Common` / `Error::common()`.

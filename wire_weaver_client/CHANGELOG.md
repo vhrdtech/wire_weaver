@@ -19,6 +19,7 @@
 
 ### ⚠️ Breaking
 
+- Declares `rust-version = "1.99"`: cargo of an older Rust refuses the crate.
 - `tap::What::Gap { items }` and `Stats::records_missed`: exhaustive matches on `What` need the arm (TR-14).
 - `ClientConfig::tap` takes a `tap::TapSource`, which makes each link's `ww_tap::Tap` (a `Recorder` converts into one); `Command::Connect::tap` is an `Option<TapSource>`. `tap::default_recorder()` is removed: a client without a tap records nothing (TR-14).
 - `Command::RegisterTracer` gets its `TraceEvent`s straight from the link's tap, as they happen, without a recorder; `TraceEvent` is `Clone` and `Debug` (TR-14).

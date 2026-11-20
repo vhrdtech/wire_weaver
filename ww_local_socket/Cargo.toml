@@ -4,8 +4,10 @@ version.workspace = true
 authors.workspace = true
 description = "WireWeaver over local sockets: user-only Unix sockets and named pipes, the hub preamble, message framing"
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 
 [target.'cfg(unix)'.dependencies]
 libc.workspace = true
@@ -24,7 +26,7 @@ socket = [
 [dependencies]
 interprocess = { workspace = true, optional = true }
 tokio = { workspace = true, features = ["io-util", "time", "net"], optional = true }
-tracing = { version = "0.1", optional = true }
+tracing = { workspace = true, optional = true }
 
 [target.'cfg(windows)'.dependencies]
 widestring = { workspace = true, optional = true }

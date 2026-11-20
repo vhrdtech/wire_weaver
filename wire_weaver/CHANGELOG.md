@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- Declares `rust-version = "1.99"`: cargo of an older Rust refuses the crate.
 - `ww_si`, `ww_numeric`, `ww_version`, `ww_global`, `ww_error`, `ww_date_time`, `ww_keyed` and `ww_crc` come by git from vhrdtech/ww_base; a project that takes them by path or from this repository takes them from there.
 - `ww_tape` comes by git from vhrdtech/ww_tape, with its benchmarks, fuzz targets and golden files; a project that takes it by path or from this repository takes it from there.
 - Handlers answer common errors beside the API's error (STD-16, SRV-63): a method `-> Result<T, E>` returns `RpcResult<Result<T, wire_weaver::Error<'_, E>>>`, a plain one `RpcResult<T>` or `RpcResult<Result<T, CommonError<'_>>>` (`RpcResult::output`, `IntoOutput`), properties `GetResult<T, wire_weaver::Error<'_, E>>` / `SetResult<..>` and `CommonError<'_>` without an error type (the `()` error is gone); `wire_weaver::CommonError` is re-exported.

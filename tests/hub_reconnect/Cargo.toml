@@ -4,6 +4,7 @@ version = "0.1.0"
 publish = false
 description = "Tests of clients reconnecting when their ww hub goes (CLT-40) and hub handover (SRV-30)"
 edition.workspace = true
+rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -14,7 +15,7 @@ hub_reconnect_api.workspace = true
 interprocess.workspace = true
 tests_common = { workspace = true, features = ["local_socket"] }
 tokio = { workspace = true, features = ["sync", "rt-multi-thread", "rt", "macros", "time", "io-util"] }
-tracing = "0.1"
+tracing.workspace = true
 tracing-subscriber.workspace = true
 wire_weaver.workspace = true
 wire_weaver_client = { workspace = true, features = ["local_socket", "in_process", "hub"] }

@@ -49,6 +49,7 @@ version = "0.5.0"
 authors = ["Roman Isaikin <romix.lab@gmail.com>"]
 description = "WireWeaver is a wire format and API code generator for resource constrained systems."
 edition = "2024"
+rust-version = "1.99"
 repository = "https://github.com/vhrdtech/wire_weaver"
 homepage = "https://ww.vhrd.tech/"
 license = "MIT"
@@ -64,6 +65,7 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(fuzzing)'] }
 anyhow = "1"
 atomic-waker = { version = "1.1", features = ["portable-atomic"] }
 cargo_metadata = "0.23"
+cargo_toml = "1.0"
 cc = "1.2"
 clap = "4.5"
 clap_complete = "4.6"
@@ -73,34 +75,55 @@ console = "0.16"
 convert_case = "0.11"
 crc = "3.4"
 crossterm = "0.29"
+darling = "0.24"
 defmt = "1.1"
+edge-http = { version = "0.8", default-features = false }
+edge-ws = { version = "0.8", default-features = false }
+either = "1"
 # memoised snapshots handed out as references for as long as the resolver lives (ww_snapshots)
 elsa = "1.11"
 embassy-futures = "0.1"
+embassy-net = "0.9"
+embassy-sync = "0.8"
+embassy-time = "0.5"
+embedded-sdmmc-types = "0.1"
 embedded-storage-async = "0.4.2"
 # gzip of a .crate or repository archive, pure Rust (miniz_oxide)
 flate2 = { version = "1.1", default-features = false, features = ["rust_backend"] }
 futures-core = { version = "0.3", default-features = false, features = ["alloc"] }
+futures-lite = "2.6"
+futures-util = { version = "0.3", default-features = false }
 hex = { version = "0.4", default-features = false }
 hex-literal = "1"
+httparse = { version = "1.10", default-features = false }
+human-repr = "1.1"
 # interface addresses and indices (ww_dns_sd)
 if-addrs = { version = "0.15", default-features = false }
+indicatif = "0.18"
 interprocess = { version = "2.4", features = ["tokio"] }
 # commands of the ww command line register themselves from their own crate and module
 inventory = "0.3"
 libc = "0.2"
+log = "0.4"
 # exact: ww_tape pins it, its lz4 payload columns must compress to the same bytes
 lz4_flex = { version = "=0.14.0", default-features = false, features = ["safe-decode", "checked-decode"] }
 # the in-process mDNS responder (ww_dns_sd), runtime free; its async API is off
 mdns-sd = { version = "0.22", default-features = false }
 nusb = { version = "0.2", features = ["tokio"] }
+object = { version = "0.40", default-features = false }
+pathsearch = "0.2"
+pest = "2.8"
+pest_derive = "2.8"
 portable-atomic = { version = "1.15", default-features = false, features = ["require-cas"] }
+probe-rs = { version = "0.32", default-features = false }
 proc-macro-crate = "3"
 proc-macro2 = "1.0"
 proptest = "1.11"
 pyo3 = "0.29"
 quote = "1.0"
+regex = "1.12"
 ron = { version = "0.12", features = ["integer128"] }
+rtt-target = "0.6"
 # Cargo's hash of a git URL, the name of its checkout directory (ww_snapshots)
 rustc-stable-hash = "0.1"
 rustix = { version = "1", default-features = false, features = ["std", "termios"] }
@@ -109,17 +132,21 @@ serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde-reflection = "0.7"
 serde_json = "1.0"
 sha2 = "0.11"
+shlex = "1.3"
 strum = "0.28"
 strum_macros = "0.28"
+subprocess = "1.2"
 syn = { version = "3", features = ["full", "extra-traits"] }
 # the entries of a .crate or repository archive (ww_snapshots fetch)
 tar = { version = "0.4", default-features = false }
 thiserror = "2"
 tokio = "1.54" # interprocess 2.4 calls AsyncFd::register_with_interest, new in 1.54 (it declares 1.36)
+tokio-tungstenite = "0.30"
 toml = "1"
 toml_edit = "0.25"
 tracing = "0.1"
 tracing-subscriber = "0.3"
+trybuild = "1"
 # HTTPS for the snapshot fetch, TLS through rustls only (no system TLS); its provider ring is a C and assembly crate, see AGENTS.md
 ureq = { version = "3.5", default-features = false, features = ["rustls"] }
 widestring = "1"

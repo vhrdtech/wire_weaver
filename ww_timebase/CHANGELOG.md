@@ -6,6 +6,7 @@
 
 ### ⚠️ Breaking
 
+- Declares `rust-version = "1.99"`: cargo of an older Rust refuses the crate.
 - Wire `w3.0` (STD-16): `ClockError` is gone, it held only the common errors: `configure_sync`, `set_time_of_day`, `steer` and `set_sources` have no error type, a device refuses with a `CommonError`.
 - Depends on `ww_api` instead of `wire_weaver` (API-68): the crate no longer pulls the runtime in; `std`/`defmt` forward to `ww_api`.
 - Wire line follows `ww_date_time` `w2.0`, EVO-58: `DateTime` has bounded calendar fields (`w1.x` -> `w2.0`).

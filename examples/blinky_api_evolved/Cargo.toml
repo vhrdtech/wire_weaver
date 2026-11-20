@@ -1,8 +1,10 @@
 [package]
 name = "blinky_api_evolved"
 version = "0.1.1"
+description = "The blinky example API in a later version, for the evolution checks"
 publish = false
 edition.workspace = true
+rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true

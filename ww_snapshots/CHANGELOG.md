@@ -4,6 +4,7 @@
 
 ### ⚠️ Breaking
 
+- Declares `rust-version = "1.99"`: cargo of an older Rust refuses the crate.
 - `file::parse` refuses a snapshot of another model format than `ww_self::VERSION` before reading it, naming the re-save step (EVO-82); new `file::check_format`. Test `model_format_frozen` fails when the model changes without a new format.
 
 ### 🐛 Fixes

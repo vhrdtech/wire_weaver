@@ -4,7 +4,9 @@ version.workspace = true
 authors.workspace = true
 description = "API snapshots of WireWeaver crates found by crate name and version: embedded sets, the per-user cache, Cargo's sources on disk and a fetch, each file verified against what the device sent"
 edition.workspace = true
+rust-version.workspace = true
 repository.workspace = true
+homepage.workspace = true
 license.workspace = true
 
 [features]

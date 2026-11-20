@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- Declares `rust-version = "1.99"`: cargo of an older Rust refuses the crate.
 - `#[ww_trait]`, `#[ww_api_root]`, `full_version!` and `compact_version!` emit `ww_api` paths (API-68): the doc trait's markers are `ww_api::api_doc::*`, the consts `ww_version::*` through `ww_api`. The crates are found as the user's `Cargo.toml` names them (`ww_api`, `ww_version`), else through `wire_weaver::ww_api`; a crate with `#[ww_trait]` and neither dependency no longer compiles: add `ww_api`.
 - The deprecated `ww_api!` macro is gone (API-68): it had no users; `ww_codegen!` is the name since 0.5. `wire_weaver` and its prelude no longer re-export it.
 * A bare `#[ww_api_root]` takes the API's wire version from the crate's `Cargo.toml`, `[package.metadata.wire_weaver] wire = "w1.0"` (EVO-31), and refuses a root without one with that hint; `<TRAIT>_WIRE_VERSION` comes from there. `#[ww_api_root(wire = "w1.0")]` only works in a test crate (`publish = false`) and must agree with `Cargo.toml`: move `wire = ..` from the attribute into `Cargo.toml`.

@@ -1,8 +1,10 @@
 [package]
 name = "power_stage_api"
 version = "0.1.0"
+description = "A power converter's values observed at its switching rate, for the high-rate observe benches"
 publish = false
 edition.workspace = true
+rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true

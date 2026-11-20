@@ -3,13 +3,14 @@ name = "large_messages"
 version = "0.1.0"
 publish = false
 edition.workspace = true
+rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
 [dev-dependencies]
 exact_units.workspace = true
-futures-lite = "2.6"
+futures-lite.workspace = true
 large_messages_api.workspace = true
 tests_common.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "rt", "macros"] }

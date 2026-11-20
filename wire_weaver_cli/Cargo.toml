@@ -4,7 +4,9 @@ version.workspace = true
 authors.workspace = true
 description = "The generic commands of the WireWeaver command line tool, and the registry a binary assembles them with"
 edition.workspace = true
+rust-version.workspace = true
 repository.workspace = true
+homepage.workspace = true
 license.workspace = true
 
 # `q` quits a live view (util::QuitKey)
@@ -26,8 +28,8 @@ clap_complete = { workspace = true, features = ["unstable-dynamic"] }
 cnt_core.workspace = true
 console.workspace = true
 hex = { workspace = true, features = ["std"] }
-human-repr = "1.1"
-indicatif = "0.18"
+human-repr.workspace = true
+indicatif.workspace = true
 inventory.workspace = true
 ron.workspace = true
 semver.workspace = true
@@ -37,7 +39,7 @@ shrink_wrap = { workspace = true, features = ["std"] }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal", "sync"] }
 toml.workspace = true
 toml_edit.workspace = true
-tracing = "0.1"
+tracing.workspace = true
 tracing-subscriber.workspace = true
 wire_weaver.workspace = true
 wire_weaver_client = { workspace = true, features = ["picoboot", "stm32_dfu", "hub", "rtt"] }

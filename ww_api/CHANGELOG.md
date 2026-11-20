@@ -6,6 +6,7 @@
 
 ### ⚠️ Breaking
 
+- Declares `rust-version = "1.99"`: cargo of an older Rust refuses the crate.
 - The prelude has no `HasCommon` (STD-16); every API error enum declares `api_error!(XError)` so handlers can `?` it into `Error<'_, XError>`.
 
 ### 🚀 Features

@@ -4,7 +4,9 @@ version.workspace = true
 authors.workspace = true
 description = "WireWeaver device side: sans-IO link state machine and event loop building blocks, no_std and no alloc"
 edition.workspace = true
+rust-version.workspace = true
 repository.workspace = true
+homepage.workspace = true
 license.workspace = true
 
 [features]
@@ -31,15 +33,15 @@ embassy-net = ["embassy-time", "dep:embassy-net"]
 
 [dependencies]
 defmt = { workspace = true, optional = true }
-edge-http = { version = "0.8", default-features = false, optional = true }
-edge-ws = { version = "0.8", default-features = false, optional = true }
+edge-http = { workspace = true, optional = true }
+edge-ws = { workspace = true, optional = true }
 embassy-futures.workspace = true
-embassy-net = { version = "0.9", features = ["proto-ipv4", "medium-ip"], optional = true }
-embassy-sync = { version = "0.8", optional = true }
-embassy-time = { version = "0.5", optional = true }
-httparse = { version = "1.10", default-features = false, optional = true }
-log = { version = "0.4", optional = true }
-rtt-target = { version = "0.6", optional = true }
+embassy-net = { workspace = true, features = ["proto-ipv4", "medium-ip"], optional = true }
+embassy-sync = { workspace = true, optional = true }
+embassy-time = { workspace = true, optional = true }
+httparse = { workspace = true, optional = true }
+log = { workspace = true, optional = true }
+rtt-target = { workspace = true, optional = true }
 wire_weaver.workspace = true
 ww_client_server.workspace = true
 ww_framer.workspace = true

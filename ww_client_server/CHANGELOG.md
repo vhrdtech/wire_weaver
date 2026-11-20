@@ -7,6 +7,7 @@
 
 ### ⚠️ Breaking
 
+- Declares `rust-version = "1.99"`: cargo of an older Rust refuses the crate.
 - Wire (EVO-81): a `MultiCall` or `MultiWrite` request with an empty `MultiArgs::Same` or `Different` list, written by the borrowed `Request`, is one byte shorter (no padding byte), as a std host's `RequestOwned` always wrote it. Not a break: `MultiArgs` is size-delimited, so readers before and after read both forms as the same request and a device answers both the same; events and replies are unchanged. The wire line stays `w1.0`. Code needs no change.
 - `dispatch` (STD-16, SRV-63): `reply_call` takes `RpcResult<Result<T, CommonError>>`, new `reply_call_result` for `Result<T, Error<E>>` (the API's `Err` in the value as before, a common error as the `ErrorKind::Common` event at the handler site), `reply_get_common` / `reply_set_common` replace `reply_get_unit_err` / `reply_set_unit_err` and `write_unit_user_error`, new `reply_open_plain(_result)`, `common_error`, `send_common_error(_blocking)`, `ser_common_error_event`.
 - Wire (STD-16, `w2.0`, `GENERATION` 2): `ErrorKind::Common(CommonError)`, appended, carries the common error every item can answer with (`ww_error::CommonError`: `Busy`, `InUse`, `Unsupported`, ...); `ErrorOwned::common()` reads it, `ErrorOwned` displays it by its text (`In use by USART2 (common error at item site 2 (handler))`), `dispatch::common_error` writes it as a reply. Exhaustive matches on `ErrorKind` need the arm. Depends on `ww_error`.

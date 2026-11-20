@@ -4,6 +4,7 @@
 
 ### ⚠️ Breaking
 
+- Declares `rust-version = "1.99"`: cargo of an older Rust refuses the crate.
 - `Store` takes its CRC-32C from `ww_crc`: bitwise without `std` unless the firmware turns on `ww_crc/table-256` (the 1 KiB table it had) or `table-slice16`; same bytes (TR-31).
 
 ### 🚀 Features

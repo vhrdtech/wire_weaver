@@ -1,11 +1,13 @@
 [package]
 name = "wire_weaver"
 edition.workspace = true
+rust-version.workspace = true
 version.workspace = true
 authors.workspace = true
 description.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 documentation = "https://vhrdtech.github.io/wire_weaver"
 
 [features]

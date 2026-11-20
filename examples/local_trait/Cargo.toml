@@ -1,14 +1,16 @@
 [package]
 name = "local_trait"
 version = "0.1.0"
+description = "One API used through the generated client and by a plain local struct, with one call site"
 publish = false
 edition.workspace = true
+rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
 [dependencies]
-futures-lite = "2.6"
+futures-lite.workspace = true
 local_trait_api.workspace = true
 tokio = { workspace = true, features = ["sync", "rt", "macros"] }
 wire_weaver = { workspace = true, features = ["std"] }

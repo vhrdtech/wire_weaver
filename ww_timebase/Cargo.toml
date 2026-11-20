@@ -4,8 +4,10 @@ version = "0.1.0"
 authors.workspace = true
 description = "Device clock and time synchronisation data types and API"
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 
 # Wire version of the traits and types of this crate (EVO-26): `#[since]` in it names its revisions
 [package.metadata.wire_weaver]

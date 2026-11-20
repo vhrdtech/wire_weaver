@@ -1,8 +1,10 @@
 [package]
 name = "foc_observe_api"
 version = "0.1.0"
+description = "The motor demo's 25 kHz FOC level as an API root, for the observe cell benches of examples_mcu"
 publish = false
 edition.workspace = true
+rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true

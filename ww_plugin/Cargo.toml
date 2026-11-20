@@ -4,7 +4,9 @@ version = "0.1.0"
 authors.workspace = true
 description = "Device arguments and the protocol an executable ww plugin (ww-NAME) needs, without the ww hub"
 edition.workspace = true
+rust-version.workspace = true
 repository.workspace = true
+homepage.workspace = true
 license.workspace = true
 
 [dependencies]

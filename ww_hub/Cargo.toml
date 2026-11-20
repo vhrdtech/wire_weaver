@@ -4,19 +4,21 @@ version.workspace = true
 authors.workspace = true
 description = "The ww hub: one process per user that holds WireWeaver devices and serves every program (SRV-13)"
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 
 [target.'cfg(unix)'.dependencies]
 libc.workspace = true
 
 [dependencies]
-futures-lite = "2.6"
+futures-lite.workspace = true
 interprocess.workspace = true
 nusb.workspace = true
 semver.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync", "time", "io-util"] }
-tracing = "0.1"
+tracing.workspace = true
 wire_weaver = { workspace = true, features = ["std"] }
 wire_weaver_client = { workspace = true, features = ["clock_sync", "hub", "in_process"] }
 ww_client_server = { workspace = true, features = ["std"] }

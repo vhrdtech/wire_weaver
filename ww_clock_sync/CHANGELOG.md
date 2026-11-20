@@ -7,6 +7,7 @@
 
 ### ⚠️ Breaking
 
+- Declares `rust-version = "1.99"`: cargo of an older Rust refuses the crate.
 - `Options` is `Clone`, no longer `Copy` (it holds a `SteererOwned` and a `RateCache` now); `Status::device` is a
   `SyncStatusOwned`; `Fit` has a `prior` field; `EstimatorConfig` a `prior_span` one (SRV-31).
 

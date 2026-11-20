@@ -4,8 +4,10 @@ version = "0.1.0"
 authors.workspace = true
 description = "Link tap: frames, messages and link events of a WireWeaver link, batched into tape blocks"
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 
 # Wire version of the traits and types of this crate (EVO-26): `#[since]` in it names its revisions
 [package.metadata.wire_weaver]
@@ -17,7 +19,7 @@ default = []
 std = ["wire_weaver/std", "dep:ww_tape", "ww_tape/std", "dep:tracing"]
 
 [dependencies]
-tracing = { version = "0.1", optional = true }
+tracing = { workspace = true, optional = true }
 wire_weaver.workspace = true
 ww_tape = { workspace = true, optional = true }
 

@@ -1,10 +1,12 @@
 [package]
 name = "wire_weaver_derive"
 edition.workspace = true
+rust-version.workspace = true
 version.workspace = true
 authors.workspace = true
 description = "Derive macros of wire_weaver - API code generator for microcontrollers"
 repository.workspace = true
+homepage.workspace = true
 license.workspace = true
 documentation = "https://vhrdtech.github.io/wire_weaver"
 
@@ -14,12 +16,12 @@ proc-macro = true
 [dependencies]
 anyhow.workspace = true
 convert_case.workspace = true
-darling = "0.24"
-pathsearch = "0.2"
+darling.workspace = true
+pathsearch.workspace = true
 proc-macro-crate.workspace = true
 proc-macro2 = { workspace = true }
 quote = { workspace = true }
-subprocess = "1.2"
+subprocess.workspace = true
 syn = { workspace = true }
 wire_weaver_core.workspace = true
 ww_global.workspace = true

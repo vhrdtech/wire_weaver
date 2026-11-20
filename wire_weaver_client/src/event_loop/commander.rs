@@ -39,8 +39,7 @@ use ww_snapshots::Resolver;
 use ww_stream::StreamCursor;
 use ww_version::{CompactVersion, VersionOwned};
 
-// TODO: in tests dispatcher command can arrive later than event with an answer (fixed with delay?), even though cmd are sent first, happens on real hw?
-// TODO: CommandSender outstanding request limit?
+// In tests a dispatcher command can arrive later than the event with its answer, even though the commands are sent first.
 /// Entry point for an API root or API trait implementation. Inside - wrapper over a channel sender half (currently tokio::mpsc::UnboundedSender).
 ///
 /// Commands sent through this channel are received by a worker thread (e.g., USB or WebSocket clients) and forwarded to a connected device.
@@ -277,7 +276,6 @@ impl Commander {
     }
 
     pub async fn send(&self, command: Command) -> Result<(), Error> {
-        // TODO: Add command tx limit?
         self.transport_cmd_tx
             .send(command)
             .await
@@ -286,7 +284,6 @@ impl Commander {
     }
 
     pub fn blocking_send(&self, command: Command) -> Result<(), Error> {
-        // TODO: Add command tx limit?
         self.transport_cmd_tx
             .blocking_send(command)
             .map_err(|_| Error::EventLoopNotRunning)?;

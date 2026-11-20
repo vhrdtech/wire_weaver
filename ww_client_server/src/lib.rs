@@ -385,8 +385,6 @@ pub enum EventKind<'i> {
     /// unless request ID is 0.
     Value {
         /// Serialized return value of a method.
-        // TODO: add is_multipart: bool, is_end: bool or enum Kind { SinglePart, MultiPart, MultiPartEnd(crc) }?
-        // TODO: add CRC?
         data: TailBytes<'i>,
     } = 0,
 
@@ -501,7 +499,6 @@ pub struct Error<'i> {
 }
 
 /// Various errors that can occur during Request processing.
-/// TODO: Add ShrinkWrap error here as well for more context
 #[derive_shrink_wrap(owned(feature = "std"), derive(Debug), ww_repr = u8, discriminants)]
 pub enum ErrorKind<'i> {
     /// Sent a RequestKind that doesn't make sense for a particular resource

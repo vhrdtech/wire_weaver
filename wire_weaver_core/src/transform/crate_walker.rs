@@ -57,7 +57,7 @@ pub(crate) const PRELUDE_REEXPORTS: &[&str] = &["shrink_wrap", "ww_api", "ww_err
 pub fn load(
     crate_path: &Path,
     trait_name: Option<String>,
-    offline_mode: bool, // TODO: try CARGO_NET_OFFLINE instead
+    offline_mode: bool,
 ) -> Result<ApiBundleOwned> {
     load_with_hints(crate_path, trait_name, offline_mode)
         .map(|(bundle, _hints, _unreasoned, _paths)| bundle)
@@ -98,7 +98,7 @@ fn load_own_with_paths_walked(
 pub fn load_with_hints(
     crate_path: &Path,
     trait_name: Option<String>,
-    _offline_mode: bool, // TODO: try CARGO_NET_OFFLINE instead
+    _offline_mode: bool,
 ) -> Result<(
     ApiBundleOwned,
     Vec<super::UnitHint>,

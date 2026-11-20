@@ -63,7 +63,6 @@ pub enum Command {
     SendMessage {
         bytes: Vec<u8>,
         /// If None - the message will be sent with seq = 0
-        /// TODO: Timeout per each update or in total for multipart?
         done_tx: Option<(ResponseSender, Duration)>,
     },
     /// Open a counted or reliable stream: send the `StreamOpen` request in `bytes` like [Command::SendMessage], and

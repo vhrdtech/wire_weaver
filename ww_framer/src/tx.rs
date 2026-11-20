@@ -226,7 +226,7 @@ where
                 Ok(false)
             }
             State::WroteN(n) => {
-                let message_left = message.len() - n; // TODO: guard against user giving different message here or not?
+                let message_left = message.len() - n;
                 // Continue and End carry the remaining length, so that receiver can skip an End
                 // whose Start was lost and continue with the rest of the frame
                 if H::write(MessageKind::Continue, user_kind, message_left, &mut self.wr).is_err() {

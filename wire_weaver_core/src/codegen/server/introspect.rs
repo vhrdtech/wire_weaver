@@ -95,7 +95,7 @@ pub(crate) fn introspect(
         #send_close
     };
     let send_all = quote! {
-        const CHUNK: usize = 128; // TODO: auto-determine better chunk size
+        const CHUNK: usize = 128;
         #send_all
     };
     let handle_introspect = if enabled {

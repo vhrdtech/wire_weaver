@@ -75,9 +75,6 @@ pub const MAGIC: u32 = 0xA91B_14F0;
 /// checks, and a snapshot file of another format is refused with the step that re-saves it.
 pub const VERSION: VersionTriplet = VersionTriplet::new(0, 4, 0);
 
-// TODO: add doc
-// TODO: add ufs
-
 #[derive_shrink_wrap(
     owned(feature = "std"),
     cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)),

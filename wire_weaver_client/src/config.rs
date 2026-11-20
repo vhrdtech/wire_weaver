@@ -1307,7 +1307,6 @@ impl ValidatedConfig {
         if self.is_rtt() {
             interfaces.push(InterfaceKind::Rtt);
         }
-        // TODO: sort by priority
         interfaces
     }
 

@@ -38,7 +38,7 @@ pub(crate) type OnDone<T> = Box<dyn FnOnce(&mut T, &[u8]) -> Result<(), Error> +
 /// `marker` is a user-provided name only used in [Display] output and log messages.
 pub struct Promise<T, E = Error> {
     state: StateInner<T, E>,
-    marker: &'static str, // TODO: change to enum Marker { Static, Owned } with into
+    marker: &'static str,
     seen: bool,
     /// Names the called item in [CallError::Unimplemented](crate::CallError::Unimplemented)
     resource: &'static str,
@@ -48,7 +48,6 @@ pub struct Promise<T, E = Error> {
     error_list: Option<ErrorList<E>>,
     /// A read of a `const` item: its reply goes into the connection's cache (API-36)
     fill_const_cache: Option<(TransportCommander, PathKindOwned)>,
-    // TODO: Add instant
 }
 
 type DecodeFn<T, E> = fn(&[u8]) -> Result<T, E>;

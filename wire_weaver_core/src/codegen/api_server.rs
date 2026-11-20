@@ -518,7 +518,7 @@ pub fn gen_server(
                     #global_path_arms
                 };
 
-                const MAX_DEPTH: usize = 16; // TODO: calculate max depth
+                const MAX_DEPTH: usize = 16;
                 // a constant, so the array is cleared as with a plain number (a loop at opt-level z otherwise)
                 let mut path_arr = [const { ResourceIndex::new(UNib32(0)) }; MAX_DEPTH];
                 let mut path_len: usize = 0;
@@ -3179,7 +3179,6 @@ fn handle_stream(
                 RequestKind::Write { data } => {
                     #des_data
                     #write_call;
-                    // TODO: ?? do not send acknowledgements on stream writes
                     #reply_ack
                 }
                 #refuse_unknown_sideband
@@ -3548,7 +3547,6 @@ fn des_args(
         let args_des = quote! {
             let args = args.as_slice();
             let mut rd = BufReader::new(args);
-            // TODO: Log _e ?
             let args = __ww_try!(wr, d, #mod_ident::#args_struct_ident::#des(&mut rd), #es, ArgsDesFailed);
         };
         (args_des, args_list(args))

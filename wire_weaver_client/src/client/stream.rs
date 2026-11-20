@@ -113,7 +113,7 @@ impl<T: DeserializeShrinkWrapOwned, Tf: ItemTime> Stream<T, Tf> {
 
     /// Send command through sideband channel
     pub async fn sideband(&self, sideband: StreamSideband) -> Result<(), StreamError> {
-        // TODO: add synchronous mode to stream sideband (wait for response)?
+        // returns once the sideband is queued, it does not wait for a response
         self.transport_cmd_tx
             .send_stream_sideband(self.path_kind.clone(), sideband, None)
             .await?;
@@ -122,7 +122,7 @@ impl<T: DeserializeShrinkWrapOwned, Tf: ItemTime> Stream<T, Tf> {
 
     /// Send command through sideband channel
     pub fn sideband_blocking(&self, sideband: StreamSideband) -> Result<(), StreamError> {
-        // TODO: add synchronous mode to stream sideband (wait for response)?
+        // returns once the sideband is queued, it does not wait for a response
         self.transport_cmd_tx.send_stream_sideband_blocking(
             self.path_kind.clone(),
             sideband,

@@ -17,7 +17,6 @@ trait Traits {
     #[label("Reset button")]
     fn reset();
 
-    // TODO: print proper error when implementing same trait twice?
     // trait from crates
     // trait addressing
 }

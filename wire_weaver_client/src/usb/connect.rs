@@ -205,7 +205,7 @@ pub(crate) fn try_connect_blocking(
     c: &ValidatedConfig,
     cmd_rx: &mut Option<mpsc::Receiver<Command>>,
 ) -> Result<Selected, anyhow::Error> {
-    // TODO: figure out if nusb::list_devices() hangs in other scenarios, apart from enumeration problems on Linux, add timeout
+    // nusb::list_devices() can hang when the OS fails to enumerate (seen on Linux), and it has no timeout
     let devices = nusb::list_devices().wait().context("listing USB devices")?;
     let (nusb_info, info) = match select_matching(c, devices)? {
         Ok(matched) => matched,

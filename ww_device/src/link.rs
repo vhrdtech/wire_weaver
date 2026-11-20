@@ -500,7 +500,7 @@ impl<'a> DeviceLink<'a> {
                 }
             }
             Message::GetStats => {
-                // TODO: link statistics
+                // TODO(SRV-11): link statistics
             }
             Message::DeviceInfo(_) | Message::LinkReady { .. } | Message::Stats(_) => {
                 warn!("ignoring host-only message");

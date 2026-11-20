@@ -614,7 +614,7 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   (`mcu/wire_weaver_usb_embassy`). Later (`v0.5.x`): detect the host going to sleep and keep the connection,
   informing the device.
 - 📋 **SRV-10 Collect error codes into an ELF section** for easier error decoding · `v0.5.x`.
-- 📋 **SRV-11 Link statistics** in `ww_device` (`TODO` in `link.rs`).
+- 📋 **SRV-11 Link statistics** in `ww_device` (`TODO(SRV-11)` in `link.rs`).
 - 📋 **SRV-12 Host server runtime** — `wire_weaver_server` (std, tokio), the counterpart of `wire_weaver_client`:
   many concurrent clients, each connection driving `ww_device::DeviceLink` with its peer from the transport;
   listeners for the local socket, an in-memory pair for tests and an inherited fd (systemd socket activation);

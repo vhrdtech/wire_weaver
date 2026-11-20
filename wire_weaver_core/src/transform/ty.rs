@@ -1668,7 +1668,7 @@ fn get_default_attr(
         return Ok(None);
     };
     if let Meta::NameValue(_name_value) = &attr.meta {
-        // TODO: convert expression to a value, only presence of a default is used for now (in client compatibility checks)
+        // only the presence of a default is used (in client compatibility checks), the expression is not evaluated
         Ok(Some(ValueOwned::Bool(false)))
     } else {
         Err(anyhow!("expected #[default = value]").context(current_crate.err_context()))

@@ -160,12 +160,11 @@ impl RxDispatcher {
                     self.sinks.push(Arc::downgrade(&sink));
                 }
                 if let PathKindOwned::Absolute { path } = path_kind {
-                    // TODO: send Connected/Disconnected only on actual connect/disconnect, send status here instead
+                    // a listener also gets the connection state as its first event
                     _ = stream_event_tx.send(self.is_connected_as_stream_event());
                     let listeners = self.stream_handlers.entry(path).or_default();
                     listeners.push(stream_event_tx);
                 }
-                // TODO: other path kinds
                 _ = registered_tx.send(());
             }
             DispatcherCommand::ObserveRoute { hook } => {

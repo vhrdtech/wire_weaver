@@ -1038,7 +1038,7 @@ fn handle_property(
         };
         let ser_value = if model.no_alloc() {
             quote! {
-                let mut args_scratch = [0u8; 128]; // TODO: Vec based writer
+                let mut args_scratch = [0u8; 128];
                 let value = #prop_name.to_ww_bytes(&mut args_scratch).map(|b| b.to_vec()).map_err(|e| e.into());
             }
         } else {
@@ -1440,7 +1440,7 @@ fn ser_args(
         };
         let args_ser = if no_alloc {
             quote! {
-                let mut args_scratch = [0u8; 128]; // TODO: Vec based writer
+                let mut args_scratch = [0u8; 128];
                 let args = #args_value;
                 let args_bytes = args.to_ww_bytes(&mut args_scratch).map(|b| b.to_vec()).map_err(|e| e.into());
             }

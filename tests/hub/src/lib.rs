@@ -140,7 +140,7 @@ mod tests {
                 _index_chain: [ww_client_server::ResourceIndex; 1],
                 _sideband: ww_client_server::StreamSideband,
             ) -> Option<ww_client_server::StreamSideband> {
-                // TODO: None sends no reply
+                // None sends no reply
                 None
             }
 

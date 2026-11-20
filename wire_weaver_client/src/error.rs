@@ -31,7 +31,6 @@ pub enum Error {
         reason: String,
     },
     #[error("Timeout")]
-    // TODO: add timeout name and duration used?
     Timeout,
     #[error("LinkSetup was not received from device after several retries")]
     LinkSetupTimeout,

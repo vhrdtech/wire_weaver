@@ -229,22 +229,6 @@ reason = "comments that restate the code; P2401#20nov-1154b (comments and attrib
 expires = "2026-12-15"
 
 [[exceptions]]
-lint = "stop-gap-comments"
-crates = [
-    "hub",
-    "traits_api",
-    "wire_weaver_client",
-    "wire_weaver_core",
-    "ww_client_server",
-    "ww_device",
-    "ww_framer",
-    "ww_self",
-]
-level = "allow"
-reason = "stop-gap comments; P2401#20nov-1154b (comments and attributes) removes them"
-expires = "2026-12-15"
-
-[[exceptions]]
 lint = "thinking-comments"
 crates = [
     "traits_api",

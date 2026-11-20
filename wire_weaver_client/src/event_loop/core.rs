@@ -202,7 +202,6 @@ fn is_due(deadline: Option<Instant>, now: Instant) -> bool {
     deadline.is_some_and(|d| d.saturating_duration_since(now) < TIMER_TOLERANCE)
 }
 
-// TODO: lookup from ww_global
 /// This build's generations, sent in the host's hello and compared with the device's (EVO-23).
 pub(crate) const GENERATIONS: ww_link::Generations =
     ww_link::Generations::this_build(ww_client_server::GENERATION);

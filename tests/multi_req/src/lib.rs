@@ -124,7 +124,6 @@ mod tests {
                 method_model = "deferred=deferred, _=immediate",
                 property_model = "_=get_set",
                 multi_req = true
-                // debug_to_file = "../../target/tests_multi_req_server.rs"
             );
         }
 

@@ -525,7 +525,7 @@ pub fn table() -> Vec<Typed> {
                 },
             ]),
         ),
-        // #[wire(W)] (DER-19)
+        // the wire(W) attribute (DER-19)
         case(
             "wire.struct",
             Wired {

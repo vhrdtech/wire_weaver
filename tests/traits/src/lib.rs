@@ -107,7 +107,6 @@ mod tests {
                 introspect = "no_docs",
                 // optional items, no handlers for them above
                 omit = ["reset", "i2c.i2c_wiggle_clock", "i2c.pullups", "i2c.i2c_monitor"],
-                // debug_to_file = "../../target/tests_traits_server.rs"
             );
         }
 
@@ -250,7 +249,6 @@ mod tests {
             wire_weaver::ww_codegen!(
                 traits_api :: Traits for super::StdClient,
                 client = "std_client",
-                // debug_to_file = "../../target/tests_traits_client.rs"
             );
         }
     }

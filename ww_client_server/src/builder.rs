@@ -132,7 +132,6 @@ mod tests {
         let mut buf = [0u8; 32];
         let mut wr = BufWriter::new(&mut buf);
         let builder = EventBuilder::new(0xABCD, &mut wr).unwrap();
-        // wr.write(&Error::not_supported(123)).unwrap();
         Error::not_supported(123).ser_shrink_wrap(&mut wr).unwrap();
         builder.finish(false, &mut wr);
         let builder_bytes = wr.finish_and_take().unwrap();
@@ -155,7 +154,6 @@ mod tests {
         let mut wr = BufWriter::new(&mut buf);
         let ev_builder = EventBuilder::new(0xABCD, &mut wr).unwrap();
         let ev_kind_builder = EventKindBuilder::new(&mut wr).unwrap();
-        // wr.write(&&[0xAAu8, 0xBB, 0xCC][..]).unwrap();
         let bytes = &[0xAAu8, 0xBB, 0xCC][..];
         bytes.ser_shrink_wrap(&mut wr).unwrap();
         ev_kind_builder.finish_with_kind(crate::EventKindDiscriminants::Value, &mut wr);
@@ -197,7 +195,6 @@ mod tests {
         let ev_builder = EventBuilder::new(0xABCD, &mut wr).unwrap();
         let ev_kind_builder = EventKindBuilder::new(&mut wr).unwrap();
         custom.ser_shrink_wrap(&mut wr).unwrap();
-        // wr.write(&custom).unwrap();
         ev_kind_builder.finish_with_kind(crate::EventKindDiscriminants::Value, &mut wr);
         ev_builder.finish(true, &mut wr);
         let builder_bytes = wr.finish_and_take().unwrap();

@@ -1,8 +1,3 @@
-// use crate::{
-//     DeviceInfo,
-//     device_info::{ConnectionInfo, DeviceApiInfo},
-// };
-
 #[derive(Clone, Debug)]
 pub enum TraceEvent {
     /// Request being sent to a remote device

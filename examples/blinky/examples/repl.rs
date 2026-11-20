@@ -75,7 +75,7 @@ async fn handle_user_command(device: &mut Option<Blinky>) -> Result<bool> {
     let mut line = String::new();
     let bytes_read = std::io::stdin().read_line(&mut line)?;
     if bytes_read == 0 {
-        // EOF (Ctrl+D)
+        // end of input (Ctrl+D)
         return Ok(true);
     }
     let Some(words) = shlex::split(&line) else {

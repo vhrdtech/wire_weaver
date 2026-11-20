@@ -62,38 +62,6 @@ pub(crate) enum DispatcherCommand {
     },
 }
 
-// pub async fn rx_dispatcher(
-//     mut commands: mpsc::UnboundedReceiver<DispatcherCommand>,
-//     mut messages: mpsc::UnboundedReceiver<DispatcherMessage>,
-// ) {
-//     debug!("started");
-//     let mut state = DispatcherState::default();
-//     loop {
-//         let next_timeout = state.prune_next_timeout();
-//         let timer = tokio::time::sleep(next_timeout);
-//         tokio::select! {
-//             cmd = commands.recv() => {
-//                 let Some(cmd) = cmd else {
-//                     debug!("cmd channel closed, exiting");
-//                     break;
-//                 };
-//                 state.handle_cmd(cmd);
-//             }
-//             msg = messages.recv() => {
-//                 let Some(msg) = msg else {
-//                     debug!("message channel closed, exiting");
-//                     break;
-//                 };
-//                 state.handle_msg(msg);
-//             }
-//             _ = timer => {
-//                 state.prune_next_timeout();
-//             }
-//         }
-//     }
-//     debug!("exited");
-// }
-
 #[derive(Default)]
 pub(crate) struct RxDispatcher {
     is_connected: bool,

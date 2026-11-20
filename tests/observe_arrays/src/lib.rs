@@ -173,7 +173,6 @@ mod tests {
                 property_model = "zoom=value_on_changed, _=get_set",
                 // two elements of a level observed at a time
                 observe_elements = 2,
-                // debug_to_file = "../../target/tests_observe_arrays_server.rs"
             );
         }
 

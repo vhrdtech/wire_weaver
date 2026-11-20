@@ -14,7 +14,6 @@ trait Properties {
     // const ro wo
     // () [u8]
     property!(rw custom: Custom<'i>);
-    // property!(rw custom: RefVec<'i, u8>);
 
     /// Array of channels (CLT-15 multi-request tests: list/range/mask indices through `read_array`/`write_array`)
     ww_impl!(ch[]: Channel);

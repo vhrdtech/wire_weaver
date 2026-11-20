@@ -25,10 +25,6 @@ impl IndexChain {
         }
     }
 
-    // pub fn from_len(len: usize) -> Self {
-    //     IndexChain { len }
-    // }
-
     pub fn fun_argument_def(&self) -> TokenStream {
         let len = self.len;
         if len == 0 {
@@ -48,15 +44,6 @@ impl IndexChain {
             quote! { pub index_chain: [ResourceIndex; #len], }
         }
     }
-
-    // pub fn return_ty_def(&self) -> TokenStream {
-    //     let len = self.len;
-    //     if len == 0 {
-    //         quote! {}
-    //     } else {
-    //         quote! { -> [ResourceIndex; #len] }
-    //     }
-    // }
 
     pub fn fun_argument_call(&self) -> TokenStream {
         let len = self.len;

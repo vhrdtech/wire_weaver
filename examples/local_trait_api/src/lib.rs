@@ -46,11 +46,7 @@ impl core::error::Error for CounterError {}
 /// `Counter`, the API as an async trait, and `CounterDyn` for trait objects.
 #[cfg(feature = "local")]
 mod local {
-    wire_weaver::ww_codegen!(
-        crate::CounterApi,
-        local_trait = "Counter",
-        // debug_to_file = "../../target/local_trait_api_trait.rs"
-    );
+    wire_weaver::ww_codegen!(crate::CounterApi, local_trait = "Counter",);
 }
 #[cfg(feature = "local")]
 pub use local::{Counter, CounterDyn};

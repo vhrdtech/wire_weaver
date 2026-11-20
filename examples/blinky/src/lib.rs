@@ -25,6 +25,5 @@ mod api_client {
     wire_weaver::ww_codegen!(
         blinky_api :: BlinkyApi for crate::Blinky,
         client = "std_client",
-        //debug_to_file = "../../target/generated_blinky_client.rs"
     );
 }

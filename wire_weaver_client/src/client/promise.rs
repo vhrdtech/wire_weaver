@@ -216,7 +216,6 @@ impl<T: DeserializeShrinkWrapOwned, E: OutcomeError> Promise<T, E> {
         }
         if let StateInner::Done(ref mut response) = core::mem::take(&mut self.state) {
             response.take()
-            // Some(response)
         } else {
             None
         }

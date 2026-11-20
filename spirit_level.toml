@@ -209,43 +209,6 @@ expires = "2026-12-15"
 # --- comments and attributes: P2401#20nov-1154b removes these ---
 
 [[exceptions]]
-lint = "commented-out-code"
-crates = [
-    "blinky",
-    "blinky_evolved",
-    "bounded",
-    "conformance",
-    "conformance_api",
-    "credit_sink",
-    "generics",
-    "io_timebase",
-    "local_trait_api",
-    "methods",
-    "module_paths",
-    "multi_req",
-    "observe",
-    "observe_arrays",
-    "observe_batched",
-    "properties",
-    "properties_api",
-    "recursive",
-    "series",
-    "streams",
-    "streams_batched",
-    "streams_borrowed_error",
-    "streams_reliable",
-    "traits",
-    "wire_weaver_client",
-    "wire_weaver_core",
-    "wire_weaver_derive",
-    "ww_client_server",
-    "ww_self",
-]
-level = "allow"
-reason = "commented-out code; P2401#20nov-1154b (comments and attributes) removes them"
-expires = "2026-12-15"
-
-[[exceptions]]
 lint = "filler-phrases"
 crates = [
     "wire_weaver",

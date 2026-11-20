@@ -354,7 +354,6 @@ mod tests {
             wire_weaver::ww_codegen!(
                 properties_api :: Properties for super::StdClient,
                 client = "std_client",
-                // debug_to_file = "../../target/tests_properties_client.rs"
             );
         }
     }

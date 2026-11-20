@@ -1589,7 +1589,6 @@ impl Scratch {
 impl ManifestContext {
     fn load(crate_path: &Path) -> Result<Rc<Self>> {
         let crate_path = crate_path.canonicalize()?;
-        //println!("loading manifest for {}", crate_path.display());
         let mut cargo_toml_path = crate_path.to_path_buf();
         cargo_toml_path.push("Cargo.toml");
         stamps::note(&cargo_toml_path);
@@ -1618,7 +1617,6 @@ impl ManifestContext {
             }
             let possible_cargo_toml = possible_path.join("Cargo.toml");
             stamps::note(&possible_path);
-            //println!("trying {possible_cargo_toml:?}");
             if possible_cargo_toml.exists() {
                 return scratch.get_or_load_manifest(possible_path);
             }
@@ -1831,7 +1829,7 @@ impl ManifestContext {
         )?;
         let request = DepRequest::of(dep);
         let manifest = match dep {
-            // crate_name = "version"
+            // a plain version requirement
             Dependency::Simple(version) => self.load_locked(
                 dependent,
                 crate_name,
@@ -1841,7 +1839,7 @@ impl ManifestContext {
                 scratch,
             ),
             Dependency::Inherited(_) => {
-                // crate_name.workspace = true
+                // inherited from the workspace
                 let manifest = self.load_parent_manifest(scratch)?;
                 let workspace = manifest
                     .manifest
@@ -1864,7 +1862,7 @@ impl ManifestContext {
                 return Ok((manifest, workspace_request));
             }
             Dependency::Detailed(detailed) => {
-                // crate_name = { path = "" }
+                // a path dependency
                 if let Some(path) = &detailed.path {
                     let path = Path::new(path);
                     let dep_crate_path = if path.is_relative() {
@@ -1876,9 +1874,9 @@ impl ManifestContext {
                 }
                 let package = detailed.package.as_deref().unwrap_or(crate_name);
                 let spec = match &detailed.git {
-                    // crate_name = { git = "" }
+                    // a git dependency
                     Some(url) => DepSpec::Git { url },
-                    // crate_name = { version = "" }
+                    // a registry dependency with options
                     None => DepSpec::Registry {
                         version_req: detailed.version.as_ref(),
                     },

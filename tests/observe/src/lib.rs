@@ -193,7 +193,6 @@ mod tests {
                 property_model = "mode=value_on_changed, _=get_set",
                 // a mixed server (SRV-21): async handlers on the root and in `motor`, `bank` all sync
                 handler_model = "temp|set_temp|motor.speed=async, _=sync",
-                // debug_to_file = "../../target/tests_observe_server.rs"
             );
         }
 

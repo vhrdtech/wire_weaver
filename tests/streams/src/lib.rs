@@ -257,7 +257,6 @@ mod tests {
                 server = true, no_alloc = true, use_async = false,
                 method_model = "_=immediate",
                 property_model = "_=get_set",
-                // debug_to_file = "../../target/tests_streams_server.rs"
             );
         }
 
@@ -335,7 +334,6 @@ mod tests {
             wire_weaver::ww_codegen!(
                 streams_api :: Streams for super::StdClient,
                 client = "std_client",
-                // debug_to_file = "../../target/tests_streams_client.rs"
             );
         }
     }

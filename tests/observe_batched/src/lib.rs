@@ -149,7 +149,6 @@ mod tests {
                 property_model = "mode=value_on_changed, _=get_set",
                 observe_batch = 8,
                 observe_outbox = 512,
-                // debug_to_file = "../../target/tests_observe_batched_server.rs"
             );
         }
 
@@ -268,7 +267,6 @@ mod tests {
                 observe_batch = 8,
                 observe_outbox = 512,
                 observe_cells = "root",
-                // debug_to_file = "../../target/tests_observe_batched_cells_server.rs"
             );
         }
 
@@ -332,7 +330,6 @@ mod tests {
             wire_weaver::ww_codegen!(
                 observe_batched_api :: ObserveBatched for super::Client,
                 client = "std_client",
-                // debug_to_file = "../../target/tests_observe_batched_client.rs"
             );
         }
     }
@@ -713,7 +710,6 @@ mod tests {
                 method_model = "_=immediate",
                 property_model = "mode=value_on_changed, _=get_set",
                 observe_samples = false,
-                // debug_to_file = "../../target/tests_observe_batched_no_samples_server.rs"
             );
         }
 

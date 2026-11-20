@@ -324,17 +324,6 @@ impl Source {
         }
     }
 
-    // /// Cancel-safe: the only await is on the completion channel.
-    // pub async fn read_packet(&mut self, data: &mut [u8]) -> Result<usize, TransferError> {
-    //     let mut len = 0;
-    //     self.read_packet_with(|p| {
-    //         len = p.len();
-    //         data[..p.len()].copy_from_slice(p);
-    //     })
-    //     .await?;
-    //     Ok(len)
-    // }
-
     /// Cancel-safe: the only await is on the completion channel.
     pub async fn read_packet_with<F: FnMut(&[u8])>(
         &mut self,

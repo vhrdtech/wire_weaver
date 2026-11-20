@@ -219,11 +219,6 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
         }
         match File::create(&path) {
             Ok(mut f) => {
-                // let level_debug = format!("{:#?}", &level);
-                // for line in level_debug.split('\n') {
-                //     f.write_fmt(format_args!("// {line}\n"))
-                //         .map_err(|e| e.to_string())?;
-                // }
                 let ts_formatted = crate::util::format_rust(format!("{codegen_ts}"));
                 f.write_all(ts_formatted.as_bytes())
                     .map_err(|e| e.to_string())?;

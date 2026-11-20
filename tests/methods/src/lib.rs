@@ -10,7 +10,10 @@ mod tests {
 
     #[derive(Copy, Clone, Debug, PartialEq, Eq)]
     pub enum Medium {
-        #[allow(dead_code, reason = "the variant is never built, it only completes the enum")]
+        #[allow(
+            dead_code,
+            reason = "the variant is never built, it only completes the enum"
+        )]
         Usb = 1,
         Can = 2,
     }
@@ -480,18 +483,13 @@ mod tests {
                 methods_api :: Methods for super::StdClient,
                 client = "std_client",
                 impl_local_trait = "super::local::MethodsLocal",
-                // debug_to_file = "../../target/tests_methods_client.rs"
             );
         }
 
         /// The API as an async trait (CLT-57), made here instead of in the API crate: methods with errors, user
         /// types and sub-byte arguments; the nested level and the resource array are left out.
         pub mod local {
-            wire_weaver::ww_codegen!(
-                methods_api::Methods,
-                local_trait = "MethodsLocal",
-                // debug_to_file = "../../target/tests_methods_local_trait.rs"
-            );
+            wire_weaver::ww_codegen!(methods_api::Methods, local_trait = "MethodsLocal",);
         }
     }
 

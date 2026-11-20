@@ -1244,13 +1244,6 @@ impl Commander {
         self.connected_device = info;
     }
 
-    // pub fn set_client_introspect_bytes(&mut self, ww_bytes: &[u8], api_signature: &[u8]) {
-    //     self.client_api = Some((
-    //         ApiBundleOwned::from_ww_bytes_owned(ww_bytes),
-    //         api_signature.to_vec(),
-    //     ));
-    // }
-
     pub fn device_api_info(&self) -> &DeviceApiInfo {
         self.connected()
     }
@@ -2023,47 +2016,6 @@ impl TransportCommander {
         self.send_message_expect_response_blocking(req, done_tx, timeout)?;
         Ok(done_rx)
     }
-
-    // pub(crate) async fn send_stream_sideband_forget(
-    //     &self,
-    //     path_kind: PathKindOwned,
-    //     sideband_cmd: StreamSidebandCommand,
-    // ) -> Result<(), Error> {
-    //     let req = ww_client_server::RequestOwned {
-    //         seq: 0,
-    //         path_kind,
-    //         kind: RequestKindOwned::StreamSideband { sideband_cmd },
-    //     };
-    //     let req = req.to_ww_bytes_owned()?;
-    //     self.cmd_tx
-    //         .send(Command::SendMessage {
-    //             bytes: req,
-    //             done_tx: None,
-    //         })
-    //         .await
-    //         .map_err(|_| Error::EventLoopNotRunning)?;
-    //     Ok(())
-    // }
-
-    // pub(crate) fn send_stream_sideband_forget_blocking(
-    //     &self,
-    //     path_kind: PathKindOwned,
-    //     sideband_cmd: StreamSidebandCommand,
-    // ) -> Result<(), Error> {
-    //     let req = ww_client_server::RequestOwned {
-    //         seq: 0,
-    //         path_kind,
-    //         kind: RequestKindOwned::StreamSideband { sideband_cmd },
-    //     };
-    //     let req = req.to_ww_bytes_owned()?;
-    //     self.cmd_tx
-    //         .blocking_send(Command::SendMessage {
-    //             bytes: req,
-    //             done_tx: None,
-    //         })
-    //         .map_err(|_| Error::EventLoopNotRunning)?;
-    //     Ok(())
-    // }
 
     pub(crate) async fn send_introspect(
         &self,

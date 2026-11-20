@@ -145,7 +145,6 @@ mod tests {
                 server = true, no_alloc = true, use_async = true,
                 method_model = "_=immediate",
                 property_model = "_=get_set",
-                // debug_to_file = "../../target/tests_streams_reliable_server.rs"
             );
         }
 
@@ -191,7 +190,6 @@ mod tests {
             wire_weaver::ww_codegen!(
                 streams_reliable_api :: StreamsReliable for super::Client,
                 client = "std_client",
-                // debug_to_file = "../../target/tests_streams_reliable_client.rs"
             );
         }
     }

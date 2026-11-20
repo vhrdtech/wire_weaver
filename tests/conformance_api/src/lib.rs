@@ -601,7 +601,7 @@ pub enum FixedOp {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-// Series (SW-60)
+// Series section (SW-60)
 
 #[derive_shrink_wrap(borrowed, owned, series, derive(Debug, PartialEq, Clone, Copy))]
 pub struct Sample {

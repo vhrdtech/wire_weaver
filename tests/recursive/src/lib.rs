@@ -125,7 +125,6 @@ mod tests {
                 method_model = "_=immediate",
                 property_model = "_=get_set",
                 introspect = "no_docs",
-                // debug_to_file = "../../target/tests_recursive_server.rs"
             );
         }
 
@@ -165,7 +164,6 @@ mod tests {
             wire_weaver::ww_codegen!(
                 recursive_api :: Recursive for super::StdClient,
                 client = "std_client",
-                // debug_to_file = "../../target/tests_recursive_client.rs"
             );
         }
     }

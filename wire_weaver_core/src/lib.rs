@@ -4,7 +4,6 @@ extern crate proc_macro;
 pub mod codegen;
 pub mod const_model;
 pub mod handler_model;
-// pub mod eval;
 pub mod layout;
 mod local_registry;
 pub mod method_model;

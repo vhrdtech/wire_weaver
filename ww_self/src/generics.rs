@@ -1873,7 +1873,7 @@ mod tests {
 
     #[test]
     fn cycles_through_generic_definitions_are_errors() {
-        // struct A<T> { a: Option<Box<A<T>>> }
+        // A<T> has a field holding an optional box of A<T> itself
         let types = vec![def(
             "A",
             vec![param("T")],
@@ -2064,7 +2064,7 @@ mod tests {
 
     #[test]
     fn enums_and_const_params_passed_on() {
-        // enum E<const N: u64> { A(Buf<N>) }
+        // an enum E over a const parameter N, whose variant A holds a Buf of N
         let mut types = timed_and_buf();
         types.push(TypeLocationOwned::InLine {
             ty: TypeOwned::Enum(ItemEnumOwned {

@@ -400,16 +400,8 @@ impl ClientConfig {
         Default::default()
     }
 
-    // pub fn from_pieces(pieces: impl IntoIterator<Item = ConfigPiece>) -> Self {
-    //     Self {
-    //         pieces: pieces.into_iter().collect(),
-    //         ..Default::default()
-    //     }
-    // }
-
     pub(crate) fn validate(self) -> Result<ValidatedConfig> {
         let s = self;
-        // s.canonicalize();
         let resolver = s.resolver.unwrap_or_else(Resolver::global);
         let introspect_client = match s.introspect_client {
             Some((ww_self_bytes, api_hash)) if !s.traits_only => Some(
@@ -1064,43 +1056,6 @@ impl ClientConfig {
         });
         f
     }
-
-    // pub(crate) fn canonicalize(&mut self) {
-    //     #[cfg(feature = "usb")]
-    //     self.canonicalize_inner(
-    //         &[
-    //             ConfigPieceDiscriminants::Usb,
-    //             ConfigPieceDiscriminants::UsbVidPid,
-    //             ConfigPieceDiscriminants::UsbPath,
-    //         ],
-    //         ConfigPieceDiscriminants::NoUsb,
-    //     );
-    // }
-
-    // fn canonicalize_inner(
-    //     &mut self,
-    //     opt_in: &[ConfigPieceDiscriminants],
-    //     opt_out: ConfigPieceDiscriminants,
-    // ) {
-    //     let mut opt_in_at = vec![];
-    //     let mut remove_at = vec![];
-    //     for (idx, p) in self.pieces.iter().enumerate() {
-    //         let kind = ConfigPieceDiscriminants::from(p);
-    //         if opt_in.contains(&kind) {
-    //             opt_in_at.push(idx);
-    //         }
-    //         if kind == opt_out {
-    //             remove_at.extend(opt_in_at.drain(..));
-    //             remove_at.push(idx);
-    //         }
-    //     }
-    //     let mut idx = 0;
-    //     self.pieces.retain(|_| {
-    //         let retain = !remove_at.contains(&idx);
-    //         idx += 1;
-    //         retain
-    //     });
-    // }
 }
 
 #[cfg(test)]

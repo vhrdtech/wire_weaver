@@ -126,7 +126,6 @@ mod tests {
                 server = true, no_alloc = true, use_async = false,
                 method_model = "_=immediate",
                 property_model = "_=get_set",
-                // debug_to_file = "../../target/tests_module_paths_server.rs"
             );
         }
 
@@ -166,7 +165,6 @@ mod tests {
             wire_weaver::ww_codegen!(
                 module_paths_api :: ModulePaths for super::StdClient,
                 client = "std_client",
-                // debug_to_file = "../../target/tests_module_paths_client.rs"
             );
         }
     }

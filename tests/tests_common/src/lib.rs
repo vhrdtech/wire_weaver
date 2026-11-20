@@ -2,6 +2,9 @@
 //! `in_process` transport. Tests drive it with a generated client, exactly as a real device over USB, link setup,
 //! timeouts and streams included.
 
+mod locked;
+
+use crate::locked::Locked;
 use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -88,7 +91,7 @@ impl DeviceApi {
         }
         // spirit-level: allow(static-interior-mutability) the resolver it seeds is process-wide, so is the memo of what went in
         static SEEDED: Mutex<Vec<Vec<u8>>> = Mutex::new(Vec::new());
-        let mut seeded = SEEDED.lock().expect("seeding panicked");
+        let mut seeded = SEEDED.locked();
         let key = self.hash.no_docs.make_owned().hash;
         if seeded.contains(&key) {
             return;
@@ -322,7 +325,7 @@ impl TestDevice {
     /// Look at every request before the server does, drop the ones `filter` returns true for, as a lossy medium
     /// would. Requests are serialized `ww_client_server::Request`s.
     pub fn filter_requests(&self, filter: impl FnMut(&[u8]) -> bool + Send + 'static) {
-        *self.filter.lock().unwrap() = Some(Box::new(filter));
+        *self.filter.locked() = Some(Box::new(filter));
     }
 
     /// Take this long over every request from now on (the device's loop waits, as a busy device's does), so that
@@ -924,7 +927,7 @@ impl<S: Process> WireWeaverAsyncApiBackend for TestBackend<S> {
         if slow > 0 {
             tokio::time::sleep(std::time::Duration::from_micros(slow)).await;
         }
-        if let Some(filter) = self.filter.lock().unwrap().as_mut()
+        if let Some(filter) = self.filter.locked().as_mut()
             && filter(data)
         {
             return Ok(&[]);

@@ -11,6 +11,7 @@
 //! - [SimBus] is what the host lists: the app or the BOOTSEL device, as a real USB bus would show them, with a short
 //!   gap while the device re-enumerates.
 
+use crate::locked::Locked;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -148,7 +149,7 @@ async fn device_thread(
         let into = match image {
             Some(version) => {
                 let usb = app_on_bus(&serial);
-                *mode.lock().unwrap() = Mode::App(version);
+                *mode.locked() = Mode::App(version);
                 _ = boots.send(Mode::App(version));
                 let app = App {
                     version,
@@ -157,7 +158,7 @@ async fn device_thread(
                 let Some(into) = run_app(app, usb, &mut stop).await else {
                     return;
                 };
-                *mode.lock().unwrap() = Mode::Off;
+                *mode.locked() = Mode::Off;
                 into
             }
             None => BootTarget::Updater,
@@ -167,7 +168,7 @@ async fn device_thread(
         }
         tokio::time::sleep(REENUMERATE).await;
         sim.reset();
-        *mode.lock().unwrap() = Mode::Bootsel;
+        *mode.locked() = Mode::Bootsel;
         _ = boots.send(Mode::Bootsel);
         let reboot = loop {
             if let Some(r) = sim.reboot_request() {
@@ -180,7 +181,7 @@ async fn device_thread(
         };
         // the reply to REBOOT2 is out, the ROM waits the delay and resets
         tokio::time::sleep(reboot.delay).await;
-        *mode.lock().unwrap() = Mode::Off;
+        *mode.locked() = Mode::Off;
         to_bootsel = reboot.flags & REBOOT2_TYPE_MASK == REBOOT2_TYPE_BOOTSEL;
     }
 }
@@ -310,7 +311,7 @@ pub struct SimBus {
 impl SimBus {
     /// Open the PICOBOOT interface of the BOOTSEL device `info`.
     pub fn open(&self, info: &DeviceInfo) -> Result<SimRp2350, ww_picoboot::Error> {
-        let bootsel = *self.mode.lock().unwrap() == Mode::Bootsel;
+        let bootsel = *self.mode.locked() == Mode::Bootsel;
         if bootsel && info.serials.contains(&self.serial) {
             Ok(self.sim.clone())
         } else {
@@ -329,7 +330,7 @@ impl Bus for SimBus {
                 pid,
             })
         };
-        let mode = *self.mode.lock().unwrap();
+        let mode = *self.mode.locked();
         Ok(match mode {
             Mode::Off => vec![],
             Mode::App(_) => vec![DeviceInfo {
@@ -358,6 +359,7 @@ impl Bus for SimBus {
     }
 }
 
+mod locked;
 pub mod stm32;
 
 #[cfg(test)]

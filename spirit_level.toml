@@ -256,14 +256,7 @@ expires = "2026-12-15"
 
 [[exceptions]]
 lint = "lock-unwrap"
-crates = [
-    "follow_reboot",
-    "hub",
-    "hub_reconnect",
-    "local_trait",
-    "tests_common",
-    "thermo_devices",
-]
+crates = ["hub"]
 level = "allow"
 reason = "lock().unwrap(); P2401#20nov-1155c (locks and shared state) removes them"
 expires = "2026-12-15"

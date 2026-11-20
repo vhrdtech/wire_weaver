@@ -2,6 +2,7 @@
 //! (`reboot(Updater)`), which comes back as a simulated `0483:df11` under the same serial number
 //! ([ww_stm32_dfu::rom_serial] of the chip's unique id), takes a new image over DfuSe, jumps to flash and boots it.
 
+use crate::locked::Locked;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -85,19 +86,19 @@ async fn device_thread(
         };
         if let Some(version) = image {
             let usb = app_on_bus(&serial);
-            *mode.lock().unwrap() = Mode::App(version);
+            *mode.locked() = Mode::App(version);
             _ = boots.send(Mode::App(version));
             let Some(into) = run_app(App::new(version), usb, &mut stop).await else {
                 return;
             };
-            *mode.lock().unwrap() = Mode::Off;
+            *mode.locked() = Mode::Off;
             if into == BootTarget::App {
                 continue;
             }
             tokio::time::sleep(REENUMERATE).await;
         }
         sim.reset();
-        *mode.lock().unwrap() = Mode::Bootsel;
+        *mode.locked() = Mode::Bootsel;
         _ = boots.send(Mode::Bootsel);
         // in DFU until the host leaves it
         while sim.left().is_none() {
@@ -106,7 +107,7 @@ async fn device_thread(
                 _ = stop.recv() => return,
             }
         }
-        *mode.lock().unwrap() = Mode::Off;
+        *mode.locked() = Mode::Off;
         to_rom = false;
     }
 }
@@ -121,7 +122,7 @@ pub struct Stm32Bus {
 impl Stm32Bus {
     /// Open the DFU interface of the bootloader `info`.
     pub fn open(&self, info: &DeviceInfo) -> Result<SimStm32Dfu, ww_stm32_dfu::Error> {
-        let in_dfu = *self.mode.lock().unwrap() == Mode::Bootsel;
+        let in_dfu = *self.mode.locked() == Mode::Bootsel;
         if in_dfu && info.serials.contains(&self.serial) {
             Ok(self.sim.clone())
         } else {
@@ -140,7 +141,7 @@ impl Bus for Stm32Bus {
                 pid,
             })
         };
-        let mode = *self.mode.lock().unwrap();
+        let mode = *self.mode.locked();
         Ok(match mode {
             Mode::Off => vec![],
             Mode::App(_) => vec![DeviceInfo {

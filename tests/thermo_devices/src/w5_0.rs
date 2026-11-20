@@ -2,6 +2,7 @@
 //! and `uptime`.
 
 use crate::Shared;
+use crate::locked::Locked;
 use thermo_api_5_0_0::common::{Command, IndicationMode, RateError};
 use thermo_api_5_0_0::wire_v1::{Mode, Sample};
 use wire_weaver::prelude::*;
@@ -41,7 +42,7 @@ impl Server {
         if rate.get() == 999 {
             return RpcResult::Ready(Err(RateError::Busy.into()));
         }
-        self.shared.lock().unwrap().rate = rate.get();
+        self.shared.locked().rate = rate.get();
         RpcResult::Ready(Ok(()))
     }
 
@@ -191,7 +192,7 @@ impl tests_common::TestProcessEventsAsync for Server {
         out: &mut impl EventOut,
         medium: (),
     ) -> Result<&'a [u8], ShrinkWrapError> {
-        self.shared.lock().unwrap().requests += 1;
+        self.shared.locked().requests += 1;
         self.process_request_bytes(bytes, scratch, out, medium)
             .await
     }

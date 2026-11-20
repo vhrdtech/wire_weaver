@@ -5,6 +5,9 @@
 //! [server::CounterServer] shows the other direction: a server whose handlers forward to the same local
 //! implementation, so the logic is written once and served remotely when needed.
 
+mod locked;
+
+use crate::locked::Locked;
 use futures_lite::StreamExt;
 use local_trait_api::{Counter, CounterError, SnapshotOwned};
 use std::sync::Mutex;
@@ -37,7 +40,7 @@ impl LocalCounter {
 impl Counter for LocalCounter {
     async fn add(&self, _cx: &CallContext, by: u32) -> Result<u32, Error> {
         let total = {
-            let mut state = self.state.lock().unwrap();
+            let mut state = self.state.locked();
             state.total = state.total.wrapping_add(by.wrapping_mul(state.step));
             state.total
         };
@@ -50,11 +53,11 @@ impl Counter for LocalCounter {
         if parts == 0 {
             return Err(CallError::Api(CounterError::DivByZero));
         }
-        Ok(self.state.lock().unwrap().total / parts)
+        Ok(self.state.locked().total / parts)
     }
 
     async fn snapshot(&self, _cx: &CallContext) -> Result<SnapshotOwned, Error> {
-        let state = self.state.lock().unwrap();
+        let state = self.state.locked();
         Ok(SnapshotOwned {
             name: self.name.clone(),
             total: state.total,
@@ -63,7 +66,7 @@ impl Counter for LocalCounter {
     }
 
     async fn read_step(&self, _cx: &CallContext) -> Result<u32, Error> {
-        Ok(self.state.lock().unwrap().step)
+        Ok(self.state.locked().step)
     }
 
     async fn write_step(&self, cx: &CallContext, step: u32) -> Result<(), Error> {
@@ -73,7 +76,7 @@ impl Counter for LocalCounter {
                 "{addr}: the step is not set over the network"
             )));
         }
-        self.state.lock().unwrap().step = step;
+        self.state.locked().step = step;
         Ok(())
     }
 

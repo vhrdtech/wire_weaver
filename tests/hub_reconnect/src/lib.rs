@@ -2,6 +2,9 @@
 //! is served in the tests' own process: as `inproc:` for a hub in that process too (shut down and bound again), on a
 //! local socket (`ipc:`) for `hub_dev`, a hub in another process that is killed and started again by the client.
 
+mod locked;
+
+use crate::locked::Locked;
 use std::sync::{Arc, Mutex};
 
 use tests_common::TestDevice;
@@ -33,7 +36,7 @@ pub mod server {
             a: u32,
             b: u32,
         ) -> RpcResult<u32> {
-            self.seen.lock().unwrap().adds.push((a, b));
+            self.seen.locked().adds.push((a, b));
             RpcResult::Ready(a.wrapping_add(b))
         }
 

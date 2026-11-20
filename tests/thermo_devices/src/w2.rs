@@ -1,6 +1,7 @@
 //! Firmware of line 2, `thermo_api::wire_v2`, simulated.
 
 use crate::Shared;
+use crate::locked::Locked;
 use thermo_api::common::{Command, Config, IndicationMode, Mode, RateError, Sample, SelfTestError};
 use wire_weaver::prelude::*;
 use wire_weaver::ww_version::WireVersion;
@@ -42,7 +43,7 @@ impl Server {
         if config.rate.get() == 999 {
             return RpcResult::Ready(Err(RateError::Busy.into()));
         }
-        self.shared.lock().unwrap().rate = config.rate.get();
+        self.shared.locked().rate = config.rate.get();
         self.mode = config.mode;
         RpcResult::Ready(Ok(()))
     }
@@ -220,7 +221,7 @@ impl tests_common::TestProcessEventsAsync for Server {
         out: &mut impl EventOut,
         medium: (),
     ) -> Result<&'a [u8], ShrinkWrapError> {
-        self.shared.lock().unwrap().requests += 1;
+        self.shared.locked().requests += 1;
         self.process_request_bytes(bytes, scratch, out, medium)
             .await
     }

@@ -1,7 +1,7 @@
 # ww_settings
 
 > Power-cut safe settings store for devices: a struct of fields with defaults, kept as an evolvable
-> shrink_wrap record in NOR flash
+> shrink_wrap record in NOR (NOT OR) flash
 
 A struct of fields with a default each (STD-32), kept in NOR flash as a record of the fields that differ from
 their default, power-cut safe, and evolvable like any WireWeaver type. `#[derive(Settings)]` (from

@@ -1,6 +1,7 @@
 # foc_observe_api
 
-> The motor demo's 25 kHz FOC level as an API root, for the observe cell benches of examples_mcu
+> The motor demo's 25 kHz FOC (field-oriented control) level as an API root, for the observe cell benches of
+> examples_mcu
 
 An API-only crate (`no_std` by default, `std` feature for host-side tooling): depends on `ww_api` and `ww_si`
 (`electrical`, `angle`, `dimensionless`, `i32` units). Declares the 21 `ro+observe+batched` properties of the

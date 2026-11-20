@@ -1,6 +1,7 @@
 # ww_clock_sync
 
 > Host clock sync for WireWeaver devices: fits each device's clock against the host's and steers it onto UTC
+> (Coordinated Universal Time)
 
 Host-side clock synchronisation (STD-49) for devices serving `ww_timebase::Clock`: every device ends up on the
 host's UTC. The real code lives in `wire_weaver_client::clock_sync` (its `clock_sync` feature, on by default),

@@ -7,7 +7,8 @@ picks up the generated `Commander`-based client of `blinky_api`'s trait, so a us
 connection and call `on()` / `off()`.
 
 Run against a real device over USB (`cargo run --example blinky_simple`), against a simulated one in the same
-process (`blinky_blocking`), or over RTT, WebSocket and UDP with their own feature (`rtt`, `ws`, `udp`) and example.
+process (`blinky_blocking`), or over RTT (real-time transfer), WebSocket and UDP with their own feature (`rtt`,
+`ws`, `udp`) and example.
 
 See the [main repo](https://github.com/vhrdtech/wire_weaver) for the full picture and
 [documentation](https://vhrdtech.github.io/wire_weaver) for the step-by-step guide.

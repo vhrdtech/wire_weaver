@@ -1,9 +1,9 @@
 # ww_lz4
 
-> Streaming LZ4 block encoder for no_std and no alloc: one standard LZ4 block per chunk, history kept across
-> chunks
+> Streaming LZ4 (Lempel-Ziv 4) block encoder for no_std and no alloc: one standard LZ4 block per chunk, history
+> kept across chunks
 
-For a byte stream cut into chunks (a UART's RX, a log). Each chunk becomes one standard LZ4 block whose matches
+For a byte stream cut into chunks, a UART's receive line or a log. Each chunk becomes one standard LZ4 block whose matches
 may reach back into earlier chunks, up to the history `Encoder` keeps; a decoder that keeps the bytes it decoded
 before as the dictionary decodes it (`Decoder`, feature `std`; lz4_flex's `decompress_into_with_dict` or
 liblz4's `LZ4_decompress_safe_usingDict` elsewhere). History is what makes small chunks compress: 512 B chunks of

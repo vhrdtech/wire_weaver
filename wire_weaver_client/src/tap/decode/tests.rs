@@ -44,7 +44,7 @@ fn a_session_put_again_is_not_a_new_session() {
     while let Some(chunk) = sub.try_recv() {
         writer.relay_block(&mut defs, chunk.bytes()).unwrap();
     }
-    writer.finish().unwrap();
+    writer.close().unwrap();
 
     let mut decoder = Decoder::default().with_resolver(crate::test_resolver());
     let mut blocks = FileBlocks::new(std::fs::File::open(&path).unwrap());

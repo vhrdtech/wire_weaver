@@ -4,6 +4,7 @@
 
 - Declares `rust-version = "1.99"`: cargo of an older Rust refuses the crate.
 - `ww capture` errors read `creating a writer: FILE: locked by another writer`, step, file and kind once (ww_tape S2).
+- `ww capture` writes ww_tape 880b4f7's layout: a capture ends with a close record, which a later append may follow (WRITE-7).
 - `ww capture` writes ww_tape b3b6172's layout; `ww explain` and `ww stats --file` still read older captures' records.
 - `ww capture` keeps `FILE.lock` beside the capture while writing: removed at the end on unix, left on Windows.
 - `Program` has the field `hub: ww_hub::HubHost` (SRV-64): what the hub the binary hosts gets (its capture host); `HubHost::default()` for a hub that records nothing.

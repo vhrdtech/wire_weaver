@@ -409,10 +409,10 @@ async fn monitor_capture_and_explain_file_agree() {
     assert!(report.contains("add: 8"), "{report}");
     let live = live.map(|b| String::from_utf8(b).unwrap());
 
-    // `ww capture` wrote the same blocks, besides its own layout, puts, index, finish and tail; `ww explain
+    // `ww capture` wrote the same blocks, besides its own layout, puts, index, close and tail; `ww explain
     // FILE` prints the same text
     assert_eq!(writer.sink().path(), path);
-    writer.finish().unwrap();
+    writer.close().unwrap();
     let written = std::fs::read(&path).unwrap();
     let mut blocks = wire_weaver_client::ww_tape::FileBlocks::new(&written[..]);
     let mut producer = vec![];
@@ -610,10 +610,10 @@ async fn global_trait_calls_are_named_and_decoded() {
     }
 }
 /// TOOL-14: SIGTERM (a `timeout`, a service manager) ends a tapped command like Ctrl-C does: the capture is
-/// finished and renamed, not left as FILE.partial.
+/// closed and renamed, not left as FILE.partial.
 #[cfg(unix)]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn sigterm_finishes_the_capture_file() {
+async fn sigterm_closes_the_capture_file() {
     let device = demo_device("cli/tap_sigterm", 7);
     let dir = std::env::temp_dir().join(format!("ww_cli_tap_sigterm_{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();

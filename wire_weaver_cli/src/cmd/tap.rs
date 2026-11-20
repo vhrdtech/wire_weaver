@@ -964,7 +964,7 @@ pub(crate) async fn capture(
             result
                 .with_context(|| format!("capture stopped, {} kept as it is", current.display()))?;
             let path = writer.sink().path().to_path_buf();
-            writer.finish()?;
+            writer.close()?;
             Ok((path, blocks, bytes, lost))
         })
         .await?;

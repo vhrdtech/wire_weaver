@@ -82,6 +82,6 @@ fn run(
     let current = writer.sink().current_path().to_path_buf();
     result.with_context(|| format!("capture stopped, {} kept as it is", current.display()))?;
     let path = writer.sink().path().to_path_buf();
-    writer.finish()?;
+    writer.close()?;
     Ok(path)
 }

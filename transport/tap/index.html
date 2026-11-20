@@ -6451,10 +6451,10 @@ log is by its device's, and every frame and message has a number, so the decoder
 <p>A capture is tape blocks appended back to back. The tape format has a book of its own, the <a href="https://tape.vhrd.tech/">ww_tape
 book</a>: what a file holds, how time is stored and what survives damage, with a
 <a href="https://tape.vhrd.tech/format/">format reference</a> of its parts. <code>ww_tape::TapeWriter</code> writes a capture the
-way databases write their logs (a new file as <code>NAME.partial</code>, renamed when finished, data synced by a <code>SyncPolicy</code>, a
+way databases write their logs (a new file as <code>NAME.partial</code>, renamed when closed, data synced by a <code>SyncPolicy</code>, a
 failed write or sync the end of the file), and <code>ww_tape::FileBlocks</code> reads its longest valid prefix, or on past damage
 with <code>Recovery::Resync</code> (<a href="https://tape.vhrd.tech/format/#files">Files</a>). A capture ends with an index, a
-finish block and a tail; cutting a recording into several files is <a href="https://tape.vhrd.tech/format/#tape-pieces">tape
+close record and a tail; cutting a recording into several files is <a href="https://tape.vhrd.tech/format/#tape-pieces">tape
 pieces</a>. The definitions carry the device's API bundle, so <code>ww
 explain FILE</code> explains the requests and replies of a capture on any PC, without the device. A track's key hashes its
 resource names, so two runs give the same ids (<a href="https://tape.vhrd.tech/format/#track-identity">track

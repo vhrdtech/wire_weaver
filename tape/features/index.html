@@ -6538,7 +6538,7 @@
 <li>A writer reopens an unclosed piece and keeps every block up to the last one written. The resumed piece ends with the bytes of a write that never stopped.</li>
 <li>A chain resume also reads the closed pieces back. It handles a crash between a cut's close and the next piece.</li>
 <li>Writers write through a sink and chains through a store of tapes, so the same code writes files and memory.</li>
-<li>Read more: <a href="https://tape.vhrd.tech/resuming/">Resuming a writer</a>. Tests cut pieces and chains at every block and at random bytes; fuzz target <code>tape-resume</code>.</li>
+<li>Read more: <a href="https://tape.vhrd.tech/crashes/">When the power fails</a>. Tests cut pieces and chains at every block and at random bytes; fuzz target <code>tape-resume</code>.</li>
 <li>✅ <strong>WRITE-3 Writes say where they landed</strong></li>
 <li>Each write of a chunk or a block returns the offset and length where the block landed. A chain also returns the piece it landed in.</li>
 <li>Tests read each returned offset back (<code>placed.rs</code>).</li>
@@ -6565,7 +6565,17 @@
 <li>Nothing before the append moves. Each close hashes the close before it and the bytes since, so each close still checks its prefix.</li>
 <li>Readers take the last close whose tail is whole. Bytes after it read as an unclosed tail, never as damage.</li>
 <li>A resume cuts back only a torn end and refuses damage. A close with nothing appended writes no byte.</li>
-<li>Read more: <a href="https://tape.vhrd.tech/growing_pieces/">Reading a growing piece</a>, <a href="https://tape.vhrd.tech/format/#the-close-in-force">The close in force</a>. Fuzz target <code>tape-reclose</code>.</li>
+<li>
+<p>Read more: <a href="https://tape.vhrd.tech/growing_pieces/">Reading a growing piece</a>, <a href="https://tape.vhrd.tech/format/#the-close-in-force">The close in force</a>. Fuzz target <code>tape-reclose</code>.</p>
+</li>
+<li>
+<p>✅ <strong>WRITE-8 Pieces removed on purpose</strong></p>
+</li>
+<li>A close names pieces of its chain removed on purpose: sequence number, id and close hash, at most <code>REMOVED_PIECES_MAX</code> (65536).</li>
+<li><code>TapeWriter::record_removed</code> appends them to the chain's last piece after its close; every later close of the piece names them again.</li>
+<li><code>check_chain</code> links over the hole (<code>ChainLink::Removed</code>) when both ends match the rows. A head cut the rows cover reads as <code>head_removed</code>.</li>
+<li>Rows live in the piece that holds them: removing that piece later means naming them again (<code>ChainReport::removed</code>).</li>
+<li>Read more: <a href="https://tape.vhrd.tech/pieces_and_files/#pieces-removed-on-purpose">Pieces removed on purpose</a>. Golden <code>v1-removed.hex</code>.</li>
 </ul>
 <h2 id="reader-read">Reader (<code>READ</code>)<a class="headerlink" href="#reader-read" title="Permanent link">&para;</a></h2>
 <p>Reading by position, checks and hashes, hostile bytes, in the crate <code>ww_tape</code>.</p>
@@ -6651,6 +6661,22 @@
 <li>The pages build as a Zensical site of their own. A broken link or anchor fails <code>just book-check</code>, which runs in CI.</li>
 <li>The book links the WireWeaver and logring books and includes neither. It is published from main to <a href="https://tape.vhrd.tech/">https://tape.vhrd.tech/</a> once CI passes.</li>
 <li>Read more: <a href="https://tape.vhrd.tech/">Tapes</a>.</li>
+<li>🚧 <strong>BOOK-2 A book that teaches</strong></li>
+<li>Done: <code>[[term]]</code> marks a glossary term and <code>[`Item`]</code> links code, both with a card on hover; a stale name fails <code>just book-check</code>.</li>
+<li>Done: six parts in dependency order, a reading level on every page, and doctests of a page's <code>rust</code> blocks.</li>
+<li>Done: the chapter "When the power fails", its figures drawn from a real crash and its code from a test.</li>
+<li>Done: the running example as code (BOOK-3).</li>
+<li>Open: the chapters still stubs, tested code in every guide chapter.</li>
+<li>
+<p>Read more: <a href="https://tape.vhrd.tech/writers/">For writers</a>, <a href="https://tape.vhrd.tech/glossary/">Glossary</a>.</p>
+</li>
+<li>
+<p>✅ <strong>BOOK-3 The running example as code</strong></p>
+</li>
+<li><code>ww_tape_example</code> records the drive motor controller's hour: log lines, mode, CAN frames, phase current with summaries and temperature, in a chain of pieces.</li>
+<li><code>Drive::scaled</code> shrinks the data and the byte policies for figures; a crash at any byte resumes to the bytes of the run without it.</li>
+<li><code>cargo run -p ww_tape_example</code> prints the story's numbers; <code>tests/story.rs</code> checks them and that the full hour is the same every run.</li>
+<li>Read more: <a href="https://github.com/vhrdtech/ww_tape/blob/880b4f742bb617d23cb7d481b43e0f53eecb0e82/ww_tape_example/README.md">ww_tape_example</a>.</li>
 </ul>
 <h2 id="repository-repo">Repository (<code>REPO</code>)<a class="headerlink" href="#repository-repo" title="Permanent link">&para;</a></h2>
 <p>Crates, checks, fuzzing and benches.</p>

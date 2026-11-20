@@ -123,16 +123,6 @@ reason = "work merges into master; the local master branch may lag behind origin
 
 # Lints that cannot run yet. A deny-level lint that cannot run fails spl check, so each is off until its task.
 
-[lints.cargo-no-std]
-level = "allow"
-reason = "needs the crate map; P2401#20nov-1155h (crate map) adds it from layers.toml and turns this lint on"
-expires = "2026-12-15"
-
-[lints.cargo-wasm]
-level = "allow"
-reason = "needs the crate map; P2401#20nov-1155h (crate map) adds it from layers.toml and turns this lint on"
-expires = "2026-12-15"
-
 [lints.semver-checks-breaking]
 level = "allow"
 reason = "spl's run cannot build the wire_weaver 0.4.0 baseline's rustdoc; the CI semver-checks job checks the published crates"

@@ -101,6 +101,10 @@ lint:
     CARGO_BUILD_WARNINGS=deny RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --all-features
     just lint-c
 
+# spirit_level's lints of spirit_level.toml, after the book pages are assembled so its link and nav lints see them
+spl: book-assemble
+    spl check --progress never
+
 # Build the shrink_wrap C runtime and sw_requantize.c (also with SW_NO_F64) on their own, warnings are errors (SW-43, CLT-54); the generated fixed-layout and head+tail C readers are checked in the shrink_wrap repository
 lint-c:
     cc -std=c99 -Wall -Wextra -Werror -pedantic -Wconversion -Wsign-conversion -c shrink_wrap_c/shrink_wrap.c -o /dev/null

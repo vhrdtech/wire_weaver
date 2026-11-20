@@ -266,6 +266,65 @@ impl Drop for DeviceRx {
     }
 }
 
+/// Register a server under `path` that takes every host connecting to it as a connection of its own
+/// ([Listener::accept]), where [device] serves one host at a time. A device or server already registered under the
+/// same path is replaced.
+///
+/// `max_message_len` is reported to each host as the longest message the server can receive.
+pub fn listener(path: &str, max_message_len: usize) -> Listener {
+    let (connections_tx, connections) = register(path, Medium::Messages);
+    Listener {
+        path: path.to_string(),
+        connections_tx,
+        connections,
+        max_message_len,
+    }
+}
+
+/// The server side of [listener]. Dropping it unregisters the path; connections already accepted live on.
+pub struct Listener {
+    path: String,
+    /// To tell whether the registry entry is still this listener's on drop
+    connections_tx: mpsc::UnboundedSender<Connection>,
+    connections: mpsc::UnboundedReceiver<Connection>,
+    max_message_len: usize,
+}
+
+impl Listener {
+    /// The next host that connected, as the message halves of its connection. Cancel-safe.
+    pub async fn accept(&mut self) -> (DeviceTx, DeviceRx) {
+        let connection = match self.connections.recv().await {
+            Some(connection) => connection,
+            // cannot happen, connections_tx is held by self
+            None => core::future::pending().await,
+        };
+        // the halves of one connection: its own channel holds this host alone, and nothing registered
+        let (connections_tx, connections) = mpsc::unbounded_channel();
+        let _ = connections_tx.send(connection);
+        let to_host = Arc::new(Mutex::new(None));
+        (
+            DeviceTx {
+                to_host: to_host.clone(),
+            },
+            DeviceRx {
+                path: self.path.clone(),
+                connections_tx,
+                connections,
+                to_device: None,
+                to_host,
+                message: None,
+                max_message_len: self.max_message_len,
+            },
+        )
+    }
+}
+
+impl Drop for Listener {
+    fn drop(&mut self) {
+        unregister(&self.path, &self.connections_tx);
+    }
+}
+
 /// Register a device under `path` that speaks USB packets of at most `max_packet_size` bytes (64 for full speed,
 /// 512 for high speed bulk endpoints), see [Simulated USB](self#simulated-usb). The device wraps the returned halves
 /// in [ww_device::FramedTx] / [ww_device::FramedRx], as it does its USB endpoints. A device already registered under

@@ -289,7 +289,7 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   dynamic clients and Python decode alike (`docs/api/stream_compression.md`; tests `ww_stream` `tests::codec`,
   `wire_weaver_client` `compressed_stream_decodes_and_heals` and `unknown_codec_reopens_raw`, `tests/io_uart`
   `rx_compressed`). To check on
-  hardware: Donguru's UART rx at 6 Mbaud (typec_dongle FW-42). Not yet: a restart the host asks for, batched and
+  hardware: Portwright's UART rx at 6 Mbaud (typec_dongle FW-42). Not yet: a restart the host asks for, batched and
   reliable streams, sinks (host -> device).
 
 ## Server / device side (`SRV`)
@@ -526,9 +526,9 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   default, `use_async` without one) its handlers are `async fn` or plain `fn`; the dispatcher and `poll_properties`
   call sync ones without `.await`, a level whose items are all sync gets a plain `fn` dispatcher. A handler of the
   other kind is a compile error (`wire_weaver::handler` checks), so is a pattern that matches nothing.
-  `ww api scaffold --handler-model`. Donguru: -20.2 KiB flash at `z`, -12.6 KiB at 3. `docs/api/handlers.md`; test
+  `ww api scaffold --handler-model`. Portwright: -20.2 KiB flash at `z`, -12.6 KiB at 3. `docs/api/handlers.md`; test
   `tests/observe` (a mixed server).
-- ✅ **SRV-23 observe-table-unsized One observe table code for every level** — `ww_stream::observe::ObserveTable<S: ?Sized = [Slot]>`: a level stores `ObserveTable<[Slot; N]>`, the methods (`apply`, `plan`, `commit`, ...) are compiled once, on `ObserveTable<[Slot]>`; `LevelDesc` is slices, the plan and the selection keep their per-slot state in caller storage (`Due`, `Mark`), and levels without observable properties answer `Observe` through one shared path (`refuse_all`). Donguru: −13.3 KiB flash at `opt-level = 3`, −9.4 KiB at `z`. `ww_stream/src/observe.rs`, `docs/api/observing.md#the-device-side`.
+- ✅ **SRV-23 observe-table-unsized One observe table code for every level** — `ww_stream::observe::ObserveTable<S: ?Sized = [Slot]>`: a level stores `ObserveTable<[Slot; N]>`, the methods (`apply`, `plan`, `commit`, ...) are compiled once, on `ObserveTable<[Slot]>`; `LevelDesc` is slices, the plan and the selection keep their per-slot state in caller storage (`Due`, `Mark`), and levels without observable properties answer `Observe` through one shared path (`refuse_all`). Portwright: −13.3 KiB flash at `opt-level = 3`, −9.4 KiB at `z`. `ww_stream/src/observe.rs`, `docs/api/observing.md#the-device-side`.
 - ✅ **SRV-25 event-driven-observe No fixed observe tick** — a device sleeps until something observed is due
   instead of polling every millisecond. `ObserveState::next_wake(now_us)` (`ObserveTable::next_wake` per level: the
   periodic grid, `last + min` of a changed property, `last + max` of a beat, a held level's bucket refill, a batch
@@ -538,12 +538,12 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   `ww_device::Server::wait_until(at)`; `ww api scaffold` prints the signal. Tests: `ww_stream` (polling only at
   `next_wake` sends what polling every µs does), `tests/observe` (fake clock: polls only on the grid, a change from
   another thread sent at once), `tests/observe_batched`. `docs/api/observing.md#the-server-loop`.
-- ✅ **SRV-24 shared-observe-loop One observe loop for every level** — the algorithm of `poll_properties` (plan, overhead, selection, measuring, writing, commit, missed counts, batches of samples) is `ww_stream::observe`'s, sync: `plan_level`, `select`, `write`, `ser_update`. The generated `poll_properties` is one loop over the levels with one send site; per property it gives only a `size` and a `write` arm (through `&mut dyn FnMut`) and awaits its async getters (SRV-21) itself, reading an unbounded async value once. `ObserveState::level` / `oldest_batch` / `remove_oldest_batch` reach a level by its number. Donguru, on top of SRV-21 and SRV-23: −5.8 KiB flash at `opt-level = 3`, −5.0 KiB at `z`. `ww_stream/src/observe.rs`, `docs/api/observing.md#the-device-side`; tests `tests/observe`, `tests/observe_batched`, `ww_stream/src/observe/tests.rs`. A value that can't be had at write time is dropped alone (counted missed), the rest of the update goes; tested on Donguru B153A (`plug` with `cc` unimplemented).
+- ✅ **SRV-24 shared-observe-loop One observe loop for every level** — the algorithm of `poll_properties` (plan, overhead, selection, measuring, writing, commit, missed counts, batches of samples) is `ww_stream::observe`'s, sync: `plan_level`, `select`, `write`, `ser_update`. The generated `poll_properties` is one loop over the levels with one send site; per property it gives only a `size` and a `write` arm (through `&mut dyn FnMut`) and awaits its async getters (SRV-21) itself, reading an unbounded async value once. `ObserveState::level` / `oldest_batch` / `remove_oldest_batch` reach a level by its number. Portwright, on top of SRV-21 and SRV-23: −5.8 KiB flash at `opt-level = 3`, −5.0 KiB at `z`. `ww_stream/src/observe.rs`, `docs/api/observing.md#the-device-side`; tests `tests/observe`, `tests/observe_batched`, `ww_stream/src/observe/tests.rs`. A value that can't be had at write time is dropped alone (counted missed), the rest of the update goes; tested on Portwright B153A (`plug` with `cc` unimplemented).
 - ✅ **SRV-22 error-seq-per-item Error sites numbered the same in every server** — `err_seq` of an `Error` is no
-  longer one counter across the generated server (705 numbers on Donguru) but fixed per site
+  longer one counter across the generated server (705 numbers on Portwright) but fixed per site
   (`ww_client_server::err_seq`): item steps in step order and the same for every item (0 kind not taken, 1 decode,
   2 handler, 3 encode, ..), level sites (40..), request sites (48..), deferred return (32..). With the build, the
-  request path and the error kind it still pinpoints one site, and identical error arms are shared code: Donguru
+  request path and the error kind it still pinpoints one site, and identical error arms are shared code: Portwright
   -1.5 KiB flash at `z`, -1.7 KiB at 3. `Error::site()`, the host prints `Unimplemented at item site 2 (handler)`.
   `docs/api/errors.md#where-on-the-device-an-error-came-from`; tests `tests/methods`, `tests/traits`.
 - ✅ **SRV-27 ww-lz4-encoder Streaming LZ4 encoder for byte streams** — `ww_lz4`, no_std, no alloc: each chunk of a
@@ -676,7 +676,7 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   the window and firmware had no way to flush it. Tests: `ww_device` `async_server::replies_flushed_by_priority`,
   `wire_weaver_client` `flush_e2e_tests`. On hardware: part of CLT-50's re-measure.
 - 💡 **SRV-41 Fewer wakes on the hub path** — the tunnel's cost is two extra process wakes per message (client →
-  hub → client): 16 B round trips over USB FS are 15 % (donguru) and 23 % (b200) fewer than direct on an idle PC
+  hub → client): 16 B round trips over USB FS are 15 % (portwright) and 23 % (b200) fewer than direct on an idle PC
   (median of 7 rounds), 3.5 % and 12.6 % under load; the hub's own USB round trip equals direct (480 µs against
   510-600 µs), throughput and max-size transfers are as direct. Ideas if it matters: busy-poll the socket for a short
   window after a request (spends a core), or a shared-memory ring between client and hub with a futex / event for
@@ -707,12 +707,12 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   `docs/std_library/ww_timebase.md#one-steerer-at-a-time`; E2E in `tests/hub` (`clock_sync`), `tests/io_timebase`.
   Paused (`SyncPhase::Paused`, readings go on, no steer points) while a program holds the whole device (SRV-32);
   programs holding a device directly steer on their own connection by default (CLT-46).
-  Checked on one of our dev PCs (22 Oct 2026, Donguru and B135 through the hub, `ww sync` as its view): `Locked` 1.4-2.6 s
+  Checked on one of our dev PCs (22 Oct 2026, Portwright and B135 through the hub, `ww sync` as its view): `Locked` 1.4-2.6 s
   after the hub opened them with no cached rate, 0.4 s with one, also after a hub restart and after 60 s closed in
   holdover; a loop of short `ww info` calls goes through the hub from its third call and the board stays steered
   without clients for the sync linger, then closes; residual against UTC B135 -5..-16 µs (±55 µs, RTT 120 µs),
-  Donguru within ±1.2 ms (RTT 1.4-1.6 ms). Two steerers on one board (follow one, note the other, take over) checked
-  on Donguru and B135 by `bedrock_sync`'s side.
+  Portwright within ±1.2 ms (RTT 1.4-1.6 ms). Two steerers on one board (follow one, note the other, take over) checked
+  on Portwright and B135 by `bedrock_sync`'s side.
 - 🧪 **SRV-32 Device-wide exclusive and lending** · `v0.5.x` — exclusive access to a whole device (DFU, settings
   writes) is a claim on its root path (SRV-34): other programs' calls and writes anywhere on it refused naming the
   holder, and `Hub::steering_paused` for the hub's clock steering (SRV-31 skips the device while it holds);
@@ -723,10 +723,10 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   held it; `Lent` / `Returned` events; a crashed borrower or a ttl returns it. `ww hub lend DEVICE -- CMD` (Ctrl+C
   reaches the command, its exit code is ww's), `hub::Lend`. `docs/transport/hub.md`; tests `ww_hub` (`claims`),
   `tests/hub` (`exclusive*`, `lend*`). Lending checked on one of our dev PCs (22 Oct 2026): `ww hub lend 204B319B5431 --
-  sh -c '...; probe-rs reset --probe <J-Link> ...'` on Donguru while `ww sync` watched it through the hub: the hub
+  sh -c '...; probe-rs reset --probe <J-Link> ...'` on Portwright while `ww sync` watched it through the hub: the hub
   paused its steering and closed the device 7 ms after the ask, the command ran, the device was back open in the hub
   3 ms after the return (1.4 s for the whole lend), and `ww sync`'s connection came back and the board was `Locked`
-  again 1.8 s later. Open: `ww dfu flash` through the hub on hardware, as no free bench board has chunky A/B (Donguru
+  again 1.8 s later. Open: `ww dfu flash` through the hub on hardware, as no free bench board has chunky A/B (Portwright
   and B135 run in place without it, rePort was busy; B135 could be provisioned with vb135's `just
   provision-ab-dfu`, which erases its settings: the person's call); no `ww settings` command writes to a device yet (`dump` reads a file), one that
   does takes `Exclusive` the same way. Clients reconnect after a lend with the `Lent` reason (CLT-40), and the hub's
@@ -777,7 +777,7 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   (with CLT-52).
 - ✅ **SRV-51 Dispatcher arms: only what differs** · `v0.5` — flash diet: every call, read and write arm of the
   generated dispatcher inlined `EventKindBuilder::new`, the `map_err`s, the `seq != 0` check, the serializer call
-  and the whole `RpcResult` / `GetResult` / `SetResult` match (about 616 B per resource in Donguru). In a `no_alloc`
+  and the whole `RpcResult` / `GetResult` / `SetResult` match (about 616 B per resource in Portwright). In a `no_alloc`
   server each arm keeps only what differs (decode the arguments or value with `ww_client_server::dispatch::des`,
   call the handler) and hands the whole result to a shared `#[inline(never)]` path generic over the value and user
   error types (`reply_call`, `reply_get`, `reply_set`, `reply_value`, `reply_ok`, `reply_open_plain`,
@@ -788,12 +788,12 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   86 B at `fw-z` sync, 106 → 87 B async, 210 → 94 B at `fw-3`; a call with types of its own 300 → 96 B at `fw-z`.
   The floor grows 270-590 B (the shared paths). Instructions per request (`just dispatch-budget`) rose 2-15 % at
   `z` from `memcpy` of the levels' `Result`, which SRV-52 removes. A property whose types differ per resource only
-  in a const parameter (`MaxLen<&str, N>`) got dearer, one helper copy per type: SRV-55. Donguru not measured again: its HEAD (b946730)
+  in a const parameter (`MaxLen<&str, N>`) got dearer, one helper copy per type: SRV-55. Portwright not measured again: its HEAD (b946730)
   doesn't build against master (exact_units and STD-101 drift); from TEST-30's per-resource savings, roughly 6-9 KB
   of its 43 resources at `z`, 5 KB at 3. See `docs/articles/flash_budget.md#dispatcher-arms-only-what-differs-srv-51`.
 - ✅ **SRV-52 Dispatcher errors written in place** · `v0.5` — flash diet, after SRV-51: every level returned
   `Result<WrAction, ww_client_server::Error<'a>>` and propagated it with `?` (3.6-4.0 KB of `Try::branch`,
-  `map_err` and `mem::replace::<Option<shrink_wrap::Error>>` in Donguru). A level gets a
+  `map_err` and `mem::replace::<Option<shrink_wrap::Error>>` in Portwright). A level gets a
   `ww_client_server::dispatch::Dispatch` context (request, path, the writer's state where the reply starts,
   `in_multi`) and returns a one or two byte `WrAction`; an error is written where it happens by the cold
   `dispatch::err`, which rewinds the writer, and the root fills in the event kind at the reply's start, so no
@@ -804,26 +804,26 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   `docs/articles/flash_budget.md#errors-written-in-place-srv-52`.
 - ✅ **SRV-55 Type-erased reply paths** · `v0.5` — after SRV-51/52, the shared reply paths in
   `ww_client_server::dispatch` were generic over the value type, one copy per type with its serializer inlined
-  (177 functions, 25.8 KB in Donguru, which was 14.2 KB larger than before SRV-51). The generic entry points are
+  (177 functions, 25.8 KB in Portwright, which was 14.2 KB larger than before SRV-51). The generic entry points are
   `#[inline(always)]` and hand the value on as an `ErasedValue` (a pointer and a `fn` pointer to a thunk around
   its `ser_shrink_wrap`), so each path is compiled once per server mode; whether the type is unsized is a separate
   argument that LLVM drops without `multi_req`. `MaxLen<T, N>` decodes through `des_bounded::<T>`, one copy per
   `T` instead of per bound. `ww_device::Server::handle` polls in a function of its own (`PollOutOfLine`): inlined
-  into Donguru's server task it pulled in more and cost 6.2 KB. Donguru (typec_dongle, release at `z`)
+  into Portwright's server task it pulled in more and cost 6.2 KB. Portwright (typec_dongle, release at `z`)
   332,184 → 314,972 B, below c440491's 317,996 B; its dev build at `opt-level = 3` overflows FLASH by 960 B
-  instead of 16,532 B; donguru_template 135,676 → 132,164 B. TEST-30: the `MaxLen<&str, N>` kind 309 → 194 B at
+  instead of 16,532 B; portwright_template 135,676 → 132,164 B. TEST-30: the `MaxLen<&str, N>` kind 309 → 194 B at
   `z` sync, 526 → 256 B at `fw-3`, below its pre-SRV-51 cost except `z` async (230 B against 206 B); the
   shared-type mean where SRV-52 left it (86-102 B), a call with its own types +23 B at `fw-3` sync. Instructions per
   request within 1.5 %, same reply bytes (TEST-31), same handlers. See
   `docs/articles/flash_budget.md#reply-paths-without-a-copy-per-type-srv-55`.
 - 🚧 **SRV-56 No observe encoder without a row producer** — a firmware with a `+batched` property links the whole
-  batch encoder even when it never produces a row. Measured on Donguru (typec_dongle 61bca76, wire_weaver 753d5f7,
+  batch encoder even when it never produces a row. Measured on Portwright (typec_dongle 61bca76, wire_weaver 753d5f7,
   release at `z`, text+data): 289,580 B with `meter-samples` off, 293,780 B with it on.
   - **Done: `observe_samples = false`.** A `ww_codegen!` argument, so the choice stays in the firmware that makes it
     and the shared API crate doesn't change. No batcher, outbox, scratch or `Series` encoder; `ObserveState` and
     `poll_properties` are those of an API without `+batched`. API hash, snapshot, introspection and `Batched::One`
     bytes are the same (test `no_samples_keeps_the_api_and_the_bytes`). `Samples` is refused per entry with
-    `ModeNotSupported`, the rest of the request applies. Donguru with `meter-samples` off: 266,404 B, -23,176 B
+    `ModeNotSupported`, the rest of the request applies. Portwright with `meter-samples` off: 266,404 B, -23,176 B
     text+data, -3,392 B RAM, no `series::` or `ww_stream::batch::` symbol left, 136 B over the experiment below.
     TEST-30 has the kind: `docs/articles/flash_budget.md#no-samples-no-encoder-srv-56`. Not run on a board.
   - **Open: `observe_rows = "uniform"`**, the second switch below.
@@ -831,10 +831,10 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
     code no row can reach the encoder. Dropping `+batched` from `meter.reading` as an experiment gave 266,268 B:
     -23,312 B text+data, -3,392 B RAM, no `series::` symbol left. That experiment changes the slot's wire type, so
     the real switch has to keep `Batched::One` and will save somewhat less.
-  - **One caller, not two encoders.** The flash map of Donguru lists `Scratch::encode_column::<MeterReading>` (5.5 KiB)
+  - **One caller, not two encoders.** The flash map of Portwright lists `Scratch::encode_column::<MeterReading>` (5.5 KiB)
     and `PowerMeterRow::encode_column` (2.9 KiB) as two encoders. The second is the generated `LevelRow` match: it has
     the time column inlined and is the only caller of the first (one `bl` in the disassembly). `MeterReading` has no
-    batched stream in Donguru, so there is one consumer and no second pass to share.
+    batched stream in Portwright, so there is one consumer and no second pass to share.
   - **Where the flash goes.** Each column type carries the column writer and the item-by-item fallback for rows whose
     tags change, each as a write copy and a count copy. Stubbing the fallback out as an experiment saved 12,332 B with
     `meter-samples` off and 11,732 B with it on. Without a fallback, rows with changing tags can't be encoded.
@@ -847,7 +847,7 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
     generated server has `image_facts()` for `LinkConfig::new`. Later choices of an image append fields (a host
     knowing the codec of INT-16 before downloading, global lookup off of SRV-53). `wire_weaver_client` refuses
     `Samples` before sending (`Error::Unsupported`), so the generated and dynamic clients, `ww observe` and Python
-    get it. No wire break. It costs every image 256 B of flash (Donguru with `meter-samples`, release at `z`, typec_dongle
+    get it. No wire break. It costs every image 256 B of flash (Portwright with `meter-samples`, release at `z`, typec_dongle
     7c97d27, wire_weaver 0543991: 291,508 -> 291,764 B text+data), in the server's link code that writes
     `DeviceInfo`; 112 B of it is the size slot that lets the record grow. Off image on the same base: 287,316 ->
     264,404 B, 65,396 -> 62,004 B RAM. Tests `no_samples_is_refused_before_sending`, `image_facts_across_versions`,
@@ -859,7 +859,7 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
     `Samples` and sending nothing; now the refusal says why. With the facts the request never joins the merge.
 - ✅ **SRV-53 Global trait paths without names in flash** · `v0.5` — flash diet: `ww_global_trait_path` matched
   the crate and trait names of every trait in the API as strings, with a version guard per arm (862 B of code and
-  240 B of names in Donguru). The person's decision (3 Nov 2026), as built:
+  240 B of names in Portwright). The person's decision (3 Nov 2026), as built:
     1. Without introspection, a device finds a `GlobalFull` trait by a 32-bit FNV-1a hash of crate id and trait name
        (`ww_global::trait_hash`), computed from the request, in a const table of (hash, major, minor, absolute path)
        looked up by `ww_client_server::dispatch::global_full_path`: no names in flash. A hash collision within one
@@ -878,7 +878,7 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   TEST-30 (`Globals*` kind) on a Cortex-M0+: servers with introspection 120-156 B smaller at the floor; without,
   one more global-path trait 120 → 80 B at `fw-z` sync, 131 → 114 B at `fw-3`, no names in flash. Same reply bytes
   (TEST-31, golden servers on `global_paths = "full"`, a case for an incompatible version). Real firmware against
-  master 512f59e (release `z`, text + data): Donguru 314,892 → 312,476 B (−2,416), donguru_template 132,148 →
+  master 512f59e (release `z`, text + data): Portwright 314,892 → 312,476 B (−2,416), portwright_template 132,148 →
   130,280 B (−1,868). Not measured: the instructions of a `GlobalFull` request (no QEMU on the PC). Found on the way: an async server without introspection and only sync handlers didn't compile. Idea for
   later, not this piece: for mesh broadcast or multicast the client could send the hash itself (a new `PathKind`
   variant), so the device hashes nothing and requests shrink; that is a wire change (`PathKind` is
@@ -1186,7 +1186,7 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   with stale content left on disk: `holder_of`/`list` only ever trust a lock file while its lock is actually held.
   Device keys `usb:<vid>:<pid>:<serial>[:<iface>]`, `rtt:<probe serial>:<chip>`. A busy error from another
   WireWeaver holder names it (`usb/connect.rs`'s `with_claim_hint`, `rtt/event_loop.rs`'s `with_claim_hint`): "held
-  by dg, pid 4711, direct, since 14:02:03 UTC"; without a lock file (a non-ww program: probe-rs CLI, minicom,
+  by pw, pid 4711, direct, since 14:02:03 UTC"; without a lock file (a non-ww program: probe-rs CLI, minicom,
   dfu-util), Linux scans `/proc/*/fd` for the device node and names the process, elsewhere it just says "another
   program". Tested with a real second holder (a child process, killed to simulate a crash) and a released claim's
   stale content never reported as held.
@@ -1253,7 +1253,7 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   pauses it while it holds the device directly, `ww sync` and the hub turn it off (they steer with their own sync).
   `docs/std_library/ww_timebase.md#steering-in-every-direct-connection`; tests `tests/io_timebase`
   (`a_direct_connection_steers_by_itself`, `own_steering_never_keeps_the_connection_open`), `tests/hub`
-  (`ThroughHub`). Hardware check open: a board (rePort, Donguru on one of our dev PCs) steered by a direct `ww` command or
+  (`ThroughHub`). Hardware check open: a board (rePort, Portwright on one of our dev PCs) steered by a direct `ww` command or
   app, `ww sync` with a hub showing it followed, no second steerer with the hub.
 - 🧪 **CLT-43 Polite handover to the hub** · `v0.5.x` — a direct holder that allows it (by default command-line tools,
   notebooks and tests, not GUIs or services) hands its device to the hub when another program wants it, and goes on
@@ -1507,9 +1507,9 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   request with `embassy_futures::poll_once(rx.wait_message())`, a no-op waker; the RTT medium waits on an
   `embassy_time::Timer` while no data is there, and embassy-time panics on a waker not from its executor ("Found
   waker not created by the Embassy executor"). Every RTT device reset on its first request, the host saw no
-  `LinkSetup` (`examples_mcu/nucleo_g0b1re` `ww_rtt` and an embedded_bedrock template firmware on Donguru, 16 Oct
+  `LinkSetup` (`examples_mcu/nucleo_g0b1re` `ww_rtt` and an embedded_bedrock template firmware on Portwright, 16 Oct
   2026). Fixed: the check polls once with the calling task's waker (`ww_device` `server.rs` `poll_once_here`);
-  checked on Donguru over RTT through a J-Link. USB was not affected (no timer in its read).
+  checked on Portwright over RTT through a J-Link. USB was not affected (no timer in its read).
 - 🧪 **TR-16 Local socket transport** · `v0.5.x` — client feature `local_socket`: a device served by another process
   on the same PC (`ClientConfig::ipc_path`), over a Unix socket (Linux, macOS) or a named pipe (Windows) through
   `interprocess` (crate `ww_local_socket`): user-only (0700 runtime dir, 0600 socket, owner-only pipe DACL, the peer's
@@ -1536,12 +1536,12 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   client certificates as the peer's key (SRV-46).
 - 💡 **TR-11 MQTT / store-and-forward transport** — devices offline most of the time pick up a retained message on
   wake (an update plan, config), replies queued on the broker. Look at MQTT-SN and LwM2M first.
-- 🚧 **TR-12 USB throughput on small MCUs** — measured with `ww usb-loopback` on Donguru (STM32G0B1, Cortex-M0+
+- 🚧 **TR-12 USB throughput on small MCUs** — measured with `ww usb-loopback` on Portwright (STM32G0B1, Cortex-M0+
   64 MHz, USB FS behind the board's HS hub, 15 Oct 2026). Done: U2Head encodes and decodes whole bytes in u32
   instead of bit by bit (`ww_framer` `framed.rs`, was ~15% of the device's CPU per packet); the async device server
   flushed replies at once when no other request waited (`ww_device` `Server::handle`), removed again for request
   priority (CLT-50, SRV-42: a reply goes out at once only when its request is urgent). `WireWeaverClass::with_endpoints()` lets
-  firmware allocate the endpoints, e.g. double-buffered bulk ones (Donguru, embassy-rs/embassy#7275: raw bulk 500 ->
+  firmware allocate the endpoints, e.g. double-buffered bulk ones (Portwright, embassy-rs/embassy#7275: raw bulk 500 ->
   950 kB/s OUT on the G0); `usb_init_with_endpoints()` offers the same choice to callers of the single-function
   `usb_init()` convenience, who can't reach into its private `UsbBuffers`. Next: CRC through a pluggable checksum
   so MCUs can use their CRC unit (~13% of the CPU per packet on the M0+). The lone request and reply flushes once
@@ -1599,7 +1599,7 @@ Unicast Data0 to one node over the same bus is TR-6.
   blocks); the device carries no decoder and sends them as a plain bundle, at no code cost. The client (download,
   promise, dynamic client, `ww`, Python, the hub, `ww tap`) tells the formats apart by the first bytes, decompresses,
   and refuses an unknown magic. API hashes and the cache stay those of the uncompressed bundle. rePort 14,016 ->
-  9,697 B of bundle, -4,312 B of flash; Donguru 3,974 -> 3,056 B, -920 B. Default off. Tests
+  9,697 B of bundle, -4,312 B of flash; Portwright 3,974 -> 3,056 B, -920 B. Default off. Tests
   `tests/introspect_compressed` (sync, async, promise, dynamic client, hub, the answer's events), `ww_self`
   (`compressed::tests`, frozen layout). [Introspection data](docs/api/introspection.md). LZ4 does 1.3-1.45x on this
   data; deflate or zstd would do 1.7-2x with a pure-Rust host decoder, a value of the same option when wanted.
@@ -2158,7 +2158,7 @@ Unicast Data0 to one node over the same bus is TR-6.
 - ✅ **TOOL-10 `ww usb-loopback` link test** · `v0.5` — round trips with lost and corrupted counts, host → device and
   device → host speed, on the sans-IO event loop (`wire_weaver_client/src/event_loop/core/loopback.rs`, windowed so a
   slow device holds the host back; e2e test against `ww_device::Server` in `device_e2e_tests.rs`), with a summary
-  table and tuning options. Works with any device, the link layer answers. Checked on a full-speed board (Donguru,
+  table and tuning options. Works with any device, the link layer answers. Checked on a full-speed board (Portwright,
   3 hubs): about 155 round trips/s, 375 kB/s host → device, 317 kB/s device → host with 1 KiB messages.
 - ✅ **TOOL-11 Dynamic observe** — decodes a level's `PropertyUpdate` from introspection alone (CLT-28):
   `DynResource::observe()` / `observe_blocking()` (`observable_properties()` lists what it can ask for), reusing
@@ -2233,7 +2233,7 @@ Unicast Data0 to one node over the same bus is TR-6.
   `warning:` when the crate directory has no `tests/evolution.rs` calling `wire_weaver_evolution::Check` (checked
   by reading the file and looking for that call, `wire_weaver_evolution::missing_test_warning`), so a wire break
   is caught by `cargo test` and a pre-commit hook, not only when someone remembers to run `ww api check` by hand
-  (`donguru_api` and `b135_api` had no such test and STD-98's wire break was found only by
+  (`portwright_api` and `b135_api` had no such test and STD-98's wire break was found only by
   hand). Never affects the verdict, like the TOOL-22 hints. `docs/evolution/checker_tool.md#a-missing-test-warning-tool-31`.
 - ✅ **TOOL-33 `ww api line new` / `retire`** — copies `wire_vN.rs` to `wire_vN+1.rs` at `w(N+1).0` with its
   `roots` entry, and retires a line once no device runs it, keeping its module behind a Cargo feature unless `--delete`, with the breaking crate bump (EVO-37). `wire_weaver_cli` `cmd::api::line`: top-level single-file modules only (a
@@ -2292,10 +2292,10 @@ Unicast Data0 to one node over the same bus is TR-6.
   rate in ppm, shortest round trip, the residual offset measured with `shared_now`, samples), `--mode` writes the
   `ww_indication` mode on all, `--duration`, `--poll-ms` / `--steer-ms`; `q` or Ctrl+C stops, saying who steers the devices after (the hub, or nobody: holdover).
   With a ww hub running it shows the hub's steering (SRV-31) and never steers itself; a STEERED BY column
-  (checked through the hub on Donguru and B135, 22 Oct 2026).
+  (checked through the hub on Portwright and B135, 22 Oct 2026).
   Convergence (21 Oct 2026): residual ± half the check's round trip, the device's error bound and slew left, a line
   when each device and then all are within `--within-us` (locked by their word, residual by the host's), the
-  phase spread between them; steered at 10 Hz until locked; quiet into a pipe. Hardware (one of our dev PCs, 21 Oct 2026, `ww sync` with Donguru B153A, rePort B200 and B135B): all three locked within 2 ms after 1.2 s from a fresh start and 2.4 s after 45 s in holdover; phase spread as ww sync estimates it 30 µs to 1.0 ms apart (±1.5-2.5 ms, rePort's and Donguru's ~1.4-1.8 ms round trips); over 5 min Donguru left once on a -2.0 ms residual (±1.2 ms) and was back in 37 s. No logic analyser on this PC: the phase is not measured on the pins. `docs/cli_reference.md#ww-sync`. Hardware check open: Donguru and rePort on one of our dev PCs.
+  phase spread between them; steered at 10 Hz until locked; quiet into a pipe. Hardware (one of our dev PCs, 21 Oct 2026, `ww sync` with Portwright B153A, rePort B200 and B135B): all three locked within 2 ms after 1.2 s from a fresh start and 2.4 s after 45 s in holdover; phase spread as ww sync estimates it 30 µs to 1.0 ms apart (±1.5-2.5 ms, rePort's and Portwright's ~1.4-1.8 ms round trips); over 5 min Portwright left once on a -2.0 ms residual (±1.2 ms) and was back in 37 s. No logic analyser on this PC: the phase is not measured on the pins. `docs/cli_reference.md#ww-sync`. Hardware check open: Portwright and rePort on one of our dev PCs.
 - 🧪 **TOOL-15 `ww pins test` / `ww pins list`** · `v0.5.x` — pin tests on any device serving `ww_pin_diag::PinDiag`
   (STD-47) at any path, found by introspection (`docs/cli_reference.md#ww-pins`): pulls, shorts to GND, to the
   supply and between points, only what each point's caps allow, refusals shown, `release_all` at the end also on
@@ -2393,8 +2393,8 @@ Unicast Data0 to one node over the same bus is TR-6.
   deterministic tests with simulated device clocks (HSI 1 % fast, a drifting crystal, USB FS jitter), end to end in
   `tests/io_timebase`; `docs/std_library/ww_timebase.md#host-sync-std-49`. Device side: embedded_bedrock
   `bedrock_sync`. Steer points name their steerer and a device follows one at a time, with a per-device rate cache on
-  the PC (SRV-31). Checked on one of our dev PCs (21-22 Oct 2026): Donguru, rePort and B135 steered by `ww sync`,
-  `sync_status` `Locked` in 1.2-1.6 s, the residual measured with `shared_now` B135 -5..-16 µs (±55 µs), Donguru
+  the PC (SRV-31). Checked on one of our dev PCs (21-22 Oct 2026): Portwright, rePort and B135 steered by `ww sync`,
+  `sync_status` `Locked` in 1.2-1.6 s, the residual measured with `shared_now` B135 -5..-16 µs (±55 µs), Portwright
   within ±1.2 ms (its 1.4-1.6 ms round trips).
 - ✅ **STD-105 NaN-free floats in the model and the clients** · `v0.5` — the wire_weaver side of exact_units NUM-19: a float `Fixed` is never NaN unless its bound is `MaybeNan`. The walker reads `MaybeNan` (`ww_self::MarkerDef::MaybeNan`, re-exported as `ww_si::MaybeNan`); `ww_self::units::NumBounds` refuses NaN for every other bound on decode and encode, so the dynamic client, Python and `ww` refuse it before sending and on receiving; the evolution checker sees `MaybeNan` → NaN-free and a plain float → NaN-free `Fixed` as a bound narrowed. `ww_self::expr` writes and reads NaN and ±∞ as `f32::NAN`, `f32::INFINITY`, `-f64::INFINITY`. Conformance cases `stdlib.si.fixed.f32*`, `stdlib.si.fixed.maybe_nan.*`, `model.marker_def.maybe_nan`; tests in `tests/quantities` (`sense`, `raw_sense`) and `wire_weaver_py/tests/test_offline.py`. [Docs](docs/std_library/exact_units.md#in-ww-python-and-dynamic-clients).
 - ✅ **STD-106 Unit identity in the model** · `v0.5` — the wire_weaver side of exact_units UNIT-7 (piece 3, the walker and the schema): a unit's definition in the model is `exact_units::UnitDef`, the record `unit!` compiles, with its `MarkerId` (the declaring crate as `CARGO_CRATE_NAME` gives it, and the marker's ident), names, dimension, kind of quantity, exact scale and provenance; scales and origins carry ids, an origin's reference is a `MarkerId` and its unit a named unit's `UnitDef`. The walker builds the ids, refuses an `Affine` scale (°C is `origins::Celsius`), two markers of one crate named alike in two modules, and a model with two different definitions under one identity (`ww_self::units::check_marker_ids`); `exact_units_definitions_match_the_compiled_consts` compares every walked definition with the compiled one field by field. Wire change EVO-35. The run-time side (`AnyQuantity` compacted against the API's table, `DynUnit` on `Ref`) follows with STD-74. [Docs](docs/std_library/units_in_the_model.md#identity).
@@ -2519,7 +2519,7 @@ Unicast Data0 to one node over the same bus is TR-6.
   trace id across the call; one generic call site runs against all of them.
 - 📋 **EX-17 MCU examples without panic paths in flash** · `v0.5` — flash diet: `examples_mcu` firmware (and the
   TEST-30 server) builds with the toolchain setup the firmware templates get (nightly, `-Zlocation-detail=none`,
-  trimmed paths: 5.5 KB of file paths and 0.6 KB of panic messages in Donguru), once that toolchain piece lands
+  trimmed paths: 5.5 KB of file paths and 0.6 KB of panic messages in Portwright), once that toolchain piece lands
   (session `fw-nightly-paths`, the templates). Measured with `just flash-budget` and listed per board in
   `examples_mcu/README.md`.
 
@@ -2635,8 +2635,8 @@ Unicast Data0 to one node over the same bus is TR-6.
 - 📋 **TEST-38 Shape cases of a `Series`** — a `Series<T>` field is written as columns with their own layout, so
   the shape table of TEST-37 doesn't cover it; it carries a gap in `FIELD_KIND_GAPS` until it has its own shapes
   (empty, one, many items; aligned, mid-byte; last, followed by a bool).
-- ✅ **TEST-26 Credit sink resume on hardware** · `v0.5` — Donguru's header UART tx credit sink (API-34) on one of our dev PCs
-  (USART5, 921 600 Bd, jumper IO7-IO8, `donguru-core/examples/uart_resume` in typec_dongle): 1 MB of numbered lines,
+- ✅ **TEST-26 Credit sink resume on hardware** · `v0.5` — Portwright's header UART tx credit sink (API-34) on one of our dev PCs
+  (USART5, 921 600 Bd, jumper IO7-IO8, `portwright-core/examples/uart_resume` in typec_dongle): 1 MB of numbered lines,
   every byte on the line exactly once and in order (0 mismatches) in a plain run (14.3 s, 70 kB/s), with 4 link drops
   (`disconnect().keep_streams()`, 200 ms down, `Commander::reconnect()` 10-22 ms incl. resume, first flush after it
   0 ms; 15.3 s) and with a restarted host process continuing from the saved cursor (resume 2.6 ms, device was 544 B
@@ -2705,10 +2705,10 @@ Unicast Data0 to one node over the same bus is TR-6.
     operation (73 page erases cut 1-20 ms into their ~22 ms all left the page fully erased, programs only stop
     between double words).
   - [ ] real power cut against `ww_settings::Store` on `EccSafeFlash`, so the zeros path of SRV-19 runs on
-    hardware: the B129A powered through the Donguru plug
-    VBUS switch (U601, AOZ1375), switched from the PC in a loop with Donguru's `plug.vbus_mode` (typec_dongle
+    hardware: the B129A powered through the Portwright plug
+    VBUS switch (U601, AOZ1375), switched from the PC in a loop with Portwright's `plug.vbus_mode` (typec_dongle
     API-11, in progress). The device can't keep its counters across a power cut: a host program reads the loaded
-    and committed sequence numbers and the ECC count over SWD (Donguru CMSIS-DAP, session ended before each cut so
+    and committed sequence numbers and the ECC count over SWD (Portwright CMSIS-DAP, session ended before each cut so
     SBU/CC don't back-feed the board) and checks every boot loads at least what was committed before the cut.
 - 💡 **TEST-16 Host queue on a slow VM** — does it lead to fewer or no missed packets?
 - ✅ **TEST-30 Flash budget of a server** · `v0.5` — the harness every flash-diet piece (SRV-51..54, SW-69..73)

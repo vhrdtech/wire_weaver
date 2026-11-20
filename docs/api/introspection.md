@@ -57,10 +57,10 @@ What it saves, release builds measured with and without the option from the same
 | Device | Firmware | Bundle | Flash (text + data) |
 |---|---|---|---|
 | rePort (RP2350, async server, `opt-level = "s"`) | 408,632 B | 14,016 -> 9,697 B | -4,312 B |
-| Donguru (STM32G0, async server, `opt-level = "z"`) | 148,188 B | 3,974 -> 3,056 B | -920 B |
+| Portwright (STM32G0, async server, `opt-level = "z"`) | 148,188 B | 3,974 -> 3,056 B | -920 B |
 
 The answer is sent as for a plain bundle, so the option costs no code: the flash saved is what the bundle shrinks
-(Donguru's 2 B more are alignment). LZ4 does about 1.3-1.45x on this data, mostly doc text; it pays off for a
+(Portwright's 2 B more are alignment). LZ4 does about 1.3-1.45x on this data, mostly doc text; it pays off for a
 device with a large API or many doc comments.
 
 The API's identity doesn't change: the hashes stay those of the uncompressed bundle, so a compressed and a plain

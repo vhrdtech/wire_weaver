@@ -734,7 +734,7 @@ impl Convergence {
 }
 
 impl Convergence {
-    /// How far the devices converged, for the live view: `2 of 3 within 2.00 ms, waiting for Donguru`, or `all 3
+    /// How far the devices converged, for the live view: `2 of 3 within 2.00 ms, waiting for Portwright`, or `all 3
     /// within 2.00 ms for 4.1 s` (`now` ns since the start). Empty before any device has a status.
     fn status_line(&self, names: &[String], within_us: u64, now: u64) -> String {
         let synced: Vec<_> = self
@@ -853,7 +853,7 @@ mod tests {
         DeviceInfo {
             location: format!("usb {serial}"),
             manufacturer: "vhrd".into(),
-            product: "Donguru".into(),
+            product: "Portwright".into(),
             serials: vec![serial.into()],
             user_label: label.into(),
             api: None,
@@ -895,7 +895,7 @@ mod tests {
             residual: Some(-37_400),
             ..View::default()
         };
-        let table = render(&[row("Donguru A1B2", &view, None)]);
+        let table = render(&[row("Portwright A1B2", &view, None)]);
         let lines: Vec<_> = table.lines().collect();
         assert_eq!(lines[0].split_whitespace().next(), Some("DEVICE"));
         assert!(lines[1].contains("fitted"), "{table}");
@@ -922,7 +922,7 @@ mod tests {
             }),
             ..view
         };
-        let table = render(&[row("Donguru A1B2", &view, None)]);
+        let table = render(&[row("Portwright A1B2", &view, None)]);
         assert!(table.contains("acquiring"), "{table}");
         assert!(table.contains("-37 µs ±700 µs"), "{table}");
         assert!(table.contains("1.25 ms"), "{table}");
@@ -983,7 +983,7 @@ mod tests {
         console::set_colors_enabled(false);
         let s = 1_000_000_000;
         let mut c = Convergence::new(2_000_000, 3);
-        let names = ["Donguru".to_string(), "rePort".into(), "x".into()];
+        let names = ["Portwright".to_string(), "rePort".into(), "x".into()];
         // the live view's status line: nothing before any status
         assert_eq!(c.status_line(&names, 2000, 0), "");
         // the third device has no clock: it doesn't hold up "all"
@@ -1003,7 +1003,7 @@ mod tests {
         assert_eq!(c.update(2 * s, &now), []);
         assert_eq!(
             c.status_line(&names, 2000, 2 * s),
-            "1 of 2 within 2.00 ms, waiting for Donguru\n"
+            "1 of 2 within 2.00 ms, waiting for Portwright\n"
         );
         // locked but the host still sees it 3 ms off: not yet
         now[0] = status(SyncState::Locked, 3_000);
@@ -1035,7 +1035,7 @@ mod tests {
         );
         assert_eq!(
             events[0].line(&names, 2000),
-            "✓ Donguru converged after 5.0 s: locked, residual -900 µs (within 2.00 ms)"
+            "✓ Portwright converged after 5.0 s: locked, residual -900 µs (within 2.00 ms)"
         );
         // one falls out, and in again: "all" again
         now[1] = status(SyncState::Acquiring, 5_000);

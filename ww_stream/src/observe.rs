@@ -287,7 +287,7 @@ pub struct ObserveTable<S: ?Sized = [Slot]> {
     /// a missed count waiting alone; 0 when it waits for nothing.
     need: u32,
     /// Any slot not `Off` (SRV-25): kept by `apply` and `reset`, the only places modes change, so the server task's
-    /// `next_wake` after every wake reads a flag instead of walking the slots of every level (FW-40 on Donguru).
+    /// `next_wake` after every wake reads a flag instead of walking the slots of every level (FW-40 on Portwright).
     active: bool,
     slots: S,
 }
@@ -698,7 +698,7 @@ impl ObserveTable {
     ///
     /// [plan_with]: Self::plan_with
     // once for every level: at opt-level 3 it was inlined into each level's arm of the generated
-    // `ObserveState::next_wake` (Donguru: 5.5 KiB for 9 levels)
+    // `ObserveState::next_wake` (Portwright: 5.5 KiB for 9 levels)
     #[inline(never)]
     pub fn next_wake(&self, now_us: u64, batch_waiting: &dyn Fn(usize) -> bool) -> Option<u64> {
         if !self.is_active() {

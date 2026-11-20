@@ -977,7 +977,7 @@ mod tests {
 
     /// After a reconnect with items the device never got, `flush()` sends them again and learns that the device
     /// accepted them from a query right after the last, not a query interval (1 s) later: the device acknowledges
-    /// only every threshold bytes. Found by TEST-26 on the Donguru.
+    /// only every threshold bytes. Found by TEST-26 on the Portwright.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn flush_after_reconnect_does_not_wait_for_a_query_interval() {
         let (device, m) = start(

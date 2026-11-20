@@ -122,7 +122,7 @@ writes the record again, and drop a retired one, which a plain [`sparse`](../ser
 struct can't do (its values carry no length). The cost is a length nibble and byte alignment per stored field.
 
 In flash each record is an item: a 12-byte header (length, key, a 32-bit sequence number per key, CRC-32) and the
-record, padded to the flash word. Sizes for a Donguru-like group (label, a `bool`, an enum, two `u16`, a UART
+record, padded to the flash word. Sizes for a Portwright-like group (label, a `bool`, an enum, two `u16`, a UART
 configuration), measured with `record::encode` and `Store::footprint`:
 
 | Record | Bytes | G0 item / per 2 KiB page | F4 item / per 16 KiB | H7 item / per 128 KiB | SPI NOR item / per 4 KiB |

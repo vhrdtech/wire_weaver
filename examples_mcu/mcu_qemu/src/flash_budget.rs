@@ -7,7 +7,7 @@
 //! them and the arms that call them, and the budget is the dispatcher's arms, not the handlers.
 //!
 //! With the `flash-async` feature the server is generated with `use_async = true` and `handler_model = "_=sync"`,
-//! as Donguru's is, and `main` polls the request's future once.
+//! as Portwright's is, and `main` polls the request's future once.
 //!
 //! The panic handler is `panic-semihosting`, which formats the panic message with `core::fmt`, as a firmware's
 //! `panic-probe` with `print-defmt` does: a `Debug` impl reachable from a panic lands in flash here as it does
@@ -98,7 +98,7 @@ macro_rules! props {
 }
 
 /// Getters and setters of `MaxLen<&str, N>` properties, a different bound each (SW-72): every `N` is its own
-/// monomorphisation of the bound check, as Donguru's `&str` fields at N = 16, 32, 64, 128 are.
+/// monomorphisation of the bound check, as Portwright's `&str` fields at N = 16, 32, 64, 128 are.
 macro_rules! maxlen_props {
     ($(($get:ident, $set:ident, $n:literal)),* $(,)?) => {$(
         #[inline(never)]

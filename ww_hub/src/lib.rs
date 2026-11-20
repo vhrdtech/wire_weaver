@@ -52,7 +52,7 @@ pub const HUB_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const SERVE_ENV: &str = wire_weaver_client::hub::SERVE_ENV;
 /// Idle exit in seconds, overrides [HubConfig::idle_exit]'s default.
 pub const IDLE_EXIT_ENV: &str = "WW_HUB_IDLE_EXIT";
-/// Who started the hub, e.g. `dg (pid 4711)`, shown by `ww hub status`. Starters set it; without it the hub uses the
+/// Who started the hub, e.g. `pw (pid 4711)`, shown by `ww hub status`. Starters set it; without it the hub uses the
 /// name of its parent process where it can find it.
 pub const STARTED_BY_ENV: &str = "WW_HUB_STARTED_BY";
 /// Linger in seconds, overrides [HubConfig::linger]'s default.

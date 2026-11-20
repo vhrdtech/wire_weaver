@@ -865,7 +865,7 @@ impl Observe {
                         self.take_changes(signal);
                     }
                     // the server task asks after every wake: with nothing observed, don't walk the levels and
-                    // their batches (FW-40 on Donguru: USB requests 17 % slower without this)
+                    // their batches (FW-40 on Portwright: USB requests 17 % slower without this)
                     if !self.is_active() {
                         return None;
                     }

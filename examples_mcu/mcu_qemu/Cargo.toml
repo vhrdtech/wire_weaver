@@ -12,7 +12,7 @@ f32 = ["ww_si/f32"]
 # the units budget (TEST-27) with only the plain cases / only the Fixed cases, to compare the flash of the two
 only-plain = []
 only-fixed = []
-# the flash budget servers (TEST-30) with `use_async = true` and sync handlers, as Donguru's
+# the flash budget servers (TEST-30) with `use_async = true` and sync handlers, as Portwright's
 flash-async = []
 # the no-f64 guard (TEST-33) with a 64-bit number type enabled too, as usb_io_fw's firmware has
 guard-u64 = ["ww_si/u64"]

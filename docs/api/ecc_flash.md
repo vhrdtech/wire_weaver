@@ -97,7 +97,7 @@ error on a cache linefill may be reported imprecisely, and an imprecise bus erro
 
 ## Tested so far
 
-- STM32G0B1 (Donguru B153A), `examples_mcu/ecc_flash_g0b1`: a sequential-storage map on `EccSafeFlash` in bank 2,
+- STM32G0B1 (Portwright B153A), `examples_mcu/ecc_flash_g0b1`: a sequential-storage map on `EccSafeFlash` in bank 2,
   reset by SysTick at a random time while it stores, 3000 boots: every committed value loads, nothing corrupt.
 - What a reset does to a flash operation on G0 (`src/bin/reset_cut.rs` there): a system reset waits for it. Erases
   cut 1-20 ms into their ~22 ms still leave the page fully erased, programs stop between double words. So a reset

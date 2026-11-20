@@ -702,14 +702,14 @@ Steered by ww sync (no ww hub runs): they go on in holdover once it stops
 DEVICE                STATE   SOURCE  STEERED BY      RESIDUAL          ERROR    RATE            SLEW     RTT     SAMPLES  NOTE
 B135 USB-FDCAN 3445   locked  host    ww pid 81234    -31 µs ±75 µs     95 µs    +4.612 ppm      +0 µs    150 µs  240
 rePort bench-2        locked  host    ww pid 81234    +84 µs ±400 µs    480 µs   +12.880 ppm     +3 µs    800 µs  240
-Donguru A1B2C3        locked  host    ww pid 81234    -620 µs ±700 µs   1.10 ms  -2003.204 ppm   -41 µs   1.40 ms 240
+Portwright A1B2C3        locked  host    ww pid 81234    -620 µs ±700 µs   1.10 ms  -2003.204 ppm   -41 µs   1.40 ms 240
 ✓ all 3 within 2.00 ms for 4.1 s
 Phase: 704 µs apart across 3 devices (±700 µs)
 q or Ctrl+C to stop
 ```
 
 On a terminal this one view is all there is, from the start, redrawn every second: who steers the devices, the table,
-how far they converged (`2 of 3 within 2.00 ms, waiting for Donguru A1B2C3` until all are within, then since when)
+how far they converged (`2 of 3 within 2.00 ms, waiting for Portwright A1B2C3` until all are within, then since when)
 and the phase spread. Into a pipe it prints lines instead (no colour): who steers, a line each time a device converges
 or falls out and when all of them are within, and the table once at the end:
 
@@ -771,15 +771,15 @@ built with wire_weaver 0.5.0
 pid        4711
 exe        /home/me/.cargo/bin/ww
 socket     /run/user/1000/ww/hub.sock
-started by dg (pid 4690), up 12m 31s
+started by pw (pid 4690), up 12m 31s
 clients    2 programs, 2 connections
 devices    3 known, 1 open through the hub
 idle exit  after 5m 00s without connections, counted from the last program leaving
 
 KEY                             PRODUCT         STATE        CONNECTIONS
 usb:c0de:cafe:18AC50C211FFB7C1  b200_usb_io     open (hub)   1
-usb:c0de:cafe:204B319B5431      donguru         free         0
-usb:c0de:cafe:344533413431      B135 USB-FDCAN  held by dg (pid 4690, direct)  0
+usb:c0de:cafe:204B319B5431      portwright         free         0
+usb:c0de:cafe:344533413431      B135 USB-FDCAN  held by pw (pid 4690, direct)  0
 ```
 
 | Command                 | Description                                                                                          |

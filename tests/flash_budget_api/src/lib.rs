@@ -245,7 +245,7 @@ pub trait Typed16 {
 }
 
 /// [Base] and 8 read-write properties of `MaxLen<&'i str, N>`, a different `N` each (SW-72): every bound is
-/// monomorphised on its own, as `&str` at N = 16, 32, 64, 128 is in Donguru.
+/// monomorphised on its own, as `&str` at N = 16, 32, 64, 128 is in Portwright.
 #[ww_api_root]
 pub trait MaxLenBounds8 {
     ww_impl!(base: Base);

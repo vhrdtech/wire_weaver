@@ -129,7 +129,7 @@ fn many_slides_of_a_small_buffer() {
 #[test]
 fn history_crosses_chunks() {
     // the same line in every chunk: with history each block is a single match after the first
-    let line = b"root@donguru:~# cat /proc/cpuinfo | grep MHz\r\n";
+    let line = b"root@portwright:~# cat /proc/cpuinfo | grep MHz\r\n";
     let d: Vec<u8> = line
         .iter()
         .copied()

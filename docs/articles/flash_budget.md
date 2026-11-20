@@ -13,7 +13,7 @@ just flash-budget                                   # Cortex-M0+ (thumbv6m-none-
 just flash-budget --targets thumbv7em-none-eabihf   # other cores
 ```
 
-It builds the `qemu-flash-*` bins of `examples_mcu/mcu_qemu` and reads the flash of each ELF: every allocated section with contents (code, read-only data, vector table). Nothing runs, so no QEMU and no board are needed. Each build is done at both profiles firmware ships with, `fw-z` (fat LTO, one codegen unit, `opt-level = "z"`) and `fw-3` (the same at `opt-level = 3`), and with both server flavours: `use_async = false`, and `use_async = true` with sync handlers (`handler_model = "_=sync"`), as Donguru's firmware is built.
+It builds the `qemu-flash-*` bins of `examples_mcu/mcu_qemu` and reads the flash of each ELF: every allocated section with contents (code, read-only data, vector table). Nothing runs, so no QEMU and no board are needed. Each build is done at both profiles firmware ships with, `fw-z` (fat LTO, one codegen unit, `opt-level = "z"`) and `fw-3` (the same at `opt-level = 3`), and with both server flavours: `use_async = false`, and `use_async = true` with sync handlers (`handler_model = "_=sync"`), as Portwright's firmware is built.
 
 `just dispatch-budget` is the same server in instructions: `qemu-dispatch-requests` runs the `BaseOnly` server under QEMU (Cortex-M3, `lm3s6965evb`, counted by `qemu_icount`) on one request of each kind (a call with and without arguments, a property read and write, a stream open and close, a bad path, a request kind the resource doesn't take) and prints the instructions from `process_request_bytes` to its reply, with the reply's length and hash, at `fw-z` and `fw-3`, sync and `use_async`. `--qemu-host HOST` runs QEMU on another PC. `--cycles` runs the same requests to the same server on the STM32H725 (`usb_stm32h725ig`'s `stm32h725ig-dispatch-cycles`, Cortex-M7 at 540 MHz, caches on) and prints DWT cycles per request at the same opt-levels, sync only; `--probe-host HOST` runs probe-rs on the PC the board's probe is on. It replaces the firmware on that board.
 
@@ -53,7 +53,7 @@ The `Series` codec is linked in every server (36 symbols, 3796 B at `z`), though
 
 The per-kind numbers move with the inliner's choices, most in the `use_async` builds, where the arms of a level live inside one state machine. Compare the same cell before and after a change, and the mean for the overall trend. Compare only builds from the same checkout path: panic locations carry each source file's path, so a worktree at a shorter path is smaller by tens of bytes per file (one change looked 250 B better than it was, built in `/tmp`).
 
-For scale: Donguru (typec_dongle, `use_async`, `fw-z` with `opt-level = "z"`, 43 resources of many types) spent about 616 B per resource under the generated dispatcher at wire_weaver 8b7b80ed, and 41.4 KB in all, measured from its ELF by inlined frames.
+For scale: Portwright (typec_dongle, `use_async`, `fw-z` with `opt-level = "z"`, 43 resources of many types) spent about 616 B per resource under the generated dispatcher at wire_weaver 8b7b80ed, and 41.4 KB in all, measured from its ELF by inlined frames.
 
 ## SW-69: hand-written `Error` Debug
 
@@ -65,7 +65,7 @@ Measured 3 Nov 2026, before (commit `f8f78726`, the harness alone) against after
 | after                        |   26346 |    27166 |   41174 |    41878 |
 | change                       |     −32 |      −36 |     −36 |      −36 |
 
-The per-resource numbers (the "8 resources" row and every "one more X" row) don't move beyond ±1 B rounding, and the SW-69 check still reports "not linked" both before and after: none of this harness's servers formats `shrink_wrap::Error` with `Debug` or `Display`, so the ~450 B of variant names the feature item describes never reaches these builds either way. What moved is a small, constant-size remnant of the derived `Debug` impl that LTO didn't fully strip even though nothing called it. The bytes SW-69 actually saves show up only where a real on-target caller formats the error (or a type nesting it) through `core::fmt::Debug`: fixed in this repo at `ww_settings::Error` / `LoadReport` (`examples_mcu/nucleo_{g0b1re,h743zi2}` `settings.rs`, both already `defmt::Format`) and `ww_stream::store::RamRingError` (`examples_mcu/rp2` `usb_log.rs`, now behind `ww_stream`'s new `defmt` feature); Donguru's own `settings.rs` has the same shape of fix to make, on its own branch.
+The per-resource numbers (the "8 resources" row and every "one more X" row) don't move beyond ±1 B rounding, and the SW-69 check still reports "not linked" both before and after: none of this harness's servers formats `shrink_wrap::Error` with `Debug` or `Display`, so the ~450 B of variant names the feature item describes never reaches these builds either way. What moved is a small, constant-size remnant of the derived `Debug` impl that LTO didn't fully strip even though nothing called it. The bytes SW-69 actually saves show up only where a real on-target caller formats the error (or a type nesting it) through `core::fmt::Debug`: fixed in this repo at `ww_settings::Error` / `LoadReport` (`examples_mcu/nucleo_{g0b1re,h743zi2}` `settings.rs`, both already `defmt::Format`) and `ww_stream::store::RamRingError` (`examples_mcu/rp2` `usb_log.rs`, now behind `ww_stream`'s new `defmt` feature); Portwright's own `settings.rs` has the same shape of fix to make, on its own branch.
 
 These absolute floor numbers run a little higher than the "Baseline" table above (e.g. 26378 B against 26286 B at `fw-z, sync`), measured the same day: most likely the checkout path (see the note above this page's Baseline table), since this worktree's checkout path is longer than whatever path the baseline table was built from, and panic locations carry it per source file. The before/after pair here was measured back to back from the same checkout, so the diff between them is the number that matters regardless.
 
@@ -101,15 +101,15 @@ A `+batched` property links a batcher, an outbox and the `Series` encoder for ev
 
 No sampler runs in these bins, so the middle row is what a firmware without a producer of rows paid before. No symbol of `shrink_wrap::series` or `ww_stream::batch` is left with the switch, and `just flash-budget` checks that.
 
-Donguru (typec_dongle, `use_async`, release at `opt-level = "z"`) with its `meter-samples` feature off went from 289,580 B to 266,404 B of text and data (−23,176 B) and 3,392 B less RAM. Dropping `+batched` from the API, which changes the wire, gave 266,268 B: keeping the wire shape costs 136 B. With `meter-samples` on the image keeps the same sizes, as it doesn't use the switch.
+Portwright (typec_dongle, `use_async`, release at `opt-level = "z"`) with its `meter-samples` feature off went from 289,580 B to 266,404 B of text and data (−23,176 B) and 3,392 B less RAM. Dropping `+batched` from the API, which changes the wire, gave 266,268 B: keeping the wire shape costs 136 B. With `meter-samples` on the image keeps the same sizes, as it doesn't use the switch.
 
 ## SW-70: the bit helpers as hints
 
-Measured 3 Nov 2026 against the harness alone (commit `67c1dd91`, with the SW-70 change on top of it): the private helpers of the bit writer and reader are `#[inline]` instead of `#[inline(always)]` unless the firmware asks otherwise (then with `--cfg shrink_wrap_hot`, since replaced by the `fast-io` and `optimize-speed` features, [Hot paths at opt-level z](../serdes/code_size.md#hot-paths-at-opt-level-z)). The floor at `fw-z`: 26350 → 25610 B sync, 27174 → 26434 B async (−740 B), the `Series` codec in it 3796 → 3224 B; `fw-3` unchanged; every per-resource cell unchanged. With `shrink_wrap_hot="inline"` the same bytes as before, with `"optimize"` (nightly) +208 B. Lists of plain numbers share one non-generic length-and-bytes path: no list in these servers, Donguru 157728 → 157640 B at `z` and 229344 → 228452 B at `3`.
+Measured 3 Nov 2026 against the harness alone (commit `67c1dd91`, with the SW-70 change on top of it): the private helpers of the bit writer and reader are `#[inline]` instead of `#[inline(always)]` unless the firmware asks otherwise (then with `--cfg shrink_wrap_hot`, since replaced by the `fast-io` and `optimize-speed` features, [Hot paths at opt-level z](../serdes/code_size.md#hot-paths-at-opt-level-z)). The floor at `fw-z`: 26350 → 25610 B sync, 27174 → 26434 B async (−740 B), the `Series` codec in it 3796 → 3224 B; `fw-3` unchanged; every per-resource cell unchanged. With `shrink_wrap_hot="inline"` the same bytes as before, with `"optimize"` (nightly) +208 B. Lists of plain numbers share one non-generic length-and-bytes path: no list in these servers, Portwright 157728 → 157640 B at `z` and 229344 → 228452 B at `3`.
 
 ## SW-74: reader and writer plumbing
 
-The serdes code of a firmware is mostly per type: a derived `des_shrink_wrap` or `ser_shrink_wrap`, a `read::<T>` or `write::<T>`, a `dispatch::des::<T>`, a `to_ww_bytes`. Whatever `BufReader` and `BufWriter` code they inline is paid once per type. `fw_budget --attribute ELF --sites PATTERN` (TEST-32) lists an inlined function's bytes by call site; on Donguru at wire_weaver 753d5f74 the largest pieces were:
+The serdes code of a firmware is mostly per type: a derived `des_shrink_wrap` or `ser_shrink_wrap`, a `read::<T>` or `write::<T>`, a `dispatch::des::<T>`, a `to_ww_bytes`. Whatever `BufReader` and `BufWriter` code they inline is paid once per type. `fw_budget --attribute ELF --sites PATTERN` (TEST-32) lists an inlined function's bytes by call site; on Portwright at wire_weaver 753d5f74 the largest pieces were:
 
 | inlined | copies | bytes | why |
 | --- | ---: | ---: | --- |
@@ -119,9 +119,9 @@ The serdes code of a firmware is mostly per type: a derived `des_shrink_wrap` or
 | `BufWriter::new` | 41 | 900 | `to_ww_bytes`, stream and event writers |
 | `?` on `Result<UnsizedBuilder, _>` in `write::<T>` | 67 | 720 | the three-word `Result` goes through memory |
 
-What changed, as four steps on the same checkout paths (bytes of `text` + `data`; Donguru is `typec_dongle` release, `thumbv6m`, `opt-level = "z"`; rePort is `usb_io_fw` release, `thumbv8m.main`, `opt-level = "s"`):
+What changed, as four steps on the same checkout paths (bytes of `text` + `data`; Portwright is `typec_dongle` release, `thumbv6m`, `opt-level = "z"`; rePort is `usb_io_fw` release, `thumbv8m.main`, `opt-level = "s"`):
 
-| step | Donguru | rePort |
+| step | Portwright | rePort |
 | --- | ---: | ---: |
 | before | 312260 | 408776 |
 | `latched()` stores `None` only on the error path | +236 | −1040 |
@@ -130,7 +130,7 @@ What changed, as four steps on the same checkout paths (bytes of `text` + `data`
 | `BufReader::new` / `BufWriter::new` `#[inline(never)]` unless `fast-io` (then `shrink_wrap_hot="inline"`) | −968 | −304 |
 | after | 308276 (−3984) | 402416 (−6360) |
 
-The `latched()` change costs on the Cortex-M0+, where the store on the error path is not shared between call sites, and saves on the Cortex-M33; out of line `latched()` was larger on both (Donguru +848 B, rePort +960 B), the call costs more than its body. Donguru at `opt-level = 3`: 472916 → 454740 B of text (−18176), most of it the size-prefixed read no longer inlined per type. With `--cfg shrink_wrap_hot="inline"`: 310472 → 307764 B; in that mode the new helpers are `#[inline]` hints, not forced.
+The `latched()` change costs on the Cortex-M0+, where the store on the error path is not shared between call sites, and saves on the Cortex-M33; out of line `latched()` was larger on both (Portwright +848 B, rePort +960 B), the call costs more than its body. Portwright at `opt-level = 3`: 472916 → 454740 B of text (−18176), most of it the size-prefixed read no longer inlined per type. With `--cfg shrink_wrap_hot="inline"`: 310472 → 307764 B; in that mode the new helpers are `#[inline]` hints, not forced.
 
 This harness, the same commits (floor, one method, bytes):
 
@@ -167,7 +167,7 @@ The `--cfg` became the `fast-io` feature, which `std` turns on, so host builds c
 
 - `ww` (`cargo build --profile deploy -p wire_weaver_cli`): 35958324 → 35989028 B of text (+30704 B, +0.09 %).
 - `tests/series/benches/bit_io.rs` (`cargo bench -p series --bench bit_io`), 14 alternating runs on a loaded PC, minimum (median): `read_nib` −15.3 % (−6.8 %), `write_bytes + finish` −9.6 % (−7.2 %), the event reply −4.2 % (−11.4 %), `write_nib` −5.5 % (−6.9 %), the other primitives and the request decode within ±3 %. `Series` encode with `DeltaPacked` is slower: 22.0 → 25.3 ns minimum, +15.0 % (+12.9 %); `Series` decode +3.4 % (−1.7 %).
-- Donguru and rePort: `fast-io` stays off (checked with a `compile_error!` behind `all(feature = "fast-io", target_os = "none")`). Their text moved by +96 B and −44 B. Builds of the same code with an unrelated change (a feature list, a build script) moved them by up to 200 B, because the crate hashes reorder symbols under LTO.
+- Portwright and rePort: `fast-io` stays off (checked with a `compile_error!` behind `all(feature = "fast-io", target_os = "none")`). Their text moved by +96 B and −44 B. Builds of the same code with an unrelated change (a feature list, a build script) moved them by up to 200 B, because the crate hashes reorder symbols under LTO.
 
 ## SW-72: `MaxLen<_, N>`'s bound check through one helper
 
@@ -180,7 +180,7 @@ The `--cfg` became the `fast-io` feature, which `std` turns on, so host builds c
 | after, `#[inline(never)]` on `check_max_len` (what the item asked for) | 246 B | 205 B | 377 B | 337 B |
 | `#[inline(never)]` vs before | +10 B | −1 B | +53 B | +45 B |
 
-The estimate (9 monomorphised copies on Donguru, "est. 200-250 B" in FEATURES.md) assumed the duplicated copies could be merged away. They can't: each copy still needs its own `N` to compare against, baked in as a call argument either way, so nothing byte-identical is left for the linker or `MergeFunctions` to fold. Forcing the check out of line with `#[inline(never)]` only adds the call's own overhead (argument setup, branch-and-link, the `?` on its `Result`) on top of a comparison that was already about as small as an immediate compare gets — and costs more of it at `fw-3`, where the optimizer would otherwise have inlined a function this small for free. Left as a plain `fn`, the compiler inlines it back at every site, landing on the exact bytes the duplicated form already had: one copy in the source to read and maintain, not a smaller binary. Shipped as the plain `fn`.
+The estimate (9 monomorphised copies on Portwright, "est. 200-250 B" in FEATURES.md) assumed the duplicated copies could be merged away. They can't: each copy still needs its own `N` to compare against, baked in as a call argument either way, so nothing byte-identical is left for the linker or `MergeFunctions` to fold. Forcing the check out of line with `#[inline(never)]` only adds the call's own overhead (argument setup, branch-and-link, the `?` on its `Result`) on top of a comparison that was already about as small as an immediate compare gets — and costs more of it at `fw-3`, where the optimizer would otherwise have inlined a function this small for free. Left as a plain `fn`, the compiler inlines it back at every site, landing on the exact bytes the duplicated form already had: one copy in the source to read and maintain, not a smaller binary. Shipped as the plain `fn`.
 
 ## Dispatcher arms: only what differs (SRV-51)
 
@@ -269,23 +269,23 @@ One kind got dearer through SRV-51 and SRV-52, measured on master with SW-72's `
 
 ## Reply paths without a copy per type (SRV-55)
 
-After SRV-51 and SRV-52 the shared reply paths (`reply_call`, `reply_value`, `reply_get`, ...) were generic over the value type, so a firmware had one copy of each path per type, with the type's serializer inlined in it. In Donguru (typec_dongle) that was 177 functions and 25.8 KB, and the firmware was 14.2 KB larger than before SRV-51. Three changes take that back:
+After SRV-51 and SRV-52 the shared reply paths (`reply_call`, `reply_value`, `reply_get`, ...) were generic over the value type, so a firmware had one copy of each path per type, with the type's serializer inlined in it. In Portwright (typec_dongle) that was 177 functions and 25.8 KB, and the firmware was 14.2 KB larger than before SRV-51. Three changes take that back:
 
 1. The generic entry points in `ww_client_server::dispatch` are `#[inline(always)]`. They only match the handler's result and pass the value on as an `ErasedValue`: a pointer to it and a `fn` pointer to a small thunk around its type's `ser_shrink_wrap`. Each path behind them is compiled once per server mode. `SerializeShrinkWrap` has associated constants and is not dyn-compatible, and a `&dyn` of a helper trait would add a 16 B vtable per type, so the handle is a plain `fn` pointer. Whether the type is unsized is a separate `bool` argument, not a field: LLVM drops it from every path of a server without `multi_req`.
 2. `MaxLen<T, N>` decodes through `des_bounded::<T>(rd, N)` (`#[inline(never)]` in `shrink_wrap`), one copy per `T` instead of one per bound: a `&str` decoder used to be inlined into each `N`'s `des`.
-3. `ww_device::Server::handle` polls its state machine in a function of its own (`PollOutOfLine`). Once the dispatcher got smaller, LLVM inlined `handle` into Donguru's server task, and with it what both call (`poll_properties`, `observe_request`, the writers): the task went from 24.6 KB to 45.0 KB while `handle`'s 14.2 KB went away, 6.2 KB more in all.
+3. `ww_device::Server::handle` polls its state machine in a function of its own (`PollOutOfLine`). Once the dispatcher got smaller, LLVM inlined `handle` into Portwright's server task, and with it what both call (`poll_properties`, `observe_request`, the writers): the task went from 24.6 KB to 45.0 KB while `handle`'s 14.2 KB went away, 6.2 KB more in all.
 
-Making the per-type wrappers `#[inline(never)]` instead (one small function per type that matches and calls the erased path) was tried and is 7.5 KB worse in Donguru: LLVM inlines the serializer thunks back into them. `des` stays generic: it is the type's decoder and a `BufReader`, nothing to share.
+Making the per-type wrappers `#[inline(never)]` instead (one small function per type that matches and calls the erased path) was tried and is 7.5 KB worse in Portwright: LLVM inlines the serializer thunks back into them. `des` stays generic: it is the type's decoder and a `BufReader`, nothing to share.
 
 Real firmware, text + data in bytes, every build in the same paths (so that panic locations weigh the same):
 
 | firmware                                      | c440491 (before SRV-51) | f5f88ea (SRV-52) |  SRV-55 |
 |-----------------------------------------------|------------------------:|-----------------:|--------:|
-| Donguru, typec_dongle 1965884, release (`z`)  |                 317,996 |          332,184 | 314,972 |
-| Donguru, its dev profile (`opt-level = 3`), FLASH overflowed by |   6,148 |           16,532 |     960 |
-| donguru_template 856c389, release (`z`)       |                         |          135,676 | 132,164 |
+| Portwright, typec_dongle 1965884, release (`z`)  |                 317,996 |          332,184 | 314,972 |
+| Portwright, its dev profile (`opt-level = 3`), FLASH overflowed by |   6,148 |           16,532 |     960 |
+| portwright_template 856c389, release (`z`)       |                         |          135,676 | 132,164 |
 
-In Donguru `ww_client_server::dispatch` went from 177 functions and 25,790 B to 116 and 15,556 B. 52 of them are the serializer thunks (7,978 B), 50 are `des` (6,576 B): what is left per type is the type's own serdes. In donguru_template the dispatch functions went from 11,260 B to 9,270 B.
+In Portwright `ww_client_server::dispatch` went from 177 functions and 25,790 B to 116 and 15,556 B. 52 of them are the serializer thunks (7,978 B), 50 are `des` (6,576 B): what is left per type is the type's own serdes. In portwright_template the dispatch functions went from 11,260 B to 9,270 B.
 
 TEST-30 (`just flash-budget`, thumbv6m), SRV-52 → SRV-55, bytes:
 
@@ -303,7 +303,7 @@ Instructions per request (`just dispatch-budget`, Cortex-M3 under QEMU) are with
 
 ## Global trait paths by hash (SRV-53)
 
-Every server had a function that matched the crate and trait names of a `GlobalFull` request against every trait of its API as strings, with a version check per arm, and the names in flash (862 B of code and 240 B of names in Donguru). Now a server with introspection has no global lookup at all: the client resolves a global path from the introspection data and sends the absolute one. A server without introspection keeps a `const` table of the reachable traits, each a 32-bit FNV-1a hash of crate and trait name, the crate's major and minor and the trait's path, looked up by one shared function, `ww_client_server::dispatch::global_full_path`, that hashes the request's names. See [Addressing](../api/addressing.md#who-resolves-a-global-path).
+Every server had a function that matched the crate and trait names of a `GlobalFull` request against every trait of its API as strings, with a version check per arm, and the names in flash (862 B of code and 240 B of names in Portwright). Now a server with introspection has no global lookup at all: the client resolves a global path from the introspection data and sends the absolute one. A server without introspection keeps a `const` table of the reachable traits, each a 32-bit FNV-1a hash of crate and trait name, the crate's major and minor and the trait's path, looked up by one shared function, `ww_client_server::dispatch::global_full_path`, that hashes the request's names. See [Addressing](../api/addressing.md#who-resolves-a-global-path).
 
 Measured 3 Nov 2026 against SRV-52 (master `f5f88ea4` plus the `Globals*` kind), in the same worktree, bytes:
 
@@ -320,7 +320,7 @@ Real firmware, release (`z`), introspection as each ships (on, so no global look
 
 | firmware                                     | 512f59e (SRV-55) | SRV-53 |   change |
 |----------------------------------------------|-----------------:|-------:|---------:|
-| Donguru, typec_dongle 9427643                 |          314,892 | 312,476 |  -2,416 |
-| donguru_template 856c389                      |          132,148 | 130,280 |  -1,868 |
+| Portwright, typec_dongle 9427643                 |          314,892 | 312,476 |  -2,416 |
+| portwright_template 856c389                      |          132,148 | 130,280 |  -1,868 |
 
-Both lose more than the 1,102 B the lookup had in Donguru on SRV-52; where the rest comes from was not broken down by symbol.
+Both lose more than the 1,102 B the lookup had in Portwright on SRV-52; where the rest comes from was not broken down by symbol.

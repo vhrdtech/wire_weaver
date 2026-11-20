@@ -424,7 +424,7 @@ impl<Tx: MessageTx, C: Clock> MessageSink for Sink<'_, '_, Tx, C> {
 
 /// A future polled by a function of its own: the caller's state machine (a firmware's server task, with
 /// everything else it selects on) doesn't take in [Server::handle]'s, the dispatcher's root with it. Inlined there,
-/// LLVM went on to inline what both call (`poll_properties`, the writers) and the task grew by 6 KB in Donguru
+/// LLVM went on to inline what both call (`poll_properties`, the writers) and the task grew by 6 KB in Portwright
 /// (SRV-55).
 struct PollOutOfLine<F>(F);
 

@@ -7,7 +7,7 @@ level: advanced
 A server generated with `use_async = true` expects every user handler to be an `async fn`, and with
 `use_async = false` every handler to be a plain `fn`. Most handlers of a device never wait for anything (they read a
 field, set a pin, answer `Unimplemented`), and an `async fn` costs flash even when it never awaits: each call
-becomes a state of the dispatcher's future. On Donguru (Cortex-M0+), ~115 of ~130 handlers never await; making them
+becomes a state of the dispatcher's future. On Portwright (Cortex-M0+), ~115 of ~130 handlers never await; making them
 plain `fn`s saved 20.2 KiB of flash at `opt-level = "z"` (282 -> 262 KiB) and 12.6 KiB at 3.
 
 `handler_model` lists the exceptions, so an async server can have sync handlers (SRV-21):
@@ -15,7 +15,7 @@ plain `fn`s saved 20.2 KiB of flash at `opt-level = "z"` (282 -> 262 KiB) and 12
 ```rust
 mod server_impl {
     wire_weaver::ww_codegen!(
-        donguru_api :: DonguruApi for super::ServerState,
+        portwright_api :: PortwrightApi for super::ServerState,
         server = true, no_alloc = true, use_async = true,
         // these await (flash writes, ADC reads, a VBUS cycle), all others are plain `fn`s
         handler_model = "device.settings.*|meter.reading|plug.vbus_cycle=async, _=sync",

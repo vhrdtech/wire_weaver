@@ -155,7 +155,7 @@ fn claim_error(key: &str, e: CallError<ClaimErrorOwned>) -> anyhow::Error {
     }
 }
 
-/// `dg pid 4711 (flashing B135 #4), lent` as the claim says.
+/// `pw pid 4711 (flashing B135 #4), lent` as the claim says.
 pub fn describe_claim(claim: &ClaimEntryOwned) -> String {
     let h = &claim.holder;
     let mut s = match (h.program.is_empty(), h.pid) {

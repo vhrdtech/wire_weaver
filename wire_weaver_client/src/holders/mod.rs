@@ -95,7 +95,7 @@ impl Mode {
 #[derive(Debug, Clone)]
 pub struct Holder {
     pub pid: u32,
-    /// Process name, e.g. `dg` (the file name of [`std::env::current_exe`]).
+    /// Process name, e.g. `pw` (the file name of [`std::env::current_exe`]).
     pub program: String,
     /// Full path of the holder's executable.
     pub exe: String,
@@ -709,7 +709,7 @@ mod tests {
 
     #[test]
     fn reads_a_file_written_before_client_meta() {
-        let content = "key = usb:1:2:s\npid = 7\nprogram = dg\nexe = /bin/dg\nmode = direct\nsince = 1\nww_version = 0.5.0\n";
+        let content = "key = usb:1:2:s\npid = 7\nprogram = pw\nexe = /bin/pw\nmode = direct\nsince = 1\nww_version = 0.5.0\n";
         let (_, h) = Holder::parse_with_key(content).unwrap();
         assert_eq!((h.pid, h.kind.as_str()), (7, ""));
     }

@@ -353,8 +353,8 @@ Medians of 7 rounds of 2 s per stage on an idle PC (one of our dev PCs, Apple M1
 
 | Device                          | Size  | Round trips/s        | Host → device         | Device → host          |
 |---------------------------------|-------|----------------------|-----------------------|------------------------|
-| donguru (USB FS)                | 16 B  | 3373 → 2883 (−15 %)  | 8859 → 7440 msg/s     | 26118 → 26111 msg/s    |
-| donguru (USB FS)                | max   | 350 → 345 (−1 %)     | 735 → 767 kB/s        | 537 → 535 kB/s         |
+| portwright (USB FS)                | 16 B  | 3373 → 2883 (−15 %)  | 8859 → 7440 msg/s     | 26118 → 26111 msg/s    |
+| portwright (USB FS)                | max   | 350 → 345 (−1 %)     | 735 → 767 kB/s        | 537 → 535 kB/s         |
 | b200 (USB FS)                   | 16 B  | 2461 → 1886 (−23 %)  | 12554 → 10087 msg/s   | 38429 → 38614 msg/s    |
 | b200 (USB FS)                   | max   | 112 → 131 (+17 %)    | 362 → 457 kB/s        | 547 → 552 kB/s         |
 | B135 (USB HS)                   | 16 B  | 6252 → 4474 (−28 %)  | 16701 → 16013 msg/s   | 159730 → 159029 msg/s  |
@@ -572,7 +572,7 @@ the device sends before the next answers; it is there either way. The hub's trac
 
 ## Version skew and handover (SRV-30)
 
-Programs on one PC are built at different times: `dg` with one WireWeaver release, the rePort GUI with another, one
+Programs on one PC are built at different times: `pw` with one WireWeaver release, the rePort GUI with another, one
 hub for both. Three layers keep that working, each under WireWeaver's own [evolution rules](../evolution/versions.md#the-ww-hub-and-version-skew):
 
 1. **The preamble** is frozen ([Wire format](#wire-format)): any client and any hub can exchange their versions and a
@@ -719,7 +719,7 @@ if let Some(e) = exclusive {
 `hub::Exclusive::take(key, meta, purpose)` takes it only when a hub runs and holds the device; otherwise the program
 holds the device directly, which is exclusive by itself, and gets `None`. `meta` has to be the `ClientMeta` the
 device connection was made with: the claim belongs to its instance id, so that connection's calls go through. Another
-program's exclusive in the way is an error naming it (`usb:..: in use: dg pid 4711 (flashing), lent`). `ww dfu
+program's exclusive in the way is an error naming it (`usb:..: in use: pw pid 4711 (flashing), lent`). `ww dfu
 reboot | flash | confirm | revert` take it this way ([`ww dfu`](../cli_reference.md#ww-dfu)); `flash` keeps it across
 the device's reset into the trial, since the claim is by device key and the program's hub connection stays up.
 
@@ -744,7 +744,7 @@ the hub holds it. `ww hub lend DEVICE -- CMD` asks the hub to let it go for one 
 `hub::Lend::take(key, purpose)` is the same from a program; without a running hub it is `None` and the command just
 runs. Reconnecting clients wait while the device is lent and come back when it is returned (CLT-40).
 
-On one of our dev PCs (22 Oct 2026), Donguru lent to a J-Link reset while `ww sync` watched it through the hub:
+On one of our dev PCs (22 Oct 2026), Portwright lent to a J-Link reset while `ww sync` watched it through the hub:
 
 ```sh
 ww hub lend 204B319B5431 -- probe-rs reset --probe 1366:0105 --chip STM32G0B1RETx
@@ -778,9 +778,9 @@ steerer for the devices of its user; programs see its steering through the API i
 - **Pace.** `HubConfig::sync_options` (`wire_weaver_client::clock_sync::Options`): readings and steer points ten times a second until
   the device says `Locked`, then five readings and one steer point a second.
 
-Measured on one of our dev PCs (22 Oct 2026, Donguru and B135 on USB full speed, `ww sync` as the view):
+Measured on one of our dev PCs (22 Oct 2026, Portwright and B135 on USB full speed, `ww sync` as the view):
 
-| | Donguru | B135 |
+| | Portwright | B135 |
 |---|---|---|
 | `Locked` after the hub opened it, no cached rate | 2.6 s | 1.4 s |
 | the same with a cached rate, also after a hub restart or 60 s closed in holdover | 0.4-1.4 s | 0.4 s |
@@ -951,8 +951,8 @@ richer client metadata — never breaks an older reader):
 ```text
 key = usb:046d:c52b:ABCD1234:0
 pid = 4821
-program = dg
-exe = /home/user/.cargo/bin/dg
+program = pw
+exe = /home/user/.cargo/bin/pw
 mode = direct
 since = 1771234567
 ww_version = 0.5.0
@@ -975,7 +975,7 @@ A connection refused because another WireWeaver program already holds the device
 own lock file content (`Holder`'s `Display`):
 
 ```text
-device is already open by another WireWeaver program or connection; held by dg, pid 4711, Cli, roman@pc1, direct,
+device is already open by another WireWeaver program or connection; held by pw, pid 4711, Cli, roman@pc1, direct,
 since 14:02:03 UTC; to share a device between programs, let the ww hub hold it: `ww hub take`, or WW_HUB=prefer for
 both programs (a hub comes with `ww`: cargo install wire_weaver_cli)
 ```

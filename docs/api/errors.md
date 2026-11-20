@@ -252,7 +252,7 @@ The numbers are the same in every server, defined in `ww_client_server::err_seq`
 The item kind, the request kind and the error kind tell apart what shares a number: a decode failure of a method's
 arguments and of a property's value are both 1, one comes with `ArgsDesFailed` on a call, the other with
 `PropertyDesFailed` on a write. Since the same step of every item is the same constant, the firmware's error arms
-are shared code (Donguru: 1.5 KiB less flash at `opt-level = "z"` than one number per site, 1.7 KiB at 3). `Error::site()` sorts a number into its
+are shared code (Portwright: 1.5 KiB less flash at `opt-level = "z"` than one number per site, 1.7 KiB at 3). `Error::site()` sorts a number into its
 range.
 
 ## Devices and hosts of different versions

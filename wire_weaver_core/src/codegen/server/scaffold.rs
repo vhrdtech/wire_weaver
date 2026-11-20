@@ -5,6 +5,7 @@
 use crate::codegen::CodegenBundle;
 use crate::codegen::omit::{Omissions, Omit};
 use crate::codegen::ty_def::{TyPos, ty_def};
+use crate::codegen::util::dotted;
 use crate::const_model::{ConstModel, ConstModelKind};
 use crate::handler_model::{HandlerKind, HandlerModel};
 use crate::method_model::{MethodModel, MethodModelKind};
@@ -450,11 +451,8 @@ impl Scaffold<'_> {
                 Some(prefix) => format!("{prefix}_{}", item.ident),
                 None => item.ident.clone(),
             };
-            self.current = format!(
-                "{path}{}{}",
-                if path.is_empty() { "" } else { "." },
-                item.ident
-            );
+            // as codegen sees it: trait items only, no `[]` of an array
+            self.current = dotted(item_path, &item.ident);
             match &item.kind {
                 ApiItemKindOwned::Method {
                     args, return_ty, ..
@@ -477,7 +475,9 @@ impl Scaffold<'_> {
                     self.flow(item, &name, item_index_len, *flow)?;
                     self.stream(item, &name, item_index_len, ty, false)?
                 }
-                ApiItemKindOwned::Keys { .. } => self.keys(level, item, prefix, index_len, path)?,
+                ApiItemKindOwned::Keys { .. } => {
+                    self.keys(level, item, prefix, index_len, item_path)?
+                }
                 ApiItemKindOwned::Trait { .. } => {}
             }
         }
@@ -531,7 +531,7 @@ impl Scaffold<'_> {
         keys: &ApiItemOwned,
         prefix: Option<&str>,
         index_len: usize,
-        path: &str,
+        item_path: &[String],
     ) -> Result<()> {
         let level_of_keys = ww_self::keys::keys_level(level, keys)?;
         let ApiItemKindOwned::Keys { of, .. } = &keys.kind else {
@@ -546,11 +546,6 @@ impl Scaffold<'_> {
             Some(prefix) => format!("{prefix}_{}", array.ident),
             None => array.ident.clone(),
         };
-        let at = format!(
-            "{path}{}{}",
-            if path.is_empty() { "" } else { "." },
-            keys.ident
-        );
         writeln!(
             self.handlers,
             "// keyed!({} by ..): `{}_keys_send` announces each element on the `keys` stream\n",
@@ -559,7 +554,7 @@ impl Scaffold<'_> {
         let property_model = std::mem::take(&mut self.property_model);
         let result = level_of_keys.items.iter().try_for_each(|item| {
             let name = format!("{array_name}_{}", item.ident);
-            self.current = format!("{at}.{}", item.ident);
+            self.current = format!("{}.{}", dotted(item_path, &keys.ident), item.ident);
             match &item.kind {
                 ApiItemKindOwned::Method {
                     args, return_ty, ..
@@ -1166,6 +1161,16 @@ mod tests {
         // without a model everything follows use_async
         let code = gen_server_scaffold(&bundle, &config(&[]), &CratePaths::default()).unwrap();
         assert!(code.contains("async fn get_motor_current(") && !code.contains("handler_model"));
+
+        // an item in an array of levels is matched as codegen matches it, without `[]`
+        let crate_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/dispatch_golden_api");
+        let bundle = crate::load(&crate_path, None, false).unwrap();
+        let in_array = ServerScaffoldConfig {
+            handler_model: "channel.pulse=async, _=sync".into(),
+            ..config(&[])
+        };
+        let code = gen_server_scaffold(&bundle, &in_array, &CratePaths::default()).unwrap();
+        assert!(code.contains("async fn channel_pulse("), "{code}");
     }
 
     /// SRV-57: the setter stub of an observed `get_set` property says the generated code marks it changed, a

@@ -40,6 +40,7 @@
 ### 🐛 Fixes
 
 - A numeric type without a Rust definition (`f16`, `UN`, `IN`, LEB, `UQ`, `IQ`, sub types, shift-scale) makes codegen return an error instead of panicking.
+- `ww api scaffold` matches `handler_model` patterns against the item path codegen uses: items under an array of levels no longer carry `[]` (`channel.pulse`).
 - `skip_known` refuses with `UnreadableDependencySnapshot` when a dependency's snapshot file exists but cannot be read, instead of silently inlining the dependency's whole API; `introspect_prepare` stops the build on it (EVO-82). Before, an old-format snapshot bloated a device's introspection data and could overflow flash with no error or warning.
 - The crate walker in a git or path-patched dependency walks the commits the building workspace's lock pins, not its own lock's (API-14).
 - Outside a build too (`ww api check`, the evolution checker): a crate walked in a git checkout the current workspace pins follows that workspace's lock (API-14).

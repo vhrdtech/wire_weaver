@@ -703,7 +703,13 @@ mod tests {
         let asked_at = tokio::time::Instant::now();
         bench.shut_down();
         (&mut bench.served).await.unwrap();
-        assert_eq!(asked_at.elapsed(), Duration::from_secs(3));
+        // the grace time, then at most the linger time for the client to close
+        let took = asked_at.elapsed();
+        assert!(
+            took >= limits.shutdown_grace
+                && took <= limits.shutdown_grace + limits.disconnect_linger,
+            "{took:?}"
+        );
         assert!(stuck.await.unwrap().is_err());
     }
 }

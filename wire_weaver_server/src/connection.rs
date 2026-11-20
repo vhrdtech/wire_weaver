@@ -6,7 +6,7 @@ use std::ops::Deref;
 use std::pin::{Pin, pin};
 use std::task::Poll;
 
-use futures_util::future::select;
+use futures_util::future::{Either, select};
 use wire_weaver::{ConnectionId, DisconnectReason, EventWriter, Peer};
 use ww_device::link::{Phase, Received, Transmit};
 use ww_device::{
@@ -158,22 +158,7 @@ impl<Tx: MessageTx, Rx: MessageRx, C: Clock> Conn<'_, Tx, Rx, C> {
             }
             Step::Events => self.send_events().await,
             Step::Message(false) => self.link.on_transport_down(),
-            Step::Message(true) => {
-                let mut loopback = None;
-                if let Some((kind, message)) = self.rx.message() {
-                    match self.link.handle_message(now, kind, message) {
-                        Some(Received::Data(request)) => self.pending.push_back(request.to_vec()),
-                        Some(Received::Loopback { repeat, seq, data }) => {
-                            loopback = Some((repeat, seq, data.to_vec()));
-                        }
-                        None => {}
-                    }
-                }
-                self.rx.consume();
-                if let Some((repeat, seq, data)) = loopback {
-                    self.loopback(repeat, seq, &data).await;
-                }
-            }
+            Step::Message(true) => self.on_message(now).await,
             Step::Timeout => self.link.handle_timeout(now),
             Step::Stage(stage) => {
                 self.stage = stage;
@@ -189,6 +174,24 @@ impl<Tx: MessageTx, Rx: MessageRx, C: Clock> Conn<'_, Tx, Rx, C> {
             Some(LinkEvent::Down(_)) => Flow::End,
             None if self.link.phase() == Phase::Down => Flow::End,
             None => flow,
+        }
+    }
+
+    /// Take in the message the medium has: a request joins the queue, a link message is acted on.
+    async fn on_message(&mut self, now: ww_device::Instant) {
+        let mut loopback = None;
+        if let Some((kind, message)) = self.rx.message() {
+            match self.link.handle_message(now, kind, message) {
+                Some(Received::Data(request)) => self.pending.push_back(request.to_vec()),
+                Some(Received::Loopback { repeat, seq, data }) => {
+                    loopback = Some((repeat, seq, data.to_vec()));
+                }
+                None => {}
+            }
+        }
+        self.rx.consume();
+        if let Some((repeat, seq, data)) = loopback {
+            self.loopback(repeat, seq, &data).await;
         }
     }
 
@@ -211,7 +214,7 @@ impl<Tx: MessageTx, Rx: MessageRx, C: Clock> Conn<'_, Tx, Rx, C> {
     async fn send_events(&mut self) {
         while let Some(event) = self.outbox.pop() {
             // an event the link refuses now (it went down) is dropped, as a device's sink drops it
-            if self.send(&event.bytes).await.is_ok() && event.urgent {
+            if self.send(&event.event).await.is_ok() && event.urgent {
                 self.link.flush_now();
             }
         }
@@ -285,11 +288,28 @@ impl<Tx: MessageTx, Rx: MessageRx, C: Clock> Conn<'_, Tx, Rx, C> {
         }
     }
 
-    /// Tell the client that the server goes away, and send it now.
+    /// Tell the client that the server goes away, send it now, and give the client the linger time to close
+    /// first: closing under a client that is writing would show it a transport error, not the reason.
     async fn disconnect(&mut self) {
         self.link.disconnect(DisconnectReason::Shutdown);
         self.drain_transmit().await;
         let _ = self.tx.flush().await;
+        let until = self.clock.now() + self.limits.disconnect_linger;
+        loop {
+            let read = {
+                let message = pin!(self.rx.wait_message());
+                let linger = pin!(self.clock.wait_until(until));
+                match select(message, linger).await {
+                    Either::Left((read, _)) => read.is_ok(),
+                    Either::Right(_) => false,
+                }
+            };
+            if !read {
+                return;
+            }
+            // what the client still sends is not served any more
+            self.rx.consume();
+        }
     }
 }
 
@@ -380,18 +400,8 @@ pub(crate) async fn run<M: MakeBackend>(
     conn.tx.reset();
     conn.link.on_transport_up(conn.clock.now());
     conn.drain_transmit().await;
-
-    // link setup; a server that shuts down meanwhile drops the connection
-    loop {
-        match conn.step(IDLE).await {
-            Flow::Up => break,
-            Flow::End => return,
-            Flow::Continue | Flow::Finished => {
-                if conn.stage != Stage::Run {
-                    return;
-                }
-            }
-        }
+    if !conn.set_up().await {
+        return;
     }
     outbox.set_message_len_max(conn.link.agreed_max_message_len());
     let info = Connection {
@@ -406,15 +416,8 @@ pub(crate) async fn run<M: MakeBackend>(
 
     loop {
         if let Some(request) = conn.pending.pop_front() {
-            let scratch = conn
-                .reply_buffer
-                .take()
-                .expect("the buffer comes back with every answer");
-            let events = conn
-                .event_buffer
-                .take()
-                .expect("the buffer comes back with every answer");
-            let mut work = pin!(call(
+            let (scratch, events) = (conn.take_reply_buffer(), conn.take_event_buffer());
+            let work = pin!(call(
                 &mut backend,
                 medium,
                 &outbox,
@@ -422,61 +425,104 @@ pub(crate) async fn run<M: MakeBackend>(
                 scratch,
                 events
             ));
-            loop {
-                match conn.step(Some(work.as_mut())).await {
-                    Flow::Finished => break,
-                    Flow::End => return,
-                    Flow::Continue | Flow::Up => {}
-                }
-            }
-        } else {
-            if conn.stage != Stage::Run {
-                // shutting down and nothing left to answer
-                conn.disconnect().await;
+            if !conn.finish(work).await {
                 return;
             }
-            // nothing to answer: until a request comes, or the backend has work of its own
-            let wake = backend.next_wake(conn.clock.now());
-            let clock = conn.clock.clone();
-            let mut idle = pin!(async {
-                let timer = async {
-                    match wake {
-                        Some(at) => clock.wait_until(at).await,
-                        None => pending().await,
-                    }
-                };
-                select(pin!(backend.wait()), pin!(timer)).await;
-                Finished::Woke
-            });
-            let woke = loop {
-                match conn.step(Some(idle.as_mut())).await {
-                    Flow::Finished => break true,
-                    Flow::End => return,
-                    Flow::Continue | Flow::Up => {
-                        if !conn.pending.is_empty() || conn.stage != Stage::Run {
-                            break false;
-                        }
-                    }
-                }
-            };
-            if !woke {
+        } else {
+            match conn.idle(&mut backend).await {
+                Idle::Woke => {}
                 // the request first: the backend's turn comes after it
-                continue;
+                Idle::Request => continue,
+                Idle::End => return,
             }
         }
         // the backend's own turn, to its end
-        let events = conn
-            .event_buffer
-            .take()
-            .expect("the buffer comes back with every answer");
-        let now = conn.clock.now();
-        let mut work = pin!(poll(&mut backend, medium, &outbox, now, events));
+        let (events, now) = (conn.take_event_buffer(), conn.clock.now());
+        let work = pin!(poll(&mut backend, medium, &outbox, now, events));
+        if !conn.finish(work).await {
+            return;
+        }
+    }
+}
+
+/// How a wait without a request ended.
+enum Idle {
+    /// The backend has work of its own.
+    Woke,
+    /// A request came.
+    Request,
+    /// The connection is over.
+    End,
+}
+
+impl<Tx: MessageTx, Rx: MessageRx, C: Clock + Clone> Conn<'_, Tx, Rx, C> {
+    /// Link setup. False when the connection ended first; a server that shuts down meanwhile drops it.
+    async fn set_up(&mut self) -> bool {
         loop {
-            match conn.step(Some(work.as_mut())).await {
-                Flow::Finished => break,
-                Flow::End => return,
+            match self.step(IDLE).await {
+                Flow::Up => return true,
+                Flow::End => return false,
+                Flow::Continue | Flow::Finished => {
+                    if self.stage != Stage::Run {
+                        return false;
+                    }
+                }
+            }
+        }
+    }
+
+    /// Run `work` to its end. False when the connection ended first.
+    async fn finish<W: Future<Output = Finished>>(&mut self, mut work: Pin<&mut W>) -> bool {
+        loop {
+            match self.step(Some(work.as_mut())).await {
+                Flow::Finished => return true,
+                Flow::End => return false,
                 Flow::Continue | Flow::Up => {}
             }
         }
+    }
+
+    /// Nothing to answer: wait for a request, or for the backend's own work.
+    async fn idle<B: Backend>(&mut self, backend: &mut B) -> Idle {
+        if self.stage != Stage::Run {
+            // shutting down and nothing left to answer
+            self.disconnect().await;
+            return Idle::End;
+        }
+        let wake = backend.next_wake(self.clock.now());
+        let clock = self.clock.clone();
+        let mut woke = pin!(async {
+            let timer = async {
+                match wake {
+                    Some(at) => clock.wait_until(at).await,
+                    None => pending().await,
+                }
+            };
+            select(pin!(backend.wait()), pin!(timer)).await;
+            Finished::Woke
+        });
+        loop {
+            match self.step(Some(woke.as_mut())).await {
+                Flow::Finished => return Idle::Woke,
+                Flow::End => return Idle::End,
+                Flow::Continue | Flow::Up => {
+                    if !self.pending.is_empty() || self.stage != Stage::Run {
+                        return Idle::Request;
+                    }
+                }
+            }
+        }
+    }
+
+    fn take_reply_buffer(&mut self) -> Vec<u8> {
+        self.reply_buffer
+            .take()
+            .expect("the buffer comes back with every answer")
+    }
+
+    fn take_event_buffer(&mut self) -> Vec<u8> {
+        self.event_buffer
+            .take()
+            .expect("the buffer comes back with every answer")
     }
 }

@@ -1,5 +1,6 @@
 //! Events a running handler sends, on their way to the connection's writer.
 
+use crate::sync::locked;
 use std::collections::VecDeque;
 use std::future::poll_fn;
 use std::sync::Mutex;
@@ -20,7 +21,7 @@ pub(crate) struct Outbox {
 
 /// A queued event.
 pub(crate) struct Queued {
-    pub(crate) bytes: Vec<u8>,
+    pub(crate) event: Vec<u8>,
     /// A reply to an urgent request: sent at once, not within the accumulation window.
     pub(crate) urgent: bool,
 }
@@ -51,10 +52,7 @@ impl Outbox {
     }
 
     fn poll_push(&self, cx: &mut Context<'_>, event: &[u8], urgent: bool) -> Poll<()> {
-        let mut inner = self
-            .inner
-            .lock()
-            .expect("the outbox lock is never held across a panic");
+        let mut inner = locked(&self.inner);
         if inner.events.len() >= self.events_max {
             if !inner.waiting.iter().any(|w| w.will_wake(cx.waker())) {
                 inner.waiting.push(cx.waker().clone());
@@ -62,7 +60,7 @@ impl Outbox {
             return Poll::Pending;
         }
         inner.events.push_back(Queued {
-            bytes: event.to_vec(),
+            event: event.to_vec(),
             urgent,
         });
         Poll::Ready(())
@@ -70,10 +68,7 @@ impl Outbox {
 
     /// The oldest event; handlers waiting for room are woken.
     pub(crate) fn pop(&self) -> Option<Queued> {
-        let mut inner = self
-            .inner
-            .lock()
-            .expect("the outbox lock is never held across a panic");
+        let mut inner = locked(&self.inner);
         let event = inner.events.pop_front();
         for waker in inner.waiting.drain(..) {
             waker.wake();
@@ -82,11 +77,7 @@ impl Outbox {
     }
 
     pub(crate) fn is_empty(&self) -> bool {
-        self.inner
-            .lock()
-            .expect("the outbox lock is never held across a panic")
-            .events
-            .is_empty()
+        locked(&self.inner).events.is_empty()
     }
 }
 

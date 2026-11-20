@@ -28,6 +28,7 @@ mod lifecycle;
 mod listener;
 mod outbox;
 mod server;
+mod sync;
 
 pub use backend::Backend;
 pub use connection::Connection;

@@ -199,6 +199,7 @@ in, and `poll` sends them with the generated `stream_data_ser().<name>_send(&ite
 | `pending_max` | 32 | The connection stops reading. The client's transport pushes back on the client. |
 | `events_max` | 64 | A handler waits inside its send until the connection wrote events out. |
 | `shutdown_grace` | 5 s | See below. |
+| `disconnect_linger` | 200 ms | See below. |
 
 None of these limits drops a request. A full queue slows down the client that filled it, and nobody else.
 
@@ -209,7 +210,9 @@ an error that names both sides' limits.
 ## Shutting down
 
 When the shutdown future completes, the server stops accepting connections. Each connection then answers the
-requests it already has, disconnects its client with the reason `Shutdown` and ends. A connection with nothing to
+requests it already has, disconnects its client with the reason `Shutdown` and ends. It keeps the
+connection open for `disconnect_linger` after that message, so that a client which is writing at that moment still
+reads the reason instead of a transport error. A connection with nothing to
 answer ends at once.
 
 Requests that are still running when `shutdown_grace` has passed are dropped, and their connections are

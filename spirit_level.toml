@@ -51,6 +51,7 @@ published = [
     "wire_weaver_core",
     "wire_weaver_derive",
     "wire_weaver_evolution",
+    "wire_weaver_server",
     "ww_api",
     "ww_client_server",
     "ww_clock_sync",

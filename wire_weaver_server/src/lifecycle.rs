@@ -1,5 +1,6 @@
 //! What the server tells its connections: keep going, finish up, or stop now.
 
+use crate::sync::locked;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::task::{Context, Waker};
@@ -31,10 +32,7 @@ impl Lifecycle {
 
     /// The stage now; the task of `cx` is woken when it changes.
     pub(crate) fn watch(&self, cx: &mut Context<'_>) -> Stage {
-        let mut watchers = self
-            .watchers
-            .lock()
-            .expect("the watchers lock is never held across a panic");
+        let mut watchers = locked(&self.watchers);
         if !watchers.iter().any(|w| w.will_wake(cx.waker())) {
             watchers.push(cx.waker().clone());
         }
@@ -52,12 +50,7 @@ impl Lifecycle {
     /// Move on to `stage` and wake every connection.
     pub(crate) fn set(&self, stage: Stage) {
         self.stage.store(stage as u8, Ordering::Release);
-        let watchers = std::mem::take(
-            &mut *self
-                .watchers
-                .lock()
-                .expect("the watchers lock is never held across a panic"),
-        );
+        let watchers = std::mem::take(&mut *locked(&self.watchers));
         for waker in watchers {
             waker.wake();
         }

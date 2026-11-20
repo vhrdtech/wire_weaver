@@ -2,8 +2,10 @@
 
 use std::collections::{BTreeMap, VecDeque};
 use std::future::poll_fn;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll, Waker};
+
+use crate::sync::locked;
 
 /// Sends each item to every [Subscription]. A subscriber that reads slowly loses its oldest items and is told how
 /// many; it never holds up the sender or the other subscribers.
@@ -37,12 +39,6 @@ struct Queue<T> {
     waker: Option<Waker>,
 }
 
-fn lock<T>(shared: &Mutex<Shared<T>>) -> MutexGuard<'_, Shared<T>> {
-    shared
-        .lock()
-        .expect("the fan-out lock is never held across a panic")
-}
-
 impl<T: Clone> Fanout<T> {
     /// A fan-out whose subscribers each queue up to `queue_max` items.
     ///
@@ -66,7 +62,7 @@ impl<T: Clone> Fanout<T> {
 
     /// Give `item` to every subscriber. Never waits: a full queue drops its oldest item.
     pub fn send(&self, item: T) {
-        let mut shared = lock(&self.shared);
+        let mut shared = locked(&self.shared);
         let queue_max = shared.queue_max;
         for queue in shared.subscribers.values_mut() {
             if queue.items.len() == queue_max {
@@ -82,7 +78,7 @@ impl<T: Clone> Fanout<T> {
 
     /// Items sent from now on.
     pub fn subscribe(&self) -> Subscription<T> {
-        let mut shared = lock(&self.shared);
+        let mut shared = locked(&self.shared);
         let id = shared.next_id;
         shared.next_id += 1;
         shared.subscribers.insert(
@@ -101,13 +97,13 @@ impl<T: Clone> Fanout<T> {
 
     /// How many subscribers there are now.
     pub fn subscribers(&self) -> usize {
-        lock(&self.shared).subscribers.len()
+        locked(&self.shared).subscribers.len()
     }
 }
 
 impl<T> Clone for Fanout<T> {
     fn clone(&self) -> Self {
-        lock(&self.shared).senders += 1;
+        locked(&self.shared).senders += 1;
         Fanout {
             shared: self.shared.clone(),
         }
@@ -116,7 +112,7 @@ impl<T> Clone for Fanout<T> {
 
 impl<T> Drop for Fanout<T> {
     fn drop(&mut self) {
-        let mut shared = lock(&self.shared);
+        let mut shared = locked(&self.shared);
         shared.senders -= 1;
         if shared.senders == 0 {
             for queue in shared.subscribers.values_mut() {
@@ -132,7 +128,7 @@ impl<T> Subscription<T> {
     /// The next item, `Err(Lagged)` first when items were lost before it, `None` when every sender is gone and
     /// the queue is empty.
     pub fn poll_recv(&mut self, cx: &mut Context<'_>) -> Poll<Option<Result<T, Lagged>>> {
-        let mut shared = lock(&self.shared);
+        let mut shared = locked(&self.shared);
         let senders = shared.senders;
         let queue = shared
             .subscribers
@@ -160,7 +156,7 @@ impl<T> Subscription<T> {
 
 impl<T> Drop for Subscription<T> {
     fn drop(&mut self) {
-        lock(&self.shared).subscribers.remove(&self.id);
+        locked(&self.shared).subscribers.remove(&self.id);
     }
 }
 

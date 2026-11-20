@@ -15,6 +15,7 @@ use crate::backend::Backend;
 use crate::connection::{self, Connection};
 use crate::lifecycle::{Lifecycle, Stage};
 use crate::listener::{Accepted, Listener};
+use crate::sync::locked;
 
 /// How much a server and each of its connections may hold.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -31,6 +32,10 @@ pub struct Limits {
     /// How long requests in flight get to finish after shutdown was asked for, before every connection left is
     /// disconnected.
     pub shutdown_grace: Duration,
+    /// How long a connection the server ends stays open after its disconnect message, for the client to read the
+    /// reason and close first. A client that is writing when the connection closes under it sees a transport
+    /// error instead of the reason.
+    pub disconnect_linger: Duration,
 }
 
 impl Default for Limits {
@@ -40,6 +45,7 @@ impl Default for Limits {
             pending_max: 32,
             events_max: 64,
             shutdown_grace: Duration::from_secs(5),
+            disconnect_linger: Duration::from_millis(200),
         }
     }
 }
@@ -255,49 +261,11 @@ impl<C: Clock, L: Listener, S: Future<Output = ()>> Gate<C, L, S> {
         life: &Lifecycle,
         connections: &mut impl Connections,
     ) -> Result<Option<(Accepted<L::Tx, L::Rx>, ConnectionId)>, L::Error> {
-        enum Next<A> {
-            Accepted(A),
-            Closed,
-            Shutdown,
-            GraceOver,
-        }
-
         loop {
             if self.grace_until.is_some() && connections.len() == 0 {
                 return Ok(None);
             }
-            let accepting =
-                self.grace_until.is_none() && connections.len() < self.limits.connections_max;
-            let grace_runs = life.stage() == Stage::Drain;
-            let grace_until = self.grace_until;
-            let next = {
-                let mut accept = pin!(self.listener.accept());
-                let clock = &self.clock;
-                let shutdown = &mut self.shutdown;
-                let mut grace = pin!(async {
-                    match grace_until {
-                        Some(at) => clock.wait_until(at).await,
-                        None => pending().await,
-                    }
-                });
-                poll_fn(|cx| {
-                    if grace_until.is_none() && shutdown.as_mut().poll(cx).is_ready() {
-                        return Poll::Ready(Next::Shutdown);
-                    }
-                    if connections.poll_closed(cx).is_ready() {
-                        return Poll::Ready(Next::Closed);
-                    }
-                    if accepting && let Poll::Ready(accepted) = accept.as_mut().poll(cx) {
-                        return Poll::Ready(Next::Accepted(accepted));
-                    }
-                    if grace_runs && grace.as_mut().poll(cx).is_ready() {
-                        return Poll::Ready(Next::GraceOver);
-                    }
-                    Poll::Pending
-                })
-                .await
-            };
-            match next {
+            match self.wait(life.stage() == Stage::Drain, connections).await {
                 Next::Accepted(accepted) => {
                     let id = ConnectionId(self.next_id);
                     self.next_id = self.next_id.wrapping_add(1);
@@ -312,6 +280,53 @@ impl<C: Clock, L: Listener, S: Future<Output = ()>> Gate<C, L, S> {
             }
         }
     }
+
+    /// Wait for what the gate acts on next. `grace_runs`: shutdown was asked for and the grace time is not over.
+    async fn wait(
+        &mut self,
+        grace_runs: bool,
+        connections: &mut impl Connections,
+    ) -> Next<Result<Accepted<L::Tx, L::Rx>, L::Error>> {
+        let accepting =
+            self.grace_until.is_none() && connections.len() < self.limits.connections_max;
+        let grace_until = self.grace_until;
+        let mut accept = pin!(self.listener.accept());
+        let clock = &self.clock;
+        let shutdown = &mut self.shutdown;
+        let mut grace = pin!(async {
+            match grace_until {
+                Some(at) => clock.wait_until(at).await,
+                None => pending().await,
+            }
+        });
+        poll_fn(|cx| {
+            if grace_until.is_none() && shutdown.as_mut().poll(cx).is_ready() {
+                return Poll::Ready(Next::Shutdown);
+            }
+            if connections.poll_closed(cx).is_ready() {
+                return Poll::Ready(Next::Closed);
+            }
+            if accepting && let Poll::Ready(accepted) = accept.as_mut().poll(cx) {
+                return Poll::Ready(Next::Accepted(accepted));
+            }
+            if grace_runs && grace.as_mut().poll(cx).is_ready() {
+                return Poll::Ready(Next::GraceOver);
+            }
+            Poll::Pending
+        })
+        .await
+    }
+}
+
+/// What a [Gate] acts on next.
+enum Next<A> {
+    Accepted(A),
+    /// A connection ended.
+    Closed,
+    /// Shutdown was asked for.
+    Shutdown,
+    /// The grace time after shutdown is over.
+    GraceOver,
 }
 
 /// Connections polled inside the server's future.
@@ -345,12 +360,7 @@ impl Drop for Ended {
     fn drop(&mut self) {
         self.0.count.fetch_sub(1, Ordering::AcqRel);
         self.0.ended.fetch_add(1, Ordering::AcqRel);
-        let waker = self
-            .0
-            .server
-            .lock()
-            .expect("the waker lock is never held across a panic")
-            .take();
+        let waker = locked(&self.0.server).take();
         if let Some(waker) = waker {
             waker.wake();
         }
@@ -364,10 +374,7 @@ impl Connections for Arc<Running> {
 
     fn poll_closed(&mut self, cx: &mut Context<'_>) -> Poll<()> {
         // the waker first: a connection that ends after the check below finds it
-        *self
-            .server
-            .lock()
-            .expect("the waker lock is never held across a panic") = Some(cx.waker().clone());
+        *locked(&self.server) = Some(cx.waker().clone());
         if self.ended.swap(0, Ordering::AcqRel) > 0 {
             Poll::Ready(())
         } else {

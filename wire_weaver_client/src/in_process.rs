@@ -1069,6 +1069,48 @@ mod tests {
         talk((cmd_tx, events_rx, dev, host)).await
     }
 
+    /// Clients connecting at once overlap (CLT-79): every one has opened its device before any device answers, so
+    /// a connect that waited for another's link setup would never get there. On one thread and the paused clock,
+    /// nothing else moves them along.
+    #[tokio::test(start_paused = true)]
+    async fn connects_of_several_clients_overlap() {
+        const CLIENTS: usize = 3;
+        let path = |n: usize| format!("in_process/overlap/{n}");
+        let mut devices: Vec<_> = (0..CLIENTS)
+            .map(|n| device(&path(n), DEV_MAX_MESSAGE))
+            .collect();
+        let connects: Vec<_> = (0..CLIENTS)
+            .map(|n| {
+                let config = crate::ClientConfig::new()
+                    .in_process_path(path(n))
+                    .traits_only()
+                    .resolver(crate::test_resolver());
+                tokio::spawn(crate::DynClient::from_config(config).connect())
+            })
+            .collect();
+        // a bound on the turns, not on time: each connect needs a handful to reach its device
+        let mut turns = 0;
+        while devices.iter().any(|(_, rx)| rx.connections.is_empty()) {
+            assert!(
+                turns < 10_000,
+                "every client opened its device before any answered"
+            );
+            turns += 1;
+            tokio::task::yield_now().await;
+        }
+        let (events_tx, _events_rx) = mpsc::unbounded_channel();
+        for (tx, rx) in devices.drain(..) {
+            tokio::spawn(serve(tx, rx, events_tx.clone()));
+        }
+        for connect in connects {
+            let client = connect
+                .await
+                .unwrap()
+                .expect("connects once its device answers");
+            client.disconnect().asynch().await.unwrap();
+        }
+    }
+
     async fn talk_over_simulated_usb<F: UsbFramingProtocol + 'static>(path: &str) {
         const PACKET: usize = 64;
         let (sink, source) = usb_device_framed::<F>(path, PACKET);

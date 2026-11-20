@@ -53,7 +53,6 @@ impl CaptureHost for MemHost {
             ended: AtomicBool::new(false),
             discarded: AtomicBool::new(false),
             maps: Mutex::new(vec![]),
-            saved: Mutex::new(None),
             links: AtomicU64::new(0),
             taps_dropped: AtomicU64::new(0),
             fail_save: AtomicBool::new(false),
@@ -116,6 +115,8 @@ struct Ring {
     dropped_ram: u64,
     /// Records since the save, written to its file at the end
     after_save: Vec<Rec>,
+    /// The file it is saved to
+    saved: Option<std::fs::File>,
 }
 
 struct MemCapture {
@@ -127,8 +128,6 @@ struct MemCapture {
     ended: AtomicBool,
     discarded: AtomicBool,
     maps: Mutex<Vec<ClientMap>>,
-    /// The file it is saved to
-    saved: Mutex<Option<std::fs::File>>,
     links: AtomicU64,
     /// Taps of its links dropped: a device untapped drops its link's tap
     taps_dropped: AtomicU64,
@@ -167,7 +166,7 @@ impl MemCapture {
         };
         ring.next_no += 1;
         ring.bytes += rec.item.len() as u64;
-        if self.saved.lock().unwrap().is_some() {
+        if ring.saved.is_some() {
             ring.after_save.push(rec.clone());
         }
         ring.recs.push_back(rec);
@@ -247,10 +246,10 @@ impl HostCapture for MemCapture {
             let _ = file.write_all(b"half a file");
             return Err("disk full".into());
         }
-        let ring = self.ring.lock().unwrap();
+        let mut ring = self.ring.lock().unwrap();
         let recs: Vec<Rec> = ring.recs.iter().cloned().collect();
         write_recs(&mut file, &recs).map_err(|e| e.to_string())?;
-        *self.saved.lock().unwrap() = Some(file);
+        ring.saved = Some(file);
         Ok(Saved {
             records: recs.len() as u64,
             dropped: ring.dropped_ram,
@@ -288,8 +287,13 @@ impl HostCapture for MemCapture {
 
     fn end(&self) {
         self.ended.store(true, Ordering::Relaxed);
-        if let Some(mut file) = self.saved.lock().unwrap().take() {
-            let after = std::mem::take(&mut self.ring.lock().unwrap().after_save);
+        let saved = {
+            let mut ring = self.ring.lock().unwrap();
+            ring.saved
+                .take()
+                .map(|file| (file, std::mem::take(&mut ring.after_save)))
+        };
+        if let Some((mut file, after)) = saved {
             let _ = write_recs(&mut file, &after);
         }
         self.notify.notify_waiters();

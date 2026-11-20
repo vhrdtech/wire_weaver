@@ -868,6 +868,7 @@ impl<U: LevelUpdate, T> PreparedObserve<U, T> {
             .lock()
             .unwrap_or_else(|e| e.into_inner());
         let level = level_of::<U>(&mut levels, &self.path)?;
+        // spirit-level: allow(nested-locks) lock order: the observe registry, then a level; no path takes a level first
         let mut state = level.lock();
         let id = state.next_id;
         state.next_id += 1;
@@ -1143,6 +1144,7 @@ impl<U: LevelUpdate, T> Drop for Observer<U, T> {
     fn drop(&mut self) {
         let registry = &self.transport.observes;
         let mut levels = registry.lock().unwrap_or_else(|e| e.into_inner());
+        // spirit-level: allow(nested-locks) lock order: the observe registry, then a level; no path takes a level first
         let mut state = self.level.lock();
         state.observers.remove(&self.id);
         // an ended level may have been replaced by a new subscription to its path meanwhile

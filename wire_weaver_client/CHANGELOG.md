@@ -6,6 +6,7 @@
 
 ### 🚀 Features
 
+- `connect_spans` (CLT-79): a connect opens a debug `tracing` span per step (validate, select, link, open, learn, introspect), so a subscriber sees where its time goes.
 - `wire_weaver_client::ww_tape_fs`: ww_tape's file layer (file sink, piece files, lock, writers opened by path), re-exported.
 - `PreparedConnection::connect_keep_trying()` (CLT-75): the client at once, connecting in the background and again whenever the link goes; streams and observers resume.
 - `ClientConfig::keep_trying(KeepTrying)` with `Backoff` (CLT-75): the wait between attempts and the give-up time of a keep-trying connection.

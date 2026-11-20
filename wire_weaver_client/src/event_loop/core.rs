@@ -32,6 +32,7 @@ pub(crate) mod tx;
 use std::time::{Duration, Instant};
 
 use tokio::sync::{mpsc, oneshot};
+use tracing::Instrument;
 use tracing::trace;
 use tracing::warn;
 use ww_link::DeviceInfoOwned;
@@ -313,6 +314,9 @@ async fn tx_task<T: Transport>(
                     };
                     match connector
                         .connect(handle, link.clone(), max_message_len)
+                        .instrument(tracing::debug_span!(
+                            crate::client::prepared_connection::spans::OPEN
+                        ))
                         .await
                     {
                         Ok(o) => {

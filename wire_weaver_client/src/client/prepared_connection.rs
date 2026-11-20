@@ -16,7 +16,27 @@ use std::time::Duration;
 // tokio's clock: a test on the paused clock moves the keeper's backoff and give-up times
 use tokio::sync::{broadcast, mpsc, oneshot, watch};
 use tokio::time::Instant;
-use tracing::{debug, info, warn};
+use tracing::{Instrument, debug, debug_span, info, warn};
+
+/// Names of the `tracing` spans a connect opens, at debug level, one per step: a subscriber that times them sees where
+/// a connect's time goes (`blinky_connect_bench`).
+pub mod spans {
+    /// The whole connect, [PreparedConnection::connect](super::PreparedConnection::connect) or `connect_blocking()`.
+    pub const CONNECT: &str = "ww_connect";
+    /// The config is checked and the client's own introspection data prepared.
+    pub const VALIDATE: &str = "ww_connect_validate";
+    /// The transport finds the device and starts the event loop (USB: device list, hub route).
+    pub const SELECT: &str = "ww_connect_select";
+    /// From the connect command to the event loop until the link is up and the device's API version known; holds
+    /// [OPEN].
+    pub const LINK: &str = "ww_connect_link";
+    /// The event loop opens the medium (USB: open and claim the interface).
+    pub const OPEN: &str = "ww_connect_open";
+    /// The device's API is learned: introspection data unless the client has it, global paths, the API match.
+    pub const LEARN: &str = "ww_connect_learn";
+    /// Within [LEARN]: the device's introspection data from the cache or the device.
+    pub const INTROSPECT: &str = "ww_connect_introspect";
+}
 
 pub struct PreparedConnection<T> {
     config: ClientConfig,
@@ -53,7 +73,13 @@ impl<T: WwClient> PreparedConnection<T> {
     }
 
     async fn connect_with(self, first: Vec<Command>) -> Result<T> {
-        let config = self.config.validate()?;
+        self.connect_steps(first)
+            .instrument(debug_span!(spans::CONNECT))
+            .await
+    }
+
+    async fn connect_steps(self, first: Vec<Command>) -> Result<T> {
+        let config = debug_span!(spans::VALIDATE).in_scope(|| self.config.validate())?;
         let (cmd_tx, cmd_rx) = mpsc::channel::<Command>(config.cmd_queue_size);
         for cmd in first {
             // queued: the event loop takes them before the Connect
@@ -73,7 +99,9 @@ impl<T: WwClient> PreparedConnection<T> {
         let supervise = config.hub_reconnect.is_some();
         #[cfg(feature = "clock_sync")]
         let clock = ClockStart::new(&config, attempt.key, reconnect.via_hub.clone());
-        let mut commander = create_commander(config, cmd_tx, device_api_info).await?;
+        let mut commander = create_commander(config, cmd_tx, device_api_info)
+            .instrument(debug_span!(spans::LEARN))
+            .await?;
         if supervise {
             reconnect.supervise(commander.downgrade());
         }
@@ -84,12 +112,17 @@ impl<T: WwClient> PreparedConnection<T> {
     }
 
     pub fn connect_blocking(self) -> Result<T> {
-        let config = self.config.validate()?;
+        debug_span!(spans::CONNECT).in_scope(|| self.connect_blocking_steps())
+    }
+
+    fn connect_blocking_steps(self) -> Result<T> {
+        let config = debug_span!(spans::VALIDATE).in_scope(|| self.config.validate())?;
         let (cmd_tx, cmd_rx) = mpsc::channel::<Command>(config.cmd_queue_size);
         let mut cmd_rx = Some(cmd_rx);
         let mut unmatched = vec![];
 
         for iface_kind in check_interfaces(&config)? {
+            let select = debug_span!(spans::SELECT).entered();
             let selected = match iface_kind {
                 #[cfg(feature = "usb")]
                 InterfaceKind::Usb => crate::usb::try_connect_blocking(&config, &mut cmd_rx)?,
@@ -111,6 +144,7 @@ impl<T: WwClient> PreparedConnection<T> {
                     rt.block_on(try_select_local_socket(&config, &mut cmd_rx, false))?
                 }
             };
+            drop(select);
             match selected {
                 Selected::Device {
                     handle,
@@ -118,14 +152,16 @@ impl<T: WwClient> PreparedConnection<T> {
                     via_hub,
                 } => {
                     let key = device_key(&iface_kind, &info, &config);
-                    let device_api_info = try_connect_blocking(&cmd_tx, handle, &config)
+                    let device_api_info = debug_span!(spans::LINK)
+                        .in_scope(|| try_connect_blocking(&cmd_tx, handle, &config))
                         .map_err(|e| connect_failed(info, e))?;
                     #[cfg(feature = "clock_sync")]
                     let clock = ClockStart::new(&config, key, watch::channel(via_hub).1);
                     #[cfg(not(feature = "clock_sync"))]
                     let _ = (key, via_hub);
                     #[allow(unused_mut, reason = "mutated only with the `clock_sync` feature")]
-                    let mut commander = create_commander_blocking(config, cmd_tx, device_api_info)?;
+                    let mut commander = debug_span!(spans::LEARN)
+                        .in_scope(|| create_commander_blocking(config, cmd_tx, device_api_info))?;
                     #[cfg(feature = "clock_sync")]
                     clock.start(&mut commander);
                     return Ok(T::try_from_cmd(commander)?);
@@ -374,17 +410,21 @@ async fn connect_one(
         Err(e) => return Attempt::failed(e),
     };
     for iface_kind in kinds {
-        let selected = match iface_kind {
-            #[cfg(feature = "usb")]
-            InterfaceKind::Usb => crate::usb::try_connect(config, cmd_rx).await,
-            #[cfg(not(feature = "usb"))]
-            InterfaceKind::Usb => continue,
-            InterfaceKind::InProcess => try_select_in_process(config, cmd_rx),
-            InterfaceKind::Rtt => try_select_rtt_routed(config, cmd_rx).await,
-            InterfaceKind::WebSocket => try_select_ws(config, cmd_rx),
-            InterfaceKind::Udp => try_select_udp(config, cmd_rx),
-            InterfaceKind::Ipc => try_select_local_socket(config, cmd_rx, true).await,
-        };
+        let selected = async {
+            match iface_kind {
+                #[cfg(feature = "usb")]
+                InterfaceKind::Usb => crate::usb::try_connect(config, cmd_rx).await,
+                #[cfg(not(feature = "usb"))]
+                InterfaceKind::Usb => Ok(Selected::NotFound { unmatched: vec![] }),
+                InterfaceKind::InProcess => try_select_in_process(config, cmd_rx),
+                InterfaceKind::Rtt => try_select_rtt_routed(config, cmd_rx).await,
+                InterfaceKind::WebSocket => try_select_ws(config, cmd_rx),
+                InterfaceKind::Udp => try_select_udp(config, cmd_rx),
+                InterfaceKind::Ipc => try_select_local_socket(config, cmd_rx, true).await,
+            }
+        }
+        .instrument(debug_span!(spans::SELECT))
+        .await;
         match selected {
             Ok(Selected::Device {
                 handle,
@@ -397,7 +437,10 @@ async fn connect_one(
                 let keep = config.keeps_trying || (via_hub && config.hub_reconnect.is_some());
                 let key = device_key(&iface_kind, &info, config);
                 let address = info.location.clone();
-                return match try_connect(cmd_tx, handle, config, residual_tx, keep).await {
+                return match try_connect(cmd_tx, handle, config, residual_tx, keep)
+                    .instrument(debug_span!(spans::LINK))
+                    .await
+                {
                     Ok(device_api_info) => Attempt {
                         result: Ok((device_api_info, residual_rx)),
                         started: None,
@@ -1226,7 +1269,12 @@ async fn learn_device(commander: &mut Commander) -> Result<(), crate::Error> {
     // the device has no introspection data: known for good, unlike a failed download (SRV-53)
     let mut no_introspection = false;
     if commander.device_introspect().is_none() && !commander.traits_only {
-        match commander.introspect().get_as_sent().await {
+        let sent = commander
+            .introspect()
+            .get_as_sent()
+            .instrument(debug_span!(spans::INTROSPECT))
+            .await;
+        match sent {
             Ok(Some((sent_api_bundle, sent_size))) => {
                 match IntrospectBundle::from_sent(
                     sent_api_bundle,
@@ -1260,7 +1308,9 @@ fn create_commander_blocking(
     // the device has no introspection data: known for good, unlike a failed download (SRV-53)
     let mut no_introspection = false;
     if commander.device_introspect().is_none() && !commander.traits_only {
-        match commander.introspect().get_as_sent_blocking() {
+        let sent = debug_span!(spans::INTROSPECT)
+            .in_scope(|| commander.introspect().get_as_sent_blocking());
+        match sent {
             Ok(Some((sent_api_bundle, sent_size))) => {
                 match IntrospectBundle::from_sent(
                     sent_api_bundle,

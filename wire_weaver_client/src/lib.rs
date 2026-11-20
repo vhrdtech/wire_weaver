@@ -57,7 +57,7 @@ pub use client::positioned::{
     StreamEvent, StreamStats,
 };
 pub use client::prepared_call::{PendingCall, PreparedCall};
-pub use client::prepared_connection::PreparedConnection;
+pub use client::prepared_connection::{PreparedConnection, spans as connect_spans};
 pub use client::prepared_disconnect::PreparedDisconnect;
 pub use client::prepared_read::PreparedRead;
 pub use client::prepared_stream_open::{

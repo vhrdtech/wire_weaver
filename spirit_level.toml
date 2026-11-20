@@ -81,3 +81,1243 @@ published = [
     "ww_timebase",
 ]
 reason = "the framework crates are released together; every other crate is publish = false"
+
+# The records are not pages read through: these lints have a skip list of their own beside [docs] skip.
+[lints.sentence-words]
+skip = ["CHANGELOG.md", "FEATURES.md", "AGENTS.md", "CLAUDE.md", "**/CHANGELOG.md", "**/tests/**"]
+reason = "the records are not prose pages; their length is checked by changelog-entry-length and agent-file-lines"
+
+[lints.paragraph-sentences]
+skip = ["CHANGELOG.md", "FEATURES.md", "AGENTS.md", "CLAUDE.md", "**/CHANGELOG.md", "**/tests/**"]
+reason = "the records are not prose pages; their length is checked by changelog-entry-length and agent-file-lines"
+
+[lints.commit-subject-length]
+base = "origin/master"
+reason = "work merges into master; the local master branch may lag behind origin/master"
+
+[lints.commit-body-lines]
+base = "origin/master"
+reason = "work merges into master; the local master branch may lag behind origin/master"
+
+[lints.commit-mixed-move]
+base = "origin/master"
+reason = "work merges into master; the local master branch may lag behind origin/master"
+
+[lints.commit-prose]
+base = "origin/master"
+reason = "work merges into master; the local master branch may lag behind origin/master"
+
+[lints.commit-tested-line]
+base = "origin/master"
+reason = "work merges into master; the local master branch may lag behind origin/master"
+
+[lints.fixes-tag]
+base = "origin/master"
+reason = "work merges into master; the local master branch may lag behind origin/master"
+
+[lints.fix-without-test]
+base = "origin/master"
+reason = "work merges into master; the local master branch may lag behind origin/master"
+
+# Lints that cannot run yet. A deny-level lint that cannot run fails spl check, so each is off until its task.
+
+[lints.cargo-no-std]
+level = "allow"
+reason = "needs the crate map; P2401#20nov-1155h (crate map) adds it from layers.toml and turns this lint on"
+expires = "2026-12-15"
+
+[lints.cargo-wasm]
+level = "allow"
+reason = "needs the crate map; P2401#20nov-1155h (crate map) adds it from layers.toml and turns this lint on"
+expires = "2026-12-15"
+
+[lints.contract-snapshot]
+level = "allow"
+reason = "needs the crate map; P2401#20nov-1155h (crate map) adds it from layers.toml and turns this lint on"
+expires = "2026-12-15"
+
+[lints.crate-folder-layer]
+level = "allow"
+reason = "needs the crate map; P2401#20nov-1155h (crate map) adds it from layers.toml and turns this lint on"
+expires = "2026-12-15"
+
+[lints.external-form]
+level = "allow"
+reason = "needs the crate map; P2401#20nov-1155h (crate map) adds it from layers.toml and turns this lint on"
+expires = "2026-12-15"
+
+[lints.forbidden-closure]
+level = "allow"
+reason = "needs the crate map; P2401#20nov-1155h (crate map) adds it from layers.toml and turns this lint on"
+expires = "2026-12-15"
+
+[lints.layer-edges]
+level = "allow"
+reason = "needs the crate map; P2401#20nov-1155h (crate map) adds it from layers.toml and turns this lint on"
+expires = "2026-12-15"
+
+[lints.map-complete]
+level = "allow"
+reason = "needs the crate map; P2401#20nov-1155h (crate map) adds it from layers.toml and turns this lint on"
+expires = "2026-12-15"
+
+[lints.map-licence]
+level = "allow"
+reason = "needs the crate map; P2401#20nov-1155h (crate map) adds it from layers.toml and turns this lint on"
+expires = "2026-12-15"
+
+[lints.third-party-placement]
+level = "allow"
+reason = "needs the crate map; P2401#20nov-1155h (crate map) adds it from layers.toml and turns this lint on"
+expires = "2026-12-15"
+
+[lints.unsafe-allow-list]
+level = "allow"
+reason = "needs the crate map; P2401#20nov-1155h (crate map) adds it from layers.toml and turns this lint on"
+expires = "2026-12-15"
+
+[lints.semver-checks-breaking]
+level = "allow"
+reason = "spl's run cannot build the wire_weaver 0.4.0 baseline's rustdoc; the CI semver-checks job checks the published crates with default features; P2401#20nov-1155g (records and repo) settles it"
+expires = "2026-12-15"
+
+# Every lint below still fires. Each entry names the task that removes it and expires with it: the book prose at the
+# end of January 2027, everything else mid-December 2026.
+
+[[exceptions]]
+lint = "git-dependency-pins"
+paths = ["Cargo.toml"]
+level = "allow"
+reason = "picoboot_host is pinned by tag v0.1.0; existing pins stay until the owner drops them, reviewed in P2401#20nov-1154c (dependencies)"
+expires = "2026-12-15"
+
+# --- comments and attributes: P2401#20nov-1154b removes these ---
+
+[[exceptions]]
+lint = "allow-without-reason"
+crates = [
+    "array_of_streams",
+    "cross_version",
+    "methods",
+    "minimal-shrink-wrap",
+    "properties_api",
+    "series",
+    "shared_sub_level",
+    "streams_api",
+    "tests_common",
+    "traits_api",
+    "wire_weaver",
+    "wire_weaver_cli",
+    "wire_weaver_client",
+    "wire_weaver_core",
+    "wire_weaver_evolution",
+    "wire_weaver_py",
+    "ww_client_server",
+    "ww_device",
+    "ww_framer",
+    "ww_link",
+    "ww_lz4",
+    "ww_self",
+    "ww_settings",
+    "ww_stream",
+]
+level = "allow"
+reason = "bare #[allow] attributes; P2401#20nov-1154b (comments and attributes) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "commented-out-code"
+crates = [
+    "blinky",
+    "blinky_evolved",
+    "bounded",
+    "conformance",
+    "conformance_api",
+    "credit_sink",
+    "generics",
+    "io_timebase",
+    "local_trait_api",
+    "methods",
+    "module_paths",
+    "multi_req",
+    "observe",
+    "observe_arrays",
+    "observe_batched",
+    "properties",
+    "properties_api",
+    "recursive",
+    "series",
+    "streams",
+    "streams_batched",
+    "streams_borrowed_error",
+    "streams_reliable",
+    "traits",
+    "wire_weaver_client",
+    "wire_weaver_core",
+    "wire_weaver_derive",
+    "ww_client_server",
+    "ww_self",
+]
+level = "allow"
+reason = "commented-out code; P2401#20nov-1154b (comments and attributes) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "filler-phrases"
+crates = [
+    "wire_weaver",
+    "wire_weaver_client",
+    "wire_weaver_core",
+    "ww_framer",
+    "ww_self",
+]
+level = "allow"
+reason = "filler phrases; P2401#20nov-1154b (comments and attributes) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "restating-comments"
+crates = ["wire_weaver_core", "ww_client_server"]
+level = "allow"
+reason = "comments that restate the code; P2401#20nov-1154b (comments and attributes) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "stop-gap-comments"
+crates = [
+    "hub",
+    "traits_api",
+    "wire_weaver_client",
+    "wire_weaver_core",
+    "ww_client_server",
+    "ww_device",
+    "ww_framer",
+    "ww_self",
+]
+level = "allow"
+reason = "stop-gap comments; P2401#20nov-1154b (comments and attributes) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "thinking-comments"
+crates = [
+    "traits_api",
+    "wire_weaver_client",
+    "wire_weaver_core",
+    "ww_client_server",
+    "ww_framer",
+    "ww_hub",
+]
+level = "allow"
+reason = "comments that think aloud; P2401#20nov-1154b (comments and attributes) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "todo-macros"
+crates = ["wire_weaver_client", "wire_weaver_core"]
+level = "allow"
+reason = "todo!() and unimplemented!(); P2401#20nov-1154b (comments and attributes) removes them"
+expires = "2026-12-15"
+
+# --- dependencies: P2401#20nov-1154c removes these ---
+
+[[exceptions]]
+lint = "dead-features"
+crates = ["wire_weaver_client"]
+level = "allow"
+reason = "features nothing uses; P2401#20nov-1154c (dependencies) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "default-features-off"
+paths = ["Cargo.toml"]
+level = "allow"
+reason = "workspace dependencies with their default features on; P2401#20nov-1154c (dependencies) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "deny-advisories"
+crates = [
+    "args_evolution",
+    "conformance",
+    "dns_sd",
+    "wire_weaver_cli",
+]
+level = "allow"
+reason = "cargo-deny advisories; P2401#20nov-1154c (dependencies) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "deny-bans"
+crates = [
+    "args_evolution",
+    "blinky_py",
+    "dns_sd",
+    "stdlib_evolution",
+    "thermo",
+    "wire_weaver_cli",
+]
+level = "allow"
+reason = "cargo-deny bans; P2401#20nov-1154c (dependencies) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "deny-licenses"
+paths = ["deny.toml"]
+level = "allow"
+reason = "no deny.toml licence policy yet; P2401#20nov-1154c (dependencies) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "deny-sources"
+crates = [
+    "args_evolution",
+    "cfg_variants",
+    "conformance",
+    "cross_version",
+    "dns_sd",
+    "docs_highlight",
+    "follow_reboot",
+    "hub",
+    "large_messages",
+    "tape_identity",
+]
+level = "allow"
+reason = "cargo-deny sources; P2401#20nov-1154c (dependencies) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "duplicate-versions"
+paths = ["Cargo.lock"]
+level = "allow"
+reason = "duplicate dependency versions; P2401#20nov-1154c (dependencies) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "hakari-generate"
+paths = ["Cargo.toml"]
+level = "allow"
+reason = "no workspace-hack crate; P2401#20nov-1154c (dependencies) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "hakari-manage-deps"
+paths = ["Cargo.toml"]
+level = "allow"
+reason = "no workspace-hack crate; P2401#20nov-1154c (dependencies) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "machete-unused-deps"
+crates = [
+    "blinky_api",
+    "blinky_api_evolved",
+    "blinky_evolved",
+    "common_error",
+    "dispatch_golden",
+    "flash_budget_api",
+    "hub_pytest_device",
+    "hub_reconnect",
+    "observe_batched_api",
+    "settings_api",
+    "thermo_devices",
+    "wire_weaver_cli",
+    "wire_weaver_client",
+    "wire_weaver_core",
+    "wire_weaver_py",
+    "ww_timebase",
+]
+level = "allow"
+reason = "unused dependencies; P2401#20nov-1154c (dependencies) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "no-sys-crates"
+paths = ["Cargo.lock"]
+level = "allow"
+reason = "-sys crates not yet named with a reason; P2401#20nov-1154c (dependencies) removes them"
+expires = "2026-12-15"
+
+# --- the Clippy set: P2401#20nov-1155 removes these ---
+
+[[exceptions]]
+lint = "tier-clippy-set"
+crates = ["ww_tape_bundle"]
+paths = ["Cargo.toml", "clippy.toml"]
+level = "allow"
+reason = "the tiers' Clippy set is not on; P2401#20nov-1155 (the Clippy set) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "workspace-lints"
+crates = ["ww_tape_bundle"]
+level = "allow"
+reason = "ww_tape_bundle repeats the workspace lints to add its own Clippy table; P2401#20nov-1155 (the Clippy set) removes them"
+expires = "2026-12-15"
+
+# --- crate packaging: P2401#20nov-1155b removes these ---
+
+[[exceptions]]
+lint = "cargo-doc"
+crates = [
+    "wire_weaver_client",
+    "ww_device",
+    "ww_dns_sd",
+    "ww_stream",
+]
+level = "allow"
+reason = "rustdoc warnings with every feature; P2401#20nov-1155b (crate packaging) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "crate-dir-name"
+crates = ["minimal-shrink-wrap"]
+level = "allow"
+reason = "a crate whose folder name differs from its name; P2401#20nov-1155b (crate packaging) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "crate-docs"
+crates = [
+    "array_of_streams",
+    "array_of_streams_api",
+    "blinky",
+    "blinky_api",
+    "blinky_api_evolved",
+    "blinky_evolved",
+    "blinky_py",
+    "credit_sink_api",
+    "dynamic_api",
+    "hub_api",
+    "methods",
+    "methods_api",
+    "minimal-shrink-wrap",
+    "properties",
+    "properties_api",
+    "settings_api",
+    "streams",
+    "streams_api",
+    "traits",
+    "traits_api",
+    "wire_weaver",
+    "wire_weaver_client",
+    "wire_weaver_core",
+    "wire_weaver_derive",
+    "ww_client_server",
+    "ww_framer",
+    "ww_hub_api",
+    "ww_self",
+    "ww_settings",
+    "ww_stream",
+]
+level = "allow"
+reason = "crates without crate-level docs; P2401#20nov-1155b (crate packaging) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "crate-table"
+paths = ["README.md"]
+level = "allow"
+reason = "the README has no crate table; P2401#20nov-1155b (crate packaging) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "feature-docs"
+crates = [
+    "args_evolution",
+    "args_evolution_api",
+    "array_of_streams",
+    "array_of_streams_api",
+    "blinky_api",
+    "blinky_api_evolved",
+    "bounded",
+    "bounded_api",
+    "cfg_variants_api",
+    "cfg_variants_narrow_api",
+    "common_error_api",
+    "consts_api",
+    "counted_stream_api",
+    "credit_sink",
+    "credit_sink_api",
+    "cross_version_api",
+    "cross_version_old_api",
+    "customary_api",
+    "dispatch_golden_api",
+    "dynamic_api",
+    "fan_api",
+    "flash_budget_api",
+    "foc_observe_api",
+    "follow_reboot_api",
+    "generics",
+    "generics_api",
+    "global_boot_api",
+    "global_fixture_api",
+    "global_paths_api",
+    "hub_api",
+    "hub_pytest_device_api",
+    "hub_reconnect_api",
+    "introspect_compressed_api",
+    "io_timebase_api",
+    "keep_trying",
+    "keep_trying_api",
+    "keyed",
+    "keyed_api",
+    "large_messages_api",
+    "local_trait_api",
+    "methods",
+    "methods_api",
+    "module_paths_api",
+    "multi_req",
+    "multi_req_api",
+    "multi_root_api",
+    "observe",
+    "observe_api",
+    "observe_arrays",
+    "observe_arrays_api",
+    "observe_batched",
+    "observe_batched_api",
+    "power_stage_api",
+    "properties",
+    "properties_api",
+    "quantities",
+    "quantities_api",
+    "recursive",
+    "recursive_api",
+    "series",
+    "series_api",
+    "settings_api",
+    "shared_sub_level_api",
+    "skipped_dep_api",
+    "skipped_root_api",
+    "standalone_api",
+    "standalone_units",
+    "streams",
+    "streams_api",
+    "streams_batched",
+    "streams_batched_api",
+    "streams_borrowed_error",
+    "streams_borrowed_error_api",
+    "streams_reliable",
+    "streams_reliable_api",
+    "tap_api",
+    "thermo_api",
+    "traits",
+    "traits_api",
+    "wire_line_api",
+    "wire_line_fixture_api",
+    "wire_line_old_api",
+    "wire_weaver",
+    "wire_weaver_client",
+    "wire_weaver_core",
+    "ww_api",
+    "ww_device",
+    "ww_framer",
+    "ww_hub_api",
+    "ww_link",
+    "ww_self",
+    "ww_settings",
+    "ww_stream",
+    "ww_timebase",
+]
+level = "allow"
+reason = "features without a comment; P2401#20nov-1155b (crate packaging) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "readme-badges"
+paths = ["README.md"]
+level = "allow"
+reason = "badges of the published crates; most are not on crates.io yet; P2401#20nov-1155b (crate packaging) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "readme-per-crate"
+crates = [
+    "blinky",
+    "blinky_evolved",
+    "foc_observe_api",
+    "local_trait",
+    "local_trait_api",
+    "power_stage_api",
+    "settings",
+    "settings_api",
+    "shrink_wrap_c",
+    "stm32_dfu_host",
+    "wire_weaver_client",
+    "wire_weaver_evolution",
+    "ww_clock_sync",
+    "ww_device",
+    "ww_framer",
+    "ww_hub",
+    "ww_hub_api",
+    "ww_link",
+    "ww_local_socket",
+    "ww_lz4",
+    "ww_plugin",
+    "ww_settings",
+    "ww_settings_derive",
+    "ww_stream",
+    "ww_tap",
+    "ww_timebase",
+]
+level = "allow"
+reason = "crates without a README; P2401#20nov-1155b (crate packaging) removes them"
+expires = "2026-12-15"
+
+# --- locks and shared state: P2401#20nov-1155c removes these ---
+
+[[exceptions]]
+lint = "lock-held-across"
+crates = ["wire_weaver_client", "ww_device", "ww_hub"]
+level = "allow"
+reason = "lock guards held across await or I/O; P2401#20nov-1155c (locks and shared state) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "lock-unwrap"
+crates = [
+    "follow_reboot",
+    "hub",
+    "hub_reconnect",
+    "local_trait",
+    "stm32_dfu_host",
+    "tests_common",
+    "thermo_devices",
+    "wire_weaver_cli",
+    "wire_weaver_client",
+    "wire_weaver_py",
+    "ww_hub",
+    "ww_snapshots",
+    "ww_tap",
+]
+level = "allow"
+reason = "lock().unwrap(); P2401#20nov-1155c (locks and shared state) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "nested-locks"
+crates = ["hub", "wire_weaver_client"]
+level = "allow"
+reason = "a second lock taken under a first; P2401#20nov-1155c (locks and shared state) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "static-interior-mutability"
+crates = ["tests_common", "wire_weaver_client", "ww_snapshots"]
+level = "allow"
+reason = "statics with interior mutability; P2401#20nov-1155c (locks and shared state) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "thread-local-state"
+crates = ["wire_weaver_core", "wire_weaver_evolution"]
+level = "allow"
+reason = "thread_local! state; P2401#20nov-1155c (locks and shared state) removes them"
+expires = "2026-12-15"
+
+# --- panics and prints: P2401#20nov-1155d removes these ---
+
+[[exceptions]]
+lint = "assert-message"
+crates = [
+    "lean_server",
+    "minimal-shrink-wrap",
+    "stm32_dfu_host",
+    "wire_weaver_client",
+    "wire_weaver_core",
+    "ww_device",
+    "ww_framer",
+    "ww_settings",
+    "ww_stream",
+]
+level = "allow"
+reason = "assertions without a message; P2401#20nov-1155d (panics and prints) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "compound-assert"
+crates = ["wire_weaver_evolution", "ww_lz4", "ww_settings"]
+level = "allow"
+reason = "compound assertions; P2401#20nov-1155d (panics and prints) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "error-enum-growth"
+crates = ["stm32_dfu_host", "wire_weaver_client"]
+level = "allow"
+reason = "flat error enums; P2401#20nov-1155d (panics and prints) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "panic-in-library"
+crates = [
+    "conformance",
+    "dispatch_golden",
+    "follow_reboot",
+    "hub",
+    "hub_reconnect",
+    "large_messages",
+    "properties_api",
+    "stm32_dfu_host",
+    "streams_batched",
+    "tests_common",
+    "thermo_devices",
+    "wire_weaver",
+    "wire_weaver_cli",
+    "wire_weaver_client",
+    "wire_weaver_core",
+    "wire_weaver_derive",
+    "wire_weaver_evolution",
+    "wire_weaver_py",
+    "ww_framer",
+    "ww_local_socket",
+    "ww_self",
+    "ww_settings",
+    "ww_stream",
+]
+level = "allow"
+reason = "panics in library code; P2401#20nov-1155d (panics and prints) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "print-in-library"
+crates = [
+    "wire_weaver_cli",
+    "wire_weaver_core",
+    "wire_weaver_derive",
+    "wire_weaver_evolution",
+    "ww_hub",
+    "ww_plugin",
+    "ww_snapshots",
+]
+level = "allow"
+reason = "prints in library code; P2401#20nov-1155d (panics and prints) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "unbounded-read"
+crates = ["wire_weaver_client"]
+level = "allow"
+reason = "reads without a bound; P2401#20nov-1155d (panics and prints) removes them"
+expires = "2026-12-15"
+
+# --- size and duplicates: P2401#20nov-1155e removes these ---
+
+[[exceptions]]
+lint = "crate-folder-size"
+paths = ["Cargo.toml"]
+level = "allow"
+reason = "tests/ holds 111 crate folders; P2401#20nov-1155e (size and duplicates) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "crate-lines"
+crates = ["wire_weaver_client", "wire_weaver_core"]
+level = "allow"
+reason = "large crates; P2401#20nov-1155e (size and duplicates) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "dead-pub"
+crates = [
+    "bounded_api",
+    "consts_api",
+    "customary_api",
+    "flash_budget_api",
+    "hub_api",
+    "hub_reconnect",
+    "introspect_compressed_api",
+    "keyed",
+    "methods_api",
+    "module_paths_api",
+    "properties_api",
+    "quantities_api",
+    "shared_sub_level_api",
+    "shrink_wrap_c",
+    "standalone_api",
+    "stm32_dfu_host",
+    "streams_reliable_api",
+    "tests_common",
+    "thermo_api",
+    "thermo_devices",
+    "wire_weaver_py",
+    "ww_book",
+]
+level = "allow"
+reason = "pub items no other crate uses; P2401#20nov-1155e (size and duplicates) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "function-complexity"
+crates = [
+    "conformance",
+    "dispatch_golden",
+    "features_page",
+    "hub_reconnect",
+    "shrink_wrap_c",
+    "stm32_dfu_host",
+    "wire_weaver_cli",
+    "wire_weaver_client",
+    "wire_weaver_core",
+    "wire_weaver_derive",
+    "wire_weaver_evolution",
+    "wire_weaver_py",
+    "ww_book",
+    "ww_client_server",
+    "ww_device",
+    "ww_framer",
+    "ww_hub",
+    "ww_link",
+    "ww_local_socket",
+    "ww_lz4",
+    "ww_self",
+    "ww_settings",
+    "ww_settings_derive",
+    "ww_snapshots",
+    "ww_stream",
+    "ww_tape_bundle",
+]
+level = "allow"
+reason = "complex functions; P2401#20nov-1155e (size and duplicates) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "function-lines"
+crates = [
+    "conformance",
+    "wire_weaver_cli",
+    "wire_weaver_client",
+    "wire_weaver_core",
+    "wire_weaver_derive",
+    "wire_weaver_evolution",
+    "wire_weaver_py",
+    "ww_framer",
+    "ww_self",
+    "ww_settings_derive",
+]
+level = "allow"
+reason = "long functions; P2401#20nov-1155e (size and duplicates) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "module-graph-scc"
+crates = [
+    "conformance",
+    "wire_weaver_cli",
+    "wire_weaver_client",
+    "wire_weaver_py",
+    "ww_hub",
+    "ww_self",
+    "ww_stream",
+]
+level = "allow"
+reason = "module cycles; P2401#20nov-1155e (size and duplicates) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "module-lines"
+crates = [
+    "conformance",
+    "credit_sink",
+    "dynamic",
+    "hub",
+    "methods",
+    "observe",
+    "observe_batched",
+    "quantities",
+    "wire_weaver_client",
+    "wire_weaver_core",
+    "wire_weaver_evolution",
+    "ww_hub",
+    "ww_self",
+    "ww_stream",
+    "ww_tap",
+]
+level = "allow"
+reason = "long modules; P2401#20nov-1155e (size and duplicates) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "near-duplicate-fns"
+crates = [
+    "dispatch_golden",
+    "follow_reboot",
+    "hub_pytest_device",
+    "hub_reconnect",
+    "keyed",
+    "large_messages",
+    "streams_batched",
+    "thermo",
+    "thermo_devices",
+    "traits",
+    "wire_weaver",
+    "wire_weaver_cli",
+    "wire_weaver_client",
+    "wire_weaver_core",
+    "wire_weaver_evolution",
+    "wire_weaver_py",
+    "ww_client_server",
+    "ww_device",
+    "ww_framer",
+    "ww_hub",
+    "ww_self",
+    "ww_snapshots",
+]
+level = "allow"
+reason = "near-duplicate functions; P2401#20nov-1155e (size and duplicates) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "near-duplicate-modules"
+crates = ["dispatch_golden", "thermo_devices", "traits"]
+level = "allow"
+reason = "near-duplicate modules; P2401#20nov-1155e (size and duplicates) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "orphan-source-file"
+crates = ["wire_weaver_client", "wire_weaver_core"]
+level = "allow"
+reason = "source files no mod declaration reaches; P2401#20nov-1155e (size and duplicates) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "pub-surface"
+crates = [
+    "ww_client_server",
+    "ww_device",
+    "ww_snapshots",
+    "ww_stream",
+]
+level = "allow"
+reason = "wide pub surfaces; P2401#20nov-1155e (size and duplicates) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "test-binaries"
+crates = [
+    "hub_reconnect",
+    "shrink_wrap_c",
+    "thermo",
+    "wire_weaver_evolution",
+    "ww_settings",
+    "ww_snapshots",
+]
+level = "allow"
+reason = "crates with several integration-test binaries; P2401#20nov-1155e (size and duplicates) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "test-support-gated"
+crates = ["ww_settings"]
+level = "allow"
+reason = "test support not gated; P2401#20nov-1155e (size and duplicates) removes them"
+expires = "2026-12-15"
+
+# --- typed numbers: P2401#20nov-1155f removes these ---
+
+[[exceptions]]
+lint = "exact-units-quantity"
+crates = [
+    "conformance",
+    "conformance_api",
+    "cross_version_api",
+    "cross_version_old_api",
+    "dispatch_golden",
+    "hub",
+    "hub_reconnect",
+    "module_paths_api",
+    "observe_batched_api",
+    "settings",
+    "settings_api",
+    "shrink_wrap_c",
+    "stm32_dfu_host",
+    "streams_batched_api",
+    "tests_common",
+    "wire_weaver",
+    "wire_weaver_cli",
+    "wire_weaver_client",
+    "wire_weaver_core",
+    "wire_weaver_evolution",
+    "wire_weaver_py",
+    "ww_client_server",
+    "ww_device",
+    "ww_framer",
+    "ww_hub",
+    "ww_hub_api",
+    "ww_link",
+    "ww_local_socket",
+    "ww_lz4",
+    "ww_self",
+    "ww_settings",
+    "ww_snapshots",
+    "ww_stream",
+    "ww_tap",
+]
+level = "allow"
+reason = "bare numbers for quantities; P2401#20nov-1155f (typed numbers) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "unit-suffix"
+crates = [
+    "conformance_api",
+    "shrink_wrap_c",
+    "stm32_dfu_host",
+    "wire_weaver_cli",
+    "wire_weaver_client",
+    "ww_framer",
+    "ww_settings",
+    "ww_stream",
+    "ww_tap",
+]
+level = "allow"
+reason = "unit suffixes in names; P2401#20nov-1155f (typed numbers) removes them"
+expires = "2026-12-15"
+
+# --- records and repo: P2401#20nov-1155g removes these ---
+
+[[exceptions]]
+lint = "agent-file-lines"
+paths = ["AGENTS.md"]
+level = "allow"
+reason = "AGENTS.md over 150 lines; P2401#20nov-1155g (records and repo) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "book-build-stamp"
+paths = ["zensical.toml"]
+level = "allow"
+reason = "no build stamp in the book footer; P2401#20nov-1155g (records and repo) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "book-deploy"
+paths = ["zensical.toml"]
+level = "allow"
+reason = "no workflow builds the book strict; P2401#20nov-1155g (records and repo) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "changelog-describes-diff"
+paths = ["CHANGELOG.md"]
+level = "allow"
+reason = "changelog entries that describe the diff; P2401#20nov-1155g (records and repo) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "changelog-entry-length"
+paths = ["CHANGELOG.md"]
+level = "allow"
+reason = "long changelog entries; P2401#20nov-1155g (records and repo) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "ci-workflow"
+paths = [".github/workflows/ci.yml"]
+level = "allow"
+reason = "CI does not run just lint and just test; P2401#20nov-1155g (records and repo) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "core-crate-deps"
+crates = ["wire_weaver_core"]
+level = "allow"
+reason = "wire_weaver_core is a _core crate with I/O dependencies; P2401#20nov-1155g (records and repo) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "core-crate-types"
+crates = ["wire_weaver_core"]
+level = "allow"
+reason = "wire_weaver_core is a _core crate with non-type items; P2401#20nov-1155g (records and repo) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "emoji"
+crates = ["features_page"]
+paths = [
+    "CHANGELOG.md",
+    "**/CHANGELOG.md",
+    "FEATURES.md",
+    "tests/features_page/entries.md",
+]
+level = "allow"
+reason = "the emoji section headings and status marks AGENTS.md asks for in the records; P2401#20nov-1155g (records and repo) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "justfile-recipes"
+paths = ["justfile"]
+level = "allow"
+reason = "no install and deploy recipes; P2401#20nov-1155g (records and repo) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "justfile-simple"
+paths = ["justfile"]
+level = "allow"
+reason = "recipes over 8 command lines; P2401#20nov-1155g (records and repo) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "macro-compile-fail"
+crates = ["ww_settings_derive"]
+level = "allow"
+reason = "a proc-macro crate without compile-fail cases; P2401#20nov-1155g (records and repo) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "profile-defaults"
+paths = ["Cargo.toml"]
+level = "allow"
+reason = "the dev profile does not split debug info; P2401#20nov-1155g (records and repo) removes them"
+expires = "2026-12-15"
+
+# --- crate map: P2401#20nov-1155h removes these ---
+
+[[exceptions]]
+lint = "cargo-msrv"
+paths = ["Cargo.toml"]
+level = "allow"
+reason = "cargo-msrv cannot pick the duplicated thermo_api package; P2401#20nov-1155h (crate map) removes them"
+expires = "2026-12-15"
+
+# --- book prose: P2401#20nov-1155i removes these ---
+
+[[exceptions]]
+lint = "abbreviation-first-use"
+paths = [
+    "README.md",
+    "docs/**",
+    "examples/README.md",
+    "wire_weaver_core/README.md",
+    "wire_weaver_py/README.md",
+    "ww_dns_sd/README.md",
+]
+level = "allow"
+reason = "the book's and READMEs' prose; P2401#20nov-1155i (book prose) removes them"
+expires = "2027-01-31"
+
+[[exceptions]]
+lint = "code-block-language"
+paths = ["docs/**"]
+level = "allow"
+reason = "the book's and READMEs' prose; P2401#20nov-1155i (book prose) removes them"
+expires = "2027-01-31"
+
+[[exceptions]]
+lint = "emoji"
+paths = ["docs/**"]
+level = "allow"
+reason = "emoji; P2401#20nov-1155i (book prose) removes them"
+expires = "2027-01-31"
+
+[[exceptions]]
+lint = "filler-phrases"
+paths = ["docs/**", "examples_mcu/README.md"]
+level = "allow"
+reason = "filler phrases; P2401#20nov-1155i (book prose) removes them"
+expires = "2027-01-31"
+
+[[exceptions]]
+lint = "heading-words"
+paths = ["docs/**"]
+level = "allow"
+reason = "the book's and READMEs' prose; P2401#20nov-1155i (book prose) removes them"
+expires = "2027-01-31"
+
+[[exceptions]]
+lint = "narration"
+paths = ["docs/**"]
+level = "allow"
+reason = "narration on a page; P2401#20nov-1155i (book prose) removes them"
+expires = "2027-01-31"
+
+[[exceptions]]
+lint = "orphan-pages"
+paths = ["docs/**"]
+level = "allow"
+reason = "the book's and READMEs' prose; P2401#20nov-1155i (book prose) removes them"
+expires = "2027-01-31"
+
+[[exceptions]]
+lint = "page-headings"
+paths = ["docs/**"]
+level = "allow"
+reason = "the book's and READMEs' prose; P2401#20nov-1155i (book prose) removes them"
+expires = "2027-01-31"
+
+[[exceptions]]
+lint = "page-reading-time"
+paths = ["docs/**"]
+level = "allow"
+reason = "the book's and READMEs' prose; P2401#20nov-1155i (book prose) removes them"
+expires = "2027-01-31"
+
+[[exceptions]]
+lint = "page-title"
+paths = ["docs/**"]
+level = "allow"
+reason = "the book's and READMEs' prose; P2401#20nov-1155i (book prose) removes them"
+expires = "2027-01-31"
+
+[[exceptions]]
+lint = "paragraph-sentences"
+paths = [
+    "README.md",
+    "docs/**",
+    "examples/README.md",
+    "wire_weaver_cli/README.md",
+    "wire_weaver_py/README.md",
+    "ww_book/README.md",
+    "ww_dns_sd/README.md",
+    "ww_snapshots/README.md",
+    "ww_tape_bundle/README.md",
+]
+level = "allow"
+reason = "the book's and READMEs' prose; P2401#20nov-1155i (book prose) removes them"
+expires = "2027-01-31"
+
+[[exceptions]]
+lint = "passive-voice"
+paths = ["docs/**", "wire_weaver_cli/README.md", "wire_weaver_py/README.md"]
+level = "allow"
+reason = "the book's and READMEs' prose; P2401#20nov-1155i (book prose) removes them"
+expires = "2027-01-31"
+
+[[exceptions]]
+lint = "prose-run-words"
+paths = ["docs/**"]
+level = "allow"
+reason = "the book's and READMEs' prose; P2401#20nov-1155i (book prose) removes them"
+expires = "2027-01-31"
+
+[[exceptions]]
+lint = "sentence-words"
+paths = [
+    "README.md",
+    "docs/**",
+    "wire_weaver_cli/README.md",
+    "wire_weaver_py/README.md",
+    "ww_api/README.md",
+    "ww_book/README.md",
+    "ww_snapshots/README.md",
+]
+level = "allow"
+reason = "the book's and READMEs' prose; P2401#20nov-1155i (book prose) removes them"
+expires = "2027-01-31"
+
+[[exceptions]]
+lint = "term-before-definition"
+paths = ["docs/**"]
+level = "allow"
+reason = "the book's and READMEs' prose; P2401#20nov-1155i (book prose) removes them"
+expires = "2027-01-31"
+
+[[exceptions]]
+lint = "term-synonyms"
+paths = ["docs/**"]
+level = "allow"
+reason = "the book's and READMEs' prose; P2401#20nov-1155i (book prose) removes them"
+expires = "2027-01-31"

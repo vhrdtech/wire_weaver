@@ -47,7 +47,7 @@ wire_weaver_core = { layer = "api_description" }
 wire_weaver_derive = { layer = "api_description" }
 wire_weaver_evolution = { layer = "api_description" }
 ww_api = { layer = "api_description", no_std = true }
-ww_lz4 = { layer = "api_description", no_std = true }
+ww_lz4 = { layer = "api_description", no_std = true, unsafe = true }
 ww_self = { layer = "api_description", no_std = true }
 ww_snapshots = { layer = "api_description" }
 ww_tape_bundle = { layer = "api_description" }
@@ -132,7 +132,7 @@ observe = { layer = "runtime" }
 observe_api = { layer = "runtime" }
 observe_arrays = { layer = "runtime" }
 observe_arrays_api = { layer = "runtime" }
-observe_batched = { layer = "runtime" }
+observe_batched = { layer = "runtime", unsafe = true }
 observe_batched_api = { layer = "runtime", no_std = true }
 pins_dep = { layer = "runtime", no_std = true }
 power_stage_api = { layer = "runtime", no_std = true }
@@ -148,7 +148,7 @@ settings = { layer = "runtime" }
 settings_api = { layer = "runtime", no_std = true }
 shared_sub_level = { layer = "runtime" }
 shared_sub_level_api = { layer = "runtime", no_std = true }
-shrink_wrap_c = { layer = "runtime" }
+shrink_wrap_c = { layer = "runtime", unsafe = true }
 skipped_dep_api = { layer = "runtime", no_std = true }
 skipped_root_api = { layer = "runtime", no_std = true }
 standalone = { layer = "runtime" }
@@ -178,39 +178,39 @@ wire_line_fixture_api = { layer = "runtime", no_std = true }
 wire_line_old_api = { layer = "runtime", no_std = true }
 wire_weaver = { layer = "runtime", no_std = true }
 wire_weaver_cli = { layer = "runtime" }
-wire_weaver_client = { layer = "runtime" }
+wire_weaver_client = { layer = "runtime", unsafe = true }
 wire_weaver_py = { layer = "runtime" }
 ww_book = { layer = "runtime" }
-ww_client_server = { layer = "runtime", no_std = true }
+ww_client_server = { layer = "runtime", no_std = true, unsafe = true }
 ww_clock_sync = { layer = "runtime" }
-ww_device = { layer = "runtime", no_std = true }
+ww_device = { layer = "runtime", no_std = true, unsafe = true }
 ww_dns_sd = { layer = "runtime" }
-ww_framer = { layer = "runtime", no_std = true }
+ww_framer = { layer = "runtime", no_std = true, unsafe = true }
 ww_hub = { layer = "runtime" }
 ww_hub_api = { layer = "runtime", no_std = true }
 ww_link = { layer = "runtime", no_std = true }
-ww_local_socket = { layer = "runtime" }
+ww_local_socket = { layer = "runtime", unsafe = true }
 ww_plugin = { layer = "runtime" }
-ww_settings = { layer = "runtime", no_std = true }
+ww_settings = { layer = "runtime", no_std = true, unsafe = true }
 ww_settings_derive = { layer = "runtime" }
-ww_stream = { layer = "runtime", no_std = true }
+ww_stream = { layer = "runtime", no_std = true, unsafe = true }
 ww_tap = { layer = "runtime", no_std = true }
 ww_timebase = { layer = "runtime", no_std = true }
-cannify_micro_g0b1cetxn = { layer = "runtime", workspace = "examples_mcu/nucleo_g0b1re" }
-ecc_flash_g0b1 = { layer = "runtime", workspace = "examples_mcu/ecc_flash_g0b1" }
-ecc_flash_h7 = { layer = "runtime", workspace = "examples_mcu/ecc_flash_h7" }
+cannify_micro_g0b1cetxn = { layer = "runtime", workspace = "examples_mcu/nucleo_g0b1re", unsafe = true }
+ecc_flash_g0b1 = { layer = "runtime", workspace = "examples_mcu/ecc_flash_g0b1", unsafe = true }
+ecc_flash_h7 = { layer = "runtime", workspace = "examples_mcu/ecc_flash_h7", unsafe = true }
 fuzz = { layer = "runtime", workspace = "fuzz" }
 fw_budget = { layer = "runtime", workspace = "examples_mcu/fw_budget" }
-mcu_qemu = { layer = "runtime", workspace = "examples_mcu/mcu_qemu" }
-mcu_qemu_m4f = { layer = "runtime", workspace = "examples_mcu/mcu_qemu_m4f" }
-nucleo_h743zi2 = { layer = "runtime", workspace = "examples_mcu/nucleo_h743zi2" }
+mcu_qemu = { layer = "runtime", workspace = "examples_mcu/mcu_qemu", unsafe = true }
+mcu_qemu_m4f = { layer = "runtime", workspace = "examples_mcu/mcu_qemu_m4f", unsafe = true }
+nucleo_h743zi2 = { layer = "runtime", workspace = "examples_mcu/nucleo_h743zi2", unsafe = true }
 qemu_icount = { layer = "runtime", workspace = "examples_mcu/qemu_icount" }
-rp2 = { layer = "runtime", workspace = "examples_mcu/rp2" }
+rp2 = { layer = "runtime", workspace = "examples_mcu/rp2", unsafe = true }
 size_bench_reply = { layer = "runtime", workspace = "examples_mcu/size_bench_reply" }
-usb_fdcan_h725ig = { layer = "runtime", workspace = "examples_mcu/usb_stm32h725ig" }
+usb_fdcan_h725ig = { layer = "runtime", workspace = "examples_mcu/usb_stm32h725ig", unsafe = true }
 wire_weaver_tool = { layer = "runtime", workspace = "wire_weaver_tool" }
 wire_weaver_usb_embassy = { layer = "runtime", workspace = "mcu" }
-ww_ecc_flash = { layer = "runtime", workspace = "mcu" }
+ww_ecc_flash = { layer = "runtime", workspace = "mcu", unsafe = true }
 
 # Crates of other repositories, taken by git without a pin (Cargo.lock records the commit), each with its layer.
 [external]

@@ -124,5 +124,12 @@ ww_device = { workspace = true, features = ["udp", "ws"] }
 ww_self = { workspace = true, features = ["fuzz"] }
 ww_stream = { workspace = true, features = ["std", "lz4"] }
 
-[lints]
-workspace = true
+# The workspace lints, copied: this crate holds unsafe code (`unsafe = true` in layers.toml), which the workspace
+# forbids. Every unsafe block has a `// SAFETY:` comment.
+[lints.cargo]
+unused_workspace_dependencies = "deny"
+
+[lints.rust]
+# `cargo fuzz` builds with `--cfg fuzzing`: ww_self and ww_stream gate their fuzz entry points on it
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(fuzzing)'] }
+unsafe_code = "allow" # unsafe = true in layers.toml: the workspace forbids it elsewhere

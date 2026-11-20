@@ -133,11 +133,6 @@ level = "allow"
 reason = "needs the crate map; P2401#20nov-1155h (crate map) adds it from layers.toml and turns this lint on"
 expires = "2026-12-15"
 
-[lints.unsafe-allow-list]
-level = "allow"
-reason = "needs the crate map; P2401#20nov-1155h (crate map) adds it from layers.toml and turns this lint on"
-expires = "2026-12-15"
-
 [lints.semver-checks-breaking]
 level = "allow"
 reason = "spl's run cannot build the wire_weaver 0.4.0 baseline's rustdoc; the CI semver-checks job checks the published crates"
@@ -157,6 +152,21 @@ reason = "no workspace-hack crate here: unified features would hide a missing st
 [lints.emoji]
 allow = ["✅", "🚧", "📋", "🐛", "🚀", "⚠", "⚠️", "💡", "🧪", "📚", "⚙", "⚙️", "⛔", "🔍", "⚡", "🗑", "🗑️"]
 reason = "changelog section headings and tracker status marks carry a fixed meaning"
+
+[[exceptions]]
+lint = "unsafe-allow-list"
+paths = [
+    "examples_mcu/ecc_flash_g0b1/Cargo.toml",
+    "examples_mcu/ecc_flash_h7/Cargo.toml",
+    "examples_mcu/mcu_qemu/Cargo.toml",
+    "examples_mcu/mcu_qemu_m4f/Cargo.toml",
+    "examples_mcu/nucleo_g0b1re/Cargo.toml",
+    "examples_mcu/nucleo_h743zi2/Cargo.toml",
+    "examples_mcu/rp2/Cargo.toml",
+    "examples_mcu/usb_stm32h725ig/Cargo.toml",
+]
+level = "allow"
+reason = "a package outside any workspace that the map marks unsafe: its [lints.rust] is the workspace's and the crate's, and it allows the unsafe code it holds"
 
 # Every lint below still fires. Each entry names the task that removes it and expires with it: the book prose at the
 # end of January 2027, everything else mid-December 2026.
@@ -688,6 +698,24 @@ lint = "cargo-msrv"
 paths = ["Cargo.toml"]
 level = "allow"
 reason = "cargo-msrv cannot pick the duplicated thermo_api package; P2401#20nov-1155h (crate map) removes them"
+expires = "2026-12-15"
+
+[[exceptions]]
+lint = "tier-clippy-set"
+crates = [
+    "observe_batched",
+    "shrink_wrap_c",
+    "wire_weaver_client",
+    "ww_client_server",
+    "ww_device",
+    "ww_framer",
+    "ww_local_socket",
+    "ww_lz4",
+    "ww_settings",
+    "ww_stream",
+]
+level = "allow"
+reason = "the crates the map marks unsafe copy the workspace lints, which lack the Clippy set; P2401#20nov-1155 (the Clippy set) adds it to the workspace and these copies"
 expires = "2026-12-15"
 
 # --- book prose: P2401#20nov-1155i removes these ---

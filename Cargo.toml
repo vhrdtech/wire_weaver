@@ -58,6 +58,8 @@ license = "MIT"
 unused_workspace_dependencies = "deny"
 
 [workspace.lints.rust]
+# Only the crates layers.toml marks `unsafe = true` allow it, in a [lints] table of their own (unsafe-allow-list).
+unsafe_code = "forbid"
 # `cargo fuzz` builds with `--cfg fuzzing`: ww_self and ww_stream gate their fuzz entry points on it
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(fuzzing)'] }
 

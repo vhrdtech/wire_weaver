@@ -172,3 +172,8 @@ path = "src/bin/unit_budget_cycles.rs"
 test = false
 doctest = false
 bench = false
+
+# Firmware: the runtime's entry, interrupt handlers, linker sections and registers are unsafe code
+# (`unsafe = true` in layers.toml).
+[lints.rust]
+unsafe_code = "allow" # unsafe = true in layers.toml: the workspace forbids it elsewhere

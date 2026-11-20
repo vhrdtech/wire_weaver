@@ -11,3 +11,6 @@ anyhow = "1"
 clap = { version = "4.5", features = ["derive"] }
 # shrink_wrap's size bench: the runner library, it builds and measures the images in fw/
 size_bench = { git = "https://github.com/romixlab/shrink_wrap" }
+
+[lints.rust]
+unsafe_code = "forbid"

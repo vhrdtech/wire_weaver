@@ -8,3 +8,6 @@ description = "Counts instructions between marker calls of a bare-metal ELF run 
 
 [dependencies]
 rustc-demangle = "0.1"
+
+[lints.rust]
+unsafe_code = "forbid"

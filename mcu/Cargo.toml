@@ -12,3 +12,7 @@ ww_device = { version = "0.5.0", path = "../ww_device" }
 
 [workspace.lints.cargo]
 unused_workspace_dependencies = "deny"
+
+[workspace.lints.rust]
+# Only the crates layers.toml marks `unsafe = true` allow it, in a [lints] table of their own (unsafe-allow-list).
+unsafe_code = "forbid"

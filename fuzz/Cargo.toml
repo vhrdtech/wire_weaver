@@ -57,3 +57,6 @@ path = "src/link_hello.rs"
 test = false
 doc = false
 bench = false
+
+[lints.rust]
+unsafe_code = "forbid"

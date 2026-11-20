@@ -34,3 +34,8 @@ incremental = false
 lto = "fat"
 opt-level = 3
 overflow-checks = false
+
+# Firmware: the runtime's entry, interrupt handlers, linker sections and registers are unsafe code
+# (`unsafe = true` in layers.toml).
+[lints.rust]
+unsafe_code = "allow" # unsafe = true in layers.toml: the workspace forbids it elsewhere

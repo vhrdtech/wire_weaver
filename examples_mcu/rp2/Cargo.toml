@@ -117,3 +117,8 @@ codegen-units = 1
 debug = 2 # full debug info for defmt and probe-rs, doesn't end up in flash
 lto = 'fat'
 opt-level = "z" # 3 - speed, s - size, z - even less size
+
+# Firmware: the runtime's entry, interrupt handlers, linker sections and registers are unsafe code
+# (`unsafe = true` in layers.toml).
+[lints.rust]
+unsafe_code = "allow" # unsafe = true in layers.toml: the workspace forbids it elsewhere

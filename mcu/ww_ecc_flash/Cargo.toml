@@ -27,5 +27,10 @@ nmi-handler = ["stm32g0", "dep:cortex-m-rt"]
 # defmt::Format for Error, so a store's errors can be logged with defmt
 defmt = ["dep:defmt"]
 
-[lints]
-workspace = true
+# The workspace lints, copied: this crate holds unsafe code (`unsafe = true` in layers.toml), which the workspace
+# forbids: flash registers and the ECC fault handler.
+[lints.cargo]
+unused_workspace_dependencies = "deny"
+
+[lints.rust]
+unsafe_code = "allow" # unsafe = true in layers.toml: the workspace forbids it elsewhere

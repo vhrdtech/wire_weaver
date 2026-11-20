@@ -10,3 +10,6 @@ description = "Runs the units firmware budget (TEST-27): plain fields against ww
 object = { version = "0.37", default-features = false, features = ["read", "std"] }
 addr2line = "0.25"
 rustc-demangle = "0.1"
+
+[lints.rust]
+unsafe_code = "forbid"

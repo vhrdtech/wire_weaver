@@ -258,7 +258,7 @@ expires = "2026-12-15"
 lint = "lock-unwrap"
 crates = ["hub"]
 level = "allow"
-reason = "lock().unwrap(); P2401#20nov-1155c (locks and shared state) removes them"
+reason = "spl counts tests/captures.rs, a module inside #[cfg(test)] mod tests, as library code; P2645#20nov-1010 fixes spl"
 expires = "2026-12-15"
 
 [[exceptions]]

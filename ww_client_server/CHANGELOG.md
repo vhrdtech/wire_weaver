@@ -88,6 +88,7 @@ Wire-incompatible with 0.1.0.
 
 ### 🚀 Features
 
+- `err_seq::REQUEST_NOT_SHARED` (62): the shared entry of a server (SRV-65) refuses a request `is_shared` sends to the exclusive one.
 - Hidden `__ww_require_multi!` / `__ww_require_streams!` macros, called by generated servers: a `compile_error!` naming the feature and the stream or sink that needs it, when this crate is built without it.
 - A wire version, `[package.metadata.wire_weaver] wire = "w1.0"` in `Cargo.toml` (EVO-71), and `GENERATION` is its line, still 1: the evolution checker derives the wire bump of a change to the API model from the snapshot (`needs: wire w1.0 -> w2.0`), and the hello follows. The 0.2.0 snapshot (never published) is saved again with it.
 - `ww_client_server::GENERATION` (EVO-23): the API model's generation, sent in the link setup hello; link setup decides on it, not on the crate version.

@@ -163,6 +163,9 @@ pub const REPLY_OVER_LIMIT: u32 = 60;
 /// credit sink writes without `streams`), answered with
 /// [OperationNotSupported](crate::ErrorKind::OperationNotSupported).
 pub const REQUEST_KIND_UNKNOWN: u32 = 61;
+/// A request the shared entry (`process_shared_bytes`, SRV-65) doesn't take: the generated `is_shared` says it goes
+/// to the exclusive entry. Answered with [OperationNotSupported](crate::ErrorKind::OperationNotSupported).
+pub const REQUEST_NOT_SHARED: u32 = 62;
 
 /// `ww_device`'s answer when the server failed without an error to send.
 pub const GENERIC: u32 = u32::MAX;
@@ -177,7 +180,7 @@ pub enum Site {
     /// The dispatch of a trait level on the request's path, one of the `LEVEL_*` sites (and [REPLY_START]).
     Level(u32),
     /// The request as a whole, one of the `REQUEST_*`, `MULTI_*`, `OBSERVE_*` sites, [INTROSPECT], [REPLY_OVER_LIMIT]
-    /// or [REQUEST_KIND_UNKNOWN].
+    /// [REQUEST_KIND_UNKNOWN] or [REQUEST_NOT_SHARED].
     Request(u32),
     /// [GENERIC].
     Generic,
@@ -191,7 +194,7 @@ impl Site {
             0..ITEM_END => Site::Item(err_seq),
             DEFERRED_OUTPUT_SER..=DEFERRED_EVENT_FINISH => Site::DeferredReturn(err_seq),
             LEVEL_BAD_PATH..=REPLY_START => Site::Level(err_seq),
-            REQUEST_TRAIT_NOT_FOUND..=REQUEST_KIND_UNKNOWN => Site::Request(err_seq),
+            REQUEST_TRAIT_NOT_FOUND..=REQUEST_NOT_SHARED => Site::Request(err_seq),
             GENERIC => Site::Generic,
             _ => Site::Unknown(err_seq),
         }
@@ -246,6 +249,7 @@ impl Site {
             INTROSPECT => "introspection: event not sent",
             REPLY_OVER_LIMIT => "answer longer than the link's message limit",
             REQUEST_KIND_UNKNOWN => "request kind not served by this firmware",
+            REQUEST_NOT_SHARED => "request not taken by the shared entry",
             _ => return None,
         })
     }
@@ -288,7 +292,7 @@ mod tests {
             "level site 40 (no such item)"
         );
         // every site in a range has a name
-        for seq in (0..=DEFERRED_IN_MULTI).chain(ITEM_END..=REQUEST_KIND_UNKNOWN) {
+        for seq in (0..=DEFERRED_IN_MULTI).chain(ITEM_END..=REQUEST_NOT_SHARED) {
             let site = Site::of(seq);
             if !matches!(site, Site::Unknown(_)) {
                 assert!(site.name().is_some(), "{seq}");

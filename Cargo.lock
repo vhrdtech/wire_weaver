@@ -1359,7 +1359,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -3061,7 +3061,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -3781,7 +3781,7 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -4413,7 +4413,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -5089,7 +5089,7 @@ dependencies = [
 [[package]]
 name = "ww_tape"
 version = "0.1.0"
-source = "git+https://github.com/vhrdtech/ww_tape#8f23d9a3565a2cf1bb9e9696e5417f6e883a79fb"
+source = "git+https://github.com/vhrdtech/ww_tape#1d9180da83947a277aafbd2e9b8b05d75bbaaead"
 dependencies = [
  "blake3",
  "exact_units",
@@ -5111,7 +5111,7 @@ dependencies = [
 [[package]]
 name = "ww_tape_codecs"
 version = "0.1.0"
-source = "git+https://github.com/vhrdtech/ww_tape#8f23d9a3565a2cf1bb9e9696e5417f6e883a79fb"
+source = "git+https://github.com/vhrdtech/ww_tape#1d9180da83947a277aafbd2e9b8b05d75bbaaead"
 dependencies = [
  "crc",
  "lz4_flex",
@@ -5120,7 +5120,7 @@ dependencies = [
 [[package]]
 name = "ww_tape_fs"
 version = "0.1.0"
-source = "git+https://github.com/vhrdtech/ww_tape#8f23d9a3565a2cf1bb9e9696e5417f6e883a79fb"
+source = "git+https://github.com/vhrdtech/ww_tape#1d9180da83947a277aafbd2e9b8b05d75bbaaead"
 dependencies = [
  "blake3",
  "rustix",

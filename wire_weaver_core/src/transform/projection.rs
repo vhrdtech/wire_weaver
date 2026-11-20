@@ -409,7 +409,10 @@ fn user_def(
 }
 
 /// `p`, the struct or enum `item` of `def_cx`, against `target`: the same definition, then its arguments.
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the arguments are independent inputs, a parameter struct would only rename them"
+)]
 fn matches_def(
     p: &TypePath,
     def_cx: &CrateContext,

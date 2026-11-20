@@ -8,7 +8,10 @@ mod fine_timer;
 pub(crate) mod live;
 pub(crate) mod medium;
 pub(crate) mod rx_dispatcher;
-#[cfg_attr(not(feature = "rtt"), allow(dead_code))]
+#[cfg_attr(
+    not(feature = "rtt"),
+    allow(dead_code, reason = "only used with the `rtt` feature")
+)]
 pub(crate) mod stream;
 pub(crate) mod transport;
 

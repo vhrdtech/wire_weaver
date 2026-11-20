@@ -217,7 +217,10 @@ impl Transport for LocalSocketTransport {
 
 impl Tunnel {
     /// Its message halves, sharing `claim`, taking messages up to `max_message_len`.
-    #[cfg_attr(not(feature = "hub"), allow(dead_code))]
+    #[cfg_attr(
+        not(feature = "hub"),
+        allow(dead_code, reason = "only used with the `hub` feature")
+    )]
     pub(crate) fn into_halves(
         self,
         claim: SharedClaim,
@@ -247,7 +250,10 @@ pub(crate) struct Tunnel {
     /// The socket, for messages and the tap
     pub(crate) shown: String,
     /// What the hub (or the serving process) says its version is
-    #[cfg_attr(not(feature = "hub"), allow(dead_code))]
+    #[cfg_attr(
+        not(feature = "hub"),
+        allow(dead_code, reason = "only used with the `hub` feature")
+    )]
     pub(crate) hub_version: String,
     /// Held for a device that takes one host at a time ([ClientConfig::ipc_exclusive](
     /// crate::ClientConfig::ipc_exclusive)), for as long as the link lives
@@ -420,7 +426,11 @@ impl MessageTx for LocalTx {
 pub(crate) struct LocalRx(
     MessageReader<RecvHalf>,
     // held, never read: the claim goes with the last half
-    #[allow(dead_code)] SharedClaim,
+    #[allow(
+        dead_code,
+        reason = "held, never read: the claim goes with the last half"
+    )]
+    SharedClaim,
 );
 
 impl MessageRx for LocalRx {

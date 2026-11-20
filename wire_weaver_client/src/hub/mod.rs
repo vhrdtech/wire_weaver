@@ -218,7 +218,10 @@ pub async fn take(key: &str) -> anyhow::Result<()> {
 }
 
 /// The end of a busy error: how the device could be shared instead, from who holds it.
-#[cfg_attr(not(any(feature = "usb", feature = "rtt")), allow(dead_code))]
+#[cfg_attr(
+    not(any(feature = "usb", feature = "rtt")),
+    allow(dead_code, reason = "only used with the `usb` or `rtt` features")
+)]
 pub(crate) fn busy_hint(holder: &crate::holders::Holder) -> String {
     match holder.mode {
         crate::holders::Mode::Hub if cfg!(feature = "hub") => format!(

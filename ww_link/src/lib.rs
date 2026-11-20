@@ -160,7 +160,10 @@ impl UsbFramingProtocol for UsbSeqFraming {
 
 /// `bDescriptorType` of the vendor-specific descriptor carrying the USB stack crate's own name and version
 /// (its wire bytes: [usb_self_id_version_descriptor]).
-#[allow(clippy::identity_op)]
+#[allow(
+    clippy::identity_op,
+    reason = "the offset is spelled out next to its sibling descriptor types"
+)]
 pub const CUSTOM_DESCRIPTOR_TYPE_VENDOR_SPECIFIC_SELF_ID_VERSION: u8 = 0x40 + 0;
 /// `bDescriptorType` of the vendor-specific descriptor carrying the user API's crate name (`FullVersion::crate_id`,
 /// as bytes, no fixed length).

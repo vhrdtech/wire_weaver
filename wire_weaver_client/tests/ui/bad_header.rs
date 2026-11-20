@@ -1,7 +1,7 @@
 //! `facade!` without its `mod line;`.
 #[path = "support/lines.rs"]
 mod support;
-#[allow(unused_imports)]
+#[allow(unused_imports, reason = "the support items are not all used by every case")]
 use support::{Error, v1, v2};
 
 wire_weaver_client::facade! {

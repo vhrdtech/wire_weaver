@@ -506,7 +506,10 @@ impl<'b> Builder<'b> {
             .expect("readers of the envelope are made from its bytes")
     }
 
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the arguments are independent inputs, a parameter struct would only rename them"
+    )]
     fn leaf(
         &mut self,
         depth: usize,

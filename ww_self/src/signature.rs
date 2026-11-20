@@ -38,7 +38,10 @@ use ww_version::{FullVersionOwned, VersionTriplet};
 /// not the definition's, and must not move every signature: only the definitions here are hashed, and every
 /// field after them is always at its default. The bytes are exactly those of an `ApiBundle` of that time.
 #[derive_shrink_wrap(owned(feature = "std"))]
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "the type is only serialized to produce the signature bytes"
+)]
 struct CanonicalBundle<'i> {
     magic: u32,
     ww_self_version: VersionTriplet,

@@ -381,7 +381,10 @@ impl Scaffold<'_> {
     /// names, `index_len` is the length of the index chain passed to handlers on this level, `item_path` the trait
     /// item idents from the root (for omitted items), `optional` what `omit = [..]` names to leave out the level's
     /// `#[optional]` `ww_impl!` (API-54).
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the arguments are independent inputs, a parameter struct would only rename them"
+    )]
     fn level(
         &mut self,
         level: &ApiLevelOwned,

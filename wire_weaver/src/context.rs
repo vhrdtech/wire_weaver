@@ -27,11 +27,17 @@ pub trait MessageSink {
 /// Same as [MessageSink], for code without async (`use_async = false` servers, blocking event loops).
 pub trait BlockingMessageSink {
     // same as MessageSink: the sink logs why it failed, callers only need to know that it did
-    #[allow(clippy::result_unit_err)]
+    #[allow(
+        clippy::result_unit_err,
+        reason = "the only failure is that the message does not fit, there is nothing to add"
+    )]
     fn send(&mut self, message: &[u8]) -> Result<(), ()>;
 
     /// Same as [MessageSink::send_reply]: send a deferred reply, an urgent one flushed at once.
-    #[allow(clippy::result_unit_err)]
+    #[allow(
+        clippy::result_unit_err,
+        reason = "the only failure is that the message does not fit, there is nothing to add"
+    )]
     fn send_reply(&mut self, message: &[u8], priority: Priority) -> Result<(), ()> {
         _ = priority;
         self.send(message)

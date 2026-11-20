@@ -62,7 +62,7 @@ macro_rules! each {
     };
 }
 
-#[allow(dead_code)] // not every method is used by every transport
+#[allow(dead_code, reason = "not every method is used by every transport")]
 impl UsbTx {
     pub fn new(seq_prefix: bool, frame_size: usize) -> Self {
         let framer = if seq_prefix {
@@ -162,7 +162,10 @@ impl UsbTx {
 /// What the framers of a USB link hold between frames (CLT-44): the part of a USB medium residual that the framers of
 /// the medium taking the link over go on from, see [ww_framer::Carry].
 #[derive_shrink_wrap(owned, derive(Clone, Debug, Default, PartialEq, Eq))]
-#[cfg_attr(not(feature = "local_socket"), allow(dead_code))]
+#[cfg_attr(
+    not(feature = "local_socket"),
+    allow(dead_code, reason = "only used with the `local_socket` feature")
+)]
 pub(crate) struct FramerCarryOwned {
     /// The tx framer's next frame, None without a frame prefix
     pub tx_frame: Option<FrameAtOwned>,
@@ -173,14 +176,20 @@ pub(crate) struct FramerCarryOwned {
 }
 
 #[derive_shrink_wrap(owned, derive(Copy, Clone, Debug, PartialEq, Eq))]
-#[cfg_attr(not(feature = "local_socket"), allow(dead_code))]
+#[cfg_attr(
+    not(feature = "local_socket"),
+    allow(dead_code, reason = "only used with the `local_socket` feature")
+)]
 pub(crate) struct FrameAtOwned {
     pub seq: u32,
     pub epoch: u8,
 }
 
 #[derive_shrink_wrap(owned, derive(Clone, Debug, PartialEq, Eq))]
-#[cfg_attr(not(feature = "local_socket"), allow(dead_code))]
+#[cfg_attr(
+    not(feature = "local_socket"),
+    allow(dead_code, reason = "only used with the `local_socket` feature")
+)]
 pub(crate) struct PartialOwned {
     pub user_kind: u8,
     pub total: u32,
@@ -205,7 +214,7 @@ impl From<FrameAtOwned> for FrameCtx {
     }
 }
 
-#[allow(dead_code)] // not every method is used by every transport
+#[allow(dead_code, reason = "not every method is used by every transport")]
 impl FramerCarryOwned {
     /// What both framers hold; take every ready message out of `rx` first.
     pub(crate) fn take(tx: &mut UsbTx, rx: &UsbRx) -> Self {
@@ -265,7 +274,7 @@ impl FramerCarryOwned {
     }
 }
 
-#[allow(dead_code)] // not every method is used by every transport
+#[allow(dead_code, reason = "not every method is used by every transport")]
 impl UsbRx {
     pub fn new(seq_prefix: bool, assembly_size: usize) -> Self {
         let framer = if seq_prefix {
@@ -435,7 +444,7 @@ impl HelloFrame {
     }
 }
 
-#[allow(dead_code)] // not every method is used by every transport
+#[allow(dead_code, reason = "not every method is used by every transport")]
 impl<F: Framing> HelloTx<F> {
     pub fn new(frame_size: usize) -> Self {
         HelloTx {
@@ -511,7 +520,7 @@ pub(crate) struct HelloRx<F: Framing> {
     hello_ready: bool,
 }
 
-#[allow(dead_code)] // not every method is used by every transport
+#[allow(dead_code, reason = "not every method is used by every transport")]
 impl<F: Framing> HelloRx<F> {
     pub fn new(assembly_size: usize) -> Self {
         HelloRx {

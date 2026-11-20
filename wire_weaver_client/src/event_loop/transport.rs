@@ -64,7 +64,7 @@ pub(crate) type SharedClaim = Option<std::sync::Arc<crate::holders::Claim>>;
 /// Waits for a handover request on a shared claim, see [MessageTx::handover_requested].
 #[cfg_attr(
     not(any(feature = "usb", feature = "rtt", feature = "local_socket")),
-    allow(dead_code)
+    allow(dead_code, reason = "only used by some transports")
 )]
 pub(crate) async fn handover_requested(claim: &SharedClaim) {
     match claim {
@@ -74,7 +74,10 @@ pub(crate) async fn handover_requested(claim: &SharedClaim) {
 }
 
 /// A tx half of a medium that keeps the device's claim, for transports whose halves don't (RTT's stream IO).
-#[cfg_attr(not(feature = "rtt"), allow(dead_code))]
+#[cfg_attr(
+    not(feature = "rtt"),
+    allow(dead_code, reason = "only used with the `rtt` feature")
+)]
 pub(crate) struct HeldTx<T> {
     pub(crate) inner: T,
     pub(crate) claim: SharedClaim,
@@ -104,7 +107,10 @@ impl<T: MessageTx + Send> MessageTx for HeldTx<T> {
 }
 
 /// The rx half of [HeldTx].
-#[cfg_attr(not(feature = "rtt"), allow(dead_code))]
+#[cfg_attr(
+    not(feature = "rtt"),
+    allow(dead_code, reason = "only used with the `rtt` feature")
+)]
 pub(crate) struct HeldRx<R> {
     pub(crate) inner: R,
     pub(crate) claim: SharedClaim,
@@ -165,7 +171,10 @@ pub(crate) trait Transport {
     /// Pauses the medium for a live handover (CLT-44), given both halves: every OUT transfer has gone out, IN is
     /// stopped and everything received so far was taken in, the messages it completed returned, nothing lost. The
     /// device may still hold IN data, which waits for the next host (NAKed). The interface may still be held.
-    #[cfg_attr(not(feature = "hub"), allow(dead_code))]
+    #[cfg_attr(
+        not(feature = "hub"),
+        allow(dead_code, reason = "only used with the `hub` feature")
+    )]
     fn pause(
         _tx: &mut Self::Tx,
         _rx: &mut Self::Rx,
@@ -174,7 +183,10 @@ pub(crate) trait Transport {
     }
 
     /// Lets go of the paused device (releases the interface), keeping what [Self::take_back] needs.
-    #[cfg_attr(not(feature = "hub"), allow(dead_code))]
+    #[cfg_attr(
+        not(feature = "hub"),
+        allow(dead_code, reason = "only used with the `hub` feature")
+    )]
     fn let_go(
         _tx: &mut Self::Tx,
         _rx: &mut Self::Rx,
@@ -183,7 +195,10 @@ pub(crate) trait Transport {
     }
 
     /// The handover didn't happen: holds the device again (if it let go) and goes on where [Self::pause] stopped.
-    #[cfg_attr(not(feature = "hub"), allow(dead_code))]
+    #[cfg_attr(
+        not(feature = "hub"),
+        allow(dead_code, reason = "only used with the `hub` feature")
+    )]
     fn take_back(
         _tx: &mut Self::Tx,
         _rx: &mut Self::Rx,
@@ -193,32 +208,47 @@ pub(crate) trait Transport {
 
     /// The link leaves this medium for another one ([relink](super::medium::relink)), after [Self::let_go]: what the
     /// halves still have to do before they are dropped. An error keeps them in the slot.
-    #[cfg_attr(not(feature = "hub"), allow(dead_code))]
+    #[cfg_attr(
+        not(feature = "hub"),
+        allow(dead_code, reason = "only used with the `hub` feature")
+    )]
     fn switch(_tx: &mut Self::Tx, _rx: &mut Self::Rx) -> Result<(), String> {
         Err("this medium can't be handed over live".to_string())
     }
 
     /// The holders registry claim of the device, taken out of both halves: dropping it releases the device's lock
     /// file (and tells a waiting asker of a polite handover, CLT-43).
-    #[cfg_attr(not(feature = "hub"), allow(dead_code))]
+    #[cfg_attr(
+        not(feature = "hub"),
+        allow(dead_code, reason = "only used with the `hub` feature")
+    )]
     fn take_claim(_tx: &mut Self::Tx, _rx: &mut Self::Rx) -> SharedClaim {
         None
     }
 
     /// The holders registry claim of the device, as the halves hold it.
-    #[cfg_attr(not(feature = "hub"), allow(dead_code))]
+    #[cfg_attr(
+        not(feature = "hub"),
+        allow(dead_code, reason = "only used with the `hub` feature")
+    )]
     fn claim_of(_tx: &Self::Tx) -> SharedClaim {
         None
     }
 
     /// Gives both halves the claim taken again after [Self::take_claim] (a live handover rolled back).
-    #[cfg_attr(not(feature = "hub"), allow(dead_code))]
+    #[cfg_attr(
+        not(feature = "hub"),
+        allow(dead_code, reason = "only used with the `hub` feature")
+    )]
     fn put_claim(_tx: &mut Self::Tx, _rx: &mut Self::Rx, _claim: SharedClaim) {}
 }
 
 /// A medium paused for a live handover (CLT-44, [Transport::pause]).
 #[derive(Debug)]
-#[cfg_attr(not(feature = "hub"), allow(dead_code))]
+#[cfg_attr(
+    not(feature = "hub"),
+    allow(dead_code, reason = "only used with the `hub` feature")
+)]
 pub(crate) struct Paused {
     /// The device's key in the hub (`usb:<vid>:<pid>:<serial>`), which may differ from its holders registry key
     pub key: String,
@@ -230,7 +260,13 @@ pub(crate) struct Paused {
 
 /// A transport handle for a link adopted from another program (CLT-44): the medium goes on from `medium`, which it
 /// decodes itself, see [TxOutput::Connect](super::core::TxOutput::Connect).
-#[cfg_attr(not(any(feature = "usb", feature = "local_socket")), allow(dead_code))]
+#[cfg_attr(
+    not(any(feature = "usb", feature = "local_socket")),
+    allow(
+        dead_code,
+        reason = "only used with the `usb` or `local_socket` features"
+    )
+)]
 pub(crate) struct Adopting {
     pub handle: DeviceHandle,
     pub medium: crate::adopt::MediumResidualOwned,
@@ -254,7 +290,10 @@ pub(crate) enum Selected {
 
 /// Default link setup timeouts, one per transport: how long it takes a device to answer the first request after the
 /// medium is open. Fast media fail fast, a debug probe needs seconds (~17 ms per RTT write through a J-Link).
-#[allow(dead_code)] // each one is used by a transport behind its own feature
+#[allow(
+    dead_code,
+    reason = "each one is used by a transport behind its own feature"
+)]
 pub(crate) mod link_setup_timeout {
     use std::time::Duration;
 

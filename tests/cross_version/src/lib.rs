@@ -224,7 +224,7 @@ mod tests {
         use wire_weaver_client::{ClientConfig, Commander, WwClient};
 
         pub struct NewClient {
-            #[allow(dead_code)] // never gets connected
+            #[allow(dead_code, reason = "the commander is never connected in this test")]
             pub cmd: Commander,
         }
 

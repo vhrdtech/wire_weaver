@@ -302,7 +302,10 @@ fn start_event_loop(
 }
 
 /// Returns the only matching device, or WireWeaver devices that did not match if none did.
-#[allow(clippy::type_complexity)]
+#[allow(
+    clippy::type_complexity,
+    reason = "a named alias would hide the shape without making it clearer"
+)]
 fn select_matching(
     c: &ValidatedConfig,
     devices: impl Iterator<Item = nusb::DeviceInfo>,

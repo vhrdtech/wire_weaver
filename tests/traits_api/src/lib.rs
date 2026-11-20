@@ -46,7 +46,7 @@ trait Channel {
 
 /// `#[ww_trait]` makes a Rust trait for rustdoc (`ww_api::api_doc`), these fail to compile if its shape changes.
 #[cfg(test)]
-#[allow(dead_code)]
+#[allow(dead_code, reason = "exists for the rendered documentation only")]
 mod doc_trait {
     use super::*;
     use ww_api::api_doc::Property;

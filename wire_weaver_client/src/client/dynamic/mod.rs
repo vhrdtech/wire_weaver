@@ -925,7 +925,10 @@ impl DynResource {
         }
     }
 
-    #[allow(clippy::type_complexity)]
+    #[allow(
+        clippy::type_complexity,
+        reason = "a named alias would hide the shape without making it clearer"
+    )]
     fn array_method(
         &self,
         child: Option<&str>,

@@ -140,7 +140,10 @@ pub(crate) enum ToRx {
     },
     /// The link goes on over a new medium, through the ww hub that adopted the device (CLT-44, [TxCore::relink]):
     /// expect link setup with this token, keeping the dispatcher (requests in flight, streams) as it is.
-    #[cfg_attr(not(feature = "hub"), allow(dead_code))]
+    #[cfg_attr(
+        not(feature = "hub"),
+        allow(dead_code, reason = "only used with the `hub` feature")
+    )]
     Relink { token: u64 },
     /// An adopted link is up ([Command::Adopt]): no link setup, the device's `DeviceInfo` as the other program
     /// received it; the other program's requests in flight answer to the forward sink with these tags.
@@ -279,7 +282,11 @@ async fn tx_task<T: Transport>(
     mut from_rx: mpsc::UnboundedReceiver<ToTx>,
     to_rx: mpsc::UnboundedSender<ToRx>,
     msg_rx_tx: oneshot::Sender<(MediumRx, ClientTap)>,
-    #[cfg_attr(not(feature = "hub"), allow(unused_variables))] rx_ctl: mpsc::UnboundedSender<RxCtl>,
+    #[cfg_attr(
+        not(feature = "hub"),
+        allow(unused_variables, reason = "only used with the `hub` feature")
+    )]
+    rx_ctl: mpsc::UnboundedSender<RxCtl>,
 ) -> (
     (TxCore, anyhow::Result<EventLoopExitReason>),
     mpsc::Receiver<Command>,

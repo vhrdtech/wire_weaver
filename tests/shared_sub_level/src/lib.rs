@@ -480,7 +480,7 @@ mod tests {
     }
 
     /// Type-checked only: the shapes of the observe methods, shared and own side by side.
-    #[allow(dead_code)]
+    #[allow(dead_code, reason = "kept as a usage example that must compile")]
     async fn observe_shapes(shared: &observe_clients::Shared, own: &observe_clients::Own) {
         use motor_client::observe_api_motor::MotorObserve;
         use observe_clients::own_api::observe_api_observe::observe_api_motor::MotorObserve as OwnMotorObserve;

@@ -703,7 +703,10 @@ fn start_on<S: Process + Send + 'static>(
     )
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the arguments are independent inputs, a parameter struct would only rename them"
+)]
 fn start_with<S: Process + Send + 'static>(
     path: &str,
     media: Media,

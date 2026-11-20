@@ -160,7 +160,7 @@ fn handover_by_default(kind: crate::ClientKind) -> bool {
 #[derive(Clone)]
 pub(crate) struct ValidatedConfig {
     pub(crate) pieces: Vec<ConfigPiece>,
-    #[allow(dead_code)] // TODO: implement connection priority
+    #[allow(dead_code, reason = "connection priority is not implemented yet")]
     priority: Vec<InterfaceKind>,
     pub(crate) cmd_queue_size: usize,
     pub(crate) default_timeout: Duration,
@@ -189,10 +189,16 @@ pub(crate) struct ValidatedConfig {
     /// [ClientConfig::client_meta], resolved; None for [ClientConfig::no_client_meta]
     pub(crate) client_meta: Option<Box<ww_link::ClientMetaOwned>>,
     /// [ClientConfig::hub], else [crate::hub::MODE_ENV], else auto
-    #[cfg_attr(not(feature = "hub"), allow(dead_code))]
+    #[cfg_attr(
+        not(feature = "hub"),
+        allow(dead_code, reason = "only used with the `hub` feature")
+    )]
     pub(crate) hub_mode: HubMode,
     /// [ClientConfig::hub_opens], else [crate::hub::OPENS_ENV], else 3 in 60 s
-    #[cfg_attr(not(feature = "hub"), allow(dead_code))]
+    #[cfg_attr(
+        not(feature = "hub"),
+        allow(dead_code, reason = "only used with the `hub` feature")
+    )]
     pub(crate) hub_opens: OpenCounter,
     /// [ClientConfig::holder_mode]
     pub(crate) holder_mode: crate::holders::Mode,
@@ -208,7 +214,10 @@ pub(crate) struct ValidatedConfig {
     /// [ClientConfig::allow_handover], resolved by the client's kind when not set
     pub(crate) allow_handover: bool,
     /// [ClientConfig::ipc_exclusive]
-    #[cfg_attr(not(feature = "local_socket"), allow(dead_code))]
+    #[cfg_attr(
+        not(feature = "local_socket"),
+        allow(dead_code, reason = "only used with the `local_socket` feature")
+    )]
     pub(crate) ipc_exclusive: bool,
 }
 
@@ -1144,7 +1153,13 @@ impl ValidatedConfig {
     /// [holders::claim_offering](crate::holders::claim_offering): `None` listens on no holder socket (the hub's own
     /// connections), `Some(false)` refuses, `Some(true)` hands the device over. `supervised`: the connection reconnects
     /// by itself (`connect()`, not `connect_blocking()`).
-    #[cfg_attr(not(any(feature = "usb", feature = "local_socket")), allow(dead_code))]
+    #[cfg_attr(
+        not(any(feature = "usb", feature = "local_socket")),
+        allow(
+            dead_code,
+            reason = "only used with the `usb` or `local_socket` features"
+        )
+    )]
     pub(crate) fn handover_offer(&self, supervised: bool) -> Option<bool> {
         if self.holder_mode == crate::holders::Mode::Hub {
             return None;

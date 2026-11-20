@@ -216,7 +216,10 @@ pub fn rtt_server<'a, const MAX_MESSAGE_LEN: usize, C: Clock + Clone>(
 
 impl<const MAX_MESSAGE_LEN: usize> RttBuffers<MAX_MESSAGE_LEN> {
     /// Contiguous `MAX_MESSAGE_LEN + RTT_OVERHEAD` tx and rx buffers, and the scratch buffers.
-    #[allow(clippy::type_complexity)]
+    #[allow(
+        clippy::type_complexity,
+        reason = "a named alias would hide the shape without making it clearer"
+    )]
     fn split(&mut self) -> (&mut [u8], &mut [u8], &mut [u8], &mut [u8]) {
         const {
             assert!(

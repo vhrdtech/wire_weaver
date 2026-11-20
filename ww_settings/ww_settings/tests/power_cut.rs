@@ -279,7 +279,7 @@ impl<const W: usize, const P: usize> Rig<W, P> {
 }
 
 #[derive(Debug, Default)]
-#[allow(dead_code)] // printed
+#[allow(dead_code, reason = "the fields are only printed")]
 struct Report {
     ops: usize,
     erases: u64,

@@ -209,38 +209,6 @@ expires = "2026-12-15"
 # --- comments and attributes: P2401#20nov-1154b removes these ---
 
 [[exceptions]]
-lint = "allow-without-reason"
-crates = [
-    "array_of_streams",
-    "cross_version",
-    "methods",
-    "minimal-shrink-wrap",
-    "properties_api",
-    "series",
-    "shared_sub_level",
-    "streams_api",
-    "tests_common",
-    "traits_api",
-    "wire_weaver",
-    "wire_weaver_cli",
-    "wire_weaver_client",
-    "wire_weaver_core",
-    "wire_weaver_evolution",
-    "wire_weaver_py",
-    "ww_client_server",
-    "ww_device",
-    "ww_framer",
-    "ww_link",
-    "ww_lz4",
-    "ww_self",
-    "ww_settings",
-    "ww_stream",
-]
-level = "allow"
-reason = "bare #[allow] attributes; P2401#20nov-1154b (comments and attributes) removes them"
-expires = "2026-12-15"
-
-[[exceptions]]
 lint = "commented-out-code"
 crates = [
     "blinky",

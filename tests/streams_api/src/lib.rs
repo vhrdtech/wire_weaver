@@ -39,7 +39,7 @@ pub struct Odd<'i> {
 
 /// `#[ww_trait]` makes a Rust trait for rustdoc (`ww_api::api_doc`), this fails to compile if its shape changes.
 #[cfg(test)]
-#[allow(dead_code)]
+#[allow(dead_code, reason = "exists for the rendered documentation only")]
 fn doc_trait<T: Streams>() {
     use ww_api::api_doc::{Sink, Stream};
     let _: fn() -> Stream<u8> = T::plain_stream;

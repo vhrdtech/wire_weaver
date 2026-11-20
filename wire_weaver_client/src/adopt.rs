@@ -216,7 +216,13 @@ impl MediumResidualOwned {
     }
 
     /// The bytes, if they are of `kind`.
-    #[cfg_attr(not(any(feature = "usb", feature = "local_socket")), allow(dead_code))]
+    #[cfg_attr(
+        not(any(feature = "usb", feature = "local_socket")),
+        allow(
+            dead_code,
+            reason = "only used with the `usb` or `local_socket` features"
+        )
+    )]
     pub(crate) fn of(&self, kind: MediumKindOwned) -> Result<&[u8], String> {
         if self.kind == kind {
             Ok(&self.bytes)

@@ -10,7 +10,7 @@ mod tests {
 
     #[derive(Copy, Clone, Debug, PartialEq, Eq)]
     pub enum Medium {
-        #[allow(dead_code)]
+        #[allow(dead_code, reason = "the variant is never built, it only completes the enum")]
         Usb = 1,
         Can = 2,
     }

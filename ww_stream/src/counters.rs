@@ -58,14 +58,20 @@ impl TxStats {
 
 /// [TxStats] and, with the `cnt` feature, the instance counters given by the firmware.
 #[derive(Default)]
-#[cfg_attr(not(feature = "streams"), allow(dead_code))]
+#[cfg_attr(
+    not(feature = "streams"),
+    allow(dead_code, reason = "only used with the `streams` feature")
+)]
 pub(crate) struct Counting {
     pub(crate) stats: TxStats,
     #[cfg(feature = "cnt")]
     pub(crate) cnt: Option<&'static cnt::Counters<StreamCnt>>,
 }
 
-#[cfg_attr(not(feature = "streams"), allow(dead_code))]
+#[cfg_attr(
+    not(feature = "streams"),
+    allow(dead_code, reason = "only used with the `streams` feature")
+)]
 impl Counting {
     pub(crate) const fn new() -> Self {
         Counting {

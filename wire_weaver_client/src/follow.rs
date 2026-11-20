@@ -394,7 +394,10 @@ pub async fn stm32_dfu_update(
 /// wait for the firmware to come back. Returns the device as it came back, connect to it by its serial number.
 ///
 /// `open` is called again for [Timeouts::open] when it fails: the bootloader can be listed before it can be opened.
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the arguments are independent inputs, a parameter struct would only rename them"
+)]
 pub async fn stm32_dfu_update_with<I: ww_stm32_dfu::DfuIo>(
     follow: &Follow,
     bus: &mut impl Bus,

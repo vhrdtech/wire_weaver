@@ -43,7 +43,7 @@ pub use credit::{SinkCredit, SinkCreditError, SinkVerdict};
 #[cfg(any(feature = "alloc", test))]
 pub use tx::{SinkConfig, SinkDue, SinkOpenError, SinkSideband, SinkTx, SinkTxError, SinkWriteOut};
 
-#[allow(unused_imports)] // doc links
+#[allow(unused_imports, reason = "the import is used by doc links")]
 use crate::StreamCursor;
 
 /// Positions of credit sinks go on the wire modulo 2^28: the most a `UVlq32` holds in 4 bytes

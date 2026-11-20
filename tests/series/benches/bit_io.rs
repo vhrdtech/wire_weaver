@@ -6,7 +6,7 @@
 #[path = "../../../examples_mcu/mcu_qemu/src/bit_io.rs"]
 mod bit_io;
 #[path = "../../../examples_mcu/mcu_qemu/src/motor_signal.rs"]
-#[allow(dead_code)]
+#[allow(dead_code, reason = "the bench uses a part of the shared module")]
 mod motor_signal;
 
 use bit_io::{Case, Meter};

@@ -4,7 +4,10 @@ mod tests {
     use ww_client_server::StreamSideband;
     use ww_client_server::{Event, EventKind};
 
-    #[allow(dead_code)]
+    #[allow(
+        dead_code,
+        reason = "the server is only built to check that it compiles"
+    )]
     pub struct NoStdSyncServer {}
 
     mod api_impl {
@@ -35,7 +38,10 @@ mod tests {
         }
     }
 
-    #[allow(dead_code)]
+    #[allow(
+        dead_code,
+        reason = "the server is only built to check that it compiles"
+    )]
     impl NoStdSyncServer {
         fn stream(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) -> RpcResult<()> {
             Ready(())

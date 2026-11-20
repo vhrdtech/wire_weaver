@@ -5,7 +5,10 @@
 //! directly at the call site: defmt takes the log location from the span of a static it generates, which
 //! would otherwise point to this file. Import with `use crate::fmt::*;`, format strings must be valid for both
 //! backends (`{}` and `{:?}`, no defmt-specific `{=u8}` and the like).
-#![allow(unused_imports)]
+#![allow(
+    unused_imports,
+    reason = "each backend uses a different subset of the re-exports"
+)]
 
 #[cfg(feature = "defmt")]
 pub(crate) use defmt::{debug, error, info, trace, warn};

@@ -54,7 +54,10 @@ fn rtt_target(c: &ValidatedConfig) -> Result<(String, Option<u32>), anyhow::Erro
     }
 }
 
-#[allow(clippy::type_complexity)]
+#[allow(
+    clippy::type_complexity,
+    reason = "a named alias would hide the shape without making it clearer"
+)]
 fn select(
     c: &ValidatedConfig,
 ) -> Result<Result<(DebugProbeInfo, crate::DeviceInfo), Vec<crate::DeviceInfo>>, anyhow::Error> {
@@ -114,7 +117,10 @@ fn start(
 /// Only VID:PID and serial number filters after the RTT piece are applied, to the probe itself. The ones before it
 /// describe the device behind the probe (e.g., a config made by its driver crate, with the device's USB VID:PID),
 /// which is not known before connecting. Device API is checked during link setup anyway.
-#[allow(clippy::type_complexity)]
+#[allow(
+    clippy::type_complexity,
+    reason = "a named alias would hide the shape without making it clearer"
+)]
 fn select_matching(
     c: &ValidatedConfig,
     probes: Vec<DebugProbeInfo>,

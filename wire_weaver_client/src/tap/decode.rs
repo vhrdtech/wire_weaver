@@ -392,7 +392,10 @@ impl Decoder {
     }
 
     /// The next decoded thing, None when everything fed so far is out.
-    #[allow(clippy::should_implement_trait)]
+    #[allow(
+        clippy::should_implement_trait,
+        reason = "not an Iterator: it takes no part in iterator adaptors"
+    )]
     pub fn next(&mut self) -> Option<Decoded> {
         self.out.pop_front()
     }

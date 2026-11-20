@@ -99,7 +99,10 @@ impl<const HASH: usize, const BUF: usize> Encoder<HASH, BUF> {
     /// bytes. Backs off after 1 KiB that didn't shrink and retries every 4 KiB, see
     /// [`with_backoff`](Self::with_backoff).
     pub const fn new(keep: usize) -> Self {
-        #[allow(clippy::let_unit_value)]
+        #[allow(
+            clippy::let_unit_value,
+            reason = "binding the unit forces the const check to be evaluated"
+        )]
         let () = Self::CHECK;
         assert!(keep < BUF, "keep must leave room for a chunk");
         Encoder {
@@ -118,7 +121,10 @@ impl<const HASH: usize, const BUF: usize> Encoder<HASH, BUF> {
     /// Sets up an empty encoder in `slot` (a `StaticCell`'s `uninit()`), the same as [`new`](Self::new): a `static`
     /// built by `new` keeps its whole buffer as an initializer in flash (`.data`), one set up here takes RAM only.
     pub fn init(slot: &mut MaybeUninit<Self>, keep: usize) -> &mut Self {
-        #[allow(clippy::let_unit_value)]
+        #[allow(
+            clippy::let_unit_value,
+            reason = "binding the unit forces the const check to be evaluated"
+        )]
         let () = Self::CHECK;
         assert!(keep < BUF, "keep must leave room for a chunk");
         // all zero is an empty encoder (the tables, positions and counters), only the settings are not

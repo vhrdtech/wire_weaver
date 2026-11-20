@@ -43,12 +43,21 @@ pub(crate) struct NusbTx {
     sink: Option<Sink>,
     tap: ClientTap,
     /// Keeps the device open while endpoints are in use, and across a live handover's let go
-    #[cfg_attr(not(feature = "local_socket"), allow(dead_code))]
+    #[cfg_attr(
+        not(feature = "local_socket"),
+        allow(dead_code, reason = "only used with the `local_socket` feature")
+    )]
     device: nusb::Device,
     /// None once let go of in a live handover
-    #[cfg_attr(not(feature = "local_socket"), allow(dead_code))]
+    #[cfg_attr(
+        not(feature = "local_socket"),
+        allow(dead_code, reason = "only used with the `local_socket` feature")
+    )]
     interface: Option<nusb::Interface>,
-    #[cfg_attr(not(feature = "local_socket"), allow(dead_code))]
+    #[cfg_attr(
+        not(feature = "local_socket"),
+        allow(dead_code, reason = "only used with the `local_socket` feature")
+    )]
     eps: Eps,
     /// The device's key in the hub, for a live handover
     #[cfg(feature = "local_socket")]
@@ -63,13 +72,19 @@ pub(crate) struct NusbRx {
     source: Option<Source>,
     tap: ClientTap,
     /// Shared with [NusbTx]: released once both halves let go of the interface
-    #[cfg_attr(not(feature = "local_socket"), allow(dead_code))]
+    #[cfg_attr(
+        not(feature = "local_socket"),
+        allow(dead_code, reason = "only used with the `local_socket` feature")
+    )]
     claim: SharedClaim,
 }
 
 /// The WireWeaver interface and its endpoints, to open them again.
 #[derive(Copy, Clone)]
-#[cfg_attr(not(feature = "local_socket"), allow(dead_code))]
+#[cfg_attr(
+    not(feature = "local_socket"),
+    allow(dead_code, reason = "only used with the `local_socket` feature")
+)]
 struct Eps {
     interface: u8,
     ep_out: u8,
@@ -89,7 +104,10 @@ type Rx = NusbRx;
 /// What a USB link leaves for the medium that takes it over (CLT-44), the bytes of its
 /// [MediumResidualOwned](crate::adopt::MediumResidualOwned): the interface it is on, and what the framers hold.
 #[derive_shrink_wrap(owned, derive(Clone, Debug, PartialEq, Eq))]
-#[cfg_attr(not(feature = "local_socket"), allow(dead_code))]
+#[cfg_attr(
+    not(feature = "local_socket"),
+    allow(dead_code, reason = "only used with the `local_socket` feature")
+)]
 pub(crate) struct UsbResidualOwned {
     pub interface: u8,
     pub ep_in: u8,
@@ -103,7 +121,10 @@ pub(crate) struct UsbResidualOwned {
 /// Largest USB packet.
 const MAX_PACKET: u16 = 1024;
 
-#[cfg_attr(not(feature = "local_socket"), allow(dead_code))]
+#[cfg_attr(
+    not(feature = "local_socket"),
+    allow(dead_code, reason = "only used with the `local_socket` feature")
+)]
 impl UsbResidualOwned {
     const KIND: crate::adopt::MediumKindOwned = crate::adopt::MediumKindOwned::Usb;
 

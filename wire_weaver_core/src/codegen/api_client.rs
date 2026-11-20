@@ -522,7 +522,10 @@ fn level_methods(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the arguments are independent inputs, a parameter struct would only rename them"
+)]
 fn level_method(
     ctx: &Ctx,
     api_level: &ApiLevelOwned,
@@ -839,7 +842,10 @@ fn handle_keys(
     })
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the arguments are independent inputs, a parameter struct would only rename them"
+)]
 fn handle_method(
     api_bundle: &CodegenBundle,
     model: ClientModel,
@@ -995,7 +1001,10 @@ fn error_list_patterns(
     (Some(api), common)
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the arguments are independent inputs, a parameter struct would only rename them"
+)]
 fn handle_property(
     api_bundle: &CodegenBundle,
     api_level: &ApiLevelOwned,
@@ -1137,7 +1146,10 @@ fn handle_property(
 /// A stream (device to host) is opened by calling it (API-31): `name(args)` prepares the open, whose `.call()`
 /// returns the stream with the stream function's result; counted and reliable streams also get
 /// `name_resume(cursor)` and `name_status()`, the read on the stream.
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the arguments are independent inputs, a parameter struct would only rename them"
+)]
 fn handle_stream_fn(
     api_bundle: &CodegenBundle,
     model: ClientModel,
@@ -1282,7 +1294,10 @@ fn handle_stream_fn(
     ts
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the arguments are independent inputs, a parameter struct would only rename them"
+)]
 fn handle_stream(
     api_bundle: &CodegenBundle,
     model: ClientModel,

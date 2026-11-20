@@ -22,7 +22,7 @@ use super::core::TxCore;
         feature = "udp",
         feature = "in_process"
     )),
-    allow(unused_imports)
+    allow(unused_imports, reason = "only used by some transports")
 )]
 use super::transport::Transport;
 use super::transport::{MessageRx, MessageTx, Paused, SharedClaim};
@@ -236,13 +236,19 @@ media! {
 const NOT_LIVE: &str = "this medium can't be handed over live";
 
 /// [Transport::pause] of the medium in the slot.
-#[cfg_attr(not(feature = "hub"), allow(dead_code))]
+#[cfg_attr(
+    not(feature = "hub"),
+    allow(dead_code, reason = "only used with the `hub` feature")
+)]
 pub(crate) async fn pause(tx: &mut MediumTx, rx: &mut MediumRx) -> Result<Paused, String> {
     with_medium!(tx, rx, |t, r, T| T::pause(t, r).await, Err(NOT_LIVE.into()))
 }
 
 /// [Transport::let_go] of the medium in the slot.
-#[cfg_attr(not(feature = "hub"), allow(dead_code))]
+#[cfg_attr(
+    not(feature = "hub"),
+    allow(dead_code, reason = "only used with the `hub` feature")
+)]
 pub(crate) async fn let_go(tx: &mut MediumTx, rx: &mut MediumRx) -> Result<(), String> {
     with_medium!(
         tx,
@@ -253,7 +259,10 @@ pub(crate) async fn let_go(tx: &mut MediumTx, rx: &mut MediumRx) -> Result<(), S
 }
 
 /// [Transport::take_back] of the medium in the slot.
-#[cfg_attr(not(feature = "hub"), allow(dead_code))]
+#[cfg_attr(
+    not(feature = "hub"),
+    allow(dead_code, reason = "only used with the `hub` feature")
+)]
 pub(crate) async fn take_back(tx: &mut MediumTx, rx: &mut MediumRx) -> Result<(), String> {
     with_medium!(
         tx,
@@ -264,13 +273,19 @@ pub(crate) async fn take_back(tx: &mut MediumTx, rx: &mut MediumRx) -> Result<()
 }
 
 /// [Transport::take_claim] of the medium in the slot.
-#[cfg_attr(not(feature = "hub"), allow(dead_code))]
+#[cfg_attr(
+    not(feature = "hub"),
+    allow(dead_code, reason = "only used with the `hub` feature")
+)]
 pub(crate) fn take_claim(tx: &mut MediumTx, rx: &mut MediumRx) -> SharedClaim {
     with_medium!(tx, rx, |t, r, T| T::take_claim(t, r), None)
 }
 
 /// [Transport::put_claim] of the medium in the slot.
-#[cfg_attr(not(feature = "hub"), allow(dead_code))]
+#[cfg_attr(
+    not(feature = "hub"),
+    allow(dead_code, reason = "only used with the `hub` feature")
+)]
 pub(crate) fn put_claim(tx: &mut MediumTx, rx: &mut MediumRx, claim: SharedClaim) {
     with_medium!(tx, rx, |t, r, T| T::put_claim(t, r, claim), drop(claim))
 }
@@ -279,7 +294,10 @@ pub(crate) fn put_claim(tx: &mut MediumTx, rx: &mut MediumRx, claim: SharedClaim
 /// halves in the slot leave theirs ([Transport::switch], after [Transport::let_go]) and are dropped, `to`'s take their
 /// place, and the tx core links up over them with the same seqs, requests in flight and what waits for them
 /// ([TxCore::relink]).
-#[cfg_attr(not(feature = "hub"), allow(dead_code))]
+#[cfg_attr(
+    not(feature = "hub"),
+    allow(dead_code, reason = "only used with the `hub` feature")
+)]
 pub(crate) fn relink(
     core: &mut TxCore,
     tx: &mut MediumTx,

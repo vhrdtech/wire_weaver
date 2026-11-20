@@ -319,7 +319,10 @@ pub struct Claim {
 }
 
 /// How to take a [Claim] again after letting it go (CLT-44: a live handover that didn't happen).
-#[cfg_attr(not(feature = "hub"), allow(dead_code))]
+#[cfg_attr(
+    not(feature = "hub"),
+    allow(dead_code, reason = "only used with the `hub` feature")
+)]
 pub(crate) struct ClaimAgain {
     key: String,
     mode: Mode,
@@ -327,7 +330,10 @@ pub(crate) struct ClaimAgain {
     handover: Option<bool>,
 }
 
-#[cfg_attr(not(feature = "hub"), allow(dead_code))]
+#[cfg_attr(
+    not(feature = "hub"),
+    allow(dead_code, reason = "only used with the `hub` feature")
+)]
 impl ClaimAgain {
     pub(crate) fn claim(&self) -> Result<Claim, ClaimError> {
         claim_offering(&self.key, self.mode, self.meta.as_ref(), self.handover)
@@ -340,7 +346,10 @@ impl Claim {
     }
 
     /// What it takes to claim the same device the same way again.
-    #[cfg_attr(not(feature = "hub"), allow(dead_code))]
+    #[cfg_attr(
+        not(feature = "hub"),
+        allow(dead_code, reason = "only used with the `hub` feature")
+    )]
     pub(crate) fn again(&self) -> ClaimAgain {
         ClaimAgain {
             key: self.key.clone(),
@@ -352,7 +361,10 @@ impl Claim {
 
     /// The handover asked for didn't happen and the device stays here (CLT-44, the hub went away): the asker hears
     /// `Failed` now instead of after its timeout, and the next asker is listened to.
-    #[cfg_attr(not(feature = "hub"), allow(dead_code))]
+    #[cfg_attr(
+        not(feature = "hub"),
+        allow(dead_code, reason = "only used with the `hub` feature")
+    )]
     pub(crate) fn handover_failed(&self) {
         #[cfg(feature = "local_socket")]
         if let Some(offer) = &self.offer {
@@ -365,7 +377,13 @@ impl Claim {
     ///
     /// Both halves of a link share the claim (an `Arc`): it goes, and a waiting asker hears `Released`, once the
     /// last of them closed the medium.
-    #[cfg_attr(not(any(feature = "usb", feature = "local_socket")), allow(dead_code))]
+    #[cfg_attr(
+        not(any(feature = "usb", feature = "local_socket")),
+        allow(
+            dead_code,
+            reason = "only used with the `usb` or `local_socket` features"
+        )
+    )]
     pub(crate) async fn handover_requested(&self) {
         #[cfg(feature = "local_socket")]
         if let Some(offer) = self.offer.as_ref() {
@@ -407,7 +425,13 @@ pub fn claim_with(
 /// [`claim_with`], listening for a polite handover to the hub (CLT-43) with `handover`: `Some(true)` hands the
 /// device over when asked ([`Claim::handover_requested`]), `Some(false)` answers `Refused` with `meta`. Without a
 /// tokio runtime or the `local_socket` feature it listens on nothing.
-#[cfg_attr(not(any(feature = "usb", feature = "local_socket")), allow(dead_code))]
+#[cfg_attr(
+    not(any(feature = "usb", feature = "local_socket")),
+    allow(
+        dead_code,
+        reason = "only used with the `usb` or `local_socket` features"
+    )
+)]
 pub(crate) fn claim_offering(
     key: &str,
     mode: Mode,

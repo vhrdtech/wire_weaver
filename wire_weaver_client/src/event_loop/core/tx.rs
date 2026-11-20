@@ -45,7 +45,10 @@ pub(crate) enum TxInput {
     Timer,
     /// The device was handed to the ww hub live (CLT-44) but this program couldn't go on through it: exit as
     /// [TxInput::HandToHub] does, without a `Disconnect` (the device's link is the hub's now).
-    #[cfg_attr(not(feature = "hub"), allow(dead_code))]
+    #[cfg_attr(
+        not(feature = "hub"),
+        allow(dead_code, reason = "only used with the `hub` feature")
+    )]
     HandedOff,
     /// Another program asked this direct holder to hand the device to the ww hub (CLT-43,
     /// [MessageTx::handover_requested](crate::event_loop::transport::MessageTx::handover_requested)): let go of it
@@ -89,7 +92,10 @@ enum Phase {
     /// Data can be exchanged
     Up,
     /// The link stays, nothing goes out (CLT-44: the medium is about to be handed over): requests are held, no pings
-    #[cfg_attr(not(feature = "hub"), allow(dead_code))]
+    #[cfg_attr(
+        not(feature = "hub"),
+        allow(dead_code, reason = "only used with the `hub` feature")
+    )]
     Paused,
 }
 
@@ -214,7 +220,10 @@ pub(crate) struct TxCore {
     /// [Command::Adopt]: the next connection goes on with this link
     adopt: Option<Box<Adopted>>,
     /// While [Phase::Paused]: how long until the next ping was due
-    #[cfg_attr(not(feature = "hub"), allow(dead_code))]
+    #[cfg_attr(
+        not(feature = "hub"),
+        allow(dead_code, reason = "only used with the `hub` feature")
+    )]
     paused_ping_in: Option<Duration>,
     /// [Self::relink]: the link goes through the ww hub now
     via_hub: bool,
@@ -222,7 +231,10 @@ pub(crate) struct TxCore {
 
 /// What [TxCore::link_part] gives for the link residual (CLT-44).
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(not(feature = "hub"), allow(dead_code))]
+#[cfg_attr(
+    not(feature = "hub"),
+    allow(dead_code, reason = "only used with the `hub` feature")
+)]
 pub(crate) struct TxPart {
     pub token: u64,
     pub device_info: Vec<u8>,
@@ -292,7 +304,10 @@ impl TxCore {
     /// Stops sending (CLT-44): what accumulated goes out first (the wrapper writes and flushes the outputs), then
     /// requests are held and pings stop until [Self::resume] or [Self::relink]. False when the link isn't up or a
     /// loopback test runs: it can't be paused then.
-    #[cfg_attr(not(feature = "hub"), allow(dead_code))]
+    #[cfg_attr(
+        not(feature = "hub"),
+        allow(dead_code, reason = "only used with the `hub` feature")
+    )]
     pub fn pause(&mut self, now: Instant) -> bool {
         if self.phase != Phase::Up || self.loopback.is_some() {
             return false;
@@ -307,7 +322,10 @@ impl TxCore {
     }
 
     /// The paused link goes on over the same medium (a handover that didn't happen): held requests go out.
-    #[cfg_attr(not(feature = "hub"), allow(dead_code))]
+    #[cfg_attr(
+        not(feature = "hub"),
+        allow(dead_code, reason = "only used with the `hub` feature")
+    )]
     pub fn resume(&mut self, now: Instant) {
         if self.phase != Phase::Paused {
             return;
@@ -319,7 +337,10 @@ impl TxCore {
 
     /// The paused link goes on over another medium, to the ww hub that adopted the device (CLT-44): a new link setup
     /// with the hub, keeping seqs, requests in flight and what waits for them; held requests go out once it is up.
-    #[cfg_attr(not(feature = "hub"), allow(dead_code))]
+    #[cfg_attr(
+        not(feature = "hub"),
+        allow(dead_code, reason = "only used with the `hub` feature")
+    )]
     pub fn relink(&mut self, now: Instant) {
         if self.phase != Phase::Paused {
             return;
@@ -334,7 +355,10 @@ impl TxCore {
     }
 
     /// The paused link's state, for the link residual (CLT-44).
-    #[cfg_attr(not(feature = "hub"), allow(dead_code))]
+    #[cfg_attr(
+        not(feature = "hub"),
+        allow(dead_code, reason = "only used with the `hub` feature")
+    )]
     /// The longest message this host takes, as sent in LinkSetup.
     pub fn host_max_message_len(&self) -> usize {
         self.host_max_message_len

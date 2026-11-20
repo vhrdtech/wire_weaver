@@ -10,7 +10,10 @@
 /// or doesn't (as SD cards do for a 512-byte block); the store rewrites the unit that holds the end of the log on
 /// each push. On a medium that needs erasing, a cut write or erase can leave anything in that unit; the store never
 /// writes a unit twice between erases.
-#[allow(async_fn_in_trait)]
+#[allow(
+    async_fn_in_trait,
+    reason = "the trait is used with concrete types within one executor, no Send bound needed"
+)]
 pub trait LogMedium {
     /// Error of the storage.
     type Error;

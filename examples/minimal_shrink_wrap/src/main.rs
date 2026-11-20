@@ -25,9 +25,9 @@ fn main() {
 /// import is needed and the names it uses don't clash with the module's own.
 #[cfg(test)]
 mod qualified_names {
-    #[allow(dead_code)]
+    #[allow(dead_code, reason = "name-resolution fixture, never used")]
     struct BufReader;
-    #[allow(dead_code)]
+    #[allow(dead_code, reason = "name-resolution fixture, never used")]
     struct Error;
 
     #[wire_weaver::derive_shrink_wrap(borrowed, owned, derive(Debug, PartialEq))]

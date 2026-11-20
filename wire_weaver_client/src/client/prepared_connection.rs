@@ -124,7 +124,7 @@ impl<T: WwClient> PreparedConnection<T> {
                     let clock = ClockStart::new(&config, key, watch::channel(via_hub).1);
                     #[cfg(not(feature = "clock_sync"))]
                     let _ = (key, via_hub);
-                    #[allow(unused_mut)]
+                    #[allow(unused_mut, reason = "mutated only with the `clock_sync` feature")]
                     let mut commander = create_commander_blocking(config, cmd_tx, device_api_info)?;
                     #[cfg(feature = "clock_sync")]
                     clock.start(&mut commander);
@@ -280,7 +280,10 @@ pub(crate) struct Attempt {
     /// The device was reached through the ww hub
     pub(crate) via_hub: bool,
     /// The device's key as the holders registry and the hub name it (`usb:..`, `rtt:..`), `None` on other transports
-    #[cfg_attr(not(feature = "clock_sync"), allow(dead_code))]
+    #[cfg_attr(
+        not(feature = "clock_sync"),
+        allow(dead_code, reason = "only used with the `clock_sync` feature")
+    )]
     pub(crate) key: Option<String>,
     /// Where the device was reached, as [DeviceInfo::location](crate::DeviceInfo::location) names it; empty when
     /// nothing was selected
@@ -432,7 +435,10 @@ pub(crate) struct Reconnect {
     /// [Commander::connection_state]
     pub(crate) state: watch::Receiver<ConnectionState>,
     /// The link (the last one, while none runs) goes through the ww hub; changes with a reconnect
-    #[cfg_attr(not(feature = "clock_sync"), allow(dead_code))]
+    #[cfg_attr(
+        not(feature = "clock_sync"),
+        allow(dead_code, reason = "only used with the `clock_sync` feature")
+    )]
     pub(crate) via_hub: watch::Receiver<bool>,
 }
 

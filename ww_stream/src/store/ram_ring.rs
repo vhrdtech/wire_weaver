@@ -58,7 +58,10 @@ pub(super) struct Record {
     pub(super) pos: u64,
     pub(super) end: u64,
     pub(super) head_len: usize,
-    #[cfg_attr(not(feature = "persistent-ram"), allow(dead_code))]
+    #[cfg_attr(
+        not(feature = "persistent-ram"),
+        allow(dead_code, reason = "only used with the `persistent-ram` feature")
+    )]
     pub(super) check: u32,
 }
 
@@ -163,7 +166,10 @@ impl<C: Check> Ring<C> {
     }
 
     /// The `len` bytes at `off`, in one or two pieces (when they wrap around the end).
-    #[cfg_attr(not(feature = "persistent-ram"), allow(dead_code))]
+    #[cfg_attr(
+        not(feature = "persistent-ram"),
+        allow(dead_code, reason = "only used with the `persistent-ram` feature")
+    )]
     pub(super) fn region(buf: &[u8], off: usize, len: usize) -> (&[u8], &[u8]) {
         let first = len.min(buf.len() - off);
         (&buf[off..off + first], &buf[..len - first])

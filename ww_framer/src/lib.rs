@@ -1,6 +1,9 @@
 #![no_std]
 // Framers only report "does not fit", there is nothing more to put in the error.
-#![allow(clippy::result_unit_err)]
+#![allow(
+    clippy::result_unit_err,
+    reason = "the only failure is that the message does not fit, there is nothing to add"
+)]
 
 #[cfg(feature = "std")]
 extern crate alloc;

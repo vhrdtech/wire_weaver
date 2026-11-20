@@ -227,7 +227,10 @@ impl Observe {
         observe
     }
 
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the arguments are independent inputs, a parameter struct would only rename them"
+    )]
     fn walk(
         &mut self,
         api_bundle: &CodegenBundle,

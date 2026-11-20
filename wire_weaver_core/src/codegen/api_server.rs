@@ -640,7 +640,10 @@ fn no_samples_errors(
 /// Streams of the API `poll_streams` sends for, or an error message for one it can't send.
 /// Items left out in this combination of `omit_if` conditions (`active`, see [Omissions::cfg_combinations]) and their
 /// streams are skipped.
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the arguments are independent inputs, a parameter struct would only rename them"
+)]
 fn polled_streams_recursive(
     api_bundle: &CodegenBundle,
     level: &ApiLevelOwned,
@@ -1449,7 +1452,10 @@ fn level_awaits(
     })
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the arguments are independent inputs, a parameter struct would only rename them"
+)]
 fn process_request_inner_recursive(
     level_name_chain: String,
     item_path: &[String],
@@ -1544,7 +1550,10 @@ fn process_request_inner_recursive(
     ts
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the arguments are independent inputs, a parameter struct would only rename them"
+)]
 fn level_matchers(
     api_bundle: &CodegenBundle,
     api_level: &ApiLevelOwned,
@@ -2017,7 +2026,10 @@ impl ApiServerCGContext<'_> {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the arguments are independent inputs, a parameter struct would only rename them"
+)]
 fn handle_method(
     api_bundle: &CodegenBundle,
     index_chain: IndexChain,
@@ -2175,7 +2187,10 @@ fn handle_method(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the arguments are independent inputs, a parameter struct would only rename them"
+)]
 fn handle_property(
     api_bundle: &CodegenBundle,
     index_chain: IndexChain,
@@ -2544,7 +2559,10 @@ fn consts_trait(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the arguments are independent inputs, a parameter struct would only rename them"
+)]
 fn consts_trait_recursive(
     api_bundle: &CodegenBundle,
     level: &ApiLevelOwned,
@@ -2625,7 +2643,10 @@ fn consts_trait_recursive(
 /// what `stream_<name>()` returns (`ww_stream::tx::Counted` / `Reliable`), a read on them returns its
 /// `StreamStatus`, and a reliable stream takes the host's `Ack` / `Resend`. Plain streams pass other sideband
 /// commands to `sideband_<name>` as before.
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the arguments are independent inputs, a parameter struct would only rename them"
+)]
 fn handle_stream_fn(
     api_bundle: &CodegenBundle,
     index_chain: IndexChain,
@@ -3012,7 +3033,10 @@ fn handle_stream_fn(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the arguments are independent inputs, a parameter struct would only rename them"
+)]
 fn handle_stream(
     api_bundle: &CodegenBundle,
     index_chain: IndexChain,

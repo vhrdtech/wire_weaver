@@ -28,7 +28,10 @@ pub use log::{LogConfig, LogError, LogMedium, LogStore, Recovery};
 /// Storage of the events of one reliable stream, see the [module docs](self).
 ///
 /// Methods are `async` because a store may sit on an SD card or flash; RAM stores never wait.
-#[allow(async_fn_in_trait)]
+#[allow(
+    async_fn_in_trait,
+    reason = "the trait is used with concrete types within one executor, no Send bound needed"
+)]
 pub trait StreamStore {
     /// Error of the underlying storage (a block device, flash).
     type Error;

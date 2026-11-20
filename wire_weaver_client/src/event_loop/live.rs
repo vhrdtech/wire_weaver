@@ -37,7 +37,10 @@ use super::medium::MediumRx;
 pub(crate) use with_hub::hand_over;
 
 /// What the tx task asks of the rx task while it hands the link over.
-#[cfg_attr(not(feature = "hub"), allow(dead_code))]
+#[cfg_attr(
+    not(feature = "hub"),
+    allow(dead_code, reason = "only used with the `hub` feature")
+)]
 pub(crate) enum RxCtl {
     /// Give the rx half to the tx task (dropped if there is none)
     Lend(oneshot::Sender<MediumRx>),
@@ -104,7 +107,10 @@ impl Connecting {
 }
 
 /// How a handover went.
-#[cfg_attr(not(feature = "hub"), allow(dead_code))]
+#[cfg_attr(
+    not(feature = "hub"),
+    allow(dead_code, reason = "only used with the `hub` feature")
+)]
 pub(crate) enum Outcome {
     /// The link goes on through the hub
     Switched,

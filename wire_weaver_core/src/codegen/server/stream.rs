@@ -359,7 +359,10 @@ fn stream_ser_level(
 /// Serializers of a counted or reliable stream's events (API-30, API-31). Counted: `<name>_send` asks the stream's
 /// `Counted` for the head and sends right away. Reliable: `<name>_push` puts the item into the stream's store,
 /// `poll_streams` on the server sends it; `<name>_event` serializes an event of either.
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the arguments are independent inputs, a parameter struct would only rename them"
+)]
 fn positioned_ser_methods(
     bundle: &CodegenBundle,
     ident: &str,

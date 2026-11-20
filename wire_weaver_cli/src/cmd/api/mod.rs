@@ -15,7 +15,10 @@ use clap::{FromArgMatches, Subcommand, ValueHint};
 use std::path::PathBuf;
 
 // parsed once from the command line, its size doesn't matter
-#[allow(clippy::large_enum_variant)]
+#[allow(
+    clippy::large_enum_variant,
+    reason = "boxing the large variant would add an allocation for no gain here"
+)]
 #[derive(Subcommand)]
 pub enum ApiCommand {
     /// Print API tree

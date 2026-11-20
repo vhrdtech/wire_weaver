@@ -24,7 +24,10 @@ pub enum Prefix {
 }
 
 // the derive doesn't keep a `#[default]` on a variant
-#[allow(clippy::derivable_impls)]
+#[allow(
+    clippy::derivable_impls,
+    reason = "the explicit impl states the default value on purpose"
+)]
 impl Default for Prefix {
     fn default() -> Self {
         Prefix::Unit

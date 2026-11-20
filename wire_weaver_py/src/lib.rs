@@ -238,7 +238,10 @@ fn introspect(
     timeout=None,
     api=None,
 ))]
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the arguments are independent inputs, a parameter struct would only rename them"
+)]
 fn connect(
     py: Python<'_>,
     vid_pid: Option<(u16, u16)>,

@@ -77,6 +77,23 @@ the shutdown signal is any future. All connections run inside the `serve` future
 accepts backends that are not `Send`. This makes it usable on a single-threaded event loop as well as on a
 multi-threaded runtime: the future is `Send` whenever its parts are.
 
+### Connections as tasks
+
+Inside `serve`, all connections share the one thread that polls it. A server on a multi-threaded runtime can spread
+them over its threads instead. `Server::accepting` takes the same arguments as `serve` and hands out each
+connection as a future, which you start as a task:
+
+```rust
+let mut accepting = server.accepting(link, listener, make_backend, shutdown);
+while let Some(connection) = accepting.next().await? {
+    tokio::spawn(connection);
+}
+```
+
+The limits and the shutdown work as in `serve`. `next` gives no connection while `connections_max` of them run,
+and it returns `None` once the shutdown was asked for and every connection has ended. A connection is `Send` when
+the clock, the listener's message halves and the backend are, so the compiler checks this where you spawn.
+
 ## Where connections come from
 
 A `Listener` yields connections. Each one is a pair of message halves (`ww_device::MessageTx` and `MessageRx`, the

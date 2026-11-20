@@ -1,18 +1,20 @@
 //! The server: connections from a listener, each served on its own, within limits, until shutdown.
 
 use std::future::{Future, pending, poll_fn};
-use std::pin::pin;
-use std::task::Poll;
+use std::pin::{Pin, pin};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
+use std::task::{Context, Poll, Waker};
 use std::time::Duration;
 
 use futures_util::stream::{FuturesUnordered, StreamExt};
 use wire_weaver::{ConnectionId, WireWeaverAsyncApiBackend};
-use ww_device::{Clock, LinkConfig};
+use ww_device::{Clock, Instant, LinkConfig};
 
 use crate::backend::Backend;
 use crate::connection::{self, Connection};
 use crate::lifecycle::{Lifecycle, Stage};
-use crate::listener::Listener;
+use crate::listener::{Accepted, Listener};
 
 /// How much a server and each of its connections may hold.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -111,10 +113,148 @@ impl<C: Clock + Clone> Server<C> {
     pub async fn serve<L: Listener, M: MakeBackend>(
         &self,
         link: LinkConfig<'_>,
-        mut listener: L,
+        listener: L,
         make: M,
         shutdown: impl Future<Output = ()>,
     ) -> Result<(), L::Error> {
+        let life = Lifecycle::new();
+        let mut gate = Gate::new(self.clock.clone(), self.limits, listener, shutdown);
+        let mut running = FuturesUnordered::new();
+        while let Some((accepted, id)) = gate.next(&life, &mut running).await? {
+            running.push(connection::run(
+                link.clone(),
+                accepted.tx,
+                accepted.rx,
+                self.clock.clone(),
+                id,
+                accepted.peer,
+                &make,
+                self.limits,
+                &life,
+            ));
+        }
+        Ok(())
+    }
+
+    /// The same server with its connections handed out one by one, for the program to run as tasks of its own:
+    /// on a multi-threaded runtime they then run on all its threads.
+    ///
+    /// ```ignore
+    /// let mut accepting = server.accepting(link, listener, make, shutdown);
+    /// while let Some(connection) = accepting.next().await? {
+    ///     tokio::spawn(connection);
+    /// }
+    /// ```
+    ///
+    /// Limits and shutdown work as in [serve](Self::serve): [Accepting::next] gives no connection while
+    /// [Limits::connections_max] of them run, and returns `None` once shutdown was asked for and every connection
+    /// ended.
+    pub fn accepting<L: Listener, M: MakeBackend, S: Future<Output = ()>>(
+        &self,
+        link: LinkConfig<'static>,
+        listener: L,
+        make: M,
+        shutdown: S,
+    ) -> Accepting<C, L, M, S> {
+        Accepting {
+            link,
+            gate: Gate::new(self.clock.clone(), self.limits, listener, shutdown),
+            make: Arc::new(make),
+            life: Arc::new(Lifecycle::new()),
+            running: Arc::new(Running::default()),
+        }
+    }
+}
+
+/// A server whose connections the program runs itself, see [Server::accepting].
+pub struct Accepting<C, L, M, S> {
+    link: LinkConfig<'static>,
+    gate: Gate<C, L, S>,
+    make: Arc<M>,
+    life: Arc<Lifecycle>,
+    running: Arc<Running>,
+}
+
+impl<C, L, M, S> Accepting<C, L, M, S>
+where
+    C: Clock + Clone + 'static,
+    L: Listener<Tx: 'static, Rx: 'static>,
+    M: MakeBackend + 'static,
+    S: Future<Output = ()>,
+{
+    /// The next connection, to be run to its end: spawn it, or poll it with the others. `None` after shutdown,
+    /// once every connection handed out has ended or was dropped.
+    ///
+    /// The connection is `Send` when the clock, the listener's message halves and the backend are.
+    ///
+    /// # Errors
+    ///
+    /// The listener's error, when accepting fails. Connections already handed out go on.
+    pub async fn next(
+        &mut self,
+    ) -> Result<Option<impl Future<Output = ()> + 'static + use<C, L, M, S>>, L::Error> {
+        let Some((accepted, id)) = self.gate.next(&self.life, &mut self.running).await? else {
+            return Ok(None);
+        };
+        self.running.count.fetch_add(1, Ordering::AcqRel);
+        // counted down when the connection ends, also when it is dropped unfinished
+        let ended = Ended(self.running.clone());
+        let connection = connection::run(
+            self.link.clone(),
+            accepted.tx,
+            accepted.rx,
+            self.gate.clock.clone(),
+            id,
+            accepted.peer,
+            self.make.clone(),
+            self.gate.limits,
+            self.life.clone(),
+        );
+        Ok(Some(async move {
+            connection.await;
+            drop(ended);
+        }))
+    }
+}
+
+/// What both ways of running connections share: when to accept, shutdown and its grace time.
+struct Gate<C, L, S> {
+    clock: C,
+    limits: Limits,
+    listener: L,
+    shutdown: Pin<Box<S>>,
+    /// Set once shutdown was asked for.
+    grace_until: Option<Instant>,
+    next_id: u32,
+}
+
+/// The connections that run, as the gate sees them.
+trait Connections {
+    /// How many run now.
+    fn len(&self) -> usize;
+
+    /// Ready when one ended since the last call; the task is woken for the next.
+    fn poll_closed(&mut self, cx: &mut Context<'_>) -> Poll<()>;
+}
+
+impl<C: Clock, L: Listener, S: Future<Output = ()>> Gate<C, L, S> {
+    fn new(clock: C, limits: Limits, listener: L, shutdown: S) -> Self {
+        Gate {
+            clock,
+            limits,
+            listener,
+            shutdown: Box::pin(shutdown),
+            grace_until: None,
+            next_id: 0,
+        }
+    }
+
+    /// The next accepted connection with its id; `None` once shutdown was asked for and no connection runs.
+    async fn next(
+        &mut self,
+        life: &Lifecycle,
+        connections: &mut impl Connections,
+    ) -> Result<Option<(Accepted<L::Tx, L::Rx>, ConnectionId)>, L::Error> {
         enum Next<A> {
             Accepted(A),
             Closed,
@@ -122,22 +262,18 @@ impl<C: Clock + Clone> Server<C> {
             GraceOver,
         }
 
-        let life = Lifecycle::new();
-        let mut connections = FuturesUnordered::new();
-        let mut shutdown = pin!(shutdown);
-        let mut next_id: u32 = 0;
-        // set once shutdown was asked for
-        let mut grace_until = None;
         loop {
-            if grace_until.is_some() && connections.is_empty() {
-                return Ok(());
+            if self.grace_until.is_some() && connections.len() == 0 {
+                return Ok(None);
             }
             let accepting =
-                grace_until.is_none() && connections.len() < self.limits.connections_max;
+                self.grace_until.is_none() && connections.len() < self.limits.connections_max;
             let grace_runs = life.stage() == Stage::Drain;
+            let grace_until = self.grace_until;
             let next = {
-                let mut accept = pin!(listener.accept());
+                let mut accept = pin!(self.listener.accept());
                 let clock = &self.clock;
+                let shutdown = &mut self.shutdown;
                 let mut grace = pin!(async {
                     match grace_until {
                         Some(at) => clock.wait_until(at).await,
@@ -148,7 +284,7 @@ impl<C: Clock + Clone> Server<C> {
                     if grace_until.is_none() && shutdown.as_mut().poll(cx).is_ready() {
                         return Poll::Ready(Next::Shutdown);
                     }
-                    if let Poll::Ready(Some(())) = connections.poll_next_unpin(cx) {
+                    if connections.poll_closed(cx).is_ready() {
                         return Poll::Ready(Next::Closed);
                     }
                     if accepting && let Poll::Ready(accepted) = accept.as_mut().poll(cx) {
@@ -163,28 +299,79 @@ impl<C: Clock + Clone> Server<C> {
             };
             match next {
                 Next::Accepted(accepted) => {
-                    let accepted = accepted?;
-                    let id = ConnectionId(next_id);
-                    next_id = next_id.wrapping_add(1);
-                    connections.push(connection::run(
-                        link.clone(),
-                        accepted.tx,
-                        accepted.rx,
-                        self.clock.clone(),
-                        id,
-                        accepted.peer,
-                        &make,
-                        self.limits,
-                        &life,
-                    ));
+                    let id = ConnectionId(self.next_id);
+                    self.next_id = self.next_id.wrapping_add(1);
+                    return Ok(Some((accepted?, id)));
                 }
                 Next::Closed => {}
                 Next::Shutdown => {
-                    grace_until = Some(self.clock.now() + self.limits.shutdown_grace);
+                    self.grace_until = Some(self.clock.now() + self.limits.shutdown_grace);
                     life.set(Stage::Drain);
                 }
                 Next::GraceOver => life.set(Stage::Abort),
             }
+        }
+    }
+}
+
+/// Connections polled inside the server's future.
+impl<F: Future<Output = ()>> Connections for FuturesUnordered<F> {
+    fn len(&self) -> usize {
+        FuturesUnordered::len(self)
+    }
+
+    fn poll_closed(&mut self, cx: &mut Context<'_>) -> Poll<()> {
+        match self.poll_next_unpin(cx) {
+            Poll::Ready(Some(())) => Poll::Ready(()),
+            // none runs, or none ended
+            Poll::Ready(None) | Poll::Pending => Poll::Pending,
+        }
+    }
+}
+
+/// How many connections handed out by [Accepting] run, and who to wake when one ends.
+#[derive(Default)]
+struct Running {
+    count: AtomicUsize,
+    /// Ended and not yet reported by `poll_closed`.
+    ended: AtomicUsize,
+    server: Mutex<Option<Waker>>,
+}
+
+/// Counts a handed-out connection down when dropped.
+struct Ended(Arc<Running>);
+
+impl Drop for Ended {
+    fn drop(&mut self) {
+        self.0.count.fetch_sub(1, Ordering::AcqRel);
+        self.0.ended.fetch_add(1, Ordering::AcqRel);
+        let waker = self
+            .0
+            .server
+            .lock()
+            .expect("the waker lock is never held across a panic")
+            .take();
+        if let Some(waker) = waker {
+            waker.wake();
+        }
+    }
+}
+
+impl Connections for Arc<Running> {
+    fn len(&self) -> usize {
+        self.count.load(Ordering::Acquire)
+    }
+
+    fn poll_closed(&mut self, cx: &mut Context<'_>) -> Poll<()> {
+        // the waker first: a connection that ends after the check below finds it
+        *self
+            .server
+            .lock()
+            .expect("the waker lock is never held across a panic") = Some(cx.waker().clone());
+        if self.ended.swap(0, Ordering::AcqRel) > 0 {
+            Poll::Ready(())
+        } else {
+            Poll::Pending
         }
     }
 }

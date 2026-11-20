@@ -2,6 +2,7 @@
 
 use std::collections::VecDeque;
 use std::future::{Future, Pending, pending, poll_fn};
+use std::ops::Deref;
 use std::pin::{Pin, pin};
 use std::task::Poll;
 
@@ -352,10 +353,11 @@ pub(crate) async fn run<M: MakeBackend>(
     clock: impl Clock + Clone,
     id: ConnectionId,
     peer: Peer,
-    make: &M,
+    make: impl Deref<Target = M>,
     limits: Limits,
-    life: &Lifecycle,
+    life: impl Deref<Target = Lifecycle>,
 ) {
+    let (make, life) = (&*make, &*life);
     rx.wait_connected().await;
     let outbox = Outbox::new(limits.events_max);
     // the medium's limit: replies and events are built in buffers of this size, longer replies of a server

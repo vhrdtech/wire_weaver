@@ -292,6 +292,25 @@ mod tests {
         }
 
         fn start_on(listener: InProcessListener, path: &str, limits: Limits) -> Self {
+            Self::start_with(listener, path, limits, false)
+        }
+
+        /// The connections as tasks of their own.
+        fn start_as_tasks(path: &str, limits: Limits) -> Self {
+            Self::start_with(
+                InProcessListener::new(path, MESSAGE_LEN_MAX),
+                path,
+                limits,
+                true,
+            )
+        }
+
+        fn start_with(
+            listener: InProcessListener,
+            path: &str,
+            limits: Limits,
+            as_tasks: bool,
+        ) -> Self {
             tests_common::api!(api_impl).seed();
             let shared = Arc::new(Shared::default());
             let (shutdown, asked) = oneshot::channel();
@@ -321,13 +340,19 @@ mod tests {
                         update_buf: vec![0; MESSAGE_LEN_MAX],
                     }
                 };
-                Server::new(TokioClock::new())
-                    .limits(limits)
-                    .serve(link, listener, make, async {
-                        let _ = asked.await;
-                    })
-                    .await
-                    .unwrap();
+                let server = Server::new(TokioClock::new()).limits(limits);
+                let shutdown = async {
+                    let _ = asked.await;
+                };
+                if as_tasks {
+                    // every connection a task of its own, on any of the runtime's threads
+                    let mut accepting = server.accepting(link, listener, make, shutdown);
+                    while let Some(connection) = accepting.next().await.unwrap() {
+                        tokio::spawn(connection);
+                    }
+                } else {
+                    server.serve(link, listener, make, shutdown).await.unwrap();
+                }
             });
             Bench {
                 path: path.to_string(),
@@ -549,6 +574,49 @@ mod tests {
         writer.write_mode(6).write().await.unwrap();
         assert_eq!(soon("the next value", mode.recv()).await.unwrap().value, 6);
         assert_eq!(watcher.read_mode().read().await.unwrap(), 6);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn connections_as_tasks_keep_the_limit_and_the_shutdown() {
+        let limits = Limits {
+            connections_max: 3,
+            ..small()
+        };
+        let mut bench = Bench::start_as_tasks("host_server/tasks", limits);
+        let clients = [
+            bench.connect().await,
+            bench.connect().await,
+            bench.connect().await,
+        ];
+        let fourth = tokio::spawn(bench.connect());
+        for (n, client) in clients.iter().enumerate() {
+            for _ in 0..20 {
+                assert_eq!(client.whoami().call().await.unwrap(), n as u32);
+            }
+        }
+        assert!(!fourth.is_finished(), "the fourth waits for room");
+        let [first, second, third] = clients;
+        drop(first);
+        let fourth = soon("the fourth client", fourth).await.unwrap();
+        assert_eq!(fourth.whoami().call().await.unwrap(), 3);
+        // a request in flight is answered, then the server ends
+        let second = Arc::new(second);
+        let in_flight = tokio::spawn({
+            let second = second.clone();
+            async move { second.wait(1).call().await }
+        });
+        soon("the handler runs", bench.shared.waiting(1)).await;
+        bench.shut_down();
+        bench.shared.open(1);
+        assert_eq!(
+            soon("the call in flight", in_flight)
+                .await
+                .unwrap()
+                .unwrap(),
+            1
+        );
+        soon("the server ends", &mut bench.served).await.unwrap();
+        assert!(third.echo(1).call().await.is_err());
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

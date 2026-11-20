@@ -108,6 +108,7 @@ struct UsbPacket {
     seq_prefix: bool,
 }
 
+// spirit-level: allow(static-interior-mutability) the process-wide namespace of device paths, as a bus is for real devices
 static DEVICES: LazyLock<Mutex<HashMap<String, Registered>>> = LazyLock::new(Default::default);
 
 /// Register a device under `path` and return its message halves for [ww_device::Server]. A device already registered

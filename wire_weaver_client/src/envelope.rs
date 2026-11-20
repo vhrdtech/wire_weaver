@@ -889,6 +889,7 @@ pub fn global_trait(
 ) -> Option<DynResource> {
     /// The resolver's address, the version and the trait name: a level found through one resolver is its own.
     type Key = (usize, FullVersionOwned, String);
+    // spirit-level: allow(static-interior-mutability) a memo of levels per `&'static` resolver, which lives as long as the process
     static CACHE: Mutex<Option<HashMap<Key, Option<DynResource>>>> = Mutex::new(None);
     let mut cache = CACHE.lock().unwrap();
     cache

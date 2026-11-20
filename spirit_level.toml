@@ -276,13 +276,6 @@ reason = "lock().unwrap(); P2401#20nov-1155c (locks and shared state) removes th
 expires = "2026-12-15"
 
 [[exceptions]]
-lint = "static-interior-mutability"
-crates = ["tests_common", "wire_weaver_client", "ww_snapshots"]
-level = "allow"
-reason = "statics with interior mutability; P2401#20nov-1155c (locks and shared state) removes them"
-expires = "2026-12-15"
-
-[[exceptions]]
 lint = "thread-local-state"
 crates = ["wire_weaver_core", "wire_weaver_evolution"]
 level = "allow"

@@ -34,6 +34,7 @@ pub enum Origin {
 }
 
 /// Sets registered with [embed], read by [Resolver::global].
+// spirit-level: allow(static-interior-mutability) the application registers its build's sets at start for the process-wide resolvers
 static EMBEDDED: RwLock<Vec<&'static Set>> = RwLock::new(Vec::new());
 
 static GLOBAL: OnceLock<Resolver> = OnceLock::new();

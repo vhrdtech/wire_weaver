@@ -86,6 +86,7 @@ impl DeviceApi {
         if self.ww_self_bytes.is_empty() {
             return;
         }
+        // spirit-level: allow(static-interior-mutability) the resolver it seeds is process-wide, so is the memo of what went in
         static SEEDED: Mutex<Vec<Vec<u8>>> = Mutex::new(Vec::new());
         let mut seeded = SEEDED.lock().expect("seeding panicked");
         let key = self.hash.no_docs.make_owned().hash;

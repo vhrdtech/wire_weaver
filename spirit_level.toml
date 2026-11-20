@@ -1,8 +1,50 @@
 # spirit_level configuration: https://github.com/romixlab/spirit_level (book: configuration)
-extends = ["big", "ai", "egui", "embedded"]
+extends = ["big", "ai"]
 
 # Override a lint: a level and/or parameters, always with a reason, optionally an expiry.
 # [lints.crate-lines]
 # level = "deny"
 # reason = "why"
 # expires = "2027-06-30"
+
+# The book's pages, the READMEs and the crate docs are read by people. The feature tracker, the changelogs and the
+# agents' guide are records, not pages a reader reads through; the test crates are not read as pages either.
+[docs]
+skip = ["CHANGELOG.md", "FEATURES.md", "AGENTS.md", "CLAUDE.md", "**/CHANGELOG.md", "**/tests/**"]
+
+# The runtime crates that firmware links; the host crates beside them are not judged as firmware.
+[[crate-tiers]]
+tiers = ["embedded"]
+crates = [
+    "wire_weaver",
+    "ww_api",
+    "ww_client_server",
+    "ww_device",
+    "ww_framer",
+    "ww_link",
+    "ww_lz4",
+    "ww_self",
+    "ww_settings",
+    "ww_stream",
+    "ww_tap",
+    "ww_timebase",
+]
+reason = "the no_std device-side crates that firmware links"
+
+# Test crates exist to be built and run by the test suite, never read or published as packages.
+[[exceptions]]
+lint = "readme-per-crate"
+paths = ["tests/**"]
+level = "allow"
+reason = "a test crate is not read as a package: its purpose is in its lib.rs and the docs page of the feature it tests"
+
+[[exceptions]]
+lint = "package-description"
+paths = ["tests/**"]
+level = "allow"
+reason = "a test crate is publish = false and never listed on a registry, so it has no package description"
+
+[[crate-tiers]]
+tiers = ["egui"]
+crates = ["wire_weaver_tool"]
+reason = "the egui viewer"

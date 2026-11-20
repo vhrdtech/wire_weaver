@@ -10,6 +10,7 @@ members = [
     "wire_weaver",
     "wire_weaver_cli",
     "wire_weaver_client",
+    "wire_weaver_client_benchmarks",
     "wire_weaver_core",
     "wire_weaver_derive",
     "wire_weaver_evolution",

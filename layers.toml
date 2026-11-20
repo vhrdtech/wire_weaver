@@ -179,6 +179,7 @@ wire_line_old_api = { layer = "runtime", no_std = true }
 wire_weaver = { layer = "runtime", no_std = true }
 wire_weaver_cli = { layer = "runtime" }
 wire_weaver_client = { layer = "runtime", unsafe = true }
+wire_weaver_client_benchmarks = { layer = "runtime" }
 wire_weaver_py = { layer = "runtime" }
 ww_book = { layer = "runtime" }
 ww_client_server = { layer = "runtime", no_std = true, unsafe = true }

@@ -1,0 +1,34 @@
+[package]
+name = "wire_weaver_client_benchmarks"
+version = "0.1.0"
+description = "Benchmarks of wire_weaver_client: where a connect's time goes, step by step"
+publish = false
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "connect_bench"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+blinky.workspace = true
+blinky_api.workspace = true
+clap = { workspace = true, features = ["derive"] }
+tests_common.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
+tracing.workspace = true
+tracing-subscriber = { workspace = true, features = ["registry"] }
+wire_weaver.workspace = true
+wire_weaver_client = { workspace = true, features = ["in_process"] }
+ww_client_server.workspace = true
+
+[package.metadata.cargo-machete]
+# the code ww_codegen! generates in sim.rs names it
+ignored = ["ww_client_server"]
+
+[lints]
+workspace = true

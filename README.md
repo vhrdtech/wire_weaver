@@ -284,6 +284,7 @@ If you only want to serialize and deserialize some data types, it can be used st
 | [`wire_weaver`](wire_weaver) | runtime | WireWeaver is a wire format and API code generator for resource constrained systems. |
 | [`wire_weaver_cli`](wire_weaver_cli) | runtime | The generic commands of the WireWeaver command line tool, and the registry a binary assembles them with |
 | [`wire_weaver_client`](wire_weaver_client) | runtime | WireWeaver is a wire format and API code generator for resource constrained systems. |
+| [`wire_weaver_client_benchmarks`](wire_weaver_client_benchmarks) | runtime | Benchmarks of wire_weaver_client: where a connect's time goes, step by step |
 | [`wire_weaver_py`](wire_weaver_py) | runtime | Python module talking to any WireWeaver device, with its API built at runtime from introspection data |
 | [`ww_book`](ww_book) | runtime | Assembles the WireWeaver book: copies the pages and feature trackers of the repositories it takes by git into docs/ |
 | [`ww_client_server`](ww_client_server) | runtime | Client-server API model data types for both no_std and std. |

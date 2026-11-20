@@ -245,6 +245,11 @@ build-docs: book-assemble
 size-bench-reply *args:
     cargo run -q --release -- {{ args }}
 
+# Where a connect's time goes (CLT-79), step by step, empty cache then this PC's: in-process by default; a blinky board
+# on USB with `--transport usb`, `--client blocking` or `dynamic`, `--clients 50`; `just connect-bench --help`
+connect-bench *args:
+    cargo run -q --release -p wire_weaver_client_benchmarks --bin connect_bench -- {{ args }}
+
 # Units firmware budget (TEST-27): ww_si::Fixed against plain fields in instructions (QEMU M3), flash and stack, at the
 # shipped firmware's profile; `--qemu-host HOST` runs QEMU there (this PC has none), `--cycles` adds the STM32H725 (DWT)
 [working-directory('examples_mcu/fw_budget')]

@@ -37,6 +37,26 @@ let blinky = Blinky::config(|c| c.in_process_path("sim/blinky".into())).connect(
 `connect_blocking()` does the same without an async runtime of your own. After connecting, every transport behaves
 the same: link setup with a version check, introspection, pings and timeouts, streams.
 
+## Where a connect's time goes
+
+A connect runs in steps, each a debug `tracing` span named in `wire_weaver_client::connect_spans`, so any subscriber
+can time them:
+
+| Span                    | Step                                                                               |
+|-------------------------|------------------------------------------------------------------------------------|
+| `ww_connect`            | the whole `connect()` or `connect_blocking()`                                      |
+| `ww_connect_validate`   | the config is checked, the client's own introspection data prepared                |
+| `ww_connect_select`     | a transport finds the device and starts the event loop (USB: the device list)      |
+| `ww_connect_link`       | until the link is up and the device's API version known                            |
+| `ww_connect_open`       | within the link step: the medium is opened (USB: open and claim the interface)     |
+| `ww_connect_learn`      | the device's API: introspection data unless the client has it, the API match       |
+| `ww_connect_introspect` | within the learn step: introspection data from the cache or the device             |
+
+`just connect-bench` prints these per round, for in-process devices or a blinky board on USB (`--transport usb`),
+with the generated async or blocking client or `DynClient` (`--client`), one client or many at once (`--clients`).
+It runs a new process with an empty cache, then one with the machine's own: the first round of each is a cold
+connect, later rounds are warm.
+
 ## How the layers fit
 
 Messages from the generated code are packed into frames by the [framer](ww_framer.md): many small messages share

@@ -4665,6 +4665,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "wire_weaver_client_benchmarks"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "blinky",
+ "blinky_api",
+ "clap",
+ "tests_common",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_client_server",
+]
+
+[[package]]
 name = "wire_weaver_core"
 version = "0.5.0"
 dependencies = [

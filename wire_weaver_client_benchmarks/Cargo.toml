@@ -9,6 +9,10 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[package.metadata.cargo-machete]
+# the code ww_codegen! generates in sim.rs names it
+ignored = ["ww_client_server"]
+
 [[bin]]
 name = "connect_bench"
 path = "src/main.rs"
@@ -25,10 +29,6 @@ tracing-subscriber = { workspace = true, features = ["registry"] }
 wire_weaver.workspace = true
 wire_weaver_client = { workspace = true, features = ["in_process"] }
 ww_client_server.workspace = true
-
-[package.metadata.cargo-machete]
-# the code ww_codegen! generates in sim.rs names it
-ignored = ["ww_client_server"]
 
 [lints]
 workspace = true

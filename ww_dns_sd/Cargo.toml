@@ -13,7 +13,7 @@ homepage.workspace = true
 default = ["mdns"]
 # The in-process mDNS responder (mdns-sd on its own thread): nothing to install on the box
 mdns = ["dep:mdns-sd"]
-# Registration with the system's Avahi daemon over D-Bus (zbus, blocking API on its own executor thread)
+# Registration with the system's Avahi daemon over D-Bus (zbus, each call driven by zbus::block_on)
 avahi = ["dep:zbus"]
 
 [dependencies]

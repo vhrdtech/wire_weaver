@@ -4,8 +4,7 @@
 use std::collections::{BTreeMap, HashMap};
 use std::net::IpAddr;
 
-use zbus::blocking::Connection;
-use zbus::zvariant::OwnedObjectPath;
+use zbus::{Connection, OwnedObjectPath, block_on};
 
 use crate::{Error, InstanceName, Responder, SERVICE_TYPE, ServiceRecord};
 
@@ -21,8 +20,7 @@ const PUBLISH_NO_REVERSE: u32 = 16;
 #[zbus::proxy(
     interface = "org.freedesktop.Avahi.Server",
     default_service = "org.freedesktop.Avahi",
-    default_path = "/",
-    gen_async = false
+    default_path = "/"
 )]
 trait Server {
     fn entry_group_new(&self) -> zbus::Result<OwnedObjectPath>;
@@ -30,8 +28,7 @@ trait Server {
 
 #[zbus::proxy(
     interface = "org.freedesktop.Avahi.EntryGroup",
-    default_service = "org.freedesktop.Avahi",
-    gen_async = false
+    default_service = "org.freedesktop.Avahi"
 )]
 trait EntryGroup {
     #[expect(clippy::too_many_arguments, reason = "Avahi's D-Bus method")]
@@ -66,6 +63,9 @@ trait EntryGroup {
 
 /// Registers records with Avahi over D-Bus, one entry group per instance. Avahi frees the groups by itself when
 /// the connection closes, so a crashed server's record goes too.
+///
+/// Each call runs its D-Bus exchange in [zbus::block_on], so it must not be called from inside a zbus task or
+/// another `block_on`.
 pub struct AvahiResponder {
     conn: Connection,
     groups: HashMap<InstanceName, EntryGroupProxy<'static>>,
@@ -74,7 +74,7 @@ pub struct AvahiResponder {
 impl AvahiResponder {
     /// Connects to Avahi on the system bus.
     pub fn new() -> Result<Self, Error> {
-        Self::with_connection(Connection::system()?)
+        Self::with_connection(block_on(Connection::system())?)
     }
 
     /// Talks to Avahi, or to anything serving its interfaces, over `conn`.
@@ -85,16 +85,77 @@ impl AvahiResponder {
         })
     }
 
-    fn group(&mut self, instance: &InstanceName) -> Result<&EntryGroupProxy<'static>, Error> {
+    async fn group(&mut self, instance: &InstanceName) -> Result<&EntryGroupProxy<'static>, Error> {
         if !self.groups.contains_key(instance) {
-            let path = ServerProxy::new(&self.conn)?.entry_group_new()?;
-            let group = EntryGroupProxy::builder(&self.conn).path(path)?.build()?;
+            let path = ServerProxy::new(&self.conn)
+                .await?
+                .entry_group_new()
+                .await?;
+            let group = EntryGroupProxy::builder(&self.conn)
+                .path(path)
+                .build()
+                .await?;
             self.groups.insert(instance.clone(), group);
         }
         Ok(self
             .groups
             .get(instance)
             .expect("inserted above when missing"))
+    }
+
+    async fn publish_async(&mut self, record: &ServiceRecord) -> Result<(), Error> {
+        let interfaces = if_addrs::get_if_addrs()?;
+        let mut by_interface: BTreeMap<i32, Vec<IpAddr>> = BTreeMap::new();
+        for a in record.addresses() {
+            by_interface
+                .entry(interface_of(*a, &interfaces)?)
+                .or_default()
+                .push(*a);
+        }
+        let host = record.host_name();
+        let name = record.instance().as_str();
+        let port = record.port().get();
+        let txt = record.txt().strings();
+        let group = self.group(record.instance()).await?;
+        group.reset().await?;
+        for (interface, addresses) in &by_interface {
+            // announced over the address families it has addresses in, so a browser over the other one finds no
+            // instance it can't resolve
+            let v4 = addresses.iter().any(IpAddr::is_ipv4);
+            let v6 = addresses.iter().any(IpAddr::is_ipv6);
+            let protocol = match (v4, v6) {
+                (true, false) => PROTO_INET,
+                (false, true) => PROTO_INET6,
+                _ => PROTO_UNSPEC,
+            };
+            group
+                .add_service(
+                    *interface,
+                    protocol,
+                    0,
+                    name,
+                    SERVICE_TYPE,
+                    "",
+                    &host,
+                    port,
+                    txt.clone(),
+                )
+                .await?;
+            for a in addresses {
+                let protocol = if a.is_ipv4() { PROTO_INET } else { PROTO_INET6 };
+                group
+                    .add_address(
+                        *interface,
+                        protocol,
+                        PUBLISH_NO_REVERSE,
+                        &host,
+                        &a.to_string(),
+                    )
+                    .await?;
+            }
+        }
+        group.commit().await?;
+        Ok(())
     }
 }
 
@@ -124,59 +185,12 @@ fn in_subnet(address: IpAddr, on: &if_addrs::IfAddr) -> bool {
 
 impl Responder for AvahiResponder {
     fn publish(&mut self, record: &ServiceRecord) -> Result<(), Error> {
-        let interfaces = if_addrs::get_if_addrs()?;
-        let mut by_interface: BTreeMap<i32, Vec<IpAddr>> = BTreeMap::new();
-        for a in record.addresses() {
-            by_interface
-                .entry(interface_of(*a, &interfaces)?)
-                .or_default()
-                .push(*a);
-        }
-        let host = record.host_name();
-        let name = record.instance().as_str();
-        let port = record.port().get();
-        let txt = record.txt().strings();
-        let group = self.group(record.instance())?;
-        group.reset()?;
-        for (interface, addresses) in &by_interface {
-            // announced over the address families it has addresses in, so a browser over the other one finds no
-            // instance it can't resolve
-            let v4 = addresses.iter().any(IpAddr::is_ipv4);
-            let v6 = addresses.iter().any(IpAddr::is_ipv6);
-            let protocol = match (v4, v6) {
-                (true, false) => PROTO_INET,
-                (false, true) => PROTO_INET6,
-                _ => PROTO_UNSPEC,
-            };
-            group.add_service(
-                *interface,
-                protocol,
-                0,
-                name,
-                SERVICE_TYPE,
-                "",
-                &host,
-                port,
-                txt.clone(),
-            )?;
-            for a in addresses {
-                let protocol = if a.is_ipv4() { PROTO_INET } else { PROTO_INET6 };
-                group.add_address(
-                    *interface,
-                    protocol,
-                    PUBLISH_NO_REVERSE,
-                    &host,
-                    &a.to_string(),
-                )?;
-            }
-        }
-        group.commit()?;
-        Ok(())
+        block_on(self.publish_async(record))
     }
 
     fn withdraw(&mut self, instance: &InstanceName) -> Result<(), Error> {
         match self.groups.remove(instance) {
-            Some(group) => Ok(group.free()?),
+            Some(group) => Ok(block_on(group.free())?),
             None => Ok(()),
         }
     }

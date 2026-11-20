@@ -5,9 +5,7 @@ use std::os::unix::net::UnixStream;
 use std::sync::{Arc, Mutex};
 
 use ww_dns_sd::{Advertiser, AvahiResponder};
-use zbus::blocking::connection;
-use zbus::object_server::ObjectServer;
-use zbus::zvariant::OwnedObjectPath;
+use zbus::{Connection, ObjectServer, OwnedObjectPath, block_on, connection};
 
 use crate::common::{PORT, record};
 
@@ -141,30 +139,27 @@ impl FakeGroup {
 }
 
 /// A client connection to a fake Avahi on the other end of a socket pair.
-fn fake_avahi() -> (zbus::blocking::Connection, zbus::blocking::Connection, Log) {
+fn fake_avahi() -> (Connection, Connection, Log) {
     let (a, b) = UnixStream::pair().unwrap();
     let log = Log::default();
     let server_log = log.clone();
     let server = std::thread::spawn(move || {
-        connection::Builder::async_io_unix_stream(a)
-            .server(zbus::Guid::generate())
-            .unwrap()
-            .p2p()
-            .serve_at(
-                "/",
-                FakeServer {
-                    log: server_log,
-                    groups: 0,
-                },
-            )
-            .unwrap()
-            .build()
-            .unwrap()
+        block_on(
+            connection::Builder::unix_stream(a)
+                .server(zbus::Guid::generate())
+                .p2p()
+                .serve_at(
+                    "/",
+                    FakeServer {
+                        log: server_log,
+                        groups: 0,
+                    },
+                )
+                .build(),
+        )
+        .unwrap()
     });
-    let client = connection::Builder::async_io_unix_stream(b)
-        .p2p()
-        .build()
-        .unwrap();
+    let client = block_on(connection::Builder::unix_stream(b).p2p().build()).unwrap();
     (client, server.join().unwrap(), log)
 }
 

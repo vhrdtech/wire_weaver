@@ -175,6 +175,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - `cargo doc --workspace --no-deps` builds without warnings: six stale intra-doc links to feature-gated items now read as plain code.
 - Every `tests/*` crate also has a README and a Cargo.toml description naming what it tests.
 - `wire_weaver_client` drops its empty `can`, `i2c` and `uart` features; see its changelog.
+- Dependencies: `cnt_core` by git from romixlab/cnt, zbus 6 for `ww_dns_sd`, tokio 1.54.1 (RUSTSEC-2026-0384), rustix 1.1.6 (RUSTSEC-2026-0486).
 
 ### Added
 

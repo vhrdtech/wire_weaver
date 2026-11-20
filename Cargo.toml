@@ -70,7 +70,7 @@ cc = { version = "1.2", default-features = false }
 clap = { version = "4.5", default-features = false, features = ["color", "error-context", "help", "std", "suggestions", "usage"] }
 clap_complete = { version = "4.6", default-features = false }
 cnt = { version = "0.4", default-features = false }
-cnt_core = { version = "0.5", default-features = false }
+cnt_core = { version = "0.5.3", git = "https://github.com/romixlab/cnt", default-features = false }
 console = { version = "0.16", default-features = false, features = ["ansi-parsing", "std", "unicode-width"] }
 convert_case = { version = "0.11", default-features = false }
 crc = { version = "3.4", default-features = false }
@@ -150,8 +150,8 @@ trybuild = { version = "1", default-features = false }
 ureq = { version = "3.5", default-features = false, features = ["rustls"] }
 widestring = { version = "1", default-features = false, features = ["std"] }
 windows-sys = { version = "0.61", default-features = false }
-# Avahi over D-Bus (ww_dns_sd avahi): the blocking API on its own async-io executor thread
-zbus = { version = "5", default-features = false, features = ["async-io", "blocking-api"] }
+# Avahi over D-Bus (ww_dns_sd avahi): async proxies driven by zbus::block_on on its own runtime
+zbus = { version = "6", default-features = false, features = ["default-rt", "proxy"] }
 
 # exact_units and shrink_wrap live in their own repositories, taken by git: Cargo.lock pins the commit
 # (`cargo update -p exact_units` / `-p shrink_wrap` moves it); to build against a local checkout, put a [patch] in
@@ -160,7 +160,7 @@ exact_units = { version = "0.1.0", git = "https://github.com/romixlab/exact_unit
 shrink_wrap = { version = "0.2.0", git = "https://github.com/romixlab/shrink_wrap", default-features = false }
 # the docs site's WireWeaver highlighter (DOC-11), vendored into docs/ and checked by tests/docs_highlight: by git
 # from ww_lsp, which owns it; Cargo.lock pins the commit
-ww_highlight = { git = "https://github.com/romixlab/ww_lsp", default-features = false }
+ww_highlight = { version = "0.1.0", git = "https://github.com/romixlab/ww_lsp", default-features = false }
 
 # the base types and identity crates (layer 2) live in vhrdtech/ww_base, taken by git: Cargo.lock pins the commit
 # (`cargo update -p ww_si` moves them all)
@@ -177,7 +177,7 @@ ww_version = { version = "0.2.0", git = "https://github.com/vhrdtech/ww_base", d
 # (`cargo update -p ww_tape` moves it)
 ww_tape = { version = "0.1.0", git = "https://github.com/vhrdtech/ww_tape", default-features = false }
 # files of ww_tape (file sink, piece files, their lock), from the same repository
-ww_tape_fs = { git = "https://github.com/vhrdtech/ww_tape", default-features = false }
+ww_tape_fs = { version = "0.1.0", git = "https://github.com/vhrdtech/ww_tape", default-features = false }
 
 # framework crates, versioned together via [workspace.package] version
 wire_weaver = { version = "0.5.0", path = "./wire_weaver", default-features = false }
@@ -196,7 +196,7 @@ ww_hub = { version = "0.5.0", path = "./ww_hub" }
 ww_link = { version = "0.5.0", path = "./ww_link", default-features = false }
 ww_local_socket = { version = "0.5.0", path = "./ww_local_socket", default-features = false }
 # Its own repo since CLT-21; a registry version once picoboot_host is on crates.io.
-ww_picoboot = { package = "picoboot_host", git = "https://github.com/vhrdtech/picoboot_host", tag = "v0.1.0", default-features = false }
+ww_picoboot = { package = "picoboot_host", version = "0.1.0", git = "https://github.com/vhrdtech/picoboot_host", tag = "v0.1.0", default-features = false }
 ww_settings = { version = "0.5.0", path = "./ww_settings/ww_settings" }
 ww_settings_derive = { version = "0.5.0", path = "./ww_settings/ww_settings_derive" }
 ww_snapshots = { version = "0.5.0", path = "./ww_snapshots" }

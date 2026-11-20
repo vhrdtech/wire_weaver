@@ -22,6 +22,8 @@
 
 ### 🐛 Bug Fixes
 
+- `cnt_core` comes by git from romixlab/cnt (0.5.3, `object` 0.40): one `object` version less in the graph.
+
 - `ww capture` keeps the writer's error cause ("Caused by: ...") instead of flattening it into one line.
 - `ww tap` and `ww capture` relays drop a closed link's tracks from their definitions; `link closed` is shown (STD-135).
 - `ww --no-config PLUGIN` hands the plugin `WW_NO_CONFIG=true`, which its `--no-config` takes; `1` was refused (CLT-47).

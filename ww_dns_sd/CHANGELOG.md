@@ -9,6 +9,7 @@
 ### ⚠️ Breaking
 
 - Declares `rust-version = "1.99"`: cargo of an older Rust refuses the crate.
+- `AvahiResponder` runs on zbus 6: `with_connection` takes a `zbus::Connection`, `Error::Avahi` holds a zbus 6 `zbus::Error`.
 
 ### 🚀 Features
 

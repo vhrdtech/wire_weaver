@@ -10,6 +10,7 @@
 //! still leave a stale entry until a request under it is refused with `BadIndex`: a device that never reuses an
 //! index within a session closes that gap.
 
+use crate::locked::Locked;
 use crate::{Commander, Error, Stream, StreamError};
 use std::collections::{HashMap, VecDeque};
 use std::marker::PhantomData;
@@ -107,7 +108,7 @@ pub(crate) struct KeyCaches(Arc<Mutex<Vec<(ArrayPath, KeyCache)>>>);
 
 impl KeyCaches {
     fn with<R>(&self, array: &ArrayPath, f: impl FnOnce(&mut KeyCache) -> R) -> R {
-        let mut caches = self.0.lock().expect("key caches lock");
+        let mut caches = self.0.locked();
         let at = match caches.iter().position(|(path, _)| path == array) {
             Some(at) => at,
             None => {
@@ -121,7 +122,7 @@ impl KeyCaches {
     /// The keyed arrays and indices a request to `path_kind` is under, to forget them if the device answers
     /// `BadIndex`; empty without keyed arrays.
     pub(crate) fn elements(&self, path_kind: &PathKindOwned) -> Vec<(usize, u32)> {
-        let caches = self.0.lock().expect("key caches lock");
+        let caches = self.0.locked();
         if caches.is_empty() {
             return vec![];
         }
@@ -137,7 +138,7 @@ impl KeyCaches {
         if elements.is_empty() || !is_bad_index(result) {
             return;
         }
-        let mut caches = self.0.lock().expect("key caches lock");
+        let mut caches = self.0.locked();
         for &(at, index) in elements {
             if let Some((_, cache)) = caches.get_mut(at) {
                 cache.forget(index);
@@ -147,7 +148,7 @@ impl KeyCaches {
 
     /// Forgets every key, after a reconnect: the device may give its elements other indices.
     pub(crate) fn clear(&self) {
-        self.0.lock().expect("key caches lock").clear();
+        self.0.locked().clear();
     }
 }
 

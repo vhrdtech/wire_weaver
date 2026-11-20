@@ -4,6 +4,7 @@
 
 use crate::columns::batch_dict;
 use crate::convert::to_py;
+use crate::locked::Locked;
 use crate::tree::timeout;
 use crate::{Conn, WireWeaverError, client_err, stream_err};
 use pyo3::exceptions::{PyKeyError, PyTimeoutError};
@@ -209,7 +210,7 @@ impl Observer {
     }
 
     fn with_observer<T>(&self, f: impl FnOnce(&mut DynObserver) -> PyResult<T>) -> PyResult<T> {
-        let mut guard = self.observer.lock().expect("not poisoned");
+        let mut guard = self.observer.locked();
         let observer = guard.as_mut().ok_or_else(|| {
             WireWeaverError::new_err(format!("'{}' is not open", self.res.path()))
         })?;
@@ -295,19 +296,14 @@ impl Observer {
     /// Bytes per second the level's updates may take on the link, None before the device answered or after `close()`.
     #[getter]
     fn budget(&self) -> Option<u32> {
-        self.observer
-            .lock()
-            .expect("not poisoned")
-            .as_ref()?
-            .granted()
-            .map(|g| g.budget)
+        self.observer.locked().as_ref()?.granted().map(|g| g.budget)
     }
 
     /// Properties the device did not apply, `{name: reason}`, e.g. `{"reading": "ModeNotSupported"}` from a firmware
     /// that takes no samples; empty before the device answered or after `close()`.
     #[getter]
     fn refused(&self) -> std::collections::BTreeMap<String, String> {
-        let observer = self.observer.lock().expect("not poisoned");
+        let observer = self.observer.locked();
         let Some(granted) = observer.as_ref().and_then(|o| o.granted()) else {
             return Default::default();
         };
@@ -328,8 +324,7 @@ impl Observer {
     #[getter]
     fn dropped(&self) -> u64 {
         self.observer
-            .lock()
-            .expect("not poisoned")
+            .locked()
             .as_ref()
             .map(DynObserver::dropped)
             .unwrap_or_default()
@@ -337,7 +332,7 @@ impl Observer {
 
     /// Unsubscribe from the device; also done when the last reference is garbage collected.
     fn close(&self) {
-        self.observer.lock().expect("not poisoned").take();
+        self.observer.locked().take();
     }
 
     fn __enter__(slf: Py<Self>) -> Py<Self> {

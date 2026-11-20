@@ -3,6 +3,7 @@
 //! `commit` (the program let go of the device) opens it going on with the link, with the program's tunnel joined, and
 //! waits [ATTACH_TIMEOUT] for that tunnel to connect.
 
+use crate::locked::Locked;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -120,7 +121,7 @@ pub(crate) async fn commit(
     info!(
         "ww hub: adopted the live link to {key} ({in_flight} requests in flight, {streams} streams)"
     );
-    hub.adoptions.lock().unwrap().insert(
+    hub.adoptions.locked().insert(
         id,
         Waiting {
             key: key.clone(),
@@ -132,7 +133,7 @@ pub(crate) async fn commit(
     let hub = hub.clone();
     tokio::spawn(async move {
         tokio::time::sleep(hub.adopt_attach).await;
-        let gone = hub.adoptions.lock().unwrap().remove(&id);
+        let gone = hub.adoptions.locked().remove(&id);
         if let Some(w) = gone {
             info!(
                 "ww hub: the program whose link to {} was adopted didn't come back within {:?}",
@@ -147,7 +148,7 @@ pub(crate) async fn commit(
 
 /// The tunnel of adoption `id` connected for `key`: what it goes on with.
 pub(crate) fn attach(hub: &Hub, id: u64, key: &str) -> Option<Waiting> {
-    let mut adoptions = hub.adoptions.lock().unwrap();
+    let mut adoptions = hub.adoptions.locked();
     match adoptions.get(&id) {
         Some(w) if w.key == key => adoptions.remove(&id),
         _ => None,

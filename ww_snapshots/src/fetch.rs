@@ -19,6 +19,7 @@ use crate::limits::{
     FETCH_CONNECT_TIMEOUT, FETCH_REDIRECTS_MAX, FETCH_RETRY_AFTER, FETCH_TIMEOUT,
     MANIFEST_BYTES_MAX, SNAPSHOT_FILE_BYTES_MAX, SUPERSEDED_FILE_BYTES_MAX,
 };
+use crate::locked::Locked;
 use anyhow::{Context, Result, bail};
 use std::collections::HashMap;
 use std::io::Read;
@@ -80,7 +81,7 @@ impl Fetcher {
         if self.sources.offline || !file::is_plain_crate_name(&version.crate_id) {
             return None;
         }
-        let mut tried = lock(&self.tried);
+        let mut tried = self.tried.locked();
         if let Some(fetched) = tried.get(version) {
             return fetched.as_ref().and_then(|f| f.snapshot_of(version));
         }
@@ -123,7 +124,7 @@ impl Fetcher {
         name: &str,
         reference: &[u8],
     ) -> Option<ApiBundleOwned> {
-        let tried = lock(&self.tried);
+        let tried = self.tried.locked();
         let fetched = tried.get(version)?.as_ref()?;
         superseded_among(
             fetched
@@ -408,10 +409,6 @@ pub(crate) fn superseded_among<'a>(
     same_shape
 }
 
-fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
-    mutex.lock().expect("the fetcher's lock is poisoned")
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -548,6 +545,6 @@ mod tests {
         );
         let version = FullVersionOwned::new("dep".into(), VersionOwned::new(0, 1, 0));
         assert!(fetcher.snapshot(&version).is_none());
-        assert!(lock(&fetcher.tried).is_empty());
+        assert!(fetcher.tried.locked().is_empty());
     }
 }

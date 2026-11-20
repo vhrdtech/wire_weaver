@@ -8,6 +8,7 @@
 
 use crate::DynResource;
 use crate::client::dynamic::DynResourceKind;
+use crate::locked::Locked;
 use anyhow::{Result, anyhow};
 use std::collections::HashMap;
 use std::ops::Range;
@@ -891,7 +892,7 @@ pub fn global_trait(
     type Key = (usize, FullVersionOwned, String);
     // spirit-level: allow(static-interior-mutability) a memo of levels per `&'static` resolver, which lives as long as the process
     static CACHE: Mutex<Option<HashMap<Key, Option<DynResource>>>> = Mutex::new(None);
-    let mut cache = CACHE.lock().unwrap();
+    let mut cache = CACHE.locked();
     cache
         .get_or_insert_with(HashMap::new)
         .entry((

@@ -3,6 +3,7 @@
 
 use crate::columns::decode_columns;
 use crate::convert::{prefix_err, to_py, to_value, type_name};
+use crate::locked::Locked;
 use crate::observe::Observer;
 use crate::positioned::PositionedStream;
 use crate::{Conn, RemoteError, WireWeaverError, client_err, err_msg, stream_err};
@@ -743,7 +744,7 @@ pub struct Stream {
 
 impl Stream {
     fn with_stream<T>(&self, f: impl FnOnce(&mut DynStream) -> PyResult<T>) -> PyResult<T> {
-        let mut guard = self.stream.lock().expect("not poisoned");
+        let mut guard = self.stream.locked();
         let stream = guard.as_mut().ok_or_else(|| {
             WireWeaverError::new_err(format!("'{}' is not open", self.res.path()))
         })?;
@@ -825,7 +826,7 @@ impl Stream {
     /// Subscribe and ask a device to start the stream.
     fn open(&self, py: Python<'_>) -> PyResult<()> {
         let conn = conn(&self.res, &self.conn)?;
-        let mut guard = self.stream.lock().expect("not poisoned");
+        let mut guard = self.stream.locked();
         if guard.is_none() {
             let res = &self.res;
             *guard = Some(
@@ -838,7 +839,7 @@ impl Stream {
 
     /// Ask a device to stop the stream and unsubscribe.
     fn close(&self, py: Python<'_>) -> PyResult<()> {
-        let stream = self.stream.lock().expect("not poisoned").take();
+        let stream = self.stream.locked().take();
         if let Some(stream) = stream {
             py.detach(|| stream.close_blocking()).map_err(stream_err)?;
         }
@@ -997,7 +998,7 @@ impl Sink {
     /// device continues where it is in a session it has.
     #[pyo3(signature = (session = None))]
     fn open(&self, py: Python<'_>, session: Option<u32>) -> PyResult<()> {
-        let mut guard = self.sink.lock().expect("not poisoned");
+        let mut guard = self.sink.locked();
         let sink = self.prepared(py, &mut guard)?;
         match session {
             Some(session) => {
@@ -1015,7 +1016,7 @@ impl Sink {
     /// session and for other sinks.
     #[getter]
     fn cursor(&self) -> Option<(u32, u64)> {
-        let guard = self.sink.lock().expect("not poisoned");
+        let guard = self.sink.locked();
         guard
             .as_ref()
             .and_then(|sink| sink.cursor())
@@ -1026,7 +1027,7 @@ impl Sink {
     /// program, instead of `open()`. Returns the position where the device is, at or after `pos`: continue the
     /// program's own data from there. Raises `SessionLost` when the device no longer has the session (it rebooted).
     fn resume(&self, py: Python<'_>, cursor: (u32, u64)) -> PyResult<u64> {
-        let mut guard = self.sink.lock().expect("not poisoned");
+        let mut guard = self.sink.locked();
         let sink = self.prepared(py, &mut guard)?;
         let cursor = wire_weaver_client::StreamCursor {
             session: shrink_wrap::UVlq32(cursor.0),
@@ -1037,7 +1038,7 @@ impl Sink {
     }
 
     fn close(&self, py: Python<'_>) -> PyResult<()> {
-        let sink = self.sink.lock().expect("not poisoned").take();
+        let sink = self.sink.locked().take();
         if let Some(mut sink) = sink {
             py.detach(|| sink.close_blocking()).map_err(stream_err)?;
         }
@@ -1049,7 +1050,7 @@ impl Sink {
     #[pyo3(signature = (value, units = None))]
     fn send(&self, py: Python<'_>, value: &Bound<'_, PyAny>, units: Option<u64>) -> PyResult<()> {
         let value = to_value(value, &self.ty(), self.res.bundle())?;
-        let mut guard = self.sink.lock().expect("not poisoned");
+        let mut guard = self.sink.locked();
         let sink = guard.as_mut().ok_or_else(|| {
             WireWeaverError::new_err(format!("'{}' is not open", self.res.path()))
         })?;
@@ -1063,7 +1064,7 @@ impl Sink {
     /// Credit sinks (`#[credit]`): wait until the device accepted everything sent so far, resending what was lost.
     /// Does nothing for other sinks. `close()` flushes too.
     fn flush(&self, py: Python<'_>) -> PyResult<()> {
-        let mut guard = self.sink.lock().expect("not poisoned");
+        let mut guard = self.sink.locked();
         let sink = guard.as_mut().ok_or_else(|| {
             WireWeaverError::new_err(format!("'{}' is not open", self.res.path()))
         })?;
@@ -1083,7 +1084,7 @@ impl Sink {
     /// None for other sinks or before `open()`.
     #[getter]
     fn progress(&self) -> Option<(u64, u64)> {
-        let guard = self.sink.lock().expect("not poisoned");
+        let guard = self.sink.locked();
         guard.as_ref().and_then(|sink| sink.credit_progress())
     }
 
@@ -1099,7 +1100,7 @@ impl Sink {
                 .transpose()
                 .map_err(|e| PyValueError::new_err(format!("stall_timeout: {e}")))?,
         };
-        let mut guard = self.sink.lock().expect("not poisoned");
+        let mut guard = self.sink.locked();
         let sink = guard.as_mut().ok_or_else(|| {
             WireWeaverError::new_err(format!("'{}' is not open", self.res.path()))
         })?;

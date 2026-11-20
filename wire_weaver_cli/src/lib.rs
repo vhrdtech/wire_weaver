@@ -11,6 +11,7 @@ mod api_tree;
 pub mod cli;
 pub mod cmd;
 pub mod complete;
+mod locked;
 pub mod plugin;
 pub mod registry;
 pub mod util;

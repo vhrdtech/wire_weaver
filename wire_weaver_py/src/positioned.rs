@@ -2,6 +2,7 @@
 //! `docs/api/stream_reliability.md`.
 
 use crate::convert::to_py;
+use crate::locked::Locked;
 use crate::tree::{conn, docs, py_args, repr_with_docs, return_to_py, timeout};
 use crate::{Conn, WireWeaverError, client_err, stream_err};
 use pyo3::exceptions::{PyTimeoutError, PyValueError};
@@ -39,7 +40,7 @@ impl PositionedStream {
         &self,
         f: impl FnOnce(&mut DynPositionedStream) -> PyResult<T>,
     ) -> PyResult<T> {
-        let mut guard = self.stream.lock().expect("not poisoned");
+        let mut guard = self.stream.locked();
         let stream = guard.as_mut().ok_or_else(|| {
             WireWeaverError::new_err(format!("'{}' is not open", self.res.path()))
         })?;
@@ -228,7 +229,7 @@ impl PositionedStream {
             session: UVlq32(session),
             pos: UVlq64(pos),
         });
-        let mut guard = self.stream.lock().expect("not poisoned");
+        let mut guard = self.stream.locked();
         if guard.is_some() {
             return Err(WireWeaverError::new_err(format!(
                 "'{}' is open already",
@@ -258,7 +259,7 @@ impl PositionedStream {
 
     /// Close the stream on the device.
     fn close(&self, py: Python<'_>) -> PyResult<()> {
-        let stream = self.stream.lock().expect("not poisoned").take();
+        let stream = self.stream.locked().take();
         if let Some(stream) = stream {
             py.detach(|| stream.close_blocking()).map_err(stream_err)?;
         }
@@ -362,7 +363,7 @@ impl PositionedStream {
     }
 
     fn __enter__(slf: Py<Self>, py: Python<'_>) -> PyResult<Py<Self>> {
-        if slf.get().stream.lock().expect("not poisoned").is_none() {
+        if slf.get().stream.locked().is_none() {
             let args = PyTuple::empty(py);
             slf.get().open(py, &args, None, "receive", None)?;
         }

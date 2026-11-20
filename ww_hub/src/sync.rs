@@ -6,6 +6,7 @@
 //! the sync as steering is switched on and off ([ww_hub_api::ClockSync::set_enabled]), and turns the sync's status
 //! into the [SyncEntryOwned] that `ClockSync::devices` lists and `ClockSync::stats` streams.
 
+use crate::locked::Locked;
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 use std::time::Duration;
@@ -117,7 +118,7 @@ pub(crate) fn start(
     tx: &mpsc::UnboundedSender<ToDevice>,
 ) {
     let generation = {
-        let mut steering = hub.steering.lock().unwrap();
+        let mut steering = hub.steering.locked();
         steering.next_generation += 1;
         let generation = steering.next_generation;
         steering.generation.insert(key.to_string(), generation);
@@ -133,7 +134,7 @@ pub(crate) fn start(
         tx.downgrade(),
         generation,
     ));
-    let mut steering = hub.steering.lock().unwrap();
+    let mut steering = hub.steering.locked();
     if let Some(old) = steering.tasks.insert(key.to_string(), task) {
         old.abort();
     }
@@ -143,7 +144,7 @@ pub(crate) fn start(
 /// the task to end at its next `.await`, so its generation goes with the entry here: a publish already in flight on
 /// another thread finds its generation stale and drops instead of resurrecting the entry.
 pub(crate) fn stop(hub: &Hub, key: &str) {
-    let mut steering = hub.steering.lock().unwrap();
+    let mut steering = hub.steering.locked();
     steering.generation.remove(key);
     if let Some(task) = steering.tasks.remove(key) {
         task.abort();
@@ -163,7 +164,7 @@ async fn run(
         if let Some(s) = status {
             fill(&mut e, s);
         }
-        let mut steering = hub.steering.lock().unwrap();
+        let mut steering = hub.steering.locked();
         if steering.generation.get(&key) != Some(&generation) {
             return;
         }
@@ -198,10 +199,10 @@ async fn run(
         publish(SyncPhaseOwned::Unsupported, None);
         return;
     }
-    let mut changed = hub.steering.lock().unwrap().changed.subscribe();
+    let mut changed = hub.steering.locked().changed.subscribe();
     loop {
         changed.mark_unchanged();
-        if !hub.steering.lock().unwrap().enabled_for(&key) {
+        if !hub.steering.locked().enabled_for(&key) {
             publish(SyncPhaseOwned::Off, None);
             recheck();
             if changed.changed().await.is_err() {
@@ -270,7 +271,7 @@ async fn run(
                     let mut e = entry(&key, phase);
                     fill(&mut e, &status.borrow_and_update());
                     {
-                        let mut steering = hub.steering.lock().unwrap();
+                        let mut steering = hub.steering.locked();
                         if steering.generation.get(&key) != Some(&generation) {
                             return;
                         }
@@ -285,7 +286,7 @@ async fn run(
                     if r.is_err() {
                         return;
                     }
-                    if !hub.steering.lock().unwrap().enabled_for(&key) {
+                    if !hub.steering.locked().enabled_for(&key) {
                         info!("ww hub: steering {key} switched off");
                         break;
                     }

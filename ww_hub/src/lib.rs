@@ -21,10 +21,12 @@ pub mod client;
 mod device;
 mod devices;
 mod envelope;
+mod locked;
 mod sync;
 mod tunnel;
 mod window;
 
+use crate::locked::Locked;
 use std::collections::BTreeMap;
 use std::fs::{File, OpenOptions, TryLockError};
 use std::io::{self, Write};
@@ -478,7 +480,7 @@ impl Bound {
         // running saves finish, then every capture ends: files closed as written, RAM dropped
         self.hub.end_captures(self.config.saves_exit_wait).await;
         // tunnels see their device go
-        let slots: Vec<_> = self.hub.devices.lock().unwrap().values().cloned().collect();
+        let slots: Vec<_> = self.hub.devices.locked().values().cloned().collect();
         for slot in slots {
             if let Some(handle) = slot.lock().await.as_ref() {
                 let _ = handle.tx.send(device::ToDevice::Close);
@@ -486,7 +488,7 @@ impl Bound {
         }
         // replies (to `handover`, `shutdown`) and `Disconnect`s still go out; hub.lock goes with `self`
         let drained = Instant::now() + EXIT_DRAIN;
-        while self.hub.state.lock().unwrap().connections > 0 && Instant::now() < drained {
+        while self.hub.state.locked().connections > 0 && Instant::now() < drained {
             tokio::time::sleep(Duration::from_millis(5)).await;
         }
         info!("ww hub exits: {exit:?}");
@@ -736,7 +738,7 @@ impl Hub {
     /// Seconds until the hub exits if nothing connects (`None`: it won't while connected or kept), and seconds left of
     /// `keep` (`None`: not kept).
     pub(crate) fn timers(&self) -> (u32, Option<u32>, Option<u32>, u32) {
-        let state = self.state.lock().unwrap();
+        let state = self.state.locked();
         let now = Instant::now();
         let keep_left = state
             .keep_until
@@ -758,7 +760,7 @@ impl Hub {
     }
 
     fn idle_for(&self) -> Duration {
-        self.state.lock().unwrap().idle_for(Instant::now())
+        self.state.locked().idle_for(Instant::now())
     }
 
     /// Serves one accepted connection; `_guard` counted it at accept.
@@ -845,7 +847,7 @@ impl Hub {
     }
 
     fn client_joined(&self, peer: Peer) -> u32 {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.locked();
         let id = state.new_client_id();
         state.clients.insert(
             id,
@@ -860,7 +862,7 @@ impl Hub {
 
     /// A new client id for another connection of the program behind client `like` (an adopted link's tunnel, CLT-44).
     pub(crate) fn client_like(&self, like: u32) -> u32 {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.locked();
         let id = state.new_client_id();
         let peer_pid = state.clients.get(&like).and_then(|c| c.peer_pid);
         state.clients.insert(
@@ -940,7 +942,7 @@ impl Hub {
 
     /// Drops the claims whose ttl ran out (checked as the hub goes, so a lent device is returned on time).
     fn expire_claims(self: &Arc<Self>) {
-        let expired = self.state.lock().unwrap().claims.expire(Instant::now());
+        let expired = self.state.locked().claims.expire(Instant::now());
         self.claims_released(&expired);
     }
 
@@ -957,7 +959,7 @@ impl Hub {
             return Err(ww_hub_api::ClaimErrorOwned::UnknownDevice.into());
         }
         let (claimed, expired) = {
-            let mut state = self.state.lock().unwrap();
+            let mut state = self.state.locked();
             let expired = state.claims.expire(Instant::now());
             let new = claims::NewClaim {
                 key: key.clone(),
@@ -993,7 +995,7 @@ impl Hub {
             None => claims::Lend::default(),
         };
         let still = {
-            let mut state = self.state.lock().unwrap();
+            let mut state = self.state.locked();
             state.claims.set_lend(claim_id, lend);
             state.claims.lent(&key).is_some_and(|c| c.id == claim_id)
         };
@@ -1021,14 +1023,14 @@ impl Hub {
 
     /// The claim device `key` is lent out with, as `in use by ..` text.
     pub(crate) fn lent_to(&self, key: &str) -> Option<String> {
-        self.state.lock().unwrap().claims.lent(key).map(|c| c.by())
+        self.state.locked().claims.lent(key).map(|c| c.by())
     }
 
     /// Whether the hub leaves the clock of device `key` alone: a program holds the whole device (a root claim, a lend),
     /// e.g. for a firmware update (SRV-32).
     /// The hub's steering (SRV-31) asks it whenever claims change ([Hub::claims_changed]).
     pub(crate) fn steering_paused(&self, key: &str) -> bool {
-        self.state.lock().unwrap().claims.root_held(key)
+        self.state.locked().claims.root_held(key)
     }
 
     /// `Claims::claim` of client `id` (SRV-34): what the resource is comes from the device's API, so the device is
@@ -1044,7 +1046,7 @@ impl Hub {
         // a lent device isn't opened for its API: the lend is in the way of everyone else, its own holder may claim
         // its root again
         let lent = {
-            let state = self.state.lock().unwrap();
+            let state = self.state.locked();
             let owner = owner_of(&state, id);
             match state.claims.lent(&key) {
                 Some(c) if c.owner != owner => {
@@ -1073,7 +1075,7 @@ impl Hub {
             }
         };
         let resource = claims::resolve(bundle.as_deref(), &path)?;
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.locked();
         let expired = state.claims.expire(Instant::now());
         let new = claims::NewClaim {
             key: key.clone(),
@@ -1107,7 +1109,7 @@ impl Hub {
         id: u32,
         claim: u32,
     ) -> Result<(), ww_hub_api::ReleaseError> {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.locked();
         let owner = owner_of(&state, id);
         let gone = state.claims.release(&owner, claim)?;
         drop(state);
@@ -1117,7 +1119,7 @@ impl Hub {
 
     /// `Claims::claims`: the ones held on `key`.
     pub(crate) fn claims_on(self: &Arc<Self>, key: &str) -> Vec<ww_hub_api::ClaimEntryOwned> {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.locked();
         let expired = state.claims.expire(Instant::now());
         let entries = state
             .claims
@@ -1135,7 +1137,7 @@ impl Hub {
             .as_ref()
             .map(|m| m.program.to_string())
             .unwrap_or_default();
-        if let Some(c) = self.state.lock().unwrap().clients.get_mut(&id) {
+        if let Some(c) = self.state.locked().clients.get_mut(&id) {
             c.meta = meta;
         }
         let _ = self
@@ -1146,8 +1148,7 @@ impl Hub {
     /// The slot of the device behind `key`, made on first use.
     pub(crate) fn device_slot(&self, key: &str) -> device::Slot {
         self.devices
-            .lock()
-            .unwrap()
+            .locked()
             .entry(key.to_string())
             .or_default()
             .clone()
@@ -1156,7 +1157,7 @@ impl Hub {
     /// How long the device `key` stays open after its last tunnel left: [HubConfig::linger], or
     /// [HubConfig::sync_linger] while the hub steers its clock; `None` forever.
     pub(crate) fn linger_for(&self, key: &str) -> Option<Duration> {
-        let steering = self.steering.lock().unwrap();
+        let steering = self.steering.locked();
         match steering.steering(key) {
             true => steering.linger.map(|l| l.max(self.linger)),
             false => Some(self.linger),
@@ -1165,7 +1166,7 @@ impl Hub {
 
     /// The lingers changed: every open device's task looks at its own again.
     pub(crate) async fn recheck_lingers(&self) {
-        let slots: Vec<_> = self.devices.lock().unwrap().values().cloned().collect();
+        let slots: Vec<_> = self.devices.locked().values().cloned().collect();
         for slot in slots {
             if let Some(handle) = slot.lock().await.as_ref() {
                 let _ = handle.tx.send(device::ToDevice::Recheck);
@@ -1174,7 +1175,7 @@ impl Hub {
     }
 
     pub(crate) fn device_opened(&self, key: &str) {
-        self.state.lock().unwrap().open.insert(key.to_string(), 0);
+        self.state.locked().open.insert(key.to_string(), 0);
         let _ = self.events.send(ww_hub_api::EventOwned::Opened {
             key: key.to_string(),
         });
@@ -1182,7 +1183,7 @@ impl Hub {
 
     pub(crate) fn device_closed(&self, key: &str) {
         sync::stop(self, key);
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.locked();
         state.open.remove(key);
         state.last_active = Instant::now();
         drop(state);
@@ -1192,7 +1193,7 @@ impl Hub {
     }
 
     pub(crate) fn tunnels_changed(&self, key: &str, tunnels: usize) {
-        if let Some(n) = self.state.lock().unwrap().open.get_mut(key) {
+        if let Some(n) = self.state.locked().open.get_mut(key) {
             *n = tunnels as u32;
         }
     }
@@ -1229,7 +1230,7 @@ impl Hub {
     }
 
     pub(crate) fn keep(&self, seconds: u32) {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.locked();
         state.keep_until =
             (seconds > 0).then(|| Instant::now() + Duration::from_secs(seconds as u64));
     }
@@ -1363,7 +1364,7 @@ struct ConnectionGuard(Arc<Hub>);
 
 impl ConnectionGuard {
     fn new(hub: Arc<Hub>) -> Self {
-        hub.state.lock().unwrap().connections += 1;
+        hub.state.locked().connections += 1;
         ConnectionGuard(hub)
     }
 }

@@ -18,6 +18,7 @@
 
 mod columns;
 mod convert;
+mod locked;
 mod observe;
 mod opaque;
 mod positioned;

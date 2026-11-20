@@ -1,6 +1,7 @@
 //! The devices the hub knows: WireWeaver USB devices plugged in (enumerated, not opened) and who holds them (the
 //! CLT-38 lock files), with `Plugged` / `Unplugged` / `HolderChanged` events.
 
+use crate::locked::Locked;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::{Duration, UNIX_EPOCH};
@@ -84,7 +85,7 @@ pub(crate) async fn entries(hub: &Hub) -> Vec<DeviceEntryOwned> {
         }
     }
     // what the hub holds itself: open, with its tunnels, whatever its own lock file says
-    let open = hub.state.lock().unwrap().open.clone();
+    let open = hub.state.locked().open.clone();
     for (key, tunnels) in open {
         let entry = entries
             .iter_mut()
@@ -115,7 +116,7 @@ pub(crate) async fn entries(hub: &Hub) -> Vec<DeviceEntryOwned> {
     }
     // lent out (SRV-32): closed by the hub, maybe held by a tool that writes no lock file
     let lent: Vec<_> = {
-        let state = hub.state.lock().unwrap();
+        let state = hub.state.locked();
         state
             .claims
             .lent_out()

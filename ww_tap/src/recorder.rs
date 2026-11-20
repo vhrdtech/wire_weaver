@@ -23,6 +23,7 @@
 //! Record times are nanoseconds of the recorder's own clock ([HOST_CLOCK], origin the recorder's start); a definition
 //! maps it to the wall clock ([WALL_CLOCK]) read once at the start.
 
+use crate::locked::Locked;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, Weak, mpsc};
 use std::time::{Duration, Instant, SystemTime};
@@ -308,7 +309,7 @@ impl Clock {
     fn now(&self) -> Duration {
         match self {
             Clock::Real(t0) => t0.elapsed(),
-            Clock::Fake(t) => *t.lock().unwrap(),
+            Clock::Fake(t) => *t.locked(),
         }
     }
 }
@@ -421,7 +422,7 @@ impl Recorder {
             flusher: Mutex::new(None),
             config,
         });
-        Inner::define_clocks(&mut inner.state.lock().unwrap(), wall_ns_at_zero);
+        Inner::define_clocks(&mut inner.state.locked(), wall_ns_at_zero);
         if inner.config.background_flush {
             let weak = Arc::downgrade(&inner);
             let flush_time = inner.config.flush_time;
@@ -429,7 +430,7 @@ impl Recorder {
                 .name("ww-tap-flush".into())
                 .spawn(move || flush_thread(weak, flush_time))
                 .expect("spawn the tap flush thread");
-            *inner.flusher.lock().unwrap() = Some(handle.thread().clone());
+            *inner.flusher.locked() = Some(handle.thread().clone());
         }
         Recorder { inner }
     }
@@ -451,7 +452,7 @@ impl Recorder {
 
     /// A new link: its tracks are added, records go through the returned [Tap].
     pub fn link(&self) -> RecorderLink {
-        let mut st = self.inner.state.lock().unwrap();
+        let mut st = self.inner.state.locked();
         let id = st.links.len() as u32;
         st.links.push(LinkState {
             session: None,
@@ -471,7 +472,7 @@ impl Recorder {
 
     /// Define an API bundle (the tap's own types, a device's API), by its hash; once per hash.
     pub fn add_bundle(&self, hash: &[u8], bytes: &[u8]) {
-        let mut st = self.inner.state.lock().unwrap();
+        let mut st = self.inner.state.locked();
         if st.defs.bundle(hash).is_some() {
             return;
         }
@@ -513,7 +514,7 @@ impl Recorder {
 
     /// What each consumer missed so far and whether it is behind now.
     pub fn consumers(&self) -> Vec<ConsumerStats> {
-        let st = self.inner.state.lock().unwrap();
+        let st = self.inner.state.locked();
         st.sinks.iter().map(|s| s.missed.stats(s.id)).collect()
     }
 
@@ -533,7 +534,7 @@ impl Recorder {
 
     /// Hand over the current block now, if it has records.
     pub fn flush(&self) {
-        let mut st = self.inner.state.lock().unwrap();
+        let mut st = self.inner.state.locked();
         self.inner.flush_current(&mut st);
     }
 
@@ -563,7 +564,7 @@ impl Inner {
     }
 
     fn add_sink(&self, layers: Layers, kind: SinkKind, missed: Arc<Missed>) -> u64 {
-        let mut st = self.state.lock().unwrap();
+        let mut st = self.state.locked();
         let id = st.next_sink;
         st.next_sink += 1;
         st.sinks.push(Sink {
@@ -581,7 +582,7 @@ impl Inner {
     }
 
     fn unsubscribe(&self, id: u64) {
-        let mut st = self.state.lock().unwrap();
+        let mut st = self.state.locked();
         st.sinks.retain(|s| s.id != id);
         self.update_layers(&st);
     }
@@ -595,7 +596,7 @@ impl Inner {
 
     /// Returns how long until the next flush is due, None if nothing is pending.
     fn poll_flush(&self) -> Option<Duration> {
-        let mut st = self.state.lock().unwrap();
+        let mut st = self.state.locked();
         let now = self.clock.now();
         let first_at = st.current.as_ref().map(|c| c.first_at)?;
         let due = first_at + self.config.flush_time;
@@ -640,7 +641,7 @@ impl Inner {
             buf,
             first_at: self.clock.now(),
         });
-        if let Some(t) = self.flusher.lock().unwrap().as_ref() {
+        if let Some(t) = self.flusher.locked().as_ref() {
             t.unpark();
         }
         // records lost while no block was free, on their links
@@ -678,7 +679,7 @@ impl Inner {
     }
 
     fn record<T: SerializeShrinkWrap>(&self, track: u32, item: &T) {
-        let mut st = self.state.lock().unwrap();
+        let mut st = self.state.locked();
         let st = &mut *st;
         let now = self.now();
         // the newest session of a link is kept whether anyone listens or not, and put: after the records before it
@@ -1239,7 +1240,7 @@ impl Drop for LinkShared {
         if let Some(inner) = self.recorder.upgrade() {
             // the stream says so, in a block handed over while the link's tracks are still defined
             inner.record(track_number(self.link, ids::EVENTS), &LinkEvent::Closed);
-            let mut st = inner.state.lock().unwrap();
+            let mut st = inner.state.locked();
             inner.flush_current(&mut st);
             Inner::close_link(&mut st, self.link);
         }
@@ -1350,7 +1351,7 @@ impl Tap for RecorderLink {
 impl RecorderLink {
     pub fn link_ready(&mut self, device_info: &[u8]) {
         let session = {
-            let st = self.recorder.inner.state.lock().unwrap();
+            let st = self.recorder.inner.state.locked();
             st.links[self.link as usize]
                 .session
                 .as_ref()

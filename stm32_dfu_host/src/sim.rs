@@ -6,6 +6,7 @@
 //! [SimStm32Dfu] is a cheap handle: clone it to keep looking at the flash and the leave request while [crate::Dfuse]
 //! owns another clone.
 
+use crate::locked::Locked;
 use std::sync::{Arc, Mutex};
 
 use crate::io::{DfuIo, IoError};
@@ -79,12 +80,12 @@ impl SimStm32Dfu {
 
     /// The serial number the device shows, see [crate::rom_serial].
     pub fn serial(&self) -> String {
-        crate::rom_serial(self.state.lock().unwrap().uid)
+        crate::rom_serial(self.state.locked().uid)
     }
 
     /// Put bytes into memory as if they had been there (a bootloader already in flash).
     pub fn preload(&self, addr: u32, data: &[u8]) {
-        let mut s = self.state.lock().unwrap();
+        let mut s = self.state.locked();
         for (i, b) in data.iter().enumerate() {
             let at = addr + i as u32;
             *s.byte(at).expect("preload inside memory") = *b;
@@ -93,7 +94,7 @@ impl SimStm32Dfu {
 
     /// `len` bytes of memory at `addr`.
     pub fn memory(&self, addr: u32, len: usize) -> Vec<u8> {
-        let mut s = self.state.lock().unwrap();
+        let mut s = self.state.locked();
         (0..len as u32)
             .map(|i| *s.byte(addr + i).expect("inside memory"))
             .collect()
@@ -101,17 +102,17 @@ impl SimStm32Dfu {
 
     /// Sectors erased so far, in order.
     pub fn erased(&self) -> Vec<u32> {
-        self.state.lock().unwrap().erased.clone()
+        self.state.locked().erased.clone()
     }
 
     /// The address the host asked to jump to when it left DFU mode, `None` while the device is still in DFU.
     pub fn left(&self) -> Option<u32> {
-        self.state.lock().unwrap().left
+        self.state.locked().left
     }
 
     /// Reset the device into the bootloader again: DFU idle, flash and the erase log kept.
     pub fn reset(&self) {
-        let mut s = self.state.lock().unwrap();
+        let mut s = self.state.locked();
         s.state = State::DfuIdle;
         s.status = DfuStatus::Ok;
         s.pending = None;
@@ -121,12 +122,12 @@ impl SimStm32Dfu {
 
     /// The bootloader version byte in system memory at [ROM_ID_ADDR] (`0x93` by default).
     pub fn set_version(&self, version: u8) {
-        self.state.lock().unwrap().version = version;
+        self.state.locked().version = version;
     }
 
     /// Flip the lowest bit of the byte at `addr` as soon as it is programmed, so a read-back differs.
     pub fn corrupt_on_write(&self, addr: u32) {
-        self.state.lock().unwrap().corrupt = Some(addr);
+        self.state.locked().corrupt = Some(addr);
     }
 }
 
@@ -194,7 +195,7 @@ impl Sim {
 
 impl DfuIo for SimStm32Dfu {
     async fn control_out(&mut self, request: u8, value: u16, data: &[u8]) -> Result<(), IoError> {
-        let mut s = self.state.lock().unwrap();
+        let mut s = self.state.locked();
         if s.gone {
             return Err(IoError::Disconnected);
         }
@@ -245,7 +246,7 @@ impl DfuIo for SimStm32Dfu {
         value: u16,
         len: usize,
     ) -> Result<Vec<u8>, IoError> {
-        let mut s = self.state.lock().unwrap();
+        let mut s = self.state.locked();
         if s.gone {
             return Err(IoError::Disconnected);
         }

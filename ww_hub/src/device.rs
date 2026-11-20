@@ -7,6 +7,7 @@
 //! goes to the clients that opened them; observed properties are merged from every client's settings; introspection
 //! is fetched once and answered from the cache after.
 
+use crate::locked::Locked;
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
@@ -259,7 +260,7 @@ pub(crate) async fn adopt(
     // the device answers the program's requests in flight in the first frames: their tunnel and the router are in
     // place before the event loop reads
     let (router, routes, sink) = wiring();
-    routes.tunnels.lock().unwrap().insert(tunnel, queue.clone());
+    routes.tunnels.locked().insert(tunnel, queue.clone());
     let cmd = match wire_weaver_client::PreparedConnection::<Raw>::new(config)
         .adopt(adopted, Box::new(router))
         .await
@@ -389,7 +390,7 @@ struct Routes {
 
 impl Routes {
     fn queue(&self, tunnel: u32) -> Option<Arc<TunnelQueue>> {
-        self.tunnels.lock().unwrap().get(&tunnel).cloned()
+        self.tunnels.locked().get(&tunnel).cloned()
     }
 
     fn tagged(&self) -> std::sync::MutexGuard<'_, HashMap<u64, (u32, u32)>> {
@@ -628,7 +629,7 @@ impl Device {
     /// go to the device.
     fn refused(&self, state: &mut State, id: u32, bytes: &[u8]) -> Option<(u32, Vec<u8>)> {
         let owner = {
-            let hub = self.hub.state.lock().unwrap();
+            let hub = self.hub.state.locked();
             if !hub.claims.any_on(&self.key) {
                 return None;
             }
@@ -659,7 +660,7 @@ impl Device {
             Err(()) => (claims::Access::Call, Target::Anywhere),
         };
         let by = {
-            let mut hub = self.hub.state.lock().unwrap();
+            let mut hub = self.hub.state.locked();
             let expired = hub.claims.expire(Instant::now());
             let by = hub
                 .claims
@@ -855,7 +856,7 @@ impl State {
         match msg {
             ToDevice::Join { id, queue } => {
                 self.tunnels.insert(id, queue.clone());
-                self.routes.tunnels.lock().unwrap().insert(id, queue);
+                self.routes.tunnels.locked().insert(id, queue);
             }
             ToDevice::Leave { id } => self.leave(id)?,
             ToDevice::Keep => self.keep = true,
@@ -1097,7 +1098,7 @@ impl State {
 
     fn leave(&mut self, id: u32) -> Result<(), ()> {
         self.tunnels.remove(&id);
-        self.routes.tunnels.lock().unwrap().remove(&id);
+        self.routes.tunnels.locked().remove(&id);
         if self.loopback_owner == Some(id) {
             self.loopback_owner = None;
             self.routes.loopback_owner.store(0, Ordering::Relaxed);

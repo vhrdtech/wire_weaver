@@ -9,6 +9,7 @@
 //! (federation, SRV-33, has no trust model yet) may only start and stop. `discard` and `set_ram_max` need a part in
 //! the capture. Every list and string crossing the API is bounded by a constant of `ww_hub_api`.
 
+use crate::locked::Locked;
 use std::collections::BTreeMap;
 use std::future::Future;
 use std::io;
@@ -872,7 +873,7 @@ impl Drop for SaveRunning {
 impl crate::Hub {
     /// Who connection `connection` is for captures, and its client instance.
     pub(crate) fn caller(&self, connection: u32) -> (Owner, Caller) {
-        let state = self.state.lock().unwrap();
+        let state = self.state.locked();
         let owner = crate::owner_of(&state, connection);
         let relayed = state
             .clients
@@ -903,7 +904,7 @@ impl crate::Hub {
 
     /// An open connection of client instance `owner`, for `captures()`.
     pub(crate) fn live_connection(&self, owner: &Owner) -> Option<u32> {
-        let state = self.state.lock().unwrap();
+        let state = self.state.locked();
         state
             .clients
             .keys()

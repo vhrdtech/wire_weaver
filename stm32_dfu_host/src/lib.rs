@@ -12,6 +12,8 @@ mod client;
 pub mod image;
 mod io;
 pub mod layout;
+#[cfg(feature = "sim")]
+mod locked;
 pub mod proto;
 #[cfg(feature = "sim")]
 pub mod sim;

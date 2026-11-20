@@ -31,6 +31,7 @@ pub mod dir;
 pub mod fetch;
 pub mod file;
 pub mod limits;
+mod locked;
 mod resolver;
 pub mod rustc;
 mod set;

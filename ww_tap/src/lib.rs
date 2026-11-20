@@ -17,6 +17,8 @@
 use wire_weaver::prelude::*;
 
 #[cfg(feature = "std")]
+mod locked;
+#[cfg(feature = "std")]
 pub mod recorder;
 #[cfg(feature = "std")]
 pub use recorder::*;

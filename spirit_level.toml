@@ -261,15 +261,8 @@ crates = [
     "hub",
     "hub_reconnect",
     "local_trait",
-    "stm32_dfu_host",
     "tests_common",
     "thermo_devices",
-    "wire_weaver_cli",
-    "wire_weaver_client",
-    "wire_weaver_py",
-    "ww_hub",
-    "ww_snapshots",
-    "ww_tap",
 ]
 level = "allow"
 reason = "lock().unwrap(); P2401#20nov-1155c (locks and shared state) removes them"

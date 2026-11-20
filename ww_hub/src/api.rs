@@ -1,6 +1,7 @@
 //! The hub's own API (`ww_hub_api`) on one connection: a generated `no_alloc = false` server on `ww_device::Server`,
 //! over the connection whose preamble the hub already answered.
 
+use crate::locked::Locked;
 use std::sync::Arc;
 
 use interprocess::local_socket::tokio::{RecvHalf, SendHalf};
@@ -224,7 +225,7 @@ mod server {
             &mut self,
             _cx: &mut Context<'_, impl EventOut>,
         ) -> RpcResult<Vec<ClientEntryOwned>> {
-            let state = self.hub.state.lock().unwrap();
+            let state = self.hub.state.locked();
             RpcResult::Ready(
                 state
                     .clients
@@ -333,7 +334,7 @@ mod server {
             &mut self,
             _cx: &mut Context<'_, impl EventOut>,
         ) -> RpcResult<Vec<SyncEntryOwned>> {
-            RpcResult::Ready(self.hub.steering.lock().unwrap().entries())
+            RpcResult::Ready(self.hub.steering.locked().entries())
         }
 
         async fn sync_set_enabled(
@@ -342,11 +343,7 @@ mod server {
             key: Option<String>,
             on: bool,
         ) -> RpcResult<()> {
-            self.hub
-                .steering
-                .lock()
-                .unwrap()
-                .set_enabled(key.as_deref(), on);
+            self.hub.steering.locked().set_enabled(key.as_deref(), on);
             RpcResult::Ready(())
         }
 
@@ -355,7 +352,7 @@ mod server {
             _cx: &mut Context<'_, impl EventOut>,
             value: Option<u32>,
         ) -> SetResult<CommonError<'_>> {
-            self.hub.steering.lock().unwrap().linger =
+            self.hub.steering.locked().linger =
                 value.map(|s| std::time::Duration::from_secs(s as u64));
             self.hub.recheck_lingers().await;
             SetResult::Set
@@ -365,7 +362,7 @@ mod server {
             &mut self,
             _cx: &mut Context<'_, impl EventOut>,
         ) -> GetResult<Option<u32>, CommonError<'_>> {
-            let linger = self.hub.steering.lock().unwrap().linger;
+            let linger = self.hub.steering.locked().linger;
             GetResult::Value(linger.map(|l| l.as_secs().min(u32::MAX as u64) as u32))
         }
 

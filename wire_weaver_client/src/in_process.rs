@@ -49,6 +49,7 @@
 //! `WsPort` with `ww_device::ws`, as it would a TCP socket. As with simulated UDP, nothing waits in a kernel, so the
 //! paused clock decides the order in which both ends' frames go out.
 
+use crate::locked::Locked;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::{Arc, LazyLock, Mutex};
@@ -142,7 +143,7 @@ fn register(
     mpsc::UnboundedReceiver<Connection>,
 ) {
     let (connections_tx, connections) = mpsc::unbounded_channel();
-    DEVICES.lock().unwrap().insert(
+    DEVICES.locked().insert(
         path.to_string(),
         Registered {
             connections: connections_tx.clone(),
@@ -154,7 +155,7 @@ fn register(
 
 /// Unregister `path` if it is still registered to the device that owns `connections_tx`
 fn unregister(path: &str, connections_tx: &mpsc::UnboundedSender<Connection>) {
-    let mut devices = DEVICES.lock().unwrap();
+    let mut devices = DEVICES.locked();
     if devices
         .get(path)
         .is_some_and(|r| r.connections.same_channel(connections_tx))
@@ -165,7 +166,7 @@ fn unregister(path: &str, connections_tx: &mpsc::UnboundedSender<Connection>) {
 
 /// Paths of all registered devices.
 pub fn devices() -> Vec<String> {
-    DEVICES.lock().unwrap().keys().cloned().collect()
+    DEVICES.locked().keys().cloned().collect()
 }
 
 /// Error of [DeviceTx] and [DeviceRx]: the host disconnected or is not connected yet.
@@ -181,7 +182,7 @@ impl ww_device::MessageTx for DeviceTx {
     type Error = Disconnected;
 
     async fn write_message(&mut self, kind: u8, message: &[u8]) -> Result<(), Disconnected> {
-        let to_host = self.to_host.lock().unwrap().clone().ok_or(Disconnected)?;
+        let to_host = self.to_host.locked().clone().ok_or(Disconnected)?;
         to_host
             .send((kind, message.to_vec()))
             .map_err(|_| Disconnected)
@@ -222,7 +223,7 @@ impl ww_device::MessageRx for DeviceRx {
             }
             None => {
                 self.to_device = None;
-                *self.to_host.lock().unwrap() = None;
+                *self.to_host.locked() = None;
                 Err(Disconnected)
             }
         }
@@ -242,7 +243,7 @@ impl ww_device::MessageRx for DeviceRx {
         match self.connections.recv().await {
             Some(c) => {
                 self.to_device = Some(c.to_device);
-                *self.to_host.lock().unwrap() = Some(c.to_host);
+                *self.to_host.locked() = Some(c.to_host);
                 self.message = None;
             }
             // cannot happen, connections_tx is held by self
@@ -319,7 +320,7 @@ impl<F: UsbFramingProtocol> ww_device::PacketSink for UsbSink<F> {
             packet.len() <= self.max_packet_size,
             "packet longer than the endpoint's max packet size"
         );
-        let to_host = self.to_host.lock().unwrap().clone().ok_or(Disconnected)?;
+        let to_host = self.to_host.locked().clone().ok_or(Disconnected)?;
         to_host.send((0, packet.to_vec())).map_err(|_| Disconnected)
     }
 }
@@ -353,7 +354,7 @@ impl<F: UsbFramingProtocol> ww_device::PacketSource for UsbSource<F> {
             }
             None => {
                 self.to_device = None;
-                *self.to_host.lock().unwrap() = None;
+                *self.to_host.locked() = None;
                 Err(Disconnected)
             }
         }
@@ -363,7 +364,7 @@ impl<F: UsbFramingProtocol> ww_device::PacketSource for UsbSource<F> {
         match self.connections.recv().await {
             Some(c) => {
                 self.to_device = Some(c.to_device);
-                *self.to_host.lock().unwrap() = Some(c.to_host);
+                *self.to_host.locked() = Some(c.to_host);
             }
             // cannot happen, connections_tx is held by self
             None => core::future::pending().await,
@@ -427,12 +428,12 @@ impl ww_device::udp::DatagramSocket for UdpPort {
 
     /// A datagram to a host that is gone (or never was) is lost, as over UDP.
     async fn send_to(&self, datagram: &[u8], addr: UdpAddr) -> Result<(), Disconnected> {
-        let host = self.to_host.lock().unwrap().get(&addr).cloned();
+        let host = self.to_host.locked().get(&addr).cloned();
         if let Some(host) = host
             && host.send((0, datagram.to_vec())).is_err()
         {
             // addresses are never reused, so the entry is still this closed sender's
-            self.to_host.lock().unwrap().remove(&addr);
+            self.to_host.locked().remove(&addr);
         }
         Ok(())
     }
@@ -575,7 +576,7 @@ pub(crate) fn try_connect(
         bail!("Internal error: in-process selected without a path");
     };
     let registered = {
-        let devices = DEVICES.lock().unwrap();
+        let devices = DEVICES.locked();
         paths.iter().find(|p| devices.contains_key(*p)).cloned()
     };
     let Some(path) = registered else {
@@ -625,8 +626,7 @@ impl Transport for InProcessTransport {
             .downcast::<String>()
             .map_err(|_| "expected in-process device path".to_string())?;
         let (device, medium) = DEVICES
-            .lock()
-            .unwrap()
+            .locked()
             .get(path.as_str())
             .map(|r| (r.connections.clone(), r.medium.clone()))
             .ok_or_else(|| format!("in-process device '{path}' is gone"))?;
@@ -656,7 +656,7 @@ impl Transport for InProcessTransport {
                 static NEXT_ADDR: std::sync::atomic::AtomicU32 =
                     std::sync::atomic::AtomicU32::new(1);
                 let addr = UdpAddr(NEXT_ADDR.fetch_add(1, std::sync::atomic::Ordering::Relaxed));
-                hosts.to_host.lock().unwrap().insert(addr, to_host);
+                hosts.to_host.locked().insert(addr, to_host);
                 ToDevice::Udp(hosts.to_device.clone(), addr)
             }
             #[cfg(feature = "ws")]

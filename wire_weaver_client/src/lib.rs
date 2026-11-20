@@ -22,6 +22,7 @@ mod error;
 mod error_list;
 pub(crate) mod event_loop;
 mod keep_trying;
+mod locked;
 /// The evolution checker, now its own crate (EVO-11): `wire_weaver_evolution`.
 pub use wire_weaver_evolution as evolution;
 pub use ww_si;

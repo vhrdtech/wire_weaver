@@ -3,6 +3,7 @@
 
 use crate::complete;
 use crate::device::Selection;
+use crate::locked::Locked;
 use crate::registry::{BoxFuture, CommandDef, Connection, GlobalFlags, Ran, Run};
 use crate::untrusted::escape;
 use crate::util::{QuitKey, StopSignal};
@@ -213,7 +214,7 @@ pub(crate) async fn sync(
         let entries = entries.clone();
         tokio::spawn(async move {
             while let Ok(e) = stats.recv().await {
-                entries.lock().unwrap().insert(e.key.clone(), e);
+                entries.locked().insert(e.key.clone(), e);
             }
         });
     }
@@ -482,7 +483,7 @@ const HEADER: [&str; 11] = [
 
 /// Each device's view, `None` while nothing steers it, with a note (why not, or what went wrong).
 fn views(devices: &[Synced], entries: &HubEntries) -> Vec<(Option<View>, Option<String>)> {
-    let entries = entries.lock().unwrap();
+    let entries = entries.locked();
     devices
         .iter()
         .map(|d| {

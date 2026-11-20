@@ -2,6 +2,7 @@
 //! `DeviceInfo`, `LinkSetup` checked against its user API version by `ww_device`'s `DeviceLink`), requests handed to
 //! the device's task, and a queue of what the device's task sends back.
 
+use crate::locked::Locked;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -59,8 +60,7 @@ impl TunnelQueue {
     /// An event the client waits for (a reply) or must not miss (a sideband): never dropped.
     pub(crate) fn push(&self, kind: Kind, bytes: Vec<u8>) {
         self.inner
-            .lock()
-            .unwrap()
+            .locked()
             .items
             .push_back((kind as u8, bytes, false));
         self.notify.notify_one();
@@ -68,7 +68,7 @@ impl TunnelQueue {
 
     /// Stream data or a property update: dropped when the client is [QUEUE_DATA_BYTES] behind.
     pub(crate) fn push_data(&self, bytes: Vec<u8>) {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.locked();
         if inner.data_bytes + bytes.len() > QUEUE_DATA_BYTES {
             inner.dropped += 1;
             if inner.dropped.is_power_of_two() {
@@ -86,14 +86,14 @@ impl TunnelQueue {
     }
 
     pub(crate) fn close(&self) {
-        self.inner.lock().unwrap().closed = true;
+        self.inner.locked().closed = true;
         self.notify.notify_one();
     }
 
     /// [Self::close], the device lent to a program outside the hub: the client's `Disconnect` carries
     /// [ww_local_socket::DISCONNECT_LENT].
     pub(crate) fn close_lent(&self) {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.locked();
         inner.closed = true;
         inner.lent = true;
         drop(inner);
@@ -102,12 +102,12 @@ impl TunnelQueue {
 
     /// Stream events dropped so far.
     pub(crate) fn dropped(&self) -> u64 {
-        self.inner.lock().unwrap().dropped
+        self.inner.locked().dropped
     }
 
     /// What is queued, and the reason to disconnect with once it is out if the device is gone.
     fn take(&self) -> (Vec<Item>, Option<DisconnectReason>) {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.locked();
         inner.data_bytes = 0;
         let items = inner.items.drain(..).collect();
         let closed = inner.closed.then_some(match inner.lent {

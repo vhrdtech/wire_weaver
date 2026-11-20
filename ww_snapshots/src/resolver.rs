@@ -5,12 +5,13 @@ use crate::cache;
 use crate::cargo::{self, CargoSources};
 use crate::dir::Dir;
 use crate::file;
+use crate::locked::{Locked, RwLocked};
 use crate::set::Set;
 use anyhow::Result;
 use elsa::sync::FrozenMap;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, MutexGuard, OnceLock, RwLock};
+use std::sync::{Arc, Mutex, OnceLock, RwLock};
 use tracing::{debug, warn};
 use ww_self::ApiBundleOwned;
 use ww_self::definition_cache::{self, Kind};
@@ -43,24 +44,14 @@ static LOCAL: OnceLock<Resolver> = OnceLock::new();
 /// Registers a set for [Resolver::global] and every resolver built with [Resolver::with_embedded]: the application
 /// calls it at start with the `static` its build script wrote ([crate::embed]).
 pub fn embed(set: &'static Set) {
-    EMBEDDED
-        .write()
-        .expect("the embedded sets lock is poisoned")
-        .push(set);
+    EMBEDDED.write_locked().push(set);
     for resolver in [GLOBAL.get(), LOCAL.get()].into_iter().flatten() {
         resolver.forget_misses();
     }
 }
 
 fn embedded() -> Vec<&'static Set> {
-    EMBEDDED
-        .read()
-        .expect("the embedded sets lock is poisoned")
-        .clone()
-}
-
-fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
-    mutex.lock().expect("a resolver lock is poisoned")
+    EMBEDDED.read_locked().clone()
 }
 
 /// One source of the chain, in the order the resolver was built.
@@ -343,7 +334,7 @@ impl Resolver {
             );
             return None;
         }
-        if lock(&self.missing).contains(version) {
+        if self.missing.locked().contains(version) {
             return None;
         }
         match self.every_snapshot(version, true).into_iter().next() {
@@ -353,11 +344,11 @@ impl Resolver {
                     version.crate_id,
                     file::triplet(&version.version)
                 );
-                lock(&self.origins).insert(version.clone(), origin);
+                self.origins.locked().insert(version.clone(), origin);
                 Some(self.memo.insert(version.clone(), Box::new(bundle)))
             }
             None => {
-                lock(&self.missing).insert(version.clone());
+                self.missing.locked().insert(version.clone());
                 None
             }
         }
@@ -365,7 +356,7 @@ impl Resolver {
 
     /// Where the snapshot of `version` came from, once [Self::snapshot] found it.
     pub fn origin(&self, version: &FullVersionOwned) -> Option<Origin> {
-        lock(&self.origins).get(version).cloned()
+        self.origins.locked().get(version).cloned()
     }
 
     /// The message of `version`'s read error, when [Self::snapshot] answered `None` for it not because no source
@@ -374,16 +365,16 @@ impl Resolver {
     /// [mod@crate::file]); a caller about to treat [Self::snapshot]'s `None` as "nothing known, safe to leave
     /// in-line" must check here first and refuse instead of silently inlining the dependency's whole API.
     pub fn read_error(&self, version: &FullVersionOwned) -> Option<String> {
-        lock(&self.read_errors).get(version).cloned()
+        self.read_errors.locked().get(version).cloned()
     }
 
     /// Forgets which versions had no snapshot, so the next lookup tries the sources again (a set was embedded, a
     /// file arrived).
     pub fn forget_misses(&self) {
-        lock(&self.missing).clear();
-        lock(&self.cargo_dirs).clear();
-        lock(&self.fetched).clear();
-        lock(&self.read_errors).clear();
+        self.missing.locked().clear();
+        self.cargo_dirs.locked().clear();
+        self.fetched.locked().clear();
+        self.read_errors.locked().clear();
     }
 
     /// The snapshot of `version` in every source that has one, in chain order; only the first with `first`. A hit
@@ -458,7 +449,9 @@ impl Resolver {
             Ok(found) => found,
             Err(e) => {
                 warn!("{e:#}");
-                lock(&self.read_errors).insert(version.clone(), format!("{e:#}"));
+                self.read_errors
+                    .locked()
+                    .insert(version.clone(), format!("{e:#}"));
                 None
             }
         }
@@ -492,22 +485,26 @@ impl Resolver {
         version: &FullVersionOwned,
     ) -> Vec<PathBuf> {
         let key = (index, version.clone());
-        if let Some(dirs) = lock(&self.cargo_dirs).get(&key) {
+        if let Some(dirs) = self.cargo_dirs.locked().get(&key) {
             return dirs.clone();
         }
         let dirs = self.find_cargo_dirs(index, scan, version);
-        lock(&self.cargo_dirs).insert(key, dirs.clone());
+        self.cargo_dirs.locked().insert(key, dirs.clone());
         dirs
     }
 
     /// What source `index` finds under `home`, scanned once (outside the lock: two threads may both scan, one keeps
     /// its result).
     fn fetched(&self, index: usize, home: &Path) -> Arc<cargo::Fetched> {
-        if let Some(fetched) = lock(&self.fetched).get(&index) {
+        if let Some(fetched) = self.fetched.locked().get(&index) {
             return fetched.clone();
         }
         let fetched = Arc::new(cargo::Fetched::scan(home));
-        lock(&self.fetched).entry(index).or_insert(fetched).clone()
+        self.fetched
+            .locked()
+            .entry(index)
+            .or_insert(fetched)
+            .clone()
     }
 
     fn find_cargo_dirs(

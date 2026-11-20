@@ -17,6 +17,7 @@
 //! - device → host: [PACKET] (an IN packet), [CLAIMED] (payload one byte: 0 granted, 1 held by another host),
 //!   [RELEASED] (nothing more comes for this host after it, every IN packet sent before it was for this host).
 
+use crate::locked::Locked;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
@@ -108,7 +109,7 @@ impl UsbSimControl {
     /// Another program claims the interface (and takes the IN packets, they are dropped) until [Self::ungrab]:
     /// hosts' claims are refused meanwhile. False when a host holds it now.
     pub fn grab(&self) -> bool {
-        let mut holder = self.0.holder.lock().unwrap();
+        let mut holder = self.0.holder.locked();
         if holder.is_some() {
             return false;
         }
@@ -122,7 +123,7 @@ impl UsbSimControl {
 
     /// The other program of [Self::grab] lets the interface go.
     pub fn ungrab(&self) {
-        let mut holder = self.0.holder.lock().unwrap();
+        let mut holder = self.0.holder.locked();
         if holder.as_ref().is_some_and(|h| h.0 == FOREIGN) {
             *holder = None;
             drop(holder);
@@ -132,7 +133,7 @@ impl UsbSimControl {
 
     /// Whether a host holds the interface now.
     pub fn held(&self) -> bool {
-        self.0.holder.lock().unwrap().is_some()
+        self.0.holder.locked().is_some()
     }
 }
 
@@ -254,7 +255,7 @@ async fn serve_host(
         let _ = writer.shutdown().await;
     });
     let mut reader = MessageReader::new(rx, MAX_PACKET);
-    let holds = |bus: &Bus| bus.holder.lock().unwrap().as_ref().map(|h| h.0) == Some(id);
+    let holds = |bus: &Bus| bus.holder.locked().as_ref().map(|h| h.0) == Some(id);
     while reader.wait_message().await.is_ok() {
         let (kind, bytes) = reader.message().expect("a message was just received");
         match kind {
@@ -291,7 +292,7 @@ async fn serve_host(
                     }
                 }
                 let granted = {
-                    let mut holder = bus.holder.lock().unwrap();
+                    let mut holder = bus.holder.locked();
                     match holder.as_ref() {
                         Some((h, _)) if *h != id => false,
                         _ => {
@@ -311,7 +312,7 @@ async fn serve_host(
             }
             RELEASE => {
                 let released = {
-                    let mut holder = bus.holder.lock().unwrap();
+                    let mut holder = bus.holder.locked();
                     let ours = holder.as_ref().is_some_and(|h| h.0 == id);
                     if ours {
                         *holder = None;
@@ -331,7 +332,7 @@ async fn serve_host(
     }
     // the host is gone: its claim goes, as the kernel releases a closed usbfs file's interfaces
     let was_holder = {
-        let mut holder = bus.holder.lock().unwrap();
+        let mut holder = bus.holder.locked();
         let ours = holder.as_ref().is_some_and(|h| h.0 == id);
         if ours {
             *holder = None;
@@ -368,12 +369,12 @@ impl<F: UsbFramingProtocol> ww_device::PacketSink for UsbSink<F> {
             "packet longer than the endpoint's max packet size"
         );
         loop {
-            let holder = self.bus.holder.lock().unwrap().clone();
+            let holder = self.bus.holder.locked().clone();
             let sent = match holder {
                 Some((id, to_host)) => {
                     let sent = to_host.send((PACKET, packet.to_vec())).is_ok();
                     if !sent {
-                        let mut holder = self.bus.holder.lock().unwrap();
+                        let mut holder = self.bus.holder.locked();
                         // a new host may have claimed the interface in between: release only the gone one
                         if holder.as_ref().is_some_and(|h| h.0 == id) {
                             *holder = None;

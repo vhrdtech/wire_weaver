@@ -19,7 +19,7 @@ embassy-executor = { version = "0.10", features = [
     "platform-cortex-m",
     "executor-thread",
     "executor-interrupt",
-    "defmt"
+    "defmt",
 ] }
 embassy-time = { version = "0.5.0", features = ["defmt", "defmt-timestamp-uptime", "tick-hz-32_768"] }
 embassy-sync = { version = "0.8", features = ["defmt"] }

@@ -50,6 +50,7 @@ authors = ["Roman Isaikin <romix.lab@gmail.com>"]
 description = "WireWeaver is a wire format and API code generator for resource constrained systems."
 edition = "2024"
 repository = "https://github.com/vhrdtech/wire_weaver"
+homepage = "https://ww.vhrd.tech/"
 license = "MIT"
 
 [workspace.lints.cargo]

@@ -18,8 +18,8 @@ module-name = "wire_weaver"
 [tool.uv]
 # Rebuild the module when any Rust source of the workspace changes
 cache-keys = [
-  { file = "pyproject.toml" },
-  { file = "Cargo.toml" },
-  { file = "../../**/*.rs" },
-  { file = "../../Cargo.lock" },
+    { file = "pyproject.toml" },
+    { file = "Cargo.toml" },
+    { file = "../../**/*.rs" },
+    { file = "../../Cargo.lock" },
 ]

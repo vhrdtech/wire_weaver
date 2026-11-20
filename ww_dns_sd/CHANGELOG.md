@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### 📚 Documentation
+
+- A fixed broken doc link in the crate docs (`AvahiResponder`, behind the `avahi` feature).
+
 ### ⚠️ Breaking
 
 - Declares `rust-version = "1.99"`: cargo of an older Rust refuses the crate.

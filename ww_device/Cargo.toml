@@ -11,6 +11,7 @@ license.workspace = true
 
 [features]
 default = []
+# defmt formatting for the device side's types
 defmt = ["dep:defmt", "wire_weaver/defmt", "ww_link/defmt", "embassy-net?/defmt"]
 # Log through the `log` crate, e.g., on std (`defmt` takes precedence if both are enabled)
 log = ["dep:log"]

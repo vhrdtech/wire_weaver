@@ -1,5 +1,9 @@
 ## Unreleased
 
+### 📚 Documentation
+
+- A README and a comment on the `std` and `defmt` features.
+
 ### ⚙️ Miscellaneous Tasks
 
 - Crate moved from `ww_stdlib/ww_timebase` to the repo root, beside `ww_link` and `ww_framer` (architecture-layers.md R5): framework by content, not a standard API. Name and version unchanged; `repository` now points at `wire_weaver` instead of `ww_stdlib`.

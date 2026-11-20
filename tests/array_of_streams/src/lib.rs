@@ -1,3 +1,5 @@
+//! Tests of `array_of_streams_api`'s server dispatch: nested arrays of sub-traits, each carrying a plain
+//! stream and an array of streams.
 #[cfg(test)]
 mod tests {
     use wire_weaver::prelude::*;

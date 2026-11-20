@@ -1,3 +1,5 @@
+//! Test API of the dynamic client tests (`tests/dynamic`): every kind of type the dynamic serializer supports,
+//! methods, properties and a sub-trait array.
 use ww_api::prelude::*;
 
 /// API used by the dynamic client tests, covers every kind of type the dynamic serializer supports.

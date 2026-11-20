@@ -1,3 +1,5 @@
+//! The blinky example API in a later version: `blinky_api` with `led_toggle` added `#[since = "w1.1"]`, for the
+//! evolution checks (old firmware against a new client, and the other way round).
 #![no_std]
 
 use ww_api::prelude::*;

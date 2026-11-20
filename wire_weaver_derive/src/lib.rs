@@ -1,3 +1,7 @@
+//! The proc-macro side of the codegen pipeline: `ww_trait`/`ww_api_root` walk a trait and emit a Rust trait for
+//! rustdoc plus its `*_FULL_GID`/`*_COMPACT_GID`/`*_WIRE_VERSION` consts; `ww_codegen!`/`ww_impl!` re-parse the
+//! marked trait's source and emit server or client code; `full_version!`/`compact_version!` read a crate's own
+//! version at compile time.
 use proc_macro::TokenStream;
 use syn::parse_macro_input;
 

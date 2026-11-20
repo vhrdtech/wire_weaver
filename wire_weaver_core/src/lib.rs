@@ -1,3 +1,7 @@
+//! The codegen pipeline behind `ww_codegen!`/`ww_impl!`: [`transform`] turns a trait's source into an AST,
+//! walking and re-parsing dependency crates on the way; [`codegen`] emits server, client and type code from it;
+//! [`method_model`]/[`property_model`] parse the `"pattern=keyword"` DSL. [`gen_client`]/[`gen_server`] are the
+//! entry points a `build.rs` calls.
 // `proc_macro::is_available`: whether the walker runs inside a proc macro (its parse cache)
 extern crate proc_macro;
 

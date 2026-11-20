@@ -1,3 +1,5 @@
+//! Test API of `tests/array_of_streams`: nested arrays of sub-traits (`gpio[]`, `periph[].channel[]`) each
+//! carrying a plain stream and an array of streams, to check stream dispatch through array indices.
 use ww_api::prelude::*;
 
 #[ww_trait]

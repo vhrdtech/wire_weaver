@@ -10,6 +10,7 @@ repository.workspace = true
 
 [features]
 default = ["std"]
+# default, unused here: this crate has no no_std gate and no owned/borrowed derive choice
 std = []
 
 [dev-dependencies]

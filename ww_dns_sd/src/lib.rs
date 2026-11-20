@@ -7,7 +7,7 @@
 //!
 //! - [MdnsResponder] (feature `mdns`, on by default): in-process, the `mdns-sd` crate on its own thread, nothing
 //!   to install.
-//! - [AvahiResponder] (feature `avahi`): the system's Avahi daemon over D-Bus, where an in-process responder can't
+//! - `AvahiResponder` (feature `avahi`): the system's Avahi daemon over D-Bus, where an in-process responder can't
 //!   run.
 //!
 //! [start_responder] picks one. Nothing here needs an async runtime: calls block briefly, on any thread or task.

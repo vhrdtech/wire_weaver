@@ -1,3 +1,5 @@
+//! Test API of `tests/methods`: one method per dispatch shape (plain, user-defined types, deferred, bit-sized
+//! arguments, fallible, context-visible seq/medium), to test method dispatch end to end.
 use ww_api::prelude::*;
 
 #[ww_api_root]

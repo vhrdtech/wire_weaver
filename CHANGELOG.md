@@ -171,6 +171,8 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - The evolution checker and `ww api` walk a dependency's checkout by the current workspace's Cargo.lock, not the checkout's own; see `ww_snapshots`.
 - The `minimal-shrink-wrap` example's package renames to `minimal_shrink_wrap`, matching every other crate's underscore convention.
 - The README carries a generated crate table and a crates.io/docs.rs badge for every published crate, plus a book badge.
+- Every crate has a README, crate-level docs, and a comment on every cargo feature; see each crate's own changelog.
+- `cargo doc --workspace --no-deps` builds without warnings: six stale intra-doc links to feature-gated items now read as plain code.
 
 ### Added
 

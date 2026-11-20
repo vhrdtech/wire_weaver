@@ -1,3 +1,5 @@
+//! Tests of `streams_api`'s basic stream and sink dispatch: plain streams and sinks, user-defined item types,
+//! an array of streams, and sideband values.
 #[cfg(test)]
 mod tests {
     use std::sync::atomic::{AtomicBool, Ordering};

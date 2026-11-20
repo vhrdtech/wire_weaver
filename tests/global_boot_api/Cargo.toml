@@ -11,6 +11,7 @@ description = "Test traits of CLT-10/API-20/SRV-53 (global trait paths): used by
 
 [features]
 default = ["std"]
+# turns no_std off, switches the derived types from borrowed to owned, and forwards std to ww_api
 std = ["ww_api/std"]
 
 [dependencies]

@@ -1,3 +1,5 @@
+//! Tests of `traits_api`'s trait composition and addressing: sub-traits nested, in arrays and
+//! shared/claimable through the hub, plus an optional root-level item.
 #[cfg(test)]
 mod tests {
     mod optional_traits;

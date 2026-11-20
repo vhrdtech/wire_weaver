@@ -14,7 +14,7 @@
 //! UDP transport docs for what happens on loss.
 //!
 //! [UdpSink] and [UdpSource] share the socket and the current peer through a [UdpConnection], datagram sockets are
-//! used through `&self`, so no locking is needed. With the `embassy-net` feature, [EmbassyNetUdpSocket] implements
+//! used through `&self`, so no locking is needed. With the `embassy-net` feature, `EmbassyNetUdpSocket` implements
 //! [DatagramSocket] on an `embassy-net` UDP socket, [udp_server] puts everything together.
 
 use core::cell::Cell;

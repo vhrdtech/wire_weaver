@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### 📚 Documentation
+
+- A README.
+
 ### 🚀 Features
 
 - `Recorder::tape_clock`: a `ww_tape::ClockRef` on the recorder's clock, so a storing writer syncs on fake time in tests.

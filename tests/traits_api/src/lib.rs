@@ -1,3 +1,5 @@
+//! Test API of `tests/traits`: sub-traits nested, in arrays and shared/claimable through the hub (SRV-34), plus
+//! an optional root-level item, to test trait composition and addressing.
 use ww_api::prelude::*;
 
 #[ww_api_root]

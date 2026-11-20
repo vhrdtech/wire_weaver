@@ -1,3 +1,4 @@
+//! API of the settings example: two properties kept across a reboot by `ww_settings`, see `examples/settings`.
 #![no_std]
 
 use ww_api::prelude::*;

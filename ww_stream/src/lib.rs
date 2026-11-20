@@ -1,4 +1,3 @@
-#![cfg_attr(not(any(feature = "std", test)), no_std)]
 //! Counted and reliable WireWeaver streams (API-30): positions in units, exact loss accounting, acknowledgements
 //! and go-back-N resends, stores that keep data while the host is slow or gone, and backfill after a reconnect with
 //! the latest values first. Design and reasons: `docs/api/stream_reliability.md`.
@@ -27,6 +26,7 @@
 //! the event loop reads the next event out of it into its own buffer ([Reliable::next_event](tx::Reliable::next_event)),
 //! then sends that buffer with the state released. Shared between tasks it sits behind the firmware's async mutex,
 //! held only for a push or a store read, never while the link is busy: a slow link never stalls a producer.
+#![cfg_attr(not(any(feature = "std", test)), no_std)]
 
 pub mod batch;
 #[cfg(feature = "streams")]

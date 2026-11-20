@@ -12,6 +12,7 @@ documentation = "https://vhrdtech.github.io/wire_weaver"
 
 [features]
 default = ["std"]
+# build shrink_wrap against std instead of no_std
 std = ["shrink_wrap/std"]
 
 [dependencies]

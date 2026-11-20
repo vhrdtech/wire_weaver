@@ -15,8 +15,11 @@ wire = "w1.0"
 [features]
 # a host enables every variant
 default = ["std", "wide", "float"]
+# turns no_std off, switches the derived types from borrowed to owned, and forwards std to ww_api and ww_si
 std = ["ww_api/std", "ww_si/std"]
+# adds Reading::Wide(u64), a bigger variant not every build carries
 wide = []
+# adds Reading::Float(f32), a variant not every build carries
 float = []
 
 [dependencies]

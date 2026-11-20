@@ -1,3 +1,5 @@
+//! Test API of `tests/properties`: read-write properties plain, fallible, user-defined and in an array of
+//! sub-traits, to test get/set dispatch and multi-request indices (CLT-15).
 use ww_api::prelude::*;
 
 #[ww_api_root]

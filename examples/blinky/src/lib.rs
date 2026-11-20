@@ -1,3 +1,5 @@
+//! Client of the blinky example device (`blinky_api`): the project shape a host program copies, built against
+//! USB with `ClientConfig::usb_vid_pid`.
 pub use wire_weaver_client::ClientConfig;
 use wire_weaver_client::{Commander, DeviceApiInfo, WwClient};
 

@@ -14,6 +14,7 @@ wire = "w1.0"
 
 [features]
 default = ["std"]
+# turns no_std off, switches the derived types from borrowed to owned, and forwards std to ww_si
 std = ["ww_si/std"]
 
 [dependencies]

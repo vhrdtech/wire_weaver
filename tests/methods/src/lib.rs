@@ -1,3 +1,5 @@
+//! Tests of `methods_api`'s client-server dispatch: one test per method shape (plain, user-defined types,
+//! deferred, bit-sized arguments, fallible, context-visible seq/medium).
 #[cfg(test)]
 mod tests {
     use methods_api::{MethodError, UserDefinedOwned};

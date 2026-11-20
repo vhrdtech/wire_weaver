@@ -15,6 +15,7 @@ wire = "w1.0"
 
 [features]
 default = ["std"]
+# turns no_std off, switches the derived types from borrowed to owned, and forwards std to ww_api and global_fixture_api
 std = ["ww_api/std", "global_fixture_api/std"]
 
 [dependencies]

@@ -1,5 +1,9 @@
 ## Unreleased
 
+### 📚 Documentation
+
+- Crate-level docs, and a comment on every cargo feature (`std`, `defmt`, `serde`).
+
 ### ⚠️ Breaking
 
 - Declares `rust-version = "1.99"`: cargo of an older Rust refuses the crate.

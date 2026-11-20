@@ -1,3 +1,7 @@
+//! The WireWeaver API model AST: traits, types and their introspection data, serializable with `shrink_wrap` for
+//! devices to send and hosts (the dynamic client, Python) to walk without a generated type for every API. Shares
+//! `ww_global`'s type ID registry with the rest of the framework and is versioned like an API crate
+//! (`docs/evolution/crate_layers.md`).
 #![cfg_attr(not(feature = "std"), no_std)]
 // The model's enums are `no_future_version` (SW-47): a bundle carries `ww_self_version`, and every reader walks the
 // whole model, so a newer kind of type or item can't be skipped as `Unknown(_)`. Tolerating newer model variants is

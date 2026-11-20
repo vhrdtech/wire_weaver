@@ -1,5 +1,9 @@
 ## Unreleased
 
+### 📚 Documentation
+
+- A comment on every cargo feature (`std`, `defmt`, `serde`).
+
 ### 🐛 Fixes
 
 - `api_error!`'s doc example compiles: the error enum borrowing a field names its lifetime (`SensorError<'i>`), with its owned type and a second, lifetime-free error enum showing the macro's other form.

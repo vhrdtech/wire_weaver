@@ -44,9 +44,9 @@
 //!
 //! # Simulated WebSocket
 //!
-//! With the `ws` feature, a device registered with [ws_device] speaks WebSocket over an in-memory pipe: the host runs
+//! With the `ws` feature, a device registered with `ws_device` speaks WebSocket over an in-memory pipe: the host runs
 //! the `ws` transport's own client (handshake, one binary message per link message) and the device serves the returned
-//! [WsPort] with `ww_device::ws`, as it would a TCP socket. As with simulated UDP, nothing waits in a kernel, so the
+//! `WsPort` with `ww_device::ws`, as it would a TCP socket. As with simulated UDP, nothing waits in a kernel, so the
 //! paused clock decides the order in which both ends' frames go out.
 
 use std::collections::HashMap;

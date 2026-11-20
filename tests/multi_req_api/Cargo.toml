@@ -14,6 +14,7 @@ wire = "w1.0"
 
 [features]
 default = ["std"]
+# default, unused here: this crate has no no_std gate and no owned/borrowed derive choice
 std = []
 
 [dependencies]

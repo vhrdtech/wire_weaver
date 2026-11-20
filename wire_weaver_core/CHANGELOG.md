@@ -1,5 +1,9 @@
 ## Unreleased
 
+### 📚 Documentation
+
+- Crate-level docs and a comment on the `std` feature.
+
 ### ⚙️ Miscellaneous Tasks
 
 - Generated servers after STD-16 cost 444 B more flash at `fw-z` sync (the floor, the common error event's writer) and 41 B more per property, nothing more per call or stream; numbers in the `ww_client_server` changelog.

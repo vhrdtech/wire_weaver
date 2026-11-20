@@ -15,6 +15,7 @@ wire = "w2.0"
 
 [features]
 default = ["std"]
+# turns no_std off and forwards std to ww_api
 std = ["ww_api/std"]
 
 [dependencies]

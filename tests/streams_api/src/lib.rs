@@ -1,3 +1,5 @@
+//! Test API of `tests/streams`: plain streams and sinks, user-defined item types, an array of streams, and
+//! sideband values, for the basic stream and sink dispatch tests.
 use ww_api::prelude::*;
 
 #[ww_api_root]

@@ -1,7 +1,7 @@
 //! [RamRing]: a byte ring in RAM, the default store of reliable streams.
 //!
-//! The ring itself ([Ring]) is shared with [PersistentRamRing](super::PersistentRamRing), which keeps its bytes in RAM
-//! that survives a soft reset and adds a CRC to every record.
+//! The ring itself ([Ring]) is shared with `PersistentRamRing` (feature `persistent-ram`), which keeps its bytes
+//! in RAM that survives a soft reset and adds a CRC to every record.
 
 use super::{FullPolicy, PushError, StoreState, StoredEvent, StreamStore};
 use crate::StreamHead;
@@ -25,7 +25,7 @@ pub struct RamRing<const N: usize> {
     ring: Ring<NoCheck>,
 }
 
-/// Errors of a [RamRing] (and a [PersistentRamRing](super::PersistentRamRing)).
+/// Errors of a [RamRing] (and `PersistentRamRing`, feature `persistent-ram`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum RamRingError {

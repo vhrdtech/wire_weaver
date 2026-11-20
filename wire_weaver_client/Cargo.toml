@@ -14,47 +14,60 @@ libc.workspace = true
 
 [features]
 default = ["usb", "clock_sync"]
-usb = [] # USB (using nusb)
+# USB (using nusb)
+usb = []
+# PICOBOOT flashing (RP2040/RP2350 boot ROM): follow::rp2_update(), ww_picoboot re-export, ELF images
 picoboot = [
     "usb",
     "ww_picoboot/usb",
     "ww_picoboot/elf",
-] # PICOBOOT flashing (RP2040/RP2350 boot ROM): follow::rp2_update(), ww_picoboot re-export, ELF images
+]
+# STM32 system bootloader (ROM DFU, DfuSe) flashing: follow::stm32_dfu_update(), ww_stm32_dfu re-export, ELF images
 stm32_dfu = [
     "usb",
     "ww_stm32_dfu/usb",
     "ww_stm32_dfu/elf",
-] # STM32 system bootloader (ROM DFU, DfuSe) flashing: follow::stm32_dfu_update(), ww_stm32_dfu re-export, ELF images
+]
+# WebSocket (using tokio-tungstenite)
 ws = [
     "dep:tokio-tungstenite",
     "dep:futures-util",
     "ww_device?/ws",
     "tokio/io-util",
-] # WebSocket (using tokio-tungstenite)
-udp = ["tokio/net"] # UDP, one ww_framer frame per datagram
-can = [] # CAN Bus using USB or Ethernet to CAN bridges or socketcan on Linux
-rtt = ["dep:probe-rs"] # RTT over JTAG/SWD
-i2c = [] # I2C using USB or Ethernet to I2C bridges or kernel I2C interface on Linux
-uart = [] # UART using USB or Ethernet to UART bridges or system provided serial ports
+]
+# UDP, one ww_framer frame per datagram
+udp = ["tokio/net"]
+# CAN Bus using USB or Ethernet to CAN bridges or socketcan on Linux
+can = []
+# RTT over JTAG/SWD
+rtt = ["dep:probe-rs"]
+# I2C using USB or Ethernet to I2C bridges or kernel I2C interface on Linux
+i2c = []
+# UART using USB or Ethernet to UART bridges or system provided serial ports
+uart = []
+# device running in the same process (simulators, tests)
 in_process = [
     "dep:ww_device",
     "ww_device/udp",
-] # device running in the same process (simulators, tests)
+]
+# device served by another process (or the ww hub): Unix socket, named pipe on Windows
 local_socket = [
     "ww_local_socket/socket",
     "dep:interprocess",
     "dep:ww_device",
     "tokio/io-util",
-] # device served by another process (or the ww hub): Unix socket, named pipe on Windows
+]
+# keeps a device's clock on the PC's UTC (ww_timebase::Clock, CLT-46): every direct connection steers by itself
 clock_sync = [
     "dep:ww_timebase",
     "dep:ww_date_time",
     "ww_si/time",
-] # keeps a device's clock on the PC's UTC (ww_timebase::Clock, CLT-46): every direct connection steers by itself
+]
+# connect() through the ww hub when it holds the device or it pays off (CLT-39), starts the hub if needed
 hub = [
     "local_socket",
     "dep:ww_hub_api",
-] # connect() through the ww hub when it holds the device or it pays off (CLT-39), starts the hub if needed
+]
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { workspace = true, features = ["Win32_Foundation", "Win32_System_Diagnostics_ToolHelp"] }

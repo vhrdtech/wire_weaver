@@ -14,9 +14,13 @@ license.workspace = true
 wire = "w1.0"
 
 [features]
+# build against std instead of no_std: a bigger CRC-32 table
 std = ["shrink_wrap/std", "ww_crc/table-slice16"]
+# defmt formatting for the framer's types
 defmt = ["dep:defmt"]
+# a wider length field in the head, for messages past the default size
 large = []
+# a wider length field still, for messages past what `large` covers
 very_large = []
 
 [dependencies]

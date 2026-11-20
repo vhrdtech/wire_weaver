@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### 📚 Documentation
+
+- A README.
+
 ### ⚠️ Breaking
 
 - Declares `rust-version = "1.99"`: cargo of an older Rust refuses the crate.

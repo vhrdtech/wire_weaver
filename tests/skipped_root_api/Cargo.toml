@@ -14,6 +14,7 @@ description = "Test API root made only of skipped_dep_api's traits: used by wire
 wire = "w1.0"
 
 [features]
+# forwards std to ww_api and skipped_dep_api; this crate itself is always no_std
 std = ["ww_api/std", "skipped_dep_api/std"]
 
 [dependencies]

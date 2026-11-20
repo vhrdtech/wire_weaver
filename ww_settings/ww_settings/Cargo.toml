@@ -11,7 +11,9 @@ homepage.workspace = true
 
 [features]
 default = []
+# build against std instead of no_std: a bigger CRC-32 table
 std = ["shrink_wrap/std", "ww_crc/table-slice16"]
+# defmt formatting for the store's types
 defmt = ["dep:defmt", "shrink_wrap/defmt"]
 # fake_flash::FakeFlash: a NorFlash in RAM with power cuts, ECC and a write-once check, for tests
 fake-flash = ["std"]

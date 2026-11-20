@@ -1,3 +1,5 @@
+//! Test API of `tests/credit_sink`: plain and credit-controlled sinks (bytes, typed values, an array, a
+//! bounded chunk), used to test the credit protocol (API-28).
 use ww_api::prelude::*;
 
 /// Sinks with credit-based flow control (API-28), see `docs/api/streams.md`.

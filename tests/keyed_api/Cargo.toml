@@ -13,6 +13,7 @@ wire = "w1.0"
 
 [features]
 default = ["std"]
+# turns no_std off, switches the derived types from borrowed to owned, and forwards std to ww_api, ww_keyed and ww_si
 std = ["ww_api/std", "ww_keyed/std", "ww_si/std"]
 
 [dependencies]

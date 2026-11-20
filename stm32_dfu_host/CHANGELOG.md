@@ -1,5 +1,9 @@
 ## Unreleased
 
+### 📚 Documentation
+
+- A README.
+
 ### 🐛 Fixes
 
 - `Dfuse::bootloader_version` reads the version byte in system memory (`proto::ROM_ID_ADDR`, AN2606 Table 3) instead of the first byte of "get commands", which a real V9.3 ROM (H725) answers with `0x00`, the code of the command; `supported_commands()` gives that list. The simulator answers like the ROM (CLT-34).

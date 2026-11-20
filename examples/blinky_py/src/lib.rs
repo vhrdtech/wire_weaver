@@ -1,3 +1,5 @@
+//! Python wheel wrapping the `blinky` client as a PyO3 extension module (`blinky_mod`), with its own Tokio
+//! runtime per `Device`.
 use blinky::Blinky;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;

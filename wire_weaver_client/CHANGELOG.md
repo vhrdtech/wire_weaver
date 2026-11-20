@@ -1,5 +1,9 @@
 ## Unreleased
 
+### 📚 Documentation
+
+- A README, crate-level docs, a comment on every cargo feature, and a fixed broken doc link in the `in_process` module docs.
+
 ### 🚀 Features
 
 - `wire_weaver_client::ww_tape_fs`: ww_tape's file layer (file sink, piece files, lock, writers opened by path), re-exported.

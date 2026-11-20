@@ -11,6 +11,7 @@ homepage.workspace = true
 
 [features]
 default = []
+# build against std instead of no_std: alloc, streams and a bigger CRC-32 table
 std = [
     "alloc",
     "streams",

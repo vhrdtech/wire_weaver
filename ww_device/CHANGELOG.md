@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### 📚 Documentation
+
+- A README, a comment on the `defmt` feature, and a fixed broken doc link in the `udp` module docs.
+
 ### 🐛 Fixes
 
 - With both `log` and `defmt` on, cargo no longer reports `log` as an unused dependency.

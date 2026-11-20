@@ -1,3 +1,5 @@
+//! Client of the evolved blinky API (`blinky_api_evolved`), run against devices running either version of the
+//! API to check that the newer client still works with the older firmware.
 use wire_weaver_client::{ClientConfig, Commander, DeviceApiInfo, WwClient};
 
 pub struct Blinky {

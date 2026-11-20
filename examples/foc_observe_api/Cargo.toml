@@ -14,6 +14,7 @@ repository.workspace = true
 wire = "w1.0"
 
 [features]
+# build against std instead of no_std
 std = ["ww_api/std", "ww_si/std"]
 
 [dependencies]

@@ -1,3 +1,5 @@
+//! Test API of `tests/hub`: a device several clients share through the ww hub (SRV-29), with resources one of
+//! them can claim and pins that overlap across sub-traits (SRV-34).
 use ww_api::prelude::*;
 
 /// A device several clients share through the ww hub (SRV-29), with resources one of them can claim (SRV-34).

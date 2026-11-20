@@ -1,3 +1,5 @@
+//! Using the ShrinkWrap wire format directly, through `wire_weaver::shrink_wrap`, with no API trait involved:
+//! writing and reading a couple of plain values by hand.
 use wire_weaver::shrink_wrap::prelude::*;
 
 fn simple_wr() {

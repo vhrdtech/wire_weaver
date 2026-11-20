@@ -1,3 +1,7 @@
+//! Client-server API model data types for both `no_std` and `std`: [`dispatch`]'s request/response envelopes,
+//! [`observe`] for property change notifications, [`stream`] for reliable and counted streams, path and
+//! sequence-number bookkeeping ([`max_len`], [`err_seq`]). Generated client and server code builds on these; a
+//! few types (errors, paths) reach user code directly. See the crate's README for a worked example.
 #![cfg_attr(not(feature = "std"), no_std)]
 #![doc = include_str!("../README.md")]
 

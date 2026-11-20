@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### 📚 Documentation
+
+- A README.
+
 ### 🚀 Features
 
 - `HubHost` and `main_if_hub_with(HubHost)`: the program hosting the hub gives it its capture host; `main_if_hub()` is `main_if_hub_with(HubHost::default())`, a hub that records nothing.

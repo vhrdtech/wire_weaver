@@ -1,3 +1,6 @@
+//! Packs small WireWeaver messages into one packet and splits a big one across several: [`Tx`] on the sending
+//! side, [`FramedRx`] (or [`owned::FramedRxOwned`] with `std`) reassembling pieces back into messages on the
+//! receiving side. `no_std` and allocation-free by default; the `std` feature adds owned, allocating variants.
 #![no_std]
 // Framers only report "does not fit", there is nothing more to put in the error.
 #![allow(

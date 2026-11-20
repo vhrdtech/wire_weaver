@@ -10,6 +10,7 @@ repository.workspace = true
 
 [features]
 default = ["std"]
+# forwards std to ww_api; this crate itself is always no_std
 std = ["ww_api/std"]
 
 [dependencies]

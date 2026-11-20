@@ -14,6 +14,7 @@ wire = "w1.0"
 
 [features]
 default = ["std"]
+# switches the derived types from borrowed to owned and forwards std to ww_api; this crate itself is always no_std
 std = ["ww_api/std"]
 
 [dependencies]

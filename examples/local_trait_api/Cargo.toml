@@ -15,6 +15,7 @@ wire = "w1.0"
 
 [features]
 default = ["local"]
+# build against std instead of no_std
 std = ["wire_weaver/std"]
 # The API as an async Rust trait (`Counter`), implemented by a local type and by the generated client (CLT-57);
 # its errors and streams are wire_weaver's (`wire_weaver::call`), no client runtime needed (SRV-48)

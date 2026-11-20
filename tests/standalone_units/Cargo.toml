@@ -10,7 +10,9 @@ repository.workspace = true
 
 # the wire format is optional, as in exact_units: types derive it behind `cfg_attr(feature = "shrink_wrap", ..)`
 [features]
+# turns on the optional shrink_wrap dependency and its derives
 shrink_wrap = ["dep:shrink_wrap"]
+# with shrink_wrap on, turns no_std off and switches its derives from borrowed to owned
 std = ["shrink_wrap?/std"]
 
 [dependencies]

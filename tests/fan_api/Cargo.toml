@@ -10,6 +10,7 @@ repository.workspace = true
 
 [features]
 default = ["std"]
+# turns no_std off and forwards std to ww_si
 std = ["ww_si/std"]
 
 [dependencies]

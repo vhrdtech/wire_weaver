@@ -14,6 +14,7 @@ wire = "w1.0"
 
 [features]
 default = ["std"]
+# turns no_std off and forwards std to fan_api, ww_api and ww_si
 std = ["fan_api/std", "ww_api/std", "ww_si/std"]
 
 [dependencies]

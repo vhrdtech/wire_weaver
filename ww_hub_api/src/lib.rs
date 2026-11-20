@@ -1,4 +1,3 @@
-#![cfg_attr(not(feature = "std"), no_std)]
 //! API of the ww hub (SRV-13, SRV-28): the per-user process that holds devices (USB, RTT, ...) and serves every
 //! program of the user over a local socket (`ww_local_socket`). The hub serves it like any device serves its API, so
 //! introspection, versioning, the dynamic client and Python work on it unchanged.
@@ -6,6 +5,7 @@
 //! The crate's version is the API's identity. [Hub::info] and [Hub::handover] are frozen: a client of any version
 //! uses them to find out what hub runs and to have an older one replaced (SRV-30). Everything else evolves by the
 //! usual rules (`docs/evolution/rules.md`), area by area in its own sub-trait.
+#![cfg_attr(not(feature = "std"), no_std)]
 
 use ww_api::prelude::*;
 use ww_si::prefix::One;

@@ -17,6 +17,7 @@ wire = "w1.0"
 default = []
 # hosts get the fastest CRC-32 table (16 KiB, through ww_framer/std), firmware picks one with ww_crc's table-* features
 std = ["shrink_wrap/std", "ww_version/std", "ww_framer/std", "wire_weaver/std"]
+# defmt formatting for the link layer's types
 defmt = ["dep:defmt", "shrink_wrap/defmt", "ww_version/defmt", "wire_weaver/defmt"]
 
 [dependencies]

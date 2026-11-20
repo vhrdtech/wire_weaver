@@ -1,4 +1,3 @@
-#![cfg_attr(not(feature = "std"), no_std)]
 //! Settings store for devices (STD-32): a struct of fields with a default each, kept in NOR flash as a record of
 //! the fields that differ from their default, power-cut safe, and evolvable like any WireWeaver type.
 //!
@@ -31,6 +30,7 @@
 //! assert_eq!(s.meter_window_ms, 100);
 //! assert!(!s.is_set(0));
 //! ```
+#![cfg_attr(not(feature = "std"), no_std)]
 
 // for the paths `#[derive(Settings)]` generates, in this crate's own tests
 extern crate self as ww_settings;

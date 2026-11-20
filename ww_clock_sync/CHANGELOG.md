@@ -1,5 +1,9 @@
 ## Unreleased
 
+### 📚 Documentation
+
+- A README.
+
 ### 🚀 Features
 
 - The code moved into `wire_weaver_client::clock_sync` (CLT-46), where every direct connection steers by itself;

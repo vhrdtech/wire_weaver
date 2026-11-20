@@ -1,3 +1,8 @@
+//! The runtime crate of generated servers and clients: re-exports [`ww_api`]'s prelude (the derive macros, the
+//! `shrink_wrap` prelude, [`CommonError`], `FullVersion`), the sans-IO handler [`Context`] (sequence number,
+//! medium, [`EventOut`] / [`BlockingEventOut`]), and the per-call results [`RpcResult`] / [`GetResult`] /
+//! [`SetResult`]. Generated server code is IO-free; transport lives in `wire_weaver_client`, `ww_device` and the
+//! medium crates.
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod api_id;

@@ -1,3 +1,7 @@
+//! The `std` client runtime: the event loop, `Commander`, the dynamic client ([`mod@facade`]), typed quantities
+//! ([`quantity`]) and property observation ([`observe`]). Host transports (USB, RTT, WebSocket, UDP, local
+//! socket, in-process, the ww hub) are `Transport` impls behind features, selected by a generated client's
+//! `ClientConfig`. There is no `no_std` client yet (CLT-14).
 use std::time::Duration;
 
 // generated clients (the hub's, in `hub`; the clock's, in `clock_sync`) name this crate by its name

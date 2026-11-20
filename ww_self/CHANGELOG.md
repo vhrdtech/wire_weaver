@@ -1,5 +1,9 @@
 ## Unreleased
 
+### 📚 Documentation
+
+- Crate-level docs and a comment on the `std` and `serde` features.
+
 ### 🚀 Features
 
 - `host::root()` and `host::HOME_ENV` (EVO-80): the host's root, `WIRE_WEAVER_HOME` or `~/.wire_weaver`; `definition_cache::default_dir` is under it.

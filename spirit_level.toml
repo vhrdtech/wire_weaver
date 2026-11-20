@@ -178,8 +178,23 @@ expires = "2026-12-15"
 
 [lints.semver-checks-breaking]
 level = "allow"
-reason = "spl's run cannot build the wire_weaver 0.4.0 baseline's rustdoc; the CI semver-checks job checks the published crates with default features; P2401#20nov-1155g (records and repo) settles it"
-expires = "2026-12-15"
+reason = "spl's run cannot build the wire_weaver 0.4.0 baseline's rustdoc; the CI semver-checks job checks the published crates"
+
+# No workspace-hack crate: it would build every member with the union of features, so the no_std feature-set checks
+# would stop catching a missing std forward, and the published crates would depend on it.
+[lints.hakari-generate]
+level = "allow"
+reason = "no workspace-hack crate here: unified features would hide a missing std forward from the feature-set checks"
+
+[lints.hakari-manage-deps]
+level = "allow"
+reason = "no workspace-hack crate here: unified features would hide a missing std forward from the feature-set checks"
+
+# The records use emoji with a fixed meaning: the changelogs' section headings (AGENTS.md, "Changelogs, commits and
+# versions") and the feature tracker's status marks.
+[lints.emoji]
+allow = ["✅", "🚧", "📋", "🐛", "🚀", "⚠", "⚠️", "💡", "🧪", "📚", "⚙", "⚙️", "⛔", "🔍", "⚡", "🗑", "🗑️"]
+reason = "changelog section headings and tracker status marks carry a fixed meaning"
 
 # Every lint below still fires. Each entry names the task that removes it and expires with it: the book prose at the
 # end of January 2027, everything else mid-December 2026.
@@ -391,20 +406,6 @@ lint = "duplicate-versions"
 paths = ["Cargo.lock"]
 level = "allow"
 reason = "duplicate dependency versions; P2401#20nov-1154c (dependencies) removes them"
-expires = "2026-12-15"
-
-[[exceptions]]
-lint = "hakari-generate"
-paths = ["Cargo.toml"]
-level = "allow"
-reason = "no workspace-hack crate; P2401#20nov-1154c (dependencies) removes them"
-expires = "2026-12-15"
-
-[[exceptions]]
-lint = "hakari-manage-deps"
-paths = ["Cargo.toml"]
-level = "allow"
-reason = "no workspace-hack crate; P2401#20nov-1154c (dependencies) removes them"
 expires = "2026-12-15"
 
 [[exceptions]]
@@ -1123,28 +1124,13 @@ expires = "2026-12-15"
 lint = "core-crate-deps"
 crates = ["wire_weaver_core"]
 level = "allow"
-reason = "wire_weaver_core is a _core crate with I/O dependencies; P2401#20nov-1155g (records and repo) removes them"
-expires = "2026-12-15"
+reason = "core here means the centre piece of WireWeaver (transform and codegen), not a types-only crate: it parses crates and reads manifests"
 
 [[exceptions]]
 lint = "core-crate-types"
 crates = ["wire_weaver_core"]
 level = "allow"
-reason = "wire_weaver_core is a _core crate with non-type items; P2401#20nov-1155g (records and repo) removes them"
-expires = "2026-12-15"
-
-[[exceptions]]
-lint = "emoji"
-crates = ["features_page"]
-paths = [
-    "CHANGELOG.md",
-    "**/CHANGELOG.md",
-    "FEATURES.md",
-    "tests/features_page/entries.md",
-]
-level = "allow"
-reason = "the emoji section headings and status marks AGENTS.md asks for in the records; P2401#20nov-1155g (records and repo) removes them"
-expires = "2026-12-15"
+reason = "core here means the centre piece of WireWeaver (transform and codegen), not a types-only crate: it parses crates and reads manifests"
 
 [[exceptions]]
 lint = "justfile-recipes"

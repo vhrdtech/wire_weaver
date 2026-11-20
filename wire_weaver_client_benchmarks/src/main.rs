@@ -134,9 +134,9 @@ fn run_here(args: &Args) -> Result<()> {
     if args.transport == Transport::Usb && args.clients != 1 {
         bail!("one USB device: --clients 1");
     }
-    let steps = StepTimes::default();
+    let (step_times, steps) = StepTimes::new();
     tracing_subscriber::registry()
-        .with(steps.clone())
+        .with(step_times)
         .with(tracing_subscriber::fmt::layer().with_filter(LevelFilter::WARN))
         .init();
     let started = Instant::now();

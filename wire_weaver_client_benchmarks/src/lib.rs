@@ -6,7 +6,7 @@
 
 pub mod sim;
 
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::{Duration, Instant};
 
 use tracing::Subscriber;
@@ -27,24 +27,32 @@ pub(crate) const STEPS: [&str; 7] = [
     spans::INTROSPECT,
 ];
 
-/// A `tracing` layer that records how long each connect step's span lived, from creation to close.
-#[derive(Clone, Default)]
+/// A `tracing` layer that records how long each connect step's span lived, from creation to close; [StepLog] reads
+/// what it recorded.
 pub struct StepTimes {
-    done: Arc<Mutex<Vec<(&'static str, Duration)>>>,
+    done: Sender<(&'static str, Duration)>,
+}
+
+/// The steps a [StepTimes] layer closed, in the order they closed.
+pub struct StepLog {
+    done: Receiver<(&'static str, Duration)>,
 }
 
 /// When a step's span was created, in its extensions.
 struct Started(Instant);
 
 impl StepTimes {
+    /// The layer and the log it records into.
+    pub fn new() -> (StepTimes, StepLog) {
+        let (done, log) = mpsc::channel();
+        (StepTimes { done }, StepLog { done: log })
+    }
+}
+
+impl StepLog {
     /// The steps closed since the last call, by name, in the order they closed.
     pub fn take(&self) -> Vec<(&'static str, Duration)> {
-        std::mem::take(&mut *self.done())
-    }
-
-    /// The closed steps; a panic elsewhere while they were held left whole entries only.
-    fn done(&self) -> MutexGuard<'_, Vec<(&'static str, Duration)>> {
-        self.done.lock().unwrap_or_else(PoisonError::into_inner)
+        self.done.try_iter().collect()
     }
 }
 
@@ -63,7 +71,8 @@ impl<S: Subscriber + for<'a> LookupSpan<'a>> Layer<S> for StepTimes {
         let Some(started) = span.extensions().get::<Started>().map(|s| s.0) else {
             return;
         };
-        self.done().push((span.name(), started.elapsed()));
+        // the log is gone only when the bench is ending: nothing reads the step then
+        _ = self.done.send((span.name(), started.elapsed()));
     }
 }
 

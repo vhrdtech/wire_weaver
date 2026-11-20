@@ -242,13 +242,6 @@ level = "allow"
 reason = "comments that think aloud; P2401#20nov-1154b (comments and attributes) removes them"
 expires = "2026-12-15"
 
-[[exceptions]]
-lint = "todo-macros"
-crates = ["wire_weaver_client", "wire_weaver_core"]
-level = "allow"
-reason = "todo!() and unimplemented!(); P2401#20nov-1154b (comments and attributes) removes them"
-expires = "2026-12-15"
-
 # --- dependencies: P2401#20nov-1154c removes these ---
 
 [[exceptions]]

@@ -118,8 +118,4 @@ impl PreparedDisconnect {
         rx.blocking_recv().map_err(|_| Error::EventLoopNotRunning)?;
         Ok(())
     }
-
-    pub fn promise(self) -> () {
-        todo!()
-    }
 }

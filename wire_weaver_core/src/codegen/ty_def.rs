@@ -48,7 +48,7 @@ fn ty_def_inner(
     let maybe_turbofish = maybe_quote_cl(matches!(ty_pos, TyPos::Expr), || quote! { :: });
     match ty {
         TypeOwned::Bool => Ok(quote! { bool }),
-        TypeOwned::NumericAny(numeric_any) => Ok(ty_def_numeric_any(numeric_any)),
+        TypeOwned::NumericAny(numeric_any) => ty_def_numeric_any(numeric_any),
         TypeOwned::OutOfLine { type_idx } => {
             let (ty, crate_idx) = api_bundle.get_ty(type_idx.0)?;
             ty_def_inner(api_bundle, ty, alloc, ty_pos, Some(crate_idx))
@@ -171,11 +171,11 @@ fn ty_def_inner(
             })
         }
         TypeOwned::Range(numeric_base) => {
-            let numeric_base = ty_def_numeric_base(numeric_base);
+            let numeric_base = ty_def_numeric_base(numeric_base)?;
             Ok(quote! { core::ops::Range #maybe_turbofish <#numeric_base> })
         }
         TypeOwned::RangeInclusive(numeric_base) => {
-            let numeric_base = ty_def_numeric_base(numeric_base);
+            let numeric_base = ty_def_numeric_base(numeric_base)?;
             Ok(quote! { core::ops::RangeInclusive #maybe_turbofish <#numeric_base> })
         }
         TypeOwned::Series(item_ty) => {
@@ -293,53 +293,57 @@ fn user_ty_def(
     }
 }
 
-fn ty_def_numeric_any(numeric_any: &NumericAnyTypeOwned) -> TokenStream {
+fn ty_def_numeric_any(numeric_any: &NumericAnyTypeOwned) -> Result<TokenStream> {
     match numeric_any {
         NumericAnyTypeOwned::Base(base) => ty_def_numeric_base(base),
-        NumericAnyTypeOwned::SubType { .. } => todo!(),
-        NumericAnyTypeOwned::ShiftScale { .. } => todo!(),
+        NumericAnyTypeOwned::SubType { .. } => {
+            Err(anyhow!("numeric sub types have no Rust type definition"))
+        }
+        NumericAnyTypeOwned::ShiftScale { .. } => {
+            Err(anyhow!("shift-scale numbers have no Rust type definition"))
+        }
     }
 }
 
-fn ty_def_numeric_base(base: &NumericBaseType) -> TokenStream {
+fn ty_def_numeric_base(base: &NumericBaseType) -> Result<TokenStream> {
     match base {
-        NumericBaseType::Nibble => quote! { wire_weaver::shrink_wrap::Nibble },
-        NumericBaseType::U8 => quote! { u8 },
-        NumericBaseType::U16 => quote! { u16 },
-        NumericBaseType::U32 => quote! { u32 },
-        NumericBaseType::UNib32 => quote! { wire_weaver::shrink_wrap::UNib32 },
-        NumericBaseType::U64 => quote! { u64 },
-        NumericBaseType::I32 => quote! { i32 },
-        NumericBaseType::F32 => quote! { f32 },
-        NumericBaseType::U128 => quote! { u128 },
-        NumericBaseType::I8 => quote! { i8 },
-        NumericBaseType::I16 => quote! { i16 },
-        NumericBaseType::I64 => quote! { i64 },
-        NumericBaseType::I128 => quote! { i128 },
-        NumericBaseType::F16 => todo!(),
-        NumericBaseType::F64 => quote! { f64 },
+        NumericBaseType::Nibble => Ok(quote! { wire_weaver::shrink_wrap::Nibble }),
+        NumericBaseType::U8 => Ok(quote! { u8 }),
+        NumericBaseType::U16 => Ok(quote! { u16 }),
+        NumericBaseType::U32 => Ok(quote! { u32 }),
+        NumericBaseType::UNib32 => Ok(quote! { wire_weaver::shrink_wrap::UNib32 }),
+        NumericBaseType::U64 => Ok(quote! { u64 }),
+        NumericBaseType::I32 => Ok(quote! { i32 }),
+        NumericBaseType::F32 => Ok(quote! { f32 }),
+        NumericBaseType::U128 => Ok(quote! { u128 }),
+        NumericBaseType::I8 => Ok(quote! { i8 }),
+        NumericBaseType::I16 => Ok(quote! { i16 }),
+        NumericBaseType::I64 => Ok(quote! { i64 }),
+        NumericBaseType::I128 => Ok(quote! { i128 }),
+        NumericBaseType::F16 => Err(anyhow!("f16 has no Rust type definition")),
+        NumericBaseType::F64 => Ok(quote! { f64 }),
         // bit-aligned `U1`..`U64` / `I2`..`I64`, `U8` is not `u8` (SW-48)
         NumericBaseType::UB(bits) => {
             let ty = Ident::new(&format!("U{}", bits.0), Span::call_site());
-            quote! { wire_weaver::shrink_wrap::un::#ty }
+            Ok(quote! { wire_weaver::shrink_wrap::un::#ty })
         }
         NumericBaseType::IB(bits) => {
             let ty = Ident::new(&format!("I{}", bits.0), Span::call_site());
-            quote! { wire_weaver::shrink_wrap::un::#ty }
+            Ok(quote! { wire_weaver::shrink_wrap::un::#ty })
         }
-        NumericBaseType::UN => todo!(),
-        NumericBaseType::IN => todo!(),
-        NumericBaseType::ULeb32 => todo!(),
-        NumericBaseType::ULeb64 => todo!(),
-        NumericBaseType::ULeb128 => todo!(),
-        NumericBaseType::ILeb32 => todo!(),
-        NumericBaseType::ILeb64 => todo!(),
-        NumericBaseType::ILeb128 => todo!(),
-        NumericBaseType::UQ { .. } => todo!(),
-        NumericBaseType::IQ { .. } => todo!(),
-        NumericBaseType::UVlq32 => quote! { wire_weaver::shrink_wrap::UVlq32 },
-        NumericBaseType::UVlq64 => quote! { wire_weaver::shrink_wrap::UVlq64 },
-        NumericBaseType::INib32 => quote! { wire_weaver::shrink_wrap::INib32 },
+        NumericBaseType::UN => Err(anyhow!("UN has no Rust type definition")),
+        NumericBaseType::IN => Err(anyhow!("IN has no Rust type definition")),
+        NumericBaseType::ULeb32 => Err(anyhow!("ULeb32 has no Rust type definition")),
+        NumericBaseType::ULeb64 => Err(anyhow!("ULeb64 has no Rust type definition")),
+        NumericBaseType::ULeb128 => Err(anyhow!("ULeb128 has no Rust type definition")),
+        NumericBaseType::ILeb32 => Err(anyhow!("ILeb32 has no Rust type definition")),
+        NumericBaseType::ILeb64 => Err(anyhow!("ILeb64 has no Rust type definition")),
+        NumericBaseType::ILeb128 => Err(anyhow!("ILeb128 has no Rust type definition")),
+        NumericBaseType::UQ { .. } => Err(anyhow!("UQ has no Rust type definition")),
+        NumericBaseType::IQ { .. } => Err(anyhow!("IQ has no Rust type definition")),
+        NumericBaseType::UVlq32 => Ok(quote! { wire_weaver::shrink_wrap::UVlq32 }),
+        NumericBaseType::UVlq64 => Ok(quote! { wire_weaver::shrink_wrap::UVlq64 }),
+        NumericBaseType::INib32 => Ok(quote! { wire_weaver::shrink_wrap::INib32 }),
     }
 }
 
@@ -349,5 +353,17 @@ fn lifetime(ty_pos: TyPos) -> TokenStream {
         TyPos::Arg | TyPos::Expr => quote! { '_ },
         TyPos::Annotation => quote! { '_ },
         TyPos::Static => quote! { 'static },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn numeric_types_without_a_definition_are_errors() {
+        assert!(ty_def_numeric_base(&NumericBaseType::F16).is_err());
+        assert!(ty_def_numeric_base(&NumericBaseType::ULeb32).is_err());
+        assert!(ty_def_numeric_base(&NumericBaseType::U8).is_ok());
     }
 }

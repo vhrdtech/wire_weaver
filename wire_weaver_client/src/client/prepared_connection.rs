@@ -137,10 +137,6 @@ impl<T: WwClient> PreparedConnection<T> {
         Err(not_found(&config, unmatched))
     }
 
-    pub fn connect_promise(self) {
-        todo!()
-    }
-
     /// Makes the client at once and connects in the background, again whenever the link goes (CLT-75): for a device
     /// that comes up later, or a link that drops and comes back (a phone on Wi-Fi, a device that reboots). Each
     /// attempt tries the config's addresses in order ([ClientConfig::websocket_urls]), the first that answers wins;

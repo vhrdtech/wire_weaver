@@ -13,6 +13,7 @@
 
 ### 🚀 Features
 
+- `ww api scaffold --receiver-model` (SRV-65): `&self` for shared items' handlers and the valid indices on their path.
 - `ww hub status` says whether the hub records: `recording: yes` or `recording: no (built without eventfull)`; `ww hub serve` and a hub started from the binary get `Program::hub` (SRV-64).
 - `device`, `untrusted`, the device `complete` functions and `plugin::{complete_if_requested, selection_env, connect, take_exclusive}` moved to the new crate `ww_plugin` (no `ww_hub`); they stay available at their old paths by re-export, so plugins compile unchanged (TOOL-40).
 - `ww monitor` prints a decoder gap as records missing from the input (TR-14).

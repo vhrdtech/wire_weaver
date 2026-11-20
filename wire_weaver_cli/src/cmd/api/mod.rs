@@ -72,6 +72,12 @@ pub enum ApiCommand {
         #[arg(long, default_value = "")]
         handler_model: String,
 
+        /// Which items run side by side through `&self` handlers, e.g. "sensors.*|status=shared"; their method
+        /// handlers, getters and the valid indices on their path take `&self`; empty: every item is exclusive (see
+        /// ww_codegen! docs)
+        #[arg(long, default_value = "")]
+        receiver_model: String,
+
         /// Method model, see ww_codegen! docs
         #[arg(long, default_value = "_=immediate")]
         method_model: String,
@@ -298,6 +304,7 @@ pub(crate) fn api(cmd: ApiCommand) -> Result<()> {
             alloc,
             use_async,
             handler_model,
+            receiver_model,
             method_model,
             property_model,
             const_model,
@@ -317,6 +324,7 @@ pub(crate) fn api(cmd: ApiCommand) -> Result<()> {
                 no_alloc: !alloc,
                 use_async,
                 handler_model,
+                receiver_model,
                 method_model,
                 property_model,
                 const_model,

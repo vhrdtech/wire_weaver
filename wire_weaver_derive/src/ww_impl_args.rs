@@ -45,6 +45,10 @@ pub(crate) struct ImplExtArgs {
     #[darling(default)]
     pub(crate) handler_model: String,
 
+    /// Which items run side by side through `&self` handlers (SRV-65): `"sensors.*|status=shared"`.
+    #[darling(default)]
+    pub(crate) receiver_model: String,
+
     #[darling(default)]
     pub(crate) method_model: String,
 

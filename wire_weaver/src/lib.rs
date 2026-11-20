@@ -55,7 +55,7 @@ pub mod prelude {
     pub use crate::{
         BlockingEventOut, BlockingMessageSink, CallContext, Context, EventOut, EventQueue,
         EventWriter, MessageSink, Priority, ReplyTo, SendError, WireWeaverApiBackend,
-        WireWeaverAsyncApiBackend,
+        WireWeaverAsyncApiBackend, WireWeaverSharedApiBackend,
     };
     pub use ww_api::prelude::*;
 }
@@ -80,6 +80,30 @@ pub trait WireWeaverAsyncApiBackend {
 
     /// Implemented version of an API. Return `<your_ww_api_crate>::DEVICE_API_ROOT_FULL_GID` from this method.
     fn version(&self) -> FullVersion<'_>;
+}
+
+/// An async server whose shared items (SRV-65, `ww_codegen!(.., receiver_model = "..")`) run side by side: a host
+/// runtime asks [is_shared](Self::is_shared) for each request and serves a shared one through
+/// [process_shared_bytes](Self::process_shared_bytes) with `&self`, while other shared ones are in flight; everything
+/// else goes through [process_bytes](WireWeaverAsyncApiBackend::process_bytes) and runs alone.
+///
+/// Usually forwards to the generated `is_shared` and `process_shared_from`.
+pub trait WireWeaverSharedApiBackend: WireWeaverAsyncApiBackend {
+    /// Whether the request in `data` goes to [process_shared_bytes](Self::process_shared_bytes). Takes no `self`, so
+    /// the runtime can ask while an exclusive request holds the server.
+    fn is_shared(data: &[u8]) -> bool;
+
+    /// Deserialize a shared request and process it through `&self` handlers. `origin` is who asked, as the
+    /// connection knows it; the request's `seq` and `priority` replace its own. Events go to `out`, the reply is
+    /// serialized into `scratch` and returned (empty if there is nothing to send back).
+    fn process_shared_bytes<'a>(
+        &self,
+        origin: &CallContext,
+        out: &mut EventWriter<'_, impl MessageSink>,
+        medium: Self::Medium,
+        data: &[u8],
+        scratch: &'a mut [u8],
+    ) -> impl Future<Output = Result<&'a [u8], ShrinkWrapError>>;
 }
 
 /// Same as [WireWeaverAsyncApiBackend], for blocking event loops (e.g., `ww_device::blocking::Server`) and servers

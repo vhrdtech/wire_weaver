@@ -13,6 +13,7 @@ mod local_registry;
 pub mod method_model;
 pub mod pattern_model;
 pub mod property_model;
+pub mod receiver_model;
 pub mod transform;
 
 pub use transform::{
@@ -33,6 +34,7 @@ pub mod prelude {
     pub use crate::const_model::{ConstModel, ConstModelItem, ConstModelKind};
     pub use crate::handler_model::{HandlerKind, HandlerModel, HandlerModelItem};
     pub use crate::property_model::{PropertyModel, PropertyModelItem, PropertyModelKind};
+    pub use crate::receiver_model::{ReceiverKind, ReceiverModel, ReceiverModelItem};
     pub use crate::transform::{load, load_crate, load_dep};
 }
 

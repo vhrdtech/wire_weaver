@@ -135,6 +135,8 @@ jobs:
       - run: cargo test -p wire_weaver_client --test facade_ui -- --ignored
       # the client alone, as a downstream crate builds it: no dev-dependency or workspace member adds tokio features
       - run: cargo check -p wire_weaver_client --lib
+      # a shared item's &mut self handler doesn't compile (SRV-65): trybuild, as above
+      - run: cargo test -p shared_handlers --test shared_ui -- --ignored
 
   miri:
     name: miri (observe cells)

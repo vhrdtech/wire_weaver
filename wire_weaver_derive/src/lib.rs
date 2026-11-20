@@ -35,6 +35,9 @@ mod ww_trait;
 ///   plain `fn` in an async server (SRV-21); without it all follow `use_async`. Each pattern is a regex matched
 ///   against an item's whole dotted path (`device.settings.vbus_mode`), first match wins, `_` is the default. Sync
 ///   handlers are called without `.await`; a handler written the other way is a compile error.
+/// * receiver_model = "sensors.*|status=shared" - which items run side by side through `&self` handlers (SRV-65);
+///   default `exclusive` for every item. Only methods and property reads can be shared; their handlers, getters and
+///   the `valid_indices_*` on their path take `&self`. Adds `process_shared_bytes(&self, ..)` and `is_shared(bytes)`.
 /// * debug_to_file = "path to an output file" - save generated code to a file for debug purposes.
 /// * derive = "A, B, C" - put additional derives on generated types definitions.
 /// * method_model = "move_*=deferred, rotate_*=deferred, _=immediate" - list of comma separated regex expressions and deferred or immediate keywords.

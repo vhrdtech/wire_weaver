@@ -1,0 +1,20 @@
+error[E0596]: cannot borrow data in a `&` reference as mutable
+  --> tests/ui/mut_self_shared.rs:25:5
+   |
+25 | /     wire_weaver::ww_codegen!(
+26 | |         shared_handlers_api :: Channel for super::Server,
+27 | |         server = true, no_alloc = true, use_async = false,
+28 | |         receiver_model = "level=shared",
+29 | |     );
+   | |_____^ `self` is a `&` reference, so it cannot be borrowed as mutable
+   |
+   = note: this error originates in the macro `wire_weaver::ww_codegen` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: consider changing this to be a mutable reference
+   |
+25 -     wire_weaver::ww_codegen!(
+26 -         shared_handlers_api :: Channel for super::Server,
+27 -         server = true, no_alloc = true, use_async = false,
+28 -         receiver_model = "level=shared",
+29 -     );
+25 +     &mut self;
+   |

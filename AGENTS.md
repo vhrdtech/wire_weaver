@@ -190,6 +190,18 @@ writers or the standard library's types firmware uses is checked for stack, cycl
 - **Data layout.** Per-item generic walks are slow on MCUs: loops over struct-of-arrays columns were 2-4x faster with
   the same bytes. Interrupt-side capture is a few stores and a counter (observe cells), encoding in task context.
 
+## Native code
+
+Dependencies are pure Rust; spl's `no-sys-crates` allow list in `spirit_level.toml` names the exceptions, for these
+reasons:
+
+- `cc`: `shrink_wrap_c` builds the C runtime of the wire format to check it against the Rust crate; `ring` and
+  `blake3` (ww_tape) compile their C and assembly with it.
+- `ring`: rustls' crypto provider for the snapshot fetch (`ureq`); no audited pure-Rust provider exists yet.
+- `pyo3`, `pyo3-ffi`: the Python bindings link libpython.
+- `io-kit-sys`: `nusb` on macOS, where IOKit is the system's USB API (a system framework, nothing bundled).
+- `wasm-bindgen-shared`: `nusb`'s WebUSB backend on `wasm32` only; its `links` key marks the version, it links nothing.
+
 ## Workspace layout
 
 The codegen pipeline (read `wire_weaver_derive`, then `wire_weaver_core`):
@@ -236,9 +248,9 @@ The codegen pipeline (read `wire_weaver_derive`, then `wire_weaver_core`):
   the name paths and keys of tape tracks from an API bundle (the tape format itself knows no API model).
 - **`ww_snapshots/`**: finds API snapshots by crate name and version (`docs/evolution/snapshots.md`): sets embedded at
   build time (`ww`, the Python wheel), `~/.wire_weaver/snapshots/`, Cargo's sources on disk, then crates.io or the
-  crate's repository (`ureq` with `rustls`; its provider `ring` is C and assembly, the one such dependency: rustls
-  needs a crypto provider and no pure-Rust one is audited yet). Every crate keeps its own `api_snapshots/`; codegen
-  leaves types known from a dependency's out of a device's introspection data and the client puts them back. After
+  crate's repository (`ureq` with `rustls`; its provider `ring` is C and assembly, see "Native code"). Every crate
+  keeps its own `api_snapshots/`; codegen leaves types known from a dependency's out of a device's introspection data
+  and the client puts them back. After
   changing a type in `ww_tap`, `ww_link`, `ww_timebase` or `ww_client_server`, run `just save-snapshots` (a test fails
   otherwise). It refreshes the crate's current version, right only for a version never published (`cargo info
   --registry crates-io <crate>`): bump a published one first.

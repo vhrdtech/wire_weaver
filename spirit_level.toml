@@ -106,6 +106,12 @@ reason = "work merges into master; the local master branch may lag behind origin
 base = "origin/master"
 reason = "work merges into master; the local master branch may lag behind origin/master"
 
+# Crates with C, assembly or a native library that stay, each with its reason in AGENTS.md ("Native code").
+[lints.no-sys-crates]
+level = "deny"
+allow = ["cc", "io-kit-sys", "pyo3", "pyo3-ffi", "ring", "wasm-bindgen-shared"]
+reason = "pure-Rust crates only, the listed ones named with their reason in AGENTS.md"
+
 # Lints that cannot run yet. A deny-level lint that cannot run fails spl check, so each is off until its task.
 
 [lints.cargo-no-std]
@@ -227,15 +233,6 @@ crates = [
 ]
 level = "allow"
 reason = "comments that think aloud; P2401#20nov-1154b (comments and attributes) removes them"
-expires = "2026-12-15"
-
-# --- dependencies: P2401#20nov-1154c removes these ---
-
-[[exceptions]]
-lint = "no-sys-crates"
-paths = ["Cargo.lock"]
-level = "allow"
-reason = "-sys crates not yet named with a reason; P2401#20nov-1154c (dependencies) removes them"
 expires = "2026-12-15"
 
 # --- the Clippy set: P2401#20nov-1155 removes these ---

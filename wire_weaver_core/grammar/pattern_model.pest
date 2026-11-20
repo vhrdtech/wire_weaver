@@ -1,8 +1,6 @@
-handler_model = _{ SOI ~ (item ~ ","?)* ~ EOI }
+pattern_model = _{ SOI ~ (item ~ ","?)* ~ EOI }
 item = { regex ~ "=" ~ model }
 regex = { (!("=" | "," | WHITESPACE) ~ ANY)+ }
-model = { sync | async_ }
-sync = { "sync" }
-async_ = { "async" }
+model = { (ASCII_ALPHA | "_")+ }
 
 WHITESPACE = _{ " " | "\t" | "\n" }

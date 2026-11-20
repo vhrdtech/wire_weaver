@@ -53,6 +53,7 @@ pub struct GlobalPaths {
 
 struct Link {
     transport: WeakTransport,
+    api_version: FullVersionOwned,
     api_hash: ApiHashPairOwned,
 }
 
@@ -90,11 +91,13 @@ impl GlobalPaths {
     pub(crate) fn attach(
         &self,
         transport: WeakTransport,
+        api_version: FullVersionOwned,
         api_hash: ApiHashPairOwned,
         api: Option<Option<&IntrospectBundle>>,
     ) {
         *self.link.lock().unwrap_or_else(|e| e.into_inner()) = Some(Link {
             transport,
+            api_version,
             api_hash,
         });
         if let Some(api) = api {
@@ -135,14 +138,18 @@ impl GlobalPaths {
         let fetched = self
             .api
             .get_or_try_init(|| async {
-                let (transport, api_hash) = {
+                let (transport, api_version, api_hash) = {
                     let link = self.link.lock().unwrap_or_else(|e| e.into_inner());
                     let link = link.as_ref().ok_or(Error::Disconnected)?;
-                    (link.transport.upgrade(), link.api_hash.clone())
+                    (
+                        link.transport.upgrade(),
+                        link.api_version.clone(),
+                        link.api_hash.clone(),
+                    )
                 };
                 let transport = transport.ok_or(Error::EventLoopNotRunning)?;
                 debug!("resolving a global trait path: getting the device's introspection data");
-                let sent = Introspect::new(transport, api_hash.clone(), self.resolver)
+                let sent = Introspect::new(transport, api_version, api_hash.clone(), self.resolver)
                     .get_as_sent()
                     .await
                     .map_err(|e| Error::Other(format!("{e:#}")))?;

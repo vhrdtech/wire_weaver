@@ -268,7 +268,7 @@ impl Decoder {
     pub fn with_local_cache(self) -> Self {
         let resolver = self.resolver;
         self.with_lookup(Box::new(move |hash| {
-            crate::local_registry::load(resolver.cache_root()?, hash)
+            crate::local_registry::load_by_hash(resolver.cache_root()?, hash)
         }))
     }
 

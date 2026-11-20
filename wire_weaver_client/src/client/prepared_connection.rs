@@ -1345,9 +1345,12 @@ fn attach_global_paths(
         None if no_introspection => Some(None),
         None => None,
     };
-    commander
-        .global_paths
-        .attach(commander.transport().downgrade(), api_hash, api);
+    commander.global_paths.attach(
+        commander.transport().downgrade(),
+        commander.device_api_info().user_api_version.clone(),
+        api_hash,
+        api,
+    );
 }
 
 fn check_interfaces(config: &ValidatedConfig) -> Result<Vec<InterfaceKind>> {

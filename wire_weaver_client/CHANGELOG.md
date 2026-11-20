@@ -38,6 +38,7 @@
 ### 🐛 Fixes
 
 - Removed `PreparedConnection::connect_promise` and `PreparedDisconnect::promise`: they only panicked.
+- A connect opens a cached device API by its file name and lists the cache only on a miss: 1-13 ms less with 6000 files (CLT-79).
 - A `Commander` dropped in a task of a multi-thread runtime no longer blocks its worker while it waits for the event loop: 50 dropped clients took 0.65 s, now 25 ms (CLT-79).
 - A WebSocket address that doesn't answer fails after the link setup timeout instead of the OS's TCP connect timeout (CLT-75).
 - A hub reconnect's backoff and give-up time run on tokio's clock: a test on the paused clock moves them (CLT-75).

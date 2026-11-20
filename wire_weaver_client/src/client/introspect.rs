@@ -10,10 +10,12 @@ use wire_weaver::shrink_wrap::{DeserializeShrinkWrapOwned, SerializeShrinkWrapOw
 use ww_client_server::PathKindOwned;
 use ww_self::ApiBundleOwned;
 use ww_snapshots::Resolver;
-use ww_version::ApiHashPairOwned;
+use ww_version::{ApiHashPairOwned, FullVersionOwned};
 
 pub struct Introspect {
     transport_cmd_tx: TransportCommander,
+    /// The device's API crate and version: with the hash, the name of its cache file
+    version: FullVersionOwned,
     hash: ApiHashPairOwned,
     timeout: Duration,
     /// The connection's resolver: puts back what the device left out, and its cache root holds the cached data.
@@ -23,12 +25,14 @@ pub struct Introspect {
 impl Introspect {
     pub(crate) fn new(
         transport_cmd_tx: TransportCommander,
+        version: FullVersionOwned,
         hash: ApiHashPairOwned,
         resolver: &'static Resolver,
     ) -> Self {
         let timeout = transport_cmd_tx.default_timeout();
         Introspect {
             transport_cmd_tx,
+            version,
             hash,
             timeout,
             resolver,
@@ -74,7 +78,7 @@ impl Introspect {
     /// Same as [Introspect::get], but returns introspection data as sent by the device (without traits and types
     /// known from snapshots put back) and its size.
     pub(crate) async fn get_as_sent(self) -> Result<Option<(ApiBundleOwned, usize)>> {
-        if let Some(sized) = load_cached(self.resolver, &self.hash) {
+        if let Some(sized) = load_cached(self.resolver, &self.version, &self.hash) {
             return Ok(Some(sized));
         }
         self.cache_miss_msg();
@@ -84,7 +88,7 @@ impl Introspect {
     /// Same as [Introspect::get_blocking], but returns introspection data as sent by the device (without traits and
     /// types known from snapshots put back) and its size.
     pub(crate) fn get_as_sent_blocking(self) -> Result<Option<(ApiBundleOwned, usize)>> {
-        if let Some(sized) = load_cached(self.resolver, &self.hash) {
+        if let Some(sized) = load_cached(self.resolver, &self.version, &self.hash) {
             return Ok(Some(sized));
         }
         self.cache_miss_msg();
@@ -96,7 +100,7 @@ impl Introspect {
     /// Must only be polled from synchronous code, not from async tasks, see [Promise] docs.
     #[must_use = "Promise does nothing, unless it is polled"]
     pub fn get_promise(self) -> Promise<ApiBundleOwned> {
-        if let Some((bundle, _)) = load_cached(self.resolver, &self.hash) {
+        if let Some((bundle, _)) = load_cached(self.resolver, &self.version, &self.hash) {
             return match inlined(bundle, self.resolver) {
                 Ok(bundle) => Promise::done(bundle, "introspect"),
                 Err(e) => Promise::error(crate::Error::Other(format!("{e:#}")), "introspect"),
@@ -238,8 +242,12 @@ fn decode_and_cache(
 }
 
 /// Cached bundle (as it was received) and its size, from the root of `resolver`'s cache.
-fn load_cached(resolver: &Resolver, hash: &ApiHashPairOwned) -> Option<(ApiBundleOwned, usize)> {
-    let bundle = local_registry::load(resolver.cache_root()?, hash)?;
+fn load_cached(
+    resolver: &Resolver,
+    version: &FullVersionOwned,
+    hash: &ApiHashPairOwned,
+) -> Option<(ApiBundleOwned, usize)> {
+    let bundle = local_registry::load(resolver.cache_root()?, version, hash)?;
     let sent_size = bundle.to_ww_bytes_owned().ok()?.len();
     Some((bundle, sent_size))
 }

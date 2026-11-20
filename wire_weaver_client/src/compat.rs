@@ -618,7 +618,7 @@ pub(crate) mod tests {
         }
     }
 
-    const BLINKY: &str = r#"
+    pub(crate) const BLINKY: &str = r#"
         #[ww_api_root(wire = "w1.0")]
         pub trait Blinky {
             fn led_on();

@@ -952,6 +952,7 @@ impl Commander {
     pub fn introspect(&self) -> Introspect {
         Introspect::new(
             self.transport(),
+            self.connected().user_api_version.clone(),
             self.connected().user_api_hash.clone(),
             self.resolver,
         )

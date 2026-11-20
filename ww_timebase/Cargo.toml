@@ -18,10 +18,9 @@ default = ["std"]
 # build against std instead of no_std
 std = ["ww_api/std", "ww_date_time/std", "ww_si/std"]
 # defmt formatting for the clock's types
-defmt = ["dep:defmt", "ww_api/defmt", "ww_date_time/defmt", "ww_si/defmt"]
+defmt = ["ww_api/defmt", "ww_date_time/defmt", "ww_si/defmt"]
 
 [dependencies]
-defmt = { workspace = true, optional = true }
 ww_api = { workspace = true, default-features = false }
 ww_date_time = { workspace = true, default-features = false }
 ww_si = { workspace = true, default-features = false, features = ["time", "dimensionless"] }

@@ -2,7 +2,7 @@ use std::{path::PathBuf, sync::Arc, time::Duration};
 
 use anyhow::{Result, bail};
 use semver::VersionReq;
-use strum_macros::EnumDiscriminants;
+use strum::EnumDiscriminants;
 use wire_weaver::shrink_wrap::DeserializeShrinkWrapOwned;
 use ww_self::ApiBundleOwned;
 use ww_snapshots::Resolver;

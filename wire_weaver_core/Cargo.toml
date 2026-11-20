@@ -28,10 +28,8 @@ quote = { workspace = true }
 regex.workspace = true
 ron.workspace = true
 semver.workspace = true
-serde = { workspace = true, features = ["std"] }
 shrink_wrap.workspace = true
 syn = { workspace = true, features = ["visit-mut"] }
-toml.workspace = true
 ww_global.workspace = true
 ww_numeric = { workspace = true, features = ["std", "serde"] }
 ww_self = { workspace = true, features = ["std", "serde"] }

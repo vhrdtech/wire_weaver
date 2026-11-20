@@ -13,6 +13,10 @@ repository.workspace = true
 [package.metadata.wire_weaver]
 wire = "w1.0"
 
+[package.metadata.cargo-machete]
+# types the API names by path; the crate walker resolves them through these dependencies
+ignored = ["ww_keyed", "ww_si"]
+
 [features]
 default = ["std"]
 # turns no_std off and forwards std to ww_api, ww_keyed and ww_si

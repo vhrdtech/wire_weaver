@@ -414,7 +414,6 @@ dependencies = [
 name = "blinky_api"
 version = "0.1.0"
 dependencies = [
- "defmt 1.1.1",
  "wire_weaver_evolution",
  "ww_api",
 ]
@@ -423,7 +422,6 @@ dependencies = [
 name = "blinky_api_evolved"
 version = "0.1.1"
 dependencies = [
- "defmt 1.1.1",
  "ww_api",
 ]
 
@@ -1239,7 +1237,6 @@ dependencies = [
  "tests_common",
  "tokio",
  "wire_weaver",
- "wire_weaver_client",
  "ww_client_server",
 ]
 
@@ -1953,9 +1950,7 @@ dependencies = [
  "hub_pytest_device_api",
  "keyed",
  "tests_common",
- "tokio",
  "wire_weaver",
- "wire_weaver_client",
  "ww_client_server",
  "ww_hub",
 ]
@@ -3589,7 +3584,6 @@ dependencies = [
 name = "settings_api"
 version = "0.1.0"
 dependencies = [
- "defmt 1.1.1",
  "ww_api",
  "ww_settings",
 ]
@@ -3960,6 +3954,9 @@ name = "strum"
 version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9628de9b8791db39ceda2b119bbe13134770b56c138ec1d3af810d045c04f9bd"
+dependencies = [
+ "strum_macros",
+]
 
 [[package]]
 name = "strum_macros"
@@ -4900,7 +4897,6 @@ dependencies = [
  "tap_api",
  "tests_common",
  "tokio",
- "toml",
  "toml_edit",
  "tracing",
  "tracing-subscriber",
@@ -4942,7 +4938,6 @@ dependencies = [
  "sha2",
  "stm32_dfu_host",
  "strum",
- "strum_macros",
  "thiserror 2.0.20",
  "tokio",
  "tokio-tungstenite",
@@ -4991,10 +4986,8 @@ dependencies = [
  "regex",
  "ron",
  "semver",
- "serde",
  "shrink_wrap",
  "syn 3.0.3",
- "toml",
  "ww_global",
  "ww_numeric",
  "ww_self",
@@ -5046,7 +5039,6 @@ dependencies = [
  "wire_weaver_core",
  "ww_error",
  "ww_hub",
- "ww_snapshots",
 ]
 
 [[package]]
@@ -5428,7 +5420,6 @@ dependencies = [
 name = "ww_timebase"
 version = "0.1.0"
 dependencies = [
- "defmt 1.1.1",
  "ww_api",
  "ww_date_time",
  "ww_si",

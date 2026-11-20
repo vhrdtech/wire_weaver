@@ -9,6 +9,10 @@ license.workspace = true
 repository.workspace = true
 description = "Hosts the ww hub and in-process test devices for wire_weaver_py's pytest tests (TOOL-18), no real hardware needed"
 
+[package.metadata.cargo-machete]
+# the code ww_codegen! generates names ww_client_server
+ignored = ["ww_client_server"]
+
 [[bin]]
 name = "hub_pytest_device"
 path = "src/bin/hub_pytest_device.rs"
@@ -22,9 +26,7 @@ common_error.workspace = true
 hub_pytest_device_api.workspace = true
 keyed.workspace = true
 tests_common.workspace = true
-tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync", "time", "io-util"] }
 wire_weaver = { workspace = true, features = ["std"] }
-wire_weaver_client = { workspace = true, features = ["hub", "in_process"] }
 ww_client_server = { workspace = true, features = ["std"] }
 ww_hub.workspace = true
 

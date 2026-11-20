@@ -17,10 +17,9 @@ wire = "w1.0"
 # build against std instead of no_std
 std = ["ww_api/std", "ww_settings/std"]
 # defmt formatting for the API's types
-defmt = ["ww_api/defmt", "ww_settings/defmt", "dep:defmt"]
+defmt = ["ww_api/defmt", "ww_settings/defmt"]
 
 [dependencies]
-defmt = { workspace = true, optional = true }
 ww_api = { workspace = true }
 ww_settings.workspace = true
 

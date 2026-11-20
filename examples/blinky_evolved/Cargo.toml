@@ -9,6 +9,10 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[package.metadata.cargo-machete]
+# ww_codegen! reads the API crate's source through this dependency
+ignored = ["blinky_api_evolved"]
+
 [dependencies]
 blinky_api_evolved.workspace = true
 tokio = { workspace = true, features = ["sync", "rt"] }

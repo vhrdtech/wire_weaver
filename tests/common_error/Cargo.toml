@@ -9,6 +9,10 @@ license.workspace = true
 repository.workspace = true
 description = "Tests common errors (STD-16) through a generated server, the generated client and the dynamic client"
 
+[package.metadata.cargo-machete]
+# the code ww_codegen! generates names ww_client_server
+ignored = ["ww_client_server"]
+
 [dependencies]
 common_error_api.workspace = true
 tests_common.workspace = true

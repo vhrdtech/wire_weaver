@@ -304,30 +304,6 @@ reason = "duplicate dependency versions; P2401#20nov-1154c (dependencies) remove
 expires = "2026-12-15"
 
 [[exceptions]]
-lint = "machete-unused-deps"
-crates = [
-    "blinky_api",
-    "blinky_api_evolved",
-    "blinky_evolved",
-    "common_error",
-    "dispatch_golden",
-    "flash_budget_api",
-    "hub_pytest_device",
-    "hub_reconnect",
-    "observe_batched_api",
-    "settings_api",
-    "thermo_devices",
-    "wire_weaver_cli",
-    "wire_weaver_client",
-    "wire_weaver_core",
-    "wire_weaver_py",
-    "ww_timebase",
-]
-level = "allow"
-reason = "unused dependencies; P2401#20nov-1154c (dependencies) removes them"
-expires = "2026-12-15"
-
-[[exceptions]]
 lint = "no-sys-crates"
 paths = ["Cargo.lock"]
 level = "allow"

@@ -1381,7 +1381,6 @@ dependencies = [
 name = "settings_api"
 version = "0.1.0"
 dependencies = [
- "defmt 1.1.1",
  "ww_api",
  "ww_settings",
 ]
@@ -1896,10 +1895,8 @@ dependencies = [
  "regex",
  "ron",
  "semver 1.0.28",
- "serde",
  "shrink_wrap",
  "syn 3.0.3",
- "toml",
  "ww_global",
  "ww_numeric",
  "ww_self",

@@ -12,6 +12,10 @@ license.workspace = true
 [target.'cfg(target_os = "macos")'.dependencies]
 libc.workspace = true
 
+[package.metadata.cargo-machete]
+# the code ww_codegen! generates for the Clock client names ww_date_time
+ignored = ["ww_date_time"]
+
 [features]
 default = ["usb", "clock_sync"]
 # USB (using nusb)
@@ -85,8 +89,7 @@ probe-rs = { workspace = true, features = ["builtin-targets", "builtin-formats"]
 ron.workspace = true
 semver.workspace = true
 sha2.workspace = true
-strum.workspace = true # EnumDiscriminants-generated code refers to it, even though only strum_macros is imported
-strum_macros.workspace = true
+strum = { workspace = true, features = ["derive"] }
 thiserror.workspace = true
 tokio = { workspace = true, features = ["sync", "rt", "time", "macros"] }
 tokio-tungstenite = { workspace = true, optional = true }
@@ -94,7 +97,7 @@ tracing.workspace = true
 wire_weaver = { workspace = true, features = ["std"] }
 wire_weaver_evolution.workspace = true
 ww_client_server = { workspace = true, features = ["std"] }
-ww_date_time = { workspace = true, features = ["std"], optional = true } # used by codegen of the Clock client, not by name
+ww_date_time = { workspace = true, features = ["std"], optional = true }
 ww_device = { workspace = true, optional = true }
 ww_error = { workspace = true, features = ["std"] }
 ww_framer = { workspace = true, features = ["std", "large"] }

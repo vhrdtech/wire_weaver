@@ -9,6 +9,10 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[package.metadata.cargo-machete]
+# the code ww_codegen! generates names ww_client_server
+ignored = ["ww_client_server"]
+
 [dependencies]
 anyhow.workspace = true
 hub_reconnect_api.workspace = true

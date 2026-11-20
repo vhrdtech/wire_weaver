@@ -18,7 +18,6 @@ serde_json.workspace = true
 tests_common.workspace = true
 tokio = { workspace = true, features = ["sync", "rt-multi-thread", "rt", "macros", "time"] }
 wire_weaver = { workspace = true, features = ["std"] }
-wire_weaver_client.workspace = true
 ww_client_server = { workspace = true, features = ["std"] }
 
 [lints]

@@ -7,7 +7,7 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "API of two wire lines sharing a crate (EVO-37): wire_v1::Thermo, wire_v2::Thermo, and the sub-trait they share"
+description = "API of two wire lines sharing a crate (EVO-37), with the sub-trait they share"
 
 # Two wire lines of one API in one crate (EVO-37): one root per module, each with its own wire version
 [package.metadata.wire_weaver.roots]

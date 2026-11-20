@@ -224,7 +224,7 @@ If you only want to serialize and deserialize some data types, it can be used st
 | [`multi_req`](tests/multi_req) | Tests of multi requests (MultiCall, MultiRead, MultiWrite) and malformed ones against a real server |
 | [`multi_req_api`](tests/multi_req_api) | API for multi requests (MultiCall, MultiRead, MultiWrite) and the malformed ones a server must survive |
 | [`multi_root`](tests/multi_root) | Tests of two wire lines of one API in one crate (EVO-37): a server and client of each line |
-| [`multi_root_api`](tests/multi_root_api) | API of two wire lines sharing a crate (EVO-37): wire_v1::Thermo, wire_v2::Thermo, and the sub-trait they share |
+| [`multi_root_api`](tests/multi_root_api) | API of two wire lines sharing a crate (EVO-37), with the sub-trait they share |
 | [`observe`](tests/observe) | End-to-end tests of observed properties (SRV-18): Observe requests and PropertyUpdate events |
 | [`observe_api`](tests/observe_api) | API of the observed properties tests (SRV-18): get_set and value_on_changed, sized and unsized |
 | [`observe_arrays`](tests/observe_arrays) | End-to-end tests of observed properties under resource arrays (API-63) |

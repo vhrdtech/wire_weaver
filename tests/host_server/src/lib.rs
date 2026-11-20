@@ -642,6 +642,7 @@ mod tests {
         let mut bench = Bench::start("host_server/drain", small());
         let client = Arc::new(bench.connect().await);
         let idle = bench.connect().await;
+        let mut idle_events = idle.cmd.connection_events();
         let in_flight = tokio::spawn({
             let client = client.clone();
             async move { client.wait(2).call().await }
@@ -655,6 +656,21 @@ mod tests {
             }
         })
         .await;
+        // it is told why: the server shut down
+        let reason = soon("the idle client's link ends", async {
+            loop {
+                if let wire_weaver_client::ConnectionEvent::Disconnected { reason, .. } =
+                    idle_events.recv().await.expect("connection events")
+                {
+                    break reason;
+                }
+            }
+        })
+        .await;
+        assert_eq!(
+            reason,
+            wire_weaver_client::GapReason::Disconnect(wire_weaver::DisconnectReason::Shutdown)
+        );
         assert!(
             !bench.served.is_finished(),
             "the server waits for the request in flight"

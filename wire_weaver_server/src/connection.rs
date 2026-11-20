@@ -287,8 +287,7 @@ impl<Tx: MessageTx, Rx: MessageRx, C: Clock> Conn<'_, Tx, Rx, C> {
 
     /// Tell the client that the server goes away, and send it now.
     async fn disconnect(&mut self) {
-        // TODO(SRV-12): a `Shutdown` reason of its own, appended with the `Overloaded` error kind
-        self.link.disconnect(DisconnectReason::RequestByUser);
+        self.link.disconnect(DisconnectReason::Shutdown);
         self.drain_transmit().await;
         let _ = self.tx.flush().await;
     }

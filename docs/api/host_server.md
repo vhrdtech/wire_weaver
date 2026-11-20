@@ -209,7 +209,7 @@ an error that names both sides' limits.
 ## Shutting down
 
 When the shutdown future completes, the server stops accepting connections. Each connection then answers the
-requests it already has, tells its client that the server is going away and ends. A connection with nothing to
+requests it already has, disconnects its client with the reason `Shutdown` and ends. A connection with nothing to
 answer ends at once.
 
 Requests that are still running when `shutdown_grace` has passed are dropped, and their connections are

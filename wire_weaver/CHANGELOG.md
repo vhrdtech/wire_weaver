@@ -29,6 +29,7 @@
 ### 🚀 Features
 
 - `WireWeaverSharedApiBackend` (SRV-65): `is_shared(data)` and `process_shared_bytes(&self, origin, ..)` for a host runtime that runs shared requests side by side.
+- `DisconnectReason::Shutdown` (SRV-12), appended: a server that shuts down says so; an older reader gets `Newer(7)`.
 - `Error<'i, E>` and `api_error!` re-exported from `ww_api`, and `IntoOutput<'i, T>` (STD-16): what a handler of an item declared without a `Result` returns, `T` or `Result<T, CommonError>`; the dispatcher takes either.
 - `call::CallError::Common(CommonErrorOwned)` and `call::ErrorKind::Common` (STD-16): a common error the callee answered with. `CallError::kind()` folds `Busy` into `Overloaded`, `Timeout` into `DeadlineExceeded` and `Unsupported` into `Unimplemented` (`ErrorKind::of_common`), the rest is `Common`; `CallError::common()`, `Error::common(e)` and `Error::common_error()` carry the error itself. Exhaustive matches on `CallError` and `ErrorKind` (both `#[non_exhaustive]`) need the arm.
 - `EventOut::send_reply_bytes` / `BlockingEventOut::send_reply_bytes_blocking` (CLT-55): send a serialized reply as is. `EventWriter` hands it to the sink without copying, the default copies it through `send_reply_with`. Generated `no_alloc = false` servers send replies longer than the scratch buffer with it.

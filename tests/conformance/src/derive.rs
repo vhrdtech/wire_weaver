@@ -751,10 +751,16 @@ pub fn table() -> Vec<Typed> {
             "disconnect_reason.hub_handover",
             wire_weaver::DisconnectReason::HubHandover,
         ),
-        // a reason appended after HubHandover, as this version reads it
+        // discriminant 7 was "a reason of a newer version" until Shutdown took it (SRV-12): the case keeps its
+        // name and bytes, an older client still reads them as Newer(7)
         case_borrowed_only(
             "disconnect_reason.from_newer",
-            wire_weaver::DisconnectReason::Newer(7),
+            wire_weaver::DisconnectReason::Shutdown,
+        ),
+        // a reason appended after Shutdown, as this version reads it
+        case_borrowed_only(
+            "disconnect_reason.from_newer_8",
+            wire_weaver::DisconnectReason::Newer(8),
         ),
         // ww_client_server's request envelope, not in the API model: the requests a firmware without the `multi` or
         // `streams` feature (SRV-60) reads as RequestKind::Unknown and refuses, tests/lean_server sends these bytes

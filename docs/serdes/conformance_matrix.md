@@ -10,12 +10,12 @@ Every case of the [conformance corpus](conformance.md) and what each consumer do
 
 | Consumer | Cases run | Gaps |
 |---|---|---|
-| derive | 391 of 391 | 0 |
-| borrowed | 387 of 391 | 4 |
-| dynamic | 341 of 391 | 50 |
-| explain | 341 of 391 | 50 |
-| python | 339 of 391 | 52 |
-| c | 34 of 391 | 357 |
+| derive | 392 of 392 | 0 |
+| borrowed | 388 of 392 | 4 |
+| dynamic | 341 of 392 | 51 |
+| explain | 341 of 392 | 51 |
+| python | 339 of 392 | 53 |
+| c | 34 of 392 | 358 |
 
 | Case | Type | Direction | derive | borrowed | dynamic | explain | python | c |
 |---|---|---|---|---|---|---|---|---|
@@ -173,6 +173,7 @@ Every case of the [conformance corpus](conformance.md) and what each consumer do
 | `client_server.stream_opened.unknown` | `StreamOpened` | both | ✅ | ✅ | gap - | gap - | gap - | gap - |
 | `disconnect_reason.hub_handover` | `DisconnectReason` | both | ✅ | ✅ | gap - | gap - | gap - | gap - |
 | `disconnect_reason.from_newer` | `DisconnectReason` | both | ✅ | ✅ | gap - | gap - | gap - | gap - |
+| `disconnect_reason.from_newer_8` | `DisconnectReason` | both | ✅ | ✅ | gap - | gap - | gap - | gap - |
 | `tail_bytes` | `WithTail` | both | ✅ | ✅ | gap INT-9 | gap INT-9 | gap INT-9 | gap API-26 |
 | `client_server.request.multi_read` | `Request` | both | ✅ | ✅ | gap - | gap - | gap - | gap - |
 | `client_server.request.sink_write` | `Request` | both | ✅ | ✅ | gap - | gap - | gap - | gap - |
@@ -520,7 +521,7 @@ The shape signature and the signature with docs of a definition (EVO-69), by whi
 - **c**: ww_client_server's StreamOpened is the answer envelope of a stream open, not a type of an API in the model. 2 cases: `client_server.stream_opened.lz4`, `client_server.stream_opened.unknown`.
 - **c**: ww_client_server's request envelope, not a type of an API in the model. 3 cases: `client_server.request.multi_read`, `client_server.request.sink_write`, `client_server.request.sideband_ack`.
 - **c**: ww_link's DeviceInfo is a link message, not a type of an API in the model. 3 cases: `device_info.ordinary`, `device_info.no_observe_samples`, `device_info.wire_version`.
-- **c**: ww_link's Disconnect payload, not a type of an API in the model. 2 cases: `disconnect_reason.hub_handover`, `disconnect_reason.from_newer`.
+- **c**: ww_link's Disconnect payload, not a type of an API in the model. 3 cases: `disconnect_reason.hub_handover`, `disconnect_reason.from_newer`, `disconnect_reason.from_newer_8`.
 - **c**: ww_link's LinkSetup is a link message, not a type of an API in the model. 3 cases: `link_setup.without_meta`, `link_setup.wire_version`, `link_setup.with_meta`.
 - **dynamic**: TailBytes has no form in the API model yet (INT-9). 7 cases: `tail_bytes`, `shape.tail.aligned_last.empty`, `shape.tail.aligned_last.one`, `shape.tail.aligned_last.many`, `shape.tail.mid_last.empty`, `shape.tail.mid_last.one`, `shape.tail.mid_last.many`.
 - **dynamic**: TailSize has no form in the API model yet (INT-9). 1 case: `struct.tail_size`.
@@ -537,7 +538,7 @@ The shape signature and the signature with docs of a definition (EVO-69), by whi
 - **dynamic**: ww_client_server's StreamOpened is the answer envelope of a stream open, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 2 cases: `client_server.stream_opened.lz4`, `client_server.stream_opened.unknown`.
 - **dynamic**: ww_client_server's request envelope, not a type of an API in the model; a dynamic consumer reads API types. 3 cases: `client_server.request.multi_read`, `client_server.request.sink_write`, `client_server.request.sideband_ack`.
 - **dynamic**: ww_link's DeviceInfo is a link message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 3 cases: `device_info.ordinary`, `device_info.no_observe_samples`, `device_info.wire_version`.
-- **dynamic**: ww_link's Disconnect payload, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 2 cases: `disconnect_reason.hub_handover`, `disconnect_reason.from_newer`.
+- **dynamic**: ww_link's Disconnect payload, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 3 cases: `disconnect_reason.hub_handover`, `disconnect_reason.from_newer`, `disconnect_reason.from_newer_8`.
 - **dynamic**: ww_link's LinkSetup is a link message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 3 cases: `link_setup.without_meta`, `link_setup.wire_version`, `link_setup.with_meta`.
 - **explain**: TailBytes has no form in the API model yet (INT-9). 7 cases: `tail_bytes`, `shape.tail.aligned_last.empty`, `shape.tail.aligned_last.one`, `shape.tail.aligned_last.many`, `shape.tail.mid_last.empty`, `shape.tail.mid_last.one`, `shape.tail.mid_last.many`.
 - **explain**: TailSize has no form in the API model yet (INT-9). 1 case: `struct.tail_size`.
@@ -554,7 +555,7 @@ The shape signature and the signature with docs of a definition (EVO-69), by whi
 - **explain**: ww_client_server's StreamOpened is the answer envelope of a stream open, not a type of an API in the model. 2 cases: `client_server.stream_opened.lz4`, `client_server.stream_opened.unknown`.
 - **explain**: ww_client_server's request envelope, not a type of an API in the model. 3 cases: `client_server.request.multi_read`, `client_server.request.sink_write`, `client_server.request.sideband_ack`.
 - **explain**: ww_link's DeviceInfo is a link message, not a type of an API in the model. 3 cases: `device_info.ordinary`, `device_info.no_observe_samples`, `device_info.wire_version`.
-- **explain**: ww_link's Disconnect payload, not a type of an API in the model. 2 cases: `disconnect_reason.hub_handover`, `disconnect_reason.from_newer`.
+- **explain**: ww_link's Disconnect payload, not a type of an API in the model. 3 cases: `disconnect_reason.hub_handover`, `disconnect_reason.from_newer`, `disconnect_reason.from_newer_8`.
 - **explain**: ww_link's LinkSetup is a link message, not a type of an API in the model. 3 cases: `link_setup.without_meta`, `link_setup.wire_version`, `link_setup.with_meta`.
 - **python**: TailBytes has no form in the API model yet (INT-9). 7 cases: `tail_bytes`, `shape.tail.aligned_last.empty`, `shape.tail.aligned_last.one`, `shape.tail.aligned_last.many`, `shape.tail.mid_last.empty`, `shape.tail.mid_last.one`, `shape.tail.mid_last.many`.
 - **python**: TailSize has no form in the API model yet (INT-9). 1 case: `struct.tail_size`.
@@ -572,7 +573,7 @@ The shape signature and the signature with docs of a definition (EVO-69), by whi
 - **python**: ww_client_server's StreamOpened is the answer envelope of a stream open, not a type of an API in the model. 2 cases: `client_server.stream_opened.lz4`, `client_server.stream_opened.unknown`.
 - **python**: ww_client_server's request envelope, not a type of an API in the model. 3 cases: `client_server.request.multi_read`, `client_server.request.sink_write`, `client_server.request.sideband_ack`.
 - **python**: ww_link's DeviceInfo is a link message, not a type of an API in the model. 3 cases: `device_info.ordinary`, `device_info.no_observe_samples`, `device_info.wire_version`.
-- **python**: ww_link's Disconnect payload, not a type of an API in the model. 2 cases: `disconnect_reason.hub_handover`, `disconnect_reason.from_newer`.
+- **python**: ww_link's Disconnect payload, not a type of an API in the model. 3 cases: `disconnect_reason.hub_handover`, `disconnect_reason.from_newer`, `disconnect_reason.from_newer_8`.
 - **python**: ww_link's LinkSetup is a link message, not a type of an API in the model. 3 cases: `link_setup.without_meta`, `link_setup.wire_version`, `link_setup.with_meta`.
 
 ## Wire changes

@@ -1123,10 +1123,18 @@
     {
       "name": "disconnect_reason.from_newer",
       "type": "DisconnectReason",
-      "value": {"Newer": 7},
+      "value": "Shutdown",
       "bytes": "07",
       "gaps": {"dynamic": "ww_link's Disconnect payload, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail)", "explain": "ww_link's Disconnect payload, not a type of an API in the model", "python": "ww_link's Disconnect payload, not a type of an API in the model", "c": "ww_link's Disconnect payload, not a type of an API in the model"},
-      "note": "a reason appended after HubHandover reads as Newer with its discriminant, as an older client reads HubHandover (Newer(6))"
+      "note": "wire_weaver DisconnectReason::Shutdown (SRV-12), appended after HubHandover: a server shuts down. The case's name is from when discriminant 7 stood for a reason of a newer version; an older client still reads these bytes as Newer(7)"
+    },
+    {
+      "name": "disconnect_reason.from_newer_8",
+      "type": "DisconnectReason",
+      "value": {"Newer": 8},
+      "bytes": "08",
+      "gaps": {"dynamic": "ww_link's Disconnect payload, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail)", "explain": "ww_link's Disconnect payload, not a type of an API in the model", "python": "ww_link's Disconnect payload, not a type of an API in the model", "c": "ww_link's Disconnect payload, not a type of an API in the model"},
+      "note": "a reason appended after Shutdown reads as Newer with its discriminant, as an older client reads Shutdown (Newer(7))"
     },
     {
       "name": "tail_bytes",

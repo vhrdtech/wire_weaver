@@ -4,12 +4,14 @@
 //! Handler names and signatures must stay in sync with `codegen/api_server.rs`.
 use crate::codegen::CodegenBundle;
 use crate::codegen::omit::{Omissions, Omit};
+use crate::codegen::server::shared::{Receivers, shareable_paths};
 use crate::codegen::ty_def::{TyPos, ty_def};
 use crate::codegen::util::dotted;
 use crate::const_model::{ConstModel, ConstModelKind};
 use crate::handler_model::{HandlerKind, HandlerModel};
 use crate::method_model::{MethodModel, MethodModelKind};
 use crate::property_model::{PropertyModel, PropertyModelKind};
+use crate::receiver_model::ReceiverModel;
 use anyhow::{Context, Result, anyhow};
 use convert_case::{Case, Casing};
 use std::fmt::Write;
@@ -27,6 +29,8 @@ pub struct ServerScaffoldConfig {
     pub use_async: bool,
     /// Which handlers are `async fn` (SRV-21); empty means all follow `use_async`.
     pub handler_model: String,
+    /// Which items are shared, their handlers taking `&self` (SRV-65); empty means every item is exclusive.
+    pub receiver_model: String,
     /// Empty means `_=immediate`.
     pub method_model: String,
     /// Empty means `_=get_set`.
@@ -81,6 +85,16 @@ pub fn gen_server_scaffold(
         ConstModel::parse(&config.const_model).context("failed to parse const model")?;
     let handler_model =
         HandlerModel::parse(&config.handler_model).context("failed to parse handler model")?;
+    let receiver_model =
+        ReceiverModel::parse(&config.receiver_model).context("failed to parse receiver model")?;
+    let mut shareable = vec![];
+    shareable_paths(api_bundle, &api_bundle.root, &mut vec![], &mut shareable);
+    if let Some(e) = receiver_model
+        .check(shareable.iter().map(String::as_str))
+        .first()
+    {
+        return Err(anyhow!("{e}"));
+    }
 
     let omit: Vec<Omit> = config.omit.iter().map(Omit::always).collect();
     let omissions = Omissions::resolve(api_bundle, &omit).map_err(|e| anyhow!(e))?;
@@ -133,6 +147,7 @@ pub fn gen_server_scaffold(
         use_async: config.use_async,
         cx,
         handler_model,
+        receiver_model,
         current: String::new(),
         method_model,
         property_model,
@@ -338,13 +353,18 @@ pub fn gen_server_scaffold(
     } else {
         format!("handler_model = {:?},\n", config.handler_model)
     };
+    let receiver_model = if config.receiver_model.is_empty() {
+        String::new()
+    } else {
+        format!("receiver_model = {:?},\n", config.receiver_model)
+    };
     writeln!(
         out,
         "mod api_impl {{\n\
          wire_weaver::ww_codegen!(\n\
          {root_path_spaced} for super::{server},\n\
          server = true, no_alloc = {}, use_async = {},\n\
-         {handler_model}method_model = {method_model_str:?},\n\
+         {handler_model}{receiver_model}method_model = {method_model_str:?},\n\
          property_model = {property_model_str:?},\n\
          {const_model}{omit}{medium}{observe_batch}{observe_cells}{observe_samples}{introspect});\n\
          }}",
@@ -360,7 +380,10 @@ struct Scaffold<'a> {
     /// `_cx: &mut Context<..>, ` argument every handler takes
     cx: String,
     handler_model: HandlerModel,
-    /// Dotted path of the item being scaffolded, for `handler_model`
+    /// Which items are shared (SRV-65): their method handlers, getters and the valid indices on their path take
+    /// `&self`
+    receiver_model: ReceiverModel,
+    /// Dotted path of the item being scaffolded, for `handler_model` and `receiver_model`
     current: String,
     method_model: MethodModel,
     property_model: PropertyModel,
@@ -444,7 +467,20 @@ impl Scaffold<'_> {
             }
             let is_array = matches!(item.multiplicity, Multiplicity::Array { .. });
             if is_array {
-                self.valid_indices(item, &level_name_chain, index_len, path)?;
+                let receiver = if (Receivers {
+                    model: &self.receiver_model,
+                })
+                .valid_indices_shared(
+                    self.api_bundle,
+                    level,
+                    item,
+                    &mut item_path.to_vec(),
+                ) {
+                    "&self"
+                } else {
+                    "&mut self"
+                };
+                self.valid_indices(item, &level_name_chain, index_len, path, receiver)?;
             }
             let item_index_len = index_len + is_array as usize;
             let name = match prefix {
@@ -575,11 +611,12 @@ impl Scaffold<'_> {
         level_name_chain: &str,
         index_len: usize,
         path: &str,
+        receiver: &str,
     ) -> Result<()> {
         writeln!(
             self.handlers,
             "/// Valid indices of `{path}{}{}[]`.\n\
-             fn valid_indices_{level_name_chain}_{}(&mut self, {}) -> ValidIndices<'_> {{\n\
+             fn valid_indices_{level_name_chain}_{}({receiver}, {}) -> ValidIndices<'_> {{\n\
              // TODO: no index is valid until implemented\n\
              ValidIndices::range_u32(0..0)\n\
              }}\n",
@@ -615,10 +652,11 @@ impl Scaffold<'_> {
         }
         writeln!(
             self.handlers,
-            "{}fn {name}(&mut self, {}{}{args_def}) -> RpcResult<{return_ty}> {{\n\
+            "{}fn {name}({}, {}{}{args_def}) -> RpcResult<{return_ty}> {{\n\
              Unimplemented.into()\n\
              }}\n",
             self.maybe_async(),
+            self.receiver(),
             self.cx,
             index_chain_arg(index_len),
         )?;
@@ -651,6 +689,7 @@ impl Scaffold<'_> {
         let idx = index_chain_arg(index_len);
         let cx = self.cx.clone();
         let maybe_async = self.maybe_async();
+        let receiver = self.receiver();
         match self
             .property_model
             .pick(&item.ident)
@@ -679,7 +718,7 @@ impl Scaffold<'_> {
                     self.docs(item)?;
                     writeln!(
                         self.handlers,
-                        "{maybe_async}fn get_{name}(&mut self, {cx}{idx}) -> GetResult<{value_ty}, {err_ty}> {{\n\
+                        "{maybe_async}fn get_{name}({receiver}, {cx}{idx}) -> GetResult<{value_ty}, {err_ty}> {{\n\
                          Unimplemented.into()\n\
                          }}\n",
                     )?;
@@ -994,6 +1033,16 @@ impl Scaffold<'_> {
         })
     }
 
+    /// `&self` for the method handler or getter of the current item if `receiver_model` makes it shared, else
+    /// `&mut self`; only methods and readable properties call it.
+    fn receiver(&self) -> &'static str {
+        if self.receiver_model.is_shared(&self.current) {
+            "&self"
+        } else {
+            "&mut self"
+        }
+    }
+
     /// `async ` for the handlers of the current item if `handler_model` (or `use_async`) makes them async.
     fn maybe_async(&self) -> &'static str {
         match self.handler_model.pick(&self.current, self.use_async) {
@@ -1045,6 +1094,7 @@ mod tests {
             no_alloc: true,
             use_async: true,
             handler_model: String::new(),
+            receiver_model: String::new(),
             method_model: String::new(),
             property_model: String::new(),
             const_model: String::new(),
@@ -1171,6 +1221,44 @@ mod tests {
         };
         let code = gen_server_scaffold(&bundle, &in_array, &CratePaths::default()).unwrap();
         assert!(code.contains("async fn channel_pulse("), "{code}");
+    }
+
+    /// `receiver_model` (SRV-65): a shared method, getter and the valid indices of the arrays they sit in take
+    /// `&self`, setters, exclusive items and streams `&mut self`; a pattern naming a stream is refused.
+    #[test]
+    fn receiver_model() {
+        let crate_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/shared_handlers_api");
+        let bundle = crate::load(&crate_path, None, false).unwrap();
+        let shared = ServerScaffoldConfig {
+            receiver_model: "add|counter|channel.level|flow_keys.key=shared".into(),
+            ..config(&[])
+        };
+        let code = gen_server_scaffold(&bundle, &shared, &CratePaths::default()).unwrap();
+        for expected in [
+            "fn add(&self, ",
+            "fn get_counter(&self, ",
+            "fn set_counter(&mut self, ",
+            "fn bump(&mut self, ",
+            "fn events(&mut self, ",
+            "fn get_channel_level(&self, ",
+            "fn channel_scaled(&mut self, ",
+            "fn valid_indices_root_channel(&self, ",
+            // the companion's `key` answers per element of the keyed array
+            "fn valid_indices_root_flow(&self, ",
+            "fn get_flow_key(&self, ",
+            "fn flow_index_of(&mut self, ",
+            "receiver_model = \"add|counter|channel.level|flow_keys.key=shared\",",
+        ] {
+            assert!(code.contains(expected), "{expected}\n{code}");
+        }
+        let code = gen_server_scaffold(&bundle, &config(&[]), &CratePaths::default()).unwrap();
+        assert!(!code.contains("&self") && !code.contains("receiver_model"));
+        let stream = ServerScaffoldConfig {
+            receiver_model: "events=shared".into(),
+            ..config(&[])
+        };
+        let e = gen_server_scaffold(&bundle, &stream, &CratePaths::default()).unwrap_err();
+        assert!(e.to_string().contains("`events`"), "{e}");
     }
 
     /// SRV-57: the setter stub of an observed `get_set` property says the generated code marks it changed, a

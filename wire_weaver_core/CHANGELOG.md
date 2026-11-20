@@ -24,6 +24,7 @@
 
 ### 🚀 Features
 
+- `ServerScaffoldConfig::receiver_model` (SRV-65): the scaffold writes `&self` for shared items and the valid indices on their path.
 - `receiver_model` (SRV-65): shared items get `process_shared_bytes(&self, ..)` and `is_shared(bytes)`; every server gets `process_request_from(origin, ..)`.
 - `pattern_model::PatternModel<K>`: the `"pattern=keyword"` parser of `handler_model` and `receiver_model`; `HandlerModel` is an alias of it.
 - `internal::{KeyedMacroArgs, array_index_ty, keys_ident}`: `keyed!` parsing for the derive's doc trait (API-67).

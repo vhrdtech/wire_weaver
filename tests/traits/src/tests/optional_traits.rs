@@ -387,6 +387,7 @@ fn scaffold_leaves_out_omitted_traits() {
         no_alloc: true,
         use_async: false,
         handler_model: String::new(),
+        receiver_model: String::new(),
         method_model: String::new(),
         property_model: String::new(),
         const_model: String::new(),

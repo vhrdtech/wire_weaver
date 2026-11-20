@@ -1,0 +1,27 @@
+[package]
+name = "shared_handlers_api"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Test API of SRV-65 (shared handlers): shared and exclusive items in levels, arrays, a keyed array and a global trait."
+
+[package.metadata.wire_weaver]
+wire = "w1.0"
+
+[features]
+default = ["std"]
+# Owned (allocating) types for std servers and clients, on in its dependencies too.
+std = ["ww_api/std", "global_fixture_api/std", "ww_keyed/std"]
+
+[dependencies]
+global_fixture_api.workspace = true
+ww_api = { workspace = true, features = ["std"] }
+# spirit-level: allow(machete-unused-deps) the code keyed!(flow by FlowKey) generates names ww_keyed
+ww_keyed = { workspace = true, features = ["std"] }
+
+[lints]
+workspace = true

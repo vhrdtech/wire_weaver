@@ -4,6 +4,7 @@ use crate::codegen::CodegenBundle;
 use crate::codegen::index_chain::IndexChain;
 use crate::codegen::omit::{Omission, Omissions, Omit};
 use crate::codegen::server::observe::{Observe, mark_changed_ident};
+use crate::codegen::server::shared::{Receivers, is_shared_fns, shareable_paths};
 use crate::codegen::server::stream::stream_ser_methods_recursive;
 use crate::codegen::ty_def::{TyPos, ty_def};
 use crate::codegen::util::{
@@ -14,6 +15,7 @@ use crate::const_model::{ConstModel, ConstModelKind};
 use crate::handler_model::HandlerModel;
 use crate::method_model::{MethodModel, MethodModelKind};
 use crate::property_model::{PropertyModel, PropertyModelKind};
+use crate::receiver_model::ReceiverModel;
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
@@ -34,6 +36,9 @@ pub struct GenServerConfig {
     pub use_async: bool,
     /// Which user handlers are `async fn` and which plain `fn` (SRV-21); empty: all follow `use_async`.
     pub handler_model: HandlerModel,
+    /// Which items run side by side through `&self` handlers (SRV-65); empty: every item is exclusive, and neither
+    /// `process_shared_bytes` nor `is_shared` is generated.
+    pub receiver_model: ReceiverModel,
     /// Configure which user handlers return immediate response or answer later by using request id.
     pub method_model: MethodModel,
     /// Configure which properties are using get-set model and which are direct struct field access + on_changed fn model.
@@ -159,6 +164,9 @@ pub struct GenServerConfigRaw {
     pub use_async: bool,
     /// Which user handlers are `async fn` and which plain `fn` (SRV-21); empty: all follow `use_async`.
     pub handler_model: HandlerModel,
+    /// Which items run side by side through `&self` handlers (SRV-65); empty: every item is exclusive, and neither
+    /// `process_shared_bytes` nor `is_shared` is generated.
+    pub receiver_model: ReceiverModel,
     /// Configure which user handlers return immediate response or answer later by using request id.
     pub method_model: MethodModel,
     /// Configure which properties are using get-set model and which are direct struct field access + on_changed fn model.
@@ -207,6 +215,7 @@ impl From<GenServerConfig> for GenServerConfigRaw {
             no_alloc: config.no_alloc,
             use_async: config.use_async,
             handler_model: config.handler_model,
+            receiver_model: config.receiver_model,
             method_model: config.method_model,
             property_model: config.property_model,
             const_model: config.const_model,
@@ -261,6 +270,19 @@ pub fn gen_server(
     if !handler_model_errors.is_empty() {
         return quote! { #(compile_error!(#handler_model_errors);)* };
     }
+    let mut shareable = vec![];
+    shareable_paths(api_bundle, &api_bundle.root, &mut vec![], &mut shareable);
+    let receiver_model_errors = config
+        .receiver_model
+        .check(shareable.iter().map(String::as_str));
+    if !receiver_model_errors.is_empty() {
+        return quote! { #(compile_error!(#receiver_model_errors);)* };
+    }
+    let receivers = Receivers {
+        model: &config.receiver_model,
+    };
+    // SRV-65: without a receiver model nothing of the shared entry is generated, the server is what it was
+    let with_shared = !config.receiver_model.is_empty();
     let api_level = &api_bundle.root;
     let deferred_return_methods = deferred_method_return_ser_methods(
         api_bundle,
@@ -307,6 +329,8 @@ pub fn gen_server(
         consts_trait: consts_trait_ident(api_level),
         multi_req: config.multi_req,
         medium_ty: medium_ty.clone(),
+        receivers,
+        shared: false,
     };
     let (introspect_enabled, include_docs) = match config.introspect_mode {
         IntrospectMode::Disabled => (false, false),
@@ -345,6 +369,23 @@ pub fn gen_server(
         &cx,
         Some(handle_introspect),
     );
+    let process_shared_inner = maybe_quote_cl(with_shared, || {
+        let shared_cx = ApiServerCGContext {
+            shared: true,
+            ..cx.clone()
+        };
+        process_request_inner_recursive(
+            "root".into(),
+            &[],
+            &quote! {},
+            &omissions,
+            api_bundle,
+            api_level,
+            IndexChain::new(),
+            &shared_cx,
+            None,
+        )
+    });
     let stream_send_methods = stream_ser_methods_recursive(
         api_bundle,
         api_level,
@@ -421,21 +462,70 @@ pub fn gen_server(
         }
     };
     let consts_trait = consts_trait(api_bundle, &omissions, &cx);
-    let es2 = fixed_err_seq("REQUEST_PATH_TOO_DEEP");
-    let (global_path_arms, global_trait_path) =
-        match global_trait_path(api_bundle, config.global_paths.resolve(introspect_enabled)) {
-            Ok(global) => global,
-            Err(e) => return quote! { compile_error!(#e); },
-        };
+    let global_paths = config.global_paths.resolve(introspect_enabled);
+    let es_not_found = fixed_err_seq("REQUEST_TRAIT_NOT_FOUND");
+    let (global_path_arms, global_trait_items) = match global_trait_path(
+        api_bundle,
+        global_paths,
+        &quote! {{
+            wr.write(&Error::new(#es_not_found, ErrorKind::TraitNotFound))?;
+            event_builder.finish(false, &mut wr);
+            return wr.finish_and_take();
+        }},
+    ) {
+        Ok(global) => global,
+        Err(e) => return quote! { compile_error!(#e); },
+    };
+    let is_shared = maybe_quote_cl(with_shared, || {
+        let (arms, _) = global_trait_path(api_bundle, global_paths, &quote! { return false })
+            .expect("checked above");
+        is_shared_fns(api_bundle, &omissions, receivers, &arms)
+    });
     let server_struct_path = config.server_struct_path;
     let multi = cx.multi_req;
-    let maybe_multi_req = maybe_quote_cl(cx.multi_req, || multi_req_handlers(&root_await));
+    let maybe_multi_req = maybe_quote_cl(cx.multi_req, || {
+        multi_req_handlers(&root_await, &cx.process_fn("root"))
+    });
     // the multi requests are behind ww_client_server's `multi`: say so instead of failing on its types
     let require_multi = maybe_quote(
         cx.multi_req,
         quote! { ww_client_server::__ww_require_multi!(); },
     );
-    let es_kind_unknown = fixed_err_seq("REQUEST_KIND_UNKNOWN");
+    let exclusive = EntryParts {
+        maybe_async: &maybe_async,
+        out_trait: &out_trait,
+        medium_ty: &medium_ty,
+        global_path_arms: &global_path_arms,
+        multi_req: &maybe_multi_req,
+        observe_arm: &observe_arm,
+        root_await: &root_await,
+        multi,
+    };
+    let mut entries = entry_fn(&exclusive, false, false);
+    entries.extend(entry_fn(&exclusive, false, true));
+    if with_shared {
+        let shared_multi_req = maybe_quote_cl(cx.multi_req, || {
+            multi_req_handlers(
+                &root_await,
+                &Ident::new("process_shared_root", Span::call_site()),
+            )
+        });
+        let es = fixed_err_seq("REQUEST_NOT_SHARED");
+        let shared_observe_arm = quote! {
+            RequestKind::Observe { .. } => {
+                wr.write(&Error::not_supported(#es))?;
+                event_builder.finish(false, &mut wr);
+                wr.finish_and_take()
+            }
+        };
+        let shared = EntryParts {
+            multi_req: &shared_multi_req,
+            observe_arm: &shared_observe_arm,
+            ..exclusive
+        };
+        entries.extend(entry_fn(&shared, true, false));
+        entries.extend(entry_fn(&shared, true, true));
+    }
     let growable_reply_helpers = maybe_quote(
         !config.no_alloc,
         quote! {
@@ -495,95 +585,11 @@ pub fn gen_server(
         }
 
         impl #server_struct_path {
-            /// Returns an Error only if request deserialization or error serialization failed.
-            /// If there are any other errors, they are sent to the remote.
-            /// Events sent by handlers through their `wire_weaver::Context` go to `out`, `medium` is passed to them as is.
-            pub #maybe_async fn process_request_bytes<'a>(
-                &mut self,
-                bytes: &[u8],
-                scratch: &'a mut [u8],
-                out: &mut impl #out_trait,
-                medium: #medium_ty,
-            ) -> Result<&'a [u8], ShrinkWrapError> {
-                let mut rd = BufReader::new(bytes);
-                let request = Request::des_shrink_wrap(&mut rd)?;
-                let mut cx = wire_weaver::Context::new(request.seq.0, medium, out).with_priority(request.priority.into());
+            #entries
 
-                let mut wr = BufWriter::new(scratch);
-                let event_builder = EventBuilder::new(request.seq.0, &mut wr)?;
+            #process_shared_inner
 
-                // a global trait path continues from wherever the trait sits in this API (API-20)
-                let (base, path): (&[ResourceIndex], _) = match &request.path_kind {
-                    PathKind::Absolute { path } => (&[], path),
-                    #global_path_arms
-                };
-
-                const MAX_DEPTH: usize = 16;
-                // a constant, so the array is cleared as with a plain number (a loop at opt-level z otherwise)
-                let mut path_arr = [const { ResourceIndex::new(UNib32(0)) }; MAX_DEPTH];
-                let mut path_len: usize = 0;
-                for (idx, resource_id) in base.iter().map(|id| Ok(*id)).chain(path.iter()).enumerate() {
-                    let resource_id = resource_id?;
-                    if idx < MAX_DEPTH {
-                        path_arr[idx] = resource_id;
-                        path_len += 1;
-                    } else {
-                        wr.write(&Error::new(#es2, ErrorKind::BadPath))?;
-                        event_builder.finish(false, &mut wr);
-                        return wr.finish_and_take();
-                    }
-                }
-
-                let path = &path_arr[..path_len];
-                let mut iter = path.iter();
-                let before_process = wr.save_state();
-                match &request.kind {
-                    // newer, or left out of this build (`multi`, `streams` features): nothing past the kind was read
-                    RequestKind::Unknown(_) => {
-                        wr.write(&Error::not_supported(#es_kind_unknown))?;
-                        event_builder.finish(false, &mut wr);
-                        wr.finish_and_take()
-                    }
-                    #maybe_multi_req
-                    #observe_arm
-                    _ => {
-                        let d = ww_client_server::dispatch::Dispatch::<'_, #multi> {
-                            request: &request,
-                            path,
-                            before: before_process,
-                            in_multi: false,
-                        };
-                        match self.process_root(&mut iter, &mut wr, &d, &mut cx)#root_await {
-                            WrAction::WrittenOk => {
-                                if request.seq.0 == 0 {
-                                    return Ok(&[])
-                                }
-                                // the kind's nibble is where the reply starts (SRV-52)
-                                EventKindBuilder::at(d.before).finish_with_kind(request.kind.discriminants(), &mut wr);
-                                event_builder.finish(true, &mut wr);
-                                wr.finish_and_take()
-                            }
-                            WrAction::WrittenErr => {
-                                event_builder.finish(false, &mut wr);
-                                wr.finish_and_take()
-                            }
-                            WrAction::Acknowledged => {
-                                if request.seq.0 == 0 {
-                                    return Ok(&[])
-                                }
-                                let event_kind_builder = EventKindBuilder::new(&mut wr)?;
-                                event_kind_builder.finish_with_kind(EventKindDiscriminants::Written, &mut wr);
-                                event_builder.finish(true, &mut wr);
-                                wr.finish_and_take()
-                            }
-                            WrAction::Deferred => {
-                                Ok(&[])
-                            }
-                            WrAction::Failed(e) => Err(e),
-                        }
-                    }
-                }
-            }
+            #is_shared
 
             #process_request_inner
 
@@ -600,9 +606,188 @@ pub fn gen_server(
 
         #stream_send_methods
 
-        #global_trait_path
+        #global_trait_items
 
         #consts_trait
+    }
+}
+
+/// What every entry of a server shares: the request's decoding and path, and the answer around the level tree.
+struct EntryParts<'a> {
+    maybe_async: &'a TokenStream,
+    out_trait: &'a TokenStream,
+    medium_ty: &'a TokenStream,
+    global_path_arms: &'a TokenStream,
+    multi_req: &'a TokenStream,
+    observe_arm: &'a TokenStream,
+    root_await: &'a TokenStream,
+    multi: bool,
+}
+
+/// An entry of the server, its body generated for each so that `process_request_bytes` stays what it was. Each is
+/// generic over `out`, so one the firmware doesn't call is never compiled into it.
+///
+/// - `process_request_bytes(&mut self, ..)`: every request, from a peer the transport doesn't identify.
+/// - `process_request_from(&mut self, origin, ..)`: the same with the connection's `CallContext` (peer, connection),
+///   whose `seq` and `priority` are the request's.
+/// - `process_shared_bytes(&self, ..)`, `process_shared_from(&self, origin, ..)`: the calls and reads of shared
+///   items (SRV-65), for which `is_shared` says yes.
+fn entry_fn(parts: &EntryParts<'_>, shared: bool, from_origin: bool) -> TokenStream {
+    let EntryParts {
+        maybe_async,
+        out_trait,
+        medium_ty,
+        global_path_arms,
+        multi_req,
+        observe_arm,
+        root_await,
+        multi,
+    } = parts;
+    let es2 = fixed_err_seq("REQUEST_PATH_TOO_DEEP");
+    let es_kind_unknown = fixed_err_seq("REQUEST_KIND_UNKNOWN");
+    let (receiver, root, kind) = if shared {
+        (quote! { &self }, quote! { process_shared_root }, "shared")
+    } else {
+        (quote! { &mut self }, quote! { process_root }, "request")
+    };
+    let name = Ident::new(
+        &format!(
+            "process_{kind}_{}",
+            if from_origin { "from" } else { "bytes" }
+        ),
+        Span::call_site(),
+    );
+    let (maybe_origin, make_cx) = if from_origin {
+        (
+            quote! { origin: &wire_weaver::CallContext, },
+            quote! {
+                let mut call = *origin;
+                call.seq = request.seq.0;
+                call.priority = request.priority.into();
+                let mut cx = wire_weaver::Context::with_call(call, medium, out);
+            },
+        )
+    } else {
+        (
+            quote! {},
+            quote! {
+                let mut cx = wire_weaver::Context::new(request.seq.0, medium, out).with_priority(request.priority.into());
+            },
+        )
+    };
+    let shared_doc = if shared {
+        quote! {
+            /// Serves only the calls and reads of shared items (SRV-65, `receiver_model`), through `&self` handlers, so
+            /// several run side by side: call it for a request `is_shared` says yes to, `process_request_bytes`
+            /// otherwise. Anything else is answered with `OperationNotSupported` (`err_seq::REQUEST_NOT_SHARED`).
+        }
+    } else {
+        quote! {}
+    };
+    let origin_doc = if from_origin {
+        quote! {
+            /// `origin` is who asked, as the connection knows it (peer, connection id): handlers read it from
+            /// `cx.call()`, with the request's own `seq` and `priority`.
+        }
+    } else {
+        quote! {}
+    };
+    let doc = quote! {
+        /// Returns an Error only if request deserialization or error serialization failed.
+        /// If there are any other errors, they are sent to the remote.
+        /// Events sent by handlers through their `wire_weaver::Context` go to `out`, `medium` is passed to them as is.
+        #shared_doc
+        #origin_doc
+    };
+    quote! {
+        #doc
+        pub #maybe_async fn #name<'a>(
+            #receiver,
+            #maybe_origin
+            bytes: &[u8],
+            scratch: &'a mut [u8],
+            out: &mut impl #out_trait,
+            medium: #medium_ty,
+        ) -> Result<&'a [u8], ShrinkWrapError> {
+            let mut rd = BufReader::new(bytes);
+            let request = Request::des_shrink_wrap(&mut rd)?;
+            #make_cx
+
+            let mut wr = BufWriter::new(scratch);
+            let event_builder = EventBuilder::new(request.seq.0, &mut wr)?;
+
+            // a global trait path continues from wherever the trait sits in this API (API-20)
+            let (base, path): (&[ResourceIndex], _) = match &request.path_kind {
+                PathKind::Absolute { path } => (&[], path),
+                #global_path_arms
+            };
+
+            const MAX_DEPTH: usize = 16;
+            // a constant, so the array is cleared as with a plain number (a loop at opt-level z otherwise)
+            let mut path_arr = [const { ResourceIndex::new(UNib32(0)) }; MAX_DEPTH];
+            let mut path_len: usize = 0;
+            for (idx, resource_id) in base.iter().map(|id| Ok(*id)).chain(path.iter()).enumerate() {
+                let resource_id = resource_id?;
+                if idx < MAX_DEPTH {
+                    path_arr[idx] = resource_id;
+                    path_len += 1;
+                } else {
+                    wr.write(&Error::new(#es2, ErrorKind::BadPath))?;
+                    event_builder.finish(false, &mut wr);
+                    return wr.finish_and_take();
+                }
+            }
+
+            let path = &path_arr[..path_len];
+            let mut iter = path.iter();
+            let before_process = wr.save_state();
+            match &request.kind {
+                // newer, or left out of this build (`multi`, `streams` features): nothing past the kind was read
+                RequestKind::Unknown(_) => {
+                    wr.write(&Error::not_supported(#es_kind_unknown))?;
+                    event_builder.finish(false, &mut wr);
+                    wr.finish_and_take()
+                }
+                #multi_req
+                #observe_arm
+                _ => {
+                    let d = ww_client_server::dispatch::Dispatch::<'_, #multi> {
+                        request: &request,
+                        path,
+                        before: before_process,
+                        in_multi: false,
+                    };
+                    match self.#root(&mut iter, &mut wr, &d, &mut cx)#root_await {
+                        WrAction::WrittenOk => {
+                            if request.seq.0 == 0 {
+                                return Ok(&[])
+                            }
+                            // the kind's nibble is where the reply starts (SRV-52)
+                            EventKindBuilder::at(d.before).finish_with_kind(request.kind.discriminants(), &mut wr);
+                            event_builder.finish(true, &mut wr);
+                            wr.finish_and_take()
+                        }
+                        WrAction::WrittenErr => {
+                            event_builder.finish(false, &mut wr);
+                            wr.finish_and_take()
+                        }
+                        WrAction::Acknowledged => {
+                            if request.seq.0 == 0 {
+                                return Ok(&[])
+                            }
+                            let event_kind_builder = EventKindBuilder::new(&mut wr)?;
+                            event_kind_builder.finish_with_kind(EventKindDiscriminants::Written, &mut wr);
+                            event_builder.finish(true, &mut wr);
+                            wr.finish_and_take()
+                        }
+                        WrAction::Deferred => {
+                            Ok(&[])
+                        }
+                        WrAction::Failed(e) => Err(e),
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -1035,13 +1220,8 @@ fn poll_streams_fn(
 fn global_trait_path(
     api_bundle: &CodegenBundle,
     global_paths: GlobalPaths,
+    not_found: &TokenStream,
 ) -> Result<(TokenStream, TokenStream), String> {
-    let es = fixed_err_seq("REQUEST_TRAIT_NOT_FOUND");
-    let not_found = quote! {{
-        wr.write(&Error::new(#es, ErrorKind::TraitNotFound))?;
-        event_builder.finish(false, &mut wr);
-        return wr.finish_and_take();
-    }};
     let compact_arm = quote! {
         PathKind::GlobalCompact { gid, path_from_trait } => {
             match ww_global_compact_trait_path(gid) {
@@ -1205,7 +1385,10 @@ fn global_traits_recursive(
 /// value is empty). An index that fails answers with an error in its slot, the others go on; `MultiArgs::Different`
 /// is a serialized `Vec<Vec<u8>>` with the arguments (or data) of each index. The whole request fails when the path
 /// gets too deep, `Different` doesn't deserialize, or the answer doesn't fit into the scratch buffer.
-fn multi_req_handlers(maybe_await: &TokenStream) -> TokenStream {
+///
+/// `process_root` is the root of the tree the items go through. In the `&self` tree a `MultiWrite` is answered by
+/// each item as a kind it doesn't take.
+fn multi_req_handlers(maybe_await: &TokenStream, process_root: &Ident) -> TokenStream {
     let (es_depth, es_args) = (
         fixed_err_seq("MULTI_PATH_TOO_DEEP"),
         fixed_err_seq("MULTI_ARGS"),
@@ -1305,7 +1488,7 @@ fn multi_req_handlers(maybe_await: &TokenStream) -> TokenStream {
                             before: item_start,
                             in_multi: true,
                         };
-                        match self.process_root(&mut iter, &mut wr, &d, &mut cx)#maybe_await {
+                        match self.#process_root(&mut iter, &mut wr, &d, &mut cx)#maybe_await {
                             // TODO(CLT-15): a deferred answer inside a multi request, the handler answers later with
                             // the multi request's seq, which the host doesn't expect
                             WrAction::Deferred => item_written(&mut wr, #es_deferred, ErrorKind::OperationNotSupported),
@@ -1359,6 +1542,10 @@ struct ApiServerCGContext<'i> {
     multi_req: bool,
     /// User medium type or `()`
     medium_ty: TokenStream,
+    /// Which items are shared (SRV-65)
+    receivers: Receivers<'i>,
+    /// Whether this is the `&self` tree of shared items (`process_shared_<level>`), not the `&mut self` one
+    shared: bool,
 }
 
 impl<'i> ApiServerCGContext<'i> {
@@ -1369,6 +1556,30 @@ impl<'i> ApiServerCGContext<'i> {
             self.ident_prefix = Some(suffix.to_string());
         }
         self.level_path.push(suffix.to_string());
+    }
+
+    /// `process_<level>`, or `process_shared_<level>` in the `&self` tree.
+    fn process_fn(&self, level_name_chain: &str) -> Ident {
+        let prefix = if self.shared {
+            "process_shared"
+        } else {
+            "process"
+        };
+        Ident::new(&format!("{prefix}_{level_name_chain}"), Span::call_site())
+    }
+
+    /// Whether `item` of `level` has an arm in this tree: always in the `&mut self` one, only when it is shared or has
+    /// a shared item below it in the `&self` one.
+    fn has_arm(
+        &self,
+        api_bundle: &CodegenBundle,
+        level: &ApiLevelOwned,
+        item: &ApiItemOwned,
+    ) -> bool {
+        !self.shared
+            || self
+                .receivers
+                .item_has_shared(api_bundle, level, item, &mut self.level_path.clone())
     }
 
     /// The call of a handler of item `ident` of this level, awaited if it's async (SRV-21).
@@ -1415,6 +1626,10 @@ fn level_awaits(
     level_path: &mut Vec<String>,
     cx: &ApiServerCGContext<'_>,
 ) -> bool {
+    // the `&self` tree calls only the handlers of shared items, and has no stream or sink
+    let in_tree = |level_path: &[String], ident: &str, kind: &ApiItemKindOwned| {
+        !cx.shared || cx.receivers.shared_as(level_path, ident, kind).is_some()
+    };
     level.items.iter().any(|item| match &item.kind {
         ApiItemKindOwned::Trait { .. } => {
             level_path.push(item.ident.clone());
@@ -1435,20 +1650,27 @@ fn level_awaits(
         ApiItemKindOwned::StreamFn {
             delivery: Delivery::Reliable,
             ..
-        } => cx.use_async,
+        } => cx.use_async && !cx.shared,
         // credit sideband events are sent from the dispatch
         ApiItemKindOwned::FlowSink {
             flow: FlowControl::Credit,
             ..
-        } => cx.use_async,
+        } => cx.use_async && !cx.shared,
         ApiItemKindOwned::Keys { .. } => keys_level_of(level, item).is_ok_and(|(keys, _)| {
             level_path.push(item.ident.clone());
-            let awaits = keys_handler_items(&keys)
-                .any(|ident| cx.handlers.is_async(&dotted(level_path, ident)));
+            let awaits = keys
+                .items
+                .iter()
+                .filter(|k| keys_handler_items(&keys).any(|ident| ident == k.ident))
+                .filter(|k| in_tree(level_path, &k.ident, &k.kind))
+                .any(|k| cx.handlers.is_async(&dotted(level_path, &k.ident)));
             level_path.pop();
             awaits
         }),
-        _ => cx.handlers.is_async(&dotted(level_path, &item.ident)),
+        kind => {
+            in_tree(level_path, &item.ident, kind)
+                && cx.handlers.is_async(&dotted(level_path, &item.ident))
+        }
     })
 }
 
@@ -1469,7 +1691,9 @@ fn process_request_inner_recursive(
 ) -> TokenStream {
     let maybe_async = maybe_quote(
         level_awaits(api_bundle, api_level, &mut item_path.to_vec(), cx)
-            || (introspect.is_some() && cx.use_async),
+            || (introspect.is_some() && cx.use_async)
+            // the shared root is always `async fn` in an async server, as the exclusive root is
+            || (cx.shared && item_path.is_empty() && cx.use_async),
         quote! { async },
     );
     let omitted = omissions.level(item_path);
@@ -1483,10 +1707,12 @@ fn process_request_inner_recursive(
     );
     let maybe_index_chain_def = index_chain.fun_argument_def();
 
-    let process_fn_name = Ident::new(
-        format!("process_{}", level_name_chain).as_str(),
-        Span::call_site(),
-    );
+    let process_fn_name = cx.process_fn(&level_name_chain);
+    let receiver = if cx.shared {
+        quote! { &self }
+    } else {
+        quote! { &mut self }
+    };
     let es = fixed_err_seq("LEVEL_NOT_SUPPORTED");
     let multi = cx.multi_req;
     let context_ty = cx.context_ty();
@@ -1495,7 +1721,7 @@ fn process_request_inner_recursive(
         #[allow(clippy::too_many_arguments, unused_variables)]
         #cfg_attrs
         #maybe_async fn #process_fn_name(
-            &mut self,
+            #receiver,
             #maybe_index_chain_def
             path_iter: &mut Iter<'_, ResourceIndex>,
             wr: &mut BufWriter<'_>,
@@ -1519,6 +1745,10 @@ fn process_request_inner_recursive(
         if !matches!(item.kind, ApiItemKindOwned::Trait { .. }) {
             continue;
         };
+        // the `&self` tree has a level only where something below it is shared
+        if !cx.has_arm(api_bundle, api_level, item) {
+            continue;
+        }
         // an omitted `#[optional] ww_impl!` (API-54): no dispatch below it, so no handler of it is called
         let cfg_attrs = match omitted.get(&item.id.0) {
             Some(Omission::Always) => continue,
@@ -1565,7 +1795,8 @@ fn level_matchers(
     let present = api_level
         .items
         .iter()
-        .filter(|item| !matches!(omitted.get(&item.id.0), Some(Omission::Always)));
+        .filter(|item| !matches!(omitted.get(&item.id.0), Some(Omission::Always)))
+        .filter(|item| cx.has_arm(api_bundle, api_level, item));
     let arm_attrs = present.clone().map(|item| match omitted.get(&item.id.0) {
         Some(Omission::When(cfg)) => quote! { #[cfg(not(#cfg))] },
         _ => quote! {},
@@ -1626,11 +1857,18 @@ fn level_matchers(
             })
         }
     });
+    // the `&self` tree answers only shared items, `is_shared` sends nothing else to it
+    let other = if cx.shared {
+        let es = fixed_err_seq("REQUEST_NOT_SHARED");
+        quote! { _ => { ww_err(wr, d, #es, ErrorKindDiscriminants::OperationNotSupported) } }
+    } else {
+        quote! { _ => { ww_err(wr, d, #es, ErrorKindDiscriminants::BadPath) } }
+    };
     quote! {
         Some(id) => match id.get().0 {
             #(#arm_attrs #ids => { #handlers } ),*
             #omitted_arm
-            _ => { ww_err(wr, d, #es, ErrorKindDiscriminants::BadPath) }
+            #other
         }
     }
 }
@@ -1754,10 +1992,7 @@ fn level_matcher(
             cx,
         ),
         ApiItemKindOwned::Trait { .. } => {
-            let process_fn_name = Ident::new(
-                format!("process_{level_name_chain}_{}", api_item.ident).as_str(),
-                Span::call_site(),
-            );
+            let process_fn_name = cx.process_fn(&format!("{level_name_chain}_{}", api_item.ident));
             let mut level_path = cx.level_path.clone();
             level_path.push(api_item.ident.clone());
             let child = api_item.get_as_level(api_bundle).unwrap();
@@ -1774,7 +2009,7 @@ fn level_matcher(
 }
 
 /// The fixed level of the key companion `keys` of `level` (`ww_self::keys`) and the array it keys.
-fn keys_level_of<'l>(
+pub(crate) fn keys_level_of<'l>(
     level: &'l ApiLevelOwned,
     keys: &ApiItemOwned,
 ) -> Result<(ApiLevelOwned, &'l ApiItemOwned), ww_self::keys::KeysError> {
@@ -1858,7 +2093,14 @@ fn handle_keys(
         Span::call_site(),
     );
     let es_kind = item_err_seq("", "KIND_NOT_TAKEN");
-    let arms = level_of_keys.items.iter().map(|item| {
+    let arms = level_of_keys.items.iter().filter(|item| {
+        !cx.shared
+            || kcx
+                .receivers
+                .shared_as(&kcx.level_path, &item.ident, &item.kind)
+                .is_some()
+    });
+    let arms = arms.map(|item| {
         let id = Lit::Int(LitInt::new(&format!("{}u32", item.id.0), Span::call_site()));
         let ident = Ident::new(&item.ident, Span::call_site());
         let handler = match &item.kind {
@@ -2271,11 +2513,13 @@ fn handle_property(
         }
     };
 
+    // a write is exclusive whatever the receiver model says: the `&self` tree reads only
     let maybe_set = maybe_quote_cl(
-        matches!(
-            access,
-            PropertyAccess::WriteOnly | PropertyAccess::ReadWrite { .. }
-        ),
+        !cx.shared
+            && matches!(
+                access,
+                PropertyAccess::WriteOnly | PropertyAccess::ReadWrite { .. }
+            ),
         || {
             let des_and_set_property = match property_model_pick {
                 PropertyModelKind::GetSet => {

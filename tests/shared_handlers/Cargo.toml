@@ -1,0 +1,26 @@
+[package]
+name = "shared_handlers"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Tests of SRV-65 (shared handlers): the &self dispatch tree, is_shared and the receivers ww api scaffold writes."
+
+[dependencies]
+global_fixture_api.workspace = true
+shared_handlers_api.workspace = true
+tokio = { workspace = true, features = ["sync"] }
+wire_weaver.workspace = true
+ww_client_server = { workspace = true, features = ["std"] }
+# spirit-level: allow(machete-unused-deps) the code keyed!(flow by FlowKey) generates names ww_keyed
+ww_keyed = { workspace = true, features = ["std"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt", "macros", "time", "test-util"] }
+trybuild.workspace = true
+
+[lints]
+workspace = true

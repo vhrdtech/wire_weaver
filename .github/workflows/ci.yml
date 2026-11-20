@@ -133,6 +133,8 @@ jobs:
       - run: cargo test --workspace --doc
       # facade!'s compile errors (CLT-64): trybuild, ignored by nextest as it builds the crate again
       - run: cargo test -p wire_weaver_client --test facade_ui -- --ignored
+      # a shared item's &mut self handler doesn't compile (SRV-65): trybuild, as above
+      - run: cargo test -p shared_handlers --test shared_ui -- --ignored
 
   miri:
     name: miri (observe cells)

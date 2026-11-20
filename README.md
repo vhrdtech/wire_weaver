@@ -251,6 +251,8 @@ If you only want to serialize and deserialize some data types, it can be used st
 | [`series_api`](tests/series_api) | runtime | Series<T> (SW-60) of numbers in every position of an API: arguments, returns, fields, properties, streams |
 | [`settings`](examples/settings) | runtime | Two settings kept across a reboot by ww_settings on a simulated flash |
 | [`settings_api`](examples/settings_api) | runtime | API of the settings example: two settings kept across a reboot |
+| [`shared_handlers`](tests/shared_handlers) | runtime | Tests of SRV-65 (shared handlers): the &self dispatch tree, is_shared and the receivers ww api scaffold writes. |
+| [`shared_handlers_api`](tests/shared_handlers_api) | runtime | Test API of SRV-65 (shared handlers): shared and exclusive items in levels, arrays, a keyed array and a global trait. |
 | [`shared_sub_level`](tests/shared_sub_level) | runtime | Tests of one sub-level client shared by two wire lines (CLT-68) |
 | [`shared_sub_level_api`](tests/shared_sub_level_api) | runtime | Two wire lines of one API (EVO-37) reaching the same sub-traits at different places, for tests/shared_sub_level (CLT-68). |
 | [`shrink_wrap_c`](shrink_wrap_c) | runtime | Builds the shrink_wrap C99 runtime and checks it against the Rust crate (SW-43). |

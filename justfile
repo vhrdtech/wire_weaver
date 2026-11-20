@@ -32,6 +32,8 @@ test-all:
     just test-ecc-flash
     # facade!'s compile errors (CLT-64): trybuild, too slow for nextest's hang limit
     just test-facade-ui
+    # a shared item's handler that takes &mut self doesn't compile (SRV-65): trybuild, as above
+    just test-shared-ui
     # no f32, f64 or 128-bit code from ww_si's device operations where a firmware didn't opt into floats (TEST-33)
     just no-float-guard
 
@@ -49,6 +51,11 @@ test-ecc-flash:
 # facade! and facade_line!: what they accept and their compile errors (CLT-64), with trybuild; TRYBUILD=overwrite to update
 test-facade-ui:
     cargo test -q -p wire_weaver_client --test facade_ui -- --ignored
+
+# a shared item (receiver_model) whose handler takes &mut self is a compile error (SRV-65), with trybuild;
+# TRYBUILD=overwrite to update
+test-shared-ui:
+    cargo test -q -p shared_handlers --test shared_ui -- --ignored
 
 # ww_lz4's blocks of a few streams decoded by C liblz4 (python-lz4 with the earlier bytes as dictionary)
 test-lz4-c:

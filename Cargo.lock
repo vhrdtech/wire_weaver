@@ -3345,6 +3345,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "shared_handlers"
+version = "0.1.0"
+dependencies = [
+ "global_fixture_api",
+ "shared_handlers_api",
+ "tokio",
+ "trybuild",
+ "wire_weaver",
+ "ww_client_server",
+ "ww_keyed",
+]
+
+[[package]]
+name = "shared_handlers_api"
+version = "0.1.0"
+dependencies = [
+ "global_fixture_api",
+ "ww_api",
+ "ww_keyed",
+]
+
+[[package]]
 name = "shared_sub_level"
 version = "0.1.0"
 dependencies = [

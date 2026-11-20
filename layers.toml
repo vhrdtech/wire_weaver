@@ -146,6 +146,8 @@ series = { layer = "runtime" }
 series_api = { layer = "runtime", no_std = true }
 settings = { layer = "runtime" }
 settings_api = { layer = "runtime", no_std = true }
+shared_handlers = { layer = "runtime" }
+shared_handlers_api = { layer = "runtime" }
 shared_sub_level = { layer = "runtime" }
 shared_sub_level_api = { layer = "runtime", no_std = true }
 shrink_wrap_c = { layer = "runtime", unsafe = true }

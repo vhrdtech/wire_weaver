@@ -24,6 +24,8 @@
 
 ### 🚀 Features
 
+- `receiver_model` (SRV-65): shared items get `process_shared_bytes(&self, ..)` and `is_shared(bytes)`; every server gets `process_request_from(origin, ..)`.
+- `pattern_model::PatternModel<K>`: the `"pattern=keyword"` parser of `handler_model` and `receiver_model`; `HandlerModel` is an alias of it.
 - `internal::{KeyedMacroArgs, array_index_ty, keys_ident}`: `keyed!` parsing for the derive's doc trait (API-67).
 - Codegen stores device APIs under `WIRE_WEAVER_HOME` when set (EVO-80), `~/.wire_weaver` otherwise.
 - Generated servers have `api_impl::WW_SELF_BYTES` also with introspection off (EVO-80), so a host or test can seed its cache with them; firmware that doesn't send them doesn't keep them.

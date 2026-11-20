@@ -15,6 +15,7 @@ use wire_weaver_core::const_model::ConstModel;
 use wire_weaver_core::handler_model::HandlerModel;
 use wire_weaver_core::method_model::{MethodModel, MethodModelKind};
 use wire_weaver_core::property_model::{PropertyModel, PropertyModelKind};
+use wire_weaver_core::receiver_model::ReceiverModel;
 use wire_weaver_core::{ClientModel, gen_client, gen_server};
 use wire_weaver_core::{load_dep_with_paths, load_own_with_paths};
 
@@ -69,6 +70,8 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
         .map_err(|e| format!("failed to parse const model: {e}"))?;
     let handler_model = HandlerModel::parse(&args.ext.handler_model)
         .map_err(|e| format!("failed to parse handler model: {e}"))?;
+    let receiver_model = ReceiverModel::parse(&args.ext.receiver_model)
+        .map_err(|e| format!("failed to parse receiver model: {e}"))?;
     let method_model = if args.ext.method_model.is_empty() {
         MethodModel {
             default: Some(MethodModelKind::Immediate),
@@ -134,6 +137,7 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
                 no_alloc: args.ext.no_alloc,
                 use_async: args.ext.use_async,
                 handler_model,
+                receiver_model,
                 method_model,
                 property_model,
                 const_model,

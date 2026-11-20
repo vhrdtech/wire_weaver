@@ -65,8 +65,8 @@ impl PreparedDisconnect {
     /// Send disconnect command to a device, stop the event loop and drop all remaining streams or requests, from a
     /// `Drop` (no `.await`, maybe on a runtime thread). Waits until the event loop says the transport is closed, so
     /// a program that exits right after has said goodbye to the device, but no longer than `max_wait`. Returns at
-    /// once when the event loop is gone already.
-    pub(crate) fn on_drop(self, max_wait: std::time::Duration) {
+    /// once when the event loop is gone already. `false`: `max_wait` passed without an answer.
+    pub(crate) fn on_drop(self, max_wait: std::time::Duration) -> bool {
         let (tx, mut rx) = oneshot::channel::<()>();
         if self
             .transport_cmd_tx
@@ -76,17 +76,28 @@ impl PreparedDisconnect {
             })
             .is_err()
         {
-            return;
+            return true;
         }
-        let deadline = std::time::Instant::now() + max_wait;
-        while std::time::Instant::now() < deadline {
-            match rx.try_recv() {
-                Err(oneshot::error::TryRecvError::Empty) => {
-                    std::thread::sleep(std::time::Duration::from_millis(1))
+        let mut wait = move || {
+            let deadline = std::time::Instant::now() + max_wait;
+            while std::time::Instant::now() < deadline {
+                match rx.try_recv() {
+                    Err(oneshot::error::TryRecvError::Empty) => {
+                        std::thread::sleep(std::time::Duration::from_millis(1))
+                    }
+                    // closed (said so, or the event loop is gone)
+                    _ => return true,
                 }
-                // closed (said so, or the event loop is gone)
-                _ => return,
             }
+            false
+        };
+        // on a worker of a multi-thread runtime the wait gives the worker's other tasks to another thread: the event
+        // loop that answers may be one of them, and so may every other connection's
+        match tokio::runtime::Handle::try_current() {
+            Ok(rt) if rt.runtime_flavor() == tokio::runtime::RuntimeFlavor::MultiThread => {
+                tokio::task::block_in_place(wait)
+            }
+            _ => wait(),
         }
     }
 

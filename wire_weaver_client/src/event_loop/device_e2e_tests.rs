@@ -586,6 +586,29 @@ async fn commander_dropped_on_the_loop_thread_disconnects() {
         .unwrap();
 }
 
+/// A Commander dropped in a task of a multi-thread runtime waits for its event loop without holding the worker the
+/// loop needs: with one worker, a wait that blocked it would never be answered.
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn commander_drop_on_a_worker_lets_the_loop_answer() {
+    let (cmd_tx, mut events_rx, _dev, host) = start();
+    connect(&cmd_tx, (0, 3)).await.result.unwrap();
+    assert_eq!(events_rx.recv().await, Some(LinkEvent::Up));
+    let disconnect = crate::client::prepared_disconnect::PreparedDisconnect::new(cmd_tx)
+        .reason(ww_link::DisconnectReason::CommanderDropped);
+    // a limit far past any answer: only a wait that blocks the loop reaches it
+    let answered = tokio::spawn(async move { disconnect.on_drop(Duration::from_secs(10)) })
+        .await
+        .unwrap();
+    assert!(answered, "the event loop answered the disconnect");
+    assert_eq!(
+        events_rx.recv().await,
+        Some(LinkEvent::Down(DownReason::Disconnect(
+            ww_link::DisconnectReason::CommanderDropped
+        )))
+    );
+    host.await.unwrap();
+}
+
 #[tokio::test]
 async fn host_and_device_talk() {
     talk(start()).await

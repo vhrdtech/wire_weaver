@@ -26,6 +26,7 @@
 
 ### 🚀 Features
 
+- Generated servers answer a handler's `Failed(Failure)` with its error kind (SRV-49).
 - A server without a `receiver_model` gets `is_shared` (always false) and `process_shared_bytes` / `process_shared_from` that refuse at `REQUEST_NOT_SHARED` (SRV-12); firmware flash unchanged.
 - `ServerScaffoldConfig::receiver_model` (SRV-65): the scaffold writes `&self` for shared items and the valid indices on their path.
 - `receiver_model` (SRV-65): shared items get `process_shared_bytes(&self, ..)` and `is_shared(bytes)`; every server gets `process_request_from(origin, ..)`.

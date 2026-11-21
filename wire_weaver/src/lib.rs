@@ -11,6 +11,8 @@ pub mod call;
 mod call_context;
 mod context;
 mod disconnect_reason;
+#[cfg(feature = "std")]
+pub mod forward;
 #[doc(hidden)]
 pub mod handler;
 mod priority;
@@ -28,7 +30,7 @@ pub use context::{
 };
 pub use disconnect_reason::DisconnectReason;
 pub use priority::Priority;
-pub use rpc::{GetResult, IntoOutput, RpcResult, SetResult, Unimplemented};
+pub use rpc::{Failure, GetResult, IntoOutput, RpcResult, SetResult, Unimplemented};
 pub use shrink_wrap;
 pub use shrink_wrap::derive_shrink_wrap;
 use shrink_wrap::prelude::ShrinkWrapError;
@@ -47,7 +49,7 @@ pub mod prelude {
     pub use crate::rpc::GetResult::{GetError, Value};
     pub use crate::rpc::RpcResult::{Deferred, Ready};
     pub use crate::rpc::SetResult::{Set, SetError};
-    pub use crate::rpc::{GetResult, IntoOutput, RpcResult, SetResult, Unimplemented};
+    pub use crate::rpc::{Failure, GetResult, IntoOutput, RpcResult, SetResult, Unimplemented};
     pub use crate::valid_indices::ValidIndices;
     #[cfg(feature = "std")]
     pub use crate::valid_indices::ValidIndicesOwned;

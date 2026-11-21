@@ -180,6 +180,7 @@ impl<S: DatagramSocket, const PEERS: usize, H> UdpPeers<S, PEERS, H> {
     fn slot(&self, slot: usize) -> &Slot<S::Addr> {
         match self.slots.get(slot) {
             Some(s) => s,
+            // spirit-level: allow(C0005) a slot index past PEERS is a bug in the caller, documented under Panics
             None => panic!("udp: slot out of range"),
         }
     }
@@ -190,6 +191,7 @@ impl<S: DatagramSocket, const PEERS: usize, H> UdpPeers<S, PEERS, H> {
         match s.claim.get() {
             Claim::None => s.claim.set(Claim::Fixed),
             Claim::Accepted => {}
+            // spirit-level: allow(C0005) two sources on one slot is a bug in the caller, documented under Panics
             Claim::Fixed => panic!("udp: a slot has one source"),
         }
     }
@@ -270,6 +272,7 @@ impl<S: DatagramSocket, const PEERS: usize> UdpPeers<S, PEERS, Shared<PEERS>> {
     fn shared(&self, slot: usize) -> &SharedSlot {
         match self.sharing.slots.get(slot) {
             Some(s) => s,
+            // spirit-level: allow(C0005) a slot index past PEERS is a bug in the caller, documented under Panics
             None => panic!("udp: slot out of range"),
         }
     }

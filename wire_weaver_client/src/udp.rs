@@ -278,8 +278,8 @@ mod tests {
         let mut tx_frame = [0u8; DATAGRAM];
         let mut rx = ww_device::RxBuffer::<DATAGRAM, DEV_MAX_MESSAGE>::new();
         serve(
-            ww_device::FramedTx::new(UdpSink::new(&conn), &mut tx_frame),
-            ww_device::FramedRx::new(UdpSource::new(&conn), rx.assembly_buf(DATAGRAM)),
+            ww_device::FramedTx::new(UdpSink::new(&conn, 0), &mut tx_frame),
+            ww_device::FramedRx::new(UdpSource::new(&conn, 0), rx.assembly_buf(DATAGRAM)),
             events_tx,
         )
         .await
@@ -367,6 +367,79 @@ mod tests {
                 host2.await.unwrap();
                 dev.abort();
             })
+            .await
+    }
+
+    /// The device's server for one slot of a shared socket, on its own task.
+    async fn device_slot(
+        peers: std::rc::Rc<ww_device::udp::UdpPeers<DevSocket, 2>>,
+        slot: usize,
+        events_tx: mpsc::UnboundedSender<LinkEvent>,
+    ) {
+        use ww_device::udp::{UdpSink, UdpSource};
+        const DATAGRAM: usize = ww_link::UDP_MAX_DATAGRAM_LEN;
+        let mut tx_frame = [0u8; DATAGRAM];
+        let mut rx = ww_device::RxBuffer::<DATAGRAM, DEV_MAX_MESSAGE>::new();
+        serve(
+            ww_device::FramedTx::new(UdpSink::new(peers.clone(), slot), &mut tx_frame),
+            ww_device::FramedRx::new(UdpSource::new(peers, slot), rx.assembly_buf(DATAGRAM)),
+            events_tx,
+        )
+        .await
+    }
+
+    /// Two hosts served on one port at once, each by its own slot's server: neither knocks the other off.
+    /// `accept` hands out the slots as hosts come (a host program), else both slots are served for good (firmware).
+    async fn two_hosts_at_once(accept: bool) {
+        let socket = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let addr = socket.local_addr().unwrap().to_string();
+        let peers = std::rc::Rc::new(ww_device::udp::UdpPeers::<DevSocket, 2>::new(DevSocket(
+            socket,
+        )));
+        let (events_tx, mut events_rx) = mpsc::unbounded_channel();
+        let dev = if accept {
+            let peers = peers.clone();
+            tokio::task::spawn_local(async move {
+                loop {
+                    let slot = peers.accept().await.unwrap();
+                    tokio::task::spawn_local(device_slot(peers.clone(), slot, events_tx.clone()));
+                }
+            })
+        } else {
+            for slot in 0..2 {
+                tokio::task::spawn_local(device_slot(peers.clone(), slot, events_tx.clone()));
+            }
+            tokio::task::spawn_local(std::future::pending())
+        };
+        let (cmd_tx, host) = start_host(addr.clone());
+        connect_cmd(&cmd_tx, (0, 3)).await.result.unwrap();
+        assert_eq!(events_rx.recv().await, Some(LinkEvent::Up));
+        let (cmd_tx2, host2) = start_host(addr);
+        connect_cmd(&cmd_tx2, (0, 3)).await.result.unwrap();
+        assert_eq!(events_rx.recv().await, Some(LinkEvent::Up));
+        for i in 0..20 {
+            let (a, b) = tokio::join!(echo(&cmd_tx, i), echo(&cmd_tx2, 100 + i));
+            assert_eq!(&a[..4], i.to_le_bytes());
+            assert_eq!(&b[..4], (100 + i).to_le_bytes());
+        }
+        assert!(events_rx.try_recv().is_err(), "a link went down");
+        drop((cmd_tx, cmd_tx2));
+        host.await.unwrap();
+        host2.await.unwrap();
+        dev.abort();
+    }
+
+    #[tokio::test]
+    async fn two_hosts_on_fixed_slots() {
+        tokio::task::LocalSet::new()
+            .run_until(two_hosts_at_once(false))
+            .await
+    }
+
+    #[tokio::test]
+    async fn two_hosts_on_accepted_connections() {
+        tokio::task::LocalSet::new()
+            .run_until(two_hosts_at_once(true))
             .await
     }
 

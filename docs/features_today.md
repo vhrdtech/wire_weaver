@@ -166,6 +166,7 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 - **[`no_std`, no allocator](api/methods.md#server-side)**: The generated server works on the smallest MCUs and does no IO itself.
 - **[Your event loop](transport/overview.md)**: An async `Server` with `wait()` / `handle()` inside your own loop, or a blocking one.
 - **[Media](transport/overview.md)**: USB (embassy), RTT, WebSocket and UDP, the last two also on `embassy-net`.
+- **[Several hosts on one UDP port](transport/udp.md#several-hosts-on-one-port)**: Each host gets a link of its own on one port: a fixed set of slots on a device, a connection per host on a computer.
 - **[Device descriptors](transport/usb.md)**: Serial number, API name, version and a user label, visible before connecting.
 
 <p class="ww-features__level"><span class="ww-level ww-level--advanced"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6" class="ww-level__off"/></svg><span class="ww-level__label">Advanced</span></span></p>

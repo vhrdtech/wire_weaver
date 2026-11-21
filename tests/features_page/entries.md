@@ -162,6 +162,7 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 - SRV-1 | `no_std`, no allocator | The generated server works on the smallest MCUs and does no IO itself. | api/methods.md#server-side
 - SRV-2 | Your event loop | An async `Server` with `wait()` / `handle()` inside your own loop, or a blocking one. | transport/overview.md
 - SRV-6, SRV-7 | Media | USB (embassy), RTT, WebSocket and UDP, the last two also on `embassy-net`. | transport/overview.md
+- SRV-68 | Several hosts on one UDP port | Each host gets a link of its own on one port: a fixed set of slots on a device, a connection per host on a computer. | transport/udp.md#several-hosts-on-one-port
 - SRV-5 | Device descriptors | Serial number, API name, version and a user label, visible before connecting. | transport/usb.md
 
 ## Advanced

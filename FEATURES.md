@@ -494,7 +494,12 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   string.
 - ✅ **SRV-6 Media**: USB (embassy), RTT, WebSocket and UDP (both also on `embassy-net`).
 - ✅ **SRV-7 UDP device medium** — `ww_device::udp`, one frame per datagram over any datagram socket, one host at a
-  time, another host takes over by starting link setup (`docs/transport/udp.md`).
+  time, another host takes over by starting link setup (`docs/transport/udp.md`). Several hosts: SRV-68.
+- ✅ **SRV-68 Several hosts on one UDP port** — `ww_device::udp::UdpPeers<S, PEERS>`: a link per host address, up to
+  `PEERS` chosen at build time, the host heard from least recently gives its slot up when all are taken. A firmware
+  serves each slot for good, a host program takes a connection per host (`UdpPeers::accept`), freed when dropped.
+  One-host firmware keeps its size (`UdpConnection`: +120 B code, +88 B rodata on `ww_udp_ncm`)
+  (`docs/transport/udp.md#several-hosts-on-one-port`).
 - ✅ **SRV-15 Stream stores and backfill** — `ww_stream::store`: what a reliable stream (API-30) keeps until the
   host acknowledges it: `RamRing` (API-30) and `LogStore`, a power-cut safe log on a block device (feature
   `log-store`; `SdMedium` on an `embedded-sdmmc` `BlockDevice` with `sdmmc`, `NorMedium` on an

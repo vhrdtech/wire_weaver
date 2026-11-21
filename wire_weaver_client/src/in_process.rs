@@ -1078,8 +1078,8 @@ mod tests {
             let mut tx_frame = [0u8; DATAGRAM];
             let mut rx = ww_device::RxBuffer::<DATAGRAM, DEV_MAX_MESSAGE>::new();
             serve(
-                ww_device::FramedTx::new(UdpSink::new(&conn), &mut tx_frame),
-                ww_device::FramedRx::new(UdpSource::new(&conn), rx.assembly_buf(DATAGRAM)),
+                ww_device::FramedTx::new(UdpSink::new(&conn, 0), &mut tx_frame),
+                ww_device::FramedRx::new(UdpSource::new(&conn, 0), rx.assembly_buf(DATAGRAM)),
                 events_tx,
             )
             .await

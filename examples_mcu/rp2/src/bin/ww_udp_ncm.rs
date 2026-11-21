@@ -96,7 +96,7 @@ async fn dhcp_task(stack: Stack<'static>) {
 
 #[embassy_executor::task]
 async fn ww_server_task(
-    mut server: UdpServer<'static, EmbassyNetUdpSocket<'static>, EmbassyClock>,
+    mut server: UdpServer<'static, &'static UdpConnection<EmbassyNetUdpSocket<'static>>, EmbassyClock>,
     mut state: ServerState,
 ) {
     // Nothing else to wait for: use the prepared loop. See ww_device::Server for a custom one.
@@ -223,7 +223,8 @@ async fn main(spawner: Spawner) {
     );
     let server = udp_server(
         link_config,
-        conn,
+        &*conn,
+        0,
         EmbassyClock,
         UDP_BUFFERS.init(UdpBuffers::new()),
     );

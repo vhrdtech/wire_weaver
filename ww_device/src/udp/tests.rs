@@ -8,6 +8,7 @@ use embassy_futures::{block_on, poll_once};
 
 use super::*;
 use crate::transport::{MessageRx, MessageTx, TxFramer};
+use crate::udp::peers::sealed::Table;
 
 /// Datagrams to be received `(from, bytes)`, and sent ones `(to, bytes)`. Receiving with nothing queued stays
 /// pending.
@@ -67,15 +68,15 @@ fn datagram(messages: &[(Kind, &[u8])]) -> Vec<u8> {
     Host::default().datagram(messages)
 }
 
-fn push(conn: &UdpConnection<MockSocket>, from: u8, d: Vec<u8>) {
-    conn.socket.input.borrow_mut().push_back((from, d));
+fn push<const N: usize, H>(peers: &UdpPeers<MockSocket, N, H>, from: u8, d: Vec<u8>) {
+    peers.socket().input.borrow_mut().push_back((from, d));
 }
 
-struct Rx<'a> {
-    rx: UdpRx<'a, MockSocket>,
+struct Rx<'a, P: Deref<Target: PeerTable>> {
+    rx: UdpRx<'a, P>,
 }
 
-impl Rx<'_> {
+impl<P: Deref<Target: PeerTable + Table<Socket = MockSocket>>> Rx<'_, P> {
     /// What the server does: wait for the medium if down, then receive until nothing is left
     fn messages(&mut self) -> Result<Vec<(u8, Vec<u8>)>, UdpError<()>> {
         let mut received = Vec::new();
@@ -95,6 +96,40 @@ impl Rx<'_> {
     fn connect(&mut self) {
         block_on(self.rx.wait_connected());
         self.rx.reset();
+    }
+
+    /// One poll of `wait_connected`, as a server waiting on several slots does: true once a host is adopted.
+    fn try_connect(&mut self) -> bool {
+        let up = poll_once(self.rx.wait_connected()).is_ready();
+        if up {
+            self.rx.reset();
+        }
+        up
+    }
+}
+
+/// The server of one slot of a two-slot table.
+fn slot<'a>(peers: &'a Two, slot: usize, buf: &'a mut Buf) -> Rx<'a, &'a Two> {
+    Rx {
+        rx: FramedRx::new(
+            UdpSource::new(peers, slot),
+            buf.assembly_buf(UDP_MAX_DATAGRAM_LEN),
+        ),
+    }
+}
+
+type Two = UdpPeers<MockSocket, 2>;
+type Buf = RxBuffer<UDP_MAX_DATAGRAM_LEN, 64>;
+
+/// The hosts `sink` of `slot` sends to, after one message.
+fn reply_to(peers: &Two, slot: usize) -> Result<u8, UdpError<()>> {
+    let mut tx_buf = [0u8; UDP_MAX_DATAGRAM_LEN];
+    let mut tx = FramedTx::new(UdpSink::new(peers, slot), &mut tx_buf);
+    block_on(tx.write_message(Kind::DeviceInfo as u8, &[7])).unwrap();
+    match block_on(tx.flush()) {
+        Ok(()) => Ok(peers.socket().output.borrow().last().unwrap().0),
+        Err(crate::transport::FramedError::Transport(e)) => Err(e),
+        Err(e) => panic!("{e:?}"),
     }
 }
 
@@ -136,7 +171,7 @@ fn first_host_to_start_link_setup_is_adopted() {
     let mut buf = RxBuffer::<UDP_MAX_DATAGRAM_LEN, 64>::new();
     let mut rx = Rx {
         rx: FramedRx::new(
-            UdpSource::new(&conn),
+            UdpSource::new(&conn, 0),
             buf.assembly_buf(UDP_MAX_DATAGRAM_LEN),
         ),
     };
@@ -149,7 +184,7 @@ fn first_host_to_start_link_setup_is_adopted() {
     push(&conn, 2, h2.datagram(&[DATA]));
     assert!(poll_once(rx.rx.wait_connected()).is_ready());
     rx.rx.reset();
-    assert_eq!(conn.peer(), Some(2));
+    assert_eq!(conn.peer(0), Some(2));
     // Hello that started it is not lost
     assert_eq!(
         rx.messages().unwrap(),
@@ -158,10 +193,10 @@ fn first_host_to_start_link_setup_is_adopted() {
 
     // replies go to the peer only
     let mut tx_buf = [0u8; UDP_MAX_DATAGRAM_LEN];
-    let mut tx = FramedTx::new(UdpSink::new(&conn), &mut tx_buf);
+    let mut tx = FramedTx::new(UdpSink::new(&conn, 0), &mut tx_buf);
     block_on(tx.write_message(Kind::DeviceInfo as u8, &[7])).unwrap();
     block_on(tx.flush()).unwrap();
-    let out = conn.socket.output.borrow();
+    let out = conn.socket().output.borrow();
     assert_eq!(out.len(), 1);
     assert_eq!(out[0].0, 2);
 }
@@ -172,7 +207,7 @@ fn another_host_takes_over_with_link_setup() {
     let mut buf = RxBuffer::<UDP_MAX_DATAGRAM_LEN, 64>::new();
     let mut rx = Rx {
         rx: FramedRx::new(
-            UdpSource::new(&conn),
+            UdpSource::new(&conn, 0),
             buf.assembly_buf(UDP_MAX_DATAGRAM_LEN),
         ),
     };
@@ -191,7 +226,7 @@ fn another_host_takes_over_with_link_setup() {
     push(&conn, 2, hello());
     assert_eq!(rx.messages(), Err(UdpError::PeerChanged));
     rx.connect();
-    assert_eq!(conn.peer(), Some(2));
+    assert_eq!(conn.peer(0), Some(2));
     assert_eq!(
         rx.messages().unwrap(),
         [(3, std::vec![]), (4, HELLO.to_vec())]
@@ -212,7 +247,7 @@ fn hello_outside_the_framer() {
     let mut buf = RxBuffer::<UDP_MAX_DATAGRAM_LEN, 256>::new();
     let mut rx = Rx {
         rx: FramedRx::new(
-            UdpSource::new(&conn),
+            UdpSource::new(&conn, 0),
             buf.assembly_buf(UDP_MAX_DATAGRAM_LEN),
         ),
     };
@@ -221,19 +256,19 @@ fn hello_outside_the_framer() {
     push(&conn, 1, ww_link::hello::udp::frame(&gen2).to_vec());
     push(&conn, 1, std::vec![0xF7, 0x01, 0x02, 0x03, 0x04]);
     rx.connect();
-    assert_eq!(conn.peer(), Some(1));
+    assert_eq!(conn.peer(0), Some(1));
     assert_eq!(rx.messages().unwrap(), [(4, gen2.to_bytes().to_vec())]);
 
     // the device's hello: the frozen datagram alone, after what the framer held
     let mut tx_buf = [0u8; UDP_MAX_DATAGRAM_LEN];
-    let mut tx = FramedTx::new(UdpSink::new(&conn), &mut tx_buf);
+    let mut tx = FramedTx::new(UdpSink::new(&conn, 0), &mut tx_buf);
     let device = ww_link::Hello {
         role: ww_link::Role::Device,
         ..gen2
     };
     block_on(tx.write_message(Kind::Nop as u8, &[])).unwrap();
     block_on(tx.write_hello(&device)).unwrap();
-    let out = conn.socket.output.borrow().clone();
+    let out = conn.socket().output.borrow().clone();
     assert_eq!(out.len(), 2);
     assert_eq!(out[1].1, ww_link::hello::udp::frame(&device));
 
@@ -255,6 +290,134 @@ fn hello_outside_the_framer() {
 #[test]
 fn nothing_is_sent_without_a_peer() {
     let conn = UdpConnection::new(MockSocket::default());
-    let mut sink = UdpSink::new(&conn);
+    let mut sink = UdpSink::new(&conn, 0);
     assert_eq!(block_on(sink.write_packet(&[1])), Err(UdpError::NoPeer));
+}
+
+/// Two fixed slots: each host that starts link setup gets one, and its datagrams reach that slot only, whichever
+/// slot received them from the socket.
+#[test]
+fn each_host_gets_its_own_slot() {
+    let peers = Two::new(MockSocket::default());
+    let (mut b0, mut b1) = (Buf::new(), Buf::new());
+    let mut rx0 = slot(&peers, 0, &mut b0);
+    let mut rx1 = slot(&peers, 1, &mut b1);
+    let (mut h1, mut h2) = (Host::default(), Host::default());
+
+    push(&peers, 1, h1.datagram(&[NOP]));
+    push(&peers, 2, hello());
+    // a host without a slot is not heard
+    push(&peers, 3, datagram(&[DATA]));
+    push(&peers, 2, h2.datagram(&[DATA]));
+    push(&peers, 1, h1.datagram(&[DATA]));
+    assert!(rx0.try_connect());
+    assert!(rx1.try_connect());
+    assert_eq!((peers.peer(0), peers.peer(1)), (Some(1), Some(2)));
+
+    // slot 0 receives host 2's datagram and holds it for slot 1: nothing more is received until slot 1 takes it
+    assert_eq!(rx0.messages().unwrap(), [(3, std::vec![])]);
+    assert_eq!(
+        rx1.messages().unwrap(),
+        [(4, HELLO.to_vec()), (0, std::vec![1, 2, 3])]
+    );
+    assert_eq!(rx0.messages().unwrap(), [(0, std::vec![1, 2, 3])]);
+    assert_eq!(peers.socket().input.borrow().len(), 0);
+
+    assert_eq!(reply_to(&peers, 0), Ok(1));
+    assert_eq!(reply_to(&peers, 1), Ok(2));
+}
+
+/// With every fixed slot taken, a new host takes over the slot heard from least recently; the other stays.
+#[test]
+fn new_host_takes_the_quietest_slot() {
+    let peers = Two::new(MockSocket::default());
+    let (mut b0, mut b1) = (Buf::new(), Buf::new());
+    let mut rx0 = slot(&peers, 0, &mut b0);
+    let mut rx1 = slot(&peers, 1, &mut b1);
+    let (mut h1, mut h2, mut h3) = (Host::default(), Host::default(), Host::default());
+    push(&peers, 1, h1.datagram(&[NOP]));
+    push(&peers, 2, h2.datagram(&[NOP]));
+    assert!(rx0.try_connect() && rx1.try_connect());
+    assert_eq!(rx0.messages().unwrap().len(), 1);
+    assert_eq!(rx1.messages().unwrap().len(), 1);
+
+    // host 1 was heard last: host 3 takes slot 1
+    push(&peers, 2, h2.datagram(&[DATA]));
+    push(&peers, 1, h1.datagram(&[DATA]));
+    push(&peers, 3, h3.datagram(&[NOP]));
+    assert_eq!(rx1.messages().unwrap().len(), 1);
+    assert_eq!(rx0.messages().unwrap().len(), 1);
+    assert_eq!(rx1.messages(), Err(UdpError::PeerChanged));
+    assert!(rx1.try_connect());
+    assert_eq!(peers.peer(1), Some(3));
+    assert_eq!(rx1.messages().unwrap(), [(3, std::vec![])]);
+
+    // host 2 is not heard anymore, host 1 still is
+    push(&peers, 2, h2.datagram(&[DATA]));
+    push(&peers, 1, h1.datagram(&[DATA]));
+    assert_eq!(rx1.messages().unwrap(), []);
+    assert_eq!(rx0.messages().unwrap(), [(0, std::vec![1, 2, 3])]);
+    assert_eq!(peers.peer(0), Some(1));
+}
+
+/// A receive dropped half way (`wait()` lost a select) gives the socket up: another slot receives next.
+#[test]
+fn cancelled_receive_gives_the_socket_up() {
+    let peers = Two::new(MockSocket::default());
+    let (mut b0, mut b1) = (Buf::new(), Buf::new());
+    let mut rx0 = slot(&peers, 0, &mut b0);
+    let mut rx1 = slot(&peers, 1, &mut b1);
+    // nothing to receive: slot 0's wait starts a receive, which is dropped with the poll
+    assert!(!rx0.try_connect());
+    push(&peers, 2, hello());
+    assert!(rx1.try_connect());
+    assert_eq!(peers.peer(1), Some(2));
+}
+
+/// Accepted connections: one per host, a dropped source frees its slot, and with every slot taken a new host ends
+/// the quietest connection and gets the slot from its next hello.
+#[test]
+fn accepted_connections() {
+    let peers = Two::new(MockSocket::default());
+    let (mut b0, mut b1) = (Buf::new(), Buf::new());
+    let (mut h1, mut h2) = (Host::default(), Host::default());
+    assert!(poll_once(peers.accept()).is_pending());
+
+    push(&peers, 1, h1.datagram(&[NOP]));
+    push(&peers, 2, hello());
+    let Poll::Ready(Ok(s1)) = poll_once(peers.accept()) else {
+        panic!("host 1 accepted")
+    };
+    // nothing is received until host 1's connection adopts it
+    assert!(poll_once(peers.accept()).is_pending());
+    let mut rx1 = slot(&peers, s1, &mut b0);
+    assert!(rx1.try_connect());
+    assert_eq!(peers.peer(s1), Some(1));
+    let Poll::Ready(Ok(s2)) = poll_once(peers.accept()) else {
+        panic!("host 2 accepted")
+    };
+    assert_ne!(s1, s2);
+    let mut rx2 = slot(&peers, s2, &mut b1);
+    assert!(rx2.try_connect());
+    assert_eq!(rx1.messages().unwrap(), [(3, std::vec![])]);
+    assert_eq!(rx2.messages().unwrap(), [(4, HELLO.to_vec())]);
+
+    // host 3 ends host 1's connection (heard from least recently), its hello is dropped
+    push(&peers, 2, h2.datagram(&[DATA]));
+    push(&peers, 3, hello());
+    assert!(poll_once(peers.accept()).is_pending());
+    assert_eq!(rx2.messages().unwrap(), [(0, std::vec![1, 2, 3])]);
+    assert!(poll_once(peers.accept()).is_pending());
+    assert_eq!(rx1.messages(), Err(UdpError::PeerChanged));
+    assert!(!rx1.try_connect());
+    assert_eq!(reply_to(&peers, s1), Err(UdpError::PeerChanged));
+
+    // dropping the connection frees the slot: host 3's next hello gets it
+    drop(rx1);
+    push(&peers, 3, hello());
+    assert_eq!(poll_once(peers.accept()), Poll::Ready(Ok(s1)));
+    let mut rx3 = slot(&peers, s1, &mut b0);
+    assert!(rx3.try_connect());
+    assert_eq!(peers.peer(s1), Some(3));
+    assert_eq!(peers.peer(s2), Some(2));
 }

@@ -39,31 +39,73 @@ feature adds `EmbassyNetUdpSocket` on an `embassy-net` UDP socket, and `udp_serv
 let socket = UdpSocket::new(stack, rx_meta, rx_buf, tx_meta, tx_buf);
 let socket = EmbassyNetUdpSocket::bind(socket, 9000).unwrap();
 let conn = UDP_CONNECTION.init(UdpConnection::new(socket));
-let mut server = udp_server(link_config, conn, EmbassyClock, UDP_BUFFERS.init(UdpBuffers::new()));
+let mut server = udp_server(link_config, &*conn, 0, EmbassyClock, UDP_BUFFERS.init(UdpBuffers::new()));
 server.run(&mut state).await;
 ```
 
-UDP has no connections, so the device serves one host (peer) at a time and replies to it only:
+### Several hosts on one port
 
-- a host is adopted when it starts link setup: its datagram is a `Nop` first or the
-  [frozen hello](ww_link.md#the-frozen-hello), which the host sends alone before anything else;
-- datagrams from other hosts are dropped, unless they start link setup: then the new host replaces the current
-  one, as if another process opened a USB device. The device reports `LinkEvent::Down(DownReason::Transport)`,
-  starts over and handles the datagram that started the takeover, so the new host connects without waiting for a
-  retry;
-- a host that is gone is noticed by the peer timeout, there is nothing to close.
+UDP has no connections, so the device tells hosts (peers) apart by their address and serves each from a slot of a
+`UdpPeers<Socket, PEERS>`: one socket, up to `PEERS` hosts, chosen at build time. `UdpConnection` is the one-host
+table. Each slot has its own `UdpSink` / `UdpSource`, framers and server, so each host has a link of its own, with
+its own pings, peer timeout and `LinkEvent`s:
 
-There is no authentication, anyone who can reach the port can take over. Put the device on a trusted network, or
+- a host gets a slot when it starts link setup: its datagram is a `Nop` first or the
+  [frozen hello](ww_link.md#the-frozen-hello), which the host sends alone before anything else. That slot's server
+  reports `LinkEvent::Down(DownReason::Transport)` if it served another host, starts over and handles the datagram
+  that started it, so the new host connects without waiting for a retry;
+- datagrams from a host without a slot are dropped;
+- with every slot taken, the host heard from least recently gives its slot up. A host that is gone stops pinging, so
+  it is the first to go; with one slot, any host that starts link setup takes it over, as if another process opened
+  a USB device.
+
+A firmware runs one server per slot for good and selects on all of their `wait()`s, passing the same backend to
+`handle()`, as with [several media](ww_link.md#how-the-device-runs-it):
+
+```rust
+static PEERS: StaticCell<UdpPeers<EmbassyNetUdpSocket<'static>, 2>> = StaticCell::new();
+let peers = &*PEERS.init(UdpPeers::new(socket));
+let mut a = udp_server(link_config.clone(), peers, 0, EmbassyClock, BUFFERS_A.init(UdpBuffers::new()));
+let mut b = udp_server(link_config, peers, 1, EmbassyClock, BUFFERS_B.init(UdpBuffers::new()));
+loop {
+    match select(a.wait(), b.wait()).await {
+        Either::First(ready) => _ = a.handle(ready, &mut state).await,
+        Either::Second(ready) => _ = b.handle(ready, &mut state).await,
+    }
+}
+```
+
+A program on a computer instead takes a connection per host, with a backend of its own, as a WebSocket server
+accepts clients: `peers.accept()` hands out the slot of each new host, the program makes that slot's server (the
+table in an `Rc`, the server on a task of its own) and drops it when its link goes down, which frees the slot. With
+every slot taken, a new host ends the connection heard from least recently and gets the slot from its next hello,
+once that connection is dropped.
+
+```rust
+let peers = Rc::new(UdpPeers::<_, 8>::new(socket));
+loop {
+    let slot = peers.accept().await?;
+    spawn_local(serve(peers.clone(), slot)); // udp_server(.., peers, slot, ..) until LinkEvent::Down
+}
+```
+
+One socket is read by one slot at a time. With one slot, it receives straight into its framer. With several, the
+slot that waits receives into the table's datagram buffer and the slot the datagram is for copies it out: until it
+does, nothing more is received, so a server that does not wait holds up the others (no datagram is lost to it).
+`wire_weaver_client/src/udp.rs` serves two hosts both ways in its tests.
+
+There is no authentication, anyone who can reach the port can take a slot. Put the device on a trusted network, or
 use a medium with access control.
 
-- No allocation: `UdpBuffers<MAX_MESSAGE_LEN>` holds the reassembly, tx datagram and scratch buffers
-  (`3 * MAX_MESSAGE_LEN + 2 * UDP_MAX_DATAGRAM_LEN` bytes). Datagrams are received straight into the framer.
+- No allocation: `UdpBuffers<MAX_MESSAGE_LEN>` holds a slot's reassembly, tx datagram and scratch buffers
+  (`3 * MAX_MESSAGE_LEN + 2 * UDP_MAX_DATAGRAM_LEN` bytes). A table of several slots adds one datagram buffer
+  (`UDP_MAX_DATAGRAM_LEN`) and about 60 bytes per slot.
 - Device datagrams are `UDP_MAX_DATAGRAM_LEN` at most too. The socket's own buffers must fit at least one such
   datagram each way.
 - `server.wait()` is cancel-safe, so it can be selected on together with anything else.
 - `EmbassyNetUdpSocket` gives up on a send after 1 s (`set_send_timeout`), e.g., when the network interface is
   down, so the link goes down instead of blocking the event loop.
-- The medium is not `Send` (the peer is kept in a `Cell`), as with the other `embassy` based media; on `tokio`, run
+- The medium is not `Send` (the table is kept in `Cell`s), as with the other `embassy` based media; on `tokio`, run
   it on a `LocalSet`. `wire_weaver_client/src/udp.rs` has a device on `tokio::net::UdpSocket` in its tests.
 
 ## Simulated UDP in tests
@@ -71,7 +113,7 @@ use a medium with access control.
 `wire_weaver_client::in_process::udp_device(path)` registers a device that speaks UDP datagrams without the kernel
 (TR-21). The host connects with `ClientConfig::in_process_path(path)` and packs messages exactly as the `udp`
 transport does: frame counter, CRC-32 on every message, datagrams of at most `UDP_MAX_DATAGRAM_LEN`. The device serves
-the returned `UdpPort` with `UdpConnection`, `UdpSink` and `UdpSource`, as it would a real socket. Every connection is
+the returned `UdpPort` with `UdpConnection`, `UdpSink` and `UdpSource` (slot 0), as it would a real socket. Every connection is
 a new host address, so a reconnect is a peer takeover, as over UDP.
 
 A test on tokio's paused clock (`start_paused`) can't use a real socket: the runtime cannot see a datagram that is

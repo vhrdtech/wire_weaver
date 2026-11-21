@@ -2,23 +2,30 @@
 //! the `udp` transport of `wire_weaver_client` speaks. Small messages share a datagram, big ones are split across
 //! several, exactly as over USB, so [FramedTx] / [FramedRx] do the framing on top of [UdpSink] / [UdpSource].
 //!
-//! UDP has no connections, so the device serves one host (peer) at a time and replies to it only:
-//! - a peer is adopted when it starts link setup, i.e., when its datagram is a `Nop` first or the frozen hello
-//!   (`ww_link::hello::udp`, outside the framer; the host sends both alone, before anything else);
-//! - datagrams from anyone else are dropped, unless they start link setup: then the current peer is replaced, as if a
-//!   USB device was opened by another host process. The medium goes down and up again, so the link and the framers
-//!   start over, and the datagram that started the takeover is not lost;
-//! - a peer that is gone is noticed by the link's peer timeout, a new one can take over at any time.
+//! UDP has no connections, so the device tells hosts (peers) apart by their address, and serves each from a slot of
+//! a [UdpPeers]: up to `PEERS` hosts on one socket, chosen at build time ([UdpConnection] for one). Each slot has its
+//! own [UdpSink] / [UdpSource] pair, framers and link, so each host has a link of its own:
+//! - a host gets a slot when it starts link setup, i.e., when its datagram is a `Nop` first or the frozen hello
+//!   (`ww_link::hello::udp`, outside the framer; the host sends both alone, before anything else). The medium of
+//!   that slot goes down and up again, so the link and the framers start over, and the datagram that started it is
+//!   not lost;
+//! - datagrams from a host without a slot are dropped;
+//! - with every slot taken, the host heard from least recently gives its slot up: one gone quiet for longer than
+//!   the link's peer timeout comes first, as a live host pings well within it. With one slot, any host that starts
+//!   link setup takes it over, as if a USB device was opened by another host process.
 //!
-//! There is no authentication: anyone that can reach the port can take over. Nothing is retransmitted either, see the
-//! UDP transport docs for what happens on loss.
+//! A firmware runs one server per slot for good; a host program accepts a connection per host
+//! ([UdpPeers::accept]) and ends it when its link goes down, which frees the slot. See [peers] for the details.
 //!
-//! [UdpSink] and [UdpSource] share the socket and the current peer through a [UdpConnection], datagram sockets are
-//! used through `&self`, so no locking is needed. With the `embassy-net` feature, `EmbassyNetUdpSocket` implements
-//! [DatagramSocket] on an `embassy-net` UDP socket, [udp_server] puts everything together.
+//! There is no authentication: anyone that can reach the port can take a slot. Nothing is retransmitted either, see
+//! the UDP transport docs for what happens on loss.
+//!
+//! Datagram sockets are used through `&self`, so no locking is needed. With the `embassy-net` feature,
+//! `EmbassyNetUdpSocket` implements [DatagramSocket] on an `embassy-net` UDP socket, [udp_server] puts everything
+//! together.
 
-use core::cell::Cell;
 use core::future::Future;
+use core::ops::Deref;
 
 use wire_weaver::shrink_wrap::BufReader;
 use ww_framer::prefix::FramePrefix;
@@ -26,10 +33,13 @@ use ww_framer::traits::{Checksum, Head, MessageKind};
 use ww_link::{Framing, Kind, UDP_MAX_DATAGRAM_LEN, UdpChecksum, UdpFraming, UdpHead, UdpPrefix};
 
 use crate::buffer::RxBuffer;
-use crate::fmt::{debug, warn};
 use crate::server::Clock;
 use crate::transport::{FramedRx, FramedTx, PacketSink, PacketSource};
 use crate::{LinkConfig, Server};
+
+pub mod peers;
+use peers::sealed::Table;
+pub use peers::{Direct, PeerTable, Shared, UdpConnection, UdpPeers};
 
 /// Datagram socket bound to a local port. Both methods take `&self`, so that tx and rx can use it independently.
 pub trait DatagramSocket {
@@ -64,49 +74,27 @@ pub enum UdpError<E> {
     PeerChanged,
 }
 
-/// Socket shared by [UdpSink] and [UdpSource], together with the peer that the device talks to.
-pub struct UdpConnection<S: DatagramSocket> {
-    socket: S,
-    peer: Cell<Option<S::Addr>>,
+/// [PacketSink] sending datagrams to the host of one slot of a [UdpPeers].
+pub struct UdpSink<P> {
+    peers: P,
+    slot: usize,
 }
 
-impl<S: DatagramSocket> UdpConnection<S> {
-    pub const fn new(socket: S) -> Self {
-        UdpConnection {
-            socket,
-            peer: Cell::new(None),
-        }
-    }
-
-    /// Host that the device talks to, if any.
-    pub fn peer(&self) -> Option<S::Addr> {
-        self.peer.get()
-    }
-
-    pub fn socket(&self) -> &S {
-        &self.socket
+impl<P: Deref<Target: PeerTable>> UdpSink<P> {
+    /// Sends to the host `slot` serves.
+    pub fn new(peers: P, slot: usize) -> Self {
+        UdpSink { peers, slot }
     }
 }
 
-/// [PacketSink] sending datagrams to the current peer.
-pub struct UdpSink<'a, S: DatagramSocket> {
-    conn: &'a UdpConnection<S>,
-}
-
-impl<'a, S: DatagramSocket> UdpSink<'a, S> {
-    pub fn new(conn: &'a UdpConnection<S>) -> Self {
-        UdpSink { conn }
-    }
-}
-
-impl<S: DatagramSocket> PacketSink for UdpSink<'_, S> {
-    type Error = UdpError<S::SendError>;
+impl<P: Deref<Target: PeerTable>> PacketSink for UdpSink<P> {
+    type Error = UdpError<<Socket<P> as DatagramSocket>::SendError>;
     type Framing = UdpFraming;
 
     async fn write_packet(&mut self, packet: &[u8]) -> Result<(), Self::Error> {
-        let peer = self.conn.peer.get().ok_or(UdpError::NoPeer)?;
-        self.conn
-            .socket
+        let peer = self.peers.send_to(self.slot)?;
+        self.peers
+            .socket()
             .send_to(packet, peer)
             .await
             .map_err(UdpError::Socket)
@@ -127,6 +115,15 @@ struct SetupDatagram<A> {
 }
 
 impl<A> SetupDatagram<A> {
+    /// [Self::new] of the first `len` bytes of `buf`, as a socket reported them: all of `buf` when it was truncated.
+    fn received(buf: &[u8], len: usize, from: A) -> Option<Self> {
+        Self::new(&buf[..len.min(buf.len())], from)
+    }
+
+    fn bytes(&self) -> &[u8] {
+        &self.bytes[..self.len]
+    }
+
     /// Some if `datagram` starts link setup and is short enough to keep.
     fn new(datagram: &[u8], from: A) -> Option<Self> {
         if datagram.len() > SETUP_DATAGRAM_MAX_LEN || !starts_link_setup(datagram) {
@@ -165,27 +162,37 @@ fn starts_link_setup(datagram: &[u8]) -> bool {
     UdpChecksum::read(header, message, false, &mut rd).is_ok()
 }
 
-/// [PacketSource] receiving datagrams from the current peer, see the [module docs](self) on how peers are adopted.
-pub struct UdpSource<'a, S: DatagramSocket> {
-    conn: &'a UdpConnection<S>,
-    /// Another host started link setup, adopted in `wait_connected()`
-    takeover: Option<SetupDatagram<S::Addr>>,
-    /// Setup datagram of the adopted peer, returned by the first `read_packet()`
-    replay: Option<SetupDatagram<S::Addr>>,
+/// [PacketSource] receiving the datagrams of one slot of a [UdpPeers], see the [module docs](peers) on how hosts get
+/// a slot. Dropping it frees the slot.
+pub struct UdpSource<P: Deref<Target: PeerTable>> {
+    peers: P,
+    slot: usize,
 }
 
-impl<'a, S: DatagramSocket> UdpSource<'a, S> {
-    pub fn new(conn: &'a UdpConnection<S>) -> Self {
-        UdpSource {
-            conn,
-            takeover: None,
-            replay: None,
-        }
+impl<P: Deref<Target: PeerTable>> UdpSource<P> {
+    /// Receives for `slot`: for good, or for the connection [UdpPeers::accept] handed out.
+    ///
+    /// # Panics
+    ///
+    /// `slot` is out of range, or already has a source.
+    pub fn new(peers: P, slot: usize) -> Self {
+        peers.claim(slot);
+        UdpSource { peers, slot }
+    }
+
+    pub fn slot(&self) -> usize {
+        self.slot
     }
 }
 
-impl<S: DatagramSocket> PacketSource for UdpSource<'_, S> {
-    type Error = UdpError<S::RecvError>;
+impl<P: Deref<Target: PeerTable>> Drop for UdpSource<P> {
+    fn drop(&mut self) {
+        self.peers.release(self.slot);
+    }
+}
+
+impl<P: Deref<Target: PeerTable>> PacketSource for UdpSource<P> {
+    type Error = UdpError<<Socket<P> as DatagramSocket>::RecvError>;
     type Framing = UdpFraming;
 
     /// The host sends datagrams of at most this size.
@@ -194,52 +201,21 @@ impl<S: DatagramSocket> PacketSource for UdpSource<'_, S> {
     }
 
     async fn read_packet(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
-        if let Some(d) = self.replay.take() {
-            buf[..d.len].copy_from_slice(&d.bytes[..d.len]);
-            return Ok(d.len);
-        }
-        loop {
-            let (len, from) = self
-                .conn
-                .socket
-                .recv_from(buf)
-                .await
-                .map_err(UdpError::Socket)?;
-            if self.conn.peer.get() == Some(from) {
-                return Ok(len);
-            }
-            if let Some(d) = SetupDatagram::new(&buf[..len], from) {
-                debug!("udp: another host started link setup");
-                self.takeover = Some(d);
-                return Err(UdpError::PeerChanged);
-            }
-            // e.g., a host from a previous session that did not notice the takeover yet
-            warn!("udp: dropping datagram from another host");
-        }
+        self.peers.read(self.slot, buf).await
     }
 
     async fn wait_connected(&mut self) {
-        loop {
-            if let Some(d) = self.takeover.take() {
-                self.conn.peer.set(Some(d.from));
-                self.replay = Some(d);
-                debug!("udp: peer adopted");
-                return;
-            }
-            // one more byte, to tell a truncated datagram from one that fits exactly
-            let mut buf = [0u8; SETUP_DATAGRAM_MAX_LEN + 1];
-            // an error (e.g., too long for buf) is not a datagram that starts link setup either
-            if let Ok((len, from)) = self.conn.socket.recv_from(&mut buf).await {
-                self.takeover = SetupDatagram::new(&buf[..len.min(buf.len())], from);
-            }
-        }
+        self.peers.wait_connected(self.slot).await
     }
 }
 
-pub type UdpTx<'a, S> = FramedTx<'a, UdpSink<'a, S>>;
-pub type UdpRx<'a, S> = FramedRx<'a, UdpSource<'a, S>>;
-/// [UdpTx] / [UdpRx] server, see [Server] on how to use it.
-pub type UdpServer<'a, S, C, M = ()> = Server<'a, UdpTx<'a, S>, UdpRx<'a, S>, C, M>;
+/// The socket of the table behind `P`.
+type Socket<P> = <<P as Deref>::Target as Table>::Socket;
+
+pub type UdpTx<'a, P> = FramedTx<'a, UdpSink<P>>;
+pub type UdpRx<'a, P> = FramedRx<'a, UdpSource<P>>;
+/// [UdpTx] / [UdpRx] server of one slot, see [Server] on how to use it.
+pub type UdpServer<'a, P, C, M = ()> = Server<'a, UdpTx<'a, P>, UdpRx<'a, P>, C, M>;
 
 /// Buffers used by [UdpServer], `MAX_MESSAGE_LEN` is the longest message the device accepts and the longest reply
 /// it can serialize, reported to the host exactly as is. Longer messages than a datagram are split across several.
@@ -274,24 +250,30 @@ impl<const MAX_MESSAGE_LEN: usize> Default for UdpBuffers<MAX_MESSAGE_LEN> {
     }
 }
 
-/// UDP server on a [DatagramSocket], e.g.:
+/// UDP server of one slot of a [UdpPeers], e.g. for one host:
 /// ```ignore
 /// let socket = EmbassyNetUdpSocket::bind(UdpSocket::new(stack, rx_meta, rx_buf, tx_meta, tx_buf), 9000).unwrap();
 /// let conn = UDP_CONNECTION.init(UdpConnection::new(socket));
-/// let mut server = udp_server(link_config, conn, EmbassyClock, UDP_BUFFERS.init(UdpBuffers::new()));
+/// let mut server = udp_server(link_config, &*conn, 0, EmbassyClock, UDP_BUFFERS.init(UdpBuffers::new()));
 /// server.run(&mut state).await;
 /// ```
-pub fn udp_server<'a, const MAX_MESSAGE_LEN: usize, S: DatagramSocket, C: Clock>(
+/// For several hosts, one server per slot of a `UdpPeers<_, PEERS>`, selected on together as [Server] shows for
+/// several media, or one per connection [UdpPeers::accept] hands out.
+pub fn udp_server<'a, const MAX_MESSAGE_LEN: usize, P, C: Clock>(
     link_config: LinkConfig<'a>,
-    conn: &'a UdpConnection<S>,
+    peers: P,
+    slot: usize,
     clock: C,
     buffers: &'a mut UdpBuffers<MAX_MESSAGE_LEN>,
-) -> UdpServer<'a, S, C> {
+) -> UdpServer<'a, P, C>
+where
+    P: Deref<Target: PeerTable> + Clone,
+{
     Server::new(
         link_config,
-        FramedTx::new(UdpSink::new(conn), &mut buffers.tx),
+        FramedTx::new(UdpSink::new(peers.clone(), slot), &mut buffers.tx),
         FramedRx::new(
-            UdpSource::new(conn),
+            UdpSource::new(peers, slot),
             buffers.rx.assembly_buf(UDP_MAX_DATAGRAM_LEN),
         ),
         clock,

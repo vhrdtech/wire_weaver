@@ -12,6 +12,7 @@
 
 ### ⚠️ Breaking
 
+- UDP serves several hosts on one port (SRV-68): `UdpSink::new(peers, slot)` / `UdpSource::new(peers, slot)` and `udp_server(config, peers, slot, ..)` take a slot of a `UdpPeers`; pass `&conn, 0` for a `UdpConnection`. `UdpTx` / `UdpRx` / `UdpServer` take the table reference type, `UdpConnection::peer(slot)`.
 - Declares `rust-version = "1.99"`: cargo of an older Rust refuses the crate.
 - A reply is flushed at once for a request at priority 4 and up (`Priority::URGENT`, EVO-76), read from the request's 3 priority bits; the reserved bit beside them is ignored. Hosts and devices are rebuilt together (`ww_client_server` EVO-76).
 - Link setup decides on the wire line, not the crate version (EVO-25): `LinkConfig::new(user_api_version, user_api_wire, api_hash, image_facts, api_model_version)` takes the API root's wire version (pass the API crate's `*_WIRE_VERSION`) and `LinkConfig::user_api_wire: Option<WireVersion>` holds it. A host of the same API crate on the same line connects whatever its crate version; another line, another API or a generated host without a wire version gets `Disconnect(IncompatibleVersion)`; a dynamic host connects as before. `DeviceInfo` carries the wire version, `PeerVersion::wire` keeps the host's. `Version::is_protocol_compatible` is no longer called.
@@ -27,6 +28,7 @@
 
 ### 🚀 Features
 
+- `udp::UdpPeers<S, PEERS>` (SRV-68): a link per host address on one socket, a firmware's fixed slots or a host program's `accept()`ed connections.
 - `overloaded_reply(request, scratch)` (SRV-12): the `Overloaded` answer of a host server that refuses a request for its load.
 - `generic_error_reply` writes its error event in place (`ww_client_server::util::ser_err_event`), without linking `Event`'s serializer (SRV-54).
 - `Sink::flush` (async and blocking) is public: firmware sends what waits in the frame now, e.g. after a deferred reply (SRV-42). `DeviceLink::on_flushed` for sinks that flush on their own.

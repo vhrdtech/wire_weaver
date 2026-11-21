@@ -678,6 +678,12 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   went down (the client left, its link timed out, the server shut down) and its last request ended, before the
   backend is dropped, cut at `Limits::shutdown_grace`. A backend lets go there of what its client held (keys
   pressed, covers, locks) ([Host server](docs/api/host_server.md#when-a-connection-ends), `tests/host_server`).
+- ✅ **SRV-75 Listeners that stop alone** — `ww_calloop::TcpIncoming::stop_handle` closes the TCP socket at
+  once and `wire_weaver_server::udp::UdpListener::stop_handle` (`ww_calloop::LoopUdpStop`) takes no new host,
+  on `ww_device::udp::UdpPeers::stop_accepting`: a program moves to another address while the connections it has
+  go on. An error about one client no longer ends `serve` and every connection: a TCP stream that fails its setup
+  is dropped, and `StdUdpSocket` skips receive errors about one datagram
+  ([Host server](docs/api/host_server.md#moving-to-another-address), `tests/calloop_server`, `tests/host_server`).
 - 📋 **SRV-9 Handle USB suspend/resume** · `v0.5` — run until suspend, wait for resume, loop
   (`mcu/wire_weaver_usb_embassy`). Later (`v0.5.x`): detect the host going to sleep and keep the connection,
   informing the device.

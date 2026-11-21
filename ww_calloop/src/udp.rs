@@ -6,7 +6,7 @@ use std::net::{SocketAddr, UdpSocket};
 
 use calloop::LoopHandle;
 use calloop::io::Async;
-use wire_weaver_server::udp::UdpListener;
+use wire_weaver_server::udp::{UdpListener, UdpStop};
 use ww_device::udp::{Readiness, StdUdpSocket};
 
 /// When a [StdUdpSocket] is readable, from the loop watching a clone of it, which is never read itself.
@@ -30,6 +30,10 @@ pub type LoopUdpSocket<'l> = StdUdpSocket<LoopReadiness<'l>>;
 
 /// A listener of up to `PEERS` hosts on a socket the loop watches.
 pub type LoopUdpListener<'l, const PEERS: usize> = UdpListener<LoopUdpSocket<'l>, PEERS>;
+
+/// Stops a [LoopUdpListener] alone (`UdpListener::stop_handle`): it takes no new host, its connections go on, and
+/// the socket closes with the last of them.
+pub type LoopUdpStop<'l, const PEERS: usize> = UdpStop<LoopUdpSocket<'l>, PEERS>;
 
 /// Listen on a UDP socket bound to `addr`, on the loop of `handle`: a connection per host, up to `PEERS` at once
 /// (`wire_weaver_server::udp`). `message_len_max` is the longest message the server takes; longer ones than a

@@ -277,6 +277,10 @@ ends the connection heard from least recently and is served from its next hello.
 served. Messages longer than a datagram are split across several, up to the listener's longest message (16 KiB
 here).
 
+`UdpListener::stop_handle` gives a handle that stops this listener alone: it takes no new host, and its
+connections go on until they end ([moving to another address](#moving-to-another-address)). A receive error about
+one host, such as an ICMP error of an earlier send, is skipped; an error of the socket itself ends `serve`.
+
 Connections are `Send` when the socket is `Sync`, so they can run on any thread of a multi-threaded runtime
 ([connections as tasks](#connections-as-tasks)). On another event loop,
 `UdpListener::new` takes a `ww_device::udp::StdUdpSocket` with that loop's readiness, or any `DatagramSocket`;
@@ -308,6 +312,31 @@ scheduler.schedule(async move {
 
 WebSocket clients (`ClientConfig::websocket_url`) and UDP clients (`udp_addr`) then reach the same API on one port
 number, each connection with its client's address as the peer.
+
+#### Moving to another address
+
+A program whose address changes while it runs (a setting the user edits) stops the old listeners and serves new
+ones beside them. Each listener has a stop handle for this, which you take before the listener goes to `serve`:
+
+```rust
+let tcp = TcpIncoming::bind(&handle, old_addr)?;
+let tcp_stop = tcp.stop_handle();
+let udp = bind_udp::<_, 8>(&handle, old_addr, 16 * 1024)?;
+let udp_stop = udp.stop_handle();
+// later, in a callback of the loop, when the address changed:
+tcp_stop.stop();
+udp_stop.stop();
+// bind the new address and schedule another `serve` for it
+```
+
+`TcpStop::stop` closes the TCP socket at once, so the old address is free to bind again and new clients are
+refused. `UdpStop::stop` makes the UDP listener take no new host. The UDP socket stays open until the last of its
+connections ends, since they all send and receive through it; a new host ends none of them. In both cases the
+connections the listener accepted go on, and its `serve` returns once they ended. A shutdown future, in contrast,
+ends every listener and every connection of a server.
+
+A client whose TCP stream fails its setup on the loop (`set_nodelay`, or the loop can't watch the stream) is
+dropped, and the listener goes on with the others.
 
 ### A server on stdio
 

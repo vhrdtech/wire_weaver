@@ -9,6 +9,9 @@
 //!   ([WsFraming](wire_weaver_server::byte_stream::WsFraming)) or preamble framing;
 //! - [bind_udp]: a [UdpListener](wire_weaver_server::udp::UdpListener) whose socket the loop watches.
 //!
+//! Each listener stops alone while the program runs, to move to another address: [TcpIncoming::stop_handle] closes
+//! its socket at once, `UdpListener::stop_handle` ([LoopUdpStop]) takes no new host. Their connections go on.
+//!
 //! ```ignore
 //! let (executor, scheduler) = calloop::futures::executor()?;
 //! event_loop.handle().insert_source(executor, |(), _, _| ())?;
@@ -33,5 +36,5 @@ mod tcp;
 mod udp;
 
 pub use clock::LoopClock;
-pub use tcp::TcpIncoming;
-pub use udp::{LoopReadiness, LoopUdpListener, LoopUdpSocket, bind_udp};
+pub use tcp::{TcpIncoming, TcpStop};
+pub use udp::{LoopReadiness, LoopUdpListener, LoopUdpSocket, LoopUdpStop, bind_udp};

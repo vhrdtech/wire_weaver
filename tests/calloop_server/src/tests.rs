@@ -25,6 +25,8 @@ const PEERS: usize = 4;
 struct Bench {
     addr: SocketAddr,
     shutdown: Option<oneshot::Sender<()>>,
+    /// Asks the loop to stop both listeners; it answers once they are stopped.
+    stop_listeners: calloop::channel::Sender<std::sync::mpsc::SyncSender<()>>,
     /// Ends with the peers of every connection the servers made a backend for.
     thread: Option<JoinHandle<Vec<Peer>>>,
 }
@@ -33,13 +35,26 @@ impl Bench {
     fn start() -> Self {
         let (addr_tx, addr_rx) = std::sync::mpsc::sync_channel(1);
         let (shutdown, stop) = oneshot::channel::<()>();
-        let thread = std::thread::spawn(move || run_loop(&addr_tx, stop));
+        let (stop_listeners, stops) = calloop::channel::channel();
+        let thread = std::thread::spawn(move || run_loop(&addr_tx, stop, stops));
         let addr = addr_rx.recv_timeout(SOON).expect("the loop starts");
         Bench {
             addr,
             shutdown: Some(shutdown),
+            stop_listeners,
             thread: Some(thread),
         }
+    }
+
+    /// Stops both listeners on the loop, and waits until they are.
+    fn stop_listeners(&self) {
+        let (done, stopped) = std::sync::mpsc::sync_channel(1);
+        self.stop_listeners
+            .send(done)
+            .expect("the loop takes the stop");
+        stopped
+            .recv_timeout(SOON)
+            .expect("the loop stops the listeners");
     }
 
     /// Asks the servers to shut down and waits for the loop to end; the peers the servers saw.
@@ -71,10 +86,12 @@ impl Drop for Bench {
     }
 }
 
-/// The loop: both listeners on a free port of the loopback, sent through `addr`, served until `stop`.
+/// The loop: both listeners on a free port of the loopback, sent through `addr`, served until `stop`; `stops`
+/// stops the listeners alone.
 fn run_loop(
     addr: &std::sync::mpsc::SyncSender<SocketAddr>,
     stop: oneshot::Receiver<()>,
+    stops: calloop::channel::Channel<std::sync::mpsc::SyncSender<()>>,
 ) -> Vec<Peer> {
     let mut event_loop: EventLoop<'static, ()> = EventLoop::try_new().expect("a loop");
     let handle = event_loop.handle();
@@ -86,9 +103,20 @@ fn run_loop(
     let clock = LoopClock::new(handle.clone());
     let tcp = TcpIncoming::bind(&handle, "127.0.0.1:0").expect("a TCP port");
     let tcp_addr = tcp.local_addr();
+    let tcp_stop = tcp.stop_handle();
     let ws = listen(tcp, WsFraming::new(counter::MESSAGE_LEN_MAX), clock.clone());
     let udp =
         bind_udp::<_, PEERS>(&handle, tcp_addr, counter::MESSAGE_LEN_MAX).expect("the UDP port");
+    let udp_stop = udp.stop_handle();
+    handle
+        .insert_source(stops, move |event, _, ()| {
+            if let calloop::channel::Event::Msg(done) = event {
+                tcp_stop.stop();
+                udp_stop.stop();
+                done.send(()).expect("the test waits for the stop");
+            }
+        })
+        .expect("the loop takes the stop channel");
 
     // backends and what they share need not be `Send`: everything runs on this thread
     let peers = Rc::new(RefCell::new(Vec::new()));
@@ -192,4 +220,36 @@ async fn udp_hosts_get_a_connection_each() {
         .await
         .unwrap();
     assert_eq!(peers.len(), PEERS);
+}
+
+/// Each listener stops alone (SRV-75): the TCP port is free at once and refuses new clients, a WebSocket and a UDP
+/// client connected before go on, and shutdown still ends the servers.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn stopped_listeners_free_the_port_and_keep_their_connections() {
+    let bench = Bench::start();
+    let ws = ws_client(bench.addr).await;
+    let udp = udp_client(bench.addr).await;
+    let addr = bench.addr;
+    let bench = tokio::task::spawn_blocking(move || {
+        bench.stop_listeners();
+        bench
+    })
+    .await
+    .unwrap();
+
+    let refused = std::net::TcpStream::connect(addr).map(drop);
+    assert_eq!(
+        refused.map_err(|e| e.kind()),
+        Err(std::io::ErrorKind::ConnectionRefused)
+    );
+    let rebound = std::net::TcpListener::bind(addr).expect("the TCP port is free");
+    for client in [&ws, &udp] {
+        let ticks = soon("a read", client.read_ticks().read()).await.unwrap();
+        assert_eq!(ticks.value, counter::TICKS);
+    }
+    drop(rebound);
+    let peers = tokio::task::spawn_blocking(move || bench.stop())
+        .await
+        .unwrap();
+    assert_eq!(peers.len(), 2);
 }

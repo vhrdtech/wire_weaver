@@ -29,6 +29,8 @@ ws = [
 ]
 # UDP medium over any datagram socket
 udp = ["embassy-net?/udp"]
+# Standard library sockets for the enabled media: UDP on std::net::UdpSocket, on any event loop
+std = ["udp"]
 # embassy-net sockets for the enabled media: WebSocket on a TCP socket, UDP on a UDP socket
 embassy-net = ["embassy-time", "dep:embassy-net"]
 
@@ -50,7 +52,7 @@ ww_link.workspace = true
 ww_tap.workspace = true
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["rt", "macros", "time", "sync"] }
+tokio = { workspace = true, features = ["rt", "macros", "time", "sync", "net"] }
 ww_version.workspace = true
 
 # The workspace lints, copied: this crate holds unsafe code (`unsafe = true` in layers.toml), which the workspace

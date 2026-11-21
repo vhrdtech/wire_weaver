@@ -21,8 +21,8 @@
 //! the UDP transport docs for what happens on loss.
 //!
 //! Datagram sockets are used through `&self`, so no locking is needed. With the `embassy-net` feature,
-//! `EmbassyNetUdpSocket` implements [DatagramSocket] on an `embassy-net` UDP socket, [udp_server] puts everything
-//! together.
+//! `EmbassyNetUdpSocket` implements [DatagramSocket] on an `embassy-net` UDP socket, with `std` `StdUdpSocket` on
+//! the standard library's, on any event loop. [udp_server] puts everything together.
 
 use core::future::Future;
 use core::ops::Deref;
@@ -284,6 +284,11 @@ where
 
 #[cfg(feature = "embassy-net")]
 pub use embassy::EmbassyNetUdpSocket;
+
+#[cfg(feature = "std")]
+mod std_socket;
+#[cfg(feature = "std")]
+pub use std_socket::{Readiness, StdUdpSocket};
 
 #[cfg(feature = "embassy-net")]
 mod embassy {

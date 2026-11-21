@@ -89,6 +89,25 @@ loop {
 }
 ```
 
+The `std` feature adds `StdUdpSocket`, a `DatagramSocket` on the standard library's `UdpSocket` for such a program,
+on any event loop: the socket is nonblocking, and the event loop says when it is readable through `Readiness`
+(calloop's `Async`, tokio's `readable()`, `async-io`), usually on a clone of the socket (`UdpSocket::try_clone`).
+Sends never wait: a datagram the kernel has no room for is dropped, as the network may drop it.
+
+```rust
+struct Calloop(RefCell<calloop::io::Async<'static, UdpSocket>>);
+
+impl Readiness for Calloop {
+    async fn readable(&self) -> io::Result<()> {
+        self.0.borrow_mut().readable().await
+    }
+}
+
+let socket = UdpSocket::bind("0.0.0.0:7591")?;
+let watched = Calloop(RefCell::new(handle.adapt_io(socket.try_clone()?)?));
+let peers = Rc::new(UdpPeers::<_, 8>::new(StdUdpSocket::new(socket, watched)?));
+```
+
 One socket is read by one slot at a time. With one slot, it receives straight into its framer. With several, the
 slot that waits receives into the table's datagram buffer and the slot the datagram is for copies it out: until it
 does, nothing more is received, so a server that does not wait holds up the others (no datagram is lost to it).

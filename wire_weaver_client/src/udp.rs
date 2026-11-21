@@ -371,8 +371,8 @@ mod tests {
     }
 
     /// The device's server for one slot of a shared socket, on its own task.
-    async fn device_slot(
-        peers: std::rc::Rc<ww_device::udp::UdpPeers<DevSocket, 2>>,
+    async fn device_slot<S: ww_device::udp::DatagramSocket>(
+        peers: std::rc::Rc<ww_device::udp::UdpPeers<S, 2>>,
         slot: usize,
         events_tx: mpsc::UnboundedSender<LinkEvent>,
     ) {
@@ -388,29 +388,22 @@ mod tests {
         .await
     }
 
+    /// tokio's readiness of a clone of a `ww_device::udp::StdUdpSocket`'s socket, as a program's event loop gives it.
+    struct Tokio(UdpSocket);
+
+    impl ww_device::udp::Readiness for Tokio {
+        async fn readable(&self) -> std::io::Result<()> {
+            self.0.readable().await?;
+            // the clone is read, not this one: forget the readiness before that read
+            _ = self.0.try_io(tokio::io::Interest::READABLE, || {
+                Err::<(), _>(std::io::ErrorKind::WouldBlock.into())
+            });
+            Ok(())
+        }
+    }
+
     /// Two hosts served on one port at once, each by its own slot's server: neither knocks the other off.
-    /// `accept` hands out the slots as hosts come (a host program), else both slots are served for good (firmware).
-    async fn two_hosts_at_once(accept: bool) {
-        let socket = UdpSocket::bind("127.0.0.1:0").await.unwrap();
-        let addr = socket.local_addr().unwrap().to_string();
-        let peers = std::rc::Rc::new(ww_device::udp::UdpPeers::<DevSocket, 2>::new(DevSocket(
-            socket,
-        )));
-        let (events_tx, mut events_rx) = mpsc::unbounded_channel();
-        let dev = if accept {
-            let peers = peers.clone();
-            tokio::task::spawn_local(async move {
-                loop {
-                    let slot = peers.accept().await.unwrap();
-                    tokio::task::spawn_local(device_slot(peers.clone(), slot, events_tx.clone()));
-                }
-            })
-        } else {
-            for slot in 0..2 {
-                tokio::task::spawn_local(device_slot(peers.clone(), slot, events_tx.clone()));
-            }
-            tokio::task::spawn_local(std::future::pending())
-        };
+    async fn two_hosts_at_once(addr: String, events_rx: &mut mpsc::UnboundedReceiver<LinkEvent>) {
         let (cmd_tx, host) = start_host(addr.clone());
         connect_cmd(&cmd_tx, (0, 3)).await.result.unwrap();
         assert_eq!(events_rx.recv().await, Some(LinkEvent::Up));
@@ -426,20 +419,52 @@ mod tests {
         drop((cmd_tx, cmd_tx2));
         host.await.unwrap();
         host2.await.unwrap();
-        dev.abort();
     }
 
+    /// Both slots served for good, as a firmware does, on a tokio socket.
     #[tokio::test]
     async fn two_hosts_on_fixed_slots() {
         tokio::task::LocalSet::new()
-            .run_until(two_hosts_at_once(false))
+            .run_until(async {
+                let socket = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+                let addr = socket.local_addr().unwrap().to_string();
+                let peers =
+                    std::rc::Rc::new(ww_device::udp::UdpPeers::<_, 2>::new(DevSocket(socket)));
+                let (events_tx, mut events_rx) = mpsc::unbounded_channel();
+                for slot in 0..2 {
+                    tokio::task::spawn_local(device_slot(peers.clone(), slot, events_tx.clone()));
+                }
+                two_hosts_at_once(addr, &mut events_rx).await;
+            })
             .await
     }
 
+    /// A connection per host, as a program on a computer takes them, on a `StdUdpSocket`.
     #[tokio::test]
     async fn two_hosts_on_accepted_connections() {
         tokio::task::LocalSet::new()
-            .run_until(two_hosts_at_once(true))
+            .run_until(async {
+                let socket = std::net::UdpSocket::bind("127.0.0.1:0").unwrap();
+                let addr = socket.local_addr().unwrap().to_string();
+                let watched = socket.try_clone().unwrap();
+                watched.set_nonblocking(true).unwrap();
+                let watched = Tokio(UdpSocket::from_std(watched).unwrap());
+                let socket = ww_device::udp::StdUdpSocket::new(socket, watched).unwrap();
+                let peers = std::rc::Rc::new(ww_device::udp::UdpPeers::<_, 2>::new(socket));
+                let (events_tx, mut events_rx) = mpsc::unbounded_channel();
+                let listener = tokio::task::spawn_local(async move {
+                    loop {
+                        let slot = peers.accept().await.unwrap();
+                        tokio::task::spawn_local(device_slot(
+                            peers.clone(),
+                            slot,
+                            events_tx.clone(),
+                        ));
+                    }
+                });
+                two_hosts_at_once(addr, &mut events_rx).await;
+                listener.abort();
+            })
             .await
     }
 

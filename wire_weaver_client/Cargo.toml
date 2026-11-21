@@ -120,7 +120,7 @@ crc.workspace = true
 tokio = { workspace = true, features = ["net", "rt-multi-thread", "test-util"] }
 trybuild.workspace = true
 wire_weaver_core = { workspace = true }
-ww_device = { workspace = true, features = ["udp", "ws"] }
+ww_device = { workspace = true, features = ["std", "ws"] }
 ww_self = { workspace = true, features = ["fuzz"] }
 ww_stream = { workspace = true, features = ["std", "lz4"] }
 

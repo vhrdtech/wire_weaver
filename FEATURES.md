@@ -498,6 +498,7 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
 - ✅ **SRV-68 Several hosts on one UDP port** — `ww_device::udp::UdpPeers<S, PEERS>`: a link per host address, up to
   `PEERS` chosen at build time, the host heard from least recently gives its slot up when all are taken. A firmware
   serves each slot for good, a host program takes a connection per host (`UdpPeers::accept`), freed when dropped.
+  `StdUdpSocket` (feature `std`) is the socket for a program on any event loop.
   One-host firmware keeps its size (`UdpConnection`: +120 B code, +88 B rodata on `ww_udp_ncm`)
   (`docs/transport/udp.md#several-hosts-on-one-port`).
 - ✅ **SRV-15 Stream stores and backfill** — `ww_stream::store`: what a reliable stream (API-30) keeps until the

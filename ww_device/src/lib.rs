@@ -11,14 +11,17 @@
 //! - `rtt` (feature `rtt`) — RTT up / down channels from `rtt-target` as a stream medium.
 //! - `ws` (feature `ws`) — WebSocket as a medium over any TCP-like socket, `embassy-net` sockets with the
 //!   `embassy-net` feature.
-//! - `udp` (feature `udp`) — UDP as a medium over any datagram socket, one frame per datagram, `embassy-net` sockets
-//!   with the `embassy-net` feature.
+//! - `udp` (feature `udp`) — UDP as a medium over any datagram socket, one frame per datagram, several hosts on one
+//!   port; `embassy-net` sockets with the `embassy-net` feature, the standard library's with `std`.
 //! - [Server] — async glue: `wait()` (cancel-safe, `select` it with anything else) and `handle()`
 //!   (link logic + backend), plus a [Sink] to send stream updates from anywhere in the loop.
 //! - [blocking::Server] — the same for devices without async: packets are pushed in, time is polled.
 //!
 //! Medium specific crates (e.g., `wire_weaver_usb_embassy`) only provide packet or byte IO and descriptors.
 #![no_std]
+
+#[cfg(feature = "std")]
+extern crate std;
 
 mod fmt;
 

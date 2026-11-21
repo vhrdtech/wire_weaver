@@ -750,7 +750,7 @@ mod tests {
         assert_eq!(client.read_mode().read().await.unwrap(), 5);
     }
 
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    #[tokio::test(start_paused = true)]
     async fn a_queued_write_past_its_deadline_never_runs() {
         let bench = Bench::start("host_server/queued_deadline", small());
         let client = Arc::new(bench.connect().await);
@@ -773,7 +773,9 @@ mod tests {
             wire_weaver::call::ErrorKind::DeadlineExceeded,
             "{error:?}"
         );
-        // the server dropped it from its queue: once the call before it finished, nothing writes 5
+        // the server's deadline started when the write reached it, after the client's: once it is over too, the
+        // server dropped the write from its queue, and when the call before it finished, nothing writes 5
+        tokio::time::sleep(Duration::from_millis(100)).await;
         bench.shared.open(1);
         assert_eq!(soon("the slow call", slow).await.unwrap(), 1);
         assert_eq!(client.read_mode().read().await.unwrap(), 0);

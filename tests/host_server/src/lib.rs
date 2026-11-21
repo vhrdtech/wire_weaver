@@ -365,9 +365,12 @@ mod tests {
         fn connect(&self) -> impl Future<Output = Client> + Send + use<> {
             let path = self.path.clone();
             async move {
+                // a client past the connection limit waits in the listener for as long as a test lets it, not the
+                // in-process transport's 250 ms
                 Client::config(move |c| {
                     c.in_process_path(path.clone())
                         .resolver(tests_common::resolver())
+                        .link_setup_timeout(SOON)
                 })
                 .connect()
                 .await
@@ -380,9 +383,12 @@ mod tests {
         }
     }
 
+    /// How long a test waits for what it expects before calling it a hang.
+    const SOON: Duration = Duration::from_secs(20);
+
     /// A hang is what these tests look for: name it.
     async fn soon<T>(what: &str, f: impl Future<Output = T>) -> T {
-        tokio::time::timeout(Duration::from_secs(20), f)
+        tokio::time::timeout(SOON, f)
             .await
             .unwrap_or_else(|_| panic!("{what}: still waiting"))
     }

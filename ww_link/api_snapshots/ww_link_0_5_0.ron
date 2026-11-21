@@ -1,6 +1,6 @@
 // ww_link 0.5.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 0b644cd42ede61212d71a4d5bf293ebfb5893fe056286c06c1b5a0b991e864cb
+// shrink_wrap sha256: f5a16c09145a56cd82ce42e638e41cd3b568ce4b1d7efc1c9cd14fe1152a8679
 (magic: 2837124336, ww_self_version: (major: 0, minor: 4, patch: 0), root: (docs: [
     "WireWeaver link layer: message kinds and their payloads carried over [ww_framer] frames.",
     "",
@@ -101,6 +101,12 @@
             "line is refused, and `#[since]` items newer than its revision are refused before anything is sent.",
             "[DeviceInfo::user_api_version] is the crate version, for display only. `None` from a device built before it",
             "existed: a host with a generated client refuses it, a dynamic one goes on.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("request_context"), default: Some(Bool(false)), since: None, ty: Bool, docs: [
+            "The device reads `ww_client_server`\'s request contexts and `RequestKind::Cancel` (SRV-47), and answers with",
+            "the error kinds added with them to a host whose [LinkSetup::host_model_wire] knows them. A host sends a",
+            "context or a cancel only when this is set: an older reader, a firmware too, takes the context\'s flag for the",
+            "reserved bit and reads on from the wrong place. `false` from a device built before it existed.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "CompactVersion", signature: [
@@ -216,6 +222,11 @@
             "[LinkSetup::host_user_version] is the crate version, for display only. `None` from a dynamic host (an empty",
             "crate id, it works through introspection), which every device takes, and from a host with a generated client",
             "built before it existed, which the device refuses.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("host_model_wire"), default: Some(Bool(false)), since: None, ty: Option(some_ty: OutOfLine(type_idx: 7)), docs: [
+            "Wire version of the host\'s `ww_client_server` (`ww_client_server::WIRE_VERSION`, SRV-47): a device answers",
+            "with the error kinds this version reads, older ones get their text instead. `None` from a host built before",
+            "it existed, which reads none of the kinds added since `w2.0`.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [

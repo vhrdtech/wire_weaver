@@ -10,13 +10,14 @@ use std::time::Duration;
 
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use futures_util::Stream;
 use tokio::net::{TcpListener, TcpStream};
+use tokio_util::compat::{Compat, TokioAsyncReadCompatExt};
 use wire_weaver::prelude::*;
 use wire_weaver::{MessageSink, WireWeaverAsyncApiBackend};
 use wire_weaver_client::in_process::TokioClock;
 use ww_device::LinkConfig;
-use ww_device::ws::{WsBuffers, WsConnection, ws_server};
+use ww_device::ws::{IoSocket, WsBuffers, WsConnection, ws_server};
 use ww_dns_sd::{
     Advertiser, InstanceId, InstanceName, ResponderChoice, ServiceRecord, Txt, interface_addresses,
     start_responder,
@@ -85,10 +86,7 @@ async fn run(args: Args) -> Result<()> {
         advertiser.record().addresses()
     );
 
-    let conn = WsConnection::new(TokioSocket {
-        listener,
-        stream: None,
-    });
+    let conn = WsConnection::new(IoSocket::new(incoming(listener)));
     let link_config = LinkConfig::new(
         blinky_api::BLINKY_API_FULL_GID,
         blinky_api::BLINKY_API_WIRE_VERSION,
@@ -120,45 +118,25 @@ async fn run(args: Args) -> Result<()> {
     Ok(())
 }
 
-/// [ww_device::ws::Socket] on a tokio listener, one client at a time.
-struct TokioSocket {
-    listener: TcpListener,
-    stream: Option<TcpStream>,
-}
-
-impl ww_device::ws::Socket for TokioSocket {
-    type Error = std::io::Error;
-
-    async fn accept(&mut self) {
-        self.stream = None;
-        loop {
-            match self.listener.accept().await {
-                Ok((stream, peer)) => {
-                    if let Err(e) = stream.set_nodelay(true) {
-                        println!("{peer}: TCP_NODELAY: {e}");
+/// The clients of `listener`, one at a time as [IoSocket] takes them, with Nagle off.
+fn incoming(listener: TcpListener) -> impl Stream<Item = Compat<TcpStream>> + Unpin {
+    Box::pin(futures_util::stream::unfold(
+        listener,
+        |listener| async move {
+            loop {
+                match listener.accept().await {
+                    Ok((stream, peer)) => {
+                        if let Err(e) = stream.set_nodelay(true) {
+                            println!("{peer}: TCP_NODELAY: {e}");
+                        }
+                        println!("client {peer}");
+                        return Some((stream.compat(), listener));
                     }
-                    println!("client {peer}");
-                    self.stream = Some(stream);
-                    return;
+                    Err(e) => println!("accept: {e}"),
                 }
-                Err(e) => println!("accept: {e}"),
             }
-        }
-    }
-
-    async fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        match &mut self.stream {
-            Some(s) => s.read(buf).await,
-            None => Ok(0),
-        }
-    }
-
-    async fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-        match &mut self.stream {
-            Some(s) => s.write(bytes).await,
-            None => Err(std::io::ErrorKind::NotConnected.into()),
-        }
-    }
+        },
+    ))
 }
 
 struct ServerState;

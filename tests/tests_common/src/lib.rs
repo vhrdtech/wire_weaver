@@ -812,11 +812,11 @@ fn start_with<S: Process + Send + 'static>(
         }
         #[cfg(feature = "ws")]
         Media::Ws => {
-            use ww_device::ws::{WS_OVERHEAD, WsConnection, WsRx, WsTx};
+            use ww_device::ws::{IoSocket, WS_OVERHEAD, WsConnection, WsRx, WsTx};
             // registered now: a host connecting right after this returns finds it
             let port = in_process::ws_device(path);
             tokio::task::spawn_local(async move {
-                let conn = WsConnection::new(port);
+                let conn = WsConnection::new(IoSocket::new(port));
                 let mut tx_buf = vec![0u8; MAX_MESSAGE_LEN + WS_OVERHEAD];
                 let mut rx_buf = vec![0u8; MAX_MESSAGE_LEN + WS_OVERHEAD];
                 let tx = WsTx::new(&conn, &mut tx_buf);

@@ -46,7 +46,7 @@
 //!
 //! With the `ws` feature, a device registered with `ws_device` speaks WebSocket over an in-memory pipe: the host runs
 //! the `ws` transport's own client (handshake, one binary message per link message) and the device serves the returned
-//! `WsPort` with `ww_device::ws`, as it would a TCP socket. As with simulated UDP, nothing waits in a kernel, so the
+//! `WsPort` with `ww_device::ws::IoSocket`, as it would a TCP listener. As with simulated UDP, nothing waits in a kernel, so the
 //! paused clock decides the order in which both ends' frames go out.
 
 use crate::locked::Locked;
@@ -515,7 +515,6 @@ pub fn ws_device(path: &str) -> WsPort {
         path: path.to_string(),
         connections_tx,
         pipes,
-        pipe: None,
     }
 }
 
@@ -523,45 +522,29 @@ pub fn ws_device(path: &str) -> WsPort {
 #[cfg(feature = "ws")]
 const WS_PIPE_LEN: usize = 64 * 1024;
 
-/// The listening socket of a simulated WebSocket device, see [ws_device]. Dropping it unregisters the device.
+/// The listening socket of a simulated WebSocket device, see [ws_device]: each host that connects is its next
+/// stream, an in-memory pipe the device serves with `ww_device::ws::IoSocket`. Dropping it unregisters the device.
 #[cfg(feature = "ws")]
 pub struct WsPort {
     path: String,
     /// To tell whether the registry entry is still this device's on drop
     connections_tx: mpsc::UnboundedSender<Connection>,
     pipes: mpsc::UnboundedReceiver<tokio::io::DuplexStream>,
-    /// The connected host's pipe
-    pipe: Option<tokio::io::DuplexStream>,
 }
 
 #[cfg(feature = "ws")]
-impl ww_device::ws::Socket for WsPort {
-    type Error = std::io::Error;
+impl futures_util::Stream for WsPort {
+    type Item = tokio_util::compat::Compat<tokio::io::DuplexStream>;
 
-    /// Cancel-safe: tokio's recv() does not lose a pipe when dropped.
-    async fn accept(&mut self) {
-        self.pipe = None;
-        match self.pipes.recv().await {
-            Some(pipe) => self.pipe = Some(pipe),
-            // cannot happen, the registry holds the sender while the device is registered
-            None => core::future::pending().await,
-        }
-    }
-
-    async fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        use tokio::io::AsyncReadExt;
-        match self.pipe.as_mut() {
-            Some(pipe) => pipe.read(buf).await,
-            None => Ok(0),
-        }
-    }
-
-    async fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-        use tokio::io::AsyncWriteExt;
-        match self.pipe.as_mut() {
-            Some(pipe) => pipe.write(bytes).await,
-            None => Err(std::io::ErrorKind::NotConnected.into()),
-        }
+    /// Never ends: the registry holds the sender while the device is registered.
+    fn poll_next(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
+        use tokio_util::compat::TokioAsyncReadCompatExt;
+        self.pipes
+            .poll_recv(cx)
+            .map(|pipe| pipe.map(|pipe| pipe.compat()))
     }
 }
 
@@ -1109,8 +1092,8 @@ mod tests {
         let (events_tx, events_rx) = mpsc::unbounded_channel();
         // the medium is not Send (NoopRawMutex, as on embassy), run it on the test's LocalSet
         let dev = tokio::task::spawn_local(async move {
-            use ww_device::ws::{WS_OVERHEAD, WsConnection, WsRx, WsTx};
-            let conn = WsConnection::new(port);
+            use ww_device::ws::{IoSocket, WS_OVERHEAD, WsConnection, WsRx, WsTx};
+            let conn = WsConnection::new(IoSocket::new(port));
             let mut tx_buf = [0u8; DEV_MAX_MESSAGE + WS_OVERHEAD];
             let mut rx_buf = [0u8; DEV_MAX_MESSAGE + WS_OVERHEAD];
             serve(

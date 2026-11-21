@@ -30,6 +30,7 @@
 
 - `udp::StdUdpSocket` (feature `std`, SRV-68): a `DatagramSocket` on `std::net::UdpSocket` for any event loop, which tells readiness through `udp::Readiness`.
 - `udp::UdpPeers<S, PEERS>` (SRV-68): a link per host address on one socket, a firmware's fixed slots or a host program's `accept()`ed connections.
+- `ws::IoSocket` (feature `futures-io`, TR-19): a WebSocket device on any source of futures-io streams.
 - `overloaded_reply(request, scratch)` (SRV-12): the `Overloaded` answer of a host server that refuses a request for its load.
 - `generic_error_reply` writes its error event in place (`ww_client_server::util::ser_err_event`), without linking `Event`'s serializer (SRV-54).
 - `Sink::flush` (async and blocking) is public: firmware sends what waits in the frame now, e.g. after a deferred reply (SRV-42). `DeviceLink::on_flushed` for sinks that flush on their own.

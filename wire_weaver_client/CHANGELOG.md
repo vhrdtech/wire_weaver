@@ -34,6 +34,7 @@
 
 ### ⚠️ Breaking
 
+- `in_process::WsPort` is a stream of pipes, no longer a `ws::Socket`: serve it as `WsConnection::new(IoSocket::new(port))` (TR-19).
 - The local-socket transport runs on futures-io streams through the new `byte_stream` feature, which `local_socket` turns on (TR-19).
 - Declares `rust-version = "1.99"`: cargo of an older Rust refuses the crate.
 - Features `can`, `i2c` and `uart` are removed: they enabled nothing. Drop them from `features = [..]`.

@@ -27,13 +27,15 @@ wire_weaver_client.workspace = true
 anyhow.workspace = true
 clap = { workspace = true, features = ["derive"] }
 console.workspace = true
+futures-util.workspace = true
 shlex.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net", "io-util", "signal"] }
+tokio-util = { workspace = true, features = ["compat"] }
 tracing.workspace = true
 tracing-subscriber.workspace = true
 wire_weaver_client = { workspace = true, features = ["in_process"] }
 ww_client_server.workspace = true
-ww_device = { workspace = true, features = ["ws"] }
+ww_device = { workspace = true, features = ["futures-io"] }
 ww_dns_sd = { workspace = true, features = ["mdns", "avahi"] }
 ww_self = { workspace = true }
 

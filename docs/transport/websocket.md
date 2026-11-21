@@ -53,6 +53,21 @@ server.run(&mut state).await;
 - `EmbassyNetSocket` disables Nagle's algorithm on each accepted connection, for the same reason as on the host.
   Set a timeout on the socket, so that writes to a host that is gone without closing the connection fail.
 
+On a PC, the `futures-io` feature (needs `std`) adds `IoSocket`: a `ws::Socket` whose clients are the streams of any
+futures-io source, such as a tokio TCP listener's connections wrapped with `tokio_util::compat`
+(`examples/blinky/examples/ws_device.rs`):
+
+```rust
+let incoming = Box::pin(futures_util::stream::unfold(listener, |listener| async move {
+    let (stream, _) = listener.accept().await.ok()?;
+    Some((stream.compat(), listener))
+}));
+let conn = WsConnection::new(IoSocket::new(incoming));
+```
+
+A host server with many clients at once, and several APIs on one port, is `wire_weaver_server` with
+`WsFraming` ([byte streams](byte_streams.md)).
+
 `examples_mcu/rp2` has a complete example, `ww_ws_ncm`: the board shows up on the host as a USB CDC-NCM Ethernet
 adapter, runs `embassy-net` with a static address and a small DHCP server (`edge-dhcp`), so the host is configured
 automatically, and serves the blinky API at `ws://192.168.7.1:8080/ww`. Run it with `just run rp2 ww_ws_ncm` from
@@ -136,8 +151,8 @@ bytes, at most 16 addresses.
 With the client's `in_process` and `ws` features, `wire_weaver_client::in_process::ws_device(path)` registers a device
 that speaks WebSocket over an in-memory pipe instead of TCP (TR-22). The host connects with
 `ClientConfig::in_process_path(path)` and runs the `ws` transport's own client over the pipe: the same handshake, one
-binary message per link message. The device serves the returned `WsPort` with `WsConnection`, `WsTx` and `WsRx`, as
-it would a TCP socket.
+binary message per link message. The device serves the returned `WsPort` with `IoSocket`, `WsConnection`, `WsTx` and
+`WsRx`, as it would a TCP listener.
 
 Nothing waits in a kernel, so a test on tokio's paused clock (`start_paused`) drives both ends exactly, and the order
 of the host's and the device's frames is the same on every run. ww_stdlib's `tests/dfu_scenarios` pins its WebSocket transcripts

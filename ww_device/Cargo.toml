@@ -27,6 +27,8 @@ ws = [
     "dep:embassy-sync",
     "embassy-net?/tcp",
 ]
+# WebSocket on futures-io streams (ws::IoSocket): a device on a host, a simulator; needs std
+futures-io = ["ws", "dep:futures-util", "futures-util/io", "futures-util/std"]
 # UDP medium over any datagram socket
 udp = ["embassy-net?/udp"]
 # Standard library sockets for the enabled media: UDP on std::net::UdpSocket, on any event loop
@@ -42,6 +44,7 @@ embassy-futures.workspace = true
 embassy-net = { workspace = true, features = ["proto-ipv4", "medium-ip"], optional = true }
 embassy-sync = { workspace = true, optional = true }
 embassy-time = { workspace = true, optional = true }
+futures-util = { workspace = true, optional = true }
 httparse = { workspace = true, optional = true }
 log = { workspace = true, optional = true }
 rtt-target = { workspace = true, optional = true }

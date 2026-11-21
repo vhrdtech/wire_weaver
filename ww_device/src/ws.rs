@@ -12,7 +12,8 @@
 //! a request that is not a WebSocket upgrade gets `400 Bad Request`.
 //!
 //! Tx and Rx share the socket through a [WsConnection] (an async mutex, they are never used at the same time by
-//! [Server]). With the `embassy-net` feature, [EmbassyNetSocket] implements [Socket] on an `embassy-net` TCP socket,
+//! [Server]). With the `embassy-net` feature, [EmbassyNetSocket] implements [Socket] on an `embassy-net` TCP socket;
+//! with `futures-io` (needs `std`), [IoSocket] on futures-io streams (a TCP listener on the host, a simulator's pipes);
 //! [ws_server] puts everything together.
 
 use core::future::Future;
@@ -510,6 +511,81 @@ pub fn ws_server<'a, const MAX_MESSAGE_LEN: usize, S: Socket, C: Clock>(
 
 #[cfg(feature = "embassy-net")]
 pub use embassy::EmbassyNetSocket;
+
+#[cfg(feature = "futures-io")]
+pub use io::IoSocket;
+
+#[cfg(feature = "futures-io")]
+mod io {
+    extern crate std;
+
+    use futures_util::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+    use futures_util::stream::{Stream, StreamExt};
+
+    use super::Socket;
+
+    /// [Socket] on futures-io streams (feature `futures-io`, needs `std`): each client is the next stream of
+    /// `incoming`, a TCP listener's connections or the pipes of a simulator. Tokio streams are wrapped with
+    /// `tokio_util::compat`. After `incoming` ended, [accept](Socket::accept) waits for good.
+    ///
+    /// ```ignore
+    /// let listener = tokio::net::TcpListener::bind(addr).await?;
+    /// let incoming = futures_util::stream::unfold(listener, |listener| async move {
+    ///     let (stream, _) = listener.accept().await.ok()?;
+    ///     Some((stream.compat(), listener))
+    /// });
+    /// let conn = WsConnection::new(IoSocket::new(Box::pin(incoming)));
+    /// ```
+    pub struct IoSocket<I, S> {
+        incoming: I,
+        stream: Option<S>,
+    }
+
+    impl<I, S> IoSocket<I, S> {
+        pub fn new(incoming: I) -> Self {
+            IoSocket {
+                incoming,
+                stream: None,
+            }
+        }
+    }
+
+    impl<I, S> Socket for IoSocket<I, S>
+    where
+        I: Stream<Item = S> + Unpin,
+        S: AsyncRead + AsyncWrite + Unpin,
+    {
+        type Error = std::io::Error;
+
+        /// Cancel-safe: a stream that arrives while the future is dropped stays in `incoming`.
+        async fn accept(&mut self) {
+            self.stream = None;
+            match self.incoming.next().await {
+                Some(stream) => self.stream = Some(stream),
+                None => core::future::pending().await,
+            }
+        }
+
+        async fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+            match self.stream.as_mut() {
+                Some(stream) => stream.read(buf).await,
+                None => Ok(0),
+            }
+        }
+
+        async fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            match self.stream.as_mut() {
+                Some(stream) => {
+                    let n = stream.write(bytes).await?;
+                    // a buffered stream holds the bytes back otherwise; the device writes whole frames
+                    stream.flush().await?;
+                    Ok(n)
+                }
+                None => Err(std::io::ErrorKind::NotConnected.into()),
+            }
+        }
+    }
+}
 
 #[cfg(feature = "embassy-net")]
 mod embassy {

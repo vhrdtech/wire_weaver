@@ -21,22 +21,15 @@ default = ["usb", "clock_sync"]
 # USB (using nusb)
 usb = []
 # PICOBOOT flashing (RP2040/RP2350 boot ROM): follow::rp2_update(), ww_picoboot re-export, ELF images
-picoboot = [
-    "usb",
-    "ww_picoboot/usb",
-    "ww_picoboot/elf",
-]
+picoboot = ["usb", "ww_picoboot/usb", "ww_picoboot/elf"]
 # STM32 system bootloader (ROM DFU, DfuSe) flashing: follow::stm32_dfu_update(), ww_stm32_dfu re-export, ELF images
-stm32_dfu = [
-    "usb",
-    "ww_stm32_dfu/usb",
-    "ww_stm32_dfu/elf",
-]
+stm32_dfu = ["usb", "ww_stm32_dfu/usb", "ww_stm32_dfu/elf"]
 # WebSocket (using tokio-tungstenite)
 ws = [
     "dep:tokio-tungstenite",
     "dep:futures-util",
-    "ww_device?/ws",
+    "dep:tokio-util",
+    "ww_device?/futures-io",
     "tokio/io-util",
 ]
 # UDP, one ww_framer frame per datagram
@@ -44,10 +37,7 @@ udp = ["tokio/net"]
 # RTT over JTAG/SWD
 rtt = ["dep:probe-rs"]
 # device running in the same process (simulators, tests)
-in_process = [
-    "dep:ww_device",
-    "ww_device/udp",
-]
+in_process = ["dep:ww_device", "ww_device/udp"]
 # device served by another process (or the ww hub): Unix socket, named pipe on Windows
 # TCP, a spawned command's stdio and streams the program opens (StreamOpener): byte-stream servers (TR-19)
 byte_stream = [
@@ -59,23 +49,11 @@ byte_stream = [
     "tokio/net",
     "tokio/process",
 ]
-local_socket = [
-    "byte_stream",
-    "ww_local_socket/socket",
-    "dep:interprocess",
-    "dep:ww_device",
-]
+local_socket = ["byte_stream", "ww_local_socket/socket", "dep:interprocess", "dep:ww_device"]
 # keeps a device's clock on the PC's UTC (ww_timebase::Clock, CLT-46): every direct connection steers by itself
-clock_sync = [
-    "dep:ww_timebase",
-    "dep:ww_date_time",
-    "ww_si/time",
-]
+clock_sync = ["dep:ww_timebase", "dep:ww_date_time", "ww_si/time"]
 # connect() through the ww hub when it holds the device or it pays off (CLT-39), starts the hub if needed
-hub = [
-    "local_socket",
-    "dep:ww_hub_api",
-]
+hub = ["local_socket", "dep:ww_hub_api"]
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { workspace = true, features = ["Win32_Foundation", "Win32_System_Diagnostics_ToolHelp"] }
@@ -101,9 +79,9 @@ tokio-util = { workspace = true, optional = true }
 tracing.workspace = true
 wire_weaver = { workspace = true, features = ["std"] }
 wire_weaver_evolution.workspace = true
+ww_byte_stream = { workspace = true, optional = true }
 ww_client_server = { workspace = true, features = ["std"] }
 ww_date_time = { workspace = true, features = ["std"], optional = true }
-ww_byte_stream = { workspace = true, optional = true }
 ww_device = { workspace = true, optional = true }
 ww_error = { workspace = true, features = ["std"] }
 ww_framer = { workspace = true, features = ["std", "large"] }
@@ -133,7 +111,7 @@ tokio = { workspace = true, features = ["net", "rt-multi-thread", "test-util"] }
 trybuild.workspace = true
 wire_weaver_core = { workspace = true }
 ww_byte_stream = { workspace = true, features = ["device"] }
-ww_device = { workspace = true, features = ["std", "ws"] }
+ww_device = { workspace = true, features = ["futures-io", "std"] }
 ww_self = { workspace = true, features = ["fuzz"] }
 ww_stream = { workspace = true, features = ["std", "lz4"] }
 

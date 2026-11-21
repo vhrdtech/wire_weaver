@@ -10,12 +10,12 @@ Every case of the [conformance corpus](conformance.md) and what each consumer do
 
 | Consumer | Cases run | Gaps |
 |---|---|---|
-| derive | 400 of 400 | 0 |
-| borrowed | 396 of 400 | 4 |
-| dynamic | 341 of 400 | 59 |
-| explain | 341 of 400 | 59 |
-| python | 339 of 400 | 61 |
-| c | 34 of 400 | 366 |
+| derive | 402 of 402 | 0 |
+| borrowed | 398 of 402 | 4 |
+| dynamic | 341 of 402 | 61 |
+| explain | 341 of 402 | 61 |
+| python | 339 of 402 | 63 |
+| c | 34 of 402 | 368 |
 
 | Case | Type | Direction | derive | borrowed | dynamic | explain | python | c |
 |---|---|---|---|---|---|---|---|---|
@@ -164,8 +164,10 @@ Every case of the [conformance corpus](conformance.md) and what each consumer do
 | `device_info.ordinary` | `DeviceInfo` | decode | ✅ | ✅ | gap - | gap - | gap - | gap - |
 | `device_info.no_observe_samples` | `DeviceInfo` | decode | ✅ | ✅ | gap - | gap - | gap - | gap - |
 | `device_info.wire_version` | `DeviceInfo` | both | ✅ | ✅ | gap - | gap - | gap - | gap - |
+| `device_info.request_context` | `DeviceInfo` | both | ✅ | ✅ | gap - | gap - | gap - | gap - |
 | `link_setup.without_meta` | `LinkSetup` | both | ✅ | ✅ | gap - | gap - | gap - | gap - |
-| `link_setup.wire_version` | `LinkSetup` | both | ✅ | ✅ | gap - | gap - | gap - | gap - |
+| `link_setup.wire_version` | `LinkSetup` | decode | ✅ | ✅ | gap - | gap - | gap - | gap - |
+| `link_setup.model_wire` | `LinkSetup` | both | ✅ | ✅ | gap - | gap - | gap - | gap - |
 | `link_setup.with_meta` | `LinkSetup` | both | ✅ | ✅ | gap - | gap - | gap - | gap - |
 | `client_server.stream_open.compressed` | `RequestKind` | both | ✅ | ✅ | gap - | gap - | gap - | gap - |
 | `client_server.stream_open.raw` | `RequestKind` | both | ✅ | ✅ | gap - | gap - | gap - | gap - |
@@ -529,9 +531,9 @@ The shape signature and the signature with docs of a definition (EVO-69), by whi
 - **c**: ww_client_server's RequestKind is the request envelope, not a type of an API in the model. 2 cases: `client_server.stream_open.compressed`, `client_server.stream_open.raw`.
 - **c**: ww_client_server's StreamOpened is the answer envelope of a stream open, not a type of an API in the model. 2 cases: `client_server.stream_opened.lz4`, `client_server.stream_opened.unknown`.
 - **c**: ww_client_server's request envelope, not a type of an API in the model. 3 cases: `client_server.request.multi_read`, `client_server.request.sink_write`, `client_server.request.sideband_ack`.
-- **c**: ww_link's DeviceInfo is a link message, not a type of an API in the model. 3 cases: `device_info.ordinary`, `device_info.no_observe_samples`, `device_info.wire_version`.
+- **c**: ww_link's DeviceInfo is a link message, not a type of an API in the model. 4 cases: `device_info.ordinary`, `device_info.no_observe_samples`, `device_info.wire_version`, `device_info.request_context`.
 - **c**: ww_link's Disconnect payload, not a type of an API in the model. 3 cases: `disconnect_reason.hub_handover`, `disconnect_reason.from_newer`, `disconnect_reason.from_newer_8`.
-- **c**: ww_link's LinkSetup is a link message, not a type of an API in the model. 3 cases: `link_setup.without_meta`, `link_setup.wire_version`, `link_setup.with_meta`.
+- **c**: ww_link's LinkSetup is a link message, not a type of an API in the model. 4 cases: `link_setup.without_meta`, `link_setup.wire_version`, `link_setup.model_wire`, `link_setup.with_meta`.
 - **dynamic**: TailBytes has no form in the API model yet (INT-9). 7 cases: `tail_bytes`, `shape.tail.aligned_last.empty`, `shape.tail.aligned_last.one`, `shape.tail.aligned_last.many`, `shape.tail.mid_last.empty`, `shape.tail.mid_last.one`, `shape.tail.mid_last.many`.
 - **dynamic**: TailSize has no form in the API model yet (INT-9). 1 case: `struct.tail_size`.
 - **dynamic**: a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20). 10 cases: `struct.validate.rejected`, `stdlib.si.dim.rejected`, `stdlib.si.dim.zero.rejected`, `stdlib.si.dim.count.rejected`, `stdlib.si.dim.gaussian.count.rejected`, `stdlib.si.dim.gaussian.ratio.rejected`, `stdlib.si.magnitude.rejected`, `stdlib.si.fraction.rejected`, `stdlib.si.run_scale.rejected`, `stdlib.si.offset.rejected`.
@@ -547,9 +549,9 @@ The shape signature and the signature with docs of a definition (EVO-69), by whi
 - **dynamic**: ww_client_server's RequestKind is the request envelope, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 2 cases: `client_server.stream_open.compressed`, `client_server.stream_open.raw`.
 - **dynamic**: ww_client_server's StreamOpened is the answer envelope of a stream open, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 2 cases: `client_server.stream_opened.lz4`, `client_server.stream_opened.unknown`.
 - **dynamic**: ww_client_server's request envelope, not a type of an API in the model; a dynamic consumer reads API types. 3 cases: `client_server.request.multi_read`, `client_server.request.sink_write`, `client_server.request.sideband_ack`.
-- **dynamic**: ww_link's DeviceInfo is a link message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 3 cases: `device_info.ordinary`, `device_info.no_observe_samples`, `device_info.wire_version`.
+- **dynamic**: ww_link's DeviceInfo is a link message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 4 cases: `device_info.ordinary`, `device_info.no_observe_samples`, `device_info.wire_version`, `device_info.request_context`.
 - **dynamic**: ww_link's Disconnect payload, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 3 cases: `disconnect_reason.hub_handover`, `disconnect_reason.from_newer`, `disconnect_reason.from_newer_8`.
-- **dynamic**: ww_link's LinkSetup is a link message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 3 cases: `link_setup.without_meta`, `link_setup.wire_version`, `link_setup.with_meta`.
+- **dynamic**: ww_link's LinkSetup is a link message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 4 cases: `link_setup.without_meta`, `link_setup.wire_version`, `link_setup.model_wire`, `link_setup.with_meta`.
 - **explain**: TailBytes has no form in the API model yet (INT-9). 7 cases: `tail_bytes`, `shape.tail.aligned_last.empty`, `shape.tail.aligned_last.one`, `shape.tail.aligned_last.many`, `shape.tail.mid_last.empty`, `shape.tail.mid_last.one`, `shape.tail.mid_last.many`.
 - **explain**: TailSize has no form in the API model yet (INT-9). 1 case: `struct.tail_size`.
 - **explain**: a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20). 10 cases: `struct.validate.rejected`, `stdlib.si.dim.rejected`, `stdlib.si.dim.zero.rejected`, `stdlib.si.dim.count.rejected`, `stdlib.si.dim.gaussian.count.rejected`, `stdlib.si.dim.gaussian.ratio.rejected`, `stdlib.si.magnitude.rejected`, `stdlib.si.fraction.rejected`, `stdlib.si.run_scale.rejected`, `stdlib.si.offset.rejected`.
@@ -565,9 +567,9 @@ The shape signature and the signature with docs of a definition (EVO-69), by whi
 - **explain**: ww_client_server's RequestKind is the request envelope, not a type of an API in the model. 2 cases: `client_server.stream_open.compressed`, `client_server.stream_open.raw`.
 - **explain**: ww_client_server's StreamOpened is the answer envelope of a stream open, not a type of an API in the model. 2 cases: `client_server.stream_opened.lz4`, `client_server.stream_opened.unknown`.
 - **explain**: ww_client_server's request envelope, not a type of an API in the model. 3 cases: `client_server.request.multi_read`, `client_server.request.sink_write`, `client_server.request.sideband_ack`.
-- **explain**: ww_link's DeviceInfo is a link message, not a type of an API in the model. 3 cases: `device_info.ordinary`, `device_info.no_observe_samples`, `device_info.wire_version`.
+- **explain**: ww_link's DeviceInfo is a link message, not a type of an API in the model. 4 cases: `device_info.ordinary`, `device_info.no_observe_samples`, `device_info.wire_version`, `device_info.request_context`.
 - **explain**: ww_link's Disconnect payload, not a type of an API in the model. 3 cases: `disconnect_reason.hub_handover`, `disconnect_reason.from_newer`, `disconnect_reason.from_newer_8`.
-- **explain**: ww_link's LinkSetup is a link message, not a type of an API in the model. 3 cases: `link_setup.without_meta`, `link_setup.wire_version`, `link_setup.with_meta`.
+- **explain**: ww_link's LinkSetup is a link message, not a type of an API in the model. 4 cases: `link_setup.without_meta`, `link_setup.wire_version`, `link_setup.model_wire`, `link_setup.with_meta`.
 - **python**: TailBytes has no form in the API model yet (INT-9). 7 cases: `tail_bytes`, `shape.tail.aligned_last.empty`, `shape.tail.aligned_last.one`, `shape.tail.aligned_last.many`, `shape.tail.mid_last.empty`, `shape.tail.mid_last.one`, `shape.tail.mid_last.many`.
 - **python**: TailSize has no form in the API model yet (INT-9). 1 case: `struct.tail_size`.
 - **python**: a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20). 10 cases: `struct.validate.rejected`, `stdlib.si.dim.rejected`, `stdlib.si.dim.zero.rejected`, `stdlib.si.dim.count.rejected`, `stdlib.si.dim.gaussian.count.rejected`, `stdlib.si.dim.gaussian.ratio.rejected`, `stdlib.si.magnitude.rejected`, `stdlib.si.fraction.rejected`, `stdlib.si.run_scale.rejected`, `stdlib.si.offset.rejected`.
@@ -584,9 +586,9 @@ The shape signature and the signature with docs of a definition (EVO-69), by whi
 - **python**: ww_client_server's RequestKind is the request envelope, not a type of an API in the model. 2 cases: `client_server.stream_open.compressed`, `client_server.stream_open.raw`.
 - **python**: ww_client_server's StreamOpened is the answer envelope of a stream open, not a type of an API in the model. 2 cases: `client_server.stream_opened.lz4`, `client_server.stream_opened.unknown`.
 - **python**: ww_client_server's request envelope, not a type of an API in the model. 3 cases: `client_server.request.multi_read`, `client_server.request.sink_write`, `client_server.request.sideband_ack`.
-- **python**: ww_link's DeviceInfo is a link message, not a type of an API in the model. 3 cases: `device_info.ordinary`, `device_info.no_observe_samples`, `device_info.wire_version`.
+- **python**: ww_link's DeviceInfo is a link message, not a type of an API in the model. 4 cases: `device_info.ordinary`, `device_info.no_observe_samples`, `device_info.wire_version`, `device_info.request_context`.
 - **python**: ww_link's Disconnect payload, not a type of an API in the model. 3 cases: `disconnect_reason.hub_handover`, `disconnect_reason.from_newer`, `disconnect_reason.from_newer_8`.
-- **python**: ww_link's LinkSetup is a link message, not a type of an API in the model. 3 cases: `link_setup.without_meta`, `link_setup.wire_version`, `link_setup.with_meta`.
+- **python**: ww_link's LinkSetup is a link message, not a type of an API in the model. 4 cases: `link_setup.without_meta`, `link_setup.wire_version`, `link_setup.model_wire`, `link_setup.with_meta`.
 
 ## Wire changes
 
@@ -594,6 +596,7 @@ Accepted by the frozen golden bytes guard (TEST-24) as a deliberate break, each 
 
 - `device_info.ordinary`: EVO-25 / the bytes of a device from before the appended user_api_wire, read as None; encoding None now writes its flag.
 - `device_info.no_observe_samples`: EVO-25 / the bytes of a device from before the appended user_api_wire, read as None; encoding None now writes its flag.
+- `link_setup.wire_version`: EVO-84 / the bytes of a host from before the appended host_model_wire, read as None; encoding None now writes its flag.
 - `client_server.request.multi_read`: EVO-76 / the priority nibble is now priority: U3 and a reserved bit; NORMAL (2, reserved false) has the old NORMAL's bits, so the bytes stay.
 - `client_server.request.sink_write`: EVO-76 / the priority nibble is now priority: U3 and a reserved bit; NORMAL (2, reserved false) has the old NORMAL's bits, so the bytes stay.
 - `client_server.request.sideband_ack`: EVO-76 / the priority nibble is now priority: U3 and a reserved bit; NORMAL (2, reserved false) has the old NORMAL's bits, so the bytes stay.

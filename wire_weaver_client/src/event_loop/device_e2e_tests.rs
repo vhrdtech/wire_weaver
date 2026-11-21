@@ -877,6 +877,7 @@ async fn previous_session_leftovers_are_dropped() {
         token: old_token,
         image_facts: Default::default(),
         user_api_wire: Some(ww_version::WireVersion::new(9, 0)),
+        request_context: false,
     });
     let big = [0x5Au8; 300];
     let mut to_host = old_session_packets(
@@ -907,6 +908,7 @@ async fn previous_session_leftovers_are_dropped() {
             client_meta: None,
             token: old_token,
             host_user_wire: Some(WIRE),
+            host_model_wire: None,
         })],
         usize::MAX,
     ));

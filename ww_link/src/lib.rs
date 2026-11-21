@@ -375,6 +375,12 @@ pub struct DeviceInfo<'i> {
     /// existed: a host with a generated client refuses it, a dynamic one goes on.
     #[default = None]
     pub user_api_wire: Option<WireVersion>,
+    /// The device reads `ww_client_server`'s request contexts and `RequestKind::Cancel` (SRV-47), and answers with
+    /// the error kinds added with them to a host whose [LinkSetup::host_model_wire] knows them. A host sends a
+    /// context or a cancel only when this is set: an older reader, a firmware too, takes the context's flag for the
+    /// reserved bit and reads on from the wrong place. `false` from a device built before it existed.
+    #[default = false]
+    pub request_context: bool,
 }
 
 #[cfg(feature = "std")]
@@ -390,6 +396,7 @@ impl DeviceInfo<'_> {
             token: self.token,
             image_facts: self.image_facts,
             user_api_wire: self.user_api_wire,
+            request_context: self.request_context,
         }
     }
 }
@@ -420,6 +427,11 @@ pub struct LinkSetup<'i> {
     /// built before it existed, which the device refuses.
     #[default = None]
     pub host_user_wire: Option<WireVersion>,
+    /// Wire version of the host's `ww_client_server` (`ww_client_server::WIRE_VERSION`, SRV-47): a device answers
+    /// with the error kinds this version reads, older ones get their text instead. `None` from a host built before
+    /// it existed, which reads none of the kinds added since `w2.0`.
+    #[default = None]
+    pub host_model_wire: Option<WireVersion>,
 }
 
 /// What kind of program a client is, for lists of who holds or uses a device.
@@ -692,6 +704,7 @@ mod tests {
                 no_observe_samples: true,
             },
             user_api_wire: Some(WireVersion::new(2, 3)),
+            request_context: false,
         };
         let mut wr = BufWriter::new(&mut scratch);
         new.ser_shrink_wrap(&mut wr).unwrap();
@@ -732,6 +745,7 @@ mod tests {
                 no_observe_samples: true,
             },
             user_api_wire: Some(WireVersion::new(2, 3)),
+            request_context: false,
         }));
         round_trip(Message::LinkSetup(LinkSetup {
             host_user_version: FullVersion::new("test", ww_version::Version::new(0, 1, 0)),
@@ -739,6 +753,7 @@ mod tests {
             token: 7,
             client_meta: None,
             host_user_wire: Some(WireVersion::new(2, 3)),
+            host_model_wire: None,
         }));
         round_trip(Message::LinkSetup(LinkSetup {
             host_user_version: FullVersion::new("test", ww_version::Version::new(0, 1, 0)),
@@ -746,6 +761,7 @@ mod tests {
             token: 7,
             client_meta: Some(test_meta()),
             host_user_wire: Some(WireVersion::new(2, 3)),
+            host_model_wire: None,
         }));
         round_trip(Message::LinkReady { token: 7 });
         round_trip(Message::Ping);
@@ -812,6 +828,7 @@ mod tests {
             token: 7,
             client_meta: Some(test_meta()),
             host_user_wire: Some(WireVersion::new(2, 3)),
+            host_model_wire: None,
         };
         let mut buf = [0u8; 256];
         let with = setup.to_ww_bytes(&mut buf).unwrap().to_vec();
@@ -851,6 +868,7 @@ mod tests {
             token: 7,
             client_meta: None,
             host_user_wire: Some(WireVersion::new(2, 3)),
+            host_model_wire: None,
         };
         let mut buf = [0u8; 64];
         let with = setup.to_ww_bytes(&mut buf).unwrap().to_vec();
@@ -884,6 +902,7 @@ mod tests {
             token: 7,
             image_facts: ImageFacts::default(),
             user_api_wire: None,
+            request_context: false,
         };
         let mut buf = [0u8; 128];
         let bytes = info.to_ww_bytes(&mut buf).unwrap().to_vec();

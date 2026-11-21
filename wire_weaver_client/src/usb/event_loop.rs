@@ -603,6 +603,7 @@ mod tests {
                         token,
                         image_facts: Default::default(),
                         user_api_wire: Some(ww_version::WireVersion::new(1, 0)),
+                        request_context: false,
                     }))
                 }
                 Message::LinkSetup(setup) => Some(Message::LinkReady { token: setup.token }),

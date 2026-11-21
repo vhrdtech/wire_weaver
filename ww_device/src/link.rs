@@ -44,6 +44,10 @@ pub struct LinkConfig<'a> {
     pub image_facts: ImageFacts,
     /// Usually `ww_client_server::COMPACT_VERSION`.
     pub api_model_version: CompactVersion,
+    /// The server reads `ww_client_server`'s request contexts and `RequestKind::Cancel` (SRV-47), told to the host
+    /// in [DeviceInfo::request_context]: a host server that acts on them, never a firmware (its `ww_client_server`
+    /// without `std` reads neither). `false` from [LinkConfig::new].
+    pub request_context: bool,
     /// Data messages are accumulated into one frame for this long before the frame is sent.
     /// Host is told to use the same value.
     pub accumulation_time: Duration,
@@ -68,6 +72,7 @@ impl<'a> LinkConfig<'a> {
             api_hash,
             image_facts,
             api_model_version,
+            request_context: false,
             accumulation_time: Duration::from_millis(1),
             ping_interval: Duration::from_millis(PING_INTERVAL_MS),
             peer_timeout: Duration::from_millis(PEER_TIMEOUT_MS),
@@ -224,19 +229,27 @@ pub struct PeerVersion {
     pub patch: u32,
     /// `None` from a dynamic host.
     pub wire: Option<WireVersion>,
+    /// Wire version of the host's `ww_client_server` ([ww_link::LinkSetup::host_model_wire], SRV-47): which error
+    /// kinds it reads. `None` from a host built before it existed.
+    pub model_wire: Option<WireVersion>,
 }
 
 impl PeerVersion {
     /// Longest crate id kept; a longer one is cut at a character boundary.
     pub const CRATE_ID_LEN: usize = 32;
 
-    fn from_wire(version: &ww_link::FullVersion<'_>, wire: Option<WireVersion>) -> Self {
+    fn from_wire(
+        version: &ww_link::FullVersion<'_>,
+        wire: Option<WireVersion>,
+        model_wire: Option<WireVersion>,
+    ) -> Self {
         PeerVersion {
             crate_id: cut(version.crate_id),
             major: version.version.major.0,
             minor: version.version.minor.0,
             patch: version.version.patch.0,
             wire,
+            model_wire,
         }
     }
 }
@@ -463,6 +476,7 @@ impl<'a> DeviceLink<'a> {
                     self.peer_version = Some(PeerVersion::from_wire(
                         &setup.host_user_version,
                         setup.host_user_wire,
+                        setup.host_model_wire,
                     ));
                     self.pending.link_ready = true;
                     if self.phase != Phase::Up {
@@ -591,6 +605,7 @@ impl<'a> DeviceLink<'a> {
                 token: self.token,
                 image_facts: self.config.image_facts,
                 user_api_wire: self.config.user_api_wire,
+                request_context: self.config.request_context,
             })
         } else if self.pending.link_ready {
             self.pending.link_ready = false;

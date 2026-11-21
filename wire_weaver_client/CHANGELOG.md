@@ -10,6 +10,7 @@
 
 ### 🚀 Features
 
+- Link setup sends `ww_client_server::WIRE_VERSION` as `host_model_wire` (SRV-47); `DeviceApiInfo::request_context` says whether the device reads request contexts and `Cancel` (a new public field: struct literals add it).
 - The request explainer shows a request's `context` (SRV-47) and names `RequestKind::Cancel`; the error kinds `Denied`, `DeadlineExceeded`, `Cancelled` and `Internal` map to the `CallErrorKind` of the same name.
 - `ClientConfig::service(name)` asks a byte-stream server (TCP, command, stream, local socket) for one of its APIs (TR-19); `no_byte_stream`.
 - Byte-stream clients (TR-19, feature `byte_stream`): `ClientConfig::tcp`, `command` (a spawned command's stdio, e.g. ssh), `stream` with a `StreamOpener`.

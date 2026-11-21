@@ -169,6 +169,7 @@ impl DeviceLinkInfo {
             accumulation_time: self.api.accumulation_time,
             ping_interval: Duration::from_millis(PING_INTERVAL_MS),
             peer_timeout: Duration::from_millis(PEER_TIMEOUT_MS),
+            request_context: false,
         }
     }
 

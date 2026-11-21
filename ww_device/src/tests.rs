@@ -118,6 +118,7 @@ fn link_setup_on(host_version: FullVersion<'_>, wire: Option<WireVersion>) -> Me
         token: TOKEN,
         client_meta: None,
         host_user_wire: wire,
+        host_model_wire: None,
     })
 }
 
@@ -262,6 +263,7 @@ fn hosts_without_a_token_or_with_a_stale_one() {
         token: 0,
         client_meta: None,
         host_user_wire: Some(WIRE),
+        host_model_wire: None,
     });
     feed(&mut link, now, &old_setup, &mut scratch);
     assert_eq!(
@@ -279,6 +281,7 @@ fn hosts_without_a_token_or_with_a_stale_one() {
         token: TOKEN + 1,
         client_meta: None,
         host_user_wire: Some(WIRE),
+        host_model_wire: None,
     });
     feed(&mut link, now, &stale, &mut scratch);
     assert!(drain(&mut link, now).is_empty());
@@ -1430,6 +1433,7 @@ fn peer_meta_from_link_setup() {
             purpose: None,
             instance_id: 5,
         }),
+        host_model_wire: None,
     });
     feed(&mut link, now, &setup, &mut scratch);
     assert!(link.is_up());
@@ -1495,6 +1499,7 @@ fn hello_outside_the_framer() {
         token: TOKEN + 1,
         client_meta: None,
         host_user_wire: Some(WIRE),
+        host_model_wire: None,
     });
     let mut event = None;
     for p in host.packets(&[setup]) {

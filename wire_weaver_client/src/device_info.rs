@@ -119,6 +119,9 @@ pub struct DeviceApiInfo {
     pub accumulation_time: std::time::Duration,
     /// What this firmware image chose at build time and the API doesn't show (SRV-56).
     pub image_facts: ImageFacts,
+    /// The device reads request contexts and `Cancel` (SRV-47, `ww_link::DeviceInfo::request_context`): the client
+    /// sends a call's deadline and trace with it, and a cancel when the call is dropped. `false` for a firmware.
+    pub request_context: bool,
 }
 
 impl DeviceApiInfo {
@@ -156,6 +159,7 @@ impl DeviceApiInfo {
             generations: crate::event_loop::core::GENERATIONS,
             accumulation_time: std::time::Duration::ZERO,
             image_facts: ImageFacts::default(),
+            request_context: false,
         }
     }
 }

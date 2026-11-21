@@ -716,9 +716,19 @@ pub fn table() -> Vec<Typed> {
         case_debug("device_info.wire_version", || {
             device_info(false, Some(ww_link::WireVersion::new(2, 3)))
         }),
+        // the device reads request contexts (SRV-47), appended after the wire version
+        case_debug("device_info.request_context", || ww_link::DeviceInfoOwned {
+            request_context: true,
+            ..device_info(false, Some(ww_link::WireVersion::new(2, 3)))
+        }),
         case_debug("link_setup.without_meta", || link_setup(None, None)),
         case_debug("link_setup.wire_version", || {
             link_setup(None, Some(ww_link::WireVersion::new(2, 3)))
+        }),
+        // the host's ww_client_server wire version (SRV-47), appended after the API's
+        case_debug("link_setup.model_wire", || ww_link::LinkSetupOwned {
+            host_model_wire: Some(ww_client_server::WIRE_VERSION),
+            ..link_setup(None, Some(ww_link::WireVersion::new(2, 3)))
         }),
         case_debug("link_setup.with_meta", || {
             link_setup(Some(ww_link::ClientMetaOwned {
@@ -1785,6 +1795,7 @@ fn device_info(
         token: 7,
         image_facts: ww_link::ImageFacts { no_observe_samples },
         user_api_wire,
+        request_context: false,
     }
 }
 
@@ -1844,6 +1855,7 @@ fn link_setup(
         token: 7,
         client_meta,
         host_user_wire,
+        host_model_wire: None,
     }
 }
 

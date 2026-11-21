@@ -284,6 +284,7 @@ impl RxCore {
                         device_info.packet_accumulation_time_us.into(),
                     ),
                     image_facts: device_info.image_facts,
+                    request_context: device_info.request_context,
                 };
                 info!("adopted a live link to {:?}", info.user_api_version);
                 self.dispatcher.message_limit = Some(info.message_limit());
@@ -634,13 +635,13 @@ impl RxCore {
     }
 }
 
-/// What a device's `DeviceInfo` says, as the client keeps it.
 /// The token a device from before the hello reads from the host's hello: its first 8 bytes.
 fn pre_hello_token(token: u64) -> u64 {
     let bytes = host_hello(token).to_bytes();
     u64::from_le_bytes(bytes[..8].try_into().unwrap())
 }
 
+/// What a device's `DeviceInfo` says, as the client keeps it.
 fn device_api_info(info: &ww_link::DeviceInfo<'_>, host_max_message_len: usize) -> DeviceApiInfo {
     DeviceApiInfo {
         link_version: compact_to_full(&info.dev_link_version),
@@ -653,5 +654,6 @@ fn device_api_info(info: &ww_link::DeviceInfo<'_>, host_max_message_len: usize) 
         generations: GENERATIONS,
         accumulation_time: Duration::from_micros(info.packet_accumulation_time_us.into()),
         image_facts: info.image_facts,
+        request_context: info.request_context,
     }
 }

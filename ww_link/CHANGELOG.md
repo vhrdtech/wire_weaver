@@ -8,6 +8,7 @@
 
 ### ⚠️ Breaking
 
+- Appended (SRV-47, EVO-84), wire-compatible: `DeviceInfo::request_context` (`#[default = false]`: the device reads request contexts and `Cancel`) and `LinkSetup::host_model_wire` (`#[default = None]`: the host's `ww_client_server` wire version, which error kinds it reads). Older bytes read as the defaults; encoding a `LinkSetup` without the field now writes its flag. Struct literals add the fields.
 - Declares `rust-version = "1.99"`: cargo of an older Rust refuses the crate.
 - `LinkCrc32` is gone: `UdpChecksum` is `CrcChecksum<ww_framer::crc::Crc32IsoHdlc, true>`, the same bytes. `ww_link` no longer depends on `ww_block`; firmware picks the CRC table with `ww_crc`'s `table-*` features instead of `ww_block`'s `crc-table-*` (TR-31).
 - The hello goes outside the framer (EVO-23): `Framing` gains `hello_frame(&Hello, &mut [u8; hello::HELLO_FRAME_MAX]) -> Option<usize>` and `find_hello(&[u8]) -> Option<Hello>` (defaults: None, the hello goes through the framer); `UsbFraming` and `UsbSeqFraming` write and find the frozen USB frame, without a frame prefix. `hello::usb::find(packet)` lost its prefix argument and reads the payload length from the head. Custom `Framing` impls compile unchanged.

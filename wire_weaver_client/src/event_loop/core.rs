@@ -778,6 +778,7 @@ mod tests {
             token,
             image_facts: Default::default(),
             user_api_wire: Some(WireVersion::new(1, 0)),
+            request_context: false,
         })
     }
 

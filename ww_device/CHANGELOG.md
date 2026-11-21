@@ -12,6 +12,7 @@
 
 ### ⚠️ Breaking
 
+- `LinkConfig::request_context` (SRV-47): a host server that reads request contexts says so in `DeviceInfo`; `LinkConfig::new` sets `false`, struct literals add it. `PeerVersion::model_wire` keeps the host's `ww_client_server` wire version from `LinkSetup::host_model_wire`. Firmware (nucleo_g0b1re release): .text 1008 B smaller for usb_blinky and 892 B for ww_rtt, .bss 16 B and 8 B larger.
 - UDP serves several hosts on one port (SRV-68): `UdpSink::new(peers, slot)` / `UdpSource::new(peers, slot)` and `udp_server(config, peers, slot, ..)` take a slot of a `UdpPeers`; pass `&conn, 0` for a `UdpConnection`. `UdpTx` / `UdpRx` / `UdpServer` take the table reference type, `UdpConnection::peer(slot)`.
 - Declares `rust-version = "1.99"`: cargo of an older Rust refuses the crate.
 - A reply is flushed at once for a request at priority 4 and up (`Priority::URGENT`, EVO-76), read from the request's 3 priority bits; the reserved bit beside them is ignored. Hosts and devices are rebuilt together (`ww_client_server` EVO-76).

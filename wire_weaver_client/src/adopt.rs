@@ -251,6 +251,7 @@ pub(crate) mod tests {
             token: 7,
             image_facts: Default::default(),
             user_api_wire: Some(ww_version::WireVersion::new(1, 0)),
+            request_context: false,
         };
         LinkResidualOwned {
             token: 7,

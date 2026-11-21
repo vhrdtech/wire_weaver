@@ -257,6 +257,7 @@ fn link_setup<'a>(
         token,
         client_meta: meta.map(crate::client_meta::as_wire),
         host_user_wire: client.wire,
+        host_model_wire: Some(ww_client_server::WIRE_VERSION),
     })
 }
 

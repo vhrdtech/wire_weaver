@@ -6693,9 +6693,10 @@
 <p>Everything that names a path, in the crate <code>ww_tape_fs</code>.</p>
 <ul>
 <li>✅ <strong>FS-1 Files, file sinks and locks</strong> · <code>v0.5</code></li>
-<li>A new file is written as <code>NAME.partial</code> and renamed when closed. The file and its directory are synced after create and rename.</li>
+<li>A new file is created exclusively under its final name; the file and its directory are synced after the create. Whether a piece is closed is read from its close and tail.</li>
 <li>A sync policy syncs data by block count or time. A failed write or sync ends the file, never retried.</li>
-<li>A file sink holds a lock on <code>NAME.lock</code>, so a second writer is refused. The lock doesn't pass to a forked child.</li>
+<li>A file sink holds the kernel's lock on its open file (<code>flock</code>; a share mode on Windows), so a second writer is refused. A crash leaves nothing behind; a fork handler keeps the lock out of a forked child.</li>
+<li>A file on a network or user-space file system (NFS, SMB, FUSE) gets a typed warning, <code>FsWarning</code>; writing goes on.</li>
 <li>An error names the step, the file and the kind, with the system's error as its source.</li>
 <li>Read more: <a href="https://tape.vhrd.tech/files/">Files and syncing</a>, <a href="https://tape.vhrd.tech/format/#writing-a-file-durably">Writing a file durably</a>.</li>
 </ul>
@@ -6769,6 +6770,7 @@
 <li>Done: Part III, writing: five chapters with every writing call the drive makes in tested code, and eight new figures.</li>
 <li>Done: Part IV, reading: five chapters that find the drive's fault in code, with six new figures.</li>
 <li>Done: Part V, damage and raw media, with the drive's archive and card, four new figures and the lessons appendix.</li>
+<li>Done: the owner's read: one term each for record, item and sample; event times and samples on pages of their own.</li>
 <li>Open: the chapter "Sizes and speeds", still a stub; tested code in every guide chapter.</li>
 <li>
 <p>Read more: <a href="https://tape.vhrd.tech/writers/">For writers</a>, <a href="https://tape.vhrd.tech/glossary/">Glossary</a>.</p>
@@ -6781,7 +6783,7 @@
 <li><code>cargo run -p ww_tape_example</code> prints the story's numbers; <code>tests/story.rs</code> checks them and that the full hour is the same every run.</li>
 <li>Damage to the last piece and the run on a raw card over an earlier run; <code>tests/damage.rs</code> pins what each costs.</li>
 <li><code>rf</code> records an RF capture, ComplexI16 IQ at 20 MS/s with summaries, as the book's case for high rates; <code>tests/rf.rs</code> pins its size per codec.</li>
-<li>Read more: <a href="https://github.com/vhrdtech/ww_tape/blob/00811962beb6e54b458c57f495e1d594310065fc/ww_tape_example/README.md">ww_tape_example</a>.</li>
+<li>Read more: <a href="https://github.com/vhrdtech/ww_tape/blob/84a845fe95d0bcdded64b103d2a94a48bccd83f5/ww_tape_example/README.md">ww_tape_example</a>.</li>
 </ul>
 <h2 id="repository-repo">Repository (<code>REPO</code>)<a class="headerlink" href="#repository-repo" title="Permanent link">&para;</a></h2>
 <p>Crates, checks, fuzzing and benches.</p>

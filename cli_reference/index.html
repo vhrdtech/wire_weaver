@@ -7496,9 +7496,10 @@ as duplicate, late, of the previous session, too short or resynced, and the new 
 </span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>$ ww explain link.wwtape --layer api
 </span></code></pre></div>
 <p>The file is <a href="../transport/tap/#capture-files">tape blocks</a> back to back, each written as it comes. A new capture is
-written as <code>FILE.partial</code> and renamed to <code>FILE</code> when it ends; an existing <code>FILE</code> is refused unless <code>--append</code> adds to
-it. <code>--sync</code> says when the data is synced to the disk, which bounds what a crash or a power cut can lose: an interval
-(<code>1s</code>, the default, or <code>250ms</code>), <code>blocks:N</code> (every N blocks) or <code>none</code> (only at the end). A failed write or sync ends
+created as <code>FILE</code> and closed when it ends, so a crash leaves <code>FILE</code> unclosed, never a second name; an existing <code>FILE</code> is
+refused unless <code>--append</code> adds to it. <code>--sync</code> says when the data is synced to the disk, which bounds what a crash or a
+power cut can lose: an interval (<code>1s</code>, the default, or <code>250ms</code>), <code>blocks:N</code> (every N blocks) or <code>none</code> (only at the
+end). A failed write or sync ends
 the capture with the file as it is, never retried. The file carries the API bundles of the device and of the tap's own
 records. <code>--layer link</code> or <code>api</code> leaves the frames out (smaller files).</p>
 <p>A capture is read up to its first damaged block (a crash's cut last block, a flipped byte, a block out of order), and

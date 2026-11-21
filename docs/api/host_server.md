@@ -237,6 +237,28 @@ pipe's client is checked the same way, but `Peer` has no variant for a Windows u
 `Peer::Unknown` there. Any device name reaches the API of this server, and a client that asks for the hub's own API
 is refused.
 
+### Hosts on UDP
+
+`UdpListener` (feature `udp`) serves hosts on one UDP socket, a connection per host address, as a
+[device on UDP](../transport/udp.md#several-hosts-on-one-port) does. Clients connect with
+`ClientConfig::udp_addr`, the same way they reach a device on the network:
+
+```rust
+let listener = UdpListener::<_, 8>::bind("0.0.0.0:9000".parse()?, 16 * 1024)?; // feature `tokio` too
+Server::new(clock).serve(link, listener, make_backend, shutdown).await?;
+```
+
+`PEERS` (8 here) is how many hosts are served at once. A host gets a connection when it starts link setup and keeps
+it until its link goes down: it leaves, or goes quiet for the link's peer timeout. With every slot taken, a new host
+ends the connection heard from least recently and is served from its next hello. The peer of a connection is
+`Peer::Addr` with the host's address, which proves nothing about who the host is: anyone who can reach the port is
+served. Messages longer than a datagram are split across several, up to the listener's longest message (16 KiB
+here).
+
+Connections are `Send` when the socket is `Sync`, so they can run on any thread of a multi-threaded runtime
+([connections as tasks](#connections-as-tasks)). On another event loop,
+`UdpListener::new` takes a `ww_device::udp::StdUdpSocket` with that loop's readiness, or any `DatagramSocket`.
+
 ### A server on stdio
 
 A server run as an ssh forced command, or started by its client, serves its stdin and stdout. Logs go to stderr then:

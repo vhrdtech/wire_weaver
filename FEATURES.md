@@ -634,15 +634,17 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   ([Host server](docs/api/host_server.md), `tests/host_server`, `ww_local_socket/tests/activation.rs`).
   A write behind slow calls waits without a bound until a request's own deadline (SRV-47, `TODO(SRV-47)`) ends
   it; byte-stream listeners (TCP, stdio, local socket, WebSocket framing) are TR-19; the hub moving onto it is SRV-67.
+- ✅ **SRV-69 UDP listener for wire_weaver_server** — `wire_weaver_server::udp::UdpListener<S, PEERS>` (feature
+  `udp`, `bind` on tokio): a connection per host address of one socket, on `ww_device::udp::LockedUdpPeers`
+  (SRV-68's table behind a mutex, `Sync`), so `serve` and `accepting` both work. Connections own their buffers
+  (`OwnedFramedTx` / `OwnedFramedRx`, ww_framer's `FrameWriter` / `FrameReader` over borrowed and owned framers);
+  firmware builds the same code. The peer is `Peer::Addr`; policy on top is SRV-46
+  ([Host server](docs/api/host_server.md#hosts-on-udp), `tests/host_server/src/tests/udp.rs`).
 - 📋 **SRV-9 Handle USB suspend/resume** · `v0.5` — run until suspend, wait for resume, loop
   (`mcu/wire_weaver_usb_embassy`). Later (`v0.5.x`): detect the host going to sleep and keep the connection,
   informing the device.
 - 📋 **SRV-10 Collect error codes into an ELF section** for easier error decoding · `v0.5.x`.
 - 📋 **SRV-11 Link statistics** in `ww_device` (`TODO(SRV-11)` in `link.rs`).
-- 📋 **SRV-69 UDP listener for wire_weaver_server** — a `Listener` that hands out a connection per host of a
-  `ww_device::udp::UdpPeers` (SRV-68, `UdpPeers::accept`). Needs owned-buffer framers first: a `Listener`'s
-  `Tx` / `Rx` own their buffers, while `FramedTx` / `FramedRx` borrow theirs (`&'a mut [u8]`). `serve` only: the table
-  is not `Send`, so `Server::accepting` would need a locked one.
 - 📋 **SRV-67 ww_hub serves its API on wire_weaver_server** — the hub's own API (`ww_hub_api`) is served by
   `wire_weaver_server` on the hub socket instead of one `ww_device::Server` per client: its connections, limits,
   shutdown and `Fanout` replace the hub's hand-written accept loop and `broadcast` fan-out. The preamble still picks

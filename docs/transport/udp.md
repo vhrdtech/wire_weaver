@@ -75,17 +75,30 @@ loop {
 }
 ```
 
+In a table of several slots, a slot served for good is up from the start: its server reports the medium up before
+any host is heard, and serves the first host whose datagrams reach it (`UdpConnection` waits for its first host). A host that starts link setup waits in its slot until that slot's server
+takes it, so hosts that connect at the same time don't push each other out.
+
 A program on a computer instead takes a connection per host, with a backend of its own, as a WebSocket server
-accepts clients: `peers.accept()` hands out the slot of each new host, the program makes that slot's server (the
-table in an `Rc`, the server on a task of its own) and drops it when its link goes down, which frees the slot. With
-every slot taken, a new host ends the connection heard from least recently and gets the slot from its next hello,
-once that connection is dropped.
+accepts clients. `wire_weaver_server`'s `UdpListener` (feature `udp`) does it all, see the
+[host server](../api/host_server.md#hosts-on-udp). By hand: `peers.accept(&mut buf)` hands out the slot of each new
+host and its address, the program makes that slot's server and drops it when its link goes down, which frees the
+slot. With every slot taken, a new host ends the connection heard from least recently and gets the slot from its
+next hello, once that connection is dropped.
+
+On a computer the table is a `LockedUdpPeers` (feature `std`): a mutex, held only between awaits, makes it `Sync`, so
+connections run on any thread of a multi-threaded runtime. `OwnedFramedTx::owned` and `OwnedFramedRx::owned` are
+framers that own their buffers, so a connection holds no borrow of the program's memory and can be spawned:
 
 ```rust
-let peers = Rc::new(UdpPeers::<_, 8>::new(socket));
+let peers = Arc::new(LockedUdpPeers::<_, 8>::new(socket));
+let mut buf = Box::new([0u8; UDP_MAX_DATAGRAM_LEN]); // received into while no connection does
 loop {
-    let slot = peers.accept().await?;
-    spawn_local(serve(peers.clone(), slot)); // udp_server(.., peers, slot, ..) until LinkEvent::Down
+    let (slot, from) = peers.accept(&mut buf).await?;
+    // the source first: it holds the slot, and adopts the host when its server starts
+    let rx = OwnedFramedRx::owned(UdpSource::new(peers.clone(), slot), MAX_MESSAGE_LEN);
+    let tx = OwnedFramedTx::owned(UdpSink::new(peers.clone(), slot), UDP_MAX_DATAGRAM_LEN);
+    tokio::spawn(serve(tx, rx, from)); // a server on them until LinkEvent::Down
 }
 ```
 
@@ -109,9 +122,10 @@ let peers = Rc::new(UdpPeers::<_, 8>::new(StdUdpSocket::new(socket, watched)?));
 ```
 
 One socket is read by one slot at a time. With one slot, it receives straight into its framer. With several, the
-slot that waits receives into the table's datagram buffer and the slot the datagram is for copies it out: until it
-does, nothing more is received, so a server that does not wait holds up the others (no datagram is lost to it).
-`wire_weaver_client/src/udp.rs` serves two hosts both ways in its tests.
+slot that waits receives into its own framer too; a datagram for another slot goes into the table's handover buffer
+and that slot copies it out. Until it does, nothing more is received, so a server that does not wait holds up the
+others (no datagram is lost to it). A host waiting for `accept()` holds up nobody. `wire_weaver_client/src/udp.rs`
+serves two hosts both ways in its tests, `tests/host_server` many hosts on one port.
 
 There is no authentication, anyone who can reach the port can take a slot. Put the device on a trusted network, or
 use a medium with access control.
@@ -124,8 +138,9 @@ use a medium with access control.
 - `server.wait()` is cancel-safe, so it can be selected on together with anything else.
 - `EmbassyNetUdpSocket` gives up on a send after 1 s (`set_send_timeout`), e.g., when the network interface is
   down, so the link goes down instead of blocking the event loop.
-- The medium is not `Send` (the table is kept in `Cell`s), as with the other `embassy` based media; on `tokio`, run
-  it on a `LocalSet`. `wire_weaver_client/src/udp.rs` has a device on `tokio::net::UdpSocket` in its tests.
+- `UdpPeers` and `UdpConnection` are not `Send` (no lock, one executor), as with the other `embassy` based media;
+  on `tokio`, run them on a `LocalSet`, or use `LockedUdpPeers`. `wire_weaver_client/src/udp.rs` has a device on
+  `tokio::net::UdpSocket` in its tests.
 
 ## Simulated UDP in tests
 

@@ -231,6 +231,18 @@ impl WireWeaverAsyncApiBackend for AsyncServer {
 }
 
 impl WireWeaverSharedApiBackend for AsyncServer {
+    async fn process_exclusive_bytes<'a>(
+        &mut self,
+        origin: &CallContext,
+        out: &mut EventWriter<'_, impl MessageSink>,
+        medium: (),
+        data: &[u8],
+        scratch: &'a mut [u8],
+    ) -> Result<&'a [u8], ShrinkWrapError> {
+        self.process_request_from(origin, data, scratch, out, medium)
+            .await
+    }
+
     fn is_shared(data: &[u8]) -> bool {
         AsyncServer::is_shared(data)
     }

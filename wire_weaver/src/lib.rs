@@ -82,13 +82,28 @@ pub trait WireWeaverAsyncApiBackend {
     fn version(&self) -> FullVersion<'_>;
 }
 
-/// An async server whose shared items (SRV-65, `ww_codegen!(.., receiver_model = "..")`) run side by side: a host
-/// runtime asks [is_shared](Self::is_shared) for each request and serves a shared one through
+/// An async server as a host runtime (SRV-12) serves it: every request with the connection's origin, and the shared
+/// items (SRV-65, `ww_codegen!(.., receiver_model = "..")`) side by side. The runtime asks
+/// [is_shared](Self::is_shared) for each request and serves a shared one through
 /// [process_shared_bytes](Self::process_shared_bytes) with `&self`, while other shared ones are in flight; everything
-/// else goes through [process_bytes](WireWeaverAsyncApiBackend::process_bytes) and runs alone.
+/// else goes through [process_exclusive_bytes](Self::process_exclusive_bytes) and runs alone.
 ///
-/// Usually forwards to the generated `is_shared` and `process_shared_from`.
+/// Usually forwards to the generated `is_shared`, `process_shared_from` and `process_request_from`. A server without a
+/// `receiver_model` implements it the same way: its `is_shared` says no to every request, so every request runs
+/// alone.
 pub trait WireWeaverSharedApiBackend: WireWeaverAsyncApiBackend {
+    /// Deserialize a request and process it through the `&mut self` handlers, alone. `origin` is who asked, as the
+    /// connection knows it; the request's `seq` and `priority` replace its own. Events go to `out`, the reply is
+    /// serialized into `scratch` and returned (empty if there is nothing to send back).
+    fn process_exclusive_bytes<'a>(
+        &mut self,
+        origin: &CallContext,
+        out: &mut EventWriter<'_, impl MessageSink>,
+        medium: Self::Medium,
+        data: &[u8],
+        scratch: &'a mut [u8],
+    ) -> impl Future<Output = Result<&'a [u8], ShrinkWrapError>>;
+
     /// Whether the request in `data` goes to [process_shared_bytes](Self::process_shared_bytes). Takes no `self`, so
     /// the runtime can ask while an exclusive request holds the server.
     fn is_shared(data: &[u8]) -> bool;

@@ -6,6 +6,7 @@
 
 ### ⚠️ Breaking
 
+- `WireWeaverSharedApiBackend::process_exclusive_bytes(&mut self, origin, ..)` (SRV-12): the exclusive entry with the connection's origin, required; implementors forward it to the generated `process_request_from`.
 - Declares `rust-version = "1.99"`: cargo of an older Rust refuses the crate.
 - `ww_si`, `ww_numeric`, `ww_version`, `ww_global`, `ww_error`, `ww_date_time`, `ww_keyed` and `ww_crc` come by git from vhrdtech/ww_base; a project that takes them by path or from this repository takes them from there.
 - `ww_tape` comes by git from vhrdtech/ww_tape, with its benchmarks, fuzz targets and golden files; a project that takes it by path or from this repository takes it from there.

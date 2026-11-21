@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- `ww capture` creates `FILE` under its name, with no `FILE.partial` or `FILE.lock`; a crash leaves it unclosed (FS-1).
 - Declares `rust-version = "1.99"`: cargo of an older Rust refuses the crate.
 - `ww capture` errors read `creating a writer: FILE: locked by another writer`, step, file and kind once (ww_tape S2).
 - `ww capture` writes ww_tape 880b4f7's layout: a capture ends with a close record, which a later append may follow (WRITE-7).

@@ -186,8 +186,8 @@ pub(crate) struct CaptureArgs {
     #[arg(long, value_enum, default_value_t = Layer::Frame)]
     layer: Layer,
 
-    /// Add to an existing capture instead of refusing to overwrite it (a new one is written as FILE.partial and
-    /// renamed when done)
+    /// Add to an existing capture instead of refusing to overwrite it (a new one is created under its name and
+    /// closed when done)
     #[arg(long)]
     append: bool,
 
@@ -931,7 +931,7 @@ pub(crate) async fn capture(
             writer.set_clock(clock);
             writer.set_producer(PRODUCER);
             let mut defs = Definitions::new();
-            let shown = writer.sink().current_path().display().to_string();
+            let shown = writer.sink().path().display().to_string();
             let bar = ProgressBar::new_spinner().with_style(
                 ProgressStyle::with_template("{spinner} {msg} ({elapsed})").expect("template"),
             );
@@ -960,7 +960,7 @@ pub(crate) async fn capture(
             });
             bar.finish_and_clear();
             let (blocks, bytes) = (writer.blocks(), writer.bytes());
-            let current = writer.sink().current_path().to_path_buf();
+            let current = writer.sink().path().to_path_buf();
             result
                 .with_context(|| format!("capture stopped, {} kept as it is", current.display()))?;
             let path = writer.sink().path().to_path_buf();

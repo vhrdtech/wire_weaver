@@ -610,7 +610,7 @@ async fn global_trait_calls_are_named_and_decoded() {
     }
 }
 /// TOOL-14: SIGTERM (a `timeout`, a service manager) ends a tapped command like Ctrl-C does: the capture is
-/// closed and renamed, not left as FILE.partial.
+/// closed, not left unclosed.
 #[cfg(unix)]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn sigterm_closes_the_capture_file() {
@@ -674,14 +674,19 @@ async fn sigterm_closes_the_capture_file() {
 
     client.disconnect().asynch().await.unwrap();
     attached.finish().unwrap();
-    assert!(path.exists(), "renamed");
+    let src = wire_weaver_client::ww_tape_fs::FileSource::open(&path).unwrap();
+    let pieces = wire_weaver_client::ww_tape::TapeReader::open(src)
+        .unwrap()
+        .pieces()
+        .to_vec();
     assert!(
-        !path.with_file_name("cap.wwtape.partial").exists(),
-        "not left partial"
+        pieces.iter().all(|p| p.is_closed()),
+        "closed, not left unclosed"
     );
-    assert!(
-        !path.with_file_name("cap.wwtape.lock").exists(),
-        "the writer's lock file goes with the writer"
+    assert_eq!(
+        std::fs::read_dir(&dir).unwrap().count(),
+        1,
+        "nothing beside the capture"
     );
     assert!(is_capture(path.to_str().unwrap()));
     let text = replayed(&path, Layer::Api, tests_common::resolver());

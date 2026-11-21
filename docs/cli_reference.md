@@ -443,9 +443,10 @@ $ ww explain link.wwtape --layer api
 ```
 
 The file is [tape blocks](transport/tap.md#capture-files) back to back, each written as it comes. A new capture is
-written as `FILE.partial` and renamed to `FILE` when it ends; an existing `FILE` is refused unless `--append` adds to
-it. `--sync` says when the data is synced to the disk, which bounds what a crash or a power cut can lose: an interval
-(`1s`, the default, or `250ms`), `blocks:N` (every N blocks) or `none` (only at the end). A failed write or sync ends
+created as `FILE` and closed when it ends, so a crash leaves `FILE` unclosed, never a second name; an existing `FILE` is
+refused unless `--append` adds to it. `--sync` says when the data is synced to the disk, which bounds what a crash or a
+power cut can lose: an interval (`1s`, the default, or `250ms`), `blocks:N` (every N blocks) or `none` (only at the
+end). A failed write or sync ends
 the capture with the file as it is, never retried. The file carries the API bundles of the device and of the tap's own
 records. `--layer link` or `api` leaves the frames out (smaller files).
 

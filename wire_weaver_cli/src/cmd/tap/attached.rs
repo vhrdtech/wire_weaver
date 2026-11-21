@@ -79,7 +79,7 @@ fn run(
         Ok(())
     });
     monitor.finish(&mut out)?;
-    let current = writer.sink().current_path().to_path_buf();
+    let current = writer.sink().path().to_path_buf();
     result.with_context(|| format!("capture stopped, {} kept as it is", current.display()))?;
     let path = writer.sink().path().to_path_buf();
     writer.close()?;

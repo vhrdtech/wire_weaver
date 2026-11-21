@@ -1700,6 +1700,8 @@
       
         
       
+        
+      
     
     
     
@@ -2029,6 +2031,33 @@
     
   
   Batching streams and properties
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/totals/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Running totals
 
     
   </span>
@@ -6531,6 +6560,10 @@ exactly, so which messages share a datagram, and every frame counter after that,
 loaded the machine is. ww_stdlib's <code>tests/dfu_scenarios</code> pins its UDP transcripts this way (<code>1S-APP-BULK</code>, <code>2C-APP-BULK</code>) and
 keeps one run of the same scenario over real sockets, which checks that the update gets through. WebSocket has the
 same, see <a href="../websocket/#simulated-websocket-in-tests">Simulated WebSocket in tests</a>.</p>
+<p>For loss and reordering, <code>tests_common::start_device_async_udp</code> serves a test server on the simulated socket with
+every datagram from the host going through an <code>Impair</code>, a closure that gives each datagram its <code>Fate</code>: <code>Deliver</code>,
+<code>Drop</code>, or <code>Delay(n)</code>, delivered after <code>n</code> later ones (TEST-19). <code>tests/totals</code> drops every 4<sup>th</sup> datagram and holds
+every 7<sup>th</sup> back behind 3 others, and shows what the frame counter lets through when one is held back behind 12.</p>
 <p><code>examples_mcu/rp2</code> has a complete example, <code>ww_udp_ncm</code>: the board shows up on the host as a USB CDC-NCM Ethernet
 adapter, runs <code>embassy-net</code> with a static address and a small DHCP server, so the host is configured automatically,
 and serves the blinky API at <code>192.168.7.1:9000</code>. Run it with <code>just run rp2 ww_udp_ncm</code> from <code>examples_mcu/rp2</code>,
@@ -6541,7 +6574,9 @@ then blink from the host with <code>cargo run -p blinky --features udp --example
 <li>a lost request (or its reply) times out, as a request to a busy device would;</li>
 <li>a lost stream event is gone;</li>
 <li>every datagram starts with a frame counter: a duplicated datagram, one that comes late (after a later one), or one
-  from the previous session is dropped, a gap is counted as lost (<code>ww stats</code>, <code>ww monitor</code>);</li>
+  from the previous session is dropped, a gap is counted as lost (<code>ww stats</code>, <code>ww monitor</code>); the counter has 4 bits,
+  so a datagram held back by more than 8 later ones is taken as new, and up to 8 datagrams after it are dropped as
+  late (TR-33);</li>
 <li>a message split across datagrams is dropped if any piece of it is lost, the framer detects it from the frame counter,
   the remaining length and the CRC, and continues with the next one;</li>
 <li>every message carries a CRC-32: a datagram corrupted on the way (the UDP checksum is a 16-bit sum, and optional over
@@ -6550,7 +6585,8 @@ then blink from the host with <code>cargo run -p blinky --features udp --example
 <li>if the device goes away silently, the peer timeout ends the session.</li>
 </ul>
 <p>Keep messages that must not be lost small enough to fit in one datagram, or use <a href="../websocket/">WebSocket</a> if the
-device can run TCP.</p>
+device can run TCP. Changes that add up (a pointer, a scroll wheel) go as <a href="../../api/totals/">running totals</a>: a lost write
+loses nothing.</p>
 <h2 id="wire-format">Wire format<a class="headerlink" href="#wire-format" title="Permanent link">&para;</a></h2>
 <p>Each datagram is one <a href="../ww_framer/">ww_framer</a> frame, with <code>ww_link::UdpFraming</code>: a one-byte
 <a href="../ww_framer/#frame-prefix">frame prefix</a> (<code>UdpPrefix</code>, <code>SeqPrefix</code>: frame counter mod 16 and session epoch mod 4),

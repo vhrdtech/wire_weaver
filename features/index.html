@@ -1700,6 +1700,8 @@
       
         
       
+        
+      
     
     
     
@@ -2029,6 +2031,33 @@
     
   
   Batching streams and properties
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/totals/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Running totals
 
     
   </span>
@@ -6760,6 +6789,18 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
   gone. Every API crate of the repo (<code>ww_stdlib/*</code>, <code>ww_hub_api</code>, <code>tests/*_api</code>, <code>examples/*_api</code>) is switched;
   <code>tests/layers_lint</code> fails one whose normal dependencies reach the runtime (<code>layers.toml</code> <code>[api] crates</code>, TEST-36).
   <code>docs/api/folder_structure.md</code>, <code>docs/evolution/crate_layers.md</code>.</li>
+<li>✅ <strong>API-70 Running totals over a plain sink</strong> · <code>v0.5</code> — <code>ww_api::Totals&lt;T&gt;</code> (<code>final_structure</code>: a <code>u16</code>
+  <code>TotalsSession</code>, then <code>T</code>) carries the sum of every change of a sender's session, so a lost write loses nothing on
+  a lossy link and nothing waits: a pointer, a scroll wheel, a jog dial over UDP. <code>Accumulate</code> (wrapping add and
+  difference) for the integers, <code>Fixed</code> over an integer without bounds, arrays, and user structs field by field.
+  <code>ww_stream::totals</code> (<code>no_std</code>, no allocation): <code>TotalsTx</code> adds up and gives the next write, a session's first only
+  sets where the totals start, <code>repeat</code> for a lost last write; <code>TotalsRx</code> gives the change since the last write
+  applied, a new session starts anew (a restarted host, a second program through <code>ww_hub</code>). Stats on both ends:
+  changes merged into one write, unsent, repeats, writes, sessions. <code>wire_weaver_client::TotalsSender</code> adds from any
+  thread and sends the latest totals over a <code>Sink</code>, a session per connect, repeats after 50 ms of quiet. No sequence
+  number: the links drop duplicates and late writes; the one gap is TR-33. Codegen names a type of <code>ww_api</code> itself
+  through <code>wire_weaver::ww_api</code>. Conformance case <code>api.totals.item</code>. <code>docs/api/totals.md</code>, <code>tests/totals</code> (simulated
+  UDP dropping and reordering datagrams, WebSocket, a second sender).</li>
 <li>📋 <strong>API-69 Streams ending with a common error</strong> — a stream that stops because the device refused to go on
   (<code>Busy</code>, <code>NoPower</code>, <code>Fault</code>) ends today with the stream's <code>Close</code> sideband or an error of the API's own item type;
   the common error (STD-16) has no place in a running stream's items yet. Filed with SRV-63, not built: a <code>Common</code>
@@ -8065,6 +8106,11 @@ observing), SRV-46 (peer identity).
 <li>📋 <strong>TR-7 UART</strong> · <code>v0.5.x</code>.</li>
 <li>💡 <strong>TR-8 IP / WireGuard</strong> · <code>v0.5.x</code>.</li>
 <li>💡 <strong>TR-9 EtherCAT</strong>.</li>
+<li>🐛 <strong>TR-33 UDP frame counter aliases a datagram held back by 9 or more</strong> — <code>SeqPrefix</code> has a 4-bit counter: a
+  datagram that arrives after 9 to 15 later ones looks ahead, is taken as new and delivered out of order, and up to 8
+  datagrams in order after it are dropped as late. A wider counter on UDP (a second prefix byte, or the epoch's 2
+  spare bits) is a link wire change. Seen with <code>tests/totals</code> <code>reordering_past_the_link_window_settles</code> (running totals
+  step back, then settle). Real Wi-Fi rarely reorders that deep: its block-ack reorder buffer hands frames up in order.</li>
 <li>📋 <strong>TR-26 Reassembly per sender in <code>ww_framer</code></strong> — <code>FramedRx</code> has one assembly state and <code>SeqRx</code> one sender's
   counter, so on a shared medium a Start from a second sender drops the first one's partial message. A small pool of
   assembly slots keyed by an address the medium supplies (CAN source id and priority, UDP peer), sized by the
@@ -9278,9 +9324,11 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
 <li>📋 <strong>TEST-14 Update all dependencies</strong> · <code>v0.5.x</code>.</li>
 <li>📋 <strong>TEST-15 Measure serialization speed</strong> on MCU and host (LE vs BE, array access vs pointers, <code>UNib32</code>
   implementations).</li>
-<li>📋 <strong>TEST-19 Lossy test medium</strong> · <code>v0.5</code> — an in-process medium that drops, duplicates, reorders, stalls and
+<li>🚧 <strong>TEST-19 Lossy test medium</strong> · <code>v0.5</code> — an in-process medium that drops, duplicates, reorders, stalls and
   disconnects on a seeded schedule, with the stream reliability scenarios S1-S6 as end-to-end tests
-  (<code>docs/api/stream_reliability.md</code>).</li>
+  (<code>docs/api/stream_reliability.md</code>). Done: <code>tests_common::start_device_async_udp</code> serves a test server on the
+  simulated UDP of TR-21 with every host datagram going through an <code>Impair</code> (<code>Fate::Deliver</code>, <code>Drop</code>, <code>Delay(n)</code>),
+  used by <code>tests/totals</code>. Missing: duplicates, stalls, the device-to-host direction, S1-S6.</li>
 <li>🚧 <strong>TEST-21 Power cuts against a flash store on STM32</strong> — <code>examples_mcu/ecc_flash_g0b1</code>, a sequential-storage map on
   <code>ww_ecc_flash</code> (SRV-19) in bank 2 of a G0B1:</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> reset loop: every boot loads and checks all keys against what earlier boots committed, then a SysTick

@@ -282,7 +282,8 @@ impl<R: StreamOpenResult, S: StreamHandle> PreparedStreamOpen<R, S> {
 
     /// The terms of a call through an API's local trait (SRV-48): `cx.priority` when it isn't
     /// [Priority::NORMAL](crate::Priority::NORMAL) (the Commander's default stays otherwise), `cx.deadline` as the
-    /// timeout. The trace goes on the request once the wire carries it (SRV-47).
+    /// timeout, which a device that reads request contexts gets as the request's deadline (SRV-47); the trace is not
+    /// sent with a stream open.
     pub fn with_call_context(self, cx: &wire_weaver::CallContext) -> Self {
         crate::local::apply_call_context(self, cx, Self::priority, Self::with_timeout)
     }
@@ -444,6 +445,7 @@ impl<R: StreamOpenResult, S: StreamHandle> PreparedStreamOpen<R, S> {
             let cmd = Command::SendMessage {
                 bytes: request,
                 done_tx: Some((done_tx, timeout)),
+                trace: None,
             };
             let parts = Parts::Plain {
                 transport_cmd_tx: self.transport_cmd_tx.clone(),

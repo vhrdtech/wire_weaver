@@ -65,6 +65,11 @@ pub(crate) enum DispatcherCommand {
 #[derive(Default)]
 pub(crate) struct RxDispatcher {
     is_connected: bool,
+    /// The device reads request contexts and `Cancel` (SRV-47): a request that times out or whose caller went away
+    /// is cancelled on it, [Self::take_cancels].
+    pub(crate) request_context: bool,
+    /// Requests to cancel on the device, by seq.
+    cancels: Vec<SeqTy>,
     /// Waiting for an answer: response sender, timeout instant and [LATE_REPLY_WINDOW] end.
     response_map: HashMap<SeqTy, (ResponseSenderWrapper, Instant, Instant)>,
     /// Requests that open a counted or reliable stream, by seq
@@ -321,6 +326,9 @@ impl RxDispatcher {
             if let Some((mut done_tx, _, release_at)) = self.response_map.remove(&seq) {
                 _ = done_tx.send(Err(Error::Timeout));
                 trace!("pruned {seq:?}");
+                if self.request_context {
+                    self.cancels.push(seq);
+                }
                 if is_due(&release_at) {
                     self.freed.push(seq);
                 } else {
@@ -353,6 +361,50 @@ impl RxDispatcher {
         });
     }
 
+    /// Requests whose caller went away (its future dropped) before the answer: cancelled on a device that reads
+    /// `Cancel` (SRV-47). Their seq stays in use as a timed out one's, until a late answer or [LATE_REPLY_WINDOW].
+    pub fn reap_dropped(&mut self, now: Instant) {
+        if !self.request_context {
+            return;
+        }
+        let dropped: Vec<SeqTy> = self
+            .response_map
+            .iter()
+            .filter(|(_, (done_tx, _, _))| done_tx.0.as_ref().is_some_and(|tx| tx.is_closed()))
+            .map(|(seq, _)| *seq)
+            .collect();
+        for seq in dropped {
+            self.stream_opens.remove(&seq);
+            self.full_retries.remove(&seq);
+            if self.response_map.remove(&seq).is_some() {
+                trace!("caller of {seq:?} went away");
+                self.timed_out.insert(seq, now + LATE_REPLY_WINDOW);
+                self.cancels.push(seq);
+            }
+        }
+    }
+
+    /// `Cancel` requests for the requests that timed out or whose caller went away (SRV-47).
+    pub fn take_cancels(&mut self) -> Vec<Vec<u8>> {
+        self.cancels
+            .drain(..)
+            .filter_map(|seq| {
+                let req = ww_client_server::RequestOwned {
+                    seq: UVlq32Backfill(0),
+                    priority: ww_client_server::Priority::NORMAL.to_wire(),
+                    context: None,
+                    path_kind: PathKindOwned::Absolute { path: vec![] },
+                    kind: RequestKindOwned::Cancel {
+                        seq: wire_weaver::shrink_wrap::UVlq32(seq),
+                    },
+                };
+                req.to_ww_bytes_owned()
+                    .inspect_err(|e| warn!("cancel not serialized: {e:?}"))
+                    .ok()
+            })
+            .collect()
+    }
+
     /// Earliest instant at which [Self::prune] has something to do, None if no requests are outstanding.
     pub fn next_prune_at(&self) -> Option<Instant> {
         self.response_map
@@ -376,6 +428,7 @@ impl RxDispatcher {
                     _ => unreachable!(),
                 }
                 if !self.is_connected {
+                    self.cancels.clear();
                     self.cancel_all_requests();
                     for shared in self.positioned.values() {
                         shared.lock().disconnected(self.keep_streams);

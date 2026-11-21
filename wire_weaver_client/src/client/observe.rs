@@ -650,6 +650,7 @@ impl<U: LevelUpdate> Level<U> {
                 Command::SendMessage {
                     bytes,
                     done_tx: Some((done_tx, timeout)),
+                    trace: None,
                 },
                 done_rx,
                 state.sent_gen,

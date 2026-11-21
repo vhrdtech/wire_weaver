@@ -196,6 +196,7 @@ impl GlobalPaths {
                         None => Command::SendMessage {
                             bytes,
                             done_tx: Some((retry.done_tx, retry.timeout)),
+                            trace: None,
                         },
                     };
                     // fails only when the event loop is gone, which answers the request itself

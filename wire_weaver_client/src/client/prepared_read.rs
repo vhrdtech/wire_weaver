@@ -32,8 +32,10 @@ pub struct PreparedRead<T> {
 impl<T: DeserializeShrinkWrapOwned + Debug> PreparedRead<T> {
     /// The terms of a call through an API's local trait (SRV-48): `cx.priority` when it isn't
     /// [Priority::NORMAL](crate::Priority::NORMAL) (the Commander's default stays otherwise), `cx.deadline` as the
-    /// timeout. The trace goes on the request once the wire carries it (SRV-47).
-    pub fn with_call_context(self, cx: &wire_weaver::CallContext) -> Self {
+    /// timeout. A device that reads request contexts gets the timeout as the request's deadline and `cx.trace` with
+    /// it (SRV-47).
+    pub fn with_call_context(mut self, cx: &wire_weaver::CallContext) -> Self {
+        self.transport_cmd_tx.trace = cx.trace;
         crate::local::apply_call_context(self, cx, Self::priority, Self::with_timeout)
     }
 

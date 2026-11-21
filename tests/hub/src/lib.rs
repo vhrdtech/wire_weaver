@@ -515,6 +515,7 @@ mod tests {
             .send(Command::SendMessage {
                 bytes: unknown_kind_request(),
                 done_tx: Some((done_tx, Duration::from_secs(1))),
+                trace: None,
             })
             .await
             .unwrap();

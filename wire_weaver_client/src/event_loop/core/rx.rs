@@ -228,6 +228,8 @@ impl RxCore {
                 self.dispatcher.expect_forward(now, seq, tag, timeout)
             }
             ToRx::ForwardSink(tx) => self.dispatcher.forward_sink = Some(tx),
+            // reaped with the rest of what follows every input
+            ToRx::CallerGone => {}
             ToRx::ForwardFailed { tag, error } => self.dispatcher.forward_failed(tag, error),
             ToRx::ObserveRoute { hook } => self
                 .dispatcher
@@ -286,6 +288,7 @@ impl RxCore {
                     image_facts: device_info.image_facts,
                     request_context: device_info.request_context,
                 };
+                self.dispatcher.request_context = info.request_context;
                 info!("adopted a live link to {:?}", info.user_api_version);
                 self.dispatcher.message_limit = Some(info.message_limit());
                 self.device_api_info = Some(info.clone());
@@ -493,6 +496,7 @@ impl RxCore {
                     }));
                 }
                 self.dispatcher.message_limit = Some(device_api_info.message_limit());
+                self.dispatcher.request_context = device_api_info.request_context;
                 self.device_api_info = Some(device_api_info);
                 self.output
                     .push_back(RxOutput::ToTx(ToTx::DeviceInfo(Box::new(
@@ -584,6 +588,10 @@ impl RxCore {
         }
         if self.phase == Phase::Up {
             for bytes in self.dispatcher.poll_streams(now) {
+                self.output.push_back(RxOutput::ToTx(ToTx::Send(bytes)));
+            }
+            self.dispatcher.reap_dropped(now);
+            for bytes in self.dispatcher.take_cancels() {
                 self.output.push_back(RxOutput::ToTx(ToTx::Send(bytes)));
             }
         }

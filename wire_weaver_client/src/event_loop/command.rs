@@ -64,6 +64,8 @@ pub enum Command {
         bytes: Vec<u8>,
         /// If None - the message will be sent with seq = 0
         done_tx: Option<(ResponseSender, Duration)>,
+        /// The caller's trace (SRV-47), sent with the timeout as the request's context to a device that reads one.
+        trace: Option<wire_weaver::TraceContext>,
     },
     /// Open a counted or reliable stream: send the `StreamOpen` request in `bytes` like [Command::SendMessage], and
     /// route the stream's events to `hook` once the device answered that it is open.
@@ -109,6 +111,9 @@ pub enum Command {
         seq: u32,
         data: Vec<u8>,
     },
+    /// A caller stopped waiting for its answer (its future was dropped): rx cancels such requests on a device that
+    /// reads `Cancel` (SRV-47).
+    CallerGone,
     /// Send what was forwarded so far now, instead of at the end of the device's accumulation window: the clients
     /// whose requests these are flushed (the hub mirrors its clients' flushes).
     ForwardFlush,
@@ -197,6 +202,7 @@ impl Command {
             | Command::ForwardSink { .. }
             | Command::ForwardLoopback { .. }
             | Command::ForwardFlush
+            | Command::CallerGone
             | Command::Adopt { .. }
             | Command::GlobalPaths(_)
             | Command::RegisterTracer { .. }

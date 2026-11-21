@@ -58,8 +58,10 @@ impl<T> PreparedCall<T, Error> {
 impl<T: DeserializeShrinkWrapOwned, E: DecodeReply<T>> PreparedCall<T, E> {
     /// The terms of a call through an API's local trait (SRV-48): `cx.priority` when it isn't
     /// [Priority::NORMAL](crate::Priority::NORMAL) (the Commander's default stays otherwise), `cx.deadline` as the
-    /// timeout. The trace goes on the request once the wire carries it (SRV-47).
-    pub fn with_call_context(self, cx: &wire_weaver::CallContext) -> Self {
+    /// timeout. A device that reads request contexts gets the timeout as the request's deadline and `cx.trace` with
+    /// it (SRV-47).
+    pub fn with_call_context(mut self, cx: &wire_weaver::CallContext) -> Self {
+        self.transport_cmd_tx.trace = cx.trace;
         crate::local::apply_call_context(self, cx, Self::priority, Self::with_timeout)
     }
 
@@ -119,8 +121,9 @@ impl<T: DeserializeShrinkWrapOwned, E: DecodeReply<T>> PreparedCall<T, E> {
             .send_call_request(self.path_kind, self.args, self.timeout_override)
             .await?;
 
-        // await return value from a remote device (routed through rx dispatcher)
-        let rx_or_recv_err = done_rx.await.map_err(|_| Error::RxDispatcherNotRunning)?;
+        // await return value from a remote device (routed through rx dispatcher); dropped before it, the call is
+        // cancelled on a device that reads `Cancel` (SRV-47)
+        let rx_or_recv_err = self.transport_cmd_tx.answer(done_rx).await?;
         self.transport_cmd_tx.keys.answered(&keyed, &rx_or_recv_err);
         let response = rx_or_recv_err?; // timeout is handled by rx dispatcher
         Ok(E::decode_reply(&response))

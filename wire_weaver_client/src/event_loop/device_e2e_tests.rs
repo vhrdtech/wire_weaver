@@ -645,6 +645,7 @@ pub(crate) async fn talk(
             .send(Command::SendMessage {
                 bytes,
                 done_tx: Some((done_tx, Duration::from_secs(5))),
+                trace: None,
             })
             .await
             .unwrap();
@@ -662,6 +663,7 @@ pub(crate) async fn talk(
         .send(Command::SendMessage {
             bytes: vec![0, 0, 0, 0, 0, 0xFF],
             done_tx: Some((done_tx, Duration::from_secs(5))),
+            trace: None,
         })
         .await
         .unwrap();
@@ -682,6 +684,7 @@ pub(crate) async fn talk(
         .send(Command::SendMessage {
             bytes: vec![0; UVlq32Backfill::LEN + DEV_MAX_MESSAGE], // + 1 byte of seq
             done_tx: Some((done_tx, Duration::from_secs(5))),
+            trace: None,
         })
         .await
         .unwrap();
@@ -752,6 +755,7 @@ async fn run_loopback_test(pace_every: u32, params: LoopbackParams) {
         .send(Command::SendMessage {
             bytes: [0u8; UVlq32Backfill::LEN].into_iter().chain([7]).collect(),
             done_tx: Some((done_tx, Duration::from_secs(1))),
+            trace: None,
         })
         .await
         .unwrap();
@@ -929,6 +933,7 @@ async fn previous_session_leftovers_are_dropped() {
         .send(Command::SendMessage {
             bytes: vec![0, 0, 0, 0, 0, 0x42],
             done_tx: Some((done_tx, Duration::from_secs(5))),
+            trace: None,
         })
         .await
         .unwrap();

@@ -116,6 +116,9 @@ pub struct TransportCommander {
     pub(crate) keys: KeyCaches,
     /// Observed trait levels, see [Commander::prepare_observe]
     pub(crate) observes: ObserveRegistry,
+    /// The caller's trace, sent with the requests' deadline to a device that reads request contexts (SRV-47); set
+    /// by `with_call_context`.
+    pub(crate) trace: Option<wire_weaver::TraceContext>,
 }
 
 /// A [TransportCommander] that doesn't keep the event loop's command channel open: the connection's
@@ -141,6 +144,7 @@ impl WeakTransport {
             consts: self.consts.clone(),
             keys: self.keys.clone(),
             observes: self.observes.clone(),
+            trace: None,
         })
     }
 }
@@ -389,6 +393,7 @@ impl Commander {
             consts: self.consts.clone(),
             keys: self.keys.clone(),
             observes: self.observes.clone(),
+            trace: None,
         }
     }
 
@@ -1441,7 +1446,50 @@ impl Commander {
     }
 }
 
+/// The answer of a request in flight. Dropped before it came, it tells the event loop, so that the request is
+/// cancelled on the device at once rather than at its timeout (SRV-47).
+pub(crate) struct Answer {
+    rx: Option<ResponseReceiver>,
+    /// Cleared once the answer came.
+    cmd_tx: Option<mpsc::Sender<Command>>,
+}
+
+impl std::future::Future for Answer {
+    type Output = Result<Result<Vec<u8>, Error>, Error>;
+
+    fn poll(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Self::Output> {
+        let Some(rx) = self.rx.as_mut() else {
+            return std::task::Poll::Ready(Err(Error::RxDispatcherNotRunning));
+        };
+        let answer = std::task::ready!(std::pin::Pin::new(rx).poll(cx));
+        self.cmd_tx = None;
+        std::task::Poll::Ready(answer.map_err(|_| Error::RxDispatcherNotRunning))
+    }
+}
+
+impl Drop for Answer {
+    fn drop(&mut self) {
+        // the receiver first: the event loop looks for closed ones
+        drop(self.rx.take());
+        if let Some(cmd_tx) = self.cmd_tx.take() {
+            // a full queue wakes the event loop anyway; the request is reaped then or at its timeout
+            _ = cmd_tx.try_send(Command::CallerGone);
+        }
+    }
+}
+
 impl TransportCommander {
+    /// Wait for the answer `rx` brings, see [Answer].
+    pub(crate) fn answer(&self, rx: ResponseReceiver) -> Answer {
+        Answer {
+            rx: Some(rx),
+            cmd_tx: Some(self.cmd_tx.clone()),
+        }
+    }
+
     /// Cached response bytes of a `const` item read, see [Commander::prepare_const_read].
     pub(crate) fn cached_const(&self, path_kind: &PathKindOwned) -> Option<Vec<u8>> {
         let key = path_kind.to_ww_bytes_owned().ok()?;
@@ -1566,6 +1614,7 @@ impl TransportCommander {
             .send(Command::SendMessage {
                 bytes,
                 done_tx: Some((done_tx, timeout.unwrap_or(self.default_timeout))),
+                trace: self.trace,
             })
             .await
             .map_err(|_| Error::EventLoopNotRunning)
@@ -1581,6 +1630,7 @@ impl TransportCommander {
             .blocking_send(Command::SendMessage {
                 bytes,
                 done_tx: Some((done_tx, timeout.unwrap_or(self.default_timeout))),
+                trace: self.trace,
             })
             .map_err(|_| Error::EventLoopNotRunning)
     }
@@ -1647,6 +1697,7 @@ impl TransportCommander {
             .send(Command::SendMessage {
                 bytes: req,
                 done_tx: None,
+                trace: None,
             })
             .await
             .map_err(|_| Error::EventLoopNotRunning)?;
@@ -1672,6 +1723,7 @@ impl TransportCommander {
             .blocking_send(Command::SendMessage {
                 bytes: req,
                 done_tx: None,
+                trace: None,
             })
             .map_err(|_| Error::EventLoopNotRunning)?;
         Ok(())
@@ -1817,6 +1869,7 @@ impl TransportCommander {
             .send(Command::SendMessage {
                 bytes: req,
                 done_tx: None,
+                trace: None,
             })
             .await
             .map_err(|_| Error::EventLoopNotRunning)?;
@@ -1874,6 +1927,7 @@ impl TransportCommander {
         Ok(Command::SendMessage {
             bytes: req.to_ww_bytes_owned()?,
             done_tx: None,
+            trace: None,
         })
     }
 
@@ -1903,6 +1957,7 @@ impl TransportCommander {
         Ok(Command::SendMessage {
             bytes: req.to_ww_bytes_owned()?,
             done_tx: None,
+            trace: None,
         })
     }
 
@@ -1928,6 +1983,7 @@ impl TransportCommander {
         let cmd = Command::SendMessage {
             bytes: req.to_ww_bytes_owned()?,
             done_tx: Some((done_tx, self.default_timeout)),
+            trace: None,
         };
         Ok((cmd, done_rx))
     }
@@ -1949,6 +2005,7 @@ impl TransportCommander {
         Ok(Command::SendMessage {
             bytes: req.to_ww_bytes_owned()?,
             done_tx: Some((done_tx, self.default_timeout)),
+            trace: None,
         })
     }
 
@@ -1971,6 +2028,7 @@ impl TransportCommander {
             .blocking_send(Command::SendMessage {
                 bytes: req,
                 done_tx: None,
+                trace: None,
             })
             .map_err(|_| Error::EventLoopNotRunning)?;
         Ok(())
@@ -2043,6 +2101,7 @@ impl TransportCommander {
             .send(Command::SendMessage {
                 bytes: req,
                 done_tx: None,
+                trace: None,
             })
             .await
             .map_err(|_| Error::EventLoopNotRunning)?;
@@ -2076,6 +2135,7 @@ impl TransportCommander {
             .blocking_send(Command::SendMessage {
                 bytes: req,
                 done_tx: None,
+                trace: None,
             })
             .map_err(|_| Error::EventLoopNotRunning)?;
         Ok(stream_event_rx)

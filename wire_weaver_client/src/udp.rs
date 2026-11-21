@@ -336,6 +336,7 @@ mod tests {
             .send(Command::SendMessage {
                 bytes,
                 done_tx: Some((done_tx, std::time::Duration::from_secs(5))),
+                trace: None,
             })
             .await
             .unwrap();

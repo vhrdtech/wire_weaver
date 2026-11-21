@@ -751,6 +751,7 @@ mod tests {
                         .copied()
                         .collect(),
                     done_tx: Some((done_tx, Duration::from_secs(5))),
+                    trace: None,
                 })
                 .await
                 .unwrap();

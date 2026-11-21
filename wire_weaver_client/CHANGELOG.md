@@ -10,6 +10,7 @@
 
 ### 🚀 Features
 
+- Request contexts (SRV-47), only to a device that announced it reads them (`DeviceApiInfo::request_context`): calls, reads and writes carry their timeout as the deadline, and `with_call_context` adds `cx.trace` (not on a stream open). A request that times out, or a `call()` whose future is dropped, is cancelled on the device with `RequestKind::Cancel`; the dropped call at once, the rest at their timeout.
 - Link setup sends `ww_client_server::WIRE_VERSION` as `host_model_wire` (SRV-47); `DeviceApiInfo::request_context` says whether the device reads request contexts and `Cancel` (a new public field: struct literals add it).
 - The request explainer shows a request's `context` (SRV-47) and names `RequestKind::Cancel`; the error kinds `Denied`, `DeadlineExceeded`, `Cancelled` and `Internal` map to the `CallErrorKind` of the same name.
 - `ClientConfig::service(name)` asks a byte-stream server (TCP, command, stream, local socket) for one of its APIs (TR-19); `no_byte_stream`.
@@ -36,6 +37,7 @@
 
 ### ⚠️ Breaking
 
+- `Command::SendMessage` has a `trace: Option<wire_weaver::TraceContext>` field (SRV-47) and `Command` a `CallerGone` variant: code building the command adds `trace: None`, exhaustive matches add the arm.
 - `in_process::WsPort` is a stream of pipes, no longer a `ws::Socket`: serve it as `WsConnection::new(IoSocket::new(port))` (TR-19).
 - The local-socket transport runs on futures-io streams through the new `byte_stream` feature, which `local_socket` turns on (TR-19).
 - Declares `rust-version = "1.99"`: cargo of an older Rust refuses the crate.

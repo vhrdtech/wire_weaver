@@ -73,6 +73,7 @@ mod tests {
         cmd.send(Command::SendMessage {
             bytes,
             done_tx: Some((tx, Duration::from_secs(2))),
+            trace: None,
         })
         .await?;
         rx.await.expect("event loop answers")

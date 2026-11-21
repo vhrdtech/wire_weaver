@@ -189,6 +189,7 @@ async fn send(
         .send(Command::SendMessage {
             bytes,
             done_tx: Some((done_tx, Duration::from_secs(5))),
+            trace: None,
         })
         .await
         .unwrap();

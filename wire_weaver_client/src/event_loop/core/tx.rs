@@ -119,8 +119,8 @@ struct HeldLoopback {
 enum Waiter {
     /// Nobody: sent with seq 0
     NoReply,
-    /// A client call, with its timeout
-    Response(ResponseSender, Duration),
+    /// A client call, with its timeout and the caller's trace (SRV-47)
+    Response(ResponseSender, Duration, Option<wire_weaver::TraceContext>),
     /// [Command::Forward]: the forward sink, if it has a tag (seq 0 otherwise). The request goes out as it is.
     Forward(Option<u64>, Duration),
 }
@@ -128,7 +128,7 @@ enum Waiter {
 impl From<Option<(ResponseSender, Duration)>> for Waiter {
     fn from(done_tx: Option<(ResponseSender, Duration)>) -> Self {
         match done_tx {
-            Some((done_tx, timeout)) => Waiter::Response(done_tx, timeout),
+            Some((done_tx, timeout)) => Waiter::Response(done_tx, timeout, None),
             None => Waiter::NoReply,
         }
     }
@@ -142,7 +142,7 @@ impl Waiter {
     /// The request won't go out: tell whoever waits.
     fn fail(self, error: Error, output: &mut VecDeque<TxOutput>) {
         match self {
-            Waiter::Response(done_tx, _) => _ = done_tx.send(Err(error)),
+            Waiter::Response(done_tx, ..) => _ = done_tx.send(Err(error)),
             Waiter::Forward(Some(tag), _) => {
                 output.push_back(TxOutput::ToRx(ToRx::ForwardFailed { tag, error }))
             }
@@ -209,6 +209,9 @@ pub(crate) struct TxCore {
     /// requests can legitimately arrive here a bit early.
     /// Also messages sent while a loopback test runs, sent out once it is done.
     held_until_up: VecDeque<HeldMessage>,
+    /// The device reads request contexts (SRV-47, `DeviceInfo::request_context`): calls carry their deadline and
+    /// trace.
+    request_context: bool,
     /// Requests that wait for a seq number to be freed (all are in flight), sent in order as seqs come back.
     waiting_for_seq: VecDeque<HeldMessage>,
 
@@ -243,6 +246,29 @@ pub(crate) struct TxPart {
     pub max_seq: SeqTy,
     pub in_flight: Vec<SeqTy>,
     pub full_only: Vec<(u32, u32, u32)>,
+}
+
+/// Put the call's terms on `request` (SRV-47): what is left of its `timeout` as the deadline, and `trace`. A request
+/// that can't be read is left as it is.
+fn with_context(
+    request: &mut Vec<u8>,
+    timeout: Duration,
+    trace: Option<wire_weaver::TraceContext>,
+) {
+    use wire_weaver::shrink_wrap::{DeserializeShrinkWrap, SerializeShrinkWrapOwned, UNib32};
+    let Ok(mut owned) =
+        ww_client_server::Request::from_ww_bytes(request).and_then(|request| request.make_owned())
+    else {
+        return;
+    };
+    let millis = u32::try_from(timeout.as_millis()).unwrap_or(u32::MAX);
+    owned.context = Some(Box::new(ww_client_server::RequestContext {
+        trace,
+        deadline: Some(ww_client_server::ww_si::Millis::new(UNib32(millis))),
+    }));
+    if let Ok(bytes) = owned.to_ww_bytes_owned() {
+        *request = bytes;
+    }
 }
 
 fn link_setup<'a>(
@@ -293,6 +319,7 @@ impl TxCore {
             full_only: HashSet::new(),
             global_paths: None,
             held_until_up: VecDeque::new(),
+            request_context: false,
             waiting_for_seq: VecDeque::new(),
             loopback: None,
             loopback_held: None,
@@ -608,8 +635,16 @@ impl TxCore {
                 return Ok(Flow::Exit(EventLoopExitReason::DisconnectCommand));
             }
             Command::GlobalPaths(paths) => self.global_paths = Some(paths),
-            Command::SendMessage { bytes, done_tx } => {
-                self.on_send_message(now, bytes, done_tx.into(), None);
+            Command::SendMessage {
+                bytes,
+                done_tx,
+                trace,
+            } => {
+                let waiter = match done_tx {
+                    Some((done_tx, timeout)) => Waiter::Response(done_tx, timeout, trace),
+                    None => Waiter::NoReply,
+                };
+                self.on_send_message(now, bytes, waiter, None);
             }
             Command::Forward {
                 bytes,
@@ -631,6 +666,7 @@ impl TxCore {
                 self.output
                     .push_back(TxOutput::ToRx(ToRx::ForwardSink(sink)));
             }
+            Command::CallerGone => self.output.push_back(TxOutput::ToRx(ToRx::CallerGone)),
             Command::ForwardFlush => {
                 if self.phase == Phase::Up && self.unflushed_since.is_some() {
                     self.flush(now);
@@ -655,7 +691,12 @@ impl TxCore {
                 timeout,
                 hook,
             } => {
-                self.on_send_message(now, bytes, Waiter::Response(done_tx, timeout), Some(hook));
+                self.on_send_message(
+                    now,
+                    bytes,
+                    Waiter::Response(done_tx, timeout, None),
+                    Some(hook),
+                );
             }
             Command::OnStreamEvent {
                 path_kind,
@@ -720,6 +761,13 @@ impl TxCore {
         } else {
             0
         };
+        // the call's terms go on the request only for a device that said it reads them: an older one, a firmware
+        // too, would take the context's flag for the reserved bit and misread the rest (SRV-47)
+        if self.request_context
+            && let Waiter::Response(_, timeout, trace) = &done_tx
+        {
+            with_context(&mut bytes, *timeout, *trace);
+        }
         let retry = match done_tx {
             Waiter::Forward(..) => None,
             _ => self.global_retry(&mut bytes),
@@ -758,7 +806,7 @@ impl TxCore {
         let urgent = ww_client_server::Request::peek_priority(&bytes).is_ok_and(|p| p.is_urgent());
         // Expect goes out before the request bytes, so rx knows about the seq before the answer can arrive
         match done_tx {
-            Waiter::Response(done_tx, timeout) => {
+            Waiter::Response(done_tx, timeout, _) => {
                 self.output.push_back(TxOutput::ToRx(ToRx::Expect {
                     seq,
                     done_tx,
@@ -871,6 +919,7 @@ impl TxCore {
         self.frame_accumulation_time =
             Duration::from_micros(a.device_info.packet_accumulation_time_us as u64);
         self.device_max_message_len = a.device_info.dev_max_message_len as usize;
+        self.request_context = a.device_info.request_context;
         self.next_seq = a.next_seq.clamp(1, self.max_seq.max(1));
         self.in_flight = a.in_flight.into_iter().collect();
         self.full_only = a.full_only.into_iter().collect();
@@ -900,6 +949,7 @@ impl TxCore {
                 self.frame_accumulation_time =
                     Duration::from_micros(info.packet_accumulation_time_us as u64);
                 self.device_max_message_len = info.dev_max_message_len as usize;
+                self.request_context = info.request_context;
                 self.phase = Phase::LinkSetup;
                 self.next_link_setup_retry_at = None;
                 // a host speaking several lines sends the version of the device's line (EVO-28): RX has refused a
@@ -954,7 +1004,12 @@ impl TxCore {
                 hook,
             } => {
                 self.full_only.extend(retry.compact);
-                self.on_send_message(now, retry.bytes, Waiter::Response(done_tx, timeout), hook);
+                self.on_send_message(
+                    now,
+                    retry.bytes,
+                    Waiter::Response(done_tx, timeout, None),
+                    hook,
+                );
             }
             ToTx::ResolveAbsolute(retry) => match &self.global_paths {
                 Some(paths) => self

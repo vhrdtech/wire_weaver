@@ -567,6 +567,7 @@ mod tests {
                 .send(Command::SendMessage {
                     bytes,
                     done_tx: Some((done_tx, Duration::from_secs(2))),
+                    trace: None,
                 })
                 .await
                 .unwrap();

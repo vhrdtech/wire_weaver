@@ -125,6 +125,8 @@ pub(crate) enum ToRx {
     ObserveRoute {
         hook: Box<crate::client::observe::ObserveRouteHook>,
     },
+    /// [Command::CallerGone]: look for requests whose caller went away.
+    CallerGone,
     /// Transport is up, rx should start expecting link setup messages.
     TransportUp {
         /// Used for the compatibility check against DeviceInfo, a dynamic client skips it
@@ -1143,6 +1145,7 @@ mod tests {
                 Command::SendMessage {
                     bytes,
                     done_tx: None,
+                    trace: None,
                 },
             );
             p.settle(now);
@@ -1179,6 +1182,7 @@ mod tests {
                 Command::SendMessage {
                     bytes: request(&[b]),
                     done_tx: None,
+                    trace: None,
                 },
             );
             p.settle(at);
@@ -1236,6 +1240,7 @@ mod tests {
             Command::SendMessage {
                 bytes: request(&[4]),
                 done_tx: None,
+                trace: None,
             },
         );
         assert_eq!(p.tx.poll_timeout(), Some(now + Duration::from_micros(500)));
@@ -1258,6 +1263,7 @@ mod tests {
                 Command::SendMessage {
                     bytes,
                     done_tx: None,
+                    trace: None,
                 },
             );
         }
@@ -1307,6 +1313,7 @@ mod tests {
             Command::SendMessage {
                 bytes: request(&[0xAA]),
                 done_tx: Some((done_tx, Duration::from_secs(1))),
+                trace: None,
             },
         );
         let sent = p.take_sent();
@@ -1323,6 +1330,7 @@ mod tests {
             Command::SendMessage {
                 bytes: request(&[0xBB]),
                 done_tx: Some((done_tx, Duration::from_secs(1))),
+                trace: None,
             },
         );
         assert_eq!(p.take_sent()[0].payload, [2, 0xBB]);
@@ -1342,6 +1350,7 @@ mod tests {
             Command::SendMessage {
                 bytes: request(&[0xCC]),
                 done_tx: Some((done_tx, Duration::from_secs(1))),
+                trace: None,
             },
         );
         p.timers(now + Duration::from_secs(3));
@@ -1379,6 +1388,7 @@ mod tests {
             Command::SendMessage {
                 bytes: request(&[0xAA]),
                 done_tx: Some((done_tx, Duration::from_secs(5))),
+                trace: None,
             },
         );
         assert_eq!(p.take_sent()[0].payload, [1, 0xAA]);
@@ -1395,6 +1405,7 @@ mod tests {
             Command::SendMessage {
                 bytes: request(&[0xBB]),
                 done_tx: Some((held_tx, Duration::from_secs(5))),
+                trace: None,
             },
         );
         assert!(p.take_sent().is_empty(), "held while paused");
@@ -1647,6 +1658,7 @@ mod tests {
                 Command::SendMessage {
                     bytes: request(&[0xAA]),
                     done_tx: Some((done_tx, Duration::from_secs(1))),
+                    trace: None,
                 },
             );
             for sent in p.take_sent() {
@@ -1673,6 +1685,7 @@ mod tests {
                 Command::SendMessage {
                     bytes: request(&[payload]),
                     done_tx: Some((done_tx, Duration::from_secs(1))),
+                    trace: None,
                 },
             );
             done.push(done_rx);
@@ -1705,6 +1718,7 @@ mod tests {
             Command::SendMessage {
                 bytes: request(&[0; 512]), // device said 512, + 1 byte of seq
                 done_tx: Some((done_tx, Duration::from_secs(1))),
+                trace: None,
             },
         );
         assert!(p.take_sent().is_empty());
@@ -1827,6 +1841,7 @@ mod tests {
             Command::SendMessage {
                 bytes: request(&[0xAA]),
                 done_tx: Some((done_tx, Duration::from_secs(1))),
+                trace: None,
             },
         );
         assert!(p.take_sent().is_empty(), "held until the link is up");
@@ -1887,6 +1902,7 @@ mod tests {
             Command::SendMessage {
                 bytes: request(&[0xAA]),
                 done_tx: Some((done_tx, Duration::from_secs(1))),
+                trace: None,
             },
         );
         p.feed_from_device(
@@ -2185,6 +2201,7 @@ mod tests {
             Command::SendMessage {
                 bytes: request(&[0xAA]),
                 done_tx: Some((done_tx, Duration::from_secs(1))),
+                trace: None,
             },
         );
         assert!(p.take_sent().is_empty(), "held while the test runs");

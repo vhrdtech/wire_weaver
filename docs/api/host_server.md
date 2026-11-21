@@ -152,20 +152,84 @@ The limits and the shutdown work as in `serve`. `next` gives no connection while
 and it returns `None` once the shutdown was asked for and every connection has ended. A connection is `Send` when
 the clock, the listener's message halves and the backend are, so the compiler checks this where you spawn.
 
+This loop is the server's spawner. A method that spawned the connections itself would have to require them to be
+`Send` for any listener and backend. Rust cannot state that bound for the futures that traits like `MessageTx`
+return, so the server hands the connections to the code that knows the concrete types.
+
 ## Where connections come from
 
 A `Listener` yields connections. Each one is a pair of message halves (`ww_device::MessageTx` and `MessageRx`, the
-traits every device medium implements) together with the peer.
+traits every device medium implements) together with the peer. The crate has two listeners, each behind a feature.
 
-The crate has one listener today, behind the `in_process` feature. `InProcessListener` accepts clients of the same
-process, which connect with `ClientConfig::in_process_path`. It exists for tests and simulators, and it lets you
-choose the peer that every connection reports, so that you can test what your service does for a peer you cannot
-easily become:
+### Clients in the same process
+
+`InProcessListener` (feature `in_process`) accepts clients of the same process, which connect with
+`ClientConfig::in_process_path`. It exists for tests and simulators. It lets you choose the peer that every
+connection reports, so that you can test what your service does for a peer you cannot easily become:
 
 ```rust
 let listener = InProcessListener::new("my_service", 16 * 1024)
     .with_peer(Peer::Unix { uid: Uid(1000), gid: Gid(100), pid: None });
 ```
+
+### Programs on the same computer
+
+`LocalSocketListener` (feature `local_socket`) accepts programs of the same user on a local socket: a Unix domain
+socket on Linux and macOS, a named pipe on Windows. A client connects with `ClientConfig::ipc_path`, the same way it
+reaches a device that another process serves ([the hub](../transport/hub.md) uses these sockets too). The listener
+runs on tokio.
+
+```rust
+let socket = ww_local_socket::listen(&path, false)?;
+let listener = LocalSocketListener::new(socket, "my_service 0.3.0", 16 * 1024);
+```
+
+The socket is reachable by its owner only, and the listener checks the user of every client again when it accepts
+it. On Unix the peer of a connection is `Peer::Unix` with the client's user, group and process id. On Windows the
+pipe's client is checked the same way, but `Peer` has no variant for a Windows user yet, so handlers see
+`Peer::Unknown` there.
+
+Every client starts with the hub's preamble, a few bytes that name what it wants to reach. Any device name reaches
+the API of this server, and a client that asks for the hub's own API is refused. The listener reads up to
+`HANDSHAKES_MAX` preambles side by side, each within two seconds. A client that connects and sends nothing
+therefore delays nobody else.
+
+### Socket activation
+
+Under systemd, a `.socket` unit can own the socket and start the service when the first client connects. The
+service then takes the socket it was passed instead of creating its own. `ww_local_socket::inherited` returns it,
+and it fails with `ActivationError::NotActivated` when the program was started without one, so that the same
+program can also run by hand:
+
+```rust
+let socket = match ww_local_socket::inherited(Some("api")) {
+    Ok(socket) => socket,
+    Err(ActivationError::NotActivated) => ww_local_socket::listen(&path, false)?,
+    Err(e) => return Err(e.into()),
+};
+let listener = LocalSocketListener::new(socket, "my_service 0.3.0", 16 * 1024);
+```
+
+The units of a user service look like this. `FileDescriptorName` is the name that `inherited` looks for; without a
+name, `inherited(None)` takes the first socket passed.
+
+```ini
+# ~/.config/systemd/user/my-service.socket
+[Socket]
+ListenStream=%t/my-service.sock
+SocketMode=0600
+FileDescriptorName=api
+
+[Install]
+WantedBy=sockets.target
+
+# ~/.config/systemd/user/my-service.service
+[Service]
+ExecStart=%h/.cargo/bin/my-service
+```
+
+The socket file and its mode are the unit's, so `SocketMode=0600` keeps other users out. A passed socket is taken
+once per process, and the programs that the service starts do not inherit it.
 
 ## Order of requests
 

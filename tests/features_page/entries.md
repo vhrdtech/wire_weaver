@@ -171,7 +171,7 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 - SRV-42 | Replies by priority | A reply to an urgent request leaves at once, also a deferred one sent later from your main loop; `Sink::flush` sends what waits now. | transport/ww_framer.md#latency-and-priority
 - SRV-22 | Errors that say where | A device's error names the site that raised it, by a number that is the same in every firmware. | api/errors.md#where-on-the-device-an-error-came-from
 - SRV-48 | Who asked | Every call carries a small `CallContext`: the peer as the transport saw it, priority, deadline and trace, the same for a request a server handles and a call in the same process. | api/local_trait.md#who-asked-callcontext
-- SRV-12 | Host server | One API served to many clients at once on any async runtime: a backend per connection, calls side by side, streams that flow while calls run, limits that push back, graceful shutdown. | api/host_server.md
+- SRV-12 | Host server | One API served to many clients at once on any async runtime, in-process or on a local socket (also under systemd socket activation): a backend per connection, calls side by side, streams that flow while calls run, limits that push back, graceful shutdown. | api/host_server.md
 - SRV-21 | Sync handlers in an async server | Handlers that never wait are plain `fn`s, only the ones that await are `async`: less flash. | api/handlers.md
 - SRV-65 | Shared handlers | Calls and reads of the items you mark shared take `&self`, so a host server can run them side by side; the rest stays `&mut self`. | api/handlers.md#shared-and-exclusive-handlers
 - SRV-18 | Observed properties | The device sends property changes within the budget each host asked for. | api/observing.md#the-device-side

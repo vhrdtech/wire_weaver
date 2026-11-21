@@ -23,5 +23,5 @@ pub use listener::{HANDSHAKES_MAX, Incoming, OPENING_TIMEOUT, QUEUED_MAX, Stream
 pub use stdio::{Stdio, stdio};
 #[cfg(feature = "tokio")]
 pub use tcp::TcpIncoming;
-#[cfg(feature = "tokio")]
+#[cfg(feature = "local_socket")]
 pub(crate) use tcp::{ACCEPT_RETRY_DELAY, is_transient};

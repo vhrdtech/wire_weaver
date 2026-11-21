@@ -15,7 +15,6 @@ libc.workspace = true
 [dependencies]
 futures-lite.workspace = true
 futures-util = { workspace = true, features = ["io", "std"] }
-interprocess.workspace = true
 nusb.workspace = true
 semver.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync", "time", "io-util"] }

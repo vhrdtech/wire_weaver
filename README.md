@@ -205,7 +205,7 @@ If you only want to serialize and deserialize some data types, it can be used st
 | [`global_fixture_api`](tests/global_fixture_api) | runtime | Test trait of TEST-31 (GlobalFull/GlobalCompact dispatch): used by tests/dispatch_golden instead of ww_user_info, a property with a const next to it, reached on a global path. |
 | [`global_ids`](tests/global_ids) | runtime | Checks that every public trait of the framework crates ww_client_server and ww_timebase has an id in the ww_global registry (API-20). |
 | [`global_paths_api`](tests/global_paths_api) | runtime | Framework-only fixture for the global trait path dispatch bench (API-20, R10): a local trait at index 0 and ww_timebase::Clock (a real ww_global id) at index 1, used by examples_mcu/mcu_qemu qemu-global-paths |
-| [`host_server`](tests/host_server) | runtime | Tests of the host server (SRV-12): many clients on one API, calls side by side, pumps, limits, shutdown |
+| [`host_server`](tests/host_server) | runtime | Tests of the host server (SRV-12): many clients on one API, calls side by side, pumps, limits, shutdown, byte streams (TR-19) |
 | [`host_server_api`](tests/host_server_api) | runtime | Test API of the host server (SRV-12), exercised by tests/host_server |
 | [`hub`](tests/hub) | runtime | Device tunnels through the ww hub (SRV-29): several clients of one in-process device, each through its own tunnel |
 | [`hub_api`](tests/hub_api) | runtime | Test API of tests/hub: a device several clients share through the ww hub (SRV-29), with resources one of them can claim |
@@ -294,6 +294,7 @@ If you only want to serialize and deserialize some data types, it can be used st
 | [`wire_weaver_py`](wire_weaver_py) | runtime | Python module talking to any WireWeaver device, with its API built at runtime from introspection data |
 | [`wire_weaver_server`](wire_weaver_server) | runtime | WireWeaver host server: many connections to one API, on any async runtime |
 | [`ww_book`](ww_book) | runtime | Assembles the WireWeaver book: copies the pages and feature trackers of the repositories it takes by git into docs/ |
+| [`ww_byte_stream`](ww_byte_stream) | runtime | WireWeaver over byte streams: the connection preamble and message framing |
 | [`ww_client_server`](ww_client_server) | runtime | Client-server API model data types for both no_std and std. |
 | [`ww_clock_sync`](ww_clock_sync) | runtime | Host clock sync for WireWeaver devices: fits each device's clock against the host's and steers it onto UTC (ww_timebase::Clock) |
 | [`ww_device`](ww_device) | runtime | WireWeaver device side: sans-IO link state machine and event loop building blocks, no_std and no alloc |
@@ -302,7 +303,7 @@ If you only want to serialize and deserialize some data types, it can be used st
 | [`ww_hub`](ww_hub) | runtime | The ww hub: one process per user that holds WireWeaver devices and serves every program (SRV-13) |
 | [`ww_hub_api`](ww_hub_api) | runtime | API of the ww hub: the per-user process that holds devices and serves every program (SRV-13) |
 | [`ww_link`](ww_link) | runtime | WireWeaver is a wire format and API code generator for resource constrained systems. |
-| [`ww_local_socket`](ww_local_socket) | runtime | WireWeaver over local sockets: user-only Unix sockets and named pipes, the hub preamble, message framing |
+| [`ww_local_socket`](ww_local_socket) | runtime | WireWeaver over local sockets: user-only Unix sockets and named pipes, the holders handover |
 | [`ww_plugin`](ww_plugin) | runtime | Device arguments and the protocol an executable ww plugin (ww-NAME) needs, without the ww hub |
 | [`ww_settings`](ww_settings/ww_settings) | runtime | Power-cut safe settings store for devices: a struct of fields with defaults, kept as an evolvable shrink_wrap record in NOR flash |
 | [`ww_settings_derive`](ww_settings/ww_settings_derive) | runtime | #[derive(Settings)] for ww_settings groups |

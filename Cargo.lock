@@ -1786,7 +1786,6 @@ dependencies = [
  "anyhow",
  "futures-util",
  "hub_reconnect_api",
- "interprocess",
  "tests_common",
  "tokio",
  "tracing",
@@ -4714,7 +4713,6 @@ dependencies = [
  "futures-lite",
  "futures-util",
  "hex",
- "interprocess",
  "libc",
  "nusb",
  "picoboot_host",
@@ -5012,7 +5010,6 @@ version = "0.5.0"
 dependencies = [
  "futures-lite",
  "futures-util",
- "interprocess",
  "libc",
  "nusb",
  "semver",

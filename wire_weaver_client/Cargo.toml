@@ -49,7 +49,7 @@ byte_stream = [
     "tokio/net",
     "tokio/process",
 ]
-local_socket = ["byte_stream", "ww_local_socket/socket", "dep:interprocess", "dep:ww_device"]
+local_socket = ["byte_stream", "ww_local_socket/socket", "dep:ww_device"]
 # keeps a device's clock on the PC's UTC (ww_timebase::Clock, CLT-46): every direct connection steers by itself
 clock_sync = ["dep:ww_timebase", "dep:ww_date_time", "ww_si/time"]
 # connect() through the ww hub when it holds the device or it pays off (CLT-39), starts the hub if needed
@@ -65,7 +65,6 @@ exact_units = { workspace = true, features = ["information"] }
 futures-lite.workspace = true
 futures-util = { workspace = true, features = ["sink", "std"], optional = true }
 hex = { workspace = true, features = ["std"] }
-interprocess = { workspace = true, optional = true }
 nusb.workspace = true # TODO: try to use without tokio?
 probe-rs = { workspace = true, features = ["builtin-targets", "builtin-formats"], optional = true }
 ron.workspace = true

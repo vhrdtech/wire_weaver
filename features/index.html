@@ -7215,14 +7215,15 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
   <code>RpcResult::Failed</code> / <code>GetResult::Failed</code> / <code>SetResult::Failed</code> (<code>wire_weaver::Failure</code>, <code>wire_weaver::forward</code>;
   firmware links none of it, <code>just flash-budget</code> unchanged); a stream open adds the trait's <code>ItemStream</code> as a pump.
   Items the trait leaves out are handlers written by hand beside them. <code>examples/local_trait</code>, <code>tests/serve_trait</code>,
-  <a href="../docs/api/local_trait/#serving-a-local-implementation">docs</a>. Next: the non-<code>Send</code> trait form (SRV-73),
-  nested levels and the rest of CLT-58 (each grows the trait, the server follows); SRV-46's authorization hook runs
-  in the server before any handler, these included.</li>
-<li>📋 <strong>SRV-73 Non-Send local trait</strong> — <code>ww_codegen!(crate :: Api, local_trait = "Name", local_trait_send = false)</code>:
-  the trait and its <code>Dyn</code> companion without <code>Send</code> (a <code>LocalBoxFuture</code>, <code>Rc&lt;dyn NameDyn&gt;</code>, a <code>LocalItemStream</code>), for
-  single-threaded hosts whose state is <code>Rc</code>/<code>RefCell</code>, served by <code>serve_trait</code> too. Needs <code>wire_weaver_server</code>
-  pumps of streams that are not <code>Send</code> without making every connection <code>!Send</code>: a pump set for a single-threaded
-  <code>serve</code>, or <code>Pumps</code> generic over its kind.</li>
+  <a href="../docs/api/local_trait/#serving-a-local-implementation">docs</a>. Next: nested levels and the rest of CLT-58 (each
+  grows the trait, the server follows); SRV-46's authorization hook runs in the server before any handler, these
+  included.</li>
+<li>✅ <strong>SRV-73 Non-Send local trait</strong> — <code>ww_codegen!(crate :: Api, local_trait = "Name", local_trait_send = false)</code>:
+  the trait and its <code>Dyn</code> companion without <code>Send</code> (<code>LocalBoxFuture</code>, <code>Rc&lt;dyn NameDyn&gt;</code>, <code>LocalItemStream</code>), for
+  single-threaded hosts whose state is <code>Rc</code>/<code>RefCell</code>; the client implements it with the same flag beside
+  <code>impl_local_trait</code>, and <code>serve_trait</code> serves it with the same generated code. <code>wire_weaver_server</code> connections
+  take <code>LocalPumps</code> when their <code>MakeBackend</code> says so (<code>Local</code>, <code>LocalConnection</code>), the others stay <code>Send</code>
+  (<code>tests/serve_trait</code> <code>not_send</code>, <a href="../docs/api/local_trait/#without-send">docs</a>).</li>
 <li>📋 <strong>SRV-9 Handle USB suspend/resume</strong> · <code>v0.5</code> — run until suspend, wait for resume, loop
   (<code>mcu/wire_weaver_usb_embassy</code>). Later (<code>v0.5.x</code>): detect the host going to sleep and keep the connection,
   informing the device.</li>

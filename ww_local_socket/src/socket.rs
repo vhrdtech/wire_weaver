@@ -6,6 +6,8 @@ use interprocess::local_socket::{ListenerOptions, Name};
 use tokio_util::compat::{Compat, TokioAsyncReadCompatExt};
 use tracing::warn;
 
+use crate::policy::PeerPolicy;
+
 /// The socket as `interprocess` gives it, with tokio's IO traits.
 type Inner = interprocess::local_socket::tokio::Stream;
 
@@ -16,54 +18,103 @@ pub type ReadHalf = futures_util::io::ReadHalf<Stream>;
 /// The write half of a [Stream].
 pub type WriteHalf = futures_util::io::WriteHalf<Stream>;
 
-/// Who is on the other side of an accepted or opened connection, checked to be the same user.
+/// Who is on the other side of an accepted or opened connection, as the OS tells it.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Peer {
     /// Process id, where the OS tells it (Linux, Windows; macOS doesn't)
     pub pid: Option<u32>,
-    /// Effective user id of the other side: the same as this process's.
+    /// Effective user id of the other side.
     #[cfg(unix)]
     pub uid: u32,
-    /// Effective group id of the other side.
+    /// Effective group id of the other side (supplementary groups are not told).
     #[cfg(unix)]
     pub gid: u32,
 }
 
 /// Listens on `path` (a socket file in [runtime_dir](crate::runtime_dir), e.g. `hub.sock`; on Windows the named pipe
-/// derived from it). Only the current user can connect: the socket file is 0600 where the OS allows to set it
-/// (Linux; elsewhere the 0700 directory guards it), the pipe's DACL gives access to its owner only and denies network
-/// logons. [Listener::accept] also checks the peer's user.
+/// derived from it) for the same user only: [listen_with] and [PeerPolicy::SameUser].
+pub fn listen(path: &Path, replace: bool) -> io::Result<Listener> {
+    listen_with(path, replace, PeerPolicy::SameUser)
+}
+
+/// Listens on `path` for the users `policy` takes (SRV-46). The socket file gets the policy's mode and group
+/// ([PeerPolicy::socket_mode]): bound at 0600 where the OS allows to set it before binding (Linux; elsewhere it is
+/// set right after, and the directory guards it meanwhile), then given the group and widened to the policy's mode; its directory is the caller's, made with [dir_with](crate::dir_with)
+/// for a policy other than the same user. On Windows the pipe's DACL gives access to its owner only and denies
+/// network logons. [Listener::accept] checks every peer against the policy again.
 ///
 /// `replace`: remove a socket file left behind by a process that is gone. The caller must know it is gone (the hub
 /// holds `hub.lock` for that): a live listener's file would be taken away from it.
-pub fn listen(path: &Path, replace: bool) -> io::Result<Listener> {
+///
+/// # Errors
+///
+/// Binding failed, the group can't be set (this user is not a member), or the policy is not
+/// [PeerPolicy::SameUser] on Windows ([io::ErrorKind::Unsupported]).
+pub fn listen_with(path: &Path, replace: bool, policy: PeerPolicy) -> io::Result<Listener> {
     let name = name_for(path)?;
     let opts = ListenerOptions::new()
         .name(name.clone())
         .try_overwrite(replace);
-    let inner = match create(opts) {
-        Err(e) if e.kind() == io::ErrorKind::Unsupported => {
-            // no socket file mode on this OS (macOS): the 0700 directory and the peer check keep others out
-            ListenerOptions::new()
+    let (inner, mode_set) = match create(opts, &policy) {
+        Err(e) if e.kind() == io::ErrorKind::Unsupported && cfg!(unix) => {
+            // no socket file mode before binding on this OS (macOS): set right after, the directory guards it
+            let inner = ListenerOptions::new()
                 .name(name)
                 .try_overwrite(replace)
-                .create_tokio()?
+                .create_tokio()?;
+            (inner, false)
         }
-        r => r?,
+        r => (r?, true),
     };
-    Ok(Listener { inner })
+    #[cfg(unix)]
+    set_mode(path, &policy, mode_set)?;
+    #[cfg(windows)]
+    let _ = mode_set;
+    Ok(Listener::new(inner, policy))
 }
 
+/// The policy's group, then its mode, on a socket file bound at 0600 (`mode_set`, narrowed further by the umask) or
+/// with the umask's mode: never a moment with more bits than the policy's, nor group bits for the wrong group.
 #[cfg(unix)]
-fn create(opts: ListenerOptions<'_>) -> io::Result<interprocess::local_socket::tokio::Listener> {
+fn set_mode(path: &Path, policy: &PeerPolicy, mode_set: bool) -> io::Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    let group = policy.group();
+    if !mode_set {
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))?;
+    }
+    if let Some(group) = group {
+        std::os::unix::fs::chown(path, None, Some(group))?;
+    }
+    if policy.socket_mode() != 0o600 {
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(policy.socket_mode()))?;
+    }
+    Ok(())
+}
+
+/// Binds at 0600 whatever the policy: the umask narrows the mode bind gives, so [set_mode] widens it after.
+#[cfg(unix)]
+fn create(
+    opts: ListenerOptions<'_>,
+    _policy: &PeerPolicy,
+) -> io::Result<interprocess::local_socket::tokio::Listener> {
     use interprocess::os::unix::local_socket::ListenerOptionsExt;
     opts.mode(0o600).create_tokio()
 }
 
 #[cfg(windows)]
-fn create(opts: ListenerOptions<'_>) -> io::Result<interprocess::local_socket::tokio::Listener> {
+fn create(
+    opts: ListenerOptions<'_>,
+    policy: &PeerPolicy,
+) -> io::Result<interprocess::local_socket::tokio::Listener> {
     use interprocess::os::windows::local_socket::ListenerOptionsExt;
     use interprocess::os::windows::security_descriptor::SecurityDescriptor;
+    if *policy != PeerPolicy::SameUser {
+        // TODO(SRV-71): other users of a pipe, by their SID
+        return Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "only the same-user policy on Windows",
+        ));
+    }
     // Protected DACL: deny network logons (NU), full access for the owner (OW, the user that creates the pipe),
     // nobody else. The default DACL would give Everyone read access.
     let sddl = widestring::U16CString::from_str("D:P(D;;GA;;;NU)(A;;GA;;;OW)")
@@ -72,31 +123,59 @@ fn create(opts: ListenerOptions<'_>) -> io::Result<interprocess::local_socket::t
     opts.security_descriptor(sd).create_tokio()
 }
 
-/// Opens a connection to a [listen]ing process, refusing one that runs as another user (a name squatted by
-/// someone else).
+/// Opens a connection to a [listen]ing process of the same user, refusing one that runs as another user (a name
+/// squatted by someone else).
 pub async fn connect(path: &Path) -> io::Result<(Stream, Peer)> {
     let stream = Inner::connect(name_for(path)?).await?;
-    let peer = check_peer(&stream)?;
+    let peer = check_peer(&stream, &PeerPolicy::SameUser)?;
+    Ok((stream.compat(), peer))
+}
+
+/// Opens a connection to a service that runs as user `server_uid` (SRV-46), refusing one that runs as anyone else:
+/// a service of another user listens with [listen_with] and a [PeerPolicy] that takes this user.
+#[cfg(unix)]
+pub async fn connect_to(path: &Path, server_uid: u32) -> io::Result<(Stream, Peer)> {
+    let stream = Inner::connect(name_for(path)?).await?;
+    let peer = peer_of(&stream)?;
+    if peer.uid != server_uid {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            format!("the other side runs as uid {}, not {server_uid}", peer.uid),
+        ));
+    }
     Ok((stream.compat(), peer))
 }
 
 pub struct Listener {
     inner: interprocess::local_socket::tokio::Listener,
+    policy: PeerPolicy,
 }
 
 impl Listener {
-    /// A listener on a socket made elsewhere ([inherited](crate::inherited)).
-    #[cfg(unix)]
-    pub(crate) fn from_inner(inner: interprocess::local_socket::tokio::Listener) -> Self {
-        Listener { inner }
+    fn new(inner: interprocess::local_socket::tokio::Listener, policy: PeerPolicy) -> Self {
+        Listener { inner, policy }
     }
 
-    /// Next connection of the same user. Connections of other users (only possible if the OS let them through the
-    /// permissions) are dropped with a warning and not returned.
+    /// A listener on a socket made elsewhere ([inherited](crate::inherited)).
+    #[cfg(unix)]
+    pub(crate) fn from_inner(
+        inner: interprocess::local_socket::tokio::Listener,
+        policy: PeerPolicy,
+    ) -> Self {
+        Listener::new(inner, policy)
+    }
+
+    /// Who this listener takes.
+    pub fn policy(&self) -> &PeerPolicy {
+        &self.policy
+    }
+
+    /// Next connection of a user the policy takes. Connections of other users (only possible if the OS let them
+    /// through the permissions) are dropped with a warning and not returned.
     pub async fn accept(&self) -> io::Result<(Stream, Peer)> {
         loop {
             let stream = self.inner.accept().await?;
-            match check_peer(&stream) {
+            match check_peer(&stream, &self.policy) {
                 Ok(peer) => return Ok((stream.compat(), peer)),
                 Err(e) => warn!("local socket: dropped a connection: {e}"),
             }
@@ -131,30 +210,39 @@ fn fnv1a(bytes: &[u8]) -> u64 {
     })
 }
 
+/// The peer of `stream` as the kernel tells it.
 #[cfg(unix)]
-fn check_peer(stream: &Inner) -> io::Result<Peer> {
+fn peer_of(stream: &Inner) -> io::Result<Peer> {
     let creds = stream.peer_creds()?;
-    // SAFETY: geteuid has no preconditions and cannot fail
-    let me = unsafe { libc::geteuid() };
     match (creds.euid(), creds.egid()) {
-        (Some(uid), Some(gid)) if uid == me => Ok(Peer {
+        (Some(uid), Some(gid)) => Ok(Peer {
             pid: creds.pid().map(|p| p as u32),
             uid,
             gid,
         }),
-        (Some(uid), _) if uid != me => Err(io::Error::new(
-            io::ErrorKind::PermissionDenied,
-            format!("the other side runs as uid {uid}, not {me}"),
-        )),
         _ => Err(io::Error::new(
             io::ErrorKind::PermissionDenied,
-            "the OS doesn't tell who is on the other side",
+            crate::policy::Refused::Unknown.to_string(),
         )),
     }
 }
 
+#[cfg(unix)]
+fn check_peer(stream: &Inner, policy: &PeerPolicy) -> io::Result<Peer> {
+    let peer = peer_of(stream)?;
+    policy
+        .admits(crate::dir::euid(), Some(peer.uid))
+        .map_err(|e| io::Error::new(io::ErrorKind::PermissionDenied, e))?;
+    Ok(peer)
+}
+
 #[cfg(windows)]
-fn check_peer(stream: &Inner) -> io::Result<Peer> {
+fn check_peer(stream: &Inner, policy: &PeerPolicy) -> io::Result<Peer> {
+    // listen_with makes no other listener on Windows
+    debug_assert!(
+        *policy == PeerPolicy::SameUser,
+        "a Windows listener is same-user only"
+    );
     let pid = stream.peer_creds()?.pid();
     let Some(pid) = pid else {
         return Err(io::Error::new(
@@ -270,6 +358,59 @@ mod tests {
         c.read_exact(&mut b).await.unwrap();
         assert_eq!(&b, b"ping");
         server.await.unwrap();
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// The socket file gets the policy's mode and group, and a peer of this user is taken under every policy, its
+    /// uid and gid as the kernel tells them (SO_PEERCRED on Linux).
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn socket_modes_follow_the_policy() {
+        use std::os::unix::fs::{MetadataExt, PermissionsExt};
+        let dir = std::env::temp_dir().join(format!("ww-sock-policy-{}", std::process::id()));
+        // SAFETY: getegid has no preconditions and cannot fail
+        let group = unsafe { libc::getegid() };
+        let me = crate::dir::euid();
+        for policy in [
+            PeerPolicy::SameUser,
+            PeerPolicy::Users {
+                group,
+                uids: vec![],
+            },
+            PeerPolicy::Users {
+                group,
+                uids: vec![me.wrapping_add(1)],
+            },
+            PeerPolicy::Any,
+        ] {
+            crate::dir_with(&dir, &policy).unwrap();
+            let path = dir.join("t.sock");
+            let listener = listen_with(&path, true, policy.clone()).unwrap();
+            let meta = std::fs::metadata(&path).unwrap();
+            assert_eq!(
+                meta.permissions().mode() & 0o777,
+                policy.socket_mode(),
+                "{policy:?}"
+            );
+            if let Some(group) = policy.group() {
+                assert_eq!(meta.gid(), group, "{policy:?}");
+            }
+            let (accepted, connected) = tokio::join!(listener.accept(), connect_to(&path, me));
+            let (_, peer) = accepted.unwrap();
+            assert_eq!((peer.uid, peer.gid), (me, group), "{policy:?}");
+            #[cfg(target_os = "linux")]
+            assert_eq!(peer.pid, Some(std::process::id()));
+            assert_eq!(connected.unwrap().1.uid, me);
+            drop(listener);
+        }
+        // a service is not taken for another user's
+        let path = dir.join("t.sock");
+        let _listener = listen_with(&path, true, PeerPolicy::Any).unwrap();
+        let refused = connect_to(&path, me.wrapping_add(1)).await;
+        assert!(
+            matches!(&refused, Err(e) if e.kind() == io::ErrorKind::PermissionDenied),
+            "refused"
+        );
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

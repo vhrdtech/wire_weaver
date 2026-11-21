@@ -8,6 +8,8 @@
 
 ### ⚠️ Breaking
 
+- `inherited(name, policy)` takes a `PeerPolicy` and refuses a passed socket whose file lets in more (SRV-46).
+
 - The handover messages read from futures-io streams (`futures_util::io::AsyncRead`).
 - `Stream` is a futures-io stream (tokio-util `Compat`), with `ReadHalf` and `WriteHalf` from `futures_util::io::AsyncReadExt::split` (TR-19).
 - `Preamble`, `Answer`, `Status`, `Target`, `Version`, `Generations`, the preamble constants, `MessageReader` and `MessageWriter` moved to `ww_byte_stream` (TR-19): import them from there.
@@ -17,6 +19,8 @@
 - `Peer` has the new Unix fields `uid` and `gid` (SRV-12): struct literals and exhaustive patterns need them.
 
 ### 🚀 Features
+
+- `PeerPolicy` (same user, a group with a uid list, any user), `listen_with`, `dir_with` and `connect_to` (SRV-46).
 
 - `inherited` (SRV-12, Unix): the listening socket systemd socket activation passed (`LISTEN_FDS`), by `FileDescriptorName=`.
 - Preamble trailer entry `TAG_GENERATIONS` (EVO-23, `Preamble::generations`, `with_generations`, `Generations`): the client's framer, link, shrink_wrap and API model generations, the bytes of its link hello; a later client's longer entry is read for its first four. A hub before it skips the entry. `Status::Versions` reads "versions or generations are not served".

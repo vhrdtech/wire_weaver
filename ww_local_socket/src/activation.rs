@@ -7,6 +7,9 @@ use std::io;
 use std::os::fd::{FromRawFd, OwnedFd, RawFd};
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use std::path::PathBuf;
+
+use crate::policy::{PeerPolicy, Refused};
 use crate::socket::Listener;
 
 /// The first passed descriptor, `SD_LISTEN_FDS_START`.
@@ -33,6 +36,8 @@ pub enum ActivationError {
     Taken,
     /// The descriptor is not a listening Unix stream socket, or the runtime refused it.
     NotAListener(io::Error),
+    /// The socket lets in users the policy doesn't take (SRV-46): its file's mode or group, or an abstract socket.
+    Loose(Refused),
 }
 
 impl fmt::Display for ActivationError {
@@ -42,6 +47,9 @@ impl fmt::Display for ActivationError {
             ActivationError::Malformed(var) => write!(f, "{var} is malformed"),
             ActivationError::NoSuchName(name) => write!(f, "no passed socket is named {name:?}"),
             ActivationError::Taken => f.write_str("the passed socket was already taken"),
+            ActivationError::Loose(e) => {
+                write!(f, "the passed socket doesn't match the policy: {e}")
+            }
             ActivationError::NotAListener(e) => {
                 write!(
                     f,
@@ -56,14 +64,17 @@ impl std::error::Error for ActivationError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             ActivationError::NotAListener(e) => Some(e),
+            ActivationError::Loose(e) => Some(e),
             _ => None,
         }
     }
 }
 
 /// The listening Unix socket the service manager passed to this process: the one named `name`
-/// (`FileDescriptorName=`), or the first one. Accepting checks the peer's user as [listen](crate::listen) does;
-/// the socket file and its mode are the `.socket` unit's (`SocketMode=0600`).
+/// (`FileDescriptorName=`), or the first one, for the users `policy` takes. The socket file, its mode and group are
+/// the `.socket` unit's (`SocketMode=0600`, `SocketGroup=`): they are checked to let in no one the policy doesn't
+/// ([PeerPolicy::check_mode]), and accepting checks each peer as [listen_with](crate::listen_with) does. An abstract
+/// socket (`ListenStream=@name`) has no permissions: only [PeerPolicy::Any] takes one.
 ///
 /// Each passed socket is taken once per process: a second call for it is [ActivationError::Taken]. Programs this
 /// process starts don't inherit it. Must be called inside a tokio runtime, which the listener registers with.
@@ -71,8 +82,8 @@ impl std::error::Error for ActivationError {
 /// # Errors
 ///
 /// [ActivationError::NotActivated] when the process was started without a socket, so that a program can
-/// [listen](crate::listen) by itself then.
-pub fn inherited(name: Option<&str>) -> Result<Listener, ActivationError> {
+/// [listen](crate::listen) by itself then; [ActivationError::Loose] when the socket lets in more than `policy`.
+pub fn inherited(name: Option<&str>, policy: PeerPolicy) -> Result<Listener, ActivationError> {
     let var = |key: &str| std::env::var(key).ok();
     let passed = passed(
         var("LISTEN_PID").as_deref(),
@@ -86,7 +97,8 @@ pub fn inherited(name: Option<&str>) -> Result<Listener, ActivationError> {
         return Err(ActivationError::Taken);
     }
     let fd = LISTEN_FDS_START + RawFd::try_from(index).expect("index is below LISTEN_FDS_MAX");
-    check_listener(fd).map_err(ActivationError::NotAListener)?;
+    let path = check_listener(fd).map_err(ActivationError::NotAListener)?;
+    check_file(path, &policy)?;
     // SAFETY: `fd` is open (check_listener's fcntl), the service manager passed it to this process (LISTEN_PID),
     // and TAKEN makes this the only owner this process creates for it.
     let fd = unsafe { OwnedFd::from_raw_fd(fd) };
@@ -94,7 +106,25 @@ pub fn inherited(name: Option<&str>) -> Result<Listener, ActivationError> {
         .map_err(ActivationError::NotAListener)?;
     Ok(Listener::from_inner(
         interprocess::local_socket::tokio::Listener::UdSocket(uds),
+        policy,
     ))
+}
+
+/// The socket file at `path` (`None`: abstract or unnamed) lets in no one `policy` doesn't.
+fn check_file(path: Option<PathBuf>, policy: &PeerPolicy) -> Result<(), ActivationError> {
+    use std::os::unix::fs::MetadataExt;
+    if *policy == PeerPolicy::Any {
+        return Ok(());
+    }
+    let Some(path) = path else {
+        return Err(ActivationError::Loose(Refused::Loose(
+            "an abstract or unnamed socket has no permissions".to_owned(),
+        )));
+    };
+    let meta = std::fs::symlink_metadata(&path).map_err(ActivationError::NotAListener)?;
+    policy
+        .check_mode(&path.display().to_string(), meta.mode(), meta.gid())
+        .map_err(ActivationError::Loose)
 }
 
 /// The names of the passed descriptors, `None` for each without one; [ActivationError::NotActivated] unless `pid`
@@ -151,10 +181,11 @@ fn pick(passed: &[Option<String>], name: Option<&str>) -> Result<usize, Activati
 }
 
 /// `fd` is an open, listening Unix socket; it is made close-on-exec, so that programs started later don't hold it.
-fn check_listener(fd: RawFd) -> io::Result<()> {
+/// The path it is bound to, `None` for an abstract or unnamed one.
+fn check_listener(fd: RawFd) -> io::Result<Option<PathBuf>> {
     let not = |what: &str| io::Error::new(io::ErrorKind::InvalidInput, what.to_owned());
     // SAFETY: fcntl, getsockname and getsockopt only read the descriptor table and write the buffers given here,
-    // each sized by the length passed with it.
+    // each sized by the length passed with it; sockaddr_storage is aligned and large enough for a sockaddr_un.
     unsafe {
         let flags = libc::fcntl(fd, libc::F_GETFD);
         if flags == -1 {
@@ -164,9 +195,9 @@ fn check_listener(fd: RawFd) -> io::Result<()> {
             return Err(io::Error::last_os_error());
         }
         let mut addr: libc::sockaddr_storage = std::mem::zeroed();
-        let mut len = libc::socklen_t::try_from(size_of::<libc::sockaddr_storage>())
+        let mut len_addr = libc::socklen_t::try_from(size_of::<libc::sockaddr_storage>())
             .expect("sockaddr_storage fits socklen_t");
-        if libc::getsockname(fd, (&raw mut addr).cast(), &mut len) == -1 {
+        if libc::getsockname(fd, (&raw mut addr).cast(), &mut len_addr) == -1 {
             return Err(io::Error::last_os_error());
         }
         if libc::c_int::from(addr.ss_family) != libc::AF_UNIX {
@@ -188,8 +219,29 @@ fn check_listener(fd: RawFd) -> io::Result<()> {
         if accepting == 0 {
             return Err(not("not listening"));
         }
+        Ok(sun_path(
+            &*(&raw const addr).cast::<libc::sockaddr_un>(),
+            len_addr,
+        ))
     }
-    Ok(())
+}
+
+/// The file path of a Unix socket address `len` bytes long, `None` for an abstract (leading NUL) or unnamed one.
+fn sun_path(addr: &libc::sockaddr_un, len: libc::socklen_t) -> Option<PathBuf> {
+    use std::os::unix::ffi::OsStrExt;
+    let offset = std::mem::offset_of!(libc::sockaddr_un, sun_path);
+    let len = usize::try_from(len).ok()?.checked_sub(offset)?;
+    let bytes: Vec<u8> = addr.sun_path[..len.min(addr.sun_path.len())]
+        .iter()
+        .map(|c| c.cast_unsigned())
+        .collect();
+    match bytes.first() {
+        None | Some(0) => None,
+        Some(_) => {
+            let end = bytes.iter().position(|b| *b == 0).unwrap_or(bytes.len());
+            Some(PathBuf::from(std::ffi::OsStr::from_bytes(&bytes[..end])))
+        }
+    }
 }
 
 #[cfg(test)]
@@ -231,6 +283,69 @@ mod tests {
             pick(&passed, Some("web")),
             Err(ActivationError::NoSuchName(_))
         ));
+    }
+
+    #[test]
+    fn a_loose_socket_file_is_refused() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = std::env::temp_dir().join(format!("ww-activation-mode-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("api.sock");
+        let _ = std::fs::remove_file(&path);
+        let listener = std::os::unix::net::UnixListener::bind(&path).unwrap();
+        let fd = std::os::fd::AsRawFd::as_raw_fd(&listener);
+        let bound = check_listener(fd).unwrap();
+        assert_eq!(bound.as_deref(), Some(path.as_path()));
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o666)).unwrap();
+        assert!(matches!(
+            check_file(bound.clone(), &PeerPolicy::SameUser),
+            Err(ActivationError::Loose(_))
+        ));
+        // SAFETY: getegid has no preconditions and cannot fail
+        let group = unsafe { libc::getegid() };
+        let users = PeerPolicy::Users {
+            group,
+            uids: vec![],
+        };
+        assert!(matches!(
+            check_file(bound.clone(), &users),
+            Err(ActivationError::Loose(_))
+        ));
+        assert!(check_file(bound.clone(), &PeerPolicy::Any).is_ok());
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o660)).unwrap();
+        assert!(matches!(
+            check_file(bound.clone(), &PeerPolicy::SameUser),
+            Err(ActivationError::Loose(_))
+        ));
+        assert!(check_file(bound.clone(), &users).is_ok());
+        let other = PeerPolicy::Users {
+            group: group.wrapping_add(1),
+            uids: vec![],
+        };
+        assert!(matches!(
+            check_file(bound.clone(), &other),
+            Err(ActivationError::Loose(_))
+        ));
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+        assert!(check_file(bound, &PeerPolicy::SameUser).is_ok());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// An abstract socket has no file and no permissions: any local user reaches it.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn an_abstract_socket_is_refused_but_by_any() {
+        use std::os::linux::net::SocketAddrExt;
+        let name = format!("ww-activation-abstract-{}", std::process::id());
+        let addr = std::os::unix::net::SocketAddr::from_abstract_name(name.as_bytes()).unwrap();
+        let listener = std::os::unix::net::UnixListener::bind_addr(&addr).unwrap();
+        let bound = check_listener(std::os::fd::AsRawFd::as_raw_fd(&listener)).unwrap();
+        assert_eq!(bound, None);
+        assert!(matches!(
+            check_file(None, &PeerPolicy::SameUser),
+            Err(ActivationError::Loose(_))
+        ));
+        assert!(check_file(None, &PeerPolicy::Any).is_ok());
     }
 
     #[test]

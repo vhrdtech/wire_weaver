@@ -15,9 +15,9 @@ pub struct Peer {
     /// Effective user id of the other side: the same as this process's.
     #[cfg(unix)]
     pub uid: u32,
-    /// Effective group id of the other side, where the OS tells it.
+    /// Effective group id of the other side.
     #[cfg(unix)]
-    pub gid: Option<u32>,
+    pub gid: u32,
 }
 
 /// Listens on `path` (a socket file in [runtime_dir](crate::runtime_dir), e.g. `hub.sock`; on Windows the named pipe
@@ -127,17 +127,17 @@ fn check_peer(stream: &Stream) -> io::Result<Peer> {
     let creds = stream.peer_creds()?;
     // SAFETY: geteuid has no preconditions and cannot fail
     let me = unsafe { libc::geteuid() };
-    match creds.euid() {
-        Some(uid) if uid == me => Ok(Peer {
+    match (creds.euid(), creds.egid()) {
+        (Some(uid), Some(gid)) if uid == me => Ok(Peer {
             pid: creds.pid().map(|p| p as u32),
             uid,
-            gid: creds.egid(),
+            gid,
         }),
-        Some(uid) => Err(io::Error::new(
+        (Some(uid), _) if uid != me => Err(io::Error::new(
             io::ErrorKind::PermissionDenied,
             format!("the other side runs as uid {uid}, not {me}"),
         )),
-        None => Err(io::Error::new(
+        _ => Err(io::Error::new(
             io::ErrorKind::PermissionDenied,
             "the OS doesn't tell who is on the other side",
         )),

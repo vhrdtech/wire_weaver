@@ -15,12 +15,15 @@
 //!   link setup takes it over, as if a USB device was opened by another host process.
 //!
 //! A firmware runs one server per slot for good; a host program accepts a connection per host
-//! ([UdpPeers::accept]) and ends it when its link goes down, which frees the slot. See [peers] for the details.
+//! ([UdpPeers::accept]) and ends it when its link goes down, which frees the slot: on a `LockedUdpPeers` (feature
+//! `std`) with `OwnedFramedTx` / `OwnedFramedRx`, so that each
+//! connection is `Send` and owns its buffers (`wire_weaver_server`'s `udp` listener). See [peers] for the details.
 //!
 //! There is no authentication: anyone that can reach the port can take a slot. Nothing is retransmitted either, see
 //! the UDP transport docs for what happens on loss.
 //!
-//! Datagram sockets are used through `&self`, so no locking is needed. With the `embassy-net` feature,
+//! Datagram sockets are used through `&self`, so the socket needs no lock; the peer table is locked only on a
+//! computer, never while a receive waits. With the `embassy-net` feature,
 //! `EmbassyNetUdpSocket` implements [DatagramSocket] on an `embassy-net` UDP socket, with `std` `StdUdpSocket` on
 //! the standard library's, on any event loop. [udp_server] puts everything together.
 
@@ -40,6 +43,8 @@ use crate::{LinkConfig, Server};
 pub mod peers;
 use peers::sealed::Table;
 pub use peers::{Direct, PeerTable, Shared, UdpConnection, UdpPeers};
+#[cfg(feature = "std")]
+pub use peers::{Locked, LockedUdpPeers};
 
 /// Datagram socket bound to a local port. Both methods take `&self`, so that tx and rx can use it independently.
 pub trait DatagramSocket {

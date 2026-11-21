@@ -10,6 +10,7 @@
 ### 🚀 Features
 
 - Deadline and cancel (SRV-47): a request is dropped when its context's deadline runs out, queued or running, and answered `DeadlineExceeded`; a client's `Cancel` drops it and answers `Cancelled`. A request that runs alone no longer waits without a bound for slow shared ones before it. Handlers read the caller's trace and what is left of its deadline from `cx.call()`. The server says it reads contexts in link setup; its own error answers reach a client of an older model as `UserStr`.
+- `udp::UdpListener` (feature `udp`): a connection per host of a datagram socket, by its address, up to `PEERS` at once; `UdpListener::bind` on tokio (feature `tokio`), `PeerAddr` (SRV-69).
 - `Accept<Tx, Rx, E>`: the result of `Listener::accept`, named (TR-19).
 - `byte_stream::WsFraming` (TR-19): WebSocket clients on any byte-stream source; the URL path names the service.
 - Byte-stream sources: `TcpIncoming` and `stdio` (feature `tokio`), `handed_in` with `StreamSender::serve_stream(stream, peer)` for streams the program accepted (TR-19).

@@ -179,6 +179,7 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 - **[Deadline and cancel](api/host_server.md#deadline-and-cancel)**: A request carries the client's timeout and trace: a host server drops it when the time runs out or the client gives up, queued or running, and handlers read both from `cx.call()`. <span class="ww-status">in progress</span>
 - **[Who asked](api/local_trait.md#who-asked-callcontext)**: Every call carries a small `CallContext`: the peer as the transport saw it, priority, deadline and trace, the same for a request a server handles and a call in the same process.
 - **[Host server](api/host_server.md)**: One API served to many clients at once on any async runtime, in-process or on a local socket (also under systemd socket activation): a backend per connection, calls side by side, streams that flow while calls run, limits that push back, graceful shutdown.
+- **[Hosts on UDP](api/host_server.md#hosts-on-udp)**: A host server takes a connection per host of one UDP socket, on any thread of a multi-threaded runtime.
 - **[Sync handlers in an async server](api/handlers.md)**: Handlers that never wait are plain `fn`s, only the ones that await are `async`: less flash.
 - **[Shared handlers](api/handlers.md#shared-and-exclusive-handlers)**: Calls and reads of the items you mark shared take `&self`, so a host server can run them side by side; the rest stays `&mut self`.
 - **[Observed properties](api/observing.md#the-device-side)**: The device sends property changes within the budget each host asked for.

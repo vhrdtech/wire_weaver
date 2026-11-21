@@ -1,6 +1,7 @@
 //! The host server (SRV-12, `wire_weaver_server`): many clients on one API, each connection with its own backend,
 //! limits and shutdown. Clients and server run in one process, on tokio's clock. Byte-stream listeners (TR-19): TCP,
-//! streams handed in, two APIs on one source; stdio in `tests/stdio.rs` with the `stdio_server` binary.
+//! streams handed in, two APIs on one source; stdio in `tests/stdio.rs` with the `stdio_server` binary. UDP (SRV-69):
+//! a connection per host of one datagram socket.
 
 pub mod counter;
 
@@ -36,6 +37,8 @@ mod tests {
         news: Fanout<u32>,
         mode: Mutex<u8>,
         mode_changed: Fanout<()>,
+        /// Backends not dropped yet: connections that run.
+        live: AtomicU32,
     }
 
     impl Default for Shared {
@@ -48,6 +51,7 @@ mod tests {
                 news: Fanout::new(8),
                 mode: Mutex::default(),
                 mode_changed: Fanout::new(1),
+                live: AtomicU32::new(0),
             }
         }
     }
@@ -105,6 +109,12 @@ mod tests {
     impl Drop for Waiting<'_> {
         fn drop(&mut self) {
             self.0.fetch_sub(1, Ordering::AcqRel);
+        }
+    }
+
+    impl Drop for Backend {
+        fn drop(&mut self) {
+            self.shared.live.fetch_sub(1, Ordering::AcqRel);
         }
     }
 
@@ -365,6 +375,7 @@ mod tests {
         Tcp(String),
         Stream(wire_weaver_client::StreamOpener),
         WebSocket(String),
+        Udp(String),
     }
 
     /// Start a [Bench] on `$listener`. A macro, not a function generic over the listener: the futures of a
@@ -390,6 +401,7 @@ mod tests {
                         .lock()
                         .unwrap()
                         .push(connection.clone());
+                    for_backends.live.fetch_add(1, Ordering::AcqRel);
                     Backend {
                         shared: for_backends.clone(),
                         id: connection.id.0,
@@ -476,6 +488,7 @@ mod tests {
                         Reach::Tcp(addr) => c.tcp(addr.clone()),
                         Reach::Stream(opener) => c.stream(opener.clone()),
                         Reach::WebSocket(url) => c.websocket_url(url.clone()),
+                        Reach::Udp(addr) => c.udp_addr(addr.clone()),
                     };
                     c.resolver(tests_common::resolver())
                         .link_setup_timeout(SOON)
@@ -1121,4 +1134,5 @@ mod tests {
     }
 
     mod byte_streams;
+    mod udp;
 }

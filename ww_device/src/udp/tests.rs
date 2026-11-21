@@ -310,17 +310,21 @@ fn each_host_gets_its_own_slot() {
     push(&peers, 3, datagram(&[DATA]));
     push(&peers, 2, h2.datagram(&[DATA]));
     push(&peers, 1, h1.datagram(&[DATA]));
+    // a slot served for good is up without a host: its reads adopt the first one
     assert!(rx0.try_connect());
     assert!(rx1.try_connect());
-    assert_eq!((peers.peer(0), peers.peer(1)), (Some(1), Some(2)));
+    assert_eq!((peers.peer(0), peers.peer(1)), (None, None));
 
-    // slot 0 receives host 2's datagram and holds it for slot 1: nothing more is received until slot 1 takes it
+    // slot 0 adopts host 1, then receives host 2's hello and holds it for slot 1: nothing more is received until
+    // slot 1 takes it
     assert_eq!(rx0.messages().unwrap(), [(3, std::vec![])]);
+    assert_eq!((peers.peer(0), peers.peer(1)), (Some(1), None));
     assert_eq!(
         rx1.messages().unwrap(),
         [(4, HELLO.to_vec()), (0, std::vec![1, 2, 3])]
     );
     assert_eq!(rx0.messages().unwrap(), [(0, std::vec![1, 2, 3])]);
+    assert_eq!((peers.peer(0), peers.peer(1)), (Some(1), Some(2)));
     assert_eq!(peers.socket().input.borrow().len(), 0);
 
     assert_eq!(reply_to(&peers, 0), Ok(1));
@@ -367,10 +371,11 @@ fn cancelled_receive_gives_the_socket_up() {
     let (mut b0, mut b1) = (Buf::new(), Buf::new());
     let mut rx0 = slot(&peers, 0, &mut b0);
     let mut rx1 = slot(&peers, 1, &mut b1);
+    assert!(rx0.try_connect() && rx1.try_connect());
     // nothing to receive: slot 0's wait starts a receive, which is dropped with the poll
-    assert!(!rx0.try_connect());
+    assert_eq!(rx0.messages().unwrap(), []);
     push(&peers, 2, hello());
-    assert!(rx1.try_connect());
+    assert_eq!(rx1.messages().unwrap(), [(4, HELLO.to_vec())]);
     assert_eq!(peers.peer(1), Some(2));
 }
 
@@ -381,22 +386,21 @@ fn accepted_connections() {
     let peers = Two::new(MockSocket::default());
     let (mut b0, mut b1) = (Buf::new(), Buf::new());
     let (mut h1, mut h2) = (Host::default(), Host::default());
-    assert!(poll_once(peers.accept()).is_pending());
+    assert!(poll_once(peers.accept(&mut [0u8; UDP_MAX_DATAGRAM_LEN])).is_pending());
 
     push(&peers, 1, h1.datagram(&[NOP]));
     push(&peers, 2, hello());
-    let Poll::Ready(Ok(s1)) = poll_once(peers.accept()) else {
+    let Poll::Ready(Ok((s1, 1))) = poll_once(peers.accept(&mut [0u8; UDP_MAX_DATAGRAM_LEN])) else {
         panic!("host 1 accepted")
     };
-    // nothing is received until host 1's connection adopts it
-    assert!(poll_once(peers.accept()).is_pending());
-    let mut rx1 = slot(&peers, s1, &mut b0);
-    assert!(rx1.try_connect());
-    assert_eq!(peers.peer(s1), Some(1));
-    let Poll::Ready(Ok(s2)) = poll_once(peers.accept()) else {
+    // hosts don't wait for each other: host 2 is accepted before host 1's connection adopts host 1
+    let Poll::Ready(Ok((s2, 2))) = poll_once(peers.accept(&mut [0u8; UDP_MAX_DATAGRAM_LEN])) else {
         panic!("host 2 accepted")
     };
     assert_ne!(s1, s2);
+    let mut rx1 = slot(&peers, s1, &mut b0);
+    assert!(rx1.try_connect());
+    assert_eq!(peers.peer(s1), Some(1));
     let mut rx2 = slot(&peers, s2, &mut b1);
     assert!(rx2.try_connect());
     assert_eq!(rx1.messages().unwrap(), [(3, std::vec![])]);
@@ -405,19 +409,126 @@ fn accepted_connections() {
     // host 3 ends host 1's connection (heard from least recently), its hello is dropped
     push(&peers, 2, h2.datagram(&[DATA]));
     push(&peers, 3, hello());
-    assert!(poll_once(peers.accept()).is_pending());
+    assert!(poll_once(peers.accept(&mut [0u8; UDP_MAX_DATAGRAM_LEN])).is_pending());
     assert_eq!(rx2.messages().unwrap(), [(0, std::vec![1, 2, 3])]);
-    assert!(poll_once(peers.accept()).is_pending());
+    assert!(poll_once(peers.accept(&mut [0u8; UDP_MAX_DATAGRAM_LEN])).is_pending());
     assert_eq!(rx1.messages(), Err(UdpError::PeerChanged));
     assert!(!rx1.try_connect());
     assert_eq!(reply_to(&peers, s1), Err(UdpError::PeerChanged));
+    // host 3 tries again before that connection is dropped: no other connection is ended for it
+    push(&peers, 3, hello());
+    push(&peers, 2, h2.datagram(&[DATA]));
+    assert_eq!(rx2.messages().unwrap(), [(0, std::vec![1, 2, 3])]);
+    assert_eq!(peers.peer(s2), Some(2));
 
     // dropping the connection frees the slot: host 3's next hello gets it
     drop(rx1);
     push(&peers, 3, hello());
-    assert_eq!(poll_once(peers.accept()), Poll::Ready(Ok(s1)));
+    assert_eq!(
+        poll_once(peers.accept(&mut [0u8; UDP_MAX_DATAGRAM_LEN])),
+        Poll::Ready(Ok((s1, 3)))
+    );
     let mut rx3 = slot(&peers, s1, &mut b0);
     assert!(rx3.try_connect());
     assert_eq!(peers.peer(s1), Some(3));
     assert_eq!(peers.peer(s2), Some(2));
+}
+
+/// A host given a slot that nobody accepts yet (a server at its connection limit) holds up no connection; a newer
+/// host takes its place, and is the one accepted.
+#[test]
+fn a_host_waiting_for_accept_holds_up_nobody() {
+    let peers = Two::new(MockSocket::default());
+    let mut buf = Buf::new();
+    let mut accept_buf = [0u8; UDP_MAX_DATAGRAM_LEN];
+    let mut h1 = Host::default();
+    push(&peers, 1, h1.datagram(&[NOP]));
+    let Poll::Ready(Ok((s1, 1))) = poll_once(peers.accept(&mut accept_buf)) else {
+        panic!("host 1 accepted")
+    };
+    let mut rx1 = slot(&peers, s1, &mut buf);
+    assert!(rx1.try_connect());
+    assert_eq!(rx1.messages().unwrap(), [(3, std::vec![])]);
+
+    push(&peers, 2, hello());
+    push(&peers, 1, h1.datagram(&[DATA]));
+    push(&peers, 3, hello());
+    push(&peers, 1, h1.datagram(&[DATA]));
+    assert_eq!(
+        rx1.messages().unwrap(),
+        [(0, std::vec![1, 2, 3]), (0, std::vec![1, 2, 3])]
+    );
+    let Poll::Ready(Ok((s3, 3))) = poll_once(peers.accept(&mut accept_buf)) else {
+        panic!("host 3 accepted")
+    };
+    assert_ne!(s1, s3);
+}
+
+/// A table on a computer: owned framers over a shared locked table, the way a host server's connections use
+/// it, and everything they hold or wait on is `Send`, so they run on any thread.
+#[cfg(feature = "std")]
+#[test]
+fn owned_framers_on_a_locked_table() {
+    use std::sync::Arc;
+
+    use crate::transport::{OwnedFramedRx, OwnedFramedTx};
+
+    let peers = std::rc::Rc::new(LockedUdpPeers::<MockSocket, 2>::new(MockSocket::default()));
+    let mut h1 = Host::default();
+    push(&*peers, 1, h1.datagram(&[NOP]));
+    push(&*peers, 1, h1.datagram(&[DATA]));
+    let mut accept_buf = [0u8; UDP_MAX_DATAGRAM_LEN];
+    let Poll::Ready(Ok((slot, 1))) = poll_once(peers.accept(&mut accept_buf)) else {
+        panic!("host 1 accepted")
+    };
+    let mut rx = OwnedFramedRx::owned(UdpSource::new(peers.clone(), slot), 64);
+    let mut tx = OwnedFramedTx::owned(UdpSink::new(peers.clone(), slot), UDP_MAX_DATAGRAM_LEN);
+    assert_eq!(rx.max_message_len(), 64);
+    assert!(poll_once(rx.wait_connected()).is_ready());
+    let mut got = Vec::new();
+    while let Poll::Ready(Ok(())) = poll_once(rx.wait_message()) {
+        let (kind, m) = rx.message().unwrap();
+        got.push((kind, m.to_vec()));
+        rx.consume();
+    }
+    assert_eq!(got, [(3, std::vec![]), (0, std::vec![1, 2, 3])]);
+    block_on(tx.write_message(Kind::DeviceInfo as u8, &[7])).unwrap();
+    block_on(tx.flush()).unwrap();
+    assert_eq!(peers.socket().output.borrow()[0].0, 1);
+
+    // the slot is free again once the source is dropped
+    drop(rx);
+    assert_eq!(peers.peer(slot), None);
+
+    fn send<T: Send>(_: &T) {}
+    fn sync<T: Sync>() {}
+    type Std = LockedUdpPeers<StdUdpSocket<NoReadiness>, 4>;
+    sync::<Std>();
+    let table = Arc::new(Std::new(
+        StdUdpSocket::new(
+            std::net::UdpSocket::bind("127.0.0.1:0").unwrap(),
+            NoReadiness,
+        )
+        .unwrap(),
+    ));
+    let mut rx = OwnedFramedRx::owned(UdpSource::new(table.clone(), 0), 64);
+    send(&rx);
+    send(&rx.wait_message());
+    send(&rx.wait_connected());
+    send(&OwnedFramedTx::owned(
+        UdpSink::new(table.clone(), 0),
+        UDP_MAX_DATAGRAM_LEN,
+    ));
+    send(&table.accept(&mut accept_buf));
+}
+
+/// Readiness that never comes, for the `Send` checks.
+#[cfg(feature = "std")]
+struct NoReadiness;
+
+#[cfg(feature = "std")]
+impl Readiness for NoReadiness {
+    async fn readable(&self) -> std::io::Result<()> {
+        core::future::pending().await
+    }
 }

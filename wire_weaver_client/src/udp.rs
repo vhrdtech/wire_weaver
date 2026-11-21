@@ -454,8 +454,9 @@ mod tests {
                 let peers = std::rc::Rc::new(ww_device::udp::UdpPeers::<_, 2>::new(socket));
                 let (events_tx, mut events_rx) = mpsc::unbounded_channel();
                 let listener = tokio::task::spawn_local(async move {
+                    let mut buf = [0u8; ww_device::ww_link::UDP_MAX_DATAGRAM_LEN];
                     loop {
-                        let slot = peers.accept().await.unwrap();
+                        let (slot, _) = peers.accept(&mut buf).await.unwrap();
                         tokio::task::spawn_local(device_slot(
                             peers.clone(),
                             slot,

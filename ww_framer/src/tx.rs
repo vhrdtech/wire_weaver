@@ -3,7 +3,9 @@ use core::marker::PhantomData;
 use shrink_wrap::{BufWriter, buf_writer::BufWriterState};
 
 use crate::prefix::{FrameCtx, FramePrefix, MAX_PREFIX_LEN, NopPrefix};
-use crate::traits::{Checksum, Head, Header, MAX_COVERED_HEAD, MessageKind, Tail, WrError};
+use crate::traits::{
+    Checksum, FrameWriter, Head, Header, MAX_COVERED_HEAD, MessageKind, Tail, WrError,
+};
 
 /// Packs messages into frames, see the crate docs. `P` is the [frame prefix](crate::prefix) written at the start of
 /// every frame, none by default.
@@ -337,5 +339,37 @@ where
     /// Call `flush()` first to get the length of the frame.
     pub fn buf(&self) -> &[u8] {
         self.wr.buf()
+    }
+}
+
+impl<H: Head, C: Checksum, T: Tail, P: FramePrefix> FrameWriter for Tx<'_, H, C, T, P>
+where
+    H::UserKind: Copy,
+{
+    type UserKind = H::UserKind;
+
+    #[inline(always)]
+    fn write(&mut self, user_kind: H::UserKind, message: &[u8]) -> Result<bool, ()> {
+        Tx::write(self, user_kind, message)
+    }
+
+    #[inline(always)]
+    fn flush(&mut self) -> usize {
+        Tx::flush(self)
+    }
+
+    #[inline(always)]
+    fn buf(&self) -> &[u8] {
+        Tx::buf(self)
+    }
+
+    #[inline(always)]
+    fn reset(&mut self) {
+        Tx::reset(self);
+    }
+
+    #[inline(always)]
+    fn new_session(&mut self) {
+        Tx::new_session(self);
     }
 }

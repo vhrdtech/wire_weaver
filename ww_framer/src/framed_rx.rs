@@ -5,7 +5,9 @@ use shrink_wrap::BufReader;
 
 use crate::pieces::{Extent, ReadHead, read_head};
 use crate::prefix::{FrameCtx, FramePrefix, FrameReport, MAX_PREFIX_LEN, NopPrefix, PrefixStats};
-use crate::traits::{Checksum, Head, Header, MAX_COVERED_HEAD, MessageKind, RdError, Tail};
+use crate::traits::{
+    Checksum, FrameReader, Head, Header, MAX_COVERED_HEAD, MessageKind, RdError, Tail,
+};
 
 /// Reassembles messages from frames, see the crate docs. `P` is the [frame prefix](crate::prefix) every frame
 /// starts with, none by default: it is checked when a frame is staged, see [Self::stage].
@@ -56,7 +58,20 @@ pub struct FramedRxState<U, R = ()> {
     prefix: PrefixState<R>,
 }
 
+impl<R> PrefixState<R> {
+    fn stats<P: FramePrefix<Rx = R>>(&self) -> PrefixStats {
+        let mut stats = P::stats(&self.rx);
+        stats.too_short = stats.too_short.wrapping_add(self.too_short);
+        stats
+    }
+}
+
 impl<U: Copy, R> FramedRxState<U, R> {
+    /// Same as [FramedRx::prefix_stats], without re-creating [FramedRx].
+    pub fn prefix_stats<P: FramePrefix<Rx = R>>(&self) -> PrefixStats {
+        self.prefix.stats::<P>()
+    }
+
     /// Same as [FramedRx::message_range], without re-creating [FramedRx].
     pub fn message_range(&self) -> Option<(U, Range<usize>)> {
         self.state.ready_range()
@@ -242,9 +257,7 @@ where
 
     /// What was found in frame prefixes so far, all zeros without a prefix.
     pub fn prefix_stats(&self) -> PrefixStats {
-        let mut stats = P::stats(&self.prefix.rx);
-        stats.too_short = stats.too_short.wrapping_add(self.prefix.too_short);
-        stats
+        self.prefix.stats::<P>()
     }
 
     /// Check the prefix of a frame about to be staged (`frame` starts with it). On success the prefix is kept for
@@ -611,6 +624,48 @@ enum Step {
     SkipFrame,
     /// Message is incomplete, keep its bytes and wait for the next frame
     NeedMoreData,
+}
+
+impl<H: Head, C: Checksum, T: Tail, P: FramePrefix> FrameReader for FramedRx<'_, H, C, T, P>
+where
+    H::UserKind: Copy + PartialEq,
+{
+    type UserKind = H::UserKind;
+
+    #[inline(always)]
+    fn reset(&mut self) {
+        FramedRx::reset(self);
+    }
+
+    #[inline(always)]
+    fn free(&self) -> usize {
+        FramedRx::free(self)
+    }
+
+    #[inline(always)]
+    fn staging_buf(&mut self) -> &mut [u8] {
+        FramedRx::staging_buf(self)
+    }
+
+    #[inline(always)]
+    fn commit_staged(&mut self, len: usize) -> Result<FrameReport, ()> {
+        FramedRx::commit_staged(self, len)
+    }
+
+    #[inline(always)]
+    fn reassemble(&mut self) {
+        FramedRx::reassemble(self);
+    }
+
+    #[inline(always)]
+    fn message(&self) -> Option<(H::UserKind, &[u8])> {
+        FramedRx::message(self)
+    }
+
+    #[inline(always)]
+    fn prefix_stats(&self) -> PrefixStats {
+        FramedRx::prefix_stats(self)
+    }
 }
 
 #[cfg(test)]

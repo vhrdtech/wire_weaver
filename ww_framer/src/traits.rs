@@ -1,6 +1,6 @@
 use shrink_wrap::{BufReader, BufWriter};
 
-use crate::prefix::MAX_PREFIX_LEN;
+use crate::prefix::{FrameReport, MAX_PREFIX_LEN, PrefixStats};
 
 pub trait Head {
     type UserKind;
@@ -217,4 +217,54 @@ impl From<shrink_wrap::Error> for RdError {
     fn from(_: shrink_wrap::Error) -> Self {
         RdError::NeedMoreData
     }
+}
+
+/// What a frame sender needs of a framer, whether it borrows its frame buffer ([Tx](crate::Tx)) or owns it
+/// (`TxOwned`, feature `std`), so that one sender serves both. See [Tx](crate::Tx) for what each method does.
+pub trait FrameWriter {
+    /// The user kind of a message, as the framer's [Head] carries it.
+    type UserKind;
+
+    /// See [Tx::write](crate::Tx::write).
+    fn write(&mut self, user_kind: Self::UserKind, message: &[u8]) -> Result<bool, ()>;
+
+    /// See [Tx::flush](crate::Tx::flush).
+    fn flush(&mut self) -> usize;
+
+    /// See [Tx::buf](crate::Tx::buf).
+    fn buf(&self) -> &[u8];
+
+    /// See [Tx::reset](crate::Tx::reset).
+    fn reset(&mut self);
+
+    /// See [Tx::new_session](crate::Tx::new_session).
+    fn new_session(&mut self);
+}
+
+/// What a frame receiver needs of a framer, whether it borrows its assembly buffer ([FramedRx](crate::FramedRx))
+/// or owns it (`FramedRxOwned`, feature `std`). See [FramedRx](crate::FramedRx) for what each method does.
+pub trait FrameReader {
+    /// The user kind of a message, as the framer's [Head] carries it.
+    type UserKind;
+
+    /// See [FramedRx::reset](crate::FramedRx::reset).
+    fn reset(&mut self);
+
+    /// See [FramedRx::free](crate::FramedRx::free).
+    fn free(&self) -> usize;
+
+    /// See [FramedRx::staging_buf](crate::FramedRx::staging_buf).
+    fn staging_buf(&mut self) -> &mut [u8];
+
+    /// See [FramedRx::commit_staged](crate::FramedRx::commit_staged).
+    fn commit_staged(&mut self, len: usize) -> Result<FrameReport, ()>;
+
+    /// See [FramedRx::reassemble](crate::FramedRx::reassemble).
+    fn reassemble(&mut self);
+
+    /// See [FramedRx::message](crate::FramedRx::message).
+    fn message(&self) -> Option<(Self::UserKind, &[u8])>;
+
+    /// See [FramedRx::prefix_stats](crate::FramedRx::prefix_stats).
+    fn prefix_stats(&self) -> PrefixStats;
 }

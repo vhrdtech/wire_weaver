@@ -53,6 +53,8 @@ pub use transport::{
     FramedRx, FramedTx, MessageRx, MessageTx, PacketSink, PacketSource, StreamRx, StreamSink,
     StreamSource, StreamTx,
 };
+#[cfg(feature = "std")]
+pub use transport::{OwnedFramedRx, OwnedFramedTx};
 pub use ww_link::{self, DisconnectReason};
 
 /// `err_seq` used in [generic_error_reply], outside of the ranges used by generated code

@@ -22,6 +22,7 @@
 
 ### 🚀 Features
 
+- `traits::FrameWriter` / `FrameReader`: what a sender or receiver needs of a framer, implemented by `Tx` / `TxOwned` and `FramedRx` / `FramedRxOwned`; `FramedRxOwned::staging_buf` / `commit_staged` receive in place (SRV-69).
 - `GENERATION` is the line of the crate's wire version, declared in its `Cargo.toml` as `[package.metadata.wire_weaver] wire = "w1.0"` (EVO-71), still 1: a frame layout break bumps the line (`w2.0`) and the hello says 2.
 - `ww_framer::GENERATION` (EVO-23): the frame layout's generation, sent in the link setup hello; it counts only breaks of the bytes a framer writes.
 - Taking over a framer mid-stream (CLT-44): `Tx::continue_at(frame)` / `TxOwned::continue_at` go on with another sender's frame counter, `FramedRx::carry()` / `FramedRxOwned::carry()` give what a receiver holds between frames (`Carry`: the split message assembled so far, staged bytes, the frame expected next) and `continue_from(&carry)` takes it into another one, so a counting prefix sees no gap and a message split across the takeover comes out whole. `FramePrefix::expected` / `continue_at`, with defaults (nothing to carry) for prefixes without a counter.

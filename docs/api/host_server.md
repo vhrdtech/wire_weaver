@@ -42,6 +42,64 @@ and receives a `Connection` that describes it:
 | `client` | What the client says about itself: program, user, host and version. Use it in logs, never to decide. |
 | `client_version` | The API version the client was built against, to see version skew. |
 | `message_len_max` | The longest message either side takes, agreed in link setup. |
+| `pumps` | The connection's [pumps](#streams-are-pumps), for the backend to keep. |
+
+### The backend's entries
+
+The connection calls the generated dispatcher through two traits of `wire_weaver`, which the backend implements by
+forwarding to the generated functions. The second one passes the connection's origin and serves the requests that
+run side by side:
+
+```rust
+impl WireWeaverAsyncApiBackend for Backend {
+    type Medium = ();
+
+    async fn process_bytes<'a>(&mut self, out: &mut EventWriter<'_, impl MessageSink>, medium: (), data: &[u8],
+                               scratch: &'a mut [u8]) -> Result<&'a [u8], ShrinkWrapError> {
+        self.process_request_bytes(data, scratch, out, medium).await
+    }
+
+    fn version(&self) -> FullVersion<'_> {
+        my_api::MY_API_FULL_GID
+    }
+}
+
+impl WireWeaverSharedApiBackend for Backend {
+    async fn process_exclusive_bytes<'a>(&mut self, origin: &CallContext, out: &mut EventWriter<'_, impl MessageSink>,
+                                         medium: (), data: &[u8], scratch: &'a mut [u8])
+                                         -> Result<&'a [u8], ShrinkWrapError> {
+        self.process_request_from(origin, data, scratch, out, medium).await
+    }
+
+    fn is_shared(data: &[u8]) -> bool {
+        Backend::is_shared(data)
+    }
+
+    async fn process_shared_bytes<'a>(&self, origin: &CallContext, out: &mut EventWriter<'_, impl MessageSink>,
+                                      medium: (), data: &[u8], scratch: &'a mut [u8])
+                                      -> Result<&'a [u8], ShrinkWrapError> {
+        self.process_shared_from(origin, data, scratch, out, medium).await
+    }
+}
+```
+
+Every server has these generated functions. Without a `receiver_model` its `is_shared` says no to every request, so
+all requests run alone; with one, its calls and reads run side by side as the next section describes. A firmware
+never calls the shared ones, and its image is the same size with them.
+
+### Who asked
+
+`Connection::origin()` is the `CallContext` of the connection: its peer and its id. The connection passes it with
+every request, and a handler reads it from `cx.call()`, with the request's own `seq` and priority:
+
+```rust
+async fn whoami(&self, cx: &mut Context<'_, impl EventOut>) -> RpcResult<u32> {
+    match cx.call().peer {
+        Peer::Unix { uid, .. } => Ready(uid.0),
+        _ => Ready(0),
+    }
+}
+```
 
 ## Serving
 
@@ -111,8 +169,21 @@ let listener = InProcessListener::new("my_service", 16 * 1024)
 
 ## Order of requests
 
-The requests of one connection run one at a time, in the order they arrive. A slow handler therefore delays the
-later requests of its own connection, and no other connection.
+The requests of one connection start in the order they arrive. How they run depends on the item, as the
+`receiver_model` of the server says ([shared handlers](handlers.md)):
+
+- **Shared** calls and reads run side by side through their `&self` handlers. A quick call is answered while a slow
+  one still runs, and replies come back in the order the calls finish.
+- **Everything else runs alone**: property writes, stream opens and closes, sinks, observing, and every item that the
+  model leaves exclusive. Such a request waits until the shared requests before it have finished, and the requests
+  after it wait until it has finished. A write followed by a read is therefore never reordered.
+
+A server without a `receiver_model` runs every request alone, one at a time. In every case a slow handler delays
+only the later requests of its own connection, never another connection.
+
+A request that runs alone waits for the shared ones before it however long they take. So one slow call holds up
+every request after the next write on the same connection. An API with calls that take long should make such a call
+a stream, or the client should send its writes on another connection.
 
 While a handler runs, the connection keeps working. It reads further requests into a queue, answers the pings of the
 link and writes out the events that the handler sends, such as stream items. A handler can send as many events as it
@@ -121,8 +192,36 @@ likes before it returns its reply, and the client receives them in order, before
 ## Sending without being asked
 
 A service also sends on its own: stream items when something happens, and the values of observed properties when
-they change. A device does this in its main loop, between requests. A host backend does it in the three methods of
-the `Backend` trait, which the connection calls between requests.
+they change. A device does this in its main loop, between requests. A host backend sends stream items through
+pumps, which run whatever else runs, and everything else in the three methods of the `Backend` trait.
+
+### Streams are pumps
+
+A pump is a stream of items that the connection serializes and sends as they come, also while calls run. A stream's
+open handler adds one to the connection's `Pumps`, and its close handler removes it:
+
+```rust
+const NEWS: PumpId = PumpId(1);
+
+async fn news(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {
+    let items = self.shared.news.subscribe().filter_map(|item| ready(item.ok()));
+    self.pumps.add(NEWS, items, |item, buf| api_impl::stream_data_ser().news(item, buf).map(<[u8]>::len));
+    Ready(())
+}
+
+async fn close_news(&mut self, _cx: &mut Context<'_, impl EventOut>) {
+    self.pumps.remove(NEWS);
+}
+```
+
+The backend keeps the handle that comes with `Connection::pumps`. A pump starts once the answer of the request that
+added it went out, so the client knows the stream before its first item. It waits while the connection's event queue
+is full, and it ends with its stream or with the connection, whoever still holds a handle. An item longer than the
+link's message limit is skipped.
+
+### The backend's own turn
+
+The `Backend` trait has three methods for the rest, such as observed properties:
 
 | Method | What it is for |
 |---|---|
@@ -137,7 +236,8 @@ impl wire_weaver_server::Backend for Backend {}
 ```
 
 `wait` is dropped whenever a request arrives, so it must be cancel-safe: anything it took in before it was dropped
-stays in the backend. `poll` always runs to its end before the next request starts.
+stays in the backend. `poll` always runs to its end before the next request starts. All three take `&mut self`, so
+they run only while no request runs, shared ones included.
 
 ### One value for all clients
 
@@ -185,9 +285,8 @@ impl wire_weaver_server::Backend for Backend {
 }
 ```
 
-A stream that every listening client follows works the same way: the open handler subscribes, `wait` takes items
-in, and `poll` sends them with the generated `stream_data_ser().<name>_send(&item, out)`. See
-[Observing properties](observing.md) for `ObserveState`, `mark_changed_<name>` and `poll_properties`.
+See [Observing properties](observing.md) for `ObserveState`, `mark_changed_<name>` and `poll_properties`. A
+`Subscription` is also a `Stream`, so a stream that every listening client follows is a pump over one.
 
 ## Limits
 
@@ -197,6 +296,7 @@ in, and `poll` sends them with the generated `stream_data_ser().<name>_send(&ite
 |---|---|---|
 | `connections_max` | 64 | The server stops accepting. Further clients wait in the listener until a connection ends. |
 | `requests_max` | 256 | A request that would go over it, across all connections, is answered with `Overloaded`. |
+| `calls_max` | 16 | Shared requests of one connection that run at once. Further ones wait in its queue. |
 | `pending_max` | 32 | The connection stops reading. The client's transport pushes back on the client. |
 | `events_max` | 64 | A handler waits inside its send until the connection wrote events out. |
 | `shutdown_grace` | 5 s | See below. |

@@ -7,7 +7,11 @@ use std::pin::{Pin, pin};
 use std::task::Poll;
 
 use futures_util::future::{Either, select};
-use wire_weaver::{ConnectionId, DisconnectReason, EventWriter, Peer};
+use futures_util::stream::{FuturesUnordered, StreamExt};
+use wire_weaver::shrink_wrap::Error as ShrinkWrapError;
+use wire_weaver::{
+    CallContext, ConnectionId, DisconnectReason, EventWriter, Peer, WireWeaverSharedApiBackend,
+};
 use ww_device::link::{Phase, Received, Transmit};
 use ww_device::{
     Clock, DeviceLink, LinkConfig, LinkEvent, MessageRx, MessageTx, PeerMeta, PeerVersion,
@@ -15,8 +19,9 @@ use ww_device::{
 };
 
 use crate::backend::Backend;
-use crate::lifecycle::{Lifecycle, Stage};
+use crate::lifecycle::{Lifecycle, Running, Stage};
 use crate::outbox::{Outbox, OutboxSink};
+use crate::pump::{PumpSet, Pumps};
 use crate::server::{Limits, MakeBackend};
 
 /// A connection whose link is up, as its backend's factory sees it.
@@ -32,6 +37,18 @@ pub struct Connection {
     pub client_version: Option<PeerVersion>,
     /// The longest message either side takes on this connection, agreed in link setup.
     pub message_len_max: usize,
+    /// The connection's pumps: a backend keeps a clone, so that its stream open handlers can add theirs.
+    pub pumps: Pumps,
+}
+
+impl Connection {
+    /// Who asks on this connection, as handlers read it from `cx.call()`: the peer and the connection id. Each
+    /// request adds its own `seq` and priority.
+    pub fn origin(&self) -> CallContext {
+        let mut origin = CallContext::new(0).with_peer(self.peer);
+        origin.connection = self.id;
+        origin
+    }
 }
 
 /// What became of a request.
@@ -84,10 +101,14 @@ struct Conn<'a, Tx, Rx, C> {
     /// Requests read and not started yet, oldest first.
     pending: VecDeque<Vec<u8>>,
     outbox: &'a Outbox,
-    /// Replies are built here; `None` while a request has it.
-    reply_buffer: Option<Vec<u8>>,
-    /// Events are built here; `None` while a request or the backend's own work has it.
-    event_buffer: Option<Vec<u8>>,
+    pumps: &'a PumpSet,
+    /// Pump items are serialized here.
+    pump_buffer: Vec<u8>,
+    /// Replies and events are built in these; a request takes two, its answer gives them back, so there are as many
+    /// as requests ran at once.
+    buffers: Vec<Vec<u8>>,
+    /// The length of each of `buffers`: the medium's message limit.
+    buffer_len: usize,
     limits: Limits,
     life: &'a Lifecycle,
     /// The server's stage as this connection last saw it.
@@ -116,7 +137,8 @@ impl<Tx: MessageTx, Rx: MessageRx, C: Clock> Conn<'_, Tx, Rx, C> {
                 None => pending().await,
             }
         });
-        let (outbox, life, known) = (self.outbox, self.life, self.stage);
+        let (outbox, life, known, pumps) = (self.outbox, self.life, self.stage, self.pumps);
+        let pump_buffer = &mut self.pump_buffer;
         poll_fn(|cx| {
             let stage = life.watch(cx);
             if stage > known {
@@ -127,7 +149,7 @@ impl<Tx: MessageTx, Rx: MessageRx, C: Clock> Conn<'_, Tx, Rx, C> {
             {
                 return Poll::Ready(Step::Done(done));
             }
-            if !outbox.is_empty() {
+            if pumps.poll_into(cx, outbox, pump_buffer) || !outbox.is_empty() {
                 return Poll::Ready(Step::Events);
             }
             if read && let Poll::Ready(r) = message.as_mut().poll(cx) {
@@ -151,9 +173,11 @@ impl<Tx: MessageTx, Rx: MessageRx, C: Clock> Conn<'_, Tx, Rx, C> {
                     Finished::Woke => {}
                     Finished::Polled(events) => {
                         self.send_events().await;
-                        self.event_buffer = Some(events);
+                        self.buffers.push(events);
                     }
                 }
+                // what the request or the backend's turn added starts after its answer
+                self.pumps.start_added();
                 flow = Flow::Finished;
             }
             Step::Events => self.send_events().await,
@@ -247,30 +271,25 @@ impl<Tx: MessageTx, Rx: MessageRx, C: Clock> Conn<'_, Tx, Rx, C> {
         {
             self.link.flush_now();
         }
-        self.reply_buffer = Some(done.scratch);
-        self.event_buffer = Some(done.events);
+        self.buffers.push(done.scratch);
+        self.buffers.push(done.events);
     }
 
-    fn take_reply_buffer(&mut self) -> Vec<u8> {
-        self.reply_buffer
-            .take()
-            .expect("the buffer comes back with every answer")
-    }
-
-    fn take_event_buffer(&mut self) -> Vec<u8> {
-        self.event_buffer
-            .take()
-            .expect("the buffer comes back with every answer")
+    /// A buffer for a reply or events, back with the answer.
+    fn take_buffer(&mut self) -> Vec<u8> {
+        self.buffers
+            .pop()
+            .unwrap_or_else(|| vec![0; self.buffer_len])
     }
 
     /// Answer a request with `Overloaded`, its handler never ran.
     async fn refuse(&mut self, request: Vec<u8>) {
-        let mut scratch = self.take_reply_buffer();
+        let mut scratch = self.take_buffer();
         let base = scratch.as_ptr().addr();
         // a request without a seq expects no answer
         let reply = ww_device::overloaded_reply(&request, &mut scratch)
             .map_or((0, 0), |reply| (reply.as_ptr().addr() - base, reply.len()));
-        let events = self.take_event_buffer();
+        let events = self.take_buffer();
         self.answer(Done {
             request,
             scratch,
@@ -342,25 +361,59 @@ impl<Tx: MessageTx, Rx: MessageRx, C: Clock> Conn<'_, Tx, Rx, C> {
     }
 }
 
-/// Run one request through the backend.
-async fn call<B: Backend>(
+/// A request and the two buffers it runs with: its reply and its events are built there.
+struct Work {
+    request: Vec<u8>,
+    scratch: Vec<u8>,
+    events: Vec<u8>,
+}
+
+/// Run one request alone, through the backend's `&mut self` entry.
+async fn exclusive<B: Backend>(
     backend: &mut B,
+    origin: &CallContext,
     medium: B::Medium,
     outbox: &Outbox,
-    request: Vec<u8>,
-    mut scratch: Vec<u8>,
-    mut events: Vec<u8>,
+    mut work: Work,
 ) -> Finished {
-    let base = scratch.as_ptr().addr();
-    let size = scratch.len();
-    let mut out = EventWriter::new(OutboxSink(outbox), &mut events);
-    let reply = match backend
-        .process_bytes(&mut out, medium, &request, &mut scratch)
-        .await
-    {
+    let (base, size) = (work.scratch.as_ptr().addr(), work.scratch.len());
+    let mut out = EventWriter::new(OutboxSink(outbox), &mut work.events);
+    let reply = backend
+        .process_exclusive_bytes(origin, &mut out, medium, &work.request, &mut work.scratch)
+        .await;
+    let reply = reply_range(base, size, reply);
+    work.done(reply)
+}
+
+/// Run one shared request through the backend's `&self` entry, beside others. `_running` counts it as running
+/// until it is done.
+async fn shared<B: Backend>(
+    backend: &B,
+    origin: &CallContext,
+    medium: B::Medium,
+    outbox: &Outbox,
+    mut work: Work,
+    _running: Running<'_>,
+) -> Finished {
+    let (base, size) = (work.scratch.as_ptr().addr(), work.scratch.len());
+    let mut out = EventWriter::new(OutboxSink(outbox), &mut work.events);
+    let reply = backend
+        .process_shared_bytes(origin, &mut out, medium, &work.request, &mut work.scratch)
+        .await;
+    let reply = reply_range(base, size, reply);
+    work.done(reply)
+}
+
+/// Where the dispatcher's reply is in its scratch buffer, which starts at `base` and is `size` long: kept as a
+/// range, so the buffer can move with it. `None` when the dispatcher could not even write an error.
+fn reply_range(
+    base: usize,
+    size: usize,
+    reply: Result<&[u8], ShrinkWrapError>,
+) -> Option<(usize, usize)> {
+    match reply {
         Ok([]) => Some((0, 0)),
         Ok(reply) => {
-            // the reply is a part of `scratch`: kept as a range, so the buffer can move with it
             let start = reply.as_ptr().addr().wrapping_sub(base);
             let len = reply.len();
             assert!(
@@ -370,13 +423,29 @@ async fn call<B: Backend>(
             Some((start, len))
         }
         Err(_) => None,
-    };
-    Finished::Answer(Done {
-        request,
-        scratch,
-        events,
-        reply,
+    }
+}
+
+impl Work {
+    fn done(self, reply: Option<(usize, usize)>) -> Finished {
+        Finished::Answer(Done {
+            request: self.request,
+            scratch: self.scratch,
+            events: self.events,
+            reply,
+        })
+    }
+}
+
+/// The next shared request that finished; never completes while none runs.
+async fn next_finished<F: Future<Output = Finished>>(
+    running: &mut FuturesUnordered<F>,
+) -> Finished {
+    poll_fn(|cx| match running.poll_next_unpin(cx) {
+        Poll::Ready(Some(finished)) => Poll::Ready(finished),
+        Poll::Ready(None) | Poll::Pending => Poll::Pending,
     })
+    .await
 }
 
 /// Let the backend send what is due.
@@ -411,6 +480,7 @@ pub(crate) async fn run<M: MakeBackend>(
     // the medium's limit: replies and events are built in buffers of this size, longer replies of a server
     // with an allocator in buffers of their own
     let buffer_len = rx.max_message_len();
+    let pumps = PumpSet::default();
     let mut conn = Conn {
         link: DeviceLink::new(config, rx.max_message_len()),
         tx,
@@ -419,8 +489,10 @@ pub(crate) async fn run<M: MakeBackend>(
         link_scratch: vec![0; buffer_len],
         pending: VecDeque::new(),
         outbox: &outbox,
-        reply_buffer: Some(vec![0; buffer_len]),
-        event_buffer: Some(vec![0; buffer_len]),
+        pumps: &pumps,
+        pump_buffer: vec![0; buffer_len],
+        buffers: vec![],
+        buffer_len,
         limits,
         life,
         stage: Stage::Run,
@@ -439,26 +511,29 @@ pub(crate) async fn run<M: MakeBackend>(
         client: conn.link.peer_meta().cloned().unwrap_or_default(),
         client_version: conn.link.peer_version().cloned(),
         message_len_max: conn.link.agreed_max_message_len(),
+        pumps: pumps.handle(),
     };
+    let origin = info.origin();
     let mut backend = make.make(&info);
     let medium = make.medium(&info);
 
     loop {
-        if let Some(request) = conn.pending.pop_front() {
+        if conn
+            .pending
+            .front()
+            .is_some_and(|request| M::Backend::is_shared(request))
+        {
+            if !conn.run_shared(&backend, medium, &origin).await {
+                return;
+            }
+        } else if let Some(request) = conn.pending.pop_front() {
             let Some(_running) = life.start_request(limits.requests_max) else {
                 // nothing ran: no turn for the backend either
                 conn.refuse(request).await;
                 continue;
             };
-            let (scratch, events) = (conn.take_reply_buffer(), conn.take_event_buffer());
-            let work = pin!(call(
-                &mut backend,
-                medium,
-                &outbox,
-                request,
-                scratch,
-                events
-            ));
+            let work = conn.work(request);
+            let work = pin!(exclusive(&mut backend, &origin, medium, &outbox, work));
             if !conn.finish(work).await {
                 return;
             }
@@ -471,7 +546,7 @@ pub(crate) async fn run<M: MakeBackend>(
             }
         }
         // the backend's own turn, to its end
-        let (events, now) = (conn.take_event_buffer(), conn.clock.now());
+        let (events, now) = (conn.take_buffer(), conn.clock.now());
         let work = pin!(poll(&mut backend, medium, &outbox, now, events));
         if !conn.finish(work).await {
             return;
@@ -502,6 +577,53 @@ impl<Tx: MessageTx, Rx: MessageRx, C: Clock + Clone> Conn<'_, Tx, Rx, C> {
                     }
                 }
             }
+        }
+    }
+
+    /// Run the shared requests first in line side by side, and each one that comes while they run, until none
+    /// runs. A request that runs alone waits for the shared ones before it and holds those after it (D4), since it
+    /// is started only once this returns. False when the connection ended first.
+    async fn run_shared<B: Backend>(
+        &mut self,
+        backend: &B,
+        medium: B::Medium,
+        origin: &CallContext,
+    ) -> bool {
+        let (outbox, life) = (self.outbox, self.life);
+        let mut running = FuturesUnordered::new();
+        loop {
+            while running.len() < self.limits.calls_max
+                && self
+                    .pending
+                    .front()
+                    .is_some_and(|request| B::is_shared(request))
+            {
+                let request = self.pending.pop_front().expect("checked above");
+                let Some(counted) = life.start_request(self.limits.requests_max) else {
+                    self.refuse(request).await;
+                    continue;
+                };
+                let work = self.work(request);
+                running.push(shared(backend, origin, medium, outbox, work, counted));
+            }
+            if running.is_empty() {
+                return true;
+            }
+            // TODO(SRV-47): a request's own deadline drops it here and answers DeadlineExceeded; until then a
+            // request that runs alone waits for every shared one before it, however long they take
+            let next = pin!(next_finished(&mut running));
+            if self.step(Some(next)).await == Flow::End {
+                return false;
+            }
+        }
+    }
+
+    /// A request with the buffers it runs with.
+    fn work(&mut self, request: Vec<u8>) -> Work {
+        Work {
+            request,
+            scratch: self.take_buffer(),
+            events: self.take_buffer(),
         }
     }
 

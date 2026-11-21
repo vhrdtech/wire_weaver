@@ -8,6 +8,7 @@ mod tests {
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
 
+    use futures_util::StreamExt;
     use tokio::sync::{Notify, oneshot};
     use tokio::task::JoinHandle;
     use wire_weaver::prelude::*;
@@ -15,7 +16,7 @@ mod tests {
     use wire_weaver_client::in_process::TokioClock;
     use wire_weaver_client::{Commander, WwClient};
     use wire_weaver_server::in_process::InProcessListener;
-    use wire_weaver_server::{Connection, Fanout, Limits, Server, Subscription};
+    use wire_weaver_server::{Connection, Fanout, Limits, PumpId, Pumps, Server, Subscription};
     use ww_device::Instant;
     use ww_stream::observe::ObserveLimits;
 
@@ -76,10 +77,8 @@ mod tests {
     struct Backend {
         shared: Arc<Shared>,
         id: u32,
-        /// The service's news, while this client has the stream open.
-        news: Option<Subscription<u32>>,
-        /// News taken in and not sent yet.
-        news_ready: Vec<u32>,
+        /// The connection's pumps: news flows through one while this client has the stream open.
+        pumps: Pumps,
         mode_changes: Subscription<()>,
         /// Another connection wrote `mode`.
         mode_changed: bool,
@@ -88,20 +87,17 @@ mod tests {
         update_buf: Vec<u8>,
     }
 
+    /// The pump of the `news` stream.
+    const NEWS: PumpId = PumpId(1);
+
     impl wire_weaver_server::Backend for Backend {
-        /// News for this client, or a write to `mode` by any client.
+        /// A write to `mode` by any client.
         async fn wait(&mut self) {
             std::future::poll_fn(|cx| {
                 let mut woke = false;
                 while let std::task::Poll::Ready(Some(_)) = self.mode_changes.poll_recv(cx) {
                     self.mode_changed = true;
                     woke = true;
-                }
-                if let Some(news) = &mut self.news {
-                    while let std::task::Poll::Ready(Some(item)) = news.poll_recv(cx) {
-                        self.news_ready.extend(item.ok());
-                        woke = true;
-                    }
                 }
                 if woke {
                     std::task::Poll::Ready(())
@@ -124,9 +120,6 @@ mod tests {
             medium: (),
             now: Instant,
         ) {
-            for item in std::mem::take(&mut self.news_ready) {
-                let _ = api_impl::stream_data_ser().news_send(&item, out).await;
-            }
             if std::mem::take(&mut self.mode_changed) {
                 self.mark_changed_mode();
             }
@@ -139,19 +132,37 @@ mod tests {
     }
 
     impl Backend {
-        async fn echo(&mut self, _cx: &mut Context<'_, impl EventOut>, x: u32) -> RpcResult<u32> {
+        async fn echo(&self, _cx: &mut Context<'_, impl EventOut>, x: u32) -> RpcResult<u32> {
             Ready(x)
         }
 
-        async fn wait(&mut self, _cx: &mut Context<'_, impl EventOut>, gate: u8) -> RpcResult<u32> {
+        async fn wait(&self, _cx: &mut Context<'_, impl EventOut>, gate: u8) -> RpcResult<u32> {
             self.shared.waiting.fetch_add(1, Ordering::AcqRel);
             self.shared.gate(gate).await;
             self.shared.waiting.fetch_sub(1, Ordering::AcqRel);
             Ready(u32::from(gate))
         }
 
-        async fn whoami(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<u32> {
+        async fn hold(&mut self, _cx: &mut Context<'_, impl EventOut>, gate: u8) -> RpcResult<u32> {
+            self.shared.waiting.fetch_add(1, Ordering::AcqRel);
+            self.shared.gate(gate).await;
+            self.shared.waiting.fetch_sub(1, Ordering::AcqRel);
+            Ready(u32::from(gate))
+        }
+
+        async fn whoami(&self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<u32> {
             Ready(self.id)
+        }
+
+        async fn call_connection(&self, cx: &mut Context<'_, impl EventOut>) -> RpcResult<u32> {
+            Ready(cx.call().connection.0)
+        }
+
+        async fn call_uid(&self, cx: &mut Context<'_, impl EventOut>) -> RpcResult<u32> {
+            match cx.call().peer {
+                Peer::Unix { uid, .. } => Ready(uid.0),
+                _ => Ready(0),
+            }
         }
 
         async fn burst(
@@ -177,12 +188,19 @@ mod tests {
         }
 
         async fn news(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {
-            self.news = Some(self.shared.news.subscribe());
+            let items = self
+                .shared
+                .news
+                .subscribe()
+                .filter_map(|item| std::future::ready(item.ok()));
+            self.pumps.add(NEWS, items, |item, buf| {
+                api_impl::stream_data_ser().news(item, buf).map(<[u8]>::len)
+            });
             Ready(())
         }
 
         async fn close_news(&mut self, _cx: &mut Context<'_, impl EventOut>) {
-            self.news = None;
+            self.pumps.remove(NEWS);
         }
 
         async fn sideband_news(
@@ -204,7 +222,7 @@ mod tests {
         }
 
         async fn get_mode(
-            &mut self,
+            &self,
             _cx: &mut Context<'_, impl EventOut>,
         ) -> GetResult<u8, CommonError<'_>> {
             Value(*self.shared.mode.lock().unwrap())
@@ -247,12 +265,43 @@ mod tests {
         }
     }
 
+    impl wire_weaver::WireWeaverSharedApiBackend for Backend {
+        async fn process_exclusive_bytes<'a>(
+            &mut self,
+            origin: &wire_weaver::CallContext,
+            out: &mut EventWriter<'_, impl MessageSink>,
+            medium: (),
+            data: &[u8],
+            scratch: &'a mut [u8],
+        ) -> Result<&'a [u8], ShrinkWrapError> {
+            self.process_request_from(origin, data, scratch, out, medium)
+                .await
+        }
+
+        fn is_shared(data: &[u8]) -> bool {
+            Backend::is_shared(data)
+        }
+
+        async fn process_shared_bytes<'a>(
+            &self,
+            origin: &wire_weaver::CallContext,
+            out: &mut EventWriter<'_, impl MessageSink>,
+            medium: (),
+            data: &[u8],
+            scratch: &'a mut [u8],
+        ) -> Result<&'a [u8], ShrinkWrapError> {
+            self.process_shared_from(origin, data, scratch, out, medium)
+                .await
+        }
+    }
+
     mod api_impl {
         wire_weaver::ww_codegen!(
             host_server_api :: HostServer for super::Backend,
             server = true, no_alloc = false, use_async = true,
             method_model = "_=immediate",
             property_model = "_=get_set",
+            receiver_model = "echo|wait|whoami|call_connection|call_uid|mode=shared",
             introspect = "no_docs",
         );
     }
@@ -332,8 +381,7 @@ mod tests {
                     Backend {
                         shared: for_backends.clone(),
                         id: connection.id.0,
-                        news: None,
-                        news_ready: vec![],
+                        pumps: connection.pumps.clone(),
                         mode_changes: for_backends.mode_changed.subscribe(),
                         mode_changed: false,
                         observe: api_impl::ObserveState::new(ObserveLimits::DEFAULT),
@@ -431,13 +479,13 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn a_slow_handler_holds_up_its_own_connection_only() {
+    async fn a_slow_handler_that_runs_alone_holds_up_its_own_connection_only() {
         let bench = Bench::start("host_server/slow", small());
         let slow = Arc::new(bench.connect().await);
         let other = bench.connect().await;
         let waiting = tokio::spawn({
             let slow = slow.clone();
-            async move { slow.wait(1).call().await.unwrap() }
+            async move { slow.hold(1).call().await.unwrap() }
         });
         soon("the handler runs", bench.shared.waiting(1)).await;
         // the same connection's next request waits its turn, another connection's does not
@@ -457,6 +505,104 @@ mod tests {
         bench.shared.open(1);
         assert_eq!(soon("the slow call", waiting).await.unwrap(), 1);
         assert_eq!(soon("the call behind it", behind).await.unwrap(), 7);
+    }
+
+    /// Until `count` handlers wait at their gates.
+    async fn waiting(bench: &Bench, count: u32) {
+        soon("the handlers run", bench.shared.waiting(count)).await;
+    }
+
+    /// Give `pending` every chance to finish while it should not: requests of another connection go through.
+    async fn still_pending(bench: &Bench, pending: &[&JoinHandle<u32>]) {
+        let other = bench.connect().await;
+        for n in 0..20 {
+            assert_eq!(other.echo(n).call().await.unwrap(), n);
+        }
+        for task in pending {
+            assert!(!task.is_finished());
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn calls_of_one_connection_run_side_by_side() {
+        let bench = Bench::start("host_server/side_by_side", small());
+        let client = Arc::new(bench.connect().await);
+        let first = tokio::spawn({
+            let client = client.clone();
+            async move { client.wait(1).call().await.unwrap() }
+        });
+        let second = tokio::spawn({
+            let client = client.clone();
+            async move { client.wait(2).call().await.unwrap() }
+        });
+        waiting(&bench, 2).await;
+        // both run at once, and a quick call passes them
+        assert_eq!(
+            soon("a call beside them", client.echo(3).call())
+                .await
+                .unwrap(),
+            3
+        );
+        // the later one finishes first
+        bench.shared.open(2);
+        assert_eq!(soon("the second call", second).await.unwrap(), 2);
+        assert!(!first.is_finished());
+        bench.shared.open(1);
+        assert_eq!(soon("the first call", first).await.unwrap(), 1);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn a_write_waits_for_the_calls_before_it_and_holds_those_after() {
+        let bench = Bench::start("host_server/barrier", small());
+        let client = Arc::new(bench.connect().await);
+        let before = tokio::spawn({
+            let client = client.clone();
+            async move { client.wait(1).call().await.unwrap() }
+        });
+        waiting(&bench, 1).await;
+        let write = tokio::spawn({
+            let client = client.clone();
+            async move {
+                client.write_mode(5).write().await.unwrap();
+                0
+            }
+        });
+        // queued behind the write; give the write time to be read first
+        still_pending(&bench, &[&before, &write]).await;
+        let after = tokio::spawn({
+            let client = client.clone();
+            async move { u32::from(client.read_mode().read().await.unwrap()) }
+        });
+        still_pending(&bench, &[&before, &write, &after]).await;
+        // the call before the write finishes: the write runs, then the read after it sees what it wrote
+        bench.shared.open(1);
+        assert_eq!(soon("the call before", before).await.unwrap(), 1);
+        soon("the write", write).await.unwrap();
+        assert_eq!(soon("the read after", after).await.unwrap(), 5);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn stream_items_flow_while_a_call_runs() {
+        let bench = Bench::start("host_server/pump", small());
+        let client = Arc::new(bench.connect().await);
+        let mut news = client.news().call().await.unwrap();
+        let call = tokio::spawn({
+            let client = client.clone();
+            async move { client.wait(1).call().await.unwrap() }
+        });
+        waiting(&bench, 1).await;
+        for n in 1..=3 {
+            bench.shared.news.send(n);
+        }
+        for n in 1..=3 {
+            assert_eq!(
+                soon("news while the call runs", news.recv()).await.unwrap(),
+                n
+            );
+        }
+        assert!(!call.is_finished());
+        bench.shared.open(1);
+        assert_eq!(soon("the call", call).await.unwrap(), 1);
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -661,6 +807,9 @@ mod tests {
         let bench = Bench::start_on(listener, path, small());
         let client = bench.connect().await;
         assert_eq!(client.whoami().call().await.unwrap(), 0);
+        // handlers read the same from their CallContext, shared and alone
+        assert_eq!(client.call_connection().call().await.unwrap(), 0);
+        assert_eq!(client.call_uid().call().await.unwrap(), 1000);
         let connections = bench.shared.connections.lock().unwrap();
         assert_eq!(connections[0].peer, peer);
         assert!(!connections[0].client.program.is_empty());

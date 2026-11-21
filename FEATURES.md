@@ -619,17 +619,19 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   one API, each connection driving `ww_device::DeviceLink` with its own backend from a factory and its peer from the
   transport. No async runtime in it: `Server::serve` is a future for the program's executor, timers are a
   `ww_device::Clock`, connections run inside the future (no spawner, backends need not be `Send`). Done: the
-  `Listener` trait and the in-process listener (any peer can be given), requests of a connection in order while the
-  connection keeps reading, pinging and writing queued events, `Limits` (connections, queued requests and events,
-  message length) that push back instead of dropping, a cap on requests across connections answered with
-  `ErrorKind::Overloaded` (EVO-83), graceful shutdown with a grace time and `DisconnectReason::Shutdown`, the
-  `Backend` hook for
-  what a connection sends on its own (`wait`, `next_wake`, `poll`: stream items, observed properties) and `Fanout`,
-  one sender with a queue per subscriber, `Server::accepting` for connections the program spawns as tasks of its
-  runtime ([Host server](docs/api/host_server.md), `tests/host_server`).
-  Missing: the connection's `CallContext` (peer, connection id) in handlers and calls side by side (after
-  SRV-65), with event pumps for streams that flow while calls run; listeners over byte streams (TR-19), the local
-  socket and an inherited fd (systemd socket activation). Then `ww_hub` serves its API on it.
+  `Listener` trait and the in-process listener (any peer can be given), requests of a connection started in order
+  while the connection keeps reading, pinging and writing queued events, shared calls and reads (SRV-65) side by side
+  through `WireWeaverSharedApiBackend` with the rest alone behind them (D4's order), the connection's `CallContext`
+  (peer, connection id) in every handler, `Limits` (connections, calls at once, queued requests and events, message
+  length) that push back instead of dropping, a cap on requests across connections answered with
+  `ErrorKind::Overloaded` (EVO-83), graceful shutdown with a grace time and `DisconnectReason::Shutdown`, pumps that
+  send stream items while calls run, the `Backend` hook for what a connection sends on its own between requests
+  (`wait`, `next_wake`, `poll`: observed properties) and `Fanout`, one sender with a queue per subscriber,
+  `Server::accepting` for connections the program spawns as tasks of its runtime
+  ([Host server](docs/api/host_server.md), `tests/host_server`).
+  Missing: a request's own deadline bounding the wait of a write behind slow calls (SRV-47, `TODO(SRV-47)`);
+  listeners over byte streams (TR-19), the local socket and an inherited fd (systemd socket activation); a spawner
+  for multi-threaded runtimes. Then `ww_hub` serves its API on it.
 - 📋 **SRV-46 Peer identity and policy** — who called, from the transport only (SO_PEERCRED, `getpeereid`, the
   Windows user, a key handed in with a stream, the address), never from `ClientMeta`; a listener policy (same user by
   default, a uid/gid allow-list, or any user with the identity passed through) with socket modes to match, and an

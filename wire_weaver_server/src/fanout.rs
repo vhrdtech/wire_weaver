@@ -154,6 +154,18 @@ impl<T> Subscription<T> {
     }
 }
 
+/// The items of [poll_recv](Subscription::poll_recv) as a stream, for a [pump](crate::Pumps::add).
+impl<T> futures_util::Stream for Subscription<T> {
+    type Item = Result<T, Lagged>;
+
+    fn poll_next(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<Result<T, Lagged>>> {
+        self.get_mut().poll_recv(cx)
+    }
+}
+
 impl<T> Drop for Subscription<T> {
     fn drop(&mut self) {
         locked(&self.shared).subscribers.remove(&self.id);

@@ -66,6 +66,27 @@ impl Outbox {
         Poll::Ready(())
     }
 
+    /// Whether an event can be queued now.
+    pub(crate) fn has_room(&self) -> bool {
+        locked(&self.inner).events.len() < self.events_max
+    }
+
+    /// Queue `event` if there is room and it fits the link; false if it was not queued.
+    pub(crate) fn try_push(&self, event: &[u8], urgent: bool) -> bool {
+        if !self.fits(event) {
+            return false;
+        }
+        let mut inner = locked(&self.inner);
+        if inner.events.len() >= self.events_max {
+            return false;
+        }
+        inner.events.push_back(Queued {
+            event: event.to_vec(),
+            urgent,
+        });
+        true
+    }
+
     /// The oldest event; handlers waiting for room are woken.
     pub(crate) fn pop(&self) -> Option<Queued> {
         let mut inner = locked(&self.inner);

@@ -2,7 +2,7 @@
 
 use std::future::{Future, pending};
 
-use wire_weaver::{EventWriter, MessageSink, WireWeaverAsyncApiBackend};
+use wire_weaver::{EventWriter, MessageSink, WireWeaverSharedApiBackend};
 use ww_device::Instant;
 
 /// The backend of one connection: the generated server, and what it does on its own between requests.
@@ -33,7 +33,7 @@ use ww_device::Instant;
 ///     }
 /// }
 /// ```
-pub trait Backend: WireWeaverAsyncApiBackend {
+pub trait Backend: WireWeaverSharedApiBackend {
     /// Completes when the backend has something to do on its own. The connection waits on it while no request
     /// runs and drops the future when a request comes, so it must be cancel-safe: what it took in before it was
     /// dropped stays in `self`. Never completes by default.

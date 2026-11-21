@@ -26,6 +26,9 @@ pub struct Limits {
     /// Requests that run at once, across all connections. A request that would go over it is answered with
     /// `ErrorKind::Overloaded` and its handler never runs, so the client may send it again later.
     pub requests_max: usize,
+    /// Shared requests (`receiver_model`, SRV-65) of one connection that run at once, side by side. Further ones
+    /// wait in the connection's queue until one is done.
+    pub calls_max: usize,
     /// Requests of one connection read and waiting for their turn. At the limit the connection stops reading, so
     /// the client's transport pushes back.
     pub pending_max: usize,
@@ -46,6 +49,7 @@ impl Default for Limits {
         Limits {
             connections_max: 64,
             requests_max: 256,
+            calls_max: 16,
             pending_max: 32,
             events_max: 64,
             shutdown_grace: Duration::from_secs(5),

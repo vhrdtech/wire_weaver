@@ -18,21 +18,37 @@ use syn::Path;
 use ww_self::{ApiItemKindOwned, Batching, Delivery, Multiplicity, PropertyAccess, TypeOwned};
 
 /// One async function of the local trait.
-struct LocalFn {
-    ident: Ident,
+pub(crate) struct LocalFn {
+    pub(crate) ident: Ident,
     docs: Vec<String>,
-    args: Vec<(Ident, TokenStream)>,
+    pub(crate) args: Vec<(Ident, TokenStream)>,
     /// Output of the future: always a `Result`, the remote call can fail on its way.
     output: TokenStream,
     /// Body of the client's implementation, `self` being the client: the inherent generated call, awaited.
     client_body: TokenStream,
+    /// What the function stands for, for a server forwarding to the trait (SRV-49).
+    pub(crate) kind: LocalFnKind,
+    /// Index of its item in the root level.
+    pub(crate) item: usize,
+}
+
+/// What a function of the local trait stands for.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) enum LocalFnKind {
+    Method,
+    /// Read of a property, `read_<name>`.
+    Read,
+    /// Write of a property, `write_<name>`.
+    Write,
+    /// Open of a plain stream.
+    Stream,
 }
 
 /// The functions of the root level that the trait expresses, and the names of the items it leaves out.
-fn local_fns(api_bundle: &CodegenBundle) -> (Vec<LocalFn>, Vec<String>) {
+pub(crate) fn local_fns(api_bundle: &CodegenBundle) -> (Vec<LocalFn>, Vec<String>) {
     let mut fns = vec![];
     let mut skipped = vec![];
-    for item in &api_bundle.root.items {
+    for (item_index, item) in api_bundle.root.items.iter().enumerate() {
         let ident = Ident::new(&item.ident, Span::call_site());
         if item.multiplicity != Multiplicity::Flat {
             skipped.push(format!("`{}` (resource array)", item.ident));
@@ -59,6 +75,8 @@ fn local_fns(api_bundle: &CodegenBundle) -> (Vec<LocalFn>, Vec<String>) {
                     docs: item.docs.clone(),
                     args,
                     output,
+                    kind: LocalFnKind::Method,
+                    item: item_index,
                 });
             }
             ApiItemKindOwned::Property {
@@ -86,6 +104,8 @@ fn local_fns(api_bundle: &CodegenBundle) -> (Vec<LocalFn>, Vec<String>) {
                         docs: item.docs.clone(),
                         args: vec![],
                         output: quote! { Result<#ty, wire_weaver::call::Error> },
+                        kind: LocalFnKind::Read,
+                        item: item_index,
                     });
                 }
                 if matches!(
@@ -106,6 +126,8 @@ fn local_fns(api_bundle: &CodegenBundle) -> (Vec<LocalFn>, Vec<String>) {
                         docs: item.docs.clone(),
                         args: vec![(ident, ty)],
                         output: quote! { Result<(), #err> },
+                        kind: LocalFnKind::Write,
+                        item: item_index,
                     });
                 }
             }
@@ -165,6 +187,8 @@ fn local_fns(api_bundle: &CodegenBundle) -> (Vec<LocalFn>, Vec<String>) {
                     docs: item.docs.clone(),
                     args,
                     output,
+                    kind: LocalFnKind::Stream,
+                    item: item_index,
                 });
             }
             ApiItemKindOwned::Stream { is_up: false, .. } | ApiItemKindOwned::FlowSink { .. } => {

@@ -6,6 +6,7 @@ mod index_chain;
 pub mod local_trait;
 pub mod omit;
 pub(crate) mod server;
+pub use server::serve_trait;
 mod ty_def;
 mod util;
 

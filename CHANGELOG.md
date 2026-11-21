@@ -11,6 +11,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
+- A server generated with `serve_trait` forwards every request to the API's local trait (SRV-49); see `wire_weaver_derive`, `wire_weaver_server`.
 - New crate `ww_calloop`: the host server on a calloop event loop (SRV-70); see `ww_calloop` and `wire_weaver_server`.
 - Requests carry an optional context (trace, deadline), a cancel request and four new error kinds on the wire (EVO-84, SRV-47); see `ww_client_server`.
 - Host server drops a request at its deadline or the client's cancel, and clients send both (SRV-47); see `wire_weaver_server` and `wire_weaver_client`.

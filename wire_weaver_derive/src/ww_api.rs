@@ -11,6 +11,7 @@ use wire_weaver_core::codegen::api_server::{
     GenServerConfigRaw, GlobalPaths, IntrospectCompression, IntrospectMode,
 };
 use wire_weaver_core::codegen::local_trait::{gen_local_trait, gen_local_trait_client_impl};
+use wire_weaver_core::codegen::serve_trait::{ServeTraitConfig, gen_serve_trait};
 use wire_weaver_core::const_model::ConstModel;
 use wire_weaver_core::handler_model::HandlerModel;
 use wire_weaver_core::method_model::{MethodModel, MethodModelKind};
@@ -27,7 +28,7 @@ pub fn ww_impl(args: ApiArgs) -> TokenStream {
     api_inner(args).unwrap_or_else(|e| syn::Error::new(Span::call_site(), e).to_compile_error())
 }
 
-fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
+fn api_inner(mut args: ApiArgs) -> Result<TokenStream, String> {
     let manifest_dir = PathBuf::from(
         std::env::var("CARGO_MANIFEST_DIR").expect("env variable CARGO_MANIFEST_DIR should be set"),
     );
@@ -70,6 +71,32 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
         .map_err(|e| format!("failed to parse const model: {e}"))?;
     let handler_model = HandlerModel::parse(&args.ext.handler_model)
         .map_err(|e| format!("failed to parse handler model: {e}"))?;
+    let serve_trait = if args.ext.serve_trait.is_empty() {
+        None
+    } else {
+        if !args.ext.server {
+            return Err("serve_trait generates server handlers: add server = true".into());
+        }
+        let models = [
+            ("no_alloc = true", args.ext.no_alloc),
+            ("handler_model", !args.ext.handler_model.is_empty()),
+            ("receiver_model", !args.ext.receiver_model.is_empty()),
+            ("method_model", !args.ext.method_model.is_empty()),
+            ("property_model", !args.ext.property_model.is_empty()),
+        ];
+        if let Some((name, _)) = models.iter().find(|(_, set)| *set) {
+            return Err(format!(
+                "serve_trait sets the handlers' shape itself (async, owned arguments, calls and reads \
+                 shared, immediate methods, getters and setters): leave out {name}"
+            ));
+        }
+        args.ext.use_async = true;
+        args.ext.receiver_model = "_=shared".into();
+        Some(
+            syn::parse_str::<syn::Path>(&args.ext.serve_trait)
+                .map_err(|e| format!("serve_trait must be a trait path: {e}"))?,
+        )
+    };
     let receiver_model = ReceiverModel::parse(&args.ext.receiver_model)
         .map_err(|e| format!("failed to parse receiver model: {e}"))?;
     let method_model = if args.ext.method_model.is_empty() {
@@ -145,7 +172,7 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
                 introspect_mode,
                 introspect_compression,
                 multi_req: args.ext.multi_req,
-                medium,
+                medium: medium.clone(),
                 omit: args.ext.omit.clone(),
                 observe_batch: (args.ext.observe_batch != 0).then_some(args.ext.observe_batch),
                 observe_outbox: (args.ext.observe_outbox != 0).then_some(args.ext.observe_outbox),
@@ -164,6 +191,18 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
             },
         );
         codegen_ts.append_all(ts);
+        if let Some(trait_path) = &serve_trait {
+            codegen_ts.append_all(gen_serve_trait(
+                &api_bundle,
+                &crate_paths,
+                &ServeTraitConfig {
+                    trait_path,
+                    server: &context_ident()?,
+                    medium: medium.as_ref(),
+                    full_gid: quote! { #dep_name :: #(#modules ::)* #full_gid_const },
+                },
+            ));
+        }
     }
 
     // generate client code if requested

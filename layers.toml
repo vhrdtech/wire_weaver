@@ -149,6 +149,8 @@ series = { layer = "runtime" }
 series_api = { layer = "runtime", no_std = true }
 settings = { layer = "runtime" }
 settings_api = { layer = "runtime", no_std = true }
+serve_trait = { layer = "runtime" }
+serve_trait_api = { layer = "runtime" }
 shared_handlers = { layer = "runtime" }
 shared_handlers_api = { layer = "runtime" }
 shared_sub_level = { layer = "runtime" }

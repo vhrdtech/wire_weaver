@@ -18,6 +18,11 @@ use ww_timebase::{
     ClockInfo, SteerPoint, Steerer, SteererOwned, SyncConfig, SyncSource, SyncState, SyncStatus,
 };
 
+/// A call's deadline in these tests: only a hang detector (nextest kills a test at 30 s). The client's default is 1 s
+/// of real time, which a first call through the hub (it opens the device, introspects, starts steering) exceeds on a
+/// loaded PC. What the tests assert never depends on how long a call took.
+const HANG: Duration = Duration::from_secs(25);
+
 /// What the device's clock took.
 #[derive(Default)]
 struct Clock {
@@ -251,14 +256,17 @@ impl Bench {
 
     async fn client(&self) -> Client {
         let (socket, key) = (self.socket(), self.key.clone());
-        Client::config(|c| c.hub_device_at(socket.clone(), key.clone()))
-            .connect()
-            .await
-            .expect("connect through the hub")
+        Client::config(|c| {
+            c.hub_device_at(socket.clone(), key.clone())
+                .default_timeout(HANG)
+        })
+        .connect()
+        .await
+        .expect("connect through the hub")
     }
 
     async fn hub(&self) -> HubClient {
-        HubClient::config(|c| c.hub_api_at(self.socket()))
+        HubClient::config(|c| c.hub_api_at(self.socket()).default_timeout(HANG))
             .connect()
             .await
             .unwrap()
@@ -349,6 +357,18 @@ async fn sync_entry(
     panic!("{what}: not within 3 s");
 }
 
+/// Yields to the other tasks and threads until `f` holds: bounded by yields (no wall-clock budget), a hang is
+/// caught by nextest.
+async fn until(what: &str, f: impl Fn() -> bool) {
+    for _ in 0..1_000_000 {
+        if f() {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(1)).await;
+    }
+    panic!("{what}: never");
+}
+
 async fn is_open(hub: &HubClient, key: &str) -> bool {
     hub.registry()
         .devices()
@@ -390,10 +410,7 @@ async fn the_hub_steers_and_keeps_the_device_open() {
     assert_eq!(own.status().steers, 0);
     assert!(bench.clock.lock().unwrap().steers > 0);
     // the stream has them too
-    let streamed = tokio::time::timeout(Duration::from_secs(2), stats.recv())
-        .await
-        .expect("stats within 2 s")
-        .unwrap();
+    let streamed = stats.recv().await.unwrap();
     assert_eq!(streamed.key, bench.key);
 
     // the client leaves: the device stays open (and steered) well past the plain linger
@@ -404,25 +421,18 @@ async fn the_hub_steers_and_keeps_the_device_open() {
         "a steered device lingers for the sync linger"
     );
     let steers = bench.clock.lock().unwrap().steers;
-    tokio::time::sleep(Duration::from_millis(300)).await;
-    assert!(
-        bench.clock.lock().unwrap().steers > steers,
-        "still steered without clients"
-    );
+    until("still steered without clients", || {
+        bench.clock.lock().unwrap().steers > steers
+    })
+    .await;
 
     // linger 0: only while clients are connected, so the plain linger closes it
     hub.sync().write_linger(Some(0)).write().await.unwrap();
     assert_eq!(hub.sync().read_linger().read().await.unwrap(), Some(0));
-    for _ in 0..200 {
-        if !is_open(&hub, &bench.key).await {
-            break;
-        }
+    while is_open(&hub, &bench.key).await {
+        // nextest's hang detector ends a device that never closes
         tokio::time::sleep(Duration::from_millis(10)).await;
     }
-    assert!(
-        !is_open(&hub, &bench.key).await,
-        "closed after the plain linger"
-    );
     assert!(hub.sync().devices().call().await.unwrap().is_empty());
     drop(stats);
     drop(hub);
@@ -458,18 +468,19 @@ async fn steering_switched_off_and_on() {
         e.phase == SyncPhaseOwned::Steering
     })
     .await;
-    tokio::time::sleep(Duration::from_millis(300)).await;
-    assert!(bench.clock.lock().unwrap().steers > steers);
+    until("steered again", || {
+        bench.clock.lock().unwrap().steers > steers
+    })
+    .await;
 
     // off again, the client leaves: closed after the plain linger although the sync linger is forever
     hub.sync().set_enabled(None, false).call().await.unwrap();
     sync_entry(&hub, &bench.key, "off", |e| e.phase == SyncPhaseOwned::Off).await;
     client.cmd.disconnect().asynch().await.unwrap();
-    tokio::time::sleep(Duration::from_millis(500)).await;
-    assert!(
-        !is_open(&hub, &bench.key).await,
-        "closed after the plain linger"
-    );
+    while is_open(&hub, &bench.key).await {
+        // nextest's hang detector ends a device that never closes
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
     drop(hub);
     bench.stop().await;
 }

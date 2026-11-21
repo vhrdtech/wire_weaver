@@ -1230,6 +1230,8 @@ dependencies = [
 name = "ww_api"
 version = "0.5.0"
 dependencies = [
+ "defmt 1.1.1",
+ "exact_units",
  "shrink_wrap",
  "wire_weaver_derive",
  "ww_error",

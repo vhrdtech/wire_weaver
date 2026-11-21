@@ -28,6 +28,7 @@
 
 ### 🚀 Features
 
+- `OwnedFramedTx` / `OwnedFramedRx` (feature `std`): framed media that own their buffers (`FramedTx::owned`, `FramedRx::owned`); `FramedTx` / `FramedRx` take the framer as a type parameter, the borrowing one by default (SRV-69).
 - `udp::StdUdpSocket` (feature `std`, SRV-68): a `DatagramSocket` on `std::net::UdpSocket` for any event loop, which tells readiness through `udp::Readiness`.
 - `udp::UdpPeers<S, PEERS>` (SRV-68): a link per host address on one socket, a firmware's fixed slots or a host program's `accept()`ed connections.
 - `ws::IoSocket` (feature `futures-io`, TR-19): a WebSocket device on any source of futures-io streams.

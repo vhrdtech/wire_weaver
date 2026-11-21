@@ -5,11 +5,14 @@
 //! level [StreamSink] and [StreamSource].
 
 use core::future::Future;
+use core::marker::PhantomData;
 
 use ww_framer::prefix::PrefixStats;
-use ww_framer::traits::{Checksum, Head, Tail};
+use ww_framer::traits::{Checksum, FrameReader, FrameWriter, Head, Tail};
 use ww_link::hello::{HELLO_FRAME_MAX, HELLO_LEN};
 use ww_link::{Framing, FramingRx, FramingTx, Hello, Kind, UsbFraming};
+#[cfg(feature = "std")]
+use ww_link::{FramingRxOwned, FramingTxOwned};
 use ww_tap::{Dir, NoTap, Tap};
 
 use crate::fmt::warn;
@@ -128,11 +131,20 @@ pub enum FramedError<E> {
 /// [MessageTx] over a [PacketSink], packing messages into frames with [ww_framer] in the sink's
 /// [Framing](PacketSink::Framing). Messages and frames go to the [Tap] `T` as they are sent ([NoTap] by default,
 /// which compiles away).
-pub struct FramedTx<'a, P: PacketSink, T = NoTap> {
-    framer: TxFramer<'a, P::Framing>,
+///
+/// The framer `F` borrows its frame buffer for `'a` by default ([FramedTx::new]); [OwnedFramedTx] owns it (feature
+/// `std`), for a sender that must not borrow, such as a connection a host server hands out.
+pub struct FramedTx<'a, P: PacketSink, T = NoTap, F = TxFramer<'a, <P as PacketSink>::Framing>> {
+    framer: F,
     sink: P,
     tap: T,
+    _buf: PhantomData<&'a mut [u8]>,
 }
+
+/// [FramedTx] with a frame buffer of its own.
+#[cfg(feature = "std")]
+pub type OwnedFramedTx<P, T = NoTap> =
+    FramedTx<'static, P, T, FramingTxOwned<<P as PacketSink>::Framing>>;
 
 impl<'a, P: PacketSink> FramedTx<'a, P> {
     /// `frame_buf` must be exactly the maximum packet size.
@@ -148,9 +160,34 @@ impl<'a, P: PacketSink, T: Tap> FramedTx<'a, P, T> {
             framer: TxFramer::<P::Framing>::new(frame_buf),
             sink,
             tap,
+            _buf: PhantomData,
         }
     }
+}
 
+#[cfg(feature = "std")]
+impl<P: PacketSink> OwnedFramedTx<P> {
+    /// Same as [FramedTx::new], with a frame buffer of `frame_len` bytes of its own: exactly the maximum packet
+    /// size.
+    pub fn owned(sink: P, frame_len: usize) -> Self {
+        Self::owned_with_tap(sink, frame_len, NoTap)
+    }
+}
+
+#[cfg(feature = "std")]
+impl<P: PacketSink, T: Tap> OwnedFramedTx<P, T> {
+    /// Same as [FramedTx::owned], with a link tap.
+    pub fn owned_with_tap(sink: P, frame_len: usize, tap: T) -> Self {
+        FramedTx {
+            framer: FramingTxOwned::<P::Framing>::new(frame_len),
+            sink,
+            tap,
+            _buf: PhantomData,
+        }
+    }
+}
+
+impl<P: PacketSink, T: Tap, F: FrameWriter<UserKind = u8>> FramedTx<'_, P, T, F> {
     pub fn sink_mut(&mut self) -> &mut P {
         &mut self.sink
     }
@@ -178,7 +215,7 @@ impl<'a, P: PacketSink, T: Tap> FramedTx<'a, P, T> {
     }
 }
 
-impl<P: PacketSink, T: Tap> MessageTx for FramedTx<'_, P, T> {
+impl<P: PacketSink, T: Tap, F: FrameWriter<UserKind = u8>> MessageTx for FramedTx<'_, P, T, F> {
     type Error = FramedError<P::Error>;
 
     async fn write_message(&mut self, kind: u8, message: &[u8]) -> Result<(), Self::Error> {
@@ -241,8 +278,12 @@ impl<P: PacketSink, T: Tap> MessageTx for FramedTx<'_, P, T> {
 /// [MessageRx] over a [PacketSource], reassembling messages with [ww_framer] in the source's
 /// [Framing](PacketSource::Framing). Packets are received directly into the framer's buffer, without an extra
 /// copy. Frames and messages go to the [Tap] `T` as they are received ([NoTap] by default, which compiles away).
-pub struct FramedRx<'a, P: PacketSource, T = NoTap> {
-    framer: RxFramer<'a, P::Framing>,
+///
+/// The framer `F` borrows its assembly buffer for `'a` by default ([FramedRx::new]); [OwnedFramedRx] owns it
+/// (feature `std`).
+pub struct FramedRx<'a, P: PacketSource, T = NoTap, F = RxFramer<'a, <P as PacketSource>::Framing>>
+{
+    framer: F,
     source: P,
     max_message_len: usize,
     /// A message is ready and not consumed yet
@@ -250,7 +291,13 @@ pub struct FramedRx<'a, P: PacketSource, T = NoTap> {
     /// The ready message is a hello found outside the framer ([Framing::find_hello]): its payload
     hello: Option<[u8; HELLO_LEN]>,
     tap: T,
+    _buf: PhantomData<&'a mut [u8]>,
 }
+
+/// [FramedRx] with an assembly buffer of its own.
+#[cfg(feature = "std")]
+pub type OwnedFramedRx<P, T = NoTap> =
+    FramedRx<'static, P, T, FramingRxOwned<<P as PacketSource>::Framing>>;
 
 impl<'a, P: PacketSource> FramedRx<'a, P> {
     /// `assembly_buf` must hold one maximum message plus one maximum packet, the rest is reported
@@ -264,16 +311,54 @@ impl<'a, P: PacketSource> FramedRx<'a, P> {
 impl<'a, P: PacketSource, T: Tap> FramedRx<'a, P, T> {
     /// Same as [FramedRx::new], with a link tap.
     pub fn with_tap(source: P, assembly_buf: &'a mut [u8], tap: T) -> Self {
-        let max_packet_len = source.max_packet_len();
-        debug_assert!(assembly_buf.len() > max_packet_len);
-        let max_message_len = assembly_buf.len().saturating_sub(max_packet_len);
-        FramedRx {
-            framer: RxFramer::<P::Framing>::new(assembly_buf),
+        let assembly_len = assembly_buf.len();
+        Self::with_framer(
             source,
-            max_message_len,
+            RxFramer::<P::Framing>::new(assembly_buf),
+            assembly_len,
+            tap,
+        )
+    }
+}
+
+#[cfg(feature = "std")]
+impl<P: PacketSource> OwnedFramedRx<P> {
+    /// Same as [FramedRx::new], with an assembly buffer of its own for messages of up to `max_message_len` bytes
+    /// (one maximum packet more is added).
+    pub fn owned(source: P, max_message_len: usize) -> Self {
+        Self::owned_with_tap(source, max_message_len, NoTap)
+    }
+}
+
+#[cfg(feature = "std")]
+impl<P: PacketSource, T: Tap> OwnedFramedRx<P, T> {
+    /// Same as [FramedRx::owned], with a link tap.
+    pub fn owned_with_tap(source: P, max_message_len: usize, tap: T) -> Self {
+        let assembly_len = max_message_len + source.max_packet_len();
+        Self::with_framer(
+            source,
+            FramingRxOwned::<P::Framing>::new(assembly_len),
+            assembly_len,
+            tap,
+        )
+    }
+}
+
+impl<P: PacketSource, T: Tap, F: FrameReader<UserKind = u8>> FramedRx<'_, P, T, F> {
+    fn with_framer(source: P, framer: F, assembly_len: usize, tap: T) -> Self {
+        let max_packet_len = source.max_packet_len();
+        debug_assert!(
+            assembly_len > max_packet_len,
+            "the assembly buffer holds a packet and more"
+        );
+        FramedRx {
+            framer,
+            source,
+            max_message_len: assembly_len.saturating_sub(max_packet_len),
             ready: false,
             hello: None,
             tap,
+            _buf: PhantomData,
         }
     }
 
@@ -297,7 +382,7 @@ pub enum RxError<E> {
     Transport(E),
 }
 
-impl<P: PacketSource, T: Tap> MessageRx for FramedRx<'_, P, T> {
+impl<P: PacketSource, T: Tap, F: FrameReader<UserKind = u8>> MessageRx for FramedRx<'_, P, T, F> {
     type Error = RxError<P::Error>;
 
     async fn wait_message(&mut self) -> Result<(), Self::Error> {

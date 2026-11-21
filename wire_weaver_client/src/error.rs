@@ -415,6 +415,10 @@ impl Error {
                 | Remote::StreamStoreFailed
                 | Remote::Unknown(_) => CallErrorKind::Internal,
                 Remote::Overloaded => CallErrorKind::Overloaded,
+                Remote::Denied => CallErrorKind::Denied,
+                Remote::DeadlineExceeded => CallErrorKind::DeadlineExceeded,
+                Remote::Cancelled => CallErrorKind::Cancelled,
+                Remote::Internal => CallErrorKind::Internal,
                 Remote::Common(c) => CallErrorKind::of_common(c),
             },
             Error::Timeout => CallErrorKind::DeadlineExceeded,

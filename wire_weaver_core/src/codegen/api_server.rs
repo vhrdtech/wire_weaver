@@ -1536,7 +1536,7 @@ fn multi_req_handlers(maybe_await: &TokenStream, process_root: &Ident) -> TokenS
                         let item_request = Request {
                             seq: request.seq,
                             priority: request.priority,
-                            reserved: request.reserved,
+                            context: Default::default(),
                             path_kind: PathKind::Absolute { path: wire_weaver::shrink_wrap::RefVec::Slice { slice: &[] } },
                             kind,
                         };

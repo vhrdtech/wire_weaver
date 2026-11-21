@@ -10,6 +10,7 @@
 
 ### 🚀 Features
 
+- The request explainer shows a request's `context` (SRV-47) and names `RequestKind::Cancel`; the error kinds `Denied`, `DeadlineExceeded`, `Cancelled` and `Internal` map to the `CallErrorKind` of the same name.
 - `ClientConfig::service(name)` asks a byte-stream server (TCP, command, stream, local socket) for one of its APIs (TR-19); `no_byte_stream`.
 - Byte-stream clients (TR-19, feature `byte_stream`): `ClientConfig::tcp`, `command` (a spawned command's stdio, e.g. ssh), `stream` with a `StreamOpener`.
 - `local_socket::device` answers an unknown preamble target `UnknownTarget` and a named service `UnknownService` (TR-19); its halves are futures-io.

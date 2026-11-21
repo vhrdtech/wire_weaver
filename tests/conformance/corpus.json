@@ -1121,6 +1121,38 @@
       "note": "ww_client_server ErrorKind::Overloaded (SRV-12), appended after Common: a host server refused the request for its load before any handler ran"
     },
     {
+      "name": "client_server.error.denied",
+      "type": "Error",
+      "value": {"err_seq": 66, "kind": "Denied"},
+      "bytes": "a8101301",
+      "gaps": {"dynamic": "ww_client_server's Error is the error answer of a request, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail)", "explain": "ww_client_server's Error is the error answer of a request, not a type of an API in the model", "python": "ww_client_server's Error is the error answer of a request, not a type of an API in the model", "c": "ww_client_server's Error is the error answer of a request, not a type of an API in the model"},
+      "note": "ww_client_server ErrorKind::Denied (SRV-47, feature std), appended after Overloaded: refused by a host server's policy (SRV-46); sent only to a client whose model is w2.1 or later, an older one gets UserStr"
+    },
+    {
+      "name": "client_server.error.deadline_exceeded",
+      "type": "Error",
+      "value": {"err_seq": 64, "kind": "DeadlineExceeded"},
+      "bytes": "88101401",
+      "gaps": {"dynamic": "ww_client_server's Error is the error answer of a request, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail)", "explain": "ww_client_server's Error is the error answer of a request, not a type of an API in the model", "python": "ww_client_server's Error is the error answer of a request, not a type of an API in the model", "c": "ww_client_server's Error is the error answer of a request, not a type of an API in the model"},
+      "note": "ww_client_server ErrorKind::DeadlineExceeded (SRV-47, feature std), appended after Overloaded: dropped by a host server at its deadline; sent only to a client whose model is w2.1 or later, an older one gets UserStr"
+    },
+    {
+      "name": "client_server.error.cancelled",
+      "type": "Error",
+      "value": {"err_seq": 65, "kind": "Cancelled"},
+      "bytes": "98101501",
+      "gaps": {"dynamic": "ww_client_server's Error is the error answer of a request, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail)", "explain": "ww_client_server's Error is the error answer of a request, not a type of an API in the model", "python": "ww_client_server's Error is the error answer of a request, not a type of an API in the model", "c": "ww_client_server's Error is the error answer of a request, not a type of an API in the model"},
+      "note": "ww_client_server ErrorKind::Cancelled (SRV-47, feature std), appended after Overloaded: dropped by a host server for the client's cancel; sent only to a client whose model is w2.1 or later, an older one gets UserStr"
+    },
+    {
+      "name": "client_server.error.internal",
+      "type": "Error",
+      "value": {"err_seq": 4294967295, "kind": "Internal"},
+      "bytes": "ffffffffff301601",
+      "gaps": {"dynamic": "ww_client_server's Error is the error answer of a request, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail)", "explain": "ww_client_server's Error is the error answer of a request, not a type of an API in the model", "python": "ww_client_server's Error is the error answer of a request, not a type of an API in the model", "c": "ww_client_server's Error is the error answer of a request, not a type of an API in the model"},
+      "note": "ww_client_server ErrorKind::Internal (SRV-47, feature std), appended after Overloaded: a server failure the request did not cause; sent only to a client whose model is w2.1 or later, an older one gets UserStr"
+    },
+    {
       "name": "disconnect_reason.hub_handover",
       "type": "DisconnectReason",
       "value": "HubHandover",
@@ -1207,10 +1239,35 @@
     {
       "name": "client_server.request.highest_reserved",
       "type": "Request",
-      "value": {"seq": 0, "priority": 7, "reserved": true, "path_kind": {"Absolute": {"path": [3]}}, "kind": "Read"},
-      "bytes": "8080808000f03201",
+      "value": {"seq": 0, "priority": 7, "context": {"trace": null, "deadline": 250}, "path_kind": {"Absolute": {"path": [3]}}, "kind": "Read"},
+      "bytes": "8080808000f04af3032012",
+      "wire_change": "EVO-84 / the reserved bit after priority is the flag of the request context; no sender ever set it",
       "gaps": {"dynamic": "ww_client_server's Request is a protocol message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail)", "explain": "ww_client_server's Request is a protocol message, not a type of an API in the model", "python": "ww_client_server's Request is a protocol message, not a type of an API in the model", "c": "ww_client_server's Request is a protocol message, not a type of an API in the model"},
-      "note": "Priority::HIGHEST (7) with the reserved bit set, as a later sender may write it: readers ignore the bit (EVO-76)"
+      "note": "Priority::HIGHEST (7) with the bit after it set: the flag of the request context (SRV-47), here a 250 ms deadline. The bit was reserved and ignored on read (EVO-76); no sender set it"
+    },
+    {
+      "name": "client_server.request.context_deadline",
+      "type": "Request",
+      "value": {"seq": 0, "priority": 2, "context": {"trace": null, "deadline": 1500}, "path_kind": {"Absolute": {"path": [3]}}, "kind": "Read"},
+      "bytes": "8080808000504cbf20032013",
+      "gaps": {"dynamic": "ww_client_server's Request is a protocol message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail)", "explain": "ww_client_server's Request is a protocol message, not a type of an API in the model", "python": "ww_client_server's Request is a protocol message, not a type of an API in the model", "c": "ww_client_server's Request is a protocol message, not a type of an API in the model"},
+      "note": "a request with a 1500 ms deadline in its context (SRV-47): the context starts at the next byte, its length is in the FIFO at the back, path_kind follows it"
+    },
+    {
+      "name": "client_server.request.context_trace",
+      "type": "Request",
+      "value": {"seq": 0, "priority": 2, "context": {"trace": {"trace_id": "4b x 16", "parent_id": "0f x 8", "flags": 1}, "deadline": null}, "path_kind": {"Absolute": {"path": [3]}}, "kind": "Read"},
+      "bytes": "808080800050804b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b0f0f0f0f0f0f0f0f010003213b",
+      "gaps": {"dynamic": "ww_client_server's Request is a protocol message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail)", "explain": "ww_client_server's Request is a protocol message, not a type of an API in the model", "python": "ww_client_server's Request is a protocol message, not a type of an API in the model", "c": "ww_client_server's Request is a protocol message, not a type of an API in the model"},
+      "note": "a request with a W3C trace context (SRV-47): the trace id, the parent span id and the flags as 25 bytes"
+    },
+    {
+      "name": "client_server.request.cancel",
+      "type": "Request",
+      "value": {"seq": 0, "priority": 2, "context": null, "path_kind": {"Absolute": {"path": []}}, "kind": {"Cancel": {"seq": 5}}},
+      "bytes": "808080800040c00500",
+      "gaps": {"dynamic": "ww_client_server's Request is a protocol message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail)", "explain": "ww_client_server's Request is a protocol message, not a type of an API in the model", "python": "ww_client_server's Request is a protocol message, not a type of an API in the model", "c": "ww_client_server's Request is a protocol message, not a type of an API in the model"},
+      "note": "cancel request 5 (SRV-47, feature std): seq 0, the root path; a firmware reads it as RequestKind::Unknown(12)"
     },
     {
       "name": "client_server.event.stream_data_path",

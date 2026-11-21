@@ -517,7 +517,7 @@ pub(crate) fn stream_open_request(
     Ok(RequestOwned {
         seq: UVlq32Backfill(0),
         priority: priority.to_wire(),
-        reserved: false,
+        context: None,
         path_kind: path_kind.clone(),
         kind: RequestKindOwned::StreamOpen {
             resume,
@@ -546,7 +546,7 @@ pub(crate) fn raw_reopen(
     let close = RequestOwned {
         seq: UVlq32Backfill(0),
         priority: priority.to_wire(),
-        reserved: false,
+        context: None,
         path_kind: PathKindOwned::Absolute {
             path: path.to_vec(),
         },

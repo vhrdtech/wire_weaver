@@ -52,7 +52,7 @@ pub fn request(seq: u32, path_kind: PathKind<'_>, kind: RequestKind<'_>) -> Vec<
     let req = Request {
         seq: UVlq32Backfill(seq),
         priority: Priority::NORMAL.to_wire(),
-        reserved: false,
+        context: None,
         path_kind,
         kind,
     };

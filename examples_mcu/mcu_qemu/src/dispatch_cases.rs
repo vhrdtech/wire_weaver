@@ -50,7 +50,7 @@ pub fn request(i: usize, buf: &mut [u8]) -> &[u8] {
     let req = Request {
         seq: UVlq32Backfill(7),
         priority: Priority::NORMAL.to_wire(),
-        reserved: false,
+        context: Default::default(),
         path_kind: PathKind::absolute(&path),
         kind,
     };

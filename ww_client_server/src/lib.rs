@@ -46,7 +46,7 @@ use ww_error::CommonError;
 /// The units of this protocol's numbers (periods, byte grants, budgets), for code that builds them, generated code
 /// too.
 pub use ww_si;
-use ww_version::{CompactVersion, FullVersion};
+use ww_version::{CompactVersion, FullVersion, WireVersion};
 
 use observe::ObserveRequest;
 #[cfg(feature = "std")]
@@ -120,6 +120,27 @@ pub const COMPACT_VERSION: CompactVersion = CompactVersion::new(
 /// `Cargo.toml` (`shrink_wrap::wire_line`).
 pub const GENERATION: u8 = wire_weaver::shrink_wrap::generation_from_manifest!();
 
+/// Wire version of this API model, `[package.metadata.wire_weaver] wire` in its `Cargo.toml` (a test keeps the two
+/// equal). A client sends it in link setup (`ww_link::LinkSetup::host_model_wire`), so a server knows which forms the
+/// client reads: the error kinds of [CONTEXT_SINCE] and later.
+pub const WIRE_VERSION: WireVersion = WireVersion::new(GENERATION as u32, 1);
+
+/// The wire version that added request contexts (SRV-47): [Request::context], [RequestKind::Cancel] and the error
+/// kinds `Denied`, `DeadlineExceeded`, `Cancelled` and `Internal`.
+pub const CONTEXT_SINCE: WireVersion = WireVersion::new(2, 1);
+
+/// A client of model `client` reads the forms added in `since`: a later revision of its line, or a later line.
+/// `None`, a client that didn't say, reads none of them.
+pub const fn model_reads(client: Option<WireVersion>, since: WireVersion) -> bool {
+    match client {
+        Some(c) => {
+            c.line.0 > since.line.0
+                || (c.line.0 == since.line.0 && c.revision.0 >= since.revision.0)
+        }
+        None => false,
+    }
+}
+
 /// Operation (call, read, write, etc.) to be performed on a resource together with a request ID and resource path.
 ///
 /// Requests are serialized with seq set to 0 (taking 5 bytes), and then [Request::set_seq] fills in the actual one
@@ -129,7 +150,7 @@ pub const GENERATION: u8 = wire_weaver::shrink_wrap::generation_from_manifest!()
 /// - 3B (seq <= 127, empty Absolute path - root req, Kind with no data)
 /// - 4B (seq <= 127, path len 1 <= 7, Kind with 1B args)
 ///
-/// The priority (3 bits) and the reserved bit right after `seq` share a byte with `path_kind`'s discriminant.
+/// The priority (3 bits) and the flag of `context` right after `seq` share a byte with `path_kind`'s discriminant.
 #[derive_shrink_wrap(owned(feature = "std"), derive(Debug))]
 pub struct Request<'i> {
     /// Request ID, starting from 1 and wrapping back to 1 that allows to map responses to requests.
@@ -142,14 +163,45 @@ pub struct Request<'i> {
     /// instead of waiting for the link's accumulation window. 8 levels, as CAN and Cyphal carry (EVO-76).
     pub priority: U3,
 
-    /// Kept for a later use beside `priority` (EVO-76): written `false`, ignored on read.
-    pub reserved: bool,
+    /// What the client says about the request beyond the operation (SRV-47): its trace and what is left of its time
+    /// budget, see [ContextField].
+    pub context: ContextField<'i>,
 
     /// Specifies whether a resource is addressed explicitly, using a full path to it or through global trait ID.
     pub path_kind: PathKind<'i>,
 
     /// Action being requested
     pub kind: RequestKind<'i>,
+}
+
+/// [Request::context]: the [RequestContext], decoded when it is read ([RefBox::read]). `None` is the bytes of the bit
+/// that was reserved there, at `false` (EVO-84).
+///
+/// A context is sent only to a server that announced it reads one (`ww_link::DeviceInfo::request_context`): an older
+/// reader takes its flag for the reserved bit and reads on from the wrong place. A firmware never announces it, so
+/// without the `std` feature the field is the flag alone and the firmware links no decoder for it.
+#[cfg(feature = "std")]
+pub type ContextField<'i> = Option<RefBox<'i, RequestContext>>;
+/// [RequestOwned::context].
+#[cfg(feature = "std")]
+pub type ContextFieldOwned = Option<Box<RequestContext>>;
+/// [Request::context] of a firmware: the flag alone, always `false` (see the `std` form).
+#[cfg(not(feature = "std"))]
+pub type ContextField<'i> = bool;
+
+/// The terms a client sends with a request (SRV-47), in [Request::context]: each one optional, and appended ones
+/// are skipped by older readers. A server copies them into the handler's `CallContext` (`cx.call()`).
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Debug, Clone, Copy, PartialEq, Eq)
+)]
+pub struct RequestContext {
+    /// W3C trace context of the caller's span, for the spans the request makes.
+    pub trace: Option<wire_weaver::TraceContext>,
+    /// What was left of the caller's time budget when the request was sent: a host server drops the request when it
+    /// runs out, before or while it runs, and answers [ErrorKind::DeadlineExceeded].
+    pub deadline: Option<ww_si::Millis<UNib32>>,
 }
 
 /// Path to a resource.
@@ -298,6 +350,12 @@ pub enum RequestKind<'i> {
         pos: UVlq32,
         data: TailBytes<'i>,
     } = 11,
+    /// Cancel the request `seq` of this connection (SRV-47): a host server drops it, queued or running, and
+    /// answers it [ErrorKind::Cancelled]; one that finished already is not answered again. Sent with `seq` 0 on the
+    /// root path, and only to a server that announced it reads request contexts
+    /// (`ww_link::DeviceInfo::request_context`). Feature `std`: a firmware reads it as [RequestKind::Unknown].
+    #[cfg(feature = "std")]
+    Cancel { seq: UVlq32 } = 12,
     /// A request kind this build doesn't serve, with its discriminant: one from a newer version, or one compiled out
     /// (the multi requests without the `multi` feature, credit sink writes without `streams`). Nothing after the
     /// discriminant is read. The server answers [ErrorKind::OperationNotSupported].
@@ -548,6 +606,22 @@ pub enum ErrorKind<'i> {
     /// (SRV-12). Nothing ran, so it is safe to send again later. `CommonError::Busy` is the other word for "later":
     /// a handler's own, about a resource it guards.
     Overloaded,
+    /// A host server refused the request for who sent it (SRV-46): the policy or the authorization hook said no.
+    /// Sent only to a client whose model knows it ([KINDS_SINCE](ErrorKind::KINDS_SINCE)), an older one gets
+    /// [ErrorKind::UserStr] with the same text ([ErrorKind::fallback]); so are the three below. Feature `std`, as
+    /// a device never sends it.
+    #[cfg(feature = "std")]
+    Denied = 19,
+    /// The request's deadline ([RequestContext::deadline]) ran out before it was answered: a host server dropped
+    /// it, queued or running (SRV-47).
+    #[cfg(feature = "std")]
+    DeadlineExceeded = 20,
+    /// The client cancelled the request ([RequestKind::Cancel]) before it was answered (SRV-47).
+    #[cfg(feature = "std")]
+    Cancelled = 21,
+    /// The server failed in a way the request didn't cause, a bug in it or in a handler (SRV-47).
+    #[cfg(feature = "std")]
+    Internal = 22,
 }
 
 // Optional shaper configuration request.
@@ -655,6 +729,30 @@ impl<'i> Error<'i> {
 }
 
 #[cfg(feature = "std")]
+impl<'i> ErrorKind<'i> {
+    /// The text of a kind an older client doesn't know, which it gets as [ErrorKind::UserStr] instead; `None` for
+    /// the kinds every client of this line reads.
+    pub const fn added_text(&self) -> Option<&'static str> {
+        match self {
+            ErrorKind::Denied => Some("denied"),
+            ErrorKind::DeadlineExceeded => Some("deadline exceeded"),
+            ErrorKind::Cancelled => Some("cancelled"),
+            ErrorKind::Internal => Some("internal error"),
+            _ => None,
+        }
+    }
+
+    /// This kind as a client of model `client_model` (from its link setup) reads it: a kind added in
+    /// [CONTEXT_SINCE] becomes [ErrorKind::UserStr] with its text for an older client, the rest stays.
+    pub fn for_client(self, client_model: Option<WireVersion>) -> ErrorKind<'i> {
+        match self.added_text() {
+            Some(text) if !model_reads(client_model, CONTEXT_SINCE) => ErrorKind::UserStr(text),
+            _ => self,
+        }
+    }
+}
+
+#[cfg(feature = "std")]
 impl ErrorOwned {
     /// The site number, see [err_seq].
     pub fn err_seq(&self) -> u32 {
@@ -717,6 +815,10 @@ impl Error<'_> {
             ErrorKind::StreamNoSession => ErrorKindOwned::StreamNoSession,
             ErrorKind::StreamStoreFailed => ErrorKindOwned::StreamStoreFailed,
             ErrorKind::Overloaded => ErrorKindOwned::Overloaded,
+            ErrorKind::Denied => ErrorKindOwned::Denied,
+            ErrorKind::DeadlineExceeded => ErrorKindOwned::DeadlineExceeded,
+            ErrorKind::Cancelled => ErrorKindOwned::Cancelled,
+            ErrorKind::Internal => ErrorKindOwned::Internal,
             ErrorKind::UserBytes(bytes) => ErrorKindOwned::UserBytes(bytes.to_vec()),
             ErrorKind::UserStr(s) => ErrorKindOwned::UserStr(s.to_string()),
             ErrorKind::Common(c) => ErrorKindOwned::Common(c.make_owned()),
@@ -805,6 +907,9 @@ impl RequestKind<'_> {
             RequestKind::Introspect => EventKindDiscriminants::StreamData,
             RequestKind::StreamOpen { .. } => EventKindDiscriminants::Value,
             RequestKind::Observe { .. } => EventKindDiscriminants::Value,
+            // never answered itself: the request it names is
+            #[cfg(feature = "std")]
+            RequestKind::Cancel { .. } => EventKindDiscriminants::Written,
             // not answered: acknowledged by sideband, only an error comes back
             #[cfg(feature = "streams")]
             RequestKind::SinkWrite { .. } | RequestKind::SinkWriteUnits { .. } => {
@@ -912,6 +1017,7 @@ impl RequestKind<'_> {
             RequestKind::Observe { cfg } => RequestKindOwned::Observe {
                 cfg: Box::new(cfg.read()?.make_owned()?),
             },
+            RequestKind::Cancel { seq } => RequestKindOwned::Cancel { seq: *seq },
             RequestKind::Unknown(d) => RequestKindOwned::Unknown(*d),
         };
         Ok(req)
@@ -944,7 +1050,10 @@ impl Request<'_> {
         Ok(RequestOwned {
             seq: self.seq,
             priority: self.priority,
-            reserved: self.reserved,
+            context: match &self.context {
+                Some(context) => Some(Box::new(context.read()?)),
+                None => None,
+            },
             path_kind: self.path_kind.make_owned()?,
             kind: self.kind.make_owned()?,
         })
@@ -984,7 +1093,7 @@ mod tests {
         let request = Request {
             seq: UVlq32Backfill(0),
             priority: crate::Priority::NORMAL.to_wire(),
-            reserved: false,
+            context: None,
             path_kind: PathKind::absolute(&[]),
             kind: RequestKind::Read,
         };
@@ -1000,6 +1109,65 @@ mod tests {
             assert_eq!(request.seq, UVlq32Backfill(seq));
             assert!(matches!(request.kind, RequestKind::Read));
         }
+    }
+
+    #[test]
+    fn wire_version_is_the_manifests() {
+        let manifest = include_str!("../Cargo.toml");
+        let line = format!(
+            "wire = \"w{}.{}\"",
+            WIRE_VERSION.line.0, WIRE_VERSION.revision.0
+        );
+        assert!(manifest.contains(&line), "Cargo.toml has no {line}");
+    }
+
+    #[test]
+    fn added_kinds_reach_only_clients_that_read_them() {
+        let older = Some(WireVersion::new(2, 0));
+        for client in [None, older] {
+            assert!(matches!(
+                ErrorKind::DeadlineExceeded.for_client(client),
+                ErrorKind::UserStr("deadline exceeded")
+            ));
+        }
+        for client in [Some(CONTEXT_SINCE), Some(WireVersion::new(3, 0))] {
+            assert!(matches!(
+                ErrorKind::Cancelled.for_client(client),
+                ErrorKind::Cancelled
+            ));
+        }
+        // the kinds every client reads stay
+        assert!(matches!(
+            ErrorKind::Overloaded.for_client(None),
+            ErrorKind::Overloaded
+        ));
+        assert!(!model_reads(Some(WireVersion::new(1, 9)), CONTEXT_SINCE));
+    }
+
+    #[test]
+    fn request_context_round_trip() {
+        let context = RequestContext {
+            trace: Some(wire_weaver::TraceContext {
+                trace_id: wire_weaver::TraceId([1; 16]),
+                parent_id: wire_weaver::SpanId([2; 8]),
+                flags: wire_weaver::TraceFlags::SAMPLED,
+            }),
+            deadline: Some(ww_si::Millis::new(UNib32(250))),
+        };
+        let request = Request {
+            seq: UVlq32Backfill(0),
+            priority: crate::Priority::NORMAL.to_wire(),
+            context: Some(RefBox::new(&context)),
+            path_kind: PathKind::absolute(&[]),
+            kind: RequestKind::Call {
+                args: TailBytes(&[7, 8]),
+            },
+        };
+        let mut buf = [0u8; 64];
+        let bytes = request.to_ww_bytes(&mut buf).unwrap();
+        let back = Request::from_ww_bytes(bytes).unwrap();
+        assert_eq!(back.context.unwrap().read().unwrap(), context);
+        assert!(matches!(back.kind, RequestKind::Call { args } if args.0 == [7, 8]));
     }
 
     #[test]
@@ -1056,7 +1224,7 @@ mod tests {
             let request = |kind| Request {
                 seq: UVlq32Backfill(0),
                 priority: crate::Priority::NORMAL.to_wire(),
-                reserved: false,
+                context: None,
                 path_kind: PathKind::absolute(&path),
                 kind,
             };

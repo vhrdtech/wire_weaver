@@ -319,7 +319,7 @@ fn write_request(buf: &mut [u8]) -> usize {
     let request = Request {
         seq: UVlq32Backfill(5),
         priority: ww_client_server::Priority::NORMAL.to_wire(),
-        reserved: false,
+        context: Default::default(),
         path_kind: PathKind::Absolute {
             path: RefVec::Slice { slice: &path },
         },

@@ -115,7 +115,7 @@ mod tests {
             let request = Request {
                 seq: UVlq32Backfill(u32::MAX),
                 priority: crate::Priority::NORMAL.to_wire(),
-                reserved: false,
+                context: Default::default(),
                 path_kind: PathKind::Absolute {
                     path: RefVec::Slice {
                         slice: &path_elements,
@@ -133,7 +133,7 @@ mod tests {
             let request = Request {
                 seq: UVlq32Backfill(u32::MAX),
                 priority: crate::Priority::NORMAL.to_wire(),
-                reserved: false,
+                context: Default::default(),
                 path_kind: PathKind::GlobalCompact {
                     gid: CompactVersion {
                         gid: wire_weaver::ww_version::GlobalTypeId::new(u32::MAX),

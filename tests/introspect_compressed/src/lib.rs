@@ -276,7 +276,7 @@ mod tests {
         let request = ww_client_server::RequestOwned {
             seq: wire_weaver::shrink_wrap::UVlq32Backfill(0),
             priority: wire_weaver::Priority::NORMAL.to_wire(),
-            reserved: false,
+            context: None,
             path_kind: ww_client_server::PathKindOwned::Absolute { path: vec![] },
             kind: ww_client_server::RequestKindOwned::Introspect,
         }

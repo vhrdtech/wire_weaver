@@ -10,6 +10,7 @@
 
 ### ⚠️ Breaking
 
+- Generated multi-request code builds each item's `Request` with `context: Default::default()` (SRV-47, EVO-84): an item carries no context of its own; the request around it does.
 - Declares `rust-version = "1.99"`: cargo of an older Rust refuses the crate.
 - Server codegen on the new handler signatures (STD-16, SRV-63): `Result<T, wire_weaver::Error<'_, E>>`, `Result<T, CommonError<'_>>` for plain items, deferred `_send_return(out, reply_to, output)`; a stream function may return plain `T`; `#[errors(..)]` takes `CommonError(Busy, ..)` entries on any item, its own names only with an error type; `Result<T, CommonError>` and a property error type `CommonError` are refused; `ww api scaffold` prints the new signatures.
 - Generated servers and clients name `CommonError` and the other types of `shrink_wrap`, `ww_error` and `ww_version` an API crate uses without depending on them through `wire_weaver::ww_api::<crate>` (API-68) instead of `wire_weaver::<crate>`, as `wire_weaver` no longer re-exports `ww_error` itself; a server or client crate on the matching `wire_weaver` needs nothing. The walker resolves such a crate through whichever prelude crate the manifest has, `ww_api` or `wire_weaver` (`PRELUDE_CRATES`, `PRELUDE_REEXPORTS` replace `WIRE_WEAVER_REEXPORTS`).

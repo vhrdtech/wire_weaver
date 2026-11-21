@@ -753,6 +753,31 @@ pub fn table() -> Vec<Typed> {
                 ww_client_server::ErrorKindOwned::Overloaded,
             )
         }),
+        // a host server's own answers (SRV-47), appended after Overloaded
+        case_debug("client_server.error.denied", || {
+            ww_client_server::ErrorOwned::new(
+                ww_client_server::err_seq::REQUEST_DENIED,
+                ww_client_server::ErrorKindOwned::Denied,
+            )
+        }),
+        case_debug("client_server.error.deadline_exceeded", || {
+            ww_client_server::ErrorOwned::new(
+                ww_client_server::err_seq::REQUEST_DEADLINE,
+                ww_client_server::ErrorKindOwned::DeadlineExceeded,
+            )
+        }),
+        case_debug("client_server.error.cancelled", || {
+            ww_client_server::ErrorOwned::new(
+                ww_client_server::err_seq::REQUEST_CANCELLED,
+                ww_client_server::ErrorKindOwned::Cancelled,
+            )
+        }),
+        case_debug("client_server.error.internal", || {
+            ww_client_server::ErrorOwned::new(
+                ww_client_server::err_seq::GENERIC,
+                ww_client_server::ErrorKindOwned::Internal,
+            )
+        }),
         // ww_link's Disconnect payload, not in the API model
         case_borrowed_only(
             "disconnect_reason.hub_handover",
@@ -779,7 +804,7 @@ pub fn table() -> Vec<Typed> {
             RequestOwned {
                 seq: wire_weaver::shrink_wrap::UVlq32Backfill(1),
                 priority: Priority::NORMAL.to_wire(),
-                reserved: false,
+                context: None,
                 path_kind: PathKindOwned::Absolute {
                     path: ww_client_server::resource_path([10]).to_vec(),
                 },
@@ -794,7 +819,7 @@ pub fn table() -> Vec<Typed> {
             RequestOwned {
                 seq: wire_weaver::shrink_wrap::UVlq32Backfill(1),
                 priority: Priority::NORMAL.to_wire(),
-                reserved: false,
+                context: None,
                 path_kind: PathKindOwned::Absolute {
                     path: ww_client_server::resource_path([0, 6]).to_vec(),
                 },
@@ -811,7 +836,7 @@ pub fn table() -> Vec<Typed> {
             RequestOwned {
                 seq: wire_weaver::shrink_wrap::UVlq32Backfill(1),
                 priority: Priority::NORMAL.to_wire(),
-                reserved: false,
+                context: None,
                 path_kind: PathKindOwned::Absolute {
                     path: ww_client_server::resource_path([0, 6]).to_vec(),
                 },
@@ -1244,7 +1269,7 @@ pub fn table() -> Vec<Typed> {
             ww_client_server::RequestOwned {
                 seq: UVlq32Backfill(0),
                 priority: ww_client_server::Priority::NORMAL.to_wire(),
-                reserved: false,
+                context: None,
                 path_kind: ww_client_server::PathKindOwned::Absolute {
                     path: ww_client_server::resource_path([3, 1, 1000]).to_vec(),
                 },
@@ -1255,7 +1280,7 @@ pub fn table() -> Vec<Typed> {
             ww_client_server::RequestOwned {
                 seq: UVlq32Backfill(0),
                 priority: ww_client_server::Priority::NORMAL.to_wire(),
-                reserved: false,
+                context: None,
                 path_kind: ww_client_server::PathKindOwned::GlobalCompact {
                     gid: wire_weaver::ww_version::CompactVersion::new(
                         wire_weaver::ww_version::GlobalTypeId::new(5),
@@ -1275,22 +1300,52 @@ pub fn table() -> Vec<Typed> {
             ww_client_server::RequestOwned {
                 seq: UVlq32Backfill(0),
                 priority: ww_client_server::Priority::URGENT.to_wire(),
-                reserved: false,
+                context: None,
                 path_kind: ww_client_server::PathKindOwned::Absolute {
                     path: ww_client_server::resource_path([3]).to_vec(),
                 },
                 kind: ww_client_server::RequestKindOwned::Read,
             }
         }),
+        // the bit that was reserved is the flag of the request's context (SRV-47, EVO-84)
         case_debug("client_server.request.highest_reserved", || {
+            context_request(
+                ww_client_server::Priority::HIGHEST,
+                ww_client_server::RequestContext {
+                    trace: None,
+                    deadline: Some(ww_si::Millis::new(UNib32(250))),
+                },
+            )
+        }),
+        case_debug("client_server.request.context_deadline", || {
+            context_request(
+                ww_client_server::Priority::NORMAL,
+                ww_client_server::RequestContext {
+                    trace: None,
+                    deadline: Some(ww_si::Millis::new(UNib32(1500))),
+                },
+            )
+        }),
+        case_debug("client_server.request.context_trace", || {
+            context_request(
+                ww_client_server::Priority::NORMAL,
+                ww_client_server::RequestContext {
+                    trace: Some(wire_weaver::TraceContext {
+                        trace_id: wire_weaver::TraceId([0x4b; 16]),
+                        parent_id: wire_weaver::SpanId([0x0f; 8]),
+                        flags: wire_weaver::TraceFlags::SAMPLED,
+                    }),
+                    deadline: None,
+                },
+            )
+        }),
+        case_debug("client_server.request.cancel", || {
             ww_client_server::RequestOwned {
                 seq: UVlq32Backfill(0),
-                priority: ww_client_server::Priority::HIGHEST.to_wire(),
-                reserved: true,
-                path_kind: ww_client_server::PathKindOwned::Absolute {
-                    path: ww_client_server::resource_path([3]).to_vec(),
-                },
-                kind: ww_client_server::RequestKindOwned::Read,
+                priority: ww_client_server::Priority::NORMAL.to_wire(),
+                context: None,
+                path_kind: ww_client_server::PathKindOwned::Absolute { path: vec![] },
+                kind: ww_client_server::RequestKindOwned::Cancel { seq: UVlq32(5) },
             }
         }),
         case_debug("client_server.event.stream_data_path", || {
@@ -1734,6 +1789,22 @@ fn device_info(
 }
 
 /// A stream open as a host sends it (API-55): `raw` asks for the items as they are.
+/// A Read of `/3` with a request context (SRV-47).
+fn context_request(
+    priority: ww_client_server::Priority,
+    context: ww_client_server::RequestContext,
+) -> ww_client_server::RequestOwned {
+    ww_client_server::RequestOwned {
+        seq: UVlq32Backfill(0),
+        priority: priority.to_wire(),
+        context: Some(Box::new(context)),
+        path_kind: ww_client_server::PathKindOwned::Absolute {
+            path: ww_client_server::resource_path([3]).to_vec(),
+        },
+        kind: ww_client_server::RequestKindOwned::Read,
+    }
+}
+
 fn stream_open(raw: bool) -> ww_client_server::RequestKindOwned {
     ww_client_server::RequestKindOwned::StreamOpen {
         resume: None,

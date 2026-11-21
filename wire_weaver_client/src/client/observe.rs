@@ -700,7 +700,7 @@ fn request_bytes(path: &[ResourceIndex], cfg: &ObserveConfig) -> Result<Vec<u8>,
     let req = RequestOwned {
         seq: UVlq32Backfill(0),
         priority: ww_client_server::Priority::NORMAL.to_wire(),
-        reserved: false,
+        context: None,
         path_kind: PathKindOwned::Absolute {
             path: path.to_vec(),
         },

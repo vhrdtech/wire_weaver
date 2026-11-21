@@ -95,7 +95,7 @@ fn the_rest_is_served() {
     let request = Request {
         seq: UVlq32Backfill(1),
         priority: Priority::NORMAL.to_wire(),
-        reserved: false,
+        context: Default::default(),
         path_kind: PathKind::absolute(&path),
         kind: RequestKind::Call {
             args: TailBytes(&[]),

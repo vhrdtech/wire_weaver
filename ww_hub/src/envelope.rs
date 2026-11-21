@@ -114,8 +114,9 @@ pub(crate) fn access(request: &[u8]) -> Result<Option<(Access, Place, bool)>, ()
         }
         RequestKind::Observe { .. } => (Access::Observe, false),
         RequestKind::Introspect => return Ok(None),
-        // a kind from a newer version: undecodable as before it read as Unknown, never given an access
-        RequestKind::Unknown(_) => return Err(()),
+        // a kind from a newer version: undecodable as before it read as Unknown, never given an access; a cancel
+        // names a client's seq the hub would have to translate, and no device behind it reads one (SRV-47)
+        RequestKind::Cancel { .. } | RequestKind::Unknown(_) => return Err(()),
     };
     let ids = |p: &wire_weaver::shrink_wrap::RefVec<'_, ww_client_server::ResourceIndex>| {
         p.iter()
@@ -154,7 +155,7 @@ pub(crate) fn request(path: &[u32], priority: Priority, kind: RequestKindOwned) 
     RequestOwned {
         seq: UVlq32Backfill(0),
         priority: priority.to_wire(),
-        reserved: false,
+        context: None,
         path_kind: PathKindOwned::Absolute {
             path: path
                 .iter()
@@ -256,7 +257,7 @@ mod tests {
         let req = RequestOwned {
             seq: UVlq32Backfill(0),
             priority: ww_client_server::Priority::NORMAL.to_wire(),
-            reserved: false,
+            context: None,
             path_kind: PathKindOwned::Absolute {
                 path: ww_client_server::resource_path([2, 5]).to_vec(),
             },

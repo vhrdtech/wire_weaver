@@ -1820,6 +1820,13 @@ Unicast Data0 to one node over the same bus is TR-6.
   mismatch (test `wire_weaver_evolution` `old_format`). Format 0.3.0 had held about 40 encodings: every stored
   snapshot was rewritten once into 0.4.0 ([snapshots](docs/evolution/snapshots.md#model-format)). No device or
   host depends on an older format.
+- 🚧 **EVO-84 Request context on the wire** · `v0.5` — wire change of `ww_client_server` (line `w2.1`) behind
+  SRV-47: the reserved bit after `Request::priority` is the flag of an optional `RequestContext` (trace, deadline),
+  `RequestKind::Cancel` and the error kinds `Denied`, `DeadlineExceeded`, `Cancelled`, `Internal` are appended. A
+  request without a context has the old bytes; the sealed case `client_server.request.highest_reserved` set the bit
+  and reads as a context now (`wire_change`). Conformance cases `client_server.request.context_*`, `.cancel`,
+  `client_server.error.denied` and the three after it. Missing: the link-setup fields that announce both sides read
+  the new forms.
 - ✅ **EVO-83 `ErrorKind::Overloaded` appended** · `v0.5` — wire addition to `ww_client_server`'s `ErrorKind`, no
   break: `Overloaded` comes after `Common`, at the new request site `err_seq::REQUEST_OVERLOADED` (63). A host
   server (SRV-12) answers with it a request it refused for its load before any handler ran. An older host reads it

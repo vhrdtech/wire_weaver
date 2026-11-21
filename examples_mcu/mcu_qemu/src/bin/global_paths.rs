@@ -47,7 +47,7 @@ fn request<'b>(path_kind: PathKind<'_>, buf: &'b mut [u8]) -> &'b [u8] {
     let request = Request {
         seq: UVlq32Backfill(1),
         priority: ww_client_server::Priority::NORMAL.to_wire(),
-        reserved: false,
+        context: Default::default(),
         path_kind,
         kind: RequestKind::Call {
             args: TailBytes(&[]),

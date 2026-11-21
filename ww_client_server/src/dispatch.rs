@@ -118,6 +118,11 @@ fn write_err(
         D::Overloaded => ErrorKind::Overloaded,
         // written with its payload by `common_error`, never through here; nor is a kind of a newer version
         D::Common | D::Unknown(_) => ErrorKind::OperationNotSupported,
+        // a host server's own answers (SRV-47), never a dispatcher's
+        #[cfg(feature = "std")]
+        D::Denied | D::DeadlineExceeded | D::Cancelled | D::Internal => {
+            ErrorKind::OperationNotSupported
+        }
     };
     write_error_at(wr, before, &Error::new(err_seq, kind))
 }
@@ -680,7 +685,7 @@ mod tests {
         let request = Request {
             seq: UVlq32Backfill(1),
             priority: Priority::NORMAL.to_wire(),
-            reserved: false,
+            context: Default::default(),
             path_kind: PathKind::absolute(&[]),
             kind: RequestKind::Read,
         };

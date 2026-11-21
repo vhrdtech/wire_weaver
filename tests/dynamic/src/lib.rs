@@ -625,7 +625,7 @@ mod tests {
             RequestOwned {
                 seq: UVlq32Backfill(1),
                 priority: ww_client_server::Priority::NORMAL.to_wire(),
-                reserved: false,
+                context: None,
                 path_kind: PathKindOwned::GlobalCompact {
                     gid: CompactVersion::new(GlobalTypeId::new(id), 0, 1, 0),
                     path_from_trait: ww_client_server::resource_path([1]).to_vec(),

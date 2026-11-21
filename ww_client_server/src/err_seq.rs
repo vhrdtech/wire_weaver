@@ -169,6 +169,15 @@ pub const REQUEST_NOT_SHARED: u32 = 62;
 /// A request a host server refused before any handler saw it, for its load across connections (SRV-12). Answered
 /// with [Overloaded](crate::ErrorKind::Overloaded).
 pub const REQUEST_OVERLOADED: u32 = 63;
+/// A request a host server dropped when its deadline ran out (SRV-47), queued or running. Answered with
+/// [DeadlineExceeded](crate::ErrorKind::DeadlineExceeded).
+pub const REQUEST_DEADLINE: u32 = 64;
+/// A request a host server dropped for the client's [Cancel](crate::RequestKind::Cancel) (SRV-47), queued or
+/// running. Answered with [Cancelled](crate::ErrorKind::Cancelled).
+pub const REQUEST_CANCELLED: u32 = 65;
+/// A request a host server's policy or authorization hook refused before any handler saw it (SRV-46). Answered
+/// with [Denied](crate::ErrorKind::Denied).
+pub const REQUEST_DENIED: u32 = 66;
 
 /// `ww_device`'s answer when the server failed without an error to send.
 pub const GENERIC: u32 = u32::MAX;
@@ -183,7 +192,8 @@ pub enum Site {
     /// The dispatch of a trait level on the request's path, one of the `LEVEL_*` sites (and [REPLY_START]).
     Level(u32),
     /// The request as a whole, one of the `REQUEST_*`, `MULTI_*`, `OBSERVE_*` sites, [INTROSPECT], [REPLY_OVER_LIMIT]
-    /// [REQUEST_KIND_UNKNOWN], [REQUEST_NOT_SHARED] or [REQUEST_OVERLOADED].
+    /// [REQUEST_KIND_UNKNOWN], [REQUEST_NOT_SHARED], [REQUEST_OVERLOADED], [REQUEST_DEADLINE],
+    /// [REQUEST_CANCELLED] or [REQUEST_DENIED].
     Request(u32),
     /// [GENERIC].
     Generic,
@@ -197,7 +207,7 @@ impl Site {
             0..ITEM_END => Site::Item(err_seq),
             DEFERRED_OUTPUT_SER..=DEFERRED_EVENT_FINISH => Site::DeferredReturn(err_seq),
             LEVEL_BAD_PATH..=REPLY_START => Site::Level(err_seq),
-            REQUEST_TRAIT_NOT_FOUND..=REQUEST_OVERLOADED => Site::Request(err_seq),
+            REQUEST_TRAIT_NOT_FOUND..=REQUEST_DENIED => Site::Request(err_seq),
             GENERIC => Site::Generic,
             _ => Site::Unknown(err_seq),
         }
@@ -254,6 +264,9 @@ impl Site {
             REQUEST_KIND_UNKNOWN => "request kind not served by this firmware",
             REQUEST_NOT_SHARED => "request not taken by the shared entry",
             REQUEST_OVERLOADED => "refused by a host server for its load",
+            REQUEST_DEADLINE => "dropped by a host server at its deadline",
+            REQUEST_CANCELLED => "dropped by a host server for the client's cancel",
+            REQUEST_DENIED => "refused by a host server's policy",
             _ => return None,
         })
     }
@@ -296,7 +309,7 @@ mod tests {
             "level site 40 (no such item)"
         );
         // every site in a range has a name
-        for seq in (0..=DEFERRED_IN_MULTI).chain(ITEM_END..=REQUEST_OVERLOADED) {
+        for seq in (0..=DEFERRED_IN_MULTI).chain(ITEM_END..=REQUEST_DENIED) {
             let site = Site::of(seq);
             if !matches!(site, Site::Unknown(_)) {
                 assert!(site.name().is_some(), "{seq}");

@@ -17,13 +17,15 @@ use std::sync::Mutex;
 use wire_weaver::prelude::UNib32;
 use wire_weaver::shrink_wrap::buf_reader::Cursors;
 use wire_weaver::shrink_wrap::prelude::U3;
+use wire_weaver::shrink_wrap::ref_box::RefBox;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
 use wire_weaver::shrink_wrap::{
     BufReader, DeserializeShrinkWrap, SerializeShrinkWrapOwned, UVlq32, UVlq32Backfill,
 };
 use ww_client_server::observe::{ObserveEntry, ObserveGranted, ObserveMode};
 use ww_client_server::{
-    EventKind, PathKind, PathKindOwned, Request, RequestKind, RequestKindOwned, RequestOwned,
+    EventKind, PathKind, PathKindOwned, Request, RequestContext, RequestKind, RequestKindOwned,
+    RequestOwned,
 };
 use ww_numeric::NumericValue;
 use ww_self::explain::{Explained, Part, PartKind, explain, explain_fields};
@@ -73,15 +75,16 @@ pub fn explain_request<'r>(
         );
 
         let at = b.at(&rd);
-        let reserved: bool = rd.read()?;
+        let context: Option<RefBox<'_, RequestContext>> = rd.read()?;
+        let context = context.map(|c| c.read()).transpose()?;
         b.leaf(
             1,
-            "reserved",
-            "bool",
+            "context",
+            "Option<RequestContext>",
             at,
             b.at(&rd),
-            Some(ValueOwned::Bool(reserved)),
             None,
+            context.map(|c| format!("{c:?}")),
         );
 
         let at = b.at(&rd);
@@ -421,7 +424,7 @@ pub fn request_bytes(resource: &DynResource, payload: Option<Vec<u8>>) -> Result
     let mut bytes = RequestOwned {
         seq: UVlq32Backfill(0),
         priority: ww_client_server::Priority::NORMAL.to_wire(),
-        reserved: false,
+        context: None,
         path_kind: path,
         kind,
     }
@@ -780,6 +783,7 @@ pub(crate) fn request_variant(kind: &RequestKind) -> &'static str {
         RequestKind::Observe { .. } => "Observe",
         RequestKind::SinkWrite { .. } => "SinkWrite",
         RequestKind::SinkWriteUnits { .. } => "SinkWriteUnits",
+        RequestKind::Cancel { .. } => "Cancel",
         RequestKind::Unknown(_) => "Unknown",
     }
 }

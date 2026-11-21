@@ -11,6 +11,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
+- Requests carry an optional context (trace, deadline), a cancel request and four new error kinds on the wire (EVO-84, SRV-47); see `ww_client_server`.
 - UDP serves several hosts on one port, a link each (SRV-68); see `ww_device`.
 - Docs name the Portwright repo `portwright` (was `typec_dongle`, renamed).
 - `just lint` and CI run spirit_level (`spirit_level.toml`); every crate declares `rust-version = "1.99"`.

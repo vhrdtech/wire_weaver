@@ -464,6 +464,37 @@ fn a_host_waiting_for_accept_holds_up_nobody() {
     assert_ne!(s1, s3);
 }
 
+/// Once the server accepts no more hosts, a new host ends no connection: the connections accepted go on.
+#[test]
+fn a_table_that_stopped_accepting_ends_no_connection_for_a_new_host() {
+    let peers = Two::new(MockSocket::default());
+    let (mut b0, mut b1) = (Buf::new(), Buf::new());
+    let mut accept_buf = [0u8; UDP_MAX_DATAGRAM_LEN];
+    let (mut h1, mut h2) = (Host::default(), Host::default());
+    push(&peers, 1, h1.datagram(&[NOP]));
+    push(&peers, 2, h2.datagram(&[NOP]));
+    let Poll::Ready(Ok((s1, 1))) = poll_once(peers.accept(&mut accept_buf)) else {
+        panic!("host 1 accepted")
+    };
+    let Poll::Ready(Ok((s2, 2))) = poll_once(peers.accept(&mut accept_buf)) else {
+        panic!("host 2 accepted")
+    };
+    let (mut rx1, mut rx2) = (slot(&peers, s1, &mut b0), slot(&peers, s2, &mut b1));
+    assert!(rx1.try_connect() && rx2.try_connect());
+    assert_eq!(rx1.messages().unwrap(), [(3, std::vec![])]);
+    assert_eq!(rx2.messages().unwrap(), [(3, std::vec![])]);
+    peers.stop_accepting();
+
+    // host 1 is heard from least recently: a server still accepting would end its connection for host 3
+    push(&peers, 2, h2.datagram(&[DATA]));
+    push(&peers, 3, hello());
+    push(&peers, 1, h1.datagram(&[DATA]));
+    assert_eq!(rx2.messages().unwrap(), [(0, std::vec![1, 2, 3])]);
+    assert_eq!(rx1.messages().unwrap(), [(0, std::vec![1, 2, 3])]);
+    assert_eq!((peers.peer(s1), peers.peer(s2)), (Some(1), Some(2)));
+    assert_eq!(reply_to(&peers, s1), Ok(1));
+}
+
 /// A table on a computer: owned framers over a shared locked table, the way a host server's connections use
 /// it, and everything they hold or wait on is `Send`, so they run on any thread.
 #[cfg(feature = "std")]

@@ -343,8 +343,13 @@ impl<A: Copy + PartialEq, const PEERS: usize> State<A, PEERS> {
                 let Some(slot) = self.least_recent() else {
                     return Route::Drop;
                 };
+                let listening = self.listening;
                 let s = self.slot(slot);
                 if s.claim == Claim::Accepted {
+                    // nobody accepts the new host any more: no connection is ended for it
+                    if !listening {
+                        return Route::Drop;
+                    }
                     debug!(
                         "udp: every slot is taken, ending the connection in slot {}",
                         slot
@@ -571,6 +576,13 @@ impl<S: DatagramSocket, const PEERS: usize, H: Access<S::Addr, PEERS>> UdpPeers<
             let datagram = buf.get(..len).unwrap_or(buf);
             receiving.deliver(from, datagram, None);
         }
+    }
+
+    /// Hand out no more hosts, after the last [accept](Self::accept): with every slot taken, a new host is dropped
+    /// instead of ending a connection for it. The connections accepted go on. Calling `accept` again hands out
+    /// hosts again.
+    pub fn stop_accepting(&self) {
+        self.sharing.with(|t| t.listening = false);
     }
 
     /// Wait until `slot` has something, or may receive.

@@ -29,6 +29,7 @@
 
 ### 🚀 Features
 
+- `TraceContext`, `TraceId`, `SpanId` and `TraceFlags` derive shrink_wrap (SRV-47), `sized`: a trace context is its 25 bytes on the wire, for `ww_client_server::RequestContext`.
 - `WireWeaverSharedApiBackend` (SRV-65): `is_shared(data)` and `process_shared_bytes(&self, origin, ..)` for a host runtime that runs shared requests side by side.
 - `DisconnectReason::Shutdown` (SRV-12), appended: a server that shuts down says so; an older reader gets `Newer(7)`.
 - `Error<'i, E>` and `api_error!` re-exported from `ww_api`, and `IntoOutput<'i, T>` (STD-16): what a handler of an item declared without a `Result` returns, `T` or `Result<T, CommonError>`; the dispatcher takes either.

@@ -2,6 +2,7 @@
 //! service and for a call in the same process (SRV-48).
 
 use exact_units::Millis;
+use shrink_wrap::prelude::*;
 
 use crate::Priority;
 
@@ -171,9 +172,15 @@ impl ConnectionId {
     pub const LOCAL: ConnectionId = ConnectionId(0);
 }
 
-/// W3C trace context (`traceparent`, version 00): which trace and span a call belongs to.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+/// W3C trace context (`traceparent`, version 00): which trace and span a call belongs to. On the wire (SRV-47) it
+/// is its 25 bytes as they are: the ids, then the flags.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug, Eq, PartialEq, Hash),
+    sized
+)]
 pub struct TraceContext {
     pub trace_id: TraceId,
     /// The caller's span: the parent of the spans the call makes.
@@ -182,18 +189,33 @@ pub struct TraceContext {
 }
 
 /// A trace's id, 16 bytes; all zeros is not valid.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug, Eq, PartialEq, Hash),
+    sized
+)]
 pub struct TraceId(pub [u8; 16]);
 
 /// A span's id, 8 bytes; all zeros is not valid.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug, Eq, PartialEq, Hash),
+    sized
+)]
 pub struct SpanId(pub [u8; 8]);
 
 /// `trace-flags` of a trace context: bit 0 is `sampled`.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Default)]
-#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Default),
+    sized
+)]
 pub struct TraceFlags(pub u8);
 
 impl TraceFlags {

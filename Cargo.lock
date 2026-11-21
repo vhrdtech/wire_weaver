@@ -1687,16 +1687,21 @@ checksum = "e712f64ec3850b98572bffac52e2c6f282b29fe6c5fa6d42334b30be438d95c1"
 name = "host_server"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "futures-util",
  "host_server_api",
+ "keep_trying_api",
  "tests_common",
  "tokio",
+ "tokio-util",
  "wire_weaver",
  "wire_weaver_client",
  "wire_weaver_server",
+ "ww_byte_stream",
  "ww_client_server",
  "ww_device",
  "ww_local_socket",
+ "ww_si",
  "ww_stream",
 ]
 

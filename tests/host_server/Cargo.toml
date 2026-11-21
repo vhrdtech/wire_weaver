@@ -1,7 +1,7 @@
 [package]
 name = "host_server"
 version = "0.1.0"
-description = "Tests of the host server (SRV-12): many clients on one API, calls side by side, pumps, limits, shutdown"
+description = "Tests of the host server (SRV-12): many clients on one API, calls side by side, pumps, limits, shutdown, byte streams (TR-19)"
 publish = false
 edition.workspace = true
 rust-version.workspace = true
@@ -9,18 +9,28 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[dependencies]
+keep_trying_api.workspace = true
+tokio = { workspace = true, features = ["macros", "rt"] }
+wire_weaver = { workspace = true, features = ["std"] }
+wire_weaver_client = { workspace = true, features = ["in_process"] }
+wire_weaver_server = { workspace = true, features = ["tokio"] }
+ww_client_server.workspace = true
+ww_device.workspace = true
+ww_si = { workspace = true, features = ["counting"] }
+ww_stream = { workspace = true, features = ["std"] }
+
 [dev-dependencies]
+anyhow.workspace = true
 futures-util.workspace = true
 host_server_api.workspace = true
 tests_common.workspace = true
-tokio = { workspace = true, features = ["sync", "rt-multi-thread", "rt", "macros", "test-util", "time"] }
-wire_weaver = { workspace = true, features = ["std"] }
+tokio = { workspace = true, features = ["io-util", "net", "sync", "rt-multi-thread", "rt", "macros", "test-util", "time"] }
+tokio-util = { workspace = true, features = ["compat"] }
 wire_weaver_client = { workspace = true, features = ["in_process", "local_socket"] }
 wire_weaver_server = { workspace = true, features = ["in_process", "local_socket", "tokio"] }
-ww_client_server.workspace = true
-ww_device.workspace = true
+ww_byte_stream.workspace = true
 ww_local_socket = { workspace = true, features = ["socket"] }
-ww_stream = { workspace = true, features = ["std"] }
 
 [lints]
 workspace = true

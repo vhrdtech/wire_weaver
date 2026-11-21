@@ -1,5 +1,8 @@
 //! The host server (SRV-12, `wire_weaver_server`): many clients on one API, each connection with its own backend,
-//! limits and shutdown. Clients and server run in one process, on tokio's clock.
+//! limits and shutdown. Clients and server run in one process, on tokio's clock. Byte-stream listeners (TR-19): TCP,
+//! streams handed in, two APIs on one source; stdio in `tests/stdio.rs` with the `stdio_server` binary.
+
+pub mod counter;
 
 #[cfg(test)]
 mod tests {
@@ -334,6 +337,8 @@ mod tests {
     enum Reach {
         InProcess(String),
         LocalSocket(String),
+        Tcp(String),
+        Stream(wire_weaver_client::StreamOpener),
     }
 
     /// Start a [Bench] on `$listener`. A macro, not a function generic over the listener: the futures of a
@@ -442,6 +447,8 @@ mod tests {
                     let c = match &reach {
                         Reach::InProcess(path) => c.in_process_path(path.clone()),
                         Reach::LocalSocket(path) => c.ipc_path(path.clone()),
+                        Reach::Tcp(addr) => c.tcp(addr.clone()),
+                        Reach::Stream(opener) => c.stream(opener.clone()),
                     };
                     c.resolver(tests_common::resolver())
                         .link_setup_timeout(SOON)
@@ -965,4 +972,6 @@ mod tests {
         );
         assert!(stuck.await.unwrap().is_err());
     }
+
+    mod byte_streams;
 }

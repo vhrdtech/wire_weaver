@@ -22,6 +22,8 @@ tokio = [
     "tokio/net",
     "tokio/time",
 ]
+# The UDP listener: a connection per host of a datagram socket (ww_device::udp's peer table)
+udp = ["ww_device/std"]
 # The local-socket source (Unix socket, named pipe on Windows), also on a socket systemd passed; runs on tokio
 local_socket = ["tokio", "dep:ww_local_socket", "ww_local_socket/socket"]
 

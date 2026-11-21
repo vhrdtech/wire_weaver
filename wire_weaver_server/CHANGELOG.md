@@ -9,6 +9,7 @@
 
 ### 🚀 Features
 
+- `udp::UdpListener` (feature `udp`): a connection per host of a datagram socket, by its address, up to `PEERS` at once; `UdpListener::bind` on tokio (feature `tokio`), `PeerAddr` (SRV-69).
 - `Accept<Tx, Rx, E>`: the result of `Listener::accept`, named (TR-19).
 - `byte_stream::WsFraming` (TR-19): WebSocket clients on any byte-stream source; the URL path names the service.
 - Byte-stream sources: `TcpIncoming` and `stdio` (feature `tokio`), `handed_in` with `StreamSender::serve_stream(stream, peer)` for streams the program accepted (TR-19).

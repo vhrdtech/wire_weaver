@@ -53,6 +53,7 @@ published = [
     "wire_weaver_evolution",
     "wire_weaver_server",
     "ww_api",
+    "ww_calloop",
     "ww_client_server",
     "ww_clock_sync",
     "ww_device",

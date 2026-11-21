@@ -1,0 +1,26 @@
+[package]
+name = "calloop_server"
+version = "0.1.0"
+description = "Tests of ww_calloop (SRV-70): wire_weaver_server on a calloop loop, WebSocket and UDP clients, shutdown"
+publish = false
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dev-dependencies]
+calloop = { workspace = true, features = ["executor"] }
+futures-channel.workspace = true
+futures-util.workspace = true
+host_server.workspace = true
+tests_common.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }
+wire_weaver = { workspace = true, features = ["std"] }
+wire_weaver_client = { workspace = true, features = ["udp", "ws"] }
+wire_weaver_server.workspace = true
+ww_calloop.workspace = true
+ww_device.workspace = true
+
+[lints]
+workspace = true

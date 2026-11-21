@@ -19,6 +19,7 @@ members = [
     "ww_api",
     "ww_book",
     "ww_byte_stream",
+    "ww_calloop",
     "ww_client_server",
     "ww_clock_sync",
     "ww_device",
@@ -70,6 +71,8 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(fuzzing)'] }
 [workspace.dependencies]
 anyhow = { version = "1", default-features = false, features = ["std"] }
 atomic-waker = { version = "1.1", default-features = false, features = ["portable-atomic"] }
+# the event loop of ww_calloop: its timers and file descriptor readiness
+calloop = { version = "0.14", default-features = false }
 cargo_metadata = { version = "0.23", default-features = false }
 cargo_toml = { version = "1.0", default-features = false }
 cc = { version = "1.2", default-features = false }
@@ -197,6 +200,7 @@ wire_weaver_server = { version = "0.5.0", path = "./wire_weaver_server" }
 ww_api = { version = "0.5.0", path = "./ww_api", default-features = false }
 ww_book = { version = "0.5.0", path = "./ww_book" }
 ww_byte_stream = { version = "0.5.0", path = "./ww_byte_stream" }
+ww_calloop = { version = "0.5.0", path = "./ww_calloop" }
 ww_clock_sync = { version = "0.5.0", path = "./ww_clock_sync" }
 ww_device = { version = "0.5.0", path = "./ww_device" }
 ww_dns_sd = { version = "0.5.0", path = "./ww_dns_sd", default-features = false }
@@ -249,6 +253,7 @@ follow_reboot_api = { version = "0.1.0", path = "./tests/follow_reboot_api" }
 generics_api = { version = "0.1.0", path = "./tests/generics_api" }
 global_boot_api = { version = "0.1.0", path = "./tests/global_boot_api", default-features = false }
 global_fixture_api = { version = "0.1.0", path = "./tests/global_fixture_api", default-features = false }
+host_server = { version = "0.1.0", path = "./tests/host_server" }
 host_server_api = { version = "0.1.0", path = "./tests/host_server_api" }
 hub_api = { version = "0.1.0", path = "./tests/hub_api" }
 hub_pytest_device_api = { version = "0.1.0", path = "./tests/hub_pytest_device_api" }

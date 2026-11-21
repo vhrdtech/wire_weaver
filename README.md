@@ -61,6 +61,8 @@
 [![crates.io](https://img.shields.io/crates/v/ww_trace_context)](https://crates.io/crates/ww_trace_context)
 [![docs.rs](https://img.shields.io/docsrs/ww_byte_stream)](https://docs.rs/ww_byte_stream)
 [![docs.rs](https://img.shields.io/docsrs/ww_trace_context)](https://docs.rs/ww_trace_context)
+[![crates.io](https://img.shields.io/crates/v/ww_calloop)](https://crates.io/crates/ww_calloop)
+[![docs.rs](https://img.shields.io/docsrs/ww_calloop)](https://docs.rs/ww_calloop)
 
 <p align="center">
 <picture>
@@ -173,6 +175,7 @@ If you only want to serialize and deserialize some data types, it can be used st
 | [`blinky_py`](examples/blinky_py) | runtime | Python wheel of the blinky example client |
 | [`bounded`](tests/bounded) | runtime | Tests bounded lists and strings (MaxLen, SW-19) through generated server and client code |
 | [`bounded_api`](tests/bounded_api) | runtime | Bounded lists and strings (MaxLen, SW-19) in every position of an API |
+| [`calloop_server`](tests/calloop_server) | runtime | Tests of ww_calloop (SRV-70): wire_weaver_server on a calloop loop, WebSocket and UDP clients, shutdown |
 | [`cfg_variants`](tests/cfg_variants) | runtime | Tests #[cfg] enum variants (DER-8) across a host and a firmware build with different features |
 | [`cfg_variants_api`](tests/cfg_variants_api) | runtime | An API with #[cfg] enum variants (DER-8); tests/cfg_variants_narrow_api has the firmware's narrower build |
 | [`cfg_variants_narrow_api`](tests/cfg_variants_narrow_api) | runtime | The firmware build of the #[cfg] enum variants API (DER-8): same source as cfg_variants_api, without wide/float |
@@ -301,6 +304,7 @@ If you only want to serialize and deserialize some data types, it can be used st
 | [`wire_weaver_server`](wire_weaver_server) | runtime | WireWeaver host server: many connections to one API, on any async runtime |
 | [`ww_book`](ww_book) | runtime | Assembles the WireWeaver book: copies the pages and feature trackers of the repositories it takes by git into docs/ |
 | [`ww_byte_stream`](ww_byte_stream) | runtime | WireWeaver over byte streams: the connection preamble and message framing |
+| [`ww_calloop`](ww_calloop) | runtime | WireWeaver host server on a calloop event loop: its clock, TCP and UDP listeners |
 | [`ww_client_server`](ww_client_server) | runtime | Client-server API model data types for both no_std and std. |
 | [`ww_clock_sync`](ww_clock_sync) | runtime | Host clock sync for WireWeaver devices: fits each device's clock against the host's and steers it onto UTC (ww_timebase::Clock) |
 | [`ww_device`](ww_device) | runtime | WireWeaver device side: sans-IO link state machine and event loop building blocks, no_std and no alloc |

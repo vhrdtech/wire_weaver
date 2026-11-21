@@ -1,0 +1,19 @@
+[package]
+name = "ww_calloop"
+version.workspace = true
+authors.workspace = true
+description = "WireWeaver host server on a calloop event loop: its clock, TCP and UDP listeners"
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[dependencies]
+calloop = { workspace = true, features = ["futures-io"] }
+futures-util = { workspace = true, features = ["std"] }
+wire_weaver = { workspace = true, features = ["std"] }
+wire_weaver_server = { workspace = true, features = ["udp"] }
+ww_device = { workspace = true, features = ["std"] }
+
+[lints]
+workspace = true

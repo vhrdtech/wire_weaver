@@ -141,6 +141,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-task"
+version = "4.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b75356056920673b02621b35afd0f7dda9306d03c79a30f5c56c44cf256e3de"
+
+[[package]]
 name = "async-trait"
 version = "0.1.92"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -387,6 +393,38 @@ name = "bytes"
 version = "1.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc652a48c352aef3ea3aed32080501cf3ef6ed5da78602a020c991775b0aff04"
+
+[[package]]
+name = "calloop"
+version = "0.14.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "43b32313e937c8721c9d17ee9bf60699a6402b4b7c2cb6ac1bee0ffcaa4b4e5e"
+dependencies = [
+ "async-task",
+ "bitflags 2.13.2",
+ "futures-io",
+ "polling",
+ "rustix",
+ "slab",
+ "tracing",
+]
+
+[[package]]
+name = "calloop_server"
+version = "0.1.0"
+dependencies = [
+ "calloop",
+ "futures-channel",
+ "futures-util",
+ "host_server",
+ "tests_common",
+ "tokio",
+ "wire_weaver",
+ "wire_weaver_client",
+ "wire_weaver_server",
+ "ww_calloop",
+ "ww_device",
+]
 
 [[package]]
 name = "camino"
@@ -4106,6 +4144,7 @@ version = "0.1.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "63e71662fa4b2a2c3a26f570f037eb95bb1f85397f3cd8076caed2f026a6d100"
 dependencies = [
+ "log",
  "pin-project-lite",
  "tracing-attributes",
  "tracing-core",
@@ -4868,6 +4907,17 @@ dependencies = [
  "httparse",
  "tokio",
  "tokio-util",
+ "ww_device",
+]
+
+[[package]]
+name = "ww_calloop"
+version = "0.5.0"
+dependencies = [
+ "calloop",
+ "futures-util",
+ "wire_weaver",
+ "wire_weaver_server",
  "ww_device",
 ]
 

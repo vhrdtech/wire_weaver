@@ -258,7 +258,35 @@ here).
 
 Connections are `Send` when the socket is `Sync`, so they can run on any thread of a multi-threaded runtime
 ([connections as tasks](#connections-as-tasks)). On another event loop,
-`UdpListener::new` takes a `ww_device::udp::StdUdpSocket` with that loop's readiness, or any `DatagramSocket`.
+`UdpListener::new` takes a `ww_device::udp::StdUdpSocket` with that loop's readiness, or any `DatagramSocket`;
+[on calloop](#on-a-calloop-loop) `ww_calloop::bind_udp` does it.
+
+### On a calloop loop
+
+A program built on [calloop](https://crates.io/crates/calloop) instead of tokio (a Wayland compositor, a GUI with
+its own loop) serves through `ww_calloop`. It gives the server what comes from the loop: `LoopClock` (timers on the
+loop's timers), `TcpIncoming` (TCP clients for a byte-stream listener) and `bind_udp` (a `UdpListener` whose socket
+the loop watches). `serve` runs on the loop's executor, so backends may hold `Rc` state of the program:
+
+```rust
+let (executor, scheduler) = calloop::futures::executor()?;
+event_loop.handle().insert_source(executor, |(), _, _| ())?;
+let handle = event_loop.handle();
+let clock = LoopClock::new(handle.clone());
+let ws = listen(TcpIncoming::bind(&handle, "0.0.0.0:7000")?, WsFraming::new(16 * 1024), clock.clone());
+let udp = bind_udp::<_, 8>(&handle, "0.0.0.0:7000".parse()?, 16 * 1024)?;
+let server = Server::new(clock);
+scheduler.schedule(async move {
+    let _ = join(
+        server.serve(link(), ws, &make_backend, shutdown.clone()),
+        server.serve(link(), udp, &make_backend, shutdown),
+    )
+    .await;
+})?;
+```
+
+WebSocket clients (`ClientConfig::websocket_url`) and UDP clients (`udp_addr`) then reach the same API on one port
+number, each connection with its client's address as the peer.
 
 ### A server on stdio
 

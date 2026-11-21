@@ -62,6 +62,7 @@ blinky_evolved = { layer = "runtime" }
 blinky_py = { layer = "runtime" }
 bounded = { layer = "runtime" }
 bounded_api = { layer = "runtime", no_std = true }
+calloop_server = { layer = "runtime" }
 cfg_variants = { layer = "runtime" }
 cfg_variants_api = { layer = "runtime", no_std = true }
 cfg_variants_narrow_api = { layer = "runtime", no_std = true }
@@ -191,6 +192,7 @@ wire_weaver_server = { layer = "runtime" }
 ww_book = { layer = "runtime" }
 ww_client_server = { layer = "runtime", no_std = true, unsafe = true }
 ww_byte_stream = { layer = "runtime" }
+ww_calloop = { layer = "runtime" }
 ww_clock_sync = { layer = "runtime" }
 ww_device = { layer = "runtime", no_std = true, unsafe = true }
 ww_dns_sd = { layer = "runtime" }

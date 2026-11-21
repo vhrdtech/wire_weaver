@@ -9,6 +9,7 @@
 
 ### 🚀 Features
 
+- `byte_stream::is_transient` and `ACCEPT_RETRY_DELAY` are public, for sources on other event loops; `UdpListener::local_addr` works with any `StdUdpSocket` readiness (SRV-70).
 - Deadline and cancel (SRV-47): a request is dropped when its context's deadline runs out, queued or running, and answered `DeadlineExceeded`; a client's `Cancel` drops it and answers `Cancelled`. A request that runs alone no longer waits without a bound for slow shared ones before it. Handlers read the caller's trace and what is left of its deadline from `cx.call()`. The server says it reads contexts in link setup; its own error answers reach a client of an older model as `UserStr`.
 - `udp::UdpListener` (feature `udp`): a connection per host of a datagram socket, by its address, up to `PEERS` at once; `UdpListener::bind` on tokio (feature `tokio`), `PeerAddr` (SRV-69).
 - `Accept<Tx, Rx, E>`: the result of `Listener::accept`, named (TR-19).

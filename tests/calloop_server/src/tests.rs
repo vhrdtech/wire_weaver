@@ -1,0 +1,195 @@
+use std::cell::RefCell;
+use std::future::Future;
+use std::net::SocketAddr;
+use std::rc::Rc;
+use std::thread::JoinHandle;
+use std::time::Duration;
+
+use calloop::EventLoop;
+use futures_channel::oneshot;
+use futures_util::FutureExt;
+use futures_util::future::{Shared, join};
+use host_server::counter::{self, Counter, CounterClient};
+use wire_weaver::Peer;
+use wire_weaver_server::byte_stream::{WsFraming, listen};
+use wire_weaver_server::{Connection, Server};
+use ww_calloop::{LoopClock, TcpIncoming, bind_udp};
+
+/// How long a step may take before the test fails.
+const SOON: Duration = Duration::from_secs(20);
+
+/// Hosts the UDP listener serves at once.
+const PEERS: usize = 4;
+
+/// A calloop loop on its own thread, serving the counter over WebSocket and UDP on one port number.
+struct Bench {
+    addr: SocketAddr,
+    shutdown: Option<oneshot::Sender<()>>,
+    /// Ends with the peers of every connection the servers made a backend for.
+    thread: Option<JoinHandle<Vec<Peer>>>,
+}
+
+impl Bench {
+    fn start() -> Self {
+        let (addr_tx, addr_rx) = std::sync::mpsc::sync_channel(1);
+        let (shutdown, stop) = oneshot::channel::<()>();
+        let thread = std::thread::spawn(move || run_loop(&addr_tx, stop));
+        let addr = addr_rx.recv_timeout(SOON).expect("the loop starts");
+        Bench {
+            addr,
+            shutdown: Some(shutdown),
+            thread: Some(thread),
+        }
+    }
+
+    /// Asks the servers to shut down and waits for the loop to end; the peers the servers saw.
+    fn stop(mut self) -> Vec<Peer> {
+        self.shutdown
+            .take()
+            .expect("stopped once")
+            .send(())
+            .expect("the loop waits for shutdown");
+        let thread = self.thread.take().expect("stopped once");
+        let deadline = std::time::Instant::now() + SOON;
+        while !thread.is_finished() {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "the loop ends after shutdown"
+            );
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        thread.join().expect("the loop thread doesn't panic")
+    }
+}
+
+impl Drop for Bench {
+    fn drop(&mut self) {
+        // a failed test still ends the loop
+        if let Some(shutdown) = self.shutdown.take() {
+            let _ = shutdown.send(());
+        }
+    }
+}
+
+/// The loop: both listeners on a free port of the loopback, sent through `addr`, served until `stop`.
+fn run_loop(
+    addr: &std::sync::mpsc::SyncSender<SocketAddr>,
+    stop: oneshot::Receiver<()>,
+) -> Vec<Peer> {
+    let mut event_loop: EventLoop<'static, ()> = EventLoop::try_new().expect("a loop");
+    let handle = event_loop.handle();
+    let (executor, scheduler) = calloop::futures::executor().expect("an executor");
+    handle
+        .insert_source(executor, |(), _, ()| ())
+        .expect("the loop takes the executor");
+
+    let clock = LoopClock::new(handle.clone());
+    let tcp = TcpIncoming::bind(&handle, "127.0.0.1:0").expect("a TCP port");
+    let tcp_addr = tcp.local_addr();
+    let ws = listen(tcp, WsFraming::new(counter::MESSAGE_LEN_MAX), clock.clone());
+    let udp =
+        bind_udp::<_, PEERS>(&handle, tcp_addr, counter::MESSAGE_LEN_MAX).expect("the UDP port");
+
+    // backends and what they share need not be `Send`: everything runs on this thread
+    let peers = Rc::new(RefCell::new(Vec::new()));
+    let make = {
+        let peers = peers.clone();
+        move |connection: &Connection| {
+            peers.borrow_mut().push(connection.peer);
+            Counter::make(connection)
+        }
+    };
+    let shutdown: Shared<_> = stop.map(|_| ()).shared();
+    let signal = event_loop.get_signal();
+    scheduler
+        .schedule(async move {
+            let server = Server::new(clock);
+            let (ws, udp) = join(
+                server.serve(counter::link(), ws, &make, shutdown.clone()),
+                server.serve(counter::link(), udp, &make, shutdown),
+            )
+            .await;
+            ws.expect("the WebSocket server ends without an error");
+            udp.expect("the UDP server ends without an error");
+            signal.stop();
+        })
+        .expect("the executor takes the server");
+
+    addr.send(tcp_addr).expect("the test waits for the address");
+    event_loop
+        .run(None, &mut (), |()| ())
+        .expect("the loop runs");
+    peers.take()
+}
+
+async fn soon<T>(what: &str, f: impl Future<Output = T>) -> T {
+    tokio::time::timeout(SOON, f)
+        .await
+        .unwrap_or_else(|_| panic!("{what} took over {SOON:?}"))
+}
+
+async fn ws_client(addr: SocketAddr) -> CounterClient {
+    tests_common::api!(counter::api_impl).seed();
+    let connect = CounterClient::config(move |c| {
+        c.websocket_url(format!("ws://{addr}/"))
+            .resolver(tests_common::resolver())
+            .link_setup_timeout(SOON)
+    })
+    .connect();
+    soon("the WebSocket client", connect)
+        .await
+        .expect("connects")
+}
+
+async fn udp_client(addr: SocketAddr) -> CounterClient {
+    tests_common::api!(counter::api_impl).seed();
+    let connect = CounterClient::config(move |c| {
+        c.udp_addr(addr.to_string())
+            .resolver(tests_common::resolver())
+            .link_setup_timeout(SOON)
+    })
+    .connect();
+    soon("the UDP client", connect).await.expect("connects")
+}
+
+/// A client of each kind reads the counter, each connection gets the address of its client as its peer, and
+/// shutdown ends the servers and the loop.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn websocket_and_udp_clients_are_served_on_the_loop() {
+    let bench = Bench::start();
+    let ws = ws_client(bench.addr).await;
+    let udp = udp_client(bench.addr).await;
+    for client in [&ws, &udp] {
+        let ticks = soon("a read", client.read_ticks().read()).await.unwrap();
+        assert_eq!(ticks.value, counter::TICKS);
+    }
+
+    let peers = tokio::task::spawn_blocking(move || bench.stop())
+        .await
+        .unwrap();
+    assert_eq!(peers.len(), 2, "a connection per client: {peers:?}");
+    for peer in peers {
+        let Peer::Addr(addr) = peer else {
+            panic!("a peer is its address: {peer:?}");
+        };
+        assert!(addr.ip().is_loopback());
+    }
+}
+
+/// Several UDP hosts at once, each on a connection of its own.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn udp_hosts_get_a_connection_each() {
+    let bench = Bench::start();
+    let mut clients = Vec::new();
+    for _ in 0..PEERS {
+        clients.push(udp_client(bench.addr).await);
+    }
+    for client in &clients {
+        let ticks = soon("a read", client.read_ticks().read()).await.unwrap();
+        assert_eq!(ticks.value, counter::TICKS);
+    }
+    let peers = tokio::task::spawn_blocking(move || bench.stop())
+        .await
+        .unwrap();
+    assert_eq!(peers.len(), PEERS);
+}

@@ -1703,6 +1703,7 @@ dependencies = [
  "ww_client_server",
  "ww_device",
  "ww_local_socket",
+ "ww_self",
  "ww_si",
  "ww_stream",
 ]
@@ -4834,6 +4835,7 @@ dependencies = [
  "ww_client_server",
  "ww_device",
  "ww_local_socket",
+ "ww_self",
 ]
 
 [[package]]

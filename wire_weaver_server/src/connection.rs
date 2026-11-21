@@ -22,6 +22,7 @@ use ww_device::{
     SendError,
 };
 
+use crate::authorize::Authorization;
 use crate::backend::Backend;
 use crate::lifecycle::{Lifecycle, Running, Stage};
 use crate::outbox::{Outbox, OutboxSink};
@@ -92,6 +93,8 @@ enum Why {
     Deadline,
     /// The client sent a `Cancel` for it.
     Cancelled,
+    /// The server's [Authorize](crate::Authorize) hook denied it (SRV-46).
+    Denied,
 }
 
 impl Why {
@@ -104,6 +107,7 @@ impl Why {
             Why::Cancelled => {
                 ww_client_server::Error::new(err_seq::REQUEST_CANCELLED, ErrorKind::Cancelled)
             }
+            Why::Denied => ww_client_server::Error::new(err_seq::REQUEST_DENIED, ErrorKind::Denied),
         }
     }
 }
@@ -453,6 +457,27 @@ impl<Tx: MessageTx, Rx: MessageRx, C: Clock> Conn<'_, Tx, Rx, C> {
             .unwrap_or_else(|| vec![0; self.buffer_len])
     }
 
+    /// Whether `queued` may run, as the server's hook says; a denied one is answered `Denied` here.
+    async fn admit(
+        &mut self,
+        queued: &Queued,
+        origin: &CallContext,
+        authorization: Option<&Authorization>,
+    ) -> bool {
+        let Some(authorization) = authorization else {
+            return true;
+        };
+        let priority = Request::peek_priority(&queued.request).unwrap_or_default();
+        let mut call = queued.call(origin, self.clock.now());
+        call.seq = queued.seq;
+        call.priority = priority;
+        if authorization.admits(&call, &queued.request).is_ok() {
+            return true;
+        }
+        self.answer_error(queued.seq, priority, Why::Denied).await;
+        false
+    }
+
     /// Answer a request with `Overloaded`, its handler never ran.
     async fn refuse(&mut self, queued: Queued) {
         let priority = Request::peek_priority(&queued.request).unwrap_or_default();
@@ -704,7 +729,10 @@ async fn poll<B: Backend>(
 }
 
 /// Serve one accepted connection until its link goes down or the server stops.
-#[expect(clippy::too_many_arguments, reason = "one call site, in Server::serve")]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "two call sites, Server::serve and Accepting::next"
+)]
 pub(crate) async fn run<M: MakeBackend>(
     mut config: LinkConfig<'_>,
     tx: impl MessageTx,
@@ -715,8 +743,10 @@ pub(crate) async fn run<M: MakeBackend>(
     make: impl Deref<Target = M>,
     limits: Limits,
     life: impl Deref<Target = Lifecycle>,
+    authorization: Option<impl Deref<Target = Authorization>>,
 ) {
     let (make, life) = (&*make, &*life);
+    let authorization = authorization.as_deref();
     // deadlines and cancels are acted on here (SRV-47), so clients may send them
     config.request_context = true;
     rx.wait_connected().await;
@@ -773,10 +803,17 @@ pub(crate) async fn run<M: MakeBackend>(
             .front()
             .is_some_and(|queued| M::Backend::is_shared(&queued.request))
         {
-            if !conn.run_shared(&backend, medium, &origin).await {
+            if !conn
+                .run_shared(&backend, medium, &origin, authorization)
+                .await
+            {
                 return;
             }
         } else if let Some(queued) = conn.pending.pop_front() {
+            if !conn.admit(&queued, &origin, authorization).await {
+                // nothing ran: no turn for the backend either
+                continue;
+            }
             let Some(_running) = life.start_request(limits.requests_max) else {
                 // nothing ran: no turn for the backend either
                 conn.refuse(queued).await;
@@ -841,6 +878,7 @@ impl<Tx: MessageTx, Rx: MessageRx, C: Clock + Clone> Conn<'_, Tx, Rx, C> {
         backend: &B,
         medium: B::Medium,
         origin: &CallContext,
+        authorization: Option<&Authorization>,
     ) -> bool {
         let (outbox, life) = (self.outbox, self.life);
         let mut running = FuturesUnordered::new();
@@ -852,6 +890,9 @@ impl<Tx: MessageTx, Rx: MessageRx, C: Clock + Clone> Conn<'_, Tx, Rx, C> {
                     .is_some_and(|queued| B::is_shared(&queued.request))
             {
                 let queued = self.pending.pop_front().expect("checked above");
+                if !self.admit(&queued, origin, authorization).await {
+                    continue;
+                }
                 let Some(counted) = life.start_request(self.limits.requests_max) else {
                     self.refuse(queued).await;
                     continue;

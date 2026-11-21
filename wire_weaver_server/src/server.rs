@@ -11,6 +11,7 @@ use futures_util::stream::{FuturesUnordered, StreamExt};
 use wire_weaver::{ConnectionId, WireWeaverAsyncApiBackend};
 use ww_device::{Clock, Instant, LinkConfig};
 
+use crate::authorize::{Authorization, Authorize};
 use crate::backend::Backend;
 use crate::connection::{self, Connection};
 use crate::lifecycle::{Lifecycle, Stage};
@@ -94,6 +95,7 @@ where
 pub struct Server<C> {
     clock: C,
     limits: Limits,
+    authorization: Option<Arc<Authorization>>,
 }
 
 impl<C: Clock + Clone> Server<C> {
@@ -102,7 +104,22 @@ impl<C: Clock + Clone> Server<C> {
         Server {
             clock,
             limits: Limits::default(),
+            authorization: None,
         }
+    }
+
+    /// The same server asking `hook` before every request (SRV-46): a request it denies is answered
+    /// `ErrorKind::Denied` and no handler runs. `api` is the served API's model (`ww_self`, e.g. decoded from the
+    /// generated `WW_SELF_BYTES`): with it the hook sees where a global path leads and the metadata of the items on
+    /// the way ([Resource](crate::Resource)). Without a hook every request runs.
+    #[must_use]
+    pub fn authorize(
+        mut self,
+        hook: impl Authorize + Send + Sync + 'static,
+        api: Option<Arc<ww_self::ApiBundleOwned>>,
+    ) -> Self {
+        self.authorization = Some(Arc::new(Authorization::new(hook, api)));
+        self
     }
 
     /// The same server with other limits.
@@ -146,6 +163,7 @@ impl<C: Clock + Clone> Server<C> {
                 &make,
                 self.limits,
                 &life,
+                self.authorization.clone(),
             ));
         }
         Ok(())
@@ -177,6 +195,7 @@ impl<C: Clock + Clone> Server<C> {
             make: Arc::new(make),
             life: Arc::new(Lifecycle::new()),
             running: Arc::new(Running::default()),
+            authorization: self.authorization.clone(),
         }
     }
 }
@@ -188,6 +207,7 @@ pub struct Accepting<C, L, M, S> {
     make: Arc<M>,
     life: Arc<Lifecycle>,
     running: Arc<Running>,
+    authorization: Option<Arc<Authorization>>,
 }
 
 impl<C, L, M, S> Accepting<C, L, M, S>
@@ -224,6 +244,7 @@ where
             self.make.clone(),
             self.gate.limits,
             self.life.clone(),
+            self.authorization.clone(),
         );
         Ok(Some(async move {
             connection.await;

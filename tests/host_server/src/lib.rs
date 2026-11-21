@@ -16,13 +16,15 @@ mod tests {
     use tokio::sync::{Notify, oneshot};
     use tokio::task::JoinHandle;
     use wire_weaver::prelude::*;
-    use wire_weaver::{Gid, Peer, Pid, Uid};
+    use wire_weaver::{CallContext, Gid, Peer, Pid, Uid};
     use wire_weaver_client::in_process::TokioClock;
     use wire_weaver_client::{Commander, WwClient};
     use wire_weaver_server::byte_stream::{PreambleFraming, listen};
     use wire_weaver_server::in_process::InProcessListener;
     use wire_weaver_server::local_socket::LocalSocketIncoming;
-    use wire_weaver_server::{Connection, Fanout, Limits, PumpId, Pumps, Server, Subscription};
+    use wire_weaver_server::{
+        Access, Connection, Denied, Fanout, Limits, PumpId, Pumps, Resource, Server, Subscription,
+    };
     use ww_device::Instant;
     use ww_stream::observe::ObserveLimits;
 
@@ -381,8 +383,15 @@ mod tests {
     /// Start a [Bench] on `$listener`. A macro, not a function generic over the listener: the futures of a
     /// generic listener's halves can't be shown to be `Send`, a concrete one's can.
     macro_rules! start_bench {
-        ($listener:expr, $reach:expr, $limits:expr, $as_tasks:expr $(,)?) => {{
+        ($listener:expr, $reach:expr, $limits:expr, $as_tasks:expr $(,)?) => {
+            start_bench!($listener, $reach, $limits, $as_tasks, |server: Server<
+                TokioClock,
+            >| server)
+        };
+        // `configure`: what the test sets on the server besides its limits, its authorization
+        ($listener:expr, $reach:expr, $limits:expr, $as_tasks:expr, $configure:expr $(,)?) => {{
             let (listener, reach, limits, as_tasks) = ($listener, $reach, $limits, $as_tasks);
+            let configure = $configure;
             tests_common::api!(api_impl).seed();
             let shared = Arc::new(Shared::default());
             let (shutdown, asked) = oneshot::channel();
@@ -412,7 +421,7 @@ mod tests {
                         update_buf: vec![0; MESSAGE_LEN_MAX],
                     }
                 };
-                let server = Server::new(TokioClock::new()).limits(limits);
+                let server = configure(Server::new(TokioClock::new()).limits(limits));
                 let shutdown = async {
                     let _ = asked.await;
                 };
@@ -1006,6 +1015,140 @@ mod tests {
         assert_eq!(connections[0].peer, peer);
         assert!(!connections[0].client.program.is_empty());
         assert_eq!(connections[0].message_len_max, MESSAGE_LEN_MAX);
+    }
+
+    /// The model of the test API, as a server decodes its own `WW_SELF_BYTES`.
+    fn api_model() -> Arc<ww_self::ApiBundleOwned> {
+        let bytes = ww_self::compressed::bundle_bytes(&api_impl::WW_SELF_BYTES).unwrap();
+        Arc::new(ww_self::ApiBundleOwned::from_ww_bytes_owned(&bytes).unwrap())
+    }
+
+    /// What an authorization hook was asked: the peer's uid, the access, the path and the ident of the item it
+    /// names.
+    type Asked = Arc<Mutex<Vec<(u32, Access, Option<Vec<u32>>, Option<String>)>>>;
+
+    /// A server whose hook lets uid 1000 do anything and others only call shared methods and read, recording what
+    /// it was asked.
+    fn start_authorized(path: &str, peer: Peer, asked: Asked) -> Bench {
+        let hook = move |call: &CallContext, resource: &Resource<'_>| {
+            let Peer::Unix { uid, .. } = call.peer else {
+                return Err(Denied);
+            };
+            let item = resource
+                .items
+                .and_then(|items| items.last())
+                .map(|(item, _)| item.ident.clone());
+            asked.lock().unwrap().push((
+                uid.0,
+                resource.access,
+                resource.path.map(<[u32]>::to_vec),
+                item.clone(),
+            ));
+            match (uid.0, resource.access, item.as_deref()) {
+                (1000, _, _) | (_, Access::Read | Access::Introspect, _) => Ok(()),
+                (_, Access::Call, Some("echo" | "whoami")) => Ok(()),
+                _ => Err(Denied),
+            }
+        };
+        start_bench!(
+            InProcessListener::new(path, MESSAGE_LEN_MAX).with_peer(peer),
+            Reach::InProcess(path.to_owned()),
+            small(),
+            false,
+            move |server: Server<TokioClock>| server.authorize(hook, Some(api_model())),
+        )
+    }
+
+    fn unix_peer(uid: u32) -> Peer {
+        Peer::Unix {
+            uid: Uid(uid),
+            gid: Gid(100),
+            pid: None,
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn the_hook_sees_the_peer_and_the_item_before_any_handler() {
+        let asked = Asked::default();
+        let bench = start_authorized(
+            "host_server/authorize_owner",
+            unix_peer(1000),
+            asked.clone(),
+        );
+        let client = bench.connect().await;
+        assert_eq!(client.echo(3).call().await.unwrap(), 3);
+        bench.shared.open(0);
+        assert_eq!(client.hold(0).call().await.unwrap(), 0);
+        client.write_mode(4).write().await.unwrap();
+        let asked = asked.lock().unwrap().clone();
+        let at = |ident: &str| {
+            asked
+                .iter()
+                .find(|(_, _, _, item)| item.as_deref() == Some(ident))
+                .cloned()
+                .unwrap_or_else(|| panic!("{ident} was asked for: {asked:?}"))
+        };
+        let (uid, access, path, _) = at("echo");
+        assert_eq!((uid, access), (1000, Access::Call));
+        assert_eq!(path.map(|p| p.len()), Some(1));
+        assert_eq!(at("hold").1, Access::Call);
+        assert_eq!(at("mode").1, Access::Write);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn a_denied_request_is_answered_denied_and_never_runs() {
+        let asked = Asked::default();
+        let bench = start_authorized(
+            "host_server/authorize_other",
+            unix_peer(1001),
+            asked.clone(),
+        );
+        let client = bench.connect().await;
+        // allowed: a shared call and a read
+        assert_eq!(client.echo(3).call().await.unwrap(), 3);
+        assert_eq!(client.read_mode().read().await.unwrap(), 0);
+        // denied: a call that runs alone, a shared one, and a write
+        let denied = |error: wire_weaver_client::Error| {
+            assert_eq!(
+                error.call_kind(),
+                wire_weaver::call::ErrorKind::Denied,
+                "{error:?}"
+            );
+        };
+        // its handler would wait for a gate nobody opens: a run would hang the test
+        denied(soon("hold", client.hold(1).call()).await.unwrap_err());
+        denied(
+            soon("call_uid", client.call_uid().call())
+                .await
+                .unwrap_err(),
+        );
+        denied(
+            soon("write", client.write_mode(9).write())
+                .await
+                .unwrap_err(),
+        );
+        assert_eq!(bench.shared.waiting.load(Ordering::Acquire), 0);
+        assert_eq!(*bench.shared.mode.lock().unwrap(), 0, "the write never ran");
+        // the connection goes on
+        assert_eq!(client.echo(4).call().await.unwrap(), 4);
+        assert!(asked.lock().unwrap().iter().all(|(uid, ..)| *uid == 1001));
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn a_peer_the_hook_doesnt_know_is_denied_everything() {
+        let bench = start_authorized(
+            "host_server/authorize_unknown",
+            Peer::Unknown,
+            Asked::default(),
+        );
+        // link setup is not a request: the client connects, every request is denied
+        let client = bench.connect().await;
+        let error = soon("echo", client.echo(1).call()).await.unwrap_err();
+        assert_eq!(
+            error.call_kind(),
+            wire_weaver::call::ErrorKind::Denied,
+            "{error:?}"
+        );
     }
 
     /// A socket in a directory of the test's own.

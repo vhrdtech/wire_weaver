@@ -583,6 +583,77 @@ mod tests {
         );
     }
 
+    /// A request path to the items it goes through, array indices taken out (`ApiBundleOwned::item_chain`), and a
+    /// global path to where the trait sits (`trait_path`): what a host server's authorization sees (SRV-46).
+    #[test]
+    fn paths_to_items_and_traits() {
+        use wire_weaver_client::ww_self::{self, ApiBundleOwned};
+        let bytes = ww_self::compressed::bundle_bytes(&no_std_sync_server::api_impl::WW_SELF_BYTES)
+            .unwrap();
+        let bundle = ApiBundleOwned::from_ww_bytes_owned(&bytes).unwrap();
+        let id = |level: &ww_self::ApiLevelOwned, name: &str| {
+            level.items.iter().find(|i| i.ident == name).unwrap().id.0
+        };
+        let below = |name: &str| {
+            let item = bundle.root.items.iter().find(|i| i.ident == name).unwrap();
+            item.get_as_level(&bundle).unwrap()
+        };
+        let names = |path: &[u32]| {
+            bundle.item_chain(path).map(|chain| {
+                chain
+                    .iter()
+                    .map(|(item, index)| (item.ident.clone(), *index))
+                    .collect::<Vec<_>>()
+            })
+        };
+        let (gpio, periph, g1) = (
+            id(&bundle.root, "gpio"),
+            id(&bundle.root, "periph"),
+            id(&bundle.root, "g1"),
+        );
+        let set_high = id(below("gpio"), "set_high");
+        assert_eq!(
+            names(&[gpio, 3, set_high]),
+            Some(vec![
+                ("gpio".to_owned(), Some(3)),
+                ("set_high".to_owned(), None)
+            ])
+        );
+        // a whole array, without an index
+        assert_eq!(names(&[gpio]), Some(vec![("gpio".to_owned(), None)]));
+        let periph_level = below("periph");
+        let channel = id(periph_level, "channel");
+        let channel_level = periph_level
+            .items
+            .iter()
+            .find(|i| i.ident == "channel")
+            .unwrap()
+            .get_as_level(&bundle)
+            .unwrap();
+        let run = id(channel_level, "run");
+        assert_eq!(
+            names(&[periph, 1, channel, 2, run]),
+            Some(vec![
+                ("periph".to_owned(), Some(1)),
+                ("channel".to_owned(), Some(2)),
+                ("run".to_owned(), None)
+            ])
+        );
+        assert_eq!(names(&[]), Some(vec![]));
+        assert_eq!(names(&[u32::MAX]), None);
+        assert_eq!(names(&[gpio, 3, u32::MAX]), None);
+        // the meta of the array reaches whoever decides on a call under it
+        let chain = bundle.item_chain(&[gpio, 0, set_high]).unwrap();
+        assert!(chain[0].0.claim_mode(&bundle).is_some());
+        // a global path to a trait: where it sits, never under an array
+        let named = |name: &'static str| {
+            move |level: &ww_self::ApiLevelOwned, _: &ApiBundleOwned| level.trait_name == name
+        };
+        assert_eq!(bundle.trait_path(named("Subgroup")), Some(vec![g1]));
+        assert_eq!(bundle.trait_path(named("Traits")), Some(vec![]));
+        assert_eq!(bundle.trait_path(named("Channel")), None);
+    }
+
     /// `#[claim]`, `#[shares]` and `#[label]` (SRV-34) reach the host in the device's introspection data: a claim on a
     /// `ww_impl!` (`i2c`) and on a trait definition (`Gpio`, so every `gpio[]`), not on the others.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

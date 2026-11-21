@@ -62,6 +62,7 @@ nav = [
                     "api/multi_requests.md",
                     "api/observing.md",
                     "api/batching.md",
+                    { "Running totals" = "api/totals.md" },
                     "api/stream_compression.md",
                     "api/versioning.md",
                     "api/settings.md",

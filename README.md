@@ -281,6 +281,8 @@ If you only want to serialize and deserialize some data types, it can be used st
 | [`thermo`](tests/thermo) | runtime | A host driver for every wire line of thermo_api (EVO-28, EVO-42): one generated client per line behind one facade. |
 | [`thermo_api`](tests/thermo_api) | runtime | The API of the multi-line bench (EVO-28, EVO-42): a small temperature logger with every wire line still in use. |
 | [`thermo_devices`](tests/thermo_devices) | runtime | Simulated firmware of every line of the thermo_api bench (EVO-28), on tests_common's in-process link. |
+| [`totals`](tests/totals) | runtime | Tests of running totals over plain sinks (API-70): a lossy UDP link that drops and reorders datagrams, WebSocket, a second sender. |
+| [`totals_api`](tests/totals_api) | runtime | Test API of tests/totals: running totals over plain sinks, of a struct of Fixed values and of a counted unit. |
 | [`traits`](tests/traits) | runtime | Tests of traits_api's trait composition and addressing: sub-traits nested, in arrays and shared/claimable through the hub. |
 | [`traits_api`](tests/traits_api) | runtime | Test API of tests/traits: sub-traits nested, in arrays and shared/claimable through the hub (SRV-34). |
 | [`wire_line`](tests/wire_line) | runtime | Link setup decides on the wire line, not the crate version (EVO-25): old firmware on an old line connecting to a host built against a newer one. |

@@ -125,6 +125,7 @@ in either direction. WireWeaver generates the device's server and the host's cli
 - API-39 | Observing every sample | A fast property's every sample, each at its time, in compressed batches; typed and dynamic clients, the CLI and Python. | api/observing.md#every-sample-batched
 - API-49 | One clock per observed level | The samples of a level's properties share one time column per update: about a third fewer bytes and half the encoding CPU. | api/observing.md#every-sample-batched
 - API-63 | Observing elements of resource arrays | Observe a property of one element of an array (`players[2].state`): updates for that element only, and a removed element ends its observers. | api/observing.md#levels-under-resource-arrays
+- API-70 | Running totals | A pointer or scroll wheel over UDP: each sink write carries the sum so far, so a lost write loses nothing and nothing waits. | api/totals.md
 - API-68 | The API crate prelude `ww_api` | An API crate depends on `ww_api`, not the runtime: the macros, `shrink_wrap` and the common types in one prelude, checked by the layer lint. | api/folder_structure.md
 - API-67 | Keyed resource arrays | Address the elements of an array by a key (`keyed!(flow by FlowKey)`) instead of the index the device gave them. | api/arrays.md
 - API-50 | Observe cells | Sample a level from an interrupt in place, value by value into a ring of atomics: a quarter of the cycles and a tenth of the stack of `sample()` at opt-level z, the same wire. | api/observing.md#cells-sampling-from-an-interrupt
@@ -530,6 +531,7 @@ How WireWeaver is kept working: every change runs through CI, against the real c
 ## Nomicon
 
 - TEST-23, TEST-24, TEST-25, TEST-37 | Conformance matrix | One corpus of golden bytes every wire-format implementation must match: derive (owned and borrowed), dynamic client, Python, C; guarded against a sealed case changing and against a wire kind going untested. | serdes/conformance.md
+- TEST-19 | Lossy test medium | Simulated UDP that drops and reorders the host's datagrams on a plan the test gives, on the paused clock. | transport/udp.md#simulated-udp-in-tests
 - TEST-31 | Dispatcher golden replies | One corpus of golden request/reply bytes covering every resource kind the dispatcher serves, checked against a sync and an async server and guarded against a sealed case changing. | serdes/conformance.md
 - TEST-17 | Code size bench | Firmware images per case for RISC-V and Cortex-M, measured on every change. | serdes/code_size.md
 - TEST-10 | Binary size tracking | Flash and RAM per feature in CI. |

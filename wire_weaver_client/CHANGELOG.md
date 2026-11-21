@@ -10,6 +10,7 @@
 
 ### 🚀 Features
 
+- `TotalsSender<T>` (API-70): adds changes from any thread, sends the latest running totals over a plain sink, a session per connect.
 - `ClientConfig::service(name)` asks a byte-stream server (TCP, command, stream, local socket) for one of its APIs (TR-19); `no_byte_stream`.
 - Byte-stream clients (TR-19, feature `byte_stream`): `ClientConfig::tcp`, `command` (a spawned command's stdio, e.g. ssh), `stream` with a `StreamOpener`.
 - `local_socket::device` answers an unknown preamble target `UnknownTarget` and a named service `UnknownService` (TR-19); its halves are futures-io.

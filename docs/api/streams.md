@@ -182,6 +182,9 @@ A plain sink's writes are sent without a request id: the device sends nothing ba
 plain sink needs no opening, `send()` works right away; `open()` and `close()` send the `Open` and `Close` sideband,
 which reach the device's `sideband_<name>` handler, for devices that want to know.
 
+A plain sink of [running totals](totals.md) (`sink!(motion: Totals<Delta>)`) loses no change on a lossy link: each
+write carries the sum of all changes so far, so the next write brings what a lost one had.
+
 ## Flow control
 
 What keeps a fast side from overrunning a slow one depends on the kind:
@@ -237,6 +240,7 @@ An `ro` or `rw` property sends its changes as stream data on its own path:
 - [Stream delivery](stream_reliability.md): what counted and reliable streams guarantee, sessions, timestamps.
 - [Stream stores](stream_stores.md): where a reliable stream keeps its data (RAM, SD card, flash).
 - [Credit sinks and sideband](credit_sinks.md): flow control into the device, the sideband channel.
+- [Running totals](totals.md): pointer, scroll or jog dial changes over a lossy link, without resends.
 - [Stream protocol](stream_protocol.md): the bytes on the wire, acknowledgements, the `ww_stream` crate.
 - [Batching](batching.md): a plain, counted or reliable stream of a `series` type can opt into sending samples in
   `Series` batches instead of one item per event.

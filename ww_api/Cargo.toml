@@ -13,17 +13,22 @@ documentation = "https://vhrdtech.github.io/wire_weaver"
 [features]
 default = ["std"]
 # build against std instead of no_std
-std = ["shrink_wrap/std", "ww_error/std", "ww_version/std"]
+std = ["shrink_wrap/std", "ww_error/std", "ww_version/std", "exact_units/std"]
 # defmt formatting for the prelude's types
-defmt = ["shrink_wrap/defmt", "ww_error/defmt", "ww_version/defmt"]
+defmt = ["dep:defmt", "shrink_wrap/defmt", "ww_error/defmt", "ww_version/defmt", "exact_units/defmt"]
 # serde for the prelude's types
 serde = ["shrink_wrap/serde", "ww_version/serde"]
 
 [dependencies]
+defmt = { workspace = true, optional = true }
+exact_units.workspace = true
 shrink_wrap = { workspace = true, default-features = false }
 wire_weaver_derive.workspace = true
 ww_error = { workspace = true, default-features = false }
 ww_version = { workspace = true, default-features = false }
+
+[dev-dependencies]
+exact_units = { workspace = true, features = ["std"] }
 
 [lints]
 workspace = true

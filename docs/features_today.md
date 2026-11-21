@@ -127,6 +127,7 @@ in either direction. WireWeaver generates the device's server and the host's cli
 - **[Observing every sample](api/observing.md#every-sample-batched)**: A fast property's every sample, each at its time, in compressed batches; typed and dynamic clients, the CLI and Python.
 - **[One clock per observed level](api/observing.md#every-sample-batched)**: The samples of a level's properties share one time column per update: about a third fewer bytes and half the encoding CPU.
 - **[Observing elements of resource arrays](api/observing.md#levels-under-resource-arrays)**: Observe a property of one element of an array (`players[2].state`): updates for that element only, and a removed element ends its observers.
+- **[Running totals](api/totals.md)**: A pointer or scroll wheel over UDP: each sink write carries the sum so far, so a lost write loses nothing and nothing waits.
 - **[The API crate prelude `ww_api`](api/folder_structure.md)**: An API crate depends on `ww_api`, not the runtime: the macros, `shrink_wrap` and the common types in one prelude, checked by the layer lint.
 - **[Keyed resource arrays](api/arrays.md)**: Address the elements of an array by a key (`keyed!(flow by FlowKey)`) instead of the index the device gave them.
 - **[Observe cells](api/observing.md#cells-sampling-from-an-interrupt)**: Sample a level from an interrupt in place, value by value into a ring of atomics: a quarter of the cycles and a tenth of the stack of `sample()` at opt-level z, the same wire.
@@ -550,6 +551,7 @@ How WireWeaver is kept working: every change runs through CI, against the real c
 <p class="ww-features__level"><span class="ww-level ww-level--nomicon"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6"/></svg><span class="ww-level__label">Nomicon</span></span></p>
 
 - **[Conformance matrix](serdes/conformance.md)**: One corpus of golden bytes every wire-format implementation must match: derive (owned and borrowed), dynamic client, Python, C; guarded against a sealed case changing and against a wire kind going untested.
+- **[Lossy test medium](transport/udp.md#simulated-udp-in-tests)**: Simulated UDP that drops and reorders the host's datagrams on a plan the test gives, on the paused clock. <span class="ww-status">in progress</span>
 - **[Dispatcher golden replies](serdes/conformance.md)**: One corpus of golden request/reply bytes covering every resource kind the dispatcher serves, checked against a sync and an async server and guarded against a sealed case changing.
 - **[Code size bench](serdes/code_size.md)**: Firmware images per case for RISC-V and Cortex-M, measured on every change.
 - **Binary size tracking**: Flash and RAM per feature in CI. <span class="ww-status">in progress</span>

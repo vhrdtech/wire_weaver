@@ -249,7 +249,10 @@ fn source_crate(
         .map(|m| Ident::new(m, Span::call_site()));
     Ok(if let Some(crate_idx) = crate_idx {
         let name = api_bundle.crate_name(crate_idx)?;
-        if PRELUDE_REEXPORTS.contains(&name) {
+        if name == "ww_api" {
+            // `Totals` without a dependency on `ww_api`, through the runtime's re-export of it
+            quote! { wire_weaver::ww_api #(::#modules)* }
+        } else if PRELUDE_REEXPORTS.contains(&name) {
             // `CommonError` without a dependency on `ww_error`, through the runtime's `ww_api` re-export
             let name = Ident::new(name, Span::call_site());
             quote! { wire_weaver::ww_api::#name #(::#modules)* }

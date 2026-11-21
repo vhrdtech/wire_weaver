@@ -33,7 +33,7 @@
     
     
       
-        <title>Sync and async handlers - WireWeaver</title>
+        <title>Sync, async and shared handlers - WireWeaver</title>
       
     
     
@@ -125,7 +125,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Sync and async handlers
+              Sync, async and shared handlers
             
           </span>
         </div>
@@ -1800,7 +1800,7 @@
   <span class="md-ellipsis">
     
   
-  Sync and async handlers
+  Sync, async and shared handlers
 
     
   </span>
@@ -1817,7 +1817,7 @@
   <span class="md-ellipsis">
     
   
-  Sync and async handlers
+  Sync, async and shared handlers
 
     
   </span>
@@ -1869,6 +1869,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         Scaffolding
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#shared-and-exclusive-handlers" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Shared and exclusive handlers
       </span>
     </span>
   </a>
@@ -6225,6 +6236,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#shared-and-exclusive-handlers" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Shared and exclusive handlers
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -6371,7 +6393,7 @@
   
 
 
-<h1 id="sync-and-async-handlers">Sync and async handlers<a class="headerlink" href="#sync-and-async-handlers" title="Permanent link">&para;</a></h1>
+<h1 id="sync-async-and-shared-handlers">Sync, async and shared handlers<a class="headerlink" href="#sync-async-and-shared-handlers" title="Permanent link">&para;</a></h1>
 <p>A server generated with <code>use_async = true</code> expects every user handler to be an <code>async fn</code>, and with
 <code>use_async = false</code> every handler to be a plain <code>fn</code>. Most handlers of a device never wait for anything (they read a
 field, set a pin, answer <code>Unimplemented</code>), and an <code>async fn</code> costs flash even when it never awaits: each call
@@ -6424,6 +6446,73 @@ it is.</p>
 <p><code>ww api scaffold &lt;api_crate&gt; --use-async --handler-model "&lt;model&gt;"</code> writes <code>async fn</code> or <code>fn</code> per item to match, and
 passes the model on to the <code>ww_codegen!</code> call it prints. To change an existing server, set <code>handler_model</code>, then let
 the compiler list the handlers that are now the wrong kind.</p>
+<h2 id="shared-and-exclusive-handlers">Shared and exclusive handlers<a class="headerlink" href="#shared-and-exclusive-handlers" title="Permanent link">&para;</a></h2>
+<p>A host server can serve several requests of a connection at the same time: a slow call doesn't hold up a quick
+read. Two requests can only run side by side if neither changes the server, so their handlers take <code>&amp;self</code>.
+<code>receiver_model</code> says which items are such (SRV-65):</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">mod</span><span class="w"> </span><span class="nn">server_impl</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">    </span><span class="n">wire_weaver</span><span class="p">::</span><span class="n">ww_codegen</span><span class="o">!</span><span class="p">(</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">        </span><span class="n">sensor_api</span><span class="w"> </span><span class="p">::</span><span class="w"> </span><span class="nc">Sensor</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="k">super</span><span class="p">::</span><span class="n">Server</span><span class="p">,</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">        </span><span class="n">server</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="n">no_alloc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="n">use_async</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">        </span><span class="n">receiver_model</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;status|sensors.*|channel.level=shared&quot;</span><span class="p">,</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="p">);</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="p">}</span>
+</span></code></pre></div>
+<ul>
+<li>Every item is <code>exclusive</code> unless the model says <code>shared</code>; <code>_=shared, motor.*=exclusive</code> turns it around. The
+  patterns work as in <code>handler_model</code>, and a pattern that matches no shareable item is a compile error.</li>
+<li>Only calls and reads can be shared: a method, a readable property's getter, a key companion's <code>index_of</code> and
+  <code>key</code>. A property's setter, streams, sinks, observing and <code>const</code> items stay exclusive whatever the model says.</li>
+<li>A shared item's handler takes <code>&amp;self</code>. So does the <code>valid_indices_&lt;..&gt;</code> of every array on its path, and the one of
+  a keyed array whose <code>key</code> is shared. State a shared handler changes sits behind its own lock or atomic.</li>
+<li>A server that sets no <code>receiver_model</code> is generated as before: every handler takes <code>&amp;mut self</code>.</li>
+</ul>
+<p>With a model, the server gets a second entry beside <code>process_request_bytes</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Generated</th>
+<th>Takes</th>
+<th>Serves</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>process_request_bytes(&amp;mut self, ..)</code></td>
+<td>every request</td>
+<td>everything, shared items included, alone</td>
+</tr>
+<tr>
+<td><code>process_shared_bytes(&amp;self, ..)</code></td>
+<td>shared ones</td>
+<td>calls, reads, multi calls and multi reads of shared items</td>
+</tr>
+<tr>
+<td><code>is_shared(bytes) -&gt; bool</code></td>
+<td>request bytes</td>
+<td>which of the two entries a request goes to</td>
+</tr>
+</tbody>
+</table>
+<p><code>is_shared</code> takes no <code>self</code>: a runtime asks it while an exclusive request holds the server. It says yes to a <code>Call</code>,
+<code>Read</code>, <code>MultiCall</code> or <code>MultiRead</code> of a shared item, on an absolute or a global trait path, and never to a request
+with <code>seq</code> 0. The shared entry answers anything else with <code>OperationNotSupported</code> at the request site
+<code>err_seq::REQUEST_NOT_SHARED</code>. The two entries share the level tree's code generation, so a shared request is
+answered with the same bytes through either. A deferred method can be shared: it keeps its <code>ReplyTo</code> behind a lock
+and answers later with <code>&lt;method&gt;_send_return</code>, as before.</p>
+<p><code>process_request_from</code> and <code>process_shared_from</code> take the connection's <code>origin: &amp;CallContext</code> (its peer and
+connection id) before the bytes; handlers read it from <code>cx.call()</code>, with the request's own <code>seq</code> and <code>priority</code>. The
+plain entries pass a peer the transport doesn't identify. A host runtime calls them through
+<code>wire_weaver::WireWeaverSharedApiBackend</code>.</p>
+<p>A firmware doesn't call the new entries. They are generic over the event sink, so one that isn't called is never
+compiled in, and <code>process_request_bytes</code> is the same code as without a model.</p>
+<p>A shared item whose handler takes <code>&amp;mut self</code> doesn't compile: the error points at the <code>ww_codegen!</code> call.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>error[E0596]: cannot borrow data in a `&amp;` reference as mutable
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>   = `self` is a `&amp;` reference, so it cannot be borrowed as mutable
+</span></code></pre></div>
+<p><code>ww api scaffold &lt;api_crate&gt; --receiver-model "&lt;model&gt;"</code> writes <code>&amp;self</code> where the model needs it and passes the model
+on to the <code>ww_codegen!</code> call. <code>tests/shared_handlers</code> has a blocking <code>no_alloc</code> and an async server with every path
+shape: levels, arrays, a keyed array, multi requests, a deferred method and a global trait path.</p>
 
 
 

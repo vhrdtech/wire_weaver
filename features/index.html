@@ -1781,7 +1781,7 @@
   <span class="md-ellipsis">
     
   
-  Sync and async handlers
+  Sync, async and shared handlers
 
     
   </span>
@@ -7386,6 +7386,21 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
   <code>ww api scaffold</code> prints the signatures; the transform refuses <code>Result&lt;T, CommonError&gt;</code> and a property error type
   <code>CommonError</code>. Flash: see the <code>ww_client_server</code> changelog. <code>docs/api/errors.md#common-errors</code>,
   <code>tests/common_error</code>, <code>tests/dispatch_golden</code>.</li>
+<li>✅ <strong>SRV-65 Shared handlers</strong> · <code>v0.5</code> — <code>ww_codegen!(.., receiver_model = "status|sensors.*=shared")</code> marks items
+  shared, in the pattern DSL of <code>handler_model</code>; every item is exclusive by default. A shared method's handler, a
+  shared readable property's getter, a key companion's <code>index_of</code> and <code>key</code> and the <code>valid_indices_*</code> on their path
+  take <code>&amp;self</code>; setters, streams, sinks, observing and <code>const</code> items stay exclusive. The server then also gets
+  <code>process_shared_bytes(&amp;self, ..)</code>, the same level tree with only the shared items (calls, reads, multi calls and
+  multi reads, global trait paths, deferred methods), and <code>is_shared(bytes)</code>, an associated fn that says which entry a
+  request goes to (never for seq 0). Every server gets <code>process_request_from(origin, ..)</code> (and <code>process_shared_from</code>)
+  that hand the connection's <code>CallContext</code> to handlers; <code>wire_weaver::WireWeaverSharedApiBackend</code> is what a host
+  runtime (SRV-12) calls. <code>ww api scaffold --receiver-model</code> writes the receivers. A server without a model is
+  generated as before: <code>process_request_bytes</code> is the same code (generated code diffed against master), the new
+  entries are generic over the event sink, so a firmware that doesn't call them doesn't link them; <code>just
+  flash-budget</code> (thumbv6m, <code>fw-z</code> and <code>fw-3</code>, sync and <code>use_async</code>) prints the same bytes as master 6ff8717b.
+  <code>tests/shared_handlers</code> (blocking <code>no_alloc</code> and async allocating servers, every request through both entries,
+  side-by-side calls, origins; a trybuild case for a <code>&amp;mut self</code> handler of a shared item),
+  <a href="../docs/api/handlers/#shared-and-exclusive-handlers">docs</a>.</li>
 <li>📋 <strong>SRV-59 Marking an element's change from another task</strong> — <code>ObserveSignal</code> (SRV-25) has a bit per observable
   property of the flat levels; a property of a level under resource arrays (API-63) is marked on the server,
   <code>mark_changed_&lt;name&gt;(index_chain)</code>, so an interrupt or another task can't mark it without the server state. Needs a

@@ -133,8 +133,8 @@ async fn users_hub(c: &ValidatedConfig, target: &Target) -> Result<PathBuf, anyh
 
 /// The event loop on a local socket, until its commander is gone.
 #[cfg_attr(
-    not(any(feature = "usb", feature = "rtt")),
-    expect(dead_code, reason = "only used with the `usb` or `rtt` features")
+    not(all(feature = "hub", any(feature = "usb", feature = "rtt"))),
+    expect(dead_code, reason = "only USB and RTT devices held by the hub use it")
 )]
 pub(crate) async fn worker(cmd_rx: mpsc::Receiver<Command>) {
     crate::byte_stream::worker(cmd_rx, LOCAL_SOCKET).await;

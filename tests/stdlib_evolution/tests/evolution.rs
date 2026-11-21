@@ -80,13 +80,18 @@ fn ww_tap() {
     check_at(Path::new("ww_tap"));
 }
 
+#[test]
+fn ww_trace_context() {
+    check_at(Path::new("ww_trace_context"));
+}
+
 /// The repository root.
 fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
 
-/// The crates whose `api_snapshots/` are saved here: ww_tap, ww_link, ww_timebase and ww_client_server, then the
-/// ww_base crates from the checkout `Cargo.lock` pins.
+/// The crates whose `api_snapshots/` are saved here: ww_tap, ww_link, ww_timebase, ww_client_server and
+/// ww_trace_context, then the ww_base crates from the checkout `Cargo.lock` pins.
 fn crate_dirs() -> Vec<PathBuf> {
     let root = root();
     let mut crate_dirs = vec![
@@ -94,6 +99,7 @@ fn crate_dirs() -> Vec<PathBuf> {
         root.join("ww_link"),
         root.join("ww_timebase"),
         root.join("ww_client_server"),
+        root.join("ww_trace_context"),
     ];
     crate_dirs.extend(BASE_CRATES.map(base_dir));
     crate_dirs

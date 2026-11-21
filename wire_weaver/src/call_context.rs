@@ -2,9 +2,9 @@
 //! service and for a call in the same process (SRV-48).
 
 use exact_units::Millis;
-use shrink_wrap::prelude::*;
 
 use crate::Priority;
+pub use ww_trace_context::{SpanId, TraceContext, TraceFlags, TraceId};
 
 /// Who asked and under which terms: one value per call, `no_std`, `Copy`, no allocator.
 ///
@@ -172,67 +172,6 @@ impl ConnectionId {
     pub const LOCAL: ConnectionId = ConnectionId(0);
 }
 
-/// W3C trace context (`traceparent`, version 00): which trace and span a call belongs to. On the wire (SRV-47) it
-/// is its 25 bytes as they are: the ids, then the flags.
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug, Eq, PartialEq, Hash),
-    sized
-)]
-pub struct TraceContext {
-    pub trace_id: TraceId,
-    /// The caller's span: the parent of the spans the call makes.
-    pub parent_id: SpanId,
-    pub flags: TraceFlags,
-}
-
-/// A trace's id, 16 bytes; all zeros is not valid.
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug, Eq, PartialEq, Hash),
-    sized
-)]
-pub struct TraceId(pub [u8; 16]);
-
-/// A span's id, 8 bytes; all zeros is not valid.
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug, Eq, PartialEq, Hash),
-    sized
-)]
-pub struct SpanId(pub [u8; 8]);
-
-/// `trace-flags` of a trace context: bit 0 is `sampled`.
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Default),
-    sized
-)]
-pub struct TraceFlags(pub u8);
-
-impl TraceFlags {
-    pub const SAMPLED: TraceFlags = TraceFlags(1);
-
-    pub const fn is_sampled(self) -> bool {
-        self.0 & 1 != 0
-    }
-}
-
-impl TraceContext {
-    /// Both ids are valid (not all zeros), as W3C asks of a `traceparent` to be used.
-    pub fn is_valid(&self) -> bool {
-        self.trace_id.0 != [0; 16] && self.parent_id.0 != [0; 8]
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -252,18 +191,6 @@ mod tests {
         assert!(cx.is_reply_expected());
         assert_eq!(cx.deadline.map(|d| d.get()), Some(250));
         assert_eq!(cx.priority, Priority::URGENT);
-    }
-
-    #[test]
-    fn trace_validity() {
-        let mut trace = TraceContext {
-            trace_id: TraceId([1; 16]),
-            parent_id: SpanId([2; 8]),
-            flags: TraceFlags::SAMPLED,
-        };
-        assert!(trace.is_valid() && trace.flags.is_sampled());
-        trace.trace_id = TraceId([0; 16]);
-        assert!(!trace.is_valid());
     }
 
     /// It sits in every server `Context`: a change of size is a change of the firmware's stack (SRV-48 measured the

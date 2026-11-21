@@ -57,6 +57,10 @@
 [![docs.rs](https://img.shields.io/docsrs/ww_timebase)](https://docs.rs/ww_timebase)
 [![crates.io](https://img.shields.io/crates/v/wire_weaver_server)](https://crates.io/crates/wire_weaver_server)
 [![docs.rs](https://img.shields.io/docsrs/wire_weaver_server)](https://docs.rs/wire_weaver_server)
+[![crates.io](https://img.shields.io/crates/v/ww_byte_stream)](https://crates.io/crates/ww_byte_stream)
+[![crates.io](https://img.shields.io/crates/v/ww_trace_context)](https://crates.io/crates/ww_trace_context)
+[![docs.rs](https://img.shields.io/docsrs/ww_byte_stream)](https://docs.rs/ww_byte_stream)
+[![docs.rs](https://img.shields.io/docsrs/ww_trace_context)](https://docs.rs/ww_trace_context)
 
 <p align="center">
 <picture>
@@ -265,7 +269,7 @@ If you only want to serialize and deserialize some data types, it can be used st
 | [`standalone`](tests/standalone) | runtime | Host-side tests of standalone_api's types through a generated client, where the dependency isn't a wire_weaver API crate (API-60). |
 | [`standalone_api`](tests/standalone_api) | runtime | Test API using standalone_units' types, a dependency that isn't a wire_weaver API crate (API-60); used by tests/standalone. |
 | [`standalone_units`](tests/standalone_units) | runtime | A crate not built on wire_weaver (API-60): plain data types with shrink_wrap only as an optional dependency, used by tests/standalone_api. |
-| [`stdlib_evolution`](tests/stdlib_evolution) | runtime | Checks ww_link, ww_client_server, ww_timebase, ww_tap and the ww_base crates (from the checkout Cargo.lock pins) against its api_snapshots/ (TOOL-31, EVO-71): one test per crate, kept out of each crate's own Cargo.toml so a narrow feature-set test of theirs (ww_si, ww_numeric) never unifies with wire_weaver_evolution's own wide feature needs. |
+| [`stdlib_evolution`](tests/stdlib_evolution) | runtime | Checks ww_link, ww_client_server, ww_timebase, ww_tap, ww_trace_context and the ww_base crates (from the checkout Cargo.lock pins) against its api_snapshots/ (TOOL-31, EVO-71): one test per crate, kept out of each crate's own Cargo.toml so a narrow feature-set test of theirs (ww_si, ww_numeric) never unifies with wire_weaver_evolution's own wide feature needs. |
 | [`stm32_dfu_host`](stm32_dfu_host) | runtime | Host for the STM32 system bootloader's USB DFU (DfuSe) in Rust on nusb: list, read the memory layout, erase, write with read-back verify, jump to flash |
 | [`streams`](tests/streams) | runtime | Tests of streams_api's basic stream and sink dispatch: plain streams and sinks, user-defined item types, an array of streams, and sideband values. |
 | [`streams_api`](tests/streams_api) | runtime | Test API of tests/streams: plain streams and sinks, user-defined item types, an array of streams, and sideband values. |
@@ -312,6 +316,7 @@ If you only want to serialize and deserialize some data types, it can be used st
 | [`ww_stream`](ww_stream) | runtime | Counted and reliable WireWeaver streams: positions, loss accounting, acknowledgements, stores, backfill |
 | [`ww_tap`](ww_tap) | runtime | Link tap: frames, messages and link events of a WireWeaver link, batched into tape blocks |
 | [`ww_timebase`](ww_timebase) | runtime | Device clock and time synchronisation data types and API |
+| [`ww_trace_context`](ww_trace_context) | runtime | W3C trace context types as WireWeaver requests carry them |
 <!-- /spirit-level:crates -->
 
 ## Crate naming

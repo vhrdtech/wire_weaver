@@ -1171,6 +1171,7 @@ dependencies = [
  "exact_units",
  "shrink_wrap",
  "ww_api",
+ "ww_trace_context",
  "ww_version",
 ]
 
@@ -1386,6 +1387,14 @@ name = "ww_tap"
 version = "0.1.0"
 dependencies = [
  "wire_weaver",
+]
+
+[[package]]
+name = "ww_trace_context"
+version = "0.1.0"
+dependencies = [
+ "defmt 1.1.1",
+ "shrink_wrap",
 ]
 
 [[package]]

@@ -1,5 +1,9 @@
 ## Unreleased
 
+### ⚙️ Miscellaneous Tasks
+
+- `TraceContext`, `TraceId`, `SpanId` and `TraceFlags` live in the new `ww_trace_context` crate (SRV-47); `wire_weaver` re-exports them, paths unchanged.
+
 ### 📚 Documentation
 
 - Crate-level docs, and a comment on every cargo feature (`std`, `defmt`, `serde`).

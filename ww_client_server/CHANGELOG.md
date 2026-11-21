@@ -6,6 +6,7 @@
 
 ### ⚙️ Miscellaneous Tasks
 
+- The API snapshot refers to `ww_trace_context::TraceContext` (SRV-47), which has a snapshot of its own.
 - Flash of a server after STD-16, `just flash-budget` on thumbv6m (before -> after): the floor 12826 -> 13270 B at `fw-z` sync, 13790 -> 14210 B async, 17090 -> 17790 B at `fw-3` sync, 18014 -> 18718 B async; 8 resources 15606 -> 16158 B (`fw-z` sync), 20822 -> 21498 B (`fw-3` sync); a property 108 -> 149 B, a call and a stream unchanged within 10 B: the common error event's writer is linked once per server, the handler's `Ok` path moves nothing new.
 - Crate moved from `ww_stdlib/ww_client_server` to the repo root, beside `ww_link` and `ww_framer` (architecture-layers.md R5): framework by content, not a standard API. Name and version unchanged; `repository` now points at `wire_weaver` instead of `ww_stdlib`.
 

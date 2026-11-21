@@ -37,6 +37,7 @@ members = [
     "ww_tap",
     "ww_tape_bundle",
     "ww_timebase",
+    "ww_trace_context",
 ]
 
 exclude = [
@@ -221,6 +222,7 @@ ww_self = { version = "0.3.0", path = "./ww_self" }
 ww_tap = { version = "0.1.0", path = "./ww_tap", default-features = false }
 ww_tape_bundle = { version = "0.1.0", path = "./ww_tape_bundle" }
 ww_timebase = { version = "0.1.0", path = "./ww_timebase", default-features = false }
+ww_trace_context = { version = "0.1.0", path = "./ww_trace_context", default-features = false }
 
 # examples and tests, not published
 args_evolution_api = { version = "0.1.0", path = "./tests/args_evolution_api" }

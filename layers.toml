@@ -205,6 +205,7 @@ ww_settings_derive = { layer = "runtime" }
 ww_stream = { layer = "runtime", no_std = true, unsafe = true }
 ww_tap = { layer = "runtime", no_std = true }
 ww_timebase = { layer = "runtime", no_std = true }
+ww_trace_context = { layer = "runtime", no_std = true }
 cannify_micro_g0b1cetxn = { layer = "runtime", workspace = "examples_mcu/nucleo_g0b1re", unsafe = true }
 ecc_flash_g0b1 = { layer = "runtime", workspace = "examples_mcu/ecc_flash_g0b1", unsafe = true }
 ecc_flash_h7 = { layer = "runtime", workspace = "examples_mcu/ecc_flash_h7", unsafe = true }

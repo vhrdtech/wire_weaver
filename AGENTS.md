@@ -250,10 +250,9 @@ The codegen pipeline (read `wire_weaver_derive`, then `wire_weaver_core`):
   build time (`ww`, the Python wheel), `~/.wire_weaver/snapshots/`, Cargo's sources on disk, then crates.io or the
   crate's repository (`ureq` with `rustls`; its provider `ring` is C and assembly, see "Native code"). Every crate
   keeps its own `api_snapshots/`; codegen leaves types known from a dependency's out of a device's introspection data
-  and the client puts them back. After
-  changing a type in `ww_tap`, `ww_link`, `ww_timebase` or `ww_client_server`, run `just save-snapshots` (a test fails
-  otherwise). It refreshes the crate's current version, right only for a version never published (`cargo info
-  --registry crates-io <crate>`): bump a published one first.
+  and the client puts them back. After changing a type in `ww_tap`, `ww_link`, `ww_timebase`, `ww_trace_context` or
+  `ww_client_server`, run `just save-snapshots` (a test fails otherwise). It refreshes the crate's current version,
+  right only for a version never published (`cargo info --registry crates-io <crate>`): bump a published one first.
 - **`examples/`**: paired `<name>_api` (trait and types, `no_std`) and `<name>` (server and client) crates, the
   project shape users copy (`docs/api/folder_structure.md`); `examples_mcu/` has firmware per board.
 - **`tests/`**: one integration-test crate per feature, each with a `<name>_api` companion: the best place for minimal

@@ -19,6 +19,7 @@ std = [
     "shrink_wrap/std",
     "ww_api/std",
     "ww_version/std",
+    "ww_trace_context/std",
 ]
 # defmt formatting for the runtime's types
 defmt = [
@@ -27,6 +28,7 @@ defmt = [
     "shrink_wrap/defmt",
     "ww_api/defmt",
     "ww_version/defmt",
+    "ww_trace_context/defmt",
 ]
 # serde for the runtime's types
 serde = ["shrink_wrap/serde", "ww_api/serde"]
@@ -38,6 +40,7 @@ exact_units = { workspace = true, features = ["time"] }
 futures-core = { workspace = true, optional = true }
 shrink_wrap = { workspace = true, default-features = false }
 ww_api = { workspace = true, default-features = false }
+ww_trace_context = { workspace = true, default-features = false }
 ww_version = { workspace = true, default-features = false }
 
 [lints]

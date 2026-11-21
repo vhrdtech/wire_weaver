@@ -4630,6 +4630,7 @@ dependencies = [
  "futures-core",
  "shrink_wrap",
  "ww_api",
+ "ww_trace_context",
  "ww_version",
 ]
 
@@ -5236,6 +5237,14 @@ dependencies = [
  "ww_api",
  "ww_date_time",
  "ww_si",
+]
+
+[[package]]
+name = "ww_trace_context"
+version = "0.1.0"
+dependencies = [
+ "defmt 1.1.1",
+ "shrink_wrap",
 ]
 
 [[package]]

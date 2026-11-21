@@ -219,12 +219,13 @@ check-examples-mcu-rp2:
 # (`cargo install --git https://github.com/vhrdtech/ww_tools ww`, or `just install` in that repository).
 # Recipes below that need a ww for this repository's own work use wire_weaver_cli's example `ww_generic`.
 
-# Save API snapshots of ww_tap, ww_timebase, ww_link, ww_client_server and the test fixtures other crates' tests
-# read, into each crate's api_snapshots/, with wire_weaver_cli's generic `ww` (the ww_base and ww_stdlib crates save
-# theirs in their own repositories). Pass --force to overwrite snapshots of versions that were never published.
+# Save API snapshots of ww_tap, ww_timebase, ww_trace_context, ww_link, ww_client_server and the test fixtures other
+# crates' tests read, into each crate's api_snapshots/, with wire_weaver_cli's generic `ww` (the ww_base and ww_stdlib
+# crates save theirs in their own repositories). Pass --force to overwrite snapshots of versions that were never
+# published.
 save-snapshots *args:
     cargo build -q -p wire_weaver_cli --example ww_generic
-    for crate in ww_tap ww_timebase ww_link ww_client_server tests/wire_line_fixture_api tests/skipped_dep_api; do \
+    for crate in ww_tap ww_timebase ww_trace_context ww_link ww_client_server tests/wire_line_fixture_api tests/skipped_dep_api; do \
         target/debug/examples/ww_generic api save $crate {{ args }} || exit 1; \
     done
 

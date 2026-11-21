@@ -544,6 +544,10 @@ pub enum ErrorKind<'i> {
     /// An error every item can answer with (`ww_error::CommonError`): the handler returned
     /// `Err(wire_weaver::Error::Common(..))`, or a hub refused the call for a claimed resource (`InUse`)
     Common(CommonError<'i>),
+    /// A host server refused the request before any handler saw it: too many requests run across its connections
+    /// (SRV-12). Nothing ran, so it is safe to send again later. `CommonError::Busy` is the other word for "later":
+    /// a handler's own, about a resource it guards.
+    Overloaded,
 }
 
 // Optional shaper configuration request.
@@ -633,6 +637,15 @@ impl<'i> Error<'i> {
         }
     }
 
+    /// A request a host server refused for its load ([ErrorKind::Overloaded]), at
+    /// [REQUEST_OVERLOADED](err_seq::REQUEST_OVERLOADED).
+    pub fn overloaded() -> Self {
+        Self {
+            err_seq: UNib32(err_seq::REQUEST_OVERLOADED),
+            kind: ErrorKind::Overloaded,
+        }
+    }
+
     pub fn unimplemented(err_seq: u32) -> Self {
         Self {
             err_seq: UNib32(err_seq),
@@ -703,6 +716,7 @@ impl Error<'_> {
             ErrorKind::TraitNotFound => ErrorKindOwned::TraitNotFound,
             ErrorKind::StreamNoSession => ErrorKindOwned::StreamNoSession,
             ErrorKind::StreamStoreFailed => ErrorKindOwned::StreamStoreFailed,
+            ErrorKind::Overloaded => ErrorKindOwned::Overloaded,
             ErrorKind::UserBytes(bytes) => ErrorKindOwned::UserBytes(bytes.to_vec()),
             ErrorKind::UserStr(s) => ErrorKindOwned::UserStr(s.to_string()),
             ErrorKind::Common(c) => ErrorKindOwned::Common(c.make_owned()),

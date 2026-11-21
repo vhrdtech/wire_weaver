@@ -82,6 +82,17 @@ pub fn over_limit_reply<'s>(request: &[u8], scratch: &'s mut [u8]) -> Option<&'s
     ww_client_server::util::ser_err_event(scratch, seq, error).ok()
 }
 
+/// The answer of a host server that refuses a request for its load (SRV-12): `Overloaded` at
+/// [REQUEST_OVERLOADED](ww_client_server::err_seq::REQUEST_OVERLOADED). None if the request has no seq (no reply
+/// expected) or `scratch` is too small.
+pub fn overloaded_reply<'s>(request: &[u8], scratch: &'s mut [u8]) -> Option<&'s [u8]> {
+    let seq = ww_client_server::Request::peek_seq(request).ok()?;
+    if seq == 0 {
+        return None;
+    }
+    ww_client_server::util::ser_err_event(scratch, seq, ww_client_server::Error::overloaded()).ok()
+}
+
 /// Priority of a serialized request, [Priority::NORMAL](wire_weaver::Priority::NORMAL) when it can't be read
 /// (the backend answers such a request with an error anyway).
 pub(crate) fn request_priority(request: &[u8]) -> wire_weaver::Priority {

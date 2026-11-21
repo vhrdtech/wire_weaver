@@ -205,6 +205,7 @@ borrowed_types! {
         Event => ww_client_server::Event<'_>,
         MultiIndex => ww_client_server::MultiIndex<'_>,
         StreamOpened => ww_client_server::stream::StreamOpened<'_>,
+        Error => ww_client_server::Error<'_>,
         args_one => ArgsOneArgs,
         args_plain => ArgsPlainArgs,
         args_flatten => ArgsPair,

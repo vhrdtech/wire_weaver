@@ -1,6 +1,6 @@
 // ww_client_server 0.2.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: afef42b445bc5220be77ac914bb3d2334a5f2c57f75ebdb3a5362d0afabfb353
+// shrink_wrap sha256: d701f2265bb13636c175efb7c0200e59001c6fabb87285a8dcf8e8f380d71a3c
 (magic: 2837124336, ww_self_version: (major: 0, minor: 4, patch: 0), root: (docs: [
     "Client-server API model data types for both `no_std` and `std`: [`dispatch`]\'s request/response envelopes,",
     "[`observe`] for property change notifications, [`stream`] for reliable and counted streams, path and",
@@ -279,6 +279,11 @@
         ], ident: "Common", fields: Unnamed([
             (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 13), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 17, since: None),
+        (docs: [
+            "A host server refused the request before any handler saw it: too many requests run across its connections",
+            "(SRV-12). Nothing ran, so it is safe to send again later. `CommonError::Busy` is the other word for \"later\":",
+            "a handler\'s own, about a resource it guards.",
+        ], ident: "Overloaded", fields: Unit, discriminant: 18, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 3, type_name: "CommonError", signature: [
         30,

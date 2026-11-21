@@ -746,6 +746,13 @@ pub fn table() -> Vec<Typed> {
         case_debug("client_server.stream_opened.unknown", || {
             stream_opened(Some(ww_client_server::stream::StreamCodec::Unknown(9)))
         }),
+        // the error answer of a request, not in the API model: Overloaded (SRV-12) is appended after Common
+        case_debug("client_server.error.overloaded", || {
+            ww_client_server::ErrorOwned::new(
+                ww_client_server::err_seq::REQUEST_OVERLOADED,
+                ww_client_server::ErrorKindOwned::Overloaded,
+            )
+        }),
         // ww_link's Disconnect payload, not in the API model
         case_borrowed_only(
             "disconnect_reason.hub_handover",

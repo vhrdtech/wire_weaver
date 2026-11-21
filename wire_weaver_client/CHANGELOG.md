@@ -10,6 +10,7 @@
 
 ### 🚀 Features
 
+- A device's `ErrorKind::Overloaded` (SRV-12) is `call::ErrorKind::Overloaded`, as a common `Busy` is.
 - `connect_spans` (CLT-79): a connect opens a debug `tracing` span per step (validate, select, link, open, learn, introspect), so a subscriber sees where its time goes.
 - `in_process::listener(path, max_message_len)` (SRV-12): every host connecting to the path is a connection of its own, from `Listener::accept`.
 - `wire_weaver_client::ww_tape_fs`: ww_tape's file layer (file sink, piece files, lock, writers opened by path), re-exported.

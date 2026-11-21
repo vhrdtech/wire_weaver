@@ -414,6 +414,7 @@ impl Error {
                 | Remote::StreamNoSession
                 | Remote::StreamStoreFailed
                 | Remote::Unknown(_) => CallErrorKind::Internal,
+                Remote::Overloaded => CallErrorKind::Overloaded,
                 Remote::Common(c) => CallErrorKind::of_common(c),
             },
             Error::Timeout => CallErrorKind::DeadlineExceeded,

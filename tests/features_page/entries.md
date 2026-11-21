@@ -558,6 +558,7 @@ How WireWeaver is kept working: every change runs through CI, against the real c
 - EVO-55 | The wire change behind exact_units at c132f58 (`CodecDef`'s `codes`/`nominal`/`curve`, `Symbols`' `m_u`): the user-visible side is STD-109 (codec) and the Magnitude conformance cases it touches.
 - EVO-60 | The wire change behind `ww_user_info`'s bounded `NameMax` / `NotesMax` caps: the user-visible side is `docs/std_library/ww_user_info.md`.
 - EVO-61 | The wire change behind `ww_onewire`'s new wire line (`SearchState::last_discrepancy`'s added `1..=64` bound): the user-visible side is STD-113.
+- EVO-83 | The wire change behind `ErrorKind::Overloaded`, appended (no break, an older host reads `Unknown`): the user-visible side is SRV-12.
 - EVO-81 | The wire change behind the empty-list padding fix in multi requests (no break, both forms read the same): the user-visible side is SW-81.
 - EVO-72 | The wire change behind the capability limits bounded by their `MAX_*` consts (`ww_i2c` `w2.0`, `ww_user_info` and `ww_spi` `w3.0`): the user-visible side is the docs of those crates.
 - EVO-65 | The wire change behind `ww_dfu`'s typed numbers (wire `w2.0`): ids and versions as newtypes, a security counter apart from the release version, `resume_from` split; the user-visible side is STD-12.

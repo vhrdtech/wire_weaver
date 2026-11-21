@@ -13,6 +13,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 - `just lint` and CI run spirit_level (`spirit_level.toml`); every crate declares `rust-version = "1.99"`.
 - New crate `wire_weaver_server` (SRV-12): many clients on one API, on any async runtime; see its changelog and `wire_weaver_client`.
+- `ErrorKind::Overloaded` appended to the wire (EVO-83): a host server's cap across connections answers with it; see `ww_client_server` and `wire_weaver_server`.
 - Comments, `#[allow]` reasons and `todo!()` cleaned up for spirit_level; see `wire_weaver_client` and `wire_weaver_core` changelogs.
 - Tapes and logring have books of their own: the book keeps a short page on each, linking there (DOC-12).
 - The book's copied trackers link their repository's other files on the web at the locked commit; see `ww_book`.

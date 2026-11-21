@@ -115,6 +115,7 @@ fn write_err(
         D::TraitNotFound => ErrorKind::TraitNotFound,
         D::StreamNoSession => ErrorKind::StreamNoSession,
         D::StreamStoreFailed => ErrorKind::StreamStoreFailed,
+        D::Overloaded => ErrorKind::Overloaded,
         // written with its payload by `common_error`, never through here; nor is a kind of a newer version
         D::Common | D::Unknown(_) => ErrorKind::OperationNotSupported,
     };

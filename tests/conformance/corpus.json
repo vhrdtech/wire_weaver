@@ -1113,6 +1113,14 @@
       "note": "StreamOpened (API-55) with a codec of a newer version: its discriminant is read as Unknown, the host opens the stream again with raw"
     },
     {
+      "name": "client_server.error.overloaded",
+      "type": "Error",
+      "value": {"err_seq": 63, "kind": "Overloaded"},
+      "bytes": "f71201",
+      "gaps": {"dynamic": "ww_client_server's Error is the error answer of a request, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail)", "explain": "ww_client_server's Error is the error answer of a request, not a type of an API in the model", "python": "ww_client_server's Error is the error answer of a request, not a type of an API in the model", "c": "ww_client_server's Error is the error answer of a request, not a type of an API in the model"},
+      "note": "ww_client_server ErrorKind::Overloaded (SRV-12), appended after Common: a host server refused the request for its load before any handler ran"
+    },
+    {
       "name": "disconnect_reason.hub_handover",
       "type": "DisconnectReason",
       "value": "HubHandover",

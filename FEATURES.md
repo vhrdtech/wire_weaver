@@ -1796,6 +1796,12 @@ Unicast Data0 to one node over the same bus is TR-6.
   snapshot was rewritten once into 0.4.0 ([snapshots](docs/evolution/snapshots.md#model-format)). No device or
   host depends on an older format.
 - ✅ **EVO-78 Evolution of keyed arrays** · `v0.5` — `keyed!` in the checker: adding one is compatible, removing
+- ✅ **EVO-83 `ErrorKind::Overloaded` appended** · `v0.5` — wire addition to `ww_client_server`'s `ErrorKind`, no
+  break: `Overloaded` comes after `Common`, at the new request site `err_seq::REQUEST_OVERLOADED` (63). A host
+  server (SRV-12) answers with it a request it refused for its load before any handler ran. An older host reads it
+  as `ErrorKind::Unknown` and its call fails as an internal error; a device never sends it. The line stays `w2.0`.
+  Conformance case `client_server.error.overloaded`, test `host_server`
+  `a_request_past_the_servers_cap_is_answered_overloaded`.
   one is a break, the key type is compared both ways, and keying another array is a break. Across a wire break a
   companion is matched by the array it keys, so it follows a moved or `#[moved_from]`-renamed array. `ww api diff`
   prints `keyed!(flow by FlowKey)`; `ww api` trees print `flow[] keyed by FlowKey` on the array line (API-67).

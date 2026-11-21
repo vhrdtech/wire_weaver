@@ -665,14 +665,15 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   `RpcResult::Failed` / `GetResult::Failed` / `SetResult::Failed` (`wire_weaver::Failure`, `wire_weaver::forward`;
   firmware links none of it, `just flash-budget` unchanged); a stream open adds the trait's `ItemStream` as a pump.
   Items the trait leaves out are handlers written by hand beside them. `examples/local_trait`, `tests/serve_trait`,
-  [docs](docs/api/local_trait.md#serving-a-local-implementation). Next: the non-`Send` trait form (SRV-73),
-  nested levels and the rest of CLT-58 (each grows the trait, the server follows); SRV-46's authorization hook runs
-  in the server before any handler, these included.
-- 📋 **SRV-73 Non-Send local trait** — `ww_codegen!(crate :: Api, local_trait = "Name", local_trait_send = false)`:
-  the trait and its `Dyn` companion without `Send` (a `LocalBoxFuture`, `Rc<dyn NameDyn>`, a `LocalItemStream`), for
-  single-threaded hosts whose state is `Rc`/`RefCell`, served by `serve_trait` too. Needs `wire_weaver_server`
-  pumps of streams that are not `Send` without making every connection `!Send`: a pump set for a single-threaded
-  `serve`, or `Pumps` generic over its kind.
+  [docs](docs/api/local_trait.md#serving-a-local-implementation). Next: nested levels and the rest of CLT-58 (each
+  grows the trait, the server follows); SRV-46's authorization hook runs in the server before any handler, these
+  included.
+- ✅ **SRV-73 Non-Send local trait** — `ww_codegen!(crate :: Api, local_trait = "Name", local_trait_send = false)`:
+  the trait and its `Dyn` companion without `Send` (`LocalBoxFuture`, `Rc<dyn NameDyn>`, `LocalItemStream`), for
+  single-threaded hosts whose state is `Rc`/`RefCell`; the client implements it with the same flag beside
+  `impl_local_trait`, and `serve_trait` serves it with the same generated code. `wire_weaver_server` connections
+  take `LocalPumps` when their `MakeBackend` says so (`Local`, `LocalConnection`), the others stay `Send`
+  (`tests/serve_trait` `not_send`, [docs](docs/api/local_trait.md#without-send)).
 - 📋 **SRV-9 Handle USB suspend/resume** · `v0.5` — run until suspend, wait for resume, loop
   (`mcu/wire_weaver_usb_embassy`). Later (`v0.5.x`): detect the host going to sleep and keep the connection,
   informing the device.

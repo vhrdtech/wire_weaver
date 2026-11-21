@@ -78,7 +78,8 @@ pub trait Counter: Send + Sync {
 - A stream is an `ItemStream<T>`, a boxed `futures` stream of `Result<T, Error>` that ends when the stream is
   closed.
 - Functions take `&self` and their futures are `Send`, so a generic caller can run on any task; a local type keeps
-  its state behind a `Mutex` or atomics.
+  its state behind a `Mutex` or atomics. A single-threaded program whose state is `Rc` / `RefCell` asks for the
+  trait [without `Send`](#without-send).
 
 ## A local implementation
 
@@ -266,6 +267,7 @@ impl CounterServer {
 
 impl Serves for CounterServer {
     type Service = LocalCounter;
+    type Pumps = Pumps;
 
     fn service(&self) -> &LocalCounter {
         &self.service
@@ -311,13 +313,84 @@ What the generated handlers do:
   returned; `Unavailable`, `MessageTooBig` and `Internal` are `Internal`. A client of an older `ww_client_server`
   sees the kinds it does not know as an unknown error.
 - **Streams.** Every connection gets its own `ItemStream`; sharing items between clients is the implementation's
-  business, a `broadcast` channel for example. The pump ends at the stream's end or its first error.
+  business, a `broadcast` channel for example. The pump ends at the stream's end or its first error, and closes the
+  client's stream, so the client's `ItemStream` ends there too.
 
 `serve_trait` sets the handlers' shape itself: `use_async = true`, owned arguments (`no_alloc = false`), calls and
 reads shared (`receiver_model = "_=shared"`), immediate methods and getters and setters; leave out those arguments.
 Items the trait leaves out (see the note above) are handlers written by hand beside the generated ones, in another
 `impl CounterServer` block, with the signatures `ww api scaffold --alloc --use-async --receiver-model "_=shared"`
 prints. Firmware keeps its hand-written handlers: the trait's owned types and boxed futures don't fit it.
+
+## Without `Send`
+
+A program on one thread, such as a GUI or a calloop loop, keeps its state in `Rc` and `RefCell`, and its futures and
+streams aren't `Send`. `local_trait_send = false` gives it the trait in a form without `Send`:
+
+```rust
+#[cfg(feature = "local")]
+mod local {
+    wire_weaver::ww_codegen!(crate :: CounterApi, local_trait = "Counter", local_trait_send = false);
+}
+```
+
+What changes against the `Send` form:
+
+| | `Send` form | `local_trait_send = false` |
+|---|---|---|
+| the trait | `Counter: Send + Sync`, futures `+ Send` | no `Send` anywhere |
+| a stream | `ItemStream<T>`, `item_stream(..)` | `LocalItemStream<T>`, `local_item_stream(..)` |
+| the companion's futures | `BoxFuture<'a, T>` | `LocalBoxFuture<'a, T>` |
+| shared trait object | `Arc<dyn CounterDyn>` | `Rc<dyn CounterDyn>` |
+
+A local implementation then holds an `Rc` across an `.await` and builds its streams from `Rc` state:
+
+```rust
+impl Counter for LocalCounter {
+    async fn totals(&self, _cx: &CallContext) -> Result<LocalItemStream<u32>, Error> {
+        let state = self.state.clone(); // Rc<RefCell<State>>
+        Ok(local_item_stream(stream::iter(0..3).map(move |_| Ok(state.borrow().total))))
+    }
+    // ..
+}
+```
+
+The client implements this form too, with the same flag beside `impl_local_trait`; it is `Send` itself, its item
+streams coerce into `LocalItemStream`:
+
+```rust
+wire_weaver::ww_codegen!(
+    local_trait_api :: CounterApi for super::CounterClient,
+    client = "std_client",
+    impl_local_trait = "local_trait_api::Counter",
+    local_trait_send = false,
+);
+```
+
+`serve_trait` serves both forms with the same generated code. A service in an `Rc` gives its server
+[`LocalPumps`](host_server.md#streams-that-are-not-send) instead of `Pumps`, and the factory is wrapped in `Local`:
+
+```rust
+use wire_weaver_server::{Backend, Local, LocalConnection, LocalPumps, Serves};
+
+pub struct CounterServer {
+    service: Rc<LocalCounter>,
+    pumps: LocalPumps,
+}
+
+impl Serves for CounterServer {
+    type Service = LocalCounter;
+    type Pumps = LocalPumps;
+    // fn service, fn pumps as above
+}
+
+let make = Local(move |c: &LocalConnection| CounterServer::new(counter.clone(), c));
+server.serve(link, listener, make, shutdown).await?;
+```
+
+The connections are then not `Send`: `serve` runs on a single-threaded executor (a tokio `LocalSet`, calloop), or
+the connections `accepting` hands out are spawned as local tasks. `tests/serve_trait` (`not_send`) serves such a
+service on one thread and runs the same calls against it directly and through the client.
 
 ## The trait without the API crate
 

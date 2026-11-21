@@ -182,6 +182,7 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 - SRV-21 | Sync handlers in an async server | Handlers that never wait are plain `fn`s, only the ones that await are `async`: less flash. | api/handlers.md
 - SRV-65 | Shared handlers | Calls and reads of the items you mark shared take `&self`, so a host server can run them side by side; the rest stays `&mut self`. | api/handlers.md#shared-and-exclusive-handlers
 - SRV-49 | A server from the local trait | `serve_trait` generates every handler of a host server from one implementation of the API's local trait: the same code serves calls in the same process and remote clients. | api/local_trait.md#serving-a-local-implementation
+- SRV-73 | Local trait without `Send` | The local trait in a form for one thread, state in `Rc` and `RefCell`: implemented by your struct and the client, served by `serve_trait`. | api/local_trait.md#without-send
 - SRV-18 | Observed properties | The device sends property changes within the budget each host asked for. | api/observing.md#the-device-side
 - SRV-25 | Event-driven observe | The device sleeps until an observed property is due, and wakes at once when one changes. | api/observing.md#the-server-loop
 - SRV-19 | ECC-safe STM32 flash | Reads a flash word broken by a power cut as zeros (stores) or as an ECC error (bootloaders) instead of crashing. | api/ecc_flash.md

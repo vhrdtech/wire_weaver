@@ -504,7 +504,25 @@ async fn close_news(&mut self, _cx: &mut Context<'_, impl EventOut>) {
 The backend keeps the handle that comes with `Connection::pumps`. A pump starts once the answer of the request that
 added it went out, so the client knows the stream before its first item. It waits while the connection's event queue
 is full, and it ends with its stream or with the connection, whoever still holds a handle. An item longer than the
-link's message limit is skipped.
+link's message limit is skipped. `add_ending` adds a pump that sends one more event when its stream ends, such as
+the stream's `Close` sideband (`stream_data_ser().news_sideband(StreamSideband::Close, buf)`), so the client's
+stream ends with it.
+
+### Streams that are not `Send`
+
+`Pumps` take `Send` streams, so a connection stays `Send` and can run on any thread. A service on one thread, with
+its state in `Rc` and `RefCell`, has streams that aren't `Send`. Its connections take `LocalPumps` instead, with the
+same `add`, `add_ending` and `remove`. The factory says which: a closure of `&Connection` gives `Pumps`, one of
+`&LocalConnection` wrapped in `Local` gives `LocalPumps`, and a `MakeBackend` of your own names them as its
+`type Pumps`:
+
+```rust
+let make = Local(move |c: &LocalConnection| MyBackend::new(shared.clone(), c.pumps.clone()));
+server.serve(link, listener, make, shutdown).await?;
+```
+
+Such connections are not `Send`. `serve` runs them on the thread that polls it; with `accepting`, spawn them as
+local tasks. A server from a local trait without `Send` is the main user ([Local trait](local_trait.md#without-send)).
 
 ### The backend's own turn
 

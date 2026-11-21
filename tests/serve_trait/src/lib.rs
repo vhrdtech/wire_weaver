@@ -1,5 +1,6 @@
 //! A server generated with `serve_trait` (SRV-49): [Service] implements the local trait [Served], [server::Server]
-//! has no handler written by hand, [client::Client] is the generated client implementing [Served] too.
+//! has no handler written by hand, [client::Client] is the generated client implementing [Served] too. [not_send]
+//! is the same without `Send` (SRV-73): state in `Rc` / `RefCell`, served on one thread.
 
 use futures_lite::stream;
 use serve_trait_api::{Gate, How, ServeError, Served, Tick};
@@ -49,6 +50,18 @@ fn locked<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
         .expect("lock poisoned: a thread panicked while holding it")
 }
 
+/// What `fail` answers for `how`, in both forms of the trait.
+pub fn failed(how: How) -> Result<Gate, CallError<ServeError>> {
+    match how {
+        How::Not => Ok(Gate(0)),
+        How::Api => Err(CallError::Api(ServeError::Refused)),
+        How::Denied => Err(Error::denied("not you").into()),
+        How::Internal => Err(Error::internal("broken").into()),
+        How::Busy => Err(Error::common(CommonErrorOwned::Busy).into()),
+        How::Unimplemented | How::Unknown(_) => Err(Error::unimplemented("not here").into()),
+    }
+}
+
 /// Counts a call in `waiting` while it waits, also when the server drops it.
 struct Waiting<'a>(&'a AtomicU32);
 
@@ -76,14 +89,7 @@ impl Served for Service {
     }
 
     async fn fail(&self, _cx: &CallContext, how: How) -> Result<Gate, CallError<ServeError>> {
-        match how {
-            How::Not => Ok(Gate(0)),
-            How::Api => Err(CallError::Api(ServeError::Refused)),
-            How::Denied => Err(Error::denied("not you").into()),
-            How::Internal => Err(Error::internal("broken").into()),
-            How::Busy => Err(Error::common(CommonErrorOwned::Busy).into()),
-            How::Unimplemented | How::Unknown(_) => Err(Error::unimplemented("not here").into()),
-        }
+        failed(how)
     }
 
     async fn read_mode(&self, _cx: &CallContext) -> Result<Gate, Error> {
@@ -195,5 +201,9 @@ pub mod client {
     }
 }
 
+pub mod not_send;
+
+#[cfg(test)]
+mod not_send_tests;
 #[cfg(test)]
 mod tests;

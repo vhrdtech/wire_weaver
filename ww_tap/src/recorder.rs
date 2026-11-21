@@ -808,11 +808,13 @@ impl Inner {
                     key: track_key(link, stream),
                     clock: UNib32(HOST_CLOCK),
                     dimensions: RefVec::Slice { slice: &[] },
-                    api,
-                    bundle: RefVec::Slice { slice: &[] },
-                    path: RefVec::Slice { slice: &path },
-                    keys: RefVec::Slice { slice: &[] },
-                    item: None,
+                    items: ww_tape::Items::WireWeaver {
+                        api,
+                        bundle: RefVec::Slice { slice: &[] },
+                        path: RefVec::Slice { slice: &path },
+                        keys: RefVec::Slice { slice: &[] },
+                        item: None,
+                    },
                     label: &label,
                     repeat: if stream == ids::SESSION {
                         TrackRepeat::STATE

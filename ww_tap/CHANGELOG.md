@@ -23,6 +23,7 @@
 
 ### ⚠️ Breaking
 
+- Tapes take ww_tape 0081196: a track's definition holds its WireWeaver items (FMT-12); older tap files don't read.
 - Declares `rust-version = "1.99"`: cargo of an older Rust refuses the crate.
 - Built on ww_tape 2bfdd07: recorder tracks carry the piece's owner (zeros) and no relations; head and index rows changed (ww_tape TAPE-8).
 - The recorder writes tape format 1: a session is a state record, put to consumers that lack it (STD-135).

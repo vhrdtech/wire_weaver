@@ -1361,13 +1361,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
 name = "exact_units"
 version = "0.1.0"
-source = "git+https://github.com/romixlab/exact_units#7383e5273eb345567c0b8f9a89777a7011d30996"
+source = "git+https://github.com/romixlab/exact_units#510c4480882a23b4a585829b437675bcae6f269c"
 dependencies = [
  "defmt 1.1.1",
  "libm",
@@ -3116,7 +3116,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -3858,7 +3858,7 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -4504,7 +4504,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -5216,7 +5216,7 @@ dependencies = [
 [[package]]
 name = "ww_tape"
 version = "0.1.0"
-source = "git+https://github.com/vhrdtech/ww_tape#880b4f742bb617d23cb7d481b43e0f53eecb0e82"
+source = "git+https://github.com/vhrdtech/ww_tape#00811962beb6e54b458c57f495e1d594310065fc"
 dependencies = [
  "blake3",
  "exact_units",
@@ -5238,7 +5238,7 @@ dependencies = [
 [[package]]
 name = "ww_tape_codecs"
 version = "0.1.0"
-source = "git+https://github.com/vhrdtech/ww_tape#880b4f742bb617d23cb7d481b43e0f53eecb0e82"
+source = "git+https://github.com/vhrdtech/ww_tape#00811962beb6e54b458c57f495e1d594310065fc"
 dependencies = [
  "crc",
  "lz4_flex",
@@ -5247,7 +5247,7 @@ dependencies = [
 [[package]]
 name = "ww_tape_fs"
 version = "0.1.0"
-source = "git+https://github.com/vhrdtech/ww_tape#880b4f742bb617d23cb7d481b43e0f53eecb0e82"
+source = "git+https://github.com/vhrdtech/ww_tape#00811962beb6e54b458c57f495e1d594310065fc"
 dependencies = [
  "blake3",
  "rustix",

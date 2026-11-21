@@ -1,10 +1,10 @@
 //! The name path of a `ww_tape` track's resource, from the API bundle (STD-125): what
 //! [track_key] hashes.
 //!
-//! A [TrackDef::path](ww_tape::TrackDef::path) is numeric (item ids and array indices); the bundle (`ww_self`) gives
-//! each id its identity name, and [TrackDef::keys](ww_tape::TrackDef::keys) the key that stands for the index into a
-//! keyed array (API-67). Producers and readers build the name path here, so they agree on the key. The tape format
-//! itself knows no bundle: this crate sits above both `ww_tape` and `ww_self`.
+//! A WireWeaver track's [path](ww_tape::Items::WireWeaver::path) is numeric (item ids and array indices); the
+//! bundle (`ww_self`) gives each id its identity name, and [keys](ww_tape::Items::WireWeaver::keys) the key that
+//! stands for the index into a keyed array (API-67). Producers and readers build the name path here, so they agree
+//! on the key. The tape format itself knows no bundle: this crate sits above both `ww_tape` and `ww_self`.
 
 use ww_self::keys::{KeysError, item_name, keys_level};
 use ww_self::{ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, Multiplicity};
@@ -87,7 +87,7 @@ fn find(level: &ApiLevelOwned, at: usize, id: u32) -> Result<&ApiItemOwned, Name
 
 /// The name path of the resource at the numeric `path` in `bundle`: each item's identity name, each array index,
 /// and for an index into a keyed array its key from `keys` (path position and the key's shrink_wrap bytes, as in
-/// [TrackDef::keys](ww_tape::TrackDef::keys)).
+/// [Items::WireWeaver::keys](ww_tape::Items::WireWeaver::keys)).
 pub fn name_path<'a>(
     bundle: &'a ApiBundleOwned,
     path: &[u32],

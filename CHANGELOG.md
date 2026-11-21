@@ -23,6 +23,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - Comments, `#[allow]` reasons and `todo!()` cleaned up for spirit_level; see `wire_weaver_client` and `wire_weaver_core` changelogs.
 - Tapes and logring have books of their own: the book keeps a short page on each, linking there (DOC-12).
 - The book's copied trackers link their repository's other files on the web at the locked commit; see `ww_book`.
+- ww_tape moves to 0081196: a track's items say what they are (FMT-12), so older tap files don't read; see `ww_tap`.
 - ww_tape moves to 880b4f7: a piece closes more than once (WRITE-7); the Features page names ww_tape items by their new ids; see `wire_weaver_cli`.
 - ww_tape moves to b3b6172: its file layer is `ww_tape_fs`; see `wire_weaver_client` and `wire_weaver_cli`.
 - ww_tape moves to 2bfdd07 (track owner, relations, keyed stores, lock files); see `ww_tap` and `wire_weaver_cli`.

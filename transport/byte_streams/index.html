@@ -6414,8 +6414,7 @@ names the API: <code>/</code> the default one, <code>/journal</code> the service
 <p>A byte-stream server takes anyone who can reach the stream. On a local socket only the same user can; TCP has no
 authentication or encryption yet (TLS is TR-20), so bind a TCP listener to a trusted network only, or reach the
 server through ssh with <code>command</code>. Handlers see who connected in <code>cx.call().peer</code>: the TCP address, the local
-socket's process, or the peer the program passed with a stream it accepted itself. A host server decides who may
-do what with <a href="../../api/host_server/#who-may-call">listener policies and an authorization hook</a>.</p>
+socket's process, or the peer the program passed with a stream it accepted itself.</p>
 
 
 

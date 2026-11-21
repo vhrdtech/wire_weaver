@@ -7201,6 +7201,11 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
   (<code>OwnedFramedTx</code> / <code>OwnedFramedRx</code>, ww_framer's <code>FrameWriter</code> / <code>FrameReader</code> over borrowed and owned framers);
   firmware builds the same code. The peer is <code>Peer::Addr</code>; policy on top is SRV-46
   (<a href="../docs/api/host_server/#hosts-on-udp">Host server</a>, <code>tests/host_server/src/tests/udp.rs</code>).</li>
+<li>✅ <strong>SRV-70 wire_weaver_server on a calloop loop</strong> — <code>ww_calloop</code>: <code>LoopClock</code> (<code>ww_device::Clock</code> on the
+  loop's timers), <code>TcpIncoming</code> (a byte-stream source of TCP clients the loop accepts, for <code>WsFraming</code> or
+  <code>PreambleFraming</code>) and <code>bind_udp</code> (<code>UdpListener</code> on <code>StdUdpSocket</code> with the loop's readiness), so a program on
+  calloop serves through <code>wire_weaver_server</code> with its limits, shutdown and peers, backends not <code>Send</code>
+  (<a href="../docs/api/host_server/#on-a-calloop-loop">Host server</a>, <code>tests/calloop_server</code>).</li>
 <li>📋 <strong>SRV-9 Handle USB suspend/resume</strong> · <code>v0.5</code> — run until suspend, wait for resume, loop
   (<code>mcu/wire_weaver_usb_embassy</code>). Later (<code>v0.5.x</code>): detect the host going to sleep and keep the connection,
   informing the device.</li>
@@ -7210,23 +7215,11 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
   <code>wire_weaver_server</code> on the hub socket instead of one <code>ww_device::Server</code> per client: its connections, limits,
   shutdown and <code>Fanout</code> replace the hub's hand-written accept loop and <code>broadcast</code> fan-out. The preamble still picks
   the hub's API or a device tunnel, so the hub's listener hands only hub-API connections to the server.</li>
-<li>✅ <strong>SRV-46 Peer identity and policy</strong> — who called, from the transport only, never from <code>ClientMeta</code>: the local
-  socket's <code>SO_PEERCRED</code> / <code>getpeereid</code> as <code>Peer::Unix</code>, the address, the server's own user on stdio, the key a
-  program hands in with a stream. <code>ww_local_socket::PeerPolicy</code> (<code>SameUser</code> by default, <code>Users { group, uids }</code>,
-  <code>Any</code>) sets the socket's and its directory's modes (<code>listen_with</code>, <code>dir_with</code>: 0600/0700, 0660/0710 with the
-  group, 0666/0711) and is checked at every accept; <code>inherited</code> refuses a passed socket that lets in more, or an
-  abstract one; <code>connect_to</code> reaches another user's service. <code>Server::authorize</code> asks an <code>Authorize</code> hook before
-  every handler with the <code>CallContext</code> and a <code>Resource</code> (access, place, absolute path, the items on the way with
-  their <code>ww_self</code> meta, SRV-34): <code>Denied</code> otherwise, also for a request the server can't place. The hub and the
-  server read requests with one <code>ww_client_server::target</code> (<a href="../docs/api/host_server/#who-may-call">Host server</a>,
-  <code>tests/host_server</code>, <code>ww_local_socket</code>'s policy tests). Feeds SRV-37. Missing: Windows users (SRV-71), the same
-  check in front of an in-process impl (SRV-72).</li>
-<li>📋 <strong>SRV-71 Windows users in peer identity and policy</strong> — a <code>Peer</code> variant for a Windows user (its SID, which
-  <code>Peer</code> can't hold by value: a hash or an interned id), the pipe's client as that peer, and <code>PeerPolicy::Users</code> /
-  <code>Any</code> on a named pipe through its DACL. Today a Windows listener is same-user only and its peers are <code>Unknown</code>.</li>
-<li>📋 <strong>SRV-72 <code>Authorized&lt;T&gt;</code>: authorization of in-process calls</strong> — a wrapper around an API's local trait impl
-  (CLT-57) that asks the same <code>Authorize</code> hook with the call's <code>CallContext</code> and the item's path before forwarding,
-  so a call in the same process passes the check a remote one does. Needs codegen of the wrapper per trait level.</li>
+<li>📋 <strong>SRV-46 Peer identity and policy</strong> — who called, from the transport only (SO_PEERCRED, <code>getpeereid</code>, the
+  Windows user, a key handed in with a stream, the address), never from <code>ClientMeta</code>; a listener policy (same user by
+  default, a uid/gid allow-list, or any user with the identity passed through) with socket modes to match, and an
+  authorization hook run before any handler with the resource's path and <code>ww_self</code> metadata (SRV-34 claims). Feeds
+  SRV-37.</li>
 <li>🚧 <strong>SRV-47 Request context on the wire</strong> · <code>v0.5</code> — a request carries an optional context (W3C trace context,
   deadline budget), <code>RequestKind::Cancel</code> drops one, and the error kinds <code>Denied</code>, <code>DeadlineExceeded</code>, <code>Cancelled</code>,
   <code>Internal</code> are appended (EVO-84). The server announces in link setup that it reads contexts

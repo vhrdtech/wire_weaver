@@ -21,8 +21,6 @@ cargo_toml.workspace = true
 convert_case.workspace = true
 exact_units = { workspace = true, features = ["std", "shrink_wrap", "systems"] }
 hex = { workspace = true, features = ["std"] }
-pest.workspace = true
-pest_derive = { workspace = true, features = ["grammar-extras"] }
 proc-macro2 = { workspace = true }
 quote = { workspace = true }
 regex.workspace = true

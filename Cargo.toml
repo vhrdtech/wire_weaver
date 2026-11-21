@@ -118,8 +118,6 @@ mdns-sd = { version = "0.22", default-features = false }
 nusb = { version = "0.2", default-features = false, features = ["tokio"] }
 object = { version = "0.40", default-features = false }
 pathsearch = { version = "0.2", default-features = false }
-pest = { version = "2.8", default-features = false, features = ["memchr", "std"] }
-pest_derive = { version = "2.8", default-features = false, features = ["std"] }
 portable-atomic = { version = "1.15", default-features = false, features = ["require-cas"] }
 probe-rs = { version = "0.32", default-features = false }
 proc-macro-crate = { version = "3", default-features = false }

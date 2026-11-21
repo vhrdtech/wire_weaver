@@ -1,15 +1,6 @@
+use crate::pattern_model::{PatternKind, parse_items};
 use anyhow::Error;
-use pest::Parser;
 use regex::Regex;
-
-mod private {
-    use pest_derive::Parser;
-
-    #[derive(Parser)]
-    #[grammar = "grammar/method_model.pest"]
-    pub(super) struct MethodModelParser;
-}
-use private::Rule;
 
 #[derive(Default, Debug)]
 pub struct MethodModel {
@@ -29,35 +20,34 @@ pub enum MethodModelKind {
     Deferred,
 }
 
-impl MethodModel {
-    pub fn parse(input: &str) -> Result<MethodModel, Error> {
-        let pairs = match private::MethodModelParser::parse(Rule::method_model, input) {
-            Ok(pairs) => pairs,
-            Err(e) => return Err(Error::msg(format!("{e}"))),
-        };
+impl PatternKind for MethodModelKind {
+    const MODEL: &'static str = "method_model";
+    const KEYWORDS: &'static str = "`immediate` or `deferred`";
 
-        let mut property_model = MethodModel::default();
-        for item in pairs.into_iter() {
-            let mut item = item.into_inner();
-            let regex = item.next().unwrap().as_str();
-            let model = item.next().unwrap().into_inner().next().unwrap();
-            let model = match model.as_rule() {
-                Rule::immediate => MethodModelKind::Immediate,
-                Rule::deferred => MethodModelKind::Deferred,
-                _ => unreachable!(),
-            };
-            if regex == "_" {
-                if property_model.default.is_some() {
-                    return Err(Error::msg("Multiple default values"));
-                }
-                property_model.default = Some(model);
-                continue;
-            }
-            let regex = Regex::new(regex)?;
-            property_model.items.push(MethodModelItem { regex, model });
+    fn from_keyword(keyword: &str) -> Option<Self> {
+        match keyword {
+            "immediate" => Some(MethodModelKind::Immediate),
+            "deferred" => Some(MethodModelKind::Deferred),
+            _ => None,
         }
+    }
+}
 
-        Ok(property_model)
+impl MethodModel {
+    /// Parses `"pattern=keyword, _=keyword"`, the syntax of [crate::pattern_model]; a pattern matches anywhere in a method's
+    /// name.
+    pub fn parse(input: &str) -> Result<MethodModel, Error> {
+        let (default, written) = parse_items::<MethodModelKind>(input)?;
+        let items = written
+            .into_iter()
+            .map(|item| {
+                Ok(MethodModelItem {
+                    regex: item.regex_anywhere()?,
+                    model: item.kind,
+                })
+            })
+            .collect::<Result<_, Error>>()?;
+        Ok(MethodModel { default, items })
     }
 
     pub fn pick(&self, method_path: &str) -> Option<MethodModelKind> {
@@ -72,11 +62,12 @@ impl MethodModel {
 
 #[cfg(test)]
 mod tests {
-    use crate::method_model::MethodModel;
+    use crate::method_model::{MethodModel, MethodModelKind};
 
     #[test]
-    fn property_model_parse() {
+    fn method_model_parse() {
         let m = MethodModel::parse(".*move=deferred, _=immediate").unwrap();
-        println!("{:?}", m);
+        assert_eq!(m.pick("motor_move_to"), Some(MethodModelKind::Deferred));
+        assert_eq!(m.pick("stop"), Some(MethodModelKind::Immediate));
     }
 }

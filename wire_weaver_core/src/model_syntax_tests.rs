@@ -1,4 +1,4 @@
-//! The `pattern=keyword` syntax of the four models, pinned the same way for each: inputs written with `X` and `Y`
+//! The `pattern=keyword` syntax of the four models (`crate::pattern_model`), checked the same way for each: inputs written with `X` and `Y`
 //! for the model's two keywords, outcomes as `_=K pattern=K ..` (the default first, `-` when none) or `ERR text`.
 use crate::const_model::{ConstModel, ConstModelKind};
 use crate::handler_model::{HandlerKind, HandlerModel};
@@ -92,7 +92,7 @@ fn handler(input: &str) -> String {
     }
 }
 
-/// `expected` is `Ok(summary)` or `Err(part of the message)`.
+/// `expected` is `Ok(summary)` or `Err(part of the message)`; an error names the model.
 fn check(
     model: &str,
     parse: fn(&str) -> String,
@@ -108,75 +108,66 @@ fn check(
         Err(part) => {
             let part = part.replace('X', x).replace('Y', y);
             assert!(
-                got.starts_with("ERR ") && got.contains(&part),
+                got.starts_with(&format!("ERR {model}")) && got.contains(&part),
                 "{model} {written:?}: {got}, expected an error with {part:?}"
             );
         }
     }
 }
 
-/// One input and its outcome in `method_model` and `property_model`, in `const_model`, and in the pattern models
-/// (`handler_model`, `receiver_model`).
-type Case = (
-    &'static str,
-    Result<&'static str, &'static str>,
-    Result<&'static str, &'static str>,
-    Result<&'static str, &'static str>,
-);
-
 #[rustfmt::skip]
-const CASES: &[Case] = &[
+const CASES: &[(&str, Result<&str, &str>)] = &[
     // accepted
-    ("", Ok("_=-"), Ok("_=-"), Ok("_=-")),
-    (" ", Ok("_=-"), Ok("_=-"), Ok("_=-")),
-    ("_=X", Ok("_=X"), Ok("_=X"), Ok("_=X")),
-    ("_=X,", Ok("_=X"), Ok("_=X"), Ok("_=X")),
-    ("_=X ,", Ok("_=X"), Ok("_=X"), Ok("_=X")),
-    ("a=X, _=Y", Ok("_=Y a=X"), Ok("_=Y a=X"), Ok("_=Y a=X")),
-    ("_=Y, a=X", Ok("_=Y a=X"), Ok("_=Y a=X"), Ok("_=Y a=X")),
-    ("a=X,_=Y", Ok("_=Y a=X"), Ok("_=Y a=X"), Ok("_=Y a=X")),
-    ("a = X", Ok("_=- a=X"), Ok("_=- a=X"), Ok("_=- a=X")),
-    (".*move|b.c=X, d=Y", Ok("_=- .*move|b.c=X d=Y"), Ok("_=- .*move|b.c=X d=Y"), Ok("_=- .*move|b.c=X d=Y")),
-    ("a{1,2}=X", Ok("_=- a{1,2}=X"), Ok("_=- a{1,2}=X"), Err("expected EOI or item")),
-    // whitespace: method and property models have no leading whitespace and no newlines
-    ("  a = X , _ = Y  ", Ok("_=-"), Ok("_=Y a=X"), Ok("_=Y a=X")),
-    ("\ta=X", Ok("_=-"), Ok("_=- a=X"), Ok("_=- a=X")),
-    ("a=X,\n_=Y", Ok("_=- a=X \n_=Y"), Ok("_=- a=X \n_=Y"), Ok("_=Y a=X")),
-    ("a=X,\n  _=Y,\n", Ok("_=- a=X \n  _=Y"), Err("expected EOI or item"), Ok("_=Y a=X")),
-    // quirks: no `,` needed between items, whitespace and `,` inside patterns
-    ("a=X _=Y", Ok("_=Y a=X"), Ok("_=Y a=X"), Err("expected EOI or regex")),
-    ("a=X_=Y", Ok("_=Y a=X"), Ok("_=Y a=X"), Err("expected EOI or regex")),
-    ("a b=X", Ok("_=- a b=X"), Ok("_=- a b=X"), Ok("_=- a b=X")),
-    ("a,b=X", Ok("_=- a,b=X"), Ok("_=- a,b=X"), Err("expected EOI or item")),
-    ("a=X,,b=Y", Ok("_=- a=X ,b=Y"), Ok("_=- a=X ,b=Y"), Err("expected EOI or regex")),
-    ("a=X;b=Y", Ok("_=- a=X ;b=Y"), Ok("_=- a=X ;b=Y"), Ok("_=- a=X ;b=Y")),
-    // method and property models stop at the first thing they don't understand and keep what came before
-    (",", Ok("_=-"), Err("expected EOI or item"), Err("expected EOI or regex")),
-    ("a=Xz", Ok("_=- a=X"), Err("expected EOI or item"), Err("unknown `Xz` in `a=Xz`")),
-    ("a=X y", Ok("_=- a=X"), Err("expected EOI or item"), Err("unknown `X y` in `a=X y`")),
-    ("a=X garbage", Ok("_=- a=X"), Err("expected EOI or item"), Err("unknown `X garbage`")),
-    ("a=X+Y", Ok("_=- a=X"), Err("expected EOI or item"), Err("expected EOI or item")),
-    ("a=X + Y", Ok("_=- a=X"), Err("expected EOI or item"), Err("expected EOI or item")),
-    ("a=", Ok("_=-"), Err("expected model"), Err("expected model")),
-    ("=X", Ok("_=-"), Err("expected EOI or regex"), Err("expected EOI or regex")),
-    ("a", Ok("_=-"), Err("expected EOI or item"), Err("expected EOI or item")),
-    ("a=nope", Ok("_=-"), Err("expected model"), Err("unknown `nope` in `a=nope`")),
-    ("a==X", Ok("_=-"), Err("expected model"), Err("expected model")),
-    // rejected everywhere
-    ("_=X, _=Y", Err("Multiple default values"), Err("Multiple default values"), Err("multiple defaults (`_=..`)")),
-    ("a(=X", Err("unclosed group"), Err("unclosed group"), Err("unclosed group")),
+    ("", Ok("_=-")),
+    (" ", Ok("_=-")),
+    ("_=X", Ok("_=X")),
+    ("_=X,", Ok("_=X")),
+    ("_=X ,", Ok("_=X")),
+    ("a=X, _=Y", Ok("_=Y a=X")),
+    ("_=Y, a=X", Ok("_=Y a=X")),
+    ("a=X,_=Y", Ok("_=Y a=X")),
+    ("a = X", Ok("_=- a=X")),
+    (".*move|b.c=X, d=Y", Ok("_=- .*move|b.c=X d=Y")),
+    ("a{1,2}=X", Ok("_=- a{1,2}=X")),
+    ("a,b=X", Ok("_=- a,b=X")),
+    ("  a = X , _ = Y  ", Ok("_=Y a=X")),
+    ("\ta=X", Ok("_=- a=X")),
+    ("a=X,\n_=Y", Ok("_=Y a=X")),
+    ("a=X,\n  _=Y,\n", Ok("_=Y a=X")),
+    // rejected
+    (",", Err("at 1:1: expected a `pattern=keyword` item, found `,`")),
+    ("a=X,,b=Y", Err("expected a `pattern=keyword` item, found `,`")),
+    ("=X", Err("at 1:1: expected a pattern before `=`")),
+    ("a", Err("at 1:2: expected `=` after `a`, found the end")),
+    ("a b=X", Err("at 1:3: expected `=` after `a`, found `b`; a pattern holds no whitespace")),
+    ("a=X,\n  b c=Y", Err("at 2:5: expected `=` after `b`, found `c`")),
+    ("a=", Err("at 1:3: expected ")),
+    ("a=", Err(" after `a=`, found the end")),
+    ("a==X", Err(" after `a=`, found `=`")),
+    ("a=nope", Err("at 1:3: unknown `nope` in `a=nope`, expected `")),
+    ("a=Xz", Err("unknown `Xz` in `a=Xz`")),
+    ("a=X_=Y", Err("unknown `X_` in `a=X_`")),
+    ("a=X _=Y", Err("expected `,` after `a=X`, found `_`")),
+    ("a=X y", Err("expected `,` after `a=X`, found `y`")),
+    ("a=X garbage", Err("expected `,` after `a=X`, found `g`")),
+    ("a=X;b=Y", Err("expected `,` after `a=X`, found `;`")),
+    ("a=X+Y", Err("expected `,` after `a=X`, found `+`")),
+    ("a=X + Y", Err("expected `,` after `a=X`, found `+`")),
+    ("_=X, _=Y", Err("multiple defaults (`_=..`)")),
+    ("a(=X", Err("invalid pattern `a(`: regex parse error")),
+    ("a(=X", Err("unclosed group")),
 ];
 
 #[test]
 fn syntax() {
-    for &(input, method_property, const_, pattern) in CASES {
+    for &(input, expected) in CASES {
         check(
             "method_model",
             method,
             "immediate",
             "deferred",
             input,
-            method_property,
+            expected,
         );
         check(
             "property_model",
@@ -184,9 +175,9 @@ fn syntax() {
             "get_set",
             "value_on_changed",
             input,
-            method_property,
+            expected,
         );
-        check("const_model", konst, "fn", "const", input, const_);
-        check("handler_model", handler, "async", "sync", input, pattern);
+        check("const_model", konst, "fn", "const", input, expected);
+        check("handler_model", handler, "async", "sync", input, expected);
     }
 }

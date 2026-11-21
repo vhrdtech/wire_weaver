@@ -28,7 +28,10 @@ mod server_impl {
   matches the dot between levels too, so `device.settings.*` takes everything under `device.settings`.
 - `_` is the default for the items no pattern matches. Without `_`, they follow `use_async`; without
   `handler_model`, every handler does, as before.
-- A pattern can't contain `,`, `=` or whitespace. A pattern that matches no method, property or stream is a
+- Items are separated by `,` (a trailing one is fine), with any whitespace, newlines too, around each `pattern`,
+  `=` and keyword. A pattern can't contain `=` or whitespace or start with `,`; a mistake in the string is a
+  compile error naming its `line:column`. The same syntax holds for `method_model`, `property_model`,
+  `const_model` and `receiver_model`. A pattern that matches no method, property or stream is a
   compile error (a typo, or an item that was renamed), and so is `async` in a server with `use_async = false`.
 
 The model is per item: every handler of an item is the same kind. For a property that is its getter, setter and

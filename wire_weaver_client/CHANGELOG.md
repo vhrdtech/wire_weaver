@@ -2,6 +2,7 @@
 
 ### 🐛 Fixes
 
+- The tap `Decoder` finds a record's link and the tap clock by the track definitions, not by numbers (ww_tape READ-5).
 - Builds outside this workspace again: tokio's `rt-multi-thread`, needed by `block_in_place` on `Commander` drop, is on.
 
 ### 📚 Documentation
@@ -40,6 +41,7 @@
 ### ⚠️ Breaking
 
 - `Command::SendMessage` has a `trace: Option<wire_weaver::TraceContext>` field (SRV-47) and `Command` a `CallerGone` variant: code building the command adds `trace: None`, exhaustive matches add the arm.
+- `tap::track_number` and `tap::track_of` are gone (ww_tape READ-5): `tap::link_stream_of` reads a track's link and stream from its definition.
 - `in_process::WsPort` is a stream of pipes, no longer a `ws::Socket`: serve it as `WsConnection::new(IoSocket::new(port))` (TR-19).
 - The local-socket transport runs on futures-io streams through the new `byte_stream` feature, which `local_socket` turns on (TR-19).
 - Declares `rust-version = "1.99"`: cargo of an older Rust refuses the crate.

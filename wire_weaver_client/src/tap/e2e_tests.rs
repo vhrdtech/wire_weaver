@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicIsize, Ordering};
 use std::time::Duration;
 
 use tokio::sync::{mpsc, oneshot};
-use wire_weaver::shrink_wrap::{DeserializeShrinkWrapOwned, UVlq32Backfill};
+use wire_weaver::shrink_wrap::{DeserializeShrinkWrap, DeserializeShrinkWrapOwned, UVlq32Backfill};
 use ww_tape::FileBlocks;
 use ww_version::{FullVersionOwned, VersionOwned};
 
@@ -77,6 +77,8 @@ fn decode_all<'a>(blocks: impl Iterator<Item = ww_tape::Block<'a>>) -> (Vec<Deco
 /// The same blocks, their records fed one by one through the decoder's record input as [Decoder::feed] orders them.
 fn decode_records<'a>(blocks: impl Iterator<Item = ww_tape::Block<'a>>) -> (Vec<Decoded>, Stats) {
     let mut d = Decoder::default().with_resolver(crate::test_resolver());
+    // the tap's tracks by number, as their definitions say
+    let mut tracks = std::collections::BTreeMap::new();
     for b in blocks {
         let mut plain = vec![];
         let decoded = b.decode(&mut plain).unwrap();
@@ -84,10 +86,14 @@ fn decode_records<'a>(blocks: impl Iterator<Item = ww_tape::Block<'a>>) -> (Vec<
         records.sort_by_key(|r| r.at.map(|at| at.ticks));
         for r in records {
             // definitions (clocks, tracks) are the store's, not records; this capture carries no bundle
-            let Some(at) = r.at.filter(|at| at.clock == ww_tap::HOST_CLOCK) else {
+            let (Some(track), Some(at)) = (r.track.data(), r.at) else {
+                if let Ok(ww_tape::Describe::Track(t)) = ww_tape::Describe::from_ww_bytes(r.item) {
+                    tracks.insert(t.number, (ww_tap::link_stream_of(&t).unwrap(), t.clock));
+                }
                 continue;
             };
-            let (link, stream) = ww_tap::track_of(r.track).unwrap();
+            let ((link, stream), clock) = tracks[&track];
+            assert_eq!(at.clock, clock, "a record on its track's clock");
             let t = u64::try_from(at.ticks).unwrap();
             if stream == ww_tap::ids::SESSION {
                 d.session(

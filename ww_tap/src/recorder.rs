@@ -20,8 +20,13 @@
 //! consumer gets them no more. Nothing is written by time. The producer is not a definition here: a writer of the
 //! stream names it ([RecorderConfig::name]).
 //!
-//! Record times are nanoseconds of the recorder's own clock ([HOST_CLOCK], origin the recorder's start); a definition
-//! maps it to the wall clock ([WALL_CLOCK]) read once at the start.
+//! The definitions number the tracks and clocks ([Definitions::define_track], [Definitions::define_clock]): the
+//! recorder keeps each link's track numbers, and a link's tracks keep them when it closes. A reader finds a link and
+//! stream by the track's definition ([link_stream_of]), never by its number ([Recorder::track] gives the number of a
+//! link's stream).
+//!
+//! Record times are nanoseconds of the recorder's own clock (origin the recorder's start); a definition maps it to
+//! the wall clock read once at the start.
 
 use crate::locked::Locked;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
@@ -31,9 +36,10 @@ use std::time::{Duration, Instant, SystemTime};
 use wire_weaver::prelude::*;
 use wire_weaver::shrink_wrap::SerializeShrinkWrap;
 use ww_tape::{
-    Block, BlockId, BlockKind, BlockState, BlockWriter, ClockDef, ClockMap, ClockOrigin, ClockTime,
-    DefinitionKind, Definitions, Describe, ItemHash, Magnitude, MapSegment, RecordRef, Segment,
-    SessionTag, Slot, StatePolicy, TrackDef, TrackRepeat,
+    Block, BlockId, BlockKind, BlockState, BlockWriter, ClockMap, ClockNum, ClockOrigin, ClockSpec,
+    ClockTime, DefinitionKind, Definitions, Describe, ItemHash, Magnitude, MapSegment, RecordRef,
+    RecordTrack, Segment, SessionTag, Slot, StatePolicy, TrackDef, TrackNum, TrackRepeat,
+    TrackSpec,
     writer::near::{Near, NearPolicy, Rule},
 };
 
@@ -330,6 +336,8 @@ struct LinkState {
     /// Newest session record: its time, bytes and hash
     session: Option<(ClockTime, Arc<[u8]>, ItemHash)>,
     lost: u64,
+    /// The number of each stream's track, by stream id ([ids])
+    tracks: [TrackNum; STREAMS],
 }
 
 struct State {
@@ -342,25 +350,24 @@ struct State {
     next_sink: u64,
     /// The open definitions
     defs: Definitions,
+    /// The recorder's clock, ns since it started: record times count it
+    host: ClockNum,
+    /// Wall clock at the recorder's start, ns since the Unix epoch: what the host clock maps to
+    wall_ns_at_zero: u64,
+    /// Link id and stream id of each track number the links were given
+    by_track: std::collections::BTreeMap<TrackNum, (u32, u32)>,
     scratch: Vec<u8>,
 }
 
-/// The recorder's clock: ns since it started. Record times count it.
-pub const HOST_CLOCK: u32 = 1;
-/// The wall clock, ns since the Unix epoch, mapped from [HOST_CLOCK] in the definitions.
-pub const WALL_CLOCK: u32 = 2;
-
-/// Track number of a link's stream: links take 7 numbers each, from 1 on.
-pub fn track_number(link: u32, stream: u32) -> u32 {
-    1 + link * 7 + stream
-}
+/// Streams of a link, each a track: the ids of [ids] from 0 on.
+const STREAMS: usize = 7;
 
 /// Stable key of a link's stream, the [ww_tape::track_key] of its name path `link[link].<stream>` in [LinkTap](crate::LinkTap).
 ///
 /// # Panics
 ///
 /// When `stream` is not one of [ids]' streams.
-pub fn track_key(link: u32, stream: u32) -> u64 {
+pub fn track_key(link: u32, stream: u32) -> ww_tape::TrackKey {
     let name = ids::stream_name(stream).expect("stream is one of ids' streams");
     ww_tape::track_key(
         ww_tape::api_root_id(api().crate_id),
@@ -372,10 +379,63 @@ pub fn track_key(link: u32, stream: u32) -> u64 {
     )
 }
 
-/// Link id and stream id of a track number, the reverse of [track_number].
-pub fn track_of(number: u32) -> Option<(u32, u32)> {
-    let n = number.checked_sub(1)?;
-    Some((n / 7, n % 7))
+/// Link id and stream id of the tap track `def` defines: its path `link[link].<stream>` in
+/// [LinkTap](crate::LinkTap), with its key from [track_key]. None for any other track. How a reader finds a link's
+/// stream: the number is the definitions', not the link's.
+pub fn link_stream_of(def: &TrackDef<'_>) -> Option<(u32, u32)> {
+    let ww_tape::Items::WireWeaver { path, .. } = &def.items else {
+        return None;
+    };
+    let mut path = path.iter();
+    let (Some(Ok(UNib32(ids::LINK))), Some(Ok(UNib32(link))), Some(Ok(UNib32(stream))), None) =
+        (path.next(), path.next(), path.next(), path.next())
+    else {
+        return None;
+    };
+    ids::stream_name(stream)?;
+    (def.key == track_key(link, stream)).then_some((link, stream))
+}
+
+/// Link id and stream id of tap track `track` held in `defs`, see [link_stream_of].
+pub fn link_stream_in(defs: &Definitions, track: TrackNum) -> Option<(u32, u32)> {
+    let item = defs.get(&Slot::Track { number: track })?;
+    match Describe::from_ww_bytes(item) {
+        Ok(Describe::Track(t)) => link_stream_of(&t),
+        _ => None,
+    }
+}
+
+/// Define in `defs` the recorder's clock and the wall clock it maps to, read `wall_ns_at_zero` at its start; the
+/// recorder's clock's number.
+fn define_clocks(defs: &mut Definitions, wall_ns_at_zero: u64) -> ClockNum {
+    let api_root = ww_tape::api_root_id(api().crate_id);
+    let host = defs
+        .define_clock(ClockSpec {
+            // a session of the recorder is a clock of its own
+            key: ww_tape::clock_key(api_root, &[], wall_ns_at_zero),
+            rate: Magnitude::pow10(9).into(),
+            resolution: Magnitude::pow10(-9).into(),
+            origin: ClockOrigin::SessionStart,
+            label: "tap",
+        })
+        .expect("the recorder's clock definition is valid");
+    let wall = defs
+        .define_clock(ClockSpec {
+            key: ww_tape::UNIX_CLOCK_KEY,
+            rate: Magnitude::pow10(9).into(),
+            resolution: Magnitude::pow10(-9).into(),
+            origin: ClockOrigin::UnixEpoch,
+            label: "wall",
+        })
+        .expect("the wall clock definition is valid");
+    let segments = [MapSegment::offset(0, wall_ns_at_zero as i64)];
+    defs.define(&Describe::Map(ClockMap {
+        from: host,
+        to: wall,
+        segments: RefVec::Slice { slice: &segments },
+    }))
+    .expect("the map between two held clocks is valid");
+    host
 }
 
 impl Default for Recorder {
@@ -405,6 +465,8 @@ impl Recorder {
             .map(|d| d.as_nanos() as u64)
             .unwrap_or(0)
             .saturating_sub(clock.now().as_nanos() as u64);
+        let mut defs = Definitions::new();
+        let host = define_clocks(&mut defs, wall_ns_at_zero);
         let inner = Arc::new(Inner {
             state: Mutex::new(State {
                 pool: Vec::new(),
@@ -413,7 +475,10 @@ impl Recorder {
                 links: Vec::new(),
                 sinks: Vec::new(),
                 next_sink: 0,
-                defs: Definitions::new(),
+                defs,
+                host,
+                wall_ns_at_zero,
+                by_track: std::collections::BTreeMap::new(),
                 scratch: Vec::new(),
             }),
             frames: AtomicBool::new(false),
@@ -422,7 +487,6 @@ impl Recorder {
             flusher: Mutex::new(None),
             config,
         });
-        Inner::define_clocks(&mut inner.state.locked(), wall_ns_at_zero);
         if inner.config.background_flush {
             let weak = Arc::downgrade(&inner);
             let flush_time = inner.config.flush_time;
@@ -439,7 +503,7 @@ impl Recorder {
         &self.inner.config
     }
 
-    /// [HOST_CLOCK] now, ns: what record times count.
+    /// The recorder's clock now, ns: what record times count.
     pub fn now_ns(&self) -> u64 {
         self.inner.clock.now().as_nanos() as u64
     }
@@ -454,11 +518,12 @@ impl Recorder {
     pub fn link(&self) -> RecorderLink {
         let mut st = self.inner.state.locked();
         let id = st.links.len() as u32;
+        let tracks = Inner::define_link(&mut st, id);
         st.links.push(LinkState {
             session: None,
             lost: 0,
+            tracks,
         });
-        self.inner.define_link(&mut st, id);
         RecorderLink {
             recorder: self.clone(),
             link: id,
@@ -543,8 +608,19 @@ impl Recorder {
         self.inner.poll_flush();
     }
 
+    /// The number of the track of link `link`'s `stream` ([ids]); None for a link or stream there isn't. A closed
+    /// link's tracks keep their numbers.
+    pub fn track(&self, link: u32, stream: u32) -> Option<TrackNum> {
+        let st = self.inner.state.locked();
+        st.links
+            .get(link as usize)?
+            .tracks
+            .get(stream as usize)
+            .copied()
+    }
+
     fn record<T: SerializeShrinkWrap>(&self, link: u32, stream: u32, item: &T) {
-        self.inner.record(track_number(link, stream), item);
+        self.inner.record(link, stream, item);
     }
 }
 
@@ -634,7 +710,7 @@ impl Inner {
         let id = st.next;
         st.next = id.next();
         let b = Arc::get_mut(&mut buf).expect("free block");
-        let w = BlockWriter::new(&mut b.bytes, BlockKind::Records, id, &[HOST_CLOCK])
+        let w = BlockWriter::new(&mut b.bytes, BlockKind::Records, id, &[st.host])
             .expect("a block buffer holds the header and the one clock");
         st.current = Some(Current {
             state: w.into_state(),
@@ -652,7 +728,7 @@ impl Inner {
                 let ev = LinkEvent::Lost {
                     records: UVlq64(lost),
                 };
-                let track = track_number(link as u32, ids::EVENTS);
+                let track = st.links[link].tracks[ids::EVENTS as usize];
                 _ = self.push(st, track, now, &ev);
             }
         }
@@ -663,31 +739,41 @@ impl Inner {
     fn push<T: SerializeShrinkWrap>(
         &self,
         st: &mut State,
-        track: u32,
+        track: TrackNum,
         now: u64,
         item: &T,
     ) -> Result<usize, ()> {
         let bytes = encode(&mut st.scratch, item).map_err(|_| ())?;
         let len = bytes.len();
+        let at = ClockTime::new(st.host, now as i64);
         let cur = st.current.as_mut().ok_or(())?;
         let b = Arc::get_mut(&mut cur.buf).expect("current block is not shared");
         let mut w = BlockWriter::from_state(&mut b.bytes, cur.state);
-        let at = ClockTime::new(HOST_CLOCK, now as i64);
         let r = w.push(track, at, &[&st.scratch[..len]]);
         cur.state = w.into_state();
         r.map(|()| len).map_err(|_| ())
     }
 
-    fn record<T: SerializeShrinkWrap>(&self, track: u32, item: &T) {
+    /// Record `item` on link `link`'s `stream`.
+    fn record<T: SerializeShrinkWrap>(&self, link: u32, stream: u32, item: &T) {
         let mut st = self.state.locked();
         let st = &mut *st;
         let now = self.now();
+        let Some(&track) = st
+            .links
+            .get(link as usize)
+            .and_then(|l| l.tracks.get(stream as usize))
+        else {
+            tracing::warn!("tap record of link {link} stream {stream}: no such track, dropped");
+            return;
+        };
         // the newest session of a link is kept whether anyone listens or not, and put: after the records before it
-        if let Some((link, ids::SESSION)) = track_of(track) {
+        if stream == ids::SESSION {
+            let host = st.host;
             if let Ok(bytes) = encode(&mut st.scratch, item)
                 && let Some(l) = st.links.get_mut(link as usize)
             {
-                let at = ClockTime::new(HOST_CLOCK, now as i64);
+                let at = ClockTime::new(host, now as i64);
                 l.session = Some((at, Arc::from(bytes), ItemHash::of(bytes)));
             }
             self.flush_current(st);
@@ -711,9 +797,7 @@ impl Inner {
                 }
             }
         }
-        if let Some((link, _)) = track_of(track) {
-            st.links[link as usize].lost += 1;
-        }
+        st.links[link as usize].lost += 1;
     }
 
     fn flush_current(&self, st: &mut State) {
@@ -732,7 +816,7 @@ impl Inner {
         let block = chunk.block();
         let tracks = block
             .records()
-            .filter_map(|r| Some(r.ok()?.track))
+            .filter_map(|r| r.ok()?.track.data())
             .collect();
         let id = BlockId::new(block.session, block.seq.saturating_sub(1));
         self.hand(st, &tracks, id, Some(&chunk));
@@ -745,68 +829,35 @@ impl Inner {
         }
     }
 
-    /// Close the tracks of link `link`: no consumer gets them any more.
+    /// Close the tracks of link `link`: no consumer gets them any more. They keep their numbers.
     fn close_link(st: &mut State, link: u32) {
-        for stream in 0..7u32 {
-            st.defs.close(track_number(link, stream));
-        }
         if let Some(l) = st.links.get_mut(link as usize) {
             l.session = None;
+            for t in l.tracks {
+                st.defs.close(t);
+            }
         }
     }
 
-    /// Define the recorder's clock and the wall clock it maps to, read `wall_ns_at_zero` at its start.
-    fn define_clocks(st: &mut State, wall_ns_at_zero: u64) {
-        let api_root = ww_tape::api_root_id(api().crate_id);
-        Self::define(
-            st,
-            &Describe::Clock(ClockDef {
-                number: UNib32(HOST_CLOCK),
-                // a session of the recorder is a clock of its own
-                key: ww_tape::clock_key(api_root, &[], wall_ns_at_zero),
-                rate: Magnitude::pow10(9).into(),
-                resolution: Magnitude::pow10(-9).into(),
-                origin: ClockOrigin::SessionStart,
-                label: "tap",
-            }),
-        );
-        Self::define(
-            st,
-            &Describe::Clock(ClockDef {
-                number: UNib32(WALL_CLOCK),
-                key: ww_tape::UNIX_CLOCK_KEY,
-                rate: Magnitude::pow10(9).into(),
-                resolution: Magnitude::pow10(-9).into(),
-                origin: ClockOrigin::UnixEpoch,
-                label: "wall",
-            }),
-        );
-        let segments = [MapSegment::offset(0, wall_ns_at_zero as i64)];
-        Self::define(
-            st,
-            &Describe::Map(ClockMap {
-                from: UNib32(HOST_CLOCK),
-                to: UNib32(WALL_CLOCK),
-                segments: RefVec::Slice { slice: &segments },
-            }),
-        );
-    }
-
-    /// Define the tracks of link `link`.
-    fn define_link(&self, st: &mut State, link: u32) {
+    /// Define the tracks of link `link` and give their numbers, by stream id. The clocks come back first when the
+    /// last link's tracks took them with them ([Definitions::close]).
+    fn define_link(st: &mut State, link: u32) -> [TrackNum; STREAMS] {
+        if !st.defs.has_clock(st.host) {
+            st.host = define_clocks(&mut st.defs, st.wall_ns_at_zero);
+        }
         let api = api();
-        for stream in 0..7u32 {
+        core::array::from_fn(|stream| {
+            let stream = stream as u32;
             let path = [UNib32(ids::LINK), UNib32(link), UNib32(stream)];
             let label = format!(
                 "link[{link}].{}",
                 ids::stream_name(stream).expect("one of ids' streams")
             );
-            Self::define(
-                st,
-                &Describe::Track(TrackDef {
-                    number: UNib32(track_number(link, stream)),
+            let track = st
+                .defs
+                .define_track(TrackSpec {
                     key: track_key(link, stream),
-                    clock: UNib32(HOST_CLOCK),
+                    clock: st.host,
                     dimensions: RefVec::Slice { slice: &[] },
                     items: ww_tape::Items::WireWeaver {
                         api,
@@ -825,9 +876,11 @@ impl Inner {
                     // zeros: the owner of the piece; the link's tracks belong to the capture itself
                     owner: [0; 32],
                     relations: RefVec::Slice { slice: &[] },
-                }),
-            );
-        }
+                })
+                .expect("a link's track definition is valid and its clock held");
+            st.by_track.insert(track, (link, stream));
+            track
+        })
     }
 
     /// Hand each consumer what records on `tracks` need that it doesn't have near ([Needs]), as blocks of puts
@@ -837,7 +890,7 @@ impl Inner {
     fn hand(
         &self,
         st: &mut State,
-        tracks: &std::collections::BTreeSet<u32>,
+        tracks: &std::collections::BTreeSet<TrackNum>,
         id: BlockId,
         data: Option<&Chunk>,
     ) {
@@ -850,16 +903,22 @@ impl Inner {
             .iter()
             .flat_map(|s| s.lost.keys().copied())
             .collect();
+        let events = |link: &u32| Some(st.links.get(*link as usize)?.tracks[ids::EVENTS as usize]);
         let with_lost = (data.is_some() && !lost_links.is_empty()).then(|| {
-            let events = lost_links.iter().map(|l| track_number(*l, ids::EVENTS));
+            let events = lost_links.iter().filter_map(events);
             Needs::of(st, tracks.iter().copied().chain(events))
         });
         let records = data
-            .map(|c| records_by_link(&c.block()))
+            .map(|c| records_by_link(&st.by_track, &c.block()))
             .unwrap_or_default();
+        let events: std::collections::BTreeMap<u32, TrackNum> = lost_links
+            .iter()
+            .filter_map(|l| Some((*l, events(l)?)))
+            .collect();
+        let host = st.host;
         st.sinks.retain_mut(|sink| {
             let lost = match data {
-                Some(_) if !sink.lost.is_empty() => lost_block(sink, now),
+                Some(_) if !sink.lost.is_empty() => lost_block(sink, &events, host, now),
                 _ => None,
             };
             let needs = match (&lost, &with_lost) {
@@ -969,22 +1028,31 @@ fn took_puts(sink: &mut Sink, chunk: &Chunk) {
     sink.at = sink.at.saturating_add(chunk.bytes().len() as u64);
 }
 
-/// Records of each link in `block`.
-fn records_by_link(block: &Block<'_>) -> std::collections::BTreeMap<u32, u64> {
+/// Records of each link in `block`, the links' tracks by number in `by_track`.
+fn records_by_link(
+    by_track: &std::collections::BTreeMap<TrackNum, (u32, u32)>,
+    block: &Block<'_>,
+) -> std::collections::BTreeMap<u32, u64> {
     let mut out = std::collections::BTreeMap::new();
     for r in block.records().flatten() {
-        if let Some((link, _)) = track_of(r.track) {
-            *out.entry(link).or_default() += 1;
+        if let Some((link, _)) = r.track.data().and_then(|t| by_track.get(&t)) {
+            *out.entry(*link).or_default() += 1;
         }
     }
     out
 }
 
-/// A records block of a [LinkEvent::Lost] on the events track of each link `sink` lost records of, at `now` ns,
-/// numbered as the newest block it missed (so its stream keeps the gap in seq).
-fn lost_block(sink: &Sink, now: u64) -> Option<Chunk> {
+/// A records block of a [LinkEvent::Lost] on the events track (by link in `events`) of each link `sink` lost
+/// records of, at `now` ns of clock `host`, numbered as the newest block it missed (so its stream keeps the gap in
+/// seq).
+fn lost_block(
+    sink: &Sink,
+    events: &std::collections::BTreeMap<u32, TrackNum>,
+    host: ClockNum,
+    now: u64,
+) -> Option<Chunk> {
     let id = sink.last_missed?;
-    let items: Vec<(u32, Vec<u8>)> = sink
+    let items: Vec<(TrackNum, Vec<u8>)> = sink
         .lost
         .iter()
         .filter_map(|(link, n)| {
@@ -993,17 +1061,13 @@ fn lost_block(sink: &Sink, now: u64) -> Option<Chunk> {
             };
             let mut scratch = Vec::new();
             let bytes = encode(&mut scratch, &ev).ok()?.to_vec();
-            Some((track_number(*link, ids::EVENTS), bytes))
+            Some((*events.get(link)?, bytes))
         })
         .collect();
-    let at = ClockTime::new(HOST_CLOCK, now as i64);
+    let at = ClockTime::new(host, now as i64);
     let records: Vec<RecordRef<'_>> = items
         .iter()
-        .map(|(track, item)| RecordRef {
-            track: *track,
-            at: Some(at),
-            item,
-        })
+        .map(|(track, item)| RecordRef::data(*track, at, item))
         .collect();
     let mut blocks = blocks_of(&records, usize::MAX >> 1, 0, || id);
     (blocks.len() == 1).then(|| chunk_of(blocks.remove(0)))
@@ -1017,7 +1081,7 @@ struct Needs {
 /// A definition or session a block needs.
 struct Needed {
     slot: Slot,
-    track: u32,
+    track: RecordTrack,
     at: Option<ClockTime>,
     /// Shared with the definitions or the link: nothing is copied or hashed until it is put
     item: Arc<[u8]>,
@@ -1032,28 +1096,26 @@ const DEFINITIONS: StatePolicy = StatePolicy::DEFAULT;
 /// The rule of `policy` in a consumer's stream: no copies.
 fn rule(policy: StatePolicy) -> Rule {
     Rule {
-        near: u64::from(policy.near.get()),
-        copies: 0,
-        spacing: u64::MAX,
+        near: exact_units::Bytes::new(u64::from(policy.near.get())),
+        copies: exact_units::Count::new(0),
+        spacing: exact_units::Bytes::new(u64::MAX),
     }
 }
 
 impl Needs {
     /// What records on `tracks` need, each once, in the order they are put: what the others name first.
-    fn of(st: &State, tracks: impl IntoIterator<Item = u32>) -> Needs {
-        let tracks: std::collections::BTreeSet<u32> = tracks.into_iter().collect();
+    fn of(st: &State, tracks: impl IntoIterator<Item = TrackNum>) -> Needs {
+        let tracks: std::collections::BTreeSet<TrackNum> = tracks.into_iter().collect();
         let links: std::collections::BTreeSet<u32> = tracks
             .iter()
-            .filter_map(|t| Some(track_of(*t)?.0))
+            .filter_map(|t| Some(st.by_track.get(t)?.0))
             .collect();
         // a link's session is put with its track's definitions
         let sessions = links.iter().filter_map(|link| {
             let l = st.links.get(*link as usize)?;
-            l.session
-                .as_ref()
-                .map(|_| track_number(*link, ids::SESSION))
+            l.session.as_ref().map(|_| l.tracks[ids::SESSION as usize])
         });
-        let defined: std::collections::BTreeSet<u32> =
+        let defined: std::collections::BTreeSet<TrackNum> =
             tracks.iter().copied().chain(sessions).collect();
         let mut slots = Vec::new();
         for t in &defined {
@@ -1084,7 +1146,7 @@ impl Needs {
                 let held = st.defs.held(&slot)?;
                 Some(Needed {
                     slot,
-                    track: 0,
+                    track: RecordTrack::Definitions,
                     at: None,
                     hash: held.hash,
                     item: held.item.clone(),
@@ -1093,13 +1155,16 @@ impl Needs {
             })
             .collect();
         for link in links {
-            let track = track_number(link, ids::SESSION);
-            if let (Some(l), Some(policy)) = (st.links.get(link as usize), st.defs.policy(track))
+            let Some(l) = st.links.get(link as usize) else {
+                continue;
+            };
+            let track = l.tracks[ids::SESSION as usize];
+            if let Some(policy) = st.defs.policy(track)
                 && let Some((at, bytes, hash)) = &l.session
             {
                 records.push(Needed {
                     slot: Slot::State { track },
-                    track,
+                    track: RecordTrack::Data(track),
                     at: Some(*at),
                     item: bytes.clone(),
                     hash: *hash,
@@ -1241,7 +1306,7 @@ impl Drop for LinkShared {
     fn drop(&mut self) {
         if let Some(inner) = self.recorder.upgrade() {
             // the stream says so, in a block handed over while the link's tracks are still defined
-            inner.record(track_number(self.link, ids::EVENTS), &LinkEvent::Closed);
+            inner.record(self.link, ids::EVENTS, &LinkEvent::Closed);
             let mut st = inner.state.locked();
             inner.flush_current(&mut st);
             Inner::close_link(&mut st, self.link);
@@ -1250,17 +1315,24 @@ impl Drop for LinkShared {
 }
 
 /// Drop from `defs` the tracks of each link a [LinkEvent::Closed] in the records block `block` closes, as a relay of
-/// the stream does once it has passed the block on, so its definitions don't grow with every link ever seen. How
-/// many links were closed.
+/// the stream does once it has passed the block on, so its definitions don't grow with every link ever seen. A
+/// link's tracks are found by their definitions in `defs` ([link_stream_in]). How many links were closed.
 pub fn drop_closed_links(defs: &mut Definitions, block: &Block<'_>) -> usize {
     let mut closed = 0;
     for r in block.records().flatten() {
-        let Some((link, ids::EVENTS)) = track_of(r.track) else {
+        let Some(track) = r.track.data() else {
+            continue;
+        };
+        let Some((link, ids::EVENTS)) = link_stream_in(defs, track) else {
             continue;
         };
         if matches!(LinkEvent::from_ww_bytes(r.item), Ok(LinkEvent::Closed)) {
-            for stream in 0..7u32 {
-                defs.close(track_number(link, stream));
+            let tracks: Vec<TrackNum> = defs
+                .tracks()
+                .filter(|t| link_stream_in(defs, *t).is_some_and(|(l, _)| l == link))
+                .collect();
+            for t in tracks {
+                defs.close(t);
             }
             closed += 1;
         }

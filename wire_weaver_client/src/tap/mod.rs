@@ -10,7 +10,7 @@ use tokio::sync::mpsc;
 use wire_weaver::shrink_wrap::{RefVec, UNib32};
 pub use ww_tap::{
     Chunk, Dir, Layers, LinkEvent, Recorder, RecorderConfig, RecorderLink, Session, Subscription,
-    Tap, track_number, track_of,
+    Tap, link_stream_in, link_stream_of,
 };
 
 use crate::tracing::TraceEvent;

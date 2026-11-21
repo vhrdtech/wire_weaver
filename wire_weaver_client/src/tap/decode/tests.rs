@@ -37,7 +37,7 @@ fn a_session_put_again_is_not_a_new_session() {
     let mut writer = ww_tape_fs::writer::create(&path, SyncPolicy::None).unwrap();
     // copies every few blocks, so the session is copied in this short capture
     writer.set_near_policy(ww_tape::NearPolicy {
-        copy_spacing: 256,
+        copy_spacing: exact_units::Bytes::new(256),
         ..ww_tape::NearPolicy::default()
     });
     let mut defs = ww_tape::Definitions::new();
@@ -70,10 +70,12 @@ fn a_session_put_again_is_not_a_new_session() {
     while let Some(b) = blocks.next_good(|e| panic!("{e}")) {
         all.push(b.bytes().to_vec());
     }
-    let session_track = ww_tap::recorder::track_number(0, ww_tap::ids::SESSION);
+    let session_track = recorder.track(0, ww_tap::ids::SESSION).unwrap();
     let holds_session = |b: &Vec<u8>| {
         let b = ww_tape::Block::read(b).unwrap();
-        b.is_repeat() && b.records().any(|r| r.unwrap().track == session_track)
+        b.is_repeat()
+            && b.records()
+                .any(|r| r.unwrap().track == ww_tape::RecordTrack::Data(session_track))
     };
     let last = all.iter().rposition(holds_session).unwrap();
     let first_write = all.iter().position(holds_session).unwrap();
@@ -111,7 +113,9 @@ fn a_bad_coded_body_is_reported() {
     let mut records = None;
     while let Some(chunk) = sub.try_recv() {
         let b = chunk.block();
-        if b.kind == BlockKind::Records && b.first_track() != Some(0) {
+        if b.kind == BlockKind::Records
+            && b.first_track() != Some(ww_tape::RecordTrack::Definitions)
+        {
             records = Some(chunk.bytes().to_vec());
         }
     }

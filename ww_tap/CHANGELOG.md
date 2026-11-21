@@ -16,13 +16,17 @@
 - `ConsumerStats` on `Subscription::stats` and `Recorder::consumers`: blocks missed, records lost, behind since when (STD-135).
 - A consumer's next block after a miss comes after a `LinkEvent::Lost` of each link it lost records of (STD-135).
 - `recorder::drop_closed_links`: a relay drops a closed link's tracks from its `Definitions` (STD-135).
+- `Recorder::track(link, stream)`, `link_stream_of(&TrackDef)`, `link_stream_in(&Definitions, track)`: a link's track numbers, and a track's link (READ-5).
 
 ### 🐛 Fixes
 
+- A link opened after every link closed has its clocks put again; its tracks were refused for an unknown clock.
 - The recorder shares its definitions and sessions with the puts it makes, and makes none for a full queue (STD-135).
 
 ### ⚠️ Breaking
 
+- The definitions number tracks and clocks (ww_tape READ-5): `track_number`, `track_of`, `HOST_CLOCK` and `WALL_CLOCK` are gone; use `Recorder::track` or `link_stream_of`.
+- `recorder::track_key` returns a `ww_tape::TrackKey` (ww_tape READ-5).
 - Tapes take ww_tape 0081196: a track's definition holds its WireWeaver items (FMT-12); older tap files don't read.
 - Declares `rust-version = "1.99"`: cargo of an older Rust refuses the crate.
 - Built on ww_tape 2bfdd07: recorder tracks carry the piece's owner (zeros) and no relations; head and index rows changed (ww_tape TAPE-8).

@@ -8,13 +8,13 @@ use std::task::{Context, Poll, Waker};
 use std::time::Duration;
 
 use futures_util::stream::{FuturesUnordered, StreamExt};
-use wire_weaver::{ConnectionId, WireWeaverAsyncApiBackend};
+use wire_weaver::{ConnectionId, DisconnectReason, WireWeaverAsyncApiBackend};
 use ww_device::{Clock, Instant, LinkConfig};
 
 use crate::authorize::{Authorization, Authorize};
 use crate::backend::Backend;
 use crate::connection::{self, Connection};
-use crate::lifecycle::{Lifecycle, Stage};
+use crate::lifecycle::{Lifecycle, ShutdownReason, Stage};
 use crate::listener::{Accept, Accepted, Listener};
 use crate::sync::locked;
 
@@ -137,7 +137,8 @@ impl<C: Clock + Clone> Server<C> {
     /// `Send` itself when its parts are.
     ///
     /// When `shutdown` completes the server stops accepting; each connection answers the requests it has and
-    /// disconnects, and what is left after [Limits::shutdown_grace] is disconnected as it is.
+    /// disconnects, and what is left after [Limits::shutdown_grace] is disconnected as it is. Clients are told the
+    /// reason `shutdown` completes with ([ShutdownReason]): `()` is `DisconnectReason::Shutdown`.
     ///
     /// # Errors
     ///
@@ -147,7 +148,7 @@ impl<C: Clock + Clone> Server<C> {
         link: LinkConfig<'_>,
         listener: L,
         make: M,
-        shutdown: impl Future<Output = ()>,
+        shutdown: impl Future<Output: ShutdownReason>,
     ) -> Result<(), L::Error> {
         let life = Lifecycle::new();
         let mut gate = Gate::new(self.clock.clone(), self.limits, listener, shutdown);
@@ -182,7 +183,7 @@ impl<C: Clock + Clone> Server<C> {
     /// Limits and shutdown work as in [serve](Self::serve): [Accepting::next] gives no connection while
     /// [Limits::connections_max] of them run, and returns `None` once shutdown was asked for and every connection
     /// ended.
-    pub fn accepting<L: Listener, M: MakeBackend, S: Future<Output = ()>>(
+    pub fn accepting<L: Listener, M: MakeBackend, S: Future<Output: ShutdownReason>>(
         &self,
         link: LinkConfig<'static>,
         listener: L,
@@ -215,7 +216,7 @@ where
     C: Clock + Clone + 'static,
     L: Listener<Tx: 'static, Rx: 'static>,
     M: MakeBackend + 'static,
-    S: Future<Output = ()>,
+    S: Future<Output: ShutdownReason>,
 {
     /// The next connection, to be run to its end: spawn it, or poll it with the others. `None` after shutdown or
     /// the listener's end, once every connection handed out has ended or was dropped.
@@ -275,7 +276,7 @@ trait Connections {
     fn poll_closed(&mut self, cx: &mut Context<'_>) -> Poll<()>;
 }
 
-impl<C: Clock, L: Listener, S: Future<Output = ()>> Gate<C, L, S> {
+impl<C: Clock, L: Listener, S: Future<Output: ShutdownReason>> Gate<C, L, S> {
     fn new(clock: C, limits: Limits, listener: L, shutdown: S) -> Self {
         Gate {
             clock,
@@ -310,9 +311,9 @@ impl<C: Clock, L: Listener, S: Future<Output = ()>> Gate<C, L, S> {
                     return Ok(Some((accepted, id)));
                 }
                 Next::Closed => {}
-                Next::Shutdown => {
+                Next::Shutdown(reason) => {
                     self.grace_until = Some(self.clock.now() + self.limits.shutdown_grace);
-                    life.set(Stage::Drain);
+                    life.shut_down(reason);
                 }
                 Next::GraceOver => life.set(Stage::Abort),
             }
@@ -339,8 +340,10 @@ impl<C: Clock, L: Listener, S: Future<Output = ()>> Gate<C, L, S> {
             }
         });
         poll_fn(|cx| {
-            if grace_until.is_none() && shutdown.as_mut().poll(cx).is_ready() {
-                return Poll::Ready(Next::Shutdown);
+            if grace_until.is_none()
+                && let Poll::Ready(reason) = shutdown.as_mut().poll(cx)
+            {
+                return Poll::Ready(Next::Shutdown(reason.disconnect_reason()));
             }
             if connections.poll_closed(cx).is_ready() {
                 return Poll::Ready(Next::Closed);
@@ -362,8 +365,8 @@ enum Next<A> {
     Accepted(A),
     /// A connection ended.
     Closed,
-    /// Shutdown was asked for.
-    Shutdown,
+    /// Shutdown was asked for, with what clients are told.
+    Shutdown(DisconnectReason),
     /// The grace time after shutdown is over.
     GraceOver,
 }

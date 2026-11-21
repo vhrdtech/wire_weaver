@@ -225,6 +225,23 @@ A client that asks for a service nobody serves there is refused: `Error::HubRefu
 `UnknownService` (an HTTP `404` over WebSocket). When a listener holds `QUEUED_MAX` connections that its server has
 not taken yet, the next client is refused as busy.
 
+### Connections the program opened
+
+A program that answers each client's opening itself, because it serves several things on one socket, hands the
+connections of one API to a server through `opened`. The [ww hub](../transport/hub.md#its-api) works this way: its
+preamble picks the hub's own API or a tunnel to a device, and only the API's connections go to the server.
+
+```rust
+let (mut sender, listener) = wire_weaver_server::opened::opened(16);
+// in the program's own accept loop, once it answered the client's preamble:
+let (tx, rx, _ended) = wire_weaver_client::local_socket::device::connection_medium(read, write, 64 * 1024);
+sender.serve(tx, rx, wire_weaver_server::local_socket::peer_of(peer)).await?;
+```
+
+The server starts each such connection with link setup. `OpenedSender::serve` waits while the listener holds 16
+connections that its server has not taken yet, and fails with `Closed` once the listener is gone. The server ends
+after its connections once every sender is dropped.
+
 ### Programs on the same computer
 
 `LocalSocketIncoming` (feature `local_socket`) accepts programs of the same user on a local socket: a Unix domain
@@ -298,7 +315,7 @@ A server run as an ssh forced command, or started by its client, serves its stdi
 
 ```rust
 let listener = listen(stdio(), PreambleFraming::new("my_service 0.3.0", 16 * 1024), clock);
-Server::new(clock).serve(link, listener, make_backend, std::future::pending()).await?;
+Server::new(clock).serve(link, listener, make_backend, std::future::pending::<()>()).await?;
 ```
 
 The client starts it with `ClientConfig::command("ssh", ["host", "my-service", "--stdio"])`. The server ends when its
@@ -587,7 +604,10 @@ an error that names both sides' limits.
 ## Shutting down
 
 When the shutdown future completes, the server stops accepting connections. Each connection then answers the
-requests it already has, disconnects its client with the reason `Shutdown` and ends. It keeps the
+requests it already has, sends the stream items that are ready, disconnects its client and ends. The client is told
+the reason the shutdown future completes with: `()` is `DisconnectReason::Shutdown`, and a future of a
+`DisconnectReason` gives that one, as the ww hub gives `HubHandover` when a newer hub takes over (any type that
+implements `ShutdownReason`). A future that never completes is `std::future::pending::<()>()`. It keeps the
 connection open for `disconnect_linger` after that message, so that a client which is writing at that moment still
 reads the reason instead of a transport error. A connection with nothing to
 answer ends at once.

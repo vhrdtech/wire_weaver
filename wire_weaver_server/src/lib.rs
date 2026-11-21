@@ -19,6 +19,7 @@
 //! stream, with several APIs on one source: TCP and stdio (feature `tokio`), streams the program accepted itself,
 //! and `local_socket` (feature `local_socket`) for programs of the same user, also on a socket systemd socket
 //! activation passed; `udp` (feature `udp`) for hosts on a datagram socket, a connection per host address.
+//! [opened] takes connections the program opened itself (answered their preamble, as the ww hub does).
 //! [Server::accepting] hands out connections for the program to spawn on a multi-threaded runtime.
 //!
 //! [Server::authorize] puts an [Authorize] hook in front of every handler (SRV-46): who asked, as the transport
@@ -39,6 +40,7 @@ mod lifecycle;
 mod listener;
 #[cfg(feature = "local_socket")]
 pub mod local_socket;
+pub mod opened;
 mod outbox;
 mod pump;
 mod server;
@@ -51,6 +53,7 @@ pub use authorize::{Authorize, Denied, Resource};
 pub use backend::Backend;
 pub use connection::Connection;
 pub use fanout::{Fanout, Lagged, Subscription};
+pub use lifecycle::ShutdownReason;
 pub use listener::{Accept, Accepted, Listener};
 pub use pump::{PumpId, Pumps};
 pub use server::{Accepting, Limits, MakeBackend, Server};

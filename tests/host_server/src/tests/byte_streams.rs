@@ -73,7 +73,7 @@ async fn two_apis_share_one_listener() {
                 counter::link(),
                 counter_listener,
                 Counter::make,
-                std::future::pending(),
+                std::future::pending::<()>(),
             )
             .await
     });
@@ -160,7 +160,7 @@ async fn websocket_clients_name_the_api_in_the_path() {
                 counter::link(),
                 counter_listener,
                 Counter::make,
-                std::future::pending(),
+                std::future::pending::<()>(),
             )
             .await
     });

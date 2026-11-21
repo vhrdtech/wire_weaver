@@ -4,6 +4,7 @@ use crate::sync::locked;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicU8, AtomicUsize, Ordering};
 use std::task::{Context, Waker};
+use wire_weaver::DisconnectReason;
 
 /// Where the server is in its life.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -22,6 +23,28 @@ pub(crate) struct Lifecycle {
     watchers: Mutex<Vec<Waker>>,
     /// Requests that run now, across all connections.
     running: AtomicUsize,
+    /// What connections tell their clients when they disconnect for the shutdown.
+    reason: Mutex<DisconnectReason>,
+}
+
+/// What a server's shutdown future completes with: the reason its connections give their clients. `()` is
+/// [DisconnectReason::Shutdown]; a program that goes away for a reason of its own (the ww hub handing over to a
+/// newer one) completes with that [DisconnectReason].
+pub trait ShutdownReason {
+    /// The reason clients are told.
+    fn disconnect_reason(self) -> DisconnectReason;
+}
+
+impl ShutdownReason for () {
+    fn disconnect_reason(self) -> DisconnectReason {
+        DisconnectReason::Shutdown
+    }
+}
+
+impl ShutdownReason for DisconnectReason {
+    fn disconnect_reason(self) -> DisconnectReason {
+        self
+    }
 }
 
 /// A request counted as running; counted down when dropped.
@@ -39,6 +62,7 @@ impl Lifecycle {
             stage: AtomicU8::new(Stage::Run as u8),
             watchers: Mutex::default(),
             running: AtomicUsize::new(0),
+            reason: Mutex::new(DisconnectReason::Shutdown),
         }
     }
 
@@ -67,6 +91,17 @@ impl Lifecycle {
             1 => Stage::Drain,
             _ => Stage::Abort,
         }
+    }
+
+    /// What connections tell their clients when they disconnect.
+    pub(crate) fn reason(&self) -> DisconnectReason {
+        *locked(&self.reason)
+    }
+
+    /// Shutdown was asked for with `reason`: [Stage::Drain].
+    pub(crate) fn shut_down(&self, reason: DisconnectReason) {
+        *locked(&self.reason) = reason;
+        self.set(Stage::Drain);
     }
 
     /// Move on to `stage` and wake every connection.

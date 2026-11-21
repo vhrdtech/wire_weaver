@@ -18,7 +18,7 @@ async fn main() {
             counter::link(),
             listener,
             Counter::make,
-            std::future::pending(),
+            std::future::pending::<()>(),
         )
         .await;
     if let Err(e) = served {

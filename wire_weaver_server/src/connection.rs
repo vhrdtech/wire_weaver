@@ -12,8 +12,7 @@ use futures_util::stream::{FuturesUnordered, StreamExt};
 use wire_weaver::shrink_wrap::{DeserializeShrinkWrap, Error as ShrinkWrapError};
 use wire_weaver::ww_version::WireVersion;
 use wire_weaver::{
-    CallContext, ConnectionId, DisconnectReason, EventWriter, Peer, Priority,
-    WireWeaverSharedApiBackend,
+    CallContext, ConnectionId, EventWriter, Peer, Priority, WireWeaverSharedApiBackend,
 };
 use ww_client_server::{ErrorKind, Request, RequestKind, err_seq};
 use ww_device::link::{Phase, Received, Transmit};
@@ -543,9 +542,18 @@ impl<Tx: MessageTx, Rx: MessageRx, C: Clock> Conn<'_, Tx, Rx, C> {
     }
 
     /// Tell the client that the server goes away, send it now, and give the client the linger time to close
-    /// first: closing under a client that is writing would show it a transport error, not the reason.
+    /// first: closing under a client that is writing would show it a transport error, not the reason. Stream items
+    /// ready by then go out before it, so a client hears the news that came with the shutdown (the hub's
+    /// `Event::Handover`).
     async fn disconnect(&mut self) {
-        self.link.disconnect(DisconnectReason::Shutdown);
+        let (pumps, outbox, buf) = (self.pumps, self.outbox, &mut self.pump_buffer);
+        poll_fn(|cx| {
+            pumps.poll_into(cx, outbox, buf);
+            Poll::Ready(())
+        })
+        .await;
+        self.send_events().await;
+        self.link.disconnect(self.life.reason());
         self.drain_transmit().await;
         let _ = self.tx.flush().await;
         let until = self.clock.now() + self.limits.disconnect_linger;

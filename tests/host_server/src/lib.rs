@@ -16,7 +16,7 @@ mod tests {
     use tokio::sync::{Notify, oneshot};
     use tokio::task::JoinHandle;
     use wire_weaver::prelude::*;
-    use wire_weaver::{CallContext, Gid, Peer, Pid, Uid};
+    use wire_weaver::{CallContext, DisconnectReason, Gid, Peer, Pid, Uid};
     use wire_weaver_client::in_process::TokioClock;
     use wire_weaver_client::{Commander, WwClient};
     use wire_weaver_server::byte_stream::{PreambleFraming, listen};
@@ -422,9 +422,7 @@ mod tests {
                     }
                 };
                 let server = configure(Server::new(TokioClock::new()).limits(limits));
-                let shutdown = async {
-                    let _ = asked.await;
-                };
+                let shutdown = async { asked.await.unwrap_or(DisconnectReason::Shutdown) };
                 if as_tasks {
                     // every connection a task of its own, on any of the runtime's threads
                     let mut accepting = server.accepting(link, listener, make, shutdown);
@@ -448,7 +446,7 @@ mod tests {
     struct Bench {
         reach: Reach,
         shared: Arc<Shared>,
-        shutdown: Option<oneshot::Sender<()>>,
+        shutdown: Option<oneshot::Sender<DisconnectReason>>,
         served: JoinHandle<()>,
     }
 
@@ -509,7 +507,12 @@ mod tests {
         }
 
         fn shut_down(&mut self) {
-            self.shutdown.take().unwrap().send(()).unwrap();
+            self.shut_down_with(DisconnectReason::Shutdown);
+        }
+
+        /// Shut down, telling clients `reason`.
+        fn shut_down_with(&mut self, reason: DisconnectReason) {
+            self.shutdown.take().unwrap().send(reason).unwrap();
         }
     }
 
@@ -1160,6 +1163,56 @@ mod tests {
         dir.join("api.sock")
     }
 
+    /// A program that answers each preamble itself, as the ww hub does, hands the connections of its API to the
+    /// server, which serves them from link setup on with the peer the program passes.
+    #[cfg(unix)]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn connections_the_program_opened_are_served() {
+        use futures_util::io::{AsyncReadExt, AsyncWriteExt};
+        use ww_byte_stream::{Answer, Preamble, Status, Target};
+
+        let path = socket_path("opened");
+        let socket = ww_local_socket::listen(&path, true).unwrap();
+        let (mut sender, listener) = wire_weaver_server::opened::opened(4);
+        let program = tokio::spawn(async move {
+            loop {
+                let (stream, peer) = socket.accept().await.unwrap();
+                let (mut rx, mut tx) = stream.split();
+                let preamble = Preamble::read(&mut rx).await.unwrap();
+                assert!(matches!(preamble.target, Target::Device(_)));
+                tx.write_all(&Answer::new(Status::Ok, "opened 0.1.0").encode())
+                    .await
+                    .unwrap();
+                let (tx, rx, _ended) = wire_weaver_client::local_socket::device::connection_medium(
+                    rx,
+                    tx,
+                    MESSAGE_LEN_MAX,
+                );
+                let peer = wire_weaver_server::local_socket::peer_of(peer);
+                sender.serve(tx, rx, peer).await.unwrap();
+            }
+        });
+        let mut bench = start_bench!(
+            listener,
+            Reach::LocalSocket(path.to_str().unwrap().to_owned()),
+            small(),
+            false,
+        );
+        let first = bench.connect().await;
+        let second = bench.connect().await;
+        assert_eq!(first.echo(3).call().await.unwrap(), 3);
+        assert_eq!(second.whoami().call().await.unwrap(), 1);
+        let connections = bench.shared.connections.lock().unwrap().clone();
+        let Peer::Unix { pid, .. } = connections[0].peer else {
+            panic!("the peer the program passed: {:?}", connections[0].peer);
+        };
+        assert_eq!(pid, Some(Pid(std::process::id())));
+        bench.shut_down();
+        soon("the server ends", &mut bench.served).await.unwrap();
+        program.abort();
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
+
     #[cfg(unix)]
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn clients_on_a_local_socket_are_served_with_their_process() {
@@ -1247,6 +1300,42 @@ mod tests {
         );
         soon("the server ends", &mut bench.served).await.unwrap();
         assert!(client.echo(1).call().await.is_err());
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn clients_hear_the_reason_the_shutdown_gives() {
+        let mut bench = Bench::start("host_server/reason", small());
+        let client = bench.connect().await;
+        let mut events = client.cmd.connection_events();
+        bench.shut_down_with(DisconnectReason::Other(7));
+        let reason = soon("the client's link ends", async {
+            loop {
+                if let wire_weaver_client::ConnectionEvent::Disconnected { reason, .. } =
+                    events.recv().await.expect("connection events")
+                {
+                    break reason;
+                }
+            }
+        })
+        .await;
+        assert_eq!(
+            reason,
+            wire_weaver_client::GapReason::Disconnect(DisconnectReason::Other(7))
+        );
+        soon("the server ends", &mut bench.served).await.unwrap();
+    }
+
+    /// News that came with the shutdown reaches the client before the disconnect: on one thread the connection
+    /// sees both at once.
+    #[tokio::test]
+    async fn news_ready_at_shutdown_goes_out_before_the_disconnect() {
+        let mut bench = Bench::start("host_server/news_at_shutdown", small());
+        let client = bench.connect().await;
+        let mut news = client.news().call().await.unwrap();
+        bench.shared.news.send(5);
+        bench.shut_down();
+        assert_eq!(soon("the news", news.recv()).await.unwrap(), 5);
+        soon("the server ends", &mut bench.served).await.unwrap();
     }
 
     #[tokio::test(start_paused = true)]

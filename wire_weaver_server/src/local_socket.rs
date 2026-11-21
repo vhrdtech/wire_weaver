@@ -78,9 +78,9 @@ impl Stream for LocalSocketIncoming {
     }
 }
 
-/// The peer as handlers see it.
+/// The peer as handlers see it, of a client a program accepted on a local socket itself.
 #[cfg(unix)]
-fn peer_of(peer: ww_local_socket::Peer) -> Peer {
+pub fn peer_of(peer: ww_local_socket::Peer) -> Peer {
     use wire_weaver::{Gid, Pid, Uid};
     Peer::Unix {
         uid: Uid(peer.uid),
@@ -90,8 +90,8 @@ fn peer_of(peer: ww_local_socket::Peer) -> Peer {
 }
 
 /// The peer as handlers see it: the pipe's client was checked to run as this user, which [Peer] has no word for
-/// yet (SRV-46).
+/// yet (SRV-71).
 #[cfg(windows)]
-fn peer_of(_peer: ww_local_socket::Peer) -> Peer {
+pub fn peer_of(_peer: ww_local_socket::Peer) -> Peer {
     Peer::Unknown
 }

@@ -299,3 +299,6 @@ wire_weaver_core = { path = "./wire_weaver_core" }
 [profile.deploy]
 inherits = "release"
 incremental = true
+
+[profile.dev]
+debug = false

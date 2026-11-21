@@ -6621,6 +6621,7 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 <li><strong><a href="../api/methods/#server-side"><code>no_std</code>, no allocator</a></strong>: The generated server works on the smallest MCUs and does no IO itself.</li>
 <li><strong><a href="../transport/overview/">Your event loop</a></strong>: An async <code>Server</code> with <code>wait()</code> / <code>handle()</code> inside your own loop, or a blocking one.</li>
 <li><strong><a href="../transport/overview/">Media</a></strong>: USB (embassy), RTT, WebSocket and UDP, the last two also on <code>embassy-net</code>.</li>
+<li><strong><a href="../transport/udp/#several-hosts-on-one-port">Several hosts on one UDP port</a></strong>: Each host gets a link of its own on one port: a fixed set of slots on a device, a connection per host on a computer.</li>
 <li><strong><a href="../transport/usb/">Device descriptors</a></strong>: Serial number, API name, version and a user label, visible before connecting.</li>
 </ul>
 <p class="ww-features__level"><span class="ww-level ww-level--advanced"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6" class="ww-level__off"/></svg><span class="ww-level__label">Advanced</span></span></p>

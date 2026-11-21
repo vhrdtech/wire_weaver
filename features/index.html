@@ -6985,7 +6985,13 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
   string.
 - ✅ <strong>SRV-6 Media</strong>: USB (embassy), RTT, WebSocket and UDP (both also on <code>embassy-net</code>).
 - ✅ <strong>SRV-7 UDP device medium</strong> — <code>ww_device::udp</code>, one frame per datagram over any datagram socket, one host at a
-  time, another host takes over by starting link setup (<code>docs/transport/udp.md</code>).
+  time, another host takes over by starting link setup (<code>docs/transport/udp.md</code>). Several hosts: SRV-68.
+- ✅ <strong>SRV-68 Several hosts on one UDP port</strong> — <code>ww_device::udp::UdpPeers&lt;S, PEERS&gt;</code>: a link per host address, up to
+  <code>PEERS</code> chosen at build time, the host heard from least recently gives its slot up when all are taken. A firmware
+  serves each slot for good, a host program takes a connection per host (<code>UdpPeers::accept</code>), freed when dropped.
+  <code>StdUdpSocket</code> (feature <code>std</code>) is the socket for a program on any event loop.
+  One-host firmware keeps its size (<code>UdpConnection</code>: +120 B code, +88 B rodata on <code>ww_udp_ncm</code>)
+  (<code>docs/transport/udp.md#several-hosts-on-one-port</code>).
 - ✅ <strong>SRV-15 Stream stores and backfill</strong> — <code>ww_stream::store</code>: what a reliable stream (API-30) keeps until the
   host acknowledges it: <code>RamRing</code> (API-30) and <code>LogStore</code>, a power-cut safe log on a block device (feature
   <code>log-store</code>; <code>SdMedium</code> on an <code>embedded-sdmmc</code> <code>BlockDevice</code> with <code>sdmmc</code>, <code>NorMedium</code> on an
@@ -7123,6 +7129,10 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
   informing the device.</li>
 <li>📋 <strong>SRV-10 Collect error codes into an ELF section</strong> for easier error decoding · <code>v0.5.x</code>.</li>
 <li>📋 <strong>SRV-11 Link statistics</strong> in <code>ww_device</code> (<code>TODO(SRV-11)</code> in <code>link.rs</code>).</li>
+<li>📋 <strong>SRV-69 UDP listener for wire_weaver_server</strong> — a <code>Listener</code> that hands out a connection per host of a
+  <code>ww_device::udp::UdpPeers</code> (SRV-68, <code>UdpPeers::accept</code>). Needs owned-buffer framers first: a <code>Listener</code>'s
+  <code>Tx</code> / <code>Rx</code> own their buffers, while <code>FramedTx</code> / <code>FramedRx</code> borrow theirs (<code>&amp;'a mut [u8]</code>). <code>serve</code> only: the table
+  is not <code>Send</code>, so <code>Server::accepting</code> would need a locked one.</li>
 <li>📋 <strong>SRV-67 ww_hub serves its API on wire_weaver_server</strong> — the hub's own API (<code>ww_hub_api</code>) is served by
   <code>wire_weaver_server</code> on the hub socket instead of one <code>ww_device::Server</code> per client: its connections, limits,
   shutdown and <code>Fanout</code> replace the hub's hand-written accept loop and <code>broadcast</code> fan-out. The preamble still picks

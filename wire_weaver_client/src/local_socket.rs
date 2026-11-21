@@ -464,11 +464,12 @@ pub mod device {
     use tokio::sync::{mpsc, oneshot};
     use tracing::{debug, warn};
     use ww_local_socket::{
-        Answer, Listener, MessageReader, MessageWriter, Preamble, PreambleError, Status, Target,
+        Answer, Listener, MessageReader, MessageWriter, Preamble, PreambleError, Status, Stream,
+        Target,
     };
 
     /// A client that connected must send its preamble within this time, or it is dropped.
-    const PREAMBLE_TIMEOUT: Duration = Duration::from_secs(2);
+    pub const PREAMBLE_TIMEOUT: Duration = Duration::from_secs(2);
 
     /// Tx and rx halves for [ww_device::Server] on `listener`. `version` goes into the preamble answer (shown to a
     /// client that is refused), `max_message_len` is the longest message accepted, the device's own limit.
@@ -636,37 +637,47 @@ pub mod device {
     /// Accepts one client: reads its preamble and answers; `None` for one that isn't served.
     async fn accept_one(listener: &Listener, version: &str) -> std::io::Result<Option<Accepted>> {
         let (stream, peer) = listener.accept().await?;
+        let Ok(answered) =
+            tokio::time::timeout(PREAMBLE_TIMEOUT, answer_preamble(stream, version)).await
+        else {
+            debug!("local socket: client {peer:?} sent no preamble");
+            return Ok(None);
+        };
+        if let Ok(Some(_)) = &answered {
+            debug!("local socket: client {peer:?} connected");
+        }
+        answered
+    }
+
+    /// Reads the preamble of a client on `stream` and answers it, `version` in the answer: any device key names the
+    /// one device served here, the hub's own API is refused. The halves of a client that is served, `None` for one
+    /// that isn't (answered when its preamble could be read). The caller bounds the time, as
+    /// [PREAMBLE_TIMEOUT] does.
+    pub async fn answer_preamble(
+        stream: Stream,
+        version: &str,
+    ) -> std::io::Result<Option<(RecvHalf, SendHalf)>> {
         let (mut rx, mut tx) = stream.split();
-        let preamble = tokio::time::timeout(PREAMBLE_TIMEOUT, Preamble::read(&mut rx)).await;
-        let status = match preamble {
-            Err(_) => {
-                debug!("local socket: client {peer:?} sent no preamble");
-                return Ok(None);
-            }
-            Ok(Err(PreambleError::UnsupportedVersion(v))) => {
-                debug!("local socket: preamble version {v} from {peer:?}");
+        let status = match Preamble::read(&mut rx).await {
+            Err(PreambleError::UnsupportedVersion(v)) => {
+                debug!("local socket: preamble version {v}");
                 Status::PreambleVersion
             }
-            Ok(Err(e)) => {
-                debug!("local socket: bad preamble from {peer:?}: {e}");
+            Err(e) => {
+                debug!("local socket: bad preamble: {e}");
                 return Ok(None);
             }
-            // the one device served here: any key names it, there is no other
-            Ok(Ok(Preamble {
+            Ok(Preamble {
                 target: Target::Device(_),
                 ..
-            })) => Status::Ok,
-            Ok(Ok(Preamble {
+            }) => Status::Ok,
+            Ok(Preamble {
                 target: Target::Hub,
                 ..
-            })) => Status::UnknownDevice,
+            }) => Status::UnknownDevice,
         };
         tx.write_all(&Answer::new(status, version).encode()).await?;
-        if status != Status::Ok {
-            return Ok(None);
-        }
-        debug!("local socket: client {peer:?} connected");
-        Ok(Some((rx, tx)))
+        Ok((status == Status::Ok).then_some((rx, tx)))
     }
 
     impl ww_device::MessageRx for DeviceRx {

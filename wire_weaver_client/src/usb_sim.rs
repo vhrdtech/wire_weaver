@@ -22,13 +22,13 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use anyhow::bail;
-use interprocess::local_socket::tokio::{RecvHalf, SendHalf};
-use interprocess::local_socket::traits::tokio::Stream as _;
+use futures_util::io::AsyncReadExt as _;
 use tokio::sync::{mpsc, watch};
 use tracing::{debug, trace, warn};
-use ww_link::{UsbFraming, UsbFramingProtocol};
 use ww_byte_stream::{MessageReader, MessageWriter};
+use ww_link::{UsbFraming, UsbFramingProtocol};
 use ww_local_socket::Listener;
+use ww_local_socket::{ReadHalf, WriteHalf};
 
 use crate::config::{ConfigPiece, ValidatedConfig};
 use crate::event_loop::DeviceHandle;
@@ -230,8 +230,8 @@ async fn accept(
 /// One host's connection: claims, releases and OUT packets in, IN packets and answers out, in order.
 async fn serve_host(
     id: u64,
-    rx: RecvHalf,
-    tx: SendHalf,
+    rx: ReadHalf,
+    tx: WriteHalf,
     bus: Arc<Bus>,
     out_tx: mpsc::UnboundedSender<Vec<u8>>,
     max_packet: usize,
@@ -253,7 +253,7 @@ async fn serve_host(
                 break;
             }
         }
-        let _ = writer.shutdown().await;
+        let _ = writer.close().await;
     });
     let mut reader = MessageReader::new(rx, MAX_PACKET);
     let holds = |bus: &Bus| bus.holder.locked().as_ref().map(|h| h.0) == Some(id);
@@ -494,8 +494,8 @@ pub(crate) struct UsbSimTransport;
 
 /// An opened simulated device whose interface this host holds.
 pub(crate) struct Claimed {
-    pub(crate) rx: MessageReader<RecvHalf>,
-    pub(crate) tx: MessageWriter<SendHalf>,
+    pub(crate) rx: MessageReader<ReadHalf>,
+    pub(crate) tx: MessageWriter<WriteHalf>,
     pub(crate) max_packet: usize,
     pub(crate) seq_prefix: bool,
 }
@@ -539,8 +539,8 @@ impl Claimed {
 }
 
 async fn claim(
-    tx: &mut MessageWriter<SendHalf>,
-    rx: &mut MessageReader<RecvHalf>,
+    tx: &mut MessageWriter<WriteHalf>,
+    rx: &mut MessageReader<ReadHalf>,
 ) -> Result<(), String> {
     tx.push(CLAIM, &[]);
     tx.flush().await.map_err(|e| e.to_string())?;
@@ -555,8 +555,8 @@ async fn claim(
 }
 
 async fn release(
-    tx: &mut MessageWriter<SendHalf>,
-    rx: &mut MessageReader<RecvHalf>,
+    tx: &mut MessageWriter<WriteHalf>,
+    rx: &mut MessageReader<ReadHalf>,
     mut packet: impl FnMut(&[u8]),
 ) -> Result<(), String> {
     tx.push(RELEASE, &[]);
@@ -756,7 +756,7 @@ impl Transport for UsbSimTransport {
 
 pub(crate) struct UsbSimTx {
     framer: TxFramer,
-    writer: MessageWriter<SendHalf>,
+    writer: MessageWriter<WriteHalf>,
     tap: crate::tap::ClientTap,
     claim: SharedClaim,
     max_packet: usize,
@@ -810,13 +810,13 @@ impl MessageTx for UsbSimTx {
 
     async fn close(mut self) {
         let _ = self.writer.flush().await;
-        let _ = self.writer.shutdown().await;
+        let _ = self.writer.close().await;
     }
 }
 
 pub(crate) struct UsbSimRx {
     framer: RxFramer,
-    reader: MessageReader<RecvHalf>,
+    reader: MessageReader<ReadHalf>,
     tap: crate::tap::ClientTap,
     /// Shared with [UsbSimTx]: released once both halves let go of the device
     claim: SharedClaim,

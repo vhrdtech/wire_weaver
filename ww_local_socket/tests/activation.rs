@@ -7,7 +7,7 @@ use std::os::unix::net::UnixListener;
 use std::os::unix::process::CommandExt;
 use std::process::Command;
 
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use futures_util::io::{AsyncReadExt, AsyncWriteExt};
 use ww_local_socket::{ActivationError, connect, inherited};
 
 /// Set in the child's environment: the child test runs only there.

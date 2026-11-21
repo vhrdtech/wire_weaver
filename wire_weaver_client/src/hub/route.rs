@@ -1,8 +1,8 @@
 //! Which way `connect()` reaches a device it selected: directly or through the hub (CLT-39).
 
 use tracing::{debug, info};
-use ww_hub_api::DeviceStateOwned;
 use ww_byte_stream::Target;
+use ww_hub_api::DeviceStateOwned;
 
 use super::{HubClient, HubMode, MODE_ENV, ensure_running, handover, hub_running, record_open};
 use crate::ClientKind;

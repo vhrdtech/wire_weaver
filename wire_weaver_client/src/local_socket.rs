@@ -11,12 +11,12 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use anyhow::bail;
-use interprocess::local_socket::tokio::{RecvHalf, SendHalf};
-use interprocess::local_socket::traits::tokio::Stream as _;
-use tokio::io::AsyncWriteExt;
+use futures_util::io::AsyncReadExt as _;
+use futures_util::io::AsyncWriteExt;
 use tokio::sync::mpsc;
 use tracing::debug;
 use ww_byte_stream::{Answer, MessageReader, MessageWriter, Preamble, Status, Target, Version};
+use ww_local_socket::{ReadHalf, WriteHalf};
 
 use crate::config::{ConfigPiece, ValidatedConfig};
 use crate::event_loop::DeviceHandle;
@@ -232,7 +232,7 @@ impl Tunnel {
 
 /// The message halves of an opened connection, sharing `claim`, taking messages up to `max_message_len`.
 fn halves(
-    (rx, tx): (RecvHalf, SendHalf),
+    (rx, tx): (ReadHalf, WriteHalf),
     claim: SharedClaim,
     max_message_len: usize,
 ) -> (LocalTx, LocalRx) {
@@ -245,8 +245,8 @@ fn halves(
 
 /// A connection whose preamble was answered `Ok`: ready to carry the link.
 pub(crate) struct Tunnel {
-    rx: RecvHalf,
-    tx: SendHalf,
+    rx: ReadHalf,
+    tx: WriteHalf,
     /// The socket, for messages and the tap
     pub(crate) shown: String,
     /// What the hub (or the serving process) says its version is
@@ -401,7 +401,7 @@ async fn open_with(path: &std::path::Path, preamble: &Preamble) -> Result<Tunnel
 }
 
 /// The claim is shared by both halves: released once both closed the socket.
-pub(crate) struct LocalTx(MessageWriter<SendHalf>, SharedClaim);
+pub(crate) struct LocalTx(MessageWriter<WriteHalf>, SharedClaim);
 
 impl MessageTx for LocalTx {
     async fn write_message(&mut self, kind: u8, message: &[u8]) -> Result<(), String> {
@@ -419,12 +419,12 @@ impl MessageTx for LocalTx {
 
     async fn close(mut self) {
         let _ = self.0.flush().await;
-        let _ = self.0.shutdown().await;
+        let _ = self.0.close().await;
     }
 }
 
 pub(crate) struct LocalRx(
-    MessageReader<RecvHalf>,
+    MessageReader<ReadHalf>,
     // held, never read: the claim goes with the last half
     #[allow(
         dead_code,
@@ -458,15 +458,15 @@ impl MessageRx for LocalRx {
 pub mod device {
     use std::time::Duration;
 
-    use interprocess::local_socket::tokio::{RecvHalf, SendHalf};
-    use interprocess::local_socket::traits::tokio::Stream as _;
-    use tokio::io::AsyncWriteExt;
+    use futures_util::io::AsyncReadExt as _;
+    use futures_util::io::AsyncWriteExt;
     use tokio::sync::{mpsc, oneshot};
     use tracing::{debug, warn};
     use ww_byte_stream::{
         Answer, MessageReader, MessageWriter, Preamble, PreambleError, Status, Target,
     };
     use ww_local_socket::{Listener, Stream};
+    use ww_local_socket::{ReadHalf, WriteHalf};
 
     /// A client that connected must send its preamble within this time, or it is dropped.
     pub const PREAMBLE_TIMEOUT: Duration = Duration::from_secs(2);
@@ -499,8 +499,8 @@ pub mod device {
     /// the medium stays down for good and [Ended] says so (the link may never have come up, so a link event alone
     /// doesn't tell): the caller ends the server then.
     pub fn connection_medium(
-        rx: RecvHalf,
-        tx: SendHalf,
+        rx: ReadHalf,
+        tx: WriteHalf,
         max_message_len: usize,
     ) -> (DeviceTx, DeviceRx, Ended) {
         let (writer_tx, writer_rx) = mpsc::unbounded_channel();
@@ -539,9 +539,9 @@ pub mod device {
     }
 
     pub struct DeviceTx {
-        writer: Option<MessageWriter<SendHalf>>,
+        writer: Option<MessageWriter<WriteHalf>>,
         /// The writer of each newly accepted client, from [DeviceRx::wait_connected]
-        new_writer: mpsc::UnboundedReceiver<MessageWriter<SendHalf>>,
+        new_writer: mpsc::UnboundedReceiver<MessageWriter<WriteHalf>>,
     }
 
     impl DeviceTx {
@@ -588,14 +588,14 @@ pub mod device {
         /// Accepts the next client; `None` for a single connection
         listener: Option<Accepting>,
         max: usize,
-        reader: Option<MessageReader<RecvHalf>>,
-        writer_tx: mpsc::UnboundedSender<MessageWriter<SendHalf>>,
+        reader: Option<MessageReader<ReadHalf>>,
+        writer_tx: mpsc::UnboundedSender<MessageWriter<WriteHalf>>,
         /// Single connection: told when it ends
         ended: Option<tokio::sync::watch::Sender<bool>>,
     }
 
     /// A client whose preamble was answered `Ok`.
-    type Accepted = (RecvHalf, SendHalf);
+    type Accepted = (ReadHalf, WriteHalf);
 
     /// Accepting happens in a task of its own, so that [DeviceRx::wait_connected] stays cancel-safe: the server waits
     /// on it next to timers, and a connection dropped in the middle of its preamble would be reset. The task accepts
@@ -656,12 +656,16 @@ pub mod device {
     pub async fn answer_preamble(
         stream: Stream,
         version: &str,
-    ) -> std::io::Result<Option<(RecvHalf, SendHalf)>> {
+    ) -> std::io::Result<Option<(ReadHalf, WriteHalf)>> {
         let (mut rx, mut tx) = stream.split();
         let status = match Preamble::read(&mut rx).await {
             Err(PreambleError::UnsupportedVersion(v)) => {
                 debug!("local socket: preamble version {v}");
                 Status::PreambleVersion
+            }
+            Err(PreambleError::UnknownTarget(t)) => {
+                debug!("local socket: preamble target {t}");
+                Status::UnknownTarget
             }
             Err(e) => {
                 debug!("local socket: bad preamble: {e}");
@@ -675,6 +679,11 @@ pub mod device {
                 target: Target::Hub,
                 ..
             }) => Status::UnknownDevice,
+            // one device, no services
+            Ok(Preamble {
+                target: Target::Service(_),
+                ..
+            }) => Status::UnknownService,
         };
         tx.write_all(&Answer::new(status, version).encode()).await?;
         Ok((status == Status::Ok).then_some((rx, tx)))

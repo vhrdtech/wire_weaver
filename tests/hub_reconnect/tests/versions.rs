@@ -5,12 +5,11 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use futures_util::io::{AsyncReadExt, AsyncWriteExt};
 use hub_reconnect::client::Client;
-use interprocess::local_socket::traits::tokio::Stream as _;
-use tokio::io::AsyncWriteExt;
 use wire_weaver_client::Error;
-use ww_hub::{Bound, HubConfig};
 use ww_byte_stream::{Answer, Preamble, Status, Target, Version};
+use ww_hub::{Bound, HubConfig};
 
 fn runtime_dir(name: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("ww-hub-versions-{}-{name}", std::process::id()));

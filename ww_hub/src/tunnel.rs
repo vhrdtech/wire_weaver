@@ -8,17 +8,17 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use futures_lite::future::poll_once;
-use interprocess::local_socket::tokio::{RecvHalf, SendHalf};
 use tokio::sync::Notify;
 use tracing::{debug, info, warn};
 use wire_weaver::ww_version::{ApiHash, ApiHashPair, CompactVersion, GlobalTypeId};
 use wire_weaver_client::DeviceApiInfo;
 use wire_weaver_client::in_process::TokioClock;
+use ww_byte_stream::{MessageReader, MessageWriter};
 use ww_device::link::{Received, Transmit};
 use ww_device::ww_link::{DisconnectReason, Kind, PEER_TIMEOUT_MS, PING_INTERVAL_MS};
 use ww_device::{Clock, DeviceLink, LinkConfig, LinkEvent};
-use ww_byte_stream::{MessageReader, MessageWriter};
 use ww_local_socket::Peer;
+use ww_local_socket::{ReadHalf, WriteHalf};
 
 use crate::Hub;
 use crate::device::{DeviceHandle, ToDevice};
@@ -184,8 +184,8 @@ pub(crate) async fn serve(
     id: u32,
     device: DeviceHandle,
     queue: Arc<TunnelQueue>,
-    rx: RecvHalf,
-    tx: SendHalf,
+    rx: ReadHalf,
+    tx: WriteHalf,
     peer: Peer,
 ) {
     let clock = TokioClock::new();
@@ -285,7 +285,7 @@ pub(crate) async fn serve(
             break;
         }
     }
-    let _ = writer.shutdown().await;
+    let _ = writer.close().await;
     let dropped = queue.dropped();
     if dropped > 0 {
         info!(

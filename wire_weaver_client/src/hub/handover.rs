@@ -5,7 +5,7 @@
 use std::path::Path;
 use std::time::Duration;
 
-use tokio::io::AsyncWriteExt;
+use futures_util::io::AsyncWriteExt;
 use tracing::debug;
 use wire_weaver::shrink_wrap::{DeserializeShrinkWrapOwned, SerializeShrinkWrapOwned};
 use ww_local_socket::{HandoverAnswer, HandoverRequest, HandoverStatus, Op};
@@ -67,7 +67,7 @@ async fn ask_inner(socket: &Path, me: Option<&ClientMetaOwned>) -> Result<Handov
         .await
         .map_err(|_| "its socket doesn't answer".to_string())?
         .map_err(|e| format!("its socket: {e}"))?;
-    let (mut rx, mut tx) = interprocess::local_socket::traits::tokio::Stream::split(stream);
+    let (mut rx, mut tx) = futures_util::io::AsyncReadExt::split(stream);
     let meta = me
         .and_then(|m| m.to_ww_bytes_owned().ok())
         .unwrap_or_default();

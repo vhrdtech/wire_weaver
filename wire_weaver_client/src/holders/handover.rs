@@ -12,7 +12,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use tokio::io::AsyncWriteExt;
+use futures_util::io::AsyncWriteExt;
 use tokio::sync::{oneshot, watch};
 use tracing::{debug, info, warn};
 use wire_weaver::shrink_wrap::{DeserializeShrinkWrapOwned, SerializeShrinkWrapOwned};

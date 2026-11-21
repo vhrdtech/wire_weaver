@@ -18,7 +18,7 @@
 use std::fmt;
 use std::io;
 
-use tokio::io::{AsyncRead, AsyncReadExt};
+use futures_util::io::{AsyncRead, AsyncReadExt};
 
 pub const HANDOVER_MAGIC: [u8; 4] = *b"WWHO";
 /// Layout this crate writes.

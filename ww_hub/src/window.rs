@@ -10,8 +10,8 @@
 //! A client from before the generations (EVO-23) is judged by its `ww_link` and `ww_client_server` versions by Cargo's
 //! SemVer rule, as before; one from before the versions (SRV-30) is served, and link setup checks it.
 
-use ww_device::ww_link::Generations;
 use ww_byte_stream::{Preamble, Version};
+use ww_device::ww_link::Generations;
 
 /// Earlier link generations served besides this build's: none yet.
 const LINK_WINDOW: &[u8] = &[];

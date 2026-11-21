@@ -10,6 +10,7 @@
 
 ### 🚀 Features
 
+- `local_socket::device` answers an unknown preamble target `UnknownTarget` and a named service `UnknownService` (TR-19); its halves are futures-io.
 - `local_socket::device::answer_preamble` and `PREAMBLE_TIMEOUT` (SRV-12): a server answers a local-socket client's preamble itself.
 - A device's `ErrorKind::Overloaded` (SRV-12) is `call::ErrorKind::Overloaded`, as a common `Busy` is.
 - `connect_spans` (CLT-79): a connect opens a debug `tracing` span per step (validate, select, link, open, learn, introspect), so a subscriber sees where its time goes.

@@ -1503,6 +1503,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "futures-macro"
+version = "0.3.34"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9fb9654ba8355388abeb8dcb4fc62f511300867002afc858860463bdd9fe0c44"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 3.0.3",
+]
+
+[[package]]
 name = "futures-sink"
 version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1521,8 +1532,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0d50a92467f8ba5dd6e3ee5d4bd04d73ab2e4e1c44474a0674821dfce14b79bc"
 dependencies = [
  "futures-core",
+ "futures-io",
+ "futures-macro",
  "futures-sink",
  "futures-task",
+ "memchr",
  "pin-project-lite",
  "slab",
 ]
@@ -1754,6 +1768,7 @@ name = "hub_reconnect"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "futures-util",
  "hub_reconnect_api",
  "interprocess",
  "tests_common",
@@ -4024,6 +4039,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "tokio-util"
+version = "0.7.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e464cf451ba96ebfc6f9b6542f17ee8b8956e33f1e40d9690624e59d7a7f8a4b"
+dependencies = [
+ "bytes",
+ "futures-core",
+ "futures-io",
+ "futures-sink",
+ "pin-project-lite",
+ "tokio",
+]
+
+[[package]]
 name = "toml"
 version = "1.1.4+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4838,7 +4867,9 @@ dependencies = [
 name = "ww_byte_stream"
 version = "0.5.0"
 dependencies = [
+ "futures-util",
  "tokio",
+ "tokio-util",
 ]
 
 [[package]]
@@ -4954,6 +4985,7 @@ name = "ww_hub"
 version = "0.5.0"
 dependencies = [
  "futures-lite",
+ "futures-util",
  "interprocess",
  "libc",
  "nusb",
@@ -5006,9 +5038,11 @@ dependencies = [
 name = "ww_local_socket"
 version = "0.5.0"
 dependencies = [
+ "futures-util",
  "interprocess",
  "libc",
  "tokio",
+ "tokio-util",
  "tracing",
  "widestring",
  "windows-sys 0.61.2",

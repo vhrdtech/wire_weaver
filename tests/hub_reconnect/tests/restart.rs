@@ -133,8 +133,7 @@ async fn hub_restart_reconnects_and_resumes_the_stream() {
 /// give-up time, without starting anything, and is back once the device is.
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn lent_device_waits_past_the_give_up_time() {
-    use interprocess::local_socket::traits::tokio::Stream as _;
-    use tokio::io::AsyncWriteExt;
+    use futures_util::io::{AsyncReadExt, AsyncWriteExt};
     use ww_byte_stream::{Answer, Preamble, Status};
 
     let _ = tracing_subscriber::fmt::try_init();

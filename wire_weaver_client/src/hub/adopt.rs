@@ -4,8 +4,8 @@
 
 use std::path::PathBuf;
 
-use ww_hub_api::AdoptErrorOwned;
 use ww_byte_stream::{Preamble, Target};
+use ww_hub_api::AdoptErrorOwned;
 
 use super::{HubClient, ensure_running};
 use crate::CallError;

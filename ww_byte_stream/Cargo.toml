@@ -10,10 +10,12 @@ repository.workspace = true
 homepage.workspace = true
 
 [dependencies]
-tokio = { workspace = true, features = ["io-util"] }
+futures-util = { workspace = true, features = ["io", "std"] }
 
 [dev-dependencies]
+futures-util = { workspace = true, features = ["io", "std", "async-await-macro"] }
 tokio = { workspace = true, features = ["io-util", "time", "rt", "macros"] }
+tokio-util.workspace = true
 
 [lints]
 workspace = true

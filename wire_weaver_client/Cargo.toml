@@ -52,6 +52,8 @@ in_process = [
 local_socket = [
     "ww_local_socket/socket",
     "dep:ww_byte_stream",
+    "dep:futures-util",
+    "futures-util/io",
     "dep:interprocess",
     "dep:ww_device",
     "tokio/io-util",
@@ -76,7 +78,7 @@ anyhow.workspace = true
 either.workspace = true
 exact_units = { workspace = true, features = ["information"] }
 futures-lite.workspace = true
-futures-util = { workspace = true, features = ["sink"], optional = true }
+futures-util = { workspace = true, features = ["sink", "std"], optional = true }
 hex = { workspace = true, features = ["std"] }
 interprocess = { workspace = true, optional = true }
 nusb.workspace = true # TODO: try to use without tokio?

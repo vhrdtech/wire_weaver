@@ -34,16 +34,16 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use interprocess::local_socket::tokio::SendHalf;
-use interprocess::local_socket::traits::tokio::Stream as _;
-use tokio::io::AsyncWriteExt;
+use futures_util::io::AsyncReadExt as _;
+use futures_util::io::AsyncWriteExt;
 use tokio::sync::watch;
 use tokio::time::Instant;
 use tracing::{debug, info, warn};
 use wire_weaver_client::snapshots::Resolver;
-use ww_local_socket::files::{HUB_LOCK, HUB_SOCKET};
 use ww_byte_stream::{Answer, Preamble, PreambleError, Status, Target};
 use ww_local_socket::Peer;
+use ww_local_socket::WriteHalf;
+use ww_local_socket::files::{HUB_LOCK, HUB_SOCKET};
 
 pub use captures::{CaptureHost, HostCapture, HostWatch, HubHost, SavePath, Saved};
 
@@ -782,6 +782,11 @@ impl Hub {
                 let _ = answer(&mut tx, &self.version, Status::PreambleVersion).await;
                 return;
             }
+            Ok(Err(PreambleError::UnknownTarget(t))) => {
+                debug!("ww hub: preamble target {t} from {peer:?}");
+                let _ = answer(&mut tx, &self.version, Status::UnknownTarget).await;
+                return;
+            }
             Ok(Err(e)) => {
                 debug!("ww hub: bad preamble from {peer:?}: {e}");
                 return;
@@ -794,6 +799,11 @@ impl Hub {
             return;
         }
         match preamble.target {
+            // the hub serves its own API and its devices, no named services
+            Target::Service(name) => {
+                debug!("ww hub: service {name:?} asked by {peer:?}");
+                let _ = answer(&mut tx, &self.version, Status::UnknownService).await;
+            }
             Target::Hub => {
                 if answer(&mut tx, &self.version, Status::Ok).await.is_err() {
                     return;
@@ -1346,7 +1356,7 @@ fn secs_ceil(d: Duration) -> u32 {
     (d.as_millis().div_ceil(1000)).min(u32::MAX as u128) as u32
 }
 
-async fn answer(tx: &mut SendHalf, version: &str, status: Status) -> io::Result<()> {
+async fn answer(tx: &mut WriteHalf, version: &str, status: Status) -> io::Result<()> {
     tx.write_all(&Answer::new(status, version).encode()).await
 }
 

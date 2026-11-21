@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use futures_util::io::{AsyncReadExt, AsyncWriteExt};
 use ww_byte_stream::{Answer, Preamble, Status, Target};
 
 use super::*;
@@ -58,10 +58,7 @@ async fn hello_with(dir: &Path, preamble: Preamble) -> (Answer, ww_local_socket:
     let (mut rx, mut tx) = stream.split();
     tx.write_all(&preamble.encode()).await.unwrap();
     let answer = Answer::read(&mut rx).await.unwrap();
-    (
-        answer,
-        interprocess::local_socket::tokio::Stream::reunite(rx, tx).unwrap(),
-    )
+    (answer, rx.reunite(tx).unwrap())
 }
 
 #[tokio::test]
@@ -134,7 +131,7 @@ async fn exits_when_idle_not_while_a_client_is_connected() {
     let hub = tokio::spawn(bound.run());
     let answer = Answer::read(&mut rx).await.unwrap();
     assert_eq!(answer.status, Status::Ok);
-    let conn = interprocess::local_socket::tokio::Stream::reunite(rx, tx).unwrap();
+    let conn = rx.reunite(tx).unwrap();
     tokio::time::sleep(Duration::from_millis(800)).await;
     assert!(!hub.is_finished(), "a connected client keeps the hub up");
     let left = Instant::now();

@@ -3,9 +3,18 @@ use std::path::Path;
 
 use interprocess::local_socket::tokio::prelude::*;
 use interprocess::local_socket::{ListenerOptions, Name};
+use tokio_util::compat::{Compat, TokioAsyncReadCompatExt};
 use tracing::warn;
 
-pub use interprocess::local_socket::tokio::Stream;
+/// The socket as `interprocess` gives it, with tokio's IO traits.
+type Inner = interprocess::local_socket::tokio::Stream;
+
+/// A connection, a futures-io stream like every byte stream WireWeaver runs on (`ww_byte_stream`).
+pub type Stream = Compat<Inner>;
+/// The read half of a [Stream] (`futures_util::io::AsyncReadExt::split`).
+pub type ReadHalf = futures_util::io::ReadHalf<Stream>;
+/// The write half of a [Stream].
+pub type WriteHalf = futures_util::io::WriteHalf<Stream>;
 
 /// Who is on the other side of an accepted or opened connection, checked to be the same user.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -66,9 +75,9 @@ fn create(opts: ListenerOptions<'_>) -> io::Result<interprocess::local_socket::t
 /// Opens a connection to a [listen]ing process, refusing one that runs as another user (a name squatted by
 /// someone else).
 pub async fn connect(path: &Path) -> io::Result<(Stream, Peer)> {
-    let stream = Stream::connect(name_for(path)?).await?;
+    let stream = Inner::connect(name_for(path)?).await?;
     let peer = check_peer(&stream)?;
-    Ok((stream, peer))
+    Ok((stream.compat(), peer))
 }
 
 pub struct Listener {
@@ -88,7 +97,7 @@ impl Listener {
         loop {
             let stream = self.inner.accept().await?;
             match check_peer(&stream) {
-                Ok(peer) => return Ok((stream, peer)),
+                Ok(peer) => return Ok((stream.compat(), peer)),
                 Err(e) => warn!("local socket: dropped a connection: {e}"),
             }
         }
@@ -123,7 +132,7 @@ fn fnv1a(bytes: &[u8]) -> u64 {
 }
 
 #[cfg(unix)]
-fn check_peer(stream: &Stream) -> io::Result<Peer> {
+fn check_peer(stream: &Inner) -> io::Result<Peer> {
     let creds = stream.peer_creds()?;
     // SAFETY: geteuid has no preconditions and cannot fail
     let me = unsafe { libc::geteuid() };
@@ -145,7 +154,7 @@ fn check_peer(stream: &Stream) -> io::Result<Peer> {
 }
 
 #[cfg(windows)]
-fn check_peer(stream: &Stream) -> io::Result<Peer> {
+fn check_peer(stream: &Inner) -> io::Result<Peer> {
     let pid = stream.peer_creds()?.pid();
     let Some(pid) = pid else {
         return Err(io::Error::new(
@@ -224,7 +233,7 @@ mod windows_user {
 
 #[cfg(test)]
 mod tests {
-    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use futures_util::io::{AsyncReadExt, AsyncWriteExt};
 
     use super::*;
 

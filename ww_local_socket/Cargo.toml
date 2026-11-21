@@ -14,18 +14,22 @@ libc.workspace = true
 
 [features]
 default = ["socket"]
-# Sockets, the preamble and message framing (interprocess, tokio); without it only the runtime dir and file names
+# Sockets and the holders handover (interprocess, tokio); without it only the runtime dir and file names
 socket = [
+    "dep:futures-util",
     "dep:interprocess",
     "dep:tokio",
+    "dep:tokio-util",
     "dep:tracing",
     "dep:widestring",
     "dep:windows-sys",
 ]
 
 [dependencies]
+futures-util = { workspace = true, features = ["io", "std"], optional = true }
 interprocess = { workspace = true, optional = true }
 tokio = { workspace = true, features = ["io-util", "time", "net"], optional = true }
+tokio-util = { workspace = true, optional = true }
 tracing = { workspace = true, optional = true }
 
 [target.'cfg(windows)'.dependencies]

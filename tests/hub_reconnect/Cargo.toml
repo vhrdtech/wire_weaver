@@ -14,6 +14,7 @@ repository.workspace = true
 ignored = ["ww_client_server"]
 
 [dependencies]
+futures-util = { workspace = true, features = ["io", "std"] }
 anyhow.workspace = true
 hub_reconnect_api.workspace = true
 interprocess.workspace = true

@@ -1,6 +1,6 @@
 use std::io;
 
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use futures_util::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 /// Reads `| len: u32 LE | kind: u8 | payload |` messages. Each read takes whatever the peer wrote (a batch of
 /// messages is one read, not two per message), and the messages are taken from the buffer one by one. Cancel-safe:
@@ -170,8 +170,10 @@ impl<W: AsyncWrite + Unpin> MessageWriter<W> {
         self.buf.truncate(end);
     }
 
-    pub async fn shutdown(&mut self) -> io::Result<()> {
-        self.w.shutdown().await
+    /// Closes the stream's write side, after what is queued.
+    pub async fn close(&mut self) -> io::Result<()> {
+        self.flush().await?;
+        self.w.close().await
     }
 
     pub fn get_mut(&mut self) -> &mut W {
@@ -182,10 +184,22 @@ impl<W: AsyncWrite + Unpin> MessageWriter<W> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokio_util::compat::TokioAsyncReadCompatExt;
+
+    /// A tokio pipe of `capacity` bytes as two futures-io ends.
+    fn duplex(
+        capacity: usize,
+    ) -> (
+        tokio_util::compat::Compat<tokio::io::DuplexStream>,
+        tokio_util::compat::Compat<tokio::io::DuplexStream>,
+    ) {
+        let (a, b) = tokio::io::duplex(capacity);
+        (a.compat(), b.compat())
+    }
 
     #[tokio::test]
     async fn round_trip_split_reads() {
-        let (a, b) = tokio::io::duplex(3); // tiny pipe: every message arrives in pieces
+        let (a, b) = duplex(3); // tiny pipe: every message arrives in pieces
         let mut w = MessageWriter::new(a);
         let mut r = MessageReader::new(b, 64);
         let writer = tokio::spawn(async move {
@@ -206,7 +220,7 @@ mod tests {
     /// Many messages written at once come out one by one, also when one straddles the end of the read buffer.
     #[tokio::test]
     async fn batches_across_the_buffer_end() {
-        let (a, b) = tokio::io::duplex(100_000);
+        let (a, b) = duplex(100_000);
         let mut w = MessageWriter::new(a);
         let mut r = MessageReader::new(b, 5000);
         let sizes: Vec<usize> = (0..200).map(|i| (i * 37) % 5000).collect();
@@ -240,7 +254,7 @@ mod tests {
 
     #[tokio::test]
     async fn read_is_cancel_safe() {
-        let (mut a, b) = tokio::io::duplex(64);
+        let (mut a, b) = duplex(64);
         let mut r = MessageReader::new(b, 64);
         a.write_all(&[6, 0, 0, 0, 9, b'a']).await.unwrap();
         // the rest is not there yet: the read is cancelled with half a message in the reader
@@ -252,7 +266,7 @@ mod tests {
 
     #[tokio::test]
     async fn clear_keeps_a_message_being_written() {
-        let (a, b) = tokio::io::duplex(6);
+        let (a, b) = duplex(6);
         let mut w = MessageWriter::new(a);
         w.push(1, b"abcdef");
         w.push(2, b"x");

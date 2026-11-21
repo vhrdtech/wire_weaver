@@ -4,7 +4,6 @@
 use crate::locked::Locked;
 use std::sync::Arc;
 
-use interprocess::local_socket::tokio::{RecvHalf, SendHalf};
 use tokio::sync::broadcast::error::RecvError;
 use tracing::{debug, warn};
 use wire_weaver::prelude::*;
@@ -17,6 +16,7 @@ use ww_hub_api::{
     HubInfoOwned, HubStatusOwned, MAX_WATCHES, Pressure, RamMax, RecordBatchOwned, ReleaseError,
     SaveInfoOwned, SyncEntryOwned, TakeErrorOwned, WatchId,
 };
+use ww_local_socket::{ReadHalf, WriteHalf};
 
 use crate::Hub;
 use crate::captures::{Act, HostWatch, WatchCount};
@@ -30,7 +30,7 @@ const MAX_MESSAGE_LEN: usize = 64 * 1024;
 type BatchMsg = (u32, u64, Option<RecordBatchOwned>);
 
 /// Serves the hub API to one client until it leaves.
-pub(crate) async fn serve_connection(hub: Arc<Hub>, id: u32, rx: RecvHalf, tx: SendHalf) {
+pub(crate) async fn serve_connection(hub: Arc<Hub>, id: u32, rx: ReadHalf, tx: WriteHalf) {
     let (tx, rx, mut ended) = connection_medium(rx, tx, MAX_MESSAGE_LEN);
     let mut scratch = vec![0u8; MAX_MESSAGE_LEN];
     let mut event_scratch = vec![0u8; MAX_MESSAGE_LEN];

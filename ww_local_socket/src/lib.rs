@@ -29,4 +29,4 @@ pub use handover::{
     HandoverStatus, MAX_HANDOVER_TRAILER_LEN, MAX_META_LEN, Op, TAG_META,
 };
 #[cfg(feature = "socket")]
-pub use socket::{Listener, Peer, Stream, connect, listen};
+pub use socket::{Listener, Peer, ReadHalf, Stream, WriteHalf, connect, listen};

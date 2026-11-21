@@ -25,8 +25,8 @@ use wire_weaver_client::ww_client_server::observe::{
 use wire_weaver_client::ww_client_server::{Priority, Request, RequestKindOwned, StreamSideband};
 use wire_weaver_client::ww_self::ApiBundleOwned;
 use wire_weaver_client::{ClientConfig, ClientKind, ClientMeta, Commander, WwClient};
-use ww_device::ww_link::Kind;
 use ww_byte_stream::Status;
+use ww_device::ww_link::Kind;
 
 use crate::Hub;
 use crate::claims::{self, Target};

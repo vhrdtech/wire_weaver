@@ -3,7 +3,9 @@
 //! are.
 //!
 //! Client to hub, version 1: `| "WWHB" | version: u8 | target: u8 | key_len: u16 LE | key: UTF-8 |`, target 0 is the
-//! hub's own API (`key_len` 0), 1 a device by key (`usb:c0de:cafe:<serial>`; empty: the one device a process serves).
+//! hub's own API (`key_len` 0), 1 a device by key (`usb:c0de:cafe:<serial>`; empty: the one device a process serves),
+//! 2 a service by name (TR-19): one of several APIs a server serves on one listener. A target this reader doesn't
+//! know is answered [Status::UnknownTarget].
 //!
 //! Version 2 (SRV-30) appends a trailer: `| trailer_len: u16 LE | entries |`, each entry `| tag: u8 | len: u8 | value |`.
 //! A reader takes the entries it knows and skips the others, a missing entry is unknown; later fields only ever come
@@ -22,7 +24,7 @@
 use std::fmt;
 use std::io;
 
-use tokio::io::{AsyncRead, AsyncReadExt};
+use futures_util::io::{AsyncRead, AsyncReadExt};
 
 pub const MAGIC: [u8; 4] = *b"WWHB";
 /// Preamble layout this crate writes.
@@ -46,6 +48,8 @@ pub enum Target {
     Hub,
     /// A device by its key, empty for the one device a process serves
     Device(String),
+    /// One of the APIs a server serves on one listener, by its name (TR-19)
+    Service(String),
 }
 
 /// A crate version in the preamble's trailer.
@@ -200,6 +204,7 @@ impl Preamble {
         let (kind, key) = match &self.target {
             Target::Hub => (0u8, ""),
             Target::Device(key) => (1u8, key.as_str()),
+            Target::Service(name) => (2u8, name.as_str()),
         };
         let key = &key.as_bytes()[..key.len().min(MAX_KEY_LEN)];
         let mut bytes = Vec::with_capacity(8 + key.len());
@@ -263,6 +268,7 @@ impl Preamble {
         let target = match kind {
             0 => Target::Hub,
             1 => Target::Device(key),
+            2 => Target::Service(key),
             k => return Err(PreambleError::UnknownTarget(k)),
         };
         let mut preamble = Preamble {
@@ -325,6 +331,12 @@ pub enum Status {
     Versions,
     /// The device is lent to a program outside the hub (`ww hub lend`, SRV-32): try again after it is returned
     Lent,
+    /// The target's kind (the preamble's target byte) is not one this server serves
+    UnknownTarget,
+    /// No service of that name on this listener (TR-19)
+    UnknownService,
+    /// The server's queue of connections waiting to be served is full: try again later
+    Busy,
     /// A status this side doesn't know (from a later hub)
     Other(u8),
 }
@@ -338,6 +350,9 @@ impl Status {
             Status::PreambleVersion => 3,
             Status::Versions => 4,
             Status::Lent => 5,
+            Status::UnknownTarget => 6,
+            Status::UnknownService => 7,
+            Status::Busy => 8,
             Status::Other(s) => s,
         }
     }
@@ -350,6 +365,9 @@ impl Status {
             3 => Status::PreambleVersion,
             4 => Status::Versions,
             5 => Status::Lent,
+            6 => Status::UnknownTarget,
+            7 => Status::UnknownService,
+            8 => Status::Busy,
             s => Status::Other(s),
         }
     }
@@ -367,6 +385,9 @@ impl fmt::Display for Status {
                 "this program's WireWeaver versions or generations are not served"
             ),
             Status::Lent => write!(f, "the device is lent to another program"),
+            Status::UnknownTarget => write!(f, "the server doesn't serve this kind of target"),
+            Status::UnknownService => write!(f, "no such service"),
+            Status::Busy => write!(f, "the server takes no more connections now"),
             Status::Other(s) => write!(f, "status {s}"),
         }
     }
@@ -488,6 +509,24 @@ mod tests {
         assert_eq!(v1, b"WWHB\x01\x00\x00\x00");
         let read = Preamble::read(&mut &v1[..]).await.unwrap();
         assert_eq!((read.version, read.link_version), (1, None));
+    }
+
+    /// A service by name (TR-19): target 2, the name where a device's key goes; an unknown target is an error the
+    /// server answers with a status.
+    #[tokio::test]
+    async fn service_target() {
+        let p = Preamble::new(Target::Service("tasks".into()));
+        let bytes = p.encode();
+        assert_eq!(bytes, b"WWHB\x02\x02\x05\x00tasks\x00\x00");
+        assert_eq!(Preamble::read(&mut &bytes[..]).await.unwrap(), p);
+        let unknown = b"WWHB\x02\x09\x00\x00\x00\x00";
+        assert!(matches!(
+            Preamble::read(&mut &unknown[..]).await,
+            Err(PreambleError::UnknownTarget(9))
+        ));
+        for status in [Status::UnknownTarget, Status::UnknownService, Status::Busy] {
+            assert_eq!(Status::from_u8(status.to_u8()), status);
+        }
     }
 
     /// An adopted link's tunnel (CLT-44) says its id in the trailer; a hub before it skips the entry.

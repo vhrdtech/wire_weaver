@@ -76,7 +76,8 @@ then, both ways   | len: u32 LE | kind: u8 | payload |    len counts kind + payl
 ```
 
 - `target` 0 is the hub's own API (no key), 1 a device by its key (`usb:c0de:cafe:<serial>`); a process serving a
-  single device accepts any key, the client sends an empty one.
+  single device accepts any key, the client sends an empty one. Target 2 (TR-19) is a service by its name, one of
+  several APIs a server serves on one listener ([byte streams](byte_streams.md)).
 - The trailer (version 2, SRV-30) carries the client's versions, each value `| major: u32 LE | minor: u32 LE | patch:
   u32 LE |`: tag 1 its `ww_link`, tag 2 its `ww_client_server`. Tag 3 names an adopted link (CLT-44), tag 4 (EVO-23)
   carries the client's generations, `| framer | link | shrink_wrap | API model |`, the bytes of its
@@ -85,7 +86,8 @@ then, both ways   | len: u32 LE | kind: u8 | payload |    len counts kind + payl
   it: a server reads both, and a client asks again with version 1 when a server answers status 3 to version 2.
 - `status`: 0 ok, 1 no such device, 2 the device is held by another program, 3 preamble version not served, 4 the
   client's generations (or, without them, its `ww_link` or `ww_client_server` version) are not served ([Version skew](#version-skew-and-handover-srv-30)),
-  5 the device is lent to another program for a while (SRV-32: wait and ask again). The server closes the
+  5 the device is lent to another program for a while (SRV-32: wait and ask again), 6 the target byte is not one
+  this server serves, 7 no service of that name, 8 the server is busy (TR-19: ask again later). The server closes the
   connection after any status but 0, and the client's connect error says which, with the server's version
   (`Error::HubRefused`).
 - The preamble is frozen: what is in it never changes, later fields only come as new trailer entries (a new tag), and

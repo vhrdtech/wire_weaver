@@ -283,6 +283,7 @@ layer checks on connect that both ends speak the same protocol.
 - SRV-64 | Recording through the hub | Programs ask the hub to record a device's link, share one capture, watch it live at their own pace and save it to a file; nothing waits on a slow reader. | transport/hub.md#captures-recording-through-the-hub-srv-64
 - SRV-30 | Hub version skew | Programs built with different WireWeaver releases share one hub; a newer program replaces an older hub without losing anyone, and a hub that can't serve a program says which versions and what to do. | transport/hub.md#version-skew-and-handover-srv-30
 - SRV-32 | The whole device, or lent out | A firmware update has the device to itself while other programs keep reading, and `ww hub lend` hands it to probe-rs or dfu-util for one command and takes it back. | transport/hub.md#the-whole-device-exclusive-access-and-lending-srv-32
+- TR-19 | Byte streams | Client and server over TCP, a command's stdin and stdout (ssh) or any stream you open, with several APIs on one listener, also over WebSocket. | transport/byte_streams.md
 - TR-16 | Local sockets | A device served by another process on the same PC (a simulator, later the ww hub), reachable by your own user only. | transport/hub.md
 - TR-14 | Link tap | Every frame, message and link event of a link recorded and decoded: which packet a request went out in, what a lost packet took with it. | transport/tap.md
 - TR-12 | USB throughput on small MCUs | Measured and tuned on an STM32G0 so far. | transport/usb_internals.md

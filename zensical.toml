@@ -167,6 +167,7 @@ nav = [
             "transport/rtt.md",
             "transport/websocket.md",
             "transport/udp.md",
+            { "Byte streams" = "transport/byte_streams.md" },
             { "Keep trying" = "transport/keep_trying.md" },
             { "Advanced" = [
                     { "USB inside" = "transport/usb_internals.md" },

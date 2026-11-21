@@ -159,7 +159,9 @@ return, so the server hands the connections to the code that knows the concrete 
 ## Where connections come from
 
 A `Listener` yields connections. Each one is a pair of message halves (`ww_device::MessageTx` and `MessageRx`, the
-traits every device medium implements) together with the peer. The crate has two listeners, each behind a feature.
+traits every device medium implements) together with the peer. When a listener says that no more connections come
+(a server on one stream, a source that closed), `serve` ends once the connections it has ended, and `accepting`
+gives `None`.
 
 ### Clients in the same process
 
@@ -172,27 +174,80 @@ let listener = InProcessListener::new("my_service", 16 * 1024)
     .with_peer(Peer::Unix { uid: Uid(1000), gid: Gid(100), pid: None });
 ```
 
+### Byte streams
+
+Everything else is a byte stream: a TCP connection, a local socket, the process's own stdin and stdout, or a stream
+the program accepted itself. `byte_stream::listen` makes a listener from a source of such streams and a framing,
+which says how a connection opens and how its messages are cut ([byte streams](../transport/byte_streams.md)):
+
+```rust
+let listener = listen(TcpIncoming::bind("0.0.0.0:7700").await?, PreambleFraming::new("my_service 0.3.0", 16 * 1024), clock);
+```
+
+| Source | Feature | Peer |
+|---|---|---|
+| `TcpIncoming::bind(addr)`, `TcpIncoming::new(listener)` | `tokio` | `Peer::Addr` |
+| `LocalSocketIncoming::new(socket)` | `local_socket` | `Peer::Unix` with the client's process |
+| `stdio()`: one client, the process's stdin and stdout | `tokio` | `Peer::Unix` of the process's own user |
+| `handed_in(n)`: streams the program passes to `StreamSender::serve_stream(stream, peer)` | none | the one passed |
+
+| Framing | Clients | What names the API |
+|---|---|---|
+| `PreambleFraming` | `ClientConfig::tcp`, `command`, `stream`, `ipc_path` | the preamble's target |
+| `WsFraming` | `ClientConfig::websocket_url`, browsers | the URL's path |
+
+The listener reads up to `HANDSHAKES_MAX` openings side by side, each within `OPENING_TIMEOUT` (two seconds), so a
+client that connects and sends nothing delays nobody else. A source can be any `Stream` of `(stream, peer)` results
+with futures-io streams; tokio streams are wrapped with `tokio_util::compat`. The peer comes from the source, never
+from what the client says about itself.
+
+### Several APIs on one source
+
+`listen` returns the listener of the default API: preamble clients that ask for a device, WebSocket clients on `/`.
+`StreamListener::service(name)` makes another listener on the same source, for the clients that ask for the service
+`name` (`ClientConfig::service(name)`, or the path `/name`). Each listener goes to a server of its own, with its own
+API, link setup and version check:
+
+```rust
+let tasks = listen(TcpIncoming::bind(addr).await?, PreambleFraming::new("cs-stored 0.1.0", 64 * 1024), clock);
+let journal = tasks.service("journal");
+let tasks_server = Server::new(clock).serve(tasks_link, tasks, make_tasks, shutdown_a);
+let journal_server = Server::new(clock).serve(journal_link, journal, make_journal, shutdown_b);
+futures_util::future::try_join(tasks_server, journal_server).await?;
+```
+
+A client that asks for a service nobody serves there is refused: `Error::HubRefused` with the status
+`UnknownService` (an HTTP `404` over WebSocket). When a listener holds `QUEUED_MAX` connections that its server has
+not taken yet, the next client is refused as busy.
+
 ### Programs on the same computer
 
-`LocalSocketListener` (feature `local_socket`) accepts programs of the same user on a local socket: a Unix domain
+`LocalSocketIncoming` (feature `local_socket`) accepts programs of the same user on a local socket: a Unix domain
 socket on Linux and macOS, a named pipe on Windows. A client connects with `ClientConfig::ipc_path`, the same way it
-reaches a device that another process serves ([the hub](../transport/hub.md) uses these sockets too). The listener
-runs on tokio.
+reaches a device that another process serves ([the hub](../transport/hub.md) uses these sockets too).
 
 ```rust
 let socket = ww_local_socket::listen(&path, false)?;
-let listener = LocalSocketListener::new(socket, "my_service 0.3.0", 16 * 1024);
+let listener = listen(LocalSocketIncoming::new(socket), PreambleFraming::new("my_service 0.3.0", 16 * 1024), clock);
 ```
 
 The socket is reachable by its owner only, and the listener checks the user of every client again when it accepts
 it. On Unix the peer of a connection is `Peer::Unix` with the client's user, group and process id. On Windows the
 pipe's client is checked the same way, but `Peer` has no variant for a Windows user yet, so handlers see
-`Peer::Unknown` there.
+`Peer::Unknown` there. Any device name reaches the API of this server, and a client that asks for the hub's own API
+is refused.
 
-Every client starts with the hub's preamble, a few bytes that name what it wants to reach. Any device name reaches
-the API of this server, and a client that asks for the hub's own API is refused. The listener reads up to
-`HANDSHAKES_MAX` preambles side by side, each within two seconds. A client that connects and sends nothing
-therefore delays nobody else.
+### A server on stdio
+
+A server run as an ssh forced command, or started by its client, serves its stdin and stdout. Logs go to stderr then:
+
+```rust
+let listener = listen(stdio(), PreambleFraming::new("my_service 0.3.0", 16 * 1024), clock);
+Server::new(clock).serve(link, listener, make_backend, std::future::pending()).await?;
+```
+
+The client starts it with `ClientConfig::command("ssh", ["host", "my-service", "--stdio"])`. The server ends when its
+client leaves.
 
 ### Socket activation
 
@@ -207,7 +262,7 @@ let socket = match ww_local_socket::inherited(Some("api")) {
     Err(ActivationError::NotActivated) => ww_local_socket::listen(&path, false)?,
     Err(e) => return Err(e.into()),
 };
-let listener = LocalSocketListener::new(socket, "my_service 0.3.0", 16 * 1024);
+let listener = listen(LocalSocketIncoming::new(socket), PreambleFraming::new("my_service 0.3.0", 16 * 1024), clock);
 ```
 
 The units of a user service look like this. `FileDescriptorName` is the name that `inherited` looks for; without a

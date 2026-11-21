@@ -633,7 +633,7 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   `Server::accepting` for connections the program spawns as tasks of a multi-threaded runtime
   ([Host server](docs/api/host_server.md), `tests/host_server`, `ww_local_socket/tests/activation.rs`).
   A write behind slow calls waits without a bound until a request's own deadline (SRV-47, `TODO(SRV-47)`) ends
-  it; byte-stream listeners (TCP, stdio, WebSocket framing) are TR-19; the hub moving onto it is SRV-67.
+  it; byte-stream listeners (TCP, stdio, local socket, WebSocket framing) are TR-19; the hub moving onto it is SRV-67.
 - 📋 **SRV-9 Handle USB suspend/resume** · `v0.5` — run until suspend, wait for resume, loop
   (`mcu/wire_weaver_usb_embassy`). Later (`v0.5.x`): detect the host going to sleep and keep the connection,
   informing the device.
@@ -1487,6 +1487,17 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   (`SeqPrefix` as a diagnostic, `wire_weaver_usb_embassy` feature `seq-prefix`, told by the interface protocol),
   UDP with `SeqPrefix` and a CRC-32 (`ww_block`'s) on every message. `ww stats` / `ww monitor` show the prefix.
   Wire change of the link (`docs/evolution/crate_layers.md`).
+- ✅ **TR-19 Byte-stream transport** · `v0.5` — client and server over any futures-io `AsyncRead + AsyncWrite`
+  (`docs/transport/byte_streams.md`, `docs/api/host_server.md#byte-streams`), crate `ww_byte_stream`: the local
+  socket's preamble and length-prefixed messages, or WebSocket framing (`ws`). Clients: `ClientConfig::tcp`,
+  `command` (a command's stdin and stdout, `ssh host svc --stdio`) and `stream` (`StreamOpener`, a stream the program
+  opens, an iroh bi-stream). Servers: `byte_stream::listen(source, framing, clock)` on `TcpIncoming`, `stdio()`,
+  `LocalSocketIncoming` or `handed_in` (`StreamSender::serve_stream(stream, peer)`), with `PreambleFraming` or
+  `WsFraming` (the URL path names the API). A `Service(name)` preamble target and `StreamListener::service` serve
+  several APIs on one listener; an unknown service is refused with a status. `ww_device::ws::IoSocket` (feature
+  `futures-io`) serves a WebSocket device on any futures-io source. Resync and a checksum for lossy streams are not
+  built (P2401#3nov-0645d). `tests/host_server` (`byte_streams`, `tests/stdio.rs`), `wire_weaver_client`
+  `byte_stream::tests`.
 - ✅ **TR-21 Simulated UDP** · `v0.5` — `in_process::udp_device` (`docs/transport/udp.md#simulated-udp-in-tests`):
   UDP datagrams without the kernel, with the host's UDP framing and `ww_device::udp` on the device (`UdpPort`, a new
   host address per connection), so tests on tokio's paused clock drive the accumulation windows and link setup
@@ -1569,10 +1580,6 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   follows. With message aggregation both arrive in one packet or frame, so a request over LoRa or LTE-M costs no extra
   round trip (introspection skipped by hash, CLT-7). Open: replayed and duplicate packets (CLT-17), which requests may
   run unannounced, how the hash is versioned. Needed by `ww_dfu` updates over slow links.
-- 📋 **TR-19 Byte-stream transport** — client and server over any `AsyncRead + AsyncWrite` with the local socket's
-  framing and preamble: TCP, stdio (an ssh forced command on one side, a spawned command on the other) and any stream
-  the caller accepted, handed in with its peer (an iroh stream); a `Service(name)` preamble target so one listener
-  serves several APIs.
 - 📋 **TR-20 TLS** — TR-19 over rustls: a server certificate, the client verifying by CA or pinned key, optional
   client certificates as the peer's key (SRV-46).
 - 💡 **TR-11 MQTT / store-and-forward transport** — devices offline most of the time pick up a retained message on

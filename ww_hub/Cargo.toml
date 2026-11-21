@@ -13,8 +13,8 @@ homepage.workspace = true
 libc.workspace = true
 
 [dependencies]
-futures-util = { workspace = true, features = ["io", "std"] }
 futures-lite.workspace = true
+futures-util = { workspace = true, features = ["io", "std"] }
 interprocess.workspace = true
 nusb.workspace = true
 semver.workspace = true

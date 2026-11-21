@@ -233,7 +233,7 @@ fn sun_path(addr: &libc::sockaddr_un, len: libc::socklen_t) -> Option<PathBuf> {
     let len = usize::try_from(len).ok()?.checked_sub(offset)?;
     let bytes: Vec<u8> = addr.sun_path[..len.min(addr.sun_path.len())]
         .iter()
-        .map(|c| c.cast_unsigned())
+        .map(|c| u8::from_ne_bytes(c.to_ne_bytes())) // c_char is i8 on x86, u8 on aarch64
         .collect();
     match bytes.first() {
         None | Some(0) => None,

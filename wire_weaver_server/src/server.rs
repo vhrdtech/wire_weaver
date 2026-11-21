@@ -112,7 +112,8 @@ impl<C: Clock + Clone> Server<C> {
         self
     }
 
-    /// Serve the connections of `listener` until `shutdown` completes and the connections are done.
+    /// Serve the connections of `listener` until `shutdown` completes, or the listener ends, and the connections are
+    /// done.
     ///
     /// Every connection goes through link setup as `link` describes the API, then `make` gives it a backend. The
     /// connections run inside this future, so it needs no spawner and takes backends that are not `Send`; it is
@@ -196,8 +197,8 @@ where
     M: MakeBackend + 'static,
     S: Future<Output = ()>,
 {
-    /// The next connection, to be run to its end: spawn it, or poll it with the others. `None` after shutdown,
-    /// once every connection handed out has ended or was dropped.
+    /// The next connection, to be run to its end: spawn it, or poll it with the others. `None` after shutdown or
+    /// the listener's end, once every connection handed out has ended or was dropped.
     ///
     /// The connection is `Send` when the clock, the listener's message halves and the backend are.
     ///
@@ -239,6 +240,8 @@ struct Gate<C, L, S> {
     shutdown: Pin<Box<S>>,
     /// Set once shutdown was asked for.
     grace_until: Option<Instant>,
+    /// The listener said no more connections come.
+    listener_ended: bool,
     next_id: u32,
 }
 
@@ -259,25 +262,31 @@ impl<C: Clock, L: Listener, S: Future<Output = ()>> Gate<C, L, S> {
             listener,
             shutdown: Box::pin(shutdown),
             grace_until: None,
+            listener_ended: false,
             next_id: 0,
         }
     }
 
-    /// The next accepted connection with its id; `None` once shutdown was asked for and no connection runs.
+    /// The next accepted connection with its id; `None` once shutdown was asked for or the listener ended, and no
+    /// connection runs.
     async fn next(
         &mut self,
         life: &Lifecycle,
         connections: &mut impl Connections,
     ) -> Result<Option<(Accepted<L::Tx, L::Rx>, ConnectionId)>, L::Error> {
         loop {
-            if self.grace_until.is_some() && connections.len() == 0 {
+            if (self.grace_until.is_some() || self.listener_ended) && connections.len() == 0 {
                 return Ok(None);
             }
             match self.wait(life.stage() == Stage::Drain, connections).await {
                 Next::Accepted(accepted) => {
+                    let Some(accepted) = accepted? else {
+                        self.listener_ended = true;
+                        continue;
+                    };
                     let id = ConnectionId(self.next_id);
                     self.next_id = self.next_id.wrapping_add(1);
-                    return Ok(Some((accepted?, id)));
+                    return Ok(Some((accepted, id)));
                 }
                 Next::Closed => {}
                 Next::Shutdown => {
@@ -294,9 +303,10 @@ impl<C: Clock, L: Listener, S: Future<Output = ()>> Gate<C, L, S> {
         &mut self,
         grace_runs: bool,
         connections: &mut impl Connections,
-    ) -> Next<Result<Accepted<L::Tx, L::Rx>, L::Error>> {
-        let accepting =
-            self.grace_until.is_none() && connections.len() < self.limits.connections_max;
+    ) -> Next<Result<Option<Accepted<L::Tx, L::Rx>>, L::Error>> {
+        let accepting = self.grace_until.is_none()
+            && !self.listener_ended
+            && connections.len() < self.limits.connections_max;
         let grace_until = self.grace_until;
         let mut accept = pin!(self.listener.accept());
         let clock = &self.clock;

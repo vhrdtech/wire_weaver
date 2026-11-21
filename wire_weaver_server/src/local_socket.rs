@@ -72,7 +72,7 @@ impl Listener for LocalSocketListener {
     /// # Errors
     ///
     /// Accepting failed for good. Running out of descriptors or memory is waited out instead.
-    async fn accept(&mut self) -> io::Result<Accepted<DeviceTx, DeviceRx>> {
+    async fn accept(&mut self) -> io::Result<Option<Accepted<DeviceTx, DeviceRx>>> {
         loop {
             let LocalSocketListener {
                 socket, handshakes, ..
@@ -90,7 +90,7 @@ impl Listener for LocalSocketListener {
             })
             .await;
             match step {
-                Step::Answered(Some(accepted)) => return Ok(*accepted),
+                Step::Answered(Some(accepted)) => return Ok(Some(*accepted)),
                 Step::Answered(None) => {}
                 Step::Connected(Ok((stream, peer))) => {
                     let version = self.version.clone();

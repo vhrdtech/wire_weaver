@@ -14,10 +14,12 @@ pub trait Listener {
     /// Why accepting failed.
     type Error;
 
-    /// The next connection. Must be cancel-safe: [Server::serve](crate::Server::serve) drops the future whenever
-    /// something else is due, and a connection that arrived meanwhile must come out of the next call.
-    fn accept(&mut self)
-    -> impl Future<Output = Result<Accepted<Self::Tx, Self::Rx>, Self::Error>>;
+    /// The next connection, `None` when no more will come (one stream served, its source closed): the server then
+    /// ends once the connections it has ended. Must be cancel-safe: [Server::serve](crate::Server::serve) drops the
+    /// future whenever something else is due, and a connection that arrived meanwhile must come out of the next call.
+    fn accept(
+        &mut self,
+    ) -> impl Future<Output = Result<Option<Accepted<Self::Tx, Self::Rx>>, Self::Error>>;
 }
 
 /// One accepted connection.

@@ -37,12 +37,12 @@ impl Listener for InProcessListener {
     type Rx = DeviceRx;
     type Error = Infallible;
 
-    async fn accept(&mut self) -> Result<Accepted<DeviceTx, DeviceRx>, Infallible> {
+    async fn accept(&mut self) -> Result<Option<Accepted<DeviceTx, DeviceRx>>, Infallible> {
         let (tx, rx) = self.inner.accept().await;
-        Ok(Accepted {
+        Ok(Some(Accepted {
             tx,
             rx,
             peer: self.peer,
-        })
+        }))
     }
 }

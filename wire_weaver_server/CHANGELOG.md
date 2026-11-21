@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### ⚠️ Breaking
+
+- `Listener::accept` returns `Option<Accepted>`: `None` says no more connections come, and `serve` ends once its connections ended (TR-19).
+
 ### 🚀 Features
 
 - `local_socket::LocalSocketListener` (SRV-12, feature `local_socket`): clients on a local socket, also one systemd passed, with their process as the peer.

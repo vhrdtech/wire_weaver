@@ -390,18 +390,17 @@ fn accepted_connections() {
 
     push(&peers, 1, h1.datagram(&[NOP]));
     push(&peers, 2, hello());
-    let Poll::Ready(Ok(s1)) = poll_once(peers.accept(&mut [0u8; UDP_MAX_DATAGRAM_LEN])) else {
+    let Poll::Ready(Ok((s1, 1))) = poll_once(peers.accept(&mut [0u8; UDP_MAX_DATAGRAM_LEN])) else {
         panic!("host 1 accepted")
     };
-    // nothing is received until host 1's connection adopts it
-    assert!(poll_once(peers.accept(&mut [0u8; UDP_MAX_DATAGRAM_LEN])).is_pending());
-    let mut rx1 = slot(&peers, s1, &mut b0);
-    assert!(rx1.try_connect());
-    assert_eq!(peers.peer(s1), Some(1));
-    let Poll::Ready(Ok(s2)) = poll_once(peers.accept(&mut [0u8; UDP_MAX_DATAGRAM_LEN])) else {
+    // hosts don't wait for each other: host 2 is accepted before host 1's connection adopts host 1
+    let Poll::Ready(Ok((s2, 2))) = poll_once(peers.accept(&mut [0u8; UDP_MAX_DATAGRAM_LEN])) else {
         panic!("host 2 accepted")
     };
     assert_ne!(s1, s2);
+    let mut rx1 = slot(&peers, s1, &mut b0);
+    assert!(rx1.try_connect());
+    assert_eq!(peers.peer(s1), Some(1));
     let mut rx2 = slot(&peers, s2, &mut b1);
     assert!(rx2.try_connect());
     assert_eq!(rx1.messages().unwrap(), [(3, std::vec![])]);
@@ -416,18 +415,53 @@ fn accepted_connections() {
     assert_eq!(rx1.messages(), Err(UdpError::PeerChanged));
     assert!(!rx1.try_connect());
     assert_eq!(reply_to(&peers, s1), Err(UdpError::PeerChanged));
+    // host 3 tries again before that connection is dropped: no other connection is ended for it
+    push(&peers, 3, hello());
+    push(&peers, 2, h2.datagram(&[DATA]));
+    assert_eq!(rx2.messages().unwrap(), [(0, std::vec![1, 2, 3])]);
+    assert_eq!(peers.peer(s2), Some(2));
 
     // dropping the connection frees the slot: host 3's next hello gets it
     drop(rx1);
     push(&peers, 3, hello());
     assert_eq!(
         poll_once(peers.accept(&mut [0u8; UDP_MAX_DATAGRAM_LEN])),
-        Poll::Ready(Ok(s1))
+        Poll::Ready(Ok((s1, 3)))
     );
     let mut rx3 = slot(&peers, s1, &mut b0);
     assert!(rx3.try_connect());
     assert_eq!(peers.peer(s1), Some(3));
     assert_eq!(peers.peer(s2), Some(2));
+}
+
+/// A host given a slot that nobody accepts yet (a server at its connection limit) holds up no connection; a newer
+/// host takes its place, and is the one accepted.
+#[test]
+fn a_host_waiting_for_accept_holds_up_nobody() {
+    let peers = Two::new(MockSocket::default());
+    let mut buf = Buf::new();
+    let mut accept_buf = [0u8; UDP_MAX_DATAGRAM_LEN];
+    let mut h1 = Host::default();
+    push(&peers, 1, h1.datagram(&[NOP]));
+    let Poll::Ready(Ok((s1, 1))) = poll_once(peers.accept(&mut accept_buf)) else {
+        panic!("host 1 accepted")
+    };
+    let mut rx1 = slot(&peers, s1, &mut buf);
+    assert!(rx1.try_connect());
+    assert_eq!(rx1.messages().unwrap(), [(3, std::vec![])]);
+
+    push(&peers, 2, hello());
+    push(&peers, 1, h1.datagram(&[DATA]));
+    push(&peers, 3, hello());
+    push(&peers, 1, h1.datagram(&[DATA]));
+    assert_eq!(
+        rx1.messages().unwrap(),
+        [(0, std::vec![1, 2, 3]), (0, std::vec![1, 2, 3])]
+    );
+    let Poll::Ready(Ok((s3, 3))) = poll_once(peers.accept(&mut accept_buf)) else {
+        panic!("host 3 accepted")
+    };
+    assert_ne!(s1, s3);
 }
 
 /// A table on a computer: owned framers over a shared locked table, the way a host server's connections use
@@ -444,7 +478,7 @@ fn owned_framers_on_a_locked_table() {
     push(&*peers, 1, h1.datagram(&[NOP]));
     push(&*peers, 1, h1.datagram(&[DATA]));
     let mut accept_buf = [0u8; UDP_MAX_DATAGRAM_LEN];
-    let Poll::Ready(Ok(slot)) = poll_once(peers.accept(&mut accept_buf)) else {
+    let Poll::Ready(Ok((slot, 1))) = poll_once(peers.accept(&mut accept_buf)) else {
         panic!("host 1 accepted")
     };
     let mut rx = OwnedFramedRx::owned(UdpSource::new(peers.clone(), slot), 64);

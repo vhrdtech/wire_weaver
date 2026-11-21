@@ -7,16 +7,17 @@
 //! Routing, for each datagram received:
 //! - from a host a slot serves: that slot's;
 //! - from another host, starting link setup: the host gets a free slot, or the one heard from least recently. Its
-//!   setup datagram waits in the table until that slot's source adopts it. A slot served for good is taken over at
-//!   once, as if a USB device was opened by another process; a connection is ended instead, and the host's next
-//!   hello takes the slot once the connection is dropped;
+//!   setup datagram waits in that slot until the slot's source adopts it (or [UdpPeers::accept] hands the slot
+//!   out), and what the host sends meanwhile comes out after it. A slot served for good is taken over at once, as
+//!   if a USB device was opened by another process; a connection is ended instead, and the host's next hello takes
+//!   the slot once the connection is dropped;
 //! - anything else is dropped.
 //!
 //! With one peer ([UdpConnection], [Direct]) the slot's source receives straight into its framer. With several, a
 //! source that waits receives into its own framer too, one datagram at a time; a datagram for another slot is copied
-//! into the table's handover buffer, and that slot copies it out. Nobody receives while a datagram or a setup
-//! datagram waits for its slot: a slow slot holds up the others for as long as its server does not wait, and no
-//! datagram is lost to it.
+//! into the table's handover buffer, and that slot copies it out. Nobody receives while a datagram waits in the
+//! handover buffer: a slow slot holds up the others for as long as its server does not wait, and no datagram is lost
+//! to it. A host waiting for [UdpPeers::accept] holds up nobody.
 //!
 //! The table of several slots is [Shared] in firmware (no lock, one executor) and `Locked` on a computer (feature
 //! `std`, `LockedUdpPeers`): `Sync`, so that connections run on any thread of a multi-threaded runtime. Either way
@@ -95,8 +96,7 @@ impl<A: Copy + PartialEq, const PEERS: usize> Access<A, PEERS> for Locked<A, PEE
 
 struct Slot<A> {
     peer: Option<A>,
-    /// Setup datagram of the adopted host, returned by the source's next read
-    replay: Option<SetupDatagram<A>>,
+    setup: Setup<A>,
     claim: Claim,
     heard_at: u32,
     waker: Option<Waker>,
@@ -108,7 +108,7 @@ impl<A> Slot<A> {
     const fn new() -> Self {
         Slot {
             peer: None,
-            replay: None,
+            setup: Setup::None,
             claim: Claim::None,
             heard_at: 0,
             waker: None,
@@ -127,10 +127,14 @@ enum Claim {
     Accepted,
 }
 
+/// The setup datagram a slot holds.
 #[derive(Copy, Clone)]
-struct Takeover<A> {
-    slot: usize,
-    setup: SetupDatagram<A>,
+enum Setup<A> {
+    None,
+    /// Of a host given the slot, waiting for the slot's source to adopt it (or for [UdpPeers::accept])
+    Waiting(SetupDatagram<A>),
+    /// Of the adopted host, returned by the source's next read
+    Replay(SetupDatagram<A>),
 }
 
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -149,7 +153,7 @@ enum Handover {
 #[derive(Copy, Clone, PartialEq, Eq)]
 enum Route {
     Slot(usize),
-    /// Its sender was given a slot, the datagram waits in [State::takeover]
+    /// Its sender was given a slot, the datagram waits there ([Setup::Waiting])
     Takeover,
     Drop,
 }
@@ -182,7 +186,6 @@ impl<A: Copy + PartialEq, const PEERS: usize> State<A, PEERS> {
         const { assert!(PEERS > 0, "UdpPeers needs at least one slot") };
         State {
             slots: [const { Slot::new() }; PEERS],
-            takeover: None,
             buf: [0u8; UDP_MAX_DATAGRAM_LEN],
             handover: Handover::Idle,
             listening: false,
@@ -221,12 +224,9 @@ impl<A: Copy + PartialEq, const PEERS: usize> State<A, PEERS> {
     fn release(&mut self, slot: usize) {
         let s = self.slot(slot);
         s.peer = None;
-        s.replay = None;
+        s.setup = Setup::None;
         s.claim = Claim::None;
         s.evicted = false;
-        if self.takeover.is_some_and(|t| t.slot == slot) {
-            self.takeover = None;
-        }
         if matches!(self.handover, Handover::For { slot: s, .. } if s == slot) {
             self.handover = Handover::Idle;
         }
@@ -241,16 +241,29 @@ impl<A: Copy + PartialEq, const PEERS: usize> State<A, PEERS> {
         debug!("udp: peer adopted in slot {}", slot);
     }
 
-    /// The setup datagram waiting for `slot`, taken out.
-    fn take_takeover(&mut self, slot: usize) -> Option<SetupDatagram<A>> {
-        let t = self.takeover.filter(|t| t.slot == slot)?;
-        self.takeover = None;
-        Some(t.setup)
+    /// The setup datagram of a host waiting for `slot`, taken out.
+    fn take_waiting(&mut self, slot: usize) -> Option<SetupDatagram<A>> {
+        let s = self.slot(slot);
+        let Setup::Waiting(setup) = s.setup else {
+            return None;
+        };
+        s.setup = Setup::None;
+        Some(setup)
     }
 
-    /// Nobody receives, and nothing waits for its slot.
+    /// The setup datagram of the host `slot` adopted, not read yet, taken out.
+    fn take_replay(&mut self, slot: usize) -> Option<SetupDatagram<A>> {
+        let s = self.slot(slot);
+        let Setup::Replay(setup) = s.setup else {
+            return None;
+        };
+        s.setup = Setup::None;
+        Some(setup)
+    }
+
+    /// Nobody receives, and the handover buffer is free. A host waiting for its slot holds up nobody.
     fn may_receive(&self) -> bool {
-        self.handover == Handover::Idle && self.takeover.is_none()
+        self.handover == Handover::Idle
     }
 
     /// What `slot` may do next, `None` to wait (its waker is kept).
@@ -258,7 +271,7 @@ impl<A: Copy + PartialEq, const PEERS: usize> State<A, PEERS> {
         if self.slot(slot).evicted {
             return Some(Turn::Evicted);
         }
-        if self.takeover.is_some_and(|t| t.slot == slot) {
+        if matches!(self.slot(slot).setup, Setup::Waiting(_)) {
             return Some(Turn::Takeover);
         }
         if let Handover::For { slot: to, len } = self.handover
@@ -291,8 +304,8 @@ impl<A: Copy + PartialEq, const PEERS: usize> State<A, PEERS> {
         false
     }
 
-    /// Where a datagram from `from` goes; a takeover is kept in [State::takeover]. `me` is the slot of the source
-    /// that received it, preferred when free.
+    /// Where a datagram from `from` goes; a host that starts link setup waits in the slot it is given. `me` is the
+    /// slot of the source that received it, preferred when free.
     fn route(&mut self, from: A, datagram: &[u8], me: Option<usize>) -> Route {
         let tick = self.tick.wrapping_add(1);
         self.tick = tick;
@@ -300,9 +313,30 @@ impl<A: Copy + PartialEq, const PEERS: usize> State<A, PEERS> {
             self.slot(s).heard_at = tick;
             return Route::Slot(s);
         }
-        let Some(setup) = SetupDatagram::new(datagram, from) else {
+        let setup = SetupDatagram::new(datagram, from);
+        // a host that waits for its slot: a source is there to adopt it, so what follows goes there and comes out
+        // after its setup; with none yet, a newer setup replaces the one waiting and anything else is dropped
+        if let Some(s) = self
+            .slots
+            .iter()
+            .position(|s| matches!(s.setup, Setup::Waiting(w) if w.from == from))
+        {
+            if self.slot(s).claim != Claim::None {
+                return Route::Slot(s);
+            }
+            let Some(setup) = setup else {
+                return Route::Drop;
+            };
+            self.slot(s).setup = Setup::Waiting(setup);
+            return Route::Takeover;
+        }
+        let Some(setup) = setup else {
             return Route::Drop;
         };
+        // a connection ended for a new host is still going: no other is ended until it is gone
+        if self.slots.iter().any(|s| s.evicted) {
+            return Route::Drop;
+        }
         let slot = match self.free_slot(me) {
             Some(slot) => slot,
             None => {
@@ -323,16 +357,18 @@ impl<A: Copy + PartialEq, const PEERS: usize> State<A, PEERS> {
             }
         };
         debug!("udp: another host started link setup, slot {}", slot);
-        self.takeover = Some(Takeover { slot, setup });
+        self.slot(slot).setup = Setup::Waiting(setup);
         Route::Takeover
     }
 
     /// A slot without a host that a source serves or that [UdpPeers::accept] can hand out, `me` first.
+    /// One where no other host waits first; else a newer host takes a waiting one's place, and that one starts over.
     fn free_slot(&self, me: Option<usize>) -> Option<usize> {
-        let free = |i: usize| {
+        let free = |i: usize, unasked: bool| {
             self.slots.get(i).is_some_and(|s| {
                 s.peer.is_none()
                     && !s.evicted
+                    && (!unasked || matches!(s.setup, Setup::None))
                     && match s.claim {
                         Claim::Fixed => true,
                         Claim::None => self.listening,
@@ -340,12 +376,17 @@ impl<A: Copy + PartialEq, const PEERS: usize> State<A, PEERS> {
                     }
             })
         };
-        if let Some(me) = me
-            && free(me)
-        {
-            return Some(me);
+        for unasked in [true, false] {
+            if let Some(me) = me
+                && free(me, unasked)
+            {
+                return Some(me);
+            }
+            if let Some(i) = (0..PEERS).find(|&i| free(i, unasked)) {
+                return Some(i);
+            }
         }
-        (0..PEERS).find(|&i| free(i))
+        None
     }
 
     /// The slot with a host heard from least recently.
@@ -482,9 +523,9 @@ impl<S: DatagramSocket, const PEERS: usize, H: Access<S::Addr, PEERS>> UdpPeers<
         })
     }
 
-    /// The next host to serve: a slot to make a [UdpSource] / [UdpSink] pair for, whose source adopts the host in
-    /// its first `wait_connected()`. Make them before calling `accept()` again: until the source adopts the host,
-    /// nothing else is received. The slot is free again when that source is dropped, so a connection is served
+    /// The next host to serve, and its address: a slot to make a [UdpSource] / [UdpSink] pair for, whose source
+    /// adopts the host in its first `wait_connected()`. Make them before calling `accept()` again: until the source
+    /// adopts the host, nothing else is received. The slot is free again when that source is dropped, so a connection is served
     /// once. Receives into `buf` while no source does. Cancel-safe.
     ///
     /// When every slot is taken, a new host ends the connection heard from least recently and is served once that
@@ -499,16 +540,18 @@ impl<S: DatagramSocket, const PEERS: usize, H: Access<S::Addr, PEERS>> UdpPeers<
     pub async fn accept(
         &self,
         buf: &mut [u8; UDP_MAX_DATAGRAM_LEN],
-    ) -> Result<usize, S::RecvError> {
+    ) -> Result<(usize, S::Addr), S::RecvError> {
         self.sharing.with(|t| t.listening = true);
         loop {
             let accepted = poll_fn(|cx| {
                 self.sharing.with(|t| {
-                    if let Some(to) = t.takeover
-                        && t.slot(to.slot).claim == Claim::None
-                    {
-                        t.slot(to.slot).claim = Claim::Accepted;
-                        return Poll::Ready(Some(to.slot));
+                    let waiting = t.slots.iter().enumerate().find_map(|(i, s)| match s.setup {
+                        Setup::Waiting(w) if s.claim == Claim::None => Some((i, w.from)),
+                        _ => None,
+                    });
+                    if let Some((slot, from)) = waiting {
+                        t.slot(slot).claim = Claim::Accepted;
+                        return Poll::Ready(Some((slot, from)));
                     }
                     if t.may_receive() {
                         t.handover = Handover::Receiving;
@@ -519,9 +562,9 @@ impl<S: DatagramSocket, const PEERS: usize, H: Access<S::Addr, PEERS>> UdpPeers<
                 })
             })
             .await;
-            if let Some(slot) = accepted {
+            if let Some((slot, from)) = accepted {
                 debug!("udp: accepted a host in slot {}", slot);
-                return Ok(slot);
+                return Ok((slot, from));
             }
             let receiving = Receiving(self);
             let (len, from) = self.socket.recv_from(buf).await?;
@@ -545,7 +588,7 @@ impl<S: DatagramSocket, const PEERS: usize, H: Access<S::Addr, PEERS>> UdpPeers<
         slot: usize,
         buf: &mut [u8],
     ) -> Result<usize, UdpError<S::RecvError>> {
-        if let Some(d) = self.sharing.with(|t| t.slot(slot).replay.take()) {
+        if let Some(d) = self.sharing.with(|t| t.take_replay(slot)) {
             return Ok(copy_into(buf, d.bytes()));
         }
         loop {
@@ -557,7 +600,7 @@ impl<S: DatagramSocket, const PEERS: usize, H: Access<S::Addr, PEERS>> UdpPeers<
                         if t.slot(slot).peer.is_some() {
                             return None;
                         }
-                        let setup = t.take_takeover(slot)?;
+                        let setup = t.take_waiting(slot)?;
                         t.adopt(slot, setup);
                         Some(setup)
                     });
@@ -599,9 +642,9 @@ impl<S: DatagramSocket, const PEERS: usize, H: Access<S::Addr, PEERS>> UdpPeers<
                 if t.slot(slot).evicted {
                     return Poll::Ready(false);
                 }
-                if let Some(setup) = t.take_takeover(slot) {
+                if let Some(setup) = t.take_waiting(slot) {
                     t.adopt(slot, setup);
-                    t.slot(slot).replay = Some(setup);
+                    t.slot(slot).setup = Setup::Replay(setup);
                     return Poll::Ready(true);
                 }
                 let s = t.slot(slot);
@@ -666,13 +709,11 @@ pub(super) mod sealed {
     use super::super::{DatagramSocket, UdpError};
     #[cfg(feature = "std")]
     use super::Locked;
-    use super::{Handover, Shared, Slot, Takeover, UdpConnection, UdpPeers};
+    use super::{Handover, Shared, Slot, UdpConnection, UdpPeers};
 
     /// The table of a [UdpPeers] of several slots, changed only through [Access::with].
     pub struct State<A, const PEERS: usize> {
         pub(super) slots: [Slot<A>; PEERS],
-        /// A host given a slot, waiting for that slot's source to adopt it
-        pub(super) takeover: Option<Takeover<A>>,
         /// The handover buffer: a datagram received by one slot's source for another
         pub(super) buf: [u8; UDP_MAX_DATAGRAM_LEN],
         pub(super) handover: Handover,

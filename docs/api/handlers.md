@@ -110,7 +110,11 @@ and answers later with `<method>_send_return`, as before.
 `process_request_from` and `process_shared_from` take the connection's `origin: &CallContext` (its peer and
 connection id) before the bytes; handlers read it from `cx.call()`, with the request's own `seq` and `priority`. The
 plain entries pass a peer the transport doesn't identify. A host runtime calls them through
-`wire_weaver::WireWeaverSharedApiBackend`.
+`wire_weaver::WireWeaverSharedApiBackend` ([host server](host_server.md#the-backends-entries)).
+
+A server without a model has the same entries, so a host runtime serves it the same way: its `is_shared` says no to
+every request, and its shared entries answer anything with `OperationNotSupported` at `err_seq::REQUEST_NOT_SHARED`.
+A firmware's image is the same size with them (`just flash-budget`).
 
 A firmware doesn't call the new entries. They are generic over the event sink, so one that isn't called is never
 compiled in, and `process_request_bytes` is the same code as without a model.

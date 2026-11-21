@@ -281,7 +281,7 @@ pub fn gen_server(
     let receivers = Receivers {
         model: &config.receiver_model,
     };
-    // SRV-65: without a receiver model nothing of the shared entry is generated, the server is what it was
+    // SRV-65: without a receiver model the shared entries are stubs that serve nothing (`no_shared_entries`)
     let with_shared = !config.receiver_model.is_empty();
     let api_level = &api_bundle.root;
     let deferred_return_methods = deferred_method_return_ser_methods(
@@ -525,6 +525,8 @@ pub fn gen_server(
         };
         entries.extend(entry_fn(&shared, true, false));
         entries.extend(entry_fn(&shared, true, true));
+    } else {
+        entries.extend(no_shared_entries(&maybe_async, &out_trait, &medium_ty));
     }
     let growable_reply_helpers = maybe_quote(
         !config.no_alloc,
@@ -622,6 +624,62 @@ struct EntryParts<'a> {
     observe_arm: &'a TokenStream,
     root_await: &'a TokenStream,
     multi: bool,
+}
+
+/// The shared entries of a server without a receiver model (SRV-65): nothing is shared, `is_shared` says no to
+/// every request and the shared entries refuse each one at `err_seq::REQUEST_NOT_SHARED`. A host runtime (SRV-12)
+/// then serves every server the same way, all requests alone; a firmware never calls them, so they cost it nothing.
+fn no_shared_entries(
+    maybe_async: &TokenStream,
+    out_trait: &TokenStream,
+    medium_ty: &TokenStream,
+) -> TokenStream {
+    let es = fixed_err_seq("REQUEST_NOT_SHARED");
+    let mut entries = quote! {
+        /// Whether the request in `bytes` goes to `process_shared_bytes` (SRV-65): never, no item is shared
+        /// without a `receiver_model`.
+        #[allow(dead_code)]
+        pub fn is_shared(_bytes: &[u8]) -> bool {
+            false
+        }
+
+        /// The answer of the shared entries without a `receiver_model`: `OperationNotSupported` at
+        /// `err_seq::REQUEST_NOT_SHARED`, nothing for a request without a `seq`.
+        #[allow(dead_code)]
+        fn ww_not_shared<'a>(bytes: &[u8], scratch: &'a mut [u8]) -> Result<&'a [u8], ShrinkWrapError> {
+            let seq = Request::peek_seq(bytes)?;
+            if seq == 0 {
+                return Ok(&[]);
+            }
+            ser_err_event(scratch, seq, Error::not_supported(#es))
+        }
+    };
+    for from_origin in [false, true] {
+        let (name, maybe_origin) = if from_origin {
+            (
+                quote! { process_shared_from },
+                quote! { _origin: &wire_weaver::CallContext, },
+            )
+        } else {
+            (quote! { process_shared_bytes }, quote! {})
+        };
+        entries.extend(quote! {
+            /// Serves no request: without a `receiver_model` no item is shared (SRV-65), so `is_shared` sends every
+            /// request to `process_request_bytes`. Anything that comes here is answered with
+            /// `OperationNotSupported` (`err_seq::REQUEST_NOT_SHARED`).
+            pub #maybe_async fn #name<'a>(
+                &self,
+                #maybe_origin
+                bytes: &[u8],
+                scratch: &'a mut [u8],
+                _out: &mut impl #out_trait,
+                _medium: #medium_ty,
+            ) -> Result<&'a [u8], ShrinkWrapError> {
+                Self::ww_not_shared(bytes, scratch)
+            }
+        });
+    }
+    entries
 }
 
 /// An entry of the server, its body generated for each so that `process_request_bytes` stays what it was. Each is

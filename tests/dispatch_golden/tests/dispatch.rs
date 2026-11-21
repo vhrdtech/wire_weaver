@@ -452,3 +452,43 @@ fn empty_user_bytes_event_unchanged() {
         );
     }
 }
+
+/// A server without a `receiver_model` serves a host runtime (SRV-12) the same way as one with: `is_shared` says no
+/// to every request, and the shared entry refuses whatever reaches it at `REQUEST_NOT_SHARED`.
+#[test]
+fn without_a_receiver_model_nothing_is_shared() {
+    use wire_weaver::prelude::*;
+    use ww_client_server::{ErrorKindOwned, EventOwned, err_seq};
+    let srv = server::Server::default();
+    let origin = wire_weaver::CallContext::new(0);
+    for case in &corpus::load().cases {
+        for i in 0..case.steps.len() {
+            let request = requests::build(&case.name, i);
+            assert!(
+                !server::Server::is_shared(&request),
+                "case '{}' step {i}",
+                case.name
+            );
+            let mut scratch = [0u8; 512];
+            let mut event_scratch = [0u8; 512];
+            let mut out = wire_weaver::EventWriter::new(Recorder::default(), &mut event_scratch);
+            let reply = srv
+                .process_shared_from(&origin, &request, &mut scratch, &mut out, ())
+                .expect("the refusal is written")
+                .to_vec();
+            assert!(
+                out.sink.0.is_empty(),
+                "case '{}' step {i}: no handler ran",
+                case.name
+            );
+            if ww_client_server::Request::peek_seq(&request).expect("a request") == 0 {
+                assert!(reply.is_empty(), "case '{}' step {i}", case.name);
+                continue;
+            }
+            let event = EventOwned::from_ww_bytes_owned(&reply).expect("an event");
+            let error = event.result.expect_err("refused");
+            assert_eq!(error.err_seq(), err_seq::REQUEST_NOT_SHARED);
+            assert!(matches!(error.kind, ErrorKindOwned::OperationNotSupported), "{error:?}");
+        }
+    }
+}

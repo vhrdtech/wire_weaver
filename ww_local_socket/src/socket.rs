@@ -12,6 +12,12 @@ pub use interprocess::local_socket::tokio::Stream;
 pub struct Peer {
     /// Process id, where the OS tells it (Linux, Windows; macOS doesn't)
     pub pid: Option<u32>,
+    /// Effective user id of the other side: the same as this process's.
+    #[cfg(unix)]
+    pub uid: u32,
+    /// Effective group id of the other side, where the OS tells it.
+    #[cfg(unix)]
+    pub gid: Option<u32>,
 }
 
 /// Listens on `path` (a socket file in [runtime_dir](crate::runtime_dir), e.g. `hub.sock`; on Windows the named pipe
@@ -70,6 +76,12 @@ pub struct Listener {
 }
 
 impl Listener {
+    /// A listener on a socket made elsewhere ([inherited](crate::inherited)).
+    #[cfg(unix)]
+    pub(crate) fn from_inner(inner: interprocess::local_socket::tokio::Listener) -> Self {
+        Listener { inner }
+    }
+
     /// Next connection of the same user. Connections of other users (only possible if the OS let them through the
     /// permissions) are dropped with a warning and not returned.
     pub async fn accept(&self) -> io::Result<(Stream, Peer)> {
@@ -118,6 +130,8 @@ fn check_peer(stream: &Stream) -> io::Result<Peer> {
     match creds.euid() {
         Some(uid) if uid == me => Ok(Peer {
             pid: creds.pid().map(|p| p as u32),
+            uid,
+            gid: creds.egid(),
         }),
         Some(uid) => Err(io::Error::new(
             io::ErrorKind::PermissionDenied,

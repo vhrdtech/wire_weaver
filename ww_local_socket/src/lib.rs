@@ -5,6 +5,7 @@
 //! - [listen] / [connect]: a Unix domain socket on Linux and macOS, a named pipe on Windows (through `interprocess`),
 //!   reachable by the same user only. Both ends check who is on the other side: a socket or pipe someone else made
 //!   (squatting a name) is refused, not talked to.
+//! - [inherited]: on Unix, the listening socket a service manager passed (systemd socket activation, `LISTEN_FDS`).
 //! - [Preamble] / [Answer]: the first bytes of every connection, they pick the hub's own API or one of its devices.
 //!   Frozen: a client and a hub of any two versions can always tell each other what they are.
 //! - [HandoverRequest] / [HandoverAnswer]: what a program asks a direct holder of a device on the holder's socket
@@ -13,6 +14,8 @@
 //!   payload |`, `len` counting the kind byte and the payload. Link setup, versions, pings and timeouts are
 //!   `ww_link`'s, the same as over WebSocket.
 
+#[cfg(all(unix, feature = "socket"))]
+mod activation;
 mod dir;
 pub mod files;
 #[cfg(feature = "socket")]
@@ -24,6 +27,8 @@ mod preamble;
 #[cfg(feature = "socket")]
 mod socket;
 
+#[cfg(all(unix, feature = "socket"))]
+pub use activation::{ActivationError, inherited};
 pub use dir::{RUNTIME_DIR_ENV, runtime_dir};
 #[cfg(feature = "socket")]
 pub use framing::{MessageReader, MessageWriter};

@@ -42,6 +42,7 @@ ww_byte_stream = { workspace = true, features = ["device", "ws"] }
 ww_client_server = { workspace = true, features = ["std"] }
 ww_device.workspace = true
 ww_local_socket = { workspace = true, optional = true }
+ww_self = { workspace = true, features = ["std"] }
 
 [lints]
 workspace = true

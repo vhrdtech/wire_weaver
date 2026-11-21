@@ -31,6 +31,7 @@ wire_weaver_client = { workspace = true, features = ["in_process", "local_socket
 wire_weaver_server = { workspace = true, features = ["in_process", "local_socket", "tokio", "udp"] }
 ww_byte_stream.workspace = true
 ww_local_socket = { workspace = true, features = ["socket"] }
+ww_self.workspace = true
 
 [lints]
 workspace = true

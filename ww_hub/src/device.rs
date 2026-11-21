@@ -30,8 +30,9 @@ use ww_device::ww_link::Kind;
 
 use crate::Hub;
 use crate::claims::{self, Target};
-use crate::envelope::{self, Op, Place, Unsolicited};
+use crate::envelope::{self, Op, Unsolicited};
 use crate::tunnel::{DeviceLinkInfo, TunnelQueue};
+use ww_client_server::target::{self, Access, Place, Unplaced};
 
 /// A forwarded request whose answer doesn't come for this long is given up (its seq freed on the device): longer
 /// than any client waits, as the hub doesn't know a call's own timeout.
@@ -636,14 +637,26 @@ impl Device {
             crate::owner_of(&hub, id)
         };
         let (seq, _) = envelope::split_seq(bytes)?;
-        let (access, target) = match envelope::access(bytes) {
-            Ok(None) => return None,
-            Ok(Some((access, place, multi))) => {
+        let (access, target) = match target::target(bytes) {
+            Ok(t) if t.access == Access::Introspect => return None,
+            Ok(target::Target {
+                access,
+                place,
+                multi,
+            }) => {
                 let path = match place {
                     Place::Absolute(path) => Some(path),
-                    Place::Trait(trait_id, from_trait) => state
+                    Place::Trait(trait_ref, from_trait) => state
                         .bundle()
-                        .and_then(|b| claims::trait_path(&b, &trait_id))
+                        .and_then(|b| {
+                            b.trait_path(|level, bundle| {
+                                trait_ref.matches(
+                                    level.crate_name(bundle).ok(),
+                                    &level.trait_name,
+                                    level.compact_id.map(|c| c.0),
+                                )
+                            })
+                        })
                         .map(|mut p| {
                             p.extend(from_trait);
                             p
@@ -657,7 +670,7 @@ impl Device {
                 (access, target)
             }
             // a newer envelope than this build: it can't be placed, so not past a claim
-            Err(()) => (claims::Access::Call, Target::Anywhere),
+            Err(Unplaced::Unreadable | Unplaced::NoResource) => (Access::Call, Target::Anywhere),
         };
         let by = {
             let mut hub = self.hub.state.locked();

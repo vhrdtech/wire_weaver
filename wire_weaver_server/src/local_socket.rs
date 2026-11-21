@@ -23,7 +23,7 @@ type Accepting = Pin<Box<dyn Future<Output = io::Result<(ww_local_socket::Stream
 /// The connections of a local socket, each with the process on the other side as its peer.
 ///
 /// ```ignore
-/// let socket = match ww_local_socket::inherited(None) {
+/// let socket = match ww_local_socket::inherited(None, PeerPolicy::SameUser) {
 ///     Ok(socket) => socket,
 ///     Err(ActivationError::NotActivated) => ww_local_socket::listen(&path, false)?,
 ///     Err(e) => return Err(e.into()),

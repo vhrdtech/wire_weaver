@@ -52,4 +52,5 @@ names the API: `/` the default one, `/journal` the service `journal`.
 A byte-stream server takes anyone who can reach the stream. On a local socket only the same user can; TCP has no
 authentication or encryption yet (TLS is TR-20), so bind a TCP listener to a trusted network only, or reach the
 server through ssh with `command`. Handlers see who connected in `cx.call().peer`: the TCP address, the local
-socket's process, or the peer the program passed with a stream it accepted itself.
+socket's process, or the peer the program passed with a stream it accepted itself. A host server decides who may
+do what with [listener policies and an authorization hook](../api/host_server.md#who-may-call).

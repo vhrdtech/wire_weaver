@@ -21,10 +21,14 @@
 //! activation passed; `udp` (feature `udp`) for hosts on a datagram socket, a connection per host address.
 //! [Server::accepting] hands out connections for the program to spawn on a multi-threaded runtime.
 //!
+//! [Server::authorize] puts an [Authorize] hook in front of every handler (SRV-46): who asked, as the transport
+//! saw it, and what the request does where.
+//!
 //! Between requests a [Backend] does its own work: it sends stream items and observed properties when its
 //! [wait](Backend::wait) completes or its [next_wake](Backend::next_wake) comes. A [Fanout] carries what many
 //! connections follow at once.
 
+mod authorize;
 mod backend;
 pub mod byte_stream;
 mod connection;
@@ -42,9 +46,11 @@ mod sync;
 #[cfg(feature = "udp")]
 pub mod udp;
 
+pub use authorize::{Authorize, Denied, Resource};
 pub use backend::Backend;
 pub use connection::Connection;
 pub use fanout::{Fanout, Lagged, Subscription};
 pub use listener::{Accept, Accepted, Listener};
 pub use pump::{PumpId, Pumps};
 pub use server::{Accepting, Limits, MakeBackend, Server};
+pub use ww_client_server::target::{Access, Place, TraitRef};

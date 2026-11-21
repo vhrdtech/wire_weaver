@@ -10,7 +10,7 @@
 #[cfg(feature = "std")]
 mod alloc;
 #[cfg(feature = "std")]
-pub use alloc::{HUMAN_DEFINITION_MAX_NODES, StreamFnRef, qualified_name};
+pub use alloc::{HUMAN_DEFINITION_MAX_NODES, StreamFnRef, TRAIT_DEPTH_MAX, qualified_name};
 #[cfg(feature = "std")]
 mod common;
 #[cfg(feature = "std")]

@@ -2,7 +2,6 @@
 //! the user API. Requests and events are copied with another seq in front; the bytes after the seq stay as they are,
 //! so a request of a newer envelope version, which this build can't decode, still goes through.
 
-use crate::claims::{Access, TraitId};
 use wire_weaver::shrink_wrap::{
     BufReader, DeserializeShrinkWrap, SerializeShrinkWrap, UVlq32, UVlq32Backfill,
 };
@@ -85,67 +84,6 @@ pub(crate) fn classify(request: &[u8]) -> Op {
         },
         _ => Op::Other,
     }
-}
-
-/// Where a request goes, as it names it (SRV-34).
-#[derive(Debug, PartialEq, Eq)]
-pub(crate) enum Place {
-    Absolute(Vec<u32>),
-    /// A global path: the trait, then the path from it
-    Trait(TraitId, Vec<u32>),
-}
-
-/// What a request does where, for claims (SRV-34): the access, the place, and whether it is a multi request (it
-/// reaches the resources under its path). `Ok(None)` for introspection, `Err` for a request this build can't decode
-/// (a newer envelope).
-pub(crate) fn access(request: &[u8]) -> Result<Option<(Access, Place, bool)>, ()> {
-    let req = Request::from_ww_bytes(request).map_err(|_| ())?;
-    let (access, multi) = match &req.kind {
-        RequestKind::Call { .. } => (Access::Call, false),
-        RequestKind::MultiCall { .. } => (Access::Call, true),
-        RequestKind::Write { .. }
-        | RequestKind::SinkWrite { .. }
-        | RequestKind::SinkWriteUnits { .. } => (Access::Write, false),
-        RequestKind::MultiWrite { .. } => (Access::Write, true),
-        RequestKind::Read => (Access::Read, false),
-        RequestKind::MultiRead { .. } => (Access::Read, true),
-        RequestKind::StreamOpen { .. } | RequestKind::StreamSideband { .. } => {
-            (Access::Stream, false)
-        }
-        RequestKind::Observe { .. } => (Access::Observe, false),
-        RequestKind::Introspect => return Ok(None),
-        // a kind from a newer version: undecodable as before it read as Unknown, never given an access; a cancel
-        // names a client's seq the hub would have to translate, and no device behind it reads one (SRV-47)
-        RequestKind::Cancel { .. } | RequestKind::Unknown(_) => return Err(()),
-    };
-    let ids = |p: &wire_weaver::shrink_wrap::RefVec<'_, ww_client_server::ResourceIndex>| {
-        p.iter()
-            .map(|n| n.map(|n| n.get().0))
-            .collect::<Result<Vec<u32>, _>>()
-            .ok()
-    };
-    let place = match &req.path_kind {
-        PathKind::Absolute { path } => Place::Absolute(ids(path).ok_or(())?),
-        PathKind::GlobalCompact {
-            gid,
-            path_from_trait,
-        } => Place::Trait(
-            TraitId::Compact(gid.gid.id.0),
-            ids(path_from_trait).ok_or(())?,
-        ),
-        PathKind::GlobalFull {
-            gid,
-            trait_name,
-            path_from_trait,
-        } => Place::Trait(
-            TraitId::Full {
-                crate_id: gid.crate_id.to_string(),
-                trait_name: trait_name.to_string(),
-            },
-            ids(path_from_trait).ok_or(())?,
-        ),
-    };
-    Ok(Some((access, place, multi)))
 }
 
 /// A request the hub sends itself: closing a stream, an observe merged from several clients. Seq placeholder in front.

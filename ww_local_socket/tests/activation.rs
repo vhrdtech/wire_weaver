@@ -8,7 +8,7 @@ use std::os::unix::process::CommandExt;
 use std::process::Command;
 
 use futures_util::io::{AsyncReadExt, AsyncWriteExt};
-use ww_local_socket::{ActivationError, connect, inherited};
+use ww_local_socket::{ActivationError, PeerPolicy, connect, inherited};
 
 /// Set in the child's environment: the child test runs only there.
 const CHILD: &str = "WW_ACTIVATION_CHILD";
@@ -20,6 +20,8 @@ async fn a_passed_socket_is_served() {
     let path = dir.join("api.sock");
     let _ = std::fs::remove_file(&path);
     let listener = UnixListener::bind(&path).unwrap();
+    // as a unit's SocketMode=0600 makes it: a looser mode is refused by the same-user policy
+    std::fs::set_permissions(&path, std::os::unix::fs::PermissionsExt::from_mode(0o600)).unwrap();
     let fd = listener.as_raw_fd();
     let mut child = Command::new(std::env::current_exe().unwrap());
     child
@@ -64,11 +66,14 @@ async fn child_serves_the_passed_socket() {
     // manager sets it the same way, between fork and exec.
     unsafe { std::env::set_var("LISTEN_PID", std::process::id().to_string()) };
     assert!(matches!(
-        inherited(Some("web")),
+        inherited(Some("web"), PeerPolicy::SameUser),
         Err(ActivationError::NoSuchName(_))
     ));
-    let listener = inherited(Some("ww")).unwrap();
-    assert!(matches!(inherited(Some("ww")), Err(ActivationError::Taken)));
+    let listener = inherited(Some("ww"), PeerPolicy::SameUser).unwrap();
+    assert!(matches!(
+        inherited(Some("ww"), PeerPolicy::SameUser),
+        Err(ActivationError::Taken)
+    ));
     let (mut stream, peer) = listener.accept().await.unwrap();
     assert_eq!(peer.pid.map(|pid| pid != std::process::id()), Some(true));
     let mut ping = [0u8; 4];
@@ -82,7 +87,7 @@ fn a_process_started_without_a_socket_is_not_activated() {
         return;
     }
     assert!(matches!(
-        inherited(None),
+        inherited(None, PeerPolicy::SameUser),
         Err(ActivationError::NotActivated)
     ));
 }

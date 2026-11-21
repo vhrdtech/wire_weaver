@@ -232,11 +232,11 @@ let socket = ww_local_socket::listen(&path, false)?;
 let listener = listen(LocalSocketIncoming::new(socket), PreambleFraming::new("my_service 0.3.0", 16 * 1024), clock);
 ```
 
-The socket is reachable by its owner only, and the listener checks the user of every client again when it accepts
-it. On Unix the peer of a connection is `Peer::Unix` with the client's user, group and process id. On Windows the
-pipe's client is checked the same way, but `Peer` has no variant for a Windows user yet, so handlers see
-`Peer::Unknown` there. Any device name reaches the API of this server, and a client that asks for the hub's own API
-is refused.
+`listen` makes a socket reachable by its owner only, and the listener checks the user of every client again when it
+accepts it. A service other users reach listens with a [policy](#who-may-call). On Unix the peer of a connection is
+`Peer::Unix` with the client's user, group and process id. On Windows the pipe's client is checked the same way, but
+`Peer` has no variant for a Windows user yet (SRV-71), so handlers see `Peer::Unknown` there. Any device name reaches
+the API of this server, and a client that asks for the hub's own API is refused.
 
 ### Hosts on UDP
 
@@ -308,7 +308,7 @@ and it fails with `ActivationError::NotActivated` when the program was started w
 program can also run by hand:
 
 ```rust
-let socket = match ww_local_socket::inherited(Some("api")) {
+let socket = match ww_local_socket::inherited(Some("api"), PeerPolicy::SameUser) {
     Ok(socket) => socket,
     Err(ActivationError::NotActivated) => ww_local_socket::listen(&path, false)?,
     Err(e) => return Err(e.into()),
@@ -334,8 +334,81 @@ WantedBy=sockets.target
 ExecStart=%h/.cargo/bin/my-service
 ```
 
-The socket file and its mode are the unit's, so `SocketMode=0600` keeps other users out. A passed socket is taken
-once per process, and the programs that the service starts do not inherit it.
+The socket file and its mode are the unit's, so `SocketMode=0600` keeps other users out. `inherited` checks that
+the file lets in no one the policy doesn't: a looser mode, another group or an abstract socket (`ListenStream=@name`,
+which has no permissions at all) is refused with `ActivationError::Loose`. A passed socket is taken once per
+process, and the programs that the service starts do not inherit it.
+
+## Who may call
+
+Who called is the transport's word, never the client's own: `ClientMeta` (program, user, host) is a label for logs.
+The peer each listener gives its connections:
+
+| Listener | `Peer` |
+|---|---|
+| local socket, Linux and macOS | `Unix { uid, gid, pid }` from `SO_PEERCRED` / `getpeereid` (no pid on macOS) |
+| local socket, Windows | `Unknown`, after the same-user check (SRV-71) |
+| stdio | `Unix` with the server's own user: whoever could start it |
+| TCP, UDP | `Addr`: an address, which proves nothing |
+| a stream the program accepted | the `Peer` it passes to `serve_stream`: `Key` for a key the other side proved |
+| in process | `Local`, or any peer given with `with_peer` (tests) |
+
+Two places decide: the socket keeps out who must not connect at all, and a hook decides each request.
+
+### Listener policy
+
+`ww_local_socket::listen_with` takes a `PeerPolicy`, which sets the modes of the socket file and of its directory
+(`dir_with`) and is checked again for every connection the listener accepts:
+
+| Policy | Socket file | Directory | Accepted |
+|---|---|---|---|
+| `SameUser` (the default, `listen`) | 0600 | 0700 | the server's user |
+| `Users { group, uids }` | 0660, group `group` | 0710, group `group` | the server's user and `uids`; every member of `group` when `uids` is empty |
+| `Any` | 0666 | 0711 | every local user, their uid passed to the hook |
+
+```rust
+let dir = Path::new("/run/my-service");
+let policy = PeerPolicy::Users { group: service_group_gid, uids: vec![] };
+ww_local_socket::dir_with(dir, &policy)?;
+let socket = ww_local_socket::listen_with(&dir.join("api.sock"), false, policy)?;
+```
+
+The kernel checks group membership, supplementary groups included, when a client opens the socket file: the peer
+credentials carry only the effective group, so the listener can't. The socket is bound at 0600 and gets its group
+before its mode is widened, so it is never open to the wrong group. Nothing is world-writable unless the policy is
+`Any`. A client of another user's service checks that service's user: `ww_local_socket::connect_to(path,
+server_uid)`, in a `ClientConfig::stream` opener. Windows takes `SameUser` only (SRV-71).
+
+### Authorization
+
+`Server::authorize` puts a hook in front of every handler. The server asks it for every request, shared or alone,
+before the request starts. A request it denies is answered `ErrorKind::Denied` and its handler never runs. A request
+the server can't place (malformed, or of a kind this build doesn't know) is denied without asking. Link setup and
+pings are not requests and are not asked about.
+
+```rust
+let api = Arc::new(ApiBundleOwned::from_ww_bytes_owned(&ww_self::compressed::bundle_bytes(
+    &api_impl::WW_SELF_BYTES,
+)?)?);
+let hook = |call: &CallContext, resource: &Resource<'_>| match call.peer {
+    Peer::Unix { uid, .. } if admins.contains(&uid.0) => Ok(()),
+    Peer::Unix { .. } if matches!(resource.access, Access::Read | Access::Introspect) => Ok(()),
+    _ => Err(Denied),
+};
+Server::new(clock).authorize(hook, Some(api)).serve(link, listener, make_backend, shutdown).await?;
+```
+
+`Resource` says what the request does where:
+
+- `access`: `Call`, `Write`, `Read`, `Stream`, `Observe` or `Introspect`;
+- `place`: the path as the request names it, absolute or a trait wherever it sits (`TraitRef`);
+- `path`: the path from the root, also of a global path when the server has the API's model;
+- `multi`: a multi request, which reaches resources under `path`;
+- `items`: the items on the way with their array indices, so the hook reads their `ww_self` metadata
+  (`#[claim]`, `#[label]`, `#[shares]`); `None` without the model.
+
+A hook that names what it allows and answers `Denied` to the rest denies by default, also items added to the API
+later. Without `authorize` every request runs.
 
 ## Order of requests
 

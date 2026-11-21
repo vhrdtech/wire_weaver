@@ -11,6 +11,7 @@ use std::collections::BTreeSet;
 use tokio::time::Instant;
 use wire_weaver::shrink_wrap::{MaxLen, SerializeShrinkWrap, UNib32, UVlq32};
 use wire_weaver_client::ww_self::{ApiBundleOwned, ApiItemKindOwned, ApiLevelOwned, ClaimMode};
+pub(crate) use ww_client_server::target::Access;
 use ww_client_server::{Error, ErrorKind, Event};
 use ww_error::CommonError;
 use ww_hub_api::{ClaimEntryOwned, ClaimErrorOwned, ClaimKind, ClientEntryOwned, ReleaseError};
@@ -35,21 +36,6 @@ pub(crate) enum Instance {
     Meta(u64),
     /// A client that sent no instance id: this one connection
     Connection(u32),
-}
-
-/// What a request does to the resource at its path, as far as claims care.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Access {
-    /// A method call (also opening a stream function with arguments is not one: streams stay open)
-    Call,
-    /// A property or sink write
-    Write,
-    /// A property read
-    Read,
-    /// Opening, closing or a sideband of a stream
-    Stream,
-    /// Observing properties
-    Observe,
 }
 
 /// A resource by its path in a device's API, what claiming it means.
@@ -167,68 +153,6 @@ impl Target {
             Target::Anywhere => true,
         }
     }
-}
-
-/// A trait as a global path names it (API-20).
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) enum TraitId {
-    Full {
-        crate_id: String,
-        trait_name: String,
-    },
-    Compact(u32),
-}
-
-/// Deepest trait nesting looked through for a global path: introspection data is not trusted.
-const MAX_DEPTH: usize = 32;
-
-/// Where the device answers a global path to `id`: the first place the trait sits in the tree (depth first, in id
-/// order, not under a resource array), as a server resolves it.
-pub(crate) fn trait_path(bundle: &ApiBundleOwned, id: &TraitId) -> Option<Vec<u32>> {
-    fn is(level: &ApiLevelOwned, bundle: &ApiBundleOwned, id: &TraitId) -> bool {
-        match id {
-            TraitId::Full {
-                crate_id,
-                trait_name,
-            } => {
-                &level.trait_name == trait_name
-                    && level.crate_name(bundle).ok() == Some(crate_id.as_str())
-            }
-            TraitId::Compact(n) => level.compact_id.map(|c| c.0) == Some(*n),
-        }
-    }
-    fn walk(
-        level: &ApiLevelOwned,
-        bundle: &ApiBundleOwned,
-        id: &TraitId,
-        prefix: &mut Vec<u32>,
-    ) -> Option<Vec<u32>> {
-        if is(level, bundle, id) {
-            return Some(prefix.clone());
-        }
-        if prefix.len() >= MAX_DEPTH {
-            return None;
-        }
-        let mut items: Vec<_> = level
-            .items
-            .iter()
-            .filter(|i| matches!(i.kind, ApiItemKindOwned::Trait { .. }) && !i.is_array())
-            .collect();
-        items.sort_by_key(|i| i.id.0);
-        for item in items {
-            let Ok(sub) = item.get_as_level(bundle) else {
-                continue;
-            };
-            prefix.push(item.id.0);
-            let found = walk(sub, bundle, id, prefix);
-            prefix.pop();
-            if found.is_some() {
-                return found;
-            }
-        }
-        None
-    }
-    walk(&bundle.root, bundle, id, &mut vec![])
 }
 
 /// The answer to a refused request with `seq`: the common error `InUse { by }` (`ErrorKind::Common`), whatever the
@@ -443,7 +367,7 @@ impl Claims {
                     Access::Call | Access::Write => {
                         !(c.resource.kind == ClaimKind::Shared && holds_shared(c))
                     }
-                    Access::Read | Access::Stream | Access::Observe => {
+                    Access::Read | Access::Stream | Access::Observe | Access::Introspect => {
                         c.resource.kind == ClaimKind::Observe
                     }
                 }

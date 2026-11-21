@@ -665,11 +665,23 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   `wire_weaver_server` on the hub socket instead of one `ww_device::Server` per client: its connections, limits,
   shutdown and `Fanout` replace the hub's hand-written accept loop and `broadcast` fan-out. The preamble still picks
   the hub's API or a device tunnel, so the hub's listener hands only hub-API connections to the server.
-- 📋 **SRV-46 Peer identity and policy** — who called, from the transport only (SO_PEERCRED, `getpeereid`, the
-  Windows user, a key handed in with a stream, the address), never from `ClientMeta`; a listener policy (same user by
-  default, a uid/gid allow-list, or any user with the identity passed through) with socket modes to match, and an
-  authorization hook run before any handler with the resource's path and `ww_self` metadata (SRV-34 claims). Feeds
-  SRV-37.
+- ✅ **SRV-46 Peer identity and policy** — who called, from the transport only, never from `ClientMeta`: the local
+  socket's `SO_PEERCRED` / `getpeereid` as `Peer::Unix`, the address, the server's own user on stdio, the key a
+  program hands in with a stream. `ww_local_socket::PeerPolicy` (`SameUser` by default, `Users { group, uids }`,
+  `Any`) sets the socket's and its directory's modes (`listen_with`, `dir_with`: 0600/0700, 0660/0710 with the
+  group, 0666/0711) and is checked at every accept; `inherited` refuses a passed socket that lets in more, or an
+  abstract one; `connect_to` reaches another user's service. `Server::authorize` asks an `Authorize` hook before
+  every handler with the `CallContext` and a `Resource` (access, place, absolute path, the items on the way with
+  their `ww_self` meta, SRV-34): `Denied` otherwise, also for a request the server can't place. The hub and the
+  server read requests with one `ww_client_server::target` ([Host server](docs/api/host_server.md#who-may-call),
+  `tests/host_server`, `ww_local_socket`'s policy tests). Feeds SRV-37. Missing: Windows users (SRV-71), the same
+  check in front of an in-process impl (SRV-72).
+- 📋 **SRV-71 Windows users in peer identity and policy** — a `Peer` variant for a Windows user (its SID, which
+  `Peer` can't hold by value: a hash or an interned id), the pipe's client as that peer, and `PeerPolicy::Users` /
+  `Any` on a named pipe through its DACL. Today a Windows listener is same-user only and its peers are `Unknown`.
+- 📋 **SRV-72 `Authorized<T>`: authorization of in-process calls** — a wrapper around an API's local trait impl
+  (CLT-57) that asks the same `Authorize` hook with the call's `CallContext` and the item's path before forwarding,
+  so a call in the same process passes the check a remote one does. Needs codegen of the wrapper per trait level.
 - 🚧 **SRV-47 Request context on the wire** · `v0.5` — a request carries an optional context (W3C trace context,
   deadline budget), `RequestKind::Cancel` drops one, and the error kinds `Denied`, `DeadlineExceeded`, `Cancelled`,
   `Internal` are appended (EVO-84). The server announces in link setup that it reads contexts

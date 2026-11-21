@@ -2075,6 +2075,45 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#who-may-call" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Who may call
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Who may call">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#listener-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Listener policy
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#authorization" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Authorization
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#order-of-requests" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6687,6 +6726,45 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#who-may-call" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Who may call
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Who may call">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#listener-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Listener policy
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#authorization" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Authorization
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#order-of-requests" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -7027,9 +7105,6 @@ run side by side:</p>
 <p>Every server has these generated functions. Without a <code>receiver_model</code> its <code>is_shared</code> says no to every request, so
 all requests run alone; with one, its calls and reads run side by side as the next section describes. A firmware
 never calls the shared ones, and its image is the same size with them.</p>
-<p>A server generated with <code>serve_trait</code> gets both implementations and every handler from the API's local trait: the
-backend is a struct with the service and the pumps (<a href="../local_trait/#serving-a-local-implementation">Serving a local
-implementation</a>).</p>
 <h3 id="who-asked">Who asked<a class="headerlink" href="#who-asked" title="Permanent link">&para;</a></h3>
 <p><code>Connection::origin()</code> is the <code>CallContext</code> of the connection: its peer and its id. The connection passes it with
 every request, and a handler reads it from <code>cx.call()</code>, with the request's own <code>seq</code>, priority, trace and what is
@@ -7179,11 +7254,11 @@ reaches a device that another process serves (<a href="../../transport/hub/">the
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kd">let</span><span class="w"> </span><span class="n">socket</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ww_local_socket</span><span class="p">::</span><span class="n">listen</span><span class="p">(</span><span class="o">&amp;</span><span class="n">path</span><span class="p">,</span><span class="w"> </span><span class="kc">false</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
 </span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="kd">let</span><span class="w"> </span><span class="n">listener</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">listen</span><span class="p">(</span><span class="n">LocalSocketIncoming</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">socket</span><span class="p">),</span><span class="w"> </span><span class="n">PreambleFraming</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="s">&quot;my_service 0.3.0&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">16</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">1024</span><span class="p">),</span><span class="w"> </span><span class="n">clock</span><span class="p">);</span>
 </span></code></pre></div>
-<p>The socket is reachable by its owner only, and the listener checks the user of every client again when it accepts
-it. On Unix the peer of a connection is <code>Peer::Unix</code> with the client's user, group and process id. On Windows the
-pipe's client is checked the same way, but <code>Peer</code> has no variant for a Windows user yet, so handlers see
-<code>Peer::Unknown</code> there. Any device name reaches the API of this server, and a client that asks for the hub's own API
-is refused.</p>
+<p><code>listen</code> makes a socket reachable by its owner only, and the listener checks the user of every client again when it
+accepts it. A service other users reach listens with a <a href="#who-may-call">policy</a>. On Unix the peer of a connection is
+<code>Peer::Unix</code> with the client's user, group and process id. On Windows the pipe's client is checked the same way, but
+<code>Peer</code> has no variant for a Windows user yet (SRV-71), so handlers see <code>Peer::Unknown</code> there. Any device name reaches
+the API of this server, and a client that asks for the hub's own API is refused.</p>
 <h3 id="hosts-on-udp">Hosts on UDP<a class="headerlink" href="#hosts-on-udp" title="Permanent link">&para;</a></h3>
 <p><code>UdpListener</code> (feature <code>udp</code>) serves hosts on one UDP socket, a connection per host address, as a
 <a href="../../transport/udp/#several-hosts-on-one-port">device on UDP</a> does. Clients connect with
@@ -7235,7 +7310,7 @@ client leaves.</p>
 service then takes the socket it was passed instead of creating its own. <code>ww_local_socket::inherited</code> returns it,
 and it fails with <code>ActivationError::NotActivated</code> when the program was started without one, so that the same
 program can also run by hand:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kd">let</span><span class="w"> </span><span class="n">socket</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">match</span><span class="w"> </span><span class="n">ww_local_socket</span><span class="p">::</span><span class="n">inherited</span><span class="p">(</span><span class="nb">Some</span><span class="p">(</span><span class="s">&quot;api&quot;</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kd">let</span><span class="w"> </span><span class="n">socket</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">match</span><span class="w"> </span><span class="n">ww_local_socket</span><span class="p">::</span><span class="n">inherited</span><span class="p">(</span><span class="nb">Some</span><span class="p">(</span><span class="s">&quot;api&quot;</span><span class="p">),</span><span class="w"> </span><span class="n">PeerPolicy</span><span class="p">::</span><span class="n">SameUser</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">    </span><span class="nb">Ok</span><span class="p">(</span><span class="n">socket</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">socket</span><span class="p">,</span>
 </span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">    </span><span class="nb">Err</span><span class="p">(</span><span class="n">ActivationError</span><span class="p">::</span><span class="n">NotActivated</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">ww_local_socket</span><span class="p">::</span><span class="n">listen</span><span class="p">(</span><span class="o">&amp;</span><span class="n">path</span><span class="p">,</span><span class="w"> </span><span class="kc">false</span><span class="p">)</span><span class="o">?</span><span class="p">,</span>
 </span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">    </span><span class="nb">Err</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="nb">Err</span><span class="p">(</span><span class="n">e</span><span class="p">.</span><span class="n">into</span><span class="p">()),</span>
@@ -7257,8 +7332,117 @@ name, <code>inherited(None)</code> takes the first socket passed.</p>
 </span><span id="__span-13-11"><a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a><span class="k">[Service]</span>
 </span><span id="__span-13-12"><a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a><span class="na">ExecStart</span><span class="o">=</span><span class="s">%h/.cargo/bin/my-service</span>
 </span></code></pre></div>
-<p>The socket file and its mode are the unit's, so <code>SocketMode=0600</code> keeps other users out. A passed socket is taken
-once per process, and the programs that the service starts do not inherit it.</p>
+<p>The socket file and its mode are the unit's, so <code>SocketMode=0600</code> keeps other users out. <code>inherited</code> checks that
+the file lets in no one the policy doesn't: a looser mode, another group or an abstract socket (<code>ListenStream=@name</code>,
+which has no permissions at all) is refused with <code>ActivationError::Loose</code>. A passed socket is taken once per
+process, and the programs that the service starts do not inherit it.</p>
+<h2 id="who-may-call">Who may call<a class="headerlink" href="#who-may-call" title="Permanent link">&para;</a></h2>
+<p>Who called is the transport's word, never the client's own: <code>ClientMeta</code> (program, user, host) is a label for logs.
+The peer each listener gives its connections:</p>
+<table>
+<thead>
+<tr>
+<th>Listener</th>
+<th><code>Peer</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>local socket, Linux and macOS</td>
+<td><code>Unix { uid, gid, pid }</code> from <code>SO_PEERCRED</code> / <code>getpeereid</code> (no pid on macOS)</td>
+</tr>
+<tr>
+<td>local socket, Windows</td>
+<td><code>Unknown</code>, after the same-user check (SRV-71)</td>
+</tr>
+<tr>
+<td>stdio</td>
+<td><code>Unix</code> with the server's own user: whoever could start it</td>
+</tr>
+<tr>
+<td>TCP, UDP</td>
+<td><code>Addr</code>: an address, which proves nothing</td>
+</tr>
+<tr>
+<td>a stream the program accepted</td>
+<td>the <code>Peer</code> it passes to <code>serve_stream</code>: <code>Key</code> for a key the other side proved</td>
+</tr>
+<tr>
+<td>in process</td>
+<td><code>Local</code>, or any peer given with <code>with_peer</code> (tests)</td>
+</tr>
+</tbody>
+</table>
+<p>Two places decide: the socket keeps out who must not connect at all, and a hook decides each request.</p>
+<h3 id="listener-policy">Listener policy<a class="headerlink" href="#listener-policy" title="Permanent link">&para;</a></h3>
+<p><code>ww_local_socket::listen_with</code> takes a <code>PeerPolicy</code>, which sets the modes of the socket file and of its directory
+(<code>dir_with</code>) and is checked again for every connection the listener accepts:</p>
+<table>
+<thead>
+<tr>
+<th>Policy</th>
+<th>Socket file</th>
+<th>Directory</th>
+<th>Accepted</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SameUser</code> (the default, <code>listen</code>)</td>
+<td>0600</td>
+<td>0700</td>
+<td>the server's user</td>
+</tr>
+<tr>
+<td><code>Users { group, uids }</code></td>
+<td>0660, group <code>group</code></td>
+<td>0710, group <code>group</code></td>
+<td>the server's user and <code>uids</code>; every member of <code>group</code> when <code>uids</code> is empty</td>
+</tr>
+<tr>
+<td><code>Any</code></td>
+<td>0666</td>
+<td>0711</td>
+<td>every local user, their uid passed to the hook</td>
+</tr>
+</tbody>
+</table>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="kd">let</span><span class="w"> </span><span class="n">dir</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Path</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="s">&quot;/run/my-service&quot;</span><span class="p">);</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="kd">let</span><span class="w"> </span><span class="n">policy</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PeerPolicy</span><span class="p">::</span><span class="n">Users</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">group</span><span class="p">:</span><span class="w"> </span><span class="nc">service_group_gid</span><span class="p">,</span><span class="w"> </span><span class="n">uids</span><span class="p">:</span><span class="w"> </span><span class="nc">vec</span><span class="o">!</span><span class="p">[]</span><span class="w"> </span><span class="p">};</span>
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="n">ww_local_socket</span><span class="p">::</span><span class="n">dir_with</span><span class="p">(</span><span class="n">dir</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">policy</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="kd">let</span><span class="w"> </span><span class="n">socket</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ww_local_socket</span><span class="p">::</span><span class="n">listen_with</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dir</span><span class="p">.</span><span class="n">join</span><span class="p">(</span><span class="s">&quot;api.sock&quot;</span><span class="p">),</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="n">policy</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+</span></code></pre></div>
+<p>The kernel checks group membership, supplementary groups included, when a client opens the socket file: the peer
+credentials carry only the effective group, so the listener can't. The socket is bound at 0600 and gets its group
+before its mode is widened, so it is never open to the wrong group. Nothing is world-writable unless the policy is
+<code>Any</code>. A client of another user's service checks that service's user: <code>ww_local_socket::connect_to(path,
+server_uid)</code>, in a <code>ClientConfig::stream</code> opener. Windows takes <code>SameUser</code> only (SRV-71).</p>
+<h3 id="authorization">Authorization<a class="headerlink" href="#authorization" title="Permanent link">&para;</a></h3>
+<p><code>Server::authorize</code> puts a hook in front of every handler. The server asks it for every request, shared or alone,
+before the request starts. A request it denies is answered <code>ErrorKind::Denied</code> and its handler never runs. A request
+the server can't place (malformed, or of a kind this build doesn't know) is denied without asking. Link setup and
+pings are not requests and are not asked about.</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="kd">let</span><span class="w"> </span><span class="n">api</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Arc</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">ApiBundleOwned</span><span class="p">::</span><span class="n">from_ww_bytes_owned</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ww_self</span><span class="p">::</span><span class="n">compressed</span><span class="p">::</span><span class="n">bundle_bytes</span><span class="p">(</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="w">    </span><span class="o">&amp;</span><span class="n">api_impl</span><span class="p">::</span><span class="n">WW_SELF_BYTES</span><span class="p">,</span>
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="p">)</span><span class="o">?</span><span class="p">)</span><span class="o">?</span><span class="p">);</span>
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="kd">let</span><span class="w"> </span><span class="n">hook</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">|</span><span class="n">call</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">CallContext</span><span class="p">,</span><span class="w"> </span><span class="n">resource</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">Resource</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="o">&gt;|</span><span class="w"> </span><span class="k">match</span><span class="w"> </span><span class="n">call</span><span class="p">.</span><span class="n">peer</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="w">    </span><span class="n">Peer</span><span class="p">::</span><span class="n">Unix</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">uid</span><span class="p">,</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">admins</span><span class="p">.</span><span class="n">contains</span><span class="p">(</span><span class="o">&amp;</span><span class="n">uid</span><span class="p">.</span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nb">Ok</span><span class="p">(()),</span>
+</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="w">    </span><span class="n">Peer</span><span class="p">::</span><span class="n">Unix</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="fm">matches!</span><span class="p">(</span><span class="n">resource</span><span class="p">.</span><span class="n">access</span><span class="p">,</span><span class="w"> </span><span class="n">Access</span><span class="p">::</span><span class="n">Read</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">Access</span><span class="p">::</span><span class="n">Introspect</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nb">Ok</span><span class="p">(()),</span>
+</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="w">    </span><span class="n">_</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nb">Err</span><span class="p">(</span><span class="n">Denied</span><span class="p">),</span>
+</span><span id="__span-15-8"><a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="p">};</span>
+</span><span id="__span-15-9"><a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a><span class="n">Server</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">clock</span><span class="p">).</span><span class="n">authorize</span><span class="p">(</span><span class="n">hook</span><span class="p">,</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">api</span><span class="p">)).</span><span class="n">serve</span><span class="p">(</span><span class="n">link</span><span class="p">,</span><span class="w"> </span><span class="n">listener</span><span class="p">,</span><span class="w"> </span><span class="n">make_backend</span><span class="p">,</span><span class="w"> </span><span class="n">shutdown</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span></code></pre></div>
+<p><code>Resource</code> says what the request does where:</p>
+<ul>
+<li><code>access</code>: <code>Call</code>, <code>Write</code>, <code>Read</code>, <code>Stream</code>, <code>Observe</code> or <code>Introspect</code>;</li>
+<li><code>place</code>: the path as the request names it, absolute or a trait wherever it sits (<code>TraitRef</code>);</li>
+<li><code>path</code>: the path from the root, also of a global path when the server has the API's model;</li>
+<li><code>multi</code>: a multi request, which reaches resources under <code>path</code>;</li>
+<li><code>items</code>: the items on the way with their array indices, so the hook reads their <code>ww_self</code> metadata
+  (<code>#[claim]</code>, <code>#[label]</code>, <code>#[shares]</code>); <code>None</code> without the model.</li>
+</ul>
+<p>A hook that names what it allows and answers <code>Denied</code> to the rest denies by default, also items added to the API
+later. Without <code>authorize</code> every request runs.</p>
 <h2 id="order-of-requests">Order of requests<a class="headerlink" href="#order-of-requests" title="Permanent link">&para;</a></h2>
 <p>The requests of one connection start in the order they arrive. How they run depends on the item, as the
 <code>receiver_model</code> of the server says (<a href="../handlers/">shared handlers</a>):</p>
@@ -7305,17 +7489,17 @@ pumps, which run whatever else runs, and everything else in the three methods of
 <h3 id="streams-are-pumps">Streams are pumps<a class="headerlink" href="#streams-are-pumps" title="Permanent link">&para;</a></h3>
 <p>A pump is a stream of items that the connection serializes and sends as they come, also while calls run. A stream's
 open handler adds one to the connection's <code>Pumps</code>, and its close handler removes it:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="k">const</span><span class="w"> </span><span class="n">NEWS</span><span class="p">:</span><span class="w"> </span><span class="nc">PumpId</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PumpId</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
-</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>
-</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">news</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">_cx</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">Context</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="p">,</span><span class="w"> </span><span class="k">impl</span><span class="w"> </span><span class="n">EventOut</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">RpcResult</span><span class="o">&lt;</span><span class="p">()</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">items</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">shared</span><span class="p">.</span><span class="n">news</span><span class="p">.</span><span class="n">subscribe</span><span class="p">().</span><span class="n">filter_map</span><span class="p">(</span><span class="o">|</span><span class="n">item</span><span class="o">|</span><span class="w"> </span><span class="n">ready</span><span class="p">(</span><span class="n">item</span><span class="p">.</span><span class="n">ok</span><span class="p">()));</span>
-</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="w">    </span><span class="bp">self</span><span class="p">.</span><span class="n">pumps</span><span class="p">.</span><span class="n">add</span><span class="p">(</span><span class="n">NEWS</span><span class="p">,</span><span class="w"> </span><span class="n">items</span><span class="p">,</span><span class="w"> </span><span class="o">|</span><span class="n">item</span><span class="p">,</span><span class="w"> </span><span class="n">buf</span><span class="o">|</span><span class="w"> </span><span class="n">api_impl</span><span class="p">::</span><span class="n">stream_data_ser</span><span class="p">().</span><span class="n">news</span><span class="p">(</span><span class="n">item</span><span class="p">,</span><span class="w"> </span><span class="n">buf</span><span class="p">).</span><span class="n">map</span><span class="p">(</span><span class="o">&lt;</span><span class="p">[</span><span class="kt">u8</span><span class="p">]</span><span class="o">&gt;</span><span class="p">::</span><span class="n">len</span><span class="p">));</span>
-</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="w">    </span><span class="n">Ready</span><span class="p">(())</span>
-</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="p">}</span>
-</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>
-</span><span id="__span-14-9"><a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">close_news</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">_cx</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">Context</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="p">,</span><span class="w"> </span><span class="k">impl</span><span class="w"> </span><span class="n">EventOut</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-14-10"><a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a><span class="w">    </span><span class="bp">self</span><span class="p">.</span><span class="n">pumps</span><span class="p">.</span><span class="n">remove</span><span class="p">(</span><span class="n">NEWS</span><span class="p">);</span>
-</span><span id="__span-14-11"><a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a><span class="p">}</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="k">const</span><span class="w"> </span><span class="n">NEWS</span><span class="p">:</span><span class="w"> </span><span class="nc">PumpId</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PumpId</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">news</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">_cx</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">Context</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="p">,</span><span class="w"> </span><span class="k">impl</span><span class="w"> </span><span class="n">EventOut</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">RpcResult</span><span class="o">&lt;</span><span class="p">()</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">items</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">shared</span><span class="p">.</span><span class="n">news</span><span class="p">.</span><span class="n">subscribe</span><span class="p">().</span><span class="n">filter_map</span><span class="p">(</span><span class="o">|</span><span class="n">item</span><span class="o">|</span><span class="w"> </span><span class="n">ready</span><span class="p">(</span><span class="n">item</span><span class="p">.</span><span class="n">ok</span><span class="p">()));</span>
+</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="w">    </span><span class="bp">self</span><span class="p">.</span><span class="n">pumps</span><span class="p">.</span><span class="n">add</span><span class="p">(</span><span class="n">NEWS</span><span class="p">,</span><span class="w"> </span><span class="n">items</span><span class="p">,</span><span class="w"> </span><span class="o">|</span><span class="n">item</span><span class="p">,</span><span class="w"> </span><span class="n">buf</span><span class="o">|</span><span class="w"> </span><span class="n">api_impl</span><span class="p">::</span><span class="n">stream_data_ser</span><span class="p">().</span><span class="n">news</span><span class="p">(</span><span class="n">item</span><span class="p">,</span><span class="w"> </span><span class="n">buf</span><span class="p">).</span><span class="n">map</span><span class="p">(</span><span class="o">&lt;</span><span class="p">[</span><span class="kt">u8</span><span class="p">]</span><span class="o">&gt;</span><span class="p">::</span><span class="n">len</span><span class="p">));</span>
+</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="w">    </span><span class="n">Ready</span><span class="p">(())</span>
+</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="p">}</span>
+</span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>
+</span><span id="__span-16-9"><a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">close_news</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">_cx</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">Context</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="p">,</span><span class="w"> </span><span class="k">impl</span><span class="w"> </span><span class="n">EventOut</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-16-10"><a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a><span class="w">    </span><span class="bp">self</span><span class="p">.</span><span class="n">pumps</span><span class="p">.</span><span class="n">remove</span><span class="p">(</span><span class="n">NEWS</span><span class="p">);</span>
+</span><span id="__span-16-11"><a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>The backend keeps the handle that comes with <code>Connection::pumps</code>. A pump starts once the answer of the request that
 added it went out, so the client knows the stream before its first item. It waits while the connection's event queue
@@ -7346,7 +7530,7 @@ link's message limit is skipped.</p>
 </tbody>
 </table>
 <p>All three have defaults that do nothing, so a backend that only answers requests needs one line:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="k">impl</span><span class="w"> </span><span class="n">wire_weaver_server</span><span class="p">::</span><span class="n">Backend</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">Backend</span><span class="w"> </span><span class="p">{}</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="k">impl</span><span class="w"> </span><span class="n">wire_weaver_server</span><span class="p">::</span><span class="n">Backend</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">Backend</span><span class="w"> </span><span class="p">{}</span>
 </span></code></pre></div>
 <p><code>wait</code> is dropped whenever a request arrives, so it must be cancel-safe: anything it took in before it was dropped
 stays in the backend. <code>poll</code> always runs to its end before the next request starts. All three take <code>&amp;mut self</code>, so
@@ -7357,40 +7541,40 @@ connection has its own <code>ObserveState</code>, because each client chooses wh
 therefore has to reach the backends of the other connections.</p>
 <p><code>Fanout&lt;T&gt;</code> carries such news. It gives every subscriber a queue of its own. A subscriber that reads slowly loses
 its oldest items and learns how many, and it never delays the sender or the other subscribers.</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="k">struct</span><span class="w"> </span><span class="nc">Shared</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="w">    </span><span class="n">mode</span><span class="p">:</span><span class="w"> </span><span class="nc">Mutex</span><span class="o">&lt;</span><span class="kt">u8</span><span class="o">&gt;</span><span class="p">,</span>
-</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="w">    </span><span class="n">mode_changed</span><span class="p">:</span><span class="w"> </span><span class="nc">Fanout</span><span class="o">&lt;</span><span class="p">()</span><span class="o">&gt;</span><span class="p">,</span>
-</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="p">}</span>
-</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>
-</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="k">impl</span><span class="w"> </span><span class="n">Backend</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="w">    </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">set_mode</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">_cx</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">Context</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="p">,</span><span class="w"> </span><span class="k">impl</span><span class="w"> </span><span class="n">EventOut</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">value</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">SetResult</span><span class="o">&lt;</span><span class="n">CommonError</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="w">        </span><span class="o">*</span><span class="bp">self</span><span class="p">.</span><span class="n">shared</span><span class="p">.</span><span class="n">mode</span><span class="p">.</span><span class="n">lock</span><span class="p">().</span><span class="n">unwrap</span><span class="p">()</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">value</span><span class="p">;</span>
-</span><span id="__span-16-9"><a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">shared</span><span class="p">.</span><span class="n">mode_changed</span><span class="p">.</span><span class="n">send</span><span class="p">(());</span><span class="w"> </span><span class="c1">// every connection hears of it</span>
-</span><span id="__span-16-10"><a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a><span class="w">        </span><span class="n">Set</span>
-</span><span id="__span-16-11"><a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a><span class="w">    </span><span class="p">}</span>
-</span><span id="__span-16-12"><a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a><span class="p">}</span>
-</span><span id="__span-16-13"><a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a>
-</span><span id="__span-16-14"><a id="__codelineno-16-14" name="__codelineno-16-14" href="#__codelineno-16-14"></a><span class="k">impl</span><span class="w"> </span><span class="n">wire_weaver_server</span><span class="p">::</span><span class="n">Backend</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">Backend</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-16-15"><a id="__codelineno-16-15" name="__codelineno-16-15" href="#__codelineno-16-15"></a><span class="w">    </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">wait</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-16-16"><a id="__codelineno-16-16" name="__codelineno-16-16" href="#__codelineno-16-16"></a><span class="w">        </span><span class="c1">// `mode_changes` is this connection&#39;s `shared.mode_changed.subscribe()`</span>
-</span><span id="__span-16-17"><a id="__codelineno-16-17" name="__codelineno-16-17" href="#__codelineno-16-17"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">mode_changes</span><span class="p">.</span><span class="n">recv</span><span class="p">().</span><span class="k">await</span><span class="p">.</span><span class="n">is_some</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-16-18"><a id="__codelineno-16-18" name="__codelineno-16-18" href="#__codelineno-16-18"></a><span class="w">            </span><span class="bp">self</span><span class="p">.</span><span class="n">mode_changed</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">;</span>
-</span><span id="__span-16-19"><a id="__codelineno-16-19" name="__codelineno-16-19" href="#__codelineno-16-19"></a><span class="w">        </span><span class="p">}</span>
-</span><span id="__span-16-20"><a id="__codelineno-16-20" name="__codelineno-16-20" href="#__codelineno-16-20"></a><span class="w">    </span><span class="p">}</span>
-</span><span id="__span-16-21"><a id="__codelineno-16-21" name="__codelineno-16-21" href="#__codelineno-16-21"></a>
-</span><span id="__span-16-22"><a id="__codelineno-16-22" name="__codelineno-16-22" href="#__codelineno-16-22"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">next_wake</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">now</span><span class="p">:</span><span class="w"> </span><span class="nc">Instant</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">Instant</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-16-23"><a id="__codelineno-16-23" name="__codelineno-16-23" href="#__codelineno-16-23"></a><span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">observe</span><span class="p">.</span><span class="n">next_wake</span><span class="p">(</span><span class="n">now</span><span class="p">.</span><span class="n">as_micros</span><span class="p">()).</span><span class="n">map</span><span class="p">(</span><span class="n">Instant</span><span class="p">::</span><span class="n">from_micros</span><span class="p">)</span>
-</span><span id="__span-16-24"><a id="__codelineno-16-24" name="__codelineno-16-24" href="#__codelineno-16-24"></a><span class="w">    </span><span class="p">}</span>
-</span><span id="__span-16-25"><a id="__codelineno-16-25" name="__codelineno-16-25" href="#__codelineno-16-25"></a>
-</span><span id="__span-16-26"><a id="__codelineno-16-26" name="__codelineno-16-26" href="#__codelineno-16-26"></a><span class="w">    </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">poll</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">out</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">EventWriter</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="p">,</span><span class="w"> </span><span class="k">impl</span><span class="w"> </span><span class="n">MessageSink</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">medium</span><span class="p">:</span><span class="w"> </span><span class="p">(),</span><span class="w"> </span><span class="n">now</span><span class="p">:</span><span class="w"> </span><span class="nc">Instant</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-16-27"><a id="__codelineno-16-27" name="__codelineno-16-27" href="#__codelineno-16-27"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="n">std</span><span class="p">::</span><span class="n">mem</span><span class="p">::</span><span class="n">take</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">mode_changed</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-16-28"><a id="__codelineno-16-28" name="__codelineno-16-28" href="#__codelineno-16-28"></a><span class="w">            </span><span class="bp">self</span><span class="p">.</span><span class="n">mark_changed_mode</span><span class="p">();</span>
-</span><span id="__span-16-29"><a id="__codelineno-16-29" name="__codelineno-16-29" href="#__codelineno-16-29"></a><span class="w">        </span><span class="p">}</span>
-</span><span id="__span-16-30"><a id="__codelineno-16-30" name="__codelineno-16-30" href="#__codelineno-16-30"></a><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">buf</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="p">::</span><span class="n">mem</span><span class="p">::</span><span class="n">take</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">update_buf</span><span class="p">);</span>
-</span><span id="__span-16-31"><a id="__codelineno-16-31" name="__codelineno-16-31" href="#__codelineno-16-31"></a><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">poll_properties</span><span class="p">(</span><span class="n">out</span><span class="p">,</span><span class="w"> </span><span class="n">medium</span><span class="p">,</span><span class="w"> </span><span class="n">now</span><span class="p">.</span><span class="n">as_micros</span><span class="p">(),</span><span class="w"> </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">buf</span><span class="p">).</span><span class="k">await</span><span class="p">;</span>
-</span><span id="__span-16-32"><a id="__codelineno-16-32" name="__codelineno-16-32" href="#__codelineno-16-32"></a><span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">update_buf</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">buf</span><span class="p">;</span>
-</span><span id="__span-16-33"><a id="__codelineno-16-33" name="__codelineno-16-33" href="#__codelineno-16-33"></a><span class="w">    </span><span class="p">}</span>
-</span><span id="__span-16-34"><a id="__codelineno-16-34" name="__codelineno-16-34" href="#__codelineno-16-34"></a><span class="p">}</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="k">struct</span><span class="w"> </span><span class="nc">Shared</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="w">    </span><span class="n">mode</span><span class="p">:</span><span class="w"> </span><span class="nc">Mutex</span><span class="o">&lt;</span><span class="kt">u8</span><span class="o">&gt;</span><span class="p">,</span>
+</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="w">    </span><span class="n">mode_changed</span><span class="p">:</span><span class="w"> </span><span class="nc">Fanout</span><span class="o">&lt;</span><span class="p">()</span><span class="o">&gt;</span><span class="p">,</span>
+</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="p">}</span>
+</span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>
+</span><span id="__span-18-6"><a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a><span class="k">impl</span><span class="w"> </span><span class="n">Backend</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-18-7"><a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a><span class="w">    </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">set_mode</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">_cx</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">Context</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="p">,</span><span class="w"> </span><span class="k">impl</span><span class="w"> </span><span class="n">EventOut</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">value</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">SetResult</span><span class="o">&lt;</span><span class="n">CommonError</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-18-8"><a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a><span class="w">        </span><span class="o">*</span><span class="bp">self</span><span class="p">.</span><span class="n">shared</span><span class="p">.</span><span class="n">mode</span><span class="p">.</span><span class="n">lock</span><span class="p">().</span><span class="n">unwrap</span><span class="p">()</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">value</span><span class="p">;</span>
+</span><span id="__span-18-9"><a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a><span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">shared</span><span class="p">.</span><span class="n">mode_changed</span><span class="p">.</span><span class="n">send</span><span class="p">(());</span><span class="w"> </span><span class="c1">// every connection hears of it</span>
+</span><span id="__span-18-10"><a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a><span class="w">        </span><span class="n">Set</span>
+</span><span id="__span-18-11"><a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-18-12"><a id="__codelineno-18-12" name="__codelineno-18-12" href="#__codelineno-18-12"></a><span class="p">}</span>
+</span><span id="__span-18-13"><a id="__codelineno-18-13" name="__codelineno-18-13" href="#__codelineno-18-13"></a>
+</span><span id="__span-18-14"><a id="__codelineno-18-14" name="__codelineno-18-14" href="#__codelineno-18-14"></a><span class="k">impl</span><span class="w"> </span><span class="n">wire_weaver_server</span><span class="p">::</span><span class="n">Backend</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">Backend</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-18-15"><a id="__codelineno-18-15" name="__codelineno-18-15" href="#__codelineno-18-15"></a><span class="w">    </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">wait</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-18-16"><a id="__codelineno-18-16" name="__codelineno-18-16" href="#__codelineno-18-16"></a><span class="w">        </span><span class="c1">// `mode_changes` is this connection&#39;s `shared.mode_changed.subscribe()`</span>
+</span><span id="__span-18-17"><a id="__codelineno-18-17" name="__codelineno-18-17" href="#__codelineno-18-17"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">mode_changes</span><span class="p">.</span><span class="n">recv</span><span class="p">().</span><span class="k">await</span><span class="p">.</span><span class="n">is_some</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-18-18"><a id="__codelineno-18-18" name="__codelineno-18-18" href="#__codelineno-18-18"></a><span class="w">            </span><span class="bp">self</span><span class="p">.</span><span class="n">mode_changed</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">;</span>
+</span><span id="__span-18-19"><a id="__codelineno-18-19" name="__codelineno-18-19" href="#__codelineno-18-19"></a><span class="w">        </span><span class="p">}</span>
+</span><span id="__span-18-20"><a id="__codelineno-18-20" name="__codelineno-18-20" href="#__codelineno-18-20"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-18-21"><a id="__codelineno-18-21" name="__codelineno-18-21" href="#__codelineno-18-21"></a>
+</span><span id="__span-18-22"><a id="__codelineno-18-22" name="__codelineno-18-22" href="#__codelineno-18-22"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">next_wake</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">now</span><span class="p">:</span><span class="w"> </span><span class="nc">Instant</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">Instant</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-18-23"><a id="__codelineno-18-23" name="__codelineno-18-23" href="#__codelineno-18-23"></a><span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">observe</span><span class="p">.</span><span class="n">next_wake</span><span class="p">(</span><span class="n">now</span><span class="p">.</span><span class="n">as_micros</span><span class="p">()).</span><span class="n">map</span><span class="p">(</span><span class="n">Instant</span><span class="p">::</span><span class="n">from_micros</span><span class="p">)</span>
+</span><span id="__span-18-24"><a id="__codelineno-18-24" name="__codelineno-18-24" href="#__codelineno-18-24"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-18-25"><a id="__codelineno-18-25" name="__codelineno-18-25" href="#__codelineno-18-25"></a>
+</span><span id="__span-18-26"><a id="__codelineno-18-26" name="__codelineno-18-26" href="#__codelineno-18-26"></a><span class="w">    </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">poll</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">out</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">EventWriter</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="p">,</span><span class="w"> </span><span class="k">impl</span><span class="w"> </span><span class="n">MessageSink</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">medium</span><span class="p">:</span><span class="w"> </span><span class="p">(),</span><span class="w"> </span><span class="n">now</span><span class="p">:</span><span class="w"> </span><span class="nc">Instant</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-18-27"><a id="__codelineno-18-27" name="__codelineno-18-27" href="#__codelineno-18-27"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="n">std</span><span class="p">::</span><span class="n">mem</span><span class="p">::</span><span class="n">take</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">mode_changed</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-18-28"><a id="__codelineno-18-28" name="__codelineno-18-28" href="#__codelineno-18-28"></a><span class="w">            </span><span class="bp">self</span><span class="p">.</span><span class="n">mark_changed_mode</span><span class="p">();</span>
+</span><span id="__span-18-29"><a id="__codelineno-18-29" name="__codelineno-18-29" href="#__codelineno-18-29"></a><span class="w">        </span><span class="p">}</span>
+</span><span id="__span-18-30"><a id="__codelineno-18-30" name="__codelineno-18-30" href="#__codelineno-18-30"></a><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">buf</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="p">::</span><span class="n">mem</span><span class="p">::</span><span class="n">take</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">update_buf</span><span class="p">);</span>
+</span><span id="__span-18-31"><a id="__codelineno-18-31" name="__codelineno-18-31" href="#__codelineno-18-31"></a><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">poll_properties</span><span class="p">(</span><span class="n">out</span><span class="p">,</span><span class="w"> </span><span class="n">medium</span><span class="p">,</span><span class="w"> </span><span class="n">now</span><span class="p">.</span><span class="n">as_micros</span><span class="p">(),</span><span class="w"> </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">buf</span><span class="p">).</span><span class="k">await</span><span class="p">;</span>
+</span><span id="__span-18-32"><a id="__codelineno-18-32" name="__codelineno-18-32" href="#__codelineno-18-32"></a><span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">update_buf</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">buf</span><span class="p">;</span>
+</span><span id="__span-18-33"><a id="__codelineno-18-33" name="__codelineno-18-33" href="#__codelineno-18-33"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-18-34"><a id="__codelineno-18-34" name="__codelineno-18-34" href="#__codelineno-18-34"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>See <a href="../observing/">Observing properties</a> for <code>ObserveState</code>, <code>mark_changed_&lt;name&gt;</code> and <code>poll_properties</code>. A
 <code>Subscription</code> is also a <code>Stream</code>, so a stream that every listening client follows is a pump over one.</p>

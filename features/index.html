@@ -7206,23 +7206,6 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
   <code>PreambleFraming</code>) and <code>bind_udp</code> (<code>UdpListener</code> on <code>StdUdpSocket</code> with the loop's readiness), so a program on
   calloop serves through <code>wire_weaver_server</code> with its limits, shutdown and peers, backends not <code>Send</code>
   (<a href="../docs/api/host_server/#on-a-calloop-loop">Host server</a>, <code>tests/calloop_server</code>).</li>
-<li>✅ <strong>SRV-49 Server forwarding to the local trait</strong> · <code>v0.5</code> — <code>ww_codegen!(.., server = true, serve_trait =
-  "api::Name")</code> generates the handler of every item the local trait (CLT-57) expresses, each calling it on the
-  service of <code>wire_weaver_server::Serves</code>, the same implementation in-process callers use, and the backend's
-  <code>WireWeaverAsyncApiBackend</code> / <code>WireWeaverSharedApiBackend</code>. Calls and reads take <code>&amp;self</code> and run side by side,
-  writes and stream opens alone (D4's order); the request's <code>CallContext</code> reaches the implementation; deadline and
-  cancel drop its future; <code>CallError::Api</code> is the API's error and the other kinds reach the client through
-  <code>RpcResult::Failed</code> / <code>GetResult::Failed</code> / <code>SetResult::Failed</code> (<code>wire_weaver::Failure</code>, <code>wire_weaver::forward</code>;
-  firmware links none of it, <code>just flash-budget</code> unchanged); a stream open adds the trait's <code>ItemStream</code> as a pump.
-  Items the trait leaves out are handlers written by hand beside them. <code>examples/local_trait</code>, <code>tests/serve_trait</code>,
-  <a href="../docs/api/local_trait/#serving-a-local-implementation">docs</a>. Next: the non-<code>Send</code> trait form (SRV-73),
-  nested levels and the rest of CLT-58 (each grows the trait, the server follows); SRV-46's authorization hook runs
-  in the server before any handler, these included.</li>
-<li>📋 <strong>SRV-73 Non-Send local trait</strong> — <code>ww_codegen!(crate :: Api, local_trait = "Name", local_trait_send = false)</code>:
-  the trait and its <code>Dyn</code> companion without <code>Send</code> (a <code>LocalBoxFuture</code>, <code>Rc&lt;dyn NameDyn&gt;</code>, a <code>LocalItemStream</code>), for
-  single-threaded hosts whose state is <code>Rc</code>/<code>RefCell</code>, served by <code>serve_trait</code> too. Needs <code>wire_weaver_server</code>
-  pumps of streams that are not <code>Send</code> without making every connection <code>!Send</code>: a pump set for a single-threaded
-  <code>serve</code>, or <code>Pumps</code> generic over its kind.</li>
 <li>📋 <strong>SRV-9 Handle USB suspend/resume</strong> · <code>v0.5</code> — run until suspend, wait for resume, loop
   (<code>mcu/wire_weaver_usb_embassy</code>). Later (<code>v0.5.x</code>): detect the host going to sleep and keep the connection,
   informing the device.</li>
@@ -7232,11 +7215,23 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
   <code>wire_weaver_server</code> on the hub socket instead of one <code>ww_device::Server</code> per client: its connections, limits,
   shutdown and <code>Fanout</code> replace the hub's hand-written accept loop and <code>broadcast</code> fan-out. The preamble still picks
   the hub's API or a device tunnel, so the hub's listener hands only hub-API connections to the server.</li>
-<li>📋 <strong>SRV-46 Peer identity and policy</strong> — who called, from the transport only (SO_PEERCRED, <code>getpeereid</code>, the
-  Windows user, a key handed in with a stream, the address), never from <code>ClientMeta</code>; a listener policy (same user by
-  default, a uid/gid allow-list, or any user with the identity passed through) with socket modes to match, and an
-  authorization hook run before any handler with the resource's path and <code>ww_self</code> metadata (SRV-34 claims). Feeds
-  SRV-37.</li>
+<li>✅ <strong>SRV-46 Peer identity and policy</strong> — who called, from the transport only, never from <code>ClientMeta</code>: the local
+  socket's <code>SO_PEERCRED</code> / <code>getpeereid</code> as <code>Peer::Unix</code>, the address, the server's own user on stdio, the key a
+  program hands in with a stream. <code>ww_local_socket::PeerPolicy</code> (<code>SameUser</code> by default, <code>Users { group, uids }</code>,
+  <code>Any</code>) sets the socket's and its directory's modes (<code>listen_with</code>, <code>dir_with</code>: 0600/0700, 0660/0710 with the
+  group, 0666/0711) and is checked at every accept; <code>inherited</code> refuses a passed socket that lets in more, or an
+  abstract one; <code>connect_to</code> reaches another user's service. <code>Server::authorize</code> asks an <code>Authorize</code> hook before
+  every handler with the <code>CallContext</code> and a <code>Resource</code> (access, place, absolute path, the items on the way with
+  their <code>ww_self</code> meta, SRV-34): <code>Denied</code> otherwise, also for a request the server can't place. The hub and the
+  server read requests with one <code>ww_client_server::target</code> (<a href="../docs/api/host_server/#who-may-call">Host server</a>,
+  <code>tests/host_server</code>, <code>ww_local_socket</code>'s policy tests). Feeds SRV-37. Missing: Windows users (SRV-71), the same
+  check in front of an in-process impl (SRV-72).</li>
+<li>📋 <strong>SRV-71 Windows users in peer identity and policy</strong> — a <code>Peer</code> variant for a Windows user (its SID, which
+  <code>Peer</code> can't hold by value: a hash or an interned id), the pipe's client as that peer, and <code>PeerPolicy::Users</code> /
+  <code>Any</code> on a named pipe through its DACL. Today a Windows listener is same-user only and its peers are <code>Unknown</code>.</li>
+<li>📋 <strong>SRV-72 <code>Authorized&lt;T&gt;</code>: authorization of in-process calls</strong> — a wrapper around an API's local trait impl
+  (CLT-57) that asks the same <code>Authorize</code> hook with the call's <code>CallContext</code> and the item's path before forwarding,
+  so a call in the same process passes the check a remote one does. Needs codegen of the wrapper per trait level.</li>
 <li>🚧 <strong>SRV-47 Request context on the wire</strong> · <code>v0.5</code> — a request carries an optional context (W3C trace context,
   deadline budget), <code>RequestKind::Cancel</code> drops one, and the error kinds <code>Denied</code>, <code>DeadlineExceeded</code>, <code>Cancelled</code>,
   <code>Internal</code> are appended (EVO-84). The server announces in link setup that it reads contexts
@@ -7250,6 +7245,10 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
   never announces contexts. Missing: the trace taken from the current <code>tracing</code> span (needs OpenTelemetry ids), a
   span per request in the server (RED metrics), the trace on a stream open, the tap and <code>ww monitor</code> showing
   contexts.</li>
+<li>📋 <strong>SRV-49 Server forwarding to the local trait</strong> — <code>ww_codegen!(.., server = true, serve_trait = "..")</code>
+  generates a std server that forwards every request to one shared implementation of the API's local trait
+  (CLT-57), the same one in-process callers use: requests of a connection run concurrently, started in order with
+  writes as barriers; deadline and cancel drop the call; streams are pumped from the implementation's <code>ItemStream</code>.</li>
 <li>📋 <strong>SRV-13 ww hub: one device, many programs</strong> · <code>v0.5.x</code> — a per-user hub that starts itself on first use and
   exits when idle (sccache / ssh ControlMaster style, no system service, Linux, macOS and Windows), holds the
   devices (USB, RTT, later UDP) and serves every client over a user-only local socket (TR-16); it is itself a
@@ -7647,9 +7646,11 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
 <li>Observing (<code>+observe</code> properties), sinks, counted, reliable and batched streams: today only the client has
   them. Observing could be an <code>ItemStream</code> of updates; sinks a <code>futures</code> <code>Sink</code>; counted and reliable streams
   need cursors in the trait (<code>resume(cursor)</code>), which a local implementation would have to keep.</li>
-<li>Server side: done by SRV-49, <code>serve_trait</code> generates the handlers of a std server forwarding to one
-  implementation. no_std/no_alloc servers keep their handlers: the trait's owned types and boxed futures don't
-  fit firmware.</li>
+<li>Server side: handlers stay inherent methods with <code>Context</code> and <code>RpcResult</code>, which don't fit the trait (deferred
+  replies, <code>Unimplemented</code>, stream sends, <code>&amp;mut self</code>, no_std/no_alloc borrowed types). Async alloc servers can
+  forward each handler to a local implementation (the example does); a generated forwarding server
+  (<code>server = true, forward_to = "field"</code>) would remove that boilerplate for std servers. no_std/no_alloc
+  servers keep their handlers: the trait's owned types and boxed futures don't fit firmware.</li>
 <li>Naming: the <code>#[ww_trait]</code> name is taken by the doc-only trait rustdoc shows; with <code>std</code> the doc trait could
   become this trait, so <code>impl CounterApi for LocalCounter</code> reads as the API itself.</li>
 </ul>

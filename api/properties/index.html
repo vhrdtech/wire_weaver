@@ -6609,8 +6609,6 @@ for the rest; <code>get_set</code> is the default.</p>
   answers <code>ErrorKind::Unimplemented</code>.</li>
 <li><code>SetResult&lt;E&gt;</code>: <code>Set</code> acknowledges the write; <code>SetError(e)</code> answers with the error, the value is not applied unless
   the handler did so; <code>Unimplemented</code> answers <code>ErrorKind::Unimplemented</code>.</li>
-<li>Both have <code>Failed(failure)</code> too (<code>std</code>): a host server's own answer, such as <code>Denied</code>, from a call through the API's
-  <a href="../local_trait/#serving-a-local-implementation">local trait</a>; <code>RpcResult</code> of a method has it as well.</li>
 <li><code>E</code> is the property's error type, <code>()</code> without one. The error goes to the host serialized, as
   <code>ErrorKind::UserBytes</code>.</li>
 </ul>

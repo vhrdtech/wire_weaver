@@ -6605,7 +6605,7 @@ on another machine when it must. <code>local_trait</code> gives such an API a re
 implements it, a plain struct implements it, and a call site written once against the trait works with either. The
 local case is a direct function call: no server, no serialization, no channel.</p>
 <p>The worked example is <code>examples/local_trait_api</code> (the API and its trait) with <code>examples/local_trait</code> (a local struct,
-a server generated from the trait, the client and one generic caller run against all of them).</p>
+a server, the client and one generic caller run against all of them).</p>
 <div class="admonition note">
 <p class="admonition-title">Prototype (CLT-57)</p>
 <p>Methods, property reads and writes and plain streams of the API's root level are in the trait. Nested trait
@@ -6775,8 +6775,8 @@ caller says about itself, so a local implementation can decide by it:</p>
 </span></code></pre></div>
 <p>The client's implementation of the trait sends the request with <code>cx</code>'s priority (when it isn't <code>NORMAL</code>) and uses
 its deadline as the call's timeout. The same is there for any client call: <code>client.add(3).with_call_context(&amp;cx)</code>.
-The trace and the deadline travel in the request's context (<a href="../host_server/#deadline-and-cancel">Deadline and
-cancel</a>); a <code>wire_weaver_server</code> fills in the peer from its transport.</p>
+The trace and the deadline don't travel on the wire yet, and the transports don't fill in the peer yet: until they
+do, a server sees <code>Peer::Unknown</code> for a remote caller.</p>
 <h2 id="the-client-implements-it-too">The client implements it too<a class="headerlink" href="#the-client-implements-it-too" title="Permanent link">&para;</a></h2>
 <p>The client's <code>ww_codegen!</code> names the trait with <code>impl_local_trait</code>:</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">wire_weaver</span><span class="p">::</span><span class="n">ww_codegen</span><span class="o">!</span><span class="p">(</span>
@@ -6821,94 +6821,20 @@ and <code>Arc&lt;dyn CounterDyn&gt;</code> implement <code>Counter</code>, so a 
 by: u32) -&gt; BoxFuture&lt;'a, Result&lt;u32, Error&gt;&gt;</code>.</p>
 <p>Bring only one of the two traits into scope where you call: with both, <code>counter.add(..)</code> is ambiguous.</p>
 <h2 id="serving-a-local-implementation">Serving a local implementation<a class="headerlink" href="#serving-a-local-implementation" title="Permanent link">&para;</a></h2>
-<p>One implementation of the trait can also be served to remote clients. <code>serve_trait</code> generates the server's handlers,
-each calling the trait on one shared service, so nothing is written twice:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="k">use</span><span class="w"> </span><span class="n">std</span><span class="p">::</span><span class="n">sync</span><span class="p">::</span><span class="n">Arc</span><span class="p">;</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="k">use</span><span class="w"> </span><span class="n">wire_weaver_server</span><span class="p">::{</span><span class="n">Backend</span><span class="p">,</span><span class="w"> </span><span class="n">Connection</span><span class="p">,</span><span class="w"> </span><span class="n">Pumps</span><span class="p">,</span><span class="w"> </span><span class="n">Serves</span><span class="p">};</span>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="sd">/// One connection&#39;s server: the shared counter and the connection&#39;s pumps.</span>
-</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">CounterServer</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">    </span><span class="n">service</span><span class="p">:</span><span class="w"> </span><span class="nc">Arc</span><span class="o">&lt;</span><span class="n">LocalCounter</span><span class="o">&gt;</span><span class="p">,</span>
-</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">    </span><span class="n">pumps</span><span class="p">:</span><span class="w"> </span><span class="nc">Pumps</span><span class="p">,</span>
-</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="p">}</span>
-</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>
-</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="k">impl</span><span class="w"> </span><span class="n">CounterServer</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">new</span><span class="p">(</span><span class="n">service</span><span class="p">:</span><span class="w"> </span><span class="nc">Arc</span><span class="o">&lt;</span><span class="n">LocalCounter</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">connection</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">Connection</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">Self</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-9-12"><a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a><span class="w">        </span><span class="n">CounterServer</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">service</span><span class="p">,</span><span class="w"> </span><span class="n">pumps</span><span class="p">:</span><span class="w"> </span><span class="nc">connection</span><span class="p">.</span><span class="n">pumps</span><span class="p">.</span><span class="n">clone</span><span class="p">()</span><span class="w"> </span><span class="p">}</span>
-</span><span id="__span-9-13"><a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a><span class="w">    </span><span class="p">}</span>
-</span><span id="__span-9-14"><a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a><span class="p">}</span>
-</span><span id="__span-9-15"><a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a>
-</span><span id="__span-9-16"><a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a><span class="k">impl</span><span class="w"> </span><span class="n">Serves</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">CounterServer</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-9-17"><a id="__codelineno-9-17" name="__codelineno-9-17" href="#__codelineno-9-17"></a><span class="w">    </span><span class="k">type</span><span class="w"> </span><span class="nc">Service</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">LocalCounter</span><span class="p">;</span>
-</span><span id="__span-9-18"><a id="__codelineno-9-18" name="__codelineno-9-18" href="#__codelineno-9-18"></a>
-</span><span id="__span-9-19"><a id="__codelineno-9-19" name="__codelineno-9-19" href="#__codelineno-9-19"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">service</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">LocalCounter</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-9-20"><a id="__codelineno-9-20" name="__codelineno-9-20" href="#__codelineno-9-20"></a><span class="w">        </span><span class="o">&amp;</span><span class="bp">self</span><span class="p">.</span><span class="n">service</span>
-</span><span id="__span-9-21"><a id="__codelineno-9-21" name="__codelineno-9-21" href="#__codelineno-9-21"></a><span class="w">    </span><span class="p">}</span>
-</span><span id="__span-9-22"><a id="__codelineno-9-22" name="__codelineno-9-22" href="#__codelineno-9-22"></a>
-</span><span id="__span-9-23"><a id="__codelineno-9-23" name="__codelineno-9-23" href="#__codelineno-9-23"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">pumps</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">Pumps</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-9-24"><a id="__codelineno-9-24" name="__codelineno-9-24" href="#__codelineno-9-24"></a><span class="w">        </span><span class="o">&amp;</span><span class="bp">self</span><span class="p">.</span><span class="n">pumps</span>
-</span><span id="__span-9-25"><a id="__codelineno-9-25" name="__codelineno-9-25" href="#__codelineno-9-25"></a><span class="w">    </span><span class="p">}</span>
-</span><span id="__span-9-26"><a id="__codelineno-9-26" name="__codelineno-9-26" href="#__codelineno-9-26"></a><span class="p">}</span>
-</span><span id="__span-9-27"><a id="__codelineno-9-27" name="__codelineno-9-27" href="#__codelineno-9-27"></a>
-</span><span id="__span-9-28"><a id="__codelineno-9-28" name="__codelineno-9-28" href="#__codelineno-9-28"></a><span class="k">impl</span><span class="w"> </span><span class="n">Backend</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">CounterServer</span><span class="w"> </span><span class="p">{}</span>
-</span><span id="__span-9-29"><a id="__codelineno-9-29" name="__codelineno-9-29" href="#__codelineno-9-29"></a>
-</span><span id="__span-9-30"><a id="__codelineno-9-30" name="__codelineno-9-30" href="#__codelineno-9-30"></a><span class="k">mod</span><span class="w"> </span><span class="nn">api_impl</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-9-31"><a id="__codelineno-9-31" name="__codelineno-9-31" href="#__codelineno-9-31"></a><span class="w">    </span><span class="n">wire_weaver</span><span class="p">::</span><span class="n">ww_codegen</span><span class="o">!</span><span class="p">(</span>
-</span><span id="__span-9-32"><a id="__codelineno-9-32" name="__codelineno-9-32" href="#__codelineno-9-32"></a><span class="w">        </span><span class="n">local_trait_api</span><span class="w"> </span><span class="p">::</span><span class="w"> </span><span class="nc">CounterApi</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="k">super</span><span class="p">::</span><span class="n">CounterServer</span><span class="p">,</span>
-</span><span id="__span-9-33"><a id="__codelineno-9-33" name="__codelineno-9-33" href="#__codelineno-9-33"></a><span class="w">        </span><span class="n">server</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-</span><span id="__span-9-34"><a id="__codelineno-9-34" name="__codelineno-9-34" href="#__codelineno-9-34"></a><span class="w">        </span><span class="n">serve_trait</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;local_trait_api::Counter&quot;</span><span class="p">,</span>
-</span><span id="__span-9-35"><a id="__codelineno-9-35" name="__codelineno-9-35" href="#__codelineno-9-35"></a><span class="w">    </span><span class="p">);</span>
-</span><span id="__span-9-36"><a id="__codelineno-9-36" name="__codelineno-9-36" href="#__codelineno-9-36"></a><span class="p">}</span>
+<p>The server side doesn't implement the trait (its handlers take the request's <code>Context</code> and answer with <code>RpcResult</code>,
+<code>GetResult</code>, <code>SetResult</code>), but its handlers can forward to a local implementation, so the logic is written once:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="k">impl</span><span class="w"> </span><span class="n">CounterServer</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">    </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">add</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">cx</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">Context</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="p">,</span><span class="w"> </span><span class="k">impl</span><span class="w"> </span><span class="n">EventOut</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">by</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">RpcResult</span><span class="o">&lt;</span><span class="kt">u32</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="nb">Ok</span><span class="p">(</span><span class="n">total</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">core</span><span class="p">.</span><span class="n">add</span><span class="p">(</span><span class="n">cx</span><span class="p">.</span><span class="n">call</span><span class="p">(),</span><span class="w"> </span><span class="n">by</span><span class="p">).</span><span class="k">await</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="n">Unimplemented</span><span class="p">.</span><span class="n">into</span><span class="p">()</span><span class="w"> </span><span class="p">};</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">api_impl</span><span class="p">::</span><span class="n">stream_data_ser</span><span class="p">().</span><span class="n">totals_send</span><span class="p">(</span><span class="o">&amp;</span><span class="n">total</span><span class="p">,</span><span class="w"> </span><span class="n">cx</span><span class="p">).</span><span class="k">await</span><span class="p">;</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">        </span><span class="n">Ready</span><span class="p">(</span><span class="n">total</span><span class="p">)</span>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="p">}</span>
 </span></code></pre></div>
-<p>It is served on <a href="../host_server/"><code>wire_weaver_server</code></a>, every connection with a server of its own around the same
-<code>Arc</code>: <code>Server::new(clock).serve(link, listener, |c: &amp;Connection| CounterServer::new(counter.clone(), c), shutdown)</code>.</p>
-<p>What the generated handlers do:</p>
-<table>
-<thead>
-<tr>
-<th>Item</th>
-<th>Handler</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>method</td>
-<td><code>&amp;self</code>, calls the trait's function with <code>cx.call()</code> and the decoded arguments</td>
-</tr>
-<tr>
-<td>property read</td>
-<td><code>get_x(&amp;self, ..)</code>, calls <code>read_x</code></td>
-</tr>
-<tr>
-<td>property write</td>
-<td><code>set_x(&amp;mut self, ..)</code>, calls <code>write_x</code></td>
-</tr>
-<tr>
-<td>stream</td>
-<td>the open calls the trait's function and adds the <code>ItemStream</code> as the connection's pump, the close removes it</td>
-</tr>
-</tbody>
-</table>
-<ul>
-<li><strong>Order.</strong> Calls and reads take <code>&amp;self</code>, so the requests of one connection run side by side, started in the order
-  they came; writes and stream opens run alone, after the requests before them finished (<a href="../host_server/#order-of-requests">Order of
-  requests</a>). A write followed by a read is never reordered.</li>
-<li><strong>Who asked.</strong> <code>cx.call()</code> is the request's <code>CallContext</code>: the peer the transport saw, the connection, the
-  caller's trace and what is left of its deadline. The implementation decides by it as it does in the same process.</li>
-<li><strong>Deadline and cancel.</strong> The server drops a call's future at the request's deadline or on the client's cancel, so
-  the implementation stops at the <code>.await</code> where it waits.</li>
-<li><strong>Errors.</strong> <code>Ok</code> is the answer, <code>CallError::Api(e)</code> the API's error. Every other error is answered with its kind:
-  <code>Denied</code>, <code>DeadlineExceeded</code>, <code>Cancelled</code>, <code>Overloaded</code>, <code>Unimplemented</code>, or the common error the implementation
-  returned; <code>Unavailable</code>, <code>MessageTooBig</code> and <code>Internal</code> are <code>Internal</code>. A client of an older <code>ww_client_server</code>
-  sees the kinds it does not know as an unknown error.</li>
-<li><strong>Streams.</strong> Every connection gets its own <code>ItemStream</code>; sharing items between clients is the implementation's
-  business, a <code>broadcast</code> channel for example. The pump ends at the stream's end or its first error.</li>
-</ul>
-<p><code>serve_trait</code> sets the handlers' shape itself: <code>use_async = true</code>, owned arguments (<code>no_alloc = false</code>), calls and
-reads shared (<code>receiver_model = "_=shared"</code>), immediate methods and getters and setters; leave out those arguments.
-Items the trait leaves out (see the note above) are handlers written by hand beside the generated ones, in another
-<code>impl CounterServer</code> block, with the signatures <code>ww api scaffold --alloc --use-async --receiver-model "_=shared"</code>
-prints. Firmware keeps its hand-written handlers: the trait's owned types and boxed futures don't fit it.</p>
+<p><code>cx.call()</code> hands the request's <code>CallContext</code> to the local implementation, so it sees the remote caller as the
+server did. This needs an <code>async</code> server with <code>no_alloc = false</code> (the trait's types are the owned ones) and <code>std</code>. Streams
+don't forward by themselves: the server sends the stream's items from its handlers, the local implementation to its
+local listeners.</p>
 <h2 id="the-trait-without-the-api-crate">The trait without the API crate<a class="headerlink" href="#the-trait-without-the-api-crate" title="Permanent link">&para;</a></h2>
 <p><code>ww_codegen!(api_crate :: Api, local_trait = "Name")</code> also works in any crate that depends on the API crate, as the
 <code>methods</code> test does. Only a trait made in the API crate can be implemented both by the client and by local types

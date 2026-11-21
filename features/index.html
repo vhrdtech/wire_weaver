@@ -7201,6 +7201,11 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
   (<code>OwnedFramedTx</code> / <code>OwnedFramedRx</code>, ww_framer's <code>FrameWriter</code> / <code>FrameReader</code> over borrowed and owned framers);
   firmware builds the same code. The peer is <code>Peer::Addr</code>; policy on top is SRV-46
   (<a href="../docs/api/host_server/#hosts-on-udp">Host server</a>, <code>tests/host_server/src/tests/udp.rs</code>).</li>
+<li>✅ <strong>SRV-70 wire_weaver_server on a calloop loop</strong> — <code>ww_calloop</code>: <code>LoopClock</code> (<code>ww_device::Clock</code> on the
+  loop's timers), <code>TcpIncoming</code> (a byte-stream source of TCP clients the loop accepts, for <code>WsFraming</code> or
+  <code>PreambleFraming</code>) and <code>bind_udp</code> (<code>UdpListener</code> on <code>StdUdpSocket</code> with the loop's readiness), so a program on
+  calloop serves through <code>wire_weaver_server</code> with its limits, shutdown and peers, backends not <code>Send</code>
+  (<a href="../docs/api/host_server/#on-a-calloop-loop">Host server</a>, <code>tests/calloop_server</code>).</li>
 <li>📋 <strong>SRV-9 Handle USB suspend/resume</strong> · <code>v0.5</code> — run until suspend, wait for resume, loop
   (<code>mcu/wire_weaver_usb_embassy</code>). Later (<code>v0.5.x</code>): detect the host going to sleep and keep the connection,
   informing the device.</li>

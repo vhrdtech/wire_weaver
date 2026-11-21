@@ -7734,14 +7734,8 @@ host it: <code>ww_hub::main_if_hub()</code> first in <code>main</code> makes the
   <code>Hub::keep(seconds)</code> holds it up for a bench, <code>Hub::shutdown()</code> ends it.</li>
 </ul>
 <h3 id="its-api">Its API<a class="headerlink" href="#its-api" title="Permanent link">&para;</a></h3>
-<p>The hub serves <code>ww_hub_api</code> like any device serves its API, so introspection and the dynamic client work on it. The
-server is a <a href="../../api/host_server/">host server</a> (SRV-67): the hub answers each preamble itself and hands the
-connections that ask for its API to <code>wire_weaver_server</code> (<a href="../../api/host_server/#connections-the-program-opened">connections the program opened</a>),
-which gives each its own backend, sends the streams (<code>events</code>, sync stats, capture watches) as they come, also while a
-call runs, and drops a request whose client gave up. A request that changes the hub (a claim, a lend, an adoption,
-<code>take</code>, a capture's start) runs to its end even then, so nothing is left half done. When the hub exits, its API's
-clients are told why: <code>Shutdown</code>, or <code>HubHandover</code> after a <a href="#handover-to-a-newer-hub">handover</a>.
-<code>ww_hub::client::HubClient</code> is the typed client:</p>
+<p>The hub serves <code>ww_hub_api</code> like any device serves its API (a generated <code>no_alloc = false</code> server per connection),
+so introspection and the dynamic client work on it. <code>ww_hub::client::HubClient</code> is the typed client:</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kd">let</span><span class="w"> </span><span class="n">hub</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">HubClient</span><span class="p">::</span><span class="n">connect</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span><span class="w"> </span><span class="c1">// ClientConfig::hub_api(): the user&#39;s hub socket</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kd">let</span><span class="w"> </span><span class="n">info</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">hub</span><span class="p">.</span><span class="n">info</span><span class="p">().</span><span class="n">call</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span><span class="w"> </span><span class="c1">// version, pid, exe, start time, socket</span>
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="kd">let</span><span class="w"> </span><span class="n">devices</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">hub</span><span class="p">.</span><span class="n">registry</span><span class="p">().</span><span class="n">devices</span><span class="p">().</span><span class="n">call</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>

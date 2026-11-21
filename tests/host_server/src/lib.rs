@@ -16,6 +16,7 @@ mod tests {
     use wire_weaver_client::in_process::TokioClock;
     use wire_weaver_client::{Commander, WwClient};
     use wire_weaver_server::in_process::InProcessListener;
+    use wire_weaver_server::local_socket::LocalSocketListener;
     use wire_weaver_server::{Connection, Fanout, Limits, PumpId, Pumps, Server, Subscription};
     use ww_device::Instant;
     use ww_stream::observe::ObserveLimits;
@@ -327,39 +328,18 @@ mod tests {
         );
     }
 
-    /// A server on the test's runtime, its shutdown in the test's hand.
-    struct Bench {
-        path: String,
-        shared: Arc<Shared>,
-        shutdown: Option<oneshot::Sender<()>>,
-        served: JoinHandle<()>,
+    /// How clients reach a [Bench].
+    #[derive(Clone)]
+    enum Reach {
+        InProcess(String),
+        LocalSocket(String),
     }
 
-    impl Bench {
-        fn start(path: &str, limits: Limits) -> Self {
-            Self::start_on(InProcessListener::new(path, MESSAGE_LEN_MAX), path, limits)
-        }
-
-        fn start_on(listener: InProcessListener, path: &str, limits: Limits) -> Self {
-            Self::start_with(listener, path, limits, false)
-        }
-
-        /// The connections as tasks of their own.
-        fn start_as_tasks(path: &str, limits: Limits) -> Self {
-            Self::start_with(
-                InProcessListener::new(path, MESSAGE_LEN_MAX),
-                path,
-                limits,
-                true,
-            )
-        }
-
-        fn start_with(
-            listener: InProcessListener,
-            path: &str,
-            limits: Limits,
-            as_tasks: bool,
-        ) -> Self {
+    /// Start a [Bench] on `$listener`. A macro, not a function generic over the listener: the futures of a
+    /// generic listener's halves can't be shown to be `Send`, a concrete one's can.
+    macro_rules! start_bench {
+        ($listener:expr, $reach:expr, $limits:expr, $as_tasks:expr $(,)?) => {{
+            let (listener, reach, limits, as_tasks) = ($listener, $reach, $limits, $as_tasks);
             tests_common::api!(api_impl).seed();
             let shared = Arc::new(Shared::default());
             let (shutdown, asked) = oneshot::channel();
@@ -403,21 +383,62 @@ mod tests {
                 }
             });
             Bench {
-                path: path.to_string(),
+                reach,
                 shared,
                 shutdown: Some(shutdown),
                 served,
             }
+        }};
+    }
+
+    /// A server on the test's runtime, its shutdown in the test's hand.
+    struct Bench {
+        reach: Reach,
+        shared: Arc<Shared>,
+        shutdown: Option<oneshot::Sender<()>>,
+        served: JoinHandle<()>,
+    }
+
+    impl Bench {
+        fn start(path: &str, limits: Limits) -> Self {
+            Self::start_on(InProcessListener::new(path, MESSAGE_LEN_MAX), path, limits)
+        }
+
+        fn start_on(listener: InProcessListener, path: &str, limits: Limits) -> Self {
+            start_bench!(listener, Reach::InProcess(path.to_owned()), limits, false)
+        }
+
+        /// The connections as tasks of their own.
+        fn start_as_tasks(path: &str, limits: Limits) -> Self {
+            start_bench!(
+                InProcessListener::new(path, MESSAGE_LEN_MAX),
+                Reach::InProcess(path.to_owned()),
+                limits,
+                true,
+            )
+        }
+
+        /// On the local socket `socket`, which the server listens on.
+        fn start_local(socket: ww_local_socket::Listener, path: &std::path::Path) -> Self {
+            start_bench!(
+                LocalSocketListener::new(socket, "host server 0.1.0", MESSAGE_LEN_MAX),
+                Reach::LocalSocket(path.to_str().unwrap().to_owned()),
+                small(),
+                false,
+            )
         }
 
         fn connect(&self) -> impl Future<Output = Client> + Send + use<> {
-            let path = self.path.clone();
+            let reach = self.reach.clone();
             async move {
                 // a client past the connection limit waits in the listener for as long as a test lets it, not the
                 // in-process transport's 250 ms
                 Client::config(move |c| {
-                    c.in_process_path(path.clone())
-                        .resolver(tests_common::resolver())
+                    let c = match &reach {
+                        Reach::InProcess(path) => c.in_process_path(path.clone()),
+                        Reach::LocalSocket(path) => c.ipc_path(path.clone()),
+                    };
+                    c.resolver(tests_common::resolver())
                         .link_setup_timeout(SOON)
                 })
                 .connect()
@@ -814,6 +835,54 @@ mod tests {
         assert_eq!(connections[0].peer, peer);
         assert!(!connections[0].client.program.is_empty());
         assert_eq!(connections[0].message_len_max, MESSAGE_LEN_MAX);
+    }
+
+    /// A socket in a directory of the test's own.
+    #[cfg(unix)]
+    fn socket_path(name: &str) -> std::path::PathBuf {
+        let dir =
+            std::env::temp_dir().join(format!("ww-host-server-{name}-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir.join("api.sock")
+    }
+
+    #[cfg(unix)]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn clients_on_a_local_socket_are_served_with_their_process() {
+        let path = socket_path("local");
+        let bench = Bench::start_local(ww_local_socket::listen(&path, true).unwrap(), &path);
+        let first = bench.connect().await;
+        let second = bench.connect().await;
+        assert_eq!(first.whoami().call().await.unwrap(), 0);
+        assert_eq!(second.whoami().call().await.unwrap(), 1);
+        let uid = std::os::unix::fs::MetadataExt::uid(&std::fs::metadata(&path).unwrap());
+        assert_eq!(first.call_uid().call().await.unwrap(), uid);
+        let connections = bench.shared.connections.lock().unwrap().clone();
+        let Peer::Unix { pid, .. } = connections[0].peer else {
+            panic!(
+                "a local socket's peer is a Unix process: {:?}",
+                connections[0].peer
+            );
+        };
+        assert_eq!(pid, Some(Pid(std::process::id())));
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn a_local_client_that_sends_no_preamble_holds_up_nobody() {
+        let path = socket_path("silent");
+        let bench = Bench::start_local(ww_local_socket::listen(&path, true).unwrap(), &path);
+        // connected, and silent: its preamble is read beside the others
+        let silent: Vec<_> = futures_util::future::join_all(
+            (0..wire_weaver_server::local_socket::HANDSHAKES_MAX - 1)
+                .map(|_| ww_local_socket::connect(&path)),
+        )
+        .await;
+        let client = soon("a client next to the silent ones", bench.connect()).await;
+        assert_eq!(client.echo(7).call().await.unwrap(), 7);
+        drop(silent);
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

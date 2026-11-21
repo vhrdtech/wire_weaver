@@ -4,6 +4,7 @@
 
 ### 🚀 Features
 
+- `local_socket::LocalSocketListener` (SRV-12, feature `local_socket`): clients on a local socket, also one systemd passed, with their process as the peer.
 - `Backend` requires `WireWeaverSharedApiBackend` (SRV-12): every request goes through an entry that takes the origin.
 - Shared calls and reads (SRV-65 `receiver_model`) of a connection run side by side, up to `Limits::calls_max`; the rest runs alone behind them (SRV-12).
 - `Connection::origin()` (SRV-12): handlers read the peer and the connection id from `cx.call()`.

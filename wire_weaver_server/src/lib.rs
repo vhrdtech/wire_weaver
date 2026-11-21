@@ -26,6 +26,8 @@ mod fanout;
 pub mod in_process;
 mod lifecycle;
 mod listener;
+#[cfg(feature = "local_socket")]
+pub mod local_socket;
 mod outbox;
 mod pump;
 mod server;

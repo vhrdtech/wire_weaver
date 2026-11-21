@@ -1673,6 +1673,7 @@ dependencies = [
  "wire_weaver_server",
  "ww_client_server",
  "ww_device",
+ "ww_local_socket",
  "ww_stream",
 ]
 
@@ -4802,10 +4803,13 @@ name = "wire_weaver_server"
 version = "0.5.0"
 dependencies = [
  "futures-util",
+ "libc",
+ "tokio",
  "wire_weaver",
  "wire_weaver_client",
  "ww_client_server",
  "ww_device",
+ "ww_local_socket",
 ]
 
 [[package]]

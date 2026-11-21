@@ -11,14 +11,28 @@ license.workspace = true
 [features]
 default = []
 # The in-process listener: clients of the same process connect by path (tests, simulators)
-in_process = ["dep:wire_weaver_client"]
+in_process = ["dep:wire_weaver_client", "wire_weaver_client/in_process"]
+# The local-socket listener (Unix socket, named pipe on Windows), also on a socket systemd passed; runs on tokio
+local_socket = [
+    "dep:libc",
+    "dep:tokio",
+    "dep:wire_weaver_client",
+    "dep:ww_local_socket",
+    "wire_weaver_client/local_socket",
+    "ww_local_socket/socket",
+]
+
+[target.'cfg(unix)'.dependencies]
+libc = { workspace = true, optional = true }
 
 [dependencies]
 futures-util = { workspace = true, features = ["alloc", "std"] }
+tokio = { workspace = true, features = ["time"], optional = true }
 wire_weaver = { workspace = true, features = ["std"] }
-wire_weaver_client = { workspace = true, features = ["in_process"], optional = true }
+wire_weaver_client = { workspace = true, optional = true }
 ww_client_server = { workspace = true, features = ["std"] }
 ww_device.workspace = true
+ww_local_socket = { workspace = true, optional = true }
 
 [lints]
 workspace = true

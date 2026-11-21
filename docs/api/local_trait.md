@@ -14,7 +14,7 @@ implements it, a plain struct implements it, and a call site written once agains
 local case is a direct function call: no server, no serialization, no channel.
 
 The worked example is `examples/local_trait_api` (the API and its trait) with `examples/local_trait` (a local struct,
-a server, the client and one generic caller run against all of them).
+a server generated from the trait, the client and one generic caller run against all of them).
 
 !!! note "Prototype (CLT-57)"
     Methods, property reads and writes and plain streams of the API's root level are in the trait. Nested trait
@@ -182,8 +182,8 @@ async fn write_step(&self, cx: &CallContext, step: u32) -> Result<(), Error> {
 
 The client's implementation of the trait sends the request with `cx`'s priority (when it isn't `NORMAL`) and uses
 its deadline as the call's timeout. The same is there for any client call: `client.add(3).with_call_context(&cx)`.
-The trace and the deadline don't travel on the wire yet, and the transports don't fill in the peer yet: until they
-do, a server sees `Peer::Unknown` for a remote caller.
+The trace and the deadline travel in the request's context ([Deadline and
+cancel](host_server.md#deadline-and-cancel)); a `wire_weaver_server` fills in the peer from its transport.
 
 ## The client implements it too
 
@@ -245,23 +245,79 @@ Bring only one of the two traits into scope where you call: with both, `counter.
 
 ## Serving a local implementation
 
-The server side doesn't implement the trait (its handlers take the request's `Context` and answer with `RpcResult`,
-`GetResult`, `SetResult`), but its handlers can forward to a local implementation, so the logic is written once:
+One implementation of the trait can also be served to remote clients. `serve_trait` generates the server's handlers,
+each calling the trait on one shared service, so nothing is written twice:
 
 ```rust
+use std::sync::Arc;
+use wire_weaver_server::{Backend, Connection, Pumps, Serves};
+
+/// One connection's server: the shared counter and the connection's pumps.
+pub struct CounterServer {
+    service: Arc<LocalCounter>,
+    pumps: Pumps,
+}
+
 impl CounterServer {
-    async fn add(&mut self, cx: &mut Context<'_, impl EventOut>, by: u32) -> RpcResult<u32> {
-        let Ok(total) = self.core.add(cx.call(), by).await else { return Unimplemented.into() };
-        let _ = api_impl::stream_data_ser().totals_send(&total, cx).await;
-        Ready(total)
+    pub fn new(service: Arc<LocalCounter>, connection: &Connection) -> Self {
+        CounterServer { service, pumps: connection.pumps.clone() }
     }
+}
+
+impl Serves for CounterServer {
+    type Service = LocalCounter;
+
+    fn service(&self) -> &LocalCounter {
+        &self.service
+    }
+
+    fn pumps(&self) -> &Pumps {
+        &self.pumps
+    }
+}
+
+impl Backend for CounterServer {}
+
+mod api_impl {
+    wire_weaver::ww_codegen!(
+        local_trait_api :: CounterApi for super::CounterServer,
+        server = true,
+        serve_trait = "local_trait_api::Counter",
+    );
 }
 ```
 
-`cx.call()` hands the request's `CallContext` to the local implementation, so it sees the remote caller as the
-server did. This needs an `async` server with `no_alloc = false` (the trait's types are the owned ones) and `std`. Streams
-don't forward by themselves: the server sends the stream's items from its handlers, the local implementation to its
-local listeners.
+It is served on [`wire_weaver_server`](host_server.md), every connection with a server of its own around the same
+`Arc`: `Server::new(clock).serve(link, listener, |c: &Connection| CounterServer::new(counter.clone(), c), shutdown)`.
+
+What the generated handlers do:
+
+| Item | Handler |
+|------|---------|
+| method | `&self`, calls the trait's function with `cx.call()` and the decoded arguments |
+| property read | `get_x(&self, ..)`, calls `read_x` |
+| property write | `set_x(&mut self, ..)`, calls `write_x` |
+| stream | the open calls the trait's function and adds the `ItemStream` as the connection's pump, the close removes it |
+
+- **Order.** Calls and reads take `&self`, so the requests of one connection run side by side, started in the order
+  they came; writes and stream opens run alone, after the requests before them finished ([Order of
+  requests](host_server.md#order-of-requests)). A write followed by a read is never reordered.
+- **Who asked.** `cx.call()` is the request's `CallContext`: the peer the transport saw, the connection, the
+  caller's trace and what is left of its deadline. The implementation decides by it as it does in the same process.
+- **Deadline and cancel.** The server drops a call's future at the request's deadline or on the client's cancel, so
+  the implementation stops at the `.await` where it waits.
+- **Errors.** `Ok` is the answer, `CallError::Api(e)` the API's error. Every other error is answered with its kind:
+  `Denied`, `DeadlineExceeded`, `Cancelled`, `Overloaded`, `Unimplemented`, or the common error the implementation
+  returned; `Unavailable`, `MessageTooBig` and `Internal` are `Internal`. A client of an older `ww_client_server`
+  sees the kinds it does not know as an unknown error.
+- **Streams.** Every connection gets its own `ItemStream`; sharing items between clients is the implementation's
+  business, a `broadcast` channel for example. The pump ends at the stream's end or its first error.
+
+`serve_trait` sets the handlers' shape itself: `use_async = true`, owned arguments (`no_alloc = false`), calls and
+reads shared (`receiver_model = "_=shared"`), immediate methods and getters and setters; leave out those arguments.
+Items the trait leaves out (see the note above) are handlers written by hand beside the generated ones, in another
+`impl CounterServer` block, with the signatures `ww api scaffold --alloc --use-async --receiver-model "_=shared"`
+prints. Firmware keeps its hand-written handlers: the trait's owned types and boxed futures don't fit it.
 
 ## The trait without the API crate
 

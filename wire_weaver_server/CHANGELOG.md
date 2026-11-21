@@ -9,6 +9,7 @@
 
 ### 🚀 Features
 
+- `Serves`: the service and pumps a `serve_trait` server forwards to (SRV-49).
 - `byte_stream::is_transient` and `ACCEPT_RETRY_DELAY` are public, for sources on other event loops; `UdpListener::local_addr` works with any `StdUdpSocket` readiness (SRV-70).
 - `Server::authorize` asks an `Authorize` hook before every handler, with the caller and the `Resource`; denied requests get `Denied` (SRV-46).
 

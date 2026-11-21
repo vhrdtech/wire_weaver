@@ -184,6 +184,7 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 - **[On a calloop loop](api/host_server.md#on-a-calloop-loop)**: A host server runs on a calloop event loop, WebSocket and UDP clients on one port.
 - **[Sync handlers in an async server](api/handlers.md)**: Handlers that never wait are plain `fn`s, only the ones that await are `async`: less flash.
 - **[Shared handlers](api/handlers.md#shared-and-exclusive-handlers)**: Calls and reads of the items you mark shared take `&self`, so a host server can run them side by side; the rest stays `&mut self`.
+- **[A server from the local trait](api/local_trait.md#serving-a-local-implementation)**: `serve_trait` generates every handler of a host server from one implementation of the API's local trait: the same code serves calls in the same process and remote clients.
 - **[Observed properties](api/observing.md#the-device-side)**: The device sends property changes within the budget each host asked for.
 - **[Event-driven observe](api/observing.md#the-server-loop)**: The device sleeps until an observed property is due, and wakes at once when one changes.
 - **[ECC-safe STM32 flash](api/ecc_flash.md)**: Reads a flash word broken by a power cut as zeros (stores) or as an ECC error (bootloaders) instead of crashing. <span class="ww-status">hardware check open</span>

@@ -42,6 +42,7 @@ pub mod local_socket;
 mod outbox;
 mod pump;
 mod server;
+mod serves;
 mod sync;
 #[cfg(feature = "udp")]
 pub mod udp;
@@ -53,4 +54,5 @@ pub use fanout::{Fanout, Lagged, Subscription};
 pub use listener::{Accept, Accepted, Listener};
 pub use pump::{PumpId, Pumps};
 pub use server::{Accepting, Limits, MakeBackend, Server};
+pub use serves::Serves;
 pub use ww_client_server::target::{Access, Place, TraitRef};

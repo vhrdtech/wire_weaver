@@ -276,6 +276,7 @@ properties_api = { version = "0.1.0", path = "./tests/properties_api" }
 quantities_api = { version = "0.1.0", path = "./tests/quantities_api" }
 recursive_api = { version = "0.1.0", path = "./tests/recursive_api" }
 series_api = { version = "0.1.0", path = "./tests/series_api" }
+serve_trait_api = { version = "0.1.0", path = "./tests/serve_trait_api" }
 settings_api = { version = "0.1.0", path = "./examples/settings_api" }
 shared_handlers_api = { version = "0.1.0", path = "./tests/shared_handlers_api" }
 shared_sub_level_api = { version = "0.1.0", path = "./tests/shared_sub_level_api" }

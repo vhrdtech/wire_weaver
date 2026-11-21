@@ -29,6 +29,11 @@ mod ww_trait;
 ///   generated client and plain local types implement (CLT-57, `docs/api/local_trait.md`). Usually called in the
 ///   API crate itself as `ww_codegen!(crate :: Api, local_trait = "Name")`: `crate ::` and no `for <struct>`.
 /// * impl_local_trait = "api_crate::Name" - with `client = "std_client"`, implement that trait on the client.
+/// * serve_trait = "api_crate::Name" - with `server = true`, generate the handler of every item that local trait
+///   expresses, each forwarding to the service of `wire_weaver_server::Serves`, and the server's
+///   `WireWeaverAsyncApiBackend` / `WireWeaverSharedApiBackend` (SRV-49, `docs/api/local_trait.md`). Sets the
+///   handlers' shape: `use_async`, owned arguments, calls and reads shared; leave out `no_alloc`, `handler_model`,
+///   `receiver_model`, `method_model` and `property_model`. Items the trait leaves out are handlers written by hand.
 /// * no_alloc = true/false - whether to use std types or RefVec for strings, vectors. Lifetime will be added automatically if no_alloc = true.
 /// * use_async - whether to generate async-aware code.
 /// * handler_model = "device.settings.*|meter.reading=async, _=sync" - which user handlers are `async fn` and which

@@ -2239,7 +2239,9 @@ dependencies = [
  "tokio",
  "wire_weaver",
  "wire_weaver_client",
+ "wire_weaver_server",
  "ww_client_server",
+ "ww_device",
 ]
 
 [[package]]
@@ -3336,6 +3338,29 @@ version = "0.1.0"
 dependencies = [
  "ww_api",
  "ww_si",
+]
+
+[[package]]
+name = "serve_trait"
+version = "0.1.0"
+dependencies = [
+ "futures-lite",
+ "serve_trait_api",
+ "tests_common",
+ "tokio",
+ "wire_weaver",
+ "wire_weaver_client",
+ "wire_weaver_server",
+ "ww_client_server",
+ "ww_device",
+]
+
+[[package]]
+name = "serve_trait_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_api",
 ]
 
 [[package]]

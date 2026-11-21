@@ -10,6 +10,7 @@
 
 ### ⚠️ Breaking
 
+- `RpcResult`, `GetResult` and `SetResult` have a `Failed(Failure)` variant (SRV-49); an exhaustive match on them needs one more arm.
 - `WireWeaverSharedApiBackend::process_exclusive_bytes(&mut self, origin, ..)` (SRV-12): the exclusive entry with the connection's origin, required; implementors forward it to the generated `process_request_from`.
 - Declares `rust-version = "1.99"`: cargo of an older Rust refuses the crate.
 - `ww_si`, `ww_numeric`, `ww_version`, `ww_global`, `ww_error`, `ww_date_time`, `ww_keyed` and `ww_crc` come by git from vhrdtech/ww_base; a project that takes them by path or from this repository takes them from there.
@@ -33,6 +34,7 @@
 
 ### 🚀 Features
 
+- `Failure` and `wire_weaver::forward` turn a local-trait call into a handler's answer: `Denied`, `Internal` and the other kinds reach the client (SRV-49).
 - `TraceContext`, `TraceId`, `SpanId` and `TraceFlags` derive shrink_wrap (SRV-47), `sized`: a trace context is its 25 bytes on the wire, for `ww_client_server::RequestContext`.
 - `WireWeaverSharedApiBackend` (SRV-65): `is_shared(data)` and `process_shared_bytes(&self, origin, ..)` for a host runtime that runs shared requests side by side.
 - `DisconnectReason::Shutdown` (SRV-12), appended: a server that shuts down says so; an older reader gets `Newer(7)`.

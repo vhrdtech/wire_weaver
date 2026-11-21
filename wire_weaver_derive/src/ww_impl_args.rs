@@ -36,6 +36,11 @@ pub(crate) struct ImplExtArgs {
     #[darling(default)]
     pub(crate) impl_local_trait: String,
 
+    /// Path of the trait made by `local_trait`: with `server = true`, generate the handlers of its items, each
+    /// forwarding to the service `wire_weaver_server::Serves` gives (SRV-49).
+    #[darling(default)]
+    pub(crate) serve_trait: String,
+
     #[darling(default)]
     pub(crate) no_alloc: bool,
     #[darling(default)]

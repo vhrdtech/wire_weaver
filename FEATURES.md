@@ -656,6 +656,23 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   `PreambleFraming`) and `bind_udp` (`UdpListener` on `StdUdpSocket` with the loop's readiness), so a program on
   calloop serves through `wire_weaver_server` with its limits, shutdown and peers, backends not `Send`
   ([Host server](docs/api/host_server.md#on-a-calloop-loop), `tests/calloop_server`).
+- ✅ **SRV-49 Server forwarding to the local trait** · `v0.5` — `ww_codegen!(.., server = true, serve_trait =
+  "api::Name")` generates the handler of every item the local trait (CLT-57) expresses, each calling it on the
+  service of `wire_weaver_server::Serves`, the same implementation in-process callers use, and the backend's
+  `WireWeaverAsyncApiBackend` / `WireWeaverSharedApiBackend`. Calls and reads take `&self` and run side by side,
+  writes and stream opens alone (D4's order); the request's `CallContext` reaches the implementation; deadline and
+  cancel drop its future; `CallError::Api` is the API's error and the other kinds reach the client through
+  `RpcResult::Failed` / `GetResult::Failed` / `SetResult::Failed` (`wire_weaver::Failure`, `wire_weaver::forward`;
+  firmware links none of it, `just flash-budget` unchanged); a stream open adds the trait's `ItemStream` as a pump.
+  Items the trait leaves out are handlers written by hand beside them. `examples/local_trait`, `tests/serve_trait`,
+  [docs](docs/api/local_trait.md#serving-a-local-implementation). Next: the non-`Send` trait form (SRV-73),
+  nested levels and the rest of CLT-58 (each grows the trait, the server follows); SRV-46's authorization hook runs
+  in the server before any handler, these included.
+- 📋 **SRV-73 Non-Send local trait** — `ww_codegen!(crate :: Api, local_trait = "Name", local_trait_send = false)`:
+  the trait and its `Dyn` companion without `Send` (a `LocalBoxFuture`, `Rc<dyn NameDyn>`, a `LocalItemStream`), for
+  single-threaded hosts whose state is `Rc`/`RefCell`, served by `serve_trait` too. Needs `wire_weaver_server`
+  pumps of streams that are not `Send` without making every connection `!Send`: a pump set for a single-threaded
+  `serve`, or `Pumps` generic over its kind.
 - 📋 **SRV-9 Handle USB suspend/resume** · `v0.5` — run until suspend, wait for resume, loop
   (`mcu/wire_weaver_usb_embassy`). Later (`v0.5.x`): detect the host going to sleep and keep the connection,
   informing the device.
@@ -695,10 +712,6 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   never announces contexts. Missing: the trace taken from the current `tracing` span (needs OpenTelemetry ids), a
   span per request in the server (RED metrics), the trace on a stream open, the tap and `ww monitor` showing
   contexts.
-- 📋 **SRV-49 Server forwarding to the local trait** — `ww_codegen!(.., server = true, serve_trait = "..")`
-  generates a std server that forwards every request to one shared implementation of the API's local trait
-  (CLT-57), the same one in-process callers use: requests of a connection run concurrently, started in order with
-  writes as barriers; deadline and cancel drop the call; streams are pumped from the implementation's `ItemStream`.
 - 📋 **SRV-13 ww hub: one device, many programs** · `v0.5.x` — a per-user hub that starts itself on first use and
   exits when idle (sccache / ssh ControlMaster style, no system service, Linux, macOS and Windows), holds the
   devices (USB, RTT, later UDP) and serves every client over a user-only local socket (TR-16); it is itself a
@@ -1089,11 +1102,9 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
     - Observing (`+observe` properties), sinks, counted, reliable and batched streams: today only the client has
       them. Observing could be an `ItemStream` of updates; sinks a `futures` `Sink`; counted and reliable streams
       need cursors in the trait (`resume(cursor)`), which a local implementation would have to keep.
-    - Server side: handlers stay inherent methods with `Context` and `RpcResult`, which don't fit the trait (deferred
-      replies, `Unimplemented`, stream sends, `&mut self`, no_std/no_alloc borrowed types). Async alloc servers can
-      forward each handler to a local implementation (the example does); a generated forwarding server
-      (`server = true, forward_to = "field"`) would remove that boilerplate for std servers. no_std/no_alloc
-      servers keep their handlers: the trait's owned types and boxed futures don't fit firmware.
+    - Server side: done by SRV-49, `serve_trait` generates the handlers of a std server forwarding to one
+      implementation. no_std/no_alloc servers keep their handlers: the trait's owned types and boxed futures don't
+      fit firmware.
     - Naming: the `#[ww_trait]` name is taken by the doc-only trait rustdoc shows; with `std` the doc trait could
       become this trait, so `impl CounterApi for LocalCounter` reads as the API itself.
 

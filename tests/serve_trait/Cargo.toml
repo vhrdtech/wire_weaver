@@ -1,0 +1,29 @@
+[package]
+name = "serve_trait"
+version = "0.1.0"
+description = "Tests of a server generated with serve_trait (SRV-49): requests forwarded to the local trait"
+publish = false
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+futures-lite.workspace = true
+serve_trait_api = { workspace = true, features = ["local"] }
+tokio = { workspace = true, features = ["sync"] }
+wire_weaver = { workspace = true, features = ["std"] }
+wire_weaver_client.workspace = true
+wire_weaver_server.workspace = true
+ww_client_server.workspace = true
+ww_device.workspace = true
+
+[dev-dependencies]
+tests_common.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+wire_weaver_client = { workspace = true, features = ["in_process"] }
+wire_weaver_server = { workspace = true, features = ["in_process"] }
+
+[lints]
+workspace = true

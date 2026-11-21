@@ -24,6 +24,7 @@
 
 ### 🚀 Features
 
+- `ww_codegen!(.., server = true, serve_trait = "api::Name")` generates every handler of the local trait's items, forwarding to one shared service (SRV-49).
 - `ww_codegen!(.., receiver_model = "..")` (SRV-65): which items are shared, their handlers taking `&self`.
 - The doc trait of `#[ww_trait]` shows `keyed!(flow by FlowKey)` as `fn flow_keys() -> Keys<ww_keyed::KeyEvent<I, FlowKey>>` (API-67); the API crate's `ww_keyed` dependency is no longer reported unused.
 - `ww_codegen!(.., observe_elements = K)` (API-63): how many elements of each trait level under resource arrays hosts observe at the same time, 4 when left out.

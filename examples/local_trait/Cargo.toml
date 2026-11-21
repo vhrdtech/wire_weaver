@@ -15,11 +15,15 @@ local_trait_api.workspace = true
 tokio = { workspace = true, features = ["sync", "rt", "macros"] }
 wire_weaver = { workspace = true, features = ["std"] }
 wire_weaver_client.workspace = true
+wire_weaver_server.workspace = true
 ww_client_server.workspace = true
+ww_device.workspace = true
 
 [dev-dependencies]
 tests_common.workspace = true
-tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "test-util"] }
+wire_weaver_client = { workspace = true, features = ["in_process"] }
+wire_weaver_server = { workspace = true, features = ["in_process"] }
 
 [lints]
 workspace = true

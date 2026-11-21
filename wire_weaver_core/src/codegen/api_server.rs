@@ -2478,6 +2478,7 @@ fn handle_method(
                     RpcResult::Unimplemented => {
                         ww_err(wr, d, #es, ErrorKindDiscriminants::Unimplemented)
                     }
+                    RpcResult::Failed(f) => ww_client_server::dispatch::failed(wr, d, #es, &f),
                 }
             }
             _ => {
@@ -2630,6 +2631,7 @@ fn handle_property(
                                 SetResult::Unimplemented => {
                                     ww_err(wr, d, #es_handler, ErrorKindDiscriminants::Unimplemented)
                                 }
+                                SetResult::Failed(f) => ww_client_server::dispatch::failed(wr, d, #es_handler, &f),
                             }
                         }
                     }
@@ -2720,6 +2722,7 @@ fn handle_property(
                                     __ww_try!(wr, d, wr.write(&Error::unimplemented(#es)), #es, ResponseSerFailed);
                                     WrAction::WrittenErr
                                 }
+                                GetResult::Failed(f) => ww_client_server::dispatch::failed(wr, d, #es, &f),
                             }
                         }
                     }
@@ -3124,6 +3127,7 @@ fn handle_stream_fn(
                     // a stream function answers right away: the session starts with its result
                     RpcResult::Deferred => ww_err(wr, d, #es_open, ErrorKindDiscriminants::OperationNotSupported),
                     RpcResult::Unimplemented => ww_err(wr, d, #es_open, ErrorKindDiscriminants::Unimplemented),
+                    RpcResult::Failed(f) => ww_client_server::dispatch::failed(wr, d, #es_open, &f),
                 }
             }
         }
@@ -3143,6 +3147,7 @@ fn handle_stream_fn(
                     // a stream function answers right away: the session starts with its result
                     RpcResult::Deferred => ww_err(wr, d, #es_open, ErrorKindDiscriminants::OperationNotSupported),
                     RpcResult::Unimplemented => ww_err(wr, d, #es_open, ErrorKindDiscriminants::Unimplemented),
+                    RpcResult::Failed(f) => ww_client_server::dispatch::failed(wr, d, #es_open, &f),
                 }
             }
         }

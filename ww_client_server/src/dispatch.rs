@@ -24,7 +24,7 @@ use wire_weaver::shrink_wrap::{
     SerializeShrinkWrap,
     buf_writer::{BufWriterState, UnsizedBuilder},
 };
-use wire_weaver::{Error as HandlerError, GetResult, RpcResult, SetResult};
+use wire_weaver::{Error as HandlerError, Failure, GetResult, RpcResult, SetResult};
 use ww_error::CommonError;
 
 /// What a level of the generated dispatcher did with a request. The reply, value or error, is in the writer the
@@ -339,6 +339,7 @@ pub fn reply_call<const MULTI: bool, T: SerializeShrinkWrap>(
         RpcResult::Ready(Err(e)) => common_error(wr, d, err_seq::method::HANDLER, &e),
         RpcResult::Deferred => WrAction::Deferred,
         RpcResult::Unimplemented => unimplemented_call(wr, d),
+        RpcResult::Failed(f) => failed(wr, d, err_seq::method::HANDLER, &f),
     }
 }
 
@@ -369,6 +370,7 @@ pub fn reply_call_result<const MULTI: bool, T: SerializeShrinkWrap, E: Serialize
         }
         RpcResult::Deferred => WrAction::Deferred,
         RpcResult::Unimplemented => unimplemented_call(wr, d),
+        RpcResult::Failed(f) => failed(wr, d, err_seq::method::HANDLER, &f),
     }
 }
 
@@ -430,6 +432,7 @@ pub fn reply_get<const MULTI: bool, T: SerializeShrinkWrap, E: SerializeShrinkWr
             common_error(wr, d, err_seq::property::HANDLER, &c)
         }
         GetResult::Unimplemented => unimplemented_property(wr, d),
+        GetResult::Failed(f) => failed(wr, d, err_seq::property::HANDLER, &f),
     }
 }
 
@@ -444,6 +447,7 @@ pub fn reply_get_common<const MULTI: bool, T: SerializeShrinkWrap>(
         GetResult::Value(value) => reply_value(wr, d, &value, err_seq::property::VALUE),
         GetResult::GetError(c) => common_error(wr, d, err_seq::property::HANDLER, &c),
         GetResult::Unimplemented => unimplemented_property(wr, d),
+        GetResult::Failed(f) => failed(wr, d, err_seq::property::HANDLER, &f),
     }
 }
 
@@ -465,6 +469,7 @@ pub fn reply_set<const MULTI: bool, E: SerializeShrinkWrap>(
             common_error(wr, d, err_seq::property::HANDLER, &c)
         }
         SetResult::Unimplemented => unimplemented_property(wr, d),
+        SetResult::Failed(f) => failed(wr, d, err_seq::property::HANDLER, &f),
     }
 }
 
@@ -479,6 +484,7 @@ pub fn reply_set_common<const MULTI: bool>(
         SetResult::Set => reply_ok(wr, d),
         SetResult::SetError(c) => common_error(wr, d, err_seq::property::HANDLER, &c),
         SetResult::Unimplemented => unimplemented_property(wr, d),
+        SetResult::Failed(f) => failed(wr, d, err_seq::property::HANDLER, &f),
     }
 }
 
@@ -493,6 +499,57 @@ pub fn reply_ok<const MULTI: bool>(wr: &mut BufWriter<'_>, d: &Dispatch<'_, MULT
             err_seq::REPLY_START,
             ErrorKindDiscriminants::ResponseSerFailed,
         ),
+    }
+}
+
+/// A handler's [Failure] (SRV-49) as the answer: the common error the call answered with, or the kind of its
+/// error (`Denied`, `DeadlineExceeded`, `Cancelled`, `Overloaded`, `Unimplemented`; the rest is `Internal`).
+/// Without `std` there is no failure to write: the variant has no value then.
+#[inline(always)]
+pub fn failed<const MULTI: bool>(
+    wr: &mut BufWriter<'_>,
+    d: &Dispatch<'_, MULTI>,
+    err_seq: u32,
+    failure: &Failure,
+) -> WrAction {
+    failure.inhabited();
+    write_failure(wr, d, err_seq, failure)
+}
+
+/// [failed], out of line.
+#[cold]
+#[inline(never)]
+fn write_failure<const MULTI: bool>(
+    wr: &mut BufWriter<'_>,
+    d: &Dispatch<'_, MULTI>,
+    err_seq: u32,
+    failure: &Failure,
+) -> WrAction {
+    #[cfg(feature = "std")]
+    {
+        use wire_weaver::call::ErrorKind as K;
+        if let Some(c) = failure.common() {
+            return common_error(wr, d, err_seq, &c);
+        }
+        let kind = match failure.error().kind() {
+            K::Unimplemented => ErrorKind::Unimplemented,
+            K::Denied => ErrorKind::Denied,
+            K::DeadlineExceeded => ErrorKind::DeadlineExceeded,
+            K::Cancelled => ErrorKind::Cancelled,
+            K::Overloaded => ErrorKind::Overloaded,
+            _ => ErrorKind::Internal,
+        };
+        err_kind(wr, d, err_seq, kind)
+    }
+    #[cfg(not(feature = "std"))]
+    {
+        let _ = failure;
+        err(
+            wr,
+            d,
+            err_seq,
+            ErrorKindDiscriminants::OperationNotSupported,
+        )
     }
 }
 
@@ -584,6 +641,7 @@ pub fn reply_open_plain<const MULTI: bool, T: SerializeShrinkWrap>(
         RpcResult::Ready(Err(e)) => common_error(wr, d, err_seq::stream::OPEN, &e),
         RpcResult::Deferred => refuse_open(wr, d, ErrorKindDiscriminants::OperationNotSupported),
         RpcResult::Unimplemented => refuse_open(wr, d, ErrorKindDiscriminants::Unimplemented),
+        RpcResult::Failed(f) => failed(wr, d, err_seq::stream::OPEN, &f),
     }
 }
 
@@ -612,6 +670,7 @@ pub fn reply_open_plain_result<
         }
         RpcResult::Deferred => refuse_open(wr, d, ErrorKindDiscriminants::OperationNotSupported),
         RpcResult::Unimplemented => refuse_open(wr, d, ErrorKindDiscriminants::Unimplemented),
+        RpcResult::Failed(f) => failed(wr, d, err_seq::stream::OPEN, &f),
     }
 }
 

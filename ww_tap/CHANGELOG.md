@@ -8,6 +8,7 @@
 
 ### 🚀 Features
 
+- `Medium::ByteStream`: TCP, a command's stdio or a stream the program opened (TR-19).
 - `Recorder::tape_clock`: a `ww_tape::ClockRef` on the recorder's clock, so a storing writer syncs on fake time in tests.
 - `LinkKey { medium, peer }`: the key of a link named by its peer, made from its first `Session` (TR-14).
 - `api()` (same name and version as before) and `ids::stream_name` without `std`, for producers outside the crate (TR-14).

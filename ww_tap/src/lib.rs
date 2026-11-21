@@ -244,6 +244,9 @@ pub enum Medium {
     InProcessUdp,
     /// In-process WebSocket over an in-memory pipe; messages as they are.
     InProcessWebSocket,
+    /// A byte stream other than a local socket (TR-19): TCP, a command's stdio, a stream the program opened;
+    /// messages as they are.
+    ByteStream,
 }
 
 /// How frames are packed (`ww_framer`), see `ww_link` for each medium's configuration.

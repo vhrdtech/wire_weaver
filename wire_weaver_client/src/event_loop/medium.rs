@@ -221,8 +221,8 @@ media! {
     Usb(crate::usb::NusbTx, crate::usb::NusbRx, crate::usb::NusbTransport),
     #[cfg(feature = "local_socket")]
     UsbSim(crate::usb_sim::UsbSimTx, crate::usb_sim::UsbSimRx, crate::usb_sim::UsbSimTransport),
-    #[cfg(feature = "local_socket")]
-    Local(crate::local_socket::LocalTx, crate::local_socket::LocalRx, crate::local_socket::LocalSocketTransport),
+    #[cfg(feature = "byte_stream")]
+    Bytes(crate::byte_stream::ByteTx, crate::byte_stream::ByteRx, crate::byte_stream::ByteStreamTransport),
     #[cfg(feature = "rtt")]
     Rtt(crate::rtt::Tx, crate::rtt::Rx, crate::rtt::RttTransport),
     #[cfg(feature = "ws")]

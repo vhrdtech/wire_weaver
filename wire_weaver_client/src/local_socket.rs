@@ -2,38 +2,23 @@
 //! (Linux, macOS) or a named pipe (Windows), see [ww_local_socket]. Reached with
 //! [ClientConfig::ipc_path](crate::ClientConfig::ipc_path), or through the ww hub (SRV-13, see [crate::hub]).
 //!
-//! The connection starts with the hub [Preamble] naming the device, then carries one
-//! [ww_link] message per `| len: u32 LE | kind | payload |`; a reliable stream, so [ww_framer] is not used. Link
-//! setup, version checks, pings and timeouts are the same as over USB or WebSocket. Messages are held back until
-//! a flush, so those accumulated by the event loop go out in one write.
+//! A byte stream like any other ([crate::byte_stream]): the connection starts with the preamble naming the device,
+//! the hub or a service, then carries length-prefixed [ww_link] messages.
 
 use std::path::PathBuf;
-use std::time::Duration;
 
 use anyhow::bail;
-use futures_util::io::AsyncReadExt as _;
-use futures_util::io::AsyncWriteExt;
 use tokio::sync::mpsc;
-use tracing::debug;
-use ww_byte_stream::{Answer, Preamble, Status, Target};
+use ww_byte_stream::{Preamble, Target};
 
-pub(crate) use crate::byte_stream::{LocalRx, LocalTx, OpenError, Tunnel, refusal};
-use crate::byte_stream::{halves, own_generations, own_versions};
-
+#[cfg(feature = "hub")]
+pub(crate) use crate::byte_stream::refusal;
+pub(crate) use crate::byte_stream::{OpenError, Tunnel};
+use crate::byte_stream::{Reach, service_or};
 use crate::config::{ConfigPiece, ValidatedConfig};
-use crate::event_loop::DeviceHandle;
 use crate::event_loop::command::Command;
-use crate::event_loop::transport::{Opened, Selected, Transport};
-
-/// The other process must answer the preamble within this time, a socket nobody serves fails fast.
-const ANSWER_TIMEOUT: Duration = Duration::from_secs(2);
-
-/// Where to connect: the socket and the device behind it.
-#[derive(Clone, Debug)]
-pub(crate) struct LocalTarget {
-    pub path: PathBuf,
-    pub target: Target,
-}
+use crate::event_loop::transport::Selected;
+use crate::event_loop::transport::link_setup_timeout::LOCAL_SOCKET;
 
 /// Opens the connection now, before an event loop starts, so that a refusal (a lent device, versions the hub doesn't
 /// serve) is an [Error::HubRefused](crate::Error::HubRefused) the caller can act on. A device through the user's
@@ -59,10 +44,10 @@ pub(crate) async fn try_connect(
     }
     // no path: the user's hub
     let to = c.pieces.iter().rev().find_map(|p| match p {
-        // the one device the process serves
+        // the one device the process serves, or one of its services
         ConfigPiece::IpcPath { path } => Some((
             Some(PathBuf::from(path)),
-            Target::Device(String::new()),
+            service_or(c, Target::Device(String::new())),
             false,
         )),
         ConfigPiece::HubApi { path } => Some((path.as_ref().map(PathBuf::from), Target::Hub, true)),
@@ -104,19 +89,11 @@ pub(crate) fn started(
     tunnel: Tunnel,
     via_hub: bool,
 ) -> Result<Selected, anyhow::Error> {
-    let Some(cmd_rx) = cmd_rx.take() else {
-        bail!("Internal error: cmd_rx is None");
-    };
-    tokio::spawn(worker(cmd_rx));
-    let mut info = device_info(shown);
+    let mut location = format!("local socket {shown}");
     if via_hub && shown.starts_with("ipc:") {
-        info.location = format!("{} through the ww hub", info.location);
+        location = format!("{location} through the ww hub");
     }
-    Ok(Selected::Device {
-        info: Box::new(info),
-        handle: Box::new(tunnel),
-        via_hub,
-    })
+    crate::byte_stream::started(cmd_rx, location, tunnel, via_hub, LOCAL_SOCKET)
 }
 
 /// Holds the device `key` in the holders registry before opening it ([ClientConfig::ipc_exclusive](
@@ -155,115 +132,29 @@ async fn users_hub(c: &ValidatedConfig, target: &Target) -> Result<PathBuf, anyh
 }
 
 /// The event loop on a local socket, until its commander is gone.
+#[cfg_attr(
+    not(any(feature = "usb", feature = "rtt")),
+    expect(dead_code, reason = "only used with the `usb` or `rtt` features")
+)]
 pub(crate) async fn worker(cmd_rx: mpsc::Receiver<Command>) {
-    debug!("local socket worker started");
-    crate::event_loop::core::worker(cmd_rx, LocalSocketTransport).await;
-    debug!("local socket worker exited");
+    crate::byte_stream::worker(cmd_rx, LOCAL_SOCKET).await;
 }
 
-fn device_info(path: &str) -> crate::DeviceInfo {
-    crate::DeviceInfo {
-        location: format!("local socket {path}"),
-        manufacturer: String::new(),
-        product: String::new(),
-        serials: vec![],
-        user_label: String::new(),
-        api: None,
-        usb: None,
-    }
-}
-
-pub(crate) struct LocalSocketTransport;
-
-impl Transport for LocalSocketTransport {
-    fn link_setup_timeout(&self) -> Duration {
-        crate::event_loop::transport::link_setup_timeout::LOCAL_SOCKET
-    }
-
-    type Tx = LocalTx;
-    type Rx = LocalRx;
-
-    async fn connect(
-        &mut self,
-        handle: DeviceHandle,
-        tap: crate::tap::ClientTap,
-        max_message_len: usize,
-    ) -> Result<Opened<LocalTx, LocalRx>, String> {
-        let tunnel = match handle.downcast::<LocalTarget>() {
-            Ok(to) => match open(&to.path, to.target.clone()).await {
-                Ok(tunnel) => tunnel,
-                Err(e) => return Err(e.to_string()),
-            },
-            // opened already, e.g. through the hub when connect() picked the route (CLT-39)
-            Err(handle) => *handle
-                .downcast::<Tunnel>()
-                .map_err(|_| "expected a local socket target".to_string())?,
-        };
-        let claim = tunnel.claim.map(std::sync::Arc::new);
-        let mut tap = tap;
-        ww_tap::Tap::session(
-            &mut tap,
-            &crate::tap::host_session(
-                ww_tap::Medium::LocalSocket,
-                ww_tap::Framer::None,
-                0,
-                &tunnel.shown,
-            ),
-        );
-        let (tx, rx) = halves((tunnel.rx, tunnel.tx), claim, max_message_len);
-        Ok(Opened { tx, rx })
-    }
-}
-
-/// Connects to the socket at `path` and asks for `target` with the preamble, which carries this program's versions
-/// and generations;
-/// a hub that only reads the first preamble layout is asked again with it.
+/// Connects to the socket at `path` and asks for `target`, see [crate::byte_stream::open].
 pub(crate) async fn open(path: &std::path::Path, target: Target) -> Result<Tunnel, OpenError> {
-    open_preamble(path, Preamble::new(target)).await
+    crate::byte_stream::open(&Reach::LocalSocket(path.to_owned()), target).await
 }
 
 /// [open] with `preamble`, to which this program's versions and generations are added.
+#[cfg_attr(
+    not(feature = "hub"),
+    expect(dead_code, reason = "only used with the `hub` feature")
+)]
 pub(crate) async fn open_preamble(
     path: &std::path::Path,
     preamble: Preamble,
 ) -> Result<Tunnel, OpenError> {
-    let (link, api_model) = own_versions();
-    let preamble = preamble
-        .with_versions(link, api_model)
-        .with_generations(own_generations());
-    match open_with(path, &preamble).await {
-        Err(OpenError::Refused { answer, .. }) if answer.status == Status::PreambleVersion => {
-            debug!(
-                "{}: preamble version 1 for a hub {}",
-                path.display(),
-                answer.hub_version
-            );
-            open_with(path, &preamble.v1()).await
-        }
-        r => r,
-    }
-}
-
-async fn open_with(path: &std::path::Path, preamble: &Preamble) -> Result<Tunnel, OpenError> {
-    let shown = path.display().to_string();
-    let io = |e: &dyn std::fmt::Display| OpenError::Io(format!("{shown}: {e}"));
-    let (stream, _peer) = ww_local_socket::connect(path).await.map_err(|e| io(&e))?;
-    let (mut rx, mut tx) = stream.split();
-    tx.write_all(&preamble.encode()).await.map_err(|e| io(&e))?;
-    let answer = tokio::time::timeout(ANSWER_TIMEOUT, Answer::read(&mut rx))
-        .await
-        .map_err(|_| io(&"no answer to the preamble"))?
-        .map_err(|e| io(&e))?;
-    if answer.status != Status::Ok {
-        return Err(OpenError::Refused { shown, answer });
-    }
-    Ok(Tunnel {
-        rx,
-        tx,
-        shown,
-        hub_version: answer.hub_version,
-        claim: None,
-    })
+    crate::byte_stream::open_preamble(&Reach::LocalSocket(path.to_owned()), preamble).await
 }
 
 /// Device side: a [ww_device::Server] medium for a device served by this process on a local socket
@@ -596,27 +487,35 @@ pub mod device {
 mod tests {
     //! Host event loop against [ww_device::Server] on the device medium above, over a real local socket.
     use super::*;
+    use crate::byte_stream::{ByteRx, ByteStreamTransport, ByteTx, StreamTarget};
+    use crate::event_loop::DeviceHandle;
     use crate::event_loop::device_e2e_tests::{DEV_MAX_MESSAGE, serve, talk};
+    use crate::event_loop::transport::{Opened, Transport};
+    use futures_util::io::{AsyncReadExt as _, AsyncWriteExt as _};
+    use std::time::Duration;
+    use ww_byte_stream::{Answer, Status};
     use ww_device::LinkEvent;
 
-    struct To(LocalTarget);
+    struct To(StreamTarget);
 
     impl Transport for To {
         fn link_setup_timeout(&self) -> Duration {
             crate::event_loop::transport::link_setup_timeout::IN_PROCESS
         }
 
-        type Tx = LocalTx;
-        type Rx = LocalRx;
+        type Tx = ByteTx;
+        type Rx = ByteRx;
         async fn connect(
             &mut self,
             _: DeviceHandle,
             tap: crate::tap::ClientTap,
             max_message_len: usize,
-        ) -> Result<Opened<LocalTx, LocalRx>, String> {
-            LocalSocketTransport
-                .connect(Box::new(self.0.clone()), tap, max_message_len)
-                .await
+        ) -> Result<Opened<ByteTx, ByteRx>, String> {
+            ByteStreamTransport {
+                link_setup_timeout: LOCAL_SOCKET,
+            }
+            .connect(Box::new(self.0.clone()), tap, max_message_len)
+            .await
         }
     }
 
@@ -643,8 +542,8 @@ mod tests {
         let (cmd_tx, cmd_rx) = mpsc::channel::<Command>(64);
         let host = tokio::spawn(crate::event_loop::core::worker(
             cmd_rx,
-            To(LocalTarget {
-                path,
+            To(StreamTarget {
+                reach: Reach::LocalSocket(path),
                 target: Target::Device(String::new()),
             }),
         ));
@@ -689,16 +588,18 @@ mod tests {
     #[tokio::test]
     async fn nothing_listening_fails_connect() {
         let path = socket_path("none");
-        let r = LocalSocketTransport
-            .connect(
-                Box::new(LocalTarget {
-                    path: path.clone(),
-                    target: Target::Device(String::new()),
-                }),
-                crate::tap::ClientTap::default(),
-                crate::DEFAULT_MAX_MESSAGE_LEN,
-            )
-            .await;
+        let r = ByteStreamTransport {
+            link_setup_timeout: LOCAL_SOCKET,
+        }
+        .connect(
+            Box::new(StreamTarget {
+                reach: Reach::LocalSocket(path.clone()),
+                target: Target::Device(String::new()),
+            }),
+            crate::tap::ClientTap::default(),
+            crate::DEFAULT_MAX_MESSAGE_LEN,
+        )
+        .await;
         let Err(e) = r else {
             panic!("connected to nothing")
         };
@@ -718,16 +619,18 @@ mod tests {
                 .await
                 .unwrap();
         });
-        let r = LocalSocketTransport
-            .connect(
-                Box::new(LocalTarget {
-                    path: path.clone(),
-                    target: Target::Device("usb:c0de:cafe:1".into()),
-                }),
-                crate::tap::ClientTap::default(),
-                crate::DEFAULT_MAX_MESSAGE_LEN,
-            )
-            .await;
+        let r = ByteStreamTransport {
+            link_setup_timeout: LOCAL_SOCKET,
+        }
+        .connect(
+            Box::new(StreamTarget {
+                reach: Reach::LocalSocket(path.clone()),
+                target: Target::Device("usb:c0de:cafe:1".into()),
+            }),
+            crate::tap::ClientTap::default(),
+            crate::DEFAULT_MAX_MESSAGE_LEN,
+        )
+        .await;
         let Err(e) = r else { panic!("refused") };
         assert!(
             e.contains("versions or generations are not served") && e.contains("hub 9.0.0"),

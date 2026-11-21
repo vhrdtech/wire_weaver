@@ -49,14 +49,21 @@ in_process = [
     "ww_device/udp",
 ]
 # device served by another process (or the ww hub): Unix socket, named pipe on Windows
-local_socket = [
-    "ww_local_socket/socket",
+# TCP, a spawned command's stdio and streams the program opens (StreamOpener): byte-stream servers (TR-19)
+byte_stream = [
     "dep:ww_byte_stream",
     "dep:futures-util",
+    "dep:tokio-util",
     "futures-util/io",
+    "tokio/io-util",
+    "tokio/net",
+    "tokio/process",
+]
+local_socket = [
+    "byte_stream",
+    "ww_local_socket/socket",
     "dep:interprocess",
     "dep:ww_device",
-    "tokio/io-util",
 ]
 # keeps a device's clock on the PC's UTC (ww_timebase::Clock, CLT-46): every direct connection steers by itself
 clock_sync = [
@@ -90,6 +97,7 @@ strum = { workspace = true, features = ["derive"] }
 thiserror.workspace = true
 tokio = { workspace = true, features = ["sync", "rt", "rt-multi-thread", "time", "macros"] } # rt-multi-thread: block_in_place when a Commander drops
 tokio-tungstenite = { workspace = true, optional = true }
+tokio-util = { workspace = true, optional = true }
 tracing.workspace = true
 wire_weaver = { workspace = true, features = ["std"] }
 wire_weaver_evolution.workspace = true
@@ -124,6 +132,7 @@ crc.workspace = true
 tokio = { workspace = true, features = ["net", "rt-multi-thread", "test-util"] }
 trybuild.workspace = true
 wire_weaver_core = { workspace = true }
+ww_byte_stream = { workspace = true, features = ["device"] }
 ww_device = { workspace = true, features = ["std", "ws"] }
 ww_self = { workspace = true, features = ["fuzz"] }
 ww_stream = { workspace = true, features = ["std", "lz4"] }

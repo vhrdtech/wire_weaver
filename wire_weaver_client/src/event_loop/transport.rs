@@ -303,6 +303,8 @@ pub(crate) mod link_setup_timeout {
     pub const IN_PROCESS: Duration = Duration::from_millis(250);
     /// Another process on the same PC, possibly the hub opening the device first
     pub const LOCAL_SOCKET: Duration = Duration::from_secs(1);
+    /// TCP, possibly across networks, or a command that starts first (ssh)
+    pub const BYTE_STREAM: Duration = Duration::from_secs(5);
     pub const RTT: Duration = Duration::from_secs(10);
 }
 

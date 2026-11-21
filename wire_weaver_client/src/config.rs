@@ -286,6 +286,7 @@ pub(crate) enum InterfaceKind {
     Ipc,
     InProcess,
     Rtt,
+    ByteStream,
     // Can,
     // Uart,
     // I2c,
@@ -339,6 +340,18 @@ pub(crate) enum ConfigPiece {
     Ipc,
     /// Negate previous IPC related filters or exclude IPC from the interfaces to try.
     NoIpc,
+
+    /// Connect over TCP to `host:port`, the byte-stream framing and preamble (TR-19).
+    TcpAddr { addr: String },
+    /// Connect over the stdin and stdout of a command started for the connection (TR-19), e.g. `ssh host svc --stdio`.
+    Command { program: String, args: Vec<String> },
+    /// Connect over a stream the program opens (TR-19).
+    #[cfg(feature = "byte_stream")]
+    Stream { opener: crate::StreamOpener },
+    /// Ask a byte-stream server for this service instead of its device (TR-19): one listener serving several APIs.
+    Service { name: String },
+    /// Negate previous byte-stream pieces (TCP, command, stream) or exclude them from the interfaces to try.
+    NoByteStream,
 
     /// Connect to a device running in the same process via lock-free channel.
     /// Can be used for testing purposes or to create virtual devices.
@@ -612,6 +625,55 @@ impl ClientConfig {
     pub fn ipc_path(self, path: String) -> Self {
         let mut f = self;
         f.pieces.push(ConfigPiece::IpcPath { path });
+        f
+    }
+
+    /// Connect over TCP to `addr` (`host:port`, feature `byte_stream`), to a server on a byte-stream listener
+    /// (TR-19, `wire_weaver_server`'s `TcpIncoming`). The other side is known by its address only: TCP proves no
+    /// identity and encrypts nothing.
+    pub fn tcp(self, addr: impl Into<String>) -> Self {
+        let mut f = self;
+        f.pieces.push(ConfigPiece::TcpAddr { addr: addr.into() });
+        f
+    }
+
+    /// Start `program` with `args` for every connection and talk over its stdin and stdout (feature `byte_stream`,
+    /// TR-19): a server run as `ssh host svc --stdio`, or one the program spawns. The command's stderr is this
+    /// program's; it is killed when the connection ends.
+    pub fn command(
+        self,
+        program: impl Into<String>,
+        args: impl IntoIterator<Item = impl Into<String>>,
+    ) -> Self {
+        let mut f = self;
+        f.pieces.push(ConfigPiece::Command {
+            program: program.into(),
+            args: args.into_iter().map(Into::into).collect(),
+        });
+        f
+    }
+
+    /// Connect over a stream `opener` makes for every connection (feature `byte_stream`, TR-19): an iroh bi-stream,
+    /// a socket the program opens itself.
+    #[cfg(feature = "byte_stream")]
+    pub fn stream(self, opener: crate::StreamOpener) -> Self {
+        let mut f = self;
+        f.pieces.push(ConfigPiece::Stream { opener });
+        f
+    }
+
+    /// Ask a byte-stream server (TCP, command, stream, local socket) for the service `name` (TR-19): one listener
+    /// serves several APIs, each by its name. Without it, the server's device is asked for.
+    pub fn service(self, name: impl Into<String>) -> Self {
+        let mut f = self;
+        f.pieces.push(ConfigPiece::Service { name: name.into() });
+        f
+    }
+
+    /// Do not consider byte streams (TCP, command, stream) as connection targets.
+    pub fn no_byte_stream(self) -> Self {
+        let mut f = self;
+        f.pieces.push(ConfigPiece::NoByteStream);
         f
     }
 
@@ -1172,6 +1234,11 @@ impl ValidatedConfig {
                                 format!("WebSocket URL = {}", urls.join(" or "))
                             }
                             ConfigPiece::UdpAddr { addr } => format!("UDP address = {addr}"),
+                            ConfigPiece::TcpAddr { addr } => format!("TCP address = {addr}"),
+                            ConfigPiece::Command { program, .. } => format!("command = {program}"),
+                            #[cfg(feature = "byte_stream")]
+                            ConfigPiece::Stream { opener } => format!("stream = {opener:?}"),
+                            ConfigPiece::Service { name } => format!("service = {name}"),
                             // the filters after it pick the probe
                             ConfigPiece::Rtt { target, .. } => format!("RTT to {target}"),
                             _ => return None,
@@ -1280,6 +1347,15 @@ impl ValidatedConfig {
         )
     }
 
+    pub(crate) fn is_byte_stream(&self) -> bool {
+        use ConfigPieceDiscriminants::{Command, TcpAddr};
+        #[cfg(feature = "byte_stream")]
+        let opt_in = [TcpAddr, Command, ConfigPieceDiscriminants::Stream];
+        #[cfg(not(feature = "byte_stream"))]
+        let opt_in = [TcpAddr, Command];
+        self.is_opted_in(&opt_in, ConfigPieceDiscriminants::NoByteStream)
+    }
+
     pub(crate) fn is_in_process(&self) -> bool {
         self.is_opted_in(
             &[ConfigPieceDiscriminants::InProcessPath],
@@ -1306,6 +1382,9 @@ impl ValidatedConfig {
         }
         if self.is_rtt() {
             interfaces.push(InterfaceKind::Rtt);
+        }
+        if self.is_byte_stream() {
+            interfaces.push(InterfaceKind::ByteStream);
         }
         interfaces
     }

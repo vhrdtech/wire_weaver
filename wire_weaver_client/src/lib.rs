@@ -40,6 +40,8 @@ pub mod quantity;
 pub mod tap;
 mod tracing;
 
+#[cfg(feature = "byte_stream")]
+pub use byte_stream::{ByteStream, StreamOpener};
 pub use client::attachment::Attachment;
 pub use client::batch::{Batch, BatchItem, ItemTime, Unpack, unpack_timed, unpack_untimed};
 pub use client::dyn_client::DynClient;
@@ -94,7 +96,7 @@ mod rtt;
 #[cfg(feature = "rtt")]
 pub use rtt::{ProbeInfo, chip_known as rtt_chip_known, chips as rtt_chips, list_probes};
 
-#[cfg(feature = "local_socket")]
+#[cfg(feature = "byte_stream")]
 mod byte_stream;
 #[cfg(feature = "in_process")]
 pub mod in_process;

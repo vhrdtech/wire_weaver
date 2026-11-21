@@ -10,6 +10,8 @@
 
 ### 🚀 Features
 
+- `ClientConfig::service(name)` asks a byte-stream server (TCP, command, stream, local socket) for one of its APIs (TR-19); `no_byte_stream`.
+- Byte-stream clients (TR-19, feature `byte_stream`): `ClientConfig::tcp`, `command` (a spawned command's stdio, e.g. ssh), `stream` with a `StreamOpener`.
 - `local_socket::device` answers an unknown preamble target `UnknownTarget` and a named service `UnknownService` (TR-19); its halves are futures-io.
 - `local_socket::device::answer_preamble` and `PREAMBLE_TIMEOUT` (SRV-12): a server answers a local-socket client's preamble itself.
 - A device's `ErrorKind::Overloaded` (SRV-12) is `call::ErrorKind::Overloaded`, as a common `Busy` is.
@@ -32,6 +34,7 @@
 
 ### ⚠️ Breaking
 
+- The local-socket transport runs on futures-io streams through the new `byte_stream` feature, which `local_socket` turns on (TR-19).
 - Declares `rust-version = "1.99"`: cargo of an older Rust refuses the crate.
 - Features `can`, `i2c` and `uart` are removed: they enabled nothing. Drop them from `features = [..]`.
 - `tap::What::Gap { items }` and `Stats::records_missed`: exhaustive matches on `What` need the arm (TR-14).

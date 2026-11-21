@@ -143,6 +143,16 @@ impl<T: WwClient> PreparedConnection<T> {
                     }
                     rt.block_on(try_select_local_socket(&config, &mut cmd_rx, false))?
                 }
+                InterfaceKind::ByteStream => {
+                    // the stream is opened before the event loop runs, on the runtime the event loop runs on
+                    let rt = tokio::runtime::Handle::current();
+                    if rt.runtime_flavor() != tokio::runtime::RuntimeFlavor::MultiThread {
+                        return Err(anyhow::anyhow!(
+                            "connect_blocking() reaches a byte stream (TCP, command, stream) on a multi-thread tokio runtime only"
+                        ));
+                    }
+                    rt.block_on(try_select_byte_stream(&config, &mut cmd_rx))?
+                }
             };
             drop(select);
             match selected {
@@ -421,6 +431,7 @@ async fn connect_one(
                 InterfaceKind::WebSocket => try_select_ws(config, cmd_rx),
                 InterfaceKind::Udp => try_select_udp(config, cmd_rx),
                 InterfaceKind::Ipc => try_select_local_socket(config, cmd_rx, true).await,
+                InterfaceKind::ByteStream => try_select_byte_stream(config, cmd_rx).await,
             }
         }
         .instrument(debug_span!(spans::SELECT))
@@ -1107,6 +1118,21 @@ async fn try_select_local_socket(
         _ = (config, cmd_rx, supervised);
         Err(anyhow::anyhow!(
             "a local socket (IPC) selected in the client config, but wire_weaver_client is built without the `local_socket` feature"
+        ))
+    }
+}
+
+async fn try_select_byte_stream(
+    config: &ValidatedConfig,
+    cmd_rx: &mut Option<mpsc::Receiver<Command>>,
+) -> Result<Selected> {
+    #[cfg(feature = "byte_stream")]
+    return crate::byte_stream::try_connect(config, cmd_rx).await;
+    #[cfg(not(feature = "byte_stream"))]
+    {
+        _ = (config, cmd_rx);
+        Err(anyhow::anyhow!(
+            "TCP, a command or a stream selected in the client config, but wire_weaver_client is built without the `byte_stream` feature"
         ))
     }
 }

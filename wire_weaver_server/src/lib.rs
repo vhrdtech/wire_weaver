@@ -51,11 +51,11 @@ pub mod udp;
 
 pub use authorize::{Authorize, Denied, Resource};
 pub use backend::Backend;
-pub use connection::Connection;
+pub use connection::{Connection, LocalConnection};
 pub use fanout::{Fanout, Lagged, Subscription};
 pub use lifecycle::ShutdownReason;
 pub use listener::{Accept, Accepted, Listener};
-pub use pump::{PumpId, Pumps};
-pub use server::{Accepting, Limits, MakeBackend, Server};
+pub use pump::{LocalPumps, PumpHandle, PumpId, Pumps};
+pub use server::{Accepting, Limits, Local, MakeBackend, Server};
 pub use serves::Serves;
 pub use ww_client_server::target::{Access, Place, TraitRef};

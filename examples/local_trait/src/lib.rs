@@ -166,6 +166,7 @@ pub mod server {
 
     impl Serves for CounterServer {
         type Service = LocalCounter;
+        type Pumps = Pumps;
 
         fn service(&self) -> &LocalCounter {
             &self.service

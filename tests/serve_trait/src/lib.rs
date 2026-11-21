@@ -135,6 +135,7 @@ pub mod server {
 
     impl Serves for Server {
         type Service = Service;
+        type Pumps = Pumps;
 
         fn service(&self) -> &Service {
             &self.service

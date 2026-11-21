@@ -5,7 +5,7 @@
 ### ⚠️ Breaking
 
 - The shutdown future of `serve` and `accepting` completes with a `ShutdownReason` (SRV-67): clients hear it; `pending()` becomes `pending::<()>()`.
-
+- `MakeBackend` has `type Pumps` and `Serves` has `type Pumps`: implementors add `type Pumps = Pumps;`; `Connection` is `Connection<P = Pumps>` (SRV-73).
 - `local_socket::LocalSocketListener` is now `LocalSocketIncoming`, a source for `byte_stream::listen` with `PreambleFraming`; `HANDSHAKES_MAX` moved to `byte_stream` (TR-19).
 - `Listener::accept` returns `Option<Accepted>`: `None` says no more connections come, and `serve` ends once its connections ended (TR-19).
 
@@ -15,7 +15,7 @@
 - `ShutdownReason`: a shutdown future of `DisconnectReason` tells clients that reason instead of `Shutdown` (SRV-67).
 - Stream items ready at shutdown go out before the disconnect (SRV-67).
 - `local_socket::peer_of`: the `Peer` of a client a program accepted on a local socket itself (SRV-67).
-
+- `LocalPumps`, `Local` and `LocalConnection`: connections whose stream pumps take streams that are not `Send`, for single-threaded services (SRV-73).
 - `Serves`: the service and pumps a `serve_trait` server forwards to (SRV-49).
 - `byte_stream::is_transient` and `ACCEPT_RETRY_DELAY` are public, for sources on other event loops; `UdpListener::local_addr` works with any `StdUdpSocket` readiness (SRV-70).
 - `Server::authorize` asks an `Authorize` hook before every handler, with the caller and the `Resource`; denied requests get `Denied` (SRV-46).

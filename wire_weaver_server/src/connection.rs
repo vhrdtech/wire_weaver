@@ -25,12 +25,15 @@ use crate::authorize::Authorization;
 use crate::backend::Backend;
 use crate::lifecycle::{Lifecycle, Running, Stage};
 use crate::outbox::{Outbox, OutboxSink};
-use crate::pump::{PumpSet, Pumps};
+use crate::pump::{PumpSetOps, Pumps};
 use crate::server::{Limits, MakeBackend};
 
 /// A connection whose link is up, as its backend's factory sees it.
+///
+/// `P` is its pump handle: [Pumps] for `Send` streams, [LocalPumps](crate::LocalPumps) for streams that are not
+/// (SRV-73), as the [MakeBackend] picks.
 #[derive(Clone, Debug)]
-pub struct Connection {
+pub struct Connection<P = Pumps> {
     /// Tells the connections of one server apart; never reused while the server runs.
     pub id: ConnectionId,
     /// Who connected, as the transport saw it.
@@ -42,10 +45,13 @@ pub struct Connection {
     /// The longest message either side takes on this connection, agreed in link setup.
     pub message_len_max: usize,
     /// The connection's pumps: a backend keeps a clone, so that its stream open handlers can add theirs.
-    pub pumps: Pumps,
+    pub pumps: P,
 }
 
-impl Connection {
+/// A connection whose streams need not be `Send`, see [Local](crate::Local).
+pub type LocalConnection = Connection<crate::LocalPumps>;
+
+impl<P> Connection<P> {
     /// Who asks on this connection, as handlers read it from `cx.call()`: the peer and the connection id. Each
     /// request adds its own `seq` and priority.
     pub fn origin(&self) -> CallContext {
@@ -184,7 +190,7 @@ enum Flow {
     End,
 }
 
-struct Conn<'a, Tx, Rx, C> {
+struct Conn<'a, Tx, Rx, C, S> {
     link: DeviceLink<'a>,
     tx: Tx,
     rx: Rx,
@@ -198,7 +204,7 @@ struct Conn<'a, Tx, Rx, C> {
     /// The `ww_client_server` wire version of the client, from link setup: which error kinds it reads.
     client_model: Option<WireVersion>,
     outbox: &'a Outbox,
-    pumps: &'a PumpSet,
+    pumps: &'a S,
     /// Pump items are serialized here.
     pump_buffer: Vec<u8>,
     /// Replies and events are built in these; a request takes two, its answer gives them back, so there are as many
@@ -215,7 +221,7 @@ struct Conn<'a, Tx, Rx, C> {
 /// No request runs.
 const IDLE: Option<Pin<&mut Pending<Finished>>> = None;
 
-impl<Tx: MessageTx, Rx: MessageRx, C: Clock> Conn<'_, Tx, Rx, C> {
+impl<Tx: MessageTx, Rx: MessageRx, C: Clock, S: PumpSetOps> Conn<'_, Tx, Rx, C, S> {
     /// Wait for the next thing to do and do it. `work` is the request that runs, if one does.
     async fn step<W: Future<Output = Finished>>(&mut self, work: Option<Pin<&mut W>>) -> Flow {
         let step = self.wait(work).await;
@@ -762,7 +768,7 @@ pub(crate) async fn run<M: MakeBackend>(
     // the medium's limit: replies and events are built in buffers of this size, longer replies of a server
     // with an allocator in buffers of their own
     let buffer_len = rx.max_message_len();
-    let pumps = PumpSet::default();
+    let (pumps, handle) = <M::Pumps as crate::pump::Kind>::new_set();
     let mut conn = Conn {
         link: DeviceLink::new(config, rx.max_message_len()),
         tx,
@@ -799,7 +805,7 @@ pub(crate) async fn run<M: MakeBackend>(
         client: conn.link.peer_meta().cloned().unwrap_or_default(),
         client_version: conn.link.peer_version().cloned(),
         message_len_max: conn.link.agreed_max_message_len(),
-        pumps: pumps.handle(),
+        pumps: handle,
     };
     let origin = info.origin();
     let mut backend = make.make(&info);
@@ -862,7 +868,7 @@ enum Idle {
     End,
 }
 
-impl<Tx: MessageTx, Rx: MessageRx, C: Clock + Clone> Conn<'_, Tx, Rx, C> {
+impl<Tx: MessageTx, Rx: MessageRx, C: Clock + Clone, S: PumpSetOps> Conn<'_, Tx, Rx, C, S> {
     /// Link setup. False when the connection ended first; a server that shuts down meanwhile drops it.
     async fn set_up(&mut self) -> bool {
         loop {

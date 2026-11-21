@@ -66,22 +66,23 @@ pub fn write_result<'i, E>(result: Result<(), CallError<E>>) -> SetResult<crate:
     }
 }
 
-/// The items of a stream until its first error: an error is the stream's last item ([crate::call::ItemStream]), so
-/// the server's pump ends there.
-pub fn until_error<T>(
-    items: crate::call::ItemStream<T>,
-) -> impl futures_core::Stream<Item = T> + Send + 'static
+/// The items of a stream until its first error: an error is the stream's last item ([crate::call::ItemStream],
+/// [crate::call::LocalItemStream]), so the server's pump ends there. `Send` when `items` is.
+pub fn until_error<T, S>(items: S) -> impl futures_core::Stream<Item = T> + use<T, S>
 where
-    T: 'static,
+    S: futures_core::Stream<Item = Result<T, Error>> + Unpin,
 {
     UntilError { items: Some(items) }
 }
 
-struct UntilError<T> {
-    items: Option<crate::call::ItemStream<T>>,
+struct UntilError<S> {
+    items: Option<S>,
 }
 
-impl<T> futures_core::Stream for UntilError<T> {
+impl<T, S> futures_core::Stream for UntilError<S>
+where
+    S: futures_core::Stream<Item = Result<T, Error>> + Unpin,
+{
     type Item = T;
 
     fn poll_next(
@@ -92,7 +93,7 @@ impl<T> futures_core::Stream for UntilError<T> {
         let Some(items) = self.items.as_mut() else {
             return Poll::Ready(None);
         };
-        match items.as_mut().poll_next(cx) {
+        match core::pin::Pin::new(items).poll_next(cx) {
             Poll::Ready(Some(Ok(item))) => Poll::Ready(Some(item)),
             Poll::Ready(Some(Err(_)) | None) => {
                 self.items = None;

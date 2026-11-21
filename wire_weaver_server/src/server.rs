@@ -13,9 +13,10 @@ use ww_device::{Clock, Instant, LinkConfig};
 
 use crate::authorize::{Authorization, Authorize};
 use crate::backend::Backend;
-use crate::connection::{self, Connection};
+use crate::connection::{self, Connection, LocalConnection};
 use crate::lifecycle::{Lifecycle, ShutdownReason, Stage};
 use crate::listener::{Accept, Accepted, Listener};
+use crate::pump::{LocalPumps, PumpHandle, Pumps};
 use crate::sync::locked;
 
 /// How much a server and each of its connections may hold.
@@ -61,19 +62,24 @@ impl Default for Limits {
 
 /// Makes the backend of each connection, once its link is up.
 ///
-/// A closure `Fn(&Connection) -> B` is one, for backends whose medium is `()`. A server with a medium type of its
-/// own implements the trait and says which medium a connection is.
+/// A closure `Fn(&Connection) -> B` is one, for backends whose medium is `()`; [Local] wraps a closure
+/// `Fn(&LocalConnection) -> B` for backends whose streams are not `Send`. A server with a medium type of its own
+/// implements the trait and says which medium a connection is.
 pub trait MakeBackend {
     /// The generated server, with the state of one connection.
     type Backend: Backend;
 
+    /// The connection's pump handle: [Pumps] keep the connection `Send`, [LocalPumps] take streams that are not
+    /// `Send` and make the connection `!Send` (SRV-73).
+    type Pumps: PumpHandle;
+
     /// The backend of `connection`.
-    fn make(&self, connection: &Connection) -> Self::Backend;
+    fn make(&self, connection: &Connection<Self::Pumps>) -> Self::Backend;
 
     /// What handlers of `connection` see as `cx.medium()`.
     fn medium(
         &self,
-        connection: &Connection,
+        connection: &Connection<Self::Pumps>,
     ) -> <Self::Backend as WireWeaverAsyncApiBackend>::Medium;
 }
 
@@ -83,12 +89,38 @@ where
     B: Backend<Medium = ()>,
 {
     type Backend = B;
+    type Pumps = Pumps;
 
     fn make(&self, connection: &Connection) -> B {
         self(connection)
     }
 
     fn medium(&self, _connection: &Connection) {}
+}
+
+/// A closure `Fn(&LocalConnection) -> B` as the [MakeBackend] of connections with [LocalPumps]: for backends whose
+/// stream items come from streams that are not `Send`, such as a local trait made with `local_trait_send = false`
+/// (SRV-73). The connections' futures are not `Send`: run them in [Server::serve] on a single-threaded executor, or
+/// spawn the ones [Server::accepting] hands out as local tasks.
+///
+/// ```ignore
+/// server.serve(link, listener, Local(|c: &LocalConnection| CounterServer::new(counter.clone(), c)), shutdown)
+/// ```
+pub struct Local<F>(pub F);
+
+impl<F, B> MakeBackend for Local<F>
+where
+    F: Fn(&LocalConnection) -> B,
+    B: Backend<Medium = ()>,
+{
+    type Backend = B;
+    type Pumps = LocalPumps;
+
+    fn make(&self, connection: &LocalConnection) -> B {
+        (self.0)(connection)
+    }
+
+    fn medium(&self, _connection: &LocalConnection) {}
 }
 
 /// A host server: see the [crate docs](crate).

@@ -11,7 +11,9 @@ use wire_weaver::{MessageSink, Priority};
 
 /// A bounded queue of serialized events. A handler that fills it waits until the connection wrote some out, so a
 /// client that reads slowly slows its own handlers down and takes no memory beyond the bound.
-pub(crate) struct Outbox {
+///
+/// `pub` in a private module: the sealed pump set kinds name it.
+pub struct Outbox {
     inner: Mutex<Inner>,
     events_max: usize,
     /// The longest message the link takes, once it is up: a longer event is refused where it is sent, so its

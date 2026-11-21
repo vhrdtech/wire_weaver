@@ -6780,7 +6780,7 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
   dynamic clients and Python decode alike (<code>docs/api/stream_compression.md</code>; tests <code>ww_stream</code> <code>tests::codec</code>,
   <code>wire_weaver_client</code> <code>compressed_stream_decodes_and_heals</code> and <code>unknown_codec_reopens_raw</code>, <code>tests/io_uart</code>
   <code>rx_compressed</code>). To check on
-  hardware: Portwright's UART rx at 6 Mbaud (typec_dongle FW-42). Not yet: a restart the host asks for, batched and
+  hardware: Portwright's UART rx at 6 Mbaud (portwright FW-42). Not yet: a restart the host asks for, batched and
   reliable streams, sinks (host -&gt; device).</li>
 </ul>
 <h2 id="server-device-side-srv">Server / device side (<code>SRV</code>)<a class="headerlink" href="#server-device-side-srv" title="Permanent link">&para;</a></h2>
@@ -7310,7 +7310,7 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
   its <code>ser_shrink_wrap</code>), so each path is compiled once per server mode; whether the type is unsized is a separate
   argument that LLVM drops without <code>multi_req</code>. <code>MaxLen&lt;T, N&gt;</code> decodes through <code>des_bounded::&lt;T&gt;</code>, one copy per
   <code>T</code> instead of per bound. <code>ww_device::Server::handle</code> polls in a function of its own (<code>PollOutOfLine</code>): inlined
-  into Portwright's server task it pulled in more and cost 6.2 KB. Portwright (typec_dongle, release at <code>z</code>)
+  into Portwright's server task it pulled in more and cost 6.2 KB. Portwright (release at <code>z</code>)
   332,184 → 314,972 B, below c440491's 317,996 B; its dev build at <code>opt-level = 3</code> overflows FLASH by 960 B
   instead of 16,532 B; portwright_template 135,676 → 132,164 B. TEST-30: the <code>MaxLen&lt;&amp;str, N&gt;</code> kind 309 → 194 B at
   <code>z</code> sync, 526 → 256 B at <code>fw-3</code>, below its pre-SRV-51 cost except <code>z</code> async (230 B against 206 B); the
@@ -7318,7 +7318,7 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
   request within 1.5 %, same reply bytes (TEST-31), same handlers. See
   <code>docs/articles/flash_budget.md#reply-paths-without-a-copy-per-type-srv-55</code>.</li>
 <li>🚧 <strong>SRV-56 No observe encoder without a row producer</strong> — a firmware with a <code>+batched</code> property links the whole
-  batch encoder even when it never produces a row. Measured on Portwright (typec_dongle 61bca76, wire_weaver 753d5f7,
+  batch encoder even when it never produces a row. Measured on Portwright (portwright 61bca76, wire_weaver 753d5f7,
   release at <code>z</code>, text+data): 289,580 B with <code>meter-samples</code> off, 293,780 B with it on.</li>
 <li><strong>Done: <code>observe_samples = false</code>.</strong> A <code>ww_codegen!</code> argument, so the choice stays in the firmware that makes it
     and the shared API crate doesn't change. No batcher, outbox, scratch or <code>Series</code> encoder; <code>ObserveState</code> and
@@ -7348,7 +7348,7 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
     generated server has <code>image_facts()</code> for <code>LinkConfig::new</code>. Later choices of an image append fields (a host
     knowing the codec of INT-16 before downloading, global lookup off of SRV-53). <code>wire_weaver_client</code> refuses
     <code>Samples</code> before sending (<code>Error::Unsupported</code>), so the generated and dynamic clients, <code>ww observe</code> and Python
-    get it. No wire break. It costs every image 256 B of flash (Portwright with <code>meter-samples</code>, release at <code>z</code>, typec_dongle
+    get it. No wire break. It costs every image 256 B of flash (Portwright with <code>meter-samples</code>, release at <code>z</code>, portwright
     7c97d27, wire_weaver 0543991: 291,508 -&gt; 291,764 B text+data), in the server's link code that writes
     <code>DeviceInfo</code>; 112 B of it is the size slot that lets the record grow. Off image on the same base: 287,316 -&gt;
     264,404 B, 65,396 -&gt; 62,004 B RAM. Tests <code>no_samples_is_refused_before_sending</code>, <code>image_facts_across_versions</code>,
@@ -9168,7 +9168,7 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
   the shape table of TEST-37 doesn't cover it; it carries a gap in <code>FIELD_KIND_GAPS</code> until it has its own shapes
   (empty, one, many items; aligned, mid-byte; last, followed by a bool).</li>
 <li>✅ <strong>TEST-26 Credit sink resume on hardware</strong> · <code>v0.5</code> — Portwright's header UART tx credit sink (API-34) on one of our dev PCs
-  (USART5, 921 600 Bd, jumper IO7-IO8, <code>portwright-core/examples/uart_resume</code> in typec_dongle): 1 MB of numbered lines,
+  (USART5, 921 600 Bd, jumper IO7-IO8, <code>portwright-core/examples/uart_resume</code> in portwright): 1 MB of numbered lines,
   every byte on the line exactly once and in order (0 mismatches) in a plain run (14.3 s, 70 kB/s), with 4 link drops
   (<code>disconnect().keep_streams()</code>, 200 ms down, <code>Commander::reconnect()</code> 10-22 ms incl. resume, first flush after it
   0 ms; 15.3 s) and with a restarted host process continuing from the saved cursor (resume 2.6 ms, device was 544 B
@@ -9238,7 +9238,7 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
     between double words).</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> real power cut against <code>ww_settings::Store</code> on <code>EccSafeFlash</code>, so the zeros path of SRV-19 runs on
     hardware: the B129A powered through the Portwright plug
-    VBUS switch (U601, AOZ1375), switched from the PC in a loop with Portwright's <code>plug.vbus_mode</code> (typec_dongle
+    VBUS switch (U601, AOZ1375), switched from the PC in a loop with Portwright's <code>plug.vbus_mode</code> (portwright
     API-11, in progress). The device can't keep its counters across a power cut: a host program reads the loaded
     and committed sequence numbers and the ECC count over SWD (Portwright CMSIS-DAP, session ended before each cut so
     SBU/CC don't back-feed the board) and checks every boot loads at least what was committed before the cut.</li>

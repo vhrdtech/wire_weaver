@@ -621,12 +621,13 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   `ww_device::Clock`, connections run inside the future (no spawner, backends need not be `Send`). Done: the
   `Listener` trait and the in-process listener (any peer can be given), requests of a connection in order while the
   connection keeps reading, pinging and writing queued events, `Limits` (connections, queued requests and events,
-  message length) that push back instead of dropping, graceful shutdown with a grace time, the `Backend` hook for
+  message length) that push back instead of dropping, a cap on requests across connections answered with
+  `ErrorKind::Overloaded` (EVO-83), graceful shutdown with a grace time and `DisconnectReason::Shutdown`, the
+  `Backend` hook for
   what a connection sends on its own (`wait`, `next_wake`, `poll`: stream items, observed properties) and `Fanout`,
   one sender with a queue per subscriber, `Server::accepting` for connections the program spawns as tasks of its
   runtime ([Host server](docs/api/host_server.md), `tests/host_server`).
-  Missing: a cap across connections and what a request refused at it answers, a disconnect reason for a server
-  that shuts down; the connection's `CallContext` (peer, connection id) in handlers and calls side by side (after
+  Missing: the connection's `CallContext` (peer, connection id) in handlers and calls side by side (after
   SRV-65), with event pumps for streams that flow while calls run; listeners over byte streams (TR-19), the local
   socket and an inherited fd (systemd socket activation). Then `ww_hub` serves its API on it.
 - 📋 **SRV-46 Peer identity and policy** — who called, from the transport only (SO_PEERCRED, `getpeereid`, the
@@ -1795,13 +1796,13 @@ Unicast Data0 to one node over the same bus is TR-6.
   mismatch (test `wire_weaver_evolution` `old_format`). Format 0.3.0 had held about 40 encodings: every stored
   snapshot was rewritten once into 0.4.0 ([snapshots](docs/evolution/snapshots.md#model-format)). No device or
   host depends on an older format.
-- ✅ **EVO-78 Evolution of keyed arrays** · `v0.5` — `keyed!` in the checker: adding one is compatible, removing
 - ✅ **EVO-83 `ErrorKind::Overloaded` appended** · `v0.5` — wire addition to `ww_client_server`'s `ErrorKind`, no
   break: `Overloaded` comes after `Common`, at the new request site `err_seq::REQUEST_OVERLOADED` (63). A host
   server (SRV-12) answers with it a request it refused for its load before any handler ran. An older host reads it
   as `ErrorKind::Unknown` and its call fails as an internal error; a device never sends it. The line stays `w2.0`.
   Conformance case `client_server.error.overloaded`, test `host_server`
   `a_request_past_the_servers_cap_is_answered_overloaded`.
+- ✅ **EVO-78 Evolution of keyed arrays** · `v0.5` — `keyed!` in the checker: adding one is compatible, removing
   one is a break, the key type is compared both ways, and keying another array is a break. Across a wire break a
   companion is matched by the array it keys, so it follows a moved or `#[moved_from]`-renamed array. `ww api diff`
   prints `keyed!(flow by FlowKey)`; `ww api` trees print `flow[] keyed by FlowKey` on the array line (API-67).

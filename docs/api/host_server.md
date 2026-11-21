@@ -196,12 +196,19 @@ in, and `poll` sends them with the generated `stream_data_ser().<name>_send(&ite
 | Limit | Default | At the limit |
 |---|---|---|
 | `connections_max` | 64 | The server stops accepting. Further clients wait in the listener until a connection ends. |
+| `requests_max` | 256 | A request that would go over it, across all connections, is answered with `Overloaded`. |
 | `pending_max` | 32 | The connection stops reading. The client's transport pushes back on the client. |
 | `events_max` | 64 | A handler waits inside its send until the connection wrote events out. |
 | `shutdown_grace` | 5 s | See below. |
 | `disconnect_linger` | 200 ms | See below. |
 
 None of these limits drops a request. A full queue slows down the client that filled it, and nobody else.
+
+`requests_max` is the one limit that answers instead of waiting. Back pressure works per connection, so it can't
+bound the work of all connections together: a request that would go over that bound is answered with the error
+kind `Overloaded` at once, and its handler never runs. Since nothing ran, the client may send it again later. On
+the client the error is `call::ErrorKind::Overloaded`, the same kind as a handler's common error `Busy`; a handler's
+`Busy` speaks about a resource it guards, `Overloaded` about the server as a whole.
 
 The longest message is not a limit of the server: it comes from the listener's medium and from the client, and link
 setup agrees on the smaller of the two (see [Large messages](large_messages.md)). A reply over it is answered with

@@ -1,8 +1,8 @@
-//! What the server tells its connections: keep going, finish up, or stop now.
+//! What the server shares with its connections: its stage (keep going, finish up, or stop now) and its load.
 
 use crate::sync::locked;
 use std::sync::Mutex;
-use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::atomic::{AtomicU8, AtomicUsize, Ordering};
 use std::task::{Context, Waker};
 
 /// Where the server is in its life.
@@ -16,10 +16,21 @@ pub(crate) enum Stage {
     Abort = 2,
 }
 
-/// The server's stage, shared with every connection.
+/// The server's stage and load, shared with every connection.
 pub(crate) struct Lifecycle {
     stage: AtomicU8,
     watchers: Mutex<Vec<Waker>>,
+    /// Requests that run now, across all connections.
+    running: AtomicUsize,
+}
+
+/// A request counted as running; counted down when dropped.
+pub(crate) struct Running<'a>(&'a AtomicUsize);
+
+impl Drop for Running<'_> {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::AcqRel);
+    }
 }
 
 impl Lifecycle {
@@ -27,7 +38,18 @@ impl Lifecycle {
         Lifecycle {
             stage: AtomicU8::new(Stage::Run as u8),
             watchers: Mutex::default(),
+            running: AtomicUsize::new(0),
         }
+    }
+
+    /// Count a request as running, unless `max` of them run already.
+    pub(crate) fn start_request(&self, max: usize) -> Option<Running<'_>> {
+        self.running
+            .try_update(Ordering::AcqRel, Ordering::Acquire, |n| {
+                (n < max).then_some(n + 1)
+            })
+            .ok()
+            .map(|_| Running(&self.running))
     }
 
     /// The stage now; the task of `cx` is woken when it changes.

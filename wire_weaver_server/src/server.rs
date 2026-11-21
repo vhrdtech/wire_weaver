@@ -23,6 +23,9 @@ pub struct Limits {
     /// Connections served at once. At the limit the server stops accepting, so further clients wait in the
     /// listener until one leaves.
     pub connections_max: usize,
+    /// Requests that run at once, across all connections. A request that would go over it is answered with
+    /// `ErrorKind::Overloaded` and its handler never runs, so the client may send it again later.
+    pub requests_max: usize,
     /// Requests of one connection read and waiting for their turn. At the limit the connection stops reading, so
     /// the client's transport pushes back.
     pub pending_max: usize,
@@ -42,6 +45,7 @@ impl Default for Limits {
     fn default() -> Self {
         Limits {
             connections_max: 64,
+            requests_max: 256,
             pending_max: 32,
             events_max: 64,
             shutdown_grace: Duration::from_secs(5),

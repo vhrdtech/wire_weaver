@@ -454,6 +454,30 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn a_request_past_the_servers_cap_is_answered_overloaded() {
+        let limits = Limits {
+            requests_max: 1,
+            ..small()
+        };
+        let bench = Bench::start("host_server/overloaded", limits);
+        let slow = bench.connect().await;
+        let other = bench.connect().await;
+        let waiting = tokio::spawn(async move { slow.wait(1).call().await.unwrap() });
+        soon("the handler runs", bench.shared.waiting(1)).await;
+        let error = soon("the refusal", other.echo(5).call()).await.unwrap_err();
+        assert_eq!(
+            error.call_kind(),
+            wire_weaver::call::ErrorKind::Overloaded,
+            "{error:?}"
+        );
+        assert!(!waiting.is_finished());
+        bench.shared.open(1);
+        assert_eq!(soon("the slow call", waiting).await.unwrap(), 1);
+        // room again: the same request is served
+        assert_eq!(other.echo(5).call().await.unwrap(), 5);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn clients_past_the_connection_limit_wait_for_room() {
         let limits = Limits {
             connections_max: 2,

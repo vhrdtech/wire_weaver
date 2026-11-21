@@ -251,6 +251,35 @@ impl<Tx: MessageTx, Rx: MessageRx, C: Clock> Conn<'_, Tx, Rx, C> {
         self.event_buffer = Some(done.events);
     }
 
+    fn take_reply_buffer(&mut self) -> Vec<u8> {
+        self.reply_buffer
+            .take()
+            .expect("the buffer comes back with every answer")
+    }
+
+    fn take_event_buffer(&mut self) -> Vec<u8> {
+        self.event_buffer
+            .take()
+            .expect("the buffer comes back with every answer")
+    }
+
+    /// Answer a request with `Overloaded`, its handler never ran.
+    async fn refuse(&mut self, request: Vec<u8>) {
+        let mut scratch = self.take_reply_buffer();
+        let base = scratch.as_ptr().addr();
+        // a request without a seq expects no answer
+        let reply = ww_device::overloaded_reply(&request, &mut scratch)
+            .map_or((0, 0), |reply| (reply.as_ptr().addr() - base, reply.len()));
+        let events = self.take_event_buffer();
+        self.answer(Done {
+            request,
+            scratch,
+            events,
+            reply: Some(reply),
+        })
+        .await;
+    }
+
     async fn loopback(&mut self, repeat: u32, seq: u32, data: &[u8]) {
         for seq in ww_device::loopback_seqs(repeat, seq) {
             let Some((kind, bytes)) = ww_device::loopback_reply(seq, data, &mut self.link_scratch)
@@ -416,6 +445,11 @@ pub(crate) async fn run<M: MakeBackend>(
 
     loop {
         if let Some(request) = conn.pending.pop_front() {
+            let Some(_running) = life.start_request(limits.requests_max) else {
+                // nothing ran: no turn for the backend either
+                conn.refuse(request).await;
+                continue;
+            };
             let (scratch, events) = (conn.take_reply_buffer(), conn.take_event_buffer());
             let work = pin!(call(
                 &mut backend,
@@ -512,17 +546,5 @@ impl<Tx: MessageTx, Rx: MessageRx, C: Clock + Clone> Conn<'_, Tx, Rx, C> {
                 }
             }
         }
-    }
-
-    fn take_reply_buffer(&mut self) -> Vec<u8> {
-        self.reply_buffer
-            .take()
-            .expect("the buffer comes back with every answer")
-    }
-
-    fn take_event_buffer(&mut self) -> Vec<u8> {
-        self.event_buffer
-            .take()
-            .expect("the buffer comes back with every answer")
     }
 }

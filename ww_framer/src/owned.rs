@@ -10,7 +10,7 @@ use core::ops::Range;
 
 use crate::framed_rx::{Carry, FramedRx, FramedRxState};
 use crate::prefix::{FrameCtx, FramePrefix, FrameReport, NopPrefix, PrefixStats};
-use crate::traits::{Checksum, Head, Tail};
+use crate::traits::{Checksum, FrameReader, FrameWriter, Head, Tail};
 use crate::tx::{Tx, TxState};
 
 /// Owned [Tx], see its docs for the intended use.
@@ -146,13 +146,24 @@ where
     }
 
     /// See [FramedRx::prefix_stats].
-    pub fn prefix_stats(&mut self) -> PrefixStats {
-        self.with(|rx| rx.prefix_stats())
+    pub fn prefix_stats(&self) -> PrefixStats {
+        self.state.prefix_stats::<P>()
     }
 
     /// See [FramedRx::stage].
     pub fn stage(&mut self, frame: &[u8]) -> Result<FrameReport, ()> {
         self.with(|rx| rx.stage(frame))
+    }
+
+    /// See [FramedRx::staging_buf].
+    pub fn staging_buf(&mut self) -> &mut [u8] {
+        let from = self.state.staged_end();
+        &mut self.buf[from..]
+    }
+
+    /// See [FramedRx::commit_staged].
+    pub fn commit_staged(&mut self, len: usize) -> Result<FrameReport, ()> {
+        self.with(|rx| rx.commit_staged(len))
     }
 
     /// See [FramedRx::reassemble].
@@ -179,5 +190,67 @@ where
     /// See [FramedRx::continue_from].
     pub fn continue_from(&mut self, carry: &Carry<'_, H::UserKind>) -> Result<(), ()> {
         self.with(|rx| rx.continue_from(carry))
+    }
+}
+
+impl<H: Head, C: Checksum, T: Tail, P: FramePrefix> FrameWriter for TxOwned<H, C, T, P>
+where
+    H::UserKind: Copy,
+{
+    type UserKind = H::UserKind;
+
+    fn write(&mut self, user_kind: H::UserKind, message: &[u8]) -> Result<bool, ()> {
+        TxOwned::write(self, user_kind, message)
+    }
+
+    fn flush(&mut self) -> usize {
+        TxOwned::flush(self)
+    }
+
+    fn buf(&self) -> &[u8] {
+        TxOwned::buf(self)
+    }
+
+    fn reset(&mut self) {
+        TxOwned::reset(self);
+    }
+
+    fn new_session(&mut self) {
+        TxOwned::new_session(self);
+    }
+}
+
+impl<H: Head, C: Checksum, T: Tail, P: FramePrefix> FrameReader for FramedRxOwned<H, C, T, P>
+where
+    H::UserKind: Copy + PartialEq,
+{
+    type UserKind = H::UserKind;
+
+    fn reset(&mut self) {
+        FramedRxOwned::reset(self);
+    }
+
+    fn free(&self) -> usize {
+        FramedRxOwned::free(self)
+    }
+
+    fn staging_buf(&mut self) -> &mut [u8] {
+        FramedRxOwned::staging_buf(self)
+    }
+
+    fn commit_staged(&mut self, len: usize) -> Result<FrameReport, ()> {
+        FramedRxOwned::commit_staged(self, len)
+    }
+
+    fn reassemble(&mut self) {
+        FramedRxOwned::reassemble(self);
+    }
+
+    fn message(&self) -> Option<(H::UserKind, &[u8])> {
+        FramedRxOwned::message(self)
+    }
+
+    fn prefix_stats(&self) -> PrefixStats {
+        FramedRxOwned::prefix_stats(self)
     }
 }

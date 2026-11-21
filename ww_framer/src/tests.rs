@@ -735,3 +735,90 @@ mod prefixed {
         );
     }
 }
+
+/// The owned framers behave as the borrowed ones through [FrameWriter] / [FrameReader], also when frames are
+/// received straight into the staging buffer.
+#[cfg(all(test, feature = "std"))]
+mod owned {
+    extern crate std;
+    use std::vec::Vec;
+
+    use crate::framed::U2Head;
+    use crate::prefix::{FrameReport, SeqPrefix};
+    use crate::traits::{FrameReader, FrameWriter, NopChecksum, NopTail};
+    use crate::{FramedRx, FramedRxOwned, Tx, TxOwned};
+
+    type STx<'a> = Tx<'a, U2Head, NopChecksum, NopTail, SeqPrefix>;
+    type SRx<'a> = FramedRx<'a, U2Head, NopChecksum, NopTail, SeqPrefix>;
+    type OTx = TxOwned<U2Head, NopChecksum, NopTail, SeqPrefix>;
+    type ORx = FramedRxOwned<U2Head, NopChecksum, NopTail, SeqPrefix>;
+
+    const MESSAGES: [(u8, &[u8]); 3] = [
+        (0, &[0xAA]),
+        (1, &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]),
+        (2, &[]),
+    ];
+
+    fn frames(tx: &mut impl FrameWriter<UserKind = u8>) -> Vec<Vec<u8>> {
+        let mut out = Vec::new();
+        for session in 0..2 {
+            if session == 1 {
+                tx.new_session();
+            }
+            for (uk, m) in MESSAGES {
+                while !tx.write(uk, m).unwrap() {
+                    let n = tx.flush();
+                    out.push(tx.buf()[..n].to_vec());
+                }
+            }
+            let n = tx.flush();
+            out.push(tx.buf()[..n].to_vec());
+        }
+        out
+    }
+
+    fn receive(
+        rx: &mut impl FrameReader<UserKind = u8>,
+        frames: &[Vec<u8>],
+    ) -> (Vec<FrameReport>, Vec<(u8, Vec<u8>)>) {
+        let mut reports = Vec::new();
+        let mut got = Vec::new();
+        for frame in frames {
+            assert!(rx.free() >= frame.len(), "room for a frame");
+            rx.staging_buf()[..frame.len()].copy_from_slice(frame);
+            reports.push(rx.commit_staged(frame.len()).unwrap());
+            loop {
+                rx.reassemble();
+                match rx.message() {
+                    Some((uk, m)) => got.push((uk, m.to_vec())),
+                    None => break,
+                }
+            }
+        }
+        (reports, got)
+    }
+
+    #[test]
+    fn owned_and_borrowed_frame_alike() {
+        let mut tx_buf = [0u8; 6];
+        let borrowed = frames(&mut STx::new(&mut tx_buf));
+        let owned = frames(&mut OTx::new(6));
+        assert_eq!(borrowed, owned);
+
+        let mut rx_buf = [0u8; 32];
+        let mut rx = SRx::new(&mut rx_buf);
+        let from_borrowed = receive(&mut rx, &borrowed);
+        let mut orx = ORx::new(32);
+        let from_owned = receive(&mut orx, &owned);
+        assert_eq!(from_borrowed, from_owned);
+        let expected: Vec<_> = MESSAGES.iter().map(|(uk, m)| (*uk, m.to_vec())).collect();
+        assert_eq!(from_owned.1, [expected.clone(), expected].concat());
+        assert_eq!(
+            FrameReader::prefix_stats(&rx),
+            FrameReader::prefix_stats(&orx)
+        );
+
+        orx.reset();
+        assert_eq!(orx.free(), 32);
+    }
+}

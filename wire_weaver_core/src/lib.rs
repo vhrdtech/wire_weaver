@@ -11,6 +11,8 @@ pub mod handler_model;
 pub mod layout;
 mod local_registry;
 pub mod method_model;
+#[cfg(test)]
+mod model_syntax_tests;
 pub mod pattern_model;
 pub mod property_model;
 pub mod receiver_model;

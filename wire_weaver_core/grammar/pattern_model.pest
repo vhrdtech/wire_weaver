@@ -1,6 +1,0 @@
-pattern_model = _{ SOI ~ (item ~ ","?)* ~ EOI }
-item = { regex ~ "=" ~ model }
-regex = { (!("=" | "," | WHITESPACE) ~ ANY)+ }
-model = { (ASCII_ALPHA | "_")+ }
-
-WHITESPACE = _{ " " | "\t" | "\n" }

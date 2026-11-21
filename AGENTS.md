@@ -216,8 +216,8 @@ The codegen pipeline (read `wire_weaver_derive`, then `wire_weaver_core`):
   `wire_weaver` (`layers.toml` `[api] crates`).
 - **`wire_weaver_core/`**: `transform/` turns the source into an AST (`api.rs`, `ty.rs`, `crate_walker.rs` walks
   and re-parses dependency crates, `unit_hint.rs`), `codegen/` emits server (`codegen/server`, with the scaffold),
-  client (`codegen/client`) and type code (`ty_def.rs`). `method_model`/`property_model` parse the `"pattern=keyword"`
-  DSL (grammars in `grammar/`). `gen_client`/`gen_server` serve `build.rs` use.
+  client (`codegen/client`) and type code (`ty_def.rs`). `pattern_model` parses the `"pattern=keyword"`
+  strings of every `*_model` argument. `gen_client`/`gen_server` serve `build.rs` use.
 - **`wire_weaver/`**: the runtime crate of servers and clients: re-exports `ww_api` (its prelude includes
   `ww_api::prelude`), `WireWeaverAsyncApiBackend`/`WireWeaverApiBackend`
   (sans-IO server traits), the handler `Context` (seq, medium, `EventOut`/`BlockingEventOut`), `RpcResult`/

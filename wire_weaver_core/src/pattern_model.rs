@@ -2,19 +2,14 @@
 //! (`device.settings.vbus_mode`): `handler_model` (SRV-21) and `receiver_model` (SRV-65).
 //!
 //! The first pattern that matches the whole path decides, `_` is the default for the rest. A pattern is a regex
-//! without `,`, `=` or whitespace; `.` also matches the dot between levels.
+//! without `=` or whitespace; `.` also matches the dot between levels.
+//!
+//! The syntax, shared with `method_model`, `property_model` and `const_model`: `pattern=keyword` items separated by
+//! `,`, a trailing `,` allowed, whitespace (newlines too) allowed around each token. A pattern holds no whitespace
+//! and no `=` and doesn't start with `,`; `_` as the pattern sets the default, at most once. Errors name the model
+//! and the `line:column` of the mistake.
 use anyhow::Error;
-use pest::Parser;
 use regex::Regex;
-
-mod private {
-    use pest_derive::Parser;
-
-    #[derive(Parser)]
-    #[grammar = "grammar/pattern_model.pest"]
-    pub(super) struct PatternModelParser;
-}
-use private::Rule;
 
 /// A kind a pattern model picks, written as a keyword after `=`.
 pub trait PatternKind: Copy + Sized {
@@ -54,41 +49,18 @@ pub struct PatternModelItem<K> {
 
 impl<K: PatternKind> PatternModel<K> {
     pub fn parse(input: &str) -> Result<Self, Error> {
-        let pairs = private::PatternModelParser::parse(Rule::pattern_model, input)
-            .map_err(|e| Error::msg(format!("{}: {e}", K::MODEL)))?;
-        let mut model = Self::default();
-        for item in pairs {
-            if item.as_rule() != Rule::item {
-                continue;
-            }
-            let mut item = item.into_inner();
-            let pattern = item.next().expect("the grammar has a pattern").as_str();
-            let keyword = item.next().expect("the grammar has a model").as_str();
-            let kind = K::from_keyword(keyword).ok_or_else(|| {
-                Error::msg(format!(
-                    "{}: unknown `{keyword}` in `{pattern}={keyword}`, expected {}",
-                    K::MODEL,
-                    K::KEYWORDS
-                ))
-            })?;
-            if pattern == "_" {
-                if model.default.is_some() {
-                    return Err(Error::msg(format!(
-                        "multiple defaults (`_=..`) in {}",
-                        K::MODEL
-                    )));
-                }
-                model.default = Some(kind);
-                continue;
-            }
-            let regex = Regex::new(&format!("^(?:{pattern})$"))?;
-            model.items.push(PatternModelItem {
-                pattern: pattern.to_owned(),
-                regex,
-                kind,
-            });
-        }
-        Ok(model)
+        let (default, written) = parse_items::<K>(input)?;
+        let items = written
+            .into_iter()
+            .map(|item| {
+                Ok(PatternModelItem {
+                    pattern: item.pattern.to_owned(),
+                    regex: item.regex_whole()?,
+                    kind: item.kind,
+                })
+            })
+            .collect::<Result<_, Error>>()?;
+        Ok(Self { default, items })
     }
 
     /// Whether nothing was written: no pattern and no `_`.
@@ -118,6 +90,141 @@ impl<K: PatternKind> PatternModel<K> {
             .map(|item| format!("{}: `{}` matches no {what}", K::MODEL, item.pattern))
             .collect()
     }
+}
+
+/// One `pattern=keyword` of a model string, `_=..` excluded.
+pub(crate) struct WrittenItem<'a, K> {
+    pub(crate) pattern: &'a str,
+    pub(crate) kind: K,
+}
+
+impl<K: PatternKind> WrittenItem<'_, K> {
+    /// The pattern as a regex that must match the whole path.
+    pub(crate) fn regex_whole(&self) -> Result<Regex, Error> {
+        self.regex(&format!("^(?:{})$", self.pattern))
+    }
+
+    /// The pattern as a regex that matches anywhere in the path.
+    pub(crate) fn regex_anywhere(&self) -> Result<Regex, Error> {
+        self.regex(self.pattern)
+    }
+
+    fn regex(&self, regex: &str) -> Result<Regex, Error> {
+        Regex::new(regex).map_err(|e| {
+            Error::msg(format!(
+                "{}: invalid pattern `{}`: {e}",
+                K::MODEL,
+                self.pattern
+            ))
+        })
+    }
+}
+
+/// Splits a model string (the syntax in the [module docs](self)) into the kind of `_` and the other items in the
+/// order written.
+pub(crate) fn parse_items<K: PatternKind>(
+    input: &str,
+) -> Result<(Option<K>, Vec<WrittenItem<'_, K>>), Error> {
+    let mut default = None;
+    let mut items = vec![];
+    let mut rest = input.trim_start();
+    while !rest.is_empty() {
+        let at = |rest: &str| Location(input, input.len() - rest.len());
+        let pattern_end = rest
+            .find(|c: char| c == '=' || c.is_whitespace())
+            .unwrap_or(rest.len());
+        let (pattern, after) = rest.split_at(pattern_end);
+        if pattern.is_empty() {
+            return Err(syntax::<K>(at(rest), "expected a pattern before `=`"));
+        }
+        if pattern.starts_with(',') {
+            return Err(syntax::<K>(
+                at(rest),
+                "expected a `pattern=keyword` item, found `,`",
+            ));
+        }
+        let Some(after) = after.trim_start().strip_prefix('=') else {
+            let found = after.trim_start();
+            return Err(syntax::<K>(
+                at(found),
+                &format!(
+                    "expected `=` after `{pattern}`, found {}; a pattern holds no whitespace",
+                    describe(found)
+                ),
+            ));
+        };
+        let after = after.trim_start();
+        let keyword_end = after
+            .find(|c: char| !(c.is_alphanumeric() || c == '_'))
+            .unwrap_or(after.len());
+        let (keyword, after) = after.split_at(keyword_end);
+        if keyword.is_empty() {
+            return Err(syntax::<K>(
+                at(after),
+                &format!(
+                    "expected {} after `{pattern}=`, found {}",
+                    K::KEYWORDS,
+                    describe(after)
+                ),
+            ));
+        }
+        let Some(kind) = K::from_keyword(keyword) else {
+            return Err(syntax::<K>(
+                at(keyword),
+                &format!(
+                    "unknown `{keyword}` in `{pattern}={keyword}`, expected {}",
+                    K::KEYWORDS
+                ),
+            ));
+        };
+        if pattern == "_" {
+            if default.is_some() {
+                return Err(syntax::<K>(at(rest), "multiple defaults (`_=..`)"));
+            }
+            default = Some(kind);
+        } else {
+            items.push(WrittenItem { pattern, kind });
+        }
+        let after = after.trim_start();
+        rest = match after.strip_prefix(',') {
+            Some(next) => next.trim_start(),
+            None if after.is_empty() => after,
+            None => {
+                return Err(syntax::<K>(
+                    at(after),
+                    &format!(
+                        "expected `,` after `{pattern}={keyword}`, found {}",
+                        describe(after)
+                    ),
+                ));
+            }
+        };
+    }
+    Ok((default, items))
+}
+
+/// A byte offset into a model string, shown as `line:column` (both from 1, the column in chars).
+struct Location<'a>(&'a str, usize);
+
+impl core::fmt::Display for Location<'_> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let before = &self.0[..self.1];
+        let line = before.matches('\n').count() + 1;
+        let line_start = before.rfind('\n').map_or(0, |i| i + 1);
+        let column = before[line_start..].chars().count() + 1;
+        write!(f, "{line}:{column}")
+    }
+}
+
+fn syntax<K: PatternKind>(at: Location<'_>, message: &str) -> Error {
+    Error::msg(format!("{} at {at}: {message}", K::MODEL))
+}
+
+/// What the parser found where it expected something else: the next char, or the end.
+fn describe(rest: &str) -> String {
+    rest.chars()
+        .next()
+        .map_or_else(|| "the end".to_owned(), |c| format!("`{c}`"))
 }
 
 #[cfg(test)]

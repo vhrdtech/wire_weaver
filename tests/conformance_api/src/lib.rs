@@ -166,6 +166,8 @@ trait Conformance {
     property!(rw point_celsius: ww_si::Point<ww_si::origins::Celsius, ww_si::Fixed<ww_si::units::Kelvin, ww_si::prefix::Centi, i16>>);
     /// `ww_si::Timed<V>` with its default time, a `DeviceMicros<u32>` (STD-110)
     property!(rw si_timed: ww_si::Timed<u16>);
+    /// `ww_api::Totals<T>`, running totals of a counted unit as a plain sink carries them (API-70)
+    property!(rw totals_item: Totals<ww_si::Fixed<ww_si::units::Item, ww_si::prefix::One, i32>>);
     /// `ww_keyed::KeyEvent<I, K>`, the item of a `keyed!` array's `keys` stream (API-67), with the `UNib32` index of
     /// an array declared as `name[]`
     property!(rw key_event: ww_keyed::KeyEvent<UNib32, u16>);

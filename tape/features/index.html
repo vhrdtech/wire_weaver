@@ -6682,7 +6682,7 @@
 <li>Past the room it carries each once: the call's tracks first, then clocks and maps, then the newest tracks. The tracks with the oldest data are left out: the head marks them, the close counts them and a reader names them (<code>DefinitionsAt::not_carried</code>).</li>
 <li>A cut made for a call keeps room for its records. An admitted call so fits the piece a cut made for it: data on a track left out writes on, and that piece holds data.</li>
 <li>A state track gets a head row from its first put. A cut carries its newest item beside its definition, so a state put once outlives older pieces. About 275 to 330 bytes per carried state (<code>just bench-carried</code>).</li>
-<li>Cost at 1000 tracks and 8 MiB pieces: 2.5 % less data and 2.8 % more bytes per piece (<code>just bench-carried</code>).</li>
+<li>What carrying costs a piece, measured by <code>just bench-carried</code>: <a href="https://tape.vhrd.tech/carried_definitions/#what-they-cost">What they cost</a>.</li>
 <li>
 <p>Read more: <a href="https://tape.vhrd.tech/carried_definitions/">The definitions a new piece carries</a>. Tests <code>quiet.rs</code>.</p>
 </li>
@@ -6695,6 +6695,14 @@
 <li>A copy that finds the piece's state entries full is skipped, never refusing a call; such a piece names them once.</li>
 <li>Cost: 523 bytes in a 28 MiB piece of the drive, two records and their index entries; none in a piece under 1 MiB.</li>
 <li>Read more: <a href="https://tape.vhrd.tech/damage/#the-first-4-kib-lost">When bytes go bad</a>. Tests <code>head_copies.rs</code>.</li>
+<li>🚧 <strong>WRITE-11 The definitions number tracks and clocks</strong></li>
+<li>An application defines a track or a clock without a number (<code>TrackSpec</code>, <code>ClockSpec</code>); <code>Definitions</code> gives the lowest number not taken and returns it.</li>
+<li>The same track identity (key, dimensions, owner) or clock key gets its number back, also after a close.</li>
+<li>A number never goes to another track or clock.</li>
+<li>A resume reads the numbers of the piece's definitions (<code>Resumed::numbers</code>), so the application's definitions keep them (<code>Definitions::with_numbers</code>).</li>
+<li>A reader finds a track's number by its id (<code>DefinitionsAt::track_number</code>).</li>
+<li>Missing: a chain resume that starts a new piece reads no closed piece, so its numbers start anew.</li>
+<li>Read more: <a href="https://tape.vhrd.tech/tracks/#number-key-and-id">Number, key and id</a>, <a href="https://tape.vhrd.tech/definitions/#the-definitions-an-application-holds">The definitions an application holds</a>.</li>
 </ul>
 <h2 id="reader-read">Reader (<code>READ</code>)<a class="headerlink" href="#reader-read" title="Permanent link">&para;</a></h2>
 <p>Reading by position, checks and hashes, hostile bytes, in the crate <code>ww_tape</code>.</p>
@@ -6717,6 +6725,14 @@
 <li>Entries of a piece are sorted by offset. Entries that name one block twice or overlap are refused, wherever they came from.</li>
 <li>A final index out of order is refused when read, so every call that gives entries agrees.</li>
 <li>Read more: <a href="https://tape.vhrd.tech/reading/#finding-blocks-through-the-index">Finding blocks through the index</a>.</li>
+<li>✅ <strong>READ-5 Typed numbers in the API</strong></li>
+<li>Track and clock numbers are <code>TrackNum</code> and <code>ClockNum</code>, 1 and up, each exactly a <code>UNib32</code> on the wire; a definition naming 0 doesn't decode. A record names its track as a <code>RecordTrack</code>, track 0 being the definitions.</li>
+<li>Track keys, track ids and clock keys are <code>TrackKey</code>, <code>TrackId</code> and <code>ClockKey</code>, any value valid, each exactly a <code>u64</code> on the wire. A key without dimensions is its id (<code>TrackKey::id</code>). The index lists record blocks of data under <code>RECORDS_TRACK_ID</code> and state records under <code>STATE_TRACK_ID</code>.</li>
+<li>Which relations of a track keep a column or never decrease is a <code>RelationSet</code>, a set of relation indexes below <code>RELATIONS_MAX</code> (<code>StoredRelations</code>, <code>TrackFacts</code>). A relation index itself stays a <code>u16</code>: only an index into <code>TrackDef::relations</code>.</li>
+<li>Byte sizes in the options and limits (<code>NearPolicy</code>, <code>IndexPolicy</code>, <code>CutPolicy</code>, <code>OpenOptions</code>, the summary builders' block caps, their default constants) are exact_units <code>Bytes&lt;T&gt;</code>; counts of entries, chunks and slots there are <code>Count&lt;_, u64&gt;</code>. Offsets and lengths read from a file stay <code>FromFile&lt;T&gt;</code> (READ-2); plain measurements in reports stay bare.</li>
+<li>An item's number on its track is an <code>ItemNum</code>, exactly a <code>u64</code> on the wire. It names items in the chunk, index, summary and piece heads, the series timeline, the range hash and the summary builders' API. A count of items stays a <code>u64</code>; <code>ItemNum::checked_add</code>, <code>offset_to</code> and <code>items</code> relate the two. A grid's own sample index (<code>SeriesGrid::grid_index</code>) and the builders' counters stay <code>u64</code>.</li>
+<li>Left bare on purpose: block seqs (<code>BlockId::seq</code>, <code>ChunkPlaced::seq</code>), counts, format and codec versions, codec ids, relation indexes, offsets and lengths. Each is a plain counter, an index or a measurement, and a number read from a file stays a <code>FromFile&lt;T&gt;</code> (READ-2).</li>
+<li>Read more: the crate docs of <code>ww_tape</code> (<code>TrackNum</code>, <code>ClockNum</code>, <code>RecordTrack</code>, <code>TrackKey</code>, <code>TrackId</code>, <code>ClockKey</code>, <code>RelationSet</code>).</li>
 </ul>
 <h2 id="files-and-locks-fs">Files and locks (<code>FS</code>)<a class="headerlink" href="#files-and-locks-fs" title="Permanent link">&para;</a></h2>
 <p>Everything that names a path, in the crate <code>ww_tape_fs</code>.</p>
@@ -6749,8 +6765,8 @@
 <li>✅ <strong>CODEC-4 ALP for floats</strong> · <code>v0.5</code></li>
 <li>ALP codes floats that began as decimals as bit-packed integers, after Afroozeh, Kuffó and Boncz (SIGMOD 2024). Other floats are coded by their front bits.</li>
 <li>It is lossless, and a group never takes more than 7 bytes over raw. The same input gives the same bytes on every platform.</li>
-<li>Fixed point stays 1.6 to 9.3 times smaller than any float codec measured.</li>
-<li>Read more: <a href="https://tape.vhrd.tech/numbers/#alp-the-one-float-codec">ALP, the one float codec</a>. Fuzz target <code>tape-samples</code>.</li>
+<li>Fixed point stays smaller than any float codec measured.</li>
+<li>Read more: <a href="https://tape.vhrd.tech/sizes/#samples-fixed-point-first">Samples: fixed point first</a>. Fuzz target <code>tape-samples</code>.</li>
 <li>✅ <strong>CODEC-5 One fast CRC-32C</strong></li>
 <li>Every block kind checks its CRC-32C with one table, or with the CPU's CRC instruction where there is one.</li>
 <li>On x86-64 the instruction reaches 31 to 37 GiB/s on large buffers. The ARMv8 path runs in CI.</li>
@@ -6758,7 +6774,7 @@
 <li>Read more: <a href="https://tape.vhrd.tech/damage/#checks-at-three-levels">Checks at three levels</a>.</li>
 <li>💡 <strong>CODEC-6 Fast sample encoders</strong></li>
 <li><code>DELTA</code> and the packed codecs encode through a scalar 64-bit path, about 3.6 ns per value for <code>ComplexI16</code>, while <code>DELTA</code> decodes at 0.65 ns.</li>
-<li>On one core the encoder is the writer's limit. Packed at 12 bits, the writer takes 157 MS/s of IQ and the codec 58 % of its time (<code>ww_tape_benchmarks --bin rf_core</code>).</li>
+<li>On one core the encoder is the writer's limit. Packed at 12 bits, the writer takes 157 MS/s of IQ and the codec 58 % of its time (<code>just bench-rf-core</code>; <a href="https://tape.vhrd.tech/sizes/#how-fast-a-radio-capture-records">How fast a radio capture records</a>).</li>
 <li>Vector kernels for 16-bit values, as the decoders and summaries have, would lift it. The bytes must stay the same.</li>
 </ul>
 <h2 id="summaries-sum">Summaries (<code>SUM</code>)<a class="headerlink" href="#summaries-sum" title="Permanent link">&para;</a></h2>
@@ -6776,7 +6792,7 @@
 <li>✅ <strong>SUM-3 Summary kernels in one pass</strong> · <code>v0.5</code></li>
 <li>A batch of samples is summarised in one pass, fast enough to keep up with ingest. Any order of addition gives the same result.</li>
 <li>Kernels for AVX2 and AVX-512 are picked at run time and checked against the scalar model.</li>
-<li>Read more: <a href="https://tape.vhrd.tech/numbers/#summaries">Numbers</a>; <code>just bench-summaries</code> measures them.</li>
+<li>Read more: <a href="https://tape.vhrd.tech/sizes/#summaries">Summaries</a>; <code>just bench-summaries</code> measures them.</li>
 <li>💡 <strong>SUM-4 Minimum and maximum at the element's width</strong></li>
 <li>A series node stores its minimum and maximum as 8 bytes per component, whatever the element: a <code>ComplexI16</code> node takes 32 bytes for them.</li>
 <li>The RF capture's nodes take 40 bytes each, 1.1 % of its piece; at the element's width they would take 16.</li>
@@ -6800,7 +6816,10 @@
 <li>Done: Part IV, reading: five chapters that find the drive's fault in code, with six new figures.</li>
 <li>Done: Part V, damage and raw media, with the drive's archive and card, four new figures and the lessons appendix.</li>
 <li>Done: the owner's read: one term each for record, item and sample; event times and samples on pages of their own.</li>
-<li>Open: the chapter "Sizes and speeds", still a stub; tested code in every guide chapter.</li>
+<li>Done: the chapter "Sizes and speeds", every number from a bench report in <code>docs/bench/</code>.</li>
+<li>Done: data figures as eventfull screenshots in <code>docs/shots/</code>: the drive's hour, the fault, the zoom and the RF minute. <code>just book-shots</code> copies them; eventfull's tests keep them current (eventfull TL-79).</li>
+<li>Open: autorange and damage as screenshots, and log and temp rows in them, once eventfull draws them.</li>
+<li>Open: the chapters still stubs, tested code in every guide chapter.</li>
 <li>
 <p>Read more: <a href="https://tape.vhrd.tech/writers/">For writers</a>, <a href="https://tape.vhrd.tech/glossary/">Glossary</a>.</p>
 </li>
@@ -6812,7 +6831,7 @@
 <li><code>cargo run -p ww_tape_example</code> prints the story's numbers; <code>tests/story.rs</code> checks them and that the full hour is the same every run.</li>
 <li>Damage to the last piece and the run on a raw card over an earlier run; <code>tests/damage.rs</code> pins what each costs.</li>
 <li><code>rf</code> records an RF capture, ComplexI16 IQ at 20 MS/s with summaries, as the book's case for high rates; <code>tests/rf.rs</code> pins its size per codec.</li>
-<li>Read more: <a href="https://github.com/vhrdtech/ww_tape/blob/84a845fe95d0bcdded64b103d2a94a48bccd83f5/ww_tape_example/README.md">ww_tape_example</a>.</li>
+<li>Read more: <a href="https://github.com/vhrdtech/ww_tape/blob/18138903c43758c1008105026ef03721472cf7b6/ww_tape_example/README.md">ww_tape_example</a>.</li>
 </ul>
 <h2 id="repository-repo">Repository (<code>REPO</code>)<a class="headerlink" href="#repository-repo" title="Permanent link">&para;</a></h2>
 <p>Crates, checks, fuzzing and benches.</p>
@@ -6826,6 +6845,10 @@
 <li>✅ <strong>REPO-84 spirit_level checks in <code>just lint</code></strong></li>
 <li><code>just lint</code> and CI run <code>spl check</code> with every lint of <code>spirit_level.toml</code>. The prose lints read the book, the READMEs, AGENTS.md, the CHANGELOG and this file.</li>
 <li>Every crate inherits the workspace lints, the panic-class set included.</li>
+<li>✅ <strong>REPO-85 Benches that rerun the book's numbers</strong></li>
+<li>Every bench binary takes <code>--json FILE</code>, <code>--color</code>, <code>--version</code> and shell completion through <code>ww_tape_bench</code>. Each table records the machine and the load average before and after it.</li>
+<li><code>just bench-book</code> reruns every number of "Sizes and speeds" into <code>docs/bench/</code>; <code>ww_tape_figures</code> draws the page's charts and tables from those reports, and a test keeps them current.</li>
+<li>Read more: <a href="https://tape.vhrd.tech/sizes/">Sizes and speeds</a>.</li>
 </ul>
 <h2 id="dropped-and-superseded">Dropped and superseded<a class="headerlink" href="#dropped-and-superseded" title="Permanent link">&para;</a></h2>
 <p>Nothing yet.</p>

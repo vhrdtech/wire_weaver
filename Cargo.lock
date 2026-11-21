@@ -5070,6 +5070,7 @@ dependencies = [
  "tracing",
  "wire_weaver",
  "wire_weaver_client",
+ "wire_weaver_server",
  "ww_byte_stream",
  "ww_client_server",
  "ww_device",

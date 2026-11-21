@@ -8,6 +8,8 @@
 
 ### 🚀 Features
 
+- Serves its API on `wire_weaver_server` (SRV-67): streams flow while calls run, deadline and cancel honored, exit tells clients why.
+
 - The hub refuses a client's `RequestKind::Cancel` (SRV-47) as it refuses an unknown kind: its seq is the client's, and no device behind the hub reads one.
 - Answers a preamble of an unknown target kind with `Status::UnknownTarget` and a named service with `UnknownService` (TR-19), instead of closing.
 - `HubHost` and `main_if_hub_with(HubHost)`: the program hosting the hub gives it its capture host; `main_if_hub()` is `main_if_hub_with(HubHost::default())`, a hub that records nothing.

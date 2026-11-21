@@ -199,11 +199,10 @@ pub(crate) async fn watch(hub: Arc<Hub>) {
         for (key, state) in &now {
             match known.get(key) {
                 None => {
-                    let _ = hub.events.send(EventOwned::Plugged { key: key.clone() });
+                    hub.events.send(EventOwned::Plugged { key: key.clone() });
                 }
                 Some(old) if old != state => {
-                    let _ = hub
-                        .events
+                    hub.events
                         .send(EventOwned::HolderChanged { key: key.clone() });
                 }
                 Some(_) => {}
@@ -211,7 +210,7 @@ pub(crate) async fn watch(hub: Arc<Hub>) {
         }
         for key in known.keys() {
             if !now.contains_key(key) {
-                let _ = hub.events.send(EventOwned::Unplugged { key: key.clone() });
+                hub.events.send(EventOwned::Unplugged { key: key.clone() });
             }
         }
         known = now;

@@ -644,7 +644,7 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   (`wait`, `next_wake`, `poll`: observed properties) and `Fanout`, one sender with a queue per subscriber,
   `Server::accepting` for connections the program spawns as tasks of a multi-threaded runtime
   ([Host server](docs/api/host_server.md), `tests/host_server`, `ww_local_socket/tests/activation.rs`).
-  A write behind slow calls waits until they finish or their deadline ends them (SRV-47); byte-stream listeners (TCP, stdio, local socket, WebSocket framing) are TR-19; the hub moving onto it is SRV-67.
+  A write behind slow calls waits until they finish or their deadline ends them (SRV-47); byte-stream listeners (TCP, stdio, local socket, WebSocket framing) are TR-19; the hub serves its API on it (SRV-67).
 - ✅ **SRV-69 UDP listener for wire_weaver_server** — `wire_weaver_server::udp::UdpListener<S, PEERS>` (feature
   `udp`, `bind` on tokio): a connection per host address of one socket, on `ww_device::udp::LockedUdpPeers`
   (SRV-68's table behind a mutex, `Sync`), so `serve` and `accepting` both work. Connections own their buffers
@@ -678,10 +678,15 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   informing the device.
 - 📋 **SRV-10 Collect error codes into an ELF section** for easier error decoding · `v0.5.x`.
 - 📋 **SRV-11 Link statistics** in `ww_device` (`TODO(SRV-11)` in `link.rs`).
-- 📋 **SRV-67 ww_hub serves its API on wire_weaver_server** — the hub's own API (`ww_hub_api`) is served by
-  `wire_weaver_server` on the hub socket instead of one `ww_device::Server` per client: its connections, limits,
-  shutdown and `Fanout` replace the hub's hand-written accept loop and `broadcast` fan-out. The preamble still picks
-  the hub's API or a device tunnel, so the hub's listener hands only hub-API connections to the server.
+- ✅ **SRV-67 ww_hub serves its API on wire_weaver_server** — the hub's own API (`ww_hub_api`) is served by
+  `wire_weaver_server` instead of one `ww_device::Server` per client: a backend per connection, limits, shutdown,
+  deadline and cancel. The preamble still picks the hub's API or a device tunnel, and the hub hands the API's
+  connections to the server through `wire_weaver_server::opened`. Registry events and sync stats are `Fanout`s,
+  they and capture watches go out as pumps, also while a call runs; requests that change the hub run to their end
+  when their client gives up. At exit the API's clients are told `Shutdown`, or `HubHandover` (the shutdown future's
+  `ShutdownReason`), after the stream items ready by then ([hub](docs/transport/hub.md#its-api),
+  `tests/hub_reconnect`, `tests/host_server`'s `connections_the_program_opened_are_served`). Device tunnels stay the
+  hub's own (they forward bytes, no API is served there).
 - ✅ **SRV-46 Peer identity and policy** — who called, from the transport only, never from `ClientMeta`: the local
   socket's `SO_PEERCRED` / `getpeereid` as `Peer::Unix`, the address, the server's own user on stdio, the key a
   program hands in with a stream. `ww_local_socket::PeerPolicy` (`SameUser` by default, `Users { group, uids }`,

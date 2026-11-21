@@ -113,8 +113,14 @@ host it: `ww_hub::main_if_hub()` first in `main` makes the executable serve as t
 
 ### Its API
 
-The hub serves `ww_hub_api` like any device serves its API (a generated `no_alloc = false` server per connection),
-so introspection and the dynamic client work on it. `ww_hub::client::HubClient` is the typed client:
+The hub serves `ww_hub_api` like any device serves its API, so introspection and the dynamic client work on it. The
+server is a [host server](../api/host_server.md) (SRV-67): the hub answers each preamble itself and hands the
+connections that ask for its API to `wire_weaver_server` ([connections the program opened](../api/host_server.md#connections-the-program-opened)),
+which gives each its own backend, sends the streams (`events`, sync stats, capture watches) as they come, also while a
+call runs, and drops a request whose client gave up. A request that changes the hub (a claim, a lend, an adoption,
+`take`, a capture's start) runs to its end even then, so nothing is left half done. When the hub exits, its API's
+clients are told why: `Shutdown`, or `HubHandover` after a [handover](#handover-to-a-newer-hub).
+`ww_hub::client::HubClient` is the typed client:
 
 ```rust
 let hub = HubClient::connect().await?; // ClientConfig::hub_api(): the user's hub socket

@@ -1,135 +1,102 @@
-//! The hub's own API (`ww_hub_api`) on one connection: a generated `no_alloc = false` server on `ww_device::Server`,
-//! over the connection whose preamble the hub already answered.
+//! The hub's own API (`ww_hub_api`): a generated `no_alloc = false` server on `wire_weaver_server`, which takes the
+//! connections whose preamble asked for the hub (the hub answers every preamble itself) and serves each with a
+//! backend of its own until the client leaves or the hub exits (SRV-67).
 
 use crate::locked::Locked;
+use std::future::Future;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
 
-use tokio::sync::broadcast::error::RecvError;
-use tracing::{debug, warn};
+use futures_util::StreamExt as _;
+use tracing::debug;
 use wire_weaver::prelude::*;
+use wire_weaver::{DisconnectReason, Peer};
 use wire_weaver_client::in_process::TokioClock;
-use wire_weaver_client::local_socket::device::connection_medium;
-use ww_device::LinkEvent;
+use wire_weaver_client::local_socket::device::{DeviceRx, DeviceTx};
+use wire_weaver_server::opened::{OpenedListener, OpenedSender};
+use wire_weaver_server::{Connection, Limits, PumpId, Pumps};
 use ww_hub_api::{
     AdoptErrorOwned, CaptureErrorOwned, CaptureId, CaptureOptions, CapturePageOwned,
     ClaimEntryOwned, ClaimErrorOwned, ClientEntryOwned, DeviceEntryOwned, HandoverError,
-    HubInfoOwned, HubStatusOwned, MAX_WATCHES, Pressure, RamMax, RecordBatchOwned, ReleaseError,
-    SaveInfoOwned, SyncEntryOwned, TakeErrorOwned, WatchId,
+    HubInfoOwned, HubStatusOwned, MAX_WATCHES, Pressure, RamMax, ReleaseError, SaveInfoOwned,
+    SyncEntryOwned, TakeErrorOwned, WatchId,
 };
-use ww_local_socket::{ReadHalf, WriteHalf};
 
 use crate::Hub;
 use crate::captures::{Act, HostWatch, WatchCount};
 
 /// Longest message on a hub API connection, both ways: device and client lists of a busy bench fit, and a watch's
 /// record batch (`ww_hub_api::MAX_BATCH_BYTES`) with its stream header.
-const MAX_MESSAGE_LEN: usize = 64 * 1024;
+pub(crate) const MAX_MESSAGE_LEN: usize = 64 * 1024;
+/// Hub API connections served at once: one per program of the user that talks to the hub. Past it a program waits
+/// until another leaves.
+const CONNECTIONS_MAX: usize = 1024;
+/// Hub API connections answered and not yet taken by the server.
+const QUEUED_MAX: usize = 16;
+/// How long an exiting hub's API connections get to answer what they have before they are disconnected: with the
+/// server's linger after the disconnect (200 ms) within the hub's `EXIT_DRAIN`.
+const EXIT_GRACE: Duration = Duration::from_millis(250);
 
-/// A watch's batch from its task to the connection: the watch's index, its generation (a batch of a closed watch
-/// isn't sent on one opened at the same index after), the batch, `None` once the capture ended.
-type BatchMsg = (u32, u64, Option<RecordBatchOwned>);
+/// Where the hub hands the connections of its API.
+pub(crate) type Opened = OpenedSender<DeviceTx, DeviceRx>;
 
-/// Serves the hub API to one client until it leaves.
-pub(crate) async fn serve_connection(hub: Arc<Hub>, id: u32, rx: ReadHalf, tx: WriteHalf) {
-    let (tx, rx, mut ended) = connection_medium(rx, tx, MAX_MESSAGE_LEN);
-    let mut scratch = vec![0u8; MAX_MESSAGE_LEN];
-    let mut event_scratch = vec![0u8; MAX_MESSAGE_LEN];
-    let config = ww_device::LinkConfig::new(
-        ww_hub_api::HUB_FULL_GID,
-        ww_hub_api::HUB_WIRE_VERSION,
-        server::api_impl::api_hash(),
-        server::api_impl::image_facts(),
-        ww_client_server::COMPACT_VERSION,
-    );
-    let mut server = ww_device::Server::new(
-        config,
-        tx,
-        rx,
-        TokioClock::new(),
-        &mut scratch,
-        &mut event_scratch,
-    );
-    // one batch in flight: a client slower than its watches makes their tasks wait, which makes the host's cursors
-    // fall behind, never the device (SRV-64)
-    let (batch_tx, mut batches) = tokio::sync::mpsc::channel::<BatchMsg>(1);
-    let mut backend = server::Server {
-        hub: hub.clone(),
-        id,
-        events_open: false,
-        stats_open: false,
-        adopting: None,
-        watches: (0..MAX_WATCHES).map(|_| None).collect(),
-        next_generation: 0,
-        batch_tx,
-    };
-    let mut events = hub.events.subscribe();
-    let mut stats = hub.sync_stats.subscribe();
-    loop {
-        tokio::select! {
-            ready = server.wait() => match server.handle(ready, &mut backend).await {
-                Some(LinkEvent::Up) => hub.client_up(id, server.link().peer_meta().cloned()),
-                Some(LinkEvent::Down(reason)) => {
-                    // a connection is served once: the client reconnects with a new one
-                    debug!("ww hub: client {id} link down: {reason:?}");
-                    break;
-                }
-                None => {}
-            },
-            _ = ended.wait() => break,
-            event = events.recv() => match event {
-                Ok(event) => {
-                    let handover = event == ww_hub_api::EventOwned::Handover;
-                    if backend.events_open && server.is_up() {
-                        let _ = server::api_impl::stream_data_ser()
-                            .registry()
-                            .events_send(&event, &mut server.sink())
-                            .await;
-                    }
-                    if handover {
-                        // the client reconnects to the next hub (CLT-40)
-                        server.disconnect(hub.closing_reason()).await;
-                        break;
-                    }
-                }
-                // a slow client misses events, it can read the lists again
-                Err(RecvError::Lagged(n)) => debug!("ww hub: client {id} missed {n} events"),
-                Err(RecvError::Closed) => break,
-            },
-            Some((w, generation, batch)) = batches.recv() => {
-                let slot = &mut backend.watches[w as usize];
-                if slot.as_ref().is_none_or(|s| s.generation != generation) {
-                    continue;
-                }
-                match batch {
-                    Some(batch) if server.is_up() => {
-                        let sent = server::api_impl::stream_data_ser()
-                            .captures()
-                            .watches(w)
-                            .records_send(&batch, &mut server.sink())
-                            .await;
-                        if let Err(e) = sent {
-                            warn!("ww hub: client {id}: watch {w} batch not sent: {e:?}");
-                        }
-                    }
-                    Some(_) => {}
-                    // the capture ended
-                    None => *slot = None,
-                }
-            }
-            entry = stats.recv() => match entry {
-                Ok(entry) if backend.stats_open && server.is_up() => {
-                    let _ = server::api_impl::stream_data_ser()
-                        .sync()
-                        .stats_send(&entry, &mut server.sink())
-                        .await;
-                }
-                Ok(_) => {}
-                // the next update of the device brings it up to date
-                Err(RecvError::Lagged(n)) => debug!("ww hub: client {id} missed {n} sync stats"),
-                Err(RecvError::Closed) => break,
-            },
+/// The server of the hub's API: the sender the hub hands connections to, and the future that serves them until
+/// `stop` completes with the reason clients are told, then ends once they are disconnected.
+pub(crate) fn server(
+    hub: Arc<Hub>,
+    stop: impl Future<Output = DisconnectReason> + Send + 'static,
+) -> (Opened, impl Future<Output = ()> + Send + 'static) {
+    let (opened, listener): (Opened, OpenedListener<_, _>) =
+        wire_weaver_server::opened::opened(QUEUED_MAX);
+    let serve = async move {
+        let link = ww_device::LinkConfig::new(
+            ww_hub_api::HUB_FULL_GID,
+            ww_hub_api::HUB_WIRE_VERSION,
+            server::api_impl::api_hash(),
+            server::api_impl::image_facts(),
+            ww_client_server::COMPACT_VERSION,
+        );
+        let limits = Limits {
+            connections_max: CONNECTIONS_MAX,
+            shutdown_grace: EXIT_GRACE,
+            ..Limits::default()
+        };
+        let make = move |connection: &Connection| server::Server::new(hub.clone(), connection);
+        let served = wire_weaver_server::Server::new(TokioClock::new())
+            .limits(limits)
+            .serve(link, listener, make, stop)
+            .await;
+        match served {
+            Ok(()) => {}
+            Err(never) => match never {},
         }
+    };
+    (opened, serve)
+}
+
+/// Runs `work` to its end on a task of its own, also when its request is dropped (its deadline, a cancel, the client
+/// left): what it changes in the hub (claims, lends, adoptions, captures, open devices) is never left half done.
+async fn to_end<T: Send + 'static>(work: impl Future<Output = T> + Send + 'static) -> T {
+    match tokio::spawn(work).await {
+        Ok(done) => done,
+        Err(e) => match e.try_into_panic() {
+            Ok(panic) => std::panic::resume_unwind(panic),
+            Err(_) => {
+                unreachable!("the runtime ends a task only with the futures that wait for it")
+            }
+        },
     }
+}
+
+/// The pump of `Registry::events`.
+const EVENTS: PumpId = PumpId(0);
+/// The pump of `ClockSync::stats`.
+const SYNC_STATS: PumpId = PumpId(1);
+
+/// The pump of watch `w`'s records.
+fn watch_pump(w: u32) -> PumpId {
+    PumpId(2 + u64::from(w))
 }
 
 mod server {
@@ -139,36 +106,62 @@ mod server {
     const BATCH_BYTES: usize = ww_hub_api::MAX_BATCH_BYTES;
     const _: () = assert!(BATCH_BYTES + 1024 <= MAX_MESSAGE_LEN);
 
+    /// The backend of one client of the hub's API.
     pub struct Server {
-        pub hub: Arc<Hub>,
+        hub: Arc<Hub>,
         /// The connection's client id: whose claims these are
-        pub id: u32,
-        /// The client opened `Registry::events`
-        pub events_open: bool,
-        /// The client opened `ClockSync::stats`
-        pub stats_open: bool,
+        id: u32,
+        /// The connection's pumps: the registry's events, sync stats and watches' records as the client opens them
+        pumps: Pumps,
         /// `Adopt::prepare` (CLT-44), until the commit; dropped with the connection
-        pub adopting: Option<crate::adopt::Prepared>,
+        adopting: Option<crate::adopt::Prepared>,
         /// `Captures::watch`es of this connection, by index in `watches[]` (SRV-64); dropped with the connection
-        pub watches: Vec<Option<WatchSlot>>,
-        pub next_generation: u64,
-        /// Where the watches' tasks send their batches
-        pub batch_tx: tokio::sync::mpsc::Sender<BatchMsg>,
+        watches: Vec<Option<WatchSlot>>,
     }
 
-    /// One watch: its cursor until the stream opens, then the task that reads it.
-    pub struct WatchSlot {
-        pub generation: u64,
-        pub cursor: Option<Box<dyn HostWatch>>,
-        pub task: Option<tokio::task::JoinHandle<()>>,
-        pub _count: WatchCount,
+    /// One watch: its cursor, counted on its capture, until the stream opens; then its pump has them.
+    struct WatchSlot {
+        /// In a mutex only to be `Sync`, as the backend is: only `&mut self` handlers reach it
+        cursor: std::sync::Mutex<Option<(Box<dyn HostWatch>, WatchCount)>>,
+        /// The capture ended: its records are all sent and the slot is free again
+        ended: Arc<AtomicBool>,
     }
 
-    impl Drop for WatchSlot {
-        fn drop(&mut self) {
-            if let Some(task) = &self.task {
-                task.abort();
+    impl WatchSlot {
+        fn free(slot: &Option<WatchSlot>) -> bool {
+            slot.as_ref()
+                .is_none_or(|slot| slot.ended.load(Ordering::Acquire))
+        }
+    }
+
+    impl Server {
+        /// The backend of `connection`, whose link is up: the client joins the registry.
+        pub fn new(hub: Arc<Hub>, connection: &Connection) -> Self {
+            let pid = match connection.peer {
+                Peer::Unix { pid, .. } => pid.map(|pid| pid.0),
+                _ => None,
+            };
+            let id = hub.client_joined(pid);
+            hub.client_up(id, Some(connection.client.clone()));
+            debug!(
+                "ww hub: client {id} ({:?}) on the hub's API",
+                connection.peer
+            );
+            Server {
+                hub,
+                id,
+                pumps: connection.pumps.clone(),
+                adopting: None,
+                watches: (0..MAX_WATCHES).map(|_| None).collect(),
             }
+        }
+    }
+
+    /// Its claims and its part in captures go with the client, however its connection ends (a panic too).
+    impl Drop for Server {
+        fn drop(&mut self) {
+            debug!("ww hub: client {} left", self.id);
+            self.hub.client_left(self.id);
         }
     }
 
@@ -240,7 +233,12 @@ mod server {
             _cx: &mut Context<'_, impl EventOut>,
             key: String,
         ) -> RpcResult<Result<(), wire_weaver::Error<'_, TakeErrorOwned>>> {
-            RpcResult::Ready(match self.hub.take(&key).await {
+            let taken = to_end({
+                let (hub, key) = (self.hub.clone(), key.clone());
+                async move { hub.take(&key).await }
+            })
+            .await;
+            RpcResult::Ready(match taken {
                 Ok(()) => Ok(()),
                 Err(ww_byte_stream::Status::HeldElsewhere) => {
                     match wire_weaver_client::holders::holder_of(&key) {
@@ -271,9 +269,9 @@ mod server {
             ttl_s: Option<u32>,
         ) -> RpcResult<Result<u32, wire_weaver::Error<'_, ClaimErrorOwned>>> {
             let path = path.iter().map(|n| n.0).collect();
+            let (hub, id) = (self.hub.clone(), self.id);
             RpcResult::Ready(
-                self.hub
-                    .claim(self.id, key, path, purpose, ttl_s)
+                to_end(async move { hub.claim(id, key, path, purpose, ttl_s).await })
                     .await
                     .map_err(|e| wire_weaver::Error::Api(*e)),
             )
@@ -294,9 +292,9 @@ mod server {
             purpose: String,
             ttl_s: Option<u32>,
         ) -> RpcResult<Result<u32, wire_weaver::Error<'_, ClaimErrorOwned>>> {
+            let (hub, id) = (self.hub.clone(), self.id);
             RpcResult::Ready(
-                self.hub
-                    .lend(self.id, key, purpose, ttl_s)
+                to_end(async move { hub.lend(id, key, purpose, ttl_s).await })
                     .await
                     .map_err(|e| wire_weaver::Error::Api(*e)),
             )
@@ -311,12 +309,28 @@ mod server {
         }
 
         async fn registry_events(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {
-            self.events_open = true;
+            let id = self.id;
+            let events = self.hub.events.subscribe().filter_map(move |event| {
+                std::future::ready(match event {
+                    Ok(event) => Some(event),
+                    // a slow client misses events, it can read the lists again
+                    Err(lagged) => {
+                        debug!("ww hub: client {id} missed {} events", lagged.0);
+                        None
+                    }
+                })
+            });
+            self.pumps.add(EVENTS, events, |event, buf| {
+                api_impl::stream_data_ser()
+                    .registry()
+                    .events(event, buf)
+                    .map(<[u8]>::len)
+            });
             RpcResult::Ready(())
         }
 
         async fn close_registry_events(&mut self, _cx: &mut Context<'_, impl EventOut>) {
-            self.events_open = false;
+            self.pumps.remove(EVENTS);
         }
 
         async fn sideband_registry_events(
@@ -367,12 +381,28 @@ mod server {
         }
 
         async fn sync_stats(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {
-            self.stats_open = true;
+            let id = self.id;
+            let stats = self.hub.sync_stats.subscribe().filter_map(move |entry| {
+                std::future::ready(match entry {
+                    Ok(entry) => Some(entry),
+                    // the next update of the device brings it up to date
+                    Err(lagged) => {
+                        debug!("ww hub: client {id} missed {} sync stats", lagged.0);
+                        None
+                    }
+                })
+            });
+            self.pumps.add(SYNC_STATS, stats, |entry, buf| {
+                api_impl::stream_data_ser()
+                    .sync()
+                    .stats(entry, buf)
+                    .map(<[u8]>::len)
+            });
             RpcResult::Ready(())
         }
 
         async fn close_sync_stats(&mut self, _cx: &mut Context<'_, impl EventOut>) {
-            self.stats_open = false;
+            self.pumps.remove(SYNC_STATS);
         }
 
         async fn sideband_sync_stats(
@@ -394,7 +424,10 @@ mod server {
             if self.adopting.is_some() {
                 return RpcResult::Ready(Err(AdoptErrorOwned::Busy.into()));
             }
-            RpcResult::Ready(match crate::adopt::prepare(&self.hub, &snapshot).await {
+            let hub = self.hub.clone();
+            let prepared =
+                to_end(async move { crate::adopt::prepare(&hub, &snapshot).await }).await;
+            RpcResult::Ready(match prepared {
                 Ok(prepared) => {
                     let id = prepared.id;
                     self.adopting = Some(prepared);
@@ -411,7 +444,8 @@ mod server {
         ) -> RpcResult<Result<(), wire_weaver::Error<'_, AdoptErrorOwned>>> {
             RpcResult::Ready(match self.adopting.take() {
                 Some(prepared) if prepared.id == id => {
-                    crate::adopt::commit(&self.hub, self.id, prepared)
+                    let (hub, client) = (self.hub.clone(), self.id);
+                    to_end(async move { crate::adopt::commit(&hub, client, prepared).await })
                         .await
                         .map_err(Into::into)
                 }
@@ -431,9 +465,9 @@ mod server {
             key: MaxLen<String, { ww_hub_api::MAX_KEY_LEN }>,
             options: CaptureOptions,
         ) -> RpcResult<Result<CaptureId, wire_weaver::Error<'_, CaptureErrorOwned>>> {
+            let (hub, id, key) = (self.hub.clone(), self.id, key.as_str().to_owned());
             RpcResult::Ready(
-                self.hub
-                    .capture_start(self.id, &key, options)
+                to_end(async move { hub.capture_start(id, &key, options).await })
                     .await
                     .map_err(|e| (*e).into()),
             )
@@ -541,17 +575,33 @@ mod server {
         ) -> RpcResult<()> {
             let w = index_chain[0].get().0;
             if let Some(slot) = self.watches.get_mut(w as usize).and_then(Option::as_mut)
-                && let Some(mut cursor) = slot.cursor.take()
+                && let Some(cursor) = slot
+                    .cursor
+                    .get_mut()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .take()
             {
-                let (tx, generation) = (self.batch_tx.clone(), slot.generation);
-                slot.task = Some(tokio::spawn(async move {
-                    while let Some(batch) = cursor.next(BATCH_BYTES).await {
-                        if tx.send((w, generation, Some(batch))).await.is_err() {
-                            return;
+                // one batch in flight: a client slower than its watches makes the pump wait, which makes the host's
+                // cursors fall behind, never the device (SRV-64)
+                let ended = slot.ended.clone();
+                // the cursor and its count go when the capture ends or the stream closes
+                let batches = futures_util::stream::unfold(cursor, move |(mut cursor, count)| {
+                    let ended = ended.clone();
+                    async move {
+                        let batch = cursor.next(BATCH_BYTES).await;
+                        if batch.is_none() {
+                            ended.store(true, Ordering::Release);
                         }
+                        batch.map(|batch| (batch, (cursor, count)))
                     }
-                    let _ = tx.send((w, generation, None)).await;
-                }));
+                });
+                self.pumps.add(watch_pump(w), batches, move |batch, buf| {
+                    api_impl::stream_data_ser()
+                        .captures()
+                        .watches(w)
+                        .records(batch, buf)
+                        .map(<[u8]>::len)
+                });
             }
             RpcResult::Ready(())
         }
@@ -561,7 +611,9 @@ mod server {
             _cx: &mut Context<'_, impl EventOut>,
             index_chain: [ww_client_server::ResourceIndex; 1],
         ) {
-            if let Some(slot) = self.watches.get_mut(index_chain[0].get().0 as usize) {
+            let w = index_chain[0].get().0;
+            if let Some(slot) = self.watches.get_mut(w as usize) {
+                self.pumps.remove(watch_pump(w));
                 *slot = None;
             }
         }
@@ -608,16 +660,15 @@ mod server {
             pressure: Pressure,
         ) -> Result<WatchId, Box<CaptureErrorOwned>> {
             let (registry, _, _) = self.hub.captures_for(self.id, Act::Watch)?;
-            let Some(w) = self.watches.iter().position(Option::is_none) else {
+            let Some(w) = self.watches.iter().position(WatchSlot::free) else {
                 return Err(CaptureErrorOwned::TooMany.into());
             };
             let (cursor, count) = registry.watch(id, pressure)?;
-            self.next_generation += 1;
+            // the pump of a capture that ended before is done: nothing of it is sent on the new watch
+            self.pumps.remove(watch_pump(w as u32));
             self.watches[w] = Some(WatchSlot {
-                generation: self.next_generation,
-                cursor: Some(cursor),
-                task: None,
-                _count: count,
+                cursor: std::sync::Mutex::new(Some((cursor, count))),
+                ended: Arc::new(AtomicBool::new(false)),
             });
             Ok(WatchId(w as u32))
         }
@@ -640,6 +691,40 @@ mod server {
             ww_hub_api::HUB_FULL_GID
         }
     }
+
+    /// Every request runs alone, in the order it came: the hub's handlers change state shared by all clients.
+    impl WireWeaverSharedApiBackend for Server {
+        async fn process_exclusive_bytes<'a>(
+            &mut self,
+            origin: &CallContext,
+            out: &mut EventWriter<'_, impl MessageSink>,
+            medium: (),
+            data: &[u8],
+            scratch: &'a mut [u8],
+        ) -> Result<&'a [u8], ShrinkWrapError> {
+            self.process_request_from(origin, data, scratch, out, medium)
+                .await
+        }
+
+        fn is_shared(data: &[u8]) -> bool {
+            Server::is_shared(data)
+        }
+
+        async fn process_shared_bytes<'a>(
+            &self,
+            origin: &CallContext,
+            out: &mut EventWriter<'_, impl MessageSink>,
+            medium: (),
+            data: &[u8],
+            scratch: &'a mut [u8],
+        ) -> Result<&'a [u8], ShrinkWrapError> {
+            self.process_shared_from(origin, data, scratch, out, medium)
+                .await
+        }
+    }
+
+    /// Streams are pumps: nothing to send between requests.
+    impl wire_weaver_server::Backend for Server {}
 
     pub mod api_impl {
         wire_weaver::ww_codegen!(

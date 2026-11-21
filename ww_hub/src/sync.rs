@@ -170,7 +170,7 @@ async fn run(
         }
         steering.entries.insert(key.clone(), e.clone());
         drop(steering);
-        let _ = hub.sync_stats.send(e);
+        hub.sync_stats.send(e);
     };
     // the device's linger depends on whether it is steered: its task looks again
     let recheck = || {
@@ -279,7 +279,7 @@ async fn run(
                     }
                     if last_sent.elapsed() >= STATS_EVERY {
                         last_sent = Instant::now();
-                        let _ = hub.sync_stats.send(e);
+                        hub.sync_stats.send(e);
                     }
                 }
                 r = changed.changed() => {

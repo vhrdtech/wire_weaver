@@ -39,7 +39,10 @@ use futures_util::io::AsyncWriteExt;
 use tokio::sync::watch;
 use tokio::time::Instant;
 use tracing::{debug, info, warn};
+use wire_weaver::DisconnectReason;
+use wire_weaver_client::local_socket::device::connection_medium;
 use wire_weaver_client::snapshots::Resolver;
+use wire_weaver_server::Fanout;
 use ww_byte_stream::{Answer, Preamble, PreambleError, Status, Target};
 use ww_local_socket::Peer;
 use ww_local_socket::WriteHalf;
@@ -70,6 +73,8 @@ pub const ADOPT_ATTACH_ENV: &str = "WW_HUB_ADOPT_ATTACH_MS";
 const PREAMBLE_TIMEOUT: Duration = Duration::from_secs(2);
 /// How often the hub checks whether it is idle.
 const IDLE_CHECK: Duration = Duration::from_millis(200);
+/// Events and sync stats a client of the hub's API has not read yet; past it it loses the oldest.
+const QUEUE_MAX: usize = 256;
 /// How long `Claims::claim` waits for a device's introspection data (SRV-34).
 const BUNDLE_TIMEOUT: Duration = Duration::from_secs(5);
 
@@ -405,14 +410,14 @@ impl Bound {
             devices: Mutex::new(BTreeMap::new()),
             linger: config.linger,
             steering: Mutex::new(sync::Steering::new(config.sync, config.sync_linger)),
-            sync_stats: tokio::sync::broadcast::channel(256).0,
+            sync_stats: Fanout::new(QUEUE_MAX),
             steerer: wire_weaver_client::clock_sync::steerer(Some(
                 &wire_weaver_client::ClientMeta::new().program("ww hub"),
             )),
             state_dir: config.state_dir.clone(),
             sync_options: config.sync_options.clone(),
             shutdown,
-            events: tokio::sync::broadcast::channel(256).0,
+            events: Fanout::new(QUEUE_MAX),
             started_ms: unix_ms(),
             started_by: started_by(),
             idle_exit: config.idle_exit,
@@ -446,6 +451,11 @@ impl Bound {
         );
         let mut shutdown = self.hub.shutdown.subscribe();
         let watcher = tokio::spawn(devices::watch(self.hub.clone()));
+        let (stop, stopped) = tokio::sync::oneshot::channel();
+        let (api, serve_api) = api::server(self.hub.clone(), async {
+            stopped.await.unwrap_or(DisconnectReason::Shutdown)
+        });
+        let api_server = tokio::spawn(serve_api);
         let exit = loop {
             tokio::select! {
                 // a client that connected before the idle check is served: accept goes first, and counts the
@@ -457,7 +467,8 @@ impl Bound {
                 accepted = self.listener.accept() => match accepted {
                     Ok((stream, peer)) => {
                         let guard = ConnectionGuard::new(self.hub.clone());
-                        tokio::spawn(async move { guard.0.clone().connection(stream, peer, guard).await });
+                        let api = api.clone();
+                        tokio::spawn(async move { guard.0.clone().connection(stream, peer, guard, api).await });
                     }
                     Err(e) => {
                         warn!("ww hub: accept failed: {e}");
@@ -472,6 +483,9 @@ impl Bound {
                 }
             }
         };
+        // the API's clients are told at once, the hub's next instance may be up for them soon (a handover)
+        let _ = stop.send(self.hub.api_closing_reason());
+        drop(api);
         watcher.abort();
         // nothing more is accepted: clients find no hub (instead of one that never answers) until the next one is up
         drop(self.listener);
@@ -488,6 +502,9 @@ impl Bound {
             }
         }
         // replies (to `handover`, `shutdown`) and `Disconnect`s still go out; hub.lock goes with `self`
+        if tokio::time::timeout(EXIT_DRAIN, api_server).await.is_err() {
+            warn!("ww hub: the API's clients took longer than {EXIT_DRAIN:?} to leave");
+        }
         let drained = Instant::now() + EXIT_DRAIN;
         while self.hub.state.locked().connections > 0 && Instant::now() < drained {
             tokio::time::sleep(Duration::from_millis(5)).await;
@@ -567,7 +584,7 @@ pub(crate) struct Hub {
     pub(crate) state: Mutex<State>,
     shutdown: watch::Sender<Option<Exit>>,
     /// `Registry::events` of every connection that opened the stream
-    pub(crate) events: tokio::sync::broadcast::Sender<ww_hub_api::EventOwned>,
+    pub(crate) events: Fanout<ww_hub_api::EventOwned>,
     pub(crate) started_ms: u64,
     pub(crate) started_by: String,
     pub(crate) idle_exit: Duration,
@@ -582,7 +599,7 @@ pub(crate) struct Hub {
     /// Clock sync of the open devices (SRV-31)
     pub(crate) steering: Mutex<sync::Steering>,
     /// `ClockSync::stats` of every connection that opened the stream
-    pub(crate) sync_stats: tokio::sync::broadcast::Sender<ww_hub_api::SyncEntryOwned>,
+    pub(crate) sync_stats: Fanout<ww_hub_api::SyncEntryOwned>,
     /// Who the hub's steer points say they are from
     pub(crate) steerer: ww_timebase::SteererOwned,
     /// See [HubConfig::state_dir]
@@ -764,12 +781,14 @@ impl Hub {
         self.state.locked().idle_for(Instant::now())
     }
 
-    /// Serves one accepted connection; `_guard` counted it at accept.
+    /// Serves one accepted connection; `_guard` counted it at accept. A client of the hub's own API goes to its
+    /// server through `api`.
     async fn connection(
         self: Arc<Self>,
         stream: ww_local_socket::Stream,
         peer: Peer,
         _guard: ConnectionGuard,
+        mut api: api::Opened,
     ) {
         let (mut rx, mut tx) = stream.split();
         let preamble = match tokio::time::timeout(PREAMBLE_TIMEOUT, Preamble::read(&mut rx)).await {
@@ -808,11 +827,14 @@ impl Hub {
                 if answer(&mut tx, &self.version, Status::Ok).await.is_err() {
                     return;
                 }
-                let id = self.client_joined(peer);
-                let _left = ClientLeft(&self, id);
-                debug!("ww hub: client {id} ({peer:?}) connected");
-                api::serve_connection(self.clone(), id, rx, tx).await;
-                debug!("ww hub: client {id} left");
+                let (tx, rx, mut ended) = connection_medium(rx, tx, api::MAX_MESSAGE_LEN);
+                let peer = wire_weaver_server::local_socket::peer_of(peer);
+                if api.serve(tx, rx, peer).await.is_err() {
+                    // the hub exits: its API takes no new clients
+                    return;
+                }
+                // `_guard` counts the connection until the API's server is done with it
+                ended.wait().await;
             }
             Target::Device(key) if preamble.adopt.is_some() => {
                 let adoption = preamble.adopt.unwrap_or_default();
@@ -836,7 +858,7 @@ impl Hub {
                 drop(left);
             }
             Target::Device(key) => {
-                let id = self.client_joined(peer);
+                let id = self.client_joined(peer.pid);
                 let _left = ClientLeft(&self, id);
                 let queue = tunnel::TunnelQueue::new();
                 match device::join(&self, &key, id, &queue).await {
@@ -857,13 +879,14 @@ impl Hub {
         }
     }
 
-    fn client_joined(&self, peer: Peer) -> u32 {
+    /// A new client, of the process `peer_pid` as the OS tells it.
+    pub(crate) fn client_joined(&self, peer_pid: Option<u32>) -> u32 {
         let mut state = self.state.locked();
         let id = state.new_client_id();
         state.clients.insert(
             id,
             Client {
-                peer_pid: peer.pid,
+                peer_pid,
                 meta: None,
                 since_ms: unix_ms(),
             },
@@ -906,7 +929,7 @@ impl Hub {
         if last {
             self.capture_owner_left(&owner);
         }
-        let _ = self.events.send(ww_hub_api::EventOwned::ClientLeft { id });
+        self.events.send(ww_hub_api::EventOwned::ClientLeft { id });
     }
 
     /// Tells the registry's listeners that claims went; a lent device is returned, and opened again if the hub held
@@ -917,14 +940,13 @@ impl Hub {
         }
         for c in gone {
             debug!("ww hub: claim {} on {} released", c.id, c.key);
-            let _ = self.events.send(ww_hub_api::EventOwned::Released {
+            self.events.send(ww_hub_api::EventOwned::Released {
                 key: c.key.clone(),
                 id: c.id,
             });
             if let Some(lend) = c.lend {
                 info!("ww hub: {} returned", c.key);
-                let _ = self
-                    .events
+                self.events
                     .send(ww_hub_api::EventOwned::Returned { key: c.key.clone() });
                 if lend.reopen {
                     let (hub, key) = (self.clone(), c.key.clone());
@@ -1011,11 +1033,11 @@ impl Hub {
             state.claims.lent(&key).is_some_and(|c| c.id == claim_id)
         };
         info!("ww hub: client {id} borrows {key} (claim {claim_id})");
-        let _ = self.events.send(ww_hub_api::EventOwned::Claimed {
+        self.events.send(ww_hub_api::EventOwned::Claimed {
             key: key.clone(),
             id: claim_id,
         });
-        let _ = self.events.send(ww_hub_api::EventOwned::Lent {
+        self.events.send(ww_hub_api::EventOwned::Lent {
             key: key.clone(),
             id: claim_id,
         });
@@ -1107,8 +1129,7 @@ impl Hub {
         if let Ok(claim_id) = claimed {
             self.claims_changed();
             debug!("ww hub: client {id} claimed {claim_id} on {key}");
-            let _ = self
-                .events
+            self.events
                 .send(ww_hub_api::EventOwned::Claimed { key, id: claim_id });
         }
         claimed
@@ -1151,8 +1172,7 @@ impl Hub {
         if let Some(c) = self.state.locked().clients.get_mut(&id) {
             c.meta = meta;
         }
-        let _ = self
-            .events
+        self.events
             .send(ww_hub_api::EventOwned::ClientJoined { id, program });
     }
 
@@ -1187,7 +1207,7 @@ impl Hub {
 
     pub(crate) fn device_opened(&self, key: &str) {
         self.state.locked().open.insert(key.to_string(), 0);
-        let _ = self.events.send(ww_hub_api::EventOwned::Opened {
+        self.events.send(ww_hub_api::EventOwned::Opened {
             key: key.to_string(),
         });
     }
@@ -1198,7 +1218,7 @@ impl Hub {
         state.open.remove(key);
         state.last_active = Instant::now();
         drop(state);
-        let _ = self.events.send(ww_hub_api::EventOwned::Closed {
+        self.events.send(ww_hub_api::EventOwned::Closed {
             key: key.to_string(),
         });
     }
@@ -1259,6 +1279,16 @@ impl Hub {
         }
     }
 
+    /// Why clients of the hub's API are disconnected when the hub exits: a handover tells them to reconnect to the
+    /// next hub.
+    fn api_closing_reason(&self) -> DisconnectReason {
+        if self.handing_over.load(std::sync::atomic::Ordering::Relaxed) {
+            DisconnectReason::HubHandover
+        } else {
+            DisconnectReason::Shutdown
+        }
+    }
+
     /// `Hub::handover(socket)` (SRV-30): hands over to the hub listening on `socket` if it is strictly newer, then
     /// exits ([Exit::Handover]): no more connections, `Event::Handover` to the registry's listeners, every link closed
     /// with `DisconnectReason::HubHandover`, devices closed, `hub.lock` released.
@@ -1286,7 +1316,7 @@ impl Hub {
         );
         self.handing_over
             .store(true, std::sync::atomic::Ordering::Relaxed);
-        let _ = self.events.send(ww_hub_api::EventOwned::Handover);
+        self.events.send(ww_hub_api::EventOwned::Handover);
         self.shutdown.send_replace(Some(Exit::Handover));
         Ok(())
     }

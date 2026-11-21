@@ -181,6 +181,7 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 - **[Who asked](api/local_trait.md#who-asked-callcontext)**: Every call carries a small `CallContext`: the peer as the transport saw it, priority, deadline and trace, the same for a request a server handles and a call in the same process.
 - **[Host server](api/host_server.md)**: One API served to many clients at once on any async runtime, in-process or on a local socket (also under systemd socket activation): a backend per connection, calls side by side, streams that flow while calls run, limits that push back, graceful shutdown.
 - **[Hosts on UDP](api/host_server.md#hosts-on-udp)**: A host server takes a connection per host of one UDP socket, on any thread of a multi-threaded runtime.
+- **[The hub on the host server](transport/hub.md#its-api)**: The ww hub serves its own API on `wire_weaver_server`: its streams flow while calls run, and its clients learn why it went away.
 - **[On a calloop loop](api/host_server.md#on-a-calloop-loop)**: A host server runs on a calloop event loop, WebSocket and UDP clients on one port.
 - **[Sync handlers in an async server](api/handlers.md)**: Handlers that never wait are plain `fn`s, only the ones that await are `async`: less flash.
 - **[Shared handlers](api/handlers.md#shared-and-exclusive-handlers)**: Calls and reads of the items you mark shared take `&self`, so a host server can run them side by side; the rest stays `&mut self`.

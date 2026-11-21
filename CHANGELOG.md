@@ -11,6 +11,8 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
+- The ww hub serves its API on the host server; shutdown futures carry the clients' disconnect reason (SRV-67); see `ww_hub`, `wire_weaver_server`.
+
 - A server generated with `serve_trait` forwards every request to the API's local trait (SRV-49); see `wire_weaver_derive`, `wire_weaver_server`.
 - New crate `ww_calloop`: the host server on a calloop event loop (SRV-70); see `ww_calloop` and `wire_weaver_server`.
 - Host services choose who may connect (same user, a group, everyone) and authorize each request with a hook (SRV-46); see `ww_local_socket` and `wire_weaver_server`.

@@ -87,6 +87,10 @@ Every server has these generated functions. Without a `receiver_model` its `is_s
 all requests run alone; with one, its calls and reads run side by side as the next section describes. A firmware
 never calls the shared ones, and its image is the same size with them.
 
+A server generated with `serve_trait` gets both implementations and every handler from the API's local trait: the
+backend is a struct with the service and the pumps ([Serving a local
+implementation](local_trait.md#serving-a-local-implementation)).
+
 ### Who asked
 
 `Connection::origin()` is the `CallContext` of the connection: its peer and its id. The connection passes it with

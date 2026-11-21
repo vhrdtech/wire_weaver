@@ -90,6 +90,8 @@ impl Server {
   answers `ErrorKind::Unimplemented`.
 - `SetResult<E>`: `Set` acknowledges the write; `SetError(e)` answers with the error, the value is not applied unless
   the handler did so; `Unimplemented` answers `ErrorKind::Unimplemented`.
+- Both have `Failed(failure)` too (`std`): a host server's own answer, such as `Denied`, from a call through the API's
+  [local trait](local_trait.md#serving-a-local-implementation); `RpcResult` of a method has it as well.
 - `E` is the property's error type, `()` without one. The error goes to the host serialized, as
   `ErrorKind::UserBytes`.
 

@@ -94,6 +94,8 @@ mod rtt;
 #[cfg(feature = "rtt")]
 pub use rtt::{ProbeInfo, chip_known as rtt_chip_known, chips as rtt_chips, list_probes};
 
+#[cfg(feature = "local_socket")]
+mod byte_stream;
 #[cfg(feature = "in_process")]
 pub mod in_process;
 #[cfg(feature = "local_socket")]

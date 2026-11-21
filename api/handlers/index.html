@@ -1707,8 +1707,6 @@
       
         
       
-        
-      
     
     
     
@@ -2132,33 +2130,6 @@
     
   
   Batching streams and properties
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../totals/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Running totals
 
     
   </span>
@@ -6436,8 +6407,6 @@
       
         
       
-        
-      
     
     
     
@@ -6508,7 +6477,10 @@ plain <code>fn</code>s saved 20.2 KiB of flash at <code>opt-level = "z"</code> (
   matches the dot between levels too, so <code>device.settings.*</code> takes everything under <code>device.settings</code>.</li>
 <li><code>_</code> is the default for the items no pattern matches. Without <code>_</code>, they follow <code>use_async</code>; without
   <code>handler_model</code>, every handler does, as before.</li>
-<li>A pattern can't contain <code>,</code>, <code>=</code> or whitespace. A pattern that matches no method, property or stream is a
+<li>Items are separated by <code>,</code> (a trailing one is fine), with any whitespace, newlines too, around each <code>pattern</code>,
+  <code>=</code> and keyword. A pattern can't contain <code>=</code> or whitespace or start with <code>,</code>; a mistake in the string is a
+  compile error naming its <code>line:column</code>. The same syntax holds for <code>method_model</code>, <code>property_model</code>,
+  <code>const_model</code> and <code>receiver_model</code>. A pattern that matches no method, property or stream is a
   compile error (a typo, or an item that was renamed), and so is <code>async</code> in a server with <code>use_async = false</code>.</li>
 </ul>
 <p>The model is per item: every handler of an item is the same kind. For a property that is its getter, setter and

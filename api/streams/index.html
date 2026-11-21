@@ -1874,8 +1874,6 @@
       
         
       
-        
-      
     
     
     
@@ -2208,33 +2206,6 @@
     
   
   Batching streams and properties
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../totals/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Running totals
 
     
   </span>
@@ -6744,8 +6715,6 @@ with a <code>MaxLen</code> bound refuses a longer write before the handler sees 
 <p>A plain sink's writes are sent without a request id: the device sends nothing back, and the host doesn't wait. A
 plain sink needs no opening, <code>send()</code> works right away; <code>open()</code> and <code>close()</code> send the <code>Open</code> and <code>Close</code> sideband,
 which reach the device's <code>sideband_&lt;name&gt;</code> handler, for devices that want to know.</p>
-<p>A plain sink of <a href="../totals/">running totals</a> (<code>sink!(motion: Totals&lt;Delta&gt;)</code>) loses no change on a lossy link: each
-write carries the sum of all changes so far, so the next write brings what a lost one had.</p>
 <h2 id="flow-control">Flow control<a class="headerlink" href="#flow-control" title="Permanent link">&para;</a></h2>
 <p>What keeps a fast side from overrunning a slow one depends on the kind:</p>
 <ul>
@@ -6792,7 +6761,6 @@ device handler gets the index chain after <code>cx</code> (<code>index_chain: [w
 <li><a href="../stream_reliability/">Stream delivery</a>: what counted and reliable streams guarantee, sessions, timestamps.</li>
 <li><a href="../stream_stores/">Stream stores</a>: where a reliable stream keeps its data (RAM, SD card, flash).</li>
 <li><a href="../credit_sinks/">Credit sinks and sideband</a>: flow control into the device, the sideband channel.</li>
-<li><a href="../totals/">Running totals</a>: pointer, scroll or jog dial changes over a lossy link, without resends.</li>
 <li><a href="../stream_protocol/">Stream protocol</a>: the bytes on the wire, acknowledgements, the <code>ww_stream</code> crate.</li>
 <li><a href="../batching/">Batching</a>: a plain, counted or reliable stream of a <code>series</code> type can opt into sending samples in
   <code>Series</code> batches instead of one item per event.</li>

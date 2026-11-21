@@ -8,6 +8,7 @@
 //! - [PreambleFraming] opens connections as the local socket does: the `ww_byte_stream` preamble, then
 //!   length-prefixed messages; [WsFraming] as a WebSocket server does, the URL path naming the API.
 
+mod accept;
 mod framing;
 mod handed_in;
 mod listener;
@@ -16,6 +17,7 @@ mod stdio;
 #[cfg(feature = "tokio")]
 mod tcp;
 
+pub use accept::{ACCEPT_RETRY_DELAY, is_transient};
 pub use framing::{Framing, PreambleFraming, WsFraming};
 pub use handed_in::{Gone, HandedIn, StreamSender, handed_in};
 pub use listener::{HANDSHAKES_MAX, Incoming, OPENING_TIMEOUT, QUEUED_MAX, StreamListener, listen};
@@ -23,5 +25,3 @@ pub use listener::{HANDSHAKES_MAX, Incoming, OPENING_TIMEOUT, QUEUED_MAX, Stream
 pub use stdio::{Stdio, stdio};
 #[cfg(feature = "tokio")]
 pub use tcp::TcpIncoming;
-#[cfg(feature = "local_socket")]
-pub(crate) use tcp::{ACCEPT_RETRY_DELAY, is_transient};

@@ -9,9 +9,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use wire_weaver::Peer;
-use ww_device::udp::{DatagramSocket, LockedUdpPeers, UdpSink, UdpSource};
-#[cfg(feature = "tokio")]
-use ww_device::udp::{Readiness, StdUdpSocket};
+use ww_device::udp::{DatagramSocket, LockedUdpPeers, Readiness, StdUdpSocket, UdpSink, UdpSource};
 use ww_device::ww_link::UDP_MAX_DATAGRAM_LEN;
 use ww_device::{OwnedFramedRx, OwnedFramedTx};
 
@@ -52,7 +50,8 @@ impl PeerAddr for wire_weaver_client::in_process::UdpAddr {
 /// server.serve(link, listener, make, shutdown).await?;
 /// ```
 ///
-/// On another event loop, give [UdpListener::new] a `ww_device::udp::StdUdpSocket` with that loop's readiness.
+/// On another event loop, give [UdpListener::new] a [StdUdpSocket] with that loop's readiness (`ww_calloop::bind_udp`
+/// on calloop).
 ///
 /// Its connections are `Send` when the socket is `Sync`, so [Server::accepting](crate::Server::accepting) can spawn
 /// them on a multi-threaded runtime.
@@ -84,6 +83,17 @@ impl<S: DatagramSocket, const PEERS: usize> UdpListener<S, PEERS> {
     }
 }
 
+impl<R: Readiness, const PEERS: usize> UdpListener<StdUdpSocket<R>, PEERS> {
+    /// The address listened on, e.g. to learn the port after binding port 0.
+    ///
+    /// # Errors
+    ///
+    /// The system can't tell.
+    pub fn local_addr(&self) -> std::io::Result<SocketAddr> {
+        self.socket().socket().local_addr()
+    }
+}
+
 #[cfg(feature = "tokio")]
 impl<const PEERS: usize> UdpListener<StdUdpSocket<TokioReadiness>, PEERS> {
     /// Listen on a UDP socket bound to `addr`, on tokio's event loop; `message_len_max` as in [Self::new].
@@ -100,15 +110,6 @@ impl<const PEERS: usize> UdpListener<StdUdpSocket<TokioReadiness>, PEERS> {
             StdUdpSocket::new(socket, readiness)?,
             message_len_max,
         ))
-    }
-
-    /// The address listened on, e.g. to learn the port after binding port 0.
-    ///
-    /// # Errors
-    ///
-    /// The system can't tell.
-    pub fn local_addr(&self) -> std::io::Result<SocketAddr> {
-        self.socket().socket().local_addr()
     }
 }
 

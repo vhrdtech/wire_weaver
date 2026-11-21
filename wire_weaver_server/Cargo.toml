@@ -8,13 +8,17 @@ rust-version.workspace = true
 repository.workspace = true
 license.workspace = true
 
+[target.'cfg(unix)'.dependencies]
+# what accept errors a source waits out (byte_stream::is_transient)
+libc.workspace = true
+rustix = { workspace = true, features = ["process"], optional = true }
+
 [features]
 default = []
 # The in-process listener: clients of the same process connect by path (tests, simulators)
 in_process = ["dep:wire_weaver_client", "wire_weaver_client/in_process"]
 # TCP and stdio sources for byte-stream listeners, on tokio
 tokio = [
-    "dep:libc",
     "dep:rustix",
     "dep:tokio",
     "dep:tokio-util",
@@ -26,10 +30,6 @@ tokio = [
 udp = ["ww_device/std"]
 # The local-socket source (Unix socket, named pipe on Windows), also on a socket systemd passed; runs on tokio
 local_socket = ["tokio", "dep:ww_local_socket", "ww_local_socket/socket"]
-
-[target.'cfg(unix)'.dependencies]
-libc = { workspace = true, optional = true }
-rustix = { workspace = true, features = ["process"], optional = true }
 
 [dependencies]
 futures-channel = { workspace = true, features = ["std"] }

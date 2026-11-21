@@ -3,15 +3,13 @@
 use std::io;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use std::time::Duration;
 
 use futures_util::stream::Stream;
 use tokio::net::{TcpListener, TcpStream, ToSocketAddrs};
 use tokio_util::compat::{Compat, TokioAsyncReadCompatExt};
 use wire_weaver::Peer;
 
-/// How long a source waits before it accepts again after the system ran out of descriptors or memory.
-pub(crate) const ACCEPT_RETRY_DELAY: Duration = Duration::from_millis(100);
+use super::{ACCEPT_RETRY_DELAY, is_transient};
 
 /// The connections of a TCP listener, as a source for [listen](super::listen). Running out of descriptors or memory
 /// is waited out, not an error.
@@ -71,18 +69,4 @@ impl Stream for TcpIncoming {
             }
         }
     }
-}
-
-/// The system ran out of something a later accept may find again.
-pub(crate) fn is_transient(e: &io::Error) -> bool {
-    #[cfg(unix)]
-    if let Some(code) = e.raw_os_error()
-        && [libc::EMFILE, libc::ENFILE, libc::ENOBUFS, libc::ENOMEM].contains(&code)
-    {
-        return true;
-    }
-    matches!(
-        e.kind(),
-        io::ErrorKind::ConnectionAborted | io::ErrorKind::Interrupted | io::ErrorKind::OutOfMemory
-    )
 }

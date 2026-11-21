@@ -8,7 +8,9 @@ use std::time::Duration;
 use wire_weaver::CallContext;
 use ww_client_server::StreamSideband;
 
-pub use wire_weaver::call::{BoxFuture, ItemStream, item_stream};
+pub use wire_weaver::call::{
+    BoxFuture, ItemStream, LocalBoxFuture, LocalItemStream, item_stream, local_item_stream,
+};
 use wire_weaver::shrink_wrap::DeserializeShrinkWrapOwned;
 
 impl<T: DeserializeShrinkWrapOwned + Send + 'static> Stream<T> {

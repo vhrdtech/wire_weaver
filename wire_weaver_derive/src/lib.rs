@@ -29,6 +29,9 @@ mod ww_trait;
 ///   generated client and plain local types implement (CLT-57, `docs/api/local_trait.md`). Usually called in the
 ///   API crate itself as `ww_codegen!(crate :: Api, local_trait = "Name")`: `crate ::` and no `for <struct>`.
 /// * impl_local_trait = "api_crate::Name" - with `client = "std_client"`, implement that trait on the client.
+/// * local_trait_send = false - with `local_trait` or `impl_local_trait`: the trait without `Send` (SRV-73), for
+///   single-threaded programs whose state is `Rc` / `RefCell`: no `Send` futures, `LocalBoxFuture`s in `NameDyn`,
+///   `Rc<dyn NameDyn>`, `LocalItemStream`s. `serve_trait` serves both forms.
 /// * serve_trait = "api_crate::Name" - with `server = true`, generate the handler of every item that local trait
 ///   expresses, each forwarding to the service of `wire_weaver_server::Serves`, and the server's
 ///   `WireWeaverAsyncApiBackend` / `WireWeaverSharedApiBackend` (SRV-49, `docs/api/local_trait.md`). Sets the

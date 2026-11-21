@@ -24,6 +24,7 @@
 
 ### 🚀 Features
 
+- `ww_codegen!(.., local_trait_send = false)`: the local trait without `Send`, with `LocalItemStream`s and `Rc<dyn NameDyn>` (SRV-73).
 - `ww_codegen!(.., server = true, serve_trait = "api::Name")` generates every handler of the local trait's items, forwarding to one shared service (SRV-49).
 - `ww_codegen!(.., receiver_model = "..")` (SRV-65): which items are shared, their handlers taking `&self`.
 - The doc trait of `#[ww_trait]` shows `keyed!(flow by FlowKey)` as `fn flow_keys() -> Keys<ww_keyed::KeyEvent<I, FlowKey>>` (API-67); the API crate's `ww_keyed` dependency is no longer reported unused.

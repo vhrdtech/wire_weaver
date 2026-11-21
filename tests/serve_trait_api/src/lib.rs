@@ -1,4 +1,5 @@
-//! API of the `serve_trait` tests (SRV-49, `tests/serve_trait`), and its local trait `Served` (CLT-57).
+//! API of the `serve_trait` tests (SRV-49, `tests/serve_trait`), its local trait `Served` (CLT-57) and the same
+//! trait without `Send`, `LocalServed` (SRV-73).
 use ww_api::prelude::*;
 
 #[ww_api_root]
@@ -66,3 +67,15 @@ mod local {
 }
 #[cfg(feature = "local")]
 pub use local::{Served, ServedDyn};
+
+/// `LocalServed`, the API as an async trait without `Send`.
+#[cfg(feature = "local")]
+mod local_not_send {
+    wire_weaver::ww_codegen!(
+        crate::ServeTrait,
+        local_trait = "LocalServed",
+        local_trait_send = false,
+    );
+}
+#[cfg(feature = "local")]
+pub use local_not_send::{LocalServed, LocalServedDyn};

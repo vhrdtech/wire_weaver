@@ -6,6 +6,9 @@
 //! local_trait = "Name")` is invoked, usually in the API crate itself; `gen_local_trait_client_impl` implements it
 //! on a generated client (`ww_codegen!(api :: Api for Client, client = "std_client", impl_local_trait = "..")`).
 //!
+//! With `local_trait_send = false` the trait, its companion and its streams drop `Send` (SRV-73): futures and item
+//! streams may hold `Rc` / `RefCell` state, the companion's trait objects are `Box` and `Rc`.
+//!
 //! Prototype scope: methods, property reads and writes and plain unbatched streams of the root level. Nested
 //! levels, resource arrays, observing, sinks and counted, reliable or batched streams are left out and listed in the
 //! trait's docs.
@@ -44,8 +47,9 @@ pub(crate) enum LocalFnKind {
     Stream,
 }
 
-/// The functions of the root level that the trait expresses, and the names of the items it leaves out.
-pub(crate) fn local_fns(api_bundle: &CodegenBundle) -> (Vec<LocalFn>, Vec<String>) {
+/// The functions of the root level that the trait expresses, and the names of the items it leaves out. `send`: the
+/// trait's futures and streams are `Send`.
+pub(crate) fn local_fns(api_bundle: &CodegenBundle, send: bool) -> (Vec<LocalFn>, Vec<String>) {
     let mut fns = vec![];
     let mut skipped = vec![];
     for (item_index, item) in api_bundle.root.items.iter().enumerate() {
@@ -159,19 +163,25 @@ pub(crate) fn local_fns(api_bundle: &CodegenBundle) -> (Vec<LocalFn>, Vec<String
                     })
                     .collect::<Vec<_>>();
                 let names = args.iter().map(|(n, _)| n);
-                let handle = quote! { wire_weaver::call::ItemStream<#item_ty> };
+                let handle = if send {
+                    quote! { wire_weaver::call::ItemStream<#item_ty> }
+                } else {
+                    quote! { wire_weaver::call::LocalItemStream<#item_ty> }
+                };
+                // the client's item stream is `Send`; a `LocalItemStream` takes it by coercion
+                let into_handle = quote! { { let s: #handle = s.into_item_stream(); s } };
                 let (output, adapt) = match stream.return_ty.map(|t| t.get_in_line(api_bundle)) {
                     Some(Ok(TypeOwned::Result { ok_ty, err_ty })) => {
                         let ok_ty = ty_def(api_bundle, ok_ty, true, TyPos::Arg).unwrap();
                         let err_ty = ty_def(api_bundle, err_ty, true, TyPos::Arg).unwrap();
                         (
                             quote! { Result<Result<(#ok_ty, #handle), #err_ty>, wire_weaver::call::Error> },
-                            quote! { .map(|r| r.map(|(a, s)| (a, s.into_item_stream()))) },
+                            quote! { .map(|r| r.map(|(a, s)| (a, #into_handle))) },
                         )
                     }
                     None => (
                         quote! { Result<#handle, wire_weaver::call::Error> },
-                        quote! { .map(|s| s.into_item_stream()) },
+                        quote! { .map(|s| #into_handle) },
                     ),
                     Some(_) => {
                         skipped.push(format!(
@@ -231,24 +241,30 @@ fn dyn_ident(trait_ident: &Ident) -> Ident {
 
 /// The local trait `trait_ident` of the API's root level, its `dyn`-compatible companion `<trait_ident>Dyn` (boxed
 /// futures, implemented for every implementor of the trait) and the trait's implementation for `Box` and `Arc` of
-/// the companion, so a generic call site also takes a trait object.
+/// the companion, so a generic call site also takes a trait object. Without `send`, the trait, its futures and its
+/// streams aren't `Send` and the shared trait object is an `Rc` (SRV-73).
 pub fn gen_local_trait(
     api_bundle: &ww_self::ApiBundleOwned,
     crate_paths: &CratePaths,
     trait_ident: &Ident,
+    send: bool,
 ) -> TokenStream {
     let api_bundle = &CodegenBundle::new(api_bundle, crate_paths);
-    let (fns, skipped) = local_fns(api_bundle);
+    let (fns, skipped) = local_fns(api_bundle, send);
     let dyn_ident = dyn_ident(trait_ident);
     let api_name = &api_bundle.root.trait_name;
-    let mut trait_docs = vec![
-        format!(
-            " The `{api_name}` API as an async Rust trait: implemented by the generated client, and by a local type for direct calls (CLT-57)."
-        ),
-        format!(
+    let mut trait_docs = vec![format!(
+        " The `{api_name}` API as an async Rust trait: implemented by the generated client, and by a local type for direct calls (CLT-57)."
+    )];
+    if send {
+        trait_docs.push(format!(
             " A trait object is a `Box<dyn {dyn_ident}>` or `Arc<dyn {dyn_ident}>`, which implement this trait too."
-        ),
-    ];
+        ));
+    } else {
+        trait_docs.push(format!(
+            " Not `Send` (SRV-73): its futures and streams may hold `Rc` / `RefCell` state. A trait object is a `Box<dyn {dyn_ident}>` or `Rc<dyn {dyn_ident}>`, which implement this trait too."
+        ));
+    }
     if !skipped.is_empty() {
         trait_docs.push(String::new());
         trait_docs.push(format!(
@@ -257,6 +273,21 @@ pub fn gen_local_trait(
         ));
     }
 
+    let (supertraits, future_send, box_future, shared) = if send {
+        (
+            quote! { : Send + Sync },
+            quote! { + Send },
+            quote! { wire_weaver::call::BoxFuture },
+            quote! { ::std::sync::Arc },
+        )
+    } else {
+        (
+            quote! {},
+            quote! {},
+            quote! { wire_weaver::call::LocalBoxFuture },
+            quote! { ::std::rc::Rc },
+        )
+    };
     let sig = |f: &LocalFn| {
         let ident = &f.ident;
         let args = f.args.iter().map(|(n, t)| quote! { #n: #t });
@@ -274,7 +305,7 @@ pub fn gen_local_trait(
         let docs = f.docs.iter().map(|d| quote! { #[doc = #d] });
         quote! {
             #(#docs)*
-            fn #sig -> impl ::core::future::Future<Output = #output> + Send;
+            fn #sig -> impl ::core::future::Future<Output = #output> #future_send;
         }
     });
     let dyn_fns = fns.iter().map(|f| {
@@ -283,7 +314,7 @@ pub fn gen_local_trait(
         let docs = f.docs.iter().map(|d| quote! { #[doc = #d] });
         quote! {
             #(#docs)*
-            fn #sig -> wire_weaver::call::BoxFuture<'a, #output>;
+            fn #sig -> #box_future<'a, #output>;
         }
     });
     let blanket_fns = fns.iter().map(|f| {
@@ -292,7 +323,7 @@ pub fn gen_local_trait(
         let ident = &f.ident;
         let names = f.args.iter().map(|(n, _)| n);
         quote! {
-            fn #sig -> wire_weaver::call::BoxFuture<'a, #output> {
+            fn #sig -> #box_future<'a, #output> {
                 Box::pin(<T as #trait_ident>::#ident(self, cx, #(#names),*))
             }
         }
@@ -305,7 +336,7 @@ pub fn gen_local_trait(
             let ident = &f.ident;
             let names = f.args.iter().map(|(n, _)| n);
             quote! {
-                fn #sig -> impl ::core::future::Future<Output = #output> + Send {
+                fn #sig -> impl ::core::future::Future<Output = #output> #future_send {
                     // a block borrowing both: the boxed future's one lifetime can't be named here
                     async move { <dyn #dyn_ident as #dyn_ident>::#ident(&**self, cx, #(#names),*).await }
                 }
@@ -318,12 +349,12 @@ pub fn gen_local_trait(
     );
     quote! {
         #(#trait_docs)*
-        pub trait #trait_ident: Send + Sync {
+        pub trait #trait_ident #supertraits {
             #(#trait_fns)*
         }
 
         #[doc = #dyn_doc]
-        pub trait #dyn_ident: Send + Sync {
+        pub trait #dyn_ident #supertraits {
             #(#dyn_fns)*
         }
 
@@ -335,22 +366,23 @@ pub fn gen_local_trait(
             #(#deref_fns)*
         }
 
-        impl #trait_ident for ::std::sync::Arc<dyn #dyn_ident> {
+        impl #trait_ident for #shared<dyn #dyn_ident> {
             #(#deref_fns)*
         }
     }
 }
 
-/// The local trait at `trait_path` (made by [gen_local_trait] from the same API) implemented on the generated std
-/// client `client_struct_path`, each function calling the client's own generated one.
+/// The local trait at `trait_path` (made by [gen_local_trait] from the same API, with the same `send`) implemented
+/// on the generated std client `client_struct_path`, each function calling the client's own generated one.
 pub fn gen_local_trait_client_impl(
     api_bundle: &ww_self::ApiBundleOwned,
     crate_paths: &CratePaths,
     trait_path: &Path,
     client_struct_path: &Path,
+    send: bool,
 ) -> TokenStream {
     let api_bundle = &CodegenBundle::new(api_bundle, crate_paths);
-    let (fns, _skipped) = local_fns(api_bundle);
+    let (fns, _skipped) = local_fns(api_bundle, send);
     let impl_fns = fns.iter().map(|f| {
         let ident = &f.ident;
         let args = f.args.iter().map(|(n, t)| quote! { #n: #t });

@@ -34,6 +34,7 @@
 
 ### 🚀 Features
 
+- `call::LocalBoxFuture`, `call::LocalItemStream` and `call::local_item_stream`: the types of a local trait without `Send` (SRV-73).
 - `forward::until_error` takes any `Unpin` stream of results, `Send` or not (SRV-73).
 - `Failure` and `wire_weaver::forward` turn a local-trait call into a handler's answer: `Denied`, `Internal` and the other kinds reach the client (SRV-49).
 - `TraceContext`, `TraceId`, `SpanId` and `TraceFlags` derive shrink_wrap (SRV-47), `sized`: a trace context is its 25 bytes on the wire, for `ww_client_server::RequestContext`.

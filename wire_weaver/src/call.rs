@@ -1,6 +1,7 @@
 //! What a call through an API's local trait (CLT-57) gives besides its value, without the client runtime (SRV-48):
 //! [Error] and [CallError] for the ways a call fails, [ItemStream] for the items of a stream, [BoxFuture] for the
-//! trait's `Dyn` companion.
+//! trait's `Dyn` companion; [LocalItemStream] and [LocalBoxFuture] for a trait made with `local_trait_send = false`
+//! (SRV-73).
 //!
 //! The generated client, a local implementation and (later) a trait server all speak these types, so an API crate's
 //! `local` feature needs `wire_weaver` with `std` only. `wire_weaver_client`'s errors convert into them and stay
@@ -24,6 +25,20 @@ pub type ItemStream<T> = Pin<Box<dyn futures_core::Stream<Item = Result<T, Error
 pub fn item_stream<T>(
     stream: impl futures_core::Stream<Item = Result<T, Error>> + Send + 'static,
 ) -> ItemStream<T> {
+    Box::pin(stream)
+}
+
+/// Future of a function of the `Dyn` companion of a local trait without `Send` (`local_trait_send = false`).
+pub type LocalBoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a>>;
+
+/// [ItemStream] of a local trait without `Send` (`local_trait_send = false`): its items may come from `Rc` /
+/// `RefCell` state. An [ItemStream] coerces into it.
+pub type LocalItemStream<T> = Pin<Box<dyn futures_core::Stream<Item = Result<T, Error>>>>;
+
+/// A [LocalItemStream] of a local implementation, from any stream, `Send` or not.
+pub fn local_item_stream<T>(
+    stream: impl futures_core::Stream<Item = Result<T, Error>> + 'static,
+) -> LocalItemStream<T> {
     Box::pin(stream)
 }
 

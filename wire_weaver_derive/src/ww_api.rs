@@ -128,10 +128,24 @@ fn api_inner(mut args: ApiArgs) -> Result<TokenStream, String> {
         }
     };
 
+    let local_trait_send = args.ext.local_trait_send.unwrap_or(true);
+    if args.ext.local_trait_send.is_some()
+        && args.ext.local_trait.is_empty()
+        && args.ext.impl_local_trait.is_empty()
+    {
+        return Err(
+            "local_trait_send picks the form of the trait of local_trait or impl_local_trait: add one".into(),
+        );
+    }
     if !args.ext.local_trait.is_empty() {
         let ident = syn::parse_str::<Ident>(&args.ext.local_trait)
             .map_err(|e| format!("local_trait must be a trait name: {e}"))?;
-        codegen_ts.append_all(gen_local_trait(&api_bundle, &crate_paths, &ident));
+        codegen_ts.append_all(gen_local_trait(
+            &api_bundle,
+            &crate_paths,
+            &ident,
+            local_trait_send,
+        ));
     }
 
     // generate server code if requested
@@ -238,6 +252,7 @@ fn api_inner(mut args: ApiArgs) -> Result<TokenStream, String> {
                 &crate_paths,
                 &trait_path,
                 &context_ident()?,
+                local_trait_send,
             ));
         }
     } else if !args.ext.sub_levels.is_empty() {

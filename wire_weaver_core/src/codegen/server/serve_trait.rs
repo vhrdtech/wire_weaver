@@ -35,7 +35,8 @@ pub fn gen_serve_trait(
     config: &ServeTraitConfig<'_>,
 ) -> TokenStream {
     let api_bundle = &CodegenBundle::new(api_bundle, crate_paths);
-    let (fns, _skipped) = local_fns(api_bundle);
+    // the handlers don't name the stream type, so both forms of the trait are served by the same code
+    let (fns, _skipped) = local_fns(api_bundle, true);
     let medium = match config.medium {
         Some(m) => quote! { #m },
         None => quote! { () },

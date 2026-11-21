@@ -2,7 +2,7 @@
 //! (Linux, macOS) or a named pipe (Windows), see [ww_local_socket]. Reached with
 //! [ClientConfig::ipc_path](crate::ClientConfig::ipc_path), or through the ww hub (SRV-13, see [crate::hub]).
 //!
-//! A byte stream like any other ([crate::byte_stream]): the connection starts with the preamble naming the device,
+//! A byte stream like any other (`byte_stream`): the connection starts with the preamble naming the device,
 //! the hub or a service, then carries length-prefixed [ww_link] messages.
 
 use std::path::PathBuf;

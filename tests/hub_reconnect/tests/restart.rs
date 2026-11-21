@@ -135,7 +135,7 @@ async fn hub_restart_reconnects_and_resumes_the_stream() {
 async fn lent_device_waits_past_the_give_up_time() {
     use interprocess::local_socket::traits::tokio::Stream as _;
     use tokio::io::AsyncWriteExt;
-    use ww_local_socket::{Answer, Preamble, Status};
+    use ww_byte_stream::{Answer, Preamble, Status};
 
     let _ = tracing_subscriber::fmt::try_init();
     let (_device, _seen) = start_device("hub_reconnect/lent");

@@ -242,7 +242,7 @@ mod server {
         ) -> RpcResult<Result<(), wire_weaver::Error<'_, TakeErrorOwned>>> {
             RpcResult::Ready(match self.hub.take(&key).await {
                 Ok(()) => Ok(()),
-                Err(ww_local_socket::Status::HeldElsewhere) => {
+                Err(ww_byte_stream::Status::HeldElsewhere) => {
                     match wire_weaver_client::holders::holder_of(&key) {
                         Some(holder) => Err(TakeErrorOwned::HeldElsewhere {
                             holder: crate::devices::holder_owned(&holder),
@@ -254,7 +254,7 @@ mod server {
                         .into()),
                     }
                 }
-                Err(ww_local_socket::Status::Lent) => Err(TakeErrorOwned::Failed {
+                Err(ww_byte_stream::Status::Lent) => Err(TakeErrorOwned::Failed {
                     why: format!("lent to {}", self.hub.lent_to(&key).unwrap_or_default()),
                 }
                 .into()),

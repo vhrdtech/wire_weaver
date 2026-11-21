@@ -1,0 +1,19 @@
+[package]
+name = "ww_byte_stream"
+version.workspace = true
+authors.workspace = true
+description = "WireWeaver over byte streams: the connection preamble and message framing"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[dependencies]
+tokio = { workspace = true, features = ["io-util"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["io-util", "time", "rt", "macros"] }
+
+[lints]
+workspace = true

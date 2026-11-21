@@ -23,6 +23,7 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 wire_weaver.workspace = true
 wire_weaver_client = { workspace = true, features = ["local_socket", "in_process", "hub"] }
+ww_byte_stream.workspace = true
 ww_client_server.workspace = true
 ww_hub.workspace = true
 ww_hub_api = { workspace = true, features = ["std"] }

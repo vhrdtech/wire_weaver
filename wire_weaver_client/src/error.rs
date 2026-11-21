@@ -185,7 +185,7 @@ pub enum Error {
     HubRefused {
         /// The socket and device asked for
         target: String,
-        /// The preamble answer's status (`ww_local_socket::Status`): 1 unknown device, 2 held elsewhere, 3 preamble
+        /// The preamble answer's status (`ww_byte_stream::Status`): 1 unknown device, 2 held elsewhere, 3 preamble
         /// version, 4 versions not served, 5 lent
         status: u8,
         /// What it means, with the fix where there is one

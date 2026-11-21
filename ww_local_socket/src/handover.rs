@@ -1,5 +1,5 @@
 //! What a program asks a direct holder of a device on the holder's socket (CLT-43): hand the device to the hub.
-//! Frozen like the [Preamble](crate::Preamble): never changed in place, a new layout gets a new
+//! Frozen like the connection preamble (`ww_byte_stream::Preamble`): never changed in place, a new layout gets a new
 //! [HANDOVER_VERSION], so holders and askers of any two versions can at least say no to each other.
 //!
 //! A holder that offers it listens on `<runtime>/ww/holders/<key>.sock` (its lock file names the socket in a

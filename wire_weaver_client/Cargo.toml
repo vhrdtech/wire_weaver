@@ -51,6 +51,7 @@ in_process = [
 # device served by another process (or the ww hub): Unix socket, named pipe on Windows
 local_socket = [
     "ww_local_socket/socket",
+    "dep:ww_byte_stream",
     "dep:interprocess",
     "dep:ww_device",
     "tokio/io-util",
@@ -92,6 +93,7 @@ wire_weaver = { workspace = true, features = ["std"] }
 wire_weaver_evolution.workspace = true
 ww_client_server = { workspace = true, features = ["std"] }
 ww_date_time = { workspace = true, features = ["std"], optional = true }
+ww_byte_stream = { workspace = true, optional = true }
 ww_device = { workspace = true, optional = true }
 ww_error = { workspace = true, features = ["std"] }
 ww_framer = { workspace = true, features = ["std", "large"] }

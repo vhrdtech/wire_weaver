@@ -10,7 +10,7 @@ use interprocess::local_socket::traits::tokio::Stream as _;
 use tokio::io::AsyncWriteExt;
 use wire_weaver_client::Error;
 use ww_hub::{Bound, HubConfig};
-use ww_local_socket::{Answer, Preamble, Status, Target, Version};
+use ww_byte_stream::{Answer, Preamble, Status, Target, Version};
 
 fn runtime_dir(name: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("ww-hub-versions-{}-{name}", std::process::id()));

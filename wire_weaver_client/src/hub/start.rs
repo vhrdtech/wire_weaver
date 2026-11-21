@@ -16,7 +16,7 @@ use std::time::{Duration, Instant};
 
 use semver::Version;
 use tracing::{debug, info};
-use ww_local_socket::Target;
+use ww_byte_stream::Target;
 use ww_local_socket::files::{HUB_LOCK, HUB_LOG, HUB_SOCKET, HUB_START_LOCK};
 
 use super::{EXE_ENV, HANDOVER_ENV, SERVE_ENV, VERSION_ARG};

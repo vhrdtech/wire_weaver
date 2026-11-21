@@ -5,7 +5,7 @@
 use std::path::PathBuf;
 
 use ww_hub_api::AdoptErrorOwned;
-use ww_local_socket::{Preamble, Target};
+use ww_byte_stream::{Preamble, Target};
 
 use super::{HubClient, ensure_running};
 use crate::CallError;

@@ -730,7 +730,7 @@ the hub holds it. `ww hub lend DEVICE -- CMD` asks the hub to let it go for one 
 
 1. `Claims::lend(key, purpose, ttl_s)` takes a root claim marked lent (refused like any claim when another program
    holds one on the device), then the hub closes the device: every tunnel to it gets `Disconnect` with
-   `DisconnectReason::Other(DISCONNECT_LENT)` (`ww_local_socket`), the hub's event loop to the device exits and lets
+   `DisconnectReason::Other(DISCONNECT_LENT)` (`ww_byte_stream`), the hub's event loop to the device exits and lets
    the USB interface or probe go. `lend` answers only then, so `CMD` can open the device right away.
 2. While it is lent, the hub doesn't open the device: a new tunnel to it gets the preamble answer `Status::Lent`,
    `take` and claims of others are refused naming the lend. `registry().events()` says `Lent { key, id }`.

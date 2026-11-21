@@ -8,9 +8,9 @@ use std::time::Duration;
 use wire_weaver::DisconnectReason;
 
 /// `DisconnectReason::Other(DISCONNECT_LENT)`: the hub closes a tunnel to a device it lent to another program
-/// (SRV-32, `ww_local_socket::DISCONNECT_LENT`).
+/// (SRV-32, `ww_byte_stream::DISCONNECT_LENT`).
 const DISCONNECT_LENT: u8 = 1;
-/// Preamble answer status of a hub that lent the device to another program (SRV-32, `ww_local_socket::Status::Lent`).
+/// Preamble answer status of a hub that lent the device to another program (SRV-32, `ww_byte_stream::Status::Lent`).
 pub(crate) const STATUS_LENT: u8 = 5;
 
 /// Why a connection has a gap.
@@ -114,7 +114,7 @@ pub enum ConnectionState {
 mod same_numbers {
     #[test]
     fn lent_numbers_are_the_hubs() {
-        assert_eq!(super::DISCONNECT_LENT, ww_local_socket::DISCONNECT_LENT);
-        assert_eq!(super::STATUS_LENT, ww_local_socket::Status::Lent.to_u8());
+        assert_eq!(super::DISCONNECT_LENT, ww_byte_stream::DISCONNECT_LENT);
+        assert_eq!(super::STATUS_LENT, ww_byte_stream::Status::Lent.to_u8());
     }
 }

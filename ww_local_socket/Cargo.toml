@@ -2,7 +2,7 @@
 name = "ww_local_socket"
 version.workspace = true
 authors.workspace = true
-description = "WireWeaver over local sockets: user-only Unix sockets and named pipes, the hub preamble, message framing"
+description = "WireWeaver over local sockets: user-only Unix sockets and named pipes, the holders handover"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true

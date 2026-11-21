@@ -17,7 +17,8 @@ use wire_weaver_client::in_process::TokioClock;
 use ww_device::link::{Received, Transmit};
 use ww_device::ww_link::{DisconnectReason, Kind, PEER_TIMEOUT_MS, PING_INTERVAL_MS};
 use ww_device::{Clock, DeviceLink, LinkConfig, LinkEvent};
-use ww_local_socket::{MessageReader, MessageWriter, Peer};
+use ww_byte_stream::{MessageReader, MessageWriter};
+use ww_local_socket::Peer;
 
 use crate::Hub;
 use crate::device::{DeviceHandle, ToDevice};
@@ -91,7 +92,7 @@ impl TunnelQueue {
     }
 
     /// [Self::close], the device lent to a program outside the hub: the client's `Disconnect` carries
-    /// [ww_local_socket::DISCONNECT_LENT].
+    /// [ww_byte_stream::DISCONNECT_LENT].
     pub(crate) fn close_lent(&self) {
         let mut inner = self.inner.locked();
         inner.closed = true;
@@ -111,7 +112,7 @@ impl TunnelQueue {
         inner.data_bytes = 0;
         let items = inner.items.drain(..).collect();
         let closed = inner.closed.then_some(match inner.lent {
-            true => DisconnectReason::Other(ww_local_socket::DISCONNECT_LENT),
+            true => DisconnectReason::Other(ww_byte_stream::DISCONNECT_LENT),
             false => DisconnectReason::RequestByUser,
         });
         (items, closed)
@@ -320,7 +321,7 @@ mod tests {
         q.close_lent();
         assert_eq!(
             q.take().1,
-            Some(DisconnectReason::Other(ww_local_socket::DISCONNECT_LENT))
+            Some(DisconnectReason::Other(ww_byte_stream::DISCONNECT_LENT))
         );
     }
 }

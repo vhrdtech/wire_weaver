@@ -16,7 +16,7 @@ use interprocess::local_socket::traits::tokio::Stream as _;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::mpsc;
 use tracing::debug;
-use ww_local_socket::{Answer, MessageReader, MessageWriter, Preamble, Status, Target, Version};
+use ww_byte_stream::{Answer, MessageReader, MessageWriter, Preamble, Status, Target, Version};
 
 use crate::config::{ConfigPiece, ValidatedConfig};
 use crate::event_loop::DeviceHandle;
@@ -339,9 +339,9 @@ fn own_versions() -> (Version, Version) {
 }
 
 /// This program's generations, for the preamble (EVO-23): the same bytes as in its link hello.
-fn own_generations() -> ww_local_socket::Generations {
+fn own_generations() -> ww_byte_stream::Generations {
     let g = crate::event_loop::core::GENERATIONS;
-    ww_local_socket::Generations {
+    ww_byte_stream::Generations {
         framer: g.framer,
         link: g.link,
         shrink_wrap: g.shrink_wrap,
@@ -463,10 +463,10 @@ pub mod device {
     use tokio::io::AsyncWriteExt;
     use tokio::sync::{mpsc, oneshot};
     use tracing::{debug, warn};
-    use ww_local_socket::{
-        Answer, Listener, MessageReader, MessageWriter, Preamble, PreambleError, Status, Stream,
-        Target,
+    use ww_byte_stream::{
+        Answer, MessageReader, MessageWriter, Preamble, PreambleError, Status, Target,
     };
+    use ww_local_socket::{Listener, Stream};
 
     /// A client that connected must send its preamble within this time, or it is dropped.
     pub const PREAMBLE_TIMEOUT: Duration = Duration::from_secs(2);

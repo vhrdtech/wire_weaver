@@ -12,7 +12,7 @@
 //! That is what a live link handover (CLT-44) needs to be tested across processes: the holder releases, the hub
 //! claims, and the device must not notice.
 //!
-//! On the socket, messages as [ww_local_socket::MessageWriter] frames them (`| len | kind | payload |`), kinds:
+//! On the socket, messages as [ww_byte_stream::MessageWriter] frames them (`| len | kind | payload |`), kinds:
 //! - host → device: [PACKET] (an OUT packet), [CLAIM], [RELEASE];
 //! - device → host: [PACKET] (an IN packet), [CLAIMED] (payload one byte: 0 granted, 1 held by another host),
 //!   [RELEASED] (nothing more comes for this host after it, every IN packet sent before it was for this host).
@@ -27,7 +27,8 @@ use interprocess::local_socket::traits::tokio::Stream as _;
 use tokio::sync::{mpsc, watch};
 use tracing::{debug, trace, warn};
 use ww_link::{UsbFraming, UsbFramingProtocol};
-use ww_local_socket::{Listener, MessageReader, MessageWriter};
+use ww_byte_stream::{MessageReader, MessageWriter};
+use ww_local_socket::Listener;
 
 use crate::config::{ConfigPiece, ValidatedConfig};
 use crate::event_loop::DeviceHandle;

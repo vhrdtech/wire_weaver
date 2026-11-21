@@ -18,6 +18,7 @@ members = [
     "wire_weaver_server",
     "ww_api",
     "ww_book",
+    "ww_byte_stream",
     "ww_client_server",
     "ww_clock_sync",
     "ww_device",
@@ -193,6 +194,7 @@ wire_weaver_py = { version = "0.5.0", path = "./wire_weaver_py" }
 wire_weaver_server = { version = "0.5.0", path = "./wire_weaver_server" }
 ww_api = { version = "0.5.0", path = "./ww_api", default-features = false }
 ww_book = { version = "0.5.0", path = "./ww_book" }
+ww_byte_stream = { version = "0.5.0", path = "./ww_byte_stream" }
 ww_clock_sync = { version = "0.5.0", path = "./ww_clock_sync" }
 ww_device = { version = "0.5.0", path = "./ww_device" }
 ww_dns_sd = { version = "0.5.0", path = "./ww_dns_sd", default-features = false }

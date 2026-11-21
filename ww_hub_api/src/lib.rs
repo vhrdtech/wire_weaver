@@ -57,7 +57,7 @@ pub trait Adopt {
     fn prepare(snapshot: RefVec<'i, u8>) -> Result<u64, AdoptError<'i>>;
 
     /// The program let go of the device: the hub opens it and goes on with the link. The program's tunnel (preamble
-    /// `Device(key)` with the id, `ww_local_socket::TAG_ADOPT`) must come within 5 s, or the hub takes the program as
+    /// `Device(key)` with the id, `ww_byte_stream::TAG_ADOPT`) must come within 5 s, or the hub takes the program as
     /// gone.
     fn commit(id: u64) -> Result<(), AdoptError<'i>>;
 }
@@ -110,7 +110,7 @@ pub trait Claims {
     fn claims(key: &'i str) -> RefVec<'i, ClaimEntry<'i>>;
 
     /// Lends the device `key` to a program outside the hub (`ww hub lend`, SRV-32): a root claim, and the hub closes
-    /// the device (its tunnels see a disconnect with `ww_local_socket::DISCONNECT_LENT`) and doesn't open it again
+    /// the device (its tunnels see a disconnect with `ww_byte_stream::DISCONNECT_LENT`) and doesn't open it again
     /// until the claim is released, answering new tunnels `Status::Lent` meanwhile. Returns once the device is
     /// closed, so the other program can open it right after.
     fn lend(key: &'i str, purpose: &'i str, ttl_s: Option<u32>) -> Result<u32, ClaimError<'i>>;

@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use ww_local_socket::{Answer, Preamble, Status, Target};
+use ww_byte_stream::{Answer, Preamble, Status, Target};
 
 use super::*;
 
@@ -99,7 +99,7 @@ async fn hub_serves_by_generation() {
     let dir = runtime_dir("generations");
     let (hub, shutdown) = start(&dir, 60_000).await;
     let own = crate::window::generations();
-    let gens = |shrink_wrap| ww_local_socket::Generations {
+    let gens = |shrink_wrap| ww_byte_stream::Generations {
         framer: own.framer,
         link: own.link,
         shrink_wrap,

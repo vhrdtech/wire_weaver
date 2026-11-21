@@ -2,7 +2,7 @@
 
 use tracing::{debug, info};
 use ww_hub_api::DeviceStateOwned;
-use ww_local_socket::Target;
+use ww_byte_stream::Target;
 
 use super::{HubClient, HubMode, MODE_ENV, ensure_running, handover, hub_running, record_open};
 use crate::ClientKind;

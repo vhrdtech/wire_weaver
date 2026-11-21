@@ -188,6 +188,7 @@ wire_weaver_py = { layer = "runtime" }
 wire_weaver_server = { layer = "runtime" }
 ww_book = { layer = "runtime" }
 ww_client_server = { layer = "runtime", no_std = true, unsafe = true }
+ww_byte_stream = { layer = "runtime" }
 ww_clock_sync = { layer = "runtime" }
 ww_device = { layer = "runtime", no_std = true, unsafe = true }
 ww_dns_sd = { layer = "runtime" }

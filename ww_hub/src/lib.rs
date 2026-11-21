@@ -42,7 +42,8 @@ use tokio::time::Instant;
 use tracing::{debug, info, warn};
 use wire_weaver_client::snapshots::Resolver;
 use ww_local_socket::files::{HUB_LOCK, HUB_SOCKET};
-use ww_local_socket::{Answer, Peer, Preamble, PreambleError, Status, Target};
+use ww_byte_stream::{Answer, Preamble, PreambleError, Status, Target};
+use ww_local_socket::Peer;
 
 pub use captures::{CaptureHost, HostCapture, HostWatch, HubHost, SavePath, Saved};
 

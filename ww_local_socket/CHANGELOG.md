@@ -8,6 +8,7 @@
 
 ### ⚠️ Breaking
 
+- `Preamble`, `Answer`, `Status`, `Target`, `Version`, `Generations`, the preamble constants, `MessageReader` and `MessageWriter` moved to `ww_byte_stream` (TR-19): import them from there.
 - Declares `rust-version = "1.99"`: cargo of an older Rust refuses the crate.
 - `Preamble` has the new public field `adopt` (CLT-44): struct literals and exhaustive patterns need it (`..`).
 - `Preamble` has the new public field `generations` (EVO-23): struct literals and exhaustive patterns need it (`..`).

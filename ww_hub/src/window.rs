@@ -11,7 +11,7 @@
 //! SemVer rule, as before; one from before the versions (SRV-30) is served, and link setup checks it.
 
 use ww_device::ww_link::Generations;
-use ww_local_socket::{Preamble, Version};
+use ww_byte_stream::{Preamble, Version};
 
 /// Earlier link generations served besides this build's: none yet.
 const LINK_WINDOW: &[u8] = &[];
@@ -98,13 +98,13 @@ fn check_with(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ww_local_socket::Target;
+    use ww_byte_stream::Target;
 
     const LINK: Version = Version::new(0, 5, 3);
     const MODEL: Version = Version::new(0, 2, 1);
 
-    fn gens(link: u8, shrink_wrap: u8, api_model: u8) -> ww_local_socket::Generations {
-        ww_local_socket::Generations {
+    fn gens(link: u8, shrink_wrap: u8, api_model: u8) -> ww_byte_stream::Generations {
+        ww_byte_stream::Generations {
             framer: 1,
             link,
             shrink_wrap,
@@ -131,7 +131,7 @@ mod tests {
                 .with_generations(g)
         };
         assert!(check_with(&p(gens(1, 1, 1)), own(), LINK, MODEL).is_ok());
-        let framer_2 = ww_local_socket::Generations {
+        let framer_2 = ww_byte_stream::Generations {
             framer: 2,
             ..gens(1, 1, 1)
         };
@@ -171,7 +171,7 @@ mod tests {
         let g = generations();
         let p = Preamble::new(Target::Hub)
             .with_versions(link(), api_model())
-            .with_generations(ww_local_socket::Generations {
+            .with_generations(ww_byte_stream::Generations {
                 framer: g.framer,
                 link: g.link,
                 shrink_wrap: g.shrink_wrap,

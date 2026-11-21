@@ -1,5 +1,9 @@
 ## Unreleased
 
+### 🚀 Features
+
+- `target::target` reads what a request does where (`Access`, `Place`, `TraitRef`), for claims and authorization (SRV-46).
+
 ### 📚 Documentation
 
 - Crate-level docs.

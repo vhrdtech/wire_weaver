@@ -10,6 +10,9 @@ use std::collections::HashSet;
 use ww_numeric::{NumericAnyTypeOwned, NumericBaseType};
 use ww_version::{FullVersionOwned, WireVersion};
 
+/// Deepest trait nesting [ApiBundleOwned::trait_path] looks through: introspection data is not trusted.
+pub const TRAIT_DEPTH_MAX: usize = 32;
+
 impl ApiLevelOwned {
     pub fn crate_name<'i>(&self, bundle: &'i ApiBundleOwned) -> Result<&'i str> {
         bundle.crate_name(self.crate_idx.0)
@@ -298,6 +301,69 @@ impl ApiBundleOwned {
     /// item_a path is: `0, 0`, TraitB: `1`, item_c: `1, 1` and item_d: `1, 1, 0`.
     pub fn get_item(&self, id_chain: &[u32]) -> Result<&ApiItemOwned> {
         self.root.get_item(id_chain, self)
+    }
+
+    /// The items a request path goes through, from the root's down to the one it names, each with its element's
+    /// index when it is a resource array (the path holds the index right after the array's id); `None` when the
+    /// path names nothing here. An empty path is the root: no items. A path that ends at a whole array leaves its
+    /// index `None`.
+    pub fn item_chain(&self, path: &[u32]) -> Option<Vec<(&ApiItemOwned, Option<u32>)>> {
+        let mut chain = Vec::new();
+        let mut level = &self.root;
+        let mut rest = path;
+        while let Some((id, after)) = rest.split_first() {
+            let item = level.items.iter().find(|i| i.id.0 == *id)?;
+            let (index, after) = match (item.is_array(), after.split_first()) {
+                (true, Some((index, after))) => (Some(*index), after),
+                _ => (None, after),
+            };
+            chain.push((item, index));
+            if !after.is_empty() {
+                level = item.get_as_level(self).ok()?;
+            }
+            rest = after;
+        }
+        Some(chain)
+    }
+
+    /// Where a server answers a global path to the trait `is` picks (API-20): the first place the trait sits in the
+    /// tree, depth first in id order, not under a resource array, at most [TRAIT_DEPTH_MAX] levels down.
+    pub fn trait_path(
+        &self,
+        is: impl Fn(&ApiLevelOwned, &ApiBundleOwned) -> bool,
+    ) -> Option<Vec<u32>> {
+        fn walk(
+            level: &ApiLevelOwned,
+            bundle: &ApiBundleOwned,
+            is: &dyn Fn(&ApiLevelOwned, &ApiBundleOwned) -> bool,
+            prefix: &mut Vec<u32>,
+        ) -> Option<Vec<u32>> {
+            if is(level, bundle) {
+                return Some(prefix.clone());
+            }
+            if prefix.len() >= TRAIT_DEPTH_MAX {
+                return None;
+            }
+            let mut items: Vec<_> = level
+                .items
+                .iter()
+                .filter(|i| matches!(i.kind, ApiItemKindOwned::Trait { .. }) && !i.is_array())
+                .collect();
+            items.sort_by_key(|i| i.id.0);
+            for item in items {
+                let Ok(sub) = item.get_as_level(bundle) else {
+                    continue;
+                };
+                prefix.push(item.id.0);
+                let found = walk(sub, bundle, is, prefix);
+                prefix.pop();
+                if found.is_some() {
+                    return found;
+                }
+            }
+            None
+        }
+        walk(&self.root, self, &is, &mut vec![])
     }
 }
 

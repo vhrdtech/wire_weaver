@@ -13,6 +13,8 @@ pub mod max_len;
 pub mod multi_req;
 pub mod observe;
 pub mod stream;
+#[cfg(feature = "std")]
+pub mod target;
 pub mod util;
 
 /// Units of this protocol that no other crate needs.

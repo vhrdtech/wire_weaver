@@ -55,6 +55,8 @@
 [![docs.rs](https://img.shields.io/docsrs/ww_tap)](https://docs.rs/ww_tap)
 [![docs.rs](https://img.shields.io/docsrs/ww_tape_bundle)](https://docs.rs/ww_tape_bundle)
 [![docs.rs](https://img.shields.io/docsrs/ww_timebase)](https://docs.rs/ww_timebase)
+[![crates.io](https://img.shields.io/crates/v/wire_weaver_server)](https://crates.io/crates/wire_weaver_server)
+[![docs.rs](https://img.shields.io/docsrs/wire_weaver_server)](https://docs.rs/wire_weaver_server)
 
 <p align="center">
 <picture>
@@ -203,6 +205,8 @@ If you only want to serialize and deserialize some data types, it can be used st
 | [`global_fixture_api`](tests/global_fixture_api) | runtime | Test trait of TEST-31 (GlobalFull/GlobalCompact dispatch): used by tests/dispatch_golden instead of ww_user_info, a property with a const next to it, reached on a global path. |
 | [`global_ids`](tests/global_ids) | runtime | Checks that every public trait of the framework crates ww_client_server and ww_timebase has an id in the ww_global registry (API-20). |
 | [`global_paths_api`](tests/global_paths_api) | runtime | Framework-only fixture for the global trait path dispatch bench (API-20, R10): a local trait at index 0 and ww_timebase::Clock (a real ww_global id) at index 1, used by examples_mcu/mcu_qemu qemu-global-paths |
+| [`host_server`](tests/host_server) | runtime | Tests of the host server (SRV-12): many clients on one API, calls side by side, pumps, limits, shutdown |
+| [`host_server_api`](tests/host_server_api) | runtime | Test API of the host server (SRV-12), exercised by tests/host_server |
 | [`hub`](tests/hub) | runtime | Device tunnels through the ww hub (SRV-29): several clients of one in-process device, each through its own tunnel |
 | [`hub_api`](tests/hub_api) | runtime | Test API of tests/hub: a device several clients share through the ww hub (SRV-29), with resources one of them can claim |
 | [`hub_pytest_device`](tests/hub_pytest_device) | runtime | Hosts the ww hub and in-process test devices for wire_weaver_py's pytest tests (TOOL-18), no real hardware needed |
@@ -288,6 +292,7 @@ If you only want to serialize and deserialize some data types, it can be used st
 | [`wire_weaver_client`](wire_weaver_client) | runtime | WireWeaver is a wire format and API code generator for resource constrained systems. |
 | [`wire_weaver_client_benchmarks`](wire_weaver_client_benchmarks) | runtime | Benchmarks of wire_weaver_client: where a connect's time goes, step by step |
 | [`wire_weaver_py`](wire_weaver_py) | runtime | Python module talking to any WireWeaver device, with its API built at runtime from introspection data |
+| [`wire_weaver_server`](wire_weaver_server) | runtime | WireWeaver host server: many connections to one API, on any async runtime |
 | [`ww_book`](ww_book) | runtime | Assembles the WireWeaver book: copies the pages and feature trackers of the repositories it takes by git into docs/ |
 | [`ww_client_server`](ww_client_server) | runtime | Client-server API model data types for both no_std and std. |
 | [`ww_clock_sync`](ww_clock_sync) | runtime | Host clock sync for WireWeaver devices: fits each device's clock against the host's and steers it onto UTC (ww_timebase::Clock) |

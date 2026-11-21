@@ -1,6 +1,7 @@
 [package]
 name = "host_server_api"
 version = "0.1.0"
+description = "Test API of the host server (SRV-12), exercised by tests/host_server"
 publish = false
 edition.workspace = true
 rust-version.workspace = true

@@ -1,6 +1,7 @@
 [package]
 name = "host_server"
 version = "0.1.0"
+description = "Tests of the host server (SRV-12): many clients on one API, calls side by side, pumps, limits, shutdown"
 publish = false
 edition.workspace = true
 rust-version.workspace = true

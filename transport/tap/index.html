@@ -5130,6 +5130,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#links-and-devices" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Links and devices
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#capture-files" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6337,6 +6348,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#links-and-devices" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Links and devices
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#capture-files" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6533,11 +6555,23 @@ all of them) counts the blocks it missed, the records it lost and since when it 
 definitions, as <code>ww capture</code> does, drops that link's tracks when it sees the event (<code>recorder::drop_closed_links</code>), so
 its definitions don't grow with every link ever seen.</p>
 <h2 id="records">Records<a class="headerlink" href="#records" title="Permanent link">&para;</a></h2>
-<p>The records are ordinary WireWeaver types: streams of the <code>ww_tap::LinkTap</code> trait, one entry per link
-(<code>link[id]</code>) with the streams <code>session</code> (medium, framer, frame size, peer, the device's <code>DeviceInfo</code> once the link is
-set up), <code>events</code>, <code>tx_frames</code>, <code>rx_frames</code>, <code>tx_messages</code>, <code>rx_messages</code> and, on a server, <code>client_map</code> (which
-client's request a device-side request was). A capture is described by the API bundle of <code>ww_tap</code> like any device
-log is by its device's, and every frame and message has a number, so the decoder sees a missing one.</p>
+<p>The records are ordinary WireWeaver types: streams of the <code>ww_tap::LinkTap</code> trait, one set per link: <code>session</code>
+(medium, framer, frame size, peer, the device's <code>DeviceInfo</code> once the link is set up), <code>events</code>, <code>tx_frames</code>,
+<code>rx_frames</code>, <code>tx_messages</code>, <code>rx_messages</code> and, on a server, <code>client_map</code> (which client's request a device-side
+request was). A capture is described by the API bundle of <code>ww_tap</code> like any device log is by its device's, and every
+frame and message has a number, so the decoder sees a missing one.</p>
+<h2 id="links-and-devices">Links and devices<a class="headerlink" href="#links-and-devices" title="Permanent link">&para;</a></h2>
+<p>Every link's tracks of one stream have the same key, the hash of the stream's name (<code>ww_tap::track_key</code>). The link's
+identity tells them apart: the recorder defines a link's tracks at its first session, with the <a href="https://tape.vhrd.tech/tracks/#number-key-and-id">track
+dimensions</a> <code>medium</code> and <code>peer</code> (<code>ww_tap::dims</code>), the USB serial
+or the address the session reports. Two devices of one API recorded into one capture thus give two track ids per
+stream with one key, and the same device gives the same ids in every capture and after a reconnect, whichever link
+number the producer gave it.</p>
+<p>A link the peer doesn't tell apart, with no peer or with the peer of another open link, adds the dimension <code>link</code>,
+the recorder's number of it; so does a link recorded before any session.</p>
+<p>A reader picks a device by its dimension: <code>ww_tap::link_stream_of</code> gives a tap track's stream and its link's
+<code>LinkIdentity</code> (<code>identity.get(dims::PEER)</code>), and the decoder numbers links by identity (<code>Decoder::find_link(dims::PEER,
+"SN-1234")</code>, <code>Decoder::link_identity</code>).</p>
 <h2 id="capture-files">Capture files<a class="headerlink" href="#capture-files" title="Permanent link">&para;</a></h2>
 <p>A capture is tape blocks appended back to back. The tape format has a book of its own, the <a href="https://tape.vhrd.tech/">ww_tape
 book</a>: what a file holds, how time is stored and what survives damage, with a
@@ -6548,8 +6582,8 @@ with <code>Recovery::Resync</code> (<a href="https://tape.vhrd.tech/format/#file
 close record and a tail; cutting a recording into several files is <a href="https://tape.vhrd.tech/format/#tape-pieces">tape
 pieces</a>. The definitions carry the device's API bundle, so <code>ww
 explain FILE</code> explains the requests and replies of a capture on any PC, without the device. A track's key hashes its
-resource names, so two runs give the same ids (<a href="https://tape.vhrd.tech/format/#track-identity">track
-identity</a>, <code>ww_tap::track_key</code>).</p>
+resource names and its dimensions name the device, so two runs give the same ids (<a href="#links-and-devices">Links and
+devices</a>).</p>
 <h2 id="decoding">Decoding<a class="headerlink" href="#decoding" title="Permanent link">&para;</a></h2>
 <p><code>wire_weaver_client::tap::Decoder</code> takes blocks, live or from a file (<code>ww_tape::FileBlocks</code>), and gives out
 <code>Decoded</code> frames, messages and link events:</p>

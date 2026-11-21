@@ -8090,7 +8090,10 @@ observing), SRV-46 (peer identity).
   <code>std</code>, <code>ww_tap</code> is the hook and the record types, <code>LinkKey { medium, peer }</code> (a link named by its peer), <code>api()</code>
   and <code>ids::stream_name</code> for a producer naming the tracks; the <code>Recorder</code> is behind <code>std</code>. The decoder's input is
   records (<code>Decoder::record</code>, <code>session</code>, <code>gap</code>), <code>feed(&amp;Block)</code> feeds a block's records through it (the e2e test
-  compares both). Open: the tap of a ww server's clients (<code>ClientMap</code> records are defined, nothing writes them yet).</li>
+  compares both). A link's identity (its medium and peer, the USB serial or address of its first session) is a
+  dimension of its tracks, not a <code>link[n]</code> path: two devices of one API share each stream's key, differ in their ids,
+  and keep their ids across captures and reconnects; a reader picks a device by its <code>peer</code> (<code>Decoder::find_link</code>).
+  Open: the tap of a ww server's clients (<code>ClientMap</code> records are defined, nothing writes them yet).</li>
 <li>✅ <strong>TR-15 Frame prefix and link setup token</strong> · <code>v0.5</code> — stale frames after a reconnect are removed at the
   cause and each medium gets the checks it needs (<code>docs/transport/ww_link.md#setup-token</code>,
   <code>docs/transport/ww_framer.md#frame-prefix</code>): the host puts a random 64-bit token into link setup, the device

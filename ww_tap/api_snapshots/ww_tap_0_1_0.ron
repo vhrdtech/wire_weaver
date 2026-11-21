@@ -1,6 +1,6 @@
 // ww_tap 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: a1805d23597e84658e342655b82c05fb12d59a36998c9ebb9f7cace1b841c467
+// shrink_wrap sha256: 4cf340d09d764df3a323f8bb5f424058f7f81a4c8bcb237d6ae102941e97313c
 (magic: 2837124336, ww_self_version: (major: 0, minor: 4, patch: 0), root: (docs: [
     "The link tap: what crosses a wire_weaver link, recorded at the transport edge, for monitors, statistics and",
     "captures (TR-14).",
@@ -13,12 +13,12 @@
     "without a tap compiles them away.",
     "",
     "The records are ordinary wire_weaver types, streams of the [LinkTap] trait, so a capture is described by its API",
-    "bundle like any device log: one track per link and stream ([Link]), Session sticky. A producer that writes them as",
-    "tracks names them with [api] and [ids]; a link named by its peer is keyed by [LinkKey]. With the `std` feature,",
-    "[Recorder] batches them into `ww_tape` blocks.",
+    "bundle like any device log: one track per stream of each link, Session sticky. A producer that writes them as",
+    "tracks names them with [api] and [ids], and tells links apart by their [dims]: the link\'s medium and peer, so the",
+    "same device gives the same track ids in every capture. A link named by its peer is [LinkKey]. With the `std`",
+    "feature, [Recorder] batches them into `ww_tape` blocks.",
 ], crate_idx: 0, trait_name: "ww_tap", items: [
-    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Link", docs: [], optional: None, meta: None, identity: None),
-    (id: 1, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "LinkTap", docs: [], optional: None, meta: None, identity: None),
+    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "LinkTap", docs: [], optional: None, meta: None, identity: None),
 ], compact_id: None, meta: None), types: [
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "The start of a link: everything a decoder needs to re-run the framer and find the API bundle.",
@@ -179,10 +179,8 @@
         ], ident: "Seq", fields: Unit, discriminant: 1, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "The key of a link in [LinkTap]\'s `link[]` when links are named by their peer: one device keeps its tracks",
-        "across reconnects.",
-        "",
-        "Its bytes are hashed into the tracks\' keys, so a new field gives every keyed tap track a new key.",
+        "A link named by its peer, as the hub names the links it watches: one device keeps its name across reconnects.",
+        "The same two fields are a link\'s track [dimensions](dims).",
     ], ident: "LinkKey", generics: [], fields: Named([
         (ident: Some("medium"), default: None, since: None, ty: OutOfLine(type_idx: 6), docs: [], slot: None, series_opaque: false),
         (ident: Some("peer"), default: None, since: None, ty: String, docs: [
@@ -194,8 +192,13 @@
     ], ident: "NoTap", generics: [], fields: Unit, sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
-        "The streams of one link; tracks of a capture are `link[id].<stream>`.",
-    ], crate_idx: 0, trait_name: "Link", items: [
+        "Records of a link tap, one stream per kind of record. Implemented by nobody: the trait is there for its API",
+        "bundle, which describes the tracks of a capture.",
+        "",
+        "One link\'s records are one set of these streams: the tracks of every link share their keys, and the link\'s",
+        "identity, its [dimensions](dims) (the medium and the peer, a USB serial or an address), tells them",
+        "apart. The same device recorded twice, in one capture or in two, gives its tracks the same ids.",
+    ], crate_idx: 0, trait_name: "LinkTap", items: [
         (id: 0, kind: Stream(ty: OutOfLine(type_idx: 0), is_up: true), multiplicity: Flat, since: None, ident: "session", docs: [
             "The link\'s session, updated when it is set up (a state track: put near each use).",
         ], optional: None, meta: None, identity: None),
@@ -216,14 +219,6 @@
         ], optional: None, meta: None, identity: None),
         (id: 6, kind: Stream(ty: OutOfLine(type_idx: 4), is_up: true), multiplicity: Flat, since: None, ident: "client_map", docs: [
             "Server only: which client\'s request a device-side request was.",
-        ], optional: None, meta: None, identity: None),
-    ], compact_id: None, meta: None), crate_idx: 0),
-    InLine(level: (docs: [
-        "Records of a link tap, one stream per kind of record. Implemented by nobody: the trait is there for its API",
-        "bundle, which describes the tracks of a capture.",
-    ], crate_idx: 0, trait_name: "LinkTap", items: [
-        (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Array(index_type_idx: None), since: None, ident: "link", docs: [
-            "One entry per link the producer saw, by link id.",
         ], optional: None, meta: None, identity: None),
     ], compact_id: None, meta: None), crate_idx: 0),
 ], ext_crates: [

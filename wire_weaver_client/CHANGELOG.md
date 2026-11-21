@@ -11,6 +11,7 @@
 
 ### 🚀 Features
 
+- The tap `Decoder` numbers links by their identity; `Decoder::link_identity` and `find_link` pick a device by its serial (TR-14).
 - Re-exports `LocalBoxFuture`, `LocalItemStream` and `local_item_stream`; the client implements a local trait without `Send` too (SRV-73).
 - Request contexts (SRV-47), only to a device that announced it reads them (`DeviceApiInfo::request_context`): calls, reads and writes carry their timeout as the deadline, and `with_call_context` adds `cx.trace` (not on a stream open). A request that times out, or a `call()` whose future is dropped, is cancelled on the device with `RequestKind::Cancel`; the dropped call at once, the rest at their timeout.
 - Link setup sends `ww_client_server::WIRE_VERSION` as `host_model_wire` (SRV-47); `DeviceApiInfo::request_context` says whether the device reads request contexts and `Cancel` (a new public field: struct literals add it).

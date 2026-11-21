@@ -767,7 +767,7 @@ pub enum WatchEntry<'i> {
     },
 }
 
-/// A stream of a link (`ww_tap::Link`, in its declaration order, `ww_tap::ids`).
+/// A stream of a link (`ww_tap::LinkTap`, in its declaration order, `ww_tap::ids`).
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),

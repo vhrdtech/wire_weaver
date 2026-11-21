@@ -1532,7 +1532,10 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   `std`, `ww_tap` is the hook and the record types, `LinkKey { medium, peer }` (a link named by its peer), `api()`
   and `ids::stream_name` for a producer naming the tracks; the `Recorder` is behind `std`. The decoder's input is
   records (`Decoder::record`, `session`, `gap`), `feed(&Block)` feeds a block's records through it (the e2e test
-  compares both). Open: the tap of a ww server's clients (`ClientMap` records are defined, nothing writes them yet).
+  compares both). A link's identity (its medium and peer, the USB serial or address of its first session) is a
+  dimension of its tracks, not a `link[n]` path: two devices of one API share each stream's key, differ in their ids,
+  and keep their ids across captures and reconnects; a reader picks a device by its `peer` (`Decoder::find_link`).
+  Open: the tap of a ww server's clients (`ClientMap` records are defined, nothing writes them yet).
 - ✅ **TR-15 Frame prefix and link setup token** · `v0.5` — stale frames after a reconnect are removed at the
   cause and each medium gets the checks it needs (`docs/transport/ww_link.md#setup-token`,
   `docs/transport/ww_framer.md#frame-prefix`): the host puts a random 64-bit token into link setup, the device

@@ -4,14 +4,24 @@ use wire_weaver::shrink_wrap::DeserializeShrinkWrapOwned;
 use ww_tape::{Record, RecordTrack};
 
 fn session() -> Session<'static> {
+    session_of("test")
+}
+
+/// The session of a link to the device `peer`.
+fn session_of(peer: &str) -> Session<'_> {
     Session {
         side: Side::Host,
         medium: Medium::InProcessUsb,
         framer: Framer::None,
         frame_size: UNib32(64),
-        peer: "test",
+        peer,
         device_info: RefVec::Slice { slice: &[] },
     }
+}
+
+/// The label of `stream`'s track of the link to `peer`.
+fn label(stream: &str, peer: &str) -> String {
+    format!("{stream} medium=in_process_usb peer={peer}")
 }
 
 fn config() -> RecorderConfig {
@@ -279,8 +289,9 @@ fn held_blocks_lose_records_counted_in_a_link_event() {
             }
         }
     }
-    // 20 - 12 = 8 records were lost, no block: only the events track, new to the consumer, is put
-    assert_eq!(put, ["link[0].events"]);
+    // 20 - 12 = 8 records were lost, no block: only the events track, new to the consumer, is put; the link had no
+    // session, its tracks are told apart by its number
+    assert_eq!(put, ["events link=0"]);
     assert_eq!(frames, 1);
     assert_eq!(events, [LinkEventOwned::Lost { records: UVlq64(8) }]);
 }
@@ -296,7 +307,7 @@ fn a_consumer_joining_is_put_what_each_block_needs() {
     // the newest session is kept with nobody listening
     link.session(&session());
     link.link_ready(&[9, 9]);
-    other.session(&session());
+    other.session(&session_of("other"));
     let sub = rec.subscribe(Layers::MESSAGES, 8);
     link.message(Dir::Tx, 4, b"x");
     rec.flush();
@@ -321,7 +332,7 @@ fn a_consumer_joining_is_put_what_each_block_needs() {
     assert_eq!(bundles, 1);
     assert_eq!(
         track_labels(&got[..1]),
-        ["link[0].session", "link[0].tx_messages"]
+        [label("session", "test"), label("tx_messages", "test")]
     );
     assert_eq!(sessions.len(), 1);
     assert_eq!(sessions[0].device_info, vec![9, 9]);
@@ -391,7 +402,7 @@ fn a_consumer_without_room_for_the_puts_misses_the_block() {
     let mut first = rec.link();
     let mut second = rec.link();
     first.session(&session());
-    second.session(&session());
+    second.session(&session_of("second"));
     let sub = rec.subscribe(Layers::MESSAGES, 3);
     first.message(Dir::Tx, 4, b"a");
     rec.flush();
@@ -400,7 +411,7 @@ fn a_consumer_without_room_for_the_puts_misses_the_block() {
     rec.flush();
     let mut stream = drain(&sub);
     assert_eq!(kinds(&stream), [Held::Puts, Held::Data, Held::Puts]);
-    assert!(track_labels(&stream[2..]).contains(&"link[1].tx_messages".to_owned()));
+    assert!(track_labels(&stream[2..]).contains(&label("tx_messages", "second")));
     let stats = sub.stats();
     assert_eq!((stats.blocks_missed, stats.records_lost), (1, 1));
     assert!(stats.behind_since.is_some());
@@ -436,7 +447,7 @@ fn a_consumer_that_misses_a_block_is_not_put_everything_again() {
     rec.flush();
     let next = drain(&slow);
     assert_eq!(kinds(&next), [Held::Puts, Held::Data, Held::Data]);
-    assert_eq!(track_labels(&next[..1]), ["link[0].events"]);
+    assert_eq!(track_labels(&next[..1]), [label("events", "test")]);
     assert_eq!(lost_events(&rec, &next[1]), [(0, 1)]);
     let seqs: Vec<u64> = stream
         .iter()
@@ -511,7 +522,7 @@ fn a_consumer_that_reads_nothing_is_counted_behind() {
     assert!(stats.behind_since.is_some());
     // the definitions a block needs are shared with the recorder's, not copied
     let st = rec.inner.state.lock().unwrap();
-    let needs = Needs::of(&st, [st.links[0].tracks[ids::TX_MESSAGES as usize]]);
+    let needs = Needs::of(&st, st.links[0].track(ids::TX_MESSAGES));
     for n in needs.records.iter().filter(|n| n.track.is_definitions()) {
         let held = st.defs.held(&n.slot).unwrap();
         assert!(Arc::ptr_eq(&n.item, &held.item));
@@ -558,7 +569,8 @@ fn a_closed_link_is_said_in_the_stream_and_a_relay_drops_it() {
 #[test]
 fn a_closed_links_tracks_are_not_put() {
     let (rec, _t) = Recorder::with_fake_clock(config());
-    let first = rec.link();
+    let mut first = rec.link();
+    first.session(&session_of("first"));
     let mut second = rec.link();
     second.session(&session());
     drop(first);
@@ -568,7 +580,7 @@ fn a_closed_links_tracks_are_not_put() {
     let got = drain(&sub);
     let tracks = track_labels(&got);
     assert!(!tracks.is_empty());
-    assert!(tracks.iter().all(|t| t.starts_with("link[1].")));
+    assert!(tracks.iter().all(|t| t.ends_with("peer=test")));
     assert_whole(&got);
 }
 
@@ -577,12 +589,13 @@ fn a_closed_links_tracks_are_not_put() {
 #[test]
 fn a_link_after_every_link_closed_is_defined_whole() {
     let (rec, _t) = Recorder::with_fake_clock(config());
-    let first = rec.link();
+    let mut first = rec.link();
+    first.session(&session_of("first"));
     let first_tracks: Vec<TrackNum> = (0..7).map(|s| track(&rec, 0, s)).collect();
     let clock = rec.inner.state.lock().unwrap().host;
     drop(first);
     let mut second = rec.link();
-    second.session(&session());
+    second.session(&session_of("second"));
     let sub = rec.subscribe(Layers::MESSAGES, 8);
     second.message(Dir::Tx, 4, b"x");
     rec.flush();
@@ -637,4 +650,112 @@ fn bundle_added_mid_block_is_put_before_it() {
             Describe::from_ww_bytes(item).unwrap(),
             Describe::Bundle { .. }
         )));
+}
+
+/// Two devices of one API recorded into one tape: every stream's tracks share their key and differ in their id, by
+/// the devices' identities. A reader of the tape picks a device by its `peer` dimension and gets its records only.
+#[test]
+fn two_devices_in_one_tape_share_keys_and_a_reader_picks_one() {
+    let (rec, _t) = Recorder::with_fake_clock(config());
+    let sub = rec.subscribe(Layers::MESSAGES, 64);
+    let mut a = rec.link();
+    let mut b = rec.link();
+    a.session(&session_of("SN-A"));
+    b.session(&session_of("SN-B"));
+    a.link_event(&LinkEvent::Connected);
+    b.link_event(&LinkEvent::Connected);
+    a.message(Dir::Tx, 4, b"to A");
+    b.message(Dir::Tx, 4, b"to B");
+    a.message(Dir::Rx, 4, b"from A");
+    rec.flush();
+    let mut w = ww_tape::TapeWriter::create_on(ww_tape::MemSink::new(), ww_tape::SyncPolicy::None);
+    let tape = w.sink().tape();
+    let mut defs = Definitions::new();
+    for c in drain(&sub) {
+        w.relay_block(&mut defs, c.bytes()).unwrap();
+    }
+    w.close().unwrap();
+    let bytes = tape.to_vec().unwrap();
+
+    // the reader: track definitions by number, then the records of the tracks of SN-B
+    let mut tracks = std::collections::BTreeMap::new();
+    let mut of_b = Vec::new();
+    let mut blocks = ww_tape::FileBlocks::new(&bytes[..]);
+    while let Some(block) = blocks.next_block() {
+        let block = block.unwrap();
+        if block.kind != BlockKind::Records {
+            continue;
+        }
+        for r in block.records() {
+            let r = r.unwrap();
+            let Some(track) = r.track.data() else {
+                if let Ok(Describe::Track(t)) = Describe::from_ww_bytes(r.item) {
+                    let (identity, stream) = link_stream_of(&t).expect("a tap track");
+                    tracks.insert(t.number, (identity, stream, t.key, t.id()));
+                }
+                continue;
+            };
+            let (identity, stream, _, _) = &tracks[&track];
+            if identity.get(dims::PEER) == Some("SN-B") && *stream == ids::TX_MESSAGES {
+                of_b.push(MessageOwned::from_ww_bytes_owned(r.item).unwrap().bytes);
+            }
+        }
+    }
+    assert_eq!(of_b, [b"to B".to_vec()], "only the records of SN-B");
+    // the tracks a block needed are put: rx_messages of SN-A only
+    for stream in [ids::SESSION, ids::EVENTS, ids::TX_MESSAGES] {
+        let of = |peer: &str| {
+            let (identity, _, key, id) = tracks
+                .values()
+                .find(|(i, s, ..)| *s == stream && i.get(dims::PEER) == Some(peer))
+                .expect("the device's track");
+            assert_eq!(*id, identity.track_id(stream));
+            (*key, *id)
+        };
+        let ((key_a, id_a), (key_b, id_b)) = (of("SN-A"), of("SN-B"));
+        assert_eq!(key_a, key_b, "one key per stream");
+        assert_eq!(key_a, track_key(stream));
+        assert_ne!(id_a, id_b, "an id per device");
+    }
+}
+
+/// A device's tracks have the same ids in every capture, whichever link number it got there.
+#[test]
+fn a_device_has_the_same_track_ids_in_every_capture() {
+    let ids_of = |links_before: usize| {
+        let (rec, _t) = Recorder::with_fake_clock(config());
+        let mut others: Vec<RecorderLink> = (0..links_before).map(|_| rec.link()).collect();
+        for (i, l) in others.iter_mut().enumerate() {
+            l.session(&session_of(&format!("other-{i}")));
+        }
+        let mut link = rec.link();
+        link.session(&session_of("SN-A"));
+        let identity = rec.identity(link.id()).unwrap();
+        assert_eq!(identity.to_string(), "medium=in_process_usb peer=SN-A");
+        (0..7).map(|s| identity.track_id(s)).collect::<Vec<_>>()
+    };
+    assert_eq!(ids_of(0), ids_of(3));
+}
+
+/// Two open links to the same peer, or a link without one, are told apart by their numbers too; a link to a peer
+/// whose link closed takes its identity, so a reconnect keeps the device's track ids.
+#[test]
+fn links_the_peer_does_not_tell_apart_are_numbered() {
+    let (rec, _t) = Recorder::with_fake_clock(config());
+    let mut first = rec.link();
+    let mut second = rec.link();
+    let mut anonymous = rec.link();
+    first.session(&session_of("SN-A"));
+    second.session(&session_of("SN-A"));
+    anonymous.session(&session_of(""));
+    let identity = |link: &RecorderLink| rec.identity(link.id()).unwrap().to_string();
+    assert_eq!(identity(&first), "medium=in_process_usb peer=SN-A");
+    assert_eq!(identity(&second), "link=1 medium=in_process_usb peer=SN-A");
+    assert_eq!(identity(&anonymous), "link=2 medium=in_process_usb");
+    let first_ids = (0..7).map(|s| rec.track(0, s).unwrap()).collect::<Vec<_>>();
+    assert!((0..7).all(|s| !first_ids.contains(&rec.track(1, s).unwrap())));
+    drop(first);
+    let mut again = rec.link();
+    again.session(&session_of("SN-A"));
+    assert_eq!(identity(&again), "medium=in_process_usb peer=SN-A");
 }

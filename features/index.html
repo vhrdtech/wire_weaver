@@ -7194,7 +7194,7 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
   (<code>wait</code>, <code>next_wake</code>, <code>poll</code>: observed properties) and <code>Fanout</code>, one sender with a queue per subscriber,
   <code>Server::accepting</code> for connections the program spawns as tasks of a multi-threaded runtime
   (<a href="../docs/api/host_server/">Host server</a>, <code>tests/host_server</code>, <code>ww_local_socket/tests/activation.rs</code>).
-  A write behind slow calls waits until they finish or their deadline ends them (SRV-47); byte-stream listeners (TCP, stdio, local socket, WebSocket framing) are TR-19; the hub moving onto it is SRV-67.</li>
+  A write behind slow calls waits until they finish or their deadline ends them (SRV-47); byte-stream listeners (TCP, stdio, local socket, WebSocket framing) are TR-19; the hub serves its API on it (SRV-67).</li>
 <li>✅ <strong>SRV-69 UDP listener for wire_weaver_server</strong> — <code>wire_weaver_server::udp::UdpListener&lt;S, PEERS&gt;</code> (feature
   <code>udp</code>, <code>bind</code> on tokio): a connection per host address of one socket, on <code>ww_device::udp::LockedUdpPeers</code>
   (SRV-68's table behind a mutex, <code>Sync</code>), so <code>serve</code> and <code>accepting</code> both work. Connections own their buffers
@@ -7215,23 +7215,29 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
   <code>RpcResult::Failed</code> / <code>GetResult::Failed</code> / <code>SetResult::Failed</code> (<code>wire_weaver::Failure</code>, <code>wire_weaver::forward</code>;
   firmware links none of it, <code>just flash-budget</code> unchanged); a stream open adds the trait's <code>ItemStream</code> as a pump.
   Items the trait leaves out are handlers written by hand beside them. <code>examples/local_trait</code>, <code>tests/serve_trait</code>,
-  <a href="../docs/api/local_trait/#serving-a-local-implementation">docs</a>. Next: the non-<code>Send</code> trait form (SRV-73),
-  nested levels and the rest of CLT-58 (each grows the trait, the server follows); SRV-46's authorization hook runs
-  in the server before any handler, these included.</li>
-<li>📋 <strong>SRV-73 Non-Send local trait</strong> — <code>ww_codegen!(crate :: Api, local_trait = "Name", local_trait_send = false)</code>:
-  the trait and its <code>Dyn</code> companion without <code>Send</code> (a <code>LocalBoxFuture</code>, <code>Rc&lt;dyn NameDyn&gt;</code>, a <code>LocalItemStream</code>), for
-  single-threaded hosts whose state is <code>Rc</code>/<code>RefCell</code>, served by <code>serve_trait</code> too. Needs <code>wire_weaver_server</code>
-  pumps of streams that are not <code>Send</code> without making every connection <code>!Send</code>: a pump set for a single-threaded
-  <code>serve</code>, or <code>Pumps</code> generic over its kind.</li>
+  <a href="../docs/api/local_trait/#serving-a-local-implementation">docs</a>. Next: nested levels and the rest of CLT-58 (each
+  grows the trait, the server follows); SRV-46's authorization hook runs in the server before any handler, these
+  included.</li>
+<li>✅ <strong>SRV-73 Non-Send local trait</strong> — <code>ww_codegen!(crate :: Api, local_trait = "Name", local_trait_send = false)</code>:
+  the trait and its <code>Dyn</code> companion without <code>Send</code> (<code>LocalBoxFuture</code>, <code>Rc&lt;dyn NameDyn&gt;</code>, <code>LocalItemStream</code>), for
+  single-threaded hosts whose state is <code>Rc</code>/<code>RefCell</code>; the client implements it with the same flag beside
+  <code>impl_local_trait</code>, and <code>serve_trait</code> serves it with the same generated code. <code>wire_weaver_server</code> connections
+  take <code>LocalPumps</code> when their <code>MakeBackend</code> says so (<code>Local</code>, <code>LocalConnection</code>), the others stay <code>Send</code>
+  (<code>tests/serve_trait</code> <code>not_send</code>, <a href="../docs/api/local_trait/#without-send">docs</a>).</li>
 <li>📋 <strong>SRV-9 Handle USB suspend/resume</strong> · <code>v0.5</code> — run until suspend, wait for resume, loop
   (<code>mcu/wire_weaver_usb_embassy</code>). Later (<code>v0.5.x</code>): detect the host going to sleep and keep the connection,
   informing the device.</li>
 <li>📋 <strong>SRV-10 Collect error codes into an ELF section</strong> for easier error decoding · <code>v0.5.x</code>.</li>
 <li>📋 <strong>SRV-11 Link statistics</strong> in <code>ww_device</code> (<code>TODO(SRV-11)</code> in <code>link.rs</code>).</li>
-<li>📋 <strong>SRV-67 ww_hub serves its API on wire_weaver_server</strong> — the hub's own API (<code>ww_hub_api</code>) is served by
-  <code>wire_weaver_server</code> on the hub socket instead of one <code>ww_device::Server</code> per client: its connections, limits,
-  shutdown and <code>Fanout</code> replace the hub's hand-written accept loop and <code>broadcast</code> fan-out. The preamble still picks
-  the hub's API or a device tunnel, so the hub's listener hands only hub-API connections to the server.</li>
+<li>✅ <strong>SRV-67 ww_hub serves its API on wire_weaver_server</strong> — the hub's own API (<code>ww_hub_api</code>) is served by
+  <code>wire_weaver_server</code> instead of one <code>ww_device::Server</code> per client: a backend per connection, limits, shutdown,
+  deadline and cancel. The preamble still picks the hub's API or a device tunnel, and the hub hands the API's
+  connections to the server through <code>wire_weaver_server::opened</code>. Registry events and sync stats are <code>Fanout</code>s,
+  they and capture watches go out as pumps, also while a call runs; requests that change the hub run to their end
+  when their client gives up. At exit the API's clients are told <code>Shutdown</code>, or <code>HubHandover</code> (the shutdown future's
+  <code>ShutdownReason</code>), after the stream items ready by then (<a href="../docs/transport/hub/#its-api">hub</a>,
+  <code>tests/hub_reconnect</code>, <code>tests/host_server</code>'s <code>connections_the_program_opened_are_served</code>). Device tunnels stay the
+  hub's own (they forward bytes, no API is served there).</li>
 <li>✅ <strong>SRV-46 Peer identity and policy</strong> — who called, from the transport only, never from <code>ClientMeta</code>: the local
   socket's <code>SO_PEERCRED</code> / <code>getpeereid</code> as <code>Peer::Unix</code>, the address, the server's own user on stdio, the key a
   program hands in with a stream. <code>ww_local_socket::PeerPolicy</code> (<code>SameUser</code> by default, <code>Users { group, uids }</code>,

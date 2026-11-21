@@ -14,7 +14,8 @@ use wire_weaver_server::byte_stream::{ACCEPT_RETRY_DELAY, is_transient};
 
 /// The connections of a TCP listener the loop watches, as a source for
 /// [listen](wire_weaver_server::byte_stream::listen); each client is known by its address. Running out of
-/// descriptors or memory is waited out, not an error.
+/// descriptors or memory is waited out, not an error; a client whose stream fails its setup is dropped, the others go
+/// on.
 pub struct TcpIncoming<'l, D> {
     handle: LoopHandle<'l, D>,
     listener: Async<'l, TcpListener>,
@@ -65,10 +66,13 @@ impl<'l, D> Stream for TcpIncoming<'l, D> {
             }
             match this.listener.get_mut().accept() {
                 Ok((stream, addr)) => {
-                    // messages are small and flushed on purpose: Nagle would only delay them
-                    stream.set_nodelay(true)?;
-                    let stream = this.handle.adapt_io(stream)?;
-                    return Poll::Ready(Some(Ok((stream, Peer::Addr(addr)))));
+                    // messages are small and flushed on purpose: Nagle would only delay them. A stream that can't
+                    // take it, or that the loop can't watch, is about that one client: it is dropped
+                    if stream.set_nodelay(true).is_ok()
+                        && let Ok(stream) = this.handle.adapt_io(stream)
+                    {
+                        return Poll::Ready(Some(Ok((stream, Peer::Addr(addr)))));
+                    }
                 }
                 Err(e) if e.kind() == io::ErrorKind::WouldBlock => {
                     ready!(pin!(this.listener.readable()).poll(cx));

@@ -9,6 +9,10 @@
 - `local_socket::LocalSocketListener` is now `LocalSocketIncoming`, a source for `byte_stream::listen` with `PreambleFraming`; `HANDSHAKES_MAX` moved to `byte_stream` (TR-19).
 - `Listener::accept` returns `Option<Accepted>`: `None` says no more connections come, and `serve` ends once its connections ended (TR-19).
 
+### 🐛 Fixes
+
+- `byte_stream::TcpIncoming` drops a client whose `set_nodelay` fails instead of ending `serve` (SRV-75).
+
 ### 🚀 Features
 
 - `Backend::end`: a step after the connection ended, before the backend is dropped, within `shutdown_grace` (SRV-74).

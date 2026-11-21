@@ -7153,16 +7153,19 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
   (<code>wait</code>, <code>next_wake</code>, <code>poll</code>: observed properties) and <code>Fanout</code>, one sender with a queue per subscriber,
   <code>Server::accepting</code> for connections the program spawns as tasks of a multi-threaded runtime
   (<a href="../docs/api/host_server/">Host server</a>, <code>tests/host_server</code>, <code>ww_local_socket/tests/activation.rs</code>).
-  A write behind slow calls waits until they finish or their deadline ends them (SRV-47); byte-stream listeners (TCP, stdio, local socket, WebSocket framing) are TR-19; the hub moving onto it is SRV-67.</li>
+  A write behind slow calls waits without a bound until a request's own deadline (SRV-47, <code>TODO(SRV-47)</code>) ends
+  it; byte-stream listeners (TCP, stdio, local socket, WebSocket framing) are TR-19; the hub moving onto it is SRV-67.</li>
+<li>✅ <strong>SRV-69 UDP listener for wire_weaver_server</strong> — <code>wire_weaver_server::udp::UdpListener&lt;S, PEERS&gt;</code> (feature
+  <code>udp</code>, <code>bind</code> on tokio): a connection per host address of one socket, on <code>ww_device::udp::LockedUdpPeers</code>
+  (SRV-68's table behind a mutex, <code>Sync</code>), so <code>serve</code> and <code>accepting</code> both work. Connections own their buffers
+  (<code>OwnedFramedTx</code> / <code>OwnedFramedRx</code>, ww_framer's <code>FrameWriter</code> / <code>FrameReader</code> over borrowed and owned framers);
+  firmware builds the same code. The peer is <code>Peer::Addr</code>; policy on top is SRV-46
+  (<a href="../docs/api/host_server/#hosts-on-udp">Host server</a>, <code>tests/host_server/src/tests/udp.rs</code>).</li>
 <li>📋 <strong>SRV-9 Handle USB suspend/resume</strong> · <code>v0.5</code> — run until suspend, wait for resume, loop
   (<code>mcu/wire_weaver_usb_embassy</code>). Later (<code>v0.5.x</code>): detect the host going to sleep and keep the connection,
   informing the device.</li>
 <li>📋 <strong>SRV-10 Collect error codes into an ELF section</strong> for easier error decoding · <code>v0.5.x</code>.</li>
 <li>📋 <strong>SRV-11 Link statistics</strong> in <code>ww_device</code> (<code>TODO(SRV-11)</code> in <code>link.rs</code>).</li>
-<li>📋 <strong>SRV-69 UDP listener for wire_weaver_server</strong> — a <code>Listener</code> that hands out a connection per host of a
-  <code>ww_device::udp::UdpPeers</code> (SRV-68, <code>UdpPeers::accept</code>). Needs owned-buffer framers first: a <code>Listener</code>'s
-  <code>Tx</code> / <code>Rx</code> own their buffers, while <code>FramedTx</code> / <code>FramedRx</code> borrow theirs (<code>&amp;'a mut [u8]</code>). <code>serve</code> only: the table
-  is not <code>Send</code>, so <code>Server::accepting</code> would need a locked one.</li>
 <li>📋 <strong>SRV-67 ww_hub serves its API on wire_weaver_server</strong> — the hub's own API (<code>ww_hub_api</code>) is served by
   <code>wire_weaver_server</code> on the hub socket instead of one <code>ww_device::Server</code> per client: its connections, limits,
   shutdown and <code>Fanout</code> replace the hub's hand-written accept loop and <code>broadcast</code> fan-out. The preamble still picks
@@ -7172,19 +7175,10 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
   default, a uid/gid allow-list, or any user with the identity passed through) with socket modes to match, and an
   authorization hook run before any handler with the resource's path and <code>ww_self</code> metadata (SRV-34 claims). Feeds
   SRV-37.</li>
-<li>🚧 <strong>SRV-47 Request context on the wire</strong> · <code>v0.5</code> — a request carries an optional context (W3C trace context,
-  deadline budget), <code>RequestKind::Cancel</code> drops one, and the error kinds <code>Denied</code>, <code>DeadlineExceeded</code>, <code>Cancelled</code>,
-  <code>Internal</code> are appended (EVO-84). The server announces in link setup that it reads contexts
-  (<code>DeviceInfo::request_context</code>), the client its <code>ww_client_server</code> wire version (<code>LinkSetup::host_model_wire</code>):
-  a client sends contexts and cancels only to such a server, and the server's new kinds reach an older client as
-  <code>UserStr</code> (<code>ErrorKind::for_client</code>). Done: <code>wire_weaver_server</code> drops a request at its deadline, queued or
-  running, and on a cancel, answering <code>DeadlineExceeded</code> / <code>Cancelled</code>, which bounds D4's barrier; handlers read
-  the trace and the deadline left from <code>cx.call()</code>; the client sends its timeout as the deadline and
-  <code>with_call_context</code>'s trace, and cancels a request that timed out or whose <code>call()</code> was dropped
-  (<a href="../docs/api/host_server/#deadline-and-cancel">Host server</a>, <code>tests/host_server</code>). Firmware is unchanged and
-  never announces contexts. Missing: the trace taken from the current <code>tracing</code> span (needs OpenTelemetry ids), a
-  span per request in the server (RED metrics), the trace on a stream open, the tap and <code>ww monitor</code> showing
-  contexts.</li>
+<li>📋 <strong>SRV-47 Request context on the wire</strong> — optional request extensions (W3C trace context, deadline budget),
+  <code>RequestKind::Cancel</code> and the error kinds <code>Denied</code>, <code>DeadlineExceeded</code>, <code>Cancelled</code>, <code>Overloaded</code>, <code>Internal</code>:
+  appended forms that a side sends only after the other announced them in link setup, so existing bytes don't change.
+  The client fills them from its tracing span and call timeout, the server opens a span per request.</li>
 <li>📋 <strong>SRV-49 Server forwarding to the local trait</strong> — <code>ww_codegen!(.., server = true, serve_trait = "..")</code>
   generates a std server that forwards every request to one shared implementation of the API's local trait
   (CLT-57), the same one in-process callers use: requests of a connection run concurrently, started in order with
@@ -8356,14 +8350,6 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
   mismatch (test <code>wire_weaver_evolution</code> <code>old_format</code>). Format 0.3.0 had held about 40 encodings: every stored
   snapshot was rewritten once into 0.4.0 (<a href="../docs/evolution/snapshots/#model-format">snapshots</a>). No device or
   host depends on an older format.</li>
-<li>✅ <strong>EVO-84 Request context on the wire</strong> · <code>v0.5</code> — wire change of <code>ww_client_server</code> (line <code>w2.1</code>) behind
-  SRV-47: the reserved bit after <code>Request::priority</code> is the flag of an optional <code>RequestContext</code> (trace, deadline),
-  <code>RequestKind::Cancel</code> and the error kinds <code>Denied</code>, <code>DeadlineExceeded</code>, <code>Cancelled</code>, <code>Internal</code> are appended. A
-  request without a context has the old bytes; the sealed case <code>client_server.request.highest_reserved</code> set the bit
-  and reads as a context now (<code>wire_change</code>). Conformance cases <code>client_server.request.context_*</code>, <code>.cancel</code>,
-  <code>client_server.error.denied</code> and the three after it. Both sides announce in link setup what they read
-  (<code>device_info.request_context</code>, <code>link_setup.model_wire</code>, appended with defaults; the sealed
-  <code>link_setup.wire_version</code> is decode-only now, as encoding its <code>None</code> writes a flag).</li>
 <li>✅ <strong>EVO-83 <code>ErrorKind::Overloaded</code> appended</strong> · <code>v0.5</code> — wire addition to <code>ww_client_server</code>'s <code>ErrorKind</code>, no
   break: <code>Overloaded</code> comes after <code>Common</code>, at the new request site <code>err_seq::REQUEST_OVERLOADED</code> (63). A host
   server (SRV-12) answers with it a request it refused for its load before any handler ran. An older host reads it

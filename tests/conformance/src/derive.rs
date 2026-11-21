@@ -1078,6 +1078,13 @@ pub fn table() -> Vec<Typed> {
             ww_si::Timed::new(ww_si::origins::DeviceMicros::from_raw(5_000_123u32), 513u16),
         ),
         case(
+            "api.totals.item",
+            wire_weaver::ww_api::Totals {
+                session: wire_weaver::ww_api::TotalsSession(0xBEEF),
+                total: ww_si::Fixed::<ww_si::units::Item, ww_si::prefix::One, i32>::new(-5),
+            },
+        ),
+        case(
             "stdlib.si.timed.millis_u16",
             ww_si::Timed::new(ww_si::origins::DeviceMillis::from_raw(65_535u16), 7u16),
         ),

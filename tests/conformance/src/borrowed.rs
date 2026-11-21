@@ -179,6 +179,7 @@ borrowed_types! {
         quantity_rail => ww_si::Quantity<ww_si::units::Volt, ww_si::RangeDec<0, 33, -1>>,
         point_celsius => ww_si::Point<ww_si::origins::Celsius, ww_si::Fixed<ww_si::units::Kelvin, ww_si::prefix::Centi, i16>>,
         si_timed => ww_si::Timed<u16>,
+        totals_item => wire_weaver::ww_api::Totals<ww_si::Fixed<ww_si::units::Item, ww_si::prefix::One, i32>>,
         key_event => ww_keyed::KeyEvent<UNib32, u16>,
         si_timed_millis => ww_si::Timed<u16, ww_si::origins::DeviceMillis<u16>>,
         series_si_timed => Series<'_, ww_si::Timed<u16>>,

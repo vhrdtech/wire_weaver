@@ -238,6 +238,18 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   gone. Every API crate of the repo (`ww_stdlib/*`, `ww_hub_api`, `tests/*_api`, `examples/*_api`) is switched;
   `tests/layers_lint` fails one whose normal dependencies reach the runtime (`layers.toml` `[api] crates`, TEST-36).
   `docs/api/folder_structure.md`, `docs/evolution/crate_layers.md`.
+- ✅ **API-70 Running totals over a plain sink** · `v0.5` — `ww_api::Totals<T>` (`final_structure`: a `u16`
+  `TotalsSession`, then `T`) carries the sum of every change of a sender's session, so a lost write loses nothing on
+  a lossy link and nothing waits: a pointer, a scroll wheel, a jog dial over UDP. `Accumulate` (wrapping add and
+  difference) for the integers, `Fixed` over an integer without bounds, arrays, and user structs field by field.
+  `ww_stream::totals` (`no_std`, no allocation): `TotalsTx` adds up and gives the next write, a session's first only
+  sets where the totals start, `repeat` for a lost last write; `TotalsRx` gives the change since the last write
+  applied, a new session starts anew (a restarted host, a second program through `ww_hub`). Stats on both ends:
+  changes merged into one write, unsent, repeats, writes, sessions. `wire_weaver_client::TotalsSender` adds from any
+  thread and sends the latest totals over a `Sink`, a session per connect, repeats after 50 ms of quiet. No sequence
+  number: the links drop duplicates and late writes; the one gap is TR-33. Codegen names a type of `ww_api` itself
+  through `wire_weaver::ww_api`. Conformance case `api.totals.item`. `docs/api/totals.md`, `tests/totals` (simulated
+  UDP dropping and reordering datagrams, WebSocket, a second sender).
 - 📋 **API-69 Streams ending with a common error** — a stream that stops because the device refused to go on
   (`Busy`, `NoPower`, `Fault`) ends today with the stream's `Close` sideband or an error of the API's own item type;
   the common error (STD-16) has no place in a running stream's items yet. Filed with SRV-63, not built: a `Common`
@@ -1544,6 +1556,11 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
 - 📋 **TR-7 UART** · `v0.5.x`.
 - 💡 **TR-8 IP / WireGuard** · `v0.5.x`.
 - 💡 **TR-9 EtherCAT**.
+- 🐛 **TR-33 UDP frame counter aliases a datagram held back by 9 or more** — `SeqPrefix` has a 4-bit counter: a
+  datagram that arrives after 9 to 15 later ones looks ahead, is taken as new and delivered out of order, and up to 8
+  datagrams in order after it are dropped as late. A wider counter on UDP (a second prefix byte, or the epoch's 2
+  spare bits) is a link wire change. Seen with `tests/totals` `reordering_past_the_link_window_settles` (running totals
+  step back, then settle). Real Wi-Fi rarely reorders that deep: its block-ack reorder buffer hands frames up in order.
 - 📋 **TR-26 Reassembly per sender in `ww_framer`** — `FramedRx` has one assembly state and `SeqRx` one sender's
   counter, so on a shared medium a Start from a second sender drops the first one's partial message. A small pool of
   assembly slots keyed by an address the medium supplies (CAN source id and priority, UDP peer), sized by the
@@ -2763,9 +2780,11 @@ Unicast Data0 to one node over the same bus is TR-6.
 - 📋 **TEST-14 Update all dependencies** · `v0.5.x`.
 - 📋 **TEST-15 Measure serialization speed** on MCU and host (LE vs BE, array access vs pointers, `UNib32`
   implementations).
-- 📋 **TEST-19 Lossy test medium** · `v0.5` — an in-process medium that drops, duplicates, reorders, stalls and
+- 🚧 **TEST-19 Lossy test medium** · `v0.5` — an in-process medium that drops, duplicates, reorders, stalls and
   disconnects on a seeded schedule, with the stream reliability scenarios S1-S6 as end-to-end tests
-  (`docs/api/stream_reliability.md`).
+  (`docs/api/stream_reliability.md`). Done: `tests_common::start_device_async_udp` serves a test server on the
+  simulated UDP of TR-21 with every host datagram going through an `Impair` (`Fate::Deliver`, `Drop`, `Delay(n)`),
+  used by `tests/totals`. Missing: duplicates, stalls, the device-to-host direction, S1-S6.
 - 🚧 **TEST-21 Power cuts against a flash store on STM32** — `examples_mcu/ecc_flash_g0b1`, a sequential-storage map on
   `ww_ecc_flash` (SRV-19) in bank 2 of a G0B1:
   - [x] reset loop: every boot loads and checks all keys against what earlier boots committed, then a SysTick

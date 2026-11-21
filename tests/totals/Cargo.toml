@@ -1,0 +1,23 @@
+[package]
+name = "totals"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Tests of running totals over plain sinks (API-70): a lossy UDP link that drops and reorders datagrams, WebSocket, a second sender."
+
+[dev-dependencies]
+tests_common = { workspace = true, features = ["ws"] }
+tokio = { workspace = true, features = ["sync", "rt", "macros", "time", "test-util"] }
+totals_api.workspace = true
+wire_weaver.workspace = true
+wire_weaver_client = { workspace = true, features = ["in_process", "ws"] }
+ww_client_server.workspace = true
+ww_si = { workspace = true, features = ["std"] }
+ww_stream.workspace = true
+
+[lints]
+workspace = true

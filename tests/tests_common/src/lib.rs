@@ -3,6 +3,9 @@
 //! timeouts and streams included.
 
 pub mod locked;
+mod lossy_udp;
+
+pub use lossy_udp::{Fate, Impair};
 
 use crate::locked::Locked;
 use std::pin::Pin;
@@ -597,6 +600,9 @@ enum Media {
     /// The simulated WebSocket (`in_process::ws_device`), served on the test's runtime and `LocalSet`.
     #[cfg(feature = "ws")]
     Ws,
+    /// The simulated UDP device (`in_process::udp_device`), served on the test's runtime and `LocalSet`, every
+    /// datagram from the host going through the [Impair].
+    Udp(Arc<Mutex<Impair>>),
 }
 
 /// Like [start_device_async], but over the simulated WebSocket (feature `ws`, `in_process::ws_device`): the device
@@ -617,6 +623,27 @@ pub fn start_device_async_ws<S: TestProcessEventsAsync<Medium = ()> + Send + 'st
     api: DeviceApi,
 ) -> TestDevice {
     start_on(path, Media::Ws, AsyncServer(server), version, wire, api, ())
+}
+
+/// Like [start_device_async], but over simulated UDP (`in_process::udp_device`, `ww_device::udp`, `ww_link`'s UDP
+/// framing), with every datagram from the host going through `impair`: delivered, dropped or held back behind later
+/// ones. The device runs as a task of the calling test's runtime, on its `LocalSet` (the `ww_device::udp` medium is
+/// not `Send`), so tokio's paused clock drives both ends. Hosts reach it with `in_process_path(path)`; every connect
+/// is a new host address.
+///
+/// # Panics
+///
+/// Outside a `LocalSet`.
+pub fn start_device_async_udp<S: TestProcessEventsAsync<Medium = ()> + Send + 'static>(
+    path: &str,
+    server: S,
+    version: FullVersion<'static>,
+    wire: WireVersion,
+    api: DeviceApi,
+    impair: Impair,
+) -> TestDevice {
+    let media = Media::Udp(Arc::new(Mutex::new(impair)));
+    start_on(path, media, AsyncServer(server), version, wire, api, ())
 }
 
 /// Like [start_device_async], but a simulated USB device on a local socket at `socket` (feature `local_socket`,
@@ -821,6 +848,23 @@ fn start_with<S: Process + Send + 'static>(
                 let mut rx_buf = vec![0u8; MAX_MESSAGE_LEN + WS_OVERHEAD];
                 let tx = WsTx::new(&conn, &mut tx_buf);
                 let rx = WsRx::new(&conn, &mut rx_buf);
+                serve(config, tx, rx, backend, medium, from_test, links).await
+            });
+        }
+        Media::Udp(impair) => {
+            use ww_device::udp::{UdpConnection, UdpSink, UdpSource};
+            const DATAGRAM: usize = ww_device::ww_link::UDP_MAX_DATAGRAM_LEN;
+            // registered now: a host connecting right after this returns finds it
+            let port = in_process::udp_device(path);
+            tokio::task::spawn_local(async move {
+                let conn = UdpConnection::new(lossy_udp::LossyPort::new(port, impair));
+                let mut tx_frame = vec![0u8; DATAGRAM];
+                let mut rx_buf = Box::new(ww_device::RxBuffer::<DATAGRAM, MAX_MESSAGE_LEN>::new());
+                let tx = ww_device::FramedTx::new(UdpSink::new(&conn, 0), &mut tx_frame);
+                let rx = ww_device::FramedRx::new(
+                    UdpSource::new(&conn, 0),
+                    rx_buf.assembly_buf(DATAGRAM),
+                );
                 serve(config, tx, rx, backend, medium, from_test, links).await
             });
         }

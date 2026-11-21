@@ -9,10 +9,12 @@
 
 pub mod api_doc;
 mod error;
+mod totals;
 
 pub use error::Error;
 pub use shrink_wrap;
 pub use shrink_wrap::derive_shrink_wrap;
+pub use totals::{Accumulate, Totals, TotalsSession};
 pub use wire_weaver_derive::{
     compact_version, full_version, ww_api_root, ww_codegen, ww_impl, ww_trait,
 };
@@ -21,7 +23,7 @@ pub use ww_version;
 
 /// Everything an API crate's `lib.rs` names: `use ww_api::prelude::*;`.
 pub mod prelude {
-    pub use crate::{Error, api_error};
+    pub use crate::{Accumulate, Error, Totals, TotalsSession, api_error};
     pub use shrink_wrap;
     pub use shrink_wrap::prelude::*;
     pub use wire_weaver_derive::{

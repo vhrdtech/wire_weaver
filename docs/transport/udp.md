@@ -143,6 +143,11 @@ loaded the machine is. ww_stdlib's `tests/dfu_scenarios` pins its UDP transcript
 keeps one run of the same scenario over real sockets, which checks that the update gets through. WebSocket has the
 same, see [Simulated WebSocket in tests](websocket.md#simulated-websocket-in-tests).
 
+For loss and reordering, `tests_common::start_device_async_udp` serves a test server on the simulated socket with
+every datagram from the host going through an `Impair`, a closure that gives each datagram its `Fate`: `Deliver`,
+`Drop`, or `Delay(n)`, delivered after `n` later ones (TEST-19). `tests/totals` drops every 4th datagram and holds
+every 7th back behind 3 others, and shows what the frame counter lets through when one is held back behind 12.
+
 `examples_mcu/rp2` has a complete example, `ww_udp_ncm`: the board shows up on the host as a USB CDC-NCM Ethernet
 adapter, runs `embassy-net` with a static address and a small DHCP server, so the host is configured automatically,
 and serves the blinky API at `192.168.7.1:9000`. Run it with `just run rp2 ww_udp_ncm` from `examples_mcu/rp2`,
@@ -155,7 +160,9 @@ Nothing is retransmitted:
 - a lost request (or its reply) times out, as a request to a busy device would;
 - a lost stream event is gone;
 - every datagram starts with a frame counter: a duplicated datagram, one that comes late (after a later one), or one
-  from the previous session is dropped, a gap is counted as lost (`ww stats`, `ww monitor`);
+  from the previous session is dropped, a gap is counted as lost (`ww stats`, `ww monitor`); the counter has 4 bits,
+  so a datagram held back by more than 8 later ones is taken as new, and up to 8 datagrams after it are dropped as
+  late (TR-33);
 - a message split across datagrams is dropped if any piece of it is lost, the framer detects it from the frame counter,
   the remaining length and the CRC, and continues with the next one;
 - every message carries a CRC-32: a datagram corrupted on the way (the UDP checksum is a 16-bit sum, and optional over
@@ -164,7 +171,8 @@ Nothing is retransmitted:
 - if the device goes away silently, the peer timeout ends the session.
 
 Keep messages that must not be lost small enough to fit in one datagram, or use [WebSocket](websocket.md) if the
-device can run TCP.
+device can run TCP. Changes that add up (a pointer, a scroll wheel) go as [running totals](../api/totals.md): a lost write
+loses nothing.
 
 ## Wire format
 

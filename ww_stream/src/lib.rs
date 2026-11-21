@@ -39,6 +39,7 @@ pub mod sched;
 #[cfg(feature = "streams")]
 pub mod sink;
 pub mod store;
+pub mod totals;
 #[cfg(feature = "streams")]
 pub mod tx;
 pub mod wake;

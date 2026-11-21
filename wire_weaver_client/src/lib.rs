@@ -38,6 +38,7 @@ pub use client::observe;
 mod local_registry;
 pub mod quantity;
 pub mod tap;
+pub mod totals;
 mod tracing;
 
 #[cfg(feature = "byte_stream")]
@@ -76,6 +77,7 @@ pub use connection_event::{ConnectionEvent, ConnectionState, GapReason};
 pub use device_info::{ApiInfo, DeviceApiInfo, DeviceInfo, MessageLimit, UsbLocation};
 pub use event_loop::commander::Commander;
 pub use keep_trying::{Backoff, KeepTrying};
+pub use totals::TotalsSender;
 pub use wire_weaver::Priority;
 pub use ww_stream::StreamCursor;
 

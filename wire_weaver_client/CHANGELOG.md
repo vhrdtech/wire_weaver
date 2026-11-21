@@ -13,6 +13,7 @@
 - Request contexts (SRV-47), only to a device that announced it reads them (`DeviceApiInfo::request_context`): calls, reads and writes carry their timeout as the deadline, and `with_call_context` adds `cx.trace` (not on a stream open). A request that times out, or a `call()` whose future is dropped, is cancelled on the device with `RequestKind::Cancel`; the dropped call at once, the rest at their timeout.
 - Link setup sends `ww_client_server::WIRE_VERSION` as `host_model_wire` (SRV-47); `DeviceApiInfo::request_context` says whether the device reads request contexts and `Cancel` (a new public field: struct literals add it).
 - The request explainer shows a request's `context` (SRV-47) and names `RequestKind::Cancel`; the error kinds `Denied`, `DeadlineExceeded`, `Cancelled` and `Internal` map to the `CallErrorKind` of the same name.
+- `TotalsSender<T>` (API-70): adds changes from any thread, sends the latest running totals over a plain sink, a session per connect.
 - `ClientConfig::service(name)` asks a byte-stream server (TCP, command, stream, local socket) for one of its APIs (TR-19); `no_byte_stream`.
 - Byte-stream clients (TR-19, feature `byte_stream`): `ClientConfig::tcp`, `command` (a spawned command's stdio, e.g. ssh), `stream` with a `StreamOpener`.
 - `local_socket::device` answers an unknown preamble target `UnknownTarget` and a named service `UnknownService` (TR-19); its halves are futures-io.

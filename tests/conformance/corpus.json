@@ -2020,6 +2020,14 @@
       "note": "Timed<u16> with its default time, a DeviceMicros<u32> of 5.000123 s since boot: the u32 alone, then the value (STD-110)"
     },
     {
+      "name": "api.totals.item",
+      "type": "totals_item",
+      "value": {"session": 48879, "total": {"value": -5}},
+      "bytes": "efbefbffffff",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "Totals<Fixed<Item, One, i32>>, final_structure: the u16 session, then the i32 total, no length (API-70)"
+    },
+    {
       "name": "stdlib.si.timed.millis_u16",
       "type": "si_timed_millis",
       "value": {"t": {"coord": {"value": 65535}}, "value": 7},

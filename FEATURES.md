@@ -639,6 +639,10 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   informing the device.
 - 📋 **SRV-10 Collect error codes into an ELF section** for easier error decoding · `v0.5.x`.
 - 📋 **SRV-11 Link statistics** in `ww_device` (`TODO(SRV-11)` in `link.rs`).
+- 📋 **SRV-69 UDP listener for wire_weaver_server** — a `Listener` that hands out a connection per host of a
+  `ww_device::udp::UdpPeers` (SRV-68, `UdpPeers::accept`). Needs owned-buffer framers first: a `Listener`'s
+  `Tx` / `Rx` own their buffers, while `FramedTx` / `FramedRx` borrow theirs (`&'a mut [u8]`). `serve` only: the table
+  is not `Send`, so `Server::accepting` would need a locked one.
 - 📋 **SRV-67 ww_hub serves its API on wire_weaver_server** — the hub's own API (`ww_hub_api`) is served by
   `wire_weaver_server` on the hub socket instead of one `ww_device::Server` per client: its connections, limits,
   shutdown and `Fanout` replace the hub's hand-written accept loop and `broadcast` fan-out. The preamble still picks

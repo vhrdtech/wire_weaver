@@ -17,7 +17,7 @@ wire_weaver_client = { workspace = true, features = ["in_process"] }
 wire_weaver_server = { workspace = true, features = ["tokio"] }
 ww_client_server.workspace = true
 ww_device.workspace = true
-ww_si = { workspace = true, features = ["counting"] }
+ww_si = { workspace = true, features = ["counting", "time"] }
 ww_stream = { workspace = true, features = ["std"] }
 
 [dev-dependencies]

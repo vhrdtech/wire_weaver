@@ -5,16 +5,20 @@ use std::future::{Future, Pending, pending, poll_fn};
 use std::ops::Deref;
 use std::pin::{Pin, pin};
 use std::task::Poll;
+use std::time::Duration;
 
-use futures_util::future::{Either, select};
+use futures_util::future::{AbortHandle, AbortRegistration, Abortable, Either, select};
 use futures_util::stream::{FuturesUnordered, StreamExt};
-use wire_weaver::shrink_wrap::Error as ShrinkWrapError;
+use wire_weaver::shrink_wrap::{DeserializeShrinkWrap, Error as ShrinkWrapError};
+use wire_weaver::ww_version::WireVersion;
 use wire_weaver::{
-    CallContext, ConnectionId, DisconnectReason, EventWriter, Peer, WireWeaverSharedApiBackend,
+    CallContext, ConnectionId, DisconnectReason, EventWriter, Peer, Priority,
+    WireWeaverSharedApiBackend,
 };
+use ww_client_server::{ErrorKind, Request, RequestKind, err_seq};
 use ww_device::link::{Phase, Received, Transmit};
 use ww_device::{
-    Clock, DeviceLink, LinkConfig, LinkEvent, MessageRx, MessageTx, PeerMeta, PeerVersion,
+    Clock, DeviceLink, Instant, LinkConfig, LinkEvent, MessageRx, MessageTx, PeerMeta, PeerVersion,
     SendError,
 };
 
@@ -64,14 +68,100 @@ struct Done {
 enum Finished {
     /// A request ran.
     Answer(Done),
+    /// A request was dropped before it finished: its deadline ran out or the client cancelled it (SRV-47).
+    Dropped(Dropped),
     /// The backend has something to do on its own.
     Woke,
     /// The backend did it; the event buffer comes back.
     Polled(Vec<u8>),
 }
 
+/// A request dropped before its handler finished, with what its answer needs.
+struct Dropped {
+    seq: u32,
+    priority: Priority,
+    why: Why,
+}
+
+/// Why a request is answered without its handler's answer (SRV-12, SRV-47).
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+enum Why {
+    /// The server's cap on requests across connections.
+    Overloaded,
+    /// The request's deadline ran out, queued or running.
+    Deadline,
+    /// The client sent a `Cancel` for it.
+    Cancelled,
+}
+
+impl Why {
+    fn error(self) -> ww_client_server::Error<'static> {
+        match self {
+            Why::Overloaded => ww_client_server::Error::overloaded(),
+            Why::Deadline => {
+                ww_client_server::Error::new(err_seq::REQUEST_DEADLINE, ErrorKind::DeadlineExceeded)
+            }
+            Why::Cancelled => {
+                ww_client_server::Error::new(err_seq::REQUEST_CANCELLED, ErrorKind::Cancelled)
+            }
+        }
+    }
+}
+
+/// A request read and not started yet, with the terms its context sets (SRV-47).
+struct Queued {
+    request: Vec<u8>,
+    /// 0 when the client expects no answer, or the request is unreadable (the dispatcher answers it).
+    seq: u32,
+    /// When the request's deadline runs out on this server's clock.
+    deadline: Option<Instant>,
+    /// The caller's trace, for the handler's `CallContext`.
+    trace: Option<wire_weaver::TraceContext>,
+}
+
+impl Queued {
+    /// Read the head and the context of `request`; one that can't be read is queued as it is, for the dispatcher
+    /// to answer.
+    fn read(request: &[u8], now: Instant) -> Result<Queued, u32> {
+        let mut queued = Queued {
+            request: request.to_vec(),
+            seq: 0,
+            deadline: None,
+            trace: None,
+        };
+        let Ok(head) = Request::from_ww_bytes(request) else {
+            return Ok(queued);
+        };
+        if let RequestKind::Cancel { seq } = head.kind {
+            return Err(seq.0);
+        }
+        queued.seq = head.seq.0;
+        if let Some(context) = head.context.and_then(|context| context.read().ok()) {
+            queued.trace = context.trace;
+            queued.deadline = context
+                .deadline
+                .map(|left| now + Duration::from_millis(left.get().0.into()));
+        }
+        Ok(queued)
+    }
+
+    /// The handler's `CallContext`: the connection's `origin` with the request's trace and what is left of its
+    /// deadline at `now`. The generated entry adds `seq` and the priority.
+    fn call(&self, origin: &CallContext, now: Instant) -> CallContext {
+        let mut call = *origin;
+        call.trace = self.trace;
+        call.deadline = self.deadline.map(|at| {
+            let left = at.saturating_duration_since(now).as_millis();
+            ww_client_server::ww_si::Millis::new(u32::try_from(left).unwrap_or(u32::MAX))
+        });
+        call
+    }
+}
+
 enum Step {
     Done(Finished),
+    /// A queued request's deadline ran out.
+    Expired,
     Events,
     /// A message came; false when reading failed.
     Message(bool),
@@ -99,7 +189,11 @@ struct Conn<'a, Tx, Rx, C> {
     /// Link messages are built here.
     link_scratch: Vec<u8>,
     /// Requests read and not started yet, oldest first.
-    pending: VecDeque<Vec<u8>>,
+    pending: VecDeque<Queued>,
+    /// The requests that run, by seq, to cancel them (SRV-47); those without a seq can't be named.
+    running: Vec<(u32, AbortHandle)>,
+    /// The `ww_client_server` wire version of the client, from link setup: which error kinds it reads.
+    client_model: Option<WireVersion>,
     outbox: &'a Outbox,
     pumps: &'a PumpSet,
     /// Pump items are serialized here.
@@ -137,6 +231,17 @@ impl<Tx: MessageTx, Rx: MessageRx, C: Clock> Conn<'_, Tx, Rx, C> {
                 None => pending().await,
             }
         });
+        let expires = self
+            .pending
+            .iter()
+            .filter_map(|queued| queued.deadline)
+            .min();
+        let mut expiry = pin!(async {
+            match expires {
+                Some(at) => clock.wait_until(at).await,
+                None => pending().await,
+            }
+        });
         let (outbox, life, known, pumps) = (self.outbox, self.life, self.stage, self.pumps);
         let pump_buffer = &mut self.pump_buffer;
         poll_fn(|cx| {
@@ -158,6 +263,9 @@ impl<Tx: MessageTx, Rx: MessageRx, C: Clock> Conn<'_, Tx, Rx, C> {
             if timer.as_mut().poll(cx).is_ready() {
                 return Poll::Ready(Step::Timeout);
             }
+            if expiry.as_mut().poll(cx).is_ready() {
+                return Poll::Ready(Step::Expired);
+            }
             Poll::Pending
         })
         .await
@@ -169,7 +277,15 @@ impl<Tx: MessageTx, Rx: MessageRx, C: Clock> Conn<'_, Tx, Rx, C> {
         match step {
             Step::Done(finished) => {
                 match finished {
-                    Finished::Answer(done) => self.answer(done).await,
+                    Finished::Answer(done) => {
+                        self.forget(Request::peek_seq(&done.request).unwrap_or(0));
+                        self.answer(done).await;
+                    }
+                    Finished::Dropped(dropped) => {
+                        self.forget(dropped.seq);
+                        self.answer_error(dropped.seq, dropped.priority, dropped.why)
+                            .await;
+                    }
                     Finished::Woke => {}
                     Finished::Polled(events) => {
                         self.send_events().await;
@@ -181,6 +297,7 @@ impl<Tx: MessageTx, Rx: MessageRx, C: Clock> Conn<'_, Tx, Rx, C> {
                 flow = Flow::Finished;
             }
             Step::Events => self.send_events().await,
+            Step::Expired => self.expire(now).await,
             Step::Message(false) => self.link.on_transport_down(),
             Step::Message(true) => self.on_message(now).await,
             Step::Timeout => self.link.handle_timeout(now),
@@ -203,10 +320,13 @@ impl<Tx: MessageTx, Rx: MessageRx, C: Clock> Conn<'_, Tx, Rx, C> {
 
     /// Take in the message the medium has: a request joins the queue, a link message is acted on.
     async fn on_message(&mut self, now: ww_device::Instant) {
-        let mut loopback = None;
+        let (mut loopback, mut cancel) = (None, None);
         if let Some((kind, message)) = self.rx.message() {
             match self.link.handle_message(now, kind, message) {
-                Some(Received::Data(request)) => self.pending.push_back(request.to_vec()),
+                Some(Received::Data(request)) => match Queued::read(request, now) {
+                    Ok(queued) => self.pending.push_back(queued),
+                    Err(seq) => cancel = Some(seq),
+                },
                 Some(Received::Loopback { repeat, seq, data }) => {
                     loopback = Some((repeat, seq, data.to_vec()));
                 }
@@ -216,6 +336,57 @@ impl<Tx: MessageTx, Rx: MessageRx, C: Clock> Conn<'_, Tx, Rx, C> {
         self.rx.consume();
         if let Some((repeat, seq, data)) = loopback {
             self.loopback(repeat, seq, &data).await;
+        }
+        if let Some(seq) = cancel {
+            self.cancel(seq).await;
+        }
+    }
+
+    /// The client's `Cancel` of request `seq` (SRV-47): a queued one is answered `Cancelled` here, a running one
+    /// is dropped and answered when its future ends. One that finished already, or that never was, is not
+    /// answered again.
+    async fn cancel(&mut self, seq: u32) {
+        if seq == 0 {
+            return;
+        }
+        if let Some(at) = self.pending.iter().position(|queued| queued.seq == seq) {
+            let queued = self.pending.remove(at).expect("found above");
+            let priority = Request::peek_priority(&queued.request).unwrap_or_default();
+            self.answer_error(seq, priority, Why::Cancelled).await;
+        } else if let Some((_, handle)) = self.running.iter().find(|(s, _)| *s == seq) {
+            handle.abort();
+        }
+    }
+
+    /// Answer the queued requests whose deadline ran out by `now` with `DeadlineExceeded`; their handlers never ran.
+    async fn expire(&mut self, now: Instant) {
+        while let Some(at) = self
+            .pending
+            .iter()
+            .position(|queued| queued.deadline.is_some_and(|deadline| deadline <= now))
+        {
+            let queued = self.pending.remove(at).expect("found above");
+            let priority = Request::peek_priority(&queued.request).unwrap_or_default();
+            self.answer_error(queued.seq, priority, Why::Deadline).await;
+        }
+    }
+
+    /// Register a request that starts as running, so a `Cancel` can drop it; `None` for one without a seq.
+    fn track(&mut self, seq: u32) -> Option<AbortRegistration> {
+        if seq == 0 {
+            return None;
+        }
+        let (handle, registration) = AbortHandle::new_pair();
+        self.running.push((seq, handle));
+        Some(registration)
+    }
+
+    /// A request that ran is no longer cancelled by its seq.
+    fn forget(&mut self, seq: u32) {
+        if seq != 0
+            && let Some(at) = self.running.iter().position(|(s, _)| *s == seq)
+        {
+            self.running.swap_remove(at);
         }
     }
 
@@ -283,20 +454,30 @@ impl<Tx: MessageTx, Rx: MessageRx, C: Clock> Conn<'_, Tx, Rx, C> {
     }
 
     /// Answer a request with `Overloaded`, its handler never ran.
-    async fn refuse(&mut self, request: Vec<u8>) {
+    async fn refuse(&mut self, queued: Queued) {
+        let priority = Request::peek_priority(&queued.request).unwrap_or_default();
+        self.answer_error(queued.seq, priority, Why::Overloaded)
+            .await;
+    }
+
+    /// Answer request `seq` with the error of `why`, as this client reads it ([ErrorKind::for_client]); a request
+    /// without a seq expects no answer.
+    async fn answer_error(&mut self, seq: u32, priority: Priority, why: Why) {
+        if seq == 0 {
+            return;
+        }
+        let mut error = why.error();
+        error.kind = error.kind.for_client(self.client_model);
         let mut scratch = self.take_buffer();
-        let base = scratch.as_ptr().addr();
-        // a request without a seq expects no answer
-        let reply = ww_device::overloaded_reply(&request, &mut scratch)
-            .map_or((0, 0), |reply| (reply.as_ptr().addr() - base, reply.len()));
-        let events = self.take_buffer();
-        self.answer(Done {
-            request,
-            scratch,
-            events,
-            reply: Some(reply),
-        })
-        .await;
+        if let Ok(reply) = ww_client_server::util::ser_err_event(&mut scratch, seq, error) {
+            let len = reply.len();
+            let start = reply.as_ptr().addr() - scratch.as_ptr().addr();
+            let _ = self.send(&scratch[start..start + len]).await;
+            if priority.is_urgent() {
+                self.link.flush_now();
+            }
+        }
+        self.buffers.push(scratch);
     }
 
     async fn loopback(&mut self, repeat: u32, seq: u32, data: &[u8]) {
@@ -366,12 +547,62 @@ struct Work {
     request: Vec<u8>,
     scratch: Vec<u8>,
     events: Vec<u8>,
+    /// The handler's `CallContext`.
+    call: CallContext,
+}
+
+/// What ends a request before its handler finishes (SRV-47): its deadline, and a `Cancel` through its
+/// registration.
+struct Bounds<C> {
+    seq: u32,
+    priority: Priority,
+    deadline: Option<Instant>,
+    cancel: Option<AbortRegistration>,
+    clock: C,
+}
+
+/// Run `work` until it finishes, its deadline runs out or the client cancels it. Dropping it drops the handler's
+/// future, wherever it waits.
+async fn bounded<C: Clock>(work: impl Future<Output = Finished>, bounds: Bounds<C>) -> Finished {
+    let Bounds {
+        seq,
+        priority,
+        deadline,
+        cancel,
+        clock,
+    } = bounds;
+    let timed = async {
+        let timer = async {
+            match deadline {
+                Some(at) => clock.wait_until(at).await,
+                None => pending().await,
+            }
+        };
+        match select(pin!(work), pin!(timer)).await {
+            Either::Left((finished, _)) => finished,
+            Either::Right(_) => Finished::Dropped(Dropped {
+                seq,
+                priority,
+                why: Why::Deadline,
+            }),
+        }
+    };
+    let Some(cancel) = cancel else {
+        return timed.await;
+    };
+    match Abortable::new(timed, cancel).await {
+        Ok(finished) => finished,
+        Err(_) => Finished::Dropped(Dropped {
+            seq,
+            priority,
+            why: Why::Cancelled,
+        }),
+    }
 }
 
 /// Run one request alone, through the backend's `&mut self` entry.
 async fn exclusive<B: Backend>(
     backend: &mut B,
-    origin: &CallContext,
     medium: B::Medium,
     outbox: &Outbox,
     mut work: Work,
@@ -379,7 +610,13 @@ async fn exclusive<B: Backend>(
     let (base, size) = (work.scratch.as_ptr().addr(), work.scratch.len());
     let mut out = EventWriter::new(OutboxSink(outbox), &mut work.events);
     let reply = backend
-        .process_exclusive_bytes(origin, &mut out, medium, &work.request, &mut work.scratch)
+        .process_exclusive_bytes(
+            &work.call,
+            &mut out,
+            medium,
+            &work.request,
+            &mut work.scratch,
+        )
         .await;
     let reply = reply_range(base, size, reply);
     work.done(reply)
@@ -389,7 +626,6 @@ async fn exclusive<B: Backend>(
 /// until it is done.
 async fn shared<B: Backend>(
     backend: &B,
-    origin: &CallContext,
     medium: B::Medium,
     outbox: &Outbox,
     mut work: Work,
@@ -398,7 +634,13 @@ async fn shared<B: Backend>(
     let (base, size) = (work.scratch.as_ptr().addr(), work.scratch.len());
     let mut out = EventWriter::new(OutboxSink(outbox), &mut work.events);
     let reply = backend
-        .process_shared_bytes(origin, &mut out, medium, &work.request, &mut work.scratch)
+        .process_shared_bytes(
+            &work.call,
+            &mut out,
+            medium,
+            &work.request,
+            &mut work.scratch,
+        )
         .await;
     let reply = reply_range(base, size, reply);
     work.done(reply)
@@ -464,7 +706,7 @@ async fn poll<B: Backend>(
 /// Serve one accepted connection until its link goes down or the server stops.
 #[expect(clippy::too_many_arguments, reason = "one call site, in Server::serve")]
 pub(crate) async fn run<M: MakeBackend>(
-    config: LinkConfig<'_>,
+    mut config: LinkConfig<'_>,
     tx: impl MessageTx,
     mut rx: impl MessageRx,
     clock: impl Clock + Clone,
@@ -475,6 +717,8 @@ pub(crate) async fn run<M: MakeBackend>(
     life: impl Deref<Target = Lifecycle>,
 ) {
     let (make, life) = (&*make, &*life);
+    // deadlines and cancels are acted on here (SRV-47), so clients may send them
+    config.request_context = true;
     rx.wait_connected().await;
     let outbox = Outbox::new(limits.events_max);
     // the medium's limit: replies and events are built in buffers of this size, longer replies of a server
@@ -488,6 +732,8 @@ pub(crate) async fn run<M: MakeBackend>(
         clock,
         link_scratch: vec![0; buffer_len],
         pending: VecDeque::new(),
+        running: Vec::new(),
+        client_model: None,
         outbox: &outbox,
         pumps: &pumps,
         pump_buffer: vec![0; buffer_len],
@@ -505,6 +751,10 @@ pub(crate) async fn run<M: MakeBackend>(
         return;
     }
     outbox.set_message_len_max(conn.link.agreed_max_message_len());
+    conn.client_model = conn
+        .link
+        .peer_version()
+        .and_then(|version| version.model_wire);
     let info = Connection {
         id,
         peer,
@@ -521,19 +771,22 @@ pub(crate) async fn run<M: MakeBackend>(
         if conn
             .pending
             .front()
-            .is_some_and(|request| M::Backend::is_shared(request))
+            .is_some_and(|queued| M::Backend::is_shared(&queued.request))
         {
             if !conn.run_shared(&backend, medium, &origin).await {
                 return;
             }
-        } else if let Some(request) = conn.pending.pop_front() {
+        } else if let Some(queued) = conn.pending.pop_front() {
             let Some(_running) = life.start_request(limits.requests_max) else {
                 // nothing ran: no turn for the backend either
-                conn.refuse(request).await;
+                conn.refuse(queued).await;
                 continue;
             };
-            let work = conn.work(request);
-            let work = pin!(exclusive(&mut backend, &origin, medium, &outbox, work));
+            let (work, bounds) = conn.work(queued, &origin);
+            let work = pin!(bounded(
+                exclusive(&mut backend, medium, &outbox, work),
+                bounds
+            ));
             if !conn.finish(work).await {
                 return;
             }
@@ -596,21 +849,24 @@ impl<Tx: MessageTx, Rx: MessageRx, C: Clock + Clone> Conn<'_, Tx, Rx, C> {
                 && self
                     .pending
                     .front()
-                    .is_some_and(|request| B::is_shared(request))
+                    .is_some_and(|queued| B::is_shared(&queued.request))
             {
-                let request = self.pending.pop_front().expect("checked above");
+                let queued = self.pending.pop_front().expect("checked above");
                 let Some(counted) = life.start_request(self.limits.requests_max) else {
-                    self.refuse(request).await;
+                    self.refuse(queued).await;
                     continue;
                 };
-                let work = self.work(request);
-                running.push(shared(backend, origin, medium, outbox, work, counted));
+                let (work, bounds) = self.work(queued, origin);
+                running.push(bounded(
+                    shared(backend, medium, outbox, work, counted),
+                    bounds,
+                ));
             }
             if running.is_empty() {
                 return true;
             }
-            // TODO(SRV-47): a request's own deadline drops it here and answers DeadlineExceeded; until then a
-            // request that runs alone waits for every shared one before it, however long they take
+            // a request that runs alone waits for the shared ones before it until each one finishes, runs out of
+            // its deadline or is cancelled (SRV-47)
             let next = pin!(next_finished(&mut running));
             if self.step(Some(next)).await == Flow::End {
                 return false;
@@ -618,13 +874,23 @@ impl<Tx: MessageTx, Rx: MessageRx, C: Clock + Clone> Conn<'_, Tx, Rx, C> {
         }
     }
 
-    /// A request with the buffers it runs with.
-    fn work(&mut self, request: Vec<u8>) -> Work {
-        Work {
-            request,
+    /// A request with the buffers and the `CallContext` it runs with, and what ends it early.
+    fn work(&mut self, queued: Queued, origin: &CallContext) -> (Work, Bounds<C>) {
+        let now = self.clock.now();
+        let bounds = Bounds {
+            seq: queued.seq,
+            priority: Request::peek_priority(&queued.request).unwrap_or_default(),
+            deadline: queued.deadline,
+            cancel: self.track(queued.seq),
+            clock: self.clock.clone(),
+        };
+        let work = Work {
+            call: queued.call(origin, now),
+            request: queued.request,
             scratch: self.take_buffer(),
             events: self.take_buffer(),
-        }
+        };
+        (work, bounds)
     }
 
     /// Run `work` to its end. False when the connection ended first.

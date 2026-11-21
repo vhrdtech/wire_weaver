@@ -1712,6 +1712,7 @@ name = "host_server_api"
 version = "0.1.0"
 dependencies = [
  "ww_api",
+ "ww_si",
 ]
 
 [[package]]

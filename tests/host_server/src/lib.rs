@@ -92,6 +92,22 @@ mod tests {
         update_buf: Vec<u8>,
     }
 
+    /// Counts a handler in `Shared::waiting` while it runs, also when the server drops it (SRV-47).
+    struct Waiting<'a>(&'a AtomicU32);
+
+    impl<'a> Waiting<'a> {
+        fn new(count: &'a AtomicU32) -> Self {
+            count.fetch_add(1, Ordering::AcqRel);
+            Waiting(count)
+        }
+    }
+
+    impl Drop for Waiting<'_> {
+        fn drop(&mut self) {
+            self.0.fetch_sub(1, Ordering::AcqRel);
+        }
+    }
+
     /// The pump of the `news` stream.
     const NEWS: PumpId = PumpId(1);
 
@@ -142,17 +158,26 @@ mod tests {
         }
 
         async fn wait(&self, _cx: &mut Context<'_, impl EventOut>, gate: u8) -> RpcResult<u32> {
-            self.shared.waiting.fetch_add(1, Ordering::AcqRel);
+            let _waiting = Waiting::new(&self.shared.waiting);
             self.shared.gate(gate).await;
-            self.shared.waiting.fetch_sub(1, Ordering::AcqRel);
             Ready(u32::from(gate))
         }
 
         async fn hold(&mut self, _cx: &mut Context<'_, impl EventOut>, gate: u8) -> RpcResult<u32> {
-            self.shared.waiting.fetch_add(1, Ordering::AcqRel);
+            let _waiting = Waiting::new(&self.shared.waiting);
             self.shared.gate(gate).await;
-            self.shared.waiting.fetch_sub(1, Ordering::AcqRel);
             Ready(u32::from(gate))
+        }
+
+        async fn call_deadline(
+            &self,
+            cx: &mut Context<'_, impl EventOut>,
+        ) -> RpcResult<Option<ww_si::Millis<u32>>> {
+            Ready(cx.call().deadline)
+        }
+
+        async fn call_trace(&self, cx: &mut Context<'_, impl EventOut>) -> RpcResult<Option<u8>> {
+            Ready(cx.call().trace.map(|trace| trace.trace_id.0[0]))
         }
 
         async fn whoami(&self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<u32> {
@@ -306,7 +331,7 @@ mod tests {
             server = true, no_alloc = false, use_async = true,
             method_model = "_=immediate",
             property_model = "_=get_set",
-            receiver_model = "echo|wait|whoami|call_connection|call_uid|mode=shared",
+            receiver_model = "echo|wait|whoami|call_connection|call_uid|call_deadline|call_trace|mode=shared",
             introspect = "no_docs",
         );
     }
@@ -614,6 +639,125 @@ mod tests {
         assert_eq!(soon("the call before", before).await.unwrap(), 1);
         soon("the write", write).await.unwrap();
         assert_eq!(soon("the read after", after).await.unwrap(), 5);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn a_call_past_its_deadline_is_dropped_and_the_write_behind_it_runs() {
+        let bench = Bench::start("host_server/deadline", small());
+        let client = Arc::new(bench.connect().await);
+        let slow = tokio::spawn({
+            let client = client.clone();
+            async move {
+                client
+                    .wait(1)
+                    .with_timeout(Duration::from_millis(100))
+                    .call()
+                    .await
+            }
+        });
+        waiting(&bench, 1).await;
+        let write = tokio::spawn({
+            let client = client.clone();
+            async move { client.write_mode(5).write().await }
+        });
+        // gate 1 never opens: the call's deadline ends it, and with it the barrier the write waits at
+        let error = soon("the slow call", slow).await.unwrap().unwrap_err();
+        assert_eq!(
+            error.call_kind(),
+            wire_weaver::call::ErrorKind::DeadlineExceeded,
+            "{error:?}"
+        );
+        soon("the write", write).await.unwrap().unwrap();
+        soon("the handler is dropped", bench.shared.waiting(0)).await;
+        assert_eq!(client.read_mode().read().await.unwrap(), 5);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn a_queued_write_past_its_deadline_never_runs() {
+        let bench = Bench::start("host_server/queued_deadline", small());
+        let client = Arc::new(bench.connect().await);
+        let slow = tokio::spawn({
+            let client = client.clone();
+            async move { client.wait(1).call().await.unwrap() }
+        });
+        waiting(&bench, 1).await;
+        let error = soon(
+            "the write",
+            client
+                .write_mode(5)
+                .with_timeout(Duration::from_millis(100))
+                .write(),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(
+            error.call_kind(),
+            wire_weaver::call::ErrorKind::DeadlineExceeded,
+            "{error:?}"
+        );
+        // the server dropped it from its queue: once the call before it finished, nothing writes 5
+        bench.shared.open(1);
+        assert_eq!(soon("the slow call", slow).await.unwrap(), 1);
+        assert_eq!(client.read_mode().read().await.unwrap(), 0);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn a_dropped_call_is_cancelled_on_the_server() {
+        let bench = Bench::start("host_server/cancel", small());
+        let client = Arc::new(bench.connect().await);
+        let running = tokio::spawn({
+            let client = client.clone();
+            async move { client.wait(1).call().await.unwrap() }
+        });
+        waiting(&bench, 1).await;
+        let queued = tokio::spawn({
+            let client = client.clone();
+            async move { client.hold(2).call().await.unwrap() }
+        });
+        still_pending(&bench, &[&running, &queued]).await;
+        // the caller of the queued one goes away first: it leaves the queue, its handler never runs
+        queued.abort();
+        let _ = queued.await;
+        running.abort();
+        let _ = running.await;
+        soon("the running handler is dropped", bench.shared.waiting(0)).await;
+        // nothing holds the connection: a call on it is answered, though gates 1 and 2 never open
+        assert_eq!(
+            soon("a call after", client.echo(3).call()).await.unwrap(),
+            3
+        );
+        assert_eq!(bench.shared.waiting.load(Ordering::Acquire), 0);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn the_handler_reads_the_callers_deadline_and_trace() {
+        let bench = Bench::start("host_server/call_terms", small());
+        let client = bench.connect().await;
+        assert_eq!(client.call_trace().call().await.unwrap(), None);
+        let trace = wire_weaver::TraceContext {
+            trace_id: wire_weaver::TraceId([0x4b; 16]),
+            parent_id: wire_weaver::SpanId([0x0f; 8]),
+            flags: wire_weaver::TraceFlags::SAMPLED,
+        };
+        let cx = wire_weaver::CallContext::local().with_trace(trace);
+        assert_eq!(
+            client
+                .call_trace()
+                .with_call_context(&cx)
+                .call()
+                .await
+                .unwrap(),
+            Some(0x4b)
+        );
+        // the client's timeout is the request's deadline: the handler sees what was left of it
+        let left = client
+            .call_deadline()
+            .with_timeout(SOON)
+            .call()
+            .await
+            .unwrap()
+            .expect("a deadline");
+        assert!(left.get() <= SOON.as_millis() as u32, "{left:?}");
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -957,9 +1101,10 @@ mod tests {
         };
         let mut bench = Bench::start("host_server/grace", limits);
         let client = Arc::new(bench.connect().await);
+        // its deadline past the grace time, so that the grace ends it (SRV-47)
         let stuck = tokio::spawn({
             let client = client.clone();
-            async move { client.wait(3).call().await }
+            async move { client.wait(3).with_timeout(SOON).call().await }
         });
         bench.shared.waiting(1).await;
         let asked_at = tokio::time::Instant::now();

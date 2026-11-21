@@ -15,6 +15,12 @@ trait HostServer {
     fn call_connection() -> u32;
     /// The uid of the peer the handler reads from its `CallContext`, 0 if it has none
     fn call_uid() -> u32;
+    /// What was left of the caller's deadline when the handler started, from its `CallContext` (SRV-47); `None`
+    /// without one
+    fn call_deadline() -> Option<ww_si::Millis<u32>>;
+    /// The first byte of the caller's trace id, from its `CallContext` (SRV-47): a raw byte of the W3C id, `None`
+    /// without a trace
+    fn call_trace() -> Option<u8>;
     /// Sends 0..`count` on `numbers`, then answers `count`
     fn burst(count: u32) -> u32;
     /// `len` bytes

@@ -7106,7 +7106,7 @@ own value); two <code>f32</code>s at different prefixes compare by the scaled fl
 magnitude): with types up to 32 bits no <code>f32</code>, <code>f64</code> or 128-bit code is linked, and none for floats at all unless the
 API turns on <code>f32</code> (<code>f64</code> is for hosts). The same prefix takes a shortcut on the stored numbers. The no-float guard
 (<code>just no-float-guard</code>, part of <code>just test</code>) builds a firmware calling each of these operations for Cortex-M0 and
-M4F and fails on any such symbol. Against the <code>i128</code> / <code>f64</code> paths this replaced, Portwright (Cortex-M0+, opt-level
+M4F and fails on any such symbol. Against the <code>i128</code> / <code>f64</code> paths this replaced, Donguru (Cortex-M0+, opt-level
 <code>z</code>) is 14.6 KB smaller and rePort (Cortex-M33) 9.7 KB; a <code>FullScale</code> or binary-prefix conversion takes about a
 tenth of the instructions it did, one between two SI prefixes about as many (<code>qemu-si-convert</code>).</p>
 <p><code>Display</code> writes the number as stored with its prefix, <code>{:#}</code> in the unit itself; <code>Debug</code> adds the unit's name and

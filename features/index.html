@@ -424,6 +424,8 @@
       
         
       
+        
+      
     
     
     
@@ -4582,6 +4584,8 @@
       
         
       
+        
+      
     
     
     
@@ -4768,6 +4772,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../transport/byte_streams/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Byte streams
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../transport/keep_trying/" class="md-nav__link">
         
   
@@ -4822,10 +4853,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_7" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_8" >
         
           
-          <label class="md-nav__link" for="__nav_7_7" id="__nav_7_7_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_7_8" id="__nav_7_8_label" tabindex="0">
             
   
   
@@ -4843,8 +4874,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_7_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_7_7">
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_8_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7_8">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -5048,10 +5079,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_8" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_9" >
         
           
-          <label class="md-nav__link" for="__nav_7_8" id="__nav_7_8_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_7_9" id="__nav_7_9_label" tabindex="0">
             
   
   
@@ -5069,8 +5100,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_8_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_7_8">
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_9_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7_9">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -7123,7 +7154,7 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
   <code>Server::accepting</code> for connections the program spawns as tasks of a multi-threaded runtime
   (<a href="../docs/api/host_server/">Host server</a>, <code>tests/host_server</code>, <code>ww_local_socket/tests/activation.rs</code>).
   A write behind slow calls waits without a bound until a request's own deadline (SRV-47, <code>TODO(SRV-47)</code>) ends
-  it; byte-stream listeners (TCP, stdio, WebSocket framing) are TR-19; the hub moving onto it is SRV-67.</li>
+  it; byte-stream listeners (TCP, stdio, local socket, WebSocket framing) are TR-19; the hub moving onto it is SRV-67.</li>
 <li>📋 <strong>SRV-9 Handle USB suspend/resume</strong> · <code>v0.5</code> — run until suspend, wait for resume, loop
   (<code>mcu/wire_weaver_usb_embassy</code>). Later (<code>v0.5.x</code>): detect the host going to sleep and keep the connection,
   informing the device.</li>
@@ -7985,6 +8016,17 @@ observing), SRV-46 (peer identity).
   (<code>SeqPrefix</code> as a diagnostic, <code>wire_weaver_usb_embassy</code> feature <code>seq-prefix</code>, told by the interface protocol),
   UDP with <code>SeqPrefix</code> and a CRC-32 (<code>ww_block</code>'s) on every message. <code>ww stats</code> / <code>ww monitor</code> show the prefix.
   Wire change of the link (<code>docs/evolution/crate_layers.md</code>).</li>
+<li>✅ <strong>TR-19 Byte-stream transport</strong> · <code>v0.5</code> — client and server over any futures-io <code>AsyncRead + AsyncWrite</code>
+  (<code>docs/transport/byte_streams.md</code>, <code>docs/api/host_server.md#byte-streams</code>), crate <code>ww_byte_stream</code>: the local
+  socket's preamble and length-prefixed messages, or WebSocket framing (<code>ws</code>). Clients: <code>ClientConfig::tcp</code>,
+  <code>command</code> (a command's stdin and stdout, <code>ssh host svc --stdio</code>) and <code>stream</code> (<code>StreamOpener</code>, a stream the program
+  opens, an iroh bi-stream). Servers: <code>byte_stream::listen(source, framing, clock)</code> on <code>TcpIncoming</code>, <code>stdio()</code>,
+  <code>LocalSocketIncoming</code> or <code>handed_in</code> (<code>StreamSender::serve_stream(stream, peer)</code>), with <code>PreambleFraming</code> or
+  <code>WsFraming</code> (the URL path names the API). A <code>Service(name)</code> preamble target and <code>StreamListener::service</code> serve
+  several APIs on one listener; an unknown service is refused with a status. <code>ww_device::ws::IoSocket</code> (feature
+  <code>futures-io</code>) serves a WebSocket device on any futures-io source. Resync and a checksum for lossy streams are not
+  built (P2401#3nov-0645d). <code>tests/host_server</code> (<code>byte_streams</code>, <code>tests/stdio.rs</code>), <code>wire_weaver_client</code>
+  <code>byte_stream::tests</code>.</li>
 <li>✅ <strong>TR-21 Simulated UDP</strong> · <code>v0.5</code> — <code>in_process::udp_device</code> (<code>docs/transport/udp.md#simulated-udp-in-tests</code>):
   UDP datagrams without the kernel, with the host's UDP framing and <code>ww_device::udp</code> on the device (<code>UdpPort</code>, a new
   host address per connection), so tests on tokio's paused clock drive the accumulation windows and link setup
@@ -8067,10 +8109,6 @@ observing), SRV-46 (peer identity).
   follows. With message aggregation both arrive in one packet or frame, so a request over LoRa or LTE-M costs no extra
   round trip (introspection skipped by hash, CLT-7). Open: replayed and duplicate packets (CLT-17), which requests may
   run unannounced, how the hash is versioned. Needed by <code>ww_dfu</code> updates over slow links.</li>
-<li>📋 <strong>TR-19 Byte-stream transport</strong> — client and server over any <code>AsyncRead + AsyncWrite</code> with the local socket's
-  framing and preamble: TCP, stdio (an ssh forced command on one side, a spawned command on the other) and any stream
-  the caller accepted, handed in with its peer (an iroh stream); a <code>Service(name)</code> preamble target so one listener
-  serves several APIs.</li>
 <li>📋 <strong>TR-20 TLS</strong> — TR-19 over rustls: a server certificate, the client verifying by CA or pinned key, optional
   client certificates as the peer's key (SRV-46).</li>
 <li>💡 <strong>TR-11 MQTT / store-and-forward transport</strong> — devices offline most of the time pick up a retained message on

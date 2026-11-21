@@ -361,6 +361,9 @@
         <loc>https://ww.vhrd.tech/tapes/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/transport/byte_streams/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/transport/follow_reboot/</loc>
       </url>
       <url>

@@ -426,6 +426,8 @@
       
         
       
+        
+      
     
     
     
@@ -4584,6 +4586,8 @@
       
         
       
+        
+      
     
     
     
@@ -4773,6 +4777,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../byte_streams/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Byte streams
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../keep_trying/" class="md-nav__link">
         
   
@@ -4832,10 +4863,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_7" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_8" checked>
         
           
-          <label class="md-nav__link" for="__nav_7_7" id="__nav_7_7_label" tabindex="">
+          <label class="md-nav__link" for="__nav_7_8" id="__nav_7_8_label" tabindex="">
             
   
   
@@ -4853,8 +4884,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_7_label" aria-expanded="true">
-            <label class="md-nav__title" for="__nav_7_7">
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_8_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_7_8">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -5741,10 +5772,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_8" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_9" >
         
           
-          <label class="md-nav__link" for="__nav_7_8" id="__nav_7_8_label" tabindex="">
+          <label class="md-nav__link" for="__nav_7_9" id="__nav_7_9_label" tabindex="">
             
   
   
@@ -5762,8 +5793,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_8_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_7_8">
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_9_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7_9">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -7496,6 +7527,8 @@
       
         
       
+        
+      
     
     
     
@@ -7637,7 +7670,8 @@ own the name.</p>
 </span></code></pre></div>
 <ul>
 <li><code>target</code> 0 is the hub's own API (no key), 1 a device by its key (<code>usb:c0de:cafe:&lt;serial&gt;</code>); a process serving a
-  single device accepts any key, the client sends an empty one.</li>
+  single device accepts any key, the client sends an empty one. Target 2 (TR-19) is a service by its name, one of
+  several APIs a server serves on one listener (<a href="../byte_streams/">byte streams</a>).</li>
 <li>The trailer (version 2, SRV-30) carries the client's versions, each value <code>| major: u32 LE | minor: u32 LE | patch:
   u32 LE |</code>: tag 1 its <code>ww_link</code>, tag 2 its <code>ww_client_server</code>. Tag 3 names an adopted link (CLT-44), tag 4 (EVO-23)
   carries the client's generations, <code>| framer | link | shrink_wrap | API model |</code>, the bytes of its
@@ -7646,7 +7680,8 @@ own the name.</p>
   it: a server reads both, and a client asks again with version 1 when a server answers status 3 to version 2.</li>
 <li><code>status</code>: 0 ok, 1 no such device, 2 the device is held by another program, 3 preamble version not served, 4 the
   client's generations (or, without them, its <code>ww_link</code> or <code>ww_client_server</code> version) are not served (<a href="#version-skew-and-handover-srv-30">Version skew</a>),
-  5 the device is lent to another program for a while (SRV-32: wait and ask again). The server closes the
+  5 the device is lent to another program for a while (SRV-32: wait and ask again), 6 the target byte is not one
+  this server serves, 7 no service of that name, 8 the server is busy (TR-19: ask again later). The server closes the
   connection after any status but 0, and the client's connect error says which, with the server's version
   (<code>Error::HubRefused</code>).</li>
 <li>The preamble is frozen: what is in it never changes, later fields only come as new trailer entries (a new tag), and
@@ -8367,7 +8402,7 @@ the hub holds it. <code>ww hub lend DEVICE -- CMD</code> asks the hub to let it 
 <ol>
 <li><code>Claims::lend(key, purpose, ttl_s)</code> takes a root claim marked lent (refused like any claim when another program
    holds one on the device), then the hub closes the device: every tunnel to it gets <code>Disconnect</code> with
-   <code>DisconnectReason::Other(DISCONNECT_LENT)</code> (<code>ww_local_socket</code>), the hub's event loop to the device exits and lets
+   <code>DisconnectReason::Other(DISCONNECT_LENT)</code> (<code>ww_byte_stream</code>), the hub's event loop to the device exits and lets
    the USB interface or probe go. <code>lend</code> answers only then, so <code>CMD</code> can open the device right away.</li>
 <li>While it is lent, the hub doesn't open the device: a new tunnel to it gets the preamble answer <code>Status::Lent</code>,
    <code>take</code> and claims of others are refused naming the lend. <code>registry().events()</code> says <code>Lent { key, id }</code>.</li>

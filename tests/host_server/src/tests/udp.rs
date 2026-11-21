@@ -187,3 +187,29 @@ async fn shutdown_ends_every_connection() {
         assert!(client.echo(1).call().await.is_err());
     }
 }
+
+/// Connections on all the runtime's threads take turns receiving from the one socket: under load every request is
+/// answered. Each round trip passes the receiving role between threads, so a role ended twice (once by its holder,
+/// once more after another thread took it) would let two receive at once and lose a handed-over datagram.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn connections_on_many_threads_share_the_socket() {
+    let path = "host_server/udp_threads";
+    let bench = simulated::<16>(path, Muting::new(path));
+    let clients: Vec<_> = (0..10u32)
+        .map(|n| {
+            let connect = bench.connect();
+            tokio::spawn(async move {
+                let client = connect.await;
+                for round in 0..100 {
+                    assert_eq!(
+                        client.echo(n * 1000 + round).call().await.unwrap(),
+                        n * 1000 + round
+                    );
+                }
+            })
+        })
+        .collect();
+    for client in clients {
+        soon("a client", client).await.unwrap();
+    }
+}

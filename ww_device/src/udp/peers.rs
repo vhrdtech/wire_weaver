@@ -566,11 +566,10 @@ impl<S: DatagramSocket, const PEERS: usize, H: Access<S::Addr, PEERS>> UdpPeers<
                 debug!("udp: accepted a host in slot {}", slot);
                 return Ok((slot, from));
             }
-            let receiving = Receiving(self);
+            let receiving = Receiving::new(self);
             let (len, from) = self.socket.recv_from(buf).await?;
             let datagram = buf.get(..len).unwrap_or(buf);
-            self.sharing.with(|t| t.deliver(from, datagram, None));
-            drop(receiving);
+            receiving.deliver(from, datagram, None);
         }
     }
 
@@ -619,12 +618,11 @@ impl<S: DatagramSocket, const PEERS: usize, H: Access<S::Addr, PEERS>> UdpPeers<
                     return Ok(len);
                 }
                 Turn::Receive => {
-                    let receiving = Receiving(self);
+                    let receiving = Receiving::new(self);
                     let (len, from) = self.socket.recv_from(buf).await.map_err(UdpError::Socket)?;
                     let len = len.min(buf.len());
                     let datagram = buf.get(..len).unwrap_or(buf);
-                    let mine = self.sharing.with(|t| t.deliver(from, datagram, Some(slot)));
-                    drop(receiving);
+                    let mine = receiving.deliver(from, datagram, Some(slot));
                     if mine {
                         return Ok(len);
                     }
@@ -664,21 +662,44 @@ impl<S: DatagramSocket, const PEERS: usize, H: Access<S::Addr, PEERS>> UdpPeers<
     }
 }
 
-/// Holds the receiving role: ends it when dropped, also when the receive is cancelled, and wakes whoever waits.
-struct Receiving<'p, S: DatagramSocket, const PEERS: usize, H: Access<S::Addr, PEERS>>(
-    &'p UdpPeers<S, PEERS, H>,
-);
+/// Holds the receiving role, taken by the [Turn::Receive] just returned: [deliver](Self::deliver) ends it with what
+/// was received, dropping it unused (a cancelled receive) ends it with nothing. Either way whoever waits is woken.
+///
+/// Ended once, by whoever holds it: on a computer another source takes the role the moment it is ended, and must
+/// not lose it to this one.
+struct Receiving<'p, S: DatagramSocket, const PEERS: usize, H: Access<S::Addr, PEERS>> {
+    peers: &'p UdpPeers<S, PEERS, H>,
+    held: bool,
+}
+
+impl<'p, S: DatagramSocket, const PEERS: usize, H: Access<S::Addr, PEERS>>
+    Receiving<'p, S, PEERS, H>
+{
+    fn new(peers: &'p UdpPeers<S, PEERS, H>) -> Self {
+        Receiving { peers, held: true }
+    }
+
+    /// Route `datagram` from `from` and end the role, see [State::deliver].
+    fn deliver(mut self, from: S::Addr, datagram: &[u8], me: Option<usize>) -> bool {
+        self.held = false;
+        self.peers.sharing.with(|t| t.deliver(from, datagram, me))
+    }
+}
 
 impl<S: DatagramSocket, const PEERS: usize, H: Access<S::Addr, PEERS>> Drop
     for Receiving<'_, S, PEERS, H>
 {
     fn drop(&mut self) {
-        self.0.sharing.with(|t| {
-            if t.handover == Handover::Receiving {
+        if self.held {
+            self.peers.sharing.with(|t| {
+                debug_assert!(
+                    t.handover == Handover::Receiving,
+                    "only the holder ends the receiving role"
+                );
                 t.handover = Handover::Idle;
-            }
-        });
-        self.0.wake_all();
+            });
+        }
+        self.peers.wake_all();
     }
 }
 

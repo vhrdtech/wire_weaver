@@ -289,7 +289,7 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   dynamic clients and Python decode alike (`docs/api/stream_compression.md`; tests `ww_stream` `tests::codec`,
   `wire_weaver_client` `compressed_stream_decodes_and_heals` and `unknown_codec_reopens_raw`, `tests/io_uart`
   `rx_compressed`). To check on
-  hardware: Portwright's UART rx at 6 Mbaud (typec_dongle FW-42). Not yet: a restart the host asks for, batched and
+  hardware: Portwright's UART rx at 6 Mbaud (portwright FW-42). Not yet: a restart the host asks for, batched and
   reliable streams, sinks (host -> device).
 
 ## Server / device side (`SRV`)
@@ -820,7 +820,7 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   its `ser_shrink_wrap`), so each path is compiled once per server mode; whether the type is unsized is a separate
   argument that LLVM drops without `multi_req`. `MaxLen<T, N>` decodes through `des_bounded::<T>`, one copy per
   `T` instead of per bound. `ww_device::Server::handle` polls in a function of its own (`PollOutOfLine`): inlined
-  into Portwright's server task it pulled in more and cost 6.2 KB. Portwright (typec_dongle, release at `z`)
+  into Portwright's server task it pulled in more and cost 6.2 KB. Portwright (release at `z`)
   332,184 → 314,972 B, below c440491's 317,996 B; its dev build at `opt-level = 3` overflows FLASH by 960 B
   instead of 16,532 B; portwright_template 135,676 → 132,164 B. TEST-30: the `MaxLen<&str, N>` kind 309 → 194 B at
   `z` sync, 526 → 256 B at `fw-3`, below its pre-SRV-51 cost except `z` async (230 B against 206 B); the
@@ -828,7 +828,7 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   request within 1.5 %, same reply bytes (TEST-31), same handlers. See
   `docs/articles/flash_budget.md#reply-paths-without-a-copy-per-type-srv-55`.
 - 🚧 **SRV-56 No observe encoder without a row producer** — a firmware with a `+batched` property links the whole
-  batch encoder even when it never produces a row. Measured on Portwright (typec_dongle 61bca76, wire_weaver 753d5f7,
+  batch encoder even when it never produces a row. Measured on Portwright (portwright 61bca76, wire_weaver 753d5f7,
   release at `z`, text+data): 289,580 B with `meter-samples` off, 293,780 B with it on.
   - **Done: `observe_samples = false`.** A `ww_codegen!` argument, so the choice stays in the firmware that makes it
     and the shared API crate doesn't change. No batcher, outbox, scratch or `Series` encoder; `ObserveState` and
@@ -858,7 +858,7 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
     generated server has `image_facts()` for `LinkConfig::new`. Later choices of an image append fields (a host
     knowing the codec of INT-16 before downloading, global lookup off of SRV-53). `wire_weaver_client` refuses
     `Samples` before sending (`Error::Unsupported`), so the generated and dynamic clients, `ww observe` and Python
-    get it. No wire break. It costs every image 256 B of flash (Portwright with `meter-samples`, release at `z`, typec_dongle
+    get it. No wire break. It costs every image 256 B of flash (Portwright with `meter-samples`, release at `z`, portwright
     7c97d27, wire_weaver 0543991: 291,508 -> 291,764 B text+data), in the server's link code that writes
     `DeviceInfo`; 112 B of it is the size slot that lets the record grow. Off image on the same base: 287,316 ->
     264,404 B, 65,396 -> 62,004 B RAM. Tests `no_samples_is_refused_before_sending`, `image_facts_across_versions`,
@@ -2668,7 +2668,7 @@ Unicast Data0 to one node over the same bus is TR-6.
   the shape table of TEST-37 doesn't cover it; it carries a gap in `FIELD_KIND_GAPS` until it has its own shapes
   (empty, one, many items; aligned, mid-byte; last, followed by a bool).
 - ✅ **TEST-26 Credit sink resume on hardware** · `v0.5` — Portwright's header UART tx credit sink (API-34) on one of our dev PCs
-  (USART5, 921 600 Bd, jumper IO7-IO8, `portwright-core/examples/uart_resume` in typec_dongle): 1 MB of numbered lines,
+  (USART5, 921 600 Bd, jumper IO7-IO8, `portwright-core/examples/uart_resume` in portwright): 1 MB of numbered lines,
   every byte on the line exactly once and in order (0 mismatches) in a plain run (14.3 s, 70 kB/s), with 4 link drops
   (`disconnect().keep_streams()`, 200 ms down, `Commander::reconnect()` 10-22 ms incl. resume, first flush after it
   0 ms; 15.3 s) and with a restarted host process continuing from the saved cursor (resume 2.6 ms, device was 544 B
@@ -2738,7 +2738,7 @@ Unicast Data0 to one node over the same bus is TR-6.
     between double words).
   - [ ] real power cut against `ww_settings::Store` on `EccSafeFlash`, so the zeros path of SRV-19 runs on
     hardware: the B129A powered through the Portwright plug
-    VBUS switch (U601, AOZ1375), switched from the PC in a loop with Portwright's `plug.vbus_mode` (typec_dongle
+    VBUS switch (U601, AOZ1375), switched from the PC in a loop with Portwright's `plug.vbus_mode` (portwright
     API-11, in progress). The device can't keep its counters across a power cut: a host program reads the loaded
     and committed sequence numbers and the ECC count over SWD (Portwright CMSIS-DAP, session ended before each cut so
     SBU/CC don't back-feed the board) and checks every boot loads at least what was committed before the cut.

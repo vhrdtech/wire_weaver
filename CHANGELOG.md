@@ -11,6 +11,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
+- Docs name the Portwright repo `portwright` (was `typec_dongle`, renamed).
 - `just lint` and CI run spirit_level (`spirit_level.toml`); every crate declares `rust-version = "1.99"`.
 - New crate `wire_weaver_server` (SRV-12): many clients on one API, on any async runtime; see its changelog and `wire_weaver_client`.
 - `ErrorKind::Overloaded` appended to the wire (EVO-83): a host server's cap across connections answers with it; see `ww_client_server` and `wire_weaver_server`.

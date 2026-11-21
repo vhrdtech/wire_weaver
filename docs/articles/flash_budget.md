@@ -53,7 +53,7 @@ The `Series` codec is linked in every server (36 symbols, 3796 B at `z`), though
 
 The per-kind numbers move with the inliner's choices, most in the `use_async` builds, where the arms of a level live inside one state machine. Compare the same cell before and after a change, and the mean for the overall trend. Compare only builds from the same checkout path: panic locations carry each source file's path, so a worktree at a shorter path is smaller by tens of bytes per file (one change looked 250 B better than it was, built in `/tmp`).
 
-For scale: Portwright (typec_dongle, `use_async`, `fw-z` with `opt-level = "z"`, 43 resources of many types) spent about 616 B per resource under the generated dispatcher at wire_weaver 8b7b80ed, and 41.4 KB in all, measured from its ELF by inlined frames.
+For scale: Portwright (`use_async`, `fw-z` with `opt-level = "z"`, 43 resources of many types) spent about 616 B per resource under the generated dispatcher at wire_weaver 8b7b80ed, and 41.4 KB in all, measured from its ELF by inlined frames.
 
 ## SW-69: hand-written `Error` Debug
 
@@ -101,7 +101,7 @@ A `+batched` property links a batcher, an outbox and the `Series` encoder for ev
 
 No sampler runs in these bins, so the middle row is what a firmware without a producer of rows paid before. No symbol of `shrink_wrap::series` or `ww_stream::batch` is left with the switch, and `just flash-budget` checks that.
 
-Portwright (typec_dongle, `use_async`, release at `opt-level = "z"`) with its `meter-samples` feature off went from 289,580 B to 266,404 B of text and data (−23,176 B) and 3,392 B less RAM. Dropping `+batched` from the API, which changes the wire, gave 266,268 B: keeping the wire shape costs 136 B. With `meter-samples` on the image keeps the same sizes, as it doesn't use the switch.
+Portwright (`use_async`, release at `opt-level = "z"`) with its `meter-samples` feature off went from 289,580 B to 266,404 B of text and data (−23,176 B) and 3,392 B less RAM. Dropping `+batched` from the API, which changes the wire, gave 266,268 B: keeping the wire shape costs 136 B. With `meter-samples` on the image keeps the same sizes, as it doesn't use the switch.
 
 ## SW-70: the bit helpers as hints
 
@@ -119,7 +119,7 @@ The serdes code of a firmware is mostly per type: a derived `des_shrink_wrap` or
 | `BufWriter::new` | 41 | 900 | `to_ww_bytes`, stream and event writers |
 | `?` on `Result<UnsizedBuilder, _>` in `write::<T>` | 67 | 720 | the three-word `Result` goes through memory |
 
-What changed, as four steps on the same checkout paths (bytes of `text` + `data`; Portwright is `typec_dongle` release, `thumbv6m`, `opt-level = "z"`; rePort is `usb_io_fw` release, `thumbv8m.main`, `opt-level = "s"`):
+What changed, as four steps on the same checkout paths (bytes of `text` + `data`; Portwright is `portwright` release, `thumbv6m`, `opt-level = "z"`; rePort is `usb_io_fw` release, `thumbv8m.main`, `opt-level = "s"`):
 
 | step | Portwright | rePort |
 | --- | ---: | ---: |
@@ -269,7 +269,7 @@ One kind got dearer through SRV-51 and SRV-52, measured on master with SW-72's `
 
 ## Reply paths without a copy per type (SRV-55)
 
-After SRV-51 and SRV-52 the shared reply paths (`reply_call`, `reply_value`, `reply_get`, ...) were generic over the value type, so a firmware had one copy of each path per type, with the type's serializer inlined in it. In Portwright (typec_dongle) that was 177 functions and 25.8 KB, and the firmware was 14.2 KB larger than before SRV-51. Three changes take that back:
+After SRV-51 and SRV-52 the shared reply paths (`reply_call`, `reply_value`, `reply_get`, ...) were generic over the value type, so a firmware had one copy of each path per type, with the type's serializer inlined in it. In Portwright that was 177 functions and 25.8 KB, and the firmware was 14.2 KB larger than before SRV-51. Three changes take that back:
 
 1. The generic entry points in `ww_client_server::dispatch` are `#[inline(always)]`. They only match the handler's result and pass the value on as an `ErasedValue`: a pointer to it and a `fn` pointer to a small thunk around its type's `ser_shrink_wrap`. Each path behind them is compiled once per server mode. `SerializeShrinkWrap` has associated constants and is not dyn-compatible, and a `&dyn` of a helper trait would add a 16 B vtable per type, so the handle is a plain `fn` pointer. Whether the type is unsized is a separate `bool` argument, not a field: LLVM drops it from every path of a server without `multi_req`.
 2. `MaxLen<T, N>` decodes through `des_bounded::<T>(rd, N)` (`#[inline(never)]` in `shrink_wrap`), one copy per `T` instead of one per bound: a `&str` decoder used to be inlined into each `N`'s `des`.
@@ -281,7 +281,7 @@ Real firmware, text + data in bytes, every build in the same paths (so that pani
 
 | firmware                                      | c440491 (before SRV-51) | f5f88ea (SRV-52) |  SRV-55 |
 |-----------------------------------------------|------------------------:|-----------------:|--------:|
-| Portwright, typec_dongle 1965884, release (`z`)  |                 317,996 |          332,184 | 314,972 |
+| Portwright 1965884, release (`z`)  |                 317,996 |          332,184 | 314,972 |
 | Portwright, its dev profile (`opt-level = 3`), FLASH overflowed by |   6,148 |           16,532 |     960 |
 | portwright_template 856c389, release (`z`)       |                         |          135,676 | 132,164 |
 
@@ -320,7 +320,7 @@ Real firmware, release (`z`), introspection as each ships (on, so no global look
 
 | firmware                                     | 512f59e (SRV-55) | SRV-53 |   change |
 |----------------------------------------------|-----------------:|-------:|---------:|
-| Portwright, typec_dongle 9427643                 |          314,892 | 312,476 |  -2,416 |
+| Portwright 9427643                 |          314,892 | 312,476 |  -2,416 |
 | portwright_template 856c389                      |          132,148 | 130,280 |  -1,868 |
 
 Both lose more than the 1,102 B the lookup had in Portwright on SRV-52; where the rest comes from was not broken down by symbol.

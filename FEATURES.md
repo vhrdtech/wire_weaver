@@ -610,12 +610,7 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   `WIRE_WEAVER_REEXPORTS` in the crate walker is partly there), and `wire_weaver_usb_embassy` building in the
   root workspace or merging into `ww_device`. Separately consider making `wire_weaver`'s `std` default off.
 
-- 📋 **SRV-9 Handle USB suspend/resume** · `v0.5` — run until suspend, wait for resume, loop
-  (`mcu/wire_weaver_usb_embassy`). Later (`v0.5.x`): detect the host going to sleep and keep the connection,
-  informing the device.
-- 📋 **SRV-10 Collect error codes into an ELF section** for easier error decoding · `v0.5.x`.
-- 📋 **SRV-11 Link statistics** in `ww_device` (`TODO(SRV-11)` in `link.rs`).
-- 🚧 **SRV-12 Host server runtime** — `wire_weaver_server`, the counterpart of `wire_weaver_client`: many clients on
+- ✅ **SRV-12 Host server runtime** · `v0.5` — `wire_weaver_server`, the counterpart of `wire_weaver_client`: many clients on
   one API, each connection driving `ww_device::DeviceLink` with its own backend from a factory and its peer from the
   transport. No async runtime in it: `Server::serve` is a future for the program's executor, timers are a
   `ww_device::Clock`, connections run inside the future (no spawner, backends need not be `Send`). Done: the
@@ -631,8 +626,17 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   (`wait`, `next_wake`, `poll`: observed properties) and `Fanout`, one sender with a queue per subscriber,
   `Server::accepting` for connections the program spawns as tasks of a multi-threaded runtime
   ([Host server](docs/api/host_server.md), `tests/host_server`, `ww_local_socket/tests/activation.rs`).
-  Missing: `ww_hub` serves its API on it. A write behind slow calls waits without a bound until a request's own
-  deadline (SRV-47, `TODO(SRV-47)`) ends it; byte-stream listeners (TCP, stdio, WebSocket framing) are TR-19.
+  A write behind slow calls waits without a bound until a request's own deadline (SRV-47, `TODO(SRV-47)`) ends
+  it; byte-stream listeners (TCP, stdio, WebSocket framing) are TR-19; the hub moving onto it is SRV-67.
+- 📋 **SRV-9 Handle USB suspend/resume** · `v0.5` — run until suspend, wait for resume, loop
+  (`mcu/wire_weaver_usb_embassy`). Later (`v0.5.x`): detect the host going to sleep and keep the connection,
+  informing the device.
+- 📋 **SRV-10 Collect error codes into an ELF section** for easier error decoding · `v0.5.x`.
+- 📋 **SRV-11 Link statistics** in `ww_device` (`TODO(SRV-11)` in `link.rs`).
+- 📋 **SRV-67 ww_hub serves its API on wire_weaver_server** — the hub's own API (`ww_hub_api`) is served by
+  `wire_weaver_server` on the hub socket instead of one `ww_device::Server` per client: its connections, limits,
+  shutdown and `Fanout` replace the hub's hand-written accept loop and `broadcast` fan-out. The preamble still picks
+  the hub's API or a device tunnel, so the hub's listener hands only hub-API connections to the server.
 - 📋 **SRV-46 Peer identity and policy** — who called, from the transport only (SO_PEERCRED, `getpeereid`, the
   Windows user, a key handed in with a stream, the address), never from `ClientMeta`; a listener policy (same user by
   default, a uid/gid allow-list, or any user with the identity passed through) with socket modes to match, and an

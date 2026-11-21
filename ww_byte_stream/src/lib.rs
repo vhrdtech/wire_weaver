@@ -6,11 +6,15 @@
 //!   payload |`, `len` counting the kind byte and the payload. Link setup, versions, pings and timeouts are
 //!   `ww_link`'s, the same as over WebSocket.
 //! - [medium] (feature `device`): one connection as a `ww_device` medium, for a server's `DeviceLink`.
+//! - [ws] (feature `ws`): WebSocket framing instead: an HTTP upgrade whose path names the API, then one binary
+//!   message per `ww_link` message; with `device` its medium too.
 
 mod framing;
 #[cfg(feature = "device")]
 pub mod medium;
 mod preamble;
+#[cfg(feature = "ws")]
+pub mod ws;
 
 pub use framing::{MessageReader, MessageWriter};
 pub use preamble::{

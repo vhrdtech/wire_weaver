@@ -339,6 +339,7 @@ mod tests {
         LocalSocket(String),
         Tcp(String),
         Stream(wire_weaver_client::StreamOpener),
+        WebSocket(String),
     }
 
     /// Start a [Bench] on `$listener`. A macro, not a function generic over the listener: the futures of a
@@ -449,6 +450,7 @@ mod tests {
                         Reach::LocalSocket(path) => c.ipc_path(path.clone()),
                         Reach::Tcp(addr) => c.tcp(addr.clone()),
                         Reach::Stream(opener) => c.stream(opener.clone()),
+                        Reach::WebSocket(url) => c.websocket_url(url.clone()),
                     };
                     c.resolver(tests_common::resolver())
                         .link_setup_timeout(SOON)

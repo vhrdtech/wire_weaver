@@ -4886,7 +4886,10 @@ dependencies = [
 name = "ww_byte_stream"
 version = "0.5.0"
 dependencies = [
+ "edge-http",
+ "edge-ws",
  "futures-util",
+ "httparse",
  "tokio",
  "tokio-util",
  "ww_device",

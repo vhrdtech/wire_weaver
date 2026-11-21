@@ -13,9 +13,14 @@ homepage.workspace = true
 default = []
 # One connection as a ww_device medium (MessageTx, MessageRx), for servers
 device = ["dep:ww_device"]
+# WebSocket framing: the HTTP upgrade and binary messages (ws::Upgrade, WsReader, WsWriter; ws::medium with `device`)
+ws = ["dep:edge-http", "dep:edge-ws", "dep:httparse"]
 
 [dependencies]
+edge-http = { workspace = true, optional = true }
+edge-ws = { workspace = true, optional = true }
 futures-util = { workspace = true, features = ["io", "std"] }
+httparse = { workspace = true, optional = true }
 ww_device = { workspace = true, optional = true }
 
 [dev-dependencies]

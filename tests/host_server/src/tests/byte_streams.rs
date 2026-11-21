@@ -1,10 +1,11 @@
-//! Byte-stream listeners (TR-19): TCP clients, streams the program hands in, and two APIs on one source.
+//! Byte-stream listeners (TR-19): TCP clients, streams the program hands in, two APIs on one source, and the same
+//! over WebSocket framing.
 
 use std::io;
 
 use tokio_util::compat::TokioAsyncReadCompatExt;
 use wire_weaver_client::StreamOpener;
-use wire_weaver_server::byte_stream::{TcpIncoming, handed_in};
+use wire_weaver_server::byte_stream::{TcpIncoming, WsFraming, handed_in};
 use ww_byte_stream::Status;
 
 use super::*;
@@ -134,4 +135,62 @@ async fn streams_handed_in_are_served_until_their_sender_and_clients_are_gone() 
     assert!(!bench.served.is_finished());
     drop(client);
     soon("the server ends", &mut bench.served).await.unwrap();
+}
+
+/// Connect to the counter at the WebSocket URL `url`.
+async fn counter_ws_client(url: String) -> anyhow::Result<CounterClient> {
+    tests_common::api!(counter::api_impl).seed();
+    CounterClient::config(move |c| {
+        c.websocket_url(url.clone())
+            .resolver(tests_common::resolver())
+            .link_setup_timeout(SOON)
+    })
+    .connect()
+    .await
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn websocket_clients_name_the_api_in_the_path() {
+    let (incoming, addr) = tcp().await;
+    let listener = listen(incoming, WsFraming::new(MESSAGE_LEN_MAX), TokioClock::new());
+    let counter_listener = listener.service("counter");
+    tokio::spawn(async move {
+        Server::new(TokioClock::new())
+            .serve(
+                counter::link(),
+                counter_listener,
+                Counter::make,
+                std::future::pending(),
+            )
+            .await
+    });
+    let bench = start_bench!(
+        listener,
+        Reach::WebSocket(format!("ws://{addr}/")),
+        small(),
+        false,
+    );
+    let host = bench.connect().await;
+    let counter = soon(
+        "the counter's client",
+        counter_ws_client(format!("ws://{addr}/counter")),
+    )
+    .await
+    .expect("the counter connects");
+    assert_eq!(host.echo(3).call().await.unwrap(), 3);
+    assert_eq!(
+        counter.read_ticks().read().await.unwrap().value,
+        counter::TICKS
+    );
+    let Peer::Addr(peer) = bench.shared.connections.lock().unwrap()[0].peer else {
+        panic!("a WebSocket client on TCP has an address");
+    };
+    assert!(peer.ip().is_loopback());
+    let refused = soon(
+        "a client of no service",
+        counter_ws_client(format!("ws://{addr}/journal")),
+    )
+    .await;
+    let refused = refused.err().expect("an unknown service is refused");
+    assert!(format!("{refused:#}").contains("404"), "{refused:#}");
 }

@@ -6,7 +6,7 @@ use std::io;
 
 use futures_util::io::{AsyncRead, AsyncWrite, AsyncWriteExt, ReadHalf, WriteHalf};
 use ww_byte_stream::medium::{StreamRx, StreamTx, medium};
-use ww_byte_stream::{Answer, Preamble, PreambleError, Status, Target};
+use ww_byte_stream::{Answer, Preamble, PreambleError, Status, Target, ws};
 use ww_device::{MessageRx, MessageTx};
 
 /// Opens connections on streams of type `S` and frames their messages.
@@ -80,5 +80,82 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Framing<S> for PreambleFraming {
     async fn answer(&self, mut stream: S, status: Status) -> Option<(Self::Tx, Self::Rx)> {
         self.send(&mut stream, status).await.ok()?;
         (status == Status::Ok).then(|| medium(stream, self.message_len_max))
+    }
+}
+
+/// WebSocket framing on any stream: an HTTP upgrade request whose path names what the client asks for, `/` the
+/// listener's API and `/NAME` the service `NAME`, then one binary WebSocket message per `ww_link` message. What
+/// `ClientConfig::ws_url` clients and browsers speak. A client that is refused gets an HTTP status: `404 Not Found`
+/// for an API not served there, `503 Service Unavailable` when the server is busy.
+#[derive(Clone, Debug)]
+pub struct WsFraming {
+    message_len_max: usize,
+}
+
+impl WsFraming {
+    /// `message_len_max` is the longest message the server takes.
+    pub fn new(message_len_max: usize) -> Self {
+        WsFraming { message_len_max }
+    }
+}
+
+/// What a client asks for by its upgrade request's path.
+fn ws_target(path: &str) -> Target {
+    match path.trim_start_matches('/') {
+        "" => Target::Device(String::new()),
+        name => Target::Service(name.to_owned()),
+    }
+}
+
+impl<S: AsyncRead + AsyncWrite + Unpin> Framing<S> for WsFraming {
+    type Tx = ws::WsTx<WriteHalf<S>>;
+    type Rx = ws::WsRx<ReadHalf<S>>;
+    type Opening = (S, ws::Upgrade);
+
+    async fn read(&self, mut stream: S) -> Option<(Self::Opening, Target)> {
+        match ws::Upgrade::read(&mut stream).await {
+            Ok(upgrade) => {
+                let target = ws_target(upgrade.path());
+                Some(((stream, upgrade), target))
+            }
+            Err(ws::UpgradeError::NotUpgrade) => {
+                // the client is refused either way, a failed answer changes nothing
+                let _ = ws::refuse(&mut stream, 400, "Bad Request").await;
+                None
+            }
+            // not an HTTP client, or one that left: nothing to tell it
+            Err(ws::UpgradeError::NotHttp | ws::UpgradeError::Io(_)) => None,
+        }
+    }
+
+    async fn answer(
+        &self,
+        (mut stream, upgrade): Self::Opening,
+        status: Status,
+    ) -> Option<(Self::Tx, Self::Rx)> {
+        let (code, reason) = match status {
+            Status::Ok => {
+                upgrade.accept(&mut stream).await.ok()?;
+                return Some(ws::medium(stream, upgrade.rest(), self.message_len_max));
+            }
+            Status::UnknownDevice | Status::UnknownService | Status::UnknownTarget => {
+                (404, "Not Found")
+            }
+            _ => (503, "Service Unavailable"),
+        };
+        let _ = ws::refuse(&mut stream, code, reason).await;
+        None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_path_names_the_api() {
+        assert_eq!(ws_target("/"), Target::Device(String::new()));
+        assert_eq!(ws_target(""), Target::Device(String::new()));
+        assert_eq!(ws_target("/counter"), Target::Service("counter".into()));
     }
 }

@@ -36,8 +36,8 @@ tokio = { workspace = true, optional = true }
 tokio-util = { workspace = true, optional = true }
 wire_weaver = { workspace = true, features = ["std"] }
 wire_weaver_client = { workspace = true, optional = true }
+ww_byte_stream = { workspace = true, features = ["device", "ws"] }
 ww_client_server = { workspace = true, features = ["std"] }
-ww_byte_stream = { workspace = true, features = ["device"] }
 ww_device.workspace = true
 ww_local_socket = { workspace = true, optional = true }
 

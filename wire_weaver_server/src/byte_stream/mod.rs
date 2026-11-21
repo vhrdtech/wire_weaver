@@ -6,7 +6,7 @@
 //! - Sources: [handed_in] for streams the program accepts itself, and with feature `tokio` [TcpIncoming] and
 //!   [stdio]; `local_socket::LocalSocketIncoming` with feature `local_socket`.
 //! - [PreambleFraming] opens connections as the local socket does: the `ww_byte_stream` preamble, then
-//!   length-prefixed messages.
+//!   length-prefixed messages; [WsFraming] as a WebSocket server does, the URL path naming the API.
 
 mod framing;
 mod handed_in;
@@ -16,7 +16,7 @@ mod stdio;
 #[cfg(feature = "tokio")]
 mod tcp;
 
-pub use framing::{Framing, PreambleFraming};
+pub use framing::{Framing, PreambleFraming, WsFraming};
 pub use handed_in::{Gone, HandedIn, StreamSender, handed_in};
 pub use listener::{HANDSHAKES_MAX, Incoming, OPENING_TIMEOUT, QUEUED_MAX, StreamListener, listen};
 #[cfg(feature = "tokio")]

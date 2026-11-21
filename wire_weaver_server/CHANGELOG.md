@@ -9,6 +9,8 @@
 
 ### 🚀 Features
 
+- `Accept<Tx, Rx, E>`: the result of `Listener::accept`, named (TR-19).
+- `byte_stream::WsFraming` (TR-19): WebSocket clients on any byte-stream source; the URL path names the service.
 - Byte-stream sources: `TcpIncoming` and `stdio` (feature `tokio`), `handed_in` with `StreamSender::serve_stream(stream, peer)` for streams the program accepted (TR-19).
 - `byte_stream` (TR-19): `listen` on any source of streams with its `Framing`; `StreamListener::service` serves several APIs on one source.
 - `local_socket::LocalSocketListener` (SRV-12, feature `local_socket`): clients on a local socket, also one systemd passed, with their process as the peer.

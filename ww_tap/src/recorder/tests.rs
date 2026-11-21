@@ -1,7 +1,7 @@
 use super::*;
 use crate::*;
 use wire_weaver::shrink_wrap::DeserializeShrinkWrapOwned;
-use ww_tape::Record;
+use ww_tape::{Record, RecordTrack};
 
 fn session() -> Session<'static> {
     Session {
@@ -37,7 +37,11 @@ fn held(chunk: &Chunk) -> Held {
     if b.is_repeat() {
         Held::Puts
     } else {
-        assert_ne!(b.first_track(), Some(0), "definitions come only as puts");
+        assert_ne!(
+            b.first_track(),
+            Some(RecordTrack::Definitions),
+            "definitions come only as puts"
+        );
         Held::Data
     }
 }
@@ -52,8 +56,24 @@ fn kinds(chunks: &[Chunk]) -> Vec<Held> {
     chunks.iter().map(held).collect()
 }
 
+/// The number of the track of `link`'s `stream`.
+fn track(rec: &Recorder, link: u32, stream: u32) -> TrackNum {
+    rec.track(link, stream).expect("the link's track")
+}
+
+/// The link id and stream id of track `track` of `rec`.
+fn link_stream(rec: &Recorder, track: TrackNum) -> Option<(u32, u32)> {
+    rec.inner
+        .state
+        .lock()
+        .unwrap()
+        .by_track
+        .get(&track)
+        .copied()
+}
+
 /// The records of `chunks` as (track, item bytes).
-fn records(chunks: &[Chunk]) -> Vec<(u32, Vec<u8>)> {
+fn records(chunks: &[Chunk]) -> Vec<(RecordTrack, Vec<u8>)> {
     chunks
         .iter()
         .flat_map(|c| {
@@ -72,7 +92,7 @@ fn records(chunks: &[Chunk]) -> Vec<(u32, Vec<u8>)> {
 fn track_labels(chunks: &[Chunk]) -> Vec<String> {
     records(chunks)
         .into_iter()
-        .filter(|(track, _)| *track == 0)
+        .filter(|(track, _)| track.is_definitions())
         .filter_map(|(_, item)| match Describe::from_ww_bytes(&item).unwrap() {
             Describe::Track(t) => Some(t.label.to_owned()),
             _ => None,
@@ -81,7 +101,8 @@ fn track_labels(chunks: &[Chunk]) -> Vec<String> {
 }
 
 /// Check that every data record of `stream` (a consumer's blocks in order) has its track's definitions and its
-/// link's session put before it, once one was recorded.
+/// link's session put before it, once one was recorded. Links are found as a reader finds them, by the tracks'
+/// definitions.
 fn assert_whole(stream: &[Chunk]) {
     let mut defs = Definitions::new();
     let mut sessions = std::collections::BTreeSet::new();
@@ -90,7 +111,9 @@ fn assert_whole(stream: &[Chunk]) {
         if held(c) == Held::Puts {
             defs.take_block(&b).unwrap();
             for (track, _) in records(std::slice::from_ref(c)) {
-                if let Some((link, ids::SESSION)) = track_of(track) {
+                if let Some((link, ids::SESSION)) =
+                    track.data().and_then(|t| link_stream_in(&defs, t))
+                {
                     sessions.insert(link);
                 }
             }
@@ -107,7 +130,7 @@ fn assert_whole(stream: &[Chunk]) {
                 defs.track(track).is_some(),
                 "track {track} put before its data"
             );
-            let (link, _) = track_of(track).unwrap();
+            let (link, _) = link_stream_in(&defs, track).unwrap();
             assert!(
                 sessions.contains(&link),
                 "link {link}'s session put before its data"
@@ -117,13 +140,13 @@ fn assert_whole(stream: &[Chunk]) {
 }
 
 /// Data records of `chunk` as (track, item bytes).
-fn data(chunk: &Chunk) -> Vec<(u32, Vec<u8>)> {
+fn data(chunk: &Chunk) -> Vec<(TrackNum, Vec<u8>)> {
     assert_eq!(held(chunk), Held::Data);
     let b = chunk.block();
     b.records()
         .map(|r| {
             let Record { track, item, .. } = r.unwrap();
-            (track, item.to_vec())
+            (track.data().expect("a data track"), item.to_vec())
         })
         .collect()
 }
@@ -147,7 +170,7 @@ fn nothing_recorded_without_consumers() {
     let recs = data(&got[1]);
     let m = Message::from_ww_bytes(&recs[0].1).unwrap();
     assert_eq!(m.no, UVlq64(1));
-    assert_eq!(recs[0].0, track_number(0, ids::TX_MESSAGES));
+    assert_eq!(recs[0].0, track(&rec, 0, ids::TX_MESSAGES));
     assert_whole(&got);
 }
 
@@ -249,7 +272,7 @@ fn held_blocks_lose_records_counted_in_a_link_event() {
             continue;
         }
         for (track, item) in data(&c) {
-            if track == track_number(0, ids::EVENTS) {
+            if track == self::track(&rec, 0, ids::EVENTS) {
                 events.push(LinkEventOwned::from_ww_bytes_owned(&item).unwrap());
             } else {
                 frames += 1;
@@ -282,7 +305,7 @@ fn a_consumer_joining_is_put_what_each_block_needs() {
     let mut bundles = 0;
     let mut sessions = Vec::new();
     for (track, item) in records(&got[..1]) {
-        if track == 0 {
+        if track.is_definitions() {
             if let Describe::Bundle { bytes, .. } = Describe::from_ww_bytes(&item).unwrap() {
                 bundles += 1;
                 assert_eq!(
@@ -291,7 +314,7 @@ fn a_consumer_joining_is_put_what_each_block_needs() {
                 );
             }
         } else {
-            assert_eq!(track, track_number(0, ids::SESSION));
+            assert_eq!(track, RecordTrack::Data(self::track(&rec, 0, ids::SESSION)));
             sessions.push(SessionOwned::from_ww_bytes_owned(&item).unwrap());
         }
     }
@@ -322,7 +345,10 @@ fn a_new_session_is_put_to_every_consumer() {
         let c = sub.try_recv().unwrap();
         assert_eq!(held(&c), Held::Puts);
         let recs = records(&[c]);
-        assert_eq!(recs.last().unwrap().0, track_number(0, ids::SESSION));
+        assert_eq!(
+            recs.last().unwrap().0,
+            RecordTrack::Data(track(&rec, 0, ids::SESSION))
+        );
         assert!(sub.try_recv().is_none());
     }
     link.session(&session());
@@ -335,17 +361,17 @@ fn a_new_session_is_put_to_every_consumer() {
         assert!(
             records(&got)
                 .iter()
-                .all(|(t, _)| *t != track_number(0, ids::SESSION))
+                .all(|(t, _)| *t != RecordTrack::Data(track(&rec, 0, ids::SESSION)))
         );
     }
 }
 
-/// The [LinkEvent::Lost] events of `chunk`: (link, records lost).
-fn lost_events(chunk: &Chunk) -> Vec<(u32, u64)> {
+/// The [LinkEvent::Lost] events of `chunk` of `rec`: (link, records lost).
+fn lost_events(rec: &Recorder, chunk: &Chunk) -> Vec<(u32, u64)> {
     data(chunk)
         .into_iter()
         .filter_map(|(track, item)| {
-            let (link, ids::EVENTS) = track_of(track)? else {
+            let (link, ids::EVENTS) = link_stream(rec, track)? else {
                 return None;
             };
             match LinkEventOwned::from_ww_bytes_owned(&item).ok()? {
@@ -383,7 +409,7 @@ fn a_consumer_without_room_for_the_puts_misses_the_block() {
     rec.flush();
     let next = drain(&sub);
     assert_eq!(kinds(&next), [Held::Puts, Held::Data, Held::Data]);
-    assert_eq!(lost_events(&next[1]), [(1, 1)]);
+    assert_eq!(lost_events(&rec, &next[1]), [(1, 1)]);
     assert_eq!(sub.stats().behind_since, None, "up to date again");
     stream.extend(next);
     assert_whole(&stream);
@@ -411,7 +437,7 @@ fn a_consumer_that_misses_a_block_is_not_put_everything_again() {
     let next = drain(&slow);
     assert_eq!(kinds(&next), [Held::Puts, Held::Data, Held::Data]);
     assert_eq!(track_labels(&next[..1]), ["link[0].events"]);
-    assert_eq!(lost_events(&next[1]), [(0, 1)]);
+    assert_eq!(lost_events(&rec, &next[1]), [(0, 1)]);
     let seqs: Vec<u64> = stream
         .iter()
         .chain(&next)
@@ -449,17 +475,16 @@ fn a_small_queue_is_never_starved() {
         link.message(Dir::Tx, 4, &[k]);
         rec.flush();
         stream.extend(drain(&sub));
-        if stream
-            .iter()
-            .any(|c| held(c) == Held::Data && !data(c).is_empty() && lost_events(c).is_empty())
-        {
+        if stream.iter().any(|c| {
+            held(c) == Held::Data && !data(c).is_empty() && lost_events(&rec, c).is_empty()
+        }) {
             break;
         }
     }
     assert!(
         stream
             .iter()
-            .any(|c| held(c) == Held::Data && lost_events(c).is_empty()),
+            .any(|c| held(c) == Held::Data && lost_events(&rec, c).is_empty()),
         "a block of data came: {:?}",
         kinds(&stream)
     );
@@ -486,8 +511,8 @@ fn a_consumer_that_reads_nothing_is_counted_behind() {
     assert!(stats.behind_since.is_some());
     // the definitions a block needs are shared with the recorder's, not copied
     let st = rec.inner.state.lock().unwrap();
-    let needs = Needs::of(&st, [track_number(0, ids::TX_MESSAGES)]);
-    for n in needs.records.iter().filter(|n| n.track == 0) {
+    let needs = Needs::of(&st, [st.links[0].tracks[ids::TX_MESSAGES as usize]]);
+    for n in needs.records.iter().filter(|n| n.track.is_definitions()) {
         let held = st.defs.held(&n.slot).unwrap();
         assert!(Arc::ptr_eq(&n.item, &held.item));
     }
@@ -510,7 +535,7 @@ fn a_closed_link_is_said_in_the_stream_and_a_relay_drops_it() {
         .filter(|c| held(c) == Held::Data)
         .flat_map(data)
         .any(|(track, item)| {
-            track == track_number(0, ids::EVENTS)
+            track == self::track(&rec, 0, ids::EVENTS)
                 && LinkEventOwned::from_ww_bytes_owned(&item) == Ok(LinkEventOwned::Closed)
         });
     assert!(closed, "the stream says the link closed");
@@ -523,7 +548,7 @@ fn a_closed_link_is_said_in_the_stream_and_a_relay_drops_it() {
     }
     assert_eq!(dropped, 1);
     assert!(
-        (0..7).all(|s| defs.track(track_number(0, s)).is_none()),
+        (0..7).all(|s| defs.track(track(&rec, 0, s)).is_none()),
         "the link's tracks are dropped"
     );
     assert_eq!(defs.tracks().count(), 0, "no other link was open");
@@ -545,6 +570,33 @@ fn a_closed_links_tracks_are_not_put() {
     assert!(!tracks.is_empty());
     assert!(tracks.iter().all(|t| t.starts_with("link[1].")));
     assert_whole(&got);
+}
+
+/// A link that comes after every link closed is defined whole: its clocks, which the last link's tracks took with
+/// them, come back with their numbers. A closed link's tracks keep their numbers; the new link's are others.
+#[test]
+fn a_link_after_every_link_closed_is_defined_whole() {
+    let (rec, _t) = Recorder::with_fake_clock(config());
+    let first = rec.link();
+    let first_tracks: Vec<TrackNum> = (0..7).map(|s| track(&rec, 0, s)).collect();
+    let clock = rec.inner.state.lock().unwrap().host;
+    drop(first);
+    let mut second = rec.link();
+    second.session(&session());
+    let sub = rec.subscribe(Layers::MESSAGES, 8);
+    second.message(Dir::Tx, 4, b"x");
+    rec.flush();
+    let got = drain(&sub);
+    assert_eq!(kinds(&got), [Held::Puts, Held::Data]);
+    assert_whole(&got);
+    assert_eq!(rec.inner.state.lock().unwrap().host, clock);
+    assert_eq!(
+        (0..7).map(|s| track(&rec, 0, s)).collect::<Vec<_>>(),
+        first_tracks
+    );
+    assert!((0..7).all(|s| !first_tracks.contains(&track(&rec, 1, s))));
+    assert_eq!(rec.track(2, 0), None);
+    assert_eq!(rec.track(0, 7), None);
 }
 
 #[test]
@@ -580,7 +632,7 @@ fn bundle_added_mid_block_is_put_before_it() {
     rec.flush();
     let got = drain(&sub);
     assert_eq!(kinds(&got), [Held::Puts, Held::Data]);
-    assert!(records(&got[..1]).iter().any(|(t, item)| *t == 0
+    assert!(records(&got[..1]).iter().any(|(t, item)| t.is_definitions()
         && matches!(
             Describe::from_ww_bytes(item).unwrap(),
             Describe::Bundle { .. }

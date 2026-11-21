@@ -156,7 +156,7 @@ pub fn key_in_bundle(
     bundle: &ApiBundleOwned,
     path: &[u32],
     keys: &[(usize, &[u8])],
-) -> Result<u64, NamePathError> {
+) -> Result<ww_tape::TrackKey, NamePathError> {
     let krate = bundle
         .crate_version(bundle.root.crate_idx.0)
         .map_err(NamePathError::Crate)?;

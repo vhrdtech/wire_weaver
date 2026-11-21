@@ -4,6 +4,7 @@
 
 ### ⚠️ Breaking
 
+- `key_in_bundle` returns a `ww_tape::TrackKey` (ww_tape READ-5).
 - Declares `rust-version = "1.99"`: cargo of an older Rust refuses the crate.
 
 ### 🚀 Features

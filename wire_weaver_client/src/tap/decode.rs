@@ -12,7 +12,8 @@
 //!
 //! Its input is records: [Decoder::record] (and [Decoder::session]) per record of a link's tracks in time order,
 //! [Decoder::gap] for records missing from it. [Decoder::feed] takes a `ww_tape` block, wherever it came from, and
-//! feeds its records the same way.
+//! feeds its records the same way: it finds each record's link and stream by its track's definition
+//! ([ww_tap::link_stream_of]), never by the track's number.
 
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::sync::Arc;
@@ -23,11 +24,8 @@ use wire_weaver::shrink_wrap::{
 use ww_client_server::{Event, PathKind, Request};
 use ww_link::DeviceInfoOwned;
 use ww_self::ApiBundleOwned;
-use ww_tap::{
-    Dir, FrameOwned, HOST_CLOCK, LinkEventOwned, MessageOwned, SessionOwned, WALL_CLOCK, ids,
-    track_of,
-};
-use ww_tape::{Block, Describe};
+use ww_tap::{Dir, FrameOwned, LinkEventOwned, MessageOwned, SessionOwned, ids, link_stream_of};
+use ww_tape::{Block, ClockNum, Describe, TrackNum};
 
 use super::reassembly::{FrameOutcome, FramePart, HelloFrame, Reassembled, Reassembler, walker};
 use super::stats::Stats;
@@ -208,6 +206,15 @@ impl LinkState {
     }
 }
 
+/// A track of the tap, as its definition says.
+#[derive(Copy, Clone, Debug)]
+struct TapTrack {
+    link: u32,
+    stream: u32,
+    /// The clock its records count
+    clock: ClockNum,
+}
+
 /// See the [module docs](self).
 pub struct Decoder {
     config: DecoderConfig,
@@ -220,7 +227,14 @@ pub struct Decoder {
     next_seq: Option<u64>,
     /// Session of the blocks fed last
     session: Option<ww_tape::SessionTag>,
-    wall_ns_at_zero: Option<u64>,
+    /// The tap's tracks by number, from their definitions
+    tracks: BTreeMap<TrackNum, TapTrack>,
+    /// The clock the tap's tracks count, from their definitions
+    tap_clock: Option<ClockNum>,
+    /// The clocks defined as the wall clock
+    wall_clocks: Vec<ClockNum>,
+    /// Wall clock at time 0 of each clock a definition maps to the wall clock, by clock
+    wall_ns_at_zero: BTreeMap<ClockNum, u64>,
     /// Time of the newest record fed, for what has no time of its own (lost blocks).
     last_t: u64,
     out: VecDeque<Decoded>,
@@ -243,7 +257,10 @@ impl Decoder {
             resolver: ww_snapshots::Resolver::global(),
             next_seq: None,
             session: None,
-            wall_ns_at_zero: None,
+            tracks: BTreeMap::new(),
+            tap_clock: None,
+            wall_clocks: Vec::new(),
+            wall_ns_at_zero: BTreeMap::new(),
             last_t: 0,
             out: VecDeque::new(),
             stats: Stats::default(),
@@ -274,7 +291,7 @@ impl Decoder {
 
     /// Wall clock (ns since the Unix epoch) at tap clock time 0, once a definition mapped the one to the other.
     pub fn wall_ns_at_zero(&self) -> Option<u64> {
-        self.wall_ns_at_zero
+        self.wall_ns_at_zero.get(&self.tap_clock?).copied()
     }
 
     /// The device API bundles the decoder knows, by hash, e.g. to write into a capture.
@@ -333,12 +350,15 @@ impl Decoder {
                 continue;
             };
             // the tap clock counts ns from the recorder's start: a time before it isn't the tap's
-            let (HOST_CLOCK, Ok(t)) = (at.clock, u64::try_from(at.ticks)) else {
+            let (true, Ok(t)) = (Some(at.clock) == self.tap_clock, u64::try_from(at.ticks)) else {
                 continue;
             };
-            match track_of(r.track) {
-                Some((link, stream)) => self.record(link, stream, t, r.item),
-                None => self.at(t),
+            match r.track.data().and_then(|n| self.tracks.get(&n)) {
+                Some(tt) if tt.clock == at.clock => {
+                    let (link, stream) = (tt.link, tt.stream);
+                    self.record(link, stream, t, r.item);
+                }
+                _ => self.at(t),
             }
         }
     }
@@ -405,13 +425,36 @@ impl Decoder {
             return;
         };
         match d {
-            Describe::Map(m) if m.from.0 == HOST_CLOCK && m.to.0 == WALL_CLOCK => {
+            Describe::Track(t) => match link_stream_of(&t) {
+                Some((link, stream)) => {
+                    self.tap_clock = Some(t.clock);
+                    let tt = TapTrack {
+                        link,
+                        stream,
+                        clock: t.clock,
+                    };
+                    self.tracks.insert(t.number, tt);
+                }
+                // the number may have stood for a tap track before
+                None => _ = self.tracks.remove(&t.number),
+            },
+            Describe::Clock(c) => {
+                self.wall_clocks.retain(|n| *n != c.number);
+                if c.key == ww_tape::UNIX_CLOCK_KEY {
+                    self.wall_clocks.push(c.number);
+                }
+            }
+            Describe::Map(m) if self.wall_clocks.contains(&m.to) => {
                 let at_zero = m
                     .segments
                     .iter()
                     .filter_map(Result::ok)
-                    .find_map(|s| s.map(0, ww_tape::Rounding::Floor));
-                self.wall_ns_at_zero = at_zero.and_then(|t| u64::try_from(t).ok());
+                    .find_map(|s| s.map(0, ww_tape::Rounding::Floor))
+                    .and_then(|t| u64::try_from(t).ok());
+                match at_zero {
+                    Some(t) => self.wall_ns_at_zero.insert(m.from, t),
+                    None => self.wall_ns_at_zero.remove(&m.from),
+                };
             }
             Describe::Bundle { hash, bytes } => {
                 let hash = hash.as_slice().to_vec();

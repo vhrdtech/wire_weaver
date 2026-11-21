@@ -19,6 +19,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - New crate `ww_trace_context`: the W3C trace types, with an API snapshot (SRV-47).
 - Running totals over a plain sink (API-70): `Totals<T>`; see `ww_api`, `ww_stream`, `wire_weaver_client`, `wire_weaver_core`.
 - `ww_codegen!`'s model strings parse without pest and reject what they used to ignore; see `wire_weaver_core`.
+- ww_tape's definitions number tracks and clocks, and its keys and ids have types (READ-5); see `ww_tap`, `wire_weaver_client`, `ww_tape_bundle`.
 - UDP serves several hosts on one port, a link each (SRV-68); see `ww_device`.
 - Host server on UDP: a connection per host (SRV-69); see `wire_weaver_server`, `ww_device` and `ww_framer`.
 - Docs name the Portwright repo `portwright` (was `typec_dongle`, renamed).

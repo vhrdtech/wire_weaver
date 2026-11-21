@@ -166,6 +166,8 @@ async fn a_stream_functions_items_flow_through_a_pump() {
             Tick(n)
         );
     }
+    // the trait's stream ended: the server closes the client's
+    assert!(futures_lite::StreamExt::next(&mut ticks).await.is_none());
     let refused = Served::ticks(&*client, &cx(), Tick(0)).await.unwrap();
     assert!(matches!(refused, Err(ServeError::Refused)));
 }

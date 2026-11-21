@@ -4,7 +4,7 @@
 //!
 //! The handlers are the ones the dispatcher calls anyway (one dispatcher): calls and reads take `&self` and run side
 //! by side, writes and stream opens take `&mut self` and run alone. A stream open registers the trait's item stream
-//! as a pump of the connection, its close removes it. Items the trait leaves out are handlers written by hand beside
+//! as a pump of the connection, whose end closes the client's stream; the client's close removes it. Items the trait leaves out are handlers written by hand beside
 //! the generated ones.
 use crate::codegen::CodegenBundle;
 use crate::codegen::local_trait::{LocalFnKind, local_fns};
@@ -193,7 +193,7 @@ fn handler_output(
 }
 
 /// The open, close and sideband handlers of a plain stream: the open adds the trait's items as the connection's
-/// pump, until their first error; the close removes it.
+/// pump, until their first error, and their end sends the stream's `Close`; the close removes it.
 fn stream_handlers(
     api_bundle: &CodegenBundle,
     item_index: usize,
@@ -207,11 +207,18 @@ fn stream_handlers(
     let id = item_index as u64;
     let pump_id = quote! { wire_weaver_server::PumpId(#id) };
     let arg_defs = args.iter().map(|(n, t)| quote! { #n: #t });
+    let end = Ident::new(&format!("{ident}_sideband"), Span::call_site());
+    // the stream's end closes the client's stream too
     let pump = quote! {
-        wire_weaver_server::Serves::pumps(self).add(
+        wire_weaver_server::Serves::pumps(self).add_ending(
             #pump_id,
             wire_weaver::forward::until_error(items),
             |item, buf| stream_data_ser().#ident(item, buf).map(<[u8]>::len),
+            Some(|buf: &mut [u8]| {
+                stream_data_ser()
+                    .#end(ww_client_server::StreamSideband::Close, buf)
+                    .map(<[u8]>::len)
+            }),
         );
     };
     let (output, open) = match stream.return_ty {

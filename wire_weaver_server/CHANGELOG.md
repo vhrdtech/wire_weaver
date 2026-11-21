@@ -15,6 +15,7 @@
 - `ShutdownReason`: a shutdown future of `DisconnectReason` tells clients that reason instead of `Shutdown` (SRV-67).
 - Stream items ready at shutdown go out before the disconnect (SRV-67).
 - `local_socket::peer_of`: the `Peer` of a client a program accepted on a local socket itself (SRV-67).
+- `Pumps::add_ending` / `LocalPumps::add_ending`: a pump that sends one more event, the stream's `Close`, when its items end.
 - `LocalPumps`, `Local` and `LocalConnection`: connections whose stream pumps take streams that are not `Send`, for single-threaded services (SRV-73).
 - `Serves`: the service and pumps a `serve_trait` server forwards to (SRV-49).
 - `byte_stream::is_transient` and `ACCEPT_RETRY_DELAY` are public, for sources on other event loops; `UdpListener::local_addr` works with any `StdUdpSocket` readiness (SRV-70).

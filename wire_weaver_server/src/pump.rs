@@ -112,13 +112,27 @@ impl Pumps {
         S: Stream<Item = T> + Send + 'static,
         F: FnMut(&T, &mut [u8]) -> Result<usize, ShrinkWrapError> + Send + 'static,
     {
+        self.add_ending(id, items, ser, None::<NoEnd>);
+    }
+
+    /// [add](Self::add) a pump that sends one more event when `items` end: the one `end` serializes, the stream's
+    /// `Close` sideband (the generated `stream_data_ser().<name>_sideband(StreamSideband::Close, buf)`), so the
+    /// client's stream ends too.
+    pub fn add_ending<T, S, F, E>(&self, id: PumpId, items: S, ser: F, end: Option<E>)
+    where
+        T: 'static,
+        S: Stream<Item = T> + Send + 'static,
+        F: FnMut(&T, &mut [u8]) -> Result<usize, ShrinkWrapError> + Send + 'static,
+        E: FnOnce(&mut [u8]) -> Result<usize, ShrinkWrapError> + Send + 'static,
+    {
         // the connection ended: nobody would send the items
         let Some(inner) = self.0.upgrade() else {
             return;
         };
         let pump: Box<dyn Pump + Send> = Box::new(Items {
-            items: Box::pin(items),
+            items: Some(Box::pin(items) as Pin<Box<dyn Stream<Item = T> + Send>>),
             ser,
+            end,
         });
         locked(&inner).add(id, pump);
     }
@@ -139,12 +153,24 @@ impl LocalPumps {
         S: Stream<Item = T> + 'static,
         F: FnMut(&T, &mut [u8]) -> Result<usize, ShrinkWrapError> + 'static,
     {
+        self.add_ending(id, items, ser, None::<NoEnd>);
+    }
+
+    /// [add](Self::add) a pump that sends `end`'s event when `items` end, as [Pumps::add_ending] does.
+    pub fn add_ending<T, S, F, E>(&self, id: PumpId, items: S, ser: F, end: Option<E>)
+    where
+        T: 'static,
+        S: Stream<Item = T> + 'static,
+        F: FnMut(&T, &mut [u8]) -> Result<usize, ShrinkWrapError> + 'static,
+        E: FnOnce(&mut [u8]) -> Result<usize, ShrinkWrapError> + 'static,
+    {
         let Some(inner) = self.0.upgrade() else {
             return;
         };
-        let pump: Box<dyn Pump> = Box::new(LocalItems {
-            items: Box::pin(items),
+        let pump: Box<dyn Pump> = Box::new(Items {
+            items: Some(Box::pin(items) as Pin<Box<dyn Stream<Item = T>>>),
             ser,
+            end,
         });
         inner.borrow_mut().add(id, pump);
     }
@@ -297,44 +323,35 @@ trait Pump {
     ) -> Poll<Option<Result<usize, ShrinkWrapError>>>;
 }
 
-struct Items<T, F> {
-    items: Pin<Box<dyn Stream<Item = T> + Send>>,
+/// The end event of a pump that has none.
+type NoEnd = fn(&mut [u8]) -> Result<usize, ShrinkWrapError>;
+
+/// A pump's items, `S` a boxed stream of `T`: `None` once they ended.
+struct Items<S, F, E> {
+    items: Option<S>,
     ser: F,
+    /// Sent once after the items ended.
+    end: Option<E>,
 }
 
-struct LocalItems<T, F> {
-    items: Pin<Box<dyn Stream<Item = T>>>,
-    ser: F,
-}
-
-impl<T, F> Pump for Items<T, F>
+impl<S, T, F, E> Pump for Items<Pin<Box<S>>, F, E>
 where
+    S: Stream<Item = T> + ?Sized,
     F: FnMut(&T, &mut [u8]) -> Result<usize, ShrinkWrapError>,
+    E: FnOnce(&mut [u8]) -> Result<usize, ShrinkWrapError>,
 {
     fn poll_event(
         &mut self,
         cx: &mut Context<'_>,
         buf: &mut [u8],
     ) -> Poll<Option<Result<usize, ShrinkWrapError>>> {
-        self.items
-            .as_mut()
-            .poll_next(cx)
-            .map(|item| item.map(|item| (self.ser)(&item, buf)))
-    }
-}
-
-impl<T, F> Pump for LocalItems<T, F>
-where
-    F: FnMut(&T, &mut [u8]) -> Result<usize, ShrinkWrapError>,
-{
-    fn poll_event(
-        &mut self,
-        cx: &mut Context<'_>,
-        buf: &mut [u8],
-    ) -> Poll<Option<Result<usize, ShrinkWrapError>>> {
-        self.items
-            .as_mut()
-            .poll_next(cx)
-            .map(|item| item.map(|item| (self.ser)(&item, buf)))
+        if let Some(items) = self.items.as_mut() {
+            match items.as_mut().poll_next(cx) {
+                Poll::Ready(Some(item)) => return Poll::Ready(Some((self.ser)(&item, buf))),
+                Poll::Ready(None) => self.items = None,
+                Poll::Pending => return Poll::Pending,
+            }
+        }
+        Poll::Ready(self.end.take().map(|end| end(buf)))
     }
 }

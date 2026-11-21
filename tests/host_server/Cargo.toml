@@ -16,7 +16,7 @@ tests_common.workspace = true
 tokio = { workspace = true, features = ["sync", "rt-multi-thread", "rt", "macros", "test-util", "time"] }
 wire_weaver = { workspace = true, features = ["std"] }
 wire_weaver_client = { workspace = true, features = ["in_process", "local_socket"] }
-wire_weaver_server = { workspace = true, features = ["in_process", "local_socket"] }
+wire_weaver_server = { workspace = true, features = ["in_process", "local_socket", "tokio"] }
 ww_client_server.workspace = true
 ww_device.workspace = true
 ww_local_socket = { workspace = true, features = ["socket"] }

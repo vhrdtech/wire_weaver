@@ -9,8 +9,14 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 
+[features]
+default = []
+# One connection as a ww_device medium (MessageTx, MessageRx), for servers
+device = ["dep:ww_device"]
+
 [dependencies]
 futures-util = { workspace = true, features = ["io", "std"] }
+ww_device = { workspace = true, optional = true }
 
 [dev-dependencies]
 futures-util = { workspace = true, features = ["io", "std", "async-await-macro"] }

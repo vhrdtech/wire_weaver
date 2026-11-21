@@ -95,6 +95,7 @@ embedded-sdmmc-types = { version = "0.1", default-features = false }
 embedded-storage-async = { version = "0.4.2", default-features = false }
 # gzip of a .crate or repository archive, pure Rust (miniz_oxide)
 flate2 = { version = "1.1", default-features = false, features = ["rust_backend"] }
+futures-channel = { version = "0.3", default-features = false }
 futures-core = { version = "0.3", default-features = false, features = ["alloc"] }
 futures-lite = { version = "2.6", default-features = false, features = ["std"] }
 futures-util = { version = "0.3", default-features = false }

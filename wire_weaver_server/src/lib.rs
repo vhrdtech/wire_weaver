@@ -15,8 +15,10 @@
 //! side, everything else runs alone behind them. While handlers run, the connection keeps reading, answers pings and
 //! sends the events handlers queue, so a slow handler holds up its own connection's requests only.
 //!
-//! Listeners: `in_process` (feature `in_process`) for clients of the same process, `local_socket` (feature
-//! `local_socket`) for programs of the same user, also on a socket systemd socket activation passed.
+//! Listeners: `in_process` (feature `in_process`) for clients of the same process; [byte_stream] for any byte
+//! stream, with several APIs on one source: TCP and stdio (feature `tokio`), streams the program accepted itself,
+//! and `local_socket` (feature `local_socket`) for programs of the same user, also on a socket systemd socket
+//! activation passed.
 //! [Server::accepting] hands out connections for the program to spawn on a multi-threaded runtime.
 //!
 //! Between requests a [Backend] does its own work: it sends stream items and observed properties when its
@@ -24,6 +26,7 @@
 //! connections follow at once.
 
 mod backend;
+pub mod byte_stream;
 mod connection;
 mod fanout;
 #[cfg(feature = "in_process")]

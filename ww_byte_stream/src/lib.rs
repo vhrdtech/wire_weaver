@@ -5,8 +5,11 @@
 //! - [MessageReader] / [MessageWriter]: after the preamble, `ww_link` messages as `| len: u32 LE | kind: u8 |
 //!   payload |`, `len` counting the kind byte and the payload. Link setup, versions, pings and timeouts are
 //!   `ww_link`'s, the same as over WebSocket.
+//! - [medium] (feature `device`): one connection as a `ww_device` medium, for a server's `DeviceLink`.
 
 mod framing;
+#[cfg(feature = "device")]
+pub mod medium;
 mod preamble;
 
 pub use framing::{MessageReader, MessageWriter};

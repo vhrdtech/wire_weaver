@@ -12,25 +12,32 @@ license.workspace = true
 default = []
 # The in-process listener: clients of the same process connect by path (tests, simulators)
 in_process = ["dep:wire_weaver_client", "wire_weaver_client/in_process"]
-# The local-socket listener (Unix socket, named pipe on Windows), also on a socket systemd passed; runs on tokio
-local_socket = [
+# TCP and stdio sources for byte-stream listeners, on tokio
+tokio = [
     "dep:libc",
+    "dep:rustix",
     "dep:tokio",
-    "dep:wire_weaver_client",
-    "dep:ww_local_socket",
-    "wire_weaver_client/local_socket",
-    "ww_local_socket/socket",
+    "dep:tokio-util",
+    "tokio/io-std",
+    "tokio/net",
+    "tokio/time",
 ]
+# The local-socket source (Unix socket, named pipe on Windows), also on a socket systemd passed; runs on tokio
+local_socket = ["tokio", "dep:ww_local_socket", "ww_local_socket/socket"]
 
 [target.'cfg(unix)'.dependencies]
 libc = { workspace = true, optional = true }
+rustix = { workspace = true, features = ["process"], optional = true }
 
 [dependencies]
-futures-util = { workspace = true, features = ["alloc", "std"] }
-tokio = { workspace = true, features = ["time"], optional = true }
+futures-channel = { workspace = true, features = ["std"] }
+futures-util = { workspace = true, features = ["alloc", "io", "std"] }
+tokio = { workspace = true, optional = true }
+tokio-util = { workspace = true, optional = true }
 wire_weaver = { workspace = true, features = ["std"] }
 wire_weaver_client = { workspace = true, optional = true }
 ww_client_server = { workspace = true, features = ["std"] }
+ww_byte_stream = { workspace = true, features = ["device"] }
 ww_device.workspace = true
 ww_local_socket = { workspace = true, optional = true }
 

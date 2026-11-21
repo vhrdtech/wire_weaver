@@ -15,8 +15,9 @@ mod tests {
     use wire_weaver::{Gid, Peer, Pid, Uid};
     use wire_weaver_client::in_process::TokioClock;
     use wire_weaver_client::{Commander, WwClient};
+    use wire_weaver_server::byte_stream::{PreambleFraming, listen};
     use wire_weaver_server::in_process::InProcessListener;
-    use wire_weaver_server::local_socket::LocalSocketListener;
+    use wire_weaver_server::local_socket::LocalSocketIncoming;
     use wire_weaver_server::{Connection, Fanout, Limits, PumpId, Pumps, Server, Subscription};
     use ww_device::Instant;
     use ww_stream::observe::ObserveLimits;
@@ -421,7 +422,11 @@ mod tests {
         /// On the local socket `socket`, which the server listens on.
         fn start_local(socket: ww_local_socket::Listener, path: &std::path::Path) -> Self {
             start_bench!(
-                LocalSocketListener::new(socket, "host server 0.1.0", MESSAGE_LEN_MAX),
+                listen(
+                    LocalSocketIncoming::new(socket),
+                    PreambleFraming::new("host server 0.1.0", MESSAGE_LEN_MAX),
+                    TokioClock::new(),
+                ),
                 Reach::LocalSocket(path.to_str().unwrap().to_owned()),
                 small(),
                 false,
@@ -875,7 +880,7 @@ mod tests {
         let bench = Bench::start_local(ww_local_socket::listen(&path, true).unwrap(), &path);
         // connected, and silent: its preamble is read beside the others
         let silent: Vec<_> = futures_util::future::join_all(
-            (0..wire_weaver_server::local_socket::HANDSHAKES_MAX - 1)
+            (0..wire_weaver_server::byte_stream::HANDSHAKES_MAX - 1)
                 .map(|_| ww_local_socket::connect(&path)),
         )
         .await;

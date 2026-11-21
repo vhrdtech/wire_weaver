@@ -7027,6 +7027,9 @@ run side by side:</p>
 <p>Every server has these generated functions. Without a <code>receiver_model</code> its <code>is_shared</code> says no to every request, so
 all requests run alone; with one, its calls and reads run side by side as the next section describes. A firmware
 never calls the shared ones, and its image is the same size with them.</p>
+<p>A server generated with <code>serve_trait</code> gets both implementations and every handler from the API's local trait: the
+backend is a struct with the service and the pumps (<a href="../local_trait/#serving-a-local-implementation">Serving a local
+implementation</a>).</p>
 <h3 id="who-asked">Who asked<a class="headerlink" href="#who-asked" title="Permanent link">&para;</a></h3>
 <p><code>Connection::origin()</code> is the <code>CallContext</code> of the connection: its peer and its id. The connection passes it with
 every request, and a handler reads it from <code>cx.call()</code>, with the request's own <code>seq</code>, priority, trace and what is

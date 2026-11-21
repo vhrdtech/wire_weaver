@@ -12,6 +12,7 @@
 
 ### 🐛 Fixes
 
+- `udp::StdUdpSocket` skips receive errors about one datagram: ICMP `ConnectionRefused`, Windows' too-long datagram (SRV-75).
 - With both `log` and `defmt` on, cargo no longer reports `log` as an unused dependency.
 
 ### ⚠️ Breaking

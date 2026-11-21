@@ -46,18 +46,15 @@ impl<R: Readiness> DatagramSocket for StdUdpSocket<R> {
     type RecvError = io::Error;
     type SendError = io::Error;
 
-    /// A datagram longer than `buf` is cut to it. A send's ICMP error that the system reports on a later receive
-    /// (Windows does, as `ConnectionReset`) is about that send, not this socket, so it is skipped.
+    /// A datagram longer than `buf` is cut to it (Windows drops it). An error about one datagram is skipped, since
+    /// it is about one host, not this socket: a send's ICMP error that the system reports on a later receive (Windows
+    /// as `ConnectionReset`, a connected socket as `ConnectionRefused`), and Windows' datagram too long for `buf`.
     async fn recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
         loop {
             match self.socket.recv_from(buf) {
                 Ok(received) => return Ok(received),
                 Err(e) if e.kind() == ErrorKind::WouldBlock => self.readiness.readable().await?,
-                Err(e)
-                    if matches!(
-                        e.kind(),
-                        ErrorKind::Interrupted | ErrorKind::ConnectionReset
-                    ) => {}
+                Err(e) if of_one_datagram(&e) => {}
                 Err(e) => return Err(e),
             }
         }
@@ -74,6 +71,21 @@ impl<R: Readiness> DatagramSocket for StdUdpSocket<R> {
             Err(e) => Err(e),
         }
     }
+}
+
+/// A receive error about one datagram or one host, not about the socket.
+fn of_one_datagram(e: &io::Error) -> bool {
+    /// `WSAEMSGSIZE`: the datagram was longer than the buffer, and is gone.
+    #[cfg(windows)]
+    const DATAGRAM_TOO_LONG: i32 = 10040;
+    #[cfg(windows)]
+    if e.raw_os_error() == Some(DATAGRAM_TOO_LONG) {
+        return true;
+    }
+    matches!(
+        e.kind(),
+        ErrorKind::Interrupted | ErrorKind::ConnectionReset | ErrorKind::ConnectionRefused
+    )
 }
 
 #[cfg(test)]
@@ -137,5 +149,25 @@ mod tests {
         let mut back = vec![0u8; 16];
         let (len, from) = host.recv_from(&mut back).unwrap();
         assert_eq!((&back[..len], from), (&[9u8, 8][..], to));
+    }
+
+    /// The ICMP error of an earlier send, reported on the next receive, is skipped: the datagram after it is
+    /// received.
+    #[tokio::test]
+    async fn an_icmp_error_of_an_earlier_send_is_skipped() {
+        let device = socket();
+        let to = device.socket().local_addr().unwrap();
+        // nothing listens on `gone` once its socket is dropped: a datagram there comes back as port unreachable
+        let gone = UdpSocket::bind("127.0.0.1:0").unwrap();
+        let gone_addr = gone.local_addr().unwrap();
+        drop(gone);
+        device.socket().connect(gone_addr).unwrap();
+        device.socket().send(&[1]).unwrap();
+        // the host comes back on that port: the device receives what it sends after the error
+        let host = UdpSocket::bind(gone_addr).unwrap();
+        host.send_to(&[2, 3], to).unwrap();
+        let mut buf = [0u8; 4];
+        let (len, from) = device.recv_from(&mut buf).await.unwrap();
+        assert_eq!((&buf[..len], from), (&[2u8, 3][..], gone_addr));
     }
 }

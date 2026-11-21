@@ -13,7 +13,7 @@ use ww_byte_stream::{Status, Target};
 use ww_device::{Clock, Instant};
 
 use super::framing::Framing;
-use crate::listener::{Accepted, Listener};
+use crate::listener::{Accept, Accepted, Listener};
 use crate::sync::locked;
 
 /// Connections opening at once. Past it the listener takes no new stream until one is answered.
@@ -117,7 +117,7 @@ where
 
     /// Cancel-safe: connections opening and opened stay in the listener. `None` once the source ended and every
     /// connection of this API that was opening is taken.
-    async fn accept(&mut self) -> Result<Option<Accepted<F::Tx, F::Rx>>, I::Error> {
+    async fn accept(&mut self) -> Accept<F::Tx, F::Rx, I::Error> {
         poll_fn(|cx| self.poll_accept(cx)).await
     }
 }
@@ -129,10 +129,7 @@ where
     C: Clock,
     H: Future<Output = ()>,
 {
-    fn poll_accept(
-        &mut self,
-        cx: &mut Context<'_>,
-    ) -> Poll<Result<Option<Accepted<F::Tx, F::Rx>>, I::Error>> {
+    fn poll_accept(&mut self, cx: &mut Context<'_>) -> Poll<Accept<F::Tx, F::Rx, I::Error>> {
         self.slots.wakers.set(self.index, cx.waker());
         if let Some(accepted) = self.slots.take(self.index) {
             return Poll::Ready(Ok(Some(accepted)));

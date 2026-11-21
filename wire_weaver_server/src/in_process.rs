@@ -6,7 +6,7 @@ use std::convert::Infallible;
 use wire_weaver::Peer;
 use wire_weaver_client::in_process::{DeviceRx, DeviceTx};
 
-use crate::listener::{Accepted, Listener};
+use crate::listener::{Accept, Accepted, Listener};
 
 /// Connections of clients in the same process.
 pub struct InProcessListener {
@@ -37,7 +37,7 @@ impl Listener for InProcessListener {
     type Rx = DeviceRx;
     type Error = Infallible;
 
-    async fn accept(&mut self) -> Result<Option<Accepted<DeviceTx, DeviceRx>>, Infallible> {
+    async fn accept(&mut self) -> Accept<DeviceTx, DeviceRx, Infallible> {
         let (tx, rx) = self.inner.accept().await;
         Ok(Some(Accepted {
             tx,

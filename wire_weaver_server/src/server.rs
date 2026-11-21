@@ -14,7 +14,7 @@ use ww_device::{Clock, Instant, LinkConfig};
 use crate::backend::Backend;
 use crate::connection::{self, Connection};
 use crate::lifecycle::{Lifecycle, Stage};
-use crate::listener::{Accepted, Listener};
+use crate::listener::{Accept, Accepted, Listener};
 use crate::sync::locked;
 
 /// How much a server and each of its connections may hold.
@@ -303,7 +303,7 @@ impl<C: Clock, L: Listener, S: Future<Output = ()>> Gate<C, L, S> {
         &mut self,
         grace_runs: bool,
         connections: &mut impl Connections,
-    ) -> Next<Result<Option<Accepted<L::Tx, L::Rx>>, L::Error>> {
+    ) -> Next<Accept<L::Tx, L::Rx, L::Error>> {
         let accepting = self.grace_until.is_none()
             && !self.listener_ended
             && connections.len() < self.limits.connections_max;

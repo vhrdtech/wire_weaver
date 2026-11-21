@@ -43,6 +43,6 @@ mod sync;
 pub use backend::Backend;
 pub use connection::Connection;
 pub use fanout::{Fanout, Lagged, Subscription};
-pub use listener::{Accepted, Listener};
+pub use listener::{Accept, Accepted, Listener};
 pub use pump::{PumpId, Pumps};
 pub use server::{Accepting, Limits, MakeBackend, Server};

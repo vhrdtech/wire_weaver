@@ -7100,28 +7100,33 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
   <code>WIRE_WEAVER_REEXPORTS</code> in the crate walker is partly there), and <code>wire_weaver_usb_embassy</code> building in the
   root workspace or merging into <code>ww_device</code>. Separately consider making <code>wire_weaver</code>'s <code>std</code> default off.</p>
 <ul>
+<li>✅ <strong>SRV-12 Host server runtime</strong> · <code>v0.5</code> — <code>wire_weaver_server</code>, the counterpart of <code>wire_weaver_client</code>: many clients on
+  one API, each connection driving <code>ww_device::DeviceLink</code> with its own backend from a factory and its peer from the
+  transport. No async runtime in it: <code>Server::serve</code> is a future for the program's executor, timers are a
+  <code>ww_device::Clock</code>, connections run inside the future (no spawner, backends need not be <code>Send</code>). Done: the
+  <code>Listener</code> trait, the in-process listener (any peer can be given) and the local-socket listener (feature
+  <code>local_socket</code>: <code>ClientConfig::ipc_path</code> clients with their process as the peer, preambles read side by side, also
+  on a socket systemd socket activation passed, <code>ww_local_socket::inherited</code>), requests of a connection started in
+  order while the connection keeps reading, pinging and writing queued events, shared calls and reads (SRV-65) side
+  by side through <code>WireWeaverSharedApiBackend</code> with the rest alone behind them (D4's order), the connection's
+  <code>CallContext</code> (peer, connection id) in every handler, <code>Limits</code> (connections, calls at once, queued requests and
+  events, message length) that push back instead of dropping, a cap on requests across connections answered with
+  <code>ErrorKind::Overloaded</code> (EVO-83), graceful shutdown with a grace time and <code>DisconnectReason::Shutdown</code>, pumps that
+  send stream items while calls run, the <code>Backend</code> hook for what a connection sends on its own between requests
+  (<code>wait</code>, <code>next_wake</code>, <code>poll</code>: observed properties) and <code>Fanout</code>, one sender with a queue per subscriber,
+  <code>Server::accepting</code> for connections the program spawns as tasks of a multi-threaded runtime
+  (<a href="../docs/api/host_server/">Host server</a>, <code>tests/host_server</code>, <code>ww_local_socket/tests/activation.rs</code>).
+  A write behind slow calls waits without a bound until a request's own deadline (SRV-47, <code>TODO(SRV-47)</code>) ends
+  it; byte-stream listeners (TCP, stdio, WebSocket framing) are TR-19; the hub moving onto it is SRV-67.</li>
 <li>📋 <strong>SRV-9 Handle USB suspend/resume</strong> · <code>v0.5</code> — run until suspend, wait for resume, loop
   (<code>mcu/wire_weaver_usb_embassy</code>). Later (<code>v0.5.x</code>): detect the host going to sleep and keep the connection,
   informing the device.</li>
 <li>📋 <strong>SRV-10 Collect error codes into an ELF section</strong> for easier error decoding · <code>v0.5.x</code>.</li>
 <li>📋 <strong>SRV-11 Link statistics</strong> in <code>ww_device</code> (<code>TODO(SRV-11)</code> in <code>link.rs</code>).</li>
-<li>🚧 <strong>SRV-12 Host server runtime</strong> — <code>wire_weaver_server</code>, the counterpart of <code>wire_weaver_client</code>: many clients on
-  one API, each connection driving <code>ww_device::DeviceLink</code> with its own backend from a factory and its peer from the
-  transport. No async runtime in it: <code>Server::serve</code> is a future for the program's executor, timers are a
-  <code>ww_device::Clock</code>, connections run inside the future (no spawner, backends need not be <code>Send</code>). Done: the
-  <code>Listener</code> trait and the in-process listener (any peer can be given), requests of a connection started in order
-  while the connection keeps reading, pinging and writing queued events, shared calls and reads (SRV-65) side by side
-  through <code>WireWeaverSharedApiBackend</code> with the rest alone behind them (D4's order), the connection's <code>CallContext</code>
-  (peer, connection id) in every handler, <code>Limits</code> (connections, calls at once, queued requests and events, message
-  length) that push back instead of dropping, a cap on requests across connections answered with
-  <code>ErrorKind::Overloaded</code> (EVO-83), graceful shutdown with a grace time and <code>DisconnectReason::Shutdown</code>, pumps that
-  send stream items while calls run, the <code>Backend</code> hook for what a connection sends on its own between requests
-  (<code>wait</code>, <code>next_wake</code>, <code>poll</code>: observed properties) and <code>Fanout</code>, one sender with a queue per subscriber,
-  <code>Server::accepting</code> for connections the program spawns as tasks of its runtime
-  (<a href="../docs/api/host_server/">Host server</a>, <code>tests/host_server</code>).
-  Missing: a request's own deadline bounding the wait of a write behind slow calls (SRV-47, <code>TODO(SRV-47)</code>);
-  listeners over byte streams (TR-19), the local socket and an inherited fd (systemd socket activation); a spawner
-  for multi-threaded runtimes. Then <code>ww_hub</code> serves its API on it.</li>
+<li>📋 <strong>SRV-67 ww_hub serves its API on wire_weaver_server</strong> — the hub's own API (<code>ww_hub_api</code>) is served by
+  <code>wire_weaver_server</code> on the hub socket instead of one <code>ww_device::Server</code> per client: its connections, limits,
+  shutdown and <code>Fanout</code> replace the hub's hand-written accept loop and <code>broadcast</code> fan-out. The preamble still picks
+  the hub's API or a device tunnel, so the hub's listener hands only hub-API connections to the server.</li>
 <li>📋 <strong>SRV-46 Peer identity and policy</strong> — who called, from the transport only (SO_PEERCRED, <code>getpeereid</code>, the
   Windows user, a key handed in with a stream, the address), never from <code>ClientMeta</code>; a listener policy (same user by
   default, a uid/gid allow-list, or any user with the identity passed through) with socket modes to match, and an

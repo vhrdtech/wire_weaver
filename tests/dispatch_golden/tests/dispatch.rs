@@ -488,7 +488,10 @@ fn without_a_receiver_model_nothing_is_shared() {
             let event = EventOwned::from_ww_bytes_owned(&reply).expect("an event");
             let error = event.result.expect_err("refused");
             assert_eq!(error.err_seq(), err_seq::REQUEST_NOT_SHARED);
-            assert!(matches!(error.kind, ErrorKindOwned::OperationNotSupported), "{error:?}");
+            assert!(
+                matches!(error.kind, ErrorKindOwned::OperationNotSupported),
+                "{error:?}"
+            );
         }
     }
 }

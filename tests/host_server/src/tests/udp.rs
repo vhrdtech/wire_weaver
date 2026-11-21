@@ -213,3 +213,23 @@ async fn connections_on_many_threads_share_the_socket() {
         soon("a client", client).await.unwrap();
     }
 }
+
+/// A stopped listener (SRV-75) accepts no new host and ends no connection for one, even with every slot taken; the
+/// server ends once its last connection ended.
+#[tokio::test(start_paused = true)]
+async fn a_stopped_listener_keeps_its_connections_and_takes_no_new_host() {
+    let path = "host_server/udp_stop";
+    let listener = UdpListener::<_, 1>::new(Muting::new(path), MESSAGE_LEN_MAX);
+    let stop = listener.stop_handle();
+    let mut bench = start_bench!(listener, Reach::InProcess(path.to_owned()), small(), true);
+    let first = bench.connect().await;
+    assert_eq!(first.whoami().call().await.unwrap(), 0);
+    stop.stop();
+
+    let refused = tokio::time::timeout(Duration::from_secs(5), bench.connect()).await;
+    assert!(refused.is_err(), "a new host is not served");
+    assert_eq!(first.whoami().call().await.unwrap(), 0);
+    drop(first);
+    soon("the server ends", &mut bench.served).await.unwrap();
+    assert_eq!(bench.shared.connections.lock().unwrap().len(), 1);
+}

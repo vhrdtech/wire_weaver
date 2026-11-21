@@ -132,7 +132,7 @@ pub enum FramedError<E> {
 /// [Framing](PacketSink::Framing). Messages and frames go to the [Tap] `T` as they are sent ([NoTap] by default,
 /// which compiles away).
 ///
-/// The framer `F` borrows its frame buffer for `'a` by default ([FramedTx::new]); [OwnedFramedTx] owns it (feature
+/// The framer `F` borrows its frame buffer for `'a` by default ([FramedTx::new]); `OwnedFramedTx` owns it (feature
 /// `std`), for a sender that must not borrow, such as a connection a host server hands out.
 pub struct FramedTx<'a, P: PacketSink, T = NoTap, F = TxFramer<'a, <P as PacketSink>::Framing>> {
     framer: F,
@@ -279,7 +279,7 @@ impl<P: PacketSink, T: Tap, F: FrameWriter<UserKind = u8>> MessageTx for FramedT
 /// [Framing](PacketSource::Framing). Packets are received directly into the framer's buffer, without an extra
 /// copy. Frames and messages go to the [Tap] `T` as they are received ([NoTap] by default, which compiles away).
 ///
-/// The framer `F` borrows its assembly buffer for `'a` by default ([FramedRx::new]); [OwnedFramedRx] owns it
+/// The framer `F` borrows its assembly buffer for `'a` by default ([FramedRx::new]); `OwnedFramedRx` owns it
 /// (feature `std`).
 pub struct FramedRx<'a, P: PacketSource, T = NoTap, F = RxFramer<'a, <P as PacketSource>::Framing>>
 {

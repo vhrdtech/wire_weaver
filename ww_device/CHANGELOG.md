@@ -12,6 +12,7 @@
 
 ### ⚠️ Breaking
 
+- `udp::UdpPeers::accept` takes a datagram buffer (`&mut [u8; UDP_MAX_DATAGRAM_LEN]`); `Shared` and `Direct` carry the address type (`Shared<A, PEERS>`, `Direct<A>`). A fixed slot of a table of several is up without a host: its reads adopt the first one (SRV-69).
 - UDP serves several hosts on one port (SRV-68): `UdpSink::new(peers, slot)` / `UdpSource::new(peers, slot)` and `udp_server(config, peers, slot, ..)` take a slot of a `UdpPeers`; pass `&conn, 0` for a `UdpConnection`. `UdpTx` / `UdpRx` / `UdpServer` take the table reference type, `UdpConnection::peer(slot)`.
 - Declares `rust-version = "1.99"`: cargo of an older Rust refuses the crate.
 - A reply is flushed at once for a request at priority 4 and up (`Priority::URGENT`, EVO-76), read from the request's 3 priority bits; the reserved bit beside them is ignored. Hosts and devices are rebuilt together (`ww_client_server` EVO-76).
@@ -28,6 +29,7 @@
 
 ### 🚀 Features
 
+- `udp::LockedUdpPeers` / `Locked` (feature `std`): a peer table that is `Sync`, so connections accepted from it run on any thread; a slot's source receives straight into its framer (SRV-69).
 - `OwnedFramedTx` / `OwnedFramedRx` (feature `std`): framed media that own their buffers (`FramedTx::owned`, `FramedRx::owned`); `FramedTx` / `FramedRx` take the framer as a type parameter, the borrowing one by default (SRV-69).
 - `udp::StdUdpSocket` (feature `std`, SRV-68): a `DatagramSocket` on `std::net::UdpSocket` for any event loop, which tells readiness through `udp::Readiness`.
 - `udp::UdpPeers<S, PEERS>` (SRV-68): a link per host address on one socket, a firmware's fixed slots or a host program's `accept()`ed connections.

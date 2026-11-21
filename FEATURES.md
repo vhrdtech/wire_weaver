@@ -632,8 +632,7 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   (`wait`, `next_wake`, `poll`: observed properties) and `Fanout`, one sender with a queue per subscriber,
   `Server::accepting` for connections the program spawns as tasks of a multi-threaded runtime
   ([Host server](docs/api/host_server.md), `tests/host_server`, `ww_local_socket/tests/activation.rs`).
-  A write behind slow calls waits without a bound until a request's own deadline (SRV-47, `TODO(SRV-47)`) ends
-  it; byte-stream listeners (TCP, stdio, local socket, WebSocket framing) are TR-19; the hub moving onto it is SRV-67.
+  A write behind slow calls waits until they finish or their deadline ends them (SRV-47); byte-stream listeners (TCP, stdio, local socket, WebSocket framing) are TR-19; the hub moving onto it is SRV-67.
 - 📋 **SRV-9 Handle USB suspend/resume** · `v0.5` — run until suspend, wait for resume, loop
   (`mcu/wire_weaver_usb_embassy`). Later (`v0.5.x`): detect the host going to sleep and keep the connection,
   informing the device.
@@ -652,10 +651,19 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   default, a uid/gid allow-list, or any user with the identity passed through) with socket modes to match, and an
   authorization hook run before any handler with the resource's path and `ww_self` metadata (SRV-34 claims). Feeds
   SRV-37.
-- 📋 **SRV-47 Request context on the wire** — optional request extensions (W3C trace context, deadline budget),
-  `RequestKind::Cancel` and the error kinds `Denied`, `DeadlineExceeded`, `Cancelled`, `Overloaded`, `Internal`:
-  appended forms that a side sends only after the other announced them in link setup, so existing bytes don't change.
-  The client fills them from its tracing span and call timeout, the server opens a span per request.
+- 🚧 **SRV-47 Request context on the wire** · `v0.5` — a request carries an optional context (W3C trace context,
+  deadline budget), `RequestKind::Cancel` drops one, and the error kinds `Denied`, `DeadlineExceeded`, `Cancelled`,
+  `Internal` are appended (EVO-84). The server announces in link setup that it reads contexts
+  (`DeviceInfo::request_context`), the client its `ww_client_server` wire version (`LinkSetup::host_model_wire`):
+  a client sends contexts and cancels only to such a server, and the server's new kinds reach an older client as
+  `UserStr` (`ErrorKind::for_client`). Done: `wire_weaver_server` drops a request at its deadline, queued or
+  running, and on a cancel, answering `DeadlineExceeded` / `Cancelled`, which bounds D4's barrier; handlers read
+  the trace and the deadline left from `cx.call()`; the client sends its timeout as the deadline and
+  `with_call_context`'s trace, and cancels a request that timed out or whose `call()` was dropped
+  ([Host server](docs/api/host_server.md#deadline-and-cancel), `tests/host_server`). Firmware is unchanged and
+  never announces contexts. Missing: the trace taken from the current `tracing` span (needs OpenTelemetry ids), a
+  span per request in the server (RED metrics), the trace on a stream open, the tap and `ww monitor` showing
+  contexts.
 - 📋 **SRV-49 Server forwarding to the local trait** — `ww_codegen!(.., server = true, serve_trait = "..")`
   generates a std server that forwards every request to one shared implementation of the API's local trait
   (CLT-57), the same one in-process callers use: requests of a connection run concurrently, started in order with
@@ -1820,13 +1828,14 @@ Unicast Data0 to one node over the same bus is TR-6.
   mismatch (test `wire_weaver_evolution` `old_format`). Format 0.3.0 had held about 40 encodings: every stored
   snapshot was rewritten once into 0.4.0 ([snapshots](docs/evolution/snapshots.md#model-format)). No device or
   host depends on an older format.
-- 🚧 **EVO-84 Request context on the wire** · `v0.5` — wire change of `ww_client_server` (line `w2.1`) behind
+- ✅ **EVO-84 Request context on the wire** · `v0.5` — wire change of `ww_client_server` (line `w2.1`) behind
   SRV-47: the reserved bit after `Request::priority` is the flag of an optional `RequestContext` (trace, deadline),
   `RequestKind::Cancel` and the error kinds `Denied`, `DeadlineExceeded`, `Cancelled`, `Internal` are appended. A
   request without a context has the old bytes; the sealed case `client_server.request.highest_reserved` set the bit
   and reads as a context now (`wire_change`). Conformance cases `client_server.request.context_*`, `.cancel`,
-  `client_server.error.denied` and the three after it. Missing: the link-setup fields that announce both sides read
-  the new forms.
+  `client_server.error.denied` and the three after it. Both sides announce in link setup what they read
+  (`device_info.request_context`, `link_setup.model_wire`, appended with defaults; the sealed
+  `link_setup.wire_version` is decode-only now, as encoding its `None` writes a flag).
 - ✅ **EVO-83 `ErrorKind::Overloaded` appended** · `v0.5` — wire addition to `ww_client_server`'s `ErrorKind`, no
   break: `Overloaded` comes after `Common`, at the new request site `err_seq::REQUEST_OVERLOADED` (63). A host
   server (SRV-12) answers with it a request it refused for its load before any handler ran. An older host reads it

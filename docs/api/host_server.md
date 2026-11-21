@@ -90,7 +90,8 @@ never calls the shared ones, and its image is the same size with them.
 ### Who asked
 
 `Connection::origin()` is the `CallContext` of the connection: its peer and its id. The connection passes it with
-every request, and a handler reads it from `cx.call()`, with the request's own `seq` and priority:
+every request, and a handler reads it from `cx.call()`, with the request's own `seq`, priority, trace and what is
+left of its [deadline](#deadline-and-cancel):
 
 ```rust
 async fn whoami(&self, cx: &mut Context<'_, impl EventOut>) -> RpcResult<u32> {
@@ -300,13 +301,36 @@ The requests of one connection start in the order they arrive. How they run depe
 A server without a `receiver_model` runs every request alone, one at a time. In every case a slow handler delays
 only the later requests of its own connection, never another connection.
 
-A request that runs alone waits for the shared ones before it however long they take. So one slow call holds up
-every request after the next write on the same connection. An API with calls that take long should make such a call
-a stream, or the client should send its writes on another connection.
+A request that runs alone waits for the shared ones before it until they finish or their deadline ends them. So one
+slow call holds up every request after the next write on the same connection, for as long as the call's deadline
+allows. An API with calls that take long should make such a call a stream, or the client should send its writes on
+another connection.
 
 While a handler runs, the connection keeps working. It reads further requests into a queue, answers the pings of the
 link and writes out the events that the handler sends, such as stream items. A handler can send as many events as it
 likes before it returns its reply, and the client receives them in order, before the reply.
+
+## Deadline and cancel
+
+A client tells the server how long it waits for each request, and the server stops working on requests nobody waits
+for any more:
+
+- **Deadline.** A request carries what was left of the client's timeout when it was sent. The server drops the
+  request when that time runs out, whether it still waits in the queue or its handler runs, and answers
+  `DeadlineExceeded`. A handler that is dropped stops at the `.await` where it waits; a write that was still queued
+  never runs.
+- **Cancel.** When a client gives up on a request (its timeout passed, or the future of a `call()` was dropped), it
+  sends a cancel for it. The server drops the request, queued or running, and answers `Cancelled`. A request that
+  finished already is not answered again.
+- **Trace.** A client that calls with `with_call_context(&cx)` sends `cx.trace`, the W3C trace context of its span.
+  A handler reads it from `cx.call().trace`, next to `cx.call().deadline`.
+
+These terms travel in the request's context, an optional part of the request on the wire. The server says in link
+setup that it reads contexts, and only then does a client send them; a firmware never says so, so devices get the
+requests as before. The errors a server answers with (`DeadlineExceeded`, `Cancelled`, `Denied`, `Internal`) reach a
+client whose `ww_client_server` predates them as a `UserStr` with the same text. The client maps both kinds to the
+`CallError` of the same name; its own timeout is `DeadlineExceeded` too, so a caller sees one kind whichever side
+gave up first.
 
 ## Sending without being asked
 

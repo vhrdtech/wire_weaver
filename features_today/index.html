@@ -1870,6 +1870,8 @@
       
         
       
+        
+      
     
     
     
@@ -2199,6 +2201,33 @@
     
   
   Batching streams and properties
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/totals/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Running totals
 
     
   </span>
@@ -6614,6 +6643,7 @@ in either direction. WireWeaver generates the device's server and the host's cli
 <li><strong><a href="../api/observing/#every-sample-batched">Observing every sample</a></strong>: A fast property's every sample, each at its time, in compressed batches; typed and dynamic clients, the CLI and Python.</li>
 <li><strong><a href="../api/observing/#every-sample-batched">One clock per observed level</a></strong>: The samples of a level's properties share one time column per update: about a third fewer bytes and half the encoding CPU.</li>
 <li><strong><a href="../api/observing/#levels-under-resource-arrays">Observing elements of resource arrays</a></strong>: Observe a property of one element of an array (<code>players[2].state</code>): updates for that element only, and a removed element ends its observers.</li>
+<li><strong><a href="../api/totals/">Running totals</a></strong>: A pointer or scroll wheel over UDP: each sink write carries the sum so far, so a lost write loses nothing and nothing waits.</li>
 <li><strong><a href="../api/folder_structure/">The API crate prelude <code>ww_api</code></a></strong>: An API crate depends on <code>ww_api</code>, not the runtime: the macros, <code>shrink_wrap</code> and the common types in one prelude, checked by the layer lint.</li>
 <li><strong><a href="../api/arrays/">Keyed resource arrays</a></strong>: Address the elements of an array by a key (<code>keyed!(flow by FlowKey)</code>) instead of the index the device gave them.</li>
 <li><strong><a href="../api/observing/#cells-sampling-from-an-interrupt">Observe cells</a></strong>: Sample a level from an interrupt in place, value by value into a ring of atomics: a quarter of the cycles and a tenth of the stack of <code>sample()</code> at opt-level z, the same wire.</li>
@@ -6662,8 +6692,10 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 <li><strong><a href="../api/methods/#deferred">Deferred replies everywhere</a></strong>: Answer a call later, also on nested trait levels.</li>
 <li><strong><a href="../transport/ww_framer/#latency-and-priority">Replies by priority</a></strong>: A reply to an urgent request leaves at once, also a deferred one sent later from your main loop; <code>Sink::flush</code> sends what waits now. <span class="ww-status">hardware check open</span></li>
 <li><strong><a href="../api/errors/#where-on-the-device-an-error-came-from">Errors that say where</a></strong>: A device's error names the site that raised it, by a number that is the same in every firmware.</li>
+<li><strong><a href="../api/host_server/#deadline-and-cancel">Deadline and cancel</a></strong>: A request carries the client's timeout and trace: a host server drops it when the time runs out or the client gives up, queued or running, and handlers read both from <code>cx.call()</code>. <span class="ww-status">in progress</span></li>
 <li><strong><a href="../api/local_trait/#who-asked-callcontext">Who asked</a></strong>: Every call carries a small <code>CallContext</code>: the peer as the transport saw it, priority, deadline and trace, the same for a request a server handles and a call in the same process.</li>
 <li><strong><a href="../api/host_server/">Host server</a></strong>: One API served to many clients at once on any async runtime, in-process or on a local socket (also under systemd socket activation): a backend per connection, calls side by side, streams that flow while calls run, limits that push back, graceful shutdown.</li>
+<li><strong><a href="../api/host_server/#hosts-on-udp">Hosts on UDP</a></strong>: A host server takes a connection per host of one UDP socket, on any thread of a multi-threaded runtime.</li>
 <li><strong><a href="../api/handlers/">Sync handlers in an async server</a></strong>: Handlers that never wait are plain <code>fn</code>s, only the ones that await are <code>async</code>: less flash.</li>
 <li><strong><a href="../api/handlers/#shared-and-exclusive-handlers">Shared handlers</a></strong>: Calls and reads of the items you mark shared take <code>&amp;self</code>, so a host server can run them side by side; the rest stays <code>&amp;mut self</code>.</li>
 <li><strong><a href="../api/observing/#the-device-side">Observed properties</a></strong>: The device sends property changes within the budget each host asked for.</li>
@@ -7033,6 +7065,7 @@ feature tracker.</p>
 
 <ul>
 <li><strong><a href="../serdes/conformance/">Conformance matrix</a></strong>: One corpus of golden bytes every wire-format implementation must match: derive (owned and borrowed), dynamic client, Python, C; guarded against a sealed case changing and against a wire kind going untested.</li>
+<li><strong><a href="../transport/udp/#simulated-udp-in-tests">Lossy test medium</a></strong>: Simulated UDP that drops and reorders the host's datagrams on a plan the test gives, on the paused clock. <span class="ww-status">in progress</span></li>
 <li><strong><a href="../serdes/conformance/">Dispatcher golden replies</a></strong>: One corpus of golden request/reply bytes covering every resource kind the dispatcher serves, checked against a sync and an async server and guarded against a sealed case changing.</li>
 <li><strong><a href="../serdes/code_size/">Code size bench</a></strong>: Firmware images per case for RISC-V and Cortex-M, measured on every change.</li>
 <li><strong>Binary size tracking</strong>: Flash and RAM per feature in CI. <span class="ww-status">in progress</span></li>

@@ -338,14 +338,14 @@ fn start(name: &str, linger: Duration, sync_linger: Option<Duration>) -> Bench {
     }
 }
 
-/// The device's entry in `ClockSync::devices`, once `f` holds for it (within 3 s).
+/// The device's entry in `ClockSync::devices`, once `f` holds for it. No wall-clock budget: a hang is caught by
+/// nextest's hang detector.
 async fn sync_entry(
     hub: &HubClient,
     key: &str,
-    what: &str,
     f: impl Fn(&SyncEntryOwned) -> bool,
 ) -> SyncEntryOwned {
-    for _ in 0..300 {
+    loop {
         let entries = hub.sync().devices().call().await.unwrap();
         if let Some(e) = entries.into_iter().find(|e| e.key == key)
             && f(&e)
@@ -354,19 +354,13 @@ async fn sync_entry(
         }
         tokio::time::sleep(Duration::from_millis(10)).await;
     }
-    panic!("{what}: not within 3 s");
 }
 
-/// Yields to the other tasks and threads until `f` holds: bounded by yields (no wall-clock budget), a hang is
-/// caught by nextest.
-async fn until(what: &str, f: impl Fn() -> bool) {
-    for _ in 0..1_000_000 {
-        if f() {
-            return;
-        }
+/// Waits until `f` holds. No wall-clock budget: a hang is caught by nextest's hang detector.
+async fn until(f: impl Fn() -> bool) {
+    while !f() {
         tokio::time::sleep(Duration::from_millis(1)).await;
     }
-    panic!("{what}: never");
 }
 
 async fn is_open(hub: &HubClient, key: &str) -> bool {
@@ -392,7 +386,7 @@ async fn the_hub_steers_and_keeps_the_device_open() {
     let client = bench.client().await;
     assert_eq!(client.add(1, 2).call().await.unwrap(), 3);
 
-    let e = sync_entry(&hub, &bench.key, "steered and checked", |e| {
+    let e = sync_entry(&hub, &bench.key, |e| {
         e.phase == SyncPhaseOwned::Steering && e.steers > 0 && e.followed.is_some()
     })
     .await;
@@ -421,10 +415,7 @@ async fn the_hub_steers_and_keeps_the_device_open() {
         "a steered device lingers for the sync linger"
     );
     let steers = bench.clock.lock().unwrap().steers;
-    until("still steered without clients", || {
-        bench.clock.lock().unwrap().steers > steers
-    })
-    .await;
+    until(|| bench.clock.lock().unwrap().steers > steers).await;
 
     // linger 0: only while clients are connected, so the plain linger closes it
     hub.sync().write_linger(Some(0)).write().await.unwrap();
@@ -446,14 +437,14 @@ async fn steering_switched_off_and_on() {
     let hub = bench.hub().await;
     let client = bench.client().await;
     assert_eq!(client.add(1, 2).call().await.unwrap(), 3);
-    sync_entry(&hub, &bench.key, "steered", |e| e.steers > 0).await;
+    sync_entry(&hub, &bench.key, |e| e.steers > 0).await;
 
     hub.sync()
         .set_enabled(Some(bench.key.clone()), false)
         .call()
         .await
         .unwrap();
-    sync_entry(&hub, &bench.key, "off", |e| e.phase == SyncPhaseOwned::Off).await;
+    sync_entry(&hub, &bench.key, |e| e.phase == SyncPhaseOwned::Off).await;
     let steers = bench.clock.lock().unwrap().steers;
     tokio::time::sleep(Duration::from_millis(300)).await;
     assert_eq!(
@@ -464,18 +455,12 @@ async fn steering_switched_off_and_on() {
 
     // on for every device again
     hub.sync().set_enabled(None, true).call().await.unwrap();
-    sync_entry(&hub, &bench.key, "steered again", |e| {
-        e.phase == SyncPhaseOwned::Steering
-    })
-    .await;
-    until("steered again", || {
-        bench.clock.lock().unwrap().steers > steers
-    })
-    .await;
+    sync_entry(&hub, &bench.key, |e| e.phase == SyncPhaseOwned::Steering).await;
+    until(|| bench.clock.lock().unwrap().steers > steers).await;
 
     // off again, the client leaves: closed after the plain linger although the sync linger is forever
     hub.sync().set_enabled(None, false).call().await.unwrap();
-    sync_entry(&hub, &bench.key, "off", |e| e.phase == SyncPhaseOwned::Off).await;
+    sync_entry(&hub, &bench.key, |e| e.phase == SyncPhaseOwned::Off).await;
     client.cmd.disconnect().asynch().await.unwrap();
     while is_open(&hub, &bench.key).await {
         // nextest's hang detector ends a device that never closes
@@ -493,7 +478,7 @@ async fn a_root_claim_pauses_steering() {
     let hub = bench.hub().await;
     let client = bench.client().await;
     assert_eq!(client.add(1, 2).call().await.unwrap(), 3);
-    sync_entry(&hub, &bench.key, "steered", |e| e.steers > 0).await;
+    sync_entry(&hub, &bench.key, |e| e.steers > 0).await;
 
     let claim = hub
         .claims()
@@ -501,13 +486,10 @@ async fn a_root_claim_pauses_steering() {
         .call()
         .await
         .expect("root claimed");
-    let e = sync_entry(&hub, &bench.key, "paused", |e| {
-        e.phase == SyncPhaseOwned::Paused
-    })
-    .await;
+    let e = sync_entry(&hub, &bench.key, |e| e.phase == SyncPhaseOwned::Paused).await;
     let steers = bench.clock.lock().unwrap().steers;
     // still read while paused
-    sync_entry(&hub, &bench.key, "read on", |p| p.samples > e.samples).await;
+    sync_entry(&hub, &bench.key, |p| p.samples > e.samples).await;
     assert_eq!(
         bench.clock.lock().unwrap().steers,
         steers,
@@ -515,20 +497,8 @@ async fn a_root_claim_pauses_steering() {
     );
 
     hub.claims().release(claim).call().await.unwrap();
-    sync_entry(&hub, &bench.key, "steered again", |e| {
-        e.phase == SyncPhaseOwned::Steering
-    })
-    .await;
-    for _ in 0..300 {
-        if bench.clock.lock().unwrap().steers > steers {
-            break;
-        }
-        tokio::time::sleep(Duration::from_millis(10)).await;
-    }
-    assert!(
-        bench.clock.lock().unwrap().steers > steers,
-        "steered after the release"
-    );
+    sync_entry(&hub, &bench.key, |e| e.phase == SyncPhaseOwned::Steering).await;
+    until(|| bench.clock.lock().unwrap().steers > steers).await;
     drop(client);
     drop(hub);
     bench.stop().await;

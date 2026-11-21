@@ -1703,6 +1703,8 @@
       
         
       
+        
+      
     
     
     
@@ -1910,6 +1912,33 @@
     
   
   Local trait
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../host_server/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Host server
 
     
   </span>
@@ -6345,6 +6374,8 @@
       
         
       
+        
+      
     
     
     
@@ -6503,7 +6534,10 @@ and answers later with <code>&lt;method&gt;_send_return</code>, as before.</p>
 <p><code>process_request_from</code> and <code>process_shared_from</code> take the connection's <code>origin: &amp;CallContext</code> (its peer and
 connection id) before the bytes; handlers read it from <code>cx.call()</code>, with the request's own <code>seq</code> and <code>priority</code>. The
 plain entries pass a peer the transport doesn't identify. A host runtime calls them through
-<code>wire_weaver::WireWeaverSharedApiBackend</code>.</p>
+<code>wire_weaver::WireWeaverSharedApiBackend</code> (<a href="../host_server/#the-backends-entries">host server</a>).</p>
+<p>A server without a model has the same entries, so a host runtime serves it the same way: its <code>is_shared</code> says no to
+every request, and its shared entries answer anything with <code>OperationNotSupported</code> at <code>err_seq::REQUEST_NOT_SHARED</code>.
+A firmware's image is the same size with them (<code>just flash-budget</code>).</p>
 <p>A firmware doesn't call the new entries. They are generic over the event sink, so one that isn't called is never
 compiled in, and <code>process_request_bytes</code> is the same code as without a model.</p>
 <p>A shared item whose handler takes <code>&amp;mut self</code> doesn't compile: the error points at the <code>ww_codegen!</code> call.</p>

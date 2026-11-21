@@ -31,6 +31,9 @@
         <loc>https://ww.vhrd.tech/api/handlers/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/api/host_server/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/api/introspection/</loc>
       </url>
       <url>

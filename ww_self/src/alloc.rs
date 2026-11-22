@@ -91,15 +91,11 @@ impl ApiItemOwned {
             return effects;
         }
         match &self.kind {
-            ApiItemKindOwned::Property { access, .. }
-                if matches!(
-                    access,
-                    PropertyAccess::Const | PropertyAccess::ReadOnly { .. }
-                ) =>
-            {
-                Effects::READ
+            ApiItemKindOwned::Property {
+                access: PropertyAccess::Const | PropertyAccess::ReadOnly { .. },
+                ..
             }
-            ApiItemKindOwned::Stream { is_up: true, .. }
+            | ApiItemKindOwned::Stream { is_up: true, .. }
             | ApiItemKindOwned::StreamFn { .. }
             | ApiItemKindOwned::Keys { .. } => Effects::READ,
             _ => Effects::NONE,

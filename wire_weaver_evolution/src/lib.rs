@@ -1812,6 +1812,7 @@ mod tests {
     mod in_place;
     mod keyed;
     mod moved_from;
+    mod older_format;
     mod root_cause;
     mod superseded;
     mod transparent;

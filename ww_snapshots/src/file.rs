@@ -160,14 +160,27 @@ pub fn parse(text: &str) -> Result<Snapshot> {
     })
 }
 
-/// Older model formats this build reads: since each of them the model only gained fields with a `#[default]`, which
-/// RON fills in. Such a file's hash still has to match its re-encoded bytes, which holds while the new fields are at
-/// their default where the old format had nothing for them.
-/// - `0.4.0`: `Meta::effects` (API-58).
-const READABLE_OLDER_FORMATS: [VersionTriplet; 1] = [VersionTriplet::new(0, 4, 0)];
+/// Older model formats this build reads, each with the fields of the model it doesn't have, as (serde name of the
+/// struct, field). Since each of them the model only gained fields with a `#[default]`, which RON fills in. Such a
+/// file's hash still has to match its re-encoded bytes, which holds while the new fields are at their default where
+/// the old format had nothing for them.
+const READABLE_OLDER_FORMATS: [(VersionTriplet, &[(&str, &str)]); 1] = [(
+    VersionTriplet::new(0, 4, 0),
+    // API-58
+    &[("MetaOwned", "effects")],
+)];
+
+/// Fields of the model, as (serde name of the struct, field), that a file of model `format` doesn't have: added in a
+/// later format. None for the current format and for one this build doesn't read.
+pub fn fields_missing_from(format: &VersionTriplet) -> &'static [(&'static str, &'static str)] {
+    READABLE_OLDER_FORMATS
+        .iter()
+        .find(|(older, _)| older == format)
+        .map_or(&[], |(_, missing)| missing)
+}
 
 /// Checks that a snapshot's text is in a model format this build reads ([ww_self::VERSION], or one of
-/// [READABLE_OLDER_FORMATS]), before the rest of it is read, and returns it: a file of another format is refused
+/// `READABLE_OLDER_FORMATS`), before the rest of it is read, and returns it: a file of another format is refused
 /// with the step that re-saves it.
 pub fn check_format(text: &str) -> Result<VersionTriplet> {
     // the field is at the top of the file: reading it alone spares a second parse of the whole bundle
@@ -177,7 +190,11 @@ pub fn check_format(text: &str) -> Result<VersionTriplet> {
     let end = rest.find(')').map_or(rest.len(), |i| i + 1);
     let format: VersionTriplet =
         ron::from_str(&rest[..end]).map_err(|e| anyhow!("parsing `{FORMAT_FIELD}`: {e}"))?;
-    if format != ww_self::VERSION && !READABLE_OLDER_FORMATS.contains(&format) {
+    if format != ww_self::VERSION
+        && !READABLE_OLDER_FORMATS
+            .iter()
+            .any(|(older, _)| *older == format)
+    {
         bail!(
             "saved in model format {}, this tool reads {}: re-save it (`ww api save` in the crate at the commit of \
              that version)",

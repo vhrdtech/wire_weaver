@@ -1815,6 +1815,7 @@ mod tests {
     mod older_format;
     mod root_cause;
     mod superseded;
+    mod trait_identity;
     mod transparent;
     mod wire_lines;
     mod ww_si_fixed;

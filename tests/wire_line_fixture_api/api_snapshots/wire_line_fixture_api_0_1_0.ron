@@ -1,6 +1,6 @@
 // wire_line_fixture_api 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: ba4c3d0e2025d8c6c47806645a29ef5ad78fbeab43f630ffacd330954544e592
+// shrink_wrap sha256: da2592cbbe056997bfdd225138841cf61887313ae8c3c6d0fbce65546852c920
 (magic: 2837124336, ww_self_version: (major: 0, minor: 6, patch: 0), root: (docs: [
     "Stands in for a real `ww_stdlib` crate (R7) in `wire_weaver_client`\'s EVO-26 tests: a sub-trait whose `#[since]`",
     "names a revision of *this crate\'s own* wire line (`w2.0`), not its API root\'s.",

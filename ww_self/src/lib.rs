@@ -238,11 +238,13 @@ pub struct ErrorVariant<'i> {
 
 /// Typed attributes of an [ApiItem] or an [ApiLevel] that don't change the wire contract (SRV-34): checked by the
 /// codegen like `#[optional]` and `#[errors]`, carried in introspection, read by the hub, `ww` and GUIs. See
-/// `docs/api/metadata.md`. New attributes are new fields here, appended with a `#[default]`.
+/// `docs/api/metadata.md`. New attributes are new fields here, appended with a `#[default]`. `elide_defaults` leaves
+/// the trailing ones at their defaults off the wire, so a new attribute changes no bytes or signatures where unused.
 #[derive_shrink_wrap(
     owned(feature = "std"),
     cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
-    derive(Clone, Debug, PartialEq, Default)
+    derive(Clone, Debug, PartialEq, Default),
+    elide_defaults
 )]
 pub struct Meta<'i> {
     /// `#[claim(mode)]` on a `ww_impl!` or a trait definition: a client can claim the resource through the hub, and

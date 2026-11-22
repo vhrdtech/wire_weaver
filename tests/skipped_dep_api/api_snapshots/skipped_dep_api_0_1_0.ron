@@ -1,6 +1,6 @@
 // skipped_dep_api 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: c68dd9806df65f404b01fba14045a8e238c0bf27d4356dbfafb2ba34a66b5c0a
+// shrink_wrap sha256: 10db1bfd9947f883813b07f2c692d1720695356b25b81cd16cff073c2c6c9a34
 (magic: 2837124336, ww_self_version: (major: 0, minor: 6, patch: 0), root: (docs: [
     "Stands in for a standard library crate (R7) in `wire_weaver_core`\'s snapshot tests: an API using these traits",
     "leaves their definitions out against this crate\'s snapshot. `Port` refers to `ww_si` quantities (which refer to",

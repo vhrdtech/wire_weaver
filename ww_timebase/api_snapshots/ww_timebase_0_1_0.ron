@@ -1,6 +1,6 @@
 // ww_timebase 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: dc292c567bb3cd6dbf8f854e6c58773e6d95e027a80d7f0bc5dc8682625be0bd
+// shrink_wrap sha256: 525fce710ab06bda55b19fcfeeafc20f4a901b3dabfb6b226fcb3f31a812da6c
 (magic: 2837124336, ww_self_version: (major: 0, minor: 6, patch: 0), root: (docs: [
     "Device time and synchronisation over WireWeaver.",
     "",

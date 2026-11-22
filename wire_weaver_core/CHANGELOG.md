@@ -10,6 +10,7 @@
 
 ### ⚠️ Breaking
 
+- A local trait whose API has a nested level needs `#[ww_trait(local = "Name")]` on that level's definition (CLT-58).
 - `#[effect(..)]` is required on every method, writable property and sink, on the item or its trait (API-58); the codegen refuses an API without it.
 - Generated multi-request code builds each item's `Request` with `context: Default::default()` (SRV-47, EVO-84): an item carries no context of its own; the request around it does.
 - `method_model`/`property_model` strings with text pest used to skip (typo, `;`, `+model`, `a=x b=y`) no longer compile.
@@ -27,6 +28,11 @@
 
 ### 🚀 Features
 
+- `GenServerConfigRaw::async_valid_indices`: valid indices from `async fn valid_indices_..(&self, cx, ..) -> Result<ValidIndicesOwned, Failure>` (CLT-58).
+- The local trait covers nested levels and resource arrays (CLT-58): a trait per level, `#[ww_trait(local = "..")]`, reached by accessors; `serve_trait` forwards every item.
+- A `keyed!` array's local trait has `<array>_index_of`, `<array>_key`, `<array>_keys` and a provided `<array>_by`; `serve_trait` forwards them (CLT-58).
+- `GenServerConfigRaw::keys_stream_handlers`: handlers open and close a `keyed!` array's `keys` stream (CLT-58).
+- The std client of a `keyed!` array has `<array>_index_of(&key)` and `_blocking` (CLT-58).
 - `load_root` and `CrateCache::load_root` load a root of `retired_roots` by name, to compare its kept module with its last snapshot (TOOL-33).
 - `gen_local_trait` and `gen_local_trait_client_impl` take `send`: without it the trait, its companion and its streams drop `Send` (SRV-73).
 - `codegen::serve_trait`: forwarding handlers, stream pumps and backend impls of a `serve_trait` server (SRV-49).
@@ -50,6 +56,7 @@
 
 ### 🐛 Fixes
 
+- The std client of an array of properties takes the element's index: `read_x(index)`, `write_x(index, value)`, `observe_x(index)` (CLT-58).
 - A `serve_trait` stream whose trait stream ends sends `Close`, so the client's item stream ends too (SRV-49).
 - Generated code names a type of `ww_api` itself as `wire_weaver::ww_api::X`, not `wire_weaver::ww_api::ww_api::X` (API-70).
 - Model strings parse without pest: a string that used to parse wrongly without a word is now a `line:column` error; every model string in WireWeaver's repositories still parses.

@@ -90,13 +90,13 @@ async fn to_end<T: Send + 'static>(work: impl Future<Output = T> + Send + 'stati
 }
 
 /// The pump of `Registry::events`.
-const EVENTS: PumpId = PumpId(0);
+const EVENTS: PumpId = PumpId::new(0);
 /// The pump of `ClockSync::stats`.
-const SYNC_STATS: PumpId = PumpId(1);
+const SYNC_STATS: PumpId = PumpId::new(1);
 
 /// The pump of watch `w`'s records.
 fn watch_pump(w: u32) -> PumpId {
-    PumpId(2 + u64::from(w))
+    PumpId::new(2 + u64::from(w))
 }
 
 mod server {

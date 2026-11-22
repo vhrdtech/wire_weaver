@@ -12,12 +12,15 @@ repository.workspace = true
 [dependencies]
 futures-lite.workspace = true
 serve_trait_api = { workspace = true, features = ["local"] }
+serve_trait_gauge_api = { workspace = true, features = ["local"] }
+serve_trait_levels_api = { workspace = true, features = ["local"] }
 tokio = { workspace = true, features = ["sync"] }
 wire_weaver = { workspace = true, features = ["std"] }
 wire_weaver_client.workspace = true
 wire_weaver_server.workspace = true
 ww_client_server.workspace = true
 ww_device.workspace = true
+ww_keyed = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
 tests_common.workspace = true

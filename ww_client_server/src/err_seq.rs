@@ -129,6 +129,8 @@ pub const LEVEL_NOT_SUPPORTED: u32 = 44;
 pub const LEVEL_INDICES_SER: u32 = 45;
 /// The answer's header didn't fit into the scratch buffer.
 pub const REPLY_START: u32 = 46;
+/// The valid indices of an array came from a local trait (CLT-58) that failed: the answer is its error.
+pub const LEVEL_INDICES_FAILED: u32 = 47;
 
 /// A global trait path to a trait this device doesn't implement in a compatible version (API-20).
 pub const REQUEST_TRAIT_NOT_FOUND: u32 = 48;
@@ -248,6 +250,7 @@ impl Site {
             LEVEL_NOT_SUPPORTED => "a trait level doesn't take this request",
             LEVEL_INDICES_SER => "valid indices too big",
             REPLY_START => "answer header too big",
+            LEVEL_INDICES_FAILED => "valid indices failed",
             REQUEST_TRAIT_NOT_FOUND => "global trait not found",
             REQUEST_PATH_TOO_DEEP => "path too deep",
             MULTI_PATH_TOO_DEEP => "multi request: path too deep",

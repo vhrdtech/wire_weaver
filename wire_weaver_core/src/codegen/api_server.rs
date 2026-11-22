@@ -207,6 +207,14 @@ pub struct GenServerConfigRaw {
     pub crate_paths: crate::transform::CratePaths,
     /// Which global trait paths the server resolves itself (SRV-53), `global_paths = ".."`.
     pub global_paths: GlobalPaths,
+    /// The valid indices of resource arrays come from `async fn valid_indices_..(&self, cx: &CallContext, ..) ->
+    /// Result<ValidIndicesOwned, Failure>`, with the request's call context: what `serve_trait` generates from the
+    /// local traits (CLT-58). Needs `use_async`.
+    pub async_valid_indices: bool,
+    /// The `keys` stream of a `keyed!` array is opened, closed and given sideband by handlers, as a plain stream is
+    /// (`<array>_keys`, `close_<array>_keys`, `sideband_<array>_keys`), instead of by the generated code alone: what
+    /// `serve_trait` generates from the local traits (CLT-58).
+    pub keys_stream_handlers: bool,
 }
 
 impl From<GenServerConfig> for GenServerConfigRaw {
@@ -232,6 +240,8 @@ impl From<GenServerConfig> for GenServerConfigRaw {
             observe_samples: config.observe_samples,
             crate_paths: config.crate_paths,
             global_paths: config.global_paths,
+            async_valid_indices: false,
+            keys_stream_handlers: false,
         }
     }
 }
@@ -331,6 +341,8 @@ pub fn gen_server(
         medium_ty: medium_ty.clone(),
         receivers,
         shared: false,
+        async_valid_indices: config.async_valid_indices && config.use_async,
+        keys_stream_handlers: config.keys_stream_handlers,
     };
     let (introspect_enabled, include_docs) = match config.introspect_mode {
         IntrospectMode::Disabled => (false, false),
@@ -1604,6 +1616,10 @@ struct ApiServerCGContext<'i> {
     receivers: Receivers<'i>,
     /// Whether this is the `&self` tree of shared items (`process_shared_<level>`), not the `&mut self` one
     shared: bool,
+    /// [GenServerConfigRaw::async_valid_indices]
+    async_valid_indices: bool,
+    /// [GenServerConfigRaw::keys_stream_handlers]
+    keys_stream_handlers: bool,
 }
 
 impl<'i> ApiServerCGContext<'i> {
@@ -1688,47 +1704,56 @@ fn level_awaits(
     let in_tree = |level_path: &[String], ident: &str, kind: &ApiItemKindOwned| {
         !cx.shared || cx.receivers.shared_as(level_path, ident, kind).is_some()
     };
-    level.items.iter().any(|item| match &item.kind {
-        ApiItemKindOwned::Trait { .. } => {
-            level_path.push(item.ident.clone());
-            let awaits = level_awaits(
-                api_bundle,
-                item.get_as_level(api_bundle).unwrap(),
-                level_path,
-                cx,
-            );
-            level_path.pop();
-            awaits
-        }
-        ApiItemKindOwned::Property {
-            access: PropertyAccess::Const,
-            ..
-        } => false,
-        // a reliable stream's store is async
-        ApiItemKindOwned::StreamFn {
-            delivery: Delivery::Reliable,
-            ..
-        } => cx.use_async && !cx.shared,
-        // credit sideband events are sent from the dispatch
-        ApiItemKindOwned::FlowSink {
-            flow: FlowControl::Credit,
-            ..
-        } => cx.use_async && !cx.shared,
-        ApiItemKindOwned::Keys { .. } => keys_level_of(level, item).is_ok_and(|(keys, _)| {
-            level_path.push(item.ident.clone());
-            let awaits = keys
-                .items
-                .iter()
-                .filter(|k| keys_handler_items(&keys).any(|ident| ident == k.ident))
-                .filter(|k| in_tree(level_path, &k.ident, &k.kind))
-                .any(|k| cx.handlers.is_async(&dotted(level_path, &k.ident)));
-            level_path.pop();
-            awaits
-        }),
-        kind => {
-            in_tree(level_path, &item.ident, kind)
-                && cx.handlers.is_async(&dotted(level_path, &item.ident))
-        }
+    // the array's valid indices are asked before its element is reached
+    let indices_await = |item: &ApiItemOwned| {
+        cx.async_valid_indices && item.is_array() && cx.has_arm(api_bundle, level, item)
+    };
+    level.items.iter().any(|item| {
+        indices_await(item)
+            || match &item.kind {
+                ApiItemKindOwned::Trait { .. } => {
+                    level_path.push(item.ident.clone());
+                    let awaits = level_awaits(
+                        api_bundle,
+                        item.get_as_level(api_bundle).unwrap(),
+                        level_path,
+                        cx,
+                    );
+                    level_path.pop();
+                    awaits
+                }
+                ApiItemKindOwned::Property {
+                    access: PropertyAccess::Const,
+                    ..
+                } => false,
+                // a reliable stream's store is async
+                ApiItemKindOwned::StreamFn {
+                    delivery: Delivery::Reliable,
+                    ..
+                } => cx.use_async && !cx.shared,
+                // credit sideband events are sent from the dispatch
+                ApiItemKindOwned::FlowSink {
+                    flow: FlowControl::Credit,
+                    ..
+                } => cx.use_async && !cx.shared,
+                ApiItemKindOwned::Keys { .. } => {
+                    keys_level_of(level, item).is_ok_and(|(keys, _)| {
+                        level_path.push(item.ident.clone());
+                        let awaits = keys
+                            .items
+                            .iter()
+                            .filter(|k| keys_handler_items(&keys).any(|ident| ident == k.ident))
+                            .filter(|k| in_tree(level_path, &k.ident, &k.kind))
+                            .any(|k| cx.handlers.is_async(&dotted(level_path, &k.ident)));
+                        level_path.pop();
+                        awaits
+                    })
+                }
+                kind => {
+                    in_tree(level_path, &item.ident, kind)
+                        && cx.handlers.is_async(&dotted(level_path, &item.ident))
+                }
+            }
     })
 }
 
@@ -1944,14 +1969,28 @@ fn array_arm(
     let lm = inner(index_chain_with_this_index);
     let maybe_index_chain_arg = index_chain.fun_argument_call();
     let es_index = fixed_err_seq("LEVEL_BAD_INDEX");
+    // CLT-58: from the local traits, which may fail on their way
+    let get_indices = if cx.async_valid_indices {
+        let es_failed = fixed_err_seq("LEVEL_INDICES_FAILED");
+        quote! {
+            let indices = match self.#valid_indices(cx.call(), #maybe_index_chain_arg).await {
+                Ok(indices) => indices,
+                Err(f) => return ww_client_server::dispatch::failed(wr, d, #es_failed, &f),
+            };
+        }
+    } else {
+        quote! { let indices = self.#valid_indices(#maybe_index_chain_arg); }
+    };
     let validate_index = quote! {
-        if !self.#valid_indices(#maybe_index_chain_arg).contains(index.get().0) {
+        #get_indices
+        if !indices.contains(index.get().0) {
             return ww_err(wr, d, #es_index, ErrorKindDiscriminants::BadIndex);
         }
     };
     let es = fixed_err_seq("LEVEL_INDEX_EXPECTED");
-    let ser_indices = ser_value(
+    let ser_indices = ser_framework_value(
         cx.multi_req,
+        cx.async_valid_indices,
         quote! { indices },
         fixed_err_seq("LEVEL_INDICES_SER"),
     );
@@ -1959,12 +1998,12 @@ fn array_arm(
     let read_indices = if cx.no_alloc {
         let es_ser = fixed_err_seq("LEVEL_INDICES_SER");
         quote! {
-            let indices = self.#valid_indices(#maybe_index_chain_arg);
+            #get_indices
             return ww_client_server::dispatch::reply_value(wr, d, &indices, #es_ser);
         }
     } else {
         quote! {
-            let indices = self.#valid_indices(#maybe_index_chain_arg);
+            #get_indices
             #ev_kind_builder
             #ser_indices
             return WrAction::WrittenOk;
@@ -2100,7 +2139,8 @@ fn keys_mod_name(parent_mod: &Ident, keys: &ApiItemOwned) -> Ident {
 /// Dispatch of a key companion, `keyed!(flow by FlowKey)` (SRV-62): its level from `ww_self::keys`, answered by the
 /// handlers `flow_index_of` and `get_flow_key` (always get/set, whatever the `property_model`), the key array's indices
 /// checked by the array's own `valid_indices_..`, and a `keys` stream opened and closed by the generated code alone
-/// (the device sends on it with `flow_keys_send`).
+/// (the device sends on it with `flow_keys_send`), or by the handlers `flow_keys` and `close_flow_keys` with
+/// [GenServerConfigRaw::keys_stream_handlers].
 fn handle_keys(
     api_bundle: &CodegenBundle,
     api_level: &ApiLevelOwned,
@@ -2178,6 +2218,14 @@ fn handle_keys(
                     handle_property(api_bundle, index_chain, &kcx, &ident, ty, &None, *access)
                 })
             }
+            ApiItemKindOwned::Stream { .. } if cx.keys_stream_handlers => handle_stream_fn(
+                api_bundle,
+                index_chain,
+                &mod_ident,
+                &kcx,
+                &ident,
+                item.kind.as_stream_fn().expect("a stream"),
+            ),
             // a plain stream without a session: nothing for a handler to decide
             _ => quote! {
                 match &request.kind {
@@ -4065,6 +4113,31 @@ fn ser_root_value(no_alloc: bool, value: TokenStream) -> TokenStream {
 
 /// A value of the framework (valid indices, a sink's status), borrowed in every server.
 fn ser_value(multi_req: bool, ident: TokenStream, es: TokenStream) -> TokenStream {
+    ser_framework_value(multi_req, false, ident, es)
+}
+
+/// [ser_value], of an owned value with `owned` (valid indices from a local trait, CLT-58).
+fn ser_framework_value(
+    multi_req: bool,
+    owned: bool,
+    ident: TokenStream,
+    es: TokenStream,
+) -> TokenStream {
+    if owned {
+        return if multi_req {
+            quote! {
+                if d.in_multi {
+                    __ww_try!(wr, d, wr.write_owned(& #ident), #es, ResponseSerFailed);
+                } else {
+                    __ww_try!(wr, d, wr.ser_owned(& #ident), #es, ResponseSerFailed);
+                }
+            }
+        } else {
+            quote! {
+                __ww_try!(wr, d, wr.ser_owned(& #ident), #es, ResponseSerFailed);
+            }
+        };
+    }
     if multi_req {
         quote! {
             if d.in_multi {

@@ -24,6 +24,7 @@
 
 ### 🚀 Features
 
+- `#[ww_trait(local = "Name")]` names a level's local trait; `local_trait`, `impl_local_trait` and `serve_trait` cover nested levels and arrays (CLT-58).
 - Rustdoc of a `#[ww_trait]` notes `#[effect(..)]` (API-58).
 - `ww_codegen!(.., local_trait_send = false)`: the local trait without `Send`, with `LocalItemStream`s and `Rc<dyn NameDyn>` (SRV-73).
 - `ww_codegen!(.., server = true, serve_trait = "api::Name")` generates every handler of the local trait's items, forwarding to one shared service (SRV-49).

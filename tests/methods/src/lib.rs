@@ -489,7 +489,8 @@ mod tests {
         }
 
         /// The API as an async trait (CLT-57), made here instead of in the API crate: methods with errors, user
-        /// types and sub-byte arguments; the nested level and the resource array are left out.
+        /// types and sub-byte arguments, and the traits of the nested level and the resource array (CLT-58),
+        /// `PlugLocal` and `UnitLocal`, named on their definitions.
         pub mod local {
             wire_weaver::ww_codegen!(methods_api::Methods, local_trait = "MethodsLocal",);
         }
@@ -561,6 +562,15 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(sum, U10::new(0x53).unwrap());
+        // the resource array's element through its level trait (CLT-58)
+        use std_client::local::UnitLocal;
+        let unit = m.unit(1).unwrap();
+        assert_eq!(unit.double(cx, 21).await.unwrap(), 42);
+        assert!(matches!(
+            unit.halve(cx, 3).await,
+            Err(wire_weaver::call::CallError::Api(MethodError::Odd))
+        ));
+        assert!(m.unit_valid_indices(cx).await.unwrap().contains(1));
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

@@ -11,19 +11,16 @@ use wire_weaver_core::internal::ww_self::ApiBundleOwned;
 use wire_weaver_core::internal::ww_self::errors::error_list_docs;
 use wire_weaver_core::internal::{
     ErrorListError, KeyedMacroArgs, PropertyAccess, PropertyMacroArgs, StreamAndImplMacroArgs,
-    WireVersion, array_index_ty, keys_ident, parse_wire_arg,
+    WireVersion, array_index_ty, keys_ident, parse_local_arg, parse_wire_arg,
 };
 use wire_weaver_core::load;
 
 pub fn ww_trait(attr: TokenStream, item: TokenStream) -> TokenStream {
-    if !attr.is_empty() {
-        return Error::new_spanned(
-            attr,
-            "a trait's global id is not written in code: add `crate::Trait` to ww_base's ww_global/wire_weaver_gid.json, \
-             the codegen looks it up by name (API-20); a wire version belongs to the crate's Cargo.toml, \
-             `[package.metadata.wire_weaver] wire = \"w1.0\"` (EVO-31)",
-        )
-        .to_compile_error();
+    // `local = "Name"` is read by the walker (CLT-58), checked here
+    if !attr.is_empty()
+        && let Err(e) = parse_local_arg(attr)
+    {
+        return e.to_compile_error();
     }
     ww_trait_inner(item)
         .map(|(tokens, _wire)| tokens)

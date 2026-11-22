@@ -15,6 +15,7 @@ use crate::{Commander, Error, Stream, StreamError};
 use std::collections::{HashMap, VecDeque};
 use std::marker::PhantomData;
 use std::sync::{Arc, Mutex};
+use wire_weaver::call::ItemStream;
 use wire_weaver::prelude::{DeserializeShrinkWrapOwned, UNib32};
 use wire_weaver::shrink_wrap::SerializeShrinkWrapOwned;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
@@ -508,6 +509,37 @@ where
     /// Blocking variant of [Self::close].
     pub fn close_blocking(&self) -> Result<(), StreamError> {
         self.stream.close_blocking()
+    }
+
+    /// This stream as the item stream of a local trait (CLT-58): each [Self::recv], the cache following it, the
+    /// index as `J` (`u32` for an array declared `name[]`); it ends as [Stream::into_item_stream] does.
+    pub fn into_item_stream<J>(self) -> ItemStream<KeyEvent<J, K>>
+    where
+        I: Into<J> + Send + 'static,
+        K: Send + 'static,
+        J: 'static,
+    {
+        let KeyStream { stream, notes, .. } = self;
+        Box::pin(futures_lite::StreamExt::map(
+            stream.into_item_stream(),
+            move |event| {
+                let event = event?;
+                if let Some(notes) = &notes {
+                    notes.note(&event);
+                }
+                Ok(match event {
+                    KeyEvent::Added { index, key } => KeyEvent::Added {
+                        index: index.into(),
+                        key,
+                    },
+                    KeyEvent::Removed { index } => KeyEvent::Removed {
+                        index: index.into(),
+                    },
+                    // a newer device's event: the cache ignores it too
+                    KeyEvent::Unknown(other) => KeyEvent::Unknown(other),
+                })
+            },
+        ))
     }
 
     fn note(&self, event: &KeyEvent<I, K>) {

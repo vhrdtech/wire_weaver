@@ -401,8 +401,8 @@ impl Error {
                 | Remote::BadPath
                 | Remote::OperationNotSupported
                 | Remote::PathKindNotSupported => CallErrorKind::Unimplemented,
-                Remote::BadIndex
-                | Remote::ExpectedArrayIndexGotNone
+                Remote::BadIndex => CallErrorKind::BadIndex,
+                Remote::ExpectedArrayIndexGotNone
                 | Remote::ArrayIndexDesFailed
                 | Remote::ArgsDesFailed
                 | Remote::PathDesFailed

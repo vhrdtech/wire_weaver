@@ -669,8 +669,8 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   `RpcResult::Failed` / `GetResult::Failed` / `SetResult::Failed` (`wire_weaver::Failure`, `wire_weaver::forward`;
   firmware links none of it, `just flash-budget` unchanged); a stream open adds the trait's `ItemStream` as a pump.
   Items the trait leaves out are handlers written by hand beside them. `examples/local_trait`, `tests/serve_trait`,
-  [docs](docs/api/local_trait.md#serving-a-local-implementation). Next: nested levels and the rest of CLT-58 (each
-  grows the trait, the server follows); SRV-46's authorization hook runs in the server before any handler, these
+  [docs](docs/api/local_trait.md#serving-a-local-implementation). Nested levels, resource arrays and keyed arrays
+  are served too (CLT-58). Next: observing, with the rest of CLT-58 (each grows the trait, the server follows); SRV-46's authorization hook runs in the server before any handler, these
   included.
 - ✅ **SRV-73 Non-Send local trait** — `ww_codegen!(crate :: Api, local_trait = "Name", local_trait_send = false)`:
   the trait and its `Dyn` companion without `Send` (`LocalBoxFuture`, `Rc<dyn NameDyn>`, `LocalItemStream`), for
@@ -1114,12 +1114,10 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   `async fn`s, so a generic call site runs against a direct local implementation (no server, no serialization) or a
   remote one. Every function takes the caller's `cx: &CallContext` first (SRV-48 call-context), so a server
   forwards who asked with `cx.call()`; the API crate's `local` feature needs `wire_weaver` with `std` only, no
-  `wire_weaver_client`. Methods, property reads and writes and plain streams (`ItemStream<T>`) of the root level are done
+  `wire_weaver_client`. Methods, property reads and writes and plain streams (`ItemStream<T>`) are done, at every
+  nested level and in resource and keyed arrays (CLT-58)
   (`examples/local_trait`, `tests/methods` `local_trait_on_the_client`, [Local trait](docs/api/local_trait.md)).
   Missing, and how they could map:
-    - Nested trait levels and resource arrays: one trait per level, reached by `fn plug(&self) -> impl Plug` /
-      `fn unit(&self, index: u32) -> impl Unit`; the client's level structs borrow it (`UnitClient<'_>`), so
-      the level trait needs a lifetime or owned level handles.
     - Observing (`+observe` properties), sinks, counted, reliable and batched streams: today only the client has
       them. Observing could be an `ItemStream` of updates; sinks a `futures` `Sink`; counted and reliable streams
       need cursors in the trait (`resume(cursor)`), which a local implementation would have to keep.
@@ -1152,8 +1150,19 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   fills the `wire_weaver._wire_weaver` module; the wheel is the `cdylib` crate `wire_weaver_wheel`
   (in vhrdtech/ww_tools: `wire_weaver_wheel`, with `pyproject.toml`, the Python package, the tests and the console script).
   [Docs](docs/python.md#installation).
-- 📋 **CLT-58 Local trait for nested levels and arrays** — one trait per nested level and resource arrays by index,
-  `+observe` properties as a stream of updates, on the client, plain implementations and SRV-49's server.
+- 🚧 **CLT-58 Local trait for nested levels and arrays** — one trait per nested level and resource arrays by index,
+  `+observe` properties as a stream of updates, on the client, plain implementations and SRV-49's server. Done:
+  a level names its trait with `#[ww_trait(local = "Name")]` and is reached by an accessor of its parent
+  (`type Unit<'a>: Unit + 'a; fn unit(&self, index) -> Result<Self::Unit<'_>, Error>` for an array, `&T` of an
+  implementor is one); a level from another crate keeps that crate's trait, re-exported next to its `#[ww_trait]`.
+  Arrays of properties and streams take the index first; every array has `<array>_valid_indices`; a typed index
+  converts through `TryFrom<u32>`, `call::ErrorKind::BadIndex` both ways. Keyed arrays have `<array>_index_of`,
+  `<array>_key`, `<array>_keys` and a provided `<array>_by`. The client implements every level (its property
+  arrays now take the index), and `serve_trait` forwards every item at every level (async valid indices, pumps
+  named by `PumpId::indexed`, the `keys` stream through handlers). `tests/serve_trait` (`levels`),
+  `examples/local_trait` (lanes), [docs](docs/api/local_trait.md#nested-levels). Missing: `+observe` properties as
+  a stream of updates (observing under an array in a `serve_trait` server would also need async valid indices in
+  the observe codegen), and `impl_local_trait` on a client whose level is a shared client (CLT-68).
 - 🚧 **CLT-10 Trait calls that work on any device** · `v0.5` — serial, user label, a CLI that works with all devices.
   `ww list` with filters and USB interface string metadata are done, and global trait calls on any device whatever
   its API version: `ClientConfig::traits_only()`, `DynClient::global_attachment()` (served through API-20,

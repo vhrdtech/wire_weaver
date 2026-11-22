@@ -517,7 +517,7 @@ A pump is a stream of items that the connection serializes and sends as they com
 open handler adds one to the connection's `Pumps`, and its close handler removes it:
 
 ```rust
-const NEWS: PumpId = PumpId(1);
+const NEWS: PumpId = PumpId::new(1);
 
 async fn news(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {
     let items = self.shared.news.subscribe().filter_map(|item| ready(item.ok()));

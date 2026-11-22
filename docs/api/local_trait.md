@@ -16,10 +16,10 @@ local case is a direct function call: no server, no serialization, no channel.
 The worked example is `examples/local_trait_api` (the API and its trait) with `examples/local_trait` (a local struct,
 a server generated from the trait, the client and one generic caller run against all of them).
 
-!!! note "Prototype (CLT-57)"
-    Methods, property reads and writes and plain streams of the API's root level are in the trait. Nested trait
-    levels, resource arrays, observing, sinks and counted, reliable or batched streams are not yet: the trait's docs
-    list what it leaves out, use the client for those.
+!!! note "What the trait covers (CLT-57, CLT-58)"
+    Methods, property reads and writes and plain streams are in the trait, at every [nested level](#nested-levels),
+    in [resource arrays](#resource-arrays) and in [keyed arrays](#keyed-arrays). Observing, sinks and counted,
+    reliable or batched streams are not yet: the trait's docs list what it leaves out, use the client for those.
 
 ## The trait, in the API crate
 
@@ -248,6 +248,100 @@ by: u32) -> BoxFuture<'a, Result<u32, Error>>`.
 
 Bring only one of the two traits into scope where you call: with both, `counter.add(..)` is ambiguous.
 
+## Nested levels
+
+An API with a nested level, `ww_impl!(desk: DeskApi)`, gets one trait per level. The root's trait hands out the
+nested level through an accessor, and the nested level's trait has the level's own functions. Each level names its
+trait on its definition, since `ww_codegen!` names only the root's:
+
+```rust
+#[ww_api_root]
+pub trait PlantApi {
+    ww_impl!(desk: DeskApi);
+}
+
+#[ww_trait(local = "Desk")]
+pub trait DeskApi {
+    fn ping(n: u32) -> u32;
+    property!(rw lamp: u32);
+}
+```
+
+`ww_codegen!(crate :: PlantApi, local_trait = "Plant")` then generates `Plant` and `Desk`, each with its `Dyn`
+companion. The accessor is not async: reaching a level never asks the device, only its functions do. Its type is an
+associated type of the parent's trait, so a local parent hands out a reference to a field:
+
+```rust
+pub trait Plant: Send + Sync {
+    type Desk<'a>: Desk + 'a where Self: 'a;
+    fn desk(&self) -> Self::Desk<'_>;
+}
+
+impl Plant for LocalPlant {
+    type Desk<'a> = &'a LocalDesk;
+
+    fn desk(&self) -> &LocalDesk {
+        &self.desk
+    }
+}
+```
+
+`&T` of any implementor implements the trait too, so `&LocalDesk` is a `Desk`. The client's accessor gives the
+client's level struct, which implements `Desk` with `impl_local_trait` as the root's client implements `Plant`.
+
+A level defined in another crate keeps that crate's trait. The other crate generates it with its own `ww_codegen!`
+and re-exports it at its root, next to the `#[ww_trait]` it belongs to: `pub use local::{Gauge, GaugeDyn};`. The
+root's trait finds it there, in the same `Send` form as its own.
+
+## Resource arrays
+
+An array of levels, `ww_impl!(unit[]: UnitApi)`, gets an accessor that takes the element's index and can fail:
+
+```rust
+type Unit<'a>: Unit + 'a where Self: 'a;
+fn unit(&self, index: u32) -> Result<Self::Unit<'_>, Error>;
+fn unit_valid_indices(&self, cx: &CallContext) -> impl Future<Output = Result<ValidIndicesOwned, Error>> + Send;
+```
+
+An array of properties or streams has no accessor. Its functions take the element's index as their first argument
+after `cx`: `read_slot(cx, index)`, `write_slot(cx, index, value)`, `feed(cx, index)`.
+
+Every array also has `<array>_valid_indices`, the indices that exist right now. A local implementation answers them
+from its own state, and the client reads them from the device. An index that names no element is refused with
+`ErrorKind::BadIndex`, the same error a device answers for it:
+
+```rust
+fn unit(&self, index: u32) -> Result<&LocalUnit, Error> {
+    self.units
+        .get(index as usize)
+        .ok_or_else(|| ErrorKind::BadIndex.into())
+}
+```
+
+The index is a `u32` for an array declared `name[]`. An array with its own index type, `channel[ChannelIdx]`, takes
+that type instead. The type converts into `u32` for the client (`From<ChannelIdx> for u32`), and a served trait gets
+it back from the request through `TryFrom<u32>`; an index that doesn't convert is answered `BadIndex`.
+
+`examples/local_trait` has an array of levels, its lanes, and `tests/serve_trait` (`levels`) runs every kind of
+nested level and array against a local implementation, through `serve_trait` and through the client.
+
+## Keyed arrays
+
+A [keyed array](arrays.md#keyed-arrays) addresses its elements by a key: `keyed!(unit by Tag)` follows `unit[]`. Its trait gets
+three functions, and an array of levels a fourth one that the trait provides:
+
+| Function | What it gives |
+|----------|---------------|
+| `unit_index_of(cx, key)` | the index of the element with `key`, `None` when there is none |
+| `unit_key(cx, index)` | the key of the element at `index` |
+| `unit_keys(cx)` | an `ItemStream<KeyEvent<u32, Tag>>`: elements as they appear and go away |
+| `unit_by(cx, key)` | the element itself: `unit_index_of`, then the accessor `unit` |
+
+The index is the array's, as in [Resource arrays](#resource-arrays): `u32`, or the array's own index type. A local
+implementation answers `unit_index_of` and `unit_key` from its table and builds `unit_keys` from its own events; it
+never implements `unit_by`. The client asks the device once per key and keeps the answer in the connection's key
+cache, which follows the `keys` stream.
+
 ## Serving a local implementation
 
 One implementation of the trait can also be served to remote clients. `serve_trait` generates the server's handlers,
@@ -304,6 +398,10 @@ What the generated handlers do:
 | property read | `get_x(&self, ..)`, calls `read_x` |
 | property write | `set_x(&mut self, ..)`, calls `write_x` |
 | stream | the open calls the trait's function and adds the `ItemStream` as the connection's pump, the close removes it |
+| nested level | each of its handlers reaches the level through the accessors from the service, then calls the level's function |
+| array element | the element's index from the request, the array's index type through `TryFrom<u32>` |
+| valid indices | `<array>_valid_indices`, asked before every request under the array |
+| keyed array | `index_of` and the key's read call `<array>_index_of` and `<array>_key`; the `keys` stream is a pump of `<array>_keys` |
 
 - **Order.** Calls and reads take `&self`, so the requests of one connection run side by side, started in the order
   they came; writes and stream opens run alone, after the requests before them finished ([Order of
@@ -316,6 +414,9 @@ What the generated handlers do:
   `Denied`, `DeadlineExceeded`, `Cancelled`, `Overloaded`, `Unimplemented`, or the common error the implementation
   returned; `Unavailable`, `MessageTooBig` and `Internal` are `Internal`. A client of an older `ww_client_server`
   sees the kinds it does not know as an unknown error.
+- **Indices.** An index outside `<array>_valid_indices`, or one the accessor refuses, is answered `BadIndex`. The
+  pump of an array's stream is named by the stream and the element's indices, so two elements' streams run side
+  by side.
 - **Streams.** Every connection gets its own `ItemStream`; sharing items between clients is the implementation's
   business, a `broadcast` channel for example. The pump ends at the stream's end or its first error, and closes the
   client's stream, so the client's `ItemStream` ends there too.

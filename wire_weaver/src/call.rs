@@ -63,6 +63,8 @@ pub enum ErrorKind {
     Cancelled,
     /// The callee is busy: too many calls in flight. Trying again later may work.
     Overloaded,
+    /// The index names no element of the resource array (CLT-58): the wire's `BadIndex`.
+    BadIndex,
     /// A request or reply is longer than the link's message limit (CLT-55): which one, how long, and the limit.
     /// Trying again won't help; a smaller request, or a result in pieces (a stream, pages), does.
     MessageTooBig(MessageTooBig),
@@ -150,6 +152,7 @@ impl ErrorKind {
             ErrorKind::DeadlineExceeded => "deadline exceeded",
             ErrorKind::Cancelled => "cancelled",
             ErrorKind::Overloaded => "overloaded",
+            ErrorKind::BadIndex => "no element at that index",
             ErrorKind::MessageTooBig(_) => "message too big",
             ErrorKind::Common => "common error",
             ErrorKind::Internal => "internal error",
@@ -321,6 +324,8 @@ pub enum CallError<E> {
     Cancelled(Option<Source>),
     /// [ErrorKind::Overloaded]
     Overloaded(Option<Source>),
+    /// [ErrorKind::BadIndex]
+    BadIndex(Option<Source>),
     /// [ErrorKind::MessageTooBig]: which message, how long and the link's limit.
     MessageTooBig(MessageTooBig, Option<Source>),
     /// [ErrorKind::Internal]
@@ -357,6 +362,7 @@ impl<E> CallError<E> {
             CallError::DeadlineExceeded(_) => ErrorKind::DeadlineExceeded,
             CallError::Cancelled(_) => ErrorKind::Cancelled,
             CallError::Overloaded(_) => ErrorKind::Overloaded,
+            CallError::BadIndex(_) => ErrorKind::BadIndex,
             CallError::MessageTooBig(m, _) => ErrorKind::MessageTooBig(*m),
             CallError::Internal(_) => ErrorKind::Internal,
         })
@@ -384,6 +390,7 @@ impl<E> CallError<E> {
             | CallError::DeadlineExceeded(s)
             | CallError::Cancelled(s)
             | CallError::Overloaded(s)
+            | CallError::BadIndex(s)
             | CallError::MessageTooBig(_, s)
             | CallError::Internal(s) => s,
         };
@@ -399,6 +406,7 @@ impl<E> CallError<E> {
             | CallError::DeadlineExceeded(s)
             | CallError::Cancelled(s)
             | CallError::Overloaded(s)
+            | CallError::BadIndex(s)
             | CallError::MessageTooBig(_, s)
             | CallError::Internal(s) => s.as_ref(),
         }
@@ -428,6 +436,7 @@ impl<E> From<Error> for CallError<E> {
             ErrorKind::DeadlineExceeded => CallError::DeadlineExceeded(s),
             ErrorKind::Cancelled => CallError::Cancelled(s),
             ErrorKind::Overloaded => CallError::Overloaded(s),
+            ErrorKind::BadIndex => CallError::BadIndex(s),
             ErrorKind::MessageTooBig(m) => CallError::MessageTooBig(m, s),
             ErrorKind::Common | ErrorKind::Internal => CallError::Internal(s),
         }

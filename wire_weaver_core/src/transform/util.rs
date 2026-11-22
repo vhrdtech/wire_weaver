@@ -174,6 +174,55 @@ pub fn parse_wire_arg(tokens: proc_macro2::TokenStream) -> syn::Result<WireVersi
     })
 }
 
+/// `local = "Name"` of `#[ww_trait(local = "Name")]` (CLT-58): the name of the trait's local trait, which a parent
+/// level's local trait names in its accessor. `None` for a bare `#[ww_trait]` and for `#[ww_api_root]`, whose local
+/// trait is named by `ww_codegen!(crate :: Api, local_trait = "..")`.
+pub(crate) fn get_local_attr(
+    attrs: &[Attribute],
+    current_crate: &CrateContext,
+) -> Result<Option<String>> {
+    let Some(attr) = attrs.iter().find(|a| a.path().is_ident("ww_trait")) else {
+        return Ok(None);
+    };
+    if matches!(attr.meta, Meta::Path(_)) {
+        return Ok(None);
+    }
+    let tokens = attr.meta.require_list().map(|list| list.tokens.clone());
+    tokens
+        .and_then(parse_local_arg)
+        .map(|ident| Some(ident.to_string()))
+        .map_err(|e| anyhow!("{e}"))
+        .context(current_crate.err_context())
+}
+
+/// The one argument of `#[ww_trait(local = "Name")]`, shared with the `ww_trait` macro.
+pub fn parse_local_arg(tokens: proc_macro2::TokenStream) -> syn::Result<Ident> {
+    let name_value: syn::MetaNameValue = syn::parse2(tokens)?;
+    if !name_value.path.is_ident("local") {
+        return Err(syn::Error::new_spanned(
+            &name_value.path,
+            "#[ww_trait] takes one argument, `local = \"Name\"`: the name of its local trait (CLT-58); a trait's \
+             global id is not written in code (API-20) and a wire version belongs to the crate's Cargo.toml (EVO-31)",
+        ));
+    }
+    let Expr::Lit(syn::ExprLit {
+        lit: Lit::Str(lit_str),
+        ..
+    }) = &name_value.value
+    else {
+        return Err(syn::Error::new_spanned(
+            &name_value.value,
+            "expected a string: `local = \"Name\"`",
+        ));
+    };
+    lit_str.parse::<Ident>().map_err(|e| {
+        syn::Error::new_spanned(
+            lit_str,
+            format!("local = \"{}\" must be a trait name: {e}", lit_str.value()),
+        )
+    })
+}
+
 /// Delivery kind of a `stream!` from `#[counted]` / `#[reliable]`, plain without either. Not allowed on `sink!`.
 pub(crate) fn get_delivery_attr(
     attrs: &[Attribute],
@@ -792,6 +841,17 @@ mod stream_fn_attr_tests {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn local_arg() {
+        let ident = parse_local_arg(quote::quote! { local = "Review" }).unwrap();
+        assert_eq!(ident, "Review");
+        let e = parse_local_arg(quote::quote! { wire = "w1.0" }).unwrap_err();
+        assert!(e.to_string().contains("`local = \"Name\"`"), "{e}");
+        let e = parse_local_arg(quote::quote! { local = "not a name" }).unwrap_err();
+        assert!(e.to_string().contains("must be a trait name"), "{e}");
+        assert!(parse_local_arg(quote::quote! { local = Review }).is_err());
+    }
 
     fn leaves(tree: &str) -> Vec<String> {
         let item: syn::ItemUse = syn::parse_str(&format!("use {tree};")).unwrap();

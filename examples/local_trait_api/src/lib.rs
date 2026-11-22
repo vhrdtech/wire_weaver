@@ -1,5 +1,6 @@
 //! An API used two ways (CLT-57): through a device or service with the generated client, and in the same process
-//! by a plain struct, with one call site generic over the [Counter] trait generated below.
+//! by a plain struct, with one call site generic over the [Counter] trait generated below. Its lanes are a resource
+//! array of a nested level, with a trait of their own, [Lane] (CLT-58).
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use ww_api::prelude::*;
@@ -20,6 +21,18 @@ pub trait CounterApi {
     property!(rw step: u32);
     /// Every new total
     stream!(totals: u32);
+    /// Totals of their own, by index
+    ww_impl!(lane[]: LaneApi);
+}
+
+/// One lane: its local trait is named here, and generated with the root's.
+#[ww_trait(local = "Lane")]
+pub trait LaneApi {
+    /// Adds `by` to the lane's total, returns the new total
+    #[effect(edit)]
+    fn add(by: u32) -> u32;
+    /// The lane's total
+    property!(ro total: u32);
 }
 
 #[derive_shrink_wrap(owned(feature = "std"), derive(Debug, PartialEq, Eq, Clone))]
@@ -47,10 +60,10 @@ impl core::fmt::Display for CounterError {
 
 impl core::error::Error for CounterError {}
 
-/// `Counter`, the API as an async trait, and `CounterDyn` for trait objects.
+/// `Counter`, the API as an async trait, and `CounterDyn` for trait objects; `Lane` and `LaneDyn` for its lanes.
 #[cfg(feature = "local")]
 mod local {
     wire_weaver::ww_codegen!(crate::CounterApi, local_trait = "Counter",);
 }
 #[cfg(feature = "local")]
-pub use local::{Counter, CounterDyn};
+pub use local::{Counter, CounterDyn, Lane, LaneDyn};

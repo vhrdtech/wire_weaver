@@ -51,6 +51,11 @@ impl<'a> CodegenBundle<'a> {
 }
 
 impl CodegenBundle<'_> {
+    /// Name of the local trait of the trait `trait_name` of `crate_name`, from `#[ww_trait(local = "..")]` (CLT-58).
+    pub(crate) fn local_trait(&self, crate_name: &str, trait_name: &str) -> Option<&str> {
+        self.crate_paths.local_trait(crate_name, trait_name)
+    }
+
     /// Modules from its crate's root to the trait `trait_name` of `crate_name`, empty at the crate root (EVO-37).
     pub(crate) fn trait_module(&self, crate_name: &str, trait_name: &str) -> &[String] {
         self.crate_paths.trait_module(crate_name, trait_name)

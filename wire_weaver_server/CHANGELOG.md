@@ -8,6 +8,7 @@
 
 ### ⚠️ Breaking
 
+- `PumpId` names an element of a stream array too, `PumpId::indexed(id, &[index])` (CLT-58): `PumpId(n)` becomes `PumpId::new(n)`, and it is no longer `Copy`.
 - The shutdown future of `serve` and `accepting` completes with a `ShutdownReason` (SRV-67): clients hear it; `pending()` becomes `pending::<()>()`.
 - `MakeBackend` has `type Pumps` and `Serves` has `type Pumps`: implementors add `type Pumps = Pumps;`; `Connection` is `Connection<P = Pumps>` (SRV-73).
 - `local_socket::LocalSocketListener` is now `LocalSocketIncoming`, a source for `byte_stream::listen` with `PreambleFraming`; `HANDSHAKES_MAX` moved to `byte_stream` (TR-19).

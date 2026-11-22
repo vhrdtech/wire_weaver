@@ -16,9 +16,31 @@ use wire_weaver::shrink_wrap::Error as ShrinkWrapError;
 use crate::outbox::Outbox;
 use crate::sync::locked;
 
-/// Names a pump of one connection, so that the handler that closes its stream can [remove](Pumps::remove) it.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct PumpId(pub u64);
+/// Names a pump of one connection, so that the handler that closes its stream can [remove](Pumps::remove) it: a
+/// number, and the element's indices for a stream of a resource array (`PumpId::indexed(3, &[2])` for element 2).
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct PumpId {
+    id: u64,
+    indices: Vec<u32>,
+}
+
+impl PumpId {
+    /// The pump `id`.
+    pub const fn new(id: u64) -> Self {
+        PumpId {
+            id,
+            indices: Vec::new(),
+        }
+    }
+
+    /// The pump `id` of the element at `indices`, one index per resource array on the stream's path.
+    pub fn indexed(id: u64, indices: &[u32]) -> Self {
+        PumpId {
+            id,
+            indices: indices.to_vec(),
+        }
+    }
+}
 
 /// The pumps of one connection: streams whose items the connection serializes and sends as they come, while
 /// requests run, also calls that take long.
@@ -140,7 +162,7 @@ impl Pumps {
     /// Stop the pump `id`: none of its items is sent from now on. Nothing happens if there is none.
     pub fn remove(&self, id: PumpId) {
         if let Some(inner) = self.0.upgrade() {
-            locked(&inner).remove(id);
+            locked(&inner).remove(&id);
         }
     }
 }
@@ -178,7 +200,7 @@ impl LocalPumps {
     /// Stop the pump `id`: none of its items is sent from now on. Nothing happens if there is none.
     pub fn remove(&self, id: PumpId) {
         if let Some(inner) = self.0.upgrade() {
-            inner.borrow_mut().remove(id);
+            inner.borrow_mut().remove(&id);
         }
     }
 }
@@ -237,13 +259,13 @@ impl PumpSetOps for LocalPumpSet {
 
 impl<P: Pump + ?Sized> Inner<P> {
     fn add(&mut self, id: PumpId, pump: Box<P>) {
-        self.remove(id);
+        self.remove(&id);
         self.added.push((id, pump));
     }
 
-    fn remove(&mut self, id: PumpId) {
-        self.added.retain(|(i, _)| *i != id);
-        self.running.retain(|(i, _)| *i != id);
+    fn remove(&mut self, id: &PumpId) {
+        self.added.retain(|(i, _)| i != id);
+        self.running.retain(|(i, _)| i != id);
     }
 
     fn start_added(&mut self) {

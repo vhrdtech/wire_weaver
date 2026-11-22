@@ -1628,6 +1628,7 @@ dependencies = [
 name = "global_fixture_api"
 version = "0.1.0"
 dependencies = [
+ "wire_weaver_evolution",
  "ww_api",
 ]
 

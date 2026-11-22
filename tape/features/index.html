@@ -1733,6 +1733,8 @@
       
         
       
+        
+      
     
     
     
@@ -1954,6 +1956,33 @@
     
   
   Introspection data
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/json/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  JSON for any API
 
     
   </span>
@@ -6909,7 +6938,7 @@
 <li>✅ <strong>EX-1 The drive's hour as code</strong></li>
 </ul>
 <p><code>ww_tape_example</code> records the drive motor controller's hour: log lines, mode, CAN frames, phase current with summaries and temperature, in a chain of pieces. <code>Drive::scaled</code> shrinks the data and the byte policies for figures, and a crash at any byte resumes to the bytes of the run without it. The RF capture (<code>rf</code>) records ComplexI16 IQ at 20 MS/s as the book's case for high rates. <code>cargo run -p ww_tape_example</code> prints the story's numbers, and the tests pin them.</p>
-<p>Read more: <a href="https://github.com/vhrdtech/ww_tape/blob/5e3881165f56fc8d58ec2ef807292ffc1c2f284a/ww_tape_example/README.md">ww_tape_example</a>. Tests <code>story.rs</code>, <code>damage.rs</code>, <code>rf.rs</code>.</p>
+<p>Read more: <a href="https://github.com/vhrdtech/ww_tape/blob/a0a5eefa0514609dbca7eeb7bfaeddbc0015dc1d/ww_tape_example/README.md">ww_tape_example</a>. Tests <code>story.rs</code>, <code>damage.rs</code>, <code>rf.rs</code>.</p>
 <ul>
 <li>✅ <strong>EX-2 A 10 Gbps link and a 1 GS/s receiver</strong></li>
 </ul>
@@ -6934,8 +6963,8 @@
 <ul>
 <li>🚧 <strong>REPO-1 Crates by what they touch</strong></li>
 </ul>
-<p><code>ww_tape</code> writes and reads tapes on sinks and sources without std, <code>ww_tape_codecs</code> holds the codecs and <code>ww_tape_summary</code> the summaries. <code>ww_tape_fs</code> holds everything that names a path. The writer, chain and resume build with alloc only, and the codecs build for wasm32 without std.</p>
-<p>Open: std-free definition records (owned types in <code>shrink_wrap</code> and <code>ww_version</code>), codecs on slices, segmented memory tapes, verify-on-read, integrity levels, a seal.</p>
+<p><code>ww_tape</code> writes and reads tapes on sinks and sources without std, <code>ww_tape_codecs</code> holds the codecs and <code>ww_tape_summary</code> the summaries. <code>ww_tape_fs</code> holds everything that names a path. The writer, chain and resume build with alloc only, and the codecs build for wasm32 without std. The codecs work on slices. Memory tapes keep their bytes in extents that never move, and <code>MemTapes::drop_front</code> frees a tape's oldest pieces.</p>
+<p>Open: std-free definition records (owned types in <code>shrink_wrap</code> and <code>ww_version</code>), verify-on-read, integrity levels, a seal.</p>
 <p>Read more: <a href="https://tape.vhrd.tech/tape/#the-crates">The crates</a>.</p>
 <h2 id="dropped-and-superseded">Dropped and superseded<a class="headerlink" href="#dropped-and-superseded" title="Permanent link">&para;</a></h2>
 <p>Nothing yet.</p>

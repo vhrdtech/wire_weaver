@@ -493,7 +493,7 @@ feature tracker.
 
 - STD-1 | Request and event model | `ww_client_server`, the messages every call is made of. | std_library/ww_client_server.md
 - FMT-1 | Tape blocks | `ww_tape`: the generic blocks of track records that live feeds and log files (link captures) are made of. | https://tape.vhrd.tech/format/#tape-blocks
-- FMT-2 | Tape clocks and describe | Clocks with exact rates, clock maps, typed items and track dimensions in tapes; deterministic bytes. | https://tape.vhrd.tech/format/#tape-blocks
+- TRACK-1 | Tape clocks and describe | Clocks with exact rates, clock maps, typed items and track dimensions in tapes; deterministic bytes. | https://tape.vhrd.tech/format/#tape-blocks
 - FMT-3 | Tape chunk blocks | Self-locating chunk blocks, 4 KiB aligned payloads and a CRC per 64 KiB segment, so damage costs one segment. | https://tape.vhrd.tech/format/#tape-blocks
 - CODEC-2 | Tape event times | Event times stored at about 1.5 bytes per periodic item and 3.8 for bursty ones, searched and decoded in place with SIMD. | https://tape.vhrd.tech/format/#tape-blocks
 - SUM-1 | Tape summary blocks | A stored item tree for events and mergeable min, max, sum and power summaries for series, so an overview reads a few hundred KB, never the items. | https://tape.vhrd.tech/format/#tape-blocks
@@ -504,14 +504,14 @@ feature tracker.
 - FMT-6 | Tape series tracks | A series track says its sample type, scale and exact period; segments mark gaps and prefix changes, and a received `Series<Fixed>` batch becomes chunk columns without a float. | https://tape.vhrd.tech/format/#series-tracks
 - FMT-7 | Tape runs and media provisions | Tapes on SD cards and raw NAND read past gaps, never take stale blocks for data, and survive damaged definitions. | https://tape.vhrd.tech/format/#sessions-media-and-damage
 - CODEC-3 | Tape payload codec | Event payloads with bit-packed lengths, raw or lz4, salvaged item by item from a damaged chunk. | https://tape.vhrd.tech/format/#payload-codec
-- FMT-5 | Tape track identity by name | A track's key hashes its resource names and the keys of keyed arrays, so two runs that number things differently give the same ids. | https://tape.vhrd.tech/format/#track-identity
+- TRACK-2 | Tape track identity by name | A track's key hashes its resource names and the keys of keyed arrays, so two runs that number things differently give the same ids. | https://tape.vhrd.tech/format/#track-identity
 - SUM-2 | Tape summaries across scales | Series summaries stay exact when an autoranging device changes prefix: each block states its scale, nodes merge at a common one. | https://tape.vhrd.tech/format/#tape-blocks
 - CODEC-4 | Tape ALP float codec | Floats that began as decimals stored as bit-packed integers, other floats by their front bits, lossless and read in place. | https://tape.vhrd.tech/format/#sample-codecs
 - SUM-3 | Tape summary kernels | Series summaries in one vectorised pass: complex i16 at about 5 GB/s on one core, bit for bit the same results. | https://tape.vhrd.tech/format/#tape-blocks
 - READ-2 | Tape hardening | Tape readers take damaged or hostile files without a panic, an overflow or an unbounded allocation; every limit is a named cap. | https://tape.vhrd.tech/format/#tape-blocks
 - WRITE-2, FS-1 | Tape resume and additions | A crashed tape piece resumes to the bytes of an uninterrupted write; tracks added mid-piece reach every later describe copy. | https://tape.vhrd.tech/crashes/#resuming-the-file
 - FMT-8 | Tape pieces on 4 KiB | Closed tape pieces end on a 4 KiB boundary, so many pieces clone back to back into one file without copying a byte. | https://tape.vhrd.tech/#pieces-and-chains
-- FMT-9 | Tape definitions near their use | Tracks, clocks, bundles and state items are records on track 0 and state tracks, put again only where not close behind their use. | https://tape.vhrd.tech/#state-tracks-and-near-use
+- TRACK-3 | Tape definitions near their use | Tracks, clocks, bundles and state items are records on track 0 and state tracks, put again only where not close behind their use. | https://tape.vhrd.tech/#state-tracks-and-near-use
 
 # Examples
 

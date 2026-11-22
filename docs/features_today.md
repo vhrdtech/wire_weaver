@@ -529,7 +529,7 @@ feature tracker.
 - **[Tape pieces on 4 KiB](https://tape.vhrd.tech/#pieces-and-chains)**: Closed tape pieces end on a 4 KiB boundary, so many pieces clone back to back into one file without copying a byte.
 - **[Tape definitions near their use](https://tape.vhrd.tech/#state-tracks-and-near-use)**: Tracks, clocks, bundles and state items are records on track 0 and state tracks, put again only where not close behind their use.
 
-<p class="ww-features__more" markdown>Details and what is planned: [Standard APIs (ww_stdlib)](std_library/stdlib_features.md#standard-apis-std), [Evolution, versioning and compatibility](features.md#evolution-versioning-and-compatibility-evo), [Base types and quantities (ww_base)](std_library/features.md#base-types-and-quantities-ww_si-ww_numeric-ww_version-ww_date_time-ww_error-std), [Format (ww_tape)](tape/features.md#format-fmt), [Codecs (ww_tape)](tape/features.md#codecs-codec), [Summaries (ww_tape)](tape/features.md#summaries-sum), [Writer (ww_tape)](tape/features.md#writer-write), [Reader (ww_tape)](tape/features.md#reader-read), [Files and locks (ww_tape)](tape/features.md#files-and-locks-fs) in the feature tracker.</p>
+<p class="ww-features__more" markdown>Details and what is planned: [Standard APIs (ww_stdlib)](std_library/stdlib_features.md#standard-apis-std), [Evolution, versioning and compatibility](features.md#evolution-versioning-and-compatibility-evo), [Base types and quantities (ww_base)](std_library/features.md#base-types-and-quantities-ww_si-ww_numeric-ww_version-ww_date_time-ww_error-std), [Format (ww_tape)](tape/features.md#format-fmt), [Tracks, clocks and definitions (ww_tape)](tape/features.md#tracks-clocks-and-definitions-track), [Codecs (ww_tape)](tape/features.md#codecs-codec), [Summaries (ww_tape)](tape/features.md#summaries-sum), [Writer (ww_tape)](tape/features.md#writer-write), [Reader (ww_tape)](tape/features.md#reader-read), [Files and locks (ww_tape)](tape/features.md#files-and-locks-fs) in the feature tracker.</p>
 
 ## Examples
 
@@ -549,7 +549,7 @@ Working projects to start from: host programs, firmware for a few boards, and th
 - **[Counters in firmware](std_library/ww_counters.md)**: `cnt` counters in every probe-connected board example.
 - **[Settings demo](api/settings.md)**: Settings that survive a reboot, on the host and on two Nucleo boards.
 
-<p class="ww-features__more" markdown>Details and what is planned: [Examples](features.md#examples-ex) in the feature tracker.</p>
+<p class="ww-features__more" markdown>Details and what is planned: [Examples](features.md#examples-ex), [Example and cases (ww_tape)](tape/features.md#example-and-cases-ex) in the feature tracker.</p>
 
 ## Testing
 

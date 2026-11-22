@@ -397,7 +397,7 @@ three functions, and an array of levels a fourth one that the trait provides:
 
 The index is the array's, as in [Resource arrays](#resource-arrays): `u32`, or the array's own index type. A local
 implementation answers `unit_index_of` and `unit_key` from its table and builds `unit_keys` from its own events; it
-never implements `unit_by`. The client asks the device once per key and keeps the answer in the connection's key
+never implements `unit_by`. A key that borrows (`keyed!(unit by Name<'i>)`) is taken and given as its owned form, `NameOwned`. The client asks the device once per key and keeps the answer in the connection's key
 cache, which follows the `keys` stream.
 
 ## Serving a local implementation

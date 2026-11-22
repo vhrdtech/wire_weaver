@@ -73,6 +73,7 @@
 
 ### 🐛 Fixes
 
+- The doc trait declares the lifetime of a `keyed!` key that borrows (`keyed!(detector by DetectorName<'i>)`), which failed to compile (API-72).
 - A global id error names the ledger where it now lives, ww_base's `ww_global/wire_weaver_gid.json`.
 - `ww_codegen!` called from a `macro_rules!` no longer warns `unused import` on its `_SOURCE_MARKER` re-export.
 - Drop the unused `relative-path` dependency (cargo-machete).

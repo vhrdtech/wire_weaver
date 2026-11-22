@@ -2099,13 +2099,17 @@ dependencies = [
 name = "keyed"
 version = "0.1.0"
 dependencies = [
+ "futures-lite",
  "keyed_api",
  "tests_common",
  "tokio",
  "tracing-subscriber",
  "wire_weaver",
  "wire_weaver_client",
+ "wire_weaver_core",
+ "wire_weaver_server",
  "ww_client_server",
+ "ww_device",
  "ww_keyed",
  "ww_si",
 ]

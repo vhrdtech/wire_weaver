@@ -15,9 +15,13 @@ trait Dissector {
     keyed!(flow by FlowKey);
     /// Drops every flow.
     fn clear();
+    /// Bytes each capture detector has seen.
+    property!(ro detector[]: Bytes<u64>);
+    /// Detectors by the name they were configured with: a key that borrows (API-72).
+    keyed!(detector by DetectorName<'i>);
 }
 
-#[ww_trait]
+#[ww_trait(local = "FlowOps")]
 trait Flow {
     /// Bytes of every packet of the flow so far.
     property!(ro bytes: Bytes<u64>);
@@ -61,7 +65,11 @@ pub struct Endpoint {
 )]
 pub struct Port(pub u16);
 
-/// The doc trait shows the key companion as `flow_keys() -> Keys<KeyEvent<..>>` (API-67): checked by the compiler.
+/// Name of a capture detector, a string key: borrowed on the device, [DetectorNameOwned] where a key is kept.
+#[derive_shrink_wrap(owned(feature = "std"), derive(Debug, PartialEq, Eq, Clone))]
+pub struct DetectorName<'i>(pub &'i str);
+
+/// The doc trait shows the key companions as `flow_keys() -> Keys<KeyEvent<..>>` (API-67): checked by the compiler.
 #[expect(
     dead_code,
     reason = "compile-time check of the doc trait's signature, never called"
@@ -73,7 +81,11 @@ mod doc_trait {
 
     fn keys(_: fn() -> Keys<KeyEvent<UNib32, FlowKey>>) {}
 
+    /// A key that borrows: the companion declares its lifetime (API-72).
+    fn named_keys(_: fn() -> Keys<KeyEvent<UNib32, DetectorName<'static>>>) {}
+
     fn dissector<T: Dissector>() {
         keys(T::flow_keys);
+        named_keys(T::detector_keys);
     }
 }

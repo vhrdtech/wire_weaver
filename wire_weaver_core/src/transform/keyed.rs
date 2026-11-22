@@ -111,6 +111,16 @@ pub(crate) fn convert_api_item_keyed(
              fixed-point type instead"
         ));
     }
+    if let TypeOwned::OutOfLine { type_idx } | TypeOwned::Instance { type_idx, .. } = &key
+        && scratch.no_owned_form.contains(type_idx)
+    {
+        let name = key_ident(&args.key);
+        return err(format!(
+            "the key type `{name}` borrows but has no owned form: add `owned` to its #[derive_shrink_wrap(..)] \
+             (`owned(feature = \"std\")` in a no_std crate); the client's key cache, the local trait and serve_trait \
+             keep keys as `{name}Owned`"
+        ));
+    }
     let index: Type = match array_index_ty(item_trait, &of_name)? {
         Some(segment) => syn::parse_quote!(#segment),
         None => syn::parse_quote!(UNib32),
@@ -177,6 +187,18 @@ pub(crate) fn reject_keys_ident_collisions(items: &[ApiItemOwned]) -> Result<()>
         }
     }
     Ok(())
+}
+
+/// The last segment of the key type as written: `DetectorName` of `names::DetectorName<'i>`.
+fn key_ident(key: &Type) -> String {
+    match key {
+        Type::Path(path) => path
+            .path
+            .segments
+            .last()
+            .map_or_else(|| quote::quote!(#key).to_string(), |s| s.ident.to_string()),
+        other => quote::quote!(#other).to_string(),
+    }
 }
 
 /// The index type written in the array's brackets (`flow[FlowIdx]`), `None` for `flow[]`.
@@ -423,6 +445,21 @@ mod tests {
         );
     }
 
+    /// A key that borrows (API-72): the model has it as written, `keyed!` takes it with its owned form declared.
+    #[test]
+    fn borrowed_key() {
+        let bundle = load_api(
+            "keyed_borrowed_key",
+            "property!(ro flow[]: u8);\nkeyed!(flow by Name<'i>);\n}\n\
+             #[derive_shrink_wrap(owned(feature = \"std\"))]\npub struct Name<'i>(pub &'i str);\npub trait Unused {",
+        )
+        .unwrap();
+        let ApiItemKindOwned::Keys { key, .. } = &item(&bundle.root, "flow_keys").kind else {
+            panic!("not a Keys item");
+        };
+        assert!(key.is_lifetime(&bundle).unwrap(), "{key:?}");
+    }
+
     /// The API crate depends on `ww_keyed` itself, so `wire_weaver` (and every firmware) doesn't.
     #[test]
     fn needs_ww_keyed() {
@@ -478,6 +515,12 @@ mod tests {
                 "property!(ro flow[]: u8);\nkeyed!(flow by Key);\n}\n\
                  #[derive_shrink_wrap]\npub struct Key { pub id: u8, pub gain: Option<f64> }\npub trait Unused {",
                 "F64",
+            ),
+            (
+                "keyed_no_owned_form",
+                "property!(ro flow[]: u8);\nkeyed!(flow by Name<'i>);\n}\n\
+                 #[derive_shrink_wrap]\npub struct Name<'i>(pub &'i str);\npub trait Unused {",
+                "the key type `Name` borrows but has no owned form: add `owned`",
             ),
             (
                 "keyed_collision",

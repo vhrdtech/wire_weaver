@@ -1,6 +1,6 @@
 //! The Dissector device of the keyed tests: a flow table, and blocking `no_alloc` and async servers of it.
 
-use keyed_api::{Endpoint, FlowKey, Port, Proto};
+use keyed_api::{DetectorName, Endpoint, FlowKey, Port, Proto};
 use std::sync::{Arc, Mutex};
 use tests_common::TestDevice;
 use wire_weaver::prelude::*;
@@ -22,6 +22,16 @@ impl Table {
             .map(|(i, _)| UNib32(i))
             .collect()
     }
+}
+
+/// Detectors of every device: name and bytes seen, at their index.
+pub const DETECTORS: [(&str, u64); 3] = [("north", 11), ("south", 22), ("east", 33)];
+
+fn detector_index(name: &str) -> Option<UNib32> {
+    (0u32..)
+        .zip(DETECTORS)
+        .find(|(_, (n, _))| *n == name)
+        .map(|(i, _)| UNib32(i))
 }
 
 /// Same handlers for the blocking and async servers: `$($async)?`, the event out trait and how a stream event is
@@ -66,6 +76,18 @@ macro_rules! handlers {
                     .expect("event sent");
             }
             Ready(())
+        }
+
+        fn valid_indices_root_detector(&mut self) -> ValidIndices<'_> {
+            ValidIndices::range_u32(0..DETECTORS.len() as u32)
+        }
+
+        $($async)? fn get_detector(
+            &mut self,
+            _cx: &mut Context<'_, impl $out>,
+            index_chain: [ResourceIndex; 1],
+        ) -> GetResult<ww_si::Bytes<u64>, CommonError<'_>> {
+            Value(ww_si::Bytes::new(DETECTORS[index_chain[0].get().0 as usize].1))
         }
 
         $($async)? fn get_flow_bytes(
@@ -115,6 +137,23 @@ pub mod blocking_server {
 
     impl Server {
         handlers!(; BlockingEventOut; flow_keys_send_blocking;);
+
+        /// The key arrives borrowed from the request: no allocator.
+        fn detector_index_of(
+            &mut self,
+            _cx: &mut Context<'_, impl BlockingEventOut>,
+            key: DetectorName<'_>,
+        ) -> RpcResult<Option<UNib32>> {
+            Ready(detector_index(key.0))
+        }
+
+        fn get_detector_key(
+            &mut self,
+            _cx: &mut Context<'_, impl BlockingEventOut>,
+            index_chain: [ResourceIndex; 1],
+        ) -> GetResult<DetectorName<'_>, CommonError<'_>> {
+            Value(DetectorName(DETECTORS[index_chain[0].get().0 as usize].0))
+        }
     }
 
     pub mod api_impl {
@@ -145,6 +184,7 @@ pub mod blocking_server {
 
 pub mod async_server {
     use super::*;
+    use keyed_api::DetectorNameOwned;
     use tests_common::TestProcessEventsAsync;
 
     pub struct Server {
@@ -154,6 +194,25 @@ pub mod async_server {
 
     impl Server {
         handlers!(async; EventOut; flow_keys_send; .await);
+
+        /// The key arrives owned, `no_alloc = false`.
+        async fn detector_index_of(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+            key: DetectorNameOwned,
+        ) -> RpcResult<Option<UNib32>> {
+            Ready(detector_index(&key.0))
+        }
+
+        async fn get_detector_key(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+            index_chain: [ResourceIndex; 1],
+        ) -> GetResult<DetectorNameOwned, CommonError<'_>> {
+            Value(DetectorNameOwned(
+                DETECTORS[index_chain[0].get().0 as usize].0.to_owned(),
+            ))
+        }
     }
 
     pub mod api_impl {

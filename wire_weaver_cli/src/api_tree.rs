@@ -690,7 +690,9 @@ trait Dissector keyed_api@0.1.0
 │  ├─ 0 ro property bytes: Fixed<Byte, One, u64, Unbounded>
 │  └─ 1 stream packets: Vec<u8>
 ├─ 1 keyed flow_keys: flow by FlowKey
-└─ 2 #[effect(edit)] fn clear()
+├─ 2 #[effect(edit)] fn clear()
+├─ 3 ro property detector[] keyed by DetectorName: Fixed<Byte, One, u64, Unbounded>
+└─ 4 keyed detector_keys: detector by DetectorName
 ";
         assert_eq!(tree, expected);
     }

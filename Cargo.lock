@@ -2325,7 +2325,7 @@ dependencies = [
 
 [[package]]
 name = "minimal_shrink_wrap"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "wire_weaver",
 ]
@@ -4707,7 +4707,7 @@ dependencies = [
 
 [[package]]
 name = "wire_weaver"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "defmt 1.1.1",
  "exact_units",
@@ -4721,7 +4721,7 @@ dependencies = [
 
 [[package]]
 name = "wire_weaver_cli"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -4759,7 +4759,7 @@ dependencies = [
 
 [[package]]
 name = "wire_weaver_client"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "either",
@@ -4827,7 +4827,7 @@ dependencies = [
 
 [[package]]
 name = "wire_weaver_core"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "cargo_toml",
@@ -4850,7 +4850,7 @@ dependencies = [
 
 [[package]]
 name = "wire_weaver_derive"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "convert_case",
@@ -4867,7 +4867,7 @@ dependencies = [
 
 [[package]]
 name = "wire_weaver_evolution"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "exact_units",
  "ron",
@@ -4882,7 +4882,7 @@ dependencies = [
 
 [[package]]
 name = "wire_weaver_py"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "exact_units",
  "pyo3",
@@ -4896,7 +4896,7 @@ dependencies = [
 
 [[package]]
 name = "wire_weaver_server"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "futures-channel",
  "futures-util",
@@ -4915,7 +4915,7 @@ dependencies = [
 
 [[package]]
 name = "ww_api"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "defmt 1.1.1",
  "exact_units",
@@ -4927,7 +4927,7 @@ dependencies = [
 
 [[package]]
 name = "ww_book"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "serde",
@@ -4937,7 +4937,7 @@ dependencies = [
 
 [[package]]
 name = "ww_byte_stream"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "edge-http",
  "edge-ws",
@@ -4950,7 +4950,7 @@ dependencies = [
 
 [[package]]
 name = "ww_calloop"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "calloop",
  "futures-util",
@@ -4971,7 +4971,7 @@ dependencies = [
 
 [[package]]
 name = "ww_clock_sync"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "wire_weaver_client",
 ]
@@ -4996,7 +4996,7 @@ dependencies = [
 
 [[package]]
 name = "ww_device"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "defmt 1.1.1",
  "edge-http",
@@ -5020,7 +5020,7 @@ dependencies = [
 
 [[package]]
 name = "ww_dns_sd"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "if-addrs",
  "mdns-sd",
@@ -5042,7 +5042,7 @@ dependencies = [
 
 [[package]]
 name = "ww_framer"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "defmt 1.1.1",
  "shrink_wrap",
@@ -5070,7 +5070,7 @@ dependencies = [
 
 [[package]]
 name = "ww_hub"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "futures-lite",
  "futures-util",
@@ -5112,7 +5112,7 @@ dependencies = [
 
 [[package]]
 name = "ww_link"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "defmt 1.1.1",
  "shrink_wrap",
@@ -5124,7 +5124,7 @@ dependencies = [
 
 [[package]]
 name = "ww_local_socket"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "futures-util",
  "interprocess",
@@ -5198,7 +5198,7 @@ dependencies = [
 
 [[package]]
 name = "ww_settings"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "defmt 1.1.1",
  "embassy-futures",
@@ -5211,7 +5211,7 @@ dependencies = [
 
 [[package]]
 name = "ww_settings_derive"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5231,7 +5231,7 @@ dependencies = [
 
 [[package]]
 name = "ww_snapshots"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "elsa",
@@ -5254,7 +5254,7 @@ dependencies = [
 
 [[package]]
 name = "ww_stream"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "atomic-waker",
  "cnt",

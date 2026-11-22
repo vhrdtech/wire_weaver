@@ -11,6 +11,8 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-22
+
 - One authorization hook guards a host server and in-process calls (`Authorized`), and may hold a call for a person's approval (SRV-72); see `wire_weaver`, `wire_weaver_server`, `wire_weaver_core`, `ww_client_server`.
 - The README has a new description and one crates.io badge; the crate table and the badges of every published crate moved to `CRATES.md`, and the book's Architecture page groups the crates and sibling repositories by layer.
 - The thermo bench's history is an API's cycle: w0, lines 1 to 3 from 1.0.0, line 1 retired in 4.0.0 (EVO-42); see `tests/thermo_api`.

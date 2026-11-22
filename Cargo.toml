@@ -49,7 +49,7 @@ exclude = [
 ]
 
 [workspace.package]
-version = "0.5.0"
+version = "0.6.0"
 authors = ["Roman Isaikin <romix.lab@gmail.com>"]
 description = "WireWeaver is a wire format and API code generator for resource constrained systems."
 edition = "2024"
@@ -183,32 +183,32 @@ ww_version = { version = "0.2.0", git = "https://github.com/vhrdtech/ww_base", d
 
 
 # framework crates, versioned together via [workspace.package] version
-wire_weaver = { version = "0.5.0", path = "./wire_weaver", default-features = false }
-wire_weaver_client = { version = "0.5.0", path = "./wire_weaver_client" }
-wire_weaver_core = { version = "0.5.0", path = "./wire_weaver_core" }
-wire_weaver_derive = { version = "0.5.0", path = "./wire_weaver_derive" }
-wire_weaver_evolution = { version = "0.5.0", path = "./wire_weaver_evolution", default-features = false }
-wire_weaver_py = { version = "0.5.0", path = "./wire_weaver_py" }
-wire_weaver_server = { version = "0.5.0", path = "./wire_weaver_server" }
-ww_api = { version = "0.5.0", path = "./ww_api", default-features = false }
-ww_book = { version = "0.5.0", path = "./ww_book" }
-ww_byte_stream = { version = "0.5.0", path = "./ww_byte_stream" }
-ww_calloop = { version = "0.5.0", path = "./ww_calloop" }
-ww_clock_sync = { version = "0.5.0", path = "./ww_clock_sync" }
-ww_device = { version = "0.5.0", path = "./ww_device" }
-ww_dns_sd = { version = "0.5.0", path = "./ww_dns_sd", default-features = false }
-ww_framer = { version = "0.5.0", path = "./ww_framer", default-features = false }
-ww_hub = { version = "0.5.0", path = "./ww_hub" }
-ww_link = { version = "0.5.0", path = "./ww_link", default-features = false }
-ww_local_socket = { version = "0.5.0", path = "./ww_local_socket", default-features = false }
+wire_weaver = { version = "0.6.0", path = "./wire_weaver", default-features = false }
+wire_weaver_client = { version = "0.6.0", path = "./wire_weaver_client" }
+wire_weaver_core = { version = "0.6.0", path = "./wire_weaver_core" }
+wire_weaver_derive = { version = "0.6.0", path = "./wire_weaver_derive" }
+wire_weaver_evolution = { version = "0.6.0", path = "./wire_weaver_evolution", default-features = false }
+wire_weaver_py = { version = "0.6.0", path = "./wire_weaver_py" }
+wire_weaver_server = { version = "0.6.0", path = "./wire_weaver_server" }
+ww_api = { version = "0.6.0", path = "./ww_api", default-features = false }
+ww_book = { version = "0.6.0", path = "./ww_book" }
+ww_byte_stream = { version = "0.6.0", path = "./ww_byte_stream" }
+ww_calloop = { version = "0.6.0", path = "./ww_calloop" }
+ww_clock_sync = { version = "0.6.0", path = "./ww_clock_sync" }
+ww_device = { version = "0.6.0", path = "./ww_device" }
+ww_dns_sd = { version = "0.6.0", path = "./ww_dns_sd", default-features = false }
+ww_framer = { version = "0.6.0", path = "./ww_framer", default-features = false }
+ww_hub = { version = "0.6.0", path = "./ww_hub" }
+ww_link = { version = "0.6.0", path = "./ww_link", default-features = false }
+ww_local_socket = { version = "0.6.0", path = "./ww_local_socket", default-features = false }
 # Its own repo since CLT-21; a registry version once picoboot_host is on crates.io.
 ww_picoboot = { package = "picoboot_host", version = "0.1.0", git = "https://github.com/vhrdtech/picoboot_host", tag = "v0.1.0", default-features = false }
-ww_settings = { version = "0.5.0", path = "./ww_settings/ww_settings" }
-ww_settings_derive = { version = "0.5.0", path = "./ww_settings/ww_settings_derive" }
-ww_snapshots = { version = "0.5.0", path = "./ww_snapshots" }
+ww_settings = { version = "0.6.0", path = "./ww_settings/ww_settings" }
+ww_settings_derive = { version = "0.6.0", path = "./ww_settings/ww_settings_derive" }
+ww_snapshots = { version = "0.6.0", path = "./ww_snapshots" }
 # CLT-34: a crate of its own like picoboot_host, to move to its own repo.
 ww_stm32_dfu = { package = "stm32_dfu_host", version = "0.1.0", path = "./stm32_dfu_host", default-features = false }
-ww_stream = { version = "0.5.0", path = "./ww_stream", default-features = false }
+ww_stream = { version = "0.6.0", path = "./ww_stream", default-features = false }
 
 # framework-level base types, each crate has its own version
 ww_client_server = { version = "0.2.0", path = "./ww_client_server", default-features = false }

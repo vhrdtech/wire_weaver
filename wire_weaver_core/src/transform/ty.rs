@@ -399,6 +399,13 @@ fn convert_def(
     if let Some(pos) = scratch.types_in_progress.iter().position(|t| t.key == key) {
         return refer_back(def_cx, scratch, pos);
     }
+    let (own_attrs, generics) = match item {
+        Item::Enum(item_enum) => (&item_enum.attrs, &item_enum.generics),
+        Item::Struct(item_struct) => (&item_struct.attrs, &item_struct.generics),
+        _ => unreachable!("convert_def took only a struct or an enum"),
+    };
+    let no_owned_form =
+        generics.lifetimes().next().is_some() && !derive_shrink_wrap_args(own_attrs, def_cx)?.owned;
     // where and under which name other crates find it (API-46), checked before its fields
     let (path, ident) = def_cx.public_name(&ty_name, scratch)?;
     scratch.types_in_progress.push(TypeInProgress {
@@ -409,11 +416,6 @@ fn convert_def(
     let saved_scope = std::mem::replace(&mut scratch.generic_scope, params);
     let saved_alias_args = std::mem::take(&mut scratch.alias_args);
     let saved_bounds = std::mem::take(&mut scratch.trait_bounds);
-    let own_attrs = match item {
-        Item::Enum(item_enum) => &item_enum.attrs,
-        Item::Struct(item_struct) => &item_struct.attrs,
-        _ => unreachable!(),
-    };
     let ty = match wire_shape(def_cx, &ty_name, scratch) {
         // the shape's fields and directives, the type's own docs
         Ok(Some((shape_cx, shape))) => convert_item_struct(&shape_cx, scratch, ident, path, &shape)
@@ -441,23 +443,26 @@ fn convert_def(
         .pop()
         .expect("internal: types in progress out of balance");
     let ty = ty?;
-    match in_progress.slot {
+    let type_idx = match in_progress.slot {
         Some(type_idx) => {
             let crate_idx = scratch.root_bundle.find_crate_or_create(def_cx);
             scratch.root_bundle.types[type_idx.0 as usize] =
                 TypeLocationOwned::InLine { ty, crate_idx };
             scratch.recursive_types.insert(in_progress.key, type_idx);
-            Ok(TypeOwned::OutOfLine { type_idx })
+            type_idx
         }
         None => {
             // the same definition used again: equal including its path, `other::Point` is not `geometry::Point`
-            if let Some(type_idx) = scratch.root_bundle.find_type(&ty) {
-                return Ok(TypeOwned::OutOfLine { type_idx });
+            match scratch.root_bundle.find_type(&ty) {
+                Some(type_idx) => type_idx,
+                None => scratch.root_bundle.push_out_of_line_idx(ty, def_cx),
             }
-            let type_idx = scratch.root_bundle.push_out_of_line_idx(ty, def_cx);
-            Ok(TypeOwned::OutOfLine { type_idx })
         }
+    };
+    if no_owned_form {
+        scratch.no_owned_form.insert(type_idx);
     }
+    Ok(TypeOwned::OutOfLine { type_idx })
 }
 
 /// Types (structs or enums) with a hand-written `SerializeShrinkWrap` whose bytes are those of a derived struct beside them, by crate,

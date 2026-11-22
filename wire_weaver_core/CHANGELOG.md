@@ -2,6 +2,7 @@
 
 ### 🚀 Features
 
+- `keyed!` takes a key that borrows (`DetectorName<'i>`), and refuses one without `owned` in its `derive_shrink_wrap`, naming the missing `<Name>Owned` (API-72).
 - Every level's local trait is implemented for `wire_weaver::authorize::Authorized<T, A>`: each function asks the hook with its access, path and steps (effects and metadata of the model, as constants), accessors wrap the levels they hand out (SRV-72).
 
 ### 📚 Documentation

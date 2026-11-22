@@ -1,9 +1,12 @@
 //! The JSON codec of `ww_json` (INT-14) on every case of the corpus: the corpus value through the structural form
 //! and back, then through the natural form (quantities as text, bytes as hex, big integers as strings) and back.
+//! Every value the codec writes validates against the JSON Schema of its type (INT-15).
 
 use conformance::corpus::{self, Direction};
 use conformance::dynamic::{bundle, method_args, property_ty};
+use std::collections::HashMap;
 use ww_json::Codec;
+use ww_json::schema::{args_schema, type_schema};
 use ww_self::{TypeOwned, ValueOwned};
 
 /// NaN equals nothing, also itself: a value holding one compares by its Debug text (NUM-19).
@@ -17,6 +20,7 @@ fn every_case_round_trips() {
     let raw = Codec::new(bundle).raw();
     let natural = Codec::new(bundle);
     let (mut checked, mut args_checked) = (0, 0);
+    let mut validators: HashMap<String, jsonschema::Validator> = HashMap::new();
     let mut inexact = vec![];
     for case in corpus::load().cases {
         if case.value.is_null() && case.direction == Direction::Reject {
@@ -57,6 +61,18 @@ fn every_case_round_trips() {
                 "{}: stable",
                 case.name
             );
+            // the schema of the type describes what the codec wrote
+            let validator = validators.entry(case.ty.clone()).or_insert_with(|| {
+                let schema = type_schema(ty, bundle).unwrap_or_else(|e| panic!("{}: {e}", case.ty));
+                jsonschema::validator_for(&schema)
+                    .unwrap_or_else(|e| panic!("{}: not a schema: {e}\n{schema:#}", case.ty))
+            });
+            if let Err(e) = validator.validate(&json) {
+                panic!(
+                    "{}: {json} is not valid against the schema of {}: {e}",
+                    case.name, case.ty
+                );
+            }
             checked += 1;
         } else if let Some(defs) = method_args(&case.ty) {
             let Ok(values) = raw.root("args").args_from_json(&case.value, defs) else {
@@ -76,6 +92,18 @@ fn every_case_round_trips() {
                 "{}: {json}",
                 case.name
             );
+            let validator = validators.entry(case.ty.clone()).or_insert_with(|| {
+                let schema =
+                    args_schema(defs, bundle).unwrap_or_else(|e| panic!("{}: {e}", case.ty));
+                jsonschema::validator_for(&schema)
+                    .unwrap_or_else(|e| panic!("{}: not a schema: {e}\n{schema:#}", case.ty))
+            });
+            if let Err(e) = validator.validate(&json) {
+                panic!(
+                    "{}: {json} is not valid against the schema of the arguments: {e}",
+                    case.name
+                );
+            }
             args_checked += 1;
         }
     }

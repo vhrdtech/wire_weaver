@@ -112,6 +112,8 @@ indicatif = { version = "0.18", default-features = false, features = ["unicode-w
 interprocess = { version = "2.4", default-features = false, features = ["tokio"] }
 # commands of the ww command line register themselves from their own crate and module
 inventory = { version = "0.3", default-features = false }
+# validates the values of the JSON codec against its schemas in tests (ww_json), no remote or file references
+jsonschema = { version = "0.63", default-features = false }
 libc = { version = "0.2", default-features = false, features = ["std"] }
 log = { version = "0.4", default-features = false }
 # exact: ww_tape pins it, its lz4 payload columns must compress to the same bytes

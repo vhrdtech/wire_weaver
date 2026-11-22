@@ -27,5 +27,8 @@ ww_self = { workspace = true, features = ["expr"] }
 ww_si = { workspace = true, features = ["std"] }
 ww_timebase = { workspace = true, features = ["std"] }
 
+[dev-dependencies]
+jsonschema.workspace = true
+
 [lints]
 workspace = true

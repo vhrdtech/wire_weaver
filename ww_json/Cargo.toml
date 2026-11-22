@@ -2,7 +2,7 @@
 name = "ww_json"
 version = "0.1.0"
 authors.workspace = true
-description = "JSON for any WireWeaver API: values to and from serde_json"
+description = "JSON for any WireWeaver API: values to and from serde_json, and a JSON Schema of every argument, result, property and stream item, guided by the API model"
 edition.workspace = true
 rust-version.workspace = true
 repository.workspace = true
@@ -18,6 +18,7 @@ ww_numeric = { workspace = true, features = ["std"] }
 ww_self = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
+jsonschema.workspace = true
 shrink_wrap.workspace = true
 wire_weaver_core.workspace = true
 ww_si = { workspace = true, features = ["std", "time", "electrical", "information", "counting", "angle"] }

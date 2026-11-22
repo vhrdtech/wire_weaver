@@ -205,7 +205,7 @@ This page lists the crates of the root workspace. The first table links each pub
 | [`ww_framer`](ww_framer) | runtime | Packs many small WireWeaver messages into one packet or splits a big one across several |
 | [`ww_hub`](ww_hub) | runtime | The ww hub: one process per user that holds WireWeaver devices and serves every program (SRV-13) |
 | [`ww_hub_api`](ww_hub_api) | runtime | API of the ww hub: the per-user process that holds devices and serves every program (SRV-13) |
-| [`ww_json`](ww_json) | runtime | JSON for any WireWeaver API: values to and from serde_json |
+| [`ww_json`](ww_json) | runtime | JSON for any WireWeaver API: values to and from serde_json, and a JSON Schema of every argument, result, property and stream item, guided by the API model |
 | [`ww_link`](ww_link) | runtime | WireWeaver is a wire format and API code generator for resource constrained systems. |
 | [`ww_local_socket`](ww_local_socket) | runtime | WireWeaver over local sockets: user-only Unix sockets and named pipes, the holders handover |
 | [`ww_plugin`](ww_plugin) | runtime | Device arguments and the protocol an executable ww plugin (ww-NAME) needs, without the ww hub |

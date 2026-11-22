@@ -4,7 +4,7 @@ level: advanced
 
 # JSON for any API
 
-`ww_json` turns the values of any API into JSON and back. It works from the API model (introspection data or an API crate), so nothing is written per command: an MCP server, a web client or a script gets arguments as a JSON object and results as JSON.
+`ww_json` turns the values of any API into JSON and back, and describes both with a JSON Schema. It works from the API model (introspection data or an API crate), so nothing is written per command: an MCP server, a web client or a script gets arguments as a JSON object, results as JSON, and a schema per method, property and stream item.
 
 ```rust
 let codec = ww_json::Codec::new(&bundle).root("args");
@@ -90,3 +90,31 @@ value: 256 is out of range for u8
 ## Structural form
 
 `Codec::raw()` writes the structs quantities are on the wire (`{"value": 5000}`, `{"prefix": "Milli", "value": {"U32": 3300}}`) and byte lists as lists. It is what the conformance corpus is written in, so every consumer reads the same values ([conformance](../serdes/conformance.md)).
+
+## JSON Schema
+
+`ww_json::schema` writes a JSON Schema (draft 2020-12) of the same forms: `item_schemas(item, bundle)` for one API item (the arguments of a method as an object, its result, the value of a property, the item of a stream), `type_schema` and `args_schema` for any type or argument list. Each schema is a complete document with the `$defs` it refers to; doc comments are `description`s. A test validates every value the codec writes for the conformance corpus against the schema of its type.
+
+A struct is an object with `properties` in the order of the definition, `required` listing the fields without a default that are not `Option`, and `additionalProperties: false`. An enum is a `oneOf`: `{"const": "Unit"}` or `{"Variant": fields}`. A quantity is a string that names its unit and bounds:
+
+```json
+{
+  "type": "string",
+  "x-min": "1 ms",
+  "x-max": "5000 ms",
+  "description": "A quantity of Second, written as text with its unit: `5 ms`, in whole ms (stored as u16), from 1 ms to 5000 ms. Any unit and prefix that converts exactly is accepted too. A plain number is taken as ms.",
+  "x-quantity": "fixed",
+  "x-unit": "ms",
+  "x-storage": "u16"
+}
+```
+
+An integer that a JSON number does not hold exactly is a number up to ±2⁵³ or a decimal string, with its range in `description` and `x-range`:
+
+```json
+{"anyOf": [{"type": "integer", "minimum": 0, "maximum": 9007199254740992}, {"type": "string", "pattern": "^-?[0-9]+$"}],
+ "description": "An integer from 0 to 18446744073709551615: a number up to ±2^53, a decimal string beyond.",
+ "x-range": ["0", "18446744073709551615"]}
+```
+
+Bytes are a hex string or a list of numbers, a string is `maxLength`-limited for `MaxLen`, a list has `minItems` and `maxItems` for an array, a tuple is `prefixItems`. A recursive type is one `$defs` entry referring to itself. The schema is never looser than the codec: it names the forms the codec writes, and leaves out a whole float for an integer or a plain number for a quantity, which the codec also takes.

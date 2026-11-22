@@ -293,6 +293,7 @@ thermo_api = { version = "4.0.0", path = "./tests/thermo_api" }
 thermo_api_2_0_0 = { package = "thermo_api", version = "2.0.0", path = "./tests/thermo_api_old/2_0_0" }
 thermo_devices = { version = "0.1.0", path = "./tests/thermo_devices" }
 totals_api = { version = "0.1.0", path = "./tests/totals_api" }
+track_api = { version = "0.1.0", path = "./tests/track_api" }
 traits_api = { version = "0.1.0", path = "./tests/traits_api" }
 wire_line_api = { version = "0.4.0", path = "./tests/wire_line_api" }
 wire_line_old_api = { version = "0.3.0", path = "./tests/wire_line_old_api" }

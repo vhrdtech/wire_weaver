@@ -4245,6 +4245,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "track"
+version = "0.1.0"
+dependencies = [
+ "tests_common",
+ "track_api",
+ "wire_weaver",
+ "ww_client_server",
+ "ww_self",
+ "ww_si",
+ "ww_stream",
+]
+
+[[package]]
+name = "track_api"
+version = "0.1.0"
+dependencies = [
+ "ww_api",
+ "ww_si",
+]
+
+[[package]]
 name = "traits"
 version = "0.1.0"
 dependencies = [

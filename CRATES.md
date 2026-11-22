@@ -182,6 +182,8 @@ This page lists the crates of the root workspace. The first table links each pub
 | [`thermo_devices`](tests/thermo_devices) | runtime | Simulated firmware of every line of the thermo_api bench (EVO-28), on tests_common's in-process link. |
 | [`totals`](tests/totals) | runtime | Tests of running totals over plain sinks (API-70): a lossy UDP link that drops and reorders datagrams, WebSocket, a second sender. |
 | [`totals_api`](tests/totals_api) | runtime | Test API of tests/totals: running totals over plain sinks, of a struct of Fixed values and of a counted unit. |
+| [`track`](tests/track) | runtime | Tests of #[track] (API-71): the layout of each stream in a device's introspection data |
+| [`track_api`](tests/track_api) | runtime | API of the #[track] tests (API-71): streams laid out as points, spans and series, with dims and flags |
 | [`traits`](tests/traits) | runtime | Tests of traits_api's trait composition and addressing: sub-traits nested, in arrays and shared/claimable through the hub. |
 | [`traits_api`](tests/traits_api) | runtime | Test API of tests/traits: sub-traits nested, in arrays and shared/claimable through the hub (SRV-34). |
 | [`wire_line`](tests/wire_line) | runtime | Link setup decides on the wire line, not the crate version (EVO-25): old firmware on an old line connecting to a host built against a newer one. |

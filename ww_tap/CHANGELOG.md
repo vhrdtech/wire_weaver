@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### 🚀 Features
+
+- `LinkTap`'s streams carry `#[track(points, dims(link, medium, peer))]` (API-71): recorders read their layout from the bundle.
+
 ### ⚠️ Breaking
 
 - `recorder::{track_key, LinkIdentity, link_stream_of, link_stream_in, drop_closed_links}` moved to `ww_tap_decoder` (vhrdtech/ww_tools); `std` no longer pulls `ww_tape` (TR-14).

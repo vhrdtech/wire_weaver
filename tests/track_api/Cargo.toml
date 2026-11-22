@@ -1,0 +1,26 @@
+[package]
+name = "track_api"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "API of the #[track] tests (API-71): streams laid out as points, spans and series, with dims and flags"
+
+# Wire version of the API (EVO-31): link setup decides on its line, `#[since]` names its revisions
+[package.metadata.wire_weaver]
+wire = "w1.0"
+
+[features]
+default = ["std"]
+# default, unused here: this crate has no no_std gate and no owned/borrowed derive choice
+std = []
+
+[dependencies]
+ww_api = { workspace = true, features = ["std"] }
+ww_si = { workspace = true, features = ["electrical", "counting", "dimensionless"] }
+
+[lints]
+workspace = true

@@ -2,7 +2,7 @@
 //! an earlier one (a pointer, a scroll wheel, a jog dial over UDP). See `docs/api/totals.md`.
 
 use std::hash::{BuildHasher, RandomState};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, Weak};
 use std::time::Duration;
 
 use tokio::sync::{Notify, watch};
@@ -10,8 +10,9 @@ use wire_weaver::shrink_wrap::SerializeShrinkWrap;
 use wire_weaver::ww_api::{Accumulate, Totals, TotalsSession};
 use ww_stream::totals::{TotalsTx, TotalsTxStats};
 
+use crate::client::prepared_connection::Reconnect;
 use crate::locked::Locked;
-use crate::{ConnectionState, Sink};
+use crate::{Commander, ConnectionState, RetryNow, Sink};
 
 /// Sends running totals to a [Totals] sink: [Self::add] never waits, and a lost write loses no change.
 ///
@@ -40,6 +41,8 @@ pub const REPEATS_MAX: u32 = 2;
 struct Shared<T> {
     tx: Mutex<TotalsTx<T>>,
     changed: Notify,
+    /// The connection [TotalsSender::run] sends on, for [TotalsSender::retry_now]
+    retry: Mutex<Weak<Reconnect>>,
 }
 
 impl<T> Clone for TotalsSender<T> {
@@ -59,6 +62,7 @@ impl<T: Accumulate + SerializeShrinkWrap> TotalsSender<T> {
             shared: Arc::new(Shared {
                 tx: Mutex::new(TotalsTx::new()),
                 changed: Notify::new(),
+                retry: Mutex::new(Weak::new()),
             }),
             repeat_after: REPEAT_AFTER,
             repeats_max: REPEATS_MAX,
@@ -84,15 +88,40 @@ impl<T: Accumulate + SerializeShrinkWrap> TotalsSender<T> {
         self.shared.tx.locked().stats()
     }
 
-    /// Sends the totals through `sink` until `state`'s sender goes away: a session for every time `state` says
-    /// connected, the first one at a random [TotalsSession], so a restarted program is a new sender to the device.
+    /// [Commander::retry_now] on the connection [Self::run] sends on (CLT-75): input that waits for the link (a
+    /// hand on the pointer) hurries its reconnect. [RetryNow::NotTrying] before `run`.
+    pub async fn retry_now(&self) -> RetryNow {
+        let reconnect = self.shared.retry.locked().upgrade();
+        match reconnect {
+            Some(r) => r.retry_now().await,
+            None => RetryNow::NotTrying,
+        }
+    }
+
+    /// Sends the totals through `sink`, a sink of `cmd`'s client, until its connection is gone: a session for every
+    /// time [Commander::connection_state] says connected, the first one at a random [TotalsSession], so a restarted
+    /// program is a new sender to the device. A write that fails ends the session until the next connect.
     ///
-    /// `state` is [Commander::connection_state](crate::Commander::connection_state) of a client that keeps trying.
-    /// A write that fails ends the session until the next connect.
-    pub async fn run(
+    /// `cmd` is best a client that keeps trying; the future ends at once for one without a connection state
+    /// (`connect_blocking()`). It holds neither `cmd` nor `self`, so it can be spawned as it is, and the connection
+    /// ends when the app's last handle goes.
+    pub fn run(&self, sink: Sink<Totals<T>>, cmd: &Commander) -> impl Future<Output = ()> + use<T> {
+        let state = cmd.connection_state();
+        *self.shared.retry.locked() = cmd.retry_handle();
+        let sender = self.clone();
+        async move {
+            let Some(mut state) = state else {
+                return;
+            };
+            let mut sink = sink;
+            sender.send_all(&mut sink, &mut state).await;
+        }
+    }
+
+    async fn send_all(
         &self,
-        mut sink: Sink<Totals<T>>,
-        mut state: watch::Receiver<ConnectionState>,
+        sink: &mut Sink<Totals<T>>,
+        state: &mut watch::Receiver<ConnectionState>,
     ) {
         let random = RandomState::new()
             .hash_one(std::process::id())

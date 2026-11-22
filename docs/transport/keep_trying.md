@@ -59,6 +59,25 @@ It runs on the caller's tokio runtime and needs one (an error says so otherwise)
   (`None` by default: never) stops after that long without a link, the first connect included: the waiting streams
   end and `GaveUp` says why.
 
+## Retry now
+
+The backoff is a guess; the app often knows better: the network just came back, the screen woke up, the user
+pressed "retry". `Commander::retry_now().await` hurries a connection that reconnects by itself (a keep-trying one,
+or one [through the hub](#through-the-hub)) and says what it did:
+
+| Where the connection is | What happens | Answer |
+|---|---|---|
+| waiting between attempts | the next attempt starts now; the wait after it is `backoff.first` again | `RetryNow::Attempting` |
+| an attempt under way | it is stopped (an address still opening too) and a new one starts at once | `Restarted` |
+| connected | a ping goes to the device | `Pinged` |
+| not trying: a plain `connect()`, `connect_blocking()`, after `disconnect()` or `GaveUp` | nothing | `NotTrying` |
+
+The ping finds a link whose other end is gone when the medium fails on it (a TCP connection the peer reset); a
+silent one (a phone that left the Wi-Fi without a word) goes at the peer timeout, 10 s without a word from the
+device, as before. Either way the lost link is then reconnected as usual. A stopped attempt is not an
+`AttemptFailed`; the new one comes as `Connecting { attempt }` with the next number.
+`TotalsSender::retry_now()` reaches the connection its `run` sends on ([running totals](../api/totals.md)).
+
 ## Events and state
 
 `Commander::connection_events()` is a broadcast receiver of what happens, from the moment it is called:
@@ -95,4 +114,6 @@ follows its own settings on every transport.
 `tests/keep_trying` runs a generated client against a generated server on the
 [simulated WebSocket](websocket.md#simulated-websocket-in-tests) (`tests_common::start_device_async_ws`), on tokio's
 paused clock: the server starts after the client, goes away and comes back while an observer keeps delivering; the
-first address with a server wins; the waits between attempts and the give-up time are the configured ones.
+first address with a server wins; the waits between attempts and the give-up time are the configured ones;
+`retry_now()` hurries a waiting connection, restarts an attempt whose WebSocket handshake never ends, pings a running
+link and leaves a plain `connect()` alone.

@@ -1372,6 +1372,25 @@ mod tests {
         assert_eq!(kinds(&p.take_sent()), [Kind::Disconnect]);
     }
 
+    /// A ping asked for goes out at once while the link is up, and only then.
+    #[test]
+    fn ping_on_request_only_while_up() {
+        let now = Instant::now();
+        let mut p = Pair::new();
+        p.cmd(now, Command::Ping);
+        assert!(p.take_sent().is_empty(), "not connected");
+        let _connected_rx = connect(&mut p, now);
+        let flushes = p.flushes;
+        p.cmd(now, Command::Ping);
+        assert_eq!(kinds(&p.take_sent()), [Kind::Ping]);
+        assert_eq!(p.flushes, flushes + 1, "flushed at once");
+        assert_eq!(
+            p.tx.poll_timeout(),
+            Some(now + PING),
+            "the ping timer restarts"
+        );
+    }
+
     #[test]
     fn request_response_and_seq_reuse() {
         let now = Instant::now();

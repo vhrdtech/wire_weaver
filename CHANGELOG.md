@@ -11,6 +11,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
+- `retry_now()` hurries a keep-trying connection: next attempt now, a restart, or a ping (CLT-75); see `wire_weaver_client`.
 - A connect attempt stops half way without losing its command channel (CLT-75); see `wire_weaver_client`.
 - The local trait without `Send`, for single-threaded services, served by `serve_trait` (SRV-73); see `wire_weaver_derive`, `wire_weaver_server`.
 - A `serve_trait` stream that ends closes the client's stream; see `wire_weaver_core`.

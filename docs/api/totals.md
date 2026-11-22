@@ -71,18 +71,21 @@ write, and nothing is applied.
 
 ```rust
 let sender = TotalsSender::<Delta>::new();
-let state = client.cmd.connection_state().expect("a client that keeps trying");
 let sink = client.motion().await?;
-tokio::spawn({ let sender = sender.clone(); async move { sender.run(sink, state).await } });
+tokio::spawn(sender.run(sink, &client.cmd)); // holds neither the sender nor the client
 
 sender.add(Delta { dx: Px::new(3), dy: Px::new(-1) }); // never waits
 ```
 
-`run` starts a session every time the connection state says connected, then sends the latest totals whenever they
+`run` takes the client's `Commander`, best one that [keeps trying](../transport/keep_trying.md), and starts a
+session every time its connection state says connected, then sends the latest totals whenever they
 changed, one write at a time: changes made while a write is on its way go together into the next one. A plain sink
 acknowledges nothing, so a lost last write would leave its change behind until the next one: after `REPEAT_AFTER`
 (50 ms) without a change the last write goes again, at most `REPEATS_MAX` (2) times (`with_repeats(after, max)`;
 the device finds no change in a repeat that arrives).
+
+`sender.retry_now()` is the running connection's [`retry_now()`](../transport/keep_trying.md#retry-now): input that
+waits for the link (a hand on the pointer while it is down) hurries its reconnect without the client at hand.
 
 ## Device: `TotalsRx`
 

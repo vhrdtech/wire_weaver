@@ -6,7 +6,7 @@ use crate::event_loop::command::EventLoopExitReason;
 use crate::event_loop::commander::WeakCommander;
 use crate::event_loop::transport::Selected;
 use crate::{
-    Backoff, Commander, ConnectionEvent, ConnectionState, GapReason, WwClient,
+    Backoff, Commander, ConnectionEvent, ConnectionState, GapReason, RetryNow, WwClient,
     config::{ClientConfig, IntrospectBundle, ValidatedConfig},
     device_info::DeviceApiInfo,
     event_loop::command::{Command, EventLoopResidual},
@@ -588,12 +588,16 @@ enum Ctl {
     /// The clock steering a keep-trying connection starts on its first connect
     #[cfg(feature = "clock_sync")]
     Clock(Box<PendingClock>),
+    /// [Commander::retry_now]: hurry, by where the connection is
+    RetryNow(oneshot::Sender<RetryNow>),
 }
 
 /// What ends a [Keeper]'s attempt before it is done.
 enum Interrupt {
     /// Every [Reconnect] is gone: nobody waits for the attempt
     Closed,
+    /// [Ctl::RetryNow]: a new attempt starts at once
+    Retry(oneshot::Sender<RetryNow>),
 }
 
 /// Where the command channel is, as the [Keeper] sees it.
@@ -699,6 +703,15 @@ impl Reconnect {
         _ = self.ctl.send(Ctl::Supervise(Box::new(commander)));
     }
 
+    /// See [Commander::retry_now].
+    pub(crate) async fn retry_now(&self) -> RetryNow {
+        let (reply_tx, reply_rx) = oneshot::channel();
+        if self.ctl.send(Ctl::RetryNow(reply_tx)).is_err() {
+            return RetryNow::NotTrying;
+        }
+        reply_rx.await.unwrap_or(RetryNow::NotTrying)
+    }
+
     /// The configuration the Commander was connected with, for [Commander::reconnect_as](crate::Commander::reconnect_as)
     /// to rebuild one of the device's new line (CLT-63).
     pub(crate) fn config(&self) -> &ValidatedConfig {
@@ -799,6 +812,10 @@ impl Keeper {
                             )));
                             Keeping::Running(residual)
                         }
+                        Some(Ctl::RetryNow(reply)) => {
+                            self.retry_now(true, reply);
+                            Keeping::Running(residual)
+                        }
                         Some(c) => {
                             self.setting(c);
                             Keeping::Running(residual)
@@ -822,6 +839,10 @@ impl Keeper {
                                 Err(Ok(cmd_rx)) => Keeping::Stopped(cmd_rx),
                                 Err(Err(_)) => unreachable!("sent Ok"),
                             },
+                            Some(Ctl::RetryNow(reply)) => {
+                                self.retry_now(false, reply);
+                                Keeping::Stopped(cmd_rx)
+                            }
                             Some(c) => {
                                 self.setting(c);
                                 Keeping::Stopped(cmd_rx)
@@ -863,6 +884,11 @@ impl Keeper {
                     }
                     Some(Ctl::Back(cmd_rx)) => Keeping::Stopped(cmd_rx),
                     Some(Ctl::Lost) => Keeping::Lost,
+                    // a reconnect asked for by hand is under way, this connection doesn't reconnect by itself
+                    Some(Ctl::RetryNow(reply)) => {
+                        _ = reply.send(RetryNow::NotTrying);
+                        Keeping::Taken
+                    }
                     Some(c) => {
                         self.setting(c);
                         Keeping::Taken
@@ -874,6 +900,10 @@ impl Keeper {
                         _ = reply.send(Err(crate::Error::User(
                             "the event loop is gone, connect with a new client".into(),
                         )));
+                        Keeping::Lost
+                    }
+                    Some(Ctl::RetryNow(reply)) => {
+                        _ = reply.send(RetryNow::NotTrying);
                         Keeping::Lost
                     }
                     Some(_) => Keeping::Lost,
@@ -1022,6 +1052,17 @@ impl Keeper {
                     None => Keeping::Lost,
                 };
             }
+            Err(Interrupt::Retry(reply)) => {
+                debug!("retry now: attempt {attempt} stopped, the next starts at once");
+                let Some(cmd_rx) = channel.stop(&cmd_tx).await else {
+                    _ = reply.send(RetryNow::NotTrying);
+                    self.give_up(&commander, "the event loop is gone".into());
+                    return Keeping::Lost;
+                };
+                self.hurry();
+                _ = reply.send(RetryNow::Restarted);
+                return Keeping::Stopped(cmd_rx);
+            }
         };
         let e = match result {
             Ok(info) => {
@@ -1050,10 +1091,43 @@ impl Keeper {
                             .into(),
                     )));
                 }
+                Some(Ctl::RetryNow(reply)) => return Interrupt::Retry(reply),
                 Some(c) => self.setting(c),
                 None => return Interrupt::Closed,
             }
         }
+    }
+
+    /// The next attempt starts now, and waits the backoff's first time after it.
+    fn hurry(&mut self) {
+        let first = self.backoff().first;
+        if let Some(gap) = &mut self.gap {
+            gap.next_at = Instant::now();
+            gap.backoff = first;
+        }
+    }
+
+    /// Answers [Ctl::RetryNow] while no attempt is under way: `running` when an event loop runs on the channel.
+    fn retry_now(&mut self, running: bool, reply: oneshot::Sender<RetryNow>) {
+        let answer = if running {
+            // a connection that reconnects by itself: a keep-trying one, one through the hub
+            let supervised = self.config.keeps_trying || *self.via_hub.borrow();
+            match self.commander.as_ref().and_then(|c| c.upgrade()) {
+                Some(commander) if supervised => {
+                    // a full queue: commands are going out already, and they find a dead medium as a ping would
+                    _ = commander.cmd_tx().try_send(Command::Ping);
+                    RetryNow::Pinged
+                }
+                _ => RetryNow::NotTrying,
+            }
+        } else if self.gap.is_some() {
+            self.hurry();
+            RetryNow::Attempting
+        } else {
+            RetryNow::NotTrying
+        };
+        debug!("retry now: {answer:?}");
+        _ = reply.send(answer);
     }
 
     /// An attempt connected again after a gap: on the same API, the Commander's streams go on.

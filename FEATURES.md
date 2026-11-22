@@ -1304,7 +1304,10 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   order (`ClientConfig::websocket_urls`, `in_process_paths`; `connect()` and `reconnect()` too), backoff and give-up
   time from `ClientConfig::keep_trying` (`KeepTrying`, `Backoff`); calls fail with `Disconnected` while there is no
   link, streams, observed levels and sinks resume after each reconnect (`resume_streams`);
-  `ConnectionEvent::Connecting` / `Connected` and `Commander::connection_state()` (`ConnectionState`) tell the app.
+  `ConnectionEvent::Connecting` / `Connected` and `Commander::connection_state()` (`ConnectionState`) tell the app;
+  `Commander::retry_now()` and `TotalsSender::retry_now()` (`RetryNow`) hurry the next attempt, restart one under
+  way (cancel-safe: the event loop is stopped with `Command::StopAttempt` and the channel taken back) or ping a
+  running link.
   The first connect learns the device's API and every clone of the handle sees it. A WebSocket address that doesn't
   answer within the link setup timeout fails instead of holding the attempt for the OS's TCP connect timeout. The
   keeper's times run on tokio's clock. See `docs/transport/keep_trying.md`; tested in `tests/keep_trying` on the simulated WebSocket

@@ -618,6 +618,13 @@ impl TxCore {
                 self.disconnected_tx = disconnected_tx;
                 return Ok(self.exit_keeping_streams(now, reason, "client request"));
             }
+            Command::Ping => {
+                if self.phase == Phase::Up {
+                    trace!("sending ping on request");
+                    self.send(&Message::Ping)?;
+                    self.flush(now);
+                }
+            }
             Command::StopAttempt => {
                 if matches!(self.phase, Phase::Idle | Phase::Exited) {
                     // left in the channel by an attempt whose loop exited by itself: nothing here to stop

@@ -115,7 +115,7 @@ of the last release and tells you. Add it to the API crate as a test, so `cargo 
 
 ```toml
 [dev-dependencies]
-wire_weaver_evolution = "0.5"
+wire_weaver_evolution = "0.6"
 ```
 
 ```rust

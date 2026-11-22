@@ -177,7 +177,7 @@ In the API crate, a dev-dependency and `tests/evolution.rs`:
 
 ```toml
 [dev-dependencies]
-wire_weaver_evolution = "0.5"
+wire_weaver_evolution = "0.6"
 ```
 
 ```rust

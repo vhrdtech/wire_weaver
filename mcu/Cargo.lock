@@ -1165,7 +1165,7 @@ dependencies = [
 
 [[package]]
 name = "wire_weaver"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "defmt 1.1.1",
  "exact_units",
@@ -1177,7 +1177,7 @@ dependencies = [
 
 [[package]]
 name = "wire_weaver_core"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "cargo_toml",
@@ -1200,7 +1200,7 @@ dependencies = [
 
 [[package]]
 name = "wire_weaver_derive"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "convert_case",
@@ -1229,7 +1229,7 @@ dependencies = [
 
 [[package]]
 name = "ww_api"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "defmt 1.1.1",
  "exact_units",
@@ -1259,7 +1259,7 @@ dependencies = [
 
 [[package]]
 name = "ww_device"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "defmt 1.1.1",
  "embassy-futures",
@@ -1295,7 +1295,7 @@ dependencies = [
 
 [[package]]
 name = "ww_framer"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "shrink_wrap",
  "ww_crc",
@@ -1313,7 +1313,7 @@ dependencies = [
 
 [[package]]
 name = "ww_link"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "defmt 1.1.1",
  "shrink_wrap",
@@ -1368,7 +1368,7 @@ dependencies = [
 
 [[package]]
 name = "ww_snapshots"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "elsa",

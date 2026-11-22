@@ -748,18 +748,20 @@ dependencies = [
 
 [[package]]
 name = "wire_weaver"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "exact_units",
  "futures-core",
  "shrink_wrap",
  "ww_api",
+ "ww_self",
+ "ww_trace_context",
  "ww_version",
 ]
 
 [[package]]
 name = "wire_weaver_core"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "cargo_toml",
@@ -782,7 +784,7 @@ dependencies = [
 
 [[package]]
 name = "wire_weaver_derive"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "convert_case",
@@ -799,8 +801,9 @@ dependencies = [
 
 [[package]]
 name = "ww_api"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
+ "exact_units",
  "shrink_wrap",
  "wire_weaver_derive",
  "ww_error",
@@ -869,7 +872,7 @@ dependencies = [
 
 [[package]]
 name = "ww_snapshots"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "elsa",
@@ -881,6 +884,13 @@ dependencies = [
  "tracing",
  "ww_self",
  "ww_version",
+]
+
+[[package]]
+name = "ww_trace_context"
+version = "0.1.0"
+dependencies = [
+ "shrink_wrap",
 ]
 
 [[package]]

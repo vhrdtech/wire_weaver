@@ -1949,7 +1949,7 @@
   <span class="md-ellipsis">
     
   
-  Metadata: effects, claims, pins, labels
+  Metadata: claims, pins, labels
 
     
   </span>
@@ -5108,17 +5108,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#batched-into-blocks" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Batched into blocks
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#records" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6326,17 +6315,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#batched-into-blocks" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Batched into blocks
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#records" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6509,29 +6487,20 @@
 
 
 <h1 id="the-link-tap">The link tap<a class="headerlink" href="#the-link-tap" title="Permanent link">&para;</a></h1>
-<p>The link tap records what crosses a WireWeaver link: every frame as it crossed the medium (a USB packet, a UDP
-datagram, an RTT chunk), every <code>ww_link</code> message as it went down to the framer or came back up, and the link events
-the bytes don't show (connected, link ready, disconnected, errors). A decoder links frames and messages back
-together, so you see which packet a request went out in, which packets a long reply was split over, and what a lost
-packet took with it. On top of it sit <code>ww monitor</code>, <code>ww stats</code>, <code>ww capture</code> and <code>ww explain FILE</code>
-(<a href="../../cli_reference/#ww-monitor">CLI reference</a>).</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>$ ww monitor --layer frame
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>   0.049465 L0 → frame #3 64 B: Full Data0 12 B, Full Data0 12 B, Full Data0 12 B, Full Data0 12 B, Start Data0 6/12 B
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>   0.049311 L0 → Data0 12 B msg #3 in #3@2+12 Request Call add seq 1
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>   ..
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>   0.053181 L0 ← frame #5 64 B: Start Data0 62/304 B
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>   0.053186 L0 ← frame #6 64 B: Continue Data0 62/242 B
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>   ..
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>   0.053194 L0 ← Data0 304 B msg #11 in #5..#9 (5 frames) Event Value blob seq 9 reply to #11 in 2.18 ms
-</span></code></pre></div>
+<p>The link tap is the hook a transport reports what crosses a WireWeaver link to: every frame as it crossed the medium
+(a USB packet, a UDP datagram, an RTT chunk), every <code>ww_link</code> message as it went down to the framer or came back up,
+and the link events the bytes don't show (connected, link ready, disconnected, errors). What to do with them is the
+tap's: a decoder links frames and messages back together, so you see which packet a request went out in, which
+packets a long reply was split over, and what a lost packet took with it. WireWeaver itself ships no recorder and no
+<code>ww</code> command on the tap; a capture tool implements <code>Tap</code> and stores the records in its own format.</p>
 <h2 id="where-it-records">Where it records<a class="headerlink" href="#where-it-records" title="Permanent link">&para;</a></h2>
 <p>The tap is the <code>ww_tap</code> crate (<code>no_std</code>). A transport calls its <code>Tap</code> at the two layers it has: <code>frame(dir, bytes)</code>
 and <code>message(dir, kind, bytes)</code>; the event loop adds <code>link_event</code>. The tap only copies bytes and stamps a time:
 linking, statistics and decoding happen in the consumer, so the link pays for a copy and nothing more.</p>
 <ul>
 <li><strong>Host.</strong> Every <code>wire_weaver_client</code> event loop reports its link to a <code>Tap</code> made for that link by the
-  <code>tap::TapSource</code> of <code>ClientConfig::tap(source)</code>: <code>TapSource::new(|| Box::new(my_tap))</code> for any <code>Tap</code>, or a
-  <code>ww_tap::Recorder</code> (it converts into one). A client without a tap copies nothing. <code>Command::RegisterTracer</code> and
+  <code>tap::TapSource</code> of <code>ClientConfig::tap(source)</code>: <code>TapSource::new(|| Box::new(my_tap))</code> for any <code>Tap</code>. A client
+  without a tap copies nothing; a tap that panics is dropped and its link goes on (<code>TapSource::on_lost</code>). <code>Command::RegisterTracer</code> and
   its <code>TraceEvent</code>s come from the same hook: the data messages each way and the link's connects, disconnects and
   errors.</li>
 <li><strong>Device.</strong> <code>ww_device</code>'s <code>FramedTx::with_tap</code> / <code>FramedRx::with_tap</code> take a tap; the default is <code>NoTap</code>, whose
@@ -6539,54 +6508,40 @@ linking, statistics and decoding happen in the consumer, so the link pays for a 
   <code>ww_framer</code> itself has no callbacks: <code>ww_framer::pieces(frame)</code> walks a frame into its pieces with the same head
   and checksum code <code>FramedRx</code> uses, and the decoder re-runs the framer on the recorded frames.</li>
 </ul>
-<h2 id="batched-into-blocks">Batched into blocks<a class="headerlink" href="#batched-into-blocks" title="Permanent link">&para;</a></h2>
-<p>The <code>Recorder</code> batches records into pooled blocks of 64 KiB (<code>RecorderConfig::block_size</code>) and hands a block over
-when it is full or <code>RecorderConfig::flush_time</code> (10 ms by default) after its first record, so a live monitor still
-feels live while a fast link costs one hand-over per block, not per message. Blocks go back to the pool once every
-consumer dropped them: the steady state allocates nothing. When a consumer falls so far behind that every block is
-held, records are dropped and counted, and the next block on the link opens with a <code>LinkEvent::Lost { records }</code>: a
-gap is always visible, and the link itself is never held up.</p>
-<p>Subscribe with <code>Recorder::subscribe(layers, queue)</code> (a bounded queue of at least two blocks; a consumer that falls
-further behind misses blocks, seen as a gap in their numbers) or <code>Recorder::subscribe_fn</code>. <code>Layers::MESSAGES</code> leaves
-frames out, <code>Layers::ALL</code> has them. A consumer that misses blocks is never left without a sign: its next block comes
-after a <code>LinkEvent::Lost</code> for each link it lost records of, and <code>Subscription::stats</code> (or <code>Recorder::consumers</code> for
-all of them) counts the blocks it missed, the records it lost and since when it has been behind.</p>
-<p>A link that closes records <code>LinkEvent::Closed</code> on its events track before its tracks go. A relay that keeps the tap's
-definitions, as <code>ww capture</code> does, drops that link's tracks when it sees the event (<code>recorder::drop_closed_links</code>), so
-its definitions don't grow with every link ever seen.</p>
 <h2 id="records">Records<a class="headerlink" href="#records" title="Permanent link">&para;</a></h2>
 <p>The records are ordinary WireWeaver types: streams of the <code>ww_tap::LinkTap</code> trait, one set per link: <code>session</code>
 (medium, framer, frame size, peer, the device's <code>DeviceInfo</code> once the link is set up), <code>events</code>, <code>tx_frames</code>,
 <code>rx_frames</code>, <code>tx_messages</code>, <code>rx_messages</code> and, on a server, <code>client_map</code> (which client's request a device-side
 request was). A capture is described by the API bundle of <code>ww_tap</code> like any device log is by its device's, and every
 frame and message has a number, so the decoder sees a missing one.</p>
+<p>A link that closes records <code>LinkEvent::Closed</code> on its events track. A relay that keeps the tap's definitions drops
+that link's tracks when it sees the event (<code>ww_tap_decoder::drop_closed_links</code>), so its definitions don't grow with every link
+ever seen. A producer that could not keep records says so with <code>LinkEvent::Lost { records }</code>: a gap is visible, never
+silent.</p>
 <h2 id="links-and-devices">Links and devices<a class="headerlink" href="#links-and-devices" title="Permanent link">&para;</a></h2>
-<p>Every link's tracks of one stream have the same key, the hash of the stream's name (<code>ww_tap::track_key</code>). The link's
-identity tells them apart: the recorder defines a link's tracks at its first session, with the <a href="https://tape.vhrd.tech/tracks/#number-key-and-id">track
+<p>Every link's tracks of one stream have the same key, the hash of the stream's name (<code>ww_tap_decoder::track_key</code>). The link's
+identity tells them apart: a producer defines a link's tracks at its first session (<code>ww_tap_decoder::define_link_tracks</code>, on
+the tap clock of <code>ww_tap_decoder::define_clocks</code>), with the <a href="https://tape.vhrd.tech/tracks/#number-key-and-id">track
 dimensions</a> <code>medium</code> and <code>peer</code> (<code>ww_tap::dims</code>), the USB serial
 or the address the session reports. Two devices of one API recorded into one capture thus give two track ids per
 stream with one key, and the same device gives the same ids in every capture and after a reconnect, whichever link
 number the producer gave it.</p>
 <p>A link the peer doesn't tell apart, with no peer or with the peer of another open link, adds the dimension <code>link</code>,
-the recorder's number of it; so does a link recorded before any session.</p>
-<p>A reader picks a device by its dimension: <code>ww_tap::link_stream_of</code> gives a tap track's stream and its link's
+the producer's number of it; so does a link recorded before any session.</p>
+<p>A reader picks a device by its dimension: <code>ww_tap_decoder::link_stream_of</code> gives a tap track's stream and its link's
 <code>LinkIdentity</code> (<code>identity.get(dims::PEER)</code>), and the decoder numbers links by identity (<code>Decoder::find_link(dims::PEER,
 "SN-1234")</code>, <code>Decoder::link_identity</code>).</p>
 <h2 id="capture-files">Capture files<a class="headerlink" href="#capture-files" title="Permanent link">&para;</a></h2>
 <p>A capture is tape blocks appended back to back. The tape format has a book of its own, the <a href="https://tape.vhrd.tech/">ww_tape
 book</a>: what a file holds, how time is stored and what survives damage, with a
-<a href="https://tape.vhrd.tech/format/">format reference</a> of its parts. <code>ww_tape::TapeWriter</code> writes a capture the
-way databases write their logs (a new file as <code>NAME.partial</code>, renamed when closed, data synced by a <code>SyncPolicy</code>, a
-failed write or sync the end of the file), and <code>ww_tape::FileBlocks</code> reads its longest valid prefix, or on past damage
-with <code>Recovery::Resync</code> (<a href="https://tape.vhrd.tech/format/#files">Files</a>). A capture ends with an index, a
-close record and a tail; cutting a recording into several files is <a href="https://tape.vhrd.tech/format/#tape-pieces">tape
-pieces</a>. The definitions carry the device's API bundle, so <code>ww
-explain FILE</code> explains the requests and replies of a capture on any PC, without the device. A track's key hashes its
+<a href="https://tape.vhrd.tech/format/">format reference</a> of its parts. The definitions carry the device's API bundle, so
+the decoder explains the requests and replies of a capture on any PC, without the device. A track's key hashes its
 resource names and its dimensions name the device, so two runs give the same ids (<a href="#links-and-devices">Links and
 devices</a>).</p>
 <h2 id="decoding">Decoding<a class="headerlink" href="#decoding" title="Permanent link">&para;</a></h2>
-<p><code>wire_weaver_client::tap::Decoder</code> takes blocks, live or from a file (<code>ww_tape::FileBlocks</code>), and gives out
-<code>Decoded</code> frames, messages and link events:</p>
+<p><code>ww_tap_decoder::Decoder</code>, in the <a href="https://github.com/vhrdtech/ww_tools">ww_tools</a> repository with the tracks and
+clock of a capture (this repository has no <code>ww_tape</code> dependency), takes a link's records (<code>Decoder::record</code>, <code>Decoder::session</code>) or the blocks of a
+capture (<code>Decoder::feed</code>, from <code>ww_tape::FileBlocks</code>), and gives out <code>Decoded</code> frames, messages and link events:</p>
 <ul>
 <li><strong>Linkage.</strong> Every frame is walked into its pieces and reassembled with the framer's rules: a message knows the
   frame bytes it came in (<code>MessageInfo::frames</code>, <code>#5@2+62</code>: frame 5, offset 2, 62 bytes), a frame its pieces and
@@ -6599,9 +6554,9 @@ devices</a>).</p>
   its method (no <code>--for</code> as with <code>ww explain event HEX</code>).</li>
 <li><strong>Statistics.</strong> <code>Decoder::stats</code> per link and direction: frames, fill, overhead, messages per frame, split
   messages, dropped pieces, frame gaps, mismatches, message-to-frame latency, link message kinds, and per method its
-  calls and reply times; <code>Stats::report()</code> is what <code>ww stats</code> prints.</li>
+  calls and reply times; <code>Stats::report()</code> prints them.</li>
 </ul>
-<p>Live and saved data go through the same code, so a capture prints exactly as the live session did.</p>
+<p>Live records and saved blocks go through the same code, so a capture decodes exactly as the live session did.</p>
 
 
 

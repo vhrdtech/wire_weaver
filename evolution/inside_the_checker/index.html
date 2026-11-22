@@ -1949,7 +1949,7 @@
   <span class="md-ellipsis">
     
   
-  Metadata: effects, claims, pins, labels
+  Metadata: claims, pins, labels
 
     
   </span>
@@ -6643,7 +6643,7 @@ still reported by its two signatures. Either way the snapshot of the checking cr
 source: save it again while the version is not published (<code>just save-snapshots</code> in its repository).</p>
 <h3 id="superseded-definitions-evo-68">Superseded definitions (EVO-68)<a class="headerlink" href="#superseded-definitions-evo-68" title="Permanent link">&para;</a></h3>
 <p>Saving the dependency again refreshes its snapshot in place, and the definition the other snapshots name by the old
-signature would then be gone: an API line frozen in a snapshot of its own (<code>thermo_api</code>'s retired <code>wire_v1::Thermo</code>) and a
+signature would then be gone: an API line frozen in a snapshot of its own (<code>thermo_api</code>'s <code>wire_v1::Thermo</code>) and a
 device built before still name it. So <code>ww api save</code> keeps each definition of the crate's own whose signature with docs
 a refresh in place changes, in <code>api_snapshots/superseded/</code>, one file per definition (a docs-only change is kept too: a
 snapshot saved before EVO-69 names the definition by its signature with docs):</p>

@@ -1949,7 +1949,7 @@
   <span class="md-ellipsis">
     
   
-  Metadata: effects, claims, pins, labels
+  Metadata: claims, pins, labels
 
     
   </span>
@@ -6608,7 +6608,7 @@ its heads.</p>
 <p>Built with the <code>seq-prefix</code> feature of <code>wire_weaver_usb_embassy</code>, a device puts a one-byte <code>SeqPrefix</code> (frame counter
 mod 16, session epoch mod 4) at the start of every packet (<code>ww_link::UsbSeqFraming</code>) and says so in its interface
 protocol: <code>0x38</code> instead of <code>0x37</code>. The host picks the same framing from it when it opens the interface, so the two
-can't disagree. Lost, duplicated or reordered packets then show up in <code>ww stats</code> and <code>ww monitor</code> (a working USB stack
+can't disagree. Lost, duplicated or reordered packets then show up in the <a href="../tap/">link tap</a>'s statistics (a working USB stack
 has none); it costs one byte per packet. <code>in_process::usb_device_framed::&lt;UsbSeqFraming&gt;</code> simulates such a device.</p>
 <p>Small requests are accumulated for the window the device asks for in <code>DeviceInfo</code> (typically a few hundred µs)
 and flushed as one packet; control messages (link setup, ping, disconnect) are flushed immediately.</p>

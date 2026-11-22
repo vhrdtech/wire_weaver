@@ -1949,7 +1949,7 @@
   <span class="md-ellipsis">
     
   
-  Metadata: effects, claims, pins, labels
+  Metadata: claims, pins, labels
 
     
   </span>
@@ -8389,8 +8389,6 @@ root of a device always can, exclusively.</p>
 </tr>
 </tbody>
 </table>
-<p>A call of a method marked <code>#[effect(read)]</code> (API-58, <a href="../../api/metadata/#effect-what-an-item-does">Metadata</a>) counts
-as a read: it stays open under an <code>exclusive</code> or <code>shared</code> claim.</p>
 <ul>
 <li>The answer is the protocol's common error event (<code>ErrorKind::Common(InUse { by })</code>, STD-16), whatever the item's
   own error type: the program's own client gets <code>CallError::Common</code> on a method with a <code>Result</code>, <code>Error::common()</code>

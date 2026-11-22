@@ -1949,7 +1949,7 @@
   <span class="md-ellipsis">
     
   
-  Metadata: effects, claims, pins, labels
+  Metadata: claims, pins, labels
 
     
   </span>
@@ -6359,8 +6359,8 @@ page says what a tape is for and where it meets the rest of WireWeaver.</p>
 blocks that carry the items of many tracks.</p>
 <p>A tape also carries the API bundles of the devices it records. A reader on another computer, years later, can
 therefore name every track and decode every item without the device.</p>
-<p>For example, <code>ww capture</code> records a link into a tape. Later, <code>ww explain</code> reads that file on any computer and explains
-its requests and replies.</p>
+<p>For example, a capture of a link's tap is a tape. Later, the tap's decoder reads that file on any computer and
+explains its requests and replies.</p>
 <p>The format is built for four goals:</p>
 <ul>
 <li>typed data;</li>
@@ -6371,8 +6371,8 @@ its requests and replies.</p>
 <p>A crash, a torn write or a flipped bit costs only the bytes it touched. A reader says what was lost.</p>
 <h2 id="where-tapes-meet-wireweaver">Where tapes meet WireWeaver<a class="headerlink" href="#where-tapes-meet-wireweaver" title="Permanent link">&para;</a></h2>
 <ul>
-<li>The <a href="../transport/tap/">link tap</a> records a WireWeaver link into tapes. <code>ww capture</code> writes them and <code>ww explain</code>
-  reads them.</li>
+<li>The <a href="../transport/tap/">link tap</a> names the tracks of a WireWeaver link's records in a tape, and its decoder reads
+  them back.</li>
 <li>A tape's items are <a href="../serdes/shrink_wrap/">shrink_wrap</a> values. A series track stores the sample batches of a
   <a href="../serdes/series/"><code>Series&lt;T&gt;</code></a> as columns.</li>
 <li>A track's identity comes from the resource names of the API. Two runs that number resources differently therefore

@@ -1949,7 +1949,7 @@
   <span class="md-ellipsis">
     
   
-  Metadata: effects, claims, pins, labels
+  Metadata: claims, pins, labels
 
     
   </span>
@@ -6734,21 +6734,13 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
   variant outside the list, tests fail (<code>tests_common</code>). Nothing on the device (<code>docs/api/methods.md#error-lists</code>,
   <code>tests/methods</code>, <code>tests/properties</code>, <code>tests/streams_reliable</code>). Not yet: the generated client's property reads
   (their errors are raw bytes, so only the dynamic client checks them); the GUI (<code>wire_weaver_tool</code>).</li>
-<li>✅ <strong>API-58 Effects of API items</strong> · <code>v0.5.x</code> — <code>#[effect(read | edit | persist | destructive | permanent |
-    outbound | actuate | reset | job)]</code> on a method, writable property or sink, or on its trait as the default of
-    its items: what using it does. Required on every effectful item (a compile error names the one without); <code>read</code>
-    stands alone; property reads, <code>ro</code>/<code>const</code> properties and stream opens are <code>read</code> by kind. Carried in
-    introspection as <code>ww_self::Effects</code>, a bitset in <code>Meta</code> (unknown bits kept, read as the most restrictive case),
-    stored only where an item changes something; model format 0.5.0, whose readers still read 0.4.0 snapshots.
-    The hub lets a call of a <code>read</code> method through another program's exclusive or shared claim, as a read (the
-    <code>observe</code> right of SRV-37 takes the same rule); <code>Authorize</code> sees the effects in <code>Resource::items</code>;
-    <code>ww info --effects</code> lists effectful items by effect, <code>ww api tree</code> and rustdoc show them;
-    <code>docs/api/metadata.md</code> maps them to MCP tool annotations. Absorbs API-56 (<code>actuate</code>). Every API in the
-    repository and in ww_stdlib is annotated. Tests: <code>wire_weaver_core</code> (<code>effects_*</code>), <code>tests/hub</code>
-    (<code>claimed_bus_refuses_others_calls_and_writes</code>), <code>wire_weaver_cli</code> (<code>effects_list_what_changes_something</code>).</li>
 <li>📋 <strong>API-12 Calculate max path depth in server codegen</strong> · <code>v0.5</code> — <code>MAX_DEPTH</code> is hardcoded to 16 in
   <code>wire_weaver_core/src/codegen/api_server.rs</code>.</li>
 <li>📋 <strong>API-13 Error system, remove <code>unwrap</code>s from codegen</strong> · <code>v0.5</code> — report errors with spans instead of panicking.</li>
+<li>📋 <strong>API-56 care-marker Care marker on switching writes</strong> — a typed attribute (the <code>ww_self::Meta</code> of SRV-34) on
+    a method or property whose call or write switches power or outputs (a rail, a relay, a motor enable), carried in
+    introspection: GUIs ask to confirm, <code>ww call</code> / <code>ww set</code> want <code>--yes</code>, the hub can log who did it. Wire
+    compatible, nothing on the device.</li>
 <li>📋 <strong>API-57 device-metadata Device-level metadata</strong> — typed attributes on the API root or in a stdlib trait for what
     a device is: product, board revision, connectors (with the resources behind each, so a label like "J4" points at
     pins and buses), supported clock sync (<code>ww_timebase</code> host sync and its sources); in introspection next to
@@ -7052,6 +7044,10 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
   (<code>#[stream(T, codec = auto)]</code>), in the introspection data so dynamic clients and Python decode it; keyframes on
   open, after a gap and every N items. It is how a string or a frame, which a <code>Series</code> batch can't take (no size
   bound), would get cheaper per item. Prior art: Gorilla, Sprintz, Chimp, ALP.
+- 📋 <strong>API-58 <code>#[read_only]</code> methods</strong> · <code>v0.5.x</code> — a typed attribute in <code>ww_self::Meta</code> (next to SRV-34's <code>claim</code>)
+  for methods without effects, carried in introspection: the hub lets peers with only the <code>observe</code> right call them
+  (SRV-37), GUIs may call them freely. The API author's promise, not something the hub can check. Design: hub
+  federation (SRV-33).
 - ✅ <strong>SRV-1 <code>no_std</code>, no-alloc server</strong>, IO-free generated code.
 - ✅ <strong>SRV-2 Sans-IO <code>DeviceLink</code></strong>, async <code>Server</code> with <code>wait()</code>/<code>handle()</code> for a user-owned event loop, and
   <code>blocking::Server</code>.
@@ -7157,7 +7153,7 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
     client instance (CLT-41) as its principal and drops with its last connection or at the ttl; overlap by path and by
     <code>#[shares]</code>, nesting within one instance. <code>docs/api/metadata.md</code>, <code>docs/transport/hub.md</code> (with how hub and
     device-side claims combine); tests <code>tests/traits</code> (<code>meta_in_introspection</code>), <code>wire_weaver_core</code> (<code>meta_*</code>),
-    <code>ww_hub</code> (<code>claims</code>), <code>tests/hub</code> (<code>claim*</code>). Later attributes: API-58 (effects), API-57.
+    <code>ww_hub</code> (<code>claims</code>), <code>tests/hub</code> (<code>claim*</code>). Later attributes: API-56, API-57.
 - 🧪 <strong>SRV-19 ECC-safe STM32 flash for stores</strong> — <code>mcu/ww_ecc_flash</code>: <code>EccSafeFlash</code> wraps any <code>NorFlash</code> (embassy-stm32's
   <code>Flash</code>) and reads it one ECC word at a time; a word with an uncorrectable ECC error (power cut while programming
   or erasing) reads as zeros instead of an NMI (STM32G0, <code>FLASH_ECCR.ECCD</code>, through <code>on_nmi()</code> or feature
@@ -7280,7 +7276,7 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
   <code>with_call_context</code>'s trace, and cancels a request that timed out or whose <code>call()</code> was dropped
   (<a href="../docs/api/host_server/#deadline-and-cancel">Host server</a>, <code>tests/host_server</code>). Firmware is unchanged and
   never announces contexts. Missing: the trace taken from the current <code>tracing</code> span (needs OpenTelemetry ids), a
-  span per request in the server (RED metrics), the trace on a stream open, the tap and <code>ww monitor</code> showing
+  span per request in the server (RED metrics), the trace on a stream open, the tap decoder showing
   contexts.</li>
 <li>📋 <strong>SRV-13 ww hub: one device, many programs</strong> · <code>v0.5.x</code> — a per-user hub that starts itself on first use and
   exits when idle (sccache / ssh ControlMaster style, no system service, Linux, macOS and Windows), holds the
@@ -7404,8 +7400,7 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
   tunnels (the remote hub multiplexes), host names and remote keys validated, <code>ww hub detach</code>.</li>
 <li>📋 <strong>SRV-37 Hub principals and per-device rights</strong> · <code>v0.5.x</code> — who is connected, from what the OS, ssh or a key
   says (never the client's own metadata), and what it may do per device: <code>observe</code>, <code>control</code>, <code>dfu</code>, from glob
-  rules in <code>~/.config/ww/hub_peers.toml</code> (<code>observe</code> admits reads and calls of <code>#[effect(read)]</code> items, API-58,
-  through <code>claims::Target::access_seen</code>); the hub answers refused requests with <code>Forbidden</code> itself, filters the
+  rules in <code>~/.config/ww/hub_peers.toml</code>; the hub answers refused requests with <code>Forbidden</code> itself, filters the
   registry, keeps hub API methods local unless classified, and owns claims per principal.</li>
 <li>📋 <strong>SRV-38 Restricted ssh keys for the hub</strong> · <code>v0.5.x</code> — <code>authorized_keys</code> lines with
   <code>restrict,command="ww hub stdio --peer NAME"</code> give a key only the rights of <code>[peer.NAME]</code>; <code>ww hub allow --ssh</code>
@@ -7597,7 +7592,7 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
   build firmware of an earlier revision from the current root: the resources added after it (<code>#[since]</code>) left out of
   dispatch and of the bundle, the bundle's and the hello's wire that revision. Mostly for tests: a host driver's
   bench could then simulate <code>w1.0</code> and <code>w2.0</code> devices without keeping the crates they were published from (EVO-42
-  keeps <code>thermo_api</code> 2.0.0 in <code>tests/thermo_api_old</code> for that). In practice an old line's maintenance
+  keeps <code>thermo_api</code> 5.0.0 in <code>tests/thermo_api_old</code> for that). In practice an old line's maintenance
   firmware is built from its module at that line's newest revision, so real firmware rarely needs it. Fields and
   variants with a newer <code>#[since]</code> can't be left out of a Rust type, so such a type would be refused.</li>
 </ul>
@@ -7655,7 +7650,7 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
   <code>exponent</code>, <code>storage</code>, <code>symbol</code>, <code>unit</code>, <code>dim</code>, <code>docs</code>, <code>to_si()</code>; writes take a <code>Quantity</code> or a number in the unit)
   (<code>docs/std_library/ww_si.md#in-ww-python-and-dynamic-clients</code>, <code>tests/quantities</code>, <code>wire_weaver_py/tests</code>). Types
   are still named by their definitions (<code>Timed&lt;Quantity&lt;Ampere&gt;&gt;</code>), alias names need ww_self type aliases.</li>
-<li>✅ <strong>CLT-66 Unit references through the API model</strong> · <code>v0.5</code> — the dynamic client reads an <code>SIExpr</code> reference (<code>SIExpr::Ref</code>, exact_units UNIT-7) through the bundle, which is an <code>exact_units::UnitTable</code> of every unit the API uses (<code>ww_self</code>), then <code>ww_si::units::TABLE</code> (<code>quantity::units_of</code>): <code>DynUnit::from_si_expr(expr, table)</code>, a reference no table lists is <code>DynUnit::Ref</code>, shown by its name and written back as it came. A value the client writes into an <code>AnyQuantity</code> is compacted against the bundle, so the API's units go by reference. <code>ww</code> (<code>ww tap</code>, <code>ww observe</code>) and Python read them the same way. Two API crates' <code>Rpm</code>s stay two units (<code>tests/quantities</code> <code>two_crates_rpm_by_reference</code>, <code>tests/fan_api</code>).</li>
+<li>✅ <strong>CLT-66 Unit references through the API model</strong> · <code>v0.5</code> — the dynamic client reads an <code>SIExpr</code> reference (<code>SIExpr::Ref</code>, exact_units UNIT-7) through the bundle, which is an <code>exact_units::UnitTable</code> of every unit the API uses (<code>ww_self</code>), then <code>ww_si::units::TABLE</code> (<code>quantity::units_of</code>): <code>DynUnit::from_si_expr(expr, table)</code>, a reference no table lists is <code>DynUnit::Ref</code>, shown by its name and written back as it came. A value the client writes into an <code>AnyQuantity</code> is compacted against the bundle, so the API's units go by reference. <code>ww</code> (<code>ww observe</code>), the tap decoder and Python read them the same way. Two API crates' <code>Rpm</code>s stay two units (<code>tests/quantities</code> <code>two_crates_rpm_by_reference</code>, <code>tests/fan_api</code>).</li>
 <li>✅ <strong>CLT-30 Link setup budget per transport</strong> · <code>v0.5.x</code> — the client re-sent <code>GetDeviceInfo</code> 5 times 50 ms apart (250 ms
   for every transport), so connecting through a debug probe (~17 ms per RTT write through a J-Link) mostly failed with
   <code>LinkSetup was not received</code>. Now a timeout per transport (USB, UDP, WebSocket 1 s, in-process 250 ms, RTT 10 s, one
@@ -8117,14 +8112,17 @@ observing), SRV-46 (peer identity).
   messages each way, client map), taken by every <code>wire_weaver_client</code> transport and event loop
   (<code>ClientConfig::tap(TapSource)</code>, a <code>Tap</code> per link, none by default; <code>TraceEvent</code> / <code>RegisterTracer</code> fed by the
   same hook, the iceoryx2 USB tracer removed) and by <code>ww_device</code>'s <code>FramedTx</code> / <code>FramedRx</code> (<code>with_tap</code>; with <code>NoTap</code> a G0 firmware is the
-  same size). <code>ww_framer::pieces(frame)</code> shares <code>FramedRx</code>'s head code, no callbacks in the framer. <code>Recorder</code>
-  batches into pooled 64 KiB <code>ww_tape</code> blocks (STD-42) flushed when full or after <code>flush_time</code> (10 ms), no
-  allocation in steady state, losses counted in <code>LinkEvent::Lost</code>. <code>wire_weaver_client::tap::Decoder</code>: frame ↔
+  same size). <code>ww_framer::pieces(frame)</code> shares <code>FramedRx</code>'s head code, no callbacks in the framer. Losses are
+  counted in <code>LinkEvent::Lost</code>. The decoder, <code>ww_tap_decoder</code> in ww_tools (with the e2e tests and the tape identity), gives frame ↔
   message linkage, cross-check against the message records, framer and link statistics, request/reply pairing by
-  seq feeding the TOOL-9 explain code. E2E tests over simulated USB (<code>tap/e2e_tests.rs</code>, <code>wire_weaver_cli</code>
-  <code>cmd/tap/tests.rs</code>): shared packets, split replies, a lost packet, stats, captures replayed identically. Without
+  seq feeding the TOOL-9 explain code. E2E tests over simulated USB: shared packets, split
+  replies, a lost packet, stats, captures replayed identically. Without
   <code>std</code>, <code>ww_tap</code> is the hook and the record types, <code>LinkKey { medium, peer }</code> (a link named by its peer), <code>api()</code>
-  and <code>ids::stream_name</code> for a producer naming the tracks; the <code>Recorder</code> is behind <code>std</code>. The decoder's input is
+  and <code>ids::stream_name</code> for a producer naming the tracks; <code>ww_tap_decoder</code> defines a link's <code>ww_tape</code>
+  tracks and the tap clock (<code>define_link_tracks</code>, <code>define_clocks</code>) and finds them again (<code>link_stream_of</code>); this
+  repository has no <code>ww_tape</code> dependency. The
+  <code>Recorder</code> (pooled <code>ww_tape</code> blocks for consumers) is removed with TOOL-14; a capture tool implements <code>Tap</code>
+  itself (P2555 eventfull tap). The decoder's input is
   records (<code>Decoder::record</code>, <code>session</code>, <code>gap</code>), <code>feed(&amp;Block)</code> feeds a block's records through it (the e2e test
   compares both). A link's identity (its medium and peer, the USB serial or address of its first session) is a
   dimension of its tracks, not a <code>link[n]</code> path: two devices of one API share each stream's key, differ in their ids,
@@ -8138,7 +8136,7 @@ observing), SRV-46 (peer identity).
   frame counter, 2-bit epoch; lost, duplicate, late and stale frames reported and counted), checksums over prefix
   and head, fuzz target <code>framer-lossy</code>. <code>ww_link::Framing</code> per medium: USB without a checksum and without a prefix
   (<code>SeqPrefix</code> as a diagnostic, <code>wire_weaver_usb_embassy</code> feature <code>seq-prefix</code>, told by the interface protocol),
-  UDP with <code>SeqPrefix</code> and a CRC-32 (<code>ww_block</code>'s) on every message. <code>ww stats</code> / <code>ww monitor</code> show the prefix.
+  UDP with <code>SeqPrefix</code> and a CRC-32 (<code>ww_block</code>'s) on every message. The tap decoder's statistics show the prefix.
   Wire change of the link (<code>docs/evolution/crate_layers.md</code>).</li>
 <li>✅ <strong>TR-19 Byte-stream transport</strong> · <code>v0.5</code> — client and server over any futures-io <code>AsyncRead + AsyncWrite</code>
   (<code>docs/transport/byte_streams.md</code>, <code>docs/api/host_server.md#byte-streams</code>), crate <code>ww_byte_stream</code>: the local
@@ -8302,7 +8300,7 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
   <code>GenServerConfig::introspect_compression</code> for <code>build.rs</code> and <code>ww api scaffold --introspect-compression lz4</code>) keeps
   <code>WW_SELF_BYTES</code> as LZ4 blocks made at build time with <code>ww_lz4</code> (<code>ww_self::compressed</code>: <code>WWz4</code> magic, length,
   blocks); the device carries no decoder and sends them as a plain bundle, at no code cost. The client (download,
-  promise, dynamic client, <code>ww</code>, Python, the hub, <code>ww tap</code>) tells the formats apart by the first bytes, decompresses,
+  promise, dynamic client, <code>ww</code>, Python, the hub, the tap decoder) tells the formats apart by the first bytes, decompresses,
   and refuses an unknown magic. API hashes and the cache stay those of the uncompressed bundle. rePort 14,016 -&gt;
   9,697 B of bundle, -4,312 B of flash; Portwright 3,974 -&gt; 3,056 B, -920 B. Default off. Tests
   <code>tests/introspect_compressed</code> (sync, async, promise, dynamic client, hub, the answer's events), <code>ww_self</code>
@@ -8623,7 +8621,7 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
   Scripts without generated code talk to every line from the device's introspection data: the dynamic client and
   Python write quantities (<code>DynQuantity::to_value</code>, <code>ww.Quantity("0.25 K")</code>) exactly into each line's types, and
   Python has <code>dev.wire</code>. Bench <code>tests/thermo</code> with three lines, each a wire break
-  (<code>tests/thermo_api</code>'s roots <code>wire_v1</code> to <code>wire_v3</code>, simulated firmware <code>tests/thermo_devices</code>); tests
+  (<code>tests/thermo_api/{w1_0,w1,w2_0,w2,w3}</code>, simulated firmware <code>tests/thermo_devices</code>); tests
   <code>tests/thermo/tests/lines.rs</code> (the facade), <code>dynamic.rs</code> (the dynamic client), <code>wire_weaver_py</code> <code>test_thermo_lines.py</code>,
   <code>wire_weaver_client</code> <code>host_of_two_lines_*</code>, <code>wire_weaver_core</code> <code>two_versions_of_one_crate_under_other_names</code>,
   <code>wire_weaver_evolution</code> <code>removed_variant_breaks_rust_code</code>; docs <code>docs/evolution/multi_line_host.md</code>. Follow-ups:
@@ -8687,13 +8685,11 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
   <code>wire_weaver_core</code> <code>moved_from_parses</code>, <code>tests/thermo</code> <code>checker_agrees_on_both_bumps</code>.</li>
 <li>✅ <strong>EVO-42 The multi-line bench on one crate</strong> · <code>v0.5</code> — <code>tests/thermo_api</code> is one crate, <code>thermo_api</code> 4.0.0,
   with a root per line (<code>wire_v1</code> w1.2, <code>wire_v2</code> w2.1, <code>wire_v3</code> w3.0) and what more than one line uses in <code>common</code>,
-  in the workspace. Its history is an API's development cycle: 0.1.0 on the design line w0, 1.0.0 the first release
-  at w1.0, lines 2 and 3 added in 2.0.0 and 3.0.0, revisions within each line, and 4.0.0 retiring line 1
-  (<code>ww api line retire</code>, its module behind <code>retired_wire_v1</code>). <code>api_snapshots/</code> keeps every version's snapshots and
-  the removal record, and <code>tests/evolution.rs</code> checks each root against its line. <code>tests/thermo</code> converts the
-  <code>common</code> types once and reaches <code>common::Indication</code> through one shared client (CLT-68). The first revisions w1.0
-  and w2.0 are the published 2.0.0 in <code>tests/thermo_api_old</code>, as old firmware: a server can't be built at an earlier
-  revision of its root (SRV-58); they connect to the one-crate client unchanged. Measured against EVO-28's end and the CLT-64 facade, same PC and session: 699 hand-written
+  in the workspace; its <code>api_snapshots/</code> keeps the old crates' snapshots, and <code>tests/evolution.rs</code> checks each root
+  against its line. <code>tests/thermo</code> converts the <code>common</code> types once and reaches <code>ww_indication</code> through one shared
+  client (CLT-68). The first revisions w1.0 and w2.0 are the published 1.0.0 and 2.0.0 in <code>tests/thermo_api_old</code>,
+  as old firmware: a server can't be built at an earlier revision of its root (SRV-58); they connect to the one-crate
+  client unchanged. Measured against EVO-28's end and the CLT-64 facade, same PC and session: 699 hand-written
   driver lines (764 with five crates, 1,074 before <code>facade!</code>), generated client 2,193 lines (2,575), stripped probe
   112.6 KiB smaller, rebuild times equal, the checker test 0.7 s (0.9 s), API source now linted by clippy. Found on
   the way: a sub-level trait named through a <code>use</code> wasn't found (<code>wire_weaver_core</code>), and the checker took two roots'
@@ -8703,8 +8699,8 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
   <code>tests/thermo_api</code> <code>api_evolution</code>, <code>wire_weaver_evolution</code> <code>same_name_in_two_modules_is_not_shared</code>.</li>
 <li>📋 <strong>EVO-54 A move into another module is a Rust break</strong> · <code>v0.5</code> — moving an API into the several-roots layout
   (EVO-37) changes every Rust path (<code>thermo_api::Sample</code> becomes <code>thermo_api::wire_v1::Sample</code>), a breaking crate bump,
-  but the checker asks for a compatible one ("definitions changed"; the EVO-42 bench's move came with line 2's
-  major, <code>thermo_api</code> 1.0.0 -&gt; 2.0.0). It matches a type by name when the name is unique in the bundle, so a type's changed path (in the model
+  but the checker asks for a compatible one (<code>thermo_api</code> 3.0.0 -&gt; 3.1.0 on the EVO-42 bench, "definitions
+  changed"). It matches a type by name when the name is unique in the bundle, so a type's changed path (in the model
   since API-46) goes unreported, and the model names a trait by crate and name only. The walker notes each trait's
   module (<code>SourceNotes::trait_modules</code>, EVO-42), but snapshots don't record it. Report a changed path as a move,
   <code>Rule::Signature</code>, Rust only, for types now and for traits once snapshots carry their module.</li>
@@ -8729,8 +8725,8 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
 <li>✅ <strong>EVO-34 Wire versions and generations in docs, CLI and Python</strong> · <code>v0.5</code> — <code>ww info</code> and <code>ww report</code> show the
   device's wire version next to its crate version (<code>API ... (wire w2.3)</code>) and the hello generations this
   connection agreed on (<code>Hello framer=1 link=1 shrink_wrap=1 api_model=1</code>, EVO-23), through <code>ww_report::clients::Contract</code>
-  and <code>info::DeviceInfo</code>'s new <code>api_wire</code> / <code>generations</code> fields. <code>ww tap</code>'s session line shows the device's wire
-  version once link is set up (<code>wire_weaver_client::tap::session_wire_version</code>). <code>wire_weaver_client::DeviceApiInfo</code>
+  and <code>info::DeviceInfo</code>'s new <code>api_wire</code> / <code>generations</code> fields. The tap decoder gives a session's wire version
+  (<code>ww_tap_decoder::session_wire_version</code>, in ww_tools). <code>wire_weaver_client::DeviceApiInfo</code>
   gained the <code>generations: ww_link::Generations</code> field (this build's, which matches the device's or link setup
   would have refused); <code>ww_link::Generations</code> implements <code>Display</code>. Python's <code>dev.info</code> shows the wire version and
   generations next to the crate versions. <code>ww list</code> still can't show the wire version pre-connection: it comes from
@@ -8892,15 +8888,6 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
   cross-checked against a real <code>Store</code> over the same bytes through <code>fake_flash::FakeFlash</code>) and <code>decode_group</code> for
   a caller that knows the concrete <code>SettingsGroup</code> type; <code>ww settings dump FILE --word-size --page-size [--base]
   [--format text|json]</code> in <code>wire_weaver_cli</code> (<code>docs/cli_reference.md#ww-settings</code>).</li>
-<li>✅ <strong>TOOL-14 <code>ww monitor</code>, <code>ww stats</code>, <code>ww capture</code>, <code>ww explain FILE</code></strong> · <code>v0.5</code> — the link tap (TR-14) in the
-  CLI (<code>docs/cli_reference.md#ww-monitor</code>): live decoded print at the frame, link or API layer (<code>--bytes</code>,
-  <code>--bits</code> for the TOOL-9 bit map of every message), framer and link statistics every few seconds or of a capture,
-  captures with the device's API bundle in them, read back by <code>ww explain FILE</code> exactly as monitored live.
-  Blocks come from a <code>Feed</code> (<code>wire_weaver_cli/src/cmd/tap.rs</code>): the CLI's own connection today, a ww server's tap
-  of all its clients later.
-  The tap decoder orders a block's records by time so a reply is paired with its request
-  (<code>docs/cli_reference.md#ww-monitor</code>). The global <code>--monitor</code> and <code>--capture</code> flags, which tapped any command's own
-  connection, are removed.</li>
 <li>✅ <strong>TOOL-18 The hub from Python and notebooks</strong> · <code>v0.5.x</code> — the wheel (<code>wire_weaver_py</code>) carries
   <code>wire_weaver_client</code> with its <code>hub</code> feature and <code>ww_hub</code>; <code>python -m wire_weaver.hub</code> serves the hub, found by
   <code>wire_weaver_client::hub::ensure_running</code> the same way as a Rust <code>ww_hub::main_if_hub()</code> program (<code>wire_weaver</code>
@@ -8996,8 +8983,8 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
   <code>ww_plugin_is_free_of_the_hub</code>). <code>wire_weaver_cli</code> re-exports them at their old paths (<code>device</code>, <code>plugin</code>,
   <code>untrusted</code>, <code>complete</code>), so a plugin may depend on <code>ww_plugin</code> alone and not link the hub.</li>
 <li>✅ <strong>TOOL-36 Commands register themselves</strong> · <code>v0.5</code> — each <code>ww</code> command registers a <code>CommandDef</code> with <code>inventory</code>
-  (<code>wire_weaver_cli::registry</code>): its <code>clap</code> command, the global flags it shows, how it connects, its log level, its
-  own tap and the command it forwards to (in process when the binary links it, else the plugin); the root command, help, completion and the run loop come from the registry.
+  (<code>wire_weaver_cli::registry</code>): its <code>clap</code> command, the global flags it shows, how it connects, its log level and
+  the command it forwards to (in process when the binary links it, else the plugin); the root command, help, completion and the run loop come from the registry.
   <code>wire_weaver_cli</code> is a library of the generic commands with no standard library API crate among its dependencies,
   <code>ww_std_cli</code> (<code>ww_stdlib/ww_std_cli</code>) holds <code>board</code>, <code>counters</code>, <code>dfu</code>, <code>pins</code>, <code>report</code> and the device parts of
   <code>info</code> and <code>sync</code> (<code>InfoExtension</code>, <code>SyncExtension</code>), and the binary <code>ww</code> (vhrdtech/ww_tools) links both. Tests compare
@@ -9024,12 +9011,7 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
   points only read; plan files with <code>expect</code>, narrower <code>allow</code>, <code>[shorts] among</code> / <code>same_net</code>, <code>--save</code> into
   <code>expect</code>. Library <code>ww_pin_probe</code> (<code>probe::run</code> over a <code>Pins</code> trait, <code>mock::MockBoard</code>), end to end in
   <code>tests/pin_diag</code>. Hardware check open: on rePort once it serves <code>PinDiag</code>. Names sent as ids show as <code>#&lt;id&gt;</code>
-  (STD-48).
-  The live decoder gets the device's API as soon as the command has it (the recorder hands a bundle over at once,
-  as the device sent it, snapshot-known traits put back by the decoder), so a live print and the capture's replay
-  are the same text; SIGINT and SIGTERM end a flagged command or <code>ww monitor</code> / <code>capture</code> / <code>stats</code> with the
-  capture finished, synced and renamed; <code>ww explain</code> of a path-like WHAT that is no file says so without
-  connecting.</li>
+  (STD-48).</li>
 <li>🚧 <strong>TOOL-6 Dev GUI / web tool</strong> · <code>v0.5.x</code> — <code>wire_weaver_tool</code> (egui, Trunk) shows the AST and generated code. Goals:
   a web tool like the pest playground, a dynamic UI for any API (MVP prototyped), widgets per type, mockup
   server UI. See <code>docs/dev_tool.md</code>. A <code>Fixed</code> field's widget shows its unit and takes its slider limits from
@@ -9082,8 +9064,8 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
   errors naming the field) and <code>wire_weaver_client::expr</code> (the same with <code>ww_si</code> quantities, <code>q!(3300 mV)</code>);
   <code>wire_weaver_client::envelope</code> (a whole request or event: the <code>ww_client_server</code> envelope field by field, the
   payload by its resource); <code>ww explain WHAT HEX | --value EXPR | 'call(..)' [--request]</code>, <code>ww explain request|event
-  HEX</code>. Captures and the live link: <code>ww explain FILE</code> / <code>ww monitor --layer api --bits</code> (TOOL-14), replies explained by
-  their request's seq; <code>Observe</code> requests and their grants read as property names and modes, <code>PropertyUpdate</code>s as the
+  HEX</code>. The tap decoder explains captured requests and replies with the same code, replies by their request's seq;
+  <code>Observe</code> requests and their grants read as property names and modes, <code>PropertyUpdate</code>s as the
   properties they carry with typed values (units as in <code>ww observe</code>); calls through global traits (<code>GlobalFull</code>
   paths: <code>ww info</code>, <code>ww report</code>, ..) are named <code>ww_user_info::UserInfo.name</code> and decoded from the snapshots the host
   carries, also by a command that never introspects the device. Open: <code>GlobalCompact</code> paths, multi requests; <code>Series</code> columns and sparse-struct slot headers in detail; shell completion of types and paths; a
@@ -9511,6 +9493,7 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
 </ul>
 <h2 id="dropped-and-superseded">Dropped and superseded<a class="headerlink" href="#dropped-and-superseded" title="Permanent link">&para;</a></h2>
 <ul>
+<li><strong>TOOL-14 <code>ww monitor</code>, <code>ww stats</code>, <code>ww capture</code>, <code>ww explain FILE</code></strong> — removed with the <code>Recorder</code>: nobody used them; the tap hook (TR-14) and its decoder stay.</li>
 <li><strong>SW-1 Structs, plain enums and data enums</strong> — moved to shrink_wrap's own repository with its id: <a href="https://github.com/romixlab/shrink_wrap/blob/main/FEATURES.md">romixlab/shrink_wrap FEATURES.md</a>.</li>
 <li><strong>SW-2 <code>Option</code> and <code>Result</code></strong> — moved to shrink_wrap's own repository with its id: <a href="https://github.com/romixlab/shrink_wrap/blob/main/FEATURES.md">romixlab/shrink_wrap FEATURES.md</a>.</li>
 <li><strong>SW-3 <code>String</code> and <code>Vec&lt;T&gt;</code></strong> — moved to shrink_wrap's own repository with its id: <a href="https://github.com/romixlab/shrink_wrap/blob/main/FEATURES.md">romixlab/shrink_wrap FEATURES.md</a>.</li>
@@ -9639,7 +9622,7 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
 <li><strong>STD-122 <code>ww_tape</code> v2 index, finish and tail</strong> — moved to ww_tape's own repository with its id: <a href="https://github.com/vhrdtech/ww_tape/blob/main/FEATURES.md">vhrdtech/ww_tape FEATURES.md</a>.</li>
 <li><strong>STD-123 <code>ww_tape</code> tape pieces</strong> — moved to ww_tape's own repository with its id: <a href="https://github.com/vhrdtech/ww_tape/blob/main/FEATURES.md">vhrdtech/ww_tape FEATURES.md</a>.</li>
 <li><strong>STD-124 <code>ww_tape</code> positional reader</strong> — moved to ww_tape's own repository with its id: <a href="https://github.com/vhrdtech/ww_tape/blob/main/FEATURES.md">vhrdtech/ww_tape FEATURES.md</a>.</li>
-<li><strong>STD-125 <code>ww_tape</code> track identity by name path</strong> — moved to ww_tape's own repository with its id; its wire_weaver side (<code>ww_tape_bundle</code>, <code>ww_tap::track_key</code>, <code>tests/tape_identity</code>) stays here: <a href="https://github.com/vhrdtech/ww_tape/blob/main/FEATURES.md">vhrdtech/ww_tape FEATURES.md</a>.</li>
+<li><strong>STD-125 <code>ww_tape</code> track identity by name path</strong> — moved to ww_tape's own repository with its id; its wire_weaver side (<code>ww_tape_bundle</code>, <code>track_key</code>, <code>tests/tape_identity</code>) is in vhrdtech/ww_tools: <a href="https://github.com/vhrdtech/ww_tape/blob/main/FEATURES.md">vhrdtech/ww_tape FEATURES.md</a>.</li>
 <li><strong>STD-126 <code>ww_tape</code> payload codec: packed lengths, raw or lz4 payloads, salvage</strong> — moved to ww_tape's own repository with its id: <a href="https://github.com/vhrdtech/ww_tape/blob/main/FEATURES.md">vhrdtech/ww_tape FEATURES.md</a>.</li>
 <li><strong>STD-127 <code>ww_tape</code> series tracks: kind, sample type, period, segments</strong> — moved to ww_tape's own repository with its id: <a href="https://github.com/vhrdtech/ww_tape/blob/main/FEATURES.md">vhrdtech/ww_tape FEATURES.md</a>.</li>
 <li><strong>STD-128 <code>ww_tape</code> series summaries across a change of scale</strong> — moved to ww_tape's own repository with its id: <a href="https://github.com/vhrdtech/ww_tape/blob/main/FEATURES.md">vhrdtech/ww_tape FEATURES.md</a>.</li>
@@ -9741,7 +9724,6 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
 <li><strong>Introspect as a trait, removed from <code>ww_client_server</code></strong> — won't do.</li>
 <li><strong>WebUSB descriptors</strong> — only some browsers support WebUSB and it needs separate host support; NCM is more
   appealing, especially with pre-programmed unique IPs.</li>
-<li><strong>API-56 care-marker Care marker on switching writes</strong> — folded into API-58 effects-of-api-items as the <code>actuate</code> effect.</li>
 </ul>
 
 

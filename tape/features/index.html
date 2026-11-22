@@ -1949,7 +1949,7 @@
   <span class="md-ellipsis">
     
   
-  Metadata: effects, claims, pins, labels
+  Metadata: claims, pins, labels
 
     
   </span>
@@ -6620,6 +6620,12 @@
 <li><code>Items</code> is evolvable: a variant a newer ww_tape adds reads as unknown with the rest of the definition intact. A relay stores such events as given.</li>
 <li>A series' items are <code>Numbers</code> too: any width LSB or MSB first, floats of another layout, a zero offset that summaries keep exact.</li>
 <li>Read more: <a href="https://tape.vhrd.tech/tracks/#what-a-tracks-items-are">What a track's items are</a>, <a href="https://tape.vhrd.tech/format/#items-of-a-track">Items of a track</a>, <a href="https://tape.vhrd.tech/format/#sample-codecs">Sample codecs</a>. Tests <code>raw.rs</code>, <code>iq8.rs</code>, <code>series.rs</code>; fuzz targets <code>tape-series</code>, <code>tape-samples</code>, <code>tape-samples-hostile</code>.</li>
+<li>✅ <strong>FMT-13 Series chunks carry their samples' flags</strong></li>
+<li>A series chunk keeps its samples' flags words as runs of consecutive samples sharing a word, in a <code>Flags</code> column in codec <code>FLAG_RUNS</code>. Only a chunk with a flagged sample has it, so an unflagged series keeps its bytes.</li>
+<li>The runs are in one form only, at most <code>FLAG_RUNS_MAX</code> (4096) per chunk; a writer seals a chunk before one more.</li>
+<li>The summaries derive their flags from the runs, so a resumed writer rebuilds them from the kept chunks (<code>SeriesSummaries::push_runs</code>).</li>
+<li>Readers take the runs per chunk: <code>Chunk::flag_runs</code>, <code>SeriesSamples::flag_runs</code> of a track follower.</li>
+<li>Read more: <a href="https://tape.vhrd.tech/format/#sample-flags">Sample flags</a>. Golden file <code>v1-series.hex</code>; tests <code>series_flags.rs</code>, <code>mux_resume.rs</code>; fuzz targets <code>tape-flags</code>, <code>tape-flags-hostile</code>.</li>
 </ul>
 <h2 id="writer-write">Writer (<code>WRITE</code>)<a class="headerlink" href="#writer-write" title="Permanent link">&para;</a></h2>
 <p>Writing pieces and chains, resuming them, sinks in memory, in the crate <code>ww_tape</code>.</p>
@@ -6703,6 +6709,41 @@
 <li>A reader finds a track's number by its id (<code>DefinitionsAt::track_number</code>).</li>
 <li>Missing: a chain resume that starts a new piece reads no closed piece, so its numbers start anew.</li>
 <li>Read more: <a href="https://tape.vhrd.tech/tracks/#number-key-and-id">Number, key and id</a>, <a href="https://tape.vhrd.tech/definitions/#the-definitions-an-application-holds">The definitions an application holds</a>.</li>
+<li>✅ <strong>WRITE-12 A writing thread for producers on any thread</strong></li>
+<li>A <code>TapeMux</code> (crate <code>ww_tape_mux</code>) owns a chain and its definitions on a writing thread. Producers send through handles: <code>ChunkSender</code> (one track's chunks), <code>RecordsHandle</code>, <code>RelayHandle</code> (another producer's blocks) and <code>StateHandle</code> (puts on change).</li>
+<li>Tracks and clocks are defined on the mux, which gives their numbers; handles pass no definitions.</li>
+<li>One queue bounded by bytes, waiters served in arrival order. Per handle: wait (lossless), fail with the unit back, or drop and count. A dropped chunk leaves an item-number gap: readers take it as items lost.</li>
+<li>The writing thread places units in arrival order and does the puts, cuts, sync and checkpoints by time, and the close.</li>
+<li>A writer's refusal reaches the handle's next call; a failed write reaches every handle. A close refuses later calls with <code>Closed</code> and doesn't wait for handles. A mux dropped unclosed leaves its piece unclosed; <code>TapeMux::resume</code> and <code>ww_tape_fs::mux::resume</code> go on.</li>
+<li><code>PieceChain::relay_block</code> and <code>adopt_block</code> pass a producer's blocks on into a chain.</li>
+<li>Several muxes in one process write chains of their own; each resumes alone after a crash (test <code>mux_multi.rs</code>). The RF example writes its IQ and its decoded bursts through two (<a href="https://tape.vhrd.tech/series/#samples-and-what-they-mean-in-two-chains">Samples and what they mean, in two chains</a>).</li>
+<li>Async sends: WRITE-14.</li>
+<li>Tests <code>mux.rs</code>, <code>item_gap.rs</code>, <code>mux_multi.rs</code>.</li>
+<li>✅ <strong>WRITE-13 Typed track handles encode on the producer's thread</strong></li>
+<li><code>EventsHandle</code> takes items of one events track: instants, spans, flags, relation values, payloads. <code>SeriesHandle</code> takes samples on a grid, with <code>regrid</code>.</li>
+<li>Each encodes its chunks, hashes their payload and computes the leaves of the track's summaries on its own thread. <code>write_chunk_hashed</code> takes the hash; the bytes are the same.</li>
+<li><code>SeriesLeaves</code> and <code>SeriesTree</code>, and <code>EventRuns</code>, split the summary builders between producer and writing thread.</li>
+<li>The writing thread builds one summary tree per track and piece, ended before each cut and at the close.</li>
+<li>A resumed mux rebuilds the trees of the torn piece before it first writes. It reads the kept chunks back and computes their leaves again. Kept summary blocks are not written again; lost ones are deferred again in order.</li>
+<li>Given the lost items again, the chain gets the bytes of the run without the crash, in both layouts.</li>
+<li>A tree rebuilt for a track written without summaries is dropped by the track's next chunk. With no such chunk left in the piece, it writes blocks the run without the crash didn't.</li>
+<li>Series flags (<code>push_flagged</code>) are kept in the chunks' flag runs (FMT-13), so kept samples' leaves are rebuilt with them.</li>
+<li>A quiet handle's open chunk is sealed by the writing thread when its latency is up, behind the handle's earlier units.</li>
+<li>Items are checked at the call: start order, spans, flags, relation counts and monotone values, payload length.</li>
+<li>Missing: a resumed chain's track starts are passed by the caller (<code>first_item</code>); the mux doesn't give them yet.</li>
+<li><code>EventsHandle::push_all</code> takes a batch of <code>Event</code>s in one pass, the bytes of pushing them one by one. One events producer writes 56.0 M events/s through the mux, one thread writing directly 54.8 (bench <code>handles</code>).</li>
+<li>Tests <code>mux_handles.rs</code>, <code>split_tests.rs</code>, <code>placed.rs</code>, <code>mux_resume.rs</code>, <code>series_flags.rs</code>.</li>
+<li>Bench <code>handles</code> (<code>just bench-handles</code>): direct writer against the mux by 1, 4 and 16 tracks.</li>
+<li>✅ <strong>WRITE-14 Async twins of the mux's and the followers' waits</strong></li>
+<li>Every call that waits has an <code>_async</code> twin. Handles: send, put, push, regrid, seal, finish, flush, sync.</li>
+<li>The mux: definitions, making handles, cut, flush, sync, close. Readers: <code>ProgressWatch::wait_past_async</code>, the followers' <code>wait_next_async</code>.</li>
+<li>The queue's senders wait by waker, in arrival order, threads and tasks alike. A blocking call parks its thread on the same future.</li>
+<li>The writing thread stays an OS thread.</li>
+<li>No async runtime in any crate's dependencies: the writing thread, or a follower's own waiting thread on inotify, wakes the task.</li>
+<li>Cancel-safe: a send dropped while it waits leaves the line. A typed handle keeps the chunks a dropped push sealed, and sends them first on its next call.</li>
+<li>A timeout of the caller's runtime bounds a wait.</li>
+<li>Missing: a typed handle's drop still sends blocking; async code ends a handle with <code>finish_async</code>.</li>
+<li>Tests <code>mux_async.rs</code>: tokio's two schedulers and smol, without timer or I/O driver, woken from another thread.</li>
 </ul>
 <h2 id="reader-read">Reader (<code>READ</code>)<a class="headerlink" href="#reader-read" title="Permanent link">&para;</a></h2>
 <p>Reading by position, checks and hashes, hostile bytes, in the crate <code>ww_tape</code>.</p>
@@ -6733,6 +6774,13 @@
 <li>An item's number on its track is an <code>ItemNum</code>, exactly a <code>u64</code> on the wire. It names items in the chunk, index, summary and piece heads, the series timeline, the range hash and the summary builders' API. A count of items stays a <code>u64</code>; <code>ItemNum::checked_add</code>, <code>offset_to</code> and <code>items</code> relate the two. A grid's own sample index (<code>SeriesGrid::grid_index</code>) and the builders' counters stay <code>u64</code>.</li>
 <li>Left bare on purpose: block seqs (<code>BlockId::seq</code>, <code>ChunkPlaced::seq</code>), counts, format and codec versions, codec ids, relation indexes, offsets and lengths. Each is a plain counter, an index or a measurement, and a number read from a file stays a <code>FromFile&lt;T&gt;</code> (READ-2).</li>
 <li>Read more: the crate docs of <code>ww_tape</code> (<code>TrackNum</code>, <code>ClockNum</code>, <code>RecordTrack</code>, <code>TrackKey</code>, <code>TrackId</code>, <code>ClockKey</code>, <code>RelationSet</code>).</li>
+<li>✅ <strong>READ-6 Readers following a live chain</strong></li>
+<li><code>ww_tape_fs::follow::ChainFollower</code> reads a chain directory or file while another process writes it, piece after piece. It hands out only blocks that check.</li>
+<li>A torn end is read again once a resume cut it back and wrote on. A block a resume took back is never handed out. inotify wakes it on Linux; a poll interval bounds each wait.</li>
+<li>It starts at the first piece, the newest or the end. <code>TrackFollower</code> decodes one track's events or series samples and reports item-number gaps as lost items.</li>
+<li><code>TimeMerge</code> merges chains by time. An item comes out once every source showed nothing older: the bound is the slowest source's newest time. A source quiet past a set wait is left out, and its older items come out marked late.</li>
+<li><code>TapeMux::watch</code> publishes the piece, bytes written and synced, and each track's newest chunk for readers in the writer's process.</li>
+<li>Tests <code>follow.rs</code> (a writer process killed and resumed), <code>progress.rs</code>. Read more: <a href="https://tape.vhrd.tech/growing_pieces/#following-a-chain-while-it-is-written">Reading a growing piece</a>.</li>
 </ul>
 <h2 id="files-and-locks-fs">Files and locks (<code>FS</code>)<a class="headerlink" href="#files-and-locks-fs" title="Permanent link">&para;</a></h2>
 <p>Everything that names a path, in the crate <code>ww_tape_fs</code>.</p>
@@ -6818,6 +6866,7 @@
 <li>Done: the owner's read: one term each for record, item and sample; event times and samples on pages of their own.</li>
 <li>Done: the chapter "Sizes and speeds", every number from a bench report in <code>docs/bench/</code>.</li>
 <li>Done: data figures as eventfull screenshots in <code>docs/shots/</code>: the drive's hour, the fault, the zoom and the RF minute. <code>just book-shots</code> copies them; eventfull's tests keep them current (eventfull TL-79).</li>
+<li>Done: the format reference with numbered sections, conventions, policies, verify and the detail the guides dropped. Its chunk head, index entry and tail are drawn from blocks.</li>
 <li>Open: autorange and damage as screenshots, and log and temp rows in them, once eventfull draws them.</li>
 <li>Open: the chapters still stubs, tested code in every guide chapter.</li>
 <li>
@@ -6830,8 +6879,8 @@
 <li><code>Drive::scaled</code> shrinks the data and the byte policies for figures; a crash at any byte resumes to the bytes of the run without it.</li>
 <li><code>cargo run -p ww_tape_example</code> prints the story's numbers; <code>tests/story.rs</code> checks them and that the full hour is the same every run.</li>
 <li>Damage to the last piece and the run on a raw card over an earlier run; <code>tests/damage.rs</code> pins what each costs.</li>
-<li><code>rf</code> records an RF capture, ComplexI16 IQ at 20 MS/s with summaries, as the book's case for high rates; <code>tests/rf.rs</code> pins its size per codec.</li>
-<li>Read more: <a href="https://github.com/vhrdtech/ww_tape/blob/e748d0f28288c3b187de2a47098fd2367f74bbca/ww_tape_example/README.md">ww_tape_example</a>.</li>
+<li><code>rf</code> records an RF capture, ComplexI16 IQ at 20 MS/s with summaries, as the book's case for high rates; <code>tests/rf.rs</code> pins its size per codec. <code>rf chains</code> writes it into two chains, IQ and decoded bursts, through two muxes while a reader merges both.</li>
+<li>Read more: <a href="https://github.com/vhrdtech/ww_tape/blob/a4cc788883d362f8e1da409852a53e832363a098/ww_tape_example/README.md">ww_tape_example</a>.</li>
 </ul>
 <h2 id="repository-repo">Repository (<code>REPO</code>)<a class="headerlink" href="#repository-repo" title="Permanent link">&para;</a></h2>
 <p>Crates, checks, fuzzing and benches.</p>

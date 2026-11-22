@@ -1949,7 +1949,7 @@
   <span class="md-ellipsis">
     
   
-  Metadata: effects, claims, pins, labels
+  Metadata: claims, pins, labels
 
     
   </span>
@@ -6574,7 +6574,7 @@ then blink from the host with <code>cargo run -p blinky --features udp --example
 <li>a lost request (or its reply) times out, as a request to a busy device would;</li>
 <li>a lost stream event is gone;</li>
 <li>every datagram starts with a frame counter: a duplicated datagram, one that comes late (after a later one), or one
-  from the previous session is dropped, a gap is counted as lost (<code>ww stats</code>, <code>ww monitor</code>); the counter has 4 bits,
+  from the previous session is dropped, a gap is counted as lost (the <a href="../tap/">link tap</a>'s statistics); the counter has 4 bits,
   so a datagram held back by more than 8 later ones is taken as new, and up to 8 datagrams after it are dropped as
   late (TR-33);</li>
 <li>a message split across datagrams is dropped if any piece of it is lost, the framer detects it from the frame counter,

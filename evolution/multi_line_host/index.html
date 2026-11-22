@@ -1949,7 +1949,7 @@
   <span class="md-ellipsis">
     
   
-  Metadata: effects, claims, pins, labels
+  Metadata: claims, pins, labels
 
     
   </span>
@@ -2921,17 +2921,6 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         Scripts and tools without generated code
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#retiring-a-line" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Retiring a line
       </span>
     </span>
   </a>
@@ -6436,17 +6425,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#retiring-a-line" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Retiring a line
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#testing-every-line" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6611,10 +6589,10 @@ types do (line 3's <code>uptime</code> went from whole seconds in a <code>u32</c
 follows the new line and the older lines' modules convert into it, exactly.</p>
 <h2 id="every-line-in-one-api-crate">Every line in one API crate<a class="headerlink" href="#every-line-in-one-api-crate" title="Permanent link">&para;</a></h2>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>thermo_api/
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>├── Cargo.toml        # [package.metadata.wire_weaver.roots]: &quot;wire_v2::Thermo&quot; = &quot;w2.1&quot;, ..
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>├── api_snapshots/    # every version&#39;s snapshots, one per root from 2.0.0 on
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>├── Cargo.toml        # [package.metadata.wire_weaver.roots]: &quot;wire_v1::Thermo&quot; = &quot;w1.2&quot;, ..
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>├── api_snapshots/    # each line&#39;s history, then one snapshot per root
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>└── src/
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    ├── lib.rs        # pub mod common; pub mod wire_v1 (retired, behind a feature); pub mod wire_v2; ..
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    ├── lib.rs        # pub mod common; pub mod wire_v1; pub mod wire_v2; pub mod wire_v3;
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    ├── common.rs     # RateError, Command (every line); Sample, Config, Mode, Channel, .. (lines 2 and 3)
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    ├── wire_v1.rs    # #[ww_api_root] pub trait Thermo, its own Sample, Mode and Channel
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    ├── wire_v2.rs    # #[ww_api_root] pub trait Thermo, everything else from common
@@ -6626,37 +6604,30 @@ follows the new line and the older lines' modules convert into it, exactly.</p>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="cp">#[ww_api_root]</span>
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">Thermo</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="cp">#[effect(edit)]</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">configure</span><span class="p">(</span><span class="n">config</span><span class="p">:</span><span class="w"> </span><span class="nc">Config</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">RateError</span><span class="o">&gt;</span><span class="p">;</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span><span class="cp">#[effect(read)]</span>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">read_once</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">Sample</span><span class="p">;</span>
-</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">channel</span><span class="p">[]:</span><span class="w"> </span><span class="nc">Channel</span><span class="p">);</span>
-</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">    </span><span class="c1">// ..</span>
-</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="p">}</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">configure</span><span class="p">(</span><span class="n">config</span><span class="p">:</span><span class="w"> </span><span class="nc">Config</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">RateError</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">read_once</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">Sample</span><span class="p">;</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">channel</span><span class="p">[]:</span><span class="w"> </span><span class="nc">Channel</span><span class="p">);</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">    </span><span class="c1">// ..</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="p">}</span>
 </span></code></pre></div>
 <ul>
 <li>A type goes into <code>common</code> once more than one line uses it unchanged, not only when every line does: when line 2
   is retired (<code>ww api line retire</code>), line 3 must not lose what it took from line 2's module.</li>
-<li>The crate version is Rust-only: one crate at 3.0.0 serves firmware of w1.2, w2.1 and w3.0. Each root is checked
+<li>The crate version is Rust-only: one crate at 4.0.0 serves firmware of w1.2, w2.1 and w3.0. Each root is checked
   against its own line's latest snapshot (<code>ww api check</code>, a <code>tests/evolution.rs</code> with <code>Check::run</code>), and a change to
   a <code>common</code> type is named on every line it reaches.</li>
-<li>An API that started with one root at the crate root moves into this layout when its second line comes, without
-  touching the wire. The bench did so in 2.0.0: 1.0.0 had line 1 at the crate root, 2.0.0 put it into <code>wire_v1</code>
-  beside the new <code>wire_v2</code>. Keep the old snapshots in <code>api_snapshots/</code>, and each root is compared with the last
-  snapshot of its line. Firmware built from the old crate keeps working with a host built from the new one; the
-  bench tests that with an older published crate (<code>tests/thermo_api_old</code>). The move changes every Rust path
-  (<code>thermo_api::Sample</code> is <code>thermo_api::wire_v1::Sample</code>), so it is a breaking crate bump, which the checker doesn't
-  ask for yet (EVO-54).</li>
+<li>An API whose lines were crates of their own before (here 1.x, 2.x and 3.x, each with its root at the crate root)
+  moves into this layout without touching the wire: keep the old snapshots in <code>api_snapshots/</code>, and each root is
+  compared with the last snapshot of its line. Firmware built from the old crates keeps working with a host built
+  from the new one; the bench tests that with an older published crate (<code>tests/thermo_api_old</code>). The move
+  changes every Rust path (<code>thermo_api::Sample</code> is <code>thermo_api::wire_v1::Sample</code>), so it is a breaking crate bump,
+  which the checker doesn't ask for yet (EVO-54).</li>
 </ul>
-<p>The bench's history is an API's whole cycle: 0.1.0 on the <a href="../versions/#w0-the-design-line">design line</a> w0, which
-keeps no snapshot; 1.0.0 the first release, line 1 at w1.0; 2.0.0 line 2 at w2.0; 2.1.0 and 2.2.0 gave line 1
-<code>calibrate</code> (w1.1) and <code>uptime</code> (w1.2), 2.3.0 gave line 2 <code>self_test</code> (w2.1); 3.0.0 line 3 at w3.0; 4.0.0 retired line
-1 (<a href="#retiring-a-line">retiring a line</a>).</p>
 <p>The host takes the crate once and names each root by its module path:</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1">// v2.rs</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">wire_weaver_client</span><span class="p">::</span><span class="n">facade_line</span><span class="o">!</span><span class="p">(</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="n">thermo_api</span><span class="p">::</span><span class="n">wire_v2</span><span class="p">::</span><span class="n">Thermo</span><span class="p">,</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="n">sub_levels</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="n">thermo_api</span><span class="p">::</span><span class="n">common</span><span class="p">::</span><span class="n">Indication</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="k">crate</span><span class="p">::</span><span class="n">IndicationClient</span><span class="p">],</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="n">sub_levels</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="n">ww_indication</span><span class="p">::</span><span class="n">Indication</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="k">crate</span><span class="p">::</span><span class="n">IndicationClient</span><span class="p">],</span>
 </span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="p">);</span>
 </span></code></pre></div>
 <p><code>facade_line!</code> emits the line's <code>pub struct Client</code> and its <code>ww_codegen!(.. for Client, client = "std_client")</code>;
@@ -6839,8 +6810,8 @@ ever sees a line the facade already has a client of.</p>
 </ul>
 <p>Test <code>tests/thermo</code> <code>lines::reconnect_after_a_dfu_to_another_line</code>.</p>
 <h2 id="shared-sub-traits">Shared sub-traits<a class="headerlink" href="#shared-sub-traits" title="Permanent link">&para;</a></h2>
-<p>A sub-trait every line uses unchanged, a <code>ww_stdlib</code> one (<code>ww_indication::Indication</code>, the status LED; the bench
-has a stand-in of it, <code>common::Indication</code>) or one of the API crate's own (<code>common::Channel</code>), would get a client of its own in each line's generated client: one Rust
+<p>A sub-trait every line uses unchanged, a <code>ww_stdlib</code> one (here <code>ww_indication::Indication</code>, the status LED) or one
+of the API crate's own (<code>common::Channel</code>), would get a client of its own in each line's generated client: one Rust
 type per line for the same trait, and the driver forwards every call per line. Generate its client once instead,
 with <code>client = "sub_level"</code>, and let each line's client return it (CLT-68, <code>tests/shared_sub_level</code>; <code>Thermo</code>'s
 <code>indication()</code> is one <code>match</code> returning it from any line):</p>
@@ -6902,28 +6873,6 @@ talks to every line with no client per line. <code>tests/thermo/tests/dynamic.rs
 <li>A <code>Point</code> (<code>Point&lt;Celsius, Fixed&lt;Kelvin, ..&gt;&gt;</code>) is read through its one field, <code>coord</code>, a quantity from the
   origin: the dynamic client and Python don't read a point as such yet (CLT-65).</li>
 </ul>
-<h2 id="retiring-a-line">Retiring a line<a class="headerlink" href="#retiring-a-line" title="Permanent link">&para;</a></h2>
-<p>A line's end comes when no device runs it any more. <code>ww api line retire</code> (TOOL-33) takes its root out of the crate:</p>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>ww<span class="w"> </span>api<span class="w"> </span>line<span class="w"> </span>retire<span class="w"> </span>thermo_api<span class="w"> </span>wire_v1
-</span></code></pre></div>
-<ul>
-<li>The root leaves <code>[package.metadata.wire_weaver.roots]</code> and its last wire version goes to
-  <code>[package.metadata.wire_weaver.retired_roots]</code>. Its module stays in the source behind a feature nothing enables,
-  <code>#[cfg(feature = "retired_wire_v1")] pub mod wire_v1;</code>; with <code>--delete</code> the file goes instead.</li>
-<li>Removing a root is a breaking crate bump, made in <code>Cargo.toml</code> (the bench's 3.0.0 to 4.0.0). <code>ww api save</code> then
-  records the removal next to the line's last snapshot, <code>thermo_api_4_0_0.wire_v1.Thermo@w1.2.removed</code>, so a later
-  version isn't asked for the bump again. The line's snapshots stay as its history.</li>
-<li><code>ww api check</code> checks the remaining roots only. A type in <code>common</code> stays while another line uses it; what only the
-  retired line used goes with its module.</li>
-<li>
-<p>A host that still meets the last devices of the line turns the feature on, and codegen takes the root's wire
-  version from <code>retired_roots</code>:</p>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="n">thermo_api</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">workspace</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="n">features</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;retired_wire_v1&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">}</span>
-</span></code></pre></div>
-</li>
-</ul>
-<p>The bench's driver and simulated firmware do, so the host side of line 1 stays tested. Its checker test loads the
-  retired root by name and compares it with the line's last snapshot: the kept module is still what devices run.</p>
 <h2 id="testing-every-line">Testing every line<a class="headerlink" href="#testing-every-line" title="Permanent link">&para;</a></h2>
 <p><code>tests/thermo/tests/lines.rs</code> runs one scenario against simulated firmware of each line through the same <code>Thermo</code>
 and checks that every operation behaves the same, or fails with an error naming what the device's line lacks. The
@@ -6933,18 +6882,17 @@ client's test and Python's (<code>thermo_pytest_devices</code> hosts every line 
 <li>Simulate the first revision of each line too (here w1.0 and w2.0), to see <code>#[since]</code> items refused. A server is
   always built at its root's revision, so such firmware comes from the API crate as it was then: the bench keeps
   the published crate of its lines' first revisions in <code>tests/thermo_api_old</code>, outside the workspace (a workspace
-  can't hold two packages of one name), as old firmware still in the field: <code>thermo_api</code> 2.0.0, at w1.0 and w2.0.
-  A device built from the current crate claiming an older wire is refused (CLT-61). Building a server at an earlier
-  revision of its root is SRV-58.</li>
+  can't hold two packages of one name), as old firmware still in the field. (The bench's lines are on wire lines 5
+  to 7 since a trait identity change moved each to a new one; its first revisions are <code>thermo_api</code> 5.0.0.) A device built from the current crate claiming an
+  older wire is refused (CLT-61). Building a server at an earlier revision of its root is SRV-58.</li>
 <li>Old crates of the same name make <code>-p thermo_api</code> ambiguous for Cargo: name the current one with its version,
-  <code>-p thermo_api@4.0.0</code>.</li>
+  <code>-p thermo_api@6.0.0</code>.</li>
 <li>An observed <code>get_set</code> property reports a host's write by itself: the generated code marks it changed after the
   setter returns <code>SetResult::Set</code> (SRV-57). Changes the firmware makes on its own still need <code>mark_changed_&lt;name&gt;</code>.</li>
-<li>A device of a line the driver has no client of checks the refusal and its message: a newer line (4) and an older
-  one (0, the design line).</li>
+<li>A device of a line the driver has no client of checks the refusal and its message.</li>
 <li>The checker test compares the roots with each other (line 2 against line 1, line 3 against line 2: each a new
-  line), each line's root with the snapshot of its first revision (a new revision), and the retired root with its
-  last snapshot. The crate version is the API crate's own <code>tests/evolution.rs</code>, per root.</li>
+  line) and each line's root with the snapshot of its first revision (a new revision). The crate version is the API
+  crate's own <code>tests/evolution.rs</code>, per root.</li>
 <li>Build and check an old API crate kept outside the workspace through the host's workspace, never on its own: a
   <code>cargo check</code> inside it writes its own <code>Cargo.lock</code>, which may lock <code>exact_units</code> at another commit. The checker
   then loads <code>ww_si</code> types from two revisions and reports a shared trait (<code>ww_indication</code>) as changed.</li>

@@ -163,7 +163,7 @@ mod tests {
     }
 
     /// The pump of the `news` stream.
-    const NEWS: PumpId = PumpId(1);
+    const NEWS: PumpId = PumpId::new(1);
 
     impl wire_weaver_server::Backend for Backend {
         /// A write to `mode` by any client.

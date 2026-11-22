@@ -61,6 +61,7 @@ published = [
     "ww_framer",
     "ww_hub",
     "ww_hub_api",
+    "ww_json",
     "ww_link",
     "ww_local_socket",
     "ww_lz4",

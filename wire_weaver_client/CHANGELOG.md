@@ -6,8 +6,13 @@
 - The `ww_tape` and `ww_tape_fs` re-exports are removed: depend on them directly.
 - `tap` no longer re-exports `Recorder`, `RecorderConfig`, `RecorderLink`, `Subscription`, `Chunk` and `Layers`, and `TapSource` has no `From<Recorder>`: give `TapSource::new` a `Tap` (TOOL-14).
 
+### 🚀 Features
+
+- `quantity::parse_point_in` writes a `Point` from text, `25 °C` in its origin or `298.15 K` in its unit, exactly (INT-14).
+
 ### 🐛 Fixes
 
+- `quantity::parse_quantity_in` reads what `DynQuantity` writes: a ratio's `%`, `‰`, `ppm` and `ppb`, a `Fixed` scale without a symbol as its factor (`3·2⁻¹⁵ V`) and `Pow10`, `Pow2` and `FullScale` prefixes (`12345·10⁻⁴ s`).
 - Builds without `usb` (Android): `nusb` is optional under `usb`; `holder_of_usb_device` needs `usb` or `rtt`.
 - Android gets the client kind and host name from `/proc`, as Linux does.
 - A disconnect while a medium opens, or dropping a keep-trying client mid-attempt, stops the attempt at once (CLT-75).

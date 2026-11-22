@@ -317,6 +317,8 @@ A device can send a description of its own API, so tools and scripts work with i
 
 - INT-4 | Bit-sized numbers in the model | `U7`, `I12`, nibbles and the like, read and written by the dynamic client and Python. | std_library/ww_self.md
 - INT-13 | Units in the model | A device's API carries the definition of every unit, scale and origin it uses, also of your own crate's, so `ww`, the dynamic client and Python convert and show them without a built-in table. | std_library/units_in_the_model.md
+- INT-14 | JSON for any API | `ww_json` turns the values of any method, property or stream into JSON and back, quantities as text with their unit (`"5 ms"`), big integers as strings, errors naming the JSON path. | api/json.md
+- INT-15 | JSON Schema of every item | `ww_json::schema` describes the arguments, results, properties and stream items of any API as a JSON Schema, quantities with their unit and bounds, for MCP servers and other JSON clients. | api/json.md#json-schema
 - INT-16 | Compressed introspection data | `introspect_compression = "lz4"` keeps a device's API description compressed in flash, the client decompresses it: 4.3 KB less on rePort. | api/introspection.md#compressed-introspection-data
 - INT-17 | Identity of a renamed resource | A resource renamed with `#[moved_from]` keeps its first name in the device's API description, so recordings follow it across the rename. | evolution/rules.md#moving-a-resource-to-another-place
 - INT-3 | Moved flag bits | Relocated `#[flag]` fields in the model and in dynamic values. | std_library/ww_self.md

@@ -346,6 +346,7 @@ impl UsbRx {
 }
 
 /// Tap description of a USB framing, see [UsbTx].
+#[cfg(any(feature = "usb", feature = "local_socket", feature = "in_process"))]
 pub(crate) fn usb_tap_framer(seq_prefix: bool) -> ww_tap::Framer {
     if seq_prefix {
         crate::tap::FRAMED_USB_SEQ

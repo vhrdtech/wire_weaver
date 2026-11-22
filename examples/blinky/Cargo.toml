@@ -21,7 +21,7 @@ udp = ["wire_weaver_client/udp"]
 blinky_api.workspace = true
 tokio = { workspace = true, features = ["sync", "rt"] }
 wire_weaver.workspace = true
-wire_weaver_client.workspace = true
+wire_weaver_client = { workspace = true, features = ["clock_sync", "usb"] }
 
 [dev-dependencies]
 anyhow.workspace = true
@@ -33,7 +33,7 @@ tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net", "io-
 tokio-util = { workspace = true, features = ["compat"] }
 tracing.workspace = true
 tracing-subscriber.workspace = true
-wire_weaver_client = { workspace = true, features = ["in_process"] }
+wire_weaver_client = { workspace = true, features = ["clock_sync", "in_process", "usb"] }
 ww_client_server.workspace = true
 ww_device = { workspace = true, features = ["futures-io"] }
 ww_dns_sd = { workspace = true, features = ["mdns", "avahi"] }

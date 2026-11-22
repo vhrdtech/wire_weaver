@@ -18,7 +18,7 @@ ws = ["wire_weaver_client/ws", "ww_device/futures-io"]
 [dependencies]
 tokio = { workspace = true, features = ["sync", "rt", "time", "macros"] }
 wire_weaver.workspace = true
-wire_weaver_client = { workspace = true, features = ["in_process"] }
+wire_weaver_client = { workspace = true, features = ["clock_sync", "in_process", "usb"] }
 ww_client_server.workspace = true
 ww_device.workspace = true
 ww_local_socket = { workspace = true, optional = true }

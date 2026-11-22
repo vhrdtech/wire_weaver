@@ -16,7 +16,7 @@ serve_trait_gauge_api = { workspace = true, features = ["local"] }
 serve_trait_levels_api = { workspace = true, features = ["local"] }
 tokio = { workspace = true, features = ["sync"] }
 wire_weaver = { workspace = true, features = ["std"] }
-wire_weaver_client.workspace = true
+wire_weaver_client = { workspace = true, features = ["clock_sync", "usb"] }
 wire_weaver_server.workspace = true
 ww_client_server.workspace = true
 ww_device.workspace = true
@@ -26,7 +26,7 @@ ww_keyed = { workspace = true, features = ["std"] }
 futures-channel = { workspace = true, features = ["std"] }
 tests_common.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
-wire_weaver_client = { workspace = true, features = ["in_process"] }
+wire_weaver_client = { workspace = true, features = ["clock_sync", "in_process", "usb"] }
 wire_weaver_server = { workspace = true, features = ["in_process"] }
 ww_self.workspace = true
 

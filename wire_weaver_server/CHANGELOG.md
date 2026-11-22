@@ -7,6 +7,10 @@
 - A hook may answer `Verdict::Pending`: the request waits for the answer within its deadline and cancel, other shared requests go on (SRV-72).
 - The hook sees the steps of a keyed array's companion (`index_of`, `key`, `keys`), which had no items before.
 
+### 🐛 Fixes
+
+- Takes `wire_weaver_client` without its default features: `in_process` no longer pulls in USB, so Android builds.
+
 ### 📚 Documentation
 
 - `Resource::items` carries the items' effects (API-58).

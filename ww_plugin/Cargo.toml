@@ -17,7 +17,7 @@ console.workspace = true
 semver.workspace = true
 tokio = { workspace = true, features = ["rt"] }
 toml.workspace = true
-wire_weaver_client = { workspace = true, features = ["picoboot", "stm32_dfu", "hub", "rtt"] }
+wire_weaver_client = { workspace = true, features = ["clock_sync", "hub", "picoboot", "rtt", "stm32_dfu", "usb"] }
 
 [lints]
 workspace = true

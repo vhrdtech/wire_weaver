@@ -16,7 +16,7 @@ tests_common.workspace = true
 tokio = { workspace = true, features = ["sync", "rt-multi-thread", "rt", "macros", "time"] }
 tracing-subscriber.workspace = true
 wire_weaver = { workspace = true, features = ["std"] }
-wire_weaver_client.workspace = true
+wire_weaver_client = { workspace = true, features = ["clock_sync", "usb"] }
 ww_client_server.workspace = true
 ww_self.workspace = true
 ww_si = { workspace = true, features = ["std", "electrical"] }

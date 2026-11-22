@@ -22,7 +22,7 @@ tokio = { workspace = true, features = ["sync", "rt-multi-thread", "rt", "macros
 tracing.workspace = true
 tracing-subscriber.workspace = true
 wire_weaver.workspace = true
-wire_weaver_client = { workspace = true, features = ["local_socket", "in_process", "hub"] }
+wire_weaver_client = { workspace = true, features = ["clock_sync", "hub", "in_process", "local_socket", "usb"] }
 ww_byte_stream.workspace = true
 ww_client_server.workspace = true
 ww_hub.workspace = true

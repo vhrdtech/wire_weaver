@@ -8,6 +8,8 @@
 
 ### 🐛 Fixes
 
+- Builds without `usb` (Android): `nusb` is optional under `usb`; `holder_of_usb_device` needs `usb` or `rtt`.
+- Android gets the client kind and host name from `/proc`, as Linux does.
 - A disconnect while a medium opens, or dropping a keep-trying client mid-attempt, stops the attempt at once (CLT-75).
 - The tap `Decoder` finds a record's link and the tap clock by the track definitions, not by numbers (ww_tape READ-5).
 - Builds outside this workspace again: tokio's `rt-multi-thread`, needed by `block_in_place` on `Commander` drop, is on.

@@ -1,5 +1,5 @@
-//! Line 3 at w7.0, new in 6.0.0 after line 2's w6.1, as the crate 3.0.0 had it at w3.0 after w2.1 (R7's indication
-//! swap retired the old lines in 5.0.0). What broke against line 2, each of a kind the line 1 to 2 break didn't have:
+//! Line 3 at w3.0, added beside lines 1 and 2 in 3.0.0, after line 2's w2.1. What broke against line 2, each of a
+//! kind the line 1 to 2 break didn't have:
 //! - The stream sends batches: `samples` carries a [Batch] of temperatures of one input with the first one's number,
 //!   no longer one `Sample` per item. A host wanting single samples splits each batch.
 //! - The tree moved: `uptime` and `self_test` are in a new sub-level, `health`, so their paths changed. `self_test`
@@ -25,7 +25,7 @@ pub trait Thermo {
     fn read_once() -> Sample;
     property!(rw mode: Mode);
     /// Amplifier gain, observable: the device changes it itself on overload.
-    #[moved_from(w6.1, Thermo::gain)]
+    #[moved_from(w2.1, Thermo::gain)]
     property!(rw+observe amp_gain: Fixed<Ratio, Centi, u16, Range<100, 1600>>);
     /// Samples in batches while `mode` is `Continuous`, and a burst of consecutive samples per `Command::Trigger`.
     stream!(samples: Batch<'i>);
@@ -33,7 +33,7 @@ pub trait Thermo {
     sink!(commands: Command);
     /// Input channels, 0-based on the wire.
     ww_impl!(channel[]: Channel);
-    /// The status LED, a local stand-in for a `ww_stdlib` trait every line shares (R7).
+    /// The status LED, a stand-in for a `ww_stdlib` trait every line shares.
     ww_impl!(indication: Indication);
     /// Adds `offset` to every sample from now on.
     fn calibrate(offset: Fixed<Kelvin, Milli, i32>);
@@ -47,7 +47,7 @@ pub trait Health {
     /// Time since boot.
     property!(ro uptime: Fixed<Second, Milli, u64>);
     /// Checks the sensor.
-    #[moved_from(w6.1, Thermo::self_test)]
+    #[moved_from(w2.1, Thermo::self_test)]
     fn check_sensor() -> Result<(), SelfTestError>;
 }
 

@@ -1,10 +1,10 @@
-//! Firmware of `thermo_api` 5.0.0's line 5 at w5.0, its first revision, simulated: `w1.rs` without `calibrate`
+//! Firmware of `thermo_api` 2.0.0's line 1 at w1.0, its first revision, simulated: `w1.rs` without `calibrate`
 //! and `uptime`.
 
 use crate::Shared;
 use tests_common::locked::Locked;
-use thermo_api_5_0_0::common::{Command, IndicationMode, RateError};
-use thermo_api_5_0_0::wire_v1::{Mode, Sample};
+use thermo_api_2_0_0::common::{Command, IndicationMode, RateError};
+use thermo_api_2_0_0::wire_v1::{Mode, Sample};
 use wire_weaver::prelude::*;
 use ww_si::prefix::One;
 use ww_si::units::{Hertz, Ratio};
@@ -173,12 +173,12 @@ impl Server {
 
 pub mod api_impl {
     wire_weaver::ww_codegen!(
-        thermo_api_5_0_0 :: wire_v1 :: Thermo for super::Server,
+        thermo_api_2_0_0 :: wire_v1 :: Thermo for super::Server,
         server = true, no_alloc = true, use_async = true,
         method_model = "_=immediate",
         property_model = "_=get_set",
         introspect = "no_docs",
-        debug_to_file = "../../target/thermo_w5_0_server.rs",
+        debug_to_file = "../../target/thermo_w1_0_server.rs",
     );
 }
 
@@ -219,8 +219,8 @@ pub fn start(path: &str) -> (Shared, tests_common::TestDevice) {
     let device = tests_common::start_device_async(
         path,
         server,
-        thermo_api_5_0_0::wire_v1::THERMO_FULL_GID,
-        thermo_api_5_0_0::wire_v1::THERMO_WIRE_VERSION,
+        thermo_api_2_0_0::wire_v1::THERMO_FULL_GID,
+        thermo_api_2_0_0::wire_v1::THERMO_WIRE_VERSION,
         tests_common::api!(api_impl),
     );
     (shared, device)

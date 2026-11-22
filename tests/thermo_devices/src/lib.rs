@@ -6,10 +6,10 @@ use std::sync::{Arc, Mutex};
 use wire_weaver::ww_version::WireVersion;
 
 pub mod w1;
+pub mod w1_0;
 pub mod w2;
+pub mod w2_0;
 pub mod w3;
-pub mod w5_0;
-pub mod w6_0;
 
 /// What a test reads back from a device.
 #[derive(Default, Debug)]
@@ -22,8 +22,7 @@ pub struct State {
 
 pub type Shared = Arc<Mutex<State>>;
 
-/// The bench's line of `wire`, 1 to 3 as `thermo_api`'s `wire_v1` to `wire_v3` name them: the wire lines 5 to 7
-/// since R7 moved each to a new one.
+/// The bench's line of `wire`, 1 to 3, as `thermo_api`'s `wire_v1` to `wire_v3` name them.
 ///
 /// # Panics
 ///

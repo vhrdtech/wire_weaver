@@ -208,7 +208,7 @@ Each root's wire version is an entry of the `roots` table, by its module path:
 
 * A shared type is one Rust type on every line: a host of several lines converts nothing between them.
 * The crate version is for Rust only, so one crate version serves firmware of every line it holds. A line leaves the
-  crate when no device runs it any more, a breaking crate bump.
+  crate when no device runs it any more, a breaking crate bump ([retiring a line](multi_line_host.md#retiring-a-line)).
 * `ww_codegen!` names a root by its module path, `ww_codegen!(thermo_api::wire_v2::Thermo for Client, ..)`; with
   several roots, a bare `Thermo` or no name is an error listing them. Two roots of one name differ by their line; two
   traits of one name in one root's tree are refused, since the API model names a trait by crate and name.

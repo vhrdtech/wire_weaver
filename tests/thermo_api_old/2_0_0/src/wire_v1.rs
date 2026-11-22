@@ -1,5 +1,4 @@
-//! Line 5 at w5.0, its first revision: line 1 (the crate 1.2.0 had it at w1.2) moved to a new line by R7's indication
-//! swap (a trait identity change). `calibrate` (w5.1) and `uptime` (w5.2) came in 6.0.0.
+//! Line 1 at w1.0, the first release, as 1.0.0 had it at the crate root.
 
 use super::common::{Command, Indication, RateError};
 use ww_api::prelude::*;
@@ -24,7 +23,7 @@ pub trait Thermo {
     sink!(commands: Command);
     /// Input channels, 0-based on the wire.
     ww_impl!(channel[]: Channel);
-    /// The status LED, a local stand-in for a `ww_stdlib` trait every line shares (R7).
+    /// The status LED, a stand-in for a `ww_stdlib` trait every line shares.
     ww_impl!(indication: Indication);
 }
 

@@ -163,6 +163,9 @@ fn load_crate_in(
 ///   uses, are not part of this root's wire.
 /// * `#[since = "w1.5, w2.2"]` on a shared item takes the revision on this root's line.
 /// * `wire` is the root's wire version from the `roots` table.
+///
+/// A root of `[package.metadata.wire_weaver.retired_roots]` (`ww api line retire`) loads too, at its last wire
+/// version, when its module is still in the source.
 pub fn load_root(crate_path: &Path, root: &str) -> Result<ApiBundleOwned> {
     load_root_with_notes(crate_path, root).map(|(bundle, _notes)| bundle)
 }
@@ -191,7 +194,8 @@ fn load_root_in(
             ))
             .context(entry.err_context());
         }
-        if !roots.contains_key(root) {
+        // a retired root (`ww api line retire`) still loads by name, to compare its kept module with its last snapshot
+        if !roots.contains_key(root) && !entry.retired_roots_table()?.contains_key(root) {
             return Err(anyhow!(
                 "`{root}` is not an API root of the crate: `[package.metadata.wire_weaver.roots]` lists {}",
                 roots

@@ -27,6 +27,7 @@
 
 ### 🚀 Features
 
+- `load_root` and `CrateCache::load_root` load a root of `retired_roots` by name, to compare its kept module with its last snapshot (TOOL-33).
 - `gen_local_trait` and `gen_local_trait_client_impl` take `send`: without it the trait, its companion and its streams drop `Send` (SRV-73).
 - `codegen::serve_trait`: forwarding handlers, stream pumps and backend impls of a `serve_trait` server (SRV-49).
 - Generated servers answer a handler's `Failed(Failure)` with its error kind (SRV-49).

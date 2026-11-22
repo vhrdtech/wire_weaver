@@ -92,7 +92,7 @@ The companion is a fixed set of operations, the same for every keyed array, at t
 `I` is the array's own index type, `UNib32` for `flow[]`.
 
 On the device the companion takes two handlers, `flow_index_of(cx, key) -> RpcResult<Option<I>>` and
-`get_flow_key(cx, index_chain) -> GetResult<FlowKey, ()>` (always a getter, whatever the `property_model`); the
+`get_flow_key(cx, index_chain) -> GetResult<FlowKey, CommonError<'_>>` (always a getter, whatever the `property_model`); the
 server keeps its key table, as it keeps the flows. The key array's indices are the array's own, checked by
 `valid_indices_root_flow`, so `get_flow_key` is only called for an index the device has. The `keys` stream needs no
 handler: the generated code opens and closes it, and the device announces each element with

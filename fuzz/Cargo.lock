@@ -726,6 +726,7 @@ dependencies = [
  "futures-core",
  "shrink_wrap",
  "ww_api",
+ "ww_self",
  "ww_trace_context",
  "ww_version",
 ]

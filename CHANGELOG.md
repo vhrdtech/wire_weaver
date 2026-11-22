@@ -11,6 +11,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
+- New crate `ww_json`: the values of any API as JSON and back, quantities as text with their unit, errors with JSON paths (INT-14); see `ww_json`, `wire_weaver_client`.
 - The client and server build for Android: USB is only where a crate asks for it (`wire_weaver_client`, `wire_weaver_server`).
 
 ## [0.6.0] - 2026-11-22

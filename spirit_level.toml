@@ -849,3 +849,9 @@ paths = ["docs/**"]
 level = "allow"
 reason = "the book's and READMEs' prose; P2401#20nov-1155i (book prose) removes them"
 expires = "2027-01-31"
+
+[[exceptions]]
+lint = "duplicate-versions"
+paths = ["Cargo.lock"]
+level = "allow"
+reason = "getrandom 0.3 and r-efi 5 come from ahash of jsonschema, a dev-dependency of ww_json and conformance; cargo-deny's graph leaves them out"

@@ -544,6 +544,27 @@ impl wire_weaver_server::Backend for Backend {}
 stays in the backend. `poll` always runs to its end before the next request starts. All three take `&mut self`, so
 they run only while no request runs, shared ones included.
 
+### When a connection ends
+
+A client may hold something in the program while it is connected: keys it pressed, a lock it took, a region of the
+screen it covered. When the connection ends, the backend's `end` method lets go of it. It runs once, after the last
+request of the connection ended and before the backend is dropped, whatever ended the connection: the client left,
+its link timed out, or the server shut down.
+
+```rust
+impl wire_weaver_server::Backend for Backend {
+    async fn end(&mut self) {
+        // the client is gone: nothing it pressed stays pressed
+        self.input.release_all().await;
+    }
+}
+```
+
+The client hears nothing from `end`, since its link is gone already. The server gives `end` at most
+`shutdown_grace` and then drops it, so a backend that waits on something that never comes can't hold up the server.
+`end` doesn't run when the connection's future itself is dropped before it finished: when the program drops the
+future of `serve`, or aborts a task that [`accepting`](#connections-as-tasks) handed out.
+
 ### One value for all clients
 
 An observed property of a host service usually belongs to the service, and any client may change it. Each
@@ -604,7 +625,7 @@ See [Observing properties](observing.md) for `ObserveState`, `mark_changed_<name
 | `calls_max` | 16 | Shared requests of one connection that run at once. Further ones wait in its queue. |
 | `pending_max` | 32 | The connection stops reading. The client's transport pushes back on the client. |
 | `events_max` | 64 | A handler waits inside its send until the connection wrote events out. |
-| `shutdown_grace` | 5 s | See below. |
+| `shutdown_grace` | 5 s | See below. It also bounds each backend's `end`. |
 | `disconnect_linger` | 200 ms | See below. |
 
 None of these limits drops a request. A full queue slows down the client that filled it, and nobody else.
@@ -631,4 +652,5 @@ reads the reason instead of a transport error. A connection with nothing to
 answer ends at once.
 
 Requests that are still running when `shutdown_grace` has passed are dropped, and their connections are
-disconnected. `serve` returns after the last connection ended.
+disconnected. Each backend's [`end`](#when-a-connection-ends) then runs, again within `shutdown_grace`. `serve`
+returns after the last connection ended.

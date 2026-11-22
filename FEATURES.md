@@ -674,6 +674,10 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   `impl_local_trait`, and `serve_trait` serves it with the same generated code. `wire_weaver_server` connections
   take `LocalPumps` when their `MakeBackend` says so (`Local`, `LocalConnection`), the others stay `Send`
   (`tests/serve_trait` `not_send`, [docs](docs/api/local_trait.md#without-send)).
+- ✅ **SRV-74 Backend end step** — `wire_weaver_server::Backend::end`: an async step after a connection's link
+  went down (the client left, its link timed out, the server shut down) and its last request ended, before the
+  backend is dropped, cut at `Limits::shutdown_grace`. A backend lets go there of what its client held (keys
+  pressed, covers, locks) ([Host server](docs/api/host_server.md#when-a-connection-ends), `tests/host_server`).
 - 📋 **SRV-9 Handle USB suspend/resume** · `v0.5` — run until suspend, wait for resume, loop
   (`mcu/wire_weaver_usb_embassy`). Later (`v0.5.x`): detect the host going to sleep and keep the connection,
   informing the device.

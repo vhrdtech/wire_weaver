@@ -41,6 +41,19 @@ mod tests {
         mode_changed: Fanout<()>,
         /// Backends not dropped yet: connections that run.
         live: AtomicU32,
+        /// What became of backends, in order: `end` ran (`End`), dropped (`Drop`), by connection id.
+        ends: Mutex<Vec<(Ending, u32)>>,
+        /// `end` never returns.
+        end_hangs: std::sync::atomic::AtomicBool,
+        /// A backend was dropped.
+        dropped: Notify,
+    }
+
+    /// What became of a backend.
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    enum Ending {
+        End,
+        Drop,
     }
 
     impl Default for Shared {
@@ -54,6 +67,9 @@ mod tests {
                 mode: Mutex::default(),
                 mode_changed: Fanout::new(1),
                 live: AtomicU32::new(0),
+                ends: Mutex::default(),
+                end_hangs: std::sync::atomic::AtomicBool::new(false),
+                dropped: Notify::new(),
             }
         }
     }
@@ -73,6 +89,26 @@ mod tests {
                     return;
                 }
                 opened.await;
+            }
+        }
+
+        /// Until the backend of connection `id` was dropped; what became of it.
+        async fn ended(&self, id: u32) -> Vec<Ending> {
+            loop {
+                let dropped = self.dropped.notified();
+                tokio::pin!(dropped);
+                dropped.as_mut().enable();
+                let ends: Vec<_> = {
+                    let ends = self.ends.lock().unwrap();
+                    ends.iter()
+                        .filter(|(_, of)| *of == id)
+                        .map(|(e, _)| *e)
+                        .collect()
+                };
+                if ends.contains(&Ending::Drop) {
+                    return ends;
+                }
+                dropped.await;
             }
         }
 
@@ -117,6 +153,12 @@ mod tests {
     impl Drop for Backend {
         fn drop(&mut self) {
             self.shared.live.fetch_sub(1, Ordering::AcqRel);
+            self.shared
+                .ends
+                .lock()
+                .unwrap()
+                .push((Ending::Drop, self.id));
+            self.shared.dropped.notify_waiters();
         }
     }
 
@@ -161,6 +203,17 @@ mod tests {
                 .poll_properties(out, medium, now.as_micros(), &mut buf)
                 .await;
             self.update_buf = buf;
+        }
+
+        async fn end(&mut self) {
+            if self.shared.end_hangs.load(Ordering::Acquire) {
+                std::future::pending::<()>().await;
+            }
+            self.shared
+                .ends
+                .lock()
+                .unwrap()
+                .push((Ending::End, self.id));
         }
     }
 
@@ -1363,6 +1416,57 @@ mod tests {
             "{took:?}"
         );
         assert!(stuck.await.unwrap().is_err());
+    }
+
+    /// A backend ends before it is dropped (SRV-74): when its client leaves, and when the server shuts down.
+    #[tokio::test]
+    async fn a_backend_ends_when_its_client_leaves_and_at_shutdown() {
+        let mut bench = Bench::start("host_server/end", small());
+        let leaves = bench.connect().await;
+        let stays = bench.connect().await;
+        let (left, stayed) = (
+            leaves.whoami().call().await.unwrap(),
+            stays.whoami().call().await.unwrap(),
+        );
+        drop(leaves);
+        assert_eq!(
+            soon(
+                "the backend of the client that left",
+                bench.shared.ended(left)
+            )
+            .await,
+            [Ending::End, Ending::Drop]
+        );
+        assert_eq!(stays.echo(1).call().await.unwrap(), 1);
+        bench.shut_down();
+        soon("the server ends", &mut bench.served).await.unwrap();
+        assert_eq!(
+            bench.shared.ended(stayed).await,
+            [Ending::End, Ending::Drop]
+        );
+    }
+
+    /// An `end` that never returns is dropped after the grace time, and the server ends.
+    #[tokio::test(start_paused = true)]
+    async fn an_end_that_never_returns_is_dropped_after_the_grace_time() {
+        let limits = Limits {
+            shutdown_grace: Duration::from_secs(3),
+            ..small()
+        };
+        let mut bench = Bench::start("host_server/end_hangs", limits);
+        bench.shared.end_hangs.store(true, Ordering::Release);
+        let client = bench.connect().await;
+        let id = client.whoami().call().await.unwrap();
+        let left_at = tokio::time::Instant::now();
+        drop(client);
+        assert_eq!(bench.shared.ended(id).await, [Ending::Drop]);
+        assert!(
+            left_at.elapsed() >= limits.shutdown_grace,
+            "{:?}",
+            left_at.elapsed()
+        );
+        bench.shut_down();
+        (&mut bench.served).await.unwrap();
     }
 
     mod byte_streams;

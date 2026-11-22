@@ -11,6 +11,7 @@
 
 ### 🚀 Features
 
+- `Backend::end`: a step after the connection ended, before the backend is dropped, within `shutdown_grace` (SRV-74).
 - `opened::opened`, `OpenedSender::serve` and `OpenedListener`: serve connections the program opened itself (SRV-67).
 - `ShutdownReason`: a shutdown future of `DisconnectReason` tells clients that reason instead of `Shutdown` (SRV-67).
 - Stream items ready at shutdown go out before the disconnect (SRV-67).

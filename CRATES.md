@@ -152,6 +152,8 @@ This page lists the crates of the root workspace. The first table links each pub
 | [`series_api`](tests/series_api) | runtime | Series<T> (SW-60) of numbers in every position of an API: arguments, returns, fields, properties, streams |
 | [`serve_trait`](tests/serve_trait) | runtime | Tests of a server generated with serve_trait (SRV-49): requests forwarded to the local trait |
 | [`serve_trait_api`](tests/serve_trait_api) | runtime | Test API of a server generated with serve_trait (SRV-49), exercised by tests/serve_trait |
+| [`serve_trait_gauge_api`](tests/serve_trait_gauge_api) | runtime | Test API of a level defined in a crate of its own, with its local trait (CLT-58), used by tests/serve_trait |
+| [`serve_trait_levels_api`](tests/serve_trait_levels_api) | runtime | Test API of a server generated with serve_trait for nested levels and resource arrays (CLT-58), exercised by tests/serve_trait |
 | [`settings`](examples/settings) | runtime | Two settings kept across a reboot by ww_settings on a simulated flash |
 | [`settings_api`](examples/settings_api) | runtime | API of the settings example: two settings kept across a reboot |
 | [`shared_handlers`](tests/shared_handlers) | runtime | Tests of SRV-65 (shared handlers): the &self dispatch tree, is_shared and the receivers ww api scaffold writes. |

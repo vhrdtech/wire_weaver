@@ -274,6 +274,9 @@ observe_arrays_api = { version = "0.1.0", path = "./tests/observe_arrays_api" }
 observe_batched_api = { version = "0.1.0", path = "./tests/observe_batched_api" }
 properties_api = { version = "0.1.0", path = "./tests/properties_api" }
 quantities_api = { version = "0.1.0", path = "./tests/quantities_api" }
+reconnect_revision_added_api = { version = "0.1.0", path = "./tests/reconnect_revision_added_api" }
+reconnect_revision_api = { version = "0.1.0", path = "./tests/reconnect_revision_api" }
+reconnect_revision_changed_api = { version = "0.1.0", path = "./tests/reconnect_revision_changed_api" }
 recursive_api = { version = "0.1.0", path = "./tests/recursive_api" }
 series_api = { version = "0.1.0", path = "./tests/series_api" }
 serve_trait_api = { version = "0.1.0", path = "./tests/serve_trait_api" }

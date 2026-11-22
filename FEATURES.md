@@ -1299,6 +1299,14 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   its tokio worker for 50 ms (fixed, `commander_drop_on_a_worker_lets_the_loop_answer`). See
   [Transport protocols](docs/transport/overview.md#where-a-connects-time-goes). Missing: the full-speed USB run
   (Nucleo G0B1RE).
+- ✅ **CLT-81 Reconnect onto another API revision** · `v0.5` — a reconnect (keep-trying, hub-supervised,
+  `Commander::reconnect`, `reconnect_as`) to a device with another API hash on the same wire line learns the device
+  again as a first connect does (introspection data, global paths, the resource check, `HelloWireMismatch`) instead of
+  refusing it. The device facts live in one cell every clone of the `Commander` reads, so handles made before see the
+  new device; `const` values and keyed-array keys are forgotten. Kept streams, sinks and observers resume only where
+  the client's API still matches and the device's resource at the same path is compatible with the one it had; the
+  rest end with a warning. Another wire line keeps CLT-63's handling. See `docs/transport/keep_trying.md`; tested in
+  `tests/reconnect_revision`. The clock steering (CLT-46) keeps what the first connect decided.
 - 🚧 **CLT-75 Keep-trying connections** · `v0.5` — `PreparedConnection::connect_keep_trying()` returns the client at
   once and connects in the background, again whenever the link goes: each attempt tries the config's addresses in
   order (`ClientConfig::websocket_urls`, `in_process_paths`; `connect()` and `reconnect()` too), backoff and give-up

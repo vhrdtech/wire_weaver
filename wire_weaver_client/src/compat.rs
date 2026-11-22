@@ -61,6 +61,7 @@ struct Node {
     is_array: bool,
     /// A `keyed!` companion (CLT-72): the ids after it name items of its fixed level, `ww_self::keys`.
     is_keys: bool,
+    is_property: bool,
     since: Option<Since>,
     verdict: Verdict,
     children: HashMap<u32, Node>,
@@ -163,6 +164,7 @@ impl ApiCompat {
                 ident: item.ident.clone(),
                 is_array: item.is_array(),
                 is_keys: matches!(item.kind, ApiItemKindOwned::Keys { .. }),
+                is_property: matches!(item.kind, ApiItemKindOwned::Property { .. }),
                 since,
                 verdict: verdict(&path, item),
                 children: HashMap::new(),
@@ -225,6 +227,27 @@ impl ApiCompat {
             verdict: resolved?,
             since,
         })
+    }
+
+    /// Ids of the properties of the trait level at `path` (empty: the root), as [Self::resolve] walks it; None for a
+    /// path that isn't a level of this API.
+    pub(crate) fn property_ids(&self, path: &[ResourceIndex]) -> Option<Vec<u32>> {
+        let mut level = &self.root;
+        let mut path = path.iter();
+        while let Some(id) = path.next() {
+            let node = level.get(&id.get().0)?;
+            if node.is_array {
+                path.next();
+            }
+            level = &node.children;
+        }
+        let mut ids: Vec<u32> = level
+            .iter()
+            .filter(|(_, node)| node.is_property)
+            .map(|(id, _)| *id)
+            .collect();
+        ids.sort_unstable();
+        Some(ids)
     }
 
     /// Resources that are missing or incompatible, not descending into ones already reported. Optional resources the
@@ -1137,9 +1160,13 @@ pub(crate) mod tests {
         let connect = |device: ApiBundleOwned| {
             let (tx, _rx) = tokio::sync::mpsc::channel(1);
             let mut cmd = Commander::new(tx);
-            cmd.connected_device.user_api_version =
-                FullVersionOwned::new("test_api".into(), VersionOwned::new(0, 1, 0));
-            cmd.connected_device.user_api_hash = introspect(device.clone(), 2).api_hash;
+            cmd.with_facts(|f| {
+                f.connected_device.user_api_version =
+                    FullVersionOwned::new("test_api".into(), VersionOwned::new(0, 1, 0))
+            });
+            cmd.with_facts(|f| {
+                f.connected_device.user_api_hash = introspect(device.clone(), 2).api_hash
+            });
             cmd.set_client_introspect(introspect(client.clone(), 1));
             cmd.set_device_introspect(introspect(device, 2));
             cmd.resolve_api_match().unwrap();
@@ -1156,7 +1183,7 @@ pub(crate) mod tests {
 
         let cmd = connect(device.clone());
         assert_eq!(
-            cmd.connected_device.user_api_wire,
+            cmd.device_api_info().user_api_wire,
             Some(WireVersion::new(1, 0))
         );
         assert!(call(&cmd).is_ok(), "{:?}", call(&cmd));
@@ -1224,9 +1251,13 @@ pub(crate) mod tests {
         };
         let (tx, _rx) = tokio::sync::mpsc::channel(1);
         let mut cmd = Commander::new(tx);
-        cmd.connected_device.user_api_version =
-            FullVersionOwned::new("test_api".into(), VersionOwned::new(0, 1, 0));
-        cmd.connected_device.user_api_hash = introspect(bundle("d", "0.1.0", device), 2).api_hash;
+        cmd.with_facts(|f| {
+            f.connected_device.user_api_version =
+                FullVersionOwned::new("test_api".into(), VersionOwned::new(0, 1, 0))
+        });
+        cmd.with_facts(|f| {
+            f.connected_device.user_api_hash = introspect(bundle("d", "0.1.0", device), 2).api_hash
+        });
         cmd.set_client_introspect(introspect(bundle("c", "0.1.1", client), 1));
         cmd.set_device_introspect(introspect(bundle("d", "0.1.0", device), 2));
         cmd.resolve_api_match().unwrap();
@@ -1252,26 +1283,26 @@ pub(crate) mod tests {
         );
 
         // same hash: nothing is checked
-        cmd.connected_device.user_api_hash.no_docs.hash = vec![1];
+        cmd.with_facts(|f| f.connected_device.user_api_hash.no_docs.hash = vec![1]);
         cmd.resolve_api_match().unwrap();
         assert!(call(&cmd, 2).is_ok());
 
         // device API unknown: only since is checked, against the wire version the device's introspection data gave
         let (tx, _rx) = tokio::sync::mpsc::channel(1);
         let mut cmd2 = Commander::new(tx);
-        cmd2.connected_device = cmd.connected_device.clone();
+        cmd2.with_facts(|f| f.connected_device = cmd.device_api_info().clone());
         assert_eq!(
-            cmd2.connected_device.user_api_wire,
+            cmd2.device_api_info().user_api_wire,
             Some(WireVersion::new(1, 0))
         );
-        cmd2.connected_device.user_api_hash.no_docs.hash = vec![2];
+        cmd2.with_facts(|f| f.connected_device.user_api_hash.no_docs.hash = vec![2]);
         cmd2.set_client_introspect(introspect(bundle("c", "0.1.1", client), 1));
         cmd2.resolve_api_match().unwrap();
         assert!(call(&cmd2, 0).is_ok());
         assert!(matches!(call(&cmd2, 1), Err(Error::OlderProtocol { .. })));
 
         // device API and wire version unknown (a device from before wire versions): nothing to compare with
-        cmd2.connected_device.user_api_wire = None;
+        cmd2.with_facts(|f| f.connected_device.user_api_wire = None);
         cmd2.resolve_api_match().unwrap();
         assert!(call(&cmd2, 1).is_ok());
     }
@@ -1324,11 +1355,15 @@ pub(crate) mod tests {
         let commander = || {
             let (tx, _rx) = tokio::sync::mpsc::channel(1);
             let mut cmd = Commander::new(tx);
-            cmd.connected_device.user_api_version =
-                FullVersionOwned::new("test_api".into(), VersionOwned::new(0, 1, 0));
-            cmd.connected_device.user_api_wire = Some(WireVersion::new(0, 5));
-            cmd.connected_device.user_api_hash =
-                introspect(bundle("dw0", "0.1.0", device), 2).api_hash;
+            cmd.with_facts(|f| {
+                f.connected_device.user_api_version =
+                    FullVersionOwned::new("test_api".into(), VersionOwned::new(0, 1, 0))
+            });
+            cmd.with_facts(|f| f.connected_device.user_api_wire = Some(WireVersion::new(0, 5)));
+            cmd.with_facts(|f| {
+                f.connected_device.user_api_hash =
+                    introspect(bundle("dw0", "0.1.0", device), 2).api_hash
+            });
             cmd.set_client_introspect(introspect(bundle("cw0", "0.1.0", client), 1));
             cmd
         };
@@ -1356,7 +1391,7 @@ pub(crate) mod tests {
         }
 
         // the same hash: identical, nothing to download or refuse
-        cmd.connected_device.user_api_hash.no_docs.hash = vec![1];
+        cmd.with_facts(|f| f.connected_device.user_api_hash.no_docs.hash = vec![1]);
         cmd.resolve_api_match().unwrap();
         assert!(call(&cmd, 0).is_ok());
     }
@@ -1419,11 +1454,13 @@ pub(crate) mod tests {
         };
         let (tx, _rx) = tokio::sync::mpsc::channel(1);
         let mut cmd = Commander::new(tx);
-        cmd.connected_device.user_api_version =
-            FullVersionOwned::new("test_api".into(), VersionOwned::new(0, 1, 0));
+        cmd.with_facts(|f| {
+            f.connected_device.user_api_version =
+                FullVersionOwned::new("test_api".into(), VersionOwned::new(0, 1, 0))
+        });
         // the hello claimed w1.1, the device's own bundle says w1.0: the device's build is inconsistent
-        cmd.connected_device.user_api_wire = Some(WireVersion::new(1, 1));
-        cmd.connected_device.user_api_hash = hash.clone();
+        cmd.with_facts(|f| f.connected_device.user_api_wire = Some(WireVersion::new(1, 1)));
+        cmd.with_facts(|f| f.connected_device.user_api_hash = hash.clone());
         // client and device report the same hash: without the check, this would take the Identical shortcut
         cmd.set_client_introspect(
             IntrospectBundle::from_sent(
@@ -1490,13 +1527,17 @@ pub(crate) mod tests {
         "#;
         let (tx, _rx) = tokio::sync::mpsc::channel(1);
         let mut cmd = Commander::new(tx);
-        cmd.connected_device.user_api_version =
-            FullVersionOwned::new("test_api".into(), VersionOwned::new(0, 6, 0));
-        cmd.connected_device.user_api_wire = Some(WireVersion::new(2, 0));
-        cmd.connected_device.user_api_hash = ApiHashPairOwned {
-            no_docs: ApiHashOwned { hash: vec![2] },
-            with_docs: ApiHashOwned { hash: vec![] },
-        };
+        cmd.with_facts(|f| {
+            f.connected_device.user_api_version =
+                FullVersionOwned::new("test_api".into(), VersionOwned::new(0, 6, 0))
+        });
+        cmd.with_facts(|f| f.connected_device.user_api_wire = Some(WireVersion::new(2, 0)));
+        cmd.with_facts(|f| {
+            f.connected_device.user_api_hash = ApiHashPairOwned {
+                no_docs: ApiHashOwned { hash: vec![2] },
+                with_docs: ApiHashOwned { hash: vec![] },
+            }
+        });
         let client = IntrospectBundle::from_sent(
             bundle("c", "0.6.1", client),
             ApiHashPairOwned {

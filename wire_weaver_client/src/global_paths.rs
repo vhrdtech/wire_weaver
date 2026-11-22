@@ -14,7 +14,8 @@
 //! the crate's embedded snapshot both give its wire version (EVO-26), in a protocol compatible version
 //! (`FullVersion::is_protocol_compatible`) otherwise, and its name is the requested one; the first match depth first, in item
 //! order, as the device would find it. A trait under a resource array is reached at index 0, which a device's own
-//! lookup can't do. One [GlobalPaths] per connection, so per device API; reconnects keep the same API.
+//! lookup can't do. One [GlobalPaths] per connection; a reconnect onto another revision of the device's API (CLT-81)
+//! forgets the API and the paths found in it.
 
 use crate::config::IntrospectBundle;
 use crate::event_loop::command::{Command, StreamOpenHook};
@@ -40,15 +41,22 @@ type TraitKey = (String, String, u32, u32, u32);
 
 /// The global trait paths of one connection: the device's API once known, and the paths found in it.
 pub struct GlobalPaths {
+    /// What is known of the device's API now, replaced when it changes.
+    known: Mutex<Arc<Known>>,
+    /// How to fetch the introspection data and send requests again, set once connected.
+    link: Mutex<Option<Link>>,
+    /// The connection's resolver: the wanted crate's wire version, what the device left out of its API.
+    resolver: &'static Resolver,
+}
+
+/// One device API and the paths found in it.
+#[derive(Default)]
+struct Known {
     /// The device's API, with the traits it left out of its introspection data put back; `None` inside: the device
     /// has no introspection data (and none is cached for its API).
     api: OnceCell<Option<Arc<ApiBundleOwned>>>,
-    /// How to fetch the introspection data and send requests again, set once connected.
-    link: Mutex<Option<Link>>,
     /// Paths found so far, `None` for a trait the device's API doesn't have in a compatible version.
     resolved: Mutex<HashMap<TraitKey, Option<Vec<ResourceIndex>>>>,
-    /// The connection's resolver: the wanted crate's wire version, what the device left out of its API.
-    resolver: &'static Resolver,
 }
 
 struct Link {
@@ -71,7 +79,7 @@ pub(crate) struct AbsoluteRetry {
 impl std::fmt::Debug for GlobalPaths {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("GlobalPaths")
-            .field("api_known", &self.api.get().map(Option::is_some))
+            .field("api_known", &self.known().api.get().map(Option::is_some))
             .finish_non_exhaustive()
     }
 }
@@ -79,15 +87,15 @@ impl std::fmt::Debug for GlobalPaths {
 impl GlobalPaths {
     pub(crate) fn new(resolver: &'static Resolver) -> Arc<Self> {
         Arc::new(Self {
-            api: OnceCell::new(),
+            known: Mutex::default(),
             link: Mutex::new(None),
-            resolved: Mutex::new(HashMap::new()),
             resolver,
         })
     }
 
     /// Connected: how to reach the device, and its API if the connection already has it (`Some(None)`: the device
-    /// has no introspection data). Called again by a reconnect, which keeps the API.
+    /// has no introspection data). A device with another API hash than the one attached before (another revision,
+    /// CLT-81) replaces the API and the paths found in it.
     pub(crate) fn attach(
         &self,
         transport: WeakTransport,
@@ -95,14 +103,28 @@ impl GlobalPaths {
         api_hash: ApiHashPairOwned,
         api: Option<Option<&IntrospectBundle>>,
     ) {
-        *self.link.lock().unwrap_or_else(|e| e.into_inner()) = Some(Link {
+        let mut link = self.link.lock().unwrap_or_else(|e| e.into_inner());
+        let changed = link
+            .as_ref()
+            .is_some_and(|l| l.api_hash.no_docs != api_hash.no_docs);
+        *link = Some(Link {
             transport,
             api_version,
             api_hash,
         });
-        if let Some(api) = api {
-            _ = self.api.set(api.map(|b| b.api_bundle.clone()));
+        drop(link);
+        let mut known = self.known.lock().unwrap_or_else(|e| e.into_inner());
+        if changed {
+            *known = Arc::default();
         }
+        if let Some(api) = api {
+            _ = known.api.set(api.map(|b| b.api_bundle.clone()));
+        }
+    }
+
+    /// What is known of the device's API now.
+    fn known(&self) -> Arc<Known> {
+        self.known.lock().unwrap_or_else(|e| e.into_inner()).clone()
     }
 
     /// Absolute path of the trait `trait_name` of crate `crate_id` in a version compatible with `version`, from the
@@ -113,7 +135,8 @@ impl GlobalPaths {
         version: &VersionOwned,
         trait_name: &str,
     ) -> Option<Vec<ResourceIndex>> {
-        let api = self.api.get()?.as_ref()?;
+        let known = self.known();
+        let api = known.api.get()?.as_ref()?;
         let key = (
             crate_id.to_string(),
             trait_name.to_string(),
@@ -121,7 +144,7 @@ impl GlobalPaths {
             version.minor.0,
             version.patch.0,
         );
-        let mut resolved = self.resolved.lock().unwrap_or_else(|e| e.into_inner());
+        let mut resolved = known.resolved.lock().unwrap_or_else(|e| e.into_inner());
         resolved
             .entry(key)
             .or_insert_with(|| {
@@ -135,7 +158,8 @@ impl GlobalPaths {
     /// for it. None when the device has no introspection data or the connection is gone; a failed download is tried
     /// again by the next caller.
     async fn api(&self) -> Option<Arc<ApiBundleOwned>> {
-        let fetched = self
+        let known = self.known();
+        let fetched = known
             .api
             .get_or_try_init(|| async {
                 let (transport, api_version, api_hash) = {
@@ -441,13 +465,55 @@ pub trait Status {
             None,
             "API not known yet"
         );
-        _ = paths.api.set(Some(Arc::new(api)));
+        _ = paths.known().api.set(Some(Arc::new(api)));
         assert_eq!(
             paths.resolve("test_api", &version, "Port"),
             Some(ww_client_server::resource_path([2, 0]).to_vec())
         );
-        assert_eq!(paths.resolved.lock().unwrap().len(), 1);
+        assert_eq!(paths.known().resolved.lock().unwrap().len(), 1);
         assert_eq!(paths.resolve("other_api", &version, "Port"), None);
-        assert_eq!(paths.resolved.lock().unwrap().len(), 2);
+        assert_eq!(paths.known().resolved.lock().unwrap().len(), 2);
+    }
+
+    /// A device with another API hash (another revision, CLT-81) replaces the API and the paths found in it; the same
+    /// hash again keeps them.
+    #[test]
+    fn another_api_hash_forgets_the_api() {
+        use ww_version::ApiHashOwned;
+        let hash = |h| ApiHashPairOwned {
+            no_docs: ApiHashOwned { hash: vec![h] },
+            with_docs: ApiHashOwned { hash: vec![] },
+        };
+        let bundle = IntrospectBundle::from_sent(
+            bundle("global_paths_a", "0.2.1", API),
+            hash(1),
+            0,
+            crate::test_resolver(),
+        )
+        .unwrap();
+        let (tx, _rx) = tokio::sync::mpsc::channel(1);
+        let transport = crate::Commander::new(tx).transport().downgrade();
+        let version = FullVersionOwned::new("test_api".into(), VersionOwned::new(0, 2, 1));
+        let paths = GlobalPaths::new(crate::test_resolver());
+        let wanted = VersionOwned::new(0, 2, 0);
+        let port = Some(ww_client_server::resource_path([2, 0]).to_vec());
+
+        paths.attach(
+            transport.clone(),
+            version.clone(),
+            hash(1),
+            Some(Some(&bundle)),
+        );
+        assert_eq!(paths.resolve("test_api", &wanted, "Port"), port);
+        paths.attach(transport.clone(), version.clone(), hash(1), None);
+        assert_eq!(paths.resolve("test_api", &wanted, "Port"), port, "same API");
+
+        paths.attach(transport, version, hash(2), None);
+        assert_eq!(
+            paths.resolve("test_api", &wanted, "Port"),
+            None,
+            "API forgotten"
+        );
+        assert!(paths.known().resolved.lock().unwrap().is_empty());
     }
 }

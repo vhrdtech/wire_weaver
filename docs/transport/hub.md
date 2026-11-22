@@ -383,7 +383,8 @@ by `connect()`, or `ClientConfig::hub_device`) connects again by itself instead,
   aren't idempotent in general.
 - **Reconnecting.** The client tries at once, then with backoff (10 ms doubling to 1 s): through a hub again, starting
   one when none runs (in `HubMode::Auto` as if `Prefer`, see [the modes](#the-modes)), with link setup and the version
-  checks as on the first connect. A device with another API than before ends it.
+  checks as on the first connect. A device on another wire line than before ends it; another revision of its API on
+  the same line is learned again ([CLT-81](keep_trying.md#another-revision-of-the-devices-api)).
 - **Streams.** Counted and reliable streams wait and resume from their cursor (`StreamEvent::Resumed`, gaps if the
   device didn't keep everything), observed trait levels are subscribed again (`ObserveEvent::Resumed`), sinks are
   registered again and a credit sink's session goes on: the same path as

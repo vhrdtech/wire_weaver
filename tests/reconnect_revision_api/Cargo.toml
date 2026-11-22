@@ -1,0 +1,26 @@
+[package]
+name = "reconnect_revision_api"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "API of the reconnect-onto-a-new-revision tests (CLT-81): an observed property, two counted streams and a method"
+
+# Wire version of the API (EVO-31): link setup decides on its line, `#[since]` names its revisions
+[package.metadata.wire_weaver]
+wire = "w1.0"
+
+[features]
+default = ["std"]
+# forwards std to ww_api and ww_si, used either way
+std = ["ww_api/std", "ww_si/std"]
+
+[dependencies]
+ww_api.workspace = true
+ww_si = { workspace = true, features = ["counting"] }
+
+[lints]
+workspace = true

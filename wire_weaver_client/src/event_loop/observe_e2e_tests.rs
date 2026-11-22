@@ -245,7 +245,7 @@ async fn start_event_loop(
         .await
         .unwrap();
     let info = connected_rx.await.unwrap();
-    cmd.connected_device = info.result.expect("connected");
+    cmd.with_facts(|f| f.connected_device = info.result.expect("connected"));
     (device, residual_rx)
 }
 

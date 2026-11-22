@@ -53,12 +53,12 @@ impl DynClient {
         self.cmd.client_introspect()
     }
 
-    pub fn device_introspect(&self) -> Option<&IntrospectBundle> {
+    pub fn device_introspect(&self) -> Option<IntrospectBundle> {
         self.cmd.device_introspect()
     }
 
     /// Get information about the connected device (API version, link version, max messages size, etc.)
-    pub fn device_api_info(&self) -> &DeviceApiInfo {
+    pub fn device_api_info(&self) -> DeviceApiInfo {
         self.cmd.device_api_info()
     }
 

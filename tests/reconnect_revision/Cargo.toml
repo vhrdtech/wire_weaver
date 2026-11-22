@@ -1,0 +1,31 @@
+[package]
+name = "reconnect_revision"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Reconnects onto another revision of the device's API end to end (CLT-81): keep-trying, reconnect() and reconnect_as()"
+
+[features]
+default = ["std"]
+# default, unused here: this crate has no no_std gate and no owned/borrowed derive choice
+std = []
+
+[dev-dependencies]
+reconnect_revision_added_api.workspace = true
+reconnect_revision_api.workspace = true
+reconnect_revision_changed_api.workspace = true
+tests_common = { workspace = true, features = ["ws"] }
+tokio = { workspace = true, features = ["sync", "rt", "macros", "time", "test-util"] }
+tracing-subscriber.workspace = true
+wire_weaver.workspace = true
+wire_weaver_client = { workspace = true, features = ["in_process", "ws"] }
+ww_client_server.workspace = true
+ww_si = { workspace = true, features = ["counting"] }
+ww_stream = { workspace = true, features = ["std"] }
+
+[lints]
+workspace = true

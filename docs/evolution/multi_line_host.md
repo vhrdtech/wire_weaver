@@ -268,7 +268,8 @@ let t = t.reconnect().await?; // may now be a different variant than before
 ```
 
 - On the **same line**, this resumes streams, sinks and observers exactly like the plain `Commander::reconnect`
-  (CLT-36, CLT-40) and returns an equivalent `Thermo`.
+  (CLT-36, CLT-40) and returns an equivalent `Thermo`; another revision of the line's API is learned again first, and
+  what no longer holds on it ends ([CLT-81](../transport/keep_trying.md#another-revision-of-the-devices-api)).
 - On **another line** this facade also speaks, old streams, sinks and observers end instead of resuming: their
   resource paths assumed the old line's API, so nothing of that handle still applies. Use what `reconnect()`
   returns from here on, not the value it was called on — its calls still assume the old line.

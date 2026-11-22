@@ -2,7 +2,7 @@ use std::{any::Any, marker::PhantomData};
 
 use crate::config::InterfaceKind;
 use crate::event_loop::command::EventLoopExitReason;
-use crate::event_loop::commander::WeakCommander;
+use crate::event_loop::commander::{DeviceFacts, WeakCommander};
 use crate::event_loop::transport::Selected;
 use crate::{
     Backoff, Commander, ConnectionEvent, ConnectionState, GapReason, WwClient,
@@ -193,10 +193,10 @@ impl<T: WwClient> PreparedConnection<T> {
     /// app; `disconnect()` stops trying.
     ///
     /// Until the first connect the client assumes the device runs its own API (the first wire line of a client that
-    /// speaks several); the first connect learns the device's API as `connect()` does. A device on another wire line
-    /// then, or one with another API on a later reconnect, ends the trying with
-    /// [ConnectionEvent::GaveUp](crate::ConnectionEvent::GaveUp): make a new client for it. Runs on the caller's
-    /// tokio runtime.
+    /// speaks several); the first connect learns the device's API as `connect()` does. A device on another wire line,
+    /// then or on a later reconnect, ends the trying with [ConnectionEvent::GaveUp](crate::ConnectionEvent::GaveUp):
+    /// make a new client for it. Another revision of the API on the same line is learned again (CLT-81), and only
+    /// what still holds on it resumes, see [Commander::reconnect]. Runs on the caller's tokio runtime.
     pub fn connect_keep_trying(self) -> Result<T> {
         if tokio::runtime::Handle::try_current().is_err() {
             return Err(anyhow::anyhow!(
@@ -944,19 +944,17 @@ impl Keeper {
         self.failed(&commander, e, cmd_rx, started)
     }
 
-    /// An attempt connected again after a gap: on the same API, the Commander's streams go on.
+    /// An attempt connected again after a gap: the Commander's streams go on, on the same API or on another revision
+    /// of it, which the Commander learns first (CLT-81).
     async fn reconnected(&mut self, commander: Commander, info: DeviceApiInfo, address: String) {
         let Some(gap) = self.gap.take() else {
             return;
         };
         commander.note_docs_updated(&info);
-        if info.user_api_hash.no_docs != commander.device_api_info().user_api_hash.no_docs {
+        if let Err(e) = learn_again(&commander, info).await {
             // CLT-63: names both wire lines when the device changed line (a DFU); this loop has no `T` to pick a
-            // client with, unlike Commander::reconnect_as, so it always gives up here
-            self.give_up(
-                &commander,
-                commander.reconnected_elsewhere_error(info).to_string(),
-            );
+            // client with, unlike Commander::reconnect_as, so it gives up here
+            self.give_up(&commander, e.to_string());
             _ = commander.disconnect().asynch().await;
             return;
         }
@@ -981,14 +979,9 @@ impl Keeper {
 
     /// A keep-trying connection's first connect (CLT-75): the Commander learns the device's API, as `connect()`
     /// would, and every clone sees it.
-    async fn first_connect(
-        &mut self,
-        mut commander: Commander,
-        info: DeviceApiInfo,
-        address: String,
-    ) {
+    async fn first_connect(&mut self, commander: Commander, info: DeviceApiInfo, address: String) {
         let attempts = self.gap.as_ref().map_or(0, |g| g.attempts);
-        if let Err(e) = learn_first(&mut commander, info).await {
+        if let Err(e) = learn_first(&commander, info).await {
             self.give_up(&commander, e.to_string());
             _ = commander.disconnect().asynch().await;
             return;
@@ -1067,17 +1060,50 @@ impl Keeper {
 
 /// What a keep-trying connection's first connect (CLT-75) learns: the device's API, refused on another wire line
 /// than the one the client was made for.
-async fn learn_first(commander: &mut Commander, info: DeviceApiInfo) -> Result<(), crate::Error> {
-    if let (Some(expected), Some(device)) = (
-        commander.device_api_info().user_api_wire,
-        info.user_api_wire,
-    ) && !expected.same_line(&device)
-    {
+async fn learn_first(commander: &Commander, info: DeviceApiInfo) -> Result<(), crate::Error> {
+    if other_line(&commander.facts().connected_device, &info) {
         return Err(commander.reconnected_elsewhere_error(info));
     }
-    commander.set_connected_device(info);
-    learn_device(commander).await?;
-    commander.learn();
+    let facts = learn_facts(commander, info).await?;
+    commander.publish(facts);
+    Ok(())
+}
+
+/// Both name their wire line, and the lines differ.
+fn other_line(before: &DeviceApiInfo, now: &DeviceApiInfo) -> bool {
+    matches!(
+        (before.user_api_wire, now.user_api_wire),
+        (Some(before), Some(now)) if !before.same_line(&now)
+    )
+}
+
+/// What a reconnect learns of the device `info` describes, checked as a first connect's (CLT-81): nothing on the same
+/// API; on another revision of it, its API again (introspection data unless the client has it, the global trait
+/// paths, the API match), for every clone of `commander`, and kept streams, sinks and observers whose resource doesn't
+/// hold on it end. Refuses another wire line ([crate::Error::ReconnectedOnAnotherLine], CLT-63) and a device whose
+/// introspection data names another wire version than its hello ([crate::Error::HelloWireMismatch]).
+pub(crate) async fn learn_again(
+    commander: &Commander,
+    info: DeviceApiInfo,
+) -> Result<(), crate::Error> {
+    let before = commander.facts();
+    if info.user_api_hash.no_docs == before.connected_device.user_api_hash.no_docs {
+        return Ok(());
+    }
+    if other_line(&before.connected_device, &info) {
+        return Err(commander.reconnected_elsewhere_error(info));
+    }
+    info!(
+        "{}: the device's API changed (API hash {} -> {}), learning it again",
+        info.user_api_version.crate_id,
+        before.connected_device.user_api_hash.no_docs,
+        info.user_api_hash.no_docs,
+    );
+    let facts = learn_facts(commander, info).await?;
+    commander.clear_const_cache();
+    commander.keys.clear();
+    commander.publish(facts);
+    commander.end_shifted(&before);
     Ok(())
 }
 
@@ -1267,13 +1293,11 @@ fn create_commander_inner(
         None => config.introspect_client,
     };
     if let Some(introspect_client) = introspect_client {
-        if introspect_client.api_hash.no_docs == device_api_info.user_api_hash.no_docs {
-            // connected device API is exactly the same as client, no need to download or look for cached one
-            commander.set_device_introspect(introspect_client.clone());
-        }
         commander.set_client_introspect(introspect_client);
     }
-    commander.connected_device = device_api_info;
+    // the connected device's API is exactly the client's: no need to download it or look for a cached one
+    let facts = commander.facts_of(device_api_info);
+    commander.publish(facts);
     commander
 }
 
@@ -1283,44 +1307,10 @@ pub(crate) async fn create_commander(
     cmd_tx: mpsc::Sender<Command>,
     device_api_info: DeviceApiInfo,
 ) -> Result<Commander, crate::Error> {
-    let mut commander = create_commander_inner(config, cmd_tx, device_api_info);
-    learn_device(&mut commander).await?;
+    let commander = create_commander_inner(config, cmd_tx, device_api_info.clone());
+    let facts = learn_facts(&commander, device_api_info).await?;
+    commander.publish(facts);
     Ok(commander)
-}
-
-/// The connected device's API for `commander`: its introspection data unless the client has it already, the global
-/// trait paths, how the client's resources match the device's.
-async fn learn_device(commander: &mut Commander) -> Result<(), crate::Error> {
-    let device_api_hash = commander.device_api_info().user_api_hash.clone();
-    // the device has no introspection data: known for good, unlike a failed download (SRV-53)
-    let mut no_introspection = false;
-    if commander.device_introspect().is_none() && !commander.traits_only {
-        let sent = commander
-            .introspect()
-            .get_as_sent()
-            .instrument(debug_span!(spans::INTROSPECT))
-            .await;
-        match sent {
-            Ok(Some((sent_api_bundle, sent_size))) => {
-                match IntrospectBundle::from_sent(
-                    sent_api_bundle,
-                    device_api_hash.clone(),
-                    sent_size,
-                    commander.resolver,
-                ) {
-                    Ok(bundle) => commander.set_device_introspect(bundle),
-                    Err(e) => warn!("Device introspection data is not usable: {e:#}"),
-                }
-            }
-            Ok(None) => {
-                debug!("device has introspection disabled and its API is not in the cache");
-                no_introspection = true;
-            }
-            Err(e) => warn!("Failed to get device introspection data: {e:#}"),
-        }
-    }
-    attach_global_paths(commander, device_api_hash, no_introspection);
-    commander.resolve_api_match()
 }
 
 /// NOTE: keep in sync with [create_commander]
@@ -1329,52 +1319,102 @@ fn create_commander_blocking(
     cmd_tx: mpsc::Sender<Command>,
     device_api_info: DeviceApiInfo,
 ) -> Result<Commander, crate::Error> {
-    let device_api_hash = device_api_info.user_api_hash.clone();
-    let mut commander = create_commander_inner(config, cmd_tx, device_api_info);
-    // the device has no introspection data: known for good, unlike a failed download (SRV-53)
+    let commander = create_commander_inner(config, cmd_tx, device_api_info.clone());
+    let mut facts = commander.facts_of(device_api_info);
     let mut no_introspection = false;
-    if commander.device_introspect().is_none() && !commander.traits_only {
+    if facts.device_introspect.is_none() && !commander.traits_only {
         let sent = debug_span!(spans::INTROSPECT)
-            .in_scope(|| commander.introspect().get_as_sent_blocking());
-        match sent {
-            Ok(Some((sent_api_bundle, sent_size))) => {
-                match IntrospectBundle::from_sent(
-                    sent_api_bundle,
-                    device_api_hash.clone(),
-                    sent_size,
-                    commander.resolver,
-                ) {
-                    Ok(bundle) => commander.set_device_introspect(bundle),
-                    Err(e) => warn!("Device introspection data is not usable: {e:#}"),
-                }
-            }
-            Ok(None) => {
-                debug!("device has introspection disabled and its API is not in the cache");
-                no_introspection = true;
-            }
-            Err(e) => warn!("Failed to get device introspection data: {e:#}"),
-        }
+            .in_scope(|| introspect(&commander, &facts.connected_device).get_as_sent_blocking());
+        no_introspection = take_sent(&commander, &mut facts, sent);
     }
-    attach_global_paths(&commander, device_api_hash, no_introspection);
-    commander.resolve_api_match()?;
+    let facts = finish_learning(&commander, facts, no_introspection)?;
+    commander.publish(facts);
     Ok(commander)
 }
 
-/// Tell the connection's global trait paths (SRV-53) how to reach the device, and its API if the connection has it.
-fn attach_global_paths(
+/// What `commander` learns of the device `info` describes, as a connect does, without publishing it: its
+/// introspection data unless the client has it, the global trait paths, how the client's resources match the
+/// device's. A reconnect onto another revision of the device's API learns it the same way (CLT-81).
+async fn learn_facts(
     commander: &Commander,
-    api_hash: ww_version::ApiHashPairOwned,
+    info: DeviceApiInfo,
+) -> Result<DeviceFacts, crate::Error> {
+    let mut facts = commander.facts_of(info);
+    let mut no_introspection = false;
+    if facts.device_introspect.is_none() && !commander.traits_only {
+        let sent = introspect(commander, &facts.connected_device)
+            .get_as_sent()
+            .instrument(debug_span!(spans::INTROSPECT))
+            .await;
+        no_introspection = take_sent(commander, &mut facts, sent);
+    }
+    finish_learning(commander, facts, no_introspection)
+}
+
+/// The introspection data of the device `info` describes, through `commander`'s link.
+fn introspect(commander: &Commander, info: &DeviceApiInfo) -> crate::Introspect {
+    crate::Introspect::new(
+        commander.transport(),
+        info.user_api_version.clone(),
+        info.user_api_hash.clone(),
+        commander.resolver,
+    )
+}
+
+/// Takes the device's introspection data into `facts`; true when the device has none: known for good, unlike a
+/// failed download (SRV-53).
+fn take_sent(
+    commander: &Commander,
+    facts: &mut DeviceFacts,
+    sent: Result<Option<(ww_self::ApiBundleOwned, usize)>>,
+) -> bool {
+    match sent {
+        Ok(Some((sent_api_bundle, sent_size))) => {
+            match IntrospectBundle::from_sent(
+                sent_api_bundle,
+                facts.connected_device.user_api_hash.clone(),
+                sent_size,
+                commander.resolver,
+            ) {
+                Ok(bundle) => facts.device_introspect = Some(bundle),
+                Err(e) => warn!("Device introspection data is not usable: {e:#}"),
+            }
+            false
+        }
+        Ok(None) => {
+            debug!("device has introspection disabled and its API is not in the cache");
+            true
+        }
+        Err(e) => {
+            warn!("Failed to get device introspection data: {e:#}");
+            false
+        }
+    }
+}
+
+/// The global trait paths and the API match of `facts`, now that its introspection data is known.
+fn finish_learning(
+    commander: &Commander,
+    mut facts: DeviceFacts,
     no_introspection: bool,
-) {
-    let api = match commander.device_introspect() {
+) -> Result<DeviceFacts, crate::Error> {
+    attach_global_paths(commander, &facts, no_introspection);
+    facts.resolve_api_match(commander.client_introspect())?;
+    facts.learned = true;
+    Ok(facts)
+}
+
+/// Tell the connection's global trait paths (SRV-53) how to reach the device, and its API if the connection has it.
+fn attach_global_paths(commander: &Commander, facts: &DeviceFacts, no_introspection: bool) {
+    let api = match &facts.device_introspect {
         Some(bundle) => Some(Some(bundle)),
         None if no_introspection => Some(None),
         None => None,
     };
     commander.global_paths.attach(
         commander.transport().downgrade(),
-        commander.device_api_info().user_api_version.clone(),
-        api_hash,
+        facts.connected_device.user_api_version.clone(),
+        facts.connected_device.user_api_hash.clone(),
         api,
     );
 }

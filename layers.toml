@@ -143,6 +143,10 @@ properties = { layer = "runtime" }
 properties_api = { layer = "runtime" }
 quantities = { layer = "runtime" }
 quantities_api = { layer = "runtime", no_std = true }
+reconnect_revision = { layer = "runtime" }
+reconnect_revision_added_api = { layer = "runtime" }
+reconnect_revision_api = { layer = "runtime" }
+reconnect_revision_changed_api = { layer = "runtime" }
 recursive = { layer = "runtime" }
 recursive_api = { layer = "runtime", no_std = true }
 series = { layer = "runtime" }

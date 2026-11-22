@@ -81,8 +81,31 @@ following every event (and can't miss the first ones): `ConnectionState::Connect
 Until the first connect the client assumes the device runs the client's own API; a client that speaks several wire
 lines ([EVO-28](../evolution/multi_line_host.md)) assumes its first one. The first connect learns the device's API as
 `connect()` does (link setup, introspection data when the device's API differs from the client's, the resource
-check), and every clone of the handle sees it. A device on another wire line than the assumed one, or one with
-another API on a later reconnect (other firmware), ends the trying with `GaveUp`: make a new client for it.
+check), and every clone of the handle sees it. A device on another wire line than the assumed one ends the trying
+with `GaveUp`, and so does one that comes back on another line later (a DFU to a new line): make a new client for it,
+or use `Commander::reconnect_as` ([CLT-63](../evolution/multi_line_host.md#reconnecting-onto-another-line)).
+
+## Another revision of the device's API
+
+A device that comes back with another API hash on the same wire line (other firmware: a method added, a type
+changed) is learned again, exactly as on a first connect (CLT-81): its introspection data unless the client has it,
+the global trait paths, the resource check against the client's API, and a refusal when its introspection data names
+another wire version than its hello (`Error::HelloWireMismatch`). Every clone of the handle sees the new device from
+then on (`device_api_info()`, `device_introspect()`), and calls are checked against its API: one whose resource
+changed fails with `Error::IncompatibleResource` before anything is sent. The values of `const` items read before
+and the keys of keyed arrays are forgotten.
+
+Kept streams, observed levels and sinks resume only where their resource still holds on the new device, and end
+with a warning otherwise:
+
+- the client's API must still match the device's at the resource's path (the same check a call makes), and
+- the device's resource at that path must be compatible with the one it had before, so that a resource that moved to
+  another id is never resumed onto whatever took its place; an observed level holds when each of its properties does.
+
+When the device's API before or now is unknown (introspection off and nothing cached), a moved resource can't be told
+apart, and nothing resumes. A sink addressed by a trait path resumes: the device finds the trait itself, in a
+compatible version. `ConnectionEvent::Reconnected` comes as on any reconnect, its `resumed` counting what went on.
+`Commander::reconnect` and `Commander::reconnect_as` do the same on the same line.
 
 ## Through the hub
 
@@ -96,3 +119,6 @@ follows its own settings on every transport.
 [simulated WebSocket](websocket.md#simulated-websocket-in-tests) (`tests_common::start_device_async_ws`), on tokio's
 paused clock: the server starts after the client, goes away and comes back while an observer keeps delivering; the
 first address with a server wins; the waits between attempts and the give-up time are the configured ones.
+`tests/reconnect_revision` reconnects onto other revisions of the device's API on the same line (CLT-81), through a
+keep-trying connection, `Commander::reconnect` and `Commander::reconnect_as`: a method added resumes everything, a
+stream whose item type changed ends alone and its calls are refused.

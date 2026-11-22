@@ -2987,6 +2987,47 @@ dependencies = [
 ]
 
 [[package]]
+name = "reconnect_revision"
+version = "0.1.0"
+dependencies = [
+ "reconnect_revision_added_api",
+ "reconnect_revision_api",
+ "reconnect_revision_changed_api",
+ "tests_common",
+ "tokio",
+ "tracing-subscriber",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_client_server",
+ "ww_si",
+ "ww_stream",
+]
+
+[[package]]
+name = "reconnect_revision_added_api"
+version = "0.1.0"
+dependencies = [
+ "ww_api",
+ "ww_si",
+]
+
+[[package]]
+name = "reconnect_revision_api"
+version = "0.1.0"
+dependencies = [
+ "ww_api",
+ "ww_si",
+]
+
+[[package]]
+name = "reconnect_revision_changed_api"
+version = "0.1.0"
+dependencies = [
+ "ww_api",
+ "ww_si",
+]
+
+[[package]]
 name = "recursive"
 version = "0.1.0"
 dependencies = [

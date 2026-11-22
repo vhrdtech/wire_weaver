@@ -8,7 +8,7 @@ use crate::client::observe::{
     LevelRoute, LevelUpdate, ObserveConfig, ObserveRegistry, Pending, PreparedObserve, send_pending,
 };
 use crate::client::positioned::Shared;
-use crate::client::prepared_connection::Reconnect;
+use crate::client::prepared_connection::{Reconnect, learn_again};
 use crate::client::prepared_stream_open::{raw_reopen, stream_open_request};
 use crate::client::sink::{Resumed, SinkLink};
 use crate::compat::{ApiCompat, ApiMatch, Since, Verdict, has_since};
@@ -20,13 +20,14 @@ use crate::event_loop::rx_dispatcher::ResponseReceiver;
 use crate::event_loop::rx_dispatcher::ResponseSender;
 use crate::event_loop::rx_dispatcher::StreamUpdateReceiver;
 use crate::global_paths::GlobalPaths;
+use crate::locked::RwLocked;
 use crate::{
     AckMode, DEFAULT_REQUEST_TIMEOUT, PositionedStream, PreparedRead, PreparedStreamOpen,
     PreparedWrite, Sink, StreamHandle,
 };
 use std::collections::HashMap;
 use std::marker::PhantomData;
-use std::sync::{Arc, Mutex, OnceLock, Weak};
+use std::sync::{Arc, Mutex, RwLock, Weak};
 use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
 use tracing::{debug, warn};
@@ -57,16 +58,11 @@ pub struct Commander {
     default_timeout: Duration,
     /// Priority of requests that don't set their own, see [Commander::set_default_priority]
     default_priority: Priority,
-    pub(crate) connected_device: DeviceApiInfo,
     /// Client API and types, client signature. None if DynClient.
     client_introspect: Option<IntrospectBundle>,
-    /// Device API and types, client signature. None if device has introspect disabled and there is no cache for it.
-    device_introspect: Option<IntrospectBundle>,
-    /// Whether client resources can be used with the connected device, see [Commander::resolve_api_match].
-    api_match: ApiMatch,
-    /// A keep-trying connection's device facts, set by its first connect (CLT-75) and read before the three fields
-    /// above, which hold what the client expects until then. `None` for every other Commander.
-    learned: Option<Arc<OnceLock<DeviceFacts>>>,
+    /// What is known of the connected device, shared by every clone: replaced when a reconnect learns the device
+    /// again (CLT-75's first connect, a new revision of the device's API, CLT-81).
+    facts: FactsCell,
     /// Connected with [ClientConfig::traits_only](crate::ClientConfig::traits_only): device API unknown, absolute
     /// paths are refused.
     pub(crate) traits_only: bool,
@@ -158,11 +154,8 @@ pub(crate) struct WeakCommander {
     base_path: Option<Vec<ResourceIndex>>,
     default_timeout: Duration,
     default_priority: Priority,
-    connected_device: DeviceApiInfo,
     client_introspect: Option<IntrospectBundle>,
-    device_introspect: Option<IntrospectBundle>,
-    api_match: ApiMatch,
-    learned: Option<Arc<OnceLock<DeviceFacts>>>,
+    facts: FactsCell,
     traits_only: bool,
     global_paths: Arc<GlobalPaths>,
     resolver: &'static Resolver,
@@ -187,11 +180,8 @@ impl WeakCommander {
             base_path: self.base_path.clone(),
             default_timeout: self.default_timeout,
             default_priority: self.default_priority,
-            connected_device: self.connected_device.clone(),
             client_introspect: self.client_introspect.clone(),
-            device_introspect: self.device_introspect.clone(),
-            api_match: self.api_match.clone(),
-            learned: self.learned.clone(),
+            facts: self.facts.clone(),
             traits_only: self.traits_only,
             global_paths: self.global_paths.clone(),
             resolver: self.resolver,
@@ -213,12 +203,97 @@ impl WeakCommander {
     }
 }
 
-/// What a [Commander] knows of the device it talks to, see [Commander::learn].
+/// What a [Commander] knows of the device it talks to, see [Commander::publish].
+#[derive(Clone)]
 pub(crate) struct DeviceFacts {
-    connected_device: DeviceApiInfo,
-    device_introspect: Option<IntrospectBundle>,
-    api_match: ApiMatch,
+    pub(crate) connected_device: DeviceApiInfo,
+    /// Device API and types, client signature. None if device has introspect disabled and there is no cache for it.
+    pub(crate) device_introspect: Option<IntrospectBundle>,
+    /// Whether client resources can be used with the connected device, see [DeviceFacts::resolve_api_match].
+    pub(crate) api_match: ApiMatch,
+    /// Learned from the device: false only for what a keep-trying connection expects before its first connect
+    /// (CLT-75).
+    pub(crate) learned: bool,
 }
+
+impl DeviceFacts {
+    /// Decides how client resources relate to the connected device's, once both introspection bundles are known:
+    /// * no client API (DynClient) - nothing to check,
+    /// * same API hash - all resources are the same by definition,
+    /// * different hash - every method, property, stream and trait is compared with the device's one,
+    /// * different hash and device API unknown - only `#[since]` is checked against the device's wire version,
+    /// * the same on w0, the design line (EVO-41) - every resource of the client's API is refused, as `#[since]`
+    ///   means nothing there. Equal hashes need no download on w0 either: the hash is over the device's own
+    ///   introspection bytes.
+    ///
+    /// Refuses first when the device's own introspection bundle (`ApiBundle::wire`) names a wire version that
+    /// differs from the one its hello already claimed (`DeviceInfo::user_api_wire`, EVO-25): the two always agree
+    /// on a correctly built device, so a mismatch is a build bug on the device and is refused before any
+    /// `#[since]` check or resource comparison trusts either claim (CLT-61). Runs on every path that makes a
+    /// device bundle known, including the `ApiMatch::Identical` shortcut that skips downloading it.
+    pub(crate) fn resolve_api_match(
+        &mut self,
+        client: Option<&IntrospectBundle>,
+    ) -> Result<(), Error> {
+        if let Some(device) = &self.device_introspect {
+            match (self.connected_device.user_api_wire, device.api_bundle.wire) {
+                (Some(hello_wire), Some(bundle_wire)) if hello_wire != bundle_wire => {
+                    return Err(Error::HelloWireMismatch {
+                        device: Box::new(self.connected_device.user_api_version.clone()),
+                        hello_wire,
+                        bundle_wire,
+                    });
+                }
+                (None, bundle_wire) => self.connected_device.user_api_wire = bundle_wire,
+                _ => {}
+            }
+        }
+        let Some(client) = client else {
+            self.api_match = ApiMatch::NoClientApi;
+            return Ok(());
+        };
+        self.api_match = if client.api_hash.no_docs == self.connected_device.user_api_hash.no_docs {
+            ApiMatch::Identical
+        } else if let Some(device) = &self.device_introspect {
+            let compat = ApiCompat::new(&client.api_bundle, &device.api_bundle);
+            let mismatches = compat.mismatches();
+            if mismatches.is_empty() {
+                debug!(
+                    "device API differs from the client's, but all client resources are compatible"
+                );
+            } else {
+                let list = mismatches
+                    .iter()
+                    .map(|(name, verdict)| match verdict {
+                        Verdict::Incompatible(reason) => format!("\n  {name}: {reason}"),
+                        _ => format!("\n  {name}: not implemented"),
+                    })
+                    .collect::<String>();
+                warn!(
+                    "device API {:?} differs from the client's, these resources can't be used:{list}",
+                    self.connected_device.user_api_version
+                );
+            }
+            ApiMatch::Checked(Arc::new(compat))
+        } else if let Some(wire) = client.api_bundle.wire.filter(|w| w.is_design_line()) {
+            warn!(
+                "device API {:?} differs from the client's and is unknown, and {wire} is the design line: no resource \
+                 of the client's API can be used, enable introspection on the device",
+                self.connected_device.user_api_version
+            );
+            ApiMatch::DesignLineUnknown(Arc::new(ApiCompat::client_only(&client.api_bundle)), wire)
+        } else {
+            debug!(
+                "device API differs from the client's and is unknown, only #[since] will be checked"
+            );
+            ApiMatch::DeviceApiUnknown(Arc::new(ApiCompat::client_only(&client.api_bundle)))
+        };
+        Ok(())
+    }
+}
+
+/// The device facts of a connection, shared by a [Commander]'s clones: read as a whole, replaced as a whole.
+pub(crate) type FactsCell = Arc<RwLock<Arc<DeviceFacts>>>;
 
 /// Values of `const` items read on a connection (API-36), by request path (serialized [PathKindOwned]): response
 /// bytes, decoded again on each read. Shared by a [Commander] and its clones, a new connection starts empty.
@@ -237,11 +312,13 @@ impl Commander {
             base_path: None,
             default_timeout: DEFAULT_REQUEST_TIMEOUT,
             default_priority: Priority::NORMAL,
-            connected_device: DeviceApiInfo::empty(),
             client_introspect: None,
-            device_introspect: None,
-            api_match: ApiMatch::NoClientApi,
-            learned: None,
+            facts: Arc::new(RwLock::new(Arc::new(DeviceFacts {
+                connected_device: DeviceApiInfo::empty(),
+                device_introspect: None,
+                api_match: ApiMatch::NoClientApi,
+                learned: true,
+            }))),
             traits_only: false,
             global_paths: GlobalPaths::new(Resolver::global()),
             resolver: Resolver::global(),
@@ -505,11 +582,11 @@ impl Commander {
     /// Logs "documentation updated" for a device that came back with the same API and other docs, see
     /// [DeviceApiInfo::docs_updated_since].
     pub(crate) fn note_docs_updated(&self, info: &DeviceApiInfo) {
-        if info.docs_updated_since(self.connected()) {
+        if info.docs_updated_since(&self.facts().connected_device) {
             tracing::info!(
                 "{}: documentation updated (API hash with docs {} -> {}), the API is the same",
                 info.user_api_version.crate_id,
-                self.connected().user_api_hash.with_docs,
+                self.facts().connected_device.user_api_hash.with_docs,
                 info.user_api_hash.with_docs,
             );
         }
@@ -521,11 +598,13 @@ impl Commander {
     ///
     /// Fails with the reason when the device isn't there (yet): the Commander stays disconnected and can try again.
     /// Also fails when the Commander is still connected, or was connected with `connect_blocking`. A device with
-    /// another API than before (other firmware) is refused after it connected: [Error::ReconnectedOnAnotherLine]
-    /// (CLT-63) when it came back on another wire line this Commander's `speaks()` also has a client of (a facade,
-    /// EVO-28) — [Self::reconnect_as] picks that client instead of refusing — else [Error::IncompatibleResource].
-    /// Either way, disconnect and make a new client. A device with the same API and other docs (EVO-69) is taken
-    /// back, with "documentation updated" logged.
+    /// another revision of its API on the same wire line (other firmware, CLT-81) is learned again as a first connect
+    /// learns it, for this Commander and every clone: kept streams, sinks and observers whose resource holds on it
+    /// resume, the others end with a warning, and calls are checked against its API from then on. A device on another
+    /// wire line is refused after it connected: [Error::ReconnectedOnAnotherLine] (CLT-63), which
+    /// [Self::reconnect_as] takes instead of refusing when this Commander's `speaks()` also has a client of that line
+    /// (a facade, EVO-28); disconnect and make a new client otherwise. A device with the same API and other docs
+    /// (EVO-69) is taken back, with "documentation updated" logged.
     pub async fn reconnect(&self) -> Result<usize, Error> {
         let Some(reconnect) = &self.reconnect else {
             return Err(Error::Unsupported {
@@ -537,8 +616,7 @@ impl Commander {
         self.keys.clear();
         let info = reconnect.run(&self.transport_cmd_tx).await?;
         self.note_docs_updated(&info);
-        if info.user_api_hash.no_docs != self.connected().user_api_hash.no_docs {
-            let e = self.reconnected_elsewhere_error(info);
+        if let Err(e) = learn_again(self, info).await {
             // the link just came up on the wrong API: leave the Commander disconnected, not stuck on a connection
             // this `reconnect` (or `reconnect_as`) can't take over without a fresh `disconnect().keep_streams()`
             _ = self.disconnect().asynch().await;
@@ -549,10 +627,10 @@ impl Commander {
 
     /// Connects again, like [Self::reconnect], but picks the client of the device's wire line again (CLT-63) instead
     /// of refusing a line change: a DFU may bring the device back on another line this Commander's `speaks()` also
-    /// has a client of (a facade of several lines, EVO-28). On the same line, this resumes streams exactly like
-    /// [Self::reconnect] and returns an equivalent `T`. On another line, old streams, sinks and observers can't
-    /// resume (their resource paths assumed the old line) and are ended; use what this returns, not the value it was
-    /// called on, whose calls still assume the old line.
+    /// has a client of (a facade of several lines, EVO-28). On the same line, on the same API or another revision of
+    /// it (CLT-81), this resumes streams exactly like [Self::reconnect] and returns an equivalent `T`. On another line,
+    /// old streams, sinks and observers can't resume (their resource paths assumed the old line) and are ended; use
+    /// what this returns, not the value it was called on, whose calls still assume the old line.
     ///
     /// Fails the same way [Self::reconnect] does when there is nothing to reconnect to, and with
     /// [Error::NoClientForLine] (CLT-62) only on a bug in `T`'s own set of clients: link setup already refuses any
@@ -568,21 +646,17 @@ impl Commander {
         self.keys.clear();
         let info = reconnect.run(&self.transport_cmd_tx).await?;
         self.note_docs_updated(&info);
-        if info.user_api_hash.no_docs == self.connected().user_api_hash.no_docs {
-            self.resume_streams().await?;
-            return T::try_from_cmd(self.clone());
-        }
-        let same_line = matches!(
-            (self.connected().user_api_wire, info.user_api_wire),
-            (Some(old), Some(new)) if old.same_line(&new)
-        );
-        if same_line {
-            // same line, a different revision: not resumable the way `reconnect` checks it, for now (CLT-63 is
-            // about a line change; a revision-only mismatch here keeps `reconnect`'s own conservative refusal)
-            let e = self.reconnected_elsewhere_error(info);
-            _ = self.disconnect().asynch().await;
-            return Err(e);
-        }
+        let info = match learn_again(self, info.clone()).await {
+            Ok(()) => {
+                self.resume_streams().await?;
+                return T::try_from_cmd(self.clone());
+            }
+            Err(Error::ReconnectedOnAnotherLine { .. }) => info,
+            Err(e) => {
+                _ = self.disconnect().asynch().await;
+                return Err(e);
+            }
+        };
         // another line this Commander also speaks (link setup refused any other one): old streams, sinks and
         // observers assumed the old line's resource paths and can't resume on this one
         self.end_kept_streams();
@@ -601,7 +675,10 @@ impl Commander {
     /// the device changed line (CLT-63), else the generic "its API differs" [Error::IncompatibleResource]. Also used
     /// by the hub-supervised reconnect (CLT-40), which gives up the same way: it has no `T` to pick a client with.
     pub(crate) fn reconnected_elsewhere_error(&self, info: DeviceApiInfo) -> Error {
-        match (self.connected().user_api_wire, info.user_api_wire) {
+        match (
+            self.facts().connected_device.user_api_wire,
+            info.user_api_wire,
+        ) {
             (Some(old_wire), Some(new_wire)) if !old_wire.same_line(&new_wire) => {
                 Error::ReconnectedOnAnotherLine {
                     device: Box::new(info.user_api_version),
@@ -749,7 +826,7 @@ impl Commander {
         extract: crate::observe::Extract<U, T>,
     ) -> PreparedObserve<U, T> {
         let entries = crate::observe::LevelConfig::to_entries(&cfg);
-        let image_facts = self.connected().image_facts;
+        let image_facts = self.facts().connected_device.image_facts;
         let resolved = self
             .check_observe_supported()
             .and_then(|()| crate::client::observe::check_samples_taken(image_facts, &entries))
@@ -780,7 +857,7 @@ impl Commander {
 
     /// Observing needs `ww_client_server` 0.2 (API-38) on the device.
     fn check_observe_supported(&self) -> Result<(), Error> {
-        let model = &self.connected().api_model_version;
+        let model = &self.facts().connected_device.api_model_version;
         if model.crate_id.is_empty() {
             // not connected through link setup (tests), nothing known
             return Ok(());
@@ -810,7 +887,8 @@ impl Commander {
             let Some(cursor) = inner.cursor() else {
                 continue;
             };
-            if inner.is_finished() {
+            // ended: closed, or not waiting for a resume any more (Commander::end_shifted)
+            if inner.is_finished() || !inner.attached {
                 continue;
             }
             let path = inner.path.clone();
@@ -957,8 +1035,8 @@ impl Commander {
     pub fn introspect(&self) -> Introspect {
         Introspect::new(
             self.transport(),
-            self.connected().user_api_version.clone(),
-            self.connected().user_api_hash.clone(),
+            self.facts().connected_device.user_api_version.clone(),
+            self.facts().connected_device.user_api_hash.clone(),
             self.resolver,
         )
     }
@@ -971,8 +1049,9 @@ impl Commander {
         self.base_path = Some(base_path);
     }
 
-    pub fn info(&self) -> &DeviceApiInfo {
-        self.connected()
+    /// The connected device, see [Self::device_api_info].
+    pub fn info(&self) -> DeviceApiInfo {
+        self.device_api_info()
     }
 
     pub(crate) fn set_reconnect(&mut self, reconnect: Arc<Reconnect>) {
@@ -1005,11 +1084,8 @@ impl Commander {
             base_path: self.base_path.clone(),
             default_timeout: self.default_timeout,
             default_priority: self.default_priority,
-            connected_device: self.connected_device.clone(),
             client_introspect: self.client_introspect.clone(),
-            device_introspect: self.device_introspect.clone(),
-            api_match: self.api_match.clone(),
-            learned: self.learned.clone(),
+            facts: self.facts.clone(),
             traits_only: self.traits_only,
             global_paths: self.global_paths.clone(),
             resolver: self.resolver,
@@ -1101,6 +1177,78 @@ impl Commander {
         }
     }
 
+    /// After a reconnect learned another revision of the device's API (CLT-81; `before`, the facts it replaced): ends
+    /// the kept streams, observed levels and sinks whose resource doesn't hold on the device now, each with a warning,
+    /// so that none resumes onto a resource that changed or moved. A resource holds when the client's API still matches
+    /// the device's at its path ([Self::check_resource]) and the device's resource there is compatible with the one
+    /// it had; when either of the device's APIs is unknown, nothing tells a moved resource apart, and none holds.
+    pub(crate) fn end_shifted(&self, before: &DeviceFacts) {
+        let now = self.facts();
+        let devices = match (&before.device_introspect, &now.device_introspect) {
+            (Some(before), Some(now)) => Some(ApiCompat::new(&before.api_bundle, &now.api_bundle)),
+            _ => None,
+        };
+        let holds = |path: &[ResourceIndex]| kept_resource_holds(&now, devices.as_ref(), path);
+        let streams: Vec<Arc<Shared>> = {
+            let streams = self.streams.lock().unwrap_or_else(|e| e.into_inner());
+            streams.iter().filter_map(Weak::upgrade).collect()
+        };
+        for shared in streams {
+            let mut inner = shared.lock();
+            if inner.is_finished() {
+                continue;
+            }
+            if let Err(reason) = holds(&inner.path) {
+                warn!(
+                    "stream {:?} ends, the device's API changed: {reason}",
+                    inner.path
+                );
+                inner.ended();
+                drop(inner);
+                shared.wake();
+            }
+        }
+        let ended: Vec<Arc<dyn LevelRoute>> = {
+            let mut observes = self.observes.lock().unwrap_or_else(|e| e.into_inner());
+            let shifted: Vec<Vec<ResourceIndex>> = observes
+                .keys()
+                .filter(|path| match level_holds(&now, devices.as_ref(), path) {
+                    Ok(()) => false,
+                    Err(reason) => {
+                        warn!("observing {path:?} ends, the device's API changed: {reason}");
+                        true
+                    }
+                })
+                .cloned()
+                .collect();
+            shifted
+                .iter()
+                .filter_map(|path| observes.remove(path))
+                .collect()
+        };
+        for route in ended {
+            route.on_ended();
+        }
+        for link in self.kept_sinks() {
+            let Some((PathKindOwned::Absolute { path }, _, _)) = link.kept() else {
+                // a trait path: the device finds the trait in a compatible version itself (API-20)
+                continue;
+            };
+            if let Err(reason) = holds(&path) {
+                warn!("sink {path:?} ends, the device's API changed: {reason}");
+                let (_, sideband_rx) = event_queue(1);
+                link.resume(Resumed {
+                    sideband_rx,
+                    answer: Some(Err(Error::IncompatibleResource {
+                        resource: format!("{path:?}"),
+                        device: Box::new(now.connected_device.user_api_version.clone()),
+                        reason,
+                    })),
+                });
+            }
+        }
+    }
+
     pub(crate) fn set_client_introspect(&mut self, client_bundle: IntrospectBundle) {
         self.client_introspect = Some(client_bundle);
     }
@@ -1109,146 +1257,74 @@ impl Commander {
         self.client_introspect.as_ref()
     }
 
-    pub(crate) fn set_device_introspect(&mut self, device_bundle: IntrospectBundle) {
-        self.device_introspect = Some(device_bundle);
-    }
-
-    /// Decide how client resources relate to the connected device's, once both introspection bundles are known:
-    /// * no client API (DynClient) - nothing to check,
-    /// * same API hash - all resources are the same by definition,
-    /// * different hash - every method, property, stream and trait is compared with the device's one,
-    /// * different hash and device API unknown - only `#[since]` is checked against the device's wire version,
-    /// * the same on w0, the design line (EVO-41) - every resource of the client's API is refused, as `#[since]`
-    ///   means nothing there. Equal hashes need no download on w0 either: the hash is over the device's own
-    ///   introspection bytes.
-    ///
-    /// Refuses first when the device's own introspection bundle (`ApiBundle::wire`) names a wire version that
-    /// differs from the one its hello already claimed (`DeviceInfo::user_api_wire`, EVO-25): the two always agree
-    /// on a correctly built device, so a mismatch is a build bug on the device and is refused before any
-    /// `#[since]` check or resource comparison trusts either claim (CLT-61). Runs on every path that makes a
-    /// device bundle known, including the `ApiMatch::Identical` shortcut that skips downloading it.
+    /// Decides the API match of the facts this Commander holds now, see [DeviceFacts::resolve_api_match].
     pub(crate) fn resolve_api_match(&mut self) -> Result<(), Error> {
-        if let Some(device) = &self.device_introspect {
-            match (self.connected_device.user_api_wire, device.api_bundle.wire) {
-                (Some(hello_wire), Some(bundle_wire)) if hello_wire != bundle_wire => {
-                    return Err(Error::HelloWireMismatch {
-                        device: Box::new(self.connected_device.user_api_version.clone()),
-                        hello_wire,
-                        bundle_wire,
-                    });
-                }
-                (None, bundle_wire) => self.connected_device.user_api_wire = bundle_wire,
-                _ => {}
-            }
-        }
-        let Some(client) = &self.client_introspect else {
-            self.api_match = ApiMatch::NoClientApi;
-            return Ok(());
-        };
-        self.api_match = if client.api_hash.no_docs == self.connected_device.user_api_hash.no_docs {
-            ApiMatch::Identical
-        } else if let Some(device) = &self.device_introspect {
-            let compat = ApiCompat::new(&client.api_bundle, &device.api_bundle);
-            let mismatches = compat.mismatches();
-            if mismatches.is_empty() {
-                debug!(
-                    "device API differs from the client's, but all client resources are compatible"
-                );
-            } else {
-                let list = mismatches
-                    .iter()
-                    .map(|(name, verdict)| match verdict {
-                        Verdict::Incompatible(reason) => format!("\n  {name}: {reason}"),
-                        _ => format!("\n  {name}: not implemented"),
-                    })
-                    .collect::<String>();
-                warn!(
-                    "device API {:?} differs from the client's, these resources can't be used:{list}",
-                    self.connected_device.user_api_version
-                );
-            }
-            ApiMatch::Checked(Arc::new(compat))
-        } else if let Some(wire) = client.api_bundle.wire.filter(|w| w.is_design_line()) {
-            warn!(
-                "device API {:?} differs from the client's and is unknown, and {wire} is the design line: no resource \
-                 of the client's API can be used, enable introspection on the device",
-                self.connected_device.user_api_version
-            );
-            ApiMatch::DesignLineUnknown(Arc::new(ApiCompat::client_only(&client.api_bundle)), wire)
-        } else {
-            debug!(
-                "device API differs from the client's and is unknown, only #[since] will be checked"
-            );
-            ApiMatch::DeviceApiUnknown(Arc::new(ApiCompat::client_only(&client.api_bundle)))
-        };
+        let mut facts = DeviceFacts::clone(&self.facts());
+        facts.resolve_api_match(self.client_introspect.as_ref())?;
+        self.publish(facts);
         Ok(())
     }
 
-    pub fn device_introspect(&self) -> Option<&IntrospectBundle> {
-        match self.learned() {
-            Some(facts) => facts.device_introspect.as_ref(),
-            None => self.device_introspect.as_ref(),
+    /// The device's API and types (client signature), `None` when the device has introspection disabled and no cache
+    /// has it. A reconnect onto another revision of the device's API (CLT-81) replaces it for every clone.
+    pub fn device_introspect(&self) -> Option<IntrospectBundle> {
+        self.facts().device_introspect.clone()
+    }
+
+    /// What is known of the device now, the same for every clone (CLT-75, CLT-81).
+    pub(crate) fn facts(&self) -> Arc<DeviceFacts> {
+        self.facts.read_locked().clone()
+    }
+
+    /// Replaces the device facts for this Commander and every clone of it.
+    pub(crate) fn publish(&self, facts: DeviceFacts) {
+        *self.facts.write_locked() = Arc::new(facts);
+    }
+
+    /// The facts of `info` before its API is learned: the client's introspection data as the device's when its API
+    /// is the client's.
+    pub(crate) fn facts_of(&self, info: DeviceApiInfo) -> DeviceFacts {
+        DeviceFacts {
+            device_introspect: self
+                .client_introspect
+                .clone()
+                .filter(|client| client.api_hash.no_docs == info.user_api_hash.no_docs),
+            connected_device: info,
+            api_match: ApiMatch::NoClientApi,
+            learned: false,
         }
     }
 
-    /// The facts a keep-trying connection learned on its first connect (CLT-75), shared by every clone; `None` before
-    /// it, and for every other Commander, whose own fields hold them.
-    fn learned(&self) -> Option<&DeviceFacts> {
-        self.learned.as_deref().and_then(OnceLock::get)
+    /// Changes the device facts of this Commander and its clones in place.
+    #[cfg(test)]
+    pub(crate) fn with_facts(&self, change: impl FnOnce(&mut DeviceFacts)) {
+        let mut facts = DeviceFacts::clone(&self.facts());
+        change(&mut facts);
+        self.publish(facts);
+    }
+
+    #[cfg(test)]
+    pub(crate) fn set_device_introspect(&self, device_bundle: IntrospectBundle) {
+        self.with_facts(|f| f.device_introspect = Some(device_bundle));
+    }
+
+    /// Makes this a keep-trying connection's Commander (CLT-75): the facts it holds are what it expects, until the
+    /// first connect publishes the learned ones.
+    pub(crate) fn expect_learned(&mut self) {
+        let mut facts = DeviceFacts::clone(&self.facts());
+        facts.learned = false;
+        self.publish(facts);
+    }
+
+    /// The device facts were learned from a device already (CLT-75).
+    pub(crate) fn has_learned(&self) -> bool {
+        self.facts().learned
     }
 
     /// The device this Commander is connected to (or was, or expects before a keep-trying connection's first connect).
-    fn connected(&self) -> &DeviceApiInfo {
-        match self.learned() {
-            Some(facts) => &facts.connected_device,
-            None => &self.connected_device,
-        }
-    }
-
-    fn api_match(&self) -> &ApiMatch {
-        match self.learned() {
-            Some(facts) => &facts.api_match,
-            None => &self.api_match,
-        }
-    }
-
-    /// Makes this a keep-trying connection's Commander (CLT-75): its clones see what [Self::learn] sets later.
-    pub(crate) fn expect_learned(&mut self) {
-        self.learned = Some(Arc::new(OnceLock::new()));
-    }
-
-    /// Publishes this clone's device facts to every clone of a keep-trying connection, once, on its first connect
-    /// (CLT-75). Returns false when they were published already, or this Commander isn't a keep-trying one.
-    pub(crate) fn learn(&self) -> bool {
-        let Some(learned) = &self.learned else {
-            return false;
-        };
-        learned
-            .set(DeviceFacts {
-                connected_device: self.connected_device.clone(),
-                device_introspect: self.device_introspect.clone(),
-                api_match: self.api_match.clone(),
-            })
-            .is_ok()
-    }
-
-    /// The device facts were learned already (CLT-75), or are this Commander's own from the start.
-    pub(crate) fn has_learned(&self) -> bool {
-        self.learned.as_ref().is_none_or(|l| l.get().is_some())
-    }
-
-    /// This clone's own device facts, for a keep-trying connection's first connect to fill in before [Self::learn]:
-    /// the device, and the client's introspection data as the device's when its API is the client's.
-    pub(crate) fn set_connected_device(&mut self, info: DeviceApiInfo) {
-        self.device_introspect = self
-            .client_introspect
-            .clone()
-            .filter(|client| client.api_hash.no_docs == info.user_api_hash.no_docs);
-        self.connected_device = info;
-    }
-
-    pub fn device_api_info(&self) -> &DeviceApiInfo {
-        self.connected()
+    /// A reconnect onto another revision of the device's API (CLT-81) replaces it for every clone.
+    pub fn device_api_info(&self) -> DeviceApiInfo {
+        self.facts().connected_device.clone()
     }
 
     /// The request path for `path`: a trait client's base path in place of a global one, or a global path the
@@ -1372,71 +1448,7 @@ impl Commander {
         let PathKindOwned::Absolute { path } = path_kind else {
             return Ok(());
         };
-        let compat = match self.api_match() {
-            ApiMatch::NoClientApi | ApiMatch::Identical => return Ok(()),
-            ApiMatch::Checked(compat) | ApiMatch::DeviceApiUnknown(compat) => compat,
-            ApiMatch::DesignLineUnknown(compat, wire) => {
-                return match compat.resolve(path) {
-                    Some(resource) => Err(Error::DesignLineUnchecked {
-                        resource: resource.name,
-                        device: Box::new(self.connected().user_api_version.clone()),
-                        wire: *wire,
-                    }),
-                    None => Ok(()),
-                };
-            }
-        };
-        let Some(resource) = compat.resolve(path) else {
-            return Ok(());
-        };
-        let device = || Box::new(self.connected().user_api_version.clone());
-        match resource.verdict {
-            Verdict::Compatible => self.check_version(&resource.since),
-            Verdict::Missing => {
-                // prefer a more specific error if the resource was added later than device's version
-                self.check_version(&resource.since)?;
-                Err(Error::NotImplementedByDevice {
-                    resource: resource.name,
-                    device: device(),
-                })
-            }
-            // an optional item the device leaves out, known from its introspection data
-            Verdict::Omitted => Err(Error::NotImplementedByDevice {
-                resource: resource.name,
-                device: device(),
-            }),
-            Verdict::Incompatible(reason) => Err(Error::IncompatibleResource {
-                resource: resource.name,
-                device: device(),
-                reason: reason.clone(),
-            }),
-        }
-    }
-
-    /// Every `#[since]` along a resource's path against the device's wire version of the crate that declares it
-    /// (EVO-24, EVO-26): a `ww_stdlib` trait's markers against the device's version of that crate, the API's own
-    /// against the device's root wire version. A marker whose crate's wire version on the device is unknown (no
-    /// introspection data for a `ww_stdlib` crate, or no wire version declared) isn't checked.
-    fn check_version(&self, markers: &[Since]) -> Result<(), Error> {
-        for marker in markers {
-            let device_wire = match marker.device_wire {
-                Some(wire) => wire,
-                None if marker.root => match self.connected().user_api_wire {
-                    Some(wire) => wire,
-                    None => continue,
-                },
-                None => continue,
-            };
-            if !has_since(device_wire, marker.since) {
-                return Err(Error::OlderProtocol {
-                    device: Box::new(self.connected().user_api_version.clone()),
-                    crate_id: marker.crate_id.clone(),
-                    device_wire,
-                    required: marker.since,
-                });
-            }
-        }
-        Ok(())
+        check_resource(&self.facts(), path)
     }
 
     pub fn disconnect(&self) -> PreparedDisconnect {
@@ -1444,6 +1456,119 @@ impl Commander {
         self.clear_const_cache();
         PreparedDisconnect::new(self.transport_cmd_tx.clone())
     }
+}
+
+/// Whether a kept handle's resource at `path` holds on the device `now` describes, see [Commander::end_shifted];
+/// `devices` compares the device's API before with its API now. The reason when it doesn't.
+fn kept_resource_holds(
+    now: &DeviceFacts,
+    devices: Option<&ApiCompat>,
+    path: &[ResourceIndex],
+) -> Result<(), String> {
+    check_resource(now, path).map_err(|e| e.to_string())?;
+    let Some(devices) = devices else {
+        return Err(
+            "the device's API before or now is unknown, a moved resource can't be told apart"
+                .into(),
+        );
+    };
+    let Some(resource) = devices.resolve(path) else {
+        return Err("not in the device's API before".into());
+    };
+    match resource.verdict {
+        Verdict::Compatible => Ok(()),
+        Verdict::Missing | Verdict::Omitted => {
+            Err(format!("{}: the device doesn't have it now", resource.name))
+        }
+        Verdict::Incompatible(reason) => Err(format!("{}: {reason}", resource.name)),
+    }
+}
+
+/// Whether an observed trait level at `path` holds on the device `now` describes: each property the device had in it
+/// holds ([kept_resource_holds]), as the level's updates carry them all.
+fn level_holds(
+    now: &DeviceFacts,
+    devices: Option<&ApiCompat>,
+    path: &[ResourceIndex],
+) -> Result<(), String> {
+    let Some(ids) = devices.and_then(|d| d.property_ids(path)) else {
+        return Err("the level isn't in the device's API before, or that API is unknown".into());
+    };
+    for id in ids {
+        let mut property = path.to_vec();
+        property.push(ResourceIndex::new(wire_weaver::prelude::UNib32(id)));
+        kept_resource_holds(now, devices, &property)?;
+    }
+    Ok(())
+}
+
+/// [Commander::check_resource] of an absolute `path` against `facts`.
+fn check_resource(facts: &DeviceFacts, path: &[ResourceIndex]) -> Result<(), Error> {
+    let compat = match &facts.api_match {
+        ApiMatch::NoClientApi | ApiMatch::Identical => return Ok(()),
+        ApiMatch::Checked(compat) | ApiMatch::DeviceApiUnknown(compat) => compat,
+        ApiMatch::DesignLineUnknown(compat, wire) => {
+            return match compat.resolve(path) {
+                Some(resource) => Err(Error::DesignLineUnchecked {
+                    resource: resource.name,
+                    device: Box::new(facts.connected_device.user_api_version.clone()),
+                    wire: *wire,
+                }),
+                None => Ok(()),
+            };
+        }
+    };
+    let Some(resource) = compat.resolve(path) else {
+        return Ok(());
+    };
+    let device = || Box::new(facts.connected_device.user_api_version.clone());
+    match resource.verdict {
+        Verdict::Compatible => check_version(facts, &resource.since),
+        Verdict::Missing => {
+            // prefer a more specific error if the resource was added later than device's version
+            check_version(facts, &resource.since)?;
+            Err(Error::NotImplementedByDevice {
+                resource: resource.name,
+                device: device(),
+            })
+        }
+        // an optional item the device leaves out, known from its introspection data
+        Verdict::Omitted => Err(Error::NotImplementedByDevice {
+            resource: resource.name,
+            device: device(),
+        }),
+        Verdict::Incompatible(reason) => Err(Error::IncompatibleResource {
+            resource: resource.name,
+            device: device(),
+            reason: reason.clone(),
+        }),
+    }
+}
+
+/// Every `#[since]` along a resource's path against the device's wire version of the crate that declares it
+/// (EVO-24, EVO-26): a `ww_stdlib` trait's markers against the device's version of that crate, the API's own
+/// against the device's root wire version. A marker whose crate's wire version on the device is unknown (no
+/// introspection data for a `ww_stdlib` crate, or no wire version declared) isn't checked.
+fn check_version(facts: &DeviceFacts, markers: &[Since]) -> Result<(), Error> {
+    for marker in markers {
+        let device_wire = match marker.device_wire {
+            Some(wire) => wire,
+            None if marker.root => match facts.connected_device.user_api_wire {
+                Some(wire) => wire,
+                None => continue,
+            },
+            None => continue,
+        };
+        if !has_since(device_wire, marker.since) {
+            return Err(Error::OlderProtocol {
+                device: Box::new(facts.connected_device.user_api_version.clone()),
+                crate_id: marker.crate_id.clone(),
+                device_wire,
+                required: marker.since,
+            });
+        }
+    }
+    Ok(())
 }
 
 /// The answer of a request in flight. Dropped before it came, it tells the event loop, so that the request is

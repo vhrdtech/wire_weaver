@@ -256,6 +256,10 @@ If you only want to serialize and deserialize some data types, it can be used st
 | [`properties_api`](tests/properties_api) | runtime | Test API of tests/properties: read-write properties plain, fallible, user-defined and in an array |
 | [`quantities`](tests/quantities) | runtime | ww_si quantities through the dynamic client (CLT-31): values read and shown with their units |
 | [`quantities_api`](tests/quantities_api) | runtime | API exercising ww_si quantities as dynamic clients see them (CLT-31): named units, Series, Fixed, AnyQuantity |
+| [`reconnect_revision`](tests/reconnect_revision) | runtime | Reconnects onto another revision of the device's API end to end (CLT-81): keep-trying, reconnect() and reconnect_as() |
+| [`reconnect_revision_added_api`](tests/reconnect_revision_added_api) | runtime | Revision w1.1 of reconnect_revision_api that adds a method (CLT-81): a device of it is compatible with clients of w1.0 |
+| [`reconnect_revision_api`](tests/reconnect_revision_api) | runtime | API of the reconnect-onto-a-new-revision tests (CLT-81): an observed property, two counted streams and a method |
+| [`reconnect_revision_changed_api`](tests/reconnect_revision_changed_api) | runtime | Revision w1.1 of reconnect_revision_api that changes the item type of one stream (CLT-81): that stream is incompatible |
 | [`recursive`](tests/recursive) | runtime | Tests of self-referential user types in an API (RefBox, RefVec of the type itself) |
 | [`recursive_api`](tests/recursive_api) | runtime | API with self-referential user types: an expression tree through RefBox and a tree through RefVec |
 | [`series`](tests/series) | runtime | Tests of Series<T> (SW-60) in every position of an API, through generated server and client code |

@@ -3,7 +3,9 @@
 //!
 //! A snapshot is RON for people to read, headed by the SHA-256 of the shrink_wrap bytes it stands for
 //! ([ww_self::snapshot::HASH_PREFIX]). Reading one encodes the bundle again and compares the hash with the header:
-//! a file edited by hand, truncated, or written by a RON that doesn't round trip is refused. Then the bundle's own
+//! a file edited by hand, truncated, or written by a RON that doesn't round trip is refused. A file of an older model
+//! format whose bytes changed with the fields added since can't be checked that way: its body must then be the RON
+//! that `ww api save` of that format writes for the bundle it holds. Then the bundle's own
 //! crate (`ext_crates[0]`) must be the one the file name says. What a file holds is matched definition by definition
 //! to the signature the device sent (see [crate::Resolver]), so these checks are about rejecting damaged files early
 //! with a message that names them, not the line of trust.
@@ -137,12 +139,24 @@ pub fn parse(text: &str) -> Result<Snapshot> {
     let bytes = snapshot::encode(&bundle)?;
     let hash = snapshot::sha256_hex(&bytes);
     if hash != saved && format != ww_self::VERSION {
-        bail!(
-            "saved in model format {}, which this tool reads only where the fields added since (an item's \
-             `effects`, a stream's `track`) don't change the bytes, and here they do: re-save it (`ww api save` in \
-             the crate at the commit of that version)",
-            format_triplet(&format)
-        );
+        // the fields added since change the bytes (a meta's flag of an `Option`), so the hash of the older bytes
+        // can't be recomputed: the body must then be what `ww api save` of that format wrote
+        if body_of(text) != older_body(&bundle, &format)? {
+            bail!(
+                "saved in model format {}, and its RON is not what `ww api save` of that format writes for the \
+                 bundle it holds: the file was changed after it was saved, re-save it (`ww api save` in the crate \
+                 at the commit of that version)",
+                format_triplet(&format)
+            );
+        }
+        if bundle.ext_crates.is_empty() {
+            bail!("no ext_crates[0], the snapshot's own crate");
+        }
+        return Ok(Snapshot {
+            bundle,
+            bytes,
+            text: text.to_owned(),
+        });
     }
     if hash != saved {
         bail!(
@@ -162,8 +176,8 @@ pub fn parse(text: &str) -> Result<Snapshot> {
 
 /// Older model formats this build reads, each with the fields of the model it doesn't have, as (serde name of the
 /// struct, field). Since each of them the model only gained fields with a `#[default]`, which RON fills in. Such a
-/// file's hash still has to match its re-encoded bytes, which holds while the new fields are at their default where
-/// the old format had nothing for them.
+/// file's hash has to match its re-encoded bytes, or, where the new fields change the bytes even at their default,
+/// its body has to be the RON `ww api save` of that format writes (`ADDED_FIELDS`).
 const READABLE_OLDER_FORMATS: [(VersionTriplet, &[(&str, &str)]); 2] = [
     (
         VersionTriplet::new(0, 4, 0),
@@ -176,6 +190,33 @@ const READABLE_OLDER_FORMATS: [(VersionTriplet, &[(&str, &str)]); 2] = [
         &[("MetaOwned", "track")],
     ),
 ];
+
+/// Fields added to the model since the oldest of `READABLE_OLDER_FORMATS`, in the order they were added, each with
+/// its default as the RON of a snapshot writes it. Each was appended to its struct, so it is the last field there.
+const ADDED_FIELDS: [(&str, &str, &str); 2] = [
+    ("MetaOwned", "effects", "(0)"),
+    ("MetaOwned", "track", "None"),
+];
+
+/// The RON body of a snapshot of `bundle` as `ww api save` of the older model `format` wrote it: the current one
+/// without the fields that format doesn't have, which are at their default where it has nothing for them.
+fn older_body(bundle: &ApiBundleOwned, format: &VersionTriplet) -> Result<String> {
+    let mut body = render_body(bundle).map_err(|e| anyhow!("rendering RON: {e}"))?;
+    let missing = fields_missing_from(format);
+    for (owner, field, default) in ADDED_FIELDS.iter().rev() {
+        if missing.contains(&(*owner, *field)) {
+            body = body.replace(&format!(", {field}: {default})"), ")");
+        }
+    }
+    Ok(body)
+}
+
+/// The text after a snapshot's hash line: the bundle as RON.
+fn body_of(text: &str) -> &str {
+    text.split_once(snapshot::HASH_PREFIX)
+        .and_then(|(_, rest)| rest.split_once('\n'))
+        .map_or("", |(_, body)| body)
+}
 
 /// Fields of the model, as (serde name of the struct, field), that a file of model `format` doesn't have: added in a
 /// later format. None for the current format and for one this build doesn't read.
@@ -255,10 +296,13 @@ pub fn render_root_ron(bundle: &ApiBundleOwned, root: &str) -> Result<String, St
 
 fn render_with_header(bundle: &ApiBundleOwned, header: String) -> Result<String, String> {
     let bytes = snapshot::encode(bundle).map_err(|e| e.to_string())?;
-    let ron =
-        ron::ser::to_string_pretty(bundle, ron::ser::PrettyConfig::new().compact_structs(true))
-            .map_err(|e| e.to_string())?;
-    Ok(header + &snapshot::hash_line(&bytes) + &ron)
+    Ok(header + &snapshot::hash_line(&bytes) + &render_body(bundle)?)
+}
+
+/// The bundle as the pretty RON of a snapshot's body.
+fn render_body(bundle: &ApiBundleOwned) -> Result<String, String> {
+    ron::ser::to_string_pretty(bundle, ron::ser::PrettyConfig::new().compact_structs(true))
+        .map_err(|e| e.to_string())
 }
 
 #[cfg(test)]
@@ -375,5 +419,70 @@ mod tests {
         let older = text.replace("minor: 4", "minor: 3");
         let e = parse(&older).unwrap_err().to_string();
         assert!(e.contains("saved in model format 0.3.0"), "{e}");
+    }
+
+    /// A file of an older format with a meta (whose new `track` field changes the bytes even as `None`) reads when
+    /// its body is what `ww api save` of that format writes.
+    #[test]
+    fn an_older_format_with_metas_reads_by_its_body() {
+        let bundle = ApiBundleOwned {
+            magic: ww_self::MAGIC,
+            ww_self_version: VersionTriplet::new(0, 5, 0),
+            root: ww_self::ApiLevelOwned {
+                docs: vec![],
+                crate_idx: 0.into(),
+                compact_id: None,
+                meta: Some(ww_self::MetaOwned {
+                    effects: ww_self::Effects::EDIT,
+                    labels: vec!["front".into()],
+                    ..Default::default()
+                }),
+                trait_name: "dep".into(),
+                items: vec![],
+            },
+            types: vec![],
+            traits: vec![],
+            ext_crates: vec![FullVersionOwned::new(
+                "dep".into(),
+                VersionOwned::new(0, 1, 0),
+            )],
+            root_omitted: None,
+            wire: None,
+            ext_wire: None,
+        };
+        let current = render_ron(&bundle).unwrap();
+        let (head, body) = current.split_once(snapshot::HASH_PREFIX).unwrap();
+        let (_, body) = body.split_once('\n').unwrap();
+        assert!(body.contains(", track: None)"), "{body}");
+        // as format 0.5.0 wrote it: no `track`, the hash of bytes without its flag
+        let older = format!(
+            "{head}{}{}\n{}",
+            snapshot::HASH_PREFIX,
+            "0".repeat(64),
+            body.replace(", track: None)", ")")
+        );
+        let read = parse(&older).unwrap();
+        assert_eq!(read.bundle.root.meta.as_ref().unwrap().track, None);
+        // a body no `ww api save` of 0.5.0 wrote: a field of a later format, a changed layout
+        for damaged in [
+            older.replace("effects: (2))", "effects: (2), track: None)"),
+            older.replace("crate_idx: 0, trait_name", "crate_idx: 0,  trait_name"),
+        ] {
+            let e = parse(&damaged).unwrap_err().to_string();
+            assert!(
+                e.contains("not what `ww api save` of that format writes"),
+                "{e}"
+            );
+        }
+        // a current-format file is held to its hash
+        let current = render_ron(&ApiBundleOwned {
+            ww_self_version: ww_self::VERSION,
+            ..bundle
+        })
+        .unwrap();
+        parse(&current).unwrap();
+        let current_edited = current.replace("\"front\"", "\"back\"");
+        let e = parse(&current_edited).unwrap_err().to_string();
+        assert!(e.contains("the header says"), "{e}");
     }
 }

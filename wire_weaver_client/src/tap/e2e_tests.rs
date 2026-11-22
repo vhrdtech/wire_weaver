@@ -1,5 +1,5 @@
 //! The tap end to end (TR-14): the host event loop against `ww_device::Server` over simulated USB (64 B packets,
-//! real framers on both ends), recorded by a [Recorder], decoded live and again from the captured bytes.
+//! real framers on both ends), recorded into a capture's blocks, decoded from them and again from the capture file.
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicIsize, Ordering};
@@ -166,8 +166,7 @@ async fn linkage<F: UsbFramingProtocol + 'static>(path: &str) -> Stats {
         .await
     });
 
-    let recorder = Recorder::new(RecorderConfig::default());
-    let sub = recorder.subscribe(Layers::ALL, 4096);
+    let tape = super::test_tape::TestTape::new();
     let (cmd_tx, cmd_rx) = mpsc::channel::<Command>(1024);
     let host = tokio::spawn(crate::event_loop::core::worker(
         cmd_rx,
@@ -180,7 +179,7 @@ async fn linkage<F: UsbFramingProtocol + 'static>(path: &str) -> Stats {
             max_seq: crate::DEFAULT_MAX_SEQ,
             max_message_len: crate::DEFAULT_MAX_MESSAGE_LEN as u32,
             link_setup_timeout_ms: None,
-            tap: Some(recorder.clone().into()),
+            tap: Some(tape.source()),
             client_meta: None,
             client_version: Box::new(crate::ClientApi::generated(
                 FullVersionOwned::new("test_api".into(), VersionOwned::new(0, 3, 0)),
@@ -227,12 +226,13 @@ async fn linkage<F: UsbFramingProtocol + 'static>(path: &str) -> Stats {
         .unwrap()
         .unwrap();
     dev.abort();
-    recorder.flush();
+    tape.flush();
 
-    let mut chunks = vec![];
-    while let Some(c) = sub.try_recv() {
-        chunks.push(c);
-    }
+    let chunks: Vec<ww_tape::BlockBuf> = tape
+        .blocks()
+        .into_iter()
+        .map(|b| ww_tape::BlockBuf::new(b).unwrap())
+        .collect();
     let (live, stats) = decode_all(chunks.iter().map(|c| c.block()));
     // the record input gives what the blocks give
     let (by_record, by_record_stats) = decode_records(chunks.iter().map(|c| c.block()));
@@ -312,10 +312,7 @@ async fn linkage<F: UsbFramingProtocol + 'static>(path: &str) -> Stats {
     assert!(stats.report().contains("split over"));
 
     // a capture is the blocks back to back; read back, it decodes to the same
-    let mut file = vec![];
-    for c in &chunks {
-        file.extend_from_slice(c.bytes());
-    }
+    let file = tape.file();
     let mut rd = FileBlocks::new(&file[..]);
     let mut blocks = vec![];
     while let Some(b) = rd.next_block() {

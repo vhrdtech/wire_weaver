@@ -12,17 +12,15 @@
 //! bundle like any device log: one track per stream of each link, Session sticky. A producer that writes them as
 //! tracks names them with [api] and [ids], and tells links apart by their [dims]: the link's medium and peer, so the
 //! same device gives the same track ids in every capture. A link named by its peer is [LinkKey]. With the `std`
-//! feature, [Recorder] batches them into `ww_tape` blocks.
+//! feature, [tape] defines a link's tracks and the tap clock in `ww_tape` and finds them again.
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use wire_weaver::prelude::*;
 
 #[cfg(feature = "std")]
-mod locked;
+pub mod tape;
 #[cfg(feature = "std")]
-pub mod recorder;
-#[cfg(feature = "std")]
-pub use recorder::*;
+pub use tape::*;
 
 /// Direction, from the side that taps ([Session::side]): Tx is what it sends.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
@@ -375,12 +373,11 @@ pub enum LinkEvent<'i> {
     },
     /// A transport or protocol error.
     Error { what: &'i str },
-    /// Records the producer couldn't keep (no free block, every one held by consumers), or this consumer missed (no
-    /// room in its queue), counted since the last such event; the gap is between this event and the record before
+    /// Records the producer couldn't keep, or a consumer missed, counted since the last such event; the gap is between this event and the record before
     /// it.
     Lost { records: UVlq64 },
     /// The link is gone: its tracks get no more records. A relay of the stream drops their definitions
-    /// (`recorder::drop_closed_links`), so they don't pile up with every link ever seen.
+    /// (`tape::drop_closed_links`), so they don't pile up with every link ever seen.
     Closed,
 }
 
@@ -419,7 +416,7 @@ pub struct ClientMap {
 mod tests {
     use super::*;
 
-    /// Track definitions carry the crate's name and version, as the recorder wrote them before `api()` was the GID.
+    /// Track definitions carry the crate's name and version, as producers wrote them before `api()` was the GID.
     #[test]
     fn api_is_the_crate_name_and_version() {
         let v = api();

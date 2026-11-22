@@ -2,12 +2,19 @@
 
 ## Unreleased
 
+### ⚠️ Breaking
+
+- `Recorder`, `RecorderConfig`, `RecorderLink`, `Subscription`, `Chunk`, `Layers` and `ConsumerStats` are removed; implement `Tap` to record (TOOL-14).
+- `recorder::*` is `tape::*`: `track_key`, `LinkIdentity`, `link_stream_of`, `link_stream_in`, `drop_closed_links` (TR-14).
+- The `std` feature no longer pulls `tracing` and `exact_units`.
+
 ### 📚 Documentation
 
 - A README.
 
 ### 🚀 Features
 
+- `tape::define_clocks` and `tape::define_link_tracks`: a producer defines the tap clock and a link's tracks as a capture holds them (TR-14).
 - `LinkIdentity`, `dims` and `Medium::name`: a link's medium and peer are its tracks' dimensions; `Recorder::identity` gives a link's (TR-14).
 - `Medium::ByteStream`: TCP, a command's stdio or a stream the program opened (TR-19).
 - `Recorder::tape_clock`: a `ww_tape::ClockRef` on the recorder's clock, so a storing writer syncs on fake time in tests.

@@ -12,7 +12,6 @@ pub(crate) mod observe;
 pub(crate) mod settings;
 pub(crate) mod stream;
 pub mod sync;
-pub mod tap;
 #[cfg(target_os = "linux")]
 pub(crate) mod udev;
 pub(crate) mod usb_loopback;

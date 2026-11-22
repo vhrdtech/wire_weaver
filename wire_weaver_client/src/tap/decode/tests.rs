@@ -3,21 +3,20 @@ use std::time::Duration;
 use wire_weaver::prelude::{SerializeShrinkWrap, SerializeShrinkWrapOwned};
 use wire_weaver::shrink_wrap::RefVec;
 use ww_tap::{Framer, Medium};
-use ww_tape::{BlockKind, BodyCodec, FileBlocks, SyncPolicy};
+use ww_tape::{BlockKind, BodyCodec, FileBlocks};
 
 use super::*;
-use crate::tap::{Layers, LinkEvent, Recorder, RecorderConfig, Tap, host_session};
+use crate::tap::test_tape::TestTape;
+use crate::tap::{LinkEvent, Tap, host_session};
 
 /// A link's set-up session is put after its first one. A reader that read on to such
 /// a record has seen that session: it is not a third one. A reader that starts at it takes it.
 #[test]
 fn a_session_put_again_is_not_a_new_session() {
-    let (recorder, clock) = Recorder::with_fake_clock(RecorderConfig::default());
-    let sub = recorder.subscribe(Layers::ALL, 64);
-    let mut link = recorder.link();
+    let (tape, clock) = TestTape::with_fake_clock();
+    let mut link = tape.link();
     link.session(&host_session(Medium::InProcessUsb, Framer::None, 64, "dev"));
-    // a bundle hands over a block of definitions at once
-    recorder.add_bundle(b"hash", b"bundle");
+    tape.add_bundle(b"hash", b"bundle");
     *clock.lock().unwrap() += Duration::from_millis(1);
     let mut set_up = host_session(Medium::InProcessUsb, Framer::None, 64, "dev");
     set_up.device_info = RefVec::Slice { slice: &[1, 2, 3] };
@@ -27,27 +26,12 @@ fn a_session_put_again_is_not_a_new_session() {
             reason: "done",
             keep_streams: false,
         });
-        recorder.flush();
+        tape.flush();
     }
 
-    let dir = std::env::temp_dir().join(format!("ww_decode_backup_{}", std::process::id()));
-    std::fs::create_dir_all(&dir).unwrap();
-    let path = dir.join("cap.wwtape");
-    let _ = std::fs::remove_file(&path);
-    let mut writer = ww_tape_fs::writer::create(&path, SyncPolicy::None).unwrap();
-    // copies every few blocks, so the session is copied in this short capture
-    writer.set_near_policy(ww_tape::NearPolicy {
-        copy_spacing: exact_units::Bytes::new(256),
-        ..ww_tape::NearPolicy::default()
-    });
-    let mut defs = ww_tape::Definitions::new();
-    while let Some(chunk) = sub.try_recv() {
-        writer.relay_block(&mut defs, chunk.bytes()).unwrap();
-    }
-    writer.close().unwrap();
-
+    let file = tape.file();
     let mut decoder = Decoder::default().with_resolver(crate::test_resolver());
-    let mut blocks = FileBlocks::new(std::fs::File::open(&path).unwrap());
+    let mut blocks = FileBlocks::new(&file[..]);
     while let Some(b) = blocks.next_good(|e| panic!("{e}")) {
         decoder.feed(&b);
     }
@@ -63,14 +47,9 @@ fn a_session_put_again_is_not_a_new_session() {
     let mut want = vec!["session 0".to_owned(), "session 3".to_owned()];
     want.extend(std::iter::repeat_n("disconnected".to_owned(), 8));
     assert_eq!(seen, want);
-    // a reader that starts at the session's copy never read its first write: the copy is news
-    let bytes = std::fs::read(&path).unwrap();
-    let mut blocks = FileBlocks::new(&bytes[..]);
-    let mut all = vec![];
-    while let Some(b) = blocks.next_good(|e| panic!("{e}")) {
-        all.push(b.bytes().to_vec());
-    }
-    let session_track = recorder.track(0, ww_tap::ids::SESSION).unwrap();
+    // a reader that starts at the session's last put never read its first write: the put is news
+    let all = tape.blocks();
+    let session_track = tape.track(0, ww_tap::ids::SESSION).unwrap();
     let holds_session = |b: &Vec<u8>| {
         let b = ww_tape::Block::read(b).unwrap();
         b.is_repeat()
@@ -79,7 +58,6 @@ fn a_session_put_again_is_not_a_new_session() {
     };
     let last = all.iter().rposition(holds_session).unwrap();
     let first_write = all.iter().position(holds_session).unwrap();
-    // the set-up session's put, after the first one's
     assert!(last > first_write, "the session is put again");
     let mut decoder = Decoder::default().with_resolver(crate::test_resolver());
     for b in &all[last..] {
@@ -93,15 +71,13 @@ fn a_session_put_again_is_not_a_new_session() {
         }
     }
     assert_eq!(seen, [3]);
-    std::fs::remove_dir_all(&dir).unwrap();
 }
 
 /// A records block whose lz4 body doesn't decode is reported, not taken for an empty block.
 #[test]
 fn a_bad_coded_body_is_reported() {
-    let (recorder, _clock) = Recorder::with_fake_clock(RecorderConfig::default());
-    let sub = recorder.subscribe(Layers::ALL, 64);
-    let mut link = recorder.link();
+    let (tape, _clock) = TestTape::with_fake_clock();
+    let mut link = tape.link();
     link.session(&host_session(Medium::InProcessUsb, Framer::None, 64, "dev"));
     for _ in 0..20 {
         link.link_event(&LinkEvent::Disconnected {
@@ -109,14 +85,14 @@ fn a_bad_coded_body_is_reported() {
             keep_streams: false,
         });
     }
-    recorder.flush();
+    tape.flush();
     let mut records = None;
-    while let Some(chunk) = sub.try_recv() {
-        let b = chunk.block();
+    for bytes in tape.blocks() {
+        let b = ww_tape::Block::read(&bytes).unwrap();
         if b.kind == BlockKind::Records
             && b.first_track() != Some(ww_tape::RecordTrack::Definitions)
         {
-            records = Some(chunk.bytes().to_vec());
+            records = Some(bytes.clone());
         }
     }
     let plain = records.unwrap();
@@ -139,7 +115,7 @@ fn a_bad_coded_body_is_reported() {
     assert_eq!(decoder.stats.blocks_bad, 1);
 }
 
-/// A capture carries the tape's and the tap's own bundles (`ww capture`): both crates' current versions have a
+/// A capture carries the tape's and the tap's own bundles: both crates' current versions have a
 /// snapshot, so a version bump without `just save-snapshots` fails here.
 #[test]
 fn the_tape_and_tap_bundles_are_in_the_snapshots() {
@@ -205,18 +181,17 @@ fn record_input_sessions_and_gaps() {
 /// by its serial ([ww_tap::dims::PEER]), whichever link number the producer gave it.
 #[test]
 fn a_reader_picks_a_device_by_its_serial() {
-    let (recorder, _clock) = Recorder::with_fake_clock(RecorderConfig::default());
-    let sub = recorder.subscribe(Layers::ALL, 64);
-    let mut a = recorder.link();
-    let mut b = recorder.link();
+    let (tape, _clock) = TestTape::with_fake_clock();
+    let mut a = tape.link();
+    let mut b = tape.link();
     b.session(&host_session(Medium::Usb, Framer::None, 64, "SN-B"));
     a.session(&host_session(Medium::Usb, Framer::None, 64, "SN-A"));
     a.link_event(&LinkEvent::Error { what: "on A" });
     b.link_event(&LinkEvent::Error { what: "on B" });
-    recorder.flush();
+    tape.flush();
     let mut decoder = Decoder::default().with_resolver(crate::test_resolver());
-    while let Some(chunk) = sub.try_recv() {
-        decoder.feed(&chunk.block());
+    for bytes in tape.blocks() {
+        decoder.feed(&ww_tape::Block::read(&bytes).unwrap());
     }
     decoder.finish();
     let link = decoder

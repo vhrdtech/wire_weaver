@@ -1592,53 +1592,87 @@ mod tests {
         assert_eq!(got.to_quantity::<Rpm>(), None);
     }
 
-    /// A capture (`ww_tape` blocks back to back, as `ww tap capture` writes a file) of reading an `AnyQuantity` of the
-    /// API's own `Rpm`, sent by reference: decoded by the tap's decoder from the capture alone (no lookup, no local
-    /// cache), the unit found in the API bundle stored in the capture, not in anything compiled into the reader.
+    /// What a client's link tap reported (its messages, in order), with times of a counter: the records of a
+    /// capture.
+    #[derive(Clone, Default)]
+    struct Records(Arc<Mutex<Vec<Record>>>);
+
+    /// A record: its stream ([wire_weaver_client::ww_tap::ids]) and item bytes.
+    type Record = (u32, Vec<u8>);
+
+    impl wire_weaver_client::tap::Tap for Records {
+        fn wants_frames(&self) -> bool {
+            false
+        }
+        fn session(&mut self, session: &wire_weaver_client::tap::Session<'_>) {
+            let mut buf = vec![0u8; 4096];
+            let bytes = session.to_ww_bytes(&mut buf).unwrap().to_vec();
+            self.0
+                .lock()
+                .unwrap()
+                .push((wire_weaver_client::ww_tap::ids::SESSION, bytes));
+        }
+        fn frame(&mut self, _dir: wire_weaver_client::tap::Dir, _bytes: &[u8]) {}
+        fn message(&mut self, dir: wire_weaver_client::tap::Dir, kind: u8, bytes: &[u8]) {
+            let m = wire_weaver_client::ww_tap::Message {
+                no: wire_weaver::shrink_wrap::UVlq64(0),
+                kind,
+                bytes: RefVec::Slice { slice: bytes },
+            };
+            let mut buf = vec![0u8; bytes.len() + 64];
+            let item = m.to_ww_bytes(&mut buf).unwrap().to_vec();
+            let stream = match dir {
+                wire_weaver_client::tap::Dir::Tx => wire_weaver_client::ww_tap::ids::TX_MESSAGES,
+                wire_weaver_client::tap::Dir::Rx => wire_weaver_client::ww_tap::ids::RX_MESSAGES,
+            };
+            self.0.lock().unwrap().push((stream, item));
+        }
+        fn link_event(&mut self, _event: &wire_weaver_client::tap::LinkEvent<'_>) {}
+    }
+
+    /// The tap's records of reading an `AnyQuantity` of the API's own `Rpm`, sent by reference: decoded by the
+    /// tap's decoder with only the API bundle the device sent (no lookup, no local cache), the unit found in that
+    /// bundle, not in anything compiled into the reader.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn tape_decodes_a_reference_from_its_bundle() {
-        use wire_weaver::shrink_wrap::SerializeShrinkWrapOwned;
+    async fn tap_decodes_a_reference_from_the_sent_bundle() {
+        use wire_weaver::shrink_wrap::{DeserializeShrinkWrapOwned, SerializeShrinkWrapOwned};
+        use wire_weaver_client::tap::TapSource;
         use wire_weaver_client::tap::decode::{Decoder, DecoderConfig, What};
-        use wire_weaver_client::tap::{Layers, Recorder, RecorderConfig};
-        use wire_weaver_client::ww_tape::FileBlocks;
 
         let (device, values) = start("quantities/tape");
         values.lock().unwrap().sensor = by_ref(id_of::<Rpm>(), 1500);
-        let recorder = Recorder::new(RecorderConfig::default());
-        let sub = recorder.subscribe(Layers::ALL, 256);
+        let records = Records::default();
+        let tap = records.clone();
         let client = DynClient::from_config(
             ClientConfig::new()
                 .in_process_path(device.path())
                 .resolver(tests_common::resolver())
-                .tap(recorder.clone()),
+                .tap(TapSource::new(move || Box::new(tap.clone()))),
         )
         .connect()
         .await
         .expect("connect");
-        // the device's bundle as it sent it, into the capture's describe blocks (what `ww tap` does)
+        // the device's bundle as it sent it
         let introspect = client.device_introspect().unwrap();
-        let bytes = introspect.sent_api_bundle.to_ww_bytes_owned().unwrap();
-        recorder.add_bundle(&introspect.api_hash.no_docs.hash, &bytes);
+        let sent = introspect.sent_api_bundle.to_ww_bytes_owned().unwrap();
         let root = DynResource::root(introspect.api_bundle.clone());
         root.child("sensor")
             .unwrap()
             .read(client.cmd())
             .await
             .unwrap();
-        recorder.flush();
-        let mut capture = vec![];
-        while let Some(chunk) = sub.try_recv() {
-            capture.extend_from_slice(chunk.bytes());
-        }
         drop(client);
 
         let mut decoder = Decoder::new(DecoderConfig {
             frames: false,
             ..DecoderConfig::default()
         });
-        let mut blocks = FileBlocks::new(capture.as_slice());
-        while let Some(block) = blocks.next_block() {
-            decoder.feed(&block.expect("a whole capture"));
+        decoder.add_bundle(
+            &introspect.api_hash.no_docs.hash,
+            wire_weaver_client::ww_self::ApiBundleOwned::from_ww_bytes_owned(&sent).unwrap(),
+        );
+        for (t, (stream, item)) in records.0.lock().unwrap().iter().enumerate() {
+            decoder.record(0, *stream, t as u64, item);
         }
         decoder.finish();
         let mut quantities = vec![];

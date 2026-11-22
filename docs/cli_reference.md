@@ -22,7 +22,7 @@ usb 003-1 c0de:cafe  WireWeaver Generic  09000F000251313438333634  all_gpio_api@
 - `LOCATION`: transport, bus and port chain, VID:PID. The `003-1` part is what `--usb-path` expects.
 - `API`: name and crate version of the API the firmware implements, from its USB string descriptor, `HASH`: its
   signature. The wire version ([`w2.3`](std_library/ww_version.md)) isn't in that descriptor, so `ww list` can't
-  show it without connecting; `ww info` and `ww tap` do, once the link is set up.
+  show it without connecting; `ww info` does, once the link is set up.
 - `LABEL`: user label set by the firmware, if any.
 
 Only devices matching the [device selection](cli.md#device-selection) are shown, so `ww list` is also the way to check
@@ -93,7 +93,7 @@ left out); `--no-values` skips the reads.
 An [`exact_units::Fixed`](std_library/exact_units.md#in-ww-python-and-dynamic-clients) shows what its numbers are in
 and its bounds after the type, `rw property window: Fixed<Second, Milli, u16, Range<1, 5000>> [ms, 1..=5000]`, and its
 values with their unit, exactly as stored (`1730000000000000 µs`, `4 KiB`); indices and sequence numbers show what they
-count (`#3 (Sample)`, `seq 41 (Frame)`). `ww observe`, `ww stream`, `ww tap` and `ww explain` print values the same way.
+count (`#3 (Sample)`, `seq 41 (Frame)`). `ww observe`, `ww stream` and `ww explain` print values the same way.
 
 With `-t`, all types the API refers to are listed after the tree, by their index in the bundle: structs with their
 fields, enums with their variants and discriminants, and each type's size kind (`unsized`, `final structure`,
@@ -366,93 +366,6 @@ the unsized value they are in), shown as `↩` with the byte and its half: `↩9
 3:0. The API comes from the device, or without one from the crate defining it (`--crate PATH`, `--trait NAME` when
 it has more than one) or a saved bundle (`--bundle FILE`, see [`ww api save`](#ww-api)). When the bytes don't decode,
 the tree shows how far it got and where it stopped.
-
-`ww explain FILE` with a capture file ([`ww capture`](#ww-capture)) prints the capture as [`ww monitor`](#ww-monitor)
-printed it live, with the same `--layer`, `--bytes` and `--bits`; the capture carries the device's API, so no device
-is needed. Replies are explained by the request their `seq` pairs them with.
-
-## `ww monitor`
-
-Prints what crosses the link as it happens, decoded ([The link tap](transport/tap.md), TOOL-14), from the link
-setup on, until Ctrl+C or `--duration S`. `--layer` says how deep to look:
-
-- `link` (default): every `ww_link` message (data, link setup, pings) with the frames it came in, and the link
-  events; data messages with their request or event title, replies with the request they answer and its time.
-- `frame`: every frame (USB packet, UDP datagram, RTT chunk) with its pieces as well.
-- `api`: only requests, replies and events, with their values; `--bits` adds each message's bit map and field
-  table, as [`ww explain`](#ww-explain) shows one.
-
-```
-$ ww monitor --layer api
-   0.000000 L0 session Host Usb '3-1.2', U2 { checksum: None, tail: None, stream: false, prefix: None }, frames up to 64 B
-   0.000055 L0 connected
-   0.000280 L0 link ready
-   0.065600 L0 → Request Call add  a: 5, b: 100 #3
-   0.065955 L0 ← Event Value add  105 (reply to #3 in 355.0 µs)
-```
-
-The time is seconds since the first record, `L0` the link, `→` sent by the host and `←` received. `--bytes` adds the
-bytes of every frame and message in hex. A frame line lists its pieces (`Full Data0 12 B`, `Start Data0 6/12 B`: 6 of
-a 12 byte message's bytes), a message line the frames it is in (`in #3@58+6, #4@1+6`: 6 bytes at offset 58 of frame 3,
-6 at offset 1 of frame 4). With a frame counter (UDP, USB with the `seq-prefix` diagnostic) a frame line shows its
-prefix and what it says, `[15 in order]`, `[17 2 frames lost before]` or `[14 dropped: duplicate]`. Without a ww server, this is the command's own connection to the device: the link setup,
-the reads it makes to connect, its pings.
-
-Requests are named by the device's API, and calls through global traits (`ww info` reads `ww_firmware_info`,
-`ww_board_info`, `ww_user_info`, ..) by the trait's crate and name, decoded from the snapshots `ww` carries. An
-`Observe` shows the property names with the mode asked and the one granted, an update the properties it carries with
-their values.
-
-## `ww stats`
-
-Framer and link statistics of the same records, every `--every S` seconds (1 by default) for the time since the last
-print, until Ctrl+C or `--duration S`; `--file FILE` gives those of a whole capture instead:
-
-```
-$ ww stats --file link.wwtape
-window 0.071 s, 5 blocks, 0 blocks lost, 0 records lost
-link 0 tx:
-  frames 7 (98.4/s), 136 bytes, fill 30.4%, 1.86 messages/frame
-  overhead: prefixes 0 B, heads 26 B, checksums and tails 0 B, unused 312 B
-  messages 13, 1 split over 2 frames
-  message to frame: mean 926.0 µs, max 2.44 ms
-  link messages: Data0 9, Disconnect 1, Hello 1, LinkSetup 1, Nop 1
-link 0 rx:
-  frames 10 (140.6/s), 418 bytes, fill 65.3%, 1.20 messages/frame
-  overhead: prefixes 0 B, heads 25 B, checksums and tails 0 B, unused 222 B
-  messages 12, 1 split over 5 frames
-  link messages: Data0 9, DeviceInfo 1, LinkReady 1, Nop 1
-link 0 api:
-  Call add: 8 (112.5/s), reply mean 1.36 ms max 2.50 ms
-  Call blob: 1 (14.1/s), reply mean 2.25 ms max 2.25 ms
-```
-
-Fill is the frame bytes used of what the frames could carry; trouble (dropped pieces, checksum failures, partial
-messages dropped, frame gaps, framer mismatches) gets its own line when there is any. A link with a frame counter
-(UDP, USB with the `seq-prefix` diagnostic) also gets a `frame prefix:` line: frames the medium lost, and those dropped
-as duplicate, late, of the previous session, too short or resynced, and the new sessions it saw.
-
-## `ww capture`
-
-Saves what crosses the link into a file, until Ctrl+C or `--duration S`, with a spinner showing blocks and bytes:
-
-```
-$ ww capture -o link.wwtape --duration 10
-captured 12 blocks, 48.2kB to link.wwtape
-$ ww explain link.wwtape --layer api
-```
-
-The file is [tape blocks](transport/tap.md#capture-files) back to back, each written as it comes. A new capture is
-created as `FILE` and closed when it ends, so a crash leaves `FILE` unclosed, never a second name; an existing `FILE` is
-refused unless `--append` adds to it. `--sync` says when the data is synced to the disk, which bounds what a crash or a
-power cut can lose: an interval (`1s`, the default, or `250ms`), `blocks:N` (every N blocks) or `none` (only at the
-end). A failed write or sync ends
-the capture with the file as it is, never retried. The file carries the API bundles of the device and of the tap's own
-records. `--layer link` or `api` leaves the frames out (smaller files).
-
-A capture is read up to its first damaged block (a crash's cut last block, a flipped byte, a block out of order), and
-where it was cut is said; zeros at the end (preallocated space) are the end. `--resync` on `ww explain FILE` and
-`ww stats --file` reads on past damage to the next block instead. A `FILE.partial` left by a crash reads the same way.
 
 ## `ww usb-loopback`
 

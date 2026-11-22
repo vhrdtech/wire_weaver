@@ -324,7 +324,7 @@ If you only want to serialize and deserialize some data types, it can be used st
 | [`ww_settings`](ww_settings/ww_settings) | runtime | Power-cut safe settings store for devices: a struct of fields with defaults, kept as an evolvable shrink_wrap record in NOR flash |
 | [`ww_settings_derive`](ww_settings/ww_settings_derive) | runtime | #[derive(Settings)] for ww_settings groups |
 | [`ww_stream`](ww_stream) | runtime | Counted and reliable WireWeaver streams: positions, loss accounting, acknowledgements, stores, backfill |
-| [`ww_tap`](ww_tap) | runtime | Link tap: frames, messages and link events of a WireWeaver link, batched into tape blocks |
+| [`ww_tap`](ww_tap) | runtime | Link tap: the hook a transport reports frames, messages and link events of a WireWeaver link to |
 | [`ww_timebase`](ww_timebase) | runtime | Device clock and time synchronisation data types and API |
 | [`ww_trace_context`](ww_trace_context) | runtime | W3C trace context types as WireWeaver requests carry them |
 <!-- /spirit-level:crates -->

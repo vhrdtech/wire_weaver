@@ -94,7 +94,7 @@ its heads.
 Built with the `seq-prefix` feature of `wire_weaver_usb_embassy`, a device puts a one-byte `SeqPrefix` (frame counter
 mod 16, session epoch mod 4) at the start of every packet (`ww_link::UsbSeqFraming`) and says so in its interface
 protocol: `0x38` instead of `0x37`. The host picks the same framing from it when it opens the interface, so the two
-can't disagree. Lost, duplicated or reordered packets then show up in `ww stats` and `ww monitor` (a working USB stack
+can't disagree. Lost, duplicated or reordered packets then show up in the [link tap](tap.md)'s statistics (a working USB stack
 has none); it costs one byte per packet. `in_process::usb_device_framed::<UsbSeqFraming>` simulates such a device.
 
 Small requests are accumulated for the window the device asks for in `DeviceInfo` (typically a few hundred µs)

@@ -1,5 +1,9 @@
 ## Unreleased
 
+### ⚠️ Breaking
+
+- `tap` no longer re-exports `Recorder`, `RecorderConfig`, `RecorderLink`, `Subscription`, `Chunk` and `Layers`, and `TapSource` has no `From<Recorder>`: give `TapSource::new` a `Tap` (TOOL-14).
+
 ### 🐛 Fixes
 
 - A disconnect while a medium opens, or dropping a keep-trying client mid-attempt, stops the attempt at once (CLT-75).

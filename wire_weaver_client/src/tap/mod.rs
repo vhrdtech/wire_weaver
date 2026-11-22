@@ -1,17 +1,14 @@
 //! The link tap on the host (TR-14): every client event loop reports what crosses its link to a [Tap], one per
 //! link, made by the [TapSource] of [ClientConfig::tap](crate::ClientConfig::tap); without one nothing is copied.
-//! `Command::RegisterTracer`'s [TraceEvent]s come from the same place. A [Recorder] is a [TapSource]: it batches
-//! what its links report into `ww_tape` blocks for `ww monitor`, `ww stats` and `ww capture`.
+//! `Command::RegisterTracer`'s [TraceEvent]s come from the same place. [Decoder] reads a capture of the tap's records
+//! back: it links frames to messages, pairs replies with requests and counts [Stats].
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use tokio::sync::mpsc;
 use wire_weaver::shrink_wrap::{RefVec, UNib32};
-pub use ww_tap::{
-    Chunk, Dir, Layers, LinkEvent, Recorder, RecorderConfig, RecorderLink, Session, Subscription,
-    Tap, link_stream_in, link_stream_of,
-};
+pub use ww_tap::{Dir, LinkEvent, Session, Tap, link_stream_in, link_stream_of};
 
 use crate::tracing::TraceEvent;
 
@@ -20,6 +17,8 @@ pub mod decode;
 mod e2e_tests;
 mod reassembly;
 pub mod stats;
+#[cfg(test)]
+mod test_tape;
 #[cfg(test)]
 mod tests;
 
@@ -87,13 +86,6 @@ impl TapSource {
 impl core::fmt::Debug for TapSource {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_str("TapSource")
-    }
-}
-
-/// Every link recorded into the recorder.
-impl From<Recorder> for TapSource {
-    fn from(recorder: Recorder) -> Self {
-        TapSource::new(move || Box::new(recorder.link()))
     }
 }
 

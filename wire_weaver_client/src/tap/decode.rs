@@ -1,4 +1,4 @@
-//! The tap's decoder (TR-14): `ww_tape` blocks from a [Recorder](ww_tap::Recorder) or a capture file in, one
+//! The tap's decoder (TR-14): records of a link tap or `ww_tape` blocks of a capture in, one
 //! [Decoded] per frame, message and link event out, with
 //! - frame ↔ message linkage: frames are walked into their pieces ([ww_framer::pieces()]) and reassembled with the
 //!   framer's own rules, so every message knows the frame bytes it was built from or went out in, and every frame
@@ -44,7 +44,7 @@ pub struct DecoderConfig {
     pub link_wait_ns: u64,
     /// Explain requests and events with the API bundle (the expensive step); off: titles only.
     pub explain: bool,
-    /// The recorder gave frames as well as messages. Off (messages only), a framed link's messages are given out at
+    /// The producer recorded frames as well as messages. Off (messages only), a framed link's messages are given out at
     /// once instead of waiting [DecoderConfig::link_wait_ns] for frames that were not recorded.
     pub frames: bool,
 }
@@ -384,7 +384,7 @@ impl Decoder {
                 self.describe(r.item);
                 continue;
             };
-            // the tap clock counts ns from the recorder's start: a time before it isn't the tap's
+            // the tap clock counts ns from the producer's start: a time before it isn't the tap's
             let (true, Ok(t)) = (Some(at.clock) == self.tap_clock, u64::try_from(at.ticks)) else {
                 continue;
             };

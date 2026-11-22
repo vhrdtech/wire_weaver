@@ -1,5 +1,5 @@
 //! The `ww` command line as a library: the generic commands (`list`, `api`, `introspect`, `explain`, `observe`,
-//! `stream`, the link tap, `sync`, `hub`, `info`, `elf`, `config`, `settings`), the command [`registry`] every
+//! `stream`, `sync`, `hub`, `info`, `elf`, `config`, `settings`), the command [`registry`] every
 //! command registers itself with, and what a `ww-<tool>` plugin or a crate adding commands builds on: the device
 //! selection ([`device`]), the plugin handshake ([`plugin`]), escaping of untrusted strings ([`untrusted`]) and the
 //! shell completion ([`complete`]). A binary that links this crate and the crates adding commands (`ww_std_cli`:

@@ -361,7 +361,7 @@ round, and tell you before a release when a change would break that.
 - EVO-39 | The checker per API root | `ww api check` checks each line of a crate against its own latest snapshot, names a changed shared type with every line it changed on, and treats a removed line as a breaking crate bump. | evolution/checker_tool.md#checking-each-root
 - EVO-33 | Readable findings on a new line | A line break is reported item by item: no noise from unchanged sub-traits, every difference of a changed field, the right version labels. | evolution/checker_tool.md#what-is-checked
 - EVO-40 | `#[moved_from]` | Across a wire break the checker matches resources by path and by `#[moved_from]` on their new place, verifies a moved resource is exactly the same and reports a move; a resource of the same name elsewhere is only proposed. | evolution/rules.md#moving-a-resource-to-another-place
-- EVO-34 | Wire versions and generations shown | `ww info`, `ww tap` and the Python client show a device's wire version and the hello generations a connection agreed on, next to its crate version. | std_library/device_contract.md#ww-info
+- EVO-34 | Wire versions and generations shown | `ww info` and the Python client show a device's wire version and the hello generations a connection agreed on, next to its crate version. | std_library/device_contract.md#ww-info
 - EVO-35 | Unit definitions with an identity | The API model holds each unit's whole definition with the crate and marker that declare it, so two crates' units of one name stay apart. | std_library/units_in_the_model.md#identity
 - EVO-36 | Unit references on the wire | A run-time unit names a unit the API lists by its crate and marker, a few bytes instead of its whole definition. | std_library/ww_si.md#units-known-only-at-run-time
 - EVO-10 | Checker knows the catch-all | Appending a variant to an enum with the `Unknown` catch-all passes the evolution check as compatible. | evolution/rules.md#unsized-types
@@ -402,7 +402,6 @@ A command line tool, a Python module and a GUI to work with devices and APIs wit
 - TOOL-11 | Watching properties | `ww observe` and Python print updates as they arrive, with rates. | cli_reference.md#ww-observe
 - TOOL-9 | Explaining bytes | `ww explain` shows every field of a buffer with its bits, from hex or a value written in Rust. | cli_reference.md#ww-explain
 - TOOL-10 | Link test | `ww usb-loopback` measures round trips, losses and speed both ways. | cli_reference.md#ww-usb-loopback
-- TOOL-14 | Watching the link | `ww monitor`, `ww stats`, `ww capture` and `ww explain FILE`: the link decoded live, counted, saved and read back. | cli_reference.md#ww-monitor
 - TOOL-20 | `ww` through a debug probe | `ww --rtt CHIP` runs every command against a board with no USB of its own, over RTT through its ST-LINK or other probe, with probe serials and chip names completed in the shell. | cli.md#through-a-debug-probe-rtt
 - TOOL-16 | Devices on one clock | `ww sync` keeps several devices on the host's UTC and shows how closely each follows and how far apart in phase they are. | cli_reference.md#ww-sync
 - TOOL-22 | Plain-unit hints | `ww api check` and `ww api scaffold` point out a plain number whose name ends in `_ms`, `_hz`, `_bytes` and the like, and what fixed unit type it could become instead. | evolution/checker_tool.md#unit-suffix-hints-tool-22

@@ -4754,15 +4754,12 @@ dependencies = [
  "human-repr",
  "indicatif",
  "inventory",
- "io_timebase_api",
  "ron",
  "rustix",
  "semver",
  "serde",
  "serde_json",
  "shrink_wrap",
- "tap_api",
- "tests_common",
  "tokio",
  "toml_edit",
  "tracing",
@@ -4771,8 +4768,6 @@ dependencies = [
  "wire_weaver_client",
  "wire_weaver_core",
  "wire_weaver_evolution",
- "ww_client_server",
- "ww_date_time",
  "ww_hub",
  "ww_hub_api",
  "ww_numeric",
@@ -4780,7 +4775,6 @@ dependencies = [
  "ww_settings",
  "ww_si",
  "ww_snapshots",
- "ww_stream",
  "ww_timebase",
 ]
 
@@ -5303,8 +5297,6 @@ dependencies = [
 name = "ww_tap"
 version = "0.1.0"
 dependencies = [
- "exact_units",
- "tracing",
  "wire_weaver",
  "ww_tape",
 ]

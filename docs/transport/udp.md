@@ -175,7 +175,7 @@ Nothing is retransmitted:
 - a lost request (or its reply) times out, as a request to a busy device would;
 - a lost stream event is gone;
 - every datagram starts with a frame counter: a duplicated datagram, one that comes late (after a later one), or one
-  from the previous session is dropped, a gap is counted as lost (`ww stats`, `ww monitor`); the counter has 4 bits,
+  from the previous session is dropped, a gap is counted as lost (the [link tap](tap.md)'s statistics); the counter has 4 bits,
   so a datagram held back by more than 8 later ones is taken as new, and up to 8 datagrams after it are dropped as
   late (TR-33);
 - a message split across datagrams is dropped if any piece of it is lost, the framer detects it from the frame counter,

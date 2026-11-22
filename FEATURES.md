@@ -712,13 +712,21 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   their `ww_self` meta, SRV-34): `Denied` otherwise, also for a request the server can't place. The hub and the
   server read requests with one `ww_client_server::target` ([Host server](docs/api/host_server.md#who-may-call),
   `tests/host_server`, `ww_local_socket`'s policy tests). Feeds SRV-37. Missing: Windows users (SRV-71), the same
-  check in front of an in-process impl (SRV-72).
+  check in front of an in-process impl: done by SRV-72.
 - 📋 **SRV-71 Windows users in peer identity and policy** — a `Peer` variant for a Windows user (its SID, which
   `Peer` can't hold by value: a hash or an interned id), the pipe's client as that peer, and `PeerPolicy::Users` /
   `Any` on a named pipe through its DACL. Today a Windows listener is same-user only and its peers are `Unknown`.
-- 📋 **SRV-72 `Authorized<T>`: authorization of in-process calls** — a wrapper around an API's local trait impl
-  (CLT-57) that asks the same `Authorize` hook with the call's `CallContext` and the item's path before forwarding,
-  so a call in the same process passes the check a remote one does. Needs codegen of the wrapper per trait level.
+- ✅ **SRV-72 `Authorized<T, A>`: authorization of in-process calls** — `wire_weaver::authorize` holds the hook a
+  host server and in-process callers share (`Authorize`, `Resource` with a `Step` per item: name, id, index,
+  API-58's effects, `ww_self` meta). Every level's local trait (CLT-57, CLT-58) is implemented for
+  `Authorized<T, A>`: a function asks the hook with the `CallContext`, the path (indices included) and the steps
+  from generated constants, then forwards or answers `Denied`; an accessor wraps the level it hands out. The hook
+  answers a `Verdict`; `Pending` (an approval queue a person answers) is a future awaited inside the call: within the
+  request's deadline and cancel on a server, other shared requests going on, within the call's future in the same
+  process; nothing on the wire. A keyed array's companion has its steps on the server too
+  ([docs](docs/api/local_trait.md#authorization-in-the-same-process),
+  [waiting for an answer](docs/api/host_server.md#waiting-for-an-answer), `tests/serve_trait`
+  `authorized_calls_*`, `tests/host_server` `a_pending_verdict_waits_for_its_answer`).
 - 🚧 **SRV-47 Request context on the wire** · `v0.5` — a request carries an optional context (W3C trace context,
   deadline budget), `RequestKind::Cancel` drops one, and the error kinds `Denied`, `DeadlineExceeded`, `Cancelled`,
   `Internal` are appended (EVO-84). The server announces in link setup that it reads contexts

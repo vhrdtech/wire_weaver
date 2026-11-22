@@ -20,6 +20,8 @@ a server generated from the trait, the client and one generic caller run against
     Methods, property reads and writes and plain streams are in the trait, at every [nested level](#nested-levels),
     in [resource arrays](#resource-arrays) and in [keyed arrays](#keyed-arrays). Observing, sinks and counted,
     reliable or batched streams are not yet: the trait's docs list what it leaves out, use the client for those.
+    Every level's trait is also implemented for `Authorized`, which asks an [authorization
+    hook](#authorization-in-the-same-process) before each call (SRV-72).
 
 ## The trait, in the API crate
 
@@ -189,6 +191,62 @@ The client's implementation of the trait sends the request with `cx`'s priority 
 its deadline as the call's timeout. The same is there for any client call: `client.add(3).with_call_context(&cx)`.
 The trace and the deadline travel in the request's context ([Deadline and
 cancel](host_server.md#deadline-and-cancel)); a `wire_weaver_server` fills in the peer from its transport.
+
+## Authorization in the same process
+
+A call through the trait reaches the implementation directly, so no server asks its [authorization
+hook](host_server.md#authorization). `wire_weaver::authorize::Authorized` puts the same hook in front of a local
+implementation: `ww_codegen!(.., local_trait = "..")` implements every level's trait for it, and each function asks
+the hook before it forwards.
+
+```rust
+use std::sync::Arc;
+use wire_weaver::authorize::{Access, Authorized, Denied, Resource, from_fn};
+
+let hook = Arc::new(from_fn(|call: &CallContext, resource: &Resource<'_>| {
+    if resource.access == Access::Read || resource.effects().is_read() {
+        Ok(())
+    } else {
+        Err(Denied)
+    }
+}));
+let counter = Authorized::new(LocalCounter::new("local"), hook.clone());
+counter.add(&cx, 3).await?; // asks the hook: Call of `add`, effects `edit`: Denied
+// the same hook for remote callers
+Server::new(clock).authorize(hook, Some(api)).serve(link, listener, make, shutdown).await?;
+```
+
+What the hook sees for a call through `Authorized`:
+
+| `Resource` field | For a local call |
+|---|---|
+| `access` | `Call` for a method and a keyed array's `index_of`, `Read` for a property read, valid indices and a key, `Write` for a property write, `Stream` for a stream and `keys` |
+| `place`, `path` | always absolute: item ids from the root, each array index after its array's id |
+| `items` | one `Step` per level on the way and the item, with the effects and `ww_self` metadata of the API's model |
+| `multi` | `false` |
+| `api` | `None`: the steps come from constants the code generation wrote, no model is decoded |
+
+The `CallContext` is the caller's: `CallContext::local()` gives `Peer::Local`, a server forwarding to the wrapper
+passes `cx.call()` with the remote peer. A server asks the hook for the same call with the same access, path and
+steps (`tests/serve_trait`, `authorized_calls_ask_what_a_server_asks`), so one policy covers both.
+
+- **Levels.** An accessor asks nothing; it hands out the level wrapped with the same hook (`Authorized<T::Desk<'_>,
+  &A>`), so every function of a nested level and of an array element is checked, with the element's index in the
+  path. A level of another crate gets its implementation from that crate's `ww_codegen!`.
+- **Denied.** A denied call returns `ErrorKind::Denied` (`CallError::Denied` for a method with its own error) and the
+  implementation never runs.
+- **Pending.** A [pending verdict](host_server.md#waiting-for-an-answer) is awaited inside the call's future, before
+  the implementation runs. Dropping the call withdraws the question; nothing else bounds the wait, a caller that
+  wants a limit puts a timeout around the call.
+- **Hooks.** `A` is any `Authorize`: a `from_fn` closure, a type of yours, or a `&`, `Box` or `Arc` of one. The
+  wrapper of the `Send` trait needs `A: Send + Sync`; of the [trait without `Send`](#without-send), none, or `Sync`
+  when a level of another crate keeps its `Send` trait. `inner()` reaches the implementation unchecked.
+
+Why one hook and a future for approvals: an agent's `outbound` or `destructive` call may need a person's yes (an
+approval queue). The hook answers `Verdict::Pending` with a future of that answer, and both paths await it inside the
+call they guard: the server within the request's deadline and cancel, `Authorized` within the call's future. A
+"pending" answer that the caller retries would need a ticket in every client and in this trait, a second mechanism for
+the same decision. See [Waiting for an answer](host_server.md#waiting-for-an-answer).
 
 ## The client implements it too
 

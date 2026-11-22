@@ -2,68 +2,14 @@
 //! request names it, and whether it reaches several resources. Claims in the hub and a host server's authorization
 //! decide on it without the user API's types.
 
-use std::string::{String, ToString};
+use std::string::ToString;
 use std::vec::Vec;
 
 use wire_weaver::shrink_wrap::{DeserializeShrinkWrap, RefVec};
 
+pub use wire_weaver::authorize::{Access, Place, TraitRef};
+
 use crate::{PathKind, Request, RequestKind, ResourceIndex};
-
-/// What a request does to the resource at its path.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum Access {
-    /// A method call, one or several (`MultiCall`).
-    Call,
-    /// A property or sink write, one or several (`MultiWrite`), and `SinkWrite`.
-    Write,
-    /// A property read, one or several (`MultiRead`).
-    Read,
-    /// Opening, closing or a sideband of a stream.
-    Stream,
-    /// Observing properties of a trait level.
-    Observe,
-    /// The API's model, at the root or below.
-    Introspect,
-}
-
-/// A trait as a global path names it (API-20).
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum TraitRef {
-    /// A crate's name and a trait's name in it.
-    Full {
-        crate_id: String,
-        trait_name: String,
-    },
-    /// A compact id assigned to a common trait.
-    Compact(u32),
-}
-
-impl TraitRef {
-    /// Whether a trait level of crate `crate_id`, named `trait_name` with compact id `compact_id`, is this one.
-    pub fn matches(
-        &self,
-        crate_id: Option<&str>,
-        trait_name: &str,
-        compact_id: Option<u32>,
-    ) -> bool {
-        match self {
-            TraitRef::Full {
-                crate_id: c,
-                trait_name: t,
-            } => t == trait_name && crate_id == Some(c.as_str()),
-            TraitRef::Compact(n) => compact_id == Some(*n),
-        }
-    }
-}
-
-/// Where a request goes, as it names it.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum Place {
-    /// The resource indices from the API's root.
-    Absolute(Vec<u32>),
-    /// A global path: the trait, wherever it sits in the API's tree, then the path from it.
-    Trait(TraitRef, Vec<u32>),
-}
 
 /// What a request does where.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]

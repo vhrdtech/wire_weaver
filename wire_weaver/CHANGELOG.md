@@ -1,5 +1,10 @@
 ## Unreleased
 
+### 🚀 Features
+
+- `authorize` (feature `std`): the authorization hook `Authorize` with `Verdict` (`Allow`, `Deny`, `Pending`), `Pending`, `Denied`, `Resource`, `Step`, `Access`, `Place`, `TraitRef` and `from_fn`, asked by a host server and by `Authorized<T, A>`, which every level's local trait is implemented for (SRV-72).
+- The `std` feature takes `ww_self`, for the items' metadata a hook sees.
+
 ### ⚙️ Miscellaneous Tasks
 
 - `TraceContext`, `TraceId`, `SpanId` and `TraceFlags` live in the new `ww_trace_context` crate (SRV-47); `wire_weaver` re-exports them, paths unchanged.

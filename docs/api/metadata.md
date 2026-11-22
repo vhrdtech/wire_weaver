@@ -97,8 +97,10 @@ Who reads them:
 - The hub treats a call of a `read` method as a read: it stays open under another program's exclusive or shared
   claim, like a property read. With per-peer rights (SRV-37), a peer with only the right to observe may call such
   methods.
-- A server's `Authorize` hook gets each item's metadata in `Resource::items`; `ApiItemOwned::effects()` answers an
-  item's effects, a read by kind included.
+- An `Authorize` hook gets each item's effects and metadata in `Resource::items`, a read by kind included
+  (`resource.effects()` for the item itself): a server's for every request, `Authorized`'s for every call in the same
+  process ([Authorization](host_server.md#authorization)). A hook can hold an `outbound` or `destructive` call until
+  a person approves it ([Waiting for an answer](host_server.md#waiting-for-an-answer)).
 - `ww info --effects` lists the device's items that change something, by effect; `ww api tree` shows the attribute
   in front of each item, rustdoc of a `#[ww_trait]` notes it.
 

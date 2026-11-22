@@ -18,6 +18,10 @@
 //! A `keyed!` array has `<array>_index_of`, `<array>_key` and `<array>_keys`, and an array of levels a provided
 //! `<array>_by` that finds the element by its key.
 //!
+//! Every level's trait is implemented for `wire_weaver::authorize::Authorized<T, A>` (SRV-72): a function asks the
+//! hook with its access and the steps to its item (ids, indices, effects and metadata from the model, as constants),
+//! then forwards; an accessor wraps the level it hands out.
+//!
 //! Left out, and listed in each trait's docs: observing, sinks, counted, reliable or batched streams.
 use crate::codegen::CodegenBundle;
 use crate::codegen::ty_def::{TyPos, ty_def, ty_def_by_idx};
@@ -28,8 +32,8 @@ use quote::quote;
 use std::collections::BTreeSet;
 use syn::Path;
 use ww_self::{
-    ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, Batching, Delivery, Multiplicity,
-    PropertyAccess, TypeOwned,
+    ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, Batching, ClaimMode, Delivery, Effects,
+    MetaOwned, Multiplicity, PropertyAccess, SharesOwned, TypeOwned,
 };
 
 /// One async function of a level's local trait.
@@ -859,6 +863,11 @@ fn gen_level_trait(
             }
         });
     }
+    trait_docs.push(String::new());
+    trait_docs.push(
+        " `wire_weaver::authorize::Authorized<T, A>` implements it for any implementor `T`, asking the hook `A` before every call (SRV-72).".to_owned(),
+    );
+    let authorized = authorized_impl(api_bundle, paths, local, send)?;
     let trait_docs = trait_docs.iter().map(|d| quote! { #[doc = #d] });
     let dyn_doc = format!(
         " [{trait_name}] with boxed futures and boxed levels, for trait objects: every implementor of [{trait_name}] implements it."
@@ -888,6 +897,184 @@ fn gen_level_trait(
 
         impl<T: #trait_ident + ?Sized> #trait_ident for &T {
             #(#ref_items)*
+        }
+
+        #authorized
+    })
+}
+
+/// The step of `item` in an authorization check (SRV-72), `index` its element's index as a `u32` expression: its
+/// effects and metadata as the API's model has them, the metadata in a `static` built on first use.
+fn step(item: &ApiItemOwned, index: Option<TokenStream>) -> TokenStream {
+    let ident = &item.ident;
+    let id = item.id.0;
+    step_tokens(ident, id, index, item.effects(), item.meta.as_ref())
+}
+
+fn step_tokens(
+    ident: &str,
+    id: u32,
+    index: Option<TokenStream>,
+    effects: Effects,
+    meta: Option<&MetaOwned>,
+) -> TokenStream {
+    let index = match index {
+        Some(index) => quote! { Some(#index) },
+        None => quote! { None },
+    };
+    let effects = effects_tokens(effects);
+    let meta = match meta {
+        Some(meta) => {
+            let meta = meta_tokens(meta);
+            quote! {
+                {
+                    static META: ::std::sync::LazyLock<wire_weaver::ww_self::MetaOwned> = ::std::sync::LazyLock::new(|| #meta);
+                    Some(&*META)
+                }
+            }
+        }
+        None => quote! { None },
+    };
+    quote! { wire_weaver::authorize::Step::new(#ident, #id, #index, #effects, #meta) }
+}
+
+fn effects_tokens(effects: Effects) -> TokenStream {
+    let bits = effects.bits();
+    quote! { wire_weaver::ww_self::Effects(wire_weaver::shrink_wrap::UNib32(#bits)) }
+}
+
+/// `meta` as an expression of `ww_self::MetaOwned`.
+fn meta_tokens(meta: &MetaOwned) -> TokenStream {
+    let MetaOwned {
+        claim,
+        shares,
+        labels,
+        effects,
+    } = meta;
+    let claim = match claim {
+        Some(ClaimMode::Exclusive) => quote! { Some(wire_weaver::ww_self::ClaimMode::Exclusive) },
+        Some(ClaimMode::Shared) => quote! { Some(wire_weaver::ww_self::ClaimMode::Shared) },
+        Some(ClaimMode::Observe) => quote! { Some(wire_weaver::ww_self::ClaimMode::Observe) },
+        None => quote! { None },
+    };
+    let strings = |list: &[String]| quote! { ::std::vec![#(::std::string::String::from(#list)),*] };
+    let shares = shares.iter().map(|s| {
+        let SharesOwned {
+            index,
+            pins,
+            peripherals,
+        } = s;
+        let index = match index {
+            Some(i) => {
+                let i = i.0;
+                quote! { Some(wire_weaver::shrink_wrap::UNib32(#i)) }
+            }
+            None => quote! { None },
+        };
+        let (pins, peripherals) = (strings(pins), strings(peripherals));
+        quote! { wire_weaver::ww_self::SharesOwned { index: #index, pins: #pins, peripherals: #peripherals } }
+    });
+    let labels = strings(labels);
+    let effects = effects_tokens(*effects);
+    quote! {
+        wire_weaver::ww_self::MetaOwned {
+            claim: #claim,
+            shares: ::std::vec![#(#shares),*],
+            labels: #labels,
+            effects: #effects,
+        }
+    }
+}
+
+/// `index` (the trait's index argument, `u32` or the array's own type) as the `u32` of a path.
+fn index_u32() -> TokenStream {
+    quote! { ::core::convert::Into::<u32>::into(::core::clone::Clone::clone(&index)) }
+}
+
+/// The level's trait implemented for `wire_weaver::authorize::Authorized<T, A>` (SRV-72): each function asks the
+/// hook with the access and the steps to its item, then forwards to `T`; each accessor wraps the level `T` hands out
+/// with the same hook and the step to it.
+fn authorized_impl(
+    api_bundle: &CodegenBundle,
+    paths: &TraitPaths<'_>,
+    local: &LocalLevel<'_>,
+    send: bool,
+) -> Result<TokenStream, String> {
+    let trait_path = paths.path(api_bundle, local.level, false)?;
+    // a level of another crate may have its trait in the `Send` form, which a wrapper holding `&A` meets only with
+    // a `Sync` hook
+    let foreign_child = local
+        .accessors
+        .iter()
+        .any(|a| a.level.crate_idx != api_bundle.root.crate_idx);
+    let hook_bounds = match (send, foreign_child) {
+        (true, _) => quote! { wire_weaver::authorize::Authorize + Send + Sync },
+        (false, true) => quote! { wire_weaver::authorize::Authorize + Sync },
+        (false, false) => quote! { wire_weaver::authorize::Authorize },
+    };
+    let mut items = vec![];
+    for a in &local.accessors {
+        let (ident, assoc) = (&a.ident, &a.assoc);
+        let item = &local.level.items[a.item];
+        items.push(match &a.index {
+            Some(ty) => {
+                let step = step(item, Some(index_u32()));
+                quote! {
+                    type #assoc<'a> = wire_weaver::authorize::Authorized<<T as #trait_path>::#assoc<'a>, &'a A> where Self: 'a;
+                    fn #ident(&self, index: #ty) -> Result<Self::#assoc<'_>, wire_weaver::call::Error> {
+                        let step = #step;
+                        <T as #trait_path>::#ident(self.inner(), index).map(|level| self.__level(level, step))
+                    }
+                }
+            }
+            None => {
+                let step = step(item, None);
+                quote! {
+                    type #assoc<'a> = wire_weaver::authorize::Authorized<<T as #trait_path>::#assoc<'a>, &'a A> where Self: 'a;
+                    fn #ident(&self) -> Self::#assoc<'_> {
+                        self.__level(<T as #trait_path>::#ident(self.inner()), #step)
+                    }
+                }
+            }
+        });
+    }
+    for f in &local.fns {
+        let item = &local.level.items[f.item];
+        let index = f.index.as_ref().map(|_| index_u32());
+        let (access, steps) = match f.kind {
+            LocalFnKind::Method => (quote! { Call }, vec![step(item, index)]),
+            LocalFnKind::Read => (quote! { Read }, vec![step(item, index)]),
+            LocalFnKind::Write => (quote! { Write }, vec![step(item, index)]),
+            LocalFnKind::Stream => (quote! { Stream }, vec![step(item, index)]),
+            LocalFnKind::ValidIndices => (quote! { Read }, vec![step(item, None)]),
+            LocalFnKind::IndexOf | LocalFnKind::Key | LocalFnKind::Keys => {
+                let (access, op) = match f.kind {
+                    LocalFnKind::IndexOf => (quote! { Call }, ww_self::keys::INDEX_OF),
+                    LocalFnKind::Key => (quote! { Read }, ww_self::keys::KEY),
+                    _ => (quote! { Stream }, ww_self::keys::KEYS),
+                };
+                let name = ww_self::keys::item_name(op).expect("a companion's own id");
+                let companion = step_tokens(name, op, index, Effects::READ, None);
+                (access, vec![step(item, None), companion])
+            }
+        };
+        let ident = &f.ident;
+        let output = &f.output;
+        let defs = f.arg_defs();
+        let names = f.arg_names();
+        items.push(quote! {
+            async fn #ident(&self, cx: &wire_weaver::CallContext, #(#defs),*) -> #output {
+                self.__check(cx, wire_weaver::authorize::Access::#access, &[#(#steps),*])
+                    .resolve()
+                    .await
+                    .map_err(wire_weaver::call::Error::from)?;
+                <T as #trait_path>::#ident(self.inner(), cx, #(#names),*).await
+            }
+        });
+    }
+    Ok(quote! {
+        impl<T: #trait_path, A: #hook_bounds> #trait_path for wire_weaver::authorize::Authorized<T, A> {
+            #(#items)*
         }
     })
 }

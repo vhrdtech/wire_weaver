@@ -11,7 +11,9 @@ use futures_util::stream::{FuturesUnordered, StreamExt};
 use wire_weaver::{ConnectionId, DisconnectReason, WireWeaverAsyncApiBackend};
 use ww_device::{Clock, Instant, LinkConfig};
 
-use crate::authorize::{Authorization, Authorize};
+use wire_weaver::authorize::Authorize;
+
+use crate::authorize::Authorization;
 use crate::backend::Backend;
 use crate::connection::{self, Connection, LocalConnection};
 use crate::lifecycle::{Lifecycle, ShutdownReason, Stage};

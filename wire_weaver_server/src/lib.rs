@@ -23,7 +23,8 @@
 //! [Server::accepting] hands out connections for the program to spawn on a multi-threaded runtime.
 //!
 //! [Server::authorize] puts an [Authorize] hook in front of every handler (SRV-46): who asked, as the transport
-//! saw it, and what the request does where.
+//! saw it, and what the request does where. The hook is `wire_weaver::authorize`'s, the one [Authorized] asks in
+//! front of a local trait's implementation (SRV-72); a [Pending] verdict holds the request until its answer comes.
 //!
 //! Between requests a [Backend] does its own work: it sends stream items and observed properties when its
 //! [wait](Backend::wait) completes or its [next_wake](Backend::next_wake) comes. A [Fanout] carries what many
@@ -49,7 +50,6 @@ mod sync;
 #[cfg(feature = "udp")]
 pub mod udp;
 
-pub use authorize::{Authorize, Denied, Resource};
 pub use backend::Backend;
 pub use connection::{Connection, LocalConnection};
 pub use fanout::{Fanout, Lagged, Subscription};
@@ -58,4 +58,7 @@ pub use listener::{Accept, Accepted, Listener};
 pub use pump::{LocalPumps, PumpHandle, PumpId, Pumps};
 pub use server::{Accepting, Limits, Local, MakeBackend, Server};
 pub use serves::Serves;
-pub use ww_client_server::target::{Access, Place, TraitRef};
+pub use wire_weaver::authorize::{
+    Access, Authorize, Authorized, Denied, Pending, Place, Resource, Step, TraitRef, Verdict,
+    from_fn,
+};

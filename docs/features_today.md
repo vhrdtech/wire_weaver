@@ -187,6 +187,7 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 - **[Sync handlers in an async server](api/handlers.md)**: Handlers that never wait are plain `fn`s, only the ones that await are `async`: less flash.
 - **[Shared handlers](api/handlers.md#shared-and-exclusive-handlers)**: Calls and reads of the items you mark shared take `&self`, so a host server can run them side by side; the rest stays `&mut self`.
 - **[A server from the local trait](api/local_trait.md#serving-a-local-implementation)**: `serve_trait` generates every handler of a host server from one implementation of the API's local trait: the same code serves calls in the same process and remote clients.
+- **[Authorized local calls](api/local_trait.md#authorization-in-the-same-process)**: The hook that guards a host server guards calls in the same process too, and can hold a call until a person approves it.
 - **[Local trait without `Send`](api/local_trait.md#without-send)**: The local trait in a form for one thread, state in `Rc` and `RefCell`: implemented by your struct and the client, served by `serve_trait`.
 - **[When a connection ends](api/host_server.md#when-a-connection-ends)**: A host server's backend gets a last step when its client goes, to release what the client held.
 - **[Listeners that stop alone](api/host_server.md#moving-to-another-address)**: Stop one listener of a host server while its connections go on, to move to another address.

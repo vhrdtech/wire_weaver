@@ -183,6 +183,7 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 - SRV-21 | Sync handlers in an async server | Handlers that never wait are plain `fn`s, only the ones that await are `async`: less flash. | api/handlers.md
 - SRV-65 | Shared handlers | Calls and reads of the items you mark shared take `&self`, so a host server can run them side by side; the rest stays `&mut self`. | api/handlers.md#shared-and-exclusive-handlers
 - SRV-49 | A server from the local trait | `serve_trait` generates every handler of a host server from one implementation of the API's local trait: the same code serves calls in the same process and remote clients. | api/local_trait.md#serving-a-local-implementation
+- SRV-72 | Authorized local calls | The hook that guards a host server guards calls in the same process too, and can hold a call until a person approves it. | api/local_trait.md#authorization-in-the-same-process
 - SRV-73 | Local trait without `Send` | The local trait in a form for one thread, state in `Rc` and `RefCell`: implemented by your struct and the client, served by `serve_trait`. | api/local_trait.md#without-send
 - SRV-74 | When a connection ends | A host server's backend gets a last step when its client goes, to release what the client held. | api/host_server.md#when-a-connection-ends
 - SRV-75 | Listeners that stop alone | Stop one listener of a host server while its connections go on, to move to another address. | api/host_server.md#moving-to-another-address

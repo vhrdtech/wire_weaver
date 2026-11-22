@@ -1,7 +1,7 @@
 //! One connection: link setup, a backend of its own, requests in order, until the link goes down.
 
 use std::collections::VecDeque;
-use std::future::{Future, Pending, pending, poll_fn};
+use std::future::{Future, pending, poll_fn};
 use std::ops::Deref;
 use std::pin::{Pin, pin};
 use std::task::Poll;
@@ -9,6 +9,7 @@ use std::time::Duration;
 
 use futures_util::future::{AbortHandle, AbortRegistration, Abortable, Either, select};
 use futures_util::stream::{FuturesUnordered, StreamExt};
+use wire_weaver::authorize::{Pending, Verdict};
 use wire_weaver::shrink_wrap::{DeserializeShrinkWrap, Error as ShrinkWrapError};
 use wire_weaver::ww_version::WireVersion;
 use wire_weaver::{CallContext, ConnectionId, EventWriter, Peer, Priority};
@@ -217,7 +218,7 @@ struct Conn<'a, Tx, Rx, C, S> {
 }
 
 /// No request runs.
-const IDLE: Option<Pin<&mut Pending<Finished>>> = None;
+const IDLE: Option<Pin<&mut std::future::Pending<Finished>>> = None;
 
 impl<Tx: MessageTx, Rx: MessageRx, C: Clock, S: PumpSetOps> Conn<'_, Tx, Rx, C, S> {
     /// Wait for the next thing to do and do it. `work` is the request that runs, if one does.
@@ -460,25 +461,28 @@ impl<Tx: MessageTx, Rx: MessageRx, C: Clock, S: PumpSetOps> Conn<'_, Tx, Rx, C, 
             .unwrap_or_else(|| vec![0; self.buffer_len])
     }
 
-    /// Whether `queued` may run, as the server's hook says; a denied one is answered `Denied` here.
+    /// Whether `queued` may run, as the server's hook says: `None` when it was denied, answered `Denied` here;
+    /// `Some` with the answer to wait for when the hook's verdict is pending.
     async fn admit(
         &mut self,
         queued: &Queued,
         origin: &CallContext,
         authorization: Option<&Authorization>,
-    ) -> bool {
+    ) -> Option<Option<Pending>> {
         let Some(authorization) = authorization else {
-            return true;
+            return Some(None);
         };
         let priority = Request::peek_priority(&queued.request).unwrap_or_default();
         let mut call = queued.call(origin, self.clock.now());
         call.seq = queued.seq;
         call.priority = priority;
-        if authorization.admits(&call, &queued.request).is_ok() {
-            return true;
+        match authorization.admits(&call, &queued.request) {
+            Verdict::Allow => return Some(None),
+            Verdict::Pending(pending) => return Some(Some(pending)),
+            Verdict::Deny => {}
         }
         self.answer_error(queued.seq, priority, Why::Denied).await;
-        false
+        None
     }
 
     /// Answer a request with `Overloaded`, its handler never ran.
@@ -635,6 +639,26 @@ async fn bounded<C: Clock>(work: impl Future<Output = Finished>, bounds: Bounds<
             why: Why::Cancelled,
         }),
     }
+}
+
+/// Run `work` once the hook's `pending` answer allows it (SRV-72); a request it denies is answered `Denied` and never
+/// runs. The wait is part of the request: its deadline and a cancel end it, and drop the question.
+async fn approved(
+    pending: Option<Pending>,
+    work: impl Future<Output = Finished>,
+    seq: u32,
+    priority: Priority,
+) -> Finished {
+    if let Some(pending) = pending
+        && pending.await.is_err()
+    {
+        return Finished::Dropped(Dropped {
+            seq,
+            priority,
+            why: Why::Denied,
+        });
+    }
+    work.await
 }
 
 /// Run one request alone, through the backend's `&mut self` entry.
@@ -836,17 +860,21 @@ async fn serve<Tx: MessageTx, Rx: MessageRx, C: Clock + Clone, S: PumpSetOps, B:
                 return;
             }
         } else if let Some(queued) = conn.pending.pop_front() {
-            if !conn.admit(&queued, origin, authorization).await {
+            let Some(pending) = conn.admit(&queued, origin, authorization).await else {
                 // nothing ran: no turn for the backend either
                 continue;
-            }
+            };
             let Some(_running) = life.start_request(limits.requests_max) else {
                 // nothing ran: no turn for the backend either
                 conn.refuse(queued).await;
                 continue;
             };
             let (work, bounds) = conn.work(queued, origin);
-            let work = pin!(bounded(exclusive(backend, medium, outbox, work), bounds));
+            let work = exclusive(backend, medium, outbox, work);
+            let work = pin!(bounded(
+                approved(pending, work, bounds.seq, bounds.priority),
+                bounds
+            ));
             if !conn.finish(work).await {
                 return;
             }
@@ -913,16 +941,17 @@ impl<Tx: MessageTx, Rx: MessageRx, C: Clock + Clone, S: PumpSetOps> Conn<'_, Tx,
                     .is_some_and(|queued| B::is_shared(&queued.request))
             {
                 let queued = self.pending.pop_front().expect("checked above");
-                if !self.admit(&queued, origin, authorization).await {
+                let Some(pending) = self.admit(&queued, origin, authorization).await else {
                     continue;
-                }
+                };
                 let Some(counted) = life.start_request(self.limits.requests_max) else {
                     self.refuse(queued).await;
                     continue;
                 };
                 let (work, bounds) = self.work(queued, origin);
+                let work = shared(backend, medium, outbox, work, counted);
                 running.push(bounded(
-                    shared(backend, medium, outbox, work, counted),
+                    approved(pending, work, bounds.seq, bounds.priority),
                     bounds,
                 ));
             }

@@ -1704,6 +1704,7 @@ name = "host_server"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "futures-channel",
  "futures-util",
  "host_server_api",
  "keep_trying_api",
@@ -3361,6 +3362,7 @@ dependencies = [
 name = "serve_trait"
 version = "0.1.0"
 dependencies = [
+ "futures-channel",
  "futures-lite",
  "serve_trait_api",
  "serve_trait_gauge_api",
@@ -3373,6 +3375,7 @@ dependencies = [
  "ww_client_server",
  "ww_device",
  "ww_keyed",
+ "ww_self",
 ]
 
 [[package]]
@@ -4711,6 +4714,7 @@ dependencies = [
  "futures-core",
  "shrink_wrap",
  "ww_api",
+ "ww_self",
  "ww_trace_context",
  "ww_version",
 ]

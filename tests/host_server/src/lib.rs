@@ -23,7 +23,8 @@ mod tests {
     use wire_weaver_server::in_process::InProcessListener;
     use wire_weaver_server::local_socket::LocalSocketIncoming;
     use wire_weaver_server::{
-        Access, Connection, Denied, Fanout, Limits, PumpId, Pumps, Resource, Server, Subscription,
+        Access, Connection, Denied, Fanout, Limits, Pending, PumpId, Pumps, Resource, Server,
+        Subscription, Verdict, from_fn,
     };
     use ww_device::Instant;
     use ww_stream::observe::ObserveLimits;
@@ -1088,14 +1089,11 @@ mod tests {
     /// A server whose hook lets uid 1000 do anything and others only call shared methods and read, recording what
     /// it was asked.
     fn start_authorized(path: &str, peer: Peer, asked: Asked) -> Bench {
-        let hook = move |call: &CallContext, resource: &Resource<'_>| {
+        let hook = from_fn(move |call: &CallContext, resource: &Resource<'_>| {
             let Peer::Unix { uid, .. } = call.peer else {
                 return Err(Denied);
             };
-            let item = resource
-                .items
-                .and_then(|items| items.last())
-                .map(|(item, _)| item.ident.clone());
+            let item = resource.item().map(|step| step.ident.to_owned());
             asked.lock().unwrap().push((
                 uid.0,
                 resource.access,
@@ -1107,7 +1105,7 @@ mod tests {
                 (_, Access::Call, Some("echo" | "whoami")) => Ok(()),
                 _ => Err(Denied),
             }
-        };
+        });
         start_bench!(
             InProcessListener::new(path, MESSAGE_LEN_MAX).with_peer(peer),
             Reach::InProcess(path.to_owned()),
@@ -1207,6 +1205,52 @@ mod tests {
             wire_weaver::call::ErrorKind::Denied,
             "{error:?}"
         );
+    }
+
+    /// A pending verdict (SRV-72) holds its request until a person answers, while the connection's other shared
+    /// requests run; an approval runs it, a refusal answers `Denied`.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn a_pending_verdict_waits_for_its_answer() {
+        let (questions, mut asked) = futures_channel::mpsc::unbounded();
+        let hook = from_fn(move |_: &CallContext, resource: &Resource<'_>| {
+            if resource.item().map(|step| step.ident) != Some("whoami") {
+                return Verdict::Allow;
+            }
+            let (answer, answered) = futures_channel::oneshot::channel::<bool>();
+            questions.unbounded_send(answer).unwrap();
+            Verdict::Pending(Pending::new(async move {
+                match answered.await {
+                    Ok(true) => Ok(()),
+                    _ => Err(Denied),
+                }
+            }))
+        });
+        let path = "host_server/authorize_pending";
+        let bench = start_bench!(
+            InProcessListener::new(path, MESSAGE_LEN_MAX).with_peer(unix_peer(1000)),
+            Reach::InProcess(path.to_owned()),
+            small(),
+            false,
+            move |server: Server<TokioClock>| server.authorize(hook, Some(api_model())),
+        );
+        let client = bench.connect().await;
+        for approve in [true, false] {
+            let person = async {
+                let answer = soon("the question", asked.next()).await.unwrap();
+                // the question is open: other requests go on
+                assert_eq!(soon("echo", client.echo(5).call()).await.unwrap(), 5);
+                answer.send(approve).unwrap();
+            };
+            let (answered, ()) = tokio::join!(soon("whoami", client.whoami().call()), person);
+            if approve {
+                assert_eq!(answered.unwrap(), 0);
+            } else {
+                assert_eq!(
+                    answered.unwrap_err().call_kind(),
+                    wire_weaver::call::ErrorKind::Denied
+                );
+            }
+        }
     }
 
     /// A socket in a directory of the test's own.

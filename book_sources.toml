@@ -25,10 +25,11 @@ features = "../FEATURES.md"
 
 # ww_tape: its feature tracker; its pages are the ww_tape book (docs/tapes.md points there)
 [[source]]
-package = "ww_tape"
-pages = "../docs"
+git = "https://github.com/vhrdtech/ww_tape"
+branch = "main"
+pages = "docs"
 into = "tape"
-features = "../FEATURES.md"
+features = "FEATURES.md"
 book = "https://tape.vhrd.tech/"
 
 # ww_stdlib: the pages of the standard library's API crates, helpers and tools; no crate of it is locked here

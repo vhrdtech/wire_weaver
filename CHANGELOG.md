@@ -11,6 +11,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
+- The tap decoder, `ww_tape_bundle` and the tape identity tests moved to ww_tools; nothing here depends on `ww_tape` (TR-14); see `wire_weaver_client`, `ww_tap`.
 - `ww monitor`, `ww stats`, `ww capture`, `ww explain FILE` and ww_tap's `Recorder` are removed; the tap hook stays (TOOL-14, TR-14); see `ww_tap`, `wire_weaver_cli`, `wire_weaver_client`.
 - A reconnect onto another revision of the device's API learns it again and resumes what still holds (CLT-81); see `wire_weaver_client`.
 - A connect races a device's addresses and takes the first to open (CLT-80); see `wire_weaver_client`.

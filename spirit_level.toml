@@ -71,7 +71,6 @@ published = [
     "ww_snapshots",
     "ww_stream",
     "ww_tap",
-    "ww_tape_bundle",
     "ww_timebase",
 ]
 reason = "the framework crates are released together; every other crate is publish = false"
@@ -210,17 +209,9 @@ expires = "2026-12-15"
 
 [[exceptions]]
 lint = "tier-clippy-set"
-crates = ["ww_tape_bundle"]
 paths = ["Cargo.toml", "clippy.toml"]
 level = "allow"
 reason = "the tiers' Clippy set is not on; P2401#20nov-1155 (the Clippy set) removes them"
-expires = "2026-12-15"
-
-[[exceptions]]
-lint = "workspace-lints"
-crates = ["ww_tape_bundle"]
-level = "allow"
-reason = "ww_tape_bundle repeats the workspace lints to add its own Clippy table; P2401#20nov-1155 (the Clippy set) removes them"
 expires = "2026-12-15"
 
 # --- locks and shared state: P2401#20nov-1155c removes these ---
@@ -399,7 +390,6 @@ crates = [
     "ww_settings_derive",
     "ww_snapshots",
     "ww_stream",
-    "ww_tape_bundle",
 ]
 level = "allow"
 reason = "complex functions; P2401#20nov-1155e (size and duplicates) removes them"
@@ -800,7 +790,6 @@ paths = [
     "ww_book/README.md",
     "ww_dns_sd/README.md",
     "ww_snapshots/README.md",
-    "ww_tape_bundle/README.md",
 ]
 level = "allow"
 reason = "the book's and READMEs' prose; P2401#20nov-1155i (book prose) removes them"

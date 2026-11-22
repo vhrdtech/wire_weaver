@@ -1555,13 +1555,14 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   (`ClientConfig::tap(TapSource)`, a `Tap` per link, none by default; `TraceEvent` / `RegisterTracer` fed by the
   same hook, the iceoryx2 USB tracer removed) and by `ww_device`'s `FramedTx` / `FramedRx` (`with_tap`; with `NoTap` a G0 firmware is the
   same size). `ww_framer::pieces(frame)` shares `FramedRx`'s head code, no callbacks in the framer. Losses are
-  counted in `LinkEvent::Lost`. `wire_weaver_client::tap::Decoder`: frame ↔
+  counted in `LinkEvent::Lost`. The decoder, `ww_tap_decoder` in ww_tools (with the e2e tests and the tape identity), gives frame ↔
   message linkage, cross-check against the message records, framer and link statistics, request/reply pairing by
-  seq feeding the TOOL-9 explain code. E2E tests over simulated USB (`tap/e2e_tests.rs`): shared packets, split
+  seq feeding the TOOL-9 explain code. E2E tests over simulated USB: shared packets, split
   replies, a lost packet, stats, captures replayed identically. Without
   `std`, `ww_tap` is the hook and the record types, `LinkKey { medium, peer }` (a link named by its peer), `api()`
-  and `ids::stream_name` for a producer naming the tracks; with `std`, `ww_tap::tape` defines a link's `ww_tape`
-  tracks and the tap clock (`define_link_tracks`, `define_clocks`) and finds them again (`link_stream_of`). The
+  and `ids::stream_name` for a producer naming the tracks; `ww_tap_decoder` defines a link's `ww_tape`
+  tracks and the tap clock (`define_link_tracks`, `define_clocks`) and finds them again (`link_stream_of`); this
+  repository has no `ww_tape` dependency. The
   `Recorder` (pooled `ww_tape` blocks for consumers) is removed with TOOL-14; a capture tool implements `Tap`
   itself (P2555 eventfull tap). The decoder's input is
   records (`Decoder::record`, `session`, `gap`), `feed(&Block)` feeds a block's records through it (the e2e test
@@ -2168,7 +2169,7 @@ Unicast Data0 to one node over the same bus is TR-6.
   device's wire version next to its crate version (`API ... (wire w2.3)`) and the hello generations this
   connection agreed on (`Hello framer=1 link=1 shrink_wrap=1 api_model=1`, EVO-23), through `ww_report::clients::Contract`
   and `info::DeviceInfo`'s new `api_wire` / `generations` fields. The tap decoder gives a session's wire version
-  (`wire_weaver_client::tap::session_wire_version`). `wire_weaver_client::DeviceApiInfo`
+  (`ww_tap_decoder::session_wire_version`, in ww_tools). `wire_weaver_client::DeviceApiInfo`
   gained the `generations: ww_link::Generations` field (this build's, which matches the device's or link setup
   would have refused); `ww_link::Generations` implements `Display`. Python's `dev.info` shows the wire version and
   generations next to the crate versions. `ww list` still can't show the wire version pre-connection: it comes from
@@ -3061,7 +3062,7 @@ Unicast Data0 to one node over the same bus is TR-6.
 - **STD-122 `ww_tape` v2 index, finish and tail** — moved to ww_tape's own repository with its id: [vhrdtech/ww_tape FEATURES.md](https://github.com/vhrdtech/ww_tape/blob/main/FEATURES.md).
 - **STD-123 `ww_tape` tape pieces** — moved to ww_tape's own repository with its id: [vhrdtech/ww_tape FEATURES.md](https://github.com/vhrdtech/ww_tape/blob/main/FEATURES.md).
 - **STD-124 `ww_tape` positional reader** — moved to ww_tape's own repository with its id: [vhrdtech/ww_tape FEATURES.md](https://github.com/vhrdtech/ww_tape/blob/main/FEATURES.md).
-- **STD-125 `ww_tape` track identity by name path** — moved to ww_tape's own repository with its id; its wire_weaver side (`ww_tape_bundle`, `ww_tap::track_key`, `tests/tape_identity`) stays here: [vhrdtech/ww_tape FEATURES.md](https://github.com/vhrdtech/ww_tape/blob/main/FEATURES.md).
+- **STD-125 `ww_tape` track identity by name path** — moved to ww_tape's own repository with its id; its wire_weaver side (`ww_tape_bundle`, `track_key`, `tests/tape_identity`) is in vhrdtech/ww_tools: [vhrdtech/ww_tape FEATURES.md](https://github.com/vhrdtech/ww_tape/blob/main/FEATURES.md).
 - **STD-126 `ww_tape` payload codec: packed lengths, raw or lz4 payloads, salvage** — moved to ww_tape's own repository with its id: [vhrdtech/ww_tape FEATURES.md](https://github.com/vhrdtech/ww_tape/blob/main/FEATURES.md).
 - **STD-127 `ww_tape` series tracks: kind, sample type, period, segments** — moved to ww_tape's own repository with its id: [vhrdtech/ww_tape FEATURES.md](https://github.com/vhrdtech/ww_tape/blob/main/FEATURES.md).
 - **STD-128 `ww_tape` series summaries across a change of scale** — moved to ww_tape's own repository with its id: [vhrdtech/ww_tape FEATURES.md](https://github.com/vhrdtech/ww_tape/blob/main/FEATURES.md).

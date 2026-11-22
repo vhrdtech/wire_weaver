@@ -36,7 +36,6 @@ members = [
     "ww_snapshots",
     "ww_stream",
     "ww_tap",
-    "ww_tape_bundle",
     "ww_timebase",
     "ww_trace_context",
 ]
@@ -82,7 +81,6 @@ cnt = { version = "0.4", default-features = false }
 cnt_core = { version = "0.5.3", git = "https://github.com/romixlab/cnt", default-features = false }
 console = { version = "0.16", default-features = false, features = ["ansi-parsing", "std", "unicode-width"] }
 convert_case = { version = "0.11", default-features = false }
-crc = { version = "3.4", default-features = false }
 crossterm = { version = "0.29", default-features = false, features = ["events", "windows"] }
 darling = { version = "0.24", default-features = false, features = ["suggestions"] }
 defmt = { version = "1.1", default-features = false }
@@ -183,11 +181,6 @@ ww_numeric = { version = "0.3.0", git = "https://github.com/vhrdtech/ww_base", d
 ww_si = { version = "0.5.0", git = "https://github.com/vhrdtech/ww_base", default-features = false }
 ww_version = { version = "0.2.0", git = "https://github.com/vhrdtech/ww_base", default-features = false }
 
-# the tape block format (layer 3) lives in vhrdtech/ww_tape, taken by git: Cargo.lock pins the commit
-# (`cargo update -p ww_tape` moves it)
-ww_tape = { version = "0.3.0", git = "https://github.com/vhrdtech/ww_tape", default-features = false }
-# files of ww_tape (file sink, piece files, their lock), from the same repository
-ww_tape_fs = { version = "0.3.0", git = "https://github.com/vhrdtech/ww_tape", default-features = false }
 
 # framework crates, versioned together via [workspace.package] version
 wire_weaver = { version = "0.5.0", path = "./wire_weaver", default-features = false }
@@ -224,7 +217,6 @@ ww_lz4 = { version = "0.1.0", path = "./ww_lz4" }
 ww_plugin = { version = "0.1.0", path = "./ww_plugin" }
 ww_self = { version = "0.3.0", path = "./ww_self" }
 ww_tap = { version = "0.1.0", path = "./ww_tap", default-features = false }
-ww_tape_bundle = { version = "0.1.0", path = "./ww_tape_bundle" }
 ww_timebase = { version = "0.1.0", path = "./ww_timebase", default-features = false }
 ww_trace_context = { version = "0.1.0", path = "./ww_trace_context", default-features = false }
 

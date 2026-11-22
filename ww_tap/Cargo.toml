@@ -15,12 +15,11 @@ wire = "w1.0"
 
 [features]
 default = []
-# `tape`: the ww_tape tracks and clock of a capture of link taps
-std = ["wire_weaver/std", "dep:ww_tape", "ww_tape/std"]
+# owned forms of the records
+std = ["wire_weaver/std"]
 
 [dependencies]
 wire_weaver.workspace = true
-ww_tape = { workspace = true, optional = true }
 
 [lints]
 workspace = true

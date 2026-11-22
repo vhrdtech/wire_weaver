@@ -2,6 +2,8 @@
 
 ### ⚠️ Breaking
 
+- `tap::decode`, `tap::stats`, `tap::Decoder` and the other decoder types moved to `ww_tap_decoder` (vhrdtech/ww_tools); `tap` keeps `Tap` and `TapSource` (TR-14).
+- The `ww_tape` and `ww_tape_fs` re-exports are removed: depend on them directly.
 - `tap` no longer re-exports `Recorder`, `RecorderConfig`, `RecorderLink`, `Subscription`, `Chunk` and `Layers`, and `TapSource` has no `From<Recorder>`: give `TapSource::new` a `Tap` (TOOL-14).
 
 ### 🐛 Fixes

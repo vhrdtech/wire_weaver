@@ -36,15 +36,15 @@ request was). A capture is described by the API bundle of `ww_tap` like any devi
 frame and message has a number, so the decoder sees a missing one.
 
 A link that closes records `LinkEvent::Closed` on its events track. A relay that keeps the tap's definitions drops
-that link's tracks when it sees the event (`ww_tap::drop_closed_links`), so its definitions don't grow with every link
+that link's tracks when it sees the event (`ww_tap_decoder::drop_closed_links`), so its definitions don't grow with every link
 ever seen. A producer that could not keep records says so with `LinkEvent::Lost { records }`: a gap is visible, never
 silent.
 
 ## Links and devices
 
-Every link's tracks of one stream have the same key, the hash of the stream's name (`ww_tap::track_key`). The link's
-identity tells them apart: a producer defines a link's tracks at its first session (`ww_tap::define_link_tracks`, on
-the tap clock of `ww_tap::define_clocks`), with the [track
+Every link's tracks of one stream have the same key, the hash of the stream's name (`ww_tap_decoder::track_key`). The link's
+identity tells them apart: a producer defines a link's tracks at its first session (`ww_tap_decoder::define_link_tracks`, on
+the tap clock of `ww_tap_decoder::define_clocks`), with the [track
 dimensions](https://tape.vhrd.tech/tracks/#number-key-and-id) `medium` and `peer` (`ww_tap::dims`), the USB serial
 or the address the session reports. Two devices of one API recorded into one capture thus give two track ids per
 stream with one key, and the same device gives the same ids in every capture and after a reconnect, whichever link
@@ -53,7 +53,7 @@ number the producer gave it.
 A link the peer doesn't tell apart, with no peer or with the peer of another open link, adds the dimension `link`,
 the producer's number of it; so does a link recorded before any session.
 
-A reader picks a device by its dimension: `ww_tap::link_stream_of` gives a tap track's stream and its link's
+A reader picks a device by its dimension: `ww_tap_decoder::link_stream_of` gives a tap track's stream and its link's
 `LinkIdentity` (`identity.get(dims::PEER)`), and the decoder numbers links by identity (`Decoder::find_link(dims::PEER,
 "SN-1234")`, `Decoder::link_identity`).
 
@@ -68,7 +68,8 @@ devices](#links-and-devices)).
 
 ## Decoding
 
-`wire_weaver_client::tap::Decoder` takes a link's records (`Decoder::record`, `Decoder::session`) or the blocks of a
+`ww_tap_decoder::Decoder`, in the [ww_tools](https://github.com/vhrdtech/ww_tools) repository with the tracks and
+clock of a capture (this repository has no `ww_tape` dependency), takes a link's records (`Decoder::record`, `Decoder::session`) or the blocks of a
 capture (`Decoder::feed`, from `ww_tape::FileBlocks`), and gives out `Decoded` frames, messages and link events:
 
 - **Linkage.** Every frame is walked into its pieces and reassembled with the framer's rules: a message knows the

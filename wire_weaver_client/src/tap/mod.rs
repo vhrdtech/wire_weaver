@@ -1,34 +1,19 @@
 //! The link tap on the host (TR-14): every client event loop reports what crosses its link to a [Tap], one per
 //! link, made by the [TapSource] of [ClientConfig::tap](crate::ClientConfig::tap); without one nothing is copied.
-//! `Command::RegisterTracer`'s [TraceEvent]s come from the same place. [Decoder] reads a capture of the tap's records
-//! back: it links frames to messages, pairs replies with requests and counts [Stats].
+//! `Command::RegisterTracer`'s [TraceEvent]s come from the same place. `ww_tap_decoder` (in the ww_tools repository)
+//! reads the tap's records back: it links frames to messages, pairs replies with requests and counts statistics.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use tokio::sync::mpsc;
 use wire_weaver::shrink_wrap::{RefVec, UNib32};
-pub use ww_tap::{Dir, LinkEvent, Session, Tap, link_stream_in, link_stream_of};
+pub use ww_tap::{Dir, LinkEvent, Session, Tap};
 
 use crate::tracing::TraceEvent;
 
-pub mod decode;
-#[cfg(all(test, feature = "in_process"))]
-mod e2e_tests;
-mod reassembly;
-pub mod stats;
-#[cfg(test)]
-mod test_tape;
 #[cfg(test)]
 mod tests;
-
-pub use decode::{
-    ApiInfo, Check, Decoded, Decoder, DecoderConfig, FrameInfo, MessageInfo, What,
-    session_wire_version,
-};
-pub use reassembly::{FrameOutcome, FramePart, PieceInfo, PieceOutcome, Reassembled};
-pub use stats::{DirStats, LinkStats, PathStats, PrefixCounts, Stats};
-pub use ww_framer::prefix::{FrameCtx, FrameReport};
 
 /// Makes the [Tap] of each link a client opens, [ClientConfig::tap](crate::ClientConfig::tap).
 #[derive(Clone)]

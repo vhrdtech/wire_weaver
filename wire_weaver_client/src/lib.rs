@@ -136,8 +136,6 @@ pub use ww_snapshots as snapshots;
 #[cfg(feature = "stm32_dfu")]
 pub use ww_stm32_dfu;
 pub use ww_tap;
-pub use ww_tape;
-pub use ww_tape_fs;
 pub use ww_version;
 
 pub mod internal {

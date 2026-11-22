@@ -27,7 +27,6 @@
 [![crates.io](https://img.shields.io/crates/v/ww_snapshots)](https://crates.io/crates/ww_snapshots)
 [![crates.io](https://img.shields.io/crates/v/ww_stream)](https://crates.io/crates/ww_stream)
 [![crates.io](https://img.shields.io/crates/v/ww_tap)](https://crates.io/crates/ww_tap)
-[![crates.io](https://img.shields.io/crates/v/ww_tape_bundle)](https://crates.io/crates/ww_tape_bundle)
 [![crates.io](https://img.shields.io/crates/v/ww_timebase)](https://crates.io/crates/ww_timebase)
 [![docs.rs](https://img.shields.io/docsrs/wire_weaver)](https://docs.rs/wire_weaver)
 [![docs.rs](https://img.shields.io/docsrs/wire_weaver_cli)](https://docs.rs/wire_weaver_cli)
@@ -53,7 +52,6 @@
 [![docs.rs](https://img.shields.io/docsrs/ww_snapshots)](https://docs.rs/ww_snapshots)
 [![docs.rs](https://img.shields.io/docsrs/ww_stream)](https://docs.rs/ww_stream)
 [![docs.rs](https://img.shields.io/docsrs/ww_tap)](https://docs.rs/ww_tap)
-[![docs.rs](https://img.shields.io/docsrs/ww_tape_bundle)](https://docs.rs/ww_tape_bundle)
 [![docs.rs](https://img.shields.io/docsrs/ww_timebase)](https://docs.rs/ww_timebase)
 [![crates.io](https://img.shields.io/crates/v/wire_weaver_server)](https://crates.io/crates/wire_weaver_server)
 [![docs.rs](https://img.shields.io/docsrs/wire_weaver_server)](https://docs.rs/wire_weaver_server)
@@ -163,7 +161,6 @@ If you only want to serialize and deserialize some data types, it can be used st
 | [`ww_lz4`](ww_lz4) | api_description | Streaming LZ4 block encoder for no_std and no alloc: one standard LZ4 block per chunk, history kept across chunks |
 | [`ww_self`](ww_self) | api_description | WireWeaver AST describing API and data types, can also be serialized using ShrinkWrap for introspection |
 | [`ww_snapshots`](ww_snapshots) | api_description | API snapshots of WireWeaver crates found by crate name and version: embedded sets, the per-user cache, Cargo's sources on disk and a fetch, each file verified against what the device sent |
-| [`ww_tape_bundle`](ww_tape_bundle) | api_description | Name paths and keys of ww_tape tracks from an API bundle (ww_self): name_path, key_in_bundle |
 | [`args_evolution`](tests/args_evolution) | runtime | Tests EVO-22 (arguments that evolve): trailing defaulted arguments and #[flatten] struct arguments, through the generated and dynamic clients |
 | [`args_evolution_api`](tests/args_evolution_api) | runtime | API of the argument-evolution tests (EVO-22): trailing arguments with defaults and a #[flatten] struct argument |
 | [`array_of_streams`](tests/array_of_streams) | runtime | Tests array_of_streams_api's server dispatch: nested arrays of sub-traits, each with a stream and an array of streams |
@@ -288,8 +285,6 @@ If you only want to serialize and deserialize some data types, it can be used st
 | [`streams_borrowed_error_api`](tests/streams_borrowed_error_api) | runtime | API of the borrowed stream error tests (API-35): stream functions whose handler returns an error borrowed from the server. |
 | [`streams_reliable`](tests/streams_reliable) | runtime | Counted and reliable streams end to end (API-30, API-31): positions, device losses, the store, status reads, close and resume with backfill. |
 | [`streams_reliable_api`](tests/streams_reliable_api) | runtime | API of the counted and reliable stream tests (API-30, API-31): stream functions with arguments and a result. |
-| [`tap_api`](tests/tap_api) | runtime | Test API of the link tap's CLI tests (ww monitor, ww capture, ww explain FILE, TOOL-14). |
-| [`tape_identity`](tests/tape_identity) | runtime | Tests of ww_tape track identity by name path (STD-125) over real API bundles |
 | [`tests_common`](tests/tests_common) | runtime | Shared test support: runs a generated server on ww_device::Server in a device thread against the host event loop, for every tests/* integration test. |
 | [`thermo`](tests/thermo) | runtime | A host driver for every wire line of thermo_api (EVO-28, EVO-42): one generated client per line behind one facade. |
 | [`thermo_api`](tests/thermo_api) | runtime | The API of the multi-line bench (EVO-28, EVO-42): a small temperature logger with every wire line still in use. |

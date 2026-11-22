@@ -7224,6 +7224,16 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
   <code>impl_local_trait</code>, and <code>serve_trait</code> serves it with the same generated code. <code>wire_weaver_server</code> connections
   take <code>LocalPumps</code> when their <code>MakeBackend</code> says so (<code>Local</code>, <code>LocalConnection</code>), the others stay <code>Send</code>
   (<code>tests/serve_trait</code> <code>not_send</code>, <a href="../docs/api/local_trait/#without-send">docs</a>).</li>
+<li>✅ <strong>SRV-74 Backend end step</strong> — <code>wire_weaver_server::Backend::end</code>: an async step after a connection's link
+  went down (the client left, its link timed out, the server shut down) and its last request ended, before the
+  backend is dropped, cut at <code>Limits::shutdown_grace</code>. A backend lets go there of what its client held (keys
+  pressed, covers, locks) (<a href="../docs/api/host_server/#when-a-connection-ends">Host server</a>, <code>tests/host_server</code>).</li>
+<li>✅ <strong>SRV-75 Listeners that stop alone</strong> — <code>ww_calloop::TcpIncoming::stop_handle</code> closes the TCP socket at
+  once and <code>wire_weaver_server::udp::UdpListener::stop_handle</code> (<code>ww_calloop::LoopUdpStop</code>) takes no new host,
+  on <code>ww_device::udp::UdpPeers::stop_accepting</code>: a program moves to another address while the connections it has
+  go on. An error about one client no longer ends <code>serve</code> and every connection: a TCP stream that fails its setup
+  is dropped, and <code>StdUdpSocket</code> skips receive errors about one datagram
+  (<a href="../docs/api/host_server/#moving-to-another-address">Host server</a>, <code>tests/calloop_server</code>, <code>tests/host_server</code>).</li>
 <li>📋 <strong>SRV-9 Handle USB suspend/resume</strong> · <code>v0.5</code> — run until suspend, wait for resume, loop
   (<code>mcu/wire_weaver_usb_embassy</code>). Later (<code>v0.5.x</code>): detect the host going to sleep and keep the connection,
   informing the device.</li>

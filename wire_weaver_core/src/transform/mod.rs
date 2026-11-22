@@ -30,4 +30,4 @@ pub use snapshot::{
     load_root_with_notes, root_of_crate_snapshot, skip_known,
 };
 pub use unit_hint::{UnitHint, UnreasonedSilence};
-pub use util::parse_wire_arg;
+pub use util::{parse_local_arg, parse_wire_arg};

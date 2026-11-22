@@ -826,7 +826,7 @@ pub(crate) fn convert_trait(
 ) -> Result<UNib32> {
     let crate_idx = scratch.root_bundle.find_crate_or_create(current_crate);
     let trait_name = item_trait.ident.to_string();
-    scratch.note_trait_module(current_crate, &trait_name)?;
+    scratch.note_trait(current_crate, item_trait)?;
     if scratch.dedup_traits
         && let Some(idx) = scratch.root_bundle.traits.iter().position(|l| {
             matches!(l, ApiLevelLocationOwned::InLine { level, .. } if level.crate_idx == crate_idx && level.trait_name == trait_name)

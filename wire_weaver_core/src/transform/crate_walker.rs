@@ -207,6 +207,8 @@ pub struct CratePaths {
     paths: BTreeMap<String, Vec<String>>,
     /// Module of each trait of the API by crate and trait name, where it isn't the crate root (EVO-37).
     trait_modules: BTreeMap<(String, String), Vec<String>>,
+    /// Name of the local trait of each trait of the API by crate and trait name, where it has one (CLT-58).
+    local_traits: BTreeMap<(String, String), String>,
     /// The directory of every crate the walk read, sorted: where their `api_snapshots/` are.
     crate_dirs: Vec<PathBuf>,
 }
@@ -226,8 +228,17 @@ impl CratePaths {
             .unwrap_or_default()
     }
 
-    /// The modules of the traits walked in `scratch`, and the directories of the crates it read.
+    /// Name of the local trait of the trait `trait_name` of `crate_name`, from `#[ww_trait(local = "..")]` on its
+    /// definition (CLT-58).
+    pub fn local_trait(&self, crate_name: &str, trait_name: &str) -> Option<&str> {
+        self.local_traits
+            .get(&(crate_name.to_string(), trait_name.to_string()))
+            .map(String::as_str)
+    }
+
+    /// The modules and local traits of the traits walked in `scratch`, and the directories of the crates it read.
     fn with_trait_modules(mut self, scratch: &Scratch) -> Self {
+        self.local_traits = scratch.local_traits.clone();
         self.trait_modules = scratch
             .trait_modules
             .iter()
@@ -307,6 +318,7 @@ impl CratePaths {
         CratePaths {
             paths,
             trait_modules: BTreeMap::new(),
+            local_traits: BTreeMap::new(),
             crate_dirs: vec![],
         }
     }
@@ -366,7 +378,7 @@ fn load_inner(
         };
         // `#[since]` of the root crate's items names a revision of this root's line (EVO-37)
         scratch.root = Some((entry.version.clone(), wire));
-        scratch.note_trait_module(&root_cx, &trait_name)?;
+        scratch.note_trait(&root_cx, item_trait)?;
         let meta = get_meta(&item_trait.attrs, MetaSite::Trait, &root_cx)?;
         let items = convert_api_items(item_trait, meta.as_ref(), &root_cx, scratch)?;
         Ok((entry, root_cx, trait_name, wire, meta, items))
@@ -532,6 +544,9 @@ pub(crate) struct Scratch {
     pub(crate) root: Option<(FullVersionOwned, Option<WireVersion>)>,
     /// Module of every trait converted, by crate and trait name ([CratePaths::trait_module]).
     pub(crate) trait_modules: BTreeMap<(String, String), Vec<String>>,
+    /// Name of the local trait of every trait converted with `#[ww_trait(local = "..")]`, by crate and trait name
+    /// ([CratePaths::local_trait]).
+    pub(crate) local_traits: BTreeMap<(String, String), String>,
     /// Trait bounds of the parameters in scope where a projection's shorthand `V::Assoc` may be written (a
     /// parameter default, an associated type of an impl): each parameter with the traits it is bound by, as written.
     pub(crate) trait_bounds: Vec<(String, Vec<syn::Path>)>,
@@ -795,6 +810,18 @@ impl Scratch {
                 Ok(())
             }
         }
+    }
+
+    /// Note the module of `item_trait` ([Self::note_trait_module]) and the name of its local trait, if it has one
+    /// (`#[ww_trait(local = "..")]`, CLT-58).
+    pub(crate) fn note_trait(&mut self, cx: &CrateContext, item_trait: &syn::ItemTrait) -> Result<()> {
+        let trait_name = item_trait.ident.to_string();
+        self.note_trait_module(cx, &trait_name)?;
+        if let Some(local) = super::util::get_local_attr(&item_trait.attrs, cx)? {
+            self.local_traits
+                .insert((cx.crate_name().to_string(), trait_name), local);
+        }
+        Ok(())
     }
 }
 

@@ -43,7 +43,7 @@ pub mod prelude {
 pub mod internal {
     pub use crate::transform::{
         ErrorListError, KeyedMacroArgs, PropertyMacroArgs, StreamAndImplMacroArgs, array_index_ty,
-        keys_ident, parse_wire_arg,
+        keys_ident, parse_local_arg, parse_wire_arg,
     };
     pub use ww_self;
     pub use ww_self::PropertyAccess;

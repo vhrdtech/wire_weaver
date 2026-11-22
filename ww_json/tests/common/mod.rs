@@ -1,4 +1,5 @@
 //! The API bundles of the tests: loaded from source as `wire_weaver_core::load` does for a device's crate.
+#![allow(dead_code, reason = "each test crate uses a part of these helpers")]
 
 use std::path::Path;
 use ww_self::{ApiBundleOwned, ApiItemKindOwned, ArgumentOwned, TypeOwned};

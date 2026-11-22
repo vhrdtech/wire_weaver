@@ -22,7 +22,7 @@
 //! | `Index`, `IndexFrom1`, `Seq`     | the number, as for any integer                                               |
 //!
 //! Output is deterministic. Input is strict: an unknown field, a value of another kind and a number that does not
-//! fit are errors naming the [JsonPath](crate::JsonPath) of the failing value.
+//! fit are errors naming the [JsonPath] of the failing value.
 
 use crate::error::{ErrorKind, JsonError, JsonPath, Step};
 use serde_json::{Map, Number, Value as J};

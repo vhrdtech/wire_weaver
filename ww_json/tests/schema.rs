@@ -128,7 +128,7 @@ fn structs_enums_options() {
 #[test]
 fn recursive_types_are_finite() {
     let tree = schema_of(conformance(), "tree");
-    assert!(tree["$defs"].as_object().unwrap().len() >= 1, "{tree:#}");
+    assert!(!tree["$defs"].as_object().unwrap().is_empty(), "{tree:#}");
     validator(&tree);
 }
 

@@ -277,6 +277,10 @@ ends the connection heard from least recently and is served from its next hello.
 served. Messages longer than a datagram are split across several, up to the listener's longest message (16 KiB
 here).
 
+`UdpListener::stop_handle` gives a handle that stops this listener alone: it takes no new host, and its
+connections go on until they end ([moving to another address](#moving-to-another-address)). A receive error about
+one host, such as an ICMP error of an earlier send, is skipped; an error of the socket itself ends `serve`.
+
 Connections are `Send` when the socket is `Sync`, so they can run on any thread of a multi-threaded runtime
 ([connections as tasks](#connections-as-tasks)). On another event loop,
 `UdpListener::new` takes a `ww_device::udp::StdUdpSocket` with that loop's readiness, or any `DatagramSocket`;
@@ -308,6 +312,31 @@ scheduler.schedule(async move {
 
 WebSocket clients (`ClientConfig::websocket_url`) and UDP clients (`udp_addr`) then reach the same API on one port
 number, each connection with its client's address as the peer.
+
+#### Moving to another address
+
+A program whose address changes while it runs (a setting the user edits) stops the old listeners and serves new
+ones beside them. Each listener has a stop handle for this, which you take before the listener goes to `serve`:
+
+```rust
+let tcp = TcpIncoming::bind(&handle, old_addr)?;
+let tcp_stop = tcp.stop_handle();
+let udp = bind_udp::<_, 8>(&handle, old_addr, 16 * 1024)?;
+let udp_stop = udp.stop_handle();
+// later, in a callback of the loop, when the address changed:
+tcp_stop.stop();
+udp_stop.stop();
+// bind the new address and schedule another `serve` for it
+```
+
+`TcpStop::stop` closes the TCP socket at once, so the old address is free to bind again and new clients are
+refused. `UdpStop::stop` makes the UDP listener take no new host. The UDP socket stays open until the last of its
+connections ends, since they all send and receive through it; a new host ends none of them. In both cases the
+connections the listener accepted go on, and its `serve` returns once they ended. A shutdown future, in contrast,
+ends every listener and every connection of a server.
+
+A client whose TCP stream fails its setup on the loop (`set_nodelay`, or the loop can't watch the stream) is
+dropped, and the listener goes on with the others.
 
 ### A server on stdio
 
@@ -544,6 +573,27 @@ impl wire_weaver_server::Backend for Backend {}
 stays in the backend. `poll` always runs to its end before the next request starts. All three take `&mut self`, so
 they run only while no request runs, shared ones included.
 
+### When a connection ends
+
+A client may hold something in the program while it is connected: keys it pressed, a lock it took, a region of the
+screen it covered. When the connection ends, the backend's `end` method lets go of it. It runs once, after the last
+request of the connection ended and before the backend is dropped, whatever ended the connection: the client left,
+its link timed out, or the server shut down.
+
+```rust
+impl wire_weaver_server::Backend for Backend {
+    async fn end(&mut self) {
+        // the client is gone: nothing it pressed stays pressed
+        self.input.release_all().await;
+    }
+}
+```
+
+The client hears nothing from `end`, since its link is gone already. The server gives `end` at most
+`shutdown_grace` and then drops it, so a backend that waits on something that never comes can't hold up the server.
+`end` doesn't run when the connection's future itself is dropped before it finished: when the program drops the
+future of `serve`, or aborts a task that [`accepting`](#connections-as-tasks) handed out.
+
 ### One value for all clients
 
 An observed property of a host service usually belongs to the service, and any client may change it. Each
@@ -604,7 +654,7 @@ See [Observing properties](observing.md) for `ObserveState`, `mark_changed_<name
 | `calls_max` | 16 | Shared requests of one connection that run at once. Further ones wait in its queue. |
 | `pending_max` | 32 | The connection stops reading. The client's transport pushes back on the client. |
 | `events_max` | 64 | A handler waits inside its send until the connection wrote events out. |
-| `shutdown_grace` | 5 s | See below. |
+| `shutdown_grace` | 5 s | See below. It also bounds each backend's `end`. |
 | `disconnect_linger` | 200 ms | See below. |
 
 None of these limits drops a request. A full queue slows down the client that filled it, and nobody else.
@@ -631,4 +681,5 @@ reads the reason instead of a transport error. A connection with nothing to
 answer ends at once.
 
 Requests that are still running when `shutdown_grace` has passed are dropped, and their connections are
-disconnected. `serve` returns after the last connection ended.
+disconnected. Each backend's [`end`](#when-a-connection-ends) then runs, again within `shutdown_grace`. `serve`
+returns after the last connection ended.

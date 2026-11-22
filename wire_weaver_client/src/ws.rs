@@ -23,7 +23,9 @@ use tracing::{debug, trace};
 use crate::config::{ConfigPiece, ValidatedConfig};
 use crate::event_loop::DeviceHandle;
 use crate::event_loop::command::Command;
-use crate::event_loop::transport::{MessageRx, MessageTx, Opened, Selected, Transport};
+use crate::event_loop::transport::{
+    Candidate, Candidates, MessageRx, MessageTx, Opened, Race, Selected, Transport,
+};
 
 /// Closing handshake is not waited for longer than this, the other end might be gone already.
 const CLOSE_TIMEOUT: Duration = Duration::from_secs(1);
@@ -35,25 +37,44 @@ pub(crate) fn try_connect(
     c: &ValidatedConfig,
     cmd_rx: &mut Option<mpsc::Receiver<Command>>,
 ) -> Result<Selected, anyhow::Error> {
-    // connect_to() splits a list into one config per URL, connect_blocking() takes the first
-    let Some(url) = c.pieces.iter().rev().find_map(|p| match p {
-        ConfigPiece::WebSocketUrl { urls } => urls.first().cloned(),
-        _ => None,
-    }) else {
+    let urls = c
+        .pieces
+        .iter()
+        .rev()
+        .find_map(|p| match p {
+            ConfigPiece::WebSocketUrl { urls } => Some(urls.clone()),
+            _ => None,
+        })
+        .unwrap_or_default();
+    if urls.is_empty() {
         // no discovery yet, nothing to list
         return Ok(Selected::NotFound { unmatched: vec![] });
-    };
+    }
     let Some(cmd_rx) = cmd_rx.take() else {
         bail!("Internal error: cmd_rx is None");
     };
+    // every URL opens at once, the first to answer goes on to link setup (CLT-80): an address that doesn't answer
+    // (a host gone from the LAN) would otherwise hold the others for the OS's TCP connect timeout, minutes
+    let race = Race {
+        transport: WsTransport,
+        open_timeout: c.open_timeout(WsTransport.link_setup_timeout()),
+    };
     tokio::spawn(async move {
         debug!("ws worker started");
-        crate::event_loop::core::worker(cmd_rx, WsTransport).await;
+        crate::event_loop::core::worker(cmd_rx, race).await;
         debug!("ws worker exited");
     });
+    let candidates = urls
+        .iter()
+        .map(|url| Candidate {
+            address: url.clone(),
+            location: device_info(url).location,
+            handle: Box::new(url.clone()),
+        })
+        .collect();
     Ok(Selected::Device {
-        info: Box::new(device_info(&url)),
-        handle: Box::new(url),
+        info: Box::new(device_info(&urls.join(", "))),
+        handle: Box::new(Candidates::new(candidates)),
         via_hub: false,
     })
 }
@@ -70,6 +91,7 @@ fn device_info(url: &str) -> crate::DeviceInfo {
     }
 }
 
+#[derive(Clone)]
 pub(crate) struct WsTransport;
 
 impl Transport for WsTransport {
@@ -89,12 +111,9 @@ impl Transport for WsTransport {
         let url = handle
             .downcast::<String>()
             .map_err(|_| "expected WebSocket URL".to_string())?;
-        // an address that doesn't answer (a host gone from the LAN) would hold the attempt for the OS's TCP connect
-        // timeout, minutes; a keep-trying connection's next address waits behind it (CLT-75)
-        let timeout = self.link_setup_timeout();
-        let (ws, _response) = tokio::time::timeout(timeout, connect(&url, max_message_len))
+        // a race of the config's URLs limits how long this may take (CLT-80)
+        let (ws, _response) = connect(&url, max_message_len)
             .await
-            .map_err(|_| format!("{url}: no answer within {timeout:?}"))?
             .map_err(|e| format!("{url}: {e}"))?;
         // one message per WebSocket message, no frames of its own
         let mut tap = tap;

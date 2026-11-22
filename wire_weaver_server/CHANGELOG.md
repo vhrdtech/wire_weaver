@@ -9,8 +9,14 @@
 - `local_socket::LocalSocketListener` is now `LocalSocketIncoming`, a source for `byte_stream::listen` with `PreambleFraming`; `HANDSHAKES_MAX` moved to `byte_stream` (TR-19).
 - `Listener::accept` returns `Option<Accepted>`: `None` says no more connections come, and `serve` ends once its connections ended (TR-19).
 
+### 🐛 Fixes
+
+- `byte_stream::TcpIncoming` drops a client whose `set_nodelay` fails instead of ending `serve` (SRV-75).
+
 ### 🚀 Features
 
+- `udp::UdpListener::stop_handle` and `UdpStop`: stop one UDP listener while its connections go on (SRV-75).
+- `Backend::end`: a step after the connection ended, before the backend is dropped, within `shutdown_grace` (SRV-74).
 - `opened::opened`, `OpenedSender::serve` and `OpenedListener`: serve connections the program opened itself (SRV-67).
 - `ShutdownReason`: a shutdown future of `DisconnectReason` tells clients that reason instead of `Shutdown` (SRV-67).
 - Stream items ready at shutdown go out before the disconnect (SRV-67).

@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::{any::Any, marker::PhantomData};
 
 use crate::config::InterfaceKind;
@@ -5,7 +6,7 @@ use crate::event_loop::command::EventLoopExitReason;
 use crate::event_loop::commander::{DeviceFacts, WeakCommander};
 use crate::event_loop::transport::Selected;
 use crate::{
-    Backoff, Commander, ConnectionEvent, ConnectionState, GapReason, WwClient,
+    Backoff, Commander, ConnectionEvent, ConnectionState, GapReason, RetryNow, WwClient,
     config::{ClientConfig, IntrospectBundle, ValidatedConfig},
     device_info::DeviceApiInfo,
     event_loop::command::{Command, EventLoopResidual},
@@ -87,9 +88,10 @@ impl<T: WwClient> PreparedConnection<T> {
                 .try_send(cmd)
                 .map_err(|_| crate::Error::EventLoopNotRunning)?;
         }
-        let mut cmd_rx = Some(cmd_rx);
-        let attempt = connect_to(&config, &cmd_tx, &mut cmd_rx).await;
-        let (device_api_info, residual_rx) = attempt.result?;
+        let mut channel = Channel::new(cmd_rx);
+        let attempt = connect_to(&config, &cmd_tx, &mut channel).await;
+        let device_api_info = attempt.result?;
+        let residual_rx = channel.running();
         let reconnect = Reconnect::new(
             config.clone(),
             residual_rx,
@@ -185,7 +187,7 @@ impl<T: WwClient> PreparedConnection<T> {
 
     /// Makes the client at once and connects in the background, again whenever the link goes (CLT-75): for a device
     /// that comes up later, or a link that drops and comes back (a phone on Wi-Fi, a device that reboots). Each
-    /// attempt tries the config's addresses in order ([ClientConfig::websocket_urls]), the first that answers wins;
+    /// attempt races the config's addresses ([ClientConfig::websocket_urls], CLT-80), the first to open wins;
     /// between attempts the client waits as [ClientConfig::keep_trying] says. Until it is connected, calls fail at
     /// once with [Error::Disconnected](crate::Error::Disconnected), and so do calls in flight when the link goes:
     /// none is sent again by itself. After each reconnect, counted and reliable streams, observed levels and sinks go
@@ -313,12 +315,10 @@ impl PendingClock {
     }
 }
 
-/// What a connection attempt left behind, see [connect_to].
+/// What a connection attempt left behind, see [connect_to]; its command channel is in the [Channel] it was given.
 pub(crate) struct Attempt {
-    /// The device's API and the receiver of the event loop's residual, or why the attempt failed.
-    pub(crate) result: Result<(DeviceApiInfo, oneshot::Receiver<EventLoopResidual>)>,
-    /// Set when an event loop was started and failed to connect: the receiver of its residual.
-    pub(crate) started: Option<oneshot::Receiver<EventLoopResidual>>,
+    /// The device's API, or why the attempt failed.
+    pub(crate) result: Result<DeviceApiInfo>,
     /// The device was reached through the ww hub
     pub(crate) via_hub: bool,
     /// The device's key as the holders registry and the hub name it (`usb:..`, `rtt:..`), `None` on other transports
@@ -327,19 +327,22 @@ pub(crate) struct Attempt {
         allow(dead_code, reason = "only used with the `clock_sync` feature")
     )]
     pub(crate) key: Option<String>,
-    /// Where the device was reached, as [DeviceInfo::location](crate::DeviceInfo::location) names it; empty when
-    /// nothing was selected
+    /// Where the device was reached, as [DeviceInfo::location](crate::DeviceInfo::location) names it: the address
+    /// that won the race of several (CLT-80); empty when nothing was selected
     pub(crate) address: String,
+    /// The address that won a race of several, as the config names it, connected or not: one that failed link
+    /// setup is left out of the next race
+    opened: Option<String>,
 }
 
 impl Attempt {
     fn failed(e: Error) -> Self {
         Attempt {
             result: Err(e),
-            started: None,
             via_hub: false,
             key: None,
             address: String::new(),
+            opened: None,
         }
     }
 }
@@ -367,53 +370,147 @@ fn device_key(
     }
 }
 
-/// Connects as [connect_one] does, to the config's addresses in order ([ValidatedConfig::alternatives], CLT-75): the
-/// first that connects wins. A failed address gives the command channel back before the next is tried; the error of
-/// the last one names every failure.
+/// The command channel of a Commander through a connection attempt ([connect_to]), kept by the caller: an attempt
+/// dropped half way (cancelled, CLT-75) loses nothing, [Self::stop] takes the channel back from wherever it is. A
+/// connected attempt leaves the running loop's residual here ([Self::running]); keeping it is what makes
+/// [Commander::reconnect] possible.
+pub(crate) struct Channel {
+    /// The channel, while no event loop has it
+    cmd_rx: Option<mpsc::Receiver<Command>>,
+    /// For the event loop started on the channel, not queued yet: its [Command::GlobalPaths] and [Command::Connect]
+    unsent: VecDeque<Command>,
+    /// The residual of the event loop started on the channel, with the channel, once it exits
+    residual: Option<oneshot::Receiver<EventLoopResidual>>,
+}
+
+impl Channel {
+    pub(crate) fn new(cmd_rx: mpsc::Receiver<Command>) -> Self {
+        Channel {
+            cmd_rx: Some(cmd_rx),
+            unsent: VecDeque::new(),
+            residual: None,
+        }
+    }
+
+    /// The residual of the loop a connected attempt left running.
+    ///
+    /// # Panics
+    /// When the attempt didn't connect.
+    fn running(&mut self) -> oneshot::Receiver<EventLoopResidual> {
+        assert!(
+            self.unsent.is_empty(),
+            "a connected attempt queued its Connect"
+        );
+        self.residual
+            .take()
+            .expect("a connected attempt's event loop runs")
+    }
+
+    /// Where the channel is after a failed attempt, for the [Keeper].
+    fn into_keeping(self) -> Keeping {
+        match (self.cmd_rx, self.residual) {
+            (Some(cmd_rx), _) => Keeping::Stopped(cmd_rx),
+            (None, Some(residual)) => Keeping::Running(residual),
+            (None, None) => Keeping::Lost,
+        }
+    }
+
+    /// Queues the started loop's commands, each once there is room: cancel-safe, a command not queued stays here.
+    async fn send_unsent(&mut self, cmd_tx: &mpsc::Sender<Command>) -> Result<(), crate::Error> {
+        while !self.unsent.is_empty() {
+            let permit = cmd_tx
+                .reserve()
+                .await
+                .map_err(|_| crate::Error::EventLoopNotRunning)?;
+            if let Some(cmd) = self.unsent.pop_front() {
+                permit.send(cmd);
+            }
+        }
+        Ok(())
+    }
+
+    /// Waits for the started loop to exit and takes the channel back: false when it is gone (the loop exited without
+    /// it). Cancel-safe.
+    async fn back(&mut self) -> bool {
+        if let Some(residual) = &mut self.residual {
+            let exited = residual.await;
+            self.residual = None;
+            if let Ok(exited) = exited {
+                self.cmd_rx = Some(exited.cmd_rx);
+            }
+        }
+        self.cmd_rx.is_some()
+    }
+
+    /// Stops what an attempt dropped half way started and takes the channel back: the started loop gets its
+    /// unsent commands, then [Command::StopAttempt], and exits with the channel. `None`: the channel is gone.
+    pub(crate) async fn stop(
+        mut self,
+        cmd_tx: &mpsc::Sender<Command>,
+    ) -> Option<mpsc::Receiver<Command>> {
+        if self.residual.is_some() {
+            let stopping = match self.send_unsent(cmd_tx).await {
+                Ok(()) => cmd_tx.send(Command::StopAttempt).await.is_ok(),
+                Err(_) => false,
+            };
+            if !stopping {
+                debug!("the event loop is gone before it was stopped");
+            }
+            self.back().await;
+        }
+        self.cmd_rx
+    }
+}
+
+/// Connects as [connect_one] does, which races the config's addresses (CLT-80): when the address that opened first
+/// fails link setup, the command channel comes back and the others race again. The error of the last race names
+/// every failure. Cancel-safe: `channel` has what a dropped attempt started.
 pub(crate) async fn connect_to(
     config: &ValidatedConfig,
     cmd_tx: &mpsc::Sender<Command>,
-    cmd_rx: &mut Option<mpsc::Receiver<Command>>,
+    channel: &mut Channel,
 ) -> Attempt {
-    let alternatives = config.alternatives();
+    let mut config = std::borrow::Cow::Borrowed(config);
     let mut failed = Vec::new();
-    for (i, alternative) in alternatives.iter().enumerate() {
-        let mut attempt = connect_one(alternative, cmd_tx, cmd_rx).await;
-        let last = i + 1 == alternatives.len();
-        if attempt.result.is_ok() || last {
-            if let Err(e) = &attempt.result
-                && !failed.is_empty()
-            {
-                failed.push(format!("{e:#}"));
+    loop {
+        let mut attempt = connect_one(&config, cmd_tx, channel).await;
+        let Err(e) = &attempt.result else {
+            return attempt;
+        };
+        let rest = attempt
+            .opened
+            .as_deref()
+            .and_then(|address| config.without_address(address));
+        failed.push(format!("{e:#}"));
+        // the loop gives the channel back before the rest race on it
+        let Some(rest) = rest.filter(|_| failed.len() < RACES_MAX) else {
+            if failed.len() > 1 {
                 attempt.result = Err(anyhow::anyhow!("{}", failed.join("; ")));
             }
             return attempt;
-        }
-        if let Some(residual) = attempt.started.take() {
-            match residual.await {
-                Ok(residual) => *cmd_rx = Some(residual.cmd_rx),
-                // the loop is gone without its channel: nothing to try the next address on
-                Err(_) => return attempt,
-            }
-        }
-        if cmd_rx.is_none() {
+        };
+        if !channel.back().await {
             return attempt;
         }
-        if let Err(e) = &attempt.result {
-            failed.push(format!("{e:#}"));
-        }
+        debug!(
+            "{} failed link setup, racing the other addresses",
+            attempt.address
+        );
+        config = std::borrow::Cow::Owned(rest);
     }
-    unreachable!("the last alternative returns, and alternatives() has at least one")
 }
 
-/// Selects a device with the transports of `config` (in order), starts an event loop on `cmd_rx` for it and connects.
-/// The loop's residual (its command channel back) comes through the returned receiver when it exits; keeping it is
-/// what makes [Commander::reconnect] possible. `cmd_rx` is taken when a transport found a device.
+/// Races one [connect_to] runs at most: each leaves out an address, a config holds a few.
+const RACES_MAX: usize = 64;
+
+/// Selects a device with the transports of `config` (in order), starts an event loop on `channel` for it and
+/// connects. The channel is taken when a transport found a device; the loop's residual stays in `channel`.
 async fn connect_one(
     config: &ValidatedConfig,
     cmd_tx: &mpsc::Sender<Command>,
-    cmd_rx: &mut Option<mpsc::Receiver<Command>>,
+    channel: &mut Channel,
 ) -> Attempt {
+    let cmd_rx = &mut channel.cmd_rx;
     let mut unmatched = vec![];
     let kinds = match check_interfaces(config) {
         Ok(kinds) => kinds,
@@ -438,34 +535,37 @@ async fn connect_one(
         .await;
         match selected {
             Ok(Selected::Device {
-                handle,
-                info,
+                mut handle,
+                mut info,
                 via_hub,
             }) => {
-                let (residual_tx, residual_rx) = oneshot::channel();
+                let race = handle
+                    .downcast_mut::<crate::event_loop::transport::Candidates>()
+                    .map(crate::event_loop::transport::Candidates::watch);
                 // a link through the hub that goes is reconnected by the keeper, its streams wait for it (CLT-40), as
                 // does every link of a keep-trying connection (CLT-75)
                 let keep = config.keeps_trying || (via_hub && config.hub_reconnect.is_some());
                 let key = device_key(&iface_kind, &info, config);
-                let address = info.location.clone();
-                return match try_connect(cmd_tx, handle, config, residual_tx, keep)
+                let result = try_connect(cmd_tx, handle, config, channel, keep)
                     .instrument(debug_span!(spans::LINK))
-                    .await
-                {
-                    Ok(device_api_info) => Attempt {
-                        result: Ok((device_api_info, residual_rx)),
-                        started: None,
-                        via_hub,
-                        key,
-                        address,
-                    },
-                    Err(e) => Attempt {
-                        result: Err(connect_failed(info, e)),
-                        started: Some(residual_rx),
-                        via_hub,
-                        key,
-                        address,
-                    },
+                    .await;
+                // the race told its winner before link setup started
+                let won = race.and_then(|(entries, mut opened)| {
+                    opened
+                        .try_recv()
+                        .ok()
+                        .and_then(|i| entries.into_iter().nth(i))
+                });
+                if let Some(won) = &won {
+                    info.location.clone_from(&won.location);
+                }
+                let address = info.location.clone();
+                return Attempt {
+                    result: result.map_err(|e| connect_failed(info, e)),
+                    via_hub,
+                    key,
+                    address,
+                    opened: won.map(|w| w.address),
                 };
             }
             Ok(Selected::NotFound { unmatched: u }) => unmatched.extend(u),
@@ -513,6 +613,16 @@ enum Ctl {
     /// The clock steering a keep-trying connection starts on its first connect
     #[cfg(feature = "clock_sync")]
     Clock(Box<PendingClock>),
+    /// [Commander::retry_now]: hurry, by where the connection is
+    RetryNow(oneshot::Sender<RetryNow>),
+}
+
+/// What ends a [Keeper]'s attempt before it is done.
+enum Interrupt {
+    /// Every [Reconnect] is gone: nobody waits for the attempt
+    Closed,
+    /// [Ctl::RetryNow]: a new attempt starts at once
+    Retry(oneshot::Sender<RetryNow>),
 }
 
 /// Where the command channel is, as the [Keeper] sees it.
@@ -618,6 +728,15 @@ impl Reconnect {
         _ = self.ctl.send(Ctl::Supervise(Box::new(commander)));
     }
 
+    /// See [Commander::retry_now].
+    pub(crate) async fn retry_now(&self) -> RetryNow {
+        let (reply_tx, reply_rx) = oneshot::channel();
+        if self.ctl.send(Ctl::RetryNow(reply_tx)).is_err() {
+            return RetryNow::NotTrying;
+        }
+        reply_rx.await.unwrap_or(RetryNow::NotTrying)
+    }
+
     /// The configuration the Commander was connected with, for [Commander::reconnect_as](crate::Commander::reconnect_as)
     /// to rebuild one of the device's new line (CLT-63).
     pub(crate) fn config(&self) -> &ValidatedConfig {
@@ -635,32 +754,31 @@ impl Reconnect {
         let (reply_tx, reply_rx) = oneshot::channel();
         self.ctl.send(Ctl::Take(reply_tx)).map_err(|_| lost())?;
         let cmd_rx = reply_rx.await.map_err(|_| lost())??;
-        let mut cmd_rx = Some(cmd_rx);
+        let mut channel = Channel::new(cmd_rx);
         let Attempt {
             result,
-            started,
             via_hub,
             address,
             ..
-        } = connect_to(&self.config, cmd_tx, &mut cmd_rx).await;
+        } = connect_to(&self.config, cmd_tx, &mut channel).await;
         let (next, answer) = match result {
-            Ok((info, residual)) => (
+            Ok(info) => (
                 Ctl::Running {
-                    residual,
+                    residual: channel.running(),
                     via_hub,
                     connected: Some(address),
                 },
                 Ok(info),
             ),
             Err(e) => {
-                let next = match (cmd_rx, started) {
-                    (Some(cmd_rx), _) => Ctl::Back(cmd_rx),
-                    (None, Some(residual)) => Ctl::Running {
+                let next = match channel.into_keeping() {
+                    Keeping::Stopped(cmd_rx) => Ctl::Back(cmd_rx),
+                    Keeping::Running(residual) => Ctl::Running {
                         residual,
                         via_hub,
                         connected: None,
                     },
-                    (None, None) => Ctl::Lost,
+                    Keeping::Taken | Keeping::Lost => Ctl::Lost,
                 };
                 (next, Err(crate::Error::Other(format!("{e:#}"))))
             }
@@ -719,6 +837,10 @@ impl Keeper {
                             )));
                             Keeping::Running(residual)
                         }
+                        Some(Ctl::RetryNow(reply)) => {
+                            self.retry_now(true, reply);
+                            Keeping::Running(residual)
+                        }
                         Some(c) => {
                             self.setting(c);
                             Keeping::Running(residual)
@@ -742,6 +864,10 @@ impl Keeper {
                                 Err(Ok(cmd_rx)) => Keeping::Stopped(cmd_rx),
                                 Err(Err(_)) => unreachable!("sent Ok"),
                             },
+                            Some(Ctl::RetryNow(reply)) => {
+                                self.retry_now(false, reply);
+                                Keeping::Stopped(cmd_rx)
+                            }
                             Some(c) => {
                                 self.setting(c);
                                 Keeping::Stopped(cmd_rx)
@@ -783,6 +909,11 @@ impl Keeper {
                     }
                     Some(Ctl::Back(cmd_rx)) => Keeping::Stopped(cmd_rx),
                     Some(Ctl::Lost) => Keeping::Lost,
+                    // a reconnect asked for by hand is under way, this connection doesn't reconnect by itself
+                    Some(Ctl::RetryNow(reply)) => {
+                        _ = reply.send(RetryNow::NotTrying);
+                        Keeping::Taken
+                    }
                     Some(c) => {
                         self.setting(c);
                         Keeping::Taken
@@ -794,6 +925,10 @@ impl Keeper {
                         _ = reply.send(Err(crate::Error::User(
                             "the event loop is gone, connect with a new client".into(),
                         )));
+                        Keeping::Lost
+                    }
+                    Some(Ctl::RetryNow(reply)) => {
+                        _ = reply.send(RetryNow::NotTrying);
                         Keeping::Lost
                     }
                     Some(_) => Keeping::Lost,
@@ -920,16 +1055,43 @@ impl Keeper {
         if config.keeps_trying {
             _ = self.events.send(ConnectionEvent::Connecting { attempt });
         }
-        let mut cmd_rx = Some(cmd_rx);
+        let mut channel = Channel::new(cmd_rx);
+        let cmd_tx = commander.cmd_tx().clone();
+        let interrupted = tokio::select! {
+            // first: an attempt that is done counts
+            biased;
+            attempt = connect_to(&config, &cmd_tx, &mut channel) => Ok(attempt),
+            interrupt = self.during_attempt() => Err(interrupt),
+        };
         let Attempt {
             result,
-            started,
             via_hub,
             address,
             ..
-        } = connect_to(&config, commander.cmd_tx(), &mut cmd_rx).await;
+        } = match interrupted {
+            Ok(attempt) => attempt,
+            Err(Interrupt::Closed) => {
+                debug!("every handle is gone: the attempt under way stops");
+                return match channel.stop(&cmd_tx).await {
+                    Some(cmd_rx) => Keeping::Stopped(cmd_rx),
+                    None => Keeping::Lost,
+                };
+            }
+            Err(Interrupt::Retry(reply)) => {
+                debug!("retry now: attempt {attempt} stopped, the next starts at once");
+                let Some(cmd_rx) = channel.stop(&cmd_tx).await else {
+                    _ = reply.send(RetryNow::NotTrying);
+                    self.give_up(&commander, "the event loop is gone".into());
+                    return Keeping::Lost;
+                };
+                self.hurry();
+                _ = reply.send(RetryNow::Restarted);
+                return Keeping::Stopped(cmd_rx);
+            }
+        };
         let e = match result {
-            Ok((info, residual)) => {
+            Ok(info) => {
+                let residual = channel.running();
                 self.via_hub.send_replace(via_hub);
                 return if commander.has_learned() {
                     self.reconnected(commander, info, address).await;
@@ -941,7 +1103,56 @@ impl Keeper {
             }
             Err(e) => e,
         };
-        self.failed(&commander, e, cmd_rx, started)
+        self.failed(&commander, e, channel.into_keeping())
+    }
+
+    /// Answers [Ctl] while an attempt is under way, until one interrupts it.
+    async fn during_attempt(&mut self) -> Interrupt {
+        loop {
+            match self.ctl.recv().await {
+                Some(Ctl::Take(reply)) => {
+                    _ = reply.send(Err(crate::Error::User(
+                        "reconnecting by itself (through the ww hub, or a keep-trying connection)"
+                            .into(),
+                    )));
+                }
+                Some(Ctl::RetryNow(reply)) => return Interrupt::Retry(reply),
+                Some(c) => self.setting(c),
+                None => return Interrupt::Closed,
+            }
+        }
+    }
+
+    /// The next attempt starts now, and waits the backoff's first time after it.
+    fn hurry(&mut self) {
+        let first = self.backoff().first;
+        if let Some(gap) = &mut self.gap {
+            gap.next_at = Instant::now();
+            gap.backoff = first;
+        }
+    }
+
+    /// Answers [Ctl::RetryNow] while no attempt is under way: `running` when an event loop runs on the channel.
+    fn retry_now(&mut self, running: bool, reply: oneshot::Sender<RetryNow>) {
+        let answer = if running {
+            // a connection that reconnects by itself: a keep-trying one, one through the hub
+            let supervised = self.config.keeps_trying || *self.via_hub.borrow();
+            match self.commander.as_ref().and_then(|c| c.upgrade()) {
+                Some(commander) if supervised => {
+                    // a full queue: commands are going out already, and they find a dead medium as a ping would
+                    _ = commander.cmd_tx().try_send(Command::Ping);
+                    RetryNow::Pinged
+                }
+                _ => RetryNow::NotTrying,
+            }
+        } else if self.gap.is_some() {
+            self.hurry();
+            RetryNow::Attempting
+        } else {
+            RetryNow::NotTrying
+        };
+        debug!("retry now: {answer:?}");
+        _ = reply.send(answer);
     }
 
     /// An attempt connected again after a gap: the Commander's streams go on, on the same API or on another revision
@@ -1001,18 +1212,7 @@ impl Keeper {
     }
 
     /// An attempt that failed with `e`: the next one after the backoff, or no more.
-    fn failed(
-        &mut self,
-        commander: &Commander,
-        e: Error,
-        cmd_rx: Option<mpsc::Receiver<Command>>,
-        started: Option<oneshot::Receiver<EventLoopResidual>>,
-    ) -> Keeping {
-        let next = match (cmd_rx, started) {
-            (Some(cmd_rx), _) => Keeping::Stopped(cmd_rx),
-            (None, Some(residual)) => Keeping::Running(residual),
-            (None, None) => Keeping::Lost,
-        };
+    fn failed(&mut self, commander: &Commander, e: Error, next: Keeping) -> Keeping {
         let backoff = self.backoff();
         let give_up = self.give_up_after().flatten();
         let Some(gap) = &mut self.gap else {
@@ -1208,33 +1408,33 @@ fn try_select_in_process(
     }
 }
 
+/// Connects the event loop just started on `channel`: its residual goes into `channel` before anything is awaited.
 async fn try_connect(
     cmd_tx: &mpsc::Sender<Command>,
     handle: Box<dyn Any + Send>,
     config: &ValidatedConfig,
-    residual_tx: oneshot::Sender<EventLoopResidual>,
+    channel: &mut Channel,
     keep_streams_on_loss: bool,
 ) -> Result<DeviceApiInfo> {
     let (connected_tx, connected_rx) = oneshot::channel();
-    cmd_tx
-        .send(Command::GlobalPaths(config.global_paths.clone()))
-        .await
-        .map_err(|_| crate::Error::EventLoopNotRunning)?;
-    cmd_tx
-        .send(Command::Connect {
-            handle,
-            client_version: config.client_version.clone(),
-            max_seq: config.max_seq,
-            max_message_len: config.max_message_len as u32,
-            link_setup_timeout_ms: config.link_setup_timeout_ms,
-            tap: config.tap.clone(),
-            client_meta: config.client_meta.clone(),
-            keep_streams_on_loss,
-            connected_tx: Some(connected_tx),
-            failed_tx: Some(residual_tx),
-        })
-        .await
-        .map_err(|_| crate::Error::EventLoopNotRunning)?;
+    let (residual_tx, residual_rx) = oneshot::channel();
+    channel.residual = Some(residual_rx);
+    channel
+        .unsent
+        .push_back(Command::GlobalPaths(config.global_paths.clone()));
+    channel.unsent.push_back(Command::Connect {
+        handle,
+        client_version: config.client_version.clone(),
+        max_seq: config.max_seq,
+        max_message_len: config.max_message_len as u32,
+        link_setup_timeout_ms: config.link_setup_timeout_ms,
+        tap: config.tap.clone(),
+        client_meta: config.client_meta.clone(),
+        keep_streams_on_loss,
+        connected_tx: Some(connected_tx),
+        failed_tx: Some(residual_tx),
+    });
+    channel.send_unsent(cmd_tx).await?;
     let info = connected_rx.await?;
     let device_api_info = info.result?;
     Ok(device_api_info)
@@ -1443,4 +1643,108 @@ fn connect_failed(device: Box<crate::DeviceInfo>, e: Error) -> Error {
         reason: format!("{e:#}"),
     }
     .into()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ClientConfig;
+    use crate::event_loop::DeviceHandle;
+    use crate::event_loop::transport::{MessageRx, MessageTx, Opened, Transport};
+
+    struct NeverTx;
+    struct NeverRx;
+    crate::event_loop::medium::other_medium!(tx: NeverTx; rx: NeverRx;);
+
+    impl MessageTx for NeverTx {
+        async fn write_message(&mut self, _: u8, _: &[u8]) -> Result<(), String> {
+            Ok(())
+        }
+        async fn flush(&mut self) -> Result<(), String> {
+            Ok(())
+        }
+    }
+
+    impl MessageRx for NeverRx {
+        async fn read_message(&mut self) -> Result<(u8, &[u8]), String> {
+            std::future::pending().await
+        }
+    }
+
+    /// A medium that never opens: an address that doesn't answer.
+    struct NeverOpens;
+
+    impl Transport for NeverOpens {
+        type Tx = NeverTx;
+        type Rx = NeverRx;
+
+        fn link_setup_timeout(&self) -> Duration {
+            Duration::from_secs(1)
+        }
+
+        async fn connect(
+            &mut self,
+            _: DeviceHandle,
+            _: crate::tap::ClientTap,
+            _: usize,
+        ) -> Result<Opened<NeverTx, NeverRx>, String> {
+            std::future::pending().await
+        }
+    }
+
+    fn config() -> ValidatedConfig {
+        ClientConfig::new().validate().expect("the default config")
+    }
+
+    /// An attempt dropped while its medium opens: stopping it takes the channel back at once, without waiting for
+    /// the opening to time out.
+    #[tokio::test(start_paused = true)]
+    async fn attempt_dropped_while_the_medium_opens_gives_the_channel_back() {
+        let (cmd_tx, cmd_rx) = mpsc::channel(8);
+        let mut channel = Channel::new(cmd_rx);
+        let cmd_rx = channel.cmd_rx.take().expect("the channel");
+        tokio::spawn(crate::event_loop::core::worker(cmd_rx, NeverOpens));
+        let config = config();
+        let attempt = try_connect(&cmd_tx, Box::new(()), &config, &mut channel, false);
+        let started = Instant::now();
+        assert!(
+            tokio::time::timeout(Duration::from_millis(10), attempt)
+                .await
+                .is_err(),
+            "the medium never opens"
+        );
+        let back = channel.stop(&cmd_tx).await;
+        assert!(back.is_some(), "the channel is back");
+        assert_eq!(
+            started.elapsed(),
+            Duration::from_millis(10),
+            "no wait for the opening"
+        );
+    }
+
+    /// An attempt dropped before its Connect was queued (the channel was full): the Connect still reaches the loop,
+    /// which then stops and gives the channel back.
+    #[tokio::test(start_paused = true)]
+    async fn attempt_dropped_before_its_connect_was_queued_gives_the_channel_back() {
+        let (cmd_tx, cmd_rx) = mpsc::channel(1);
+        let mut channel = Channel::new(cmd_rx);
+        let cmd_rx = channel.cmd_rx.take().expect("the channel");
+        cmd_tx
+            .try_send(Command::ForwardFlush)
+            .expect("room for one");
+        let config = config();
+        let attempt = try_connect(&cmd_tx, Box::new(()), &config, &mut channel, false);
+        assert!(
+            tokio::time::timeout(Duration::from_millis(10), attempt)
+                .await
+                .is_err(),
+            "no room for the Connect while no loop runs"
+        );
+        assert!(
+            !channel.unsent.is_empty(),
+            "the Connect waits in the channel"
+        );
+        tokio::spawn(crate::event_loop::core::worker(cmd_rx, NeverOpens));
+        assert!(channel.stop(&cmd_tx).await.is_some(), "the channel is back");
+    }
 }

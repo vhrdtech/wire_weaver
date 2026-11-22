@@ -200,3 +200,38 @@ fn record_input_sessions_and_gaps() {
     assert_eq!((stats.from_ns, stats.to_ns), (Some(10), 40));
     assert!(stats.report().contains("5 records missing from the input"));
 }
+
+/// Two devices of one API in one capture: the decoder numbers their links by identity, and a reader picks a device
+/// by its serial ([ww_tap::dims::PEER]), whichever link number the producer gave it.
+#[test]
+fn a_reader_picks_a_device_by_its_serial() {
+    let (recorder, _clock) = Recorder::with_fake_clock(RecorderConfig::default());
+    let sub = recorder.subscribe(Layers::ALL, 64);
+    let mut a = recorder.link();
+    let mut b = recorder.link();
+    b.session(&host_session(Medium::Usb, Framer::None, 64, "SN-B"));
+    a.session(&host_session(Medium::Usb, Framer::None, 64, "SN-A"));
+    a.link_event(&LinkEvent::Error { what: "on A" });
+    b.link_event(&LinkEvent::Error { what: "on B" });
+    recorder.flush();
+    let mut decoder = Decoder::default().with_resolver(crate::test_resolver());
+    while let Some(chunk) = sub.try_recv() {
+        decoder.feed(&chunk.block());
+    }
+    decoder.finish();
+    let link = decoder
+        .find_link(ww_tap::dims::PEER, "SN-B")
+        .expect("SN-B's link");
+    let identity = decoder.link_identity(link).unwrap();
+    assert_eq!(identity.to_string(), "medium=usb peer=SN-B");
+    assert_eq!(decoder.find_link(ww_tap::dims::PEER, "SN-C"), None);
+    let mut of_b = vec![];
+    while let Some(d) = decoder.next() {
+        if d.link == Some(link)
+            && let What::LinkEvent(LinkEventOwned::Error { what }) = d.what
+        {
+            of_b.push(what);
+        }
+    }
+    assert_eq!(of_b, ["on B"]);
+}

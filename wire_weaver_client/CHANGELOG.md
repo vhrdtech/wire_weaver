@@ -2,6 +2,7 @@
 
 ### 🐛 Fixes
 
+- A disconnect while a medium opens, or dropping a keep-trying client mid-attempt, stops the attempt at once (CLT-75).
 - The tap `Decoder` finds a record's link and the tap clock by the track definitions, not by numbers (ww_tape READ-5).
 - Builds outside this workspace again: tokio's `rt-multi-thread`, needed by `block_in_place` on `Commander` drop, is on.
 
@@ -13,6 +14,10 @@
 
 - A reconnect onto another revision of the device's API on the same wire line learns the device again instead of refusing it (CLT-81).
 - After such a reconnect, kept streams, sinks and observers resume only where their resource still holds; the rest end with a warning (CLT-81).
+- A connect opens all `websocket_urls` / `in_process_paths` at once; the first to open wins, the rest race on if it fails (CLT-80).
+- `Commander::retry_now()` and `TotalsSender::retry_now()` (`RetryNow`, CLT-75): hurry a reconnect, restart an attempt, or ping a running link.
+- `Command::Ping` (CLT-75): a ping to the device now, while the link is up.
+- The tap `Decoder` numbers links by their identity; `Decoder::link_identity` and `find_link` pick a device by its serial (TR-14).
 - Re-exports `LocalBoxFuture`, `LocalItemStream` and `local_item_stream`; the client implements a local trait without `Send` too (SRV-73).
 - Request contexts (SRV-47), only to a device that announced it reads them (`DeviceApiInfo::request_context`): calls, reads and writes carry their timeout as the deadline, and `with_call_context` adds `cx.trace` (not on a stream open). A request that times out, or a `call()` whose future is dropped, is cancelled on the device with `RequestKind::Cancel`; the dropped call at once, the rest at their timeout.
 - Link setup sends `ww_client_server::WIRE_VERSION` as `host_model_wire` (SRV-47); `DeviceApiInfo::request_context` says whether the device reads request contexts and `Cancel` (a new public field: struct literals add it).
@@ -43,6 +48,9 @@
 ### ⚠️ Breaking
 
 - `Commander::info`, `device_api_info` and `device_introspect` (and `DynClient`'s) return owned values: a reconnect may replace them (CLT-81).
+- Several addresses race instead of being tried in order: the fastest to open wins, not the first listed (CLT-80).
+- `TotalsSender::run(sink, &Commander)` replaces `run(sink, state)` and returns a spawnable future holding neither (CLT-75).
+- `Command::StopAttempt` (CLT-75) stops a connection attempt under way, keeping streams: exhaustive matches add the arm.
 - `Command::SendMessage` has a `trace: Option<wire_weaver::TraceContext>` field (SRV-47) and `Command` a `CallerGone` variant: code building the command adds `trace: None`, exhaustive matches add the arm.
 - `tap::track_number` and `tap::track_of` are gone (ww_tape READ-5): `tap::link_stream_of` reads a track's link and stream from its definition.
 - `in_process::WsPort` is a stream of pipes, no longer a `ws::Socket`: serve it as `WsConnection::new(IoSocket::new(port))` (TR-19).

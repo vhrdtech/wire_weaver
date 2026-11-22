@@ -674,6 +674,16 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   `impl_local_trait`, and `serve_trait` serves it with the same generated code. `wire_weaver_server` connections
   take `LocalPumps` when their `MakeBackend` says so (`Local`, `LocalConnection`), the others stay `Send`
   (`tests/serve_trait` `not_send`, [docs](docs/api/local_trait.md#without-send)).
+- ✅ **SRV-74 Backend end step** — `wire_weaver_server::Backend::end`: an async step after a connection's link
+  went down (the client left, its link timed out, the server shut down) and its last request ended, before the
+  backend is dropped, cut at `Limits::shutdown_grace`. A backend lets go there of what its client held (keys
+  pressed, covers, locks) ([Host server](docs/api/host_server.md#when-a-connection-ends), `tests/host_server`).
+- ✅ **SRV-75 Listeners that stop alone** — `ww_calloop::TcpIncoming::stop_handle` closes the TCP socket at
+  once and `wire_weaver_server::udp::UdpListener::stop_handle` (`ww_calloop::LoopUdpStop`) takes no new host,
+  on `ww_device::udp::UdpPeers::stop_accepting`: a program moves to another address while the connections it has
+  go on. An error about one client no longer ends `serve` and every connection: a TCP stream that fails its setup
+  is dropped, and `StdUdpSocket` skips receive errors about one datagram
+  ([Host server](docs/api/host_server.md#moving-to-another-address), `tests/calloop_server`, `tests/host_server`).
 - 📋 **SRV-9 Handle USB suspend/resume** · `v0.5` — run until suspend, wait for resume, loop
   (`mcu/wire_weaver_usb_embassy`). Later (`v0.5.x`): detect the host going to sleep and keep the connection,
   informing the device.
@@ -1292,6 +1302,16 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   in the command channel the residual keeps: a keeper task holds the channel between event loops and answers every
   command that comes in (`prepared_connection.rs`'s `keep`). Tested in `tests/methods`
   (`call_while_disconnected_fails_at_once`).
+- ✅ **CLT-80 A connect races a device's addresses** · `v0.5` — each connect opens all of the config's
+  `websocket_urls` (TCP and the WebSocket handshake) or registered `in_process_paths` at once, each within the link
+  setup timeout; the first to open goes on to link setup and the others still opening are dropped, an earlier address
+  winning a tie. When link setup fails on the winner, the rest race again within the same connect (`connect()`,
+  `reconnect()`, every attempt of `connect_keep_trying()`). `ConnectionState::Connected`, `ConnectionEvent::Connected`
+  and `DeviceInfo::location` name the winner; an error of a race names every address. A generic
+  `event_loop::transport::Race` over a transport and its `Candidates` handle; `ValidatedConfig::alternatives()`, one
+  config per address tried in turn, is gone. See `docs/transport/keep_trying.md`; tested in `tests/keep_trying`
+  (`the_first_address_to_open_wins`, `a_winner_that_fails_link_setup_leaves_the_others_to_race`,
+  `addresses_that_all_fail_fail_together`).
 - 🚧 **CLT-79 Where a connect's time goes** · `v0.5` — a connect opens a debug `tracing` span per step
   (`wire_weaver_client::connect_spans`: validate, select, link, open, learn, introspect), and `just connect-bench`
   (`wire_weaver_client_benchmarks`) times them for in-process devices or a blinky board on USB, async, blocking or
@@ -1308,11 +1328,14 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   rest end with a warning. Another wire line keeps CLT-63's handling. See `docs/transport/keep_trying.md`; tested in
   `tests/reconnect_revision`. The clock steering (CLT-46) keeps what the first connect decided.
 - 🚧 **CLT-75 Keep-trying connections** · `v0.5` — `PreparedConnection::connect_keep_trying()` returns the client at
-  once and connects in the background, again whenever the link goes: each attempt tries the config's addresses in
-  order (`ClientConfig::websocket_urls`, `in_process_paths`; `connect()` and `reconnect()` too), backoff and give-up
+  once and connects in the background, again whenever the link goes: each attempt races the config's addresses
+  (`ClientConfig::websocket_urls`, `in_process_paths`; `connect()` and `reconnect()` too, CLT-80), backoff and give-up
   time from `ClientConfig::keep_trying` (`KeepTrying`, `Backoff`); calls fail with `Disconnected` while there is no
   link, streams, observed levels and sinks resume after each reconnect (`resume_streams`);
-  `ConnectionEvent::Connecting` / `Connected` and `Commander::connection_state()` (`ConnectionState`) tell the app.
+  `ConnectionEvent::Connecting` / `Connected` and `Commander::connection_state()` (`ConnectionState`) tell the app;
+  `Commander::retry_now()` and `TotalsSender::retry_now()` (`RetryNow`) hurry the next attempt, restart one under
+  way (cancel-safe: the event loop is stopped with `Command::StopAttempt` and the channel taken back) or ping a
+  running link.
   The first connect learns the device's API and every clone of the handle sees it. A WebSocket address that doesn't
   answer within the link setup timeout fails instead of holding the attempt for the OS's TCP connect timeout. The
   keeper's times run on tokio's clock. See `docs/transport/keep_trying.md`; tested in `tests/keep_trying` on the simulated WebSocket
@@ -1540,7 +1563,10 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   `std`, `ww_tap` is the hook and the record types, `LinkKey { medium, peer }` (a link named by its peer), `api()`
   and `ids::stream_name` for a producer naming the tracks; the `Recorder` is behind `std`. The decoder's input is
   records (`Decoder::record`, `session`, `gap`), `feed(&Block)` feeds a block's records through it (the e2e test
-  compares both). Open: the tap of a ww server's clients (`ClientMap` records are defined, nothing writes them yet).
+  compares both). A link's identity (its medium and peer, the USB serial or address of its first session) is a
+  dimension of its tracks, not a `link[n]` path: two devices of one API share each stream's key, differ in their ids,
+  and keep their ids across captures and reconnects; a reader picks a device by its `peer` (`Decoder::find_link`).
+  Open: the tap of a ww server's clients (`ClientMap` records are defined, nothing writes them yet).
 - ✅ **TR-15 Frame prefix and link setup token** · `v0.5` — stale frames after a reconnect are removed at the
   cause and each medium gets the checks it needs (`docs/transport/ww_link.md#setup-token`,
   `docs/transport/ww_framer.md#frame-prefix`): the host puts a random 64-bit token into link setup, the device

@@ -11,9 +11,7 @@ use futures_util::future::{AbortHandle, AbortRegistration, Abortable, Either, se
 use futures_util::stream::{FuturesUnordered, StreamExt};
 use wire_weaver::shrink_wrap::{DeserializeShrinkWrap, Error as ShrinkWrapError};
 use wire_weaver::ww_version::WireVersion;
-use wire_weaver::{
-    CallContext, ConnectionId, EventWriter, Peer, Priority, WireWeaverSharedApiBackend,
-};
+use wire_weaver::{CallContext, ConnectionId, EventWriter, Peer, Priority};
 use ww_client_server::{ErrorKind, Request, RequestKind, err_seq};
 use ww_device::link::{Phase, Received, Transmit};
 use ww_device::{
@@ -810,21 +808,35 @@ pub(crate) async fn run<M: MakeBackend>(
     let origin = info.origin();
     let mut backend = make.make(&info);
     let medium = make.medium(&info);
+    serve(&mut conn, &mut backend, medium, &origin, authorization).await;
+    // the link is gone and no request runs: the backend lets go of what the client held (SRV-74)
+    let until = conn.clock.now() + limits.shutdown_grace;
+    select(pin!(backend.end()), pin!(conn.clock.wait_until(until))).await;
+}
 
+/// Serve the requests of a connection whose link is up, and the backend's own turns, until the connection ends.
+async fn serve<Tx: MessageTx, Rx: MessageRx, C: Clock + Clone, S: PumpSetOps, B: Backend>(
+    conn: &mut Conn<'_, Tx, Rx, C, S>,
+    backend: &mut B,
+    medium: B::Medium,
+    origin: &CallContext,
+    authorization: Option<&Authorization>,
+) {
+    let (outbox, life, limits) = (conn.outbox, conn.life, conn.limits);
     loop {
         if conn
             .pending
             .front()
-            .is_some_and(|queued| M::Backend::is_shared(&queued.request))
+            .is_some_and(|queued| B::is_shared(&queued.request))
         {
             if !conn
-                .run_shared(&backend, medium, &origin, authorization)
+                .run_shared(backend, medium, origin, authorization)
                 .await
             {
                 return;
             }
         } else if let Some(queued) = conn.pending.pop_front() {
-            if !conn.admit(&queued, &origin, authorization).await {
+            if !conn.admit(&queued, origin, authorization).await {
                 // nothing ran: no turn for the backend either
                 continue;
             }
@@ -833,16 +845,13 @@ pub(crate) async fn run<M: MakeBackend>(
                 conn.refuse(queued).await;
                 continue;
             };
-            let (work, bounds) = conn.work(queued, &origin);
-            let work = pin!(bounded(
-                exclusive(&mut backend, medium, &outbox, work),
-                bounds
-            ));
+            let (work, bounds) = conn.work(queued, origin);
+            let work = pin!(bounded(exclusive(backend, medium, outbox, work), bounds));
             if !conn.finish(work).await {
                 return;
             }
         } else {
-            match conn.idle(&mut backend).await {
+            match conn.idle(backend).await {
                 Idle::Woke => {}
                 // the request first: the backend's turn comes after it
                 Idle::Request => continue,
@@ -851,7 +860,7 @@ pub(crate) async fn run<M: MakeBackend>(
         }
         // the backend's own turn, to its end
         let (events, now) = (conn.take_buffer(), conn.clock.now());
-        let work = pin!(poll(&mut backend, medium, &outbox, now, events));
+        let work = pin!(poll(backend, medium, outbox, now, events));
         if !conn.finish(work).await {
             return;
         }

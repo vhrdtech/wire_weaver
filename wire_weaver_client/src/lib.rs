@@ -73,7 +73,7 @@ pub use client::sink::Sink;
 pub use client::stream::{RawStreamEvent, Stream, StreamError, TypedStreamEvent};
 pub use client_meta::{ClientKind, ClientMeta};
 pub use config::{ClientApi, ClientConfig, ClientLine, DEFAULT_HUB_GIVE_UP};
-pub use connection_event::{ConnectionEvent, ConnectionState, GapReason};
+pub use connection_event::{ConnectionEvent, ConnectionState, GapReason, RetryNow};
 pub use device_info::{ApiInfo, DeviceApiInfo, DeviceInfo, MessageLimit, UsbLocation};
 pub use event_loop::commander::Commander;
 pub use keep_trying::{Backoff, KeepTrying};

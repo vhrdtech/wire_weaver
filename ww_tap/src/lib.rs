@@ -9,9 +9,10 @@
 //! without a tap compiles them away.
 //!
 //! The records are ordinary wire_weaver types, streams of the [LinkTap] trait, so a capture is described by its API
-//! bundle like any device log: one track per link and stream ([Link]), Session sticky. A producer that writes them as
-//! tracks names them with [api] and [ids]; a link named by its peer is keyed by [LinkKey]. With the `std` feature,
-//! [Recorder] batches them into `ww_tape` blocks.
+//! bundle like any device log: one track per stream of each link, Session sticky. A producer that writes them as
+//! tracks names them with [api] and [ids], and tells links apart by their [dims]: the link's medium and peer, so the
+//! same device gives the same track ids in every capture. A link named by its peer is [LinkKey]. With the `std`
+//! feature, [Recorder] batches them into `ww_tape` blocks.
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use wire_weaver::prelude::*;
@@ -137,15 +138,12 @@ impl<T: Tap> Tap for Option<T> {
 
 /// Records of a link tap, one stream per kind of record. Implemented by nobody: the trait is there for its API
 /// bundle, which describes the tracks of a capture.
+///
+/// One link's records are one set of these streams: the tracks of every link share their keys, and the link's
+/// identity, its [dimensions](dims) (the medium and the peer, a USB serial or an address), tells them
+/// apart. The same device recorded twice, in one capture or in two, gives its tracks the same ids.
 #[ww_trait]
 pub trait LinkTap {
-    /// One entry per link the producer saw, by link id.
-    ww_impl!(link[]: Link);
-}
-
-/// The streams of one link; tracks of a capture are `link[id].<stream>`.
-#[ww_trait]
-pub trait Link {
     /// The link's session, updated when it is set up (a state track: put near each use).
     stream!(session: Session<'i>);
     /// Connects, disconnects, errors, lost records.
@@ -162,9 +160,8 @@ pub trait Link {
     stream!(client_map: ClientMap);
 }
 
-/// Resource ids of [LinkTap] and [Link], as in their bundle (declaration order), for track paths.
+/// Resource ids of [LinkTap]'s streams, as in its bundle (declaration order), for track paths.
 pub mod ids {
-    pub const LINK: u32 = 0;
     pub const SESSION: u32 = 0;
     pub const EVENTS: u32 = 1;
     pub const TX_FRAMES: u32 = 2;
@@ -173,8 +170,8 @@ pub mod ids {
     pub const RX_MESSAGES: u32 = 5;
     pub const CLIENT_MAP: u32 = 6;
 
-    /// The name of a [Link](crate::Link) stream by its id, as in a track's name path `link[n].<stream>`; None for an
-    /// id that is not a stream.
+    /// The name of a [LinkTap](crate::LinkTap) stream by its id, as in a track's name path; None for an id that is
+    /// not a stream.
     pub const fn stream_name(stream: u32) -> Option<&'static str> {
         Some(match stream {
             SESSION => "session",
@@ -187,6 +184,17 @@ pub mod ids {
             _ => return None,
         })
     }
+}
+
+/// Names of the dimensions of a link's tracks: what tells the tracks of two links apart, whose keys are the same.
+pub mod dims {
+    /// The link's medium, [Medium::name](crate::Medium::name).
+    pub const MEDIUM: &str = "medium";
+    /// The peer of the link's first session: a USB serial, an address, an in-process path.
+    pub const PEER: &str = "peer";
+    /// The producer's number of the link, only where the peer doesn't tell it apart: no peer, or another open link of
+    /// the same medium and peer.
+    pub const LINK: &str = "link";
 }
 
 /// The API the tap's tracks are in: this crate's name and version, as in its bundle ([LINK_TAP_FULL_GID]).
@@ -247,6 +255,26 @@ pub enum Medium {
     /// A byte stream other than a local socket (TR-19): TCP, a command's stdio, a stream the program opened;
     /// messages as they are.
     ByteStream,
+}
+
+impl Medium {
+    /// Its name in snake case, the value of a link's [dims::MEDIUM] dimension.
+    pub const fn name(self) -> &'static str {
+        match self {
+            Medium::Usb => "usb",
+            Medium::Udp => "udp",
+            Medium::WebSocket => "web_socket",
+            Medium::Rtt => "rtt",
+            Medium::InProcess => "in_process",
+            Medium::InProcessUsb => "in_process_usb",
+            Medium::Other => "other",
+            Medium::LocalSocket => "local_socket",
+            Medium::InProcessUdp => "in_process_udp",
+            Medium::InProcessWebSocket => "in_process_web_socket",
+            Medium::ByteStream => "byte_stream",
+            Medium::Unknown(_) => "unknown",
+        }
+    }
 }
 
 /// How frames are packed (`ww_framer`), see `ww_link` for each medium's configuration.
@@ -356,10 +384,8 @@ pub enum LinkEvent<'i> {
     Closed,
 }
 
-/// The key of a link in [LinkTap]'s `link[]` when links are named by their peer: one device keeps its tracks
-/// across reconnects.
-///
-/// Its bytes are hashed into the tracks' keys, so a new field gives every keyed tap track a new key.
+/// A link named by its peer, as the hub names the links it watches: one device keeps its name across reconnects.
+/// The same two fields are a link's track [dimensions](dims).
 #[derive_shrink_wrap(owned(feature = "std"), derive(Debug, PartialEq, Eq, Clone))]
 pub struct LinkKey<'i> {
     pub medium: Medium,

@@ -5,9 +5,15 @@
 //! link's peer timeout. Up to `PEERS` hosts are served at once; with every slot taken, a new host ends the connection
 //! heard from least recently and is served from its next hello, as `ww_device::udp` describes.
 
+use std::future::poll_fn;
 use std::net::SocketAddr;
-use std::sync::Arc;
+use std::pin::pin;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Weak};
+use std::task::{Context, Poll};
 
+use futures_util::future::{Either, select};
+use futures_util::task::AtomicWaker;
 use wire_weaver::Peer;
 use ww_device::udp::{DatagramSocket, LockedUdpPeers, Readiness, StdUdpSocket, UdpSink, UdpSource};
 use ww_device::ww_link::UDP_MAX_DATAGRAM_LEN;
@@ -60,6 +66,53 @@ pub struct UdpListener<S: DatagramSocket, const PEERS: usize> {
     /// What the listener receives into while no connection does
     buf: Box<[u8; UDP_MAX_DATAGRAM_LEN]>,
     message_len_max: usize,
+    stop: Arc<Stop>,
+}
+
+/// Whether a [UdpListener] was stopped, and who to wake when it is.
+#[derive(Default)]
+struct Stop {
+    stopped: AtomicBool,
+    waker: AtomicWaker,
+}
+
+impl Stop {
+    fn poll_stopped(&self, cx: &mut Context<'_>) -> Poll<()> {
+        self.waker.register(cx.waker());
+        if self.stopped.load(Ordering::Acquire) {
+            Poll::Ready(())
+        } else {
+            Poll::Pending
+        }
+    }
+}
+
+/// Stops one [UdpListener]: see [UdpListener::stop_handle].
+pub struct UdpStop<S: DatagramSocket, const PEERS: usize> {
+    /// Weak, so that a handle kept after the server ended holds no socket open.
+    peers: Weak<LockedUdpPeers<S, PEERS>>,
+    stop: Arc<Stop>,
+}
+
+impl<S: DatagramSocket, const PEERS: usize> Clone for UdpStop<S, PEERS> {
+    fn clone(&self) -> Self {
+        UdpStop {
+            peers: self.peers.clone(),
+            stop: self.stop.clone(),
+        }
+    }
+}
+
+impl<S: DatagramSocket, const PEERS: usize> UdpStop<S, PEERS> {
+    /// Accept no more hosts: [accept](Listener::accept) gives `None` from now on, so the server ends once its
+    /// connections ended, and a new host ends none of them. The socket closes with the last connection.
+    pub fn stop(&self) {
+        self.stop.stopped.store(true, Ordering::Release);
+        if let Some(peers) = self.peers.upgrade() {
+            peers.stop_accepting();
+        }
+        self.stop.waker.wake();
+    }
 }
 
 impl<S: DatagramSocket, const PEERS: usize> UdpListener<S, PEERS> {
@@ -74,6 +127,16 @@ impl<S: DatagramSocket, const PEERS: usize> UdpListener<S, PEERS> {
             peers: Arc::new(LockedUdpPeers::new(socket)),
             buf: Box::new([0u8; UDP_MAX_DATAGRAM_LEN]),
             message_len_max,
+            stop: Arc::default(),
+        }
+    }
+
+    /// A handle that stops this listener alone, for a program that moves to another address while it runs: the
+    /// connections the listener has go on, on the same socket. The handle is `Send` and `Sync` when the socket is.
+    pub fn stop_handle(&self) -> UdpStop<S, PEERS> {
+        UdpStop {
+            peers: Arc::downgrade(&self.peers),
+            stop: self.stop.clone(),
         }
     }
 
@@ -139,9 +202,18 @@ where
     type Rx = UdpRx<S, PEERS>;
     type Error = S::RecvError;
 
-    /// Cancel-safe, as `UdpPeers::accept`. Never `None`: a socket has no end.
+    /// Cancel-safe, as `UdpPeers::accept`. `None` once [stopped](UdpStop::stop).
     async fn accept(&mut self) -> Accept<Self::Tx, Self::Rx, Self::Error> {
-        let (slot, from) = self.peers.accept(&mut self.buf).await?;
+        let stopped = pin!(poll_fn(|cx| self.stop.poll_stopped(cx)));
+        let accepted = pin!(self.peers.accept(&mut self.buf));
+        let (slot, from) = match select(stopped, accepted).await {
+            Either::Left(((), _)) => {
+                // again: an accept that started beside the stop listened once more
+                self.peers.stop_accepting();
+                return Ok(None);
+            }
+            Either::Right((accepted, _)) => accepted?,
+        };
         // the source first: it holds the slot for the connection, and adopts the host when the connection starts
         let rx = OwnedFramedRx::owned(
             UdpSource::new(self.peers.clone(), slot),

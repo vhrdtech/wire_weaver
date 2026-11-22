@@ -59,4 +59,14 @@ pub trait Backend: WireWeaverSharedApiBackend {
         let _ = (out, medium, now);
         async {}
     }
+
+    /// The connection is over: the client left, its link timed out, or the server disconnected it. Let go of what
+    /// the client held (keys it pressed, locks it took). Runs once, after every request of the connection ended
+    /// and before the backend is dropped, for at most [Limits::shutdown_grace](crate::Limits::shutdown_grace);
+    /// nothing reaches the client any more. A connection future dropped before its end (the server's own future
+    /// dropped, a task of [Server::accepting](crate::Server::accepting) aborted) never runs it. Does nothing by
+    /// default.
+    fn end(&mut self) -> impl Future<Output = ()> {
+        async {}
+    }
 }

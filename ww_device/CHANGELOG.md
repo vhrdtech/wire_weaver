@@ -6,8 +6,13 @@
 
 - A README, a comment on the `defmt` feature, and a fixed broken doc link in the `udp` module docs.
 
+### 🚀 Features
+
+- `udp::UdpPeers::stop_accepting`: no more hosts are handed out, and a new host ends no connection (SRV-75).
+
 ### 🐛 Fixes
 
+- `udp::StdUdpSocket` skips receive errors about one datagram: ICMP `ConnectionRefused`, Windows' too-long datagram (SRV-75).
 - With both `log` and `defmt` on, cargo no longer reports `log` as an unused dependency.
 
 ### ⚠️ Breaking

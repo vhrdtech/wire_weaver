@@ -12,7 +12,7 @@ use wire_weaver::Peer;
 use super::{ACCEPT_RETRY_DELAY, is_transient};
 
 /// The connections of a TCP listener, as a source for [listen](super::listen). Running out of descriptors or memory
-/// is waited out, not an error.
+/// is waited out, not an error; a client whose stream fails its setup is dropped.
 pub struct TcpIncoming {
     listener: TcpListener,
     retry: Option<Pin<Box<tokio::time::Sleep>>>,
@@ -57,9 +57,11 @@ impl Stream for TcpIncoming {
             }
             match self.listener.poll_accept(cx) {
                 Poll::Ready(Ok((stream, addr))) => {
-                    // messages are small and flushed on purpose: Nagle would only delay them
-                    stream.set_nodelay(true)?;
-                    return Poll::Ready(Some(Ok((stream.compat(), Peer::Addr(addr)))));
+                    // messages are small and flushed on purpose: Nagle would only delay them. A stream that can't
+                    // take it is about that one client: it is dropped, the others go on
+                    if stream.set_nodelay(true).is_ok() {
+                        return Poll::Ready(Some(Ok((stream.compat(), Peer::Addr(addr)))));
+                    }
                 }
                 Poll::Ready(Err(e)) if is_transient(&e) => {
                     self.retry = Some(Box::pin(tokio::time::sleep(ACCEPT_RETRY_DELAY)));

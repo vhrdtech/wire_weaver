@@ -6544,7 +6544,7 @@ change that breaks Rust code the breaking one (minor before 1.0).</p>
 <p>You don't have to remember which change needs which bump. The evolution checker compares your crate with a snapshot
 of the last release and tells you. Add it to the API crate as a test, so <code>cargo test</code> and CI run it:</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">[dev-dependencies]</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">wire_weaver_evolution</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;0.5&quot;</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">wire_weaver_evolution</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;0.6&quot;</span>
 </span></code></pre></div>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1">// tests/evolution.rs</span>
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="cp">#[test]</span>

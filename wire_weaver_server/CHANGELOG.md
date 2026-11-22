@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### 📚 Documentation
+
+- `Resource::items` carries the items' effects (API-58).
+
 ### ⚠️ Breaking
 
 - The shutdown future of `serve` and `accepting` completes with a `ShutdownReason` (SRV-67): clients hear it; `pending()` becomes `pending::<()>()`.

@@ -2,6 +2,7 @@
 use ww_api::prelude::*;
 
 #[ww_api_root]
+#[effect(edit)]
 trait HubReconnect {
     fn add(a: u32, b: u32) -> u32;
     /// Ticks counting up; unit: tick

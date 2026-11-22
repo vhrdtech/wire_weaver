@@ -5,6 +5,7 @@
 use ww_api::prelude::*;
 
 #[ww_api_root]
+#[effect(edit)]
 trait Recursive {
     /// Value of the expression, `None` when it is nested too deep or has a variant from a newer version
     fn eval(expr: Expr<'i>) -> Option<i32>;

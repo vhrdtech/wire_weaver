@@ -35,6 +35,7 @@
   `CommonError::Unsupported.into()` (or `?` a helper returning `CommonError`).
 ### 🚀 Features
 
+- `Clock` declares the effect of each method (API-58).
 - Steer points say who steers (SRV-31): `SteerPoint::steerer: Option<Steerer>` (`#[default = None]`), with
   `Steerer { id, host, program, pid }` (id: the steering program's client instance id). A device follows one steerer
   at a time and only notes another's points until the followed one has been quiet for its holdover time;

@@ -12,6 +12,7 @@ use ww_si::{AnyQuantity, Fixed, Quantity};
 pub type LbfSeconds = Fixed<Times<PoundForce, Second>, Milli, i32>;
 
 #[ww_api_root]
+#[effect(edit)]
 trait SmallForces {
     /// Impulse of the last angular momentum desaturation, as the ground software's table has it
     property!(rw impulse: LbfSeconds);

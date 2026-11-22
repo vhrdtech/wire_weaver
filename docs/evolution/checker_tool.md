@@ -517,6 +517,7 @@ On a trait method the same bare attribute silences every argument, or names only
 #[ww_trait]
 trait Device {
     #[no_unit_hint(poll_hz)]
+    #[effect(edit)]
     fn configure(&self, timeout_ms: u32, poll_hz: u32); // timeout_ms still gets the note
 }
 ```
@@ -547,6 +548,7 @@ struct SteerPoint {
 #[ww_trait]
 trait Device {
     #[no_unit_hint(poll_hz = "a raw register value, not a frequency")]
+    #[effect(edit)]
     fn configure(&self, timeout_ms: u32, poll_hz: u32);
 }
 ```

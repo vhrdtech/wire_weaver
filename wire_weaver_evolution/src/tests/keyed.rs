@@ -38,6 +38,7 @@ pub trait Api {
 }
 
 #[ww_trait]
+#[effect(edit)]
 pub trait Flow {
     fn close();
 }
@@ -128,6 +129,7 @@ pub trait Api {
 }
 
 #[ww_trait]
+#[effect(edit)]
 pub trait Flow {
     fn close();
 }

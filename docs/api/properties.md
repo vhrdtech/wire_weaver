@@ -10,9 +10,12 @@ A property is a value of the device the host reads, writes or both: a setting, a
 #[ww_trait]
 trait MyDevice {
     property!(ro button_pressed: bool);
+    #[effect(actuate)]
     property!(rw speed: f32);
+    #[effect(actuate)]
     property!(wo beep: u16);
     #[errors(TooBig, NotSet)]
+    #[effect(edit)]
     property!(rw mode: u8, ModeError);
     /// Known at compile time, never changes while the firmware runs.
     const LIMITS: Limits<'i>;
@@ -130,7 +133,9 @@ wire format, cost vs plain streams). Declaring one is just the property flag:
 trait Motor {
     property!(ro+observe speed: f32);
     property!(ro+observe current: f32);
+    #[effect(edit)]
     property!(rw+observe mode: u8);
+    #[effect(edit)]
     property!(rw gain: f32); // not observable
 }
 ```

@@ -41,12 +41,14 @@ pub struct Reading(pub u32);
 
 /// What any server costs: one method.
 #[ww_api_root]
+#[effect(edit)]
 pub trait Floor {
     fn ping();
 }
 
 /// Two resources of each kind.
 #[ww_trait]
+#[effect(edit)]
 pub trait Base {
     fn c0();
     fn c1();
@@ -66,6 +68,7 @@ pub trait BaseOnly {
 
 /// [Base] and 8 calls without arguments or output.
 #[ww_api_root]
+#[effect(edit)]
 pub trait Calls8 {
     ww_impl!(base: Base);
     fn x0();
@@ -80,6 +83,7 @@ pub trait Calls8 {
 
 /// [Base] and 16 calls without arguments or output.
 #[ww_api_root]
+#[effect(edit)]
 pub trait Calls16 {
     ww_impl!(base: Base);
     fn x0();
@@ -102,6 +106,7 @@ pub trait Calls16 {
 
 /// [Base] and 8 calls with an argument and an output.
 #[ww_api_root]
+#[effect(edit)]
 pub trait CallsArgs8 {
     ww_impl!(base: Base);
     fn x0(code: Code) -> Reading;
@@ -116,6 +121,7 @@ pub trait CallsArgs8 {
 
 /// [Base] and 16 calls with an argument and an output.
 #[ww_api_root]
+#[effect(edit)]
 pub trait CallsArgs16 {
     ww_impl!(base: Base);
     fn x0(code: Code) -> Reading;
@@ -138,6 +144,7 @@ pub trait CallsArgs16 {
 
 /// [Base] and 8 read-write properties.
 #[ww_api_root]
+#[effect(edit)]
 pub trait Props8 {
     ww_impl!(base: Base);
     property!(rw x0: Code);
@@ -152,6 +159,7 @@ pub trait Props8 {
 
 /// [Base] and 16 read-write properties.
 #[ww_api_root]
+#[effect(edit)]
 pub trait Props16 {
     ww_impl!(base: Base);
     property!(rw x0: Code);
@@ -210,6 +218,7 @@ pub trait Streams16 {
 
 /// [Base] and 8 calls with arguments and outputs of their own types.
 #[ww_api_root]
+#[effect(edit)]
 pub trait Typed8 {
     ww_impl!(base: Base);
     fn x0(arg: In0) -> Out0;
@@ -224,6 +233,7 @@ pub trait Typed8 {
 
 /// [Base] and 16 calls with arguments and outputs of their own types.
 #[ww_api_root]
+#[effect(edit)]
 pub trait Typed16 {
     ww_impl!(base: Base);
     fn x0(arg: In0) -> Out0;
@@ -247,6 +257,7 @@ pub trait Typed16 {
 /// [Base] and 8 read-write properties of `MaxLen<&'i str, N>`, a different `N` each (SW-72): every bound is
 /// monomorphised on its own, as `&str` at N = 16, 32, 64, 128 is in Portwright.
 #[ww_api_root]
+#[effect(edit)]
 pub trait MaxLenBounds8 {
     ww_impl!(base: Base);
     property!(rw x0: MaxLen<&'i str, 4>);
@@ -261,6 +272,7 @@ pub trait MaxLenBounds8 {
 
 /// [Base] and 16 read-write properties of `MaxLen<&'i str, N>`, a different `N` each (SW-72).
 #[ww_api_root]
+#[effect(edit)]
 pub trait MaxLenBounds16 {
     ww_impl!(base: Base);
     property!(rw x0: MaxLen<&'i str, 4>);
@@ -544,96 +556,112 @@ pub trait Globals16 {
 
 /// Trait 0 of the `Globals*` roots.
 #[ww_trait]
+#[effect(edit)]
 pub trait GlobalTrait0 {
     fn m();
 }
 
 /// Trait 1 of the `Globals*` roots.
 #[ww_trait]
+#[effect(edit)]
 pub trait GlobalTrait1 {
     fn m();
 }
 
 /// Trait 2 of the `Globals*` roots.
 #[ww_trait]
+#[effect(edit)]
 pub trait GlobalTrait2 {
     fn m();
 }
 
 /// Trait 3 of the `Globals*` roots.
 #[ww_trait]
+#[effect(edit)]
 pub trait GlobalTrait3 {
     fn m();
 }
 
 /// Trait 4 of the `Globals*` roots.
 #[ww_trait]
+#[effect(edit)]
 pub trait GlobalTrait4 {
     fn m();
 }
 
 /// Trait 5 of the `Globals*` roots.
 #[ww_trait]
+#[effect(edit)]
 pub trait GlobalTrait5 {
     fn m();
 }
 
 /// Trait 6 of the `Globals*` roots.
 #[ww_trait]
+#[effect(edit)]
 pub trait GlobalTrait6 {
     fn m();
 }
 
 /// Trait 7 of the `Globals*` roots.
 #[ww_trait]
+#[effect(edit)]
 pub trait GlobalTrait7 {
     fn m();
 }
 
 /// Trait 8 of the `Globals*` roots.
 #[ww_trait]
+#[effect(edit)]
 pub trait GlobalTrait8 {
     fn m();
 }
 
 /// Trait 9 of the `Globals*` roots.
 #[ww_trait]
+#[effect(edit)]
 pub trait GlobalTrait9 {
     fn m();
 }
 
 /// Trait 10 of the `Globals*` roots.
 #[ww_trait]
+#[effect(edit)]
 pub trait GlobalTrait10 {
     fn m();
 }
 
 /// Trait 11 of the `Globals*` roots.
 #[ww_trait]
+#[effect(edit)]
 pub trait GlobalTrait11 {
     fn m();
 }
 
 /// Trait 12 of the `Globals*` roots.
 #[ww_trait]
+#[effect(edit)]
 pub trait GlobalTrait12 {
     fn m();
 }
 
 /// Trait 13 of the `Globals*` roots.
 #[ww_trait]
+#[effect(edit)]
 pub trait GlobalTrait13 {
     fn m();
 }
 
 /// Trait 14 of the `Globals*` roots.
 #[ww_trait]
+#[effect(edit)]
 pub trait GlobalTrait14 {
     fn m();
 }
 
 /// Trait 15 of the `Globals*` roots.
 #[ww_trait]
+#[effect(edit)]
 pub trait GlobalTrait15 {
     fn m();
 }

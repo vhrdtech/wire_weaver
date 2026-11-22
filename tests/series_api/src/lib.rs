@@ -7,6 +7,7 @@ use ww_api::shrink_wrap::Series;
 use ww_si::{Timed, Volt};
 
 #[ww_api_root]
+#[effect(edit)]
 trait Sequences {
     /// Sum of the timestamps
     fn sum(timestamps: Series<'i, u32>) -> u64;

@@ -33,6 +33,7 @@ fn api(arg: &str, prop: &str, field: &str) -> String {
         }}
 
         #[ww_api_root(wire = "w1.0")]
+        #[effect(edit)]
         pub trait Api {{
             fn set(shared: {arg});
             property!(ro uptime: {prop});

@@ -35,13 +35,17 @@ trait MyDevice {
 
 #[ww_trait]
 trait MotorControl {
+    #[effect(actuate)]
     fn turn_on();
+    #[effect(actuate)]
     fn turn_off();
 }
 
 #[ww_trait]
 trait LedControl {
+    #[effect(actuate)]
     fn led_on();
+    #[effect(actuate)]
     fn set_brightness(value: f32);
 }
 ```
@@ -127,6 +131,7 @@ pub trait Health {
     /// `self_test` of the root on line 2, `check` on line 1.
     #[moved_from(w2.1, Thermo::self_test)]
     #[moved_from(w1.0, Thermo::check)]
+    #[effect(read)]
     fn self_test() -> Result<(), SelfTestError>;
 }
 ```

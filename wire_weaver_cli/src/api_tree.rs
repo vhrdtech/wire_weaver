@@ -251,6 +251,10 @@ impl TreePrinter<'_> {
                 let attr = format!("#[label({})] ", labels.join(", "));
                 _ = write!(self.out, "{}", style(attr).dim());
             }
+            if !meta.effects.is_empty() {
+                let attr = format!("#[effect({})] ", meta.effects);
+                _ = write!(self.out, "{}", style(attr).dim());
+            }
         }
         if let Some(errors) = item.kind.error_list() {
             let attr = format!("#[errors({})] ", escape(&fmt_error_list(errors)));
@@ -686,7 +690,7 @@ trait Dissector keyed_api@0.1.0
 │  ├─ 0 ro property bytes: Fixed<Byte, One, u64, Unbounded>
 │  └─ 1 stream packets: Vec<u8>
 ├─ 1 keyed flow_keys: flow by FlowKey
-└─ 2 fn clear()
+└─ 2 #[effect(edit)] fn clear()
 ";
         assert_eq!(tree, expected);
     }
@@ -721,12 +725,12 @@ trait Dissector keyed_api@0.1.0
         let tree = render(&bundle, false);
         // `type Volt = Quantity<units::Volt>`, `type Sample<T> = Pair<Window<2>, Reading<T>>`: what they name
         for line in [
-            "├─ 6 fn double(v: Quantity<Volt>) -> Quantity<Volt>\n",
-            "├─ 7 rw property voltage: Quantity<Volt>\n",
-            "├─ 8 rw property timed_voltage: Timed<Quantity<Volt>, Point<DeviceBoot, Fixed<Second, Micro, u32, Unbounded>>>\n",
-            "├─ 9 rw property sample: Pair<Window<2>, Reading<u8>>\n",
+            "├─ 6 #[effect(edit)] fn double(v: Quantity<Volt>) -> Quantity<Volt>\n",
+            "├─ 7 #[effect(edit)] rw property voltage: Quantity<Volt>\n",
+            "├─ 8 #[effect(edit)] rw property timed_voltage: Timed<Quantity<Volt>, Point<DeviceBoot, Fixed<Second, Micro, u32, Unbounded>>>\n",
+            "├─ 9 #[effect(edit)] rw property sample: Pair<Window<2>, Reading<u8>>\n",
             // API-65: `Niched<V, N>` with its storage from `<V as RawValue>::Raw`
-            "├─ 10 rw property niched: Niched<Fixed<Ratio, One, u8, Range<0, 100>>, Null<255>, u8>\n",
+            "├─ 10 #[effect(edit)] rw property niched: Niched<Fixed<Ratio, One, u8, Range<0, 100>>, Null<255>, u8>\n",
         ] {
             assert!(tree.contains(line), "{tree}");
         }
@@ -739,25 +743,25 @@ trait Dissector keyed_api@0.1.0
         let expected = "\
 trait Traits traits_api@0.1.0
 ├─ 0 impl g1: traits_api::Subgroup
-│  └─ 0 fn m1()
+│  └─ 0 #[effect(edit)] fn m1()
 ├─ 1 #[claim(exclusive)] impl gpio[]: traits_api::Gpio
-│  └─ 0 fn set_high()
+│  └─ 0 #[effect(edit)] fn set_high()
 ├─ 2 impl periph[]: traits_api::Peripheral
 │  └─ 0 impl channel[]: traits_api::Channel
-│     ├─ 0 rw property gain: f32
-│     └─ 1 fn run()
+│     ├─ 0 #[effect(edit)] rw property gain: f32
+│     └─ 1 #[effect(edit)] fn run()
 ├─ 3 #[claim(shared)] #[shares(pins = \"PB6, PB7\", peripherals = \"I2C1\")] #[label(\"Sensor I2C, J4\")] impl i2c: traits_api::I2c
 │  /// A bus clients can claim together through the hub (SRV-34), with its pins and a label; `gpio` is claimable
 │  /// by its trait.
-│  ├─ 0 fn i2c_write(data: u8) -> u8
-│  ├─ 1 #[optional] fn i2c_wiggle_clock(count: u8) -> u8
+│  ├─ 0 #[effect(edit)] fn i2c_write(data: u8) -> u8
+│  ├─ 1 #[optional] #[effect(edit)] fn i2c_wiggle_clock(count: u8) -> u8
 │  │  /// Clocks SCL until SDA is released.
-│  ├─ 2 #[optional(pullups)] fn i2c_set_pullups(enabled: bool) -> Result<(), u8>
+│  ├─ 2 #[optional(pullups)] #[effect(edit)] fn i2c_set_pullups(enabled: bool) -> Result<(), u8>
 │  │  /// Switchable pull-ups: both items or neither.
 │  │  /// Fallible: an omitted method with an error type gives `CallError::Unimplemented` on the client.
-│  ├─ 3 #[optional(pullups)] rw property i2c_pullups: bool
+│  ├─ 3 #[optional(pullups)] #[effect(edit)] rw property i2c_pullups: bool
 │  └─ 4 #[optional] stream i2c_monitor: u8
-└─ 4 #[optional] #[label(\"Reset button\")] fn reset()
+└─ 4 #[optional] #[label(\"Reset button\")] #[effect(edit)] fn reset()
    /// Optional item of the root level itself.
 ";
         assert_eq!(tree, expected);
@@ -780,10 +784,10 @@ trait Traits traits_api@0.1.0
         }
         let tree = render(&bundle, true);
         for line in [
-            "├─ 1 #[optional] fn i2c_wiggle_clock(count: u8) -> u8\n",
-            "├─ 2 #[optional(pullups)] fn i2c_set_pullups(enabled: bool) -> Result<(), u8> (left out by this device)\n",
-            "├─ 3 #[optional(pullups)] rw property i2c_pullups: bool (left out by this device)\n",
-            "└─ 4 #[optional] #[label(\"Reset button\")] fn reset() (left out by this device)\n",
+            "├─ 1 #[optional] #[effect(edit)] fn i2c_wiggle_clock(count: u8) -> u8\n",
+            "├─ 2 #[optional(pullups)] #[effect(edit)] fn i2c_set_pullups(enabled: bool) -> Result<(), u8> (left out by this device)\n",
+            "├─ 3 #[optional(pullups)] #[effect(edit)] rw property i2c_pullups: bool (left out by this device)\n",
+            "└─ 4 #[optional] #[label(\"Reset button\")] #[effect(edit)] fn reset() (left out by this device)\n",
         ] {
             assert!(tree.contains(line), "{line}{tree}");
         }
@@ -799,7 +803,7 @@ trait Traits traits_api@0.1.0
         let tree = render(&bundle, true);
         for line in [
             "├─ 1 #[optional] impl diag: traits_api::Diag (left out by this device)\n",
-            "│  ├─ 0 fn read(point: u16) -> u8\n",
+            "│  ├─ 0 #[effect(edit)] fn read(point: u16) -> u8\n",
             "├─ 2 #[optional(probes)] #[claim(exclusive)] impl probe[]: traits_api::Gpio\n",
         ] {
             assert!(tree.contains(line), "{line}{tree}");
@@ -898,11 +902,11 @@ types
         wire_weaver_client::ww_self::generics::prepare(&mut bundle).unwrap();
         let expected = "\
 trait Recursive recursive_api@0.1.0
-├─ 0 fn eval(expr: Expr) -> Option<i32>
+├─ 0 #[effect(edit)] fn eval(expr: Expr) -> Option<i32>
 │  /// Value of the expression, `None` when it is nested too deep or has a variant from a newer version
-├─ 1 fn unwrap_neg(expr: Expr) -> Option<Expr>
+├─ 1 #[effect(edit)] fn unwrap_neg(expr: Expr) -> Option<Expr>
 │  /// The expression with its outermost negation removed
-├─ 2 rw property tree: Tree
+├─ 2 #[effect(edit)] rw property tree: Tree
 └─ 3 stream exprs: Expr
 ";
         assert_eq!(render(&bundle, false), expected);
@@ -949,7 +953,7 @@ types
         let bundle = wire_weaver_core::load(&path, Some("Methods".into()), false).unwrap();
         let tree = render(&bundle, false);
         let expected = "\
-├─ 13 #[errors(CommonError(Busy, InUse), Nack)] fn listed_errors(pick: u8) -> Result<(), ListedError>
+├─ 13 #[effect(edit)] #[errors(CommonError(Busy, InUse), Nack)] fn listed_errors(pick: u8) -> Result<(), ListedError>
 │  /// Errors from a list (API-32): `pick` 0 is `Ok`, 1 `CommonError::Busy`, 2 `Nack`, 3 `CommonError::Timeout` and
 │  /// 4 `Overrun`, which are not in the list
 │  ///
@@ -957,7 +961,7 @@ types
 │  /// - `CommonError(Busy)`: Busy with another operation, try again later
 │  /// - `CommonError(InUse)`: In use by {by}
 │  /// - `Nack`: The sensor did not answer
-├─ 14 #[errors(CommonError)] fn all_common(pick: u8) -> Result<(), ListedError>
+├─ 14 #[effect(edit)] #[errors(CommonError)] fn all_common(pick: u8) -> Result<(), ListedError>
 │  /// Any common error (API-32): `CommonError` alone lists all of them
 │  ///
 │  /// # Errors

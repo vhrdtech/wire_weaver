@@ -12,6 +12,7 @@ use geometry::Point as Spot;
 use ww_api::prelude::*;
 
 #[ww_api_root]
+#[effect(edit)]
 trait ModulePaths {
     /// The point mirrored at the origin
     fn mirror(p: Spot) -> geometry::Point;

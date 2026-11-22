@@ -4,6 +4,7 @@
 use ww_api::prelude::*;
 
 #[ww_api_root]
+#[effect(edit)]
 trait Observe {
     /// get_set, sampled through the getter
     property!(ro+observe temp: f32);

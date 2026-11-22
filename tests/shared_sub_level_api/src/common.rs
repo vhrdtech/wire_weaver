@@ -12,6 +12,7 @@ pub struct Code(pub u16);
 
 /// A channel of the sensor: on the root in line 1, under `probe` and as the `aux[]` array in line 2.
 #[ww_trait]
+#[effect(edit)]
 pub trait Channel {
     fn read() -> Code;
     /// Added on both lines, in a different revision of each.
@@ -21,6 +22,7 @@ pub trait Channel {
 
 /// Stands in for a real indication trait (R7): reached at the same place on both lines, unlike [Channel].
 #[ww_trait]
+#[effect(edit)]
 pub trait Indication {
     property!(rw mode: Mode);
 }

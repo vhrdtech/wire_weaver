@@ -4,6 +4,7 @@ use ww_api::prelude::*;
 
 /// API used by the dynamic client tests, covers every kind of type the dynamic serializer supports.
 #[ww_api_root]
+#[effect(edit)]
 trait Dynamic {
     fn no_args();
     fn add(a: u32, b: i16) -> i64;
@@ -23,6 +24,7 @@ trait Dynamic {
 }
 
 #[ww_trait]
+#[effect(edit)]
 trait Channel {
     property!(rw gain: f32);
     fn id() -> u32;

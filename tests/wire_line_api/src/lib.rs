@@ -5,6 +5,7 @@
 use ww_api::prelude::*;
 
 #[ww_api_root]
+#[effect(edit)]
 pub trait WireLine {
     fn led_on();
     fn led_off();

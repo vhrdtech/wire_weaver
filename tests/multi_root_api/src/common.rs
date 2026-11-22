@@ -12,6 +12,7 @@ pub struct Code(pub u16);
 
 /// A channel of the sensor, the same on both lines.
 #[ww_trait]
+#[effect(edit)]
 pub trait Channel {
     fn read() -> Code;
     /// Added on both lines, in a different revision of each: the root's line picks its own.

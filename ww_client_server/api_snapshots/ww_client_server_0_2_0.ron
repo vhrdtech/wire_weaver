@@ -1,7 +1,7 @@
 // ww_client_server 0.2.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 582a959e002a18becc55f765dda5748fb0c6e9677c4d85d573f39337afa5c9d3
-(magic: 2837124336, ww_self_version: (major: 0, minor: 4, patch: 0), root: (docs: [
+// shrink_wrap sha256: 8390b2af9d13fdae945d613a028c48787913e145e84a55ca48cab2c5f1234fcc
+(magic: 2837124336, ww_self_version: (major: 0, minor: 5, patch: 0), root: (docs: [
     "Client-server API model data types for both `no_std` and `std`: [`dispatch`]\'s request/response envelopes,",
     "[`observe`] for property change notifications, [`stream`] for reliable and counted streams, path and",
     "sequence-number bookkeeping ([`max_len`], [`err_seq`]). Generated client and server code builds on these; a",

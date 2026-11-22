@@ -64,6 +64,7 @@
 
 ### 🚀 Features
 
+- A snapshot of model format 0.4.0 is compared without `Meta::effects` (API-58), reported as not compared.
 - `pins::refresh` has its own framework-only fixture test again (EVO-70), lost when `nucleo_g0b1re_api` moved to `vhrdtech/ww_stdlib`: `tests/fixtures/pins_fixture_api`, `tests/pins_dep`.
 - `keyed!` companions in the checker (EVO-78): added, removed, key type changed; across a break matched by the array they key.
 - `ww api diff` names a `keyed!` item as written, `keyed!(flow by FlowKey)` (API-67, EVO-78).

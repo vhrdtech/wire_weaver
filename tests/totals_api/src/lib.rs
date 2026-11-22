@@ -6,6 +6,7 @@ use ww_api::prelude::*;
 use ww_si::{Fixed, prefix::One};
 
 #[ww_api_root]
+#[effect(edit)]
 trait Pointer {
     /// Moves the pointer by the change of the totals since the last write applied.
     sink!(motion: Totals<Delta>);

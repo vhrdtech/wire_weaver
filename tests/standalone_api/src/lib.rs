@@ -10,6 +10,7 @@ use standalone_units::{Milli, Reading, Source};
 use ww_api::prelude::*;
 
 #[ww_api_root]
+#[effect(edit)]
 pub trait Standalone {
     /// Supply voltage and how it was found.
     fn supply() -> Supply;

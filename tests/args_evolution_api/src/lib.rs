@@ -3,6 +3,7 @@
 use ww_api::prelude::*;
 
 #[ww_api_root]
+#[effect(edit)]
 trait ArgsEvolution {
     /// `a + b`, the arguments one by one
     fn configure(a: u8, b: u16) -> u32;

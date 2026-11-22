@@ -2,10 +2,10 @@
 level: advanced
 ---
 
-# Metadata: claims, pins, labels
+# Metadata: effects, claims, pins, labels
 
-Some things about an API matter to people and tools but not to the bytes on the wire: which resources one program
-may have to itself for a while, which pins a resource uses, what a person calls it. They are written as typed
+Some things about an API matter to people and tools but not to the bytes on the wire: what calling a method does,
+which resources one program may have to itself for a while, which pins a resource uses, what a person calls it. They are written as typed
 attributes next to the items, checked when the API is loaded (a typo is a compile error of the API crate, like a
 wrong `#[errors(..)]` list), and carried in the device's introspection data as data, not as doc text, so the hub,
 `ww` and GUIs read them without parsing prose.
@@ -35,6 +35,7 @@ pub trait Board {
     ww_impl!(gpio_a: ww_gpio::Bank);
 
     #[label("Main power")]
+    #[effect(actuate)]
     property!(rw power: bool);
 }
 ```
@@ -45,6 +46,76 @@ attributes is wire compatible (only the introspection data and so the API hash c
 
 Claiming through the hub, its `claims` API group, is described in
 [Claims on resources](../transport/hub.md#claims-on-resources-srv-34).
+
+## `#[effect(..)]`: what an item does
+
+Every method, writable property and sink says what using it does, so a GUI knows which buttons it may press
+freely, an agent or a script knows what to confirm first, and the hub knows which calls only read. One or more
+effects, on the item or on its trait:
+
+```rust
+#[ww_trait]
+#[effect(edit)] // the default of every item below without its own
+pub trait Settings {
+    #[effect(read)]
+    fn summary() -> Summary<'i>;
+    /// Writes the settings to flash.
+    #[effect(persist)]
+    fn save();
+    /// Back to the factory settings, in flash.
+    #[effect(persist, destructive)]
+    fn reset_to_defaults();
+    /// Takes the `edit` of the trait.
+    property!(rw window: Millis<u16>);
+}
+```
+
+| Effect | Meaning |
+|---|---|
+| `read` | changes no state; combines with no other effect |
+| `edit` | changes state that can be undone or overwritten: a setpoint, a mode, a volatile buffer |
+| `persist` | writes non-volatile storage: wears flash, survives a reboot |
+| `destructive` | loses data: an erase, a cleared log, a factory reset |
+| `permanent` | an irreversible hardware change: OTP, fuses, readout protection |
+| `outbound` | reaches outside the system: sends a frame on a bus, publishes, calls out |
+| `actuate` | switches power or outputs, moves things: a rail, a relay, a motor enable, an LED |
+| `reset` | reboots the device or drops the link |
+| `job` | starts work that outlives the call: a capture, a scan, an update |
+
+- Required: a method, a writable (`rw`, `wo`) property or a sink without an effect of its own or of its trait is a
+  compile error naming it.
+- On a trait definition (after `#[ww_trait]`) the attribute is the default for that trait's items; one on an item
+  wins. It doesn't reach the items of traits nested with `ww_impl!`, and it can't go on a `ww_impl!`.
+- Reads by their kind need none: a property read, a `ro` or `const` property, a stream open (`stream!`, a stream
+  function) are `read`. On a property, `#[effect]` describes its write. A stream whose opening does more (powers a
+  sensor) may say so: `#[effect(actuate)] stream!(..)`. A `ro` property or a const can't have one.
+- `read` is the API author's promise, nothing checks it. A FIFO that a read empties is no `read`: make it a method
+  with `edit`, or claim it with `#[claim(observe)]`.
+
+Who reads them:
+
+- The hub treats a call of a `read` method as a read: it stays open under another program's exclusive or shared
+  claim, like a property read. With per-peer rights (SRV-37), a peer with only the right to observe may call such
+  methods.
+- A server's `Authorize` hook gets each item's metadata in `Resource::items`; `ApiItemOwned::effects()` answers an
+  item's effects, a read by kind included.
+- `ww info --effects` lists the device's items that change something, by effect; `ww api tree` shows the attribute
+  in front of each item, rustdoc of a `#[ww_trait]` notes it.
+
+### As MCP tool annotations
+
+A tool that exposes API items to a language model through the Model Context Protocol maps the effects to its tool
+annotations:
+
+| MCP annotation | From the effects |
+|---|---|
+| `readOnlyHint` | `true` for `read` alone |
+| `destructiveHint` | `true` with `destructive`, `permanent` or `reset`, with a bit the tool doesn't know, or with none declared; `false` otherwise (an `edit` can be written back) |
+| `idempotentHint` | `true` for `read`; otherwise left out (`false`), the effects don't say |
+| `openWorldHint` | `true` with `outbound`, `false` otherwise |
+
+`actuate` and `permanent` have no MCP annotation of their own: a host asks before such a call, as `ww` and GUIs
+should.
 
 ## `#[claim(..)]`: resources one program can have to itself
 
@@ -101,9 +172,13 @@ takes one.
 
 ## In the API model
 
-`ww_self::Meta` holds the attributes: `claim: Option<ClaimMode>`, `shares: Vec<Shares>`, `labels: Vec<String>`. It
-sits on `ApiItem::meta` (the item's own attributes) and `ApiLevel::meta` (a trait definition's `#[claim]`), both
-`Option` and evolvable, so the attributes that come later (a care marker for writes that switch power or outputs,
-API-56; device-level metadata, API-57) are new fields there. `ApiItemOwned::claim_mode(&bundle)` answers how a
-`ww_impl!` can be claimed (its own `#[claim]`, else its trait's), `ApiItemOwned::label(index)` its label. `ww api
+`ww_self::Meta` holds the attributes: `claim: Option<ClaimMode>`, `shares: Vec<Shares>`, `labels: Vec<String>`,
+`effects: Effects`. It sits on `ApiItem::meta` (the item's own attributes) and `ApiLevel::meta` (a trait definition's
+`#[claim]` and `#[effect]`), both `Option` and evolvable, so the attributes that come later (device-level metadata,
+API-57) are new fields there. `Effects` is a set of bits, one per effect in the table's order (`read` is bit 0);
+the codegen stores on each item its own effects or its trait's, and nothing for a read by kind, so introspection
+grows only where an item changes something. A new effect takes the next bit, and a reader keeps a bit it doesn't
+know (`Effects::unknown`), treating the item as the most restrictive case. `ApiItemOwned::claim_mode(&bundle)` answers how a
+`ww_impl!` can be claimed (its own `#[claim]`, else its trait's), `ApiItemOwned::label(index)` its label,
+`ApiItemOwned::effects()` its effects. `ww api
 tree` shows the attributes in front of the item, and rustdoc of a `#[ww_trait]` notes them.

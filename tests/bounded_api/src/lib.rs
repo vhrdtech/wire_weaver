@@ -7,6 +7,7 @@ use ww_api::prelude::*;
 pub const MAX_PIECE: usize = 8;
 
 #[ww_api_root]
+#[effect(edit)]
 trait Bounded {
     /// Stores a piece, returns its length
     fn write(offset: u32, last: bool, data: MaxLen<RefVec<'i, u8>, MAX_PIECE>) -> u8;

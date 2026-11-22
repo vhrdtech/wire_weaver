@@ -129,8 +129,9 @@ mod tests {
         .unwrap();
         let lib_rs = |methods: &str| {
             let src = format!(
-                "#[ww_api_root(wire = \"w1.0\")] pub trait Api {{ {methods} }}\n\
-                 #[ww_trait] pub trait Other {{ fn other(); }}\n"
+                "#[ww_api_root(wire = \"w1.0\")] #[effect(edit)] pub trait Api {{ {methods} }}\n\
+                 #[ww_trait]
+                 #[effect(edit)] pub trait Other {{ fn other(); }}\n"
             );
             std::fs::write(dir.join("src/lib.rs"), src).unwrap();
         };

@@ -58,7 +58,7 @@ nav = [
                     { "Large messages and result sets" = "api/large_messages.md" },
                     "api/optional_items.md",
                     "api/introspection.md",
-                    { "Metadata: claims, pins, labels" = "api/metadata.md" },
+                    { "Metadata: effects, claims, pins, labels" = "api/metadata.md" },
                     "api/multi_requests.md",
                     "api/observing.md",
                     "api/batching.md",

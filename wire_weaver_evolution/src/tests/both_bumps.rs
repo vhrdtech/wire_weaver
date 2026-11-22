@@ -5,6 +5,7 @@ use super::*;
 
 const OLD: &str = r#"
 #[ww_api_root(wire = "w2.3")]
+#[effect(edit)]
 pub trait Api {
     fn led_on();
     fn configure(a: u8, b: u16);

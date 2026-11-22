@@ -119,6 +119,7 @@ A method takes a cursor and answers with a page and the next cursor:
 #[ww_trait]
 trait Archive {
     /// Up to `limit` rows from `cursor` on, from the start without one.
+    #[effect(read)]
     fn page(filter: Filter<'i>, cursor: Option<Cursor>, limit: Fixed<Row, One, u32>) -> Page<'i>;
 }
 

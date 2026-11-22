@@ -3,6 +3,7 @@
 use ww_api::prelude::*;
 
 #[ww_api_root]
+#[effect(edit)]
 pub trait ServeTrait {
     /// Answers `gate` once the test opened it
     fn wait(gate: Gate) -> Gate;

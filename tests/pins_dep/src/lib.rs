@@ -7,6 +7,7 @@
 use ww_api::prelude::*;
 
 #[ww_trait]
+#[effect(edit)]
 pub trait ValueApi {
     fn value() -> Value<'i>;
 }

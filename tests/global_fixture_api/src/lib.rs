@@ -6,6 +6,7 @@
 use ww_api::prelude::*;
 
 #[ww_trait]
+#[effect(edit)]
 pub trait GlobalDemo {
     /// Read on a global path, next to the property below.
     const CAPABILITIES: u8;

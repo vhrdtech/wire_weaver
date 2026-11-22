@@ -343,6 +343,7 @@ mod tests {
 
     const API: &str = r#"
 #[ww_api_root(wire = "w1.0")]
+#[effect(edit)]
 pub trait Device {
     fn ping();
     ww_impl!(info: Info);
@@ -351,17 +352,20 @@ pub trait Device {
 }
 
 #[ww_trait]
+#[effect(edit)]
 pub trait Info {
     fn name() -> u8;
 }
 
 #[ww_trait]
+#[effect(edit)]
 pub trait Port {
     fn open();
     ww_impl!(status: Status);
 }
 
 #[ww_trait]
+#[effect(edit)]
 pub trait Status {
     fn get() -> u8;
 }
@@ -411,6 +415,7 @@ pub trait Status {
         );
         let src = r#"
             #[ww_api_root(wire = "w1.0")]
+            #[effect(edit)]
             pub trait Api {
                 fn ping();
                 ww_impl!(board: wire_line_fixture_api::Fixture);

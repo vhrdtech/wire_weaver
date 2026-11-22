@@ -6,6 +6,7 @@
 use ww_api::prelude::*;
 
 #[ww_api_root]
+#[effect(edit)]
 pub trait IntrospectCompressed {
     /// Turns the output of a channel on when it was off and off when it was on, and returns whether it is on now.
     /// A channel that doesn't exist is left alone and reads as off.

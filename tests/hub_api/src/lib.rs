@@ -4,6 +4,7 @@ use ww_api::prelude::*;
 
 /// A device several clients share through the ww hub (SRV-29), with resources one of them can claim (SRV-34).
 #[ww_api_root]
+#[effect(edit)]
 trait HubTest {
     fn add(a: u32, b: u32) -> u32;
     stream!(ticks: u32);
@@ -19,9 +20,13 @@ trait HubTest {
 }
 
 #[ww_trait]
+#[effect(edit)]
 trait Bus {
     /// Sends a frame: `Common(InUse)` from the hub while another program holds the bus.
     fn send(id: u32) -> Result<u32, BusError>;
+    /// Frames sent so far: a read (API-58), open under another program's claim.
+    #[effect(read)]
+    fn sent() -> u32;
     /// Bit rate.
     property!(rw speed: u32, BusError);
     /// Received frames.
@@ -29,6 +34,7 @@ trait Bus {
 }
 
 #[ww_trait]
+#[effect(edit)]
 #[claim(observe)]
 trait Port {
     fn ping() -> u8;
@@ -45,6 +51,7 @@ ww_api::api_error!(BusError);
 
 /// A device whose clock the hub steers (SRV-31): `ww_timebase::Clock` with `host_sync`.
 #[ww_api_root]
+#[effect(edit)]
 trait ClockedTest {
     fn add(a: u32, b: u32) -> u32;
     ww_impl!(clock: ww_timebase::Clock);

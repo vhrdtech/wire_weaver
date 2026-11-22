@@ -29,7 +29,7 @@ fn dep_dir(version: &str, wire: Option<&str>) -> PathBuf {
     .unwrap();
     std::fs::write(
         dir.join("src/lib.rs"),
-        "use ww_api::prelude::*;\n\n#[ww_trait]\npub trait Dep {\n    fn get() -> u8;\n}\n",
+        "use ww_api::prelude::*;\n\n#[ww_trait] #[effect(edit)]\npub trait Dep {\n    fn get() -> u8;\n}\n",
     )
     .unwrap();
     dir
@@ -115,6 +115,7 @@ fn api_with_shared(api_wire: &str, version: &str, wire: &str, id_ty: &str) -> Ap
         use shared_api::Shared;
 
         #[ww_api_root(wire = "{api_wire}")]
+        #[effect(edit)]
         pub trait Api {{
             fn one(s: Shared);
             fn two(s: Shared);

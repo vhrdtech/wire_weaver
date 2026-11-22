@@ -16,7 +16,9 @@ Suppose that you've defined the following API for your device:
 ```rust,ignore
 #[ww_trait]
 pub trait MyDevice {
+    #[effect(actuate)]
     fn led_on();
+    #[effect(actuate)]
     fn led_off();
 }
 ```

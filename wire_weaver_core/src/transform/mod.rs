@@ -1,6 +1,7 @@
 mod api;
 mod cfg;
 mod crate_walker;
+mod effects;
 mod errors;
 mod keyed;
 mod macro_cache;

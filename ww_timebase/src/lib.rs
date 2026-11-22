@@ -29,10 +29,12 @@ pub use ww_si::{Micros, Ppb, Second};
 pub trait Clock {
     /// Device time now, full width: the value every truncated timestamp elsewhere in this device's API wraps
     /// around.
+    #[effect(read)]
     fn now() -> Second;
 
     /// Static description of this clock: its resolution, what it calls itself, and which [SyncFormat]s it
     /// supports.
+    #[effect(read)]
     fn info() -> ClockInfo<'i>;
 
     /// Local time mapped to the shared sync time, sent about once a second while synced and on every
@@ -48,18 +50,22 @@ pub trait Clock {
     ///
     /// Host steering needs no configuration: it is a source of its own, taken when the line gives nothing better.
     #[errors(CommonError(Unsupported, InvalidArgument, InUse))]
+    #[effect(edit, actuate)]
     fn configure_sync(config: SyncConfig);
 
     /// Current sync configuration, as last accepted by `configure_sync` (`Off` until configured).
+    #[effect(read)]
     fn sync_config() -> SyncConfig;
 
     /// Current sync state, with the source followed, its estimated error and the offset and local time of the
     /// last lock, when known.
+    #[effect(read)]
     fn sync_status() -> SyncStatus<'i>;
 
     /// Time of day a sync master sends on the sync line, set from its host. Has no effect on a slave or while
     /// sync is off: `WrongState` unless `configure_sync` currently has this device set as `Master`.
     #[errors(CommonError(WrongState))]
+    #[effect(edit)]
     fn set_time_of_day(t: DateTime);
 
     /// A host's fit of this device's clock (STD-49), sent about once a second. The device follows it when it has
@@ -79,11 +85,13 @@ pub trait Clock {
     /// moves the points without disturbing the fit (the `ww_clock_sync` crate does all this).
     #[optional(host_sync)]
     #[errors(CommonError(InvalidArgument))]
+    #[effect(edit)]
     fn steer(point: SteerPoint<'i>) -> Option<SyncSource>;
 
     /// The device's shared time now (UTC); `None` while the clock runs free. What a host compares with its own
     /// clock to see how well the device follows (the residual offset).
     #[optional(host_sync)]
+    #[effect(read)]
     fn shared_now() -> Option<UnixMicros<u64>>;
 
     /// The sources the shared clock may follow, best first: `[Line { format: IrigB }, Host]`,
@@ -95,10 +103,12 @@ pub trait Clock {
     /// any switch does.
     #[optional(host_sync)]
     #[errors(CommonError(Unsupported, InvalidArgument))]
+    #[effect(edit)]
     fn set_sources(sources: Option<MaxLen<RefVec<'i, SyncSource>, 8>>);
 
     /// The source list last accepted by `set_sources`; `None` for the fixed ranking.
     #[optional(host_sync)]
+    #[effect(read)]
     fn sources() -> Option<MaxLen<RefVec<'i, SyncSource>, 8>>;
 }
 

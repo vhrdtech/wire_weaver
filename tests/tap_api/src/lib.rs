@@ -4,6 +4,7 @@
 use ww_api::prelude::*;
 
 #[ww_api_root]
+#[effect(edit)]
 pub trait TapDemo {
     /// `a + b`, wrapping
     fn add(a: u32, b: u32) -> u32;

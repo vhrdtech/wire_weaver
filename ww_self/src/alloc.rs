@@ -1,8 +1,9 @@
 use crate::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned,
-    ArgumentOwned, Batching, ClaimMode, Delivery, ErrorVariantOwned, FieldOwned, FieldsOwned,
-    FlowControl, GenericArgOwned, GenericParamOwned, ItemEnumOwned, ItemStructExtraOwned,
-    ItemStructOwned, Length, MarkerDefOwned, Multiplicity, Repr, TypeLocationOwned, TypeOwned,
+    ArgumentOwned, Batching, ClaimMode, Delivery, Effects, ErrorVariantOwned, FieldOwned,
+    FieldsOwned, FlowControl, GenericArgOwned, GenericParamOwned, ItemEnumOwned,
+    ItemStructExtraOwned, ItemStructOwned, Length, MarkerDefOwned, Multiplicity, PropertyAccess,
+    Repr, TypeLocationOwned, TypeOwned,
 };
 use anyhow::{Result, anyhow, bail};
 use shrink_wrap::ElementSize;
@@ -76,6 +77,28 @@ impl ApiItemOwned {
         match bundle.traits.get(trait_idx.0 as usize) {
             Some(ApiLevelLocationOwned::InLine { level, .. }) => level.meta.as_ref()?.claim,
             _ => None,
+        }
+    }
+
+    /// What calling, writing or sending to the item does (API-58): `#[effect(..)]` as the codegen stored it (the
+    /// item's own or its trait's; a property's describes its write), else [Effects::READ] for an item that is a read
+    /// by its kind (a const or read-only property, a stream, a key companion). Empty for a `ww_impl!` and for an
+    /// item of a model made before effects existed, which a consumer treats as the most restrictive case.
+    pub fn effects(&self) -> Effects {
+        if let Some(effects) = self.meta.as_ref().map(|m| m.effects)
+            && !effects.is_empty()
+        {
+            return effects;
+        }
+        match &self.kind {
+            ApiItemKindOwned::Property {
+                access: PropertyAccess::Const | PropertyAccess::ReadOnly { .. },
+                ..
+            }
+            | ApiItemKindOwned::Stream { is_up: true, .. }
+            | ApiItemKindOwned::StreamFn { .. }
+            | ApiItemKindOwned::Keys { .. } => Effects::READ,
+            _ => Effects::NONE,
         }
     }
 

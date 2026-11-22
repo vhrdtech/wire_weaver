@@ -15,18 +15,23 @@ use ww_si::{Bytes, Fixed, Nanos, RangeU64};
 #[ww_api_root]
 pub trait Hub {
     /// What hub runs: versions, process, socket. Frozen.
+    #[effect(read)]
     fn info() -> HubInfo<'i>;
 
     /// Hand the devices over to a newer hub listening on `socket`, then exit (SRV-30). Frozen.
+    #[effect(reset)]
     fn handover(socket: &'i str) -> Result<(), HandoverError>;
 
     /// Who started the hub and when it would exit: the numbers behind `ww hub status`.
+    #[effect(read)]
     fn status() -> HubStatus<'i>;
 
     /// Exit now: clients see their tunnels close, devices are released.
+    #[effect(reset)]
     fn shutdown();
 
     /// Stay up at least `seconds` from now even without clients (a bench), `0` back to the idle timeout.
+    #[effect(edit)]
     fn keep(seconds: u32);
 
     /// Devices, clients and what happens to them.
@@ -54,11 +59,13 @@ pub trait Adopt {
     /// the medium residual, internal state of the same `wire_weaver_client` major.minor): checks it, keeps others from
     /// opening the device meanwhile and reserves the program's tunnel. Answers the id for [Adopt::commit] and the
     /// tunnel's preamble. Forgotten when this connection closes before the commit.
+    #[effect(edit)]
     fn prepare(snapshot: RefVec<'i, u8>) -> Result<u64, AdoptError<'i>>;
 
     /// The program let go of the device: the hub opens it and goes on with the link. The program's tunnel (preamble
     /// `Device(key)` with the id, `ww_byte_stream::TAG_ADOPT`) must come within 5 s, or the hub takes the program as
     /// gone.
+    #[effect(edit)]
     fn commit(id: u64) -> Result<(), AdoptError<'i>>;
 }
 
@@ -66,12 +73,15 @@ pub trait Adopt {
 #[ww_trait]
 pub trait Registry {
     /// Every device seen, open or not.
+    #[effect(read)]
     fn devices() -> RefVec<'i, DeviceEntry<'i>>;
 
     /// Every connected program.
+    #[effect(read)]
     fn clients() -> RefVec<'i, ClientEntry<'i>>;
 
     /// Open the device now and keep it (`ww hub take`), so programs reach it through the hub from their first call.
+    #[effect(edit)]
     fn take(key: &'i str) -> Result<(), TakeError<'i>>;
 
     /// Plug, open, close and client changes, as they happen.
@@ -95,6 +105,7 @@ pub trait Registry {
 pub trait Claims {
     /// Claims the resource at `path` (resource ids from the device's root, array indices included, as in a request)
     /// of the device `key` for `purpose` (shown to others), for `ttl_s` seconds or until released.
+    #[effect(edit)]
     fn claim(
         key: &'i str,
         path: RefVec<'i, UNib32>,
@@ -104,15 +115,18 @@ pub trait Claims {
 
     /// Releases a claim this client instance holds. A lent device ([Claims::lend]) is returned: the hub opens it
     /// again if it held it before.
+    #[effect(edit)]
     fn release(id: u32) -> Result<(), ReleaseError>;
 
     /// Claims held on the device `key`.
+    #[effect(read)]
     fn claims(key: &'i str) -> RefVec<'i, ClaimEntry<'i>>;
 
     /// Lends the device `key` to a program outside the hub (`ww hub lend`, SRV-32): a root claim, and the hub closes
     /// the device (its tunnels see a disconnect with `ww_byte_stream::DISCONNECT_LENT`) and doesn't open it again
     /// until the claim is released, answering new tunnels `Status::Lent` meanwhile. Returns once the device is
     /// closed, so the other program can open it right after.
+    #[effect(edit, reset)]
     fn lend(key: &'i str, purpose: &'i str, ttl_s: Option<u32>) -> Result<u32, ClaimError<'i>>;
 }
 
@@ -123,14 +137,17 @@ pub trait Claims {
 #[ww_trait]
 pub trait ClockSync {
     /// Every device the hub holds open, with how its clock is steered.
+    #[effect(read)]
     fn devices() -> RefVec<'i, SyncEntry<'i>>;
 
     /// Steering on (the default) or off, for the device `key` or, with `None`, for every device (a device's own
     /// setting is then dropped). A device whose steering goes off coasts in holdover.
+    #[effect(edit)]
     fn set_enabled(key: Option<&'i str>, on: bool);
 
     /// How long a steered device stays open after its last client left, in seconds: `Some(0)` only while clients
     /// are connected, `None` forever (a bench). The hub's default is 30 min (`WW_HUB_SYNC_LINGER`).
+    #[effect(edit)]
     property!(rw linger: Option<u32>);
 
     /// Each device's [SyncEntry] whenever it changes, a few times a second at most per device.
@@ -542,6 +559,7 @@ pub trait Captures {
     /// device: the same id, `record` the union of what they asked for, `ram_max` the largest; `links` is fixed by the
     /// first start. Starting a capture this client instance has already is answered with its id. At most
     /// [MAX_CAPTURE_CLIENTS] client instances share one capture.
+    #[effect(edit, job)]
     fn start(
         key: MaxLen<&'i str, MAX_KEY_LEN>,
         options: CaptureOptions,
@@ -549,12 +567,14 @@ pub trait Captures {
 
     /// This client instance's interest in the capture ends; the capture ends when no client is left: its file, if
     /// saved, is closed as written, else its records are dropped.
+    #[effect(edit)]
     fn stop(id: CaptureId) -> Result<(), CaptureError<'i>>;
 
     /// Saves the capture to `path` on the hub's PC as a project file with one run: what is in the hub's RAM now, then
     /// everything after, until the capture ends (its last client stops it or leaves). `path` is absolute, names no
     /// existing file (nothing is overwritten) and its directory exists; the hub writes it as its own user, readable
     /// only by that user. A failed save removes the file it created.
+    #[effect(persist, job)]
     fn save(
         id: CaptureId,
         path: MaxLen<&'i str, MAX_PATH_LEN>,
@@ -562,18 +582,22 @@ pub trait Captures {
 
     /// Ends the capture for every client and drops what is in RAM. A file it was saved to stays as written. Only a
     /// client instance with a part in the capture may (the instance id the client gave, see [Captures]).
+    #[effect(destructive)]
     fn discard(id: CaptureId) -> Result<(), CaptureError<'i>>;
 
     /// Changes the capture's RAM limit while it runs, for every client. Only a client instance with a part in the
     /// capture may (the instance id the client gave, see [Captures]).
+    #[effect(edit)]
     fn set_ram_max(id: CaptureId, ram_max: RamMax) -> Result<(), CaptureError<'i>>;
 
     /// The captures the hub holds, by id, from the first after `after`: as many as fit [MAX_CAPTURE_PAGE_BYTES];
     /// [CapturePage::more] says whether to ask again after the last one.
+    #[effect(read)]
     fn captures(after: Option<CaptureId>) -> Result<CapturePage<'i>, CaptureError<'i>>;
 
     /// A watch of the capture: its records from now on, sent on `watches[w].records` once that stream is opened,
     /// read as `pressure` says. Ends with the stream's close, the capture's end, or the connection.
+    #[effect(edit)]
     fn watch(id: CaptureId, pressure: Pressure) -> Result<WatchId, CaptureError<'i>>;
 
     ww_impl!(watches[]: Watch);

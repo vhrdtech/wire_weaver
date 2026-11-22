@@ -29,6 +29,7 @@ const API: &str = r#"
     use err_dep::CommonError;
 
     #[ww_api_root(wire = "w1.0")]
+    #[effect(edit)]
     pub trait Api {
         fn read() -> Result<u32, ApiError>;
     }
@@ -157,6 +158,7 @@ const GENERIC_API: &str = r#"
     use wrap_dep::Wrapped;
 
     #[ww_api_root(wire = "w1.0")]
+    #[effect(edit)]
     pub trait Api {
         fn read() -> Wrapped<u8>;
     }

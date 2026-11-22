@@ -3,6 +3,7 @@
 use ww_api::prelude::*;
 
 #[ww_api_root]
+#[effect(edit)]
 trait Streams {
     stream!(plain_stream: u8);
     sink!(plain_sink: u8);

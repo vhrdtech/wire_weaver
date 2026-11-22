@@ -9,6 +9,7 @@ use ww_si::units::{Hertz, Item, Kelvin, Ratio, Sample as SampleUnit, Second};
 use ww_si::{Fixed, IndexFrom1, Point, Range, Seq};
 
 #[ww_api_root]
+#[effect(edit)]
 pub trait Thermo {
     /// How often the device samples while `mode` is `Continuous`. `Busy` while a triggered sample is running.
     fn set_rate(rate: Fixed<Hertz, One, u16, Range<1, 1000>>) -> Result<(), RateError>;
@@ -34,6 +35,7 @@ pub trait Thermo {
 }
 
 #[ww_trait]
+#[effect(edit)]
 pub trait Channel {
     property!(rw enabled: bool);
     /// The last sample taken on this channel.

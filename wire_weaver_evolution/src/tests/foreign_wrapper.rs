@@ -32,6 +32,7 @@ fn api(lease: &str, timeout: &str) -> String {
         use lease_dep::{{Lease, Timeout}};
 
         #[ww_api_root(wire = "w1.0")]
+        #[effect(edit)]
         pub trait Api {{
             fn release(lease: {lease}, timeout: {timeout});
             fn claim() -> {lease};

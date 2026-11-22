@@ -35,6 +35,7 @@ const IND_DEP: &str = r#"
     use err_dep::CommonError;
 
     #[ww_trait]
+    #[effect(edit)]
     pub trait Indication {
         fn identify(times: u8) -> Result<(), CommonError>;
     }
@@ -43,6 +44,7 @@ const IND_DEP: &str = r#"
 /// An API line embedding the dependency's trait.
 const API: &str = r#"
     #[ww_api_root(wire = "w1.0")]
+    #[effect(edit)]
     pub trait Api {
         fn read() -> u32;
         ww_impl!(indication: ind_dep::Indication);

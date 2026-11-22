@@ -20,6 +20,7 @@ fn api(arg: &str, prop: &str, field: &str) -> String {
         use ww_si::units::{{Second, Meter, Ratio}};
 
         #[ww_api_root(wire = "w1.0")]
+        #[effect(edit)]
         pub trait Api {{
             fn set(shared: {arg});
             property!(ro uptime: {prop});
@@ -335,6 +336,7 @@ fn a_missing_generic_definition_is_an_error_naming_it() {
         use ww_si::units::Item;
 
         #[ww_api_root(wire = "w1.0")]
+        #[effect(edit)]
         pub trait Api {
             fn select(input: IndexFrom1<Item, u8, Range<1, 4>>);
         }

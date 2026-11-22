@@ -13,6 +13,7 @@ use ww_api::shrink_wrap::series::Series;
 use ww_api::shrink_wrap::tail_bytes::{TailBytes, TailBytesOwned};
 
 #[ww_trait]
+#[effect(edit)]
 trait Conformance {
     // numbers
     property!(rw u8: u8);

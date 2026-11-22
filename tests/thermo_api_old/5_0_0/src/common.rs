@@ -11,6 +11,7 @@ use ww_si::{Fixed, IndexFrom1, Point, Range, Seq};
 
 /// Lines 2 and 3.
 #[ww_trait]
+#[effect(edit)]
 pub trait Channel {
     property!(rw enabled: bool);
     /// The last sample taken on this channel.
@@ -79,6 +80,7 @@ ww_api::api_error!(SelfTestError);
 /// repr, with the modes the bench's tests use (`IndicationMode::OnlyEssential` included, unlike `shared_sub_level`'s
 /// smaller stand-in).
 #[ww_trait]
+#[effect(edit)]
 pub trait Indication {
     property!(rw mode: IndicationMode);
 }

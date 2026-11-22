@@ -6,8 +6,11 @@ use ww_api::prelude::*;
 
 #[ww_api_root]
 pub trait BlinkyApi {
+    #[effect(actuate)]
     fn led_on();
+    #[effect(actuate)]
     fn led_off();
     #[since = "w1.1"]
+    #[effect(actuate)]
     fn led_toggle();
 }

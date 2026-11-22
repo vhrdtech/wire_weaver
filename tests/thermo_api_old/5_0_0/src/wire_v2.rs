@@ -15,6 +15,7 @@ use ww_si::units::{Kelvin, Ratio, Second};
 use ww_si::{Fixed, Range};
 
 #[ww_api_root]
+#[effect(edit)]
 pub trait Thermo {
     /// Sets the sampling rate and mode together. `Busy` while a triggered sample is running.
     fn configure(config: Config) -> Result<(), RateError>;

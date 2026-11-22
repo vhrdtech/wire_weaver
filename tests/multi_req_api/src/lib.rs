@@ -2,6 +2,7 @@
 use ww_api::prelude::*;
 
 #[ww_api_root]
+#[effect(edit)]
 trait MultiReq {
     property!(rw a: u8);
     property!(rw b: u16);
@@ -18,6 +19,7 @@ trait MultiReq {
 }
 
 #[ww_trait]
+#[effect(edit)]
 trait Pin {
     /// Sets the pin's level
     fn set_level(high: bool);

@@ -11,7 +11,9 @@ write these indices: they are assigned in declaration order, and generated code 
 ```rust
 #[ww_api_root]
 trait ApiRoot {
+    #[effect(actuate)]
     fn turn_on();               // [0]
+    #[effect(actuate)]
     fn turn_off();              // [1]
     ww_impl!(motor: Motor);     // [2, ..]
     ww_impl!(port[]: Port);     // [3, <index>, ..]

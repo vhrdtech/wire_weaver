@@ -1695,7 +1695,8 @@ pub(in crate::transform) mod recursive_tests {
             "[package]\nname = \"test_api\"\nversion = \"0.1.0\"\nedition = \"2024\"\npublish = false\n",
         )
         .unwrap();
-        let lib_rs = format!("#[ww_api_root]\npub trait Api {{\n{methods}\n}}\n{types}");
+        let lib_rs =
+            format!("#[ww_api_root]\n#[effect(edit)]\npub trait Api {{\n{methods}\n}}\n{types}");
         std::fs::write(dir.join("src/lib.rs"), lib_rs).unwrap();
         let bundle = crate::load(&dir, Some("Api".into()), false);
         std::fs::remove_dir_all(&dir).unwrap();

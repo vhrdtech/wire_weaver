@@ -25,6 +25,7 @@ A method that can fail returns `Result<T, E>`, where `E` is the error enum of it
 pub trait I2c {
     /// Writes `data` to the device at `addr`.
     #[errors(CommonError, Nack, Arbitration, Timeout, BufferTooBig)]
+    #[effect(outbound)]
     fn i2c_write(addr: u8, data: MaxLen<RefVec<'i, u8>, MAX_WRITE_LEN>) -> Result<(), I2cError>;
 }
 
@@ -84,6 +85,7 @@ pub trait I2cMonitor {
     fn records(io_level: Option<Volt>) -> Result<(), I2cError>;
 
     #[errors(CommonError(Unsupported, Busy))]
+    #[effect(edit)]
     property!(rw speed_hz: u32, I2cError);
 }
 ```
@@ -291,6 +293,7 @@ that lacks them leaves them out at code generation, paying neither a dispatch en
 pub trait I2c {
     /// Clocks SCL until SDA is released, then a stop.
     #[optional]
+    #[effect(outbound)]
     fn i2c_wiggle_clock(count: u8) -> Result<I2cLinesState, I2cError>;
 }
 

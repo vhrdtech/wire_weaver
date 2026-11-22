@@ -13,12 +13,14 @@ pub trait FollowRebootApp {
 
 /// Who this node is: just the app's image version, for the test to check after a reboot comes back.
 #[ww_trait]
+#[effect(edit)]
 pub trait Node {
     fn node() -> NodeInfo;
 }
 
 /// Reboots between the app and its updater.
 #[ww_trait]
+#[effect(edit)]
 pub trait Boot {
     fn reboot(into: BootTarget) -> Result<(), Error>;
 }

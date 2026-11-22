@@ -37,6 +37,7 @@ const API: &str = r#"
     use dep_api::Shared;
 
     #[ww_api_root(wire = "w1.0")]
+    #[effect(edit)]
     pub trait Api {
         fn one(s: Shared);
         fn two(s: Shared);

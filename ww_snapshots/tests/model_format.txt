@@ -1,4 +1,4 @@
-ww_self model format 0.4.0
+ww_self model format 0.5.0
 ApiBundleOwned: Struct(
     [
         Named {
@@ -1066,6 +1066,9 @@ DimWireOwned: Struct(
         },
     ],
 )
+Effects: NewTypeStruct(
+    U32,
+)
 ElementSize: Enum(
     {
         0: Named {
@@ -1825,6 +1828,12 @@ MetaOwned: Struct(
             name: "labels",
             value: Seq(
                 Str,
+            ),
+        },
+        Named {
+            name: "effects",
+            value: TypeName(
+                "Effects",
             ),
         },
     ],

@@ -51,6 +51,7 @@ fn messages(report: &Report) -> String {
 
 const W2: &str = r#"
 #[ww_api_root(wire = "w2.1")]
+#[effect(edit)]
 pub trait Api {
     fn configure(rate: u16);
     property!(ro uptime: u32);
@@ -61,12 +62,14 @@ pub trait Api {
 /// Line 3: `uptime` and `self_test` in a new sub-level, `uptime` in a wider type.
 const W3: &str = r#"
 #[ww_api_root(wire = "w3.0")]
+#[effect(edit)]
 pub trait Api {
     fn configure(rate: u16);
     ww_impl!(health: Health);
 }
 
 #[ww_trait]
+#[effect(edit)]
 pub trait Health {
     property!(ro uptime: u64);
     #[moved_from(w2.1, Api::self_test)]
@@ -150,12 +153,14 @@ fn same_name_other_meaning_is_never_taken() {
         #[ww_api_root(wire = "w1.0")]
         pub trait Api { ww_impl!(led: Led); }
         #[ww_trait]
+        #[effect(edit)]
         pub trait Led { fn on(); }
     "#;
     let w2 = r#"
         #[ww_api_root(wire = "w2.0")]
         pub trait Api { ww_impl!(motor: Motor); }
         #[ww_trait]
+        #[effect(edit)]
         pub trait Motor { fn on(); }
     "#;
     let report = compared(w1, w2);
@@ -183,10 +188,12 @@ fn same_name_other_meaning_is_never_taken() {
 fn across_a_break_by_path_not_position() {
     let w1 = r#"
         #[ww_api_root(wire = "w1.0")]
+        #[effect(edit)]
         pub trait Api { fn set_rate(rate: u16); fn read() -> u8; }
     "#;
     let w2 = r#"
         #[ww_api_root(wire = "w2.0")]
+        #[effect(edit)]
         pub trait Api { fn read() -> u8; fn configure(rate: u16, mode: u8); }
     "#;
     let report = compared(w1, w2);
@@ -211,6 +218,7 @@ fn across_a_break_by_path_not_position() {
     // a new position alone: the wire breaks, Rust code doesn't
     let swapped = r#"
         #[ww_api_root(wire = "w2.0")]
+        #[effect(edit)]
         pub trait Api { fn read() -> u8; fn set_rate(rate: u16); }
     "#;
     let report = compared(w1, swapped);

@@ -667,7 +667,10 @@ impl Device {
                     (Some(p), true) => Target::Under(p.clone()),
                     (None, _) => Target::Anywhere,
                 };
-                (access, target)
+                (
+                    target.access_seen(access, state.bundle().as_deref()),
+                    target,
+                )
             }
             // a newer envelope than this build: it can't be placed, so not past a claim
             Err(Unplaced::Unreadable | Unplaced::NoResource) => (Access::Call, Target::Anywhere),

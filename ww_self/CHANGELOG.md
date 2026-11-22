@@ -16,6 +16,7 @@
 
 ### ⚠️ Breaking
 
+- `Meta::effects: Effects` (`#[default]`, API-58): what an item does; model format `VERSION` is 0.5.0. New `Effects` bitset and `ApiItemOwned::effects()`.
 - Declares `rust-version = "1.99"`: cargo of an older Rust refuses the crate.
 - `VERSION`, written as `ApiBundle::ww_self_version`, is the format of the API model, 0.4.0, no longer the crate version: it moves with every change of the model's shape (EVO-82). Bundles and snapshot files of format 0.3.0 are not read; re-save them.
 - `COMMON_ERROR`, `TypeOwned::is_common_error` and `ValueOwned::common_error` are gone (STD-16): a common error is no type of the model. `errors::error_list_docs` takes the item's error type as an `Option`; new `errors::{COMMON_ENTRY, common_error_doc, common_error_names, error_list_allows_common}` from `ww_error::CommonError::DOCS`.

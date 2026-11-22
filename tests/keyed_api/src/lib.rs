@@ -7,6 +7,7 @@ use ww_si::Bytes;
 use ww_si::origins::DeviceMicros;
 
 #[ww_api_root]
+#[effect(edit)]
 trait Dissector {
     /// Flows in the order the device met them; an index is reused after its flow is removed.
     ww_impl!(flow[]: Flow);

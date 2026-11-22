@@ -1,7 +1,7 @@
 // ww_link 0.5.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: f5a16c09145a56cd82ce42e638e41cd3b568ce4b1d7efc1c9cd14fe1152a8679
-(magic: 2837124336, ww_self_version: (major: 0, minor: 4, patch: 0), root: (docs: [
+// shrink_wrap sha256: b68816c0f8298d43ec1bd85b0f7f1b35629d4b6431290dc1572334c26fd77c3e
+(magic: 2837124336, ww_self_version: (major: 0, minor: 5, patch: 0), root: (docs: [
     "WireWeaver link layer: message kinds and their payloads carried over [ww_framer] frames.",
     "",
     "This crate is sans-IO and `no_std`: it only knows how to encode a [Message] into framer",

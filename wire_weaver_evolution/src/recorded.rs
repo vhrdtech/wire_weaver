@@ -5,7 +5,10 @@
 //! default, which current codegen may not write: the unchanged source would then differ from its snapshot only because
 //! wire_weaver was upgraded. So a field that a file has nowhere, in no instance of its struct, counts as not recorded
 //! there, and both sides are compared without it ([Recorded::leave_out]). This holds for any field added to the model
-//! later, without a list of fields. A file of another model format (`ww_self_version`) is refused before it is read
+//! later, without a list of fields. A field of a struct the file has no instance of at all can't be told apart that
+//! way; the fields a readable older model format doesn't have ([ww_snapshots::file::fields_missing_from]) count as not
+//! recorded too. `Meta::effects` (API-58) is one: an item whose meta only held effects compares as one without a meta.
+//! A file of a model format this build doesn't read (`ww_self_version`) is refused before it is read
 //! ([ww_snapshots::file::check_format]).
 
 use std::cell::RefCell;
@@ -18,7 +21,7 @@ use serde::de::{
     self, DeserializeSeed, Deserializer, EnumAccess, IgnoredAny, MapAccess, SeqAccess,
     VariantAccess, Visitor,
 };
-use ww_self::ApiBundleOwned;
+use ww_self::{ApiBundleOwned, ApiLevelLocationOwned, ApiLevelOwned, MetaOwned};
 
 /// Which fields of the model a snapshot file has, see the [module docs](self).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -26,6 +29,8 @@ pub struct Recorded {
     /// Every struct (or struct variant) met in the file: the fields its type declares, and those the file has in at
     /// least one instance.
     structs: BTreeMap<String, StructFields>,
+    /// Fields the file's model format doesn't have, as (serde name of the struct, field).
+    format_missing: &'static [(&'static str, &'static str)],
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -54,7 +59,7 @@ impl fmt::Display for Unrecorded {
 impl Recorded {
     /// Reads a bundle from a snapshot's RON text and what it recorded.
     pub fn parse(text: &str) -> Result<(ApiBundleOwned, Recorded), String> {
-        ww_snapshots::file::check_format(text).map_err(|e| format!("{e:#}"))?;
+        let format = ww_snapshots::file::check_format(text).map_err(|e| format!("{e:#}"))?;
         let state = RefCell::new(State::default());
         let parsed = (|| {
             let mut de = ron::Deserializer::from_str(text).map_err(|e| e.to_string())?;
@@ -64,7 +69,11 @@ impl Recorded {
             Ok::<_, String>(bundle)
         })();
         match parsed {
-            Ok(bundle) => Ok((bundle, state.into_inner().recorded)),
+            Ok(bundle) => {
+                let mut recorded = state.into_inner().recorded;
+                recorded.format_missing = ww_snapshots::file::fields_missing_from(&format);
+                Ok((bundle, recorded))
+            }
             // ron's own entry point says where in the file
             Err(e) => Err(ron::from_str::<ApiBundleOwned>(text)
                 .err()
@@ -72,9 +81,14 @@ impl Recorded {
         }
     }
 
-    /// Fields that the file has in no instance of their struct, of the structs it has at all. A struct the file
-    /// doesn't have tells nothing: what uses it is new on the other side anyway.
+    /// Fields that the file has in no instance of their struct, of the structs it has at all, and those its model
+    /// format doesn't have. Otherwise a struct the file doesn't have tells nothing: what uses it is new on the other
+    /// side anyway.
     pub fn unrecorded(&self) -> BTreeSet<Unrecorded> {
+        let by_format = self.format_missing.iter().map(|(owner, field)| Unrecorded {
+            owner: (*owner).to_owned(),
+            field: (*field).to_owned(),
+        });
         self.structs
             .iter()
             .flat_map(|(owner, fields)| {
@@ -87,6 +101,7 @@ impl Recorded {
                         field: field.to_string(),
                     })
             })
+            .chain(by_format)
             .collect()
     }
 
@@ -107,8 +122,42 @@ impl Recorded {
             ..State::default()
         });
         let mut de = ron::Deserializer::from_str(&text).map_err(|e| e.to_string())?;
-        ApiBundleOwned::deserialize(Wrap::new(&mut de, &state)).map_err(|e| e.to_string())
+        let mut bundle =
+            ApiBundleOwned::deserialize(Wrap::new(&mut de, &state)).map_err(|e| e.to_string())?;
+        if fields.iter().any(|u| u.owner == "MetaOwned") {
+            drop_empty_metas(&mut bundle);
+        }
+        Ok(bundle)
     }
+}
+
+/// A meta left at its default by [Recorded::leave_out] as `None`, as a file without the left-out fields has it: an
+/// item whose meta only held effects has none in a model format from before them.
+fn drop_empty_metas(bundle: &mut ApiBundleOwned) {
+    for level in levels_mut(bundle) {
+        let metas = level
+            .items
+            .iter_mut()
+            .map(|item| &mut item.meta)
+            .chain(std::iter::once(&mut level.meta));
+        for meta in metas {
+            if meta.as_ref().is_some_and(|m| *m == MetaOwned::default()) {
+                *meta = None;
+            }
+        }
+    }
+}
+
+/// The root and every trait a bundle has in-line.
+pub(crate) fn levels_mut(bundle: &mut ApiBundleOwned) -> impl Iterator<Item = &mut ApiLevelOwned> {
+    bundle
+        .traits
+        .iter_mut()
+        .filter_map(|location| match location {
+            ApiLevelLocationOwned::InLine { level, .. } => Some(level),
+            _ => None,
+        })
+        .chain(std::iter::once(&mut bundle.root))
 }
 
 #[derive(Default)]

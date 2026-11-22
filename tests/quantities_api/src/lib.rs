@@ -27,6 +27,7 @@ use ww_si::{
 use ww_si::{RunScale, Scaled, Ticks};
 
 #[ww_api_root]
+#[effect(edit)]
 trait Quantities {
     property!(rw voltage: Volt);
     /// A supply rail, `0 V ..= 3.3 V` whatever prefix a value is sent with (STD-59)

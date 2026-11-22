@@ -361,7 +361,7 @@ wire_v2::Thermo: saved tests/multi_root_api/api_snapshots/multi_root_api_0_1_0.w
   the pre-commit hook [above](#a-released-snapshot-never-changes) works unchanged.
 * A root that didn't change since its previous snapshot gets no new file: that one, saved by an older crate version,
   stays its latest. A root that changed, a doc comment too, gets a file of the new crate version.
-* A crate that had one root and now has several still has its older whole-crate snapshots (`thermo_api_1_2_0.ron`).
+* A crate that had one root and now has several still has its older whole-crate snapshots (`thermo_api_1_0_0.ron`).
   Each counts as an earlier snapshot of the root on the same line with the same trait name, cut down to that root.
 * A root with no earlier snapshot is saved unchecked. When the crate has snapshots of older versions, `ww api save`
   warns, naming what it looked for and what is there: a root renamed, or moved to another module or line, matches

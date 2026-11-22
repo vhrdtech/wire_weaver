@@ -32,10 +32,10 @@ follows the new line and the older lines' modules convert into it, exactly.
 
 ```text
 thermo_api/
-├── Cargo.toml        # [package.metadata.wire_weaver.roots]: "wire_v1::Thermo" = "w1.2", ..
-├── api_snapshots/    # each line's history, then one snapshot per root
+├── Cargo.toml        # [package.metadata.wire_weaver.roots]: "wire_v2::Thermo" = "w2.1", ..
+├── api_snapshots/    # every version's snapshots, one per root from 2.0.0 on
 └── src/
-    ├── lib.rs        # pub mod common; pub mod wire_v1; pub mod wire_v2; pub mod wire_v3;
+    ├── lib.rs        # pub mod common; pub mod wire_v1 (retired, behind a feature); pub mod wire_v2; ..
     ├── common.rs     # RateError, Command (every line); Sample, Config, Mode, Channel, .. (lines 2 and 3)
     ├── wire_v1.rs    # #[ww_api_root] pub trait Thermo, its own Sample, Mode and Channel
     ├── wire_v2.rs    # #[ww_api_root] pub trait Thermo, everything else from common
@@ -61,15 +61,21 @@ pub trait Thermo {
 
 - A type goes into `common` once more than one line uses it unchanged, not only when every line does: when line 2
   is retired (`ww api line retire`), line 3 must not lose what it took from line 2's module.
-- The crate version is Rust-only: one crate at 4.0.0 serves firmware of w1.2, w2.1 and w3.0. Each root is checked
+- The crate version is Rust-only: one crate at 3.0.0 serves firmware of w1.2, w2.1 and w3.0. Each root is checked
   against its own line's latest snapshot (`ww api check`, a `tests/evolution.rs` with `Check::run`), and a change to
   a `common` type is named on every line it reaches.
-- An API whose lines were crates of their own before (here 1.x, 2.x and 3.x, each with its root at the crate root)
-  moves into this layout without touching the wire: keep the old snapshots in `api_snapshots/`, and each root is
-  compared with the last snapshot of its line. Firmware built from the old crates keeps working with a host built
-  from the new one; the bench tests that with an older published crate (`tests/thermo_api_old`). The move
-  changes every Rust path (`thermo_api::Sample` is `thermo_api::wire_v1::Sample`), so it is a breaking crate bump,
-  which the checker doesn't ask for yet (EVO-54).
+- An API that started with one root at the crate root moves into this layout when its second line comes, without
+  touching the wire. The bench did so in 2.0.0: 1.0.0 had line 1 at the crate root, 2.0.0 put it into `wire_v1`
+  beside the new `wire_v2`. Keep the old snapshots in `api_snapshots/`, and each root is compared with the last
+  snapshot of its line. Firmware built from the old crate keeps working with a host built from the new one; the
+  bench tests that with an older published crate (`tests/thermo_api_old`). The move changes every Rust path
+  (`thermo_api::Sample` is `thermo_api::wire_v1::Sample`), so it is a breaking crate bump, which the checker doesn't
+  ask for yet (EVO-54).
+
+The bench's history is an API's whole cycle: 0.1.0 on the [design line](versions.md#w0-the-design-line) w0, which
+keeps no snapshot; 1.0.0 the first release, line 1 at w1.0; 2.0.0 line 2 at w2.0; 2.1.0 and 2.2.0 gave line 1
+`calibrate` (w1.1) and `uptime` (w1.2), 2.3.0 gave line 2 `self_test` (w2.1); 3.0.0 line 3 at w3.0; 4.0.0 retired line
+1 ([retiring a line](#retiring-a-line)).
 
 The host takes the crate once and names each root by its module path:
 
@@ -77,7 +83,7 @@ The host takes the crate once and names each root by its module path:
 // v2.rs
 wire_weaver_client::facade_line!(
     thermo_api::wire_v2::Thermo,
-    sub_levels = [ww_indication::Indication => crate::IndicationClient],
+    sub_levels = [thermo_api::common::Indication => crate::IndicationClient],
 );
 ```
 
@@ -285,8 +291,8 @@ Test `tests/thermo` `lines::reconnect_after_a_dfu_to_another_line`.
 
 ## Shared sub-traits
 
-A sub-trait every line uses unchanged, a `ww_stdlib` one (here `ww_indication::Indication`, the status LED) or one
-of the API crate's own (`common::Channel`), would get a client of its own in each line's generated client: one Rust
+A sub-trait every line uses unchanged, a `ww_stdlib` one (`ww_indication::Indication`, the status LED; the bench
+has a stand-in of it, `common::Indication`) or one of the API crate's own (`common::Channel`), would get a client of its own in each line's generated client: one Rust
 type per line for the same trait, and the driver forwards every call per line. Generate its client once instead,
 with `client = "sub_level"`, and let each line's client return it (CLT-68, `tests/shared_sub_level`; `Thermo`'s
 `indication()` is one `match` returning it from any line):
@@ -352,6 +358,32 @@ talks to every line with no client per line. `tests/thermo/tests/dynamic.rs` and
 - A `Point` (`Point<Celsius, Fixed<Kelvin, ..>>`) is read through its one field, `coord`, a quantity from the
   origin: the dynamic client and Python don't read a point as such yet (CLT-65).
 
+## Retiring a line
+
+A line's end comes when no device runs it any more. `ww api line retire` (TOOL-33) takes its root out of the crate:
+
+```sh
+ww api line retire thermo_api wire_v1
+```
+
+- The root leaves `[package.metadata.wire_weaver.roots]` and its last wire version goes to
+  `[package.metadata.wire_weaver.retired_roots]`. Its module stays in the source behind a feature nothing enables,
+  `#[cfg(feature = "retired_wire_v1")] pub mod wire_v1;`; with `--delete` the file goes instead.
+- Removing a root is a breaking crate bump, made in `Cargo.toml` (the bench's 3.0.0 to 4.0.0). `ww api save` then
+  records the removal next to the line's last snapshot, `thermo_api_4_0_0.wire_v1.Thermo@w1.2.removed`, so a later
+  version isn't asked for the bump again. The line's snapshots stay as its history.
+- `ww api check` checks the remaining roots only. A type in `common` stays while another line uses it; what only the
+  retired line used goes with its module.
+- A host that still meets the last devices of the line turns the feature on, and codegen takes the root's wire
+  version from `retired_roots`:
+
+    ```toml
+    thermo_api = { workspace = true, features = ["retired_wire_v1"] }
+    ```
+
+  The bench's driver and simulated firmware do, so the host side of line 1 stays tested. Its checker test loads the
+  retired root by name and compares it with the line's last snapshot: the kept module is still what devices run.
+
 ## Testing every line
 
 `tests/thermo/tests/lines.rs` runs one scenario against simulated firmware of each line through the same `Thermo`
@@ -362,17 +394,18 @@ client's test and Python's (`thermo_pytest_devices` hosts every line behind a ww
 - Simulate the first revision of each line too (here w1.0 and w2.0), to see `#[since]` items refused. A server is
   always built at its root's revision, so such firmware comes from the API crate as it was then: the bench keeps
   the published crate of its lines' first revisions in `tests/thermo_api_old`, outside the workspace (a workspace
-  can't hold two packages of one name), as old firmware still in the field. (The bench's lines are on wire lines 5
-  to 7 since a trait identity change moved each to a new one; its first revisions are `thermo_api` 5.0.0.) A device built from the current crate claiming an
-  older wire is refused (CLT-61). Building a server at an earlier revision of its root is SRV-58.
+  can't hold two packages of one name), as old firmware still in the field: `thermo_api` 2.0.0, at w1.0 and w2.0.
+  A device built from the current crate claiming an older wire is refused (CLT-61). Building a server at an earlier
+  revision of its root is SRV-58.
 - Old crates of the same name make `-p thermo_api` ambiguous for Cargo: name the current one with its version,
-  `-p thermo_api@6.0.0`.
+  `-p thermo_api@4.0.0`.
 - An observed `get_set` property reports a host's write by itself: the generated code marks it changed after the
   setter returns `SetResult::Set` (SRV-57). Changes the firmware makes on its own still need `mark_changed_<name>`.
-- A device of a line the driver has no client of checks the refusal and its message.
+- A device of a line the driver has no client of checks the refusal and its message: a newer line (4) and an older
+  one (0, the design line).
 - The checker test compares the roots with each other (line 2 against line 1, line 3 against line 2: each a new
-  line) and each line's root with the snapshot of its first revision (a new revision). The crate version is the API
-  crate's own `tests/evolution.rs`, per root.
+  line), each line's root with the snapshot of its first revision (a new revision), and the retired root with its
+  last snapshot. The crate version is the API crate's own `tests/evolution.rs`, per root.
 - Build and check an old API crate kept outside the workspace through the host's workspace, never on its own: a
   `cargo check` inside it writes its own `Cargo.lock`, which may lock `exact_units` at another commit. The checker
   then loads `ww_si` types from two revisions and reports a shared trait (`ww_indication`) as changed.

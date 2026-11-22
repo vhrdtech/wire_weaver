@@ -128,7 +128,7 @@ source: save it again while the version is not published (`just save-snapshots` 
 ### Superseded definitions (EVO-68)
 
 Saving the dependency again refreshes its snapshot in place, and the definition the other snapshots name by the old
-signature would then be gone: an API line frozen in a snapshot of its own (`thermo_api`'s `wire_v1::Thermo`) and a
+signature would then be gone: an API line frozen in a snapshot of its own (`thermo_api`'s retired `wire_v1::Thermo`) and a
 device built before still name it. So `ww api save` keeps each definition of the crate's own whose signature with docs
 a refresh in place changes, in `api_snapshots/superseded/`, one file per definition (a docs-only change is kept too: a
 snapshot saved before EVO-69 names the definition by its signature with docs):

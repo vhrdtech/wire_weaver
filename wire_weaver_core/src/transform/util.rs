@@ -661,9 +661,12 @@ impl Parse for Args {
                 }
                 "borrowed" | "owned" | "derive" | "derive_owned" | "derive_borrowed"
                 | "cfg_attr" | "cfg_attr_owned" | "cfg_attr_borrowed" | "discriminants"
-                | "crate_path" | "non_exhaustive" | "display" | "series" | "niche" => {
+                | "crate_path" | "non_exhaustive" | "display" | "series" | "niche"
+                | "elide_defaults" => {
                     // Directives irrelevant to wire_weaver_core's introspection (it only cares
                     // about `ww_repr`, the size assumption and `sparse`) - skip their arguments, if any.
+                    // `elide_defaults` (SW-85) changes which bytes a value takes, not how they read: the
+                    // model has no `#[default]` values to elide by (INT-10), so its writers write every field.
                     if input.peek(syn::token::Paren) {
                         let _group: proc_macro2::Group = input.parse()?;
                     }

@@ -717,6 +717,30 @@
       "note": "an older reader skips the appended fields"
     },
     {
+      "name": "evolution.elide_defaults.elided",
+      "type": "config_elided",
+      "value": {"rate": 1000, "name": "abc", "timeout": 7, "retries": null, "tags": null},
+      "bytes": "e80361626303",
+      "gaps": {"dynamic": "the API model has no #[default] values to elide by or read back (INT-10)", "explain": "the API model has no #[default] values to elide by or read back (INT-10)", "python": "the API model has no #[default] values (INT-10)", "c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "elide_defaults: every trailing field at its default is left off, the bytes of evolution.v1"
+    },
+    {
+      "name": "evolution.elide_defaults.partial",
+      "type": "config_elided",
+      "value": {"rate": 1000, "name": "abc", "timeout": 20, "retries": 9, "tags": null},
+      "bytes": "e8036162631400800903",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "elide_defaults: only the trailing run at its default (tags) is left off"
+    },
+    {
+      "name": "evolution.elide_defaults.non_default_after",
+      "type": "config_elided",
+      "value": {"rate": 1000, "name": "abc", "timeout": 7, "retries": null, "tags": [1, 2]},
+      "bytes": "e803616263070040010223",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "elide_defaults: a field at its default before a non-default one is written"
+    },
+    {
       "name": "fixed.numbers",
       "type": "fixed_numbers",
       "value": {"a": 18, "b": 13398, "c": 2023406814, "d": 72623859790382856, "e": -2, "f": -300, "g": -70000, "h": -9223372036854775807, "x": 0.25, "y": -2.5, "words": [43690, 7]},

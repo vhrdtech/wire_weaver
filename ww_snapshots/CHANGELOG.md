@@ -23,6 +23,7 @@
 
 ### 🚀 Features
 
+- `file::parse` reads snapshot files of model format 0.4.0 (API-58); a file whose re-encoded bytes miss its hash is refused with the re-save step.
 - `cargo::git_checkout_dir_name`: the `git/checkouts/` directory Cargo makes for a git URL.
 - `rustc::RustcBuild`: the build a proc macro runs in, from rustc's arguments; `CargoSources::rustc` sets it (API-14).
 - `RustcBuild::cargo_cwd` and `cargo_configs`: where the build's Cargo runs and its `--config` arguments.

@@ -7,6 +7,8 @@
 // whole model, so a newer kind of type or item can't be skipped as `Unknown(_)`. Tolerating newer model variants is
 // INT-8.
 
+mod effects;
+pub use effects::Effects;
 #[cfg(feature = "std")]
 mod alloc;
 #[cfg(feature = "std")]
@@ -78,7 +80,7 @@ pub const MAGIC: u32 = 0xA91B_14F0;
 /// file or introspection data) was written in. Not the crate's version: it moves with every change of the model's
 /// shape (a field, a variant, a type of a dependency the model uses), which `ww_snapshots`' `model_format` test
 /// checks, and a snapshot file of another format is refused with the step that re-saves it.
-pub const VERSION: VersionTriplet = VersionTriplet::new(0, 4, 0);
+pub const VERSION: VersionTriplet = VersionTriplet::new(0, 5, 0);
 
 #[derive_shrink_wrap(
     owned(feature = "std"),
@@ -230,7 +232,7 @@ pub struct ErrorVariant<'i> {
 
 /// Typed attributes of an [ApiItem] or an [ApiLevel] that don't change the wire contract (SRV-34): checked by the
 /// codegen like `#[optional]` and `#[errors]`, carried in introspection, read by the hub, `ww` and GUIs. See
-/// `docs/api/metadata.md`. New attributes are new fields here.
+/// `docs/api/metadata.md`. New attributes are new fields here, appended with a `#[default]`.
 #[derive_shrink_wrap(
     owned(feature = "std"),
     cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
@@ -247,6 +249,11 @@ pub struct Meta<'i> {
     /// `#[label(..)]`: what a person calls the item ("CAN1, DB-9 on the front"), shown by `ww`, in `InUse` errors
     /// and GUIs. One label, or one per element of a resource array, by index.
     pub labels: RefVec<'i, &'i str>,
+    /// `#[effect(..)]` (API-58): what a call, a property write or a sink's data does. On an item the codegen
+    /// stores its own or its trait's, on a trait definition the trait's default. Empty: none declared, read
+    /// [ApiItemOwned::effects] for an item's.
+    #[default = Effects::NONE]
+    pub effects: Effects,
 }
 
 /// What a claim on a resource takes from other clients (SRV-34), `#[claim(exclusive | shared | observe)]`.

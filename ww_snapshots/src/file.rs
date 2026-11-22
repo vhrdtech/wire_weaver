@@ -129,13 +129,21 @@ pub fn parse(text: &str) -> Result<Snapshot> {
             snapshot::HASH_PREFIX.trim_end()
         );
     };
-    check_format(text)?;
+    let format = check_format(text)?;
     let options = ron::Options::default().with_recursion_limit(RON_RECURSION_LIMIT);
     let bundle: ApiBundleOwned = options
         .from_str(text)
         .map_err(|e| anyhow!("parsing RON: {e}"))?;
     let bytes = snapshot::encode(&bundle)?;
     let hash = snapshot::sha256_hex(&bytes);
+    if hash != saved && format != ww_self::VERSION {
+        bail!(
+            "saved in model format {}, which this tool reads only where the fields added since (an item's \
+             `effects`) don't change the bytes, and here they do: re-save it (`ww api save` in the crate at the \
+             commit of that version)",
+            format_triplet(&format)
+        );
+    }
     if hash != saved {
         bail!(
             "the RON encodes to shrink_wrap bytes with sha256 {hash}, the header says {saved}: the file was \
@@ -152,9 +160,16 @@ pub fn parse(text: &str) -> Result<Snapshot> {
     })
 }
 
-/// Checks that a snapshot's text is in the model format this build reads ([ww_self::VERSION]), before the rest of
-/// it is read: a file of another format is refused with the step that re-saves it.
-pub fn check_format(text: &str) -> Result<()> {
+/// Older model formats this build reads: since each of them the model only gained fields with a `#[default]`, which
+/// RON fills in. Such a file's hash still has to match its re-encoded bytes, which holds while the new fields are at
+/// their default where the old format had nothing for them.
+/// - `0.4.0`: `Meta::effects` (API-58).
+const READABLE_OLDER_FORMATS: [VersionTriplet; 1] = [VersionTriplet::new(0, 4, 0)];
+
+/// Checks that a snapshot's text is in a model format this build reads ([ww_self::VERSION], or one of
+/// [READABLE_OLDER_FORMATS]), before the rest of it is read, and returns it: a file of another format is refused
+/// with the step that re-saves it.
+pub fn check_format(text: &str) -> Result<VersionTriplet> {
     // the field is at the top of the file: reading it alone spares a second parse of the whole bundle
     let Some((_, rest)) = text.split_once(FORMAT_FIELD) else {
         bail!("no `{FORMAT_FIELD}` field: not a snapshot `ww api save` wrote");
@@ -162,7 +177,7 @@ pub fn check_format(text: &str) -> Result<()> {
     let end = rest.find(')').map_or(rest.len(), |i| i + 1);
     let format: VersionTriplet =
         ron::from_str(&rest[..end]).map_err(|e| anyhow!("parsing `{FORMAT_FIELD}`: {e}"))?;
-    if format != ww_self::VERSION {
+    if format != ww_self::VERSION && !READABLE_OLDER_FORMATS.contains(&format) {
         bail!(
             "saved in model format {}, this tool reads {}: re-save it (`ww api save` in the crate at the commit of \
              that version)",
@@ -170,7 +185,7 @@ pub fn check_format(text: &str) -> Result<()> {
             format_triplet(&ww_self::VERSION)
         );
     }
-    Ok(())
+    Ok(format)
 }
 
 /// The field of a bundle that names its model format, [ww_self::ApiBundle::ww_self_version].
@@ -295,5 +310,36 @@ mod tests {
         assert!(e.contains("the header says"), "{e}");
         let e = parse("(magic: 1)").unwrap_err().to_string();
         assert!(e.contains("header line"), "{e}");
+    }
+
+    #[test]
+    fn an_older_readable_format_reads_and_an_unknown_one_is_refused() {
+        let bundle = ApiBundleOwned {
+            magic: ww_self::MAGIC,
+            ww_self_version: VersionTriplet::new(0, 4, 0),
+            root: ww_self::ApiLevelOwned {
+                docs: vec![],
+                crate_idx: 0.into(),
+                compact_id: None,
+                meta: None,
+                trait_name: "dep".into(),
+                items: vec![],
+            },
+            types: vec![],
+            traits: vec![],
+            ext_crates: vec![FullVersionOwned::new(
+                "dep".into(),
+                VersionOwned::new(0, 1, 0),
+            )],
+            root_omitted: None,
+            wire: None,
+            ext_wire: None,
+        };
+        let text = render_ron(&bundle).unwrap();
+        assert_eq!(check_format(&text).unwrap(), VersionTriplet::new(0, 4, 0));
+        assert_eq!(parse(&text).unwrap().version().crate_id, "dep");
+        let older = text.replace("minor: 4", "minor: 3");
+        let e = parse(&older).unwrap_err().to_string();
+        assert!(e.contains("saved in model format 0.3.0"), "{e}");
     }
 }

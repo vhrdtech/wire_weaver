@@ -6612,7 +6612,9 @@ stream's send helper is not counted: it is linked only where it is used.</p>
 </span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">keys</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">client</span><span class="p">.</span><span class="n">flow_keys</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span><span class="w"> </span><span class="c1">// KeyEvent::Added and Removed as they happen</span>
 </span></code></pre></div>
 <p><code>flow_by</code> returns the element's client, <code>None</code> when the device has no element with that key; it returns the index
-for an array of properties, streams or sinks. Each has a <code>_blocking</code> twin. The key type needs <code>Clone</code>.</p>
+for an array of properties, streams or sinks. <code>flow_index_of(&amp;key)</code> returns the index for any array. Each has a
+<code>_blocking</code> twin. The key type needs <code>Clone</code>. The API's <a href="../local_trait/#keyed-arrays">local trait</a> has the same
+lookups, for a local implementation and the client alike.</p>
 <p><code>flow_by</code> asks the device's <code>index_of</code> once per key and keeps the answer in the connection's key cache, shared by
 every clone of the client: later lookups send nothing. Keys the client sees otherwise go into the cache too: a
 <code>flow_key</code> read, an <code>Added</code> on the <code>keys</code> stream. An entry goes away on a <code>Removed</code>, on a <code>BadIndex</code> answer to a

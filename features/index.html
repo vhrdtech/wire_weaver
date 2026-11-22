@@ -7250,8 +7250,8 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
   <code>RpcResult::Failed</code> / <code>GetResult::Failed</code> / <code>SetResult::Failed</code> (<code>wire_weaver::Failure</code>, <code>wire_weaver::forward</code>;
   firmware links none of it, <code>just flash-budget</code> unchanged); a stream open adds the trait's <code>ItemStream</code> as a pump.
   Items the trait leaves out are handlers written by hand beside them. <code>examples/local_trait</code>, <code>tests/serve_trait</code>,
-  <a href="../docs/api/local_trait/#serving-a-local-implementation">docs</a>. Next: nested levels and the rest of CLT-58 (each
-  grows the trait, the server follows); SRV-46's authorization hook runs in the server before any handler, these
+  <a href="../docs/api/local_trait/#serving-a-local-implementation">docs</a>. Nested levels, resource arrays and keyed arrays
+  are served too (CLT-58). Next: observing, with the rest of CLT-58 (each grows the trait, the server follows); SRV-46's authorization hook runs in the server before any handler, these
   included.</li>
 <li>✅ <strong>SRV-73 Non-Send local trait</strong> — <code>ww_codegen!(crate :: Api, local_trait = "Name", local_trait_send = false)</code>:
   the trait and its <code>Dyn</code> companion without <code>Send</code> (<code>LocalBoxFuture</code>, <code>Rc&lt;dyn NameDyn&gt;</code>, <code>LocalItemStream</code>), for
@@ -7701,13 +7701,11 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
   <code>async fn</code>s, so a generic call site runs against a direct local implementation (no server, no serialization) or a
   remote one. Every function takes the caller's <code>cx: &amp;CallContext</code> first (SRV-48 call-context), so a server
   forwards who asked with <code>cx.call()</code>; the API crate's <code>local</code> feature needs <code>wire_weaver</code> with <code>std</code> only, no
-  <code>wire_weaver_client</code>. Methods, property reads and writes and plain streams (<code>ItemStream&lt;T&gt;</code>) of the root level are done
+  <code>wire_weaver_client</code>. Methods, property reads and writes and plain streams (<code>ItemStream&lt;T&gt;</code>) are done, at every
+  nested level and in resource and keyed arrays (CLT-58)
   (<code>examples/local_trait</code>, <code>tests/methods</code> <code>local_trait_on_the_client</code>, <a href="../docs/api/local_trait/">Local trait</a>).
   Missing, and how they could map:</p>
 <ul>
-<li>Nested trait levels and resource arrays: one trait per level, reached by <code>fn plug(&amp;self) -&gt; impl Plug</code> /
-  <code>fn unit(&amp;self, index: u32) -&gt; impl Unit</code>; the client's level structs borrow it (<code>UnitClient&lt;'_&gt;</code>), so
-  the level trait needs a lifetime or owned level handles.</li>
 <li>Observing (<code>+observe</code> properties), sinks, counted, reliable and batched streams: today only the client has
   them. Observing could be an <code>ItemStream</code> of updates; sinks a <code>futures</code> <code>Sink</code>; counted and reliable streams
   need cursors in the trait (<code>resume(cursor)</code>), which a local implementation would have to keep.</li>
@@ -7740,8 +7738,19 @@ observing), SRV-46 (peer identity).
   fills the <code>wire_weaver._wire_weaver</code> module; the wheel is the <code>cdylib</code> crate <code>wire_weaver_wheel</code>
   (in vhrdtech/ww_tools: <code>wire_weaver_wheel</code>, with <code>pyproject.toml</code>, the Python package, the tests and the console script).
   <a href="../docs/python/#installation">Docs</a>.
-- 📋 <strong>CLT-58 Local trait for nested levels and arrays</strong> — one trait per nested level and resource arrays by index,
-  <code>+observe</code> properties as a stream of updates, on the client, plain implementations and SRV-49's server.
+- 🚧 <strong>CLT-58 Local trait for nested levels and arrays</strong> — one trait per nested level and resource arrays by index,
+  <code>+observe</code> properties as a stream of updates, on the client, plain implementations and SRV-49's server. Done:
+  a level names its trait with <code>#[ww_trait(local = "Name")]</code> and is reached by an accessor of its parent
+  (<code>type Unit&lt;'a&gt;: Unit + 'a; fn unit(&amp;self, index) -&gt; Result&lt;Self::Unit&lt;'_&gt;, Error&gt;</code> for an array, <code>&amp;T</code> of an
+  implementor is one); a level from another crate keeps that crate's trait, re-exported next to its <code>#[ww_trait]</code>.
+  Arrays of properties and streams take the index first; every array has <code>&lt;array&gt;_valid_indices</code>; a typed index
+  converts through <code>TryFrom&lt;u32&gt;</code>, <code>call::ErrorKind::BadIndex</code> both ways. Keyed arrays have <code>&lt;array&gt;_index_of</code>,
+  <code>&lt;array&gt;_key</code>, <code>&lt;array&gt;_keys</code> and a provided <code>&lt;array&gt;_by</code>. The client implements every level (its property
+  arrays now take the index), and <code>serve_trait</code> forwards every item at every level (async valid indices, pumps
+  named by <code>PumpId::indexed</code>, the <code>keys</code> stream through handlers). <code>tests/serve_trait</code> (<code>levels</code>),
+  <code>examples/local_trait</code> (lanes), <a href="../docs/api/local_trait/#nested-levels">docs</a>. Missing: <code>+observe</code> properties as
+  a stream of updates (observing under an array in a <code>serve_trait</code> server would also need async valid indices in
+  the observe codegen), and <code>impl_local_trait</code> on a client whose level is a shared client (CLT-68).
 - 🚧 <strong>CLT-10 Trait calls that work on any device</strong> · <code>v0.5</code> — serial, user label, a CLI that works with all devices.
   <code>ww list</code> with filters and USB interface string metadata are done, and global trait calls on any device whatever
   its API version: <code>ClientConfig::traits_only()</code>, <code>DynClient::global_attachment()</code> (served through API-20,

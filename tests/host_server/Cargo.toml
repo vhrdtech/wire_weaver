@@ -13,7 +13,7 @@ repository.workspace = true
 keep_trying_api.workspace = true
 tokio = { workspace = true, features = ["macros", "rt"] }
 wire_weaver = { workspace = true, features = ["std"] }
-wire_weaver_client = { workspace = true, features = ["in_process"] }
+wire_weaver_client = { workspace = true, features = ["clock_sync", "in_process", "usb"] }
 wire_weaver_server = { workspace = true, features = ["tokio"] }
 ww_client_server.workspace = true
 ww_device.workspace = true
@@ -28,7 +28,7 @@ host_server_api.workspace = true
 tests_common.workspace = true
 tokio = { workspace = true, features = ["io-util", "net", "sync", "rt-multi-thread", "rt", "macros", "test-util", "time"] }
 tokio-util = { workspace = true, features = ["compat"] }
-wire_weaver_client = { workspace = true, features = ["in_process", "local_socket", "udp", "ws"] }
+wire_weaver_client = { workspace = true, features = ["clock_sync", "in_process", "local_socket", "udp", "usb", "ws"] }
 wire_weaver_server = { workspace = true, features = ["in_process", "local_socket", "tokio", "udp"] }
 ww_byte_stream.workspace = true
 ww_local_socket = { workspace = true, features = ["socket"] }

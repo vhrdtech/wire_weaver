@@ -27,7 +27,7 @@ tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
 tracing.workspace = true
 tracing-subscriber = { workspace = true, features = ["registry"] }
 wire_weaver.workspace = true
-wire_weaver_client = { workspace = true, features = ["in_process"] }
+wire_weaver_client = { workspace = true, features = ["clock_sync", "in_process", "usb"] }
 ww_client_server.workspace = true
 
 [lints]

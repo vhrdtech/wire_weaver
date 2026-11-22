@@ -18,7 +18,7 @@ common_error_api.workspace = true
 tests_common.workspace = true
 tokio = { workspace = true, features = ["sync", "rt-multi-thread", "rt", "macros"] }
 wire_weaver.workspace = true
-wire_weaver_client.workspace = true
+wire_weaver_client = { workspace = true, features = ["clock_sync", "usb"] }
 ww_client_server.workspace = true
 
 [dev-dependencies]

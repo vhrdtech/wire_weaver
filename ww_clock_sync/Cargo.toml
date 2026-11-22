@@ -10,7 +10,7 @@ repository.workspace = true
 homepage.workspace = true
 
 [dependencies]
-wire_weaver_client = { workspace = true, features = ["clock_sync"] }
+wire_weaver_client = { workspace = true, features = ["clock_sync", "usb"] }
 
 [lints]
 workspace = true

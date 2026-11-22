@@ -11,6 +11,8 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
+- The client and server build for Android: USB is only where a crate asks for it (`wire_weaver_client`, `wire_weaver_server`).
+
 ## [0.6.0] - 2026-11-22
 
 - One authorization hook guards a host server and in-process calls (`Authorized`), and may hold a call for a person's approval (SRV-72); see `wire_weaver`, `wire_weaver_server`, `wire_weaver_core`, `ww_client_server`.

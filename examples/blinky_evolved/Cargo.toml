@@ -17,7 +17,7 @@ ignored = ["blinky_api_evolved"]
 blinky_api_evolved.workspace = true
 tokio = { workspace = true, features = ["sync", "rt"] }
 wire_weaver.workspace = true
-wire_weaver_client.workspace = true
+wire_weaver_client = { workspace = true, features = ["clock_sync", "usb"] }
 
 [dev-dependencies]
 anyhow.workspace = true

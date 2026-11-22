@@ -3,5 +3,11 @@
 [toolchain]
 channel = "1.100.0"
 components = ["clippy", "rustfmt", "rust-src"]
-# mcu/ and examples_mcu/rp2 (no rust-toolchain.toml of its own), wire_weaver_tool's web build
-targets = ["thumbv6m-none-eabi", "thumbv7em-none-eabihf", "thumbv8m.main-none-eabihf", "wasm32-unknown-unknown"]
+# mcu/ and examples_mcu/rp2 (no rust-toolchain.toml of its own), wire_weaver_tool's web build, `just check-android`
+targets = [
+    "aarch64-linux-android",
+    "thumbv6m-none-eabi",
+    "thumbv7em-none-eabihf",
+    "thumbv8m.main-none-eabihf",
+    "wasm32-unknown-unknown",
+]

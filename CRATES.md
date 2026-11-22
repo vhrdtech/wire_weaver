@@ -111,7 +111,7 @@ This page lists the crates of the root workspace. The first table links each pub
 | [`introspect_compressed_api`](tests/introspect_compressed_api) | runtime | Test API for compressed introspection data (INT-16), used by tests/introspect_compressed |
 | [`io_timebase`](tests/io_timebase) | runtime | ww_timebase end to end: a mock server through tests_common::start_device, the generated client through the real host event loop |
 | [`io_timebase_api`](tests/io_timebase_api) | runtime | Test API root for ww_timebase: every trait of the crate at one level, used by tests/io_timebase |
-| [`keep_trying`](tests/keep_trying) | runtime | Keep-trying connections end to end (CLT-75): a generated client made with connect_keep_trying() against a generated server |
+| [`keep_trying`](tests/keep_trying) | runtime | Keep-trying connections end to end (CLT-75): a generated client made with connect_keep_trying() against a generated server, and one following a server found over DNS-SD (CLT-82) |
 | [`keep_trying_api`](tests/keep_trying_api) | runtime | API of the keep-trying connection tests (CLT-75): one observed property the device counts up |
 | [`keyed`](tests/keyed) | runtime | Server of a keyed array (SRV-62): answers index_of, key[i], a multi read of all keys and the keys stream |
 | [`keyed_api`](tests/keyed_api) | runtime | Keyed resource arrays (API-67): a packet dissector whose flows a client addresses by their key, not by index |

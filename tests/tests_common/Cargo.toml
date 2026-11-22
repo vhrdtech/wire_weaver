@@ -13,10 +13,19 @@ description = "Shared test support: runs a generated server on ww_device::Server
 # Devices served on a local socket (start_device_async_ipc), for a hub in another process to open
 local_socket = ["dep:ww_local_socket", "wire_weaver_client/local_socket"]
 # Devices served over the simulated WebSocket on the test's own runtime (start_device_async_ws)
-ws = ["wire_weaver_client/ws", "ww_device/futures-io"]
+# and over a real WebSocket on a TCP listener (start_device_async_ws_tcp)
+ws = [
+    "wire_weaver_client/ws",
+    "ww_device/futures-io",
+    "dep:futures-util",
+    "dep:tokio-util",
+    "tokio/net",
+]
 
 [dependencies]
+futures-util = { workspace = true, optional = true }
 tokio = { workspace = true, features = ["sync", "rt", "time", "macros"] }
+tokio-util = { workspace = true, optional = true }
 wire_weaver.workspace = true
 wire_weaver_client = { workspace = true, features = ["clock_sync", "in_process", "usb"] }
 ww_client_server.workspace = true

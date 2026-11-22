@@ -73,7 +73,7 @@ pub use client::sink::CreditConfig;
 pub use client::sink::Sink;
 pub use client::stream::{RawStreamEvent, Stream, StreamError, TypedStreamEvent};
 pub use client_meta::{ClientKind, ClientMeta};
-pub use config::{ClientApi, ClientConfig, ClientLine, DEFAULT_HUB_GIVE_UP};
+pub use config::{ClientApi, ClientConfig, ClientLine, DEFAULT_HUB_GIVE_UP, UrlSource};
 pub use connection_event::{ConnectionEvent, ConnectionState, GapReason, RetryNow};
 pub use device_info::{ApiInfo, DeviceApiInfo, DeviceInfo, MessageLimit, UsbLocation};
 pub use event_loop::commander::Commander;
@@ -107,6 +107,9 @@ pub mod in_process;
 pub mod local_socket;
 #[cfg(feature = "local_socket")]
 pub mod usb_sim;
+
+#[cfg(feature = "dns_sd")]
+pub mod discovery;
 
 #[cfg(feature = "ws")]
 mod ws;

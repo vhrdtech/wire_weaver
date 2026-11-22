@@ -7,7 +7,7 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Keep-trying connections end to end (CLT-75): a generated client made with connect_keep_trying() against a generated server"
+description = "Keep-trying connections end to end (CLT-75): a generated client made with connect_keep_trying() against a generated server, and one following a server found over DNS-SD (CLT-82)"
 
 [features]
 default = ["std"]
@@ -19,8 +19,9 @@ keep_trying_api.workspace = true
 tests_common = { workspace = true, features = ["ws"] }
 tokio = { workspace = true, features = ["sync", "rt", "macros", "time", "test-util"] }
 wire_weaver.workspace = true
-wire_weaver_client = { workspace = true, features = ["clock_sync", "in_process", "usb", "ws"] }
+wire_weaver_client = { workspace = true, features = ["clock_sync", "dns_sd", "in_process", "usb", "ws"] }
 ww_client_server.workspace = true
+ww_dns_sd = { workspace = true, features = ["mdns"] }
 ww_si = { workspace = true, features = ["counting"] }
 ww_stream = { workspace = true, features = ["std"] }
 

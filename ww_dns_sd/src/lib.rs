@@ -10,7 +10,9 @@
 //! - `AvahiResponder` (feature `avahi`): the system's Avahi daemon over D-Bus, where an in-process responder can't
 //!   run.
 //!
-//! [start_responder] picks one. Nothing here needs an async runtime: calls block briefly, on any thread or task.
+//! [start_responder] picks one. A `Browser` (feature `mdns`) finds announced servers: each `FoundServer` with its
+//! TXT keys, addresses and WebSocket URLs, and when it goes; a `Discovery` keeps their list on a thread of its own. Nothing here needs an async runtime: calls block
+//! briefly, on any thread or task.
 //!
 //! Everything announced reaches every device on the LAN, unauthenticated: the server's address and port, the
 //! API it serves and the instance id. See `docs/transport/websocket.md` in the repository.
@@ -18,6 +20,10 @@
 mod advertiser;
 #[cfg(feature = "avahi")]
 mod avahi;
+#[cfg(feature = "mdns")]
+mod browse;
+#[cfg(feature = "mdns")]
+mod discovery;
 #[cfg(feature = "mdns")]
 mod mdns;
 mod record;
@@ -27,6 +33,10 @@ use std::net::IpAddr;
 pub use advertiser::{Advertiser, Responder};
 #[cfg(feature = "avahi")]
 pub use avahi::AvahiResponder;
+#[cfg(feature = "mdns")]
+pub use browse::{Browsed, Browser, FoundServer, MdnsOptions};
+#[cfg(feature = "mdns")]
+pub use discovery::{CALLBACKS_MAX, Discovery, Feed, SERVERS_MAX, Select};
 #[cfg(feature = "mdns")]
 pub use mdns::{MDNS_PORT, MdnsResponder};
 pub use record::{
@@ -111,6 +121,12 @@ pub enum Error {
     /// The in-process responder's thread did not answer in time.
     #[error("the mDNS responder's thread did not answer")]
     ResponderGone,
+    /// The in-process browser's thread stopped.
+    #[error("the mDNS browser's thread stopped")]
+    BrowserGone,
+    /// The thread that keeps a `Discovery` did not start.
+    #[error("starting the discovery thread: {0}")]
+    Thread(std::io::Error),
     /// D-Bus or Avahi refused or failed.
     #[cfg(feature = "avahi")]
     #[error("Avahi: {0}")]

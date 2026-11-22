@@ -278,6 +278,46 @@ impl IntrospectBundle {
     }
 }
 
+/// WebSocket URLs looked up again at each connect attempt, see [ClientConfig::websocket_urls_from].
+#[derive(Clone)]
+pub struct UrlSource {
+    what: Arc<str>,
+    urls: Arc<dyn Fn() -> Vec<String> + Send + Sync>,
+}
+
+impl UrlSource {
+    /// A source that calls `urls` at each attempt; `what` names it in logs and errors (`the LAN: Living room TV`).
+    pub fn new(
+        what: impl Into<Arc<str>>,
+        urls: impl Fn() -> Vec<String> + Send + Sync + 'static,
+    ) -> Self {
+        Self {
+            what: what.into(),
+            urls: Arc::new(urls),
+        }
+    }
+
+    /// The URLs as of now.
+    pub fn urls(&self) -> Vec<String> {
+        (self.urls)()
+    }
+}
+
+impl std::fmt::Debug for UrlSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.what)
+    }
+}
+
+/// Two sources are equal when they are clones of one.
+impl PartialEq for UrlSource {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.what, &other.what)
+    }
+}
+
+impl Eq for UrlSource {}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum InterfaceKind {
     Usb,
@@ -307,8 +347,10 @@ pub(crate) enum ConfigPiece {
 
     /// Connect to a networked device via WebSocket, `ws://host:port/path`: the first of these that answers.
     WebSocketUrl { urls: Vec<String> },
-    /// Consider WebSocket as a connection interface, [WebSocketUrl](Self::WebSocketUrl) is required to select a device
-    /// (there is no discovery yet).
+    /// [WebSocketUrl](Self::WebSocketUrl) with the URLs `source` gives at each connect attempt.
+    WebSocketUrlSource { source: UrlSource },
+    /// Consider WebSocket as a connection interface, [WebSocketUrl](Self::WebSocketUrl) or
+    /// [WebSocketUrlSource](Self::WebSocketUrlSource) is required to select a device.
     WebSocket,
     /// Negate previous WebSocket related filters or exclude WebSocket from the interfaces to try.
     NoWebSocket,
@@ -580,6 +622,16 @@ impl ClientConfig {
         let mut f = self;
         let urls = urls.into_iter().map(Into::into).collect();
         f.pieces.push(ConfigPiece::WebSocketUrl { urls });
+        f
+    }
+
+    /// Connect over WebSocket to the URLs `source` gives, looked up again at every connect and every reconnect
+    /// attempt: a server found on the LAN (`discovery::urls`, feature `dns_sd`) is followed to its new address.
+    /// The URLs race as [Self::websocket_urls]'s do; none means no device is found this attempt. Replaces the URLs
+    /// set before.
+    pub fn websocket_urls_from(self, source: UrlSource) -> Self {
+        let mut f = self;
+        f.pieces.push(ConfigPiece::WebSocketUrlSource { source });
         f
     }
 
@@ -1233,6 +1285,9 @@ impl ValidatedConfig {
                             ConfigPiece::WebSocketUrl { urls } => {
                                 format!("WebSocket URL = {}", urls.join(" or "))
                             }
+                            ConfigPiece::WebSocketUrlSource { source } => {
+                                format!("WebSocket URL from {source:?}")
+                            }
                             ConfigPiece::UdpAddr { addr } => format!("UDP address = {addr}"),
                             ConfigPiece::TcpAddr { addr } => format!("TCP address = {addr}"),
                             ConfigPiece::Command { program, .. } => format!("command = {program}"),
@@ -1283,6 +1338,27 @@ impl ValidatedConfig {
         None
     }
 
+    /// This config with each [ClientConfig::websocket_urls_from] source asked for its URLs now, as plain
+    /// [ClientConfig::websocket_urls]: `None` when it has no source. Each connect attempt starts from it (CLT-82).
+    pub(crate) fn with_urls_resolved(&self) -> Option<ValidatedConfig> {
+        if !self
+            .pieces
+            .iter()
+            .any(|p| matches!(p, ConfigPiece::WebSocketUrlSource { .. }))
+        {
+            return None;
+        }
+        let mut config = self.clone();
+        for piece in &mut config.pieces {
+            if let ConfigPiece::WebSocketUrlSource { source } = piece {
+                *piece = ConfigPiece::WebSocketUrl {
+                    urls: source.urls(),
+                };
+            }
+        }
+        Some(config)
+    }
+
     /// How long opening a medium may take (CLT-80): [ClientConfig::link_setup_timeout] when set, else `default`, the
     /// transport's own.
     #[cfg_attr(
@@ -1324,6 +1400,7 @@ impl ValidatedConfig {
         self.is_opted_in(
             &[
                 ConfigPieceDiscriminants::WebSocketUrl,
+                ConfigPieceDiscriminants::WebSocketUrlSource,
                 ConfigPieceDiscriminants::WebSocket,
             ],
             ConfigPieceDiscriminants::NoWebSocket,

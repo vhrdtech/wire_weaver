@@ -13,5 +13,8 @@
 
 ### 🚀 Features
 
+- `MdnsOptions` and `MdnsResponder::with_options`: a port and loopback-only interfaces for tests (CLT-82).
+- `Browser` (feature `mdns`) finds `_wireweaver._tcp` servers: `FoundServer` with TXT keys, addresses and URLs; `Browsed` (CLT-82).
+- `Discovery` keeps the found servers current on its own thread; `Select`, `Feed`, `Discovery::fed` for tests (CLT-82).
 - New crate (TR-32): `ServiceRecord`, `Txt`, `Advertiser`, `Responder`, `start_responder`, `interface_addresses` announce WebSocket servers as `_wireweaver._tcp`.
 - `MdnsResponder` (feature `mdns`, default): in-process mDNS responder; `AvahiResponder` (feature `avahi`): Avahi over D-Bus (TR-32).

@@ -1341,6 +1341,15 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   its tokio worker for 50 ms (fixed, `commander_drop_on_a_worker_lets_the_loop_answer`). See
   [Transport protocols](docs/transport/overview.md#where-a-connects-time-goes). Missing: the full-speed USB run
   (Nucleo G0B1RE).
+- 🚧 **CLT-82 Servers found on the LAN** · `v0.5` — `ww_dns_sd::Discovery` (feature `mdns`) browses for
+  `_wireweaver._tcp` (`Browser`, in-process `mdns-sd`) and keeps the found servers (`FoundServer`: name, id, API,
+  wire, path, port, addresses) as they come, move and go, at most `SERVERS_MAX`; `on_change()` tells the app.
+  `wire_weaver_client` re-exports it under feature `dns_sd`; `ClientConfig::websocket_urls_from(UrlSource)` asks for
+  the URLs at every connect and reconnect attempt, and `discovery::urls(&Discovery, Select, fallback)` is such a
+  source, so a keep-trying client follows a server to its new address. The feature needs no `usb`, so it builds
+  for Android without USB code. See `docs/transport/websocket.md#finding-servers-on-the-lan`;
+  tested in `tests/dns_sd` (browser on loopback) and `tests/keep_trying` (`discovery`: found, moved, reconnected,
+  gone). Missing: `ww discover` and a discovered name where `ww` commands take a URL.
 - ✅ **CLT-81 Reconnect onto another API revision** · `v0.5` — a reconnect (keep-trying, hub-supervised,
   `Commander::reconnect`, `reconnect_as`) to a device with another API hash on the same wire line learns the device
   again as a first connect does (introspection data, global paths, the resource check, `HelloWireMismatch`) instead of
@@ -1641,7 +1650,7 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   Tests `tests/dns_sd`: a browser on loopback sees a record appear, change address and go; a fake Avahi over
   peer-to-peer D-Bus sees the calls. Example `blinky_ws_device`, checked with `avahi-browse` on a LAN PC with both
   responders. Announces to the whole LAN: no peer authentication until TR-24 (planned). Client-side discovery is
-  not there yet.
+  CLT-82.
 - 💡 **TR-5 USB CDC-NCM extras** — test on Windows, macOS, iOS and Android; serve files from an SD card over HTTP;
   mass storage with a README.
 - 📋 **TR-6 CAN** · `v0.5.x` — `ww_client_server` on Data0 to one node of a CAN or CAN FD bus by its node id, over

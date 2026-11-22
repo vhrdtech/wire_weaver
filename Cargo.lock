@@ -2082,6 +2082,7 @@ dependencies = [
  "wire_weaver",
  "wire_weaver_client",
  "ww_client_server",
+ "ww_dns_sd",
  "ww_si",
  "ww_stream",
 ]
@@ -3916,7 +3917,9 @@ dependencies = [
 name = "tests_common"
 version = "0.1.0"
 dependencies = [
+ "futures-util",
  "tokio",
+ "tokio-util",
  "wire_weaver",
  "wire_weaver_client",
  "ww_client_server",
@@ -4790,6 +4793,7 @@ dependencies = [
  "ww_client_server",
  "ww_date_time",
  "ww_device",
+ "ww_dns_sd",
  "ww_error",
  "ww_framer",
  "ww_global",

@@ -20,6 +20,8 @@
 
 ### 🚀 Features
 
+- `ClientConfig::websocket_urls_from(UrlSource)`: URLs asked again at every connect and reconnect attempt (CLT-82).
+- `discovery` (feature `dns_sd`): `ww_dns_sd`'s `Discovery` and `discovery::urls`, a server's URLs per attempt (CLT-82).
 - `KeyStream::into_item_stream`: a `keys` stream as the item stream of a local trait, the key cache following it (CLT-58).
 - Public for a tap decoder outside the crate: `envelope::request_variant`, `event_variant`, `inline_known`, `load_by_hash` and `tap::FRAMED_USB`, `FRAMED_USB_SEQ`, `FRAMED_UDP`, `STREAM_PLAIN` (TR-14).
 - A reconnect onto another revision of the device's API on the same wire line learns the device again instead of refusing it (CLT-81).

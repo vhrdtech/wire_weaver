@@ -11,7 +11,6 @@ pub trait Locked<T: ?Sized> {
 
 impl<T: ?Sized> Locked<T> for Mutex<T> {
     fn locked(&self) -> MutexGuard<'_, T> {
-        // spirit-level: allow(lock-unwrap) the crate's one place that decides poison: it panics
         self.lock()
             .expect("lock poisoned: a thread panicked while holding it")
     }

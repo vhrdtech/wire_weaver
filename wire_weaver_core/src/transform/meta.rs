@@ -1,6 +1,6 @@
-//! Typed attributes beyond the wire contract (SRV-34): `#[claim(..)]`, `#[shares(..)]`, `#[label(..)]` and
-//! `#[effect(..)]` (API-58, parsed in [effects](super::effects)), read into [MetaOwned] of an item or a trait
-//! definition. See `docs/api/metadata.md`.
+//! Typed attributes beyond the wire contract (SRV-34): `#[claim(..)]`, `#[shares(..)]`, `#[label(..)]`,
+//! `#[effect(..)]` (API-58, parsed in [effects](super::effects)) and `#[track(..)]` (API-71, parsed in
+//! [track](super::track)), read into [MetaOwned] of an item or a trait definition. See `docs/api/metadata.md`.
 
 use super::crate_walker::CrateContext;
 use anyhow::{Result, anyhow};
@@ -16,7 +16,8 @@ const MAX_PIN_RANGE: u32 = 256;
 
 /// Where the attributes are written, which decides what is allowed.
 pub(crate) enum MetaSite<'a> {
-    /// A trait definition: `#[claim]` for every `ww_impl!` of it, `#[effect]` for every item of it without one.
+    /// A trait definition: `#[claim]` for every `ww_impl!` of it, `#[effect]` for every item of it without one,
+    /// `#[track]` for every stream of it without one.
     Trait,
     /// A `ww_impl!`, `array` for `ww_impl!(name[]: ..)`.
     Impl { array: bool },
@@ -46,6 +47,8 @@ fn get_meta_inner(attrs: &[Attribute], site: &MetaSite) -> Result<Option<MetaOwn
             "label"
         } else if attr.path().is_ident("effect") {
             "effect"
+        } else if attr.path().is_ident("track") {
+            "track"
         } else {
             continue;
         };
@@ -74,6 +77,12 @@ fn get_meta_inner(attrs: &[Attribute], site: &MetaSite) -> Result<Option<MetaOwn
                      trait definition"
                 ));
             }
+            ("track", MetaSite::Impl { .. }) => {
+                return Err(anyhow!(
+                    "#[track] on a ww_impl!: how a stream is recorded belongs to the API, put it on the streams of \
+                     the trait or on the trait definition"
+                ));
+            }
             _ => {}
         }
         match kind {
@@ -88,6 +97,14 @@ fn get_meta_inner(attrs: &[Attribute], site: &MetaSite) -> Result<Option<MetaOwn
                     return Err(anyhow!("more than one #[effect]: name every effect in one"));
                 }
                 meta.effects = super::effects::parse(attr)?;
+            }
+            "track" => {
+                if meta.track.is_some() {
+                    return Err(anyhow!(
+                        "more than one #[track]: name the layout, dims and flags in one"
+                    ));
+                }
+                meta.track = Some(super::track::parse(attr)?);
             }
             "shares" => {
                 let array = matches!(site, MetaSite::Impl { array: true });

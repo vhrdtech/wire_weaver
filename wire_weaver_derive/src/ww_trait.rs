@@ -540,13 +540,13 @@ fn since_note(attrs: &[Attribute]) -> Option<String> {
     }
 }
 
-/// Note of `#[claim]`, `#[shares]`, `#[label]` (SRV-34) and `#[effect]` (API-58), as written: they are checked when
+/// Note of `#[claim]`, `#[shares]`, `#[label]` (SRV-34), `#[effect]` (API-58) and `#[track]` (API-71), as written: they are checked when
 /// the API is loaded.
 fn meta_note(attrs: &[Attribute]) -> Option<String> {
     let written: Vec<_> = attrs
         .iter()
         .filter(|a| {
-            ["claim", "shares", "label", "effect"]
+            ["claim", "shares", "label", "effect", "track"]
                 .iter()
                 .any(|n| a.path().is_ident(n))
         })

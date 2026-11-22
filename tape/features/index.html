@@ -6905,6 +6905,7 @@
 <li>Done: Part V, damage and raw media, with the drive's archive and card, four new figures and the lessons appendix.</li>
 <li>Done: the owner's read: one term each for record, item and sample; event times and samples on pages of their own.</li>
 <li>Done: the chapter "Sizes and speeds", every number from a bench report in <code>docs/bench/</code>.</li>
+<li>Done: the chapter "Writing from many threads": the mux, its queue and back-pressure, order, cuts, errors, async, followers and speed from the handles bench.</li>
 <li>Done: data figures as eventfull screenshots in <code>docs/shots/</code>: the drive's hour, the fault, the zoom and the RF minute. <code>just book-shots</code> copies them; eventfull's tests keep them current (eventfull TL-79).</li>
 <li>Done: the format reference with numbered sections, conventions, policies, verify and the detail the guides dropped. Its chunk head, index entry and tail are drawn from blocks.</li>
 <li>Open: autorange and damage as screenshots, and log and temp rows in them, once eventfull draws them.</li>
@@ -6920,7 +6921,16 @@
 <li><code>cargo run -p ww_tape_example</code> prints the story's numbers; <code>tests/story.rs</code> checks them and that the full hour is the same every run.</li>
 <li>Damage to the last piece and the run on a raw card over an earlier run; <code>tests/damage.rs</code> pins what each costs.</li>
 <li><code>rf</code> records an RF capture, ComplexI16 IQ at 20 MS/s with summaries, as the book's case for high rates; <code>tests/rf.rs</code> pins its size per codec. <code>rf chains</code> writes it into two chains, IQ and decoded bursts, through two muxes while a reader merges both.</li>
-<li>Read more: <a href="https://github.com/vhrdtech/ww_tape/blob/d7abba98a40a754a760a9f1513572564a0a3af35/ww_tape_example/README.md">ww_tape_example</a>.</li>
+<li>
+<p>Read more: <a href="https://github.com/vhrdtech/ww_tape/blob/1bb010ec1690f334ee40901069daf24cece0f095/ww_tape_example/README.md">ww_tape_example</a>.</p>
+</li>
+<li>
+<p>✅ <strong>BOOK-4 Cases beside the drive</strong></p>
+</li>
+<li><code>ethernet</code> records a protocol analyser on both directions of a 10 Gbps link. Frames are raw-bytes events; decoded IPv4 and TCP or UDP headers are tracks related to their frames. Each receive queue has a capture and a decoder thread; one mux or a mux per port writes them. <code>tests/ethernet.rs</code> reads every frame and header back.</li>
+<li><code>wideband</code> records a 1 GS/s receiver in channels, each a series track with a producer thread. The channels spread over several muxes and chains; an overview reads only the summary nodes. <code>tests/wideband.rs</code> reads every sample back and finds the bursts from the overview.</li>
+<li><code>just bench-ethernet</code> and <code>just bench-wideband</code> measure how much of the link and the band one PC keeps, without a disk and into piece files; <code>bench-book</code> runs both.</li>
+<li>Read more: <a href="https://tape.vhrd.tech/protocol_analyser/">Every frame of a 10 Gbps link</a>, <a href="https://tape.vhrd.tech/wideband/">A billion samples a second</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/1bb010ec1690f334ee40901069daf24cece0f095/ww_tape_example/README.md">ww_tape_example</a>.</li>
 </ul>
 <h2 id="repository-repo">Repository (<code>REPO</code>)<a class="headerlink" href="#repository-repo" title="Permanent link">&para;</a></h2>
 <p>Crates, checks, fuzzing and benches.</p>

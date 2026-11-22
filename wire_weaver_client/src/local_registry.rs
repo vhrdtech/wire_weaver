@@ -39,8 +39,9 @@ pub(crate) fn load(
     by_name.or_else(|| load_by_hash(root, hash))
 }
 
-/// Same as [load] for a caller that knows only the hash pair: looks through every file in `root`.
-pub(crate) fn load_by_hash(root: &Path, hash: &ApiHashPairOwned) -> Option<ApiBundleOwned> {
+/// The bundle of hash pair `hash` in the local cache at `root` (a resolver's `cache_root`), where a client keeps what
+/// devices sent: looks through every file in `root`. Any error is logged and treated as a cache miss.
+pub fn load_by_hash(root: &Path, hash: &ApiHashPairOwned) -> Option<ApiBundleOwned> {
     load_first(hash, |hash, contains_docs| {
         let suffix = file_suffix(hash, contains_docs);
         let entries = match fs::read_dir(root) {

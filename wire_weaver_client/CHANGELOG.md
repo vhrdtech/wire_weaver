@@ -16,6 +16,7 @@
 
 ### 🚀 Features
 
+- Public for a tap decoder outside the crate: `envelope::request_variant`, `event_variant`, `inline_known`, `load_by_hash` and `tap::FRAMED_USB`, `FRAMED_USB_SEQ`, `FRAMED_UDP`, `STREAM_PLAIN` (TR-14).
 - A reconnect onto another revision of the device's API on the same wire line learns the device again instead of refusing it (CLT-81).
 - After such a reconnect, kept streams, sinks and observers resume only where their resource still holds; the rest end with a warning (CLT-81).
 - A connect opens all `websocket_urls` / `in_process_paths` at once; the first to open wins, the rest race on if it fails (CLT-80).

@@ -36,6 +36,7 @@ pub mod local;
 /// Observing properties (CLT-28), see [client::observe](crate::observe)
 pub use client::observe;
 mod local_registry;
+pub use local_registry::load_by_hash;
 pub mod quantity;
 pub mod tap;
 pub mod totals;
@@ -52,7 +53,7 @@ pub use client::dynamic::{
     DynMultiArgs, DynMultiValue, DynResource, DynResourceKind, DynSink, DynStream, PathStep,
     parse_path,
 };
-pub use client::introspect::{Introspect, cache_introspection, decode_introspection};
+pub use client::introspect::{Introspect, cache_introspection, decode_introspection, inline_known};
 pub use client::keyed::{KEY_CACHE_ENTRIES_MAX, KeyStream, Keyed};
 pub use client::multi::{self, MultiCall, MultiRead, MultiWrite};
 pub use client::positioned::{

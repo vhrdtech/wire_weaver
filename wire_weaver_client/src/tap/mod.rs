@@ -319,8 +319,9 @@ impl Tap for ClientTap {
     }
 }
 
-/// Framer configuration of `ww_link::UsbFraming`: `U2Head`, no checksum, no prefix.
-pub(crate) const FRAMED_USB: ww_tap::Framer = ww_tap::Framer::U2 {
+/// Framer configuration of `ww_link::UsbFraming`, as the client's USB sessions report it: `U2Head`, no checksum,
+/// no prefix.
+pub const FRAMED_USB: ww_tap::Framer = ww_tap::Framer::U2 {
     checksum: ww_tap::FramerChecksum::None,
     tail: ww_tap::FramerTail::None,
     stream: false,
@@ -328,8 +329,7 @@ pub(crate) const FRAMED_USB: ww_tap::Framer = ww_tap::Framer::U2 {
 };
 
 /// Framer configuration of `ww_link::UsbSeqFraming`: [FRAMED_USB] with the `SeqPrefix` diagnostic.
-#[allow(dead_code, reason = "uSB only")]
-pub(crate) const FRAMED_USB_SEQ: ww_tap::Framer = ww_tap::Framer::U2 {
+pub const FRAMED_USB_SEQ: ww_tap::Framer = ww_tap::Framer::U2 {
     checksum: ww_tap::FramerChecksum::None,
     tail: ww_tap::FramerTail::None,
     stream: false,
@@ -337,8 +337,7 @@ pub(crate) const FRAMED_USB_SEQ: ww_tap::Framer = ww_tap::Framer::U2 {
 };
 
 /// Framer configuration of `ww_link::UdpFraming`: `SeqPrefix`, `U2Head`, CRC-32 on every message.
-#[allow(dead_code, reason = "uDP only")]
-pub(crate) const FRAMED_UDP: ww_tap::Framer = ww_tap::Framer::U2 {
+pub const FRAMED_UDP: ww_tap::Framer = ww_tap::Framer::U2 {
     checksum: ww_tap::FramerChecksum::Crc32IsoHdlc { full: true },
     tail: ww_tap::FramerTail::None,
     stream: false,
@@ -346,8 +345,7 @@ pub(crate) const FRAMED_UDP: ww_tap::Framer = ww_tap::Framer::U2 {
 };
 
 /// Framer configuration of stream media (RTT) with `ww_link`'s setup: `U2Head`, no checksum, chunks of a stream.
-#[allow(dead_code, reason = "rTT only")]
-pub(crate) const STREAM_PLAIN: ww_tap::Framer = ww_tap::Framer::U2 {
+pub const STREAM_PLAIN: ww_tap::Framer = ww_tap::Framer::U2 {
     checksum: ww_tap::FramerChecksum::None,
     tail: ww_tap::FramerTail::None,
     stream: true,

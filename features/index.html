@@ -1949,7 +1949,7 @@
   <span class="md-ellipsis">
     
   
-  Metadata: claims, pins, labels
+  Metadata: effects, claims, pins, labels
 
     
   </span>
@@ -6734,13 +6734,21 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
   variant outside the list, tests fail (<code>tests_common</code>). Nothing on the device (<code>docs/api/methods.md#error-lists</code>,
   <code>tests/methods</code>, <code>tests/properties</code>, <code>tests/streams_reliable</code>). Not yet: the generated client's property reads
   (their errors are raw bytes, so only the dynamic client checks them); the GUI (<code>wire_weaver_tool</code>).</li>
+<li>✅ <strong>API-58 Effects of API items</strong> · <code>v0.5.x</code> — <code>#[effect(read | edit | persist | destructive | permanent |
+    outbound | actuate | reset | job)]</code> on a method, writable property or sink, or on its trait as the default of
+    its items: what using it does. Required on every effectful item (a compile error names the one without); <code>read</code>
+    stands alone; property reads, <code>ro</code>/<code>const</code> properties and stream opens are <code>read</code> by kind. Carried in
+    introspection as <code>ww_self::Effects</code>, a bitset in <code>Meta</code> (unknown bits kept, read as the most restrictive case),
+    stored only where an item changes something; model format 0.5.0, whose readers still read 0.4.0 snapshots.
+    The hub lets a call of a <code>read</code> method through another program's exclusive or shared claim, as a read (the
+    <code>observe</code> right of SRV-37 takes the same rule); <code>Authorize</code> sees the effects in <code>Resource::items</code>;
+    <code>ww info --effects</code> lists effectful items by effect, <code>ww api tree</code> and rustdoc show them;
+    <code>docs/api/metadata.md</code> maps them to MCP tool annotations. Absorbs API-56 (<code>actuate</code>). Every API in the
+    repository and in ww_stdlib is annotated. Tests: <code>wire_weaver_core</code> (<code>effects_*</code>), <code>tests/hub</code>
+    (<code>claimed_bus_refuses_others_calls_and_writes</code>), <code>wire_weaver_cli</code> (<code>effects_list_what_changes_something</code>).</li>
 <li>📋 <strong>API-12 Calculate max path depth in server codegen</strong> · <code>v0.5</code> — <code>MAX_DEPTH</code> is hardcoded to 16 in
   <code>wire_weaver_core/src/codegen/api_server.rs</code>.</li>
 <li>📋 <strong>API-13 Error system, remove <code>unwrap</code>s from codegen</strong> · <code>v0.5</code> — report errors with spans instead of panicking.</li>
-<li>📋 <strong>API-56 care-marker Care marker on switching writes</strong> — a typed attribute (the <code>ww_self::Meta</code> of SRV-34) on
-    a method or property whose call or write switches power or outputs (a rail, a relay, a motor enable), carried in
-    introspection: GUIs ask to confirm, <code>ww call</code> / <code>ww set</code> want <code>--yes</code>, the hub can log who did it. Wire
-    compatible, nothing on the device.</li>
 <li>📋 <strong>API-57 device-metadata Device-level metadata</strong> — typed attributes on the API root or in a stdlib trait for what
     a device is: product, board revision, connectors (with the resources behind each, so a label like "J4" points at
     pins and buses), supported clock sync (<code>ww_timebase</code> host sync and its sources); in introspection next to
@@ -7044,10 +7052,6 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
   (<code>#[stream(T, codec = auto)]</code>), in the introspection data so dynamic clients and Python decode it; keyframes on
   open, after a gap and every N items. It is how a string or a frame, which a <code>Series</code> batch can't take (no size
   bound), would get cheaper per item. Prior art: Gorilla, Sprintz, Chimp, ALP.
-- 📋 <strong>API-58 <code>#[read_only]</code> methods</strong> · <code>v0.5.x</code> — a typed attribute in <code>ww_self::Meta</code> (next to SRV-34's <code>claim</code>)
-  for methods without effects, carried in introspection: the hub lets peers with only the <code>observe</code> right call them
-  (SRV-37), GUIs may call them freely. The API author's promise, not something the hub can check. Design: hub
-  federation (SRV-33).
 - ✅ <strong>SRV-1 <code>no_std</code>, no-alloc server</strong>, IO-free generated code.
 - ✅ <strong>SRV-2 Sans-IO <code>DeviceLink</code></strong>, async <code>Server</code> with <code>wait()</code>/<code>handle()</code> for a user-owned event loop, and
   <code>blocking::Server</code>.
@@ -7153,7 +7157,7 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
     client instance (CLT-41) as its principal and drops with its last connection or at the ttl; overlap by path and by
     <code>#[shares]</code>, nesting within one instance. <code>docs/api/metadata.md</code>, <code>docs/transport/hub.md</code> (with how hub and
     device-side claims combine); tests <code>tests/traits</code> (<code>meta_in_introspection</code>), <code>wire_weaver_core</code> (<code>meta_*</code>),
-    <code>ww_hub</code> (<code>claims</code>), <code>tests/hub</code> (<code>claim*</code>). Later attributes: API-56, API-57.
+    <code>ww_hub</code> (<code>claims</code>), <code>tests/hub</code> (<code>claim*</code>). Later attributes: API-58 (effects), API-57.
 - 🧪 <strong>SRV-19 ECC-safe STM32 flash for stores</strong> — <code>mcu/ww_ecc_flash</code>: <code>EccSafeFlash</code> wraps any <code>NorFlash</code> (embassy-stm32's
   <code>Flash</code>) and reads it one ECC word at a time; a word with an uncorrectable ECC error (power cut while programming
   or erasing) reads as zeros instead of an NMI (STM32G0, <code>FLASH_ECCR.ECCD</code>, through <code>on_nmi()</code> or feature
@@ -7400,7 +7404,8 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
   tunnels (the remote hub multiplexes), host names and remote keys validated, <code>ww hub detach</code>.</li>
 <li>📋 <strong>SRV-37 Hub principals and per-device rights</strong> · <code>v0.5.x</code> — who is connected, from what the OS, ssh or a key
   says (never the client's own metadata), and what it may do per device: <code>observe</code>, <code>control</code>, <code>dfu</code>, from glob
-  rules in <code>~/.config/ww/hub_peers.toml</code>; the hub answers refused requests with <code>Forbidden</code> itself, filters the
+  rules in <code>~/.config/ww/hub_peers.toml</code> (<code>observe</code> admits reads and calls of <code>#[effect(read)]</code> items, API-58,
+  through <code>claims::Target::access_seen</code>); the hub answers refused requests with <code>Forbidden</code> itself, filters the
   registry, keeps hub API methods local unless classified, and owns claims per principal.</li>
 <li>📋 <strong>SRV-38 Restricted ssh keys for the hub</strong> · <code>v0.5.x</code> — <code>authorized_keys</code> lines with
   <code>restrict,command="ww hub stdio --peer NAME"</code> give a key only the rights of <code>[peer.NAME]</code>; <code>ww hub allow --ssh</code>
@@ -9734,6 +9739,7 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
 <li><strong>Introspect as a trait, removed from <code>ww_client_server</code></strong> — won't do.</li>
 <li><strong>WebUSB descriptors</strong> — only some browsers support WebUSB and it needs separate host support; NCM is more
   appealing, especially with pre-programmed unique IPs.</li>
+<li><strong>API-56 care-marker Care marker on switching writes</strong> — folded into API-58 effects-of-api-items as the <code>actuate</code> effect.</li>
 </ul>
 
 

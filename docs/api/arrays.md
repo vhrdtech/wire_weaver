@@ -117,7 +117,9 @@ let mut keys = client.flow_keys().await?; // KeyEvent::Added and Removed as they
 ```
 
 `flow_by` returns the element's client, `None` when the device has no element with that key; it returns the index
-for an array of properties, streams or sinks. Each has a `_blocking` twin. The key type needs `Clone`.
+for an array of properties, streams or sinks. `flow_index_of(&key)` returns the index for any array. Each has a
+`_blocking` twin. The key type needs `Clone`. The API's [local trait](local_trait.md#keyed-arrays) has the same
+lookups, for a local implementation and the client alike.
 
 `flow_by` asks the device's `index_of` once per key and keeps the answer in the connection's key cache, shared by
 every clone of the client: later lookups send nothing. Keys the client sees otherwise go into the cache too: a

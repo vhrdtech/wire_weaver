@@ -689,7 +689,7 @@ expires = "2026-12-15"
 lint = "cargo-msrv"
 paths = ["Cargo.toml"]
 level = "allow"
-reason = "spl selects crates by name and two thermo_api versions (6.0.0, the 5.0.0 fixture) make -p thermo_api ambiguous; cargo +1.99 check of every crate with thermo_api@6.0.0 passes; goes when spl passes name@version"
+reason = "spl selects crates by name and two thermo_api versions (4.0.0, the 2.0.0 fixture) make -p thermo_api ambiguous; cargo +1.99 check of every crate with thermo_api@4.0.0 passes; goes when spl passes name@version"
 expires = "2026-12-15"
 
 [[exceptions]]

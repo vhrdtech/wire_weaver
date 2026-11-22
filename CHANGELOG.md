@@ -11,6 +11,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
+- The thermo bench's history is an API's cycle: w0, lines 1 to 3 from 1.0.0, line 1 retired in 4.0.0 (EVO-42); see `tests/thermo_api`.
 - API items declare their effects (`#[effect(..)]`, required), carried in introspection, read by the hub and `ww info --effects` (API-58); see `ww_self`, `wire_weaver_core`, `ww_hub`, `wire_weaver_cli`.
 - A reconnect onto another revision of the device's API learns it again and resumes what still holds (CLT-81); see `wire_weaver_client`.
 - A connect races a device's addresses and takes the first to open (CLT-80); see `wire_weaver_client`.

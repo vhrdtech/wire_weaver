@@ -10,7 +10,7 @@ repository.workspace = true
 description = "A host driver for every wire line of thermo_api (EVO-28, EVO-42): one generated client per line behind one facade."
 
 [dependencies]
-thermo_api.workspace = true
+thermo_api = { workspace = true, features = ["retired_wire_v1"] }
 thiserror.workspace = true
 tokio = { workspace = true, features = ["sync", "rt-multi-thread", "rt", "macros"] }
 wire_weaver.workspace = true

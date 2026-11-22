@@ -76,8 +76,8 @@ pub enum SelfTestError {
 
 ww_api::api_error!(SelfTestError);
 
-/// Stands in for `ww_indication::Indication` (R7): the status LED trait every line shares, same shape and wire
-/// repr, with the modes the bench's tests use (`IndicationMode::OnlyEssential` included, unlike `shared_sub_level`'s
+/// Stands in for `ww_indication::Indication`: the status LED trait every line shares, same shape and wire repr,
+/// with the modes the bench's tests use (`IndicationMode::OnlyEssential` included, unlike `shared_sub_level`'s
 /// smaller stand-in).
 #[ww_trait]
 #[effect(edit)]

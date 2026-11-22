@@ -1,8 +1,8 @@
-//! Firmware of `thermo_api` 5.0.0's line 6 at w6.0, its first revision, simulated: `w2.rs` without `self_test`.
+//! Firmware of `thermo_api` 2.0.0's line 2 at w2.0, its first revision, simulated: `w2.rs` without `self_test`.
 
 use crate::Shared;
 use tests_common::locked::Locked;
-use thermo_api_5_0_0::common::{Command, Config, IndicationMode, Mode, RateError, Sample};
+use thermo_api_2_0_0::common::{Command, Config, IndicationMode, Mode, RateError, Sample};
 use wire_weaver::prelude::*;
 use ww_si::prefix::{Centi, Milli, One};
 use ww_si::units::{Kelvin, Ratio, Second};
@@ -189,12 +189,12 @@ impl Server {
 
 pub mod api_impl {
     wire_weaver::ww_codegen!(
-        thermo_api_5_0_0 :: wire_v2 :: Thermo for super::Server,
+        thermo_api_2_0_0 :: wire_v2 :: Thermo for super::Server,
         server = true, no_alloc = true, use_async = true,
         method_model = "_=immediate",
         property_model = "_=get_set",
         introspect = "no_docs",
-        debug_to_file = "../../target/thermo_w6_0_server.rs",
+        debug_to_file = "../../target/thermo_w2_0_server.rs",
     );
 }
 
@@ -236,8 +236,8 @@ pub fn start(path: &str) -> (Shared, tests_common::TestDevice) {
     let device = tests_common::start_device_async(
         path,
         server,
-        thermo_api_5_0_0::wire_v2::THERMO_FULL_GID,
-        thermo_api_5_0_0::wire_v2::THERMO_WIRE_VERSION,
+        thermo_api_2_0_0::wire_v2::THERMO_FULL_GID,
+        thermo_api_2_0_0::wire_v2::THERMO_WIRE_VERSION,
         tests_common::api!(api_impl),
     );
     (shared, device)

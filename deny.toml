@@ -51,7 +51,7 @@ skip = [
     { crate = "object@0.39.1", reason = "probe-rs 0.32" },
     { crate = "ruzstd@0.8.3", reason = "cnt_core; P2602#20nov-1418 moves it to 0.9" },
     { crate = "syn@2.0.119", reason = "proc macros of dependencies (defmt, bitbybit, docsplay, ...); the workspace takes syn 3" },
-    { crate = "thermo_api@5.0.0", reason = "tests/thermo_api_old: the old API version the evolution tests talk to" },
+    { crate = "thermo_api@2.0.0", reason = "tests/thermo_api_old: the old API version the evolution tests talk to" },
     { crate = "windows-sys@0.52.0", reason = "ring 0.17 and serialport 4.10" },
 ]
 skip-tree = [

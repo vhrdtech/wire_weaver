@@ -1,4 +1,4 @@
-//! Line 1 (`thermo_api::wire_v1`, wire w5.y): the generated client and its operations.
+//! Line 1 (`thermo_api::wire_v1`, wire w1.y): the generated client and its operations.
 
 use crate::common::command;
 use crate::error::{Error, Result};

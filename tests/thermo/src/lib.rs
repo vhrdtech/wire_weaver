@@ -1,10 +1,12 @@
-//! A host driver for every wire line of `thermo_api` (EVO-28, EVO-42): line 1 (`wire_v1`, w5.2), line 2 (`wire_v2`,
-//! w6.1, a wire break) and line 3 (`wire_v3`, w7.0, another break), one generated client each, behind one facade,
-//! [Thermo]. The bench's lines 1, 2 and 3 are on wire lines 5, 6 and 7 since R7 moved each to a new one.
+//! A host driver for every wire line of `thermo_api` (EVO-28, EVO-42): line 1 (`wire_v1`, w1.2), line 2 (`wire_v2`,
+//! w2.1, a wire break) and line 3 (`wire_v3`, w3.0, another break), one generated client each, behind one facade,
+//! [Thermo].
 //!
-//! - The lines are roots of one API crate, `thermo_api` 6.0.0, one module each (EVO-37); their clients are one module
+//! - The lines are roots of one API crate, `thermo_api` 4.0.0, one module each (EVO-37); their clients are one module
 //!   each here (`v1.rs`, `v2.rs`, `v3.rs`). What lines share is one type in `thermo_api::common`, converted once
 //!   (`common.rs`).
+//! - Line 1 is retired in that crate (`ww api line retire`): its module stays behind the `retired_wire_v1` feature,
+//!   which this crate turns on to keep talking to line 1 devices still in the field.
 //! - [Thermo] is an enum over the three clients, made by `wire_weaver_client::facade!` (CLT-64) from the operations
 //!   below: each line implements its trait in [line](mod@line) for its client; `self_test`, which line 1 lacks, is
 //!   [Error::Unsupported] there.
@@ -13,7 +15,7 @@
 //!   or a lost link, `Thermo::reconnect()` picks the client again (CLT-63): a DFU may bring the device back on
 //!   another line this facade also speaks.
 //! - [model] is the driver's own version-free types; each line converts to and from it.
-//! - `thermo_api::common::Indication` (a local stand-in for a `ww_stdlib` trait, R7) is on every line: one client
+//! - `thermo_api::common::Indication` (a local stand-in for a `ww_stdlib` trait) is on every line: one client
 //!   type, [IndicationClient], generated once and returned by every line's client (CLT-68), reached by its path in
 //!   the device's line ([Thermo::indication]).
 //!
@@ -61,12 +63,12 @@ wire_weaver_client::facade! {
     async fn channel_enabled(&self, channel: u32) -> bool;
     async fn set_channel_enabled(&self, channel: u32, enabled: bool);
     async fn channel_last(&self, channel: u32) -> Sample;
-    /// From w5.1 on line 1, which takes 0.01 K steps: a finer offset is [Error::NotRepresentable].
+    /// From w1.1 on line 1, which takes 0.01 K steps: a finer offset is [Error::NotRepresentable].
     async fn calibrate(&self, offset: Offset);
-    /// From w5.2 on line 1; whole seconds on lines 1 and 2, milliseconds on line 3.
+    /// From w1.2 on line 1; whole seconds on lines 1 and 2, milliseconds on line 3.
     async fn uptime(&self) -> Uptime;
-    /// From w6.1, lines 2 and 3.
-    #[unsupported(V1, needs = "line 2 from w6.1")]
+    /// From w2.1, lines 2 and 3.
+    #[unsupported(V1, needs = "line 2 from w2.1")]
     async fn self_test(&self);
 }
 

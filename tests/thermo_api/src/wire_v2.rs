@@ -1,12 +1,11 @@
-//! Line 2 at w6.1, at w6.0 in 5.0.0 (the crate 2.1.0 had it at w2.1, before R7's indication swap moved it to a new
-//! line). What broke against line 1:
+//! Line 2 at w2.1, added beside line 1 in 2.0.0 at w2.0. What broke against line 1:
 //! - `set_rate(rate)` is gone, `configure(Config)` sets rate and mode in one call.
 //! - `Sample::temp` is in 0.001 K steps in an `i32`, was 0.01 K in an `i16`.
 //! - `Mode::Triggered` is gone: `Command::Trigger` takes a sample in any mode.
 //! - `gain` is in steps of 0.01, was whole steps.
 //! - `calibrate` takes 0.001 K steps.
 //!
-//! `self_test` came in w6.1, so a w6.0 device doesn't have it.
+//! `self_test` came in w2.1, so a w2.0 device doesn't have it.
 
 use super::common::{Channel, Command, Config, Indication, Mode, RateError, Sample, SelfTestError};
 use ww_api::prelude::*;
@@ -30,13 +29,13 @@ pub trait Thermo {
     sink!(commands: Command);
     /// Input channels, 0-based on the wire.
     ww_impl!(channel[]: Channel);
-    /// The status LED, a local stand-in for a `ww_stdlib` trait every line shares (R7).
+    /// The status LED, a stand-in for a `ww_stdlib` trait every line shares.
     ww_impl!(indication: Indication);
     /// Adds `offset` to every sample from now on.
     fn calibrate(offset: Fixed<Kelvin, Milli, i32>);
     /// Time since boot.
     property!(ro uptime: Fixed<Second, One, u32>);
-    /// Checks the sensor. Added in w6.1.
-    #[since = "w6.1"]
+    /// Checks the sensor. Added in w2.1.
+    #[since = "w2.1"]
     fn self_test() -> Result<(), SelfTestError>;
 }

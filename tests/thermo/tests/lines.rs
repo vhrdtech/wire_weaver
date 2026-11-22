@@ -127,7 +127,7 @@ async fn exercise(t: &Thermo, shared: &devices::Shared) {
                 ..
             }),
         ) => assert_eq!(
-            needs, "line 2 from w6.1",
+            needs, "line 2 from w2.1",
             "from the facade's `#[unsupported]`"
         ),
         (2 | 3, Ok(())) => {
@@ -159,7 +159,7 @@ async fn line_1_device() {
     let (shared, device) =
         devices::w1::start("thermo/w1", thermo_api::wire_v1::THERMO_WIRE_VERSION);
     let t = connect(&device).await;
-    assert_eq!(t.wire(), WireVersion::new(5, 2));
+    assert_eq!(t.wire(), WireVersion::new(1, 2));
     exercise(&t, &shared).await;
 }
 
@@ -169,7 +169,7 @@ async fn line_2_device() {
     let (shared, device) =
         devices::w2::start("thermo/w2", thermo_api::wire_v2::THERMO_WIRE_VERSION);
     let t = connect(&device).await;
-    assert_eq!(t.wire(), WireVersion::new(6, 1));
+    assert_eq!(t.wire(), WireVersion::new(2, 1));
     exercise(&t, &shared).await;
 }
 
@@ -179,42 +179,42 @@ async fn line_3_device() {
     let (shared, device) =
         devices::w3::start("thermo/w3", thermo_api::wire_v3::THERMO_WIRE_VERSION);
     let t = connect(&device).await;
-    assert_eq!(t.wire(), WireVersion::new(7, 0));
+    assert_eq!(t.wire(), WireVersion::new(3, 0));
     exercise(&t, &shared).await;
 }
 
-/// Firmware of the first revision of lines 1 and 2, `thermo_api` 5.0.0 at w5.0 and w6.0, which the driver has no
+/// Firmware of the first revision of lines 1 and 2, `thermo_api` 2.0.0 at w1.0 and w2.0, which the driver has no
 /// client of: it talks to them with the client of their line, and items with a newer `#[since]` are
 /// [Error::Unsupported], naming the revision they need, never reaching the device.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn older_revisions() {
     let _ = tracing_subscriber::fmt::try_init();
-    let (shared, device) = devices::w5_0::start("thermo/w5_0");
+    let (shared, device) = devices::w1_0::start("thermo/w1_0");
     let t = connect(&device).await;
     let before = requests(&shared);
     let e = t.calibrate(Offset::new(250)).await.unwrap_err();
     assert!(
-        matches!(&e, Error::Unsupported { what: "calibrate", needs, .. } if needs == "w5.1"),
+        matches!(&e, Error::Unsupported { what: "calibrate", needs, .. } if needs == "w1.1"),
         "{e:?}"
     );
     let e = t.uptime().await.unwrap_err();
     assert!(
-        matches!(&e, Error::Unsupported { what: "uptime", needs, .. } if needs == "w5.2"),
+        matches!(&e, Error::Unsupported { what: "uptime", needs, .. } if needs == "w1.2"),
         "{e:?}"
     );
     assert_eq!(
         e.to_string(),
-        "uptime is not on this device: it is at wire w5.0, uptime needs w5.2"
+        "uptime is not on this device: it is at wire w1.0, uptime needs w1.2"
     );
     assert_eq!(requests(&shared), before, "nothing sent");
     t.read_once().await.unwrap();
 
-    let (shared, device) = devices::w6_0::start("thermo/w6_0");
+    let (shared, device) = devices::w2_0::start("thermo/w2_0");
     let t = connect(&device).await;
     let before = requests(&shared);
     let e = t.self_test().await.unwrap_err();
     assert!(
-        matches!(&e, Error::Unsupported { what: "self_test", needs, .. } if needs == "w6.1"),
+        matches!(&e, Error::Unsupported { what: "self_test", needs, .. } if needs == "w2.1"),
         "{e:?}"
     );
     assert_eq!(requests(&shared), before, "nothing sent");
@@ -222,15 +222,16 @@ async fn older_revisions() {
 }
 
 /// A device on a line the driver has no client of is refused in link setup, the error naming every line the host
-/// speaks and who should update: the host for a newer line (8), the device for an older one (4, retired by R7).
+/// speaks and who should update: the host for a newer line (4), the device for an older one (0, the design line,
+/// retired at the first release).
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn a_fourth_line_is_refused() {
     let _ = tracing_subscriber::fmt::try_init();
     for (line, who) in [
-        (8, "update the host to a client of line 8"),
+        (4, "update the host to a client of line 4"),
         (
-            4,
-            "use a host that still has a client of line 4, or update the device firmware",
+            0,
+            "use a host that still has a client of line 0, or update the device firmware",
         ),
     ] {
         let (shared, device) =
@@ -250,7 +251,7 @@ async fn a_fourth_line_is_refused() {
         };
         assert!(
             reason.contains(&format!("is at wire w{line}.0"))
-                && reason.contains("this host's clients at wires w7.0, w6.1, w5.2")
+                && reason.contains("this host's clients at wires w3.0, w2.1, w1.2")
                 && reason.contains(who),
             "{reason}"
         );
@@ -267,7 +268,7 @@ async fn reconnect_after_a_dfu_to_another_line() {
     let path = "thermo/dfu";
     let (_shared1, device1) = devices::w1::start(path, thermo_api::wire_v1::THERMO_WIRE_VERSION);
     let t = connect(&device1).await;
-    assert_eq!(t.wire(), WireVersion::new(5, 2));
+    assert_eq!(t.wire(), WireVersion::new(1, 2));
     t.read_once().await.unwrap();
 
     t.cmd().disconnect().keep_streams().await.unwrap();
@@ -279,19 +280,19 @@ async fn reconnect_after_a_dfu_to_another_line() {
         matches!(
             &e,
             wire_weaver_client::Error::ReconnectedOnAnotherLine { old_wire, new_wire, .. }
-                if *old_wire == WireVersion::new(5, 2) && *new_wire == WireVersion::new(7, 0)
+                if *old_wire == WireVersion::new(1, 2) && *new_wire == WireVersion::new(3, 0)
         ),
         "{e:?}"
     );
     let text = e.to_string();
     assert!(
-        text.contains("w7.0") && text.contains("w5.2"),
+        text.contains("w3.0") && text.contains("w1.2"),
         "both lines named: {text}"
     );
 
     // `reconnect` left the Commander disconnected again: a fresh reconnect_as picks line 3's client
     let t3 = t.reconnect().await.expect("the facade also speaks line 3");
-    assert_eq!(t3.wire(), WireVersion::new(7, 0));
+    assert_eq!(t3.wire(), WireVersion::new(3, 0));
     let before = requests(&shared3);
     let s = t3.read_once().await.unwrap();
     assert_eq!(s.temp.raw(), 21_500);
@@ -315,9 +316,9 @@ fn the_driver_speaks_three_lines() {
 
 /// `ww api check` agrees on both breaks, root by root of the one crate (EVO-39, EVO-42): line 2 against line 1 and
 /// line 3 against line 2 each need a new line and a breaking crate bump. Each line's later revision, against the
-/// snapshot its first revision was published with (5.0.0), needs a new revision and a minor bump. The indication
-/// swap (R7) between 4.0.0 and 5.0.0 changed every line's attached trait identity: a new line each. Across a break
-/// resources are matched by path and `#[moved_from]` (EVO-40), within a line by position.
+/// snapshot its first revision was published with (2.0.0), needs a new revision and a minor bump. Line 1, retired in
+/// 4.0.0, keeps its last published shape behind its feature. Across a break resources are matched by path and
+/// `#[moved_from]` (EVO-40), within a line by position.
 #[test]
 fn checker_agrees_on_both_bumps() {
     use wire_weaver_evolution::{Change, Move, WireBump, compare, compare_moved};
@@ -331,16 +332,16 @@ fn checker_agrees_on_both_bumps() {
         )
         .unwrap()
     };
-    let (w5_0, w6_0) = (
-        snapshot("5_0_0.wire_v1.Thermo@w5.0"),
-        snapshot("5_0_0.wire_v2.Thermo@w6.0"),
+    let (w1_0, w2_0) = (
+        snapshot("2_0_0.wire_v1.Thermo@w1.0"),
+        snapshot("2_0_0.wire_v2.Thermo@w2.0"),
     );
 
-    let report = compare(&w1, &w6_0).unwrap();
+    let report = compare(&w1, &w2_0).unwrap();
     assert!(report.across_line);
     assert_eq!(report.change, Change::Breaking);
     assert_eq!(report.wire_bump, WireBump::Line);
-    assert_eq!(report.minimal_wire(), Some(WireVersion::new(6, 0)));
+    assert_eq!(report.minimal_wire(), Some(WireVersion::new(2, 0)));
     report.check_wire().unwrap();
     // what the wire break is made of, the resources matched by path: `configure` replaces `set_rate`, not a rename
     // of it with another argument
@@ -402,7 +403,7 @@ fn checker_agrees_on_both_bumps() {
     let report = compare_moved(&w2, &w3, &moves).unwrap();
     assert_eq!(report.change, Change::Breaking);
     assert_eq!(report.wire_bump, WireBump::Line);
-    assert_eq!(report.minimal_wire(), Some(WireVersion::new(7, 0)));
+    assert_eq!(report.minimal_wire(), Some(WireVersion::new(3, 0)));
     report.check_wire().unwrap();
     // the batch replaces `Sample` without a field-by-field comparison, `self_test` moved into `health` by its
     // `#[moved_from]`, `uptime` removed, its namesake in `health` only proposed, with the reason it can't be the same
@@ -420,7 +421,7 @@ fn checker_agrees_on_both_bumps() {
     assert_eq!(report.proposals.len(), 1, "{:#?}", report.proposals);
     assert!(
         report.proposals[0].starts_with(
-            "Health::uptime is named like Thermo::uptime of w6.1, removed, but its \
+            "Health::uptime is named like Thermo::uptime of w2.1, removed, but its \
              signature differs"
         ),
         "{}",
@@ -428,7 +429,7 @@ fn checker_agrees_on_both_bumps() {
     );
 
     // the crate version is checked per root against the snapshots by `thermo_api`'s own `tests/evolution.rs`
-    for (old, new, wire) in [(&w5_0, &w1, (5, 1)), (&w6_0, &w2, (6, 1))] {
+    for (old, new, wire) in [(&w1_0, &w1, (1, 1)), (&w2_0, &w2, (2, 1))] {
         let report = compare(old, new).unwrap();
         assert_eq!(report.change, Change::Compatible, "{:?}", report.breaking);
         assert_eq!(report.wire_bump, WireBump::Revision);
@@ -439,29 +440,17 @@ fn checker_agrees_on_both_bumps() {
         report.check_wire().unwrap();
     }
 
-    // R7's indication swap, 4.0.0 to 5.0.0: the attached trait's identity changed on every line, so each needs a new
-    // line past its old one (`ww api check`'s own verdict, not hand-derived), and took one past the sentinel line 4
-    for (line, old_wire, new_wire, minimal) in [
-        ("wire_v1", "w1.2", "w5.0", (2, 0)),
-        ("wire_v2", "w2.1", "w6.0", (3, 0)),
-    ] {
-        let old = snapshot(&format!("4_0_0.{line}.Thermo@{old_wire}"));
-        let new = snapshot(&format!("5_0_0.{line}.Thermo@{new_wire}"));
-        let report = compare(&old, &new).unwrap();
-        assert_eq!(report.change, Change::Breaking, "{:?}", report.breaking);
-        assert_eq!(report.wire_bump, WireBump::Line);
-        assert_eq!(
-            report.minimal_wire(),
-            Some(WireVersion::new(minimal.0, minimal.1))
-        );
-        assert!(
-            report
-                .wire_reasons
-                .iter()
-                .any(|r| r.contains("trait ww_indication::Indication changed")),
-            "{:?}",
-            report.wire_reasons
-        );
-        report.check_wire().unwrap();
-    }
+    // 4.0.0 retired line 1 (`ww api line retire`): the removal is recorded next to its last snapshot, and the module
+    // kept behind `retired_wire_v1` is still that snapshot's line, so a host built with it talks to line 1 devices
+    let record = std::fs::read_to_string(
+        dir.join("api_snapshots/thermo_api_4_0_0.wire_v1.Thermo@w1.2.removed"),
+    )
+    .unwrap();
+    assert!(
+        record.contains("its last snapshot thermo_api_3_0_0.wire_v1.Thermo@w1.2.ron"),
+        "{record}"
+    );
+    let report = compare(&snapshot("3_0_0.wire_v1.Thermo@w1.2"), &w1).unwrap();
+    assert!(report.change <= Change::DocsOnly, "{report:?}");
+    assert_eq!(report.wire_bump, WireBump::None);
 }

@@ -2,6 +2,8 @@
 
 ### ⚠️ Breaking
 
+- `ww monitor`, `ww stats`, `ww capture` and `ww explain FILE` are removed, with `cmd::tap` and the `test-support` feature (TOOL-14).
+- `CommandDef::own_tap`, `Run::tap` and `Run::stop` are removed; a command that wants a stop signal installs its own `util::StopSignal`.
 - `ww capture` creates `FILE` under its name, with no `FILE.partial` or `FILE.lock`; a crash leaves it unclosed (FS-1).
 - Declares `rust-version = "1.99"`: cargo of an older Rust refuses the crate.
 - `ww capture` errors read `creating a writer: FILE: locked by another writer`, step, file and kind once (ww_tape S2).

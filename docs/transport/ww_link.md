@@ -292,8 +292,8 @@ What each side does with it:
   `LinkReady`.
 
 Once a connection is up, the generations it agreed on are for display: [`ww info`](../cli_reference.md#ww-info) and
-the Python `dev.info` show them next to the wire version, and `ww tap`'s session line shows the wire version as the
-link is set up.
+the Python `dev.info` show them next to the wire version, and the [link tap](tap.md)'s decoder gives the wire version
+of each session it reads (`session_wire_version`).
 
 ## How the host runs it
 

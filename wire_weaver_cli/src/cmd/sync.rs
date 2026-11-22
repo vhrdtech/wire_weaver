@@ -1094,7 +1094,7 @@ fn command() -> clap::Command {
 fn run(run: Run<'_>) -> BoxFuture<'_, Result<Ran>> {
     Box::pin(async move {
         let args = SyncArgs::from_arg_matches(&run.matches)?;
-        let stop = run.stop.clone().unwrap_or_else(StopSignal::install);
+        let stop = StopSignal::install();
         sync(args, &run.matches, run.selection(), stop).await?;
         Ok(Ran::DONE)
     })

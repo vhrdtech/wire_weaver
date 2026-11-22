@@ -225,7 +225,7 @@ check-examples-mcu-rp2:
 # published.
 save-snapshots *args:
     cargo build -q -p wire_weaver_cli --example ww_generic
-    for crate in ww_tap ww_timebase ww_trace_context ww_link ww_client_server tests/wire_line_fixture_api tests/skipped_dep_api; do \
+    for crate in ww_tap ww_timebase ww_trace_context ww_link ww_client_server tests/wire_line_fixture_api tests/skipped_dep_api tests/global_fixture_api; do \
         target/debug/examples/ww_generic api save $crate {{ args }} || exit 1; \
     done
 

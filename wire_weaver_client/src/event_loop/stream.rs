@@ -402,9 +402,9 @@ mod tests {
     };
 
     fn tap() -> crate::tap::ClientTap {
-        crate::tap::ClientTap::new(Some(
-            &ww_tap::Recorder::new(ww_tap::RecorderConfig::default()).into(),
-        ))
+        crate::tap::ClientTap::new(Some(&crate::tap::TapSource::new(|| {
+            Box::new(ww_tap::NoTap)
+        })))
     }
 
     /// The hello goes outside the framer on a stream (EVO-23): the host writes the frozen bytes after what its framer

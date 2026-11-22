@@ -125,7 +125,7 @@ for the next write and `repeat` for the last one again.
 
 Writes lost on the way are the sender's `writes + repeats` less the receiver's `writes`. The device alone can't tell
 them apart from merged changes, as a write carries no sequence number; the link counts its lost datagrams
-(`ww stats`, `ww monitor`).
+(the [link tap](../transport/tap.md)'s statistics).
 
 ## Why no sequence number
 

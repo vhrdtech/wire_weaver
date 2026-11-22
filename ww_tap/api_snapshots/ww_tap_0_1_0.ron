@@ -1,6 +1,6 @@
 // ww_tap 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: f40aea062ca8745d8fe18ee97981a3dec1e973bf4f25e750cd8ad4d37ab13dd9
+// shrink_wrap sha256: aab358a1f09013a5b77265a15d4cc54d2a0c22cdbea78ef2cd25110cb8b55ed2
 (magic: 2837124336, ww_self_version: (major: 0, minor: 5, patch: 0), root: (docs: [
     "The link tap: what crosses a wire_weaver link, recorded at the transport edge, for monitors, statistics and",
     "captures (TR-14).",
@@ -9,14 +9,14 @@
     "packet, a datagram, an RTT chunk) and [Tap::message] with every `ww_link` message `(kind, bytes)` as it goes down",
     "to the framer or comes back up; the event loop adds what never shows in bytes with [Tap::link_event]. The tap",
     "only copies bytes and stamps time: linking frames to messages, statistics and decoding happen in the consumer",
-    "(`wire_weaver_client::tap`). [NoTap] is the default everywhere, its calls are empty and inline, so a build",
+    "(`ww_tap_decoder`). [NoTap] is the default everywhere, its calls are empty and inline, so a build",
     "without a tap compiles them away.",
     "",
     "The records are ordinary wire_weaver types, streams of the [LinkTap] trait, so a capture is described by its API",
     "bundle like any device log: one track per stream of each link, Session sticky. A producer that writes them as",
     "tracks names them with [api] and [ids], and tells links apart by their [dims]: the link\'s medium and peer, so the",
-    "same device gives the same track ids in every capture. A link named by its peer is [LinkKey]. With the `std`",
-    "feature, [Recorder] batches them into `ww_tape` blocks.",
+    "same device gives the same track ids in every capture. A link named by its peer is [LinkKey]. The decoder of",
+    "the records and the `ww_tape` tracks of a capture are `ww_tap_decoder`\'s, in the ww_tools repository.",
 ], crate_idx: 0, trait_name: "ww_tap", items: [
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "LinkTap", docs: [], optional: None, meta: None, identity: None),
 ], compact_id: None, meta: None), types: [
@@ -62,15 +62,14 @@
             (ident: Some("what"), default: None, since: None, ty: String, docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
         (docs: [
-            "Records the producer couldn\'t keep (no free block, every one held by consumers), or this consumer missed (no",
-            "room in its queue), counted since the last such event; the gap is between this event and the record before",
+            "Records the producer couldn\'t keep, or a consumer missed, counted since the last such event; the gap is between this event and the record before",
             "it.",
         ], ident: "Lost", fields: Named([
             (ident: Some("records"), default: None, since: None, ty: NumericAny(Base(UVlq64)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 4, since: None),
         (docs: [
             "The link is gone: its tracks get no more records. A relay of the stream drops their definitions",
-            "(`recorder::drop_closed_links`), so they don\'t pile up with every link ever seen.",
+            "(`ww_tap_decoder::drop_closed_links`), so they don\'t pile up with every link ever seen.",
         ], ident: "Closed", fields: Unit, discriminant: 5, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [

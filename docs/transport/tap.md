@@ -4,23 +4,12 @@ level: advanced
 
 # The link tap
 
-The link tap records what crosses a WireWeaver link: every frame as it crossed the medium (a USB packet, a UDP
-datagram, an RTT chunk), every `ww_link` message as it went down to the framer or came back up, and the link events
-the bytes don't show (connected, link ready, disconnected, errors). A decoder links frames and messages back
-together, so you see which packet a request went out in, which packets a long reply was split over, and what a lost
-packet took with it. On top of it sit `ww monitor`, `ww stats`, `ww capture` and `ww explain FILE`
-([CLI reference](../cli_reference.md#ww-monitor)).
-
-```
-$ ww monitor --layer frame
-   0.049465 L0 → frame #3 64 B: Full Data0 12 B, Full Data0 12 B, Full Data0 12 B, Full Data0 12 B, Start Data0 6/12 B
-   0.049311 L0 → Data0 12 B msg #3 in #3@2+12 Request Call add seq 1
-   ..
-   0.053181 L0 ← frame #5 64 B: Start Data0 62/304 B
-   0.053186 L0 ← frame #6 64 B: Continue Data0 62/242 B
-   ..
-   0.053194 L0 ← Data0 304 B msg #11 in #5..#9 (5 frames) Event Value blob seq 9 reply to #11 in 2.18 ms
-```
+The link tap is the hook a transport reports what crosses a WireWeaver link to: every frame as it crossed the medium
+(a USB packet, a UDP datagram, an RTT chunk), every `ww_link` message as it went down to the framer or came back up,
+and the link events the bytes don't show (connected, link ready, disconnected, errors). What to do with them is the
+tap's: a decoder links frames and messages back together, so you see which packet a request went out in, which
+packets a long reply was split over, and what a lost packet took with it. WireWeaver itself ships no recorder and no
+`ww` command on the tap; a capture tool implements `Tap` and stores the records in its own format.
 
 ## Where it records
 
@@ -29,33 +18,14 @@ and `message(dir, kind, bytes)`; the event loop adds `link_event`. The tap only 
 linking, statistics and decoding happen in the consumer, so the link pays for a copy and nothing more.
 
 - **Host.** Every `wire_weaver_client` event loop reports its link to a `Tap` made for that link by the
-  `tap::TapSource` of `ClientConfig::tap(source)`: `TapSource::new(|| Box::new(my_tap))` for any `Tap`, or a
-  `ww_tap::Recorder` (it converts into one). A client without a tap copies nothing. `Command::RegisterTracer` and
+  `tap::TapSource` of `ClientConfig::tap(source)`: `TapSource::new(|| Box::new(my_tap))` for any `Tap`. A client
+  without a tap copies nothing; a tap that panics is dropped and its link goes on (`TapSource::on_lost`). `Command::RegisterTracer` and
   its `TraceEvent`s come from the same hook: the data messages each way and the link's connects, disconnects and
   errors.
 - **Device.** `ww_device`'s `FramedTx::with_tap` / `FramedRx::with_tap` take a tap; the default is `NoTap`, whose
   calls are empty and inline, so firmware without a tap is the same size as before (checked on an STM32G0 build).
   `ww_framer` itself has no callbacks: `ww_framer::pieces(frame)` walks a frame into its pieces with the same head
   and checksum code `FramedRx` uses, and the decoder re-runs the framer on the recorded frames.
-
-## Batched into blocks
-
-The `Recorder` batches records into pooled blocks of 64 KiB (`RecorderConfig::block_size`) and hands a block over
-when it is full or `RecorderConfig::flush_time` (10 ms by default) after its first record, so a live monitor still
-feels live while a fast link costs one hand-over per block, not per message. Blocks go back to the pool once every
-consumer dropped them: the steady state allocates nothing. When a consumer falls so far behind that every block is
-held, records are dropped and counted, and the next block on the link opens with a `LinkEvent::Lost { records }`: a
-gap is always visible, and the link itself is never held up.
-
-Subscribe with `Recorder::subscribe(layers, queue)` (a bounded queue of at least two blocks; a consumer that falls
-further behind misses blocks, seen as a gap in their numbers) or `Recorder::subscribe_fn`. `Layers::MESSAGES` leaves
-frames out, `Layers::ALL` has them. A consumer that misses blocks is never left without a sign: its next block comes
-after a `LinkEvent::Lost` for each link it lost records of, and `Subscription::stats` (or `Recorder::consumers` for
-all of them) counts the blocks it missed, the records it lost and since when it has been behind.
-
-A link that closes records `LinkEvent::Closed` on its events track before its tracks go. A relay that keeps the tap's
-definitions, as `ww capture` does, drops that link's tracks when it sees the event (`recorder::drop_closed_links`), so
-its definitions don't grow with every link ever seen.
 
 ## Records
 
@@ -65,19 +35,25 @@ The records are ordinary WireWeaver types: streams of the `ww_tap::LinkTap` trai
 request was). A capture is described by the API bundle of `ww_tap` like any device log is by its device's, and every
 frame and message has a number, so the decoder sees a missing one.
 
+A link that closes records `LinkEvent::Closed` on its events track. A relay that keeps the tap's definitions drops
+that link's tracks when it sees the event (`ww_tap_decoder::drop_closed_links`), so its definitions don't grow with every link
+ever seen. A producer that could not keep records says so with `LinkEvent::Lost { records }`: a gap is visible, never
+silent.
+
 ## Links and devices
 
-Every link's tracks of one stream have the same key, the hash of the stream's name (`ww_tap::track_key`). The link's
-identity tells them apart: the recorder defines a link's tracks at its first session, with the [track
+Every link's tracks of one stream have the same key, the hash of the stream's name (`ww_tap_decoder::track_key`). The link's
+identity tells them apart: a producer defines a link's tracks at its first session (`ww_tap_decoder::define_link_tracks`, on
+the tap clock of `ww_tap_decoder::define_clocks`), with the [track
 dimensions](https://tape.vhrd.tech/tracks/#number-key-and-id) `medium` and `peer` (`ww_tap::dims`), the USB serial
 or the address the session reports. Two devices of one API recorded into one capture thus give two track ids per
 stream with one key, and the same device gives the same ids in every capture and after a reconnect, whichever link
 number the producer gave it.
 
 A link the peer doesn't tell apart, with no peer or with the peer of another open link, adds the dimension `link`,
-the recorder's number of it; so does a link recorded before any session.
+the producer's number of it; so does a link recorded before any session.
 
-A reader picks a device by its dimension: `ww_tap::link_stream_of` gives a tap track's stream and its link's
+A reader picks a device by its dimension: `ww_tap_decoder::link_stream_of` gives a tap track's stream and its link's
 `LinkIdentity` (`identity.get(dims::PEER)`), and the decoder numbers links by identity (`Decoder::find_link(dims::PEER,
 "SN-1234")`, `Decoder::link_identity`).
 
@@ -85,20 +61,16 @@ A reader picks a device by its dimension: `ww_tap::link_stream_of` gives a tap t
 
 A capture is tape blocks appended back to back. The tape format has a book of its own, the [ww_tape
 book](https://tape.vhrd.tech/): what a file holds, how time is stored and what survives damage, with a
-[format reference](https://tape.vhrd.tech/format/) of its parts. `ww_tape::TapeWriter` writes a capture the
-way databases write their logs (a new file as `NAME.partial`, renamed when closed, data synced by a `SyncPolicy`, a
-failed write or sync the end of the file), and `ww_tape::FileBlocks` reads its longest valid prefix, or on past damage
-with `Recovery::Resync` ([Files](https://tape.vhrd.tech/format/#files)). A capture ends with an index, a
-close record and a tail; cutting a recording into several files is [tape
-pieces](https://tape.vhrd.tech/format/#tape-pieces). The definitions carry the device's API bundle, so `ww
-explain FILE` explains the requests and replies of a capture on any PC, without the device. A track's key hashes its
+[format reference](https://tape.vhrd.tech/format/) of its parts. The definitions carry the device's API bundle, so
+the decoder explains the requests and replies of a capture on any PC, without the device. A track's key hashes its
 resource names and its dimensions name the device, so two runs give the same ids ([Links and
 devices](#links-and-devices)).
 
 ## Decoding
 
-`wire_weaver_client::tap::Decoder` takes blocks, live or from a file (`ww_tape::FileBlocks`), and gives out
-`Decoded` frames, messages and link events:
+`ww_tap_decoder::Decoder`, in the [ww_tools](https://github.com/vhrdtech/ww_tools) repository with the tracks and
+clock of a capture (this repository has no `ww_tape` dependency), takes a link's records (`Decoder::record`, `Decoder::session`) or the blocks of a
+capture (`Decoder::feed`, from `ww_tape::FileBlocks`), and gives out `Decoded` frames, messages and link events:
 
 - **Linkage.** Every frame is walked into its pieces and reassembled with the framer's rules: a message knows the
   frame bytes it came in (`MessageInfo::frames`, `#5@2+62`: frame 5, offset 2, 62 bytes), a frame its pieces and
@@ -111,6 +83,6 @@ devices](#links-and-devices)).
   its method (no `--for` as with `ww explain event HEX`).
 - **Statistics.** `Decoder::stats` per link and direction: frames, fill, overhead, messages per frame, split
   messages, dropped pieces, frame gaps, mismatches, message-to-frame latency, link message kinds, and per method its
-  calls and reply times; `Stats::report()` is what `ww stats` prints.
+  calls and reply times; `Stats::report()` prints them.
 
-Live and saved data go through the same code, so a capture prints exactly as the live session did.
+Live records and saved blocks go through the same code, so a capture decodes exactly as the live session did.

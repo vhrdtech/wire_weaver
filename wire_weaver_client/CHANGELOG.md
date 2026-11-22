@@ -1,5 +1,11 @@
 ## Unreleased
 
+### ⚠️ Breaking
+
+- `tap::decode`, `tap::stats`, `tap::Decoder` and the other decoder types moved to `ww_tap_decoder` (vhrdtech/ww_tools); `tap` keeps `Tap` and `TapSource` (TR-14).
+- The `ww_tape` and `ww_tape_fs` re-exports are removed: depend on them directly.
+- `tap` no longer re-exports `Recorder`, `RecorderConfig`, `RecorderLink`, `Subscription`, `Chunk` and `Layers`, and `TapSource` has no `From<Recorder>`: give `TapSource::new` a `Tap` (TOOL-14).
+
 ### 🐛 Fixes
 
 - A disconnect while a medium opens, or dropping a keep-trying client mid-attempt, stops the attempt at once (CLT-75).
@@ -12,6 +18,7 @@
 
 ### 🚀 Features
 
+- Public for a tap decoder outside the crate: `envelope::request_variant`, `event_variant`, `inline_known`, `load_by_hash` and `tap::FRAMED_USB`, `FRAMED_USB_SEQ`, `FRAMED_UDP`, `STREAM_PLAIN` (TR-14).
 - A reconnect onto another revision of the device's API on the same wire line learns the device again instead of refusing it (CLT-81).
 - After such a reconnect, kept streams, sinks and observers resume only where their resource still holds; the rest end with a warning (CLT-81).
 - A connect opens all `websocket_urls` / `in_process_paths` at once; the first to open wins, the rest race on if it fails (CLT-80).

@@ -10,7 +10,7 @@ repository = "https://github.com/vhrdtech/wire_weaver"
 [features]
 default = []
 # Frame counter at the start of every packet (ww_link::UsbSeqFraming), as a diagnostic: lost, duplicated or
-# reordered packets show in `ww stats`. Told to the host by the interface protocol, costs one byte per packet.
+# reordered packets show in the link tap's statistics. Told to the host by the interface protocol, costs one byte per packet.
 seq-prefix = []
 
 [dependencies]

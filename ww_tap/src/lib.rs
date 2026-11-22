@@ -5,24 +5,17 @@
 //! packet, a datagram, an RTT chunk) and [Tap::message] with every `ww_link` message `(kind, bytes)` as it goes down
 //! to the framer or comes back up; the event loop adds what never shows in bytes with [Tap::link_event]. The tap
 //! only copies bytes and stamps time: linking frames to messages, statistics and decoding happen in the consumer
-//! (`wire_weaver_client::tap`). [NoTap] is the default everywhere, its calls are empty and inline, so a build
+//! (`ww_tap_decoder`). [NoTap] is the default everywhere, its calls are empty and inline, so a build
 //! without a tap compiles them away.
 //!
 //! The records are ordinary wire_weaver types, streams of the [LinkTap] trait, so a capture is described by its API
 //! bundle like any device log: one track per stream of each link, Session sticky. A producer that writes them as
 //! tracks names them with [api] and [ids], and tells links apart by their [dims]: the link's medium and peer, so the
-//! same device gives the same track ids in every capture. A link named by its peer is [LinkKey]. With the `std`
-//! feature, [Recorder] batches them into `ww_tape` blocks.
+//! same device gives the same track ids in every capture. A link named by its peer is [LinkKey]. The decoder of
+//! the records and the `ww_tape` tracks of a capture are `ww_tap_decoder`'s, in the ww_tools repository.
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use wire_weaver::prelude::*;
-
-#[cfg(feature = "std")]
-mod locked;
-#[cfg(feature = "std")]
-pub mod recorder;
-#[cfg(feature = "std")]
-pub use recorder::*;
 
 /// Direction, from the side that taps ([Session::side]): Tx is what it sends.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
@@ -375,12 +368,11 @@ pub enum LinkEvent<'i> {
     },
     /// A transport or protocol error.
     Error { what: &'i str },
-    /// Records the producer couldn't keep (no free block, every one held by consumers), or this consumer missed (no
-    /// room in its queue), counted since the last such event; the gap is between this event and the record before
+    /// Records the producer couldn't keep, or a consumer missed, counted since the last such event; the gap is between this event and the record before
     /// it.
     Lost { records: UVlq64 },
     /// The link is gone: its tracks get no more records. A relay of the stream drops their definitions
-    /// (`recorder::drop_closed_links`), so they don't pile up with every link ever seen.
+    /// (`ww_tap_decoder::drop_closed_links`), so they don't pile up with every link ever seen.
     Closed,
 }
 
@@ -419,7 +411,7 @@ pub struct ClientMap {
 mod tests {
     use super::*;
 
-    /// Track definitions carry the crate's name and version, as the recorder wrote them before `api()` was the GID.
+    /// Track definitions carry the crate's name and version, as producers wrote them before `api()` was the GID.
     #[test]
     fn api_is_the_crate_name_and_version() {
         let v = api();

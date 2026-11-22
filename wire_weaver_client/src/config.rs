@@ -972,8 +972,7 @@ impl ClientConfig {
     }
 
     /// Report what crosses each link this client opens to a tap of `source` (TR-14): sessions, link events,
-    /// messages and frames. A [Recorder](crate::tap::Recorder) records them for a monitor or a capture subscribed
-    /// to it.
+    /// messages and frames.
     pub fn tap(self, source: impl Into<crate::tap::TapSource>) -> Self {
         let mut c = self;
         c.tap = Some(source.into());

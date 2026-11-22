@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### ⚠️ Breaking
+
+- `recorder::{track_key, LinkIdentity, link_stream_of, link_stream_in, drop_closed_links}` moved to `ww_tap_decoder` (vhrdtech/ww_tools); `std` no longer pulls `ww_tape` (TR-14).
+- `Recorder`, `RecorderConfig`, `RecorderLink`, `Subscription`, `Chunk`, `Layers` and `ConsumerStats` are removed; implement `Tap` to record (TOOL-14).
+- The `std` feature no longer pulls `tracing` and `exact_units`.
+
 ### 📚 Documentation
 
 - A README.

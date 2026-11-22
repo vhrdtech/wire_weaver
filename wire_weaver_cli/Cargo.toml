@@ -17,10 +17,6 @@ rustix.workspace = true
 [target.'cfg(windows)'.dependencies]
 crossterm.workspace = true
 
-[features]
-# `cmd::tap::test_support`: a tapped in-process session for the tests of crates that register commands
-test-support = ["wire_weaver_client/in_process"]
-
 [dependencies]
 anyhow.workspace = true
 clap = { workspace = true, features = ["derive", "env"] }
@@ -53,15 +49,6 @@ ww_numeric.workspace = true
 ww_settings = { workspace = true, features = ["dump"] }
 ww_si = { workspace = true, features = ["std"] }
 ww_timebase = { workspace = true, features = ["std"] }
-
-[dev-dependencies]
-io_timebase_api.workspace = true
-tap_api.workspace = true
-tests_common.workspace = true
-wire_weaver_client = { workspace = true, features = ["in_process"] }
-ww_client_server.workspace = true
-ww_date_time = { workspace = true, features = ["std"] }
-ww_stream.workspace = true
 
 [lints]
 workspace = true

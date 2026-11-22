@@ -272,7 +272,7 @@ async fn inlined_blocking(
 /// signature from its definition cache ([ww_self::definition_cache]). The ones that are not found are logged and left
 /// skipped. Then checks the bundle and instantiates its generic types ([ww_self::generics::prepare]): introspection
 /// data comes from a device and is not trusted, a malformed one is an error.
-pub(crate) fn inline_known(bundle: &mut ApiBundleOwned, resolver: &Resolver) -> Result<()> {
+pub fn inline_known(bundle: &mut ApiBundleOwned, resolver: &Resolver) -> Result<()> {
     inline_known_with(bundle, resolver);
     ww_self::generics::prepare(bundle).context("malformed introspection data")
 }

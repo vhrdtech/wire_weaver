@@ -28,8 +28,7 @@ fn base_dir() -> io::Result<PathBuf> {
 fn platform_base_dir() -> io::Result<PathBuf> {
     match std::env::var_os("XDG_RUNTIME_DIR").filter(|d| !d.is_empty()) {
         Some(dir) => Ok(PathBuf::from(dir).join("ww")),
-        // SAFETY: geteuid has no preconditions and cannot fail
-        None => Ok(std::env::temp_dir().join(format!("ww-{}", unsafe { libc::geteuid() }))),
+        None => Ok(std::env::temp_dir().join(format!("ww-{}", euid()))),
     }
 }
 
@@ -40,8 +39,7 @@ fn platform_base_dir() -> io::Result<PathBuf> {
     if std::env::var_os("TMPDIR").is_some() {
         Ok(tmp.join("ww"))
     } else {
-        // SAFETY: geteuid has no preconditions and cannot fail
-        Ok(tmp.join(format!("ww-{}", unsafe { libc::geteuid() })))
+        Ok(tmp.join(format!("ww-{}", euid())))
     }
 }
 
@@ -100,8 +98,7 @@ fn create(dir: &std::path::Path, mode: u32, group: Option<u32>) -> io::Result<()
     }
     // symlink_metadata: a symlink planted in a shared /tmp must not lead elsewhere
     let meta = std::fs::symlink_metadata(dir)?;
-    // SAFETY: geteuid has no preconditions and cannot fail
-    let me = unsafe { libc::geteuid() };
+    let me = euid();
     if !meta.is_dir() || meta.uid() != me {
         return Err(io::Error::new(
             io::ErrorKind::PermissionDenied,
@@ -186,8 +183,7 @@ mod tests {
         }
         // a group this user is not in can't be set
         std::fs::remove_dir_all(&base).unwrap();
-        // SAFETY: geteuid has no preconditions and cannot fail
-        if unsafe { libc::geteuid() } != 0 {
+        if super::euid() != 0 {
             let foreign = PeerPolicy::Users {
                 group: u32::MAX - 7,
                 uids: vec![],

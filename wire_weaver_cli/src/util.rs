@@ -14,7 +14,7 @@ pub fn display_path(path: &str) -> &str {
 
 /// Tells that the process was asked to stop: Ctrl-C (SIGINT) or, on Unix, SIGTERM (`timeout`, a service manager,
 /// `kill`). Installed before connecting so no signal is lost on the way, and so the default action (dying at once,
-/// with a `ww capture` file still `.partial`) is off: whoever holds it ends what it does and cleans up.
+/// with a live view's terminal left in raw mode) is off: whoever holds it ends what it does and cleans up.
 #[derive(Clone)]
 pub struct StopSignal(watch::Receiver<bool>, Arc<watch::Sender<bool>>);
 
@@ -93,14 +93,6 @@ impl Signals {
 
     async fn wait(self) {
         _ = tokio::signal::ctrl_c().await;
-    }
-}
-
-/// [StopSignal::guard] when there is a signal to watch, else just `fut`.
-pub async fn guard<T>(stop: Option<StopSignal>, fut: impl Future<Output = T>) -> Option<T> {
-    match stop {
-        Some(mut stop) => stop.guard(fut).await,
-        None => Some(fut.await),
     }
 }
 

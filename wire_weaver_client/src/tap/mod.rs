@@ -1,35 +1,19 @@
 //! The link tap on the host (TR-14): every client event loop reports what crosses its link to a [Tap], one per
 //! link, made by the [TapSource] of [ClientConfig::tap](crate::ClientConfig::tap); without one nothing is copied.
-//! `Command::RegisterTracer`'s [TraceEvent]s come from the same place. A [Recorder] is a [TapSource]: it batches
-//! what its links report into `ww_tape` blocks for `ww monitor`, `ww stats` and `ww capture`.
+//! `Command::RegisterTracer`'s [TraceEvent]s come from the same place. `ww_tap_decoder` (in the ww_tools repository)
+//! reads the tap's records back: it links frames to messages, pairs replies with requests and counts statistics.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use tokio::sync::mpsc;
 use wire_weaver::shrink_wrap::{RefVec, UNib32};
-pub use ww_tap::{
-    Chunk, Dir, Layers, LinkEvent, Recorder, RecorderConfig, RecorderLink, Session, Subscription,
-    Tap, link_stream_in, link_stream_of,
-};
+pub use ww_tap::{Dir, LinkEvent, Session, Tap};
 
 use crate::tracing::TraceEvent;
 
-pub mod decode;
-#[cfg(all(test, feature = "in_process"))]
-mod e2e_tests;
-mod reassembly;
-pub mod stats;
 #[cfg(test)]
 mod tests;
-
-pub use decode::{
-    ApiInfo, Check, Decoded, Decoder, DecoderConfig, FrameInfo, MessageInfo, What,
-    session_wire_version,
-};
-pub use reassembly::{FrameOutcome, FramePart, PieceInfo, PieceOutcome, Reassembled};
-pub use stats::{DirStats, LinkStats, PathStats, PrefixCounts, Stats};
-pub use ww_framer::prefix::{FrameCtx, FrameReport};
 
 /// Makes the [Tap] of each link a client opens, [ClientConfig::tap](crate::ClientConfig::tap).
 #[derive(Clone)]
@@ -87,13 +71,6 @@ impl TapSource {
 impl core::fmt::Debug for TapSource {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_str("TapSource")
-    }
-}
-
-/// Every link recorded into the recorder.
-impl From<Recorder> for TapSource {
-    fn from(recorder: Recorder) -> Self {
-        TapSource::new(move || Box::new(recorder.link()))
     }
 }
 
@@ -327,8 +304,9 @@ impl Tap for ClientTap {
     }
 }
 
-/// Framer configuration of `ww_link::UsbFraming`: `U2Head`, no checksum, no prefix.
-pub(crate) const FRAMED_USB: ww_tap::Framer = ww_tap::Framer::U2 {
+/// Framer configuration of `ww_link::UsbFraming`, as the client's USB sessions report it: `U2Head`, no checksum,
+/// no prefix.
+pub const FRAMED_USB: ww_tap::Framer = ww_tap::Framer::U2 {
     checksum: ww_tap::FramerChecksum::None,
     tail: ww_tap::FramerTail::None,
     stream: false,
@@ -336,8 +314,7 @@ pub(crate) const FRAMED_USB: ww_tap::Framer = ww_tap::Framer::U2 {
 };
 
 /// Framer configuration of `ww_link::UsbSeqFraming`: [FRAMED_USB] with the `SeqPrefix` diagnostic.
-#[allow(dead_code, reason = "uSB only")]
-pub(crate) const FRAMED_USB_SEQ: ww_tap::Framer = ww_tap::Framer::U2 {
+pub const FRAMED_USB_SEQ: ww_tap::Framer = ww_tap::Framer::U2 {
     checksum: ww_tap::FramerChecksum::None,
     tail: ww_tap::FramerTail::None,
     stream: false,
@@ -345,8 +322,7 @@ pub(crate) const FRAMED_USB_SEQ: ww_tap::Framer = ww_tap::Framer::U2 {
 };
 
 /// Framer configuration of `ww_link::UdpFraming`: `SeqPrefix`, `U2Head`, CRC-32 on every message.
-#[allow(dead_code, reason = "uDP only")]
-pub(crate) const FRAMED_UDP: ww_tap::Framer = ww_tap::Framer::U2 {
+pub const FRAMED_UDP: ww_tap::Framer = ww_tap::Framer::U2 {
     checksum: ww_tap::FramerChecksum::Crc32IsoHdlc { full: true },
     tail: ww_tap::FramerTail::None,
     stream: false,
@@ -354,8 +330,7 @@ pub(crate) const FRAMED_UDP: ww_tap::Framer = ww_tap::Framer::U2 {
 };
 
 /// Framer configuration of stream media (RTT) with `ww_link`'s setup: `U2Head`, no checksum, chunks of a stream.
-#[allow(dead_code, reason = "rTT only")]
-pub(crate) const STREAM_PLAIN: ww_tap::Framer = ww_tap::Framer::U2 {
+pub const STREAM_PLAIN: ww_tap::Framer = ww_tap::Framer::U2 {
     checksum: ww_tap::FramerChecksum::None,
     tail: ww_tap::FramerTail::None,
     stream: true,

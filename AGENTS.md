@@ -16,9 +16,9 @@ Read `docs/index.md` first, then `docs/serdes/shrink_wrap.md` and `wire_format.m
 shrink_wrap repository, the pages of `ww_si`, `ww_numeric`, `ww_version`, `ww_error`, `ww_date_time` and the units in
 the ww_base repository, the standard library's API pages in the ww_stdlib repository: `just book-assemble` copies
 them into `docs/serdes/` and `docs/std_library/` (git-ignored) from the checkouts `Cargo.lock` pins, and
-ww_stdlib's from its `main` branch (`book_sources.toml`, `ww_book`); of ww_tape only its feature tracker comes, into
-`docs/tape/`. Tapes and logring have books of their own in their repositories, linked by URL from `docs/tapes.md`
-and `docs/logring.md`, never included. Prefer the docs (`docs/`, built with zensical) to the source; where they are unclear, the source and its
+ww_stdlib's and ww_tape's from their `main` branch (`book_sources.toml`, `ww_book`); of ww_tape only its feature
+tracker comes, into `docs/tape/`. Tapes and logring have books of their own in their repositories, linked by URL
+from `docs/tapes.md` and `docs/logring.md`, never included. Prefer the docs (`docs/`, built with zensical) to the source; where they are unclear, the source and its
 comments are authoritative.
 
 ## Numbers are typed: never a bare integer or float
@@ -195,8 +195,8 @@ writers or the standard library's types firmware uses is checked for stack, cycl
 Dependencies are pure Rust; spl's `no-sys-crates` allow list in `spirit_level.toml` names the exceptions, for these
 reasons:
 
-- `cc`: `shrink_wrap_c` builds the C runtime of the wire format to check it against the Rust crate; `ring` and
-  `blake3` (ww_tape) compile their C and assembly with it.
+- `cc`: `shrink_wrap_c` builds the C runtime of the wire format to check it against the Rust crate; `ring` compiles
+  its C and assembly with it.
 - `ring`: rustls' crypto provider for the snapshot fetch (`ureq`); no audited pure-Rust provider exists yet.
 - `pyo3`, `pyo3-ffi`: the Python bindings link libpython.
 - `io-kit-sys`: `nusb` on macOS, where IOKit is the system's USB API (a system framework, nothing bundled).
@@ -237,15 +237,14 @@ The codegen pipeline (read `wire_weaver_derive`, then `wire_weaver_core`):
   Layer 7, the `ww` binary (plugins `ww NAME` run `ww-NAME` from PATH) and the Python wheel, is vhrdtech/ww_tools: it
   links ww_stdlib's (`ww_std_cli`), logring's and chunky_mcu_updater's commands and takes this repository by git, so
   nothing here depends on it; its recipes install `ww`, the root's use the example `ww_generic`.
-  Nothing here depends on another repository by path; `exact_units`, the ww_base crates
-  and `ww_tape` (vhrdtech/ww_tape: the tape format, its benchmarks, fuzz targets and golden files) come by git, with
-  the commit tracked in `Cargo.lock`, never pinned in `Cargo.toml`.
+  Nothing here depends on another repository by path; `exact_units` and the ww_base crates come by git, with
+  the commit tracked in `Cargo.lock`, never pinned in `Cargo.toml`. Nothing here depends on `ww_tape`: the tap's
+  decoder, `ww_tape_bundle` and the tape identity tests are in vhrdtech/ww_tools.
 - **The standard library** (vhrdtech/ww_stdlib, layer 6, its own repository): reusable API traits and types for
   unrelated projects (GPIO, I2C, SPI, UART, CAN, DFU, logs, ...); units, numbers, versions, dates and common errors
   are ww_base's. A framework crate or test never depends on it: tests use stand-ins (`tests/skipped_dep_api`).
 - **`ww_self/`**: the API model AST (introspection, snapshots), with ww_base's `ww_global` (the global type ID
-  registry); versioned like API crates (`docs/evolution/crate_layers.md`). `ww_tape_bundle` sits above `ww_self` and `ww_tape`:
-  the name paths and keys of tape tracks from an API bundle (the tape format itself knows no API model).
+  registry); versioned like API crates (`docs/evolution/crate_layers.md`).
 - **`ww_snapshots/`**: finds API snapshots by crate name and version (`docs/evolution/snapshots.md`): sets embedded at
   build time (`ww`, the Python wheel), `~/.wire_weaver/snapshots/`, Cargo's sources on disk, then crates.io or the
   crate's repository (`ureq` with `rustls`; its provider `ring` is C and assembly, see "Native code"). Every crate

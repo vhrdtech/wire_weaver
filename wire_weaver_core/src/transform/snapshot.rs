@@ -1814,7 +1814,7 @@ mod tests {
     }
 
     /// Snapshots are saved for the current source of each crate whose snapshots APIs are skipped against: the link
-    /// tap's records, ww_timebase, exact_units, the ww_base crates and ww_tape (in their own repositories: from the
+    /// tap's records, ww_timebase, exact_units and the ww_base crates (in their own repositories: from the
     /// checkouts `Cargo.lock` pins) and the tests' stand-in `skipped_dep_api`.
     #[test]
     fn snapshots_are_up_to_date() {
@@ -1833,7 +1833,6 @@ mod tests {
                 "ww_numeric",
                 "ww_si",
                 "ww_version",
-                "ww_tape",
             ]
             .map(base_dir),
         );

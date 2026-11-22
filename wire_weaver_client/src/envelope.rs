@@ -769,7 +769,8 @@ fn ids(chain: &[u32]) -> Option<ValueOwned> {
     ))
 }
 
-pub(crate) fn request_variant(kind: &RequestKind) -> &'static str {
+/// The name of a request's kind, as the explainer titles it (`Call`, `Read`, ..).
+pub fn request_variant(kind: &RequestKind) -> &'static str {
     match kind {
         RequestKind::Call { .. } => "Call",
         RequestKind::MultiCall { .. } => "MultiCall",
@@ -788,7 +789,8 @@ pub(crate) fn request_variant(kind: &RequestKind) -> &'static str {
     }
 }
 
-pub(crate) fn event_variant(kind: &EventKind) -> &'static str {
+/// The name of an event's kind, as the explainer titles it (`Value`, `Written`, ..).
+pub fn event_variant(kind: &EventKind) -> &'static str {
     match kind {
         EventKind::Value { .. } => "Value",
         EventKind::Written => "Written",

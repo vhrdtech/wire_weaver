@@ -730,7 +730,7 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   `with_call_context`'s trace, and cancels a request that timed out or whose `call()` was dropped
   ([Host server](docs/api/host_server.md#deadline-and-cancel), `tests/host_server`). Firmware is unchanged and
   never announces contexts. Missing: the trace taken from the current `tracing` span (needs OpenTelemetry ids), a
-  span per request in the server (RED metrics), the trace on a stream open, the tap and `ww monitor` showing
+  span per request in the server (RED metrics), the trace on a stream open, the tap decoder showing
   contexts.
 - 📋 **SRV-13 ww hub: one device, many programs** · `v0.5.x` — a per-user hub that starts itself on first use and
   exits when idle (sccache / ssh ControlMaster style, no system service, Linux, macOS and Windows), holds the
@@ -1100,7 +1100,7 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   `exponent`, `storage`, `symbol`, `unit`, `dim`, `docs`, `to_si()`; writes take a `Quantity` or a number in the unit)
   (`docs/std_library/ww_si.md#in-ww-python-and-dynamic-clients`, `tests/quantities`, `wire_weaver_py/tests`). Types
   are still named by their definitions (`Timed<Quantity<Ampere>>`), alias names need ww_self type aliases.
-- ✅ **CLT-66 Unit references through the API model** · `v0.5` — the dynamic client reads an `SIExpr` reference (`SIExpr::Ref`, exact_units UNIT-7) through the bundle, which is an `exact_units::UnitTable` of every unit the API uses (`ww_self`), then `ww_si::units::TABLE` (`quantity::units_of`): `DynUnit::from_si_expr(expr, table)`, a reference no table lists is `DynUnit::Ref`, shown by its name and written back as it came. A value the client writes into an `AnyQuantity` is compacted against the bundle, so the API's units go by reference. `ww` (`ww tap`, `ww observe`) and Python read them the same way. Two API crates' `Rpm`s stay two units (`tests/quantities` `two_crates_rpm_by_reference`, `tests/fan_api`).
+- ✅ **CLT-66 Unit references through the API model** · `v0.5` — the dynamic client reads an `SIExpr` reference (`SIExpr::Ref`, exact_units UNIT-7) through the bundle, which is an `exact_units::UnitTable` of every unit the API uses (`ww_self`), then `ww_si::units::TABLE` (`quantity::units_of`): `DynUnit::from_si_expr(expr, table)`, a reference no table lists is `DynUnit::Ref`, shown by its name and written back as it came. A value the client writes into an `AnyQuantity` is compacted against the bundle, so the API's units go by reference. `ww` (`ww observe`), the tap decoder and Python read them the same way. Two API crates' `Rpm`s stay two units (`tests/quantities` `two_crates_rpm_by_reference`, `tests/fan_api`).
 - ✅ **CLT-30 Link setup budget per transport** · `v0.5.x` — the client re-sent `GetDeviceInfo` 5 times 50 ms apart (250 ms
   for every transport), so connecting through a debug probe (~17 ms per RTT write through a J-Link) mostly failed with
   `LinkSetup was not received`. Now a timeout per transport (USB, UDP, WebSocket 1 s, in-process 250 ms, RTT 10 s, one
@@ -1559,14 +1559,17 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   messages each way, client map), taken by every `wire_weaver_client` transport and event loop
   (`ClientConfig::tap(TapSource)`, a `Tap` per link, none by default; `TraceEvent` / `RegisterTracer` fed by the
   same hook, the iceoryx2 USB tracer removed) and by `ww_device`'s `FramedTx` / `FramedRx` (`with_tap`; with `NoTap` a G0 firmware is the
-  same size). `ww_framer::pieces(frame)` shares `FramedRx`'s head code, no callbacks in the framer. `Recorder`
-  batches into pooled 64 KiB `ww_tape` blocks (STD-42) flushed when full or after `flush_time` (10 ms), no
-  allocation in steady state, losses counted in `LinkEvent::Lost`. `wire_weaver_client::tap::Decoder`: frame ↔
+  same size). `ww_framer::pieces(frame)` shares `FramedRx`'s head code, no callbacks in the framer. Losses are
+  counted in `LinkEvent::Lost`. The decoder, `ww_tap_decoder` in ww_tools (with the e2e tests and the tape identity), gives frame ↔
   message linkage, cross-check against the message records, framer and link statistics, request/reply pairing by
-  seq feeding the TOOL-9 explain code. E2E tests over simulated USB (`tap/e2e_tests.rs`, `wire_weaver_cli`
-  `cmd/tap/tests.rs`): shared packets, split replies, a lost packet, stats, captures replayed identically. Without
+  seq feeding the TOOL-9 explain code. E2E tests over simulated USB: shared packets, split
+  replies, a lost packet, stats, captures replayed identically. Without
   `std`, `ww_tap` is the hook and the record types, `LinkKey { medium, peer }` (a link named by its peer), `api()`
-  and `ids::stream_name` for a producer naming the tracks; the `Recorder` is behind `std`. The decoder's input is
+  and `ids::stream_name` for a producer naming the tracks; `ww_tap_decoder` defines a link's `ww_tape`
+  tracks and the tap clock (`define_link_tracks`, `define_clocks`) and finds them again (`link_stream_of`); this
+  repository has no `ww_tape` dependency. The
+  `Recorder` (pooled `ww_tape` blocks for consumers) is removed with TOOL-14; a capture tool implements `Tap`
+  itself (P2555 eventfull tap). The decoder's input is
   records (`Decoder::record`, `session`, `gap`), `feed(&Block)` feeds a block's records through it (the e2e test
   compares both). A link's identity (its medium and peer, the USB serial or address of its first session) is a
   dimension of its tracks, not a `link[n]` path: two devices of one API share each stream's key, differ in their ids,
@@ -1580,7 +1583,7 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   frame counter, 2-bit epoch; lost, duplicate, late and stale frames reported and counted), checksums over prefix
   and head, fuzz target `framer-lossy`. `ww_link::Framing` per medium: USB without a checksum and without a prefix
   (`SeqPrefix` as a diagnostic, `wire_weaver_usb_embassy` feature `seq-prefix`, told by the interface protocol),
-  UDP with `SeqPrefix` and a CRC-32 (`ww_block`'s) on every message. `ww stats` / `ww monitor` show the prefix.
+  UDP with `SeqPrefix` and a CRC-32 (`ww_block`'s) on every message. The tap decoder's statistics show the prefix.
   Wire change of the link (`docs/evolution/crate_layers.md`).
 - ✅ **TR-19 Byte-stream transport** · `v0.5` — client and server over any futures-io `AsyncRead + AsyncWrite`
   (`docs/transport/byte_streams.md`, `docs/api/host_server.md#byte-streams`), crate `ww_byte_stream`: the local
@@ -1745,7 +1748,7 @@ Unicast Data0 to one node over the same bus is TR-6.
   `GenServerConfig::introspect_compression` for `build.rs` and `ww api scaffold --introspect-compression lz4`) keeps
   `WW_SELF_BYTES` as LZ4 blocks made at build time with `ww_lz4` (`ww_self::compressed`: `WWz4` magic, length,
   blocks); the device carries no decoder and sends them as a plain bundle, at no code cost. The client (download,
-  promise, dynamic client, `ww`, Python, the hub, `ww tap`) tells the formats apart by the first bytes, decompresses,
+  promise, dynamic client, `ww`, Python, the hub, the tap decoder) tells the formats apart by the first bytes, decompresses,
   and refuses an unknown magic. API hashes and the cache stay those of the uncompressed bundle. rePort 14,016 ->
   9,697 B of bundle, -4,312 B of flash; Portwright 3,974 -> 3,056 B, -920 B. Default off. Tests
   `tests/introspect_compressed` (sync, async, promise, dynamic client, hub, the answer's events), `ww_self`
@@ -2172,8 +2175,8 @@ Unicast Data0 to one node over the same bus is TR-6.
 - ✅ **EVO-34 Wire versions and generations in docs, CLI and Python** · `v0.5` — `ww info` and `ww report` show the
   device's wire version next to its crate version (`API ... (wire w2.3)`) and the hello generations this
   connection agreed on (`Hello framer=1 link=1 shrink_wrap=1 api_model=1`, EVO-23), through `ww_report::clients::Contract`
-  and `info::DeviceInfo`'s new `api_wire` / `generations` fields. `ww tap`'s session line shows the device's wire
-  version once link is set up (`wire_weaver_client::tap::session_wire_version`). `wire_weaver_client::DeviceApiInfo`
+  and `info::DeviceInfo`'s new `api_wire` / `generations` fields. The tap decoder gives a session's wire version
+  (`ww_tap_decoder::session_wire_version`, in ww_tools). `wire_weaver_client::DeviceApiInfo`
   gained the `generations: ww_link::Generations` field (this build's, which matches the device's or link setup
   would have refused); `ww_link::Generations` implements `Display`. Python's `dev.info` shows the wire version and
   generations next to the crate versions. `ww list` still can't show the wire version pre-connection: it comes from
@@ -2335,15 +2338,6 @@ Unicast Data0 to one node over the same bus is TR-6.
   cross-checked against a real `Store` over the same bytes through `fake_flash::FakeFlash`) and `decode_group` for
   a caller that knows the concrete `SettingsGroup` type; `ww settings dump FILE --word-size --page-size [--base]
   [--format text|json]` in `wire_weaver_cli` (`docs/cli_reference.md#ww-settings`).
-- ✅ **TOOL-14 `ww monitor`, `ww stats`, `ww capture`, `ww explain FILE`** · `v0.5` — the link tap (TR-14) in the
-  CLI (`docs/cli_reference.md#ww-monitor`): live decoded print at the frame, link or API layer (`--bytes`,
-  `--bits` for the TOOL-9 bit map of every message), framer and link statistics every few seconds or of a capture,
-  captures with the device's API bundle in them, read back by `ww explain FILE` exactly as monitored live.
-  Blocks come from a `Feed` (`wire_weaver_cli/src/cmd/tap.rs`): the CLI's own connection today, a ww server's tap
-  of all its clients later.
-  The tap decoder orders a block's records by time so a reply is paired with its request
-  (`docs/cli_reference.md#ww-monitor`). The global `--monitor` and `--capture` flags, which tapped any command's own
-  connection, are removed.
 - ✅ **TOOL-18 The hub from Python and notebooks** · `v0.5.x` — the wheel (`wire_weaver_py`) carries
   `wire_weaver_client` with its `hub` feature and `ww_hub`; `python -m wire_weaver.hub` serves the hub, found by
   `wire_weaver_client::hub::ensure_running` the same way as a Rust `ww_hub::main_if_hub()` program (`wire_weaver`
@@ -2439,8 +2433,8 @@ Unicast Data0 to one node over the same bus is TR-6.
   `ww_plugin_is_free_of_the_hub`). `wire_weaver_cli` re-exports them at their old paths (`device`, `plugin`,
   `untrusted`, `complete`), so a plugin may depend on `ww_plugin` alone and not link the hub.
 - ✅ **TOOL-36 Commands register themselves** · `v0.5` — each `ww` command registers a `CommandDef` with `inventory`
-  (`wire_weaver_cli::registry`): its `clap` command, the global flags it shows, how it connects, its log level, its
-  own tap and the command it forwards to (in process when the binary links it, else the plugin); the root command, help, completion and the run loop come from the registry.
+  (`wire_weaver_cli::registry`): its `clap` command, the global flags it shows, how it connects, its log level and
+  the command it forwards to (in process when the binary links it, else the plugin); the root command, help, completion and the run loop come from the registry.
   `wire_weaver_cli` is a library of the generic commands with no standard library API crate among its dependencies,
   `ww_std_cli` (`ww_stdlib/ww_std_cli`) holds `board`, `counters`, `dfu`, `pins`, `report` and the device parts of
   `info` and `sync` (`InfoExtension`, `SyncExtension`), and the binary `ww` (vhrdtech/ww_tools) links both. Tests compare
@@ -2468,11 +2462,6 @@ Unicast Data0 to one node over the same bus is TR-6.
   `expect`. Library `ww_pin_probe` (`probe::run` over a `Pins` trait, `mock::MockBoard`), end to end in
   `tests/pin_diag`. Hardware check open: on rePort once it serves `PinDiag`. Names sent as ids show as `#<id>`
   (STD-48).
-  The live decoder gets the device's API as soon as the command has it (the recorder hands a bundle over at once,
-  as the device sent it, snapshot-known traits put back by the decoder), so a live print and the capture's replay
-  are the same text; SIGINT and SIGTERM end a flagged command or `ww monitor` / `capture` / `stats` with the
-  capture finished, synced and renamed; `ww explain` of a path-like WHAT that is no file says so without
-  connecting.
 - 🚧 **TOOL-6 Dev GUI / web tool** · `v0.5.x` — `wire_weaver_tool` (egui, Trunk) shows the AST and generated code. Goals:
   a web tool like the pest playground, a dynamic UI for any API (MVP prototyped), widgets per type, mockup
   server UI. See `docs/dev_tool.md`. A `Fixed` field's widget shows its unit and takes its slider limits from
@@ -2524,8 +2513,8 @@ Unicast Data0 to one node over the same bus is TR-6.
   errors naming the field) and `wire_weaver_client::expr` (the same with `ww_si` quantities, `q!(3300 mV)`);
   `wire_weaver_client::envelope` (a whole request or event: the `ww_client_server` envelope field by field, the
   payload by its resource); `ww explain WHAT HEX | --value EXPR | 'call(..)' [--request]`, `ww explain request|event
-  HEX`. Captures and the live link: `ww explain FILE` / `ww monitor --layer api --bits` (TOOL-14), replies explained by
-  their request's seq; `Observe` requests and their grants read as property names and modes, `PropertyUpdate`s as the
+  HEX`. The tap decoder explains captured requests and replies with the same code, replies by their request's seq;
+  `Observe` requests and their grants read as property names and modes, `PropertyUpdate`s as the
   properties they carry with typed values (units as in `ww observe`); calls through global traits (`GlobalFull`
   paths: `ww info`, `ww report`, ..) are named `ww_user_info::UserInfo.name` and decoded from the snapshots the host
   carries, also by a command that never introspects the device. Open: `GlobalCompact` paths, multi requests; `Series` columns and sparse-struct slot headers in detail; shell completion of types and paths; a
@@ -2951,6 +2940,7 @@ Unicast Data0 to one node over the same bus is TR-6.
 
 ## Dropped and superseded
 
+- **TOOL-14 `ww monitor`, `ww stats`, `ww capture`, `ww explain FILE`** — removed with the `Recorder`: nobody used them; the tap hook (TR-14) and its decoder stay.
 - **SW-1 Structs, plain enums and data enums** — moved to shrink_wrap's own repository with its id: [romixlab/shrink_wrap FEATURES.md](https://github.com/romixlab/shrink_wrap/blob/main/FEATURES.md).
 - **SW-2 `Option` and `Result`** — moved to shrink_wrap's own repository with its id: [romixlab/shrink_wrap FEATURES.md](https://github.com/romixlab/shrink_wrap/blob/main/FEATURES.md).
 - **SW-3 `String` and `Vec<T>`** — moved to shrink_wrap's own repository with its id: [romixlab/shrink_wrap FEATURES.md](https://github.com/romixlab/shrink_wrap/blob/main/FEATURES.md).
@@ -3079,7 +3069,7 @@ Unicast Data0 to one node over the same bus is TR-6.
 - **STD-122 `ww_tape` v2 index, finish and tail** — moved to ww_tape's own repository with its id: [vhrdtech/ww_tape FEATURES.md](https://github.com/vhrdtech/ww_tape/blob/main/FEATURES.md).
 - **STD-123 `ww_tape` tape pieces** — moved to ww_tape's own repository with its id: [vhrdtech/ww_tape FEATURES.md](https://github.com/vhrdtech/ww_tape/blob/main/FEATURES.md).
 - **STD-124 `ww_tape` positional reader** — moved to ww_tape's own repository with its id: [vhrdtech/ww_tape FEATURES.md](https://github.com/vhrdtech/ww_tape/blob/main/FEATURES.md).
-- **STD-125 `ww_tape` track identity by name path** — moved to ww_tape's own repository with its id; its wire_weaver side (`ww_tape_bundle`, `ww_tap::track_key`, `tests/tape_identity`) stays here: [vhrdtech/ww_tape FEATURES.md](https://github.com/vhrdtech/ww_tape/blob/main/FEATURES.md).
+- **STD-125 `ww_tape` track identity by name path** — moved to ww_tape's own repository with its id; its wire_weaver side (`ww_tape_bundle`, `track_key`, `tests/tape_identity`) is in vhrdtech/ww_tools: [vhrdtech/ww_tape FEATURES.md](https://github.com/vhrdtech/ww_tape/blob/main/FEATURES.md).
 - **STD-126 `ww_tape` payload codec: packed lengths, raw or lz4 payloads, salvage** — moved to ww_tape's own repository with its id: [vhrdtech/ww_tape FEATURES.md](https://github.com/vhrdtech/ww_tape/blob/main/FEATURES.md).
 - **STD-127 `ww_tape` series tracks: kind, sample type, period, segments** — moved to ww_tape's own repository with its id: [vhrdtech/ww_tape FEATURES.md](https://github.com/vhrdtech/ww_tape/blob/main/FEATURES.md).
 - **STD-128 `ww_tape` series summaries across a change of scale** — moved to ww_tape's own repository with its id: [vhrdtech/ww_tape FEATURES.md](https://github.com/vhrdtech/ww_tape/blob/main/FEATURES.md).

@@ -5,19 +5,15 @@
 //!
 //! A command is a [`CommandDef`]: its `clap::Command` (built from the module's own `Args`/`Subcommand` types), which
 //! global flags it shows, what it needs before it runs ([`Connection`]: nothing, the device selection, or a connected
-//! device), its log level, whether it taps the connection itself and what it forwards to a plugin, and the
-//! function that runs it on a [`Run`].
+//! device), its log level and what it forwards to a plugin, and the function that runs it on a [`Run`].
 
-use crate::cmd::tap::{Layer, LiveTap};
 use crate::device::Selection;
-use crate::util::StopSignal;
 use anyhow::{Context as _, Result, anyhow};
 use clap::{ArgMatches, Command};
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::OnceLock;
 use tracing::level_filters::LevelFilter;
-use wire_weaver_client::tap::Recorder;
 use wire_weaver_client::{ClientMeta, DynClient};
 
 /// A future a command returns from its `run`.
@@ -164,9 +160,6 @@ pub struct CommandDef {
     /// The most verbose log level shown while it runs (`INFO` by default; `WARN` keeps connection progress out of a
     /// printed tree).
     pub log_level: fn(&ArgMatches) -> LevelFilter,
-    /// The layer the command taps its own connection at (`ww monitor`, `ww capture`): the tap is set up before
-    /// connecting and handed to the command in [`Run::tap`].
-    pub own_tap: fn(&ArgMatches) -> Option<Layer>,
     /// Subcommands that forward their arguments to a plugin.
     pub forwards: &'static [Forward],
     /// Runs the command.
@@ -179,10 +172,6 @@ fn connection_none(_: &ArgMatches) -> Result<Connection> {
 
 fn log_info(_: &ArgMatches) -> LevelFilter {
     LevelFilter::INFO
-}
-
-fn no_own_tap(_: &ArgMatches) -> Option<Layer> {
-    None
 }
 
 impl CommandDef {
@@ -200,7 +189,6 @@ impl CommandDef {
             globals: &[("", GlobalFlags::Neither)],
             connection: connection_none,
             log_level: log_info,
-            own_tap: no_own_tap,
             forwards: &[],
             run,
         }
@@ -216,10 +204,6 @@ impl CommandDef {
 
     pub const fn log_level(self, log_level: fn(&ArgMatches) -> LevelFilter) -> Self {
         CommandDef { log_level, ..self }
-    }
-
-    pub const fn own_tap(self, own_tap: fn(&ArgMatches) -> Option<Layer>) -> Self {
-        CommandDef { own_tap, ..self }
     }
 
     pub const fn forwards(self, forwards: &'static [Forward]) -> Self {
@@ -302,7 +286,7 @@ pub async fn forward(
     };
     let mut device = match device_use {
         Some(device_use) if !device_use.on_demand => {
-            Some(connect_device(&selection, device_use, run.meta, None, run.stop.clone()).await?)
+            Some(connect_device(&selection, device_use, run.meta).await?)
         }
         _ => None,
     };
@@ -312,11 +296,8 @@ pub async fn forward(
         no_config: root.get_flag("no_config"),
         device: &mut device,
         meta: run.meta,
-        tap: None,
-        stop: run.stop.clone(),
         program: run.program,
         device_use,
-        recorder: None,
     };
     let ran = (def.run)(forwarded).await?;
     if ran.disconnect
@@ -387,18 +368,13 @@ pub struct Run<'a> {
     /// `--no-config`: the plugin a command forwards to is told so.
     pub no_config: bool,
     /// The connected device, when the command's [`Connection`] asked for one and it isn't on demand; a command may
-    /// take it (a reboot, a tap that disconnects itself).
+    /// take it (a reboot).
     pub device: &'a mut Option<DynClient>,
     /// Who this program is to the device and a hub: one client instance for all its connections.
     pub meta: &'a ClientMeta,
-    /// The command's own tap, from [`CommandDef::own_tap`].
-    pub tap: Option<LiveTap>,
-    /// Set when the command taps its own connection: it ends cleanly on SIGINT / SIGTERM.
-    pub stop: Option<StopSignal>,
     /// The program's name and version, for what the command prints.
     pub program: Program,
     device_use: Option<DeviceUse>,
-    recorder: Option<Recorder>,
 }
 
 impl<'a> Run<'a> {
@@ -425,35 +401,25 @@ impl<'a> Run<'a> {
     }
 
     /// Connects the on-demand device ([`DeviceUse::on_demand`]) the way the run loop connects the others: the
-    /// selection's client config, this program's client instance, the tap when one is on.
+    /// selection's client config, this program's client instance.
     pub async fn connect(&mut self) -> Result<&mut DynClient> {
         if self.device.is_none() {
             let selection = self.selection();
             let device_use = self
                 .device_use
                 .context("the command's connection didn't ask for a device")?;
-            let device = connect_device(
-                selection,
-                device_use,
-                self.meta,
-                self.recorder.clone(),
-                self.stop.clone(),
-            )
-            .await?;
+            let device = connect_device(selection, device_use, self.meta).await?;
             *self.device = Some(device);
         }
         Ok(self.device.as_mut().expect("just connected"))
     }
 }
 
-/// Connects to the selected device as `device_use` says, recording into `recorder` when there is one, giving up
-/// when `stop` is asked for.
+/// Connects to the selected device as `device_use` says.
 pub(crate) async fn connect_device(
     selection: &Selection,
     device_use: DeviceUse,
     meta: &ClientMeta,
-    recorder: Option<Recorder>,
-    stop: Option<StopSignal>,
 ) -> Result<DynClient> {
     let config = if device_use.traits_only {
         selection.client_config().traits_only()
@@ -461,33 +427,24 @@ pub(crate) async fn connect_device(
         selection.client_config()
     };
     let config = config.client_meta(meta.clone());
-    let config = match recorder {
-        Some(recorder) => config.tap(recorder),
-        None => config,
-    };
-    let connect = async {
-        DynClient::from_config(config)
-            .connect()
-            .await
-            .with_context(|| {
-                format!(
-                    "connecting to device ({selection}), run 'ww list{}' to see connected {}",
-                    if selection.rtt().is_some() {
-                        " --probes"
-                    } else {
-                        ""
-                    },
-                    if selection.rtt().is_some() {
-                        "debug probes"
-                    } else {
-                        "devices"
-                    },
-                )
-            })
-    };
-    let device = crate::util::guard(stop, connect)
+    let device = DynClient::from_config(config)
+        .connect()
         .await
-        .unwrap_or_else(|| Err(anyhow!("stopped while connecting")))?;
+        .with_context(|| {
+            format!(
+                "connecting to device ({selection}), run 'ww list{}' to see connected {}",
+                if selection.rtt().is_some() {
+                    " --probes"
+                } else {
+                    ""
+                },
+                if selection.rtt().is_some() {
+                    "debug probes"
+                } else {
+                    "devices"
+                },
+            )
+        })?;
     // over RTT the device behind the probe is only known now
     selection.check_connected(&device.device_api_info().user_api_version)?;
     Ok(device)
@@ -522,11 +479,6 @@ pub(crate) async fn run() -> Result<()> {
         Connection::Selection { save_config } => Some(Selection::resolve(&matches, save_config)?),
         Connection::Device(_) => Some(Selection::resolve(&matches, false)?),
     };
-    // the tap commands record the connection from its start: the recorder is subscribed to before connecting
-    let tap = (def.own_tap)(&sub).map(LiveTap::new);
-    let recorder = tap.as_ref().map(|tap| tap.recorder.clone());
-    // a tapped run ends cleanly on SIGINT / SIGTERM: the capture file is finished and renamed, not left `.partial`
-    let stop = tap.as_ref().map(|_| StopSignal::install());
     // who this program is to the device and a hub: one client instance for all its connections, so a claim it takes
     // in the hub (`ww dfu`, SRV-32) lets its own calls through
     let meta = ClientMeta::new();
@@ -535,9 +487,9 @@ pub(crate) async fn run() -> Result<()> {
         _ => None,
     };
     let mut device = match (device_use, &selection) {
-        (Some(device_use), Some(selection)) if !device_use.on_demand => Some(
-            connect_device(selection, device_use, &meta, recorder.clone(), stop.clone()).await?,
-        ),
+        (Some(device_use), Some(selection)) if !device_use.on_demand => {
+            Some(connect_device(selection, device_use, &meta).await?)
+        }
         _ => None,
     };
 
@@ -547,11 +499,8 @@ pub(crate) async fn run() -> Result<()> {
         no_config: matches.get_flag("no_config"),
         device: &mut device,
         meta: &meta,
-        tap,
-        stop,
         program: program(),
         device_use,
-        recorder,
     };
     let ran = (def.run)(run).await?;
     if ran.disconnect

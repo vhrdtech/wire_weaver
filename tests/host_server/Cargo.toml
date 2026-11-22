@@ -22,6 +22,7 @@ ww_stream = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
 anyhow.workspace = true
+futures-channel = { workspace = true, features = ["std"] }
 futures-util.workspace = true
 host_server_api.workspace = true
 tests_common.workspace = true

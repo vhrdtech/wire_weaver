@@ -1704,6 +1704,7 @@ name = "host_server"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "futures-channel",
  "futures-util",
  "host_server_api",
  "keep_trying_api",
@@ -4711,6 +4712,7 @@ dependencies = [
  "futures-core",
  "shrink_wrap",
  "ww_api",
+ "ww_self",
  "ww_trace_context",
  "ww_version",
 ]

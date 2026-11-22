@@ -7,6 +7,8 @@
 
 pub mod api_id;
 #[cfg(feature = "std")]
+pub mod authorize;
+#[cfg(feature = "std")]
 pub mod call;
 mod call_context;
 mod context;
@@ -40,6 +42,10 @@ pub use valid_indices::ValidIndicesOwned;
 pub use ww_api;
 pub use ww_api::ww_error::CommonError;
 pub use ww_api::{Error, api_error, compact_version, full_version, ww_codegen, ww_trait};
+/// The API model (`ww_self`), for generated code of the authorization wrapper.
+#[cfg(feature = "std")]
+#[doc(hidden)]
+pub use ww_self;
 pub use ww_version;
 use ww_version::FullVersion;
 

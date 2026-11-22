@@ -1,81 +1,52 @@
-//! Who may do what (SRV-46): a hook the server asks before any handler runs.
+//! Who may do what (SRV-46): the server's side of `wire_weaver::authorize`, asked before any handler runs.
 
-use std::fmt;
 use std::sync::Arc;
 
 use wire_weaver::CallContext;
-use ww_client_server::target::{Access, Place, Target, Unplaced};
-use ww_self::{ApiBundleOwned, ApiItemOwned, ApiLevelOwned};
+use wire_weaver::authorize::{Authorize, Place, Resource, Step, Verdict};
+use ww_client_server::target::Target;
+use ww_self::{ApiBundleOwned, ApiItemKindOwned, ApiLevelOwned, Effects, keys};
 
-/// Decides whether a request may run: asked by the server for every request of every connection, before its
-/// handler, whichever entry (shared or alone) serves it.
-///
-/// `call` is who asked as the transport saw it ([Peer](wire_weaver::Peer): a unix user, a key, an address), with the
-/// request's seq, priority, trace and deadline. A request the hook denies is answered with `ErrorKind::Denied`
-/// (`err_seq::REQUEST_DENIED`) and no handler runs; the client learns nothing else. A request the server can't place
-/// (malformed, or of a kind from a newer version) is denied without asking.
-///
-/// A closure `Fn(&CallContext, &Resource) -> Result<(), Denied>` is one.
-///
-/// ```ignore
-/// let only_reads_for_others = |call: &CallContext, resource: &Resource<'_>| match call.peer {
-///     Peer::Unix { uid, .. } if uid == me => Ok(()),
-///     _ if resource.access == Access::Read => Ok(()),
-///     _ => Err(Denied),
-/// };
-/// let server = Server::new(clock).authorize(only_reads_for_others, Some(api));
-/// ```
-pub trait Authorize {
-    /// Whether `call` may do what `resource` says.
-    ///
-    /// # Errors
-    ///
-    /// [Denied]: the request is answered `ErrorKind::Denied` and doesn't run.
-    fn check(&self, call: &CallContext, resource: &Resource<'_>) -> Result<(), Denied>;
-}
-
-impl<F> Authorize for F
-where
-    F: Fn(&CallContext, &Resource<'_>) -> Result<(), Denied>,
-{
-    fn check(&self, call: &CallContext, resource: &Resource<'_>) -> Result<(), Denied> {
-        self(call, resource)
+/// The items `path` goes through in `api`, as the hook sees them ([Resource::items]): a keyed array's companion
+/// (`index_of`, `key[]`, `keys`) is a step of its own, `read` like every one of its items. `None` when the path names
+/// nothing in the model.
+fn steps<'a>(api: &'a ApiBundleOwned, path: &[u32]) -> Option<Vec<Step<'a>>> {
+    let mut steps = Vec::new();
+    let mut level = &api.root;
+    let mut rest = path;
+    while let Some((id, after)) = rest.split_first() {
+        let item = level.items.iter().find(|i| i.id.0 == *id)?;
+        let (index, after) = match (item.is_array(), after.split_first()) {
+            (true, Some((index, after))) => (Some(*index), after),
+            _ => (None, after),
+        };
+        steps.push(Step::new(
+            &item.ident,
+            item.id.0,
+            index,
+            item.effects(),
+            item.meta.as_ref(),
+        ));
+        rest = after;
+        if rest.is_empty() {
+            break;
+        }
+        if let ApiItemKindOwned::Keys { .. } = item.kind {
+            let (&op, after) = rest.split_first()?;
+            let ident = keys::item_name(op)?;
+            let (index, after) = match (op == keys::KEY, after.split_first()) {
+                (true, Some((index, after))) => (Some(*index), after),
+                _ => (None, after),
+            };
+            if !after.is_empty() {
+                return None;
+            }
+            steps.push(Step::new(ident, op, index, Effects::READ, None));
+            return Some(steps);
+        }
+        level = item.get_as_level(api).ok()?;
     }
-}
-
-/// The answer of [Authorize::check] that refuses a request.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub struct Denied;
-
-impl fmt::Display for Denied {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("denied by the server's policy")
-    }
-}
-
-impl std::error::Error for Denied {}
-
-/// What a request does where, as [Authorize::check] sees it.
-#[derive(Clone, Copy, Debug)]
-#[non_exhaustive]
-pub struct Resource<'a> {
-    /// What the request does.
-    pub access: Access,
-    /// Where it goes, as the request names it: absolute, or a trait wherever it sits.
-    pub place: &'a Place,
-    /// The path from the API's root: the request's own when absolute, a global one placed through the API's
-    /// model; `None` for a global path without the model, or to a trait the model doesn't have.
-    pub path: Option<&'a [u32]>,
-    /// A multi request: it reaches the resources under [path](Self::path), not that one alone.
-    pub multi: bool,
-    /// The items [path](Self::path) goes through, from the root's down to the one it names, each with its array
-    /// index: their `ww_self` metadata (`meta`: SRV-34's claims, labels, API-58's effects, which
-    /// `ApiItemOwned::effects` answers for the last one, a read by kind included). Empty for the root (introspection
-    /// of the whole API); `None` without the model or for a path that names nothing in it (the dispatcher answers
-    /// that one with `BadPath` if it gets through).
-    pub items: Option<&'a [(&'a ApiItemOwned, Option<u32>)]>,
-    /// The API's model the server was given.
-    pub api: Option<&'a ApiBundleOwned>,
+    Some(steps)
 }
 
 /// The hook and the API's model, as a server keeps them.
@@ -95,13 +66,17 @@ impl Authorization {
         }
     }
 
-    /// Whether the request in `request` may run for `call`.
-    pub(crate) fn admits(&self, call: &CallContext, request: &[u8]) -> Result<(), Denied> {
-        let Target {
+    /// Whether the request in `request` may run for `call`: a request that can't be placed is denied without
+    /// asking.
+    pub(crate) fn admits(&self, call: &CallContext, request: &[u8]) -> Verdict {
+        let Ok(Target {
             access,
             place,
             multi,
-        } = ww_client_server::target::target(request).map_err(|_: Unplaced| Denied)?;
+        }) = ww_client_server::target::target(request)
+        else {
+            return Verdict::Deny;
+        };
         let api = self.api.as_deref();
         let path = match (&place, api) {
             (Place::Absolute(path), _) => Some(path.clone()),
@@ -120,19 +95,19 @@ impl Authorization {
             (Place::Trait(..), None) => None,
         };
         let items = match (&path, api) {
-            (Some(path), Some(api)) => api.item_chain(path),
+            (Some(path), Some(api)) => steps(api, path),
             _ => None,
         };
         self.hook.check(
             call,
-            &Resource {
+            &Resource::new(
                 access,
-                place: &place,
-                path: path.as_deref(),
+                &place,
+                path.as_deref(),
                 multi,
-                items: items.as_deref(),
+                items.as_deref(),
                 api,
-            },
+            ),
         )
     }
 }
@@ -145,7 +120,18 @@ mod tests {
     use ww_client_server::target::TraitRef;
     use ww_client_server::{PathKindOwned, RequestKindOwned, RequestOwned, ResourceIndex};
 
+    use wire_weaver::authorize::{Access, Denied, from_fn};
+
     use super::*;
+
+    /// Whether a verdict that isn't pending allows.
+    fn allows(verdict: Verdict) -> bool {
+        match verdict {
+            Verdict::Allow => true,
+            Verdict::Deny => false,
+            Verdict::Pending(_) => panic!("a policy answers at once"),
+        }
+    }
 
     fn request(path_kind: PathKindOwned, kind: RequestKindOwned) -> Vec<u8> {
         RequestOwned {
@@ -173,22 +159,22 @@ mod tests {
         let asked = Arc::new(Mutex::new(0));
         let counter = asked.clone();
         let allow_all = Authorization::new(
-            move |_: &CallContext, _: &Resource<'_>| {
+            from_fn(move |_: &CallContext, _: &Resource<'_>| {
                 *counter.lock().expect("not poisoned") += 1;
                 Ok(())
-            },
+            }),
             None,
         );
         let call = CallContext::local();
-        assert_eq!(allow_all.admits(&call, &[0xff, 0xff, 0xff]), Err(Denied));
-        assert_eq!(allow_all.admits(&call, &[]), Err(Denied));
+        assert!(!allows(allow_all.admits(&call, &[0xff, 0xff, 0xff])));
+        assert!(!allows(allow_all.admits(&call, &[])));
         let cancel = request(absolute(&[]), RequestKindOwned::Cancel { seq: UVlq32(3) });
-        assert_eq!(allow_all.admits(&call, &cancel), Err(Denied));
+        assert!(!allows(allow_all.admits(&call, &cancel)));
         assert_eq!(*asked.lock().expect("not poisoned"), 0);
-        assert_eq!(
-            allow_all.admits(&call, &request(absolute(&[1]), RequestKindOwned::Read)),
-            Ok(())
-        );
+        assert!(allows(allow_all.admits(
+            &call,
+            &request(absolute(&[1]), RequestKindOwned::Read)
+        )));
         assert_eq!(*asked.lock().expect("not poisoned"), 1);
     }
 
@@ -197,7 +183,7 @@ mod tests {
         let seen = Arc::new(Mutex::new(Vec::new()));
         let record = seen.clone();
         let auth = Authorization::new(
-            move |_: &CallContext, resource: &Resource<'_>| {
+            from_fn(move |_: &CallContext, resource: &Resource<'_>| {
                 record.lock().expect("not poisoned").push((
                     resource.access,
                     resource.place.clone(),
@@ -205,7 +191,7 @@ mod tests {
                     resource.items.is_some(),
                 ));
                 Err(Denied)
-            },
+            }),
             None,
         );
         let global = PathKindOwned::GlobalCompact {
@@ -214,14 +200,13 @@ mod tests {
         };
         let compact = ww_client_server::COMPACT_VERSION.gid.id.0;
         let call = CallContext::local();
-        assert_eq!(
-            auth.admits(&call, &request(global, RequestKindOwned::Introspect)),
-            Err(Denied)
-        );
-        assert_eq!(
-            auth.admits(&call, &request(absolute(&[4, 0]), RequestKindOwned::Read)),
-            Err(Denied)
-        );
+        assert!(!allows(
+            auth.admits(&call, &request(global, RequestKindOwned::Introspect))
+        ));
+        assert!(!allows(auth.admits(
+            &call,
+            &request(absolute(&[4, 0]), RequestKindOwned::Read)
+        )));
         assert_eq!(
             *seen.lock().expect("not poisoned"),
             [

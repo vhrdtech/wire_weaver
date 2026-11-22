@@ -201,8 +201,11 @@ pub mod client {
     }
 }
 
+pub mod levels;
 pub mod not_send;
 
+#[cfg(test)]
+mod levels_tests;
 #[cfg(test)]
 mod not_send_tests;
 #[cfg(test)]

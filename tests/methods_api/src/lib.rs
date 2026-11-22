@@ -41,14 +41,14 @@ trait Methods {
     ww_impl!(plug: Plug);
 }
 
-#[ww_trait]
+#[ww_trait(local = "PlugLocal")]
 #[effect(edit)]
 trait Plug {
     /// Answered later with the generated `plug_vbus_cycle_send_return`
     fn vbus_cycle() -> u8;
 }
 
-#[ww_trait]
+#[ww_trait(local = "UnitLocal")]
 #[effect(edit)]
 trait Unit {
     /// `value` doubled, wrapping

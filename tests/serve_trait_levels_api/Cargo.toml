@@ -1,0 +1,28 @@
+[package]
+name = "serve_trait_levels_api"
+version = "0.1.0"
+description = "Test API of a server generated with serve_trait for nested levels and resource arrays (CLT-58), exercised by tests/serve_trait"
+publish = false
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[package.metadata.wire_weaver]
+wire = "w1.0"
+
+[features]
+default = ["std"]
+# The owned types, for hosts and for a server with an allocator
+std = []
+# The API and its levels as local traits, `Plant` and the others (CLT-58)
+local = ["std", "dep:wire_weaver", "serve_trait_gauge_api/local"]
+
+[dependencies]
+serve_trait_gauge_api.workspace = true
+wire_weaver = { workspace = true, features = ["std"], optional = true }
+ww_api = { workspace = true, features = ["std"] }
+
+[lints]
+workspace = true

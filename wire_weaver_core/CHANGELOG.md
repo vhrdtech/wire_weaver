@@ -10,6 +10,7 @@
 
 ### ⚠️ Breaking
 
+- A local trait whose API has a nested level needs `#[ww_trait(local = "Name")]` on that level's definition (CLT-58).
 - `#[effect(..)]` is required on every method, writable property and sink, on the item or its trait (API-58); the codegen refuses an API without it.
 - Generated multi-request code builds each item's `Request` with `context: Default::default()` (SRV-47, EVO-84): an item carries no context of its own; the request around it does.
 - `method_model`/`property_model` strings with text pest used to skip (typo, `;`, `+model`, `a=x b=y`) no longer compile.
@@ -27,6 +28,8 @@
 
 ### 🚀 Features
 
+- `GenServerConfigRaw::async_valid_indices`: valid indices from `async fn valid_indices_..(&self, cx, ..) -> Result<ValidIndicesOwned, Failure>` (CLT-58).
+- The local trait covers nested levels and resource arrays (CLT-58): a trait per level, `#[ww_trait(local = "..")]`, reached by accessors; `serve_trait` forwards every item.
 - `load_root` and `CrateCache::load_root` load a root of `retired_roots` by name, to compare its kept module with its last snapshot (TOOL-33).
 - `gen_local_trait` and `gen_local_trait_client_impl` take `send`: without it the trait, its companion and its streams drop `Send` (SRV-73).
 - `codegen::serve_trait`: forwarding handlers, stream pumps and backend impls of a `serve_trait` server (SRV-49).

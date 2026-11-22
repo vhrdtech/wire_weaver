@@ -5,22 +5,48 @@
 //! [server::CounterServer] shows the other direction (SRV-49): `serve_trait` generates every handler, each
 //! forwarding to one shared [LocalCounter], served to many clients on `wire_weaver_server`, so the logic is written
 //! once and served remotely when needed.
+//!
+//! The counter's lanes are a resource array of a nested level (CLT-58): [LocalCounter] hands out a [LocalLane] by
+//! reference, the client its level struct, and both implement [Lane].
 
 mod locked;
 
 use crate::locked::Locked;
 use futures_lite::StreamExt;
-use local_trait_api::{Counter, CounterError, SnapshotOwned};
+use local_trait_api::{Counter, CounterError, Lane, SnapshotOwned};
 use std::sync::Mutex;
 use tokio::sync::broadcast;
 use wire_weaver::call::{CallError, Error, ErrorKind, ItemStream, item_stream};
-use wire_weaver::{CallContext, Peer};
+use wire_weaver::shrink_wrap::UNib32;
+use wire_weaver::{CallContext, Peer, ValidIndicesOwned};
+
+/// Lanes of a counter.
+pub const LANES: u32 = 2;
 
 /// The counter in this process: a plain struct implementing [Counter].
 pub struct LocalCounter {
     name: String,
     state: Mutex<State>,
     totals: broadcast::Sender<u32>,
+    lanes: Vec<LocalLane>,
+}
+
+/// A lane of [LocalCounter], implementing [Lane].
+#[derive(Default)]
+pub struct LocalLane {
+    total: Mutex<u32>,
+}
+
+impl Lane for LocalLane {
+    async fn add(&self, _cx: &CallContext, by: u32) -> Result<u32, Error> {
+        let mut total = self.total.locked();
+        *total = total.wrapping_add(by);
+        Ok(*total)
+    }
+
+    async fn read_total(&self, _cx: &CallContext) -> Result<u32, Error> {
+        Ok(*self.total.locked())
+    }
 }
 
 struct State {
@@ -34,11 +60,25 @@ impl LocalCounter {
             name: name.to_string(),
             state: Mutex::new(State { total: 0, step: 1 }),
             totals: broadcast::channel(16).0,
+            lanes: (0..LANES).map(|_| LocalLane::default()).collect(),
         }
     }
 }
 
 impl Counter for LocalCounter {
+    type Lane<'a> = &'a LocalLane;
+
+    fn lane(&self, index: u32) -> Result<&LocalLane, Error> {
+        // the same error a device answers for an index past its array
+        self.lanes
+            .get(index as usize)
+            .ok_or_else(|| ErrorKind::BadIndex.into())
+    }
+
+    async fn lane_valid_indices(&self, _cx: &CallContext) -> Result<ValidIndicesOwned, Error> {
+        Ok(ValidIndicesOwned::Range(UNib32(0)..UNib32(LANES)))
+    }
+
     async fn add(&self, _cx: &CallContext, by: u32) -> Result<u32, Error> {
         let total = {
             let mut state = self.state.locked();
@@ -107,6 +147,10 @@ pub struct Report {
     pub half: u32,
     pub div_by_zero: bool,
     pub snapshot: SnapshotOwned,
+    /// Lane 1's total after adding 5 twice.
+    pub lane_total: u32,
+    /// Lane [LANES] (past the end) answered `BadIndex`.
+    pub no_such_lane: bool,
 }
 
 /// The call site, written once: the same code drives a [LocalCounter] and a remote counter.
@@ -125,6 +169,16 @@ pub async fn exercise(
         Err(CallError::Api(CounterError::DivByZero))
     );
     let snapshot = counter.snapshot(cx).await?;
+    let lane = counter.lane(1)?;
+    lane.add(cx, 5).await?;
+    lane.add(cx, 5).await?;
+    let lane_total = lane.read_total(cx).await?;
+    // a local counter refuses the index at once, a remote one when the call reaches it
+    let past_the_end = match counter.lane(LANES) {
+        Ok(lane) => lane.read_total(cx).await.map(|_| ()),
+        Err(e) => Err(e),
+    };
+    let no_such_lane = past_the_end.is_err_and(|e| e.kind() == ErrorKind::BadIndex);
     let mut seen = vec![];
     for _ in 0..2 {
         match totals.next().await {
@@ -138,6 +192,8 @@ pub async fn exercise(
         half,
         div_by_zero,
         snapshot,
+        lane_total,
+        no_such_lane,
     })
 }
 
@@ -248,6 +304,8 @@ mod tests {
                 total: 8,
                 step: 2,
             },
+            lane_total: 10,
+            no_such_lane: true,
         }
     }
 

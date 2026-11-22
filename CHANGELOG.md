@@ -13,6 +13,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 - The README has a new description and one crates.io badge; the crate table and the badges of every published crate moved to `CRATES.md`, and the book's Architecture page groups the crates and sibling repositories by layer.
 - The thermo bench's history is an API's cycle: w0, lines 1 to 3 from 1.0.0, line 1 retired in 4.0.0 (EVO-42); see `tests/thermo_api`.
+- The local trait and `serve_trait` cover nested levels and resource arrays (CLT-58); see `wire_weaver_core`, `wire_weaver_derive`, `wire_weaver`, `wire_weaver_server`.
 - API items declare their effects (`#[effect(..)]`, required), carried in introspection, read by the hub and `ww info --effects` (API-58); see `ww_self`, `wire_weaver_core`, `ww_hub`, `wire_weaver_cli`.
 - The tap decoder, `ww_tape_bundle` and the tape identity tests moved to ww_tools; nothing here depends on `ww_tape` (TR-14); see `wire_weaver_client`, `ww_tap`.
 - `ww monitor`, `ww stats`, `ww capture`, `ww explain FILE` and ww_tap's `Recorder` are removed; the tap hook stays (TOOL-14, TR-14); see `ww_tap`, `wire_weaver_cli`, `wire_weaver_client`.

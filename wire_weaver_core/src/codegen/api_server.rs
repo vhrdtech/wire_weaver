@@ -207,6 +207,10 @@ pub struct GenServerConfigRaw {
     pub crate_paths: crate::transform::CratePaths,
     /// Which global trait paths the server resolves itself (SRV-53), `global_paths = ".."`.
     pub global_paths: GlobalPaths,
+    /// The valid indices of resource arrays come from `async fn valid_indices_..(&self, cx: &CallContext, ..) ->
+    /// Result<ValidIndicesOwned, Failure>`, with the request's call context: what `serve_trait` generates from the
+    /// local traits (CLT-58). Needs `use_async`.
+    pub async_valid_indices: bool,
 }
 
 impl From<GenServerConfig> for GenServerConfigRaw {
@@ -232,6 +236,7 @@ impl From<GenServerConfig> for GenServerConfigRaw {
             observe_samples: config.observe_samples,
             crate_paths: config.crate_paths,
             global_paths: config.global_paths,
+            async_valid_indices: false,
         }
     }
 }
@@ -331,6 +336,7 @@ pub fn gen_server(
         medium_ty: medium_ty.clone(),
         receivers,
         shared: false,
+        async_valid_indices: config.async_valid_indices && config.use_async,
     };
     let (introspect_enabled, include_docs) = match config.introspect_mode {
         IntrospectMode::Disabled => (false, false),
@@ -1604,6 +1610,8 @@ struct ApiServerCGContext<'i> {
     receivers: Receivers<'i>,
     /// Whether this is the `&self` tree of shared items (`process_shared_<level>`), not the `&mut self` one
     shared: bool,
+    /// [GenServerConfigRaw::async_valid_indices]
+    async_valid_indices: bool,
 }
 
 impl<'i> ApiServerCGContext<'i> {
@@ -1688,7 +1696,11 @@ fn level_awaits(
     let in_tree = |level_path: &[String], ident: &str, kind: &ApiItemKindOwned| {
         !cx.shared || cx.receivers.shared_as(level_path, ident, kind).is_some()
     };
-    level.items.iter().any(|item| match &item.kind {
+    // the array's valid indices are asked before its element is reached
+    let indices_await = |item: &ApiItemOwned| {
+        cx.async_valid_indices && item.is_array() && cx.has_arm(api_bundle, level, item)
+    };
+    level.items.iter().any(|item| indices_await(item) || match &item.kind {
         ApiItemKindOwned::Trait { .. } => {
             level_path.push(item.ident.clone());
             let awaits = level_awaits(
@@ -1944,14 +1956,28 @@ fn array_arm(
     let lm = inner(index_chain_with_this_index);
     let maybe_index_chain_arg = index_chain.fun_argument_call();
     let es_index = fixed_err_seq("LEVEL_BAD_INDEX");
+    // CLT-58: from the local traits, which may fail on their way
+    let get_indices = if cx.async_valid_indices {
+        let es_failed = fixed_err_seq("LEVEL_INDICES_FAILED");
+        quote! {
+            let indices = match self.#valid_indices(cx.call(), #maybe_index_chain_arg).await {
+                Ok(indices) => indices,
+                Err(f) => return ww_client_server::dispatch::failed(wr, d, #es_failed, &f),
+            };
+        }
+    } else {
+        quote! { let indices = self.#valid_indices(#maybe_index_chain_arg); }
+    };
     let validate_index = quote! {
-        if !self.#valid_indices(#maybe_index_chain_arg).contains(index.get().0) {
+        #get_indices
+        if !indices.contains(index.get().0) {
             return ww_err(wr, d, #es_index, ErrorKindDiscriminants::BadIndex);
         }
     };
     let es = fixed_err_seq("LEVEL_INDEX_EXPECTED");
-    let ser_indices = ser_value(
+    let ser_indices = ser_framework_value(
         cx.multi_req,
+        cx.async_valid_indices,
         quote! { indices },
         fixed_err_seq("LEVEL_INDICES_SER"),
     );
@@ -1959,12 +1985,12 @@ fn array_arm(
     let read_indices = if cx.no_alloc {
         let es_ser = fixed_err_seq("LEVEL_INDICES_SER");
         quote! {
-            let indices = self.#valid_indices(#maybe_index_chain_arg);
+            #get_indices
             return ww_client_server::dispatch::reply_value(wr, d, &indices, #es_ser);
         }
     } else {
         quote! {
-            let indices = self.#valid_indices(#maybe_index_chain_arg);
+            #get_indices
             #ev_kind_builder
             #ser_indices
             return WrAction::WrittenOk;
@@ -4065,6 +4091,26 @@ fn ser_root_value(no_alloc: bool, value: TokenStream) -> TokenStream {
 
 /// A value of the framework (valid indices, a sink's status), borrowed in every server.
 fn ser_value(multi_req: bool, ident: TokenStream, es: TokenStream) -> TokenStream {
+    ser_framework_value(multi_req, false, ident, es)
+}
+
+/// [ser_value], of an owned value with `owned` (valid indices from a local trait, CLT-58).
+fn ser_framework_value(multi_req: bool, owned: bool, ident: TokenStream, es: TokenStream) -> TokenStream {
+    if owned {
+        return if multi_req {
+            quote! {
+                if d.in_multi {
+                    __ww_try!(wr, d, wr.write_owned(& #ident), #es, ResponseSerFailed);
+                } else {
+                    __ww_try!(wr, d, wr.ser_owned(& #ident), #es, ResponseSerFailed);
+                }
+            }
+        } else {
+            quote! {
+                __ww_try!(wr, d, wr.ser_owned(& #ident), #es, ResponseSerFailed);
+            }
+        };
+    }
     if multi_req {
         quote! {
             if d.in_multi {

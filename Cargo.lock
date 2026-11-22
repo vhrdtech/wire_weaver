@@ -3363,6 +3363,8 @@ version = "0.1.0"
 dependencies = [
  "futures-lite",
  "serve_trait_api",
+ "serve_trait_gauge_api",
+ "serve_trait_levels_api",
  "tests_common",
  "tokio",
  "wire_weaver",
@@ -3376,6 +3378,23 @@ dependencies = [
 name = "serve_trait_api"
 version = "0.1.0"
 dependencies = [
+ "wire_weaver",
+ "ww_api",
+]
+
+[[package]]
+name = "serve_trait_gauge_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_api",
+]
+
+[[package]]
+name = "serve_trait_levels_api"
+version = "0.1.0"
+dependencies = [
+ "serve_trait_gauge_api",
  "wire_weaver",
  "ww_api",
 ]

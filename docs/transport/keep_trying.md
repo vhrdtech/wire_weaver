@@ -38,12 +38,15 @@ It runs on the caller's tokio runtime and needs one (an error says so otherwise)
 
 - **The handle at once.** `connect_keep_trying()` returns the client before any connection; the first attempt starts
   right away in a task of its own.
-- **Addresses in order.** Each attempt tries the config's addresses in order, the first that answers wins:
-  `ClientConfig::websocket_urls([..])` for WebSocket (a LAN address before a VPN one, a discovered one before a typed
-  one), `in_process_paths([..])` for in-process devices. A WebSocket address that doesn't answer within the
-  transport's link setup timeout (1 s) counts as failed, so a host gone from the LAN doesn't hold the next address
-  for the minutes a TCP connect can take. `connect()` and `reconnect()` try the same lists in the same order;
-  `connect_blocking()` takes the first address.
+- **Addresses at once (CLT-80).** Each attempt opens all of the config's addresses at once:
+  `ClientConfig::websocket_urls([..])` for WebSocket (a LAN address and a VPN one, a discovered one and a typed
+  one), `in_process_paths([..])` for in-process devices (the registered ones). The first to open (TCP and the
+  WebSocket handshake) goes on to link setup, the others still opening are dropped; on a tie the earlier address
+  wins. An address that doesn't open within the link setup timeout (1 s for WebSocket,
+  `ClientConfig::link_setup_timeout` when set) counts as failed, so a host gone from the LAN costs nothing while
+  another answers. When link setup fails on the winner, the other addresses race again within the same attempt.
+  `connect()` and `reconnect()` race the same way; `connect_blocking()` races too, without the second race. The
+  winner is the `address` of `Connected` and `ConnectionState::Connected`; when all fail, the error names each.
 - **Backoff.** Between attempts the client waits `KeepTrying::backoff`: `first` after the first failed attempt,
   doubled after each further one up to `max` (`Backoff::NETWORK`: 100 ms up to 5 s). Each new gap starts from
   `first` again.
@@ -116,4 +119,5 @@ follows its own settings on every transport.
 paused clock: the server starts after the client, goes away and comes back while an observer keeps delivering; the
 first address with a server wins; the waits between attempts and the give-up time are the configured ones;
 `retry_now()` hurries a waiting connection, restarts an attempt whose WebSocket handshake never ends, pings a running
-link and leaves a plain `connect()` alone.
+link and leaves a plain `connect()` alone; an address whose handshake never ends doesn't hold the next one, a winner
+that fails link setup leaves the others to race, and addresses that all fail do so after one open timeout.

@@ -2,7 +2,7 @@
 //! generated server on the simulated WebSocket (TR-22, `tests_common::start_device_async_ws`), on tokio's paused
 //! clock. The server starts late, goes away and comes back while an observer keeps delivering; addresses are tried in
 //! order; the backoff and the give-up time are the configured ones; `retry_now()` hurries a waiting connection,
-//! restarts an attempt under way and pings a running link.
+//! restarts an attempt under way and pings a running link; the addresses of an attempt open at once (CLT-80).
 
 #[cfg(test)]
 mod tests {
@@ -434,6 +434,88 @@ mod tests {
             .await
             .expect("connects");
             assert_eq!(plain.cmd.retry_now().await, RetryNow::NotTrying);
+        })
+        .await
+    }
+
+    /// The addresses of an attempt open at once (CLT-80): one whose WebSocket handshake never ends doesn't hold the
+    /// one after it, which connects with no time passing.
+    #[tokio::test(start_paused = true)]
+    async fn the_first_address_to_open_wins() {
+        run(async {
+            const HANGS: &str = "keep_trying/race_hangs";
+            const PRESENT: &str = "keep_trying/race_present";
+            let _port = wire_weaver_client::in_process::ws_device(HANGS);
+            let _device = start_device(PRESENT);
+            let started = tokio::time::Instant::now();
+            let client = keep_trying(&[HANGS, PRESENT], KeepTrying::default(), false);
+            let mut events = client.cmd.connection_events();
+            match next_outcome(&mut events).await {
+                ConnectionEvent::Connected { address, attempts } => {
+                    assert_eq!(address, format!("in_process {PRESENT}"));
+                    assert_eq!(attempts, 1);
+                }
+                event => panic!("expected Connected, got {event:?}"),
+            }
+            assert!(
+                started.elapsed() < Duration::from_millis(250),
+                "not after the hanging address's open timeout: {:?}",
+                started.elapsed()
+            );
+        })
+        .await
+    }
+
+    /// The address that opened first and then failed link setup is left out, and the others race again in the same
+    /// attempt (CLT-80).
+    #[tokio::test(start_paused = true)]
+    async fn a_winner_that_fails_link_setup_leaves_the_others_to_race() {
+        run(async {
+            const SILENT: &str = "keep_trying/race_silent";
+            const PRESENT: &str = "keep_trying/race_after_silent";
+            // registered, opens at once, never answers link setup
+            let _silent = wire_weaver_client::in_process::device(SILENT, 1024);
+            let _device = start_device(PRESENT);
+            let client = keep_trying(&[SILENT, PRESENT], KeepTrying::default(), false);
+            let mut events = client.cmd.connection_events();
+            match next_outcome(&mut events).await {
+                ConnectionEvent::Connected { address, attempts } => {
+                    assert_eq!(address, format!("in_process {PRESENT}"));
+                    assert_eq!(attempts, 1, "within the same attempt");
+                }
+                event => panic!("expected Connected, got {event:?}"),
+            }
+        })
+        .await
+    }
+
+    /// Addresses that all fail fail together, after one open timeout rather than one per address, and the error
+    /// names each (CLT-80).
+    #[tokio::test(start_paused = true)]
+    async fn addresses_that_all_fail_fail_together() {
+        run(async {
+            const A: &str = "keep_trying/race_fail_a";
+            const B: &str = "keep_trying/race_fail_b";
+            let (_a, _b) = (
+                wire_weaver_client::in_process::ws_device(A),
+                wire_weaver_client::in_process::ws_device(B),
+            );
+            let started = tokio::time::Instant::now();
+            let client = keep_trying(&[A, B], KeepTrying::default(), false);
+            let mut events = client.cmd.connection_events();
+            let error = loop {
+                match events.recv().await.expect("an event") {
+                    ConnectionEvent::AttemptFailed { error, .. } => break error,
+                    ConnectionEvent::Connecting { .. } => {}
+                    event => panic!("expected a failed attempt, got {event:?}"),
+                }
+            };
+            assert_eq!(
+                started.elapsed(),
+                Duration::from_millis(250),
+                "the open timeout, once"
+            );
+            assert!(error.contains(A) && error.contains(B), "{error}");
         })
         .await
     }

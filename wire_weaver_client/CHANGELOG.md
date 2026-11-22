@@ -12,6 +12,7 @@
 
 ### 🚀 Features
 
+- A connect opens all `websocket_urls` / `in_process_paths` at once; the first to open wins, the rest race on if it fails (CLT-80).
 - `Commander::retry_now()` and `TotalsSender::retry_now()` (`RetryNow`, CLT-75): hurry a reconnect, restart an attempt, or ping a running link.
 - `Command::Ping` (CLT-75): a ping to the device now, while the link is up.
 - Re-exports `LocalBoxFuture`, `LocalItemStream` and `local_item_stream`; the client implements a local trait without `Send` too (SRV-73).
@@ -43,6 +44,7 @@
 
 ### ⚠️ Breaking
 
+- Several addresses race instead of being tried in order: the fastest to open wins, not the first listed (CLT-80).
 - `TotalsSender::run(sink, &Commander)` replaces `run(sink, state)` and returns a spawnable future holding neither (CLT-75).
 - `Command::StopAttempt` (CLT-75) stops a connection attempt under way, keeping streams: exhaustive matches add the arm.
 - `Command::SendMessage` has a `trace: Option<wire_weaver::TraceContext>` field (SRV-47) and `Command` a `CallerGone` variant: code building the command adds `trace: None`, exhaustive matches add the arm.

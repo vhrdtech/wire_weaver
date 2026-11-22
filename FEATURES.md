@@ -1292,6 +1292,16 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   in the command channel the residual keeps: a keeper task holds the channel between event loops and answers every
   command that comes in (`prepared_connection.rs`'s `keep`). Tested in `tests/methods`
   (`call_while_disconnected_fails_at_once`).
+- ✅ **CLT-80 A connect races a device's addresses** · `v0.5` — each connect opens all of the config's
+  `websocket_urls` (TCP and the WebSocket handshake) or registered `in_process_paths` at once, each within the link
+  setup timeout; the first to open goes on to link setup and the others still opening are dropped, an earlier address
+  winning a tie. When link setup fails on the winner, the rest race again within the same connect (`connect()`,
+  `reconnect()`, every attempt of `connect_keep_trying()`). `ConnectionState::Connected`, `ConnectionEvent::Connected`
+  and `DeviceInfo::location` name the winner; an error of a race names every address. A generic
+  `event_loop::transport::Race` over a transport and its `Candidates` handle; `ValidatedConfig::alternatives()`, one
+  config per address tried in turn, is gone. See `docs/transport/keep_trying.md`; tested in `tests/keep_trying`
+  (`the_first_address_to_open_wins`, `a_winner_that_fails_link_setup_leaves_the_others_to_race`,
+  `addresses_that_all_fail_fail_together`).
 - 🚧 **CLT-79 Where a connect's time goes** · `v0.5` — a connect opens a debug `tracing` span per step
   (`wire_weaver_client::connect_spans`: validate, select, link, open, learn, introspect), and `just connect-bench`
   (`wire_weaver_client_benchmarks`) times them for in-process devices or a blinky board on USB, async, blocking or
@@ -1300,8 +1310,8 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   [Transport protocols](docs/transport/overview.md#where-a-connects-time-goes). Missing: the full-speed USB run
   (Nucleo G0B1RE).
 - 🚧 **CLT-75 Keep-trying connections** · `v0.5` — `PreparedConnection::connect_keep_trying()` returns the client at
-  once and connects in the background, again whenever the link goes: each attempt tries the config's addresses in
-  order (`ClientConfig::websocket_urls`, `in_process_paths`; `connect()` and `reconnect()` too), backoff and give-up
+  once and connects in the background, again whenever the link goes: each attempt races the config's addresses
+  (`ClientConfig::websocket_urls`, `in_process_paths`; `connect()` and `reconnect()` too, CLT-80), backoff and give-up
   time from `ClientConfig::keep_trying` (`KeepTrying`, `Backoff`); calls fail with `Disconnected` while there is no
   link, streams, observed levels and sinks resume after each reconnect (`resume_streams`);
   `ConnectionEvent::Connecting` / `Connected` and `Commander::connection_state()` (`ConnectionState`) tell the app;

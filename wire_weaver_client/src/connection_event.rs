@@ -62,7 +62,7 @@ impl std::fmt::Display for GapReason {
 #[non_exhaustive]
 pub enum ConnectionEvent {
     /// A keep-trying connection (CLT-75) starts attempt `attempt` (1 for the first since the link went, or since the
-    /// connection was made), trying its addresses in order.
+    /// connection was made), racing its addresses (CLT-80).
     Connecting { attempt: u32 },
     /// A keep-trying connection (CLT-75) connected for the first time, at `address` (as `DeviceInfo::location` names
     /// it), after `attempts` attempts. Later connects are [Self::Reconnected].

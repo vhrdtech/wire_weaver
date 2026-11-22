@@ -187,7 +187,7 @@ impl<T: WwClient> PreparedConnection<T> {
 
     /// Makes the client at once and connects in the background, again whenever the link goes (CLT-75): for a device
     /// that comes up later, or a link that drops and comes back (a phone on Wi-Fi, a device that reboots). Each
-    /// attempt tries the config's addresses in order ([ClientConfig::websocket_urls]), the first that answers wins;
+    /// attempt races the config's addresses ([ClientConfig::websocket_urls], CLT-80), the first to open wins;
     /// between attempts the client waits as [ClientConfig::keep_trying] says. Until it is connected, calls fail at
     /// once with [Error::Disconnected](crate::Error::Disconnected), and so do calls in flight when the link goes:
     /// none is sent again by itself. After each reconnect, counted and reliable streams, observed levels and sinks go
@@ -327,9 +327,12 @@ pub(crate) struct Attempt {
         allow(dead_code, reason = "only used with the `clock_sync` feature")
     )]
     pub(crate) key: Option<String>,
-    /// Where the device was reached, as [DeviceInfo::location](crate::DeviceInfo::location) names it; empty when
-    /// nothing was selected
+    /// Where the device was reached, as [DeviceInfo::location](crate::DeviceInfo::location) names it: the address
+    /// that won the race of several (CLT-80); empty when nothing was selected
     pub(crate) address: String,
+    /// The address that won a race of several, as the config names it, connected or not: one that failed link
+    /// setup is left out of the next race
+    opened: Option<String>,
 }
 
 impl Attempt {
@@ -339,6 +342,7 @@ impl Attempt {
             via_hub: false,
             key: None,
             address: String::new(),
+            opened: None,
         }
     }
 }
@@ -458,38 +462,46 @@ impl Channel {
     }
 }
 
-/// Connects as [connect_one] does, to the config's addresses in order ([ValidatedConfig::alternatives], CLT-75): the
-/// first that connects wins. A failed address gives the command channel back before the next is tried; the error of
-/// the last one names every failure. Cancel-safe: `channel` has what a dropped attempt started.
+/// Connects as [connect_one] does, which races the config's addresses (CLT-80): when the address that opened first
+/// fails link setup, the command channel comes back and the others race again. The error of the last race names
+/// every failure. Cancel-safe: `channel` has what a dropped attempt started.
 pub(crate) async fn connect_to(
     config: &ValidatedConfig,
     cmd_tx: &mpsc::Sender<Command>,
     channel: &mut Channel,
 ) -> Attempt {
-    let alternatives = config.alternatives();
+    let mut config = std::borrow::Cow::Borrowed(config);
     let mut failed = Vec::new();
-    for (i, alternative) in alternatives.iter().enumerate() {
-        let mut attempt = connect_one(alternative, cmd_tx, channel).await;
-        let last = i + 1 == alternatives.len();
-        if attempt.result.is_ok() || last {
-            if let Err(e) = &attempt.result
-                && !failed.is_empty()
-            {
-                failed.push(format!("{e:#}"));
+    loop {
+        let mut attempt = connect_one(&config, cmd_tx, channel).await;
+        let Err(e) = &attempt.result else {
+            return attempt;
+        };
+        let rest = attempt
+            .opened
+            .as_deref()
+            .and_then(|address| config.without_address(address));
+        failed.push(format!("{e:#}"));
+        // the loop gives the channel back before the rest race on it
+        let Some(rest) = rest.filter(|_| failed.len() < RACES_MAX) else {
+            if failed.len() > 1 {
                 attempt.result = Err(anyhow::anyhow!("{}", failed.join("; ")));
             }
             return attempt;
-        }
+        };
         if !channel.back().await {
-            // the loop is gone without its channel: nothing to try the next address on
             return attempt;
         }
-        if let Err(e) = &attempt.result {
-            failed.push(format!("{e:#}"));
-        }
+        debug!(
+            "{} failed link setup, racing the other addresses",
+            attempt.address
+        );
+        config = std::borrow::Cow::Owned(rest);
     }
-    unreachable!("the last alternative returns, and alternatives() has at least one")
 }
+
+/// Races one [connect_to] runs at most: each leaves out an address, a config holds a few.
+const RACES_MAX: usize = 64;
 
 /// Selects a device with the transports of `config` (in order), starts an event loop on `channel` for it and
 /// connects. The channel is taken when a transport found a device; the loop's residual stays in `channel`.
@@ -523,24 +535,37 @@ async fn connect_one(
         .await;
         match selected {
             Ok(Selected::Device {
-                handle,
-                info,
+                mut handle,
+                mut info,
                 via_hub,
             }) => {
+                let race = handle
+                    .downcast_mut::<crate::event_loop::transport::Candidates>()
+                    .map(crate::event_loop::transport::Candidates::watch);
                 // a link through the hub that goes is reconnected by the keeper, its streams wait for it (CLT-40), as
                 // does every link of a keep-trying connection (CLT-75)
                 let keep = config.keeps_trying || (via_hub && config.hub_reconnect.is_some());
                 let key = device_key(&iface_kind, &info, config);
-                let address = info.location.clone();
                 let result = try_connect(cmd_tx, handle, config, channel, keep)
                     .instrument(debug_span!(spans::LINK))
-                    .await
-                    .map_err(|e| connect_failed(info, e));
+                    .await;
+                // the race told its winner before link setup started
+                let won = race.and_then(|(entries, mut opened)| {
+                    opened
+                        .try_recv()
+                        .ok()
+                        .and_then(|i| entries.into_iter().nth(i))
+                });
+                if let Some(won) = &won {
+                    info.location.clone_from(&won.location);
+                }
+                let address = info.location.clone();
                 return Attempt {
-                    result,
+                    result: result.map_err(|e| connect_failed(info, e)),
                     via_hub,
                     key,
                     address,
+                    opened: won.map(|w| w.address),
                 };
             }
             Ok(Selected::NotFound { unmatched: u }) => unmatched.extend(u),

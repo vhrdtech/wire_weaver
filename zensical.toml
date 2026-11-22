@@ -13,7 +13,8 @@ edit_uri = "edit/master/docs/"
 nav = [
     { "Home" = [
             "index.md",
-            "levels.md"
+            "levels.md",
+            "architecture.md"
         ]
     },
     { "Features" = "features_today.md" },

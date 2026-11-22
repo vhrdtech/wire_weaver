@@ -75,6 +75,17 @@ published = [
 ]
 reason = "the framework crates are released together; every other crate is publish = false"
 
+# The crate table is generated into CRATES.md: its links are relative to the repository root, so it can't sit in a
+# docs/ page (the book's link check), and the README stays short.
+[lints.crate-table]
+file = "CRATES.md"
+reason = "the README points to CRATES.md; docs/architecture.md groups the crates for readers"
+
+# The README shows one crates.io badge; the badges of every published crate sit beside the crate table.
+[lints.readme-badges]
+file = "CRATES.md"
+reason = "a badge per published crate is a list, not a README header; CRATES.md is the crate list"
+
 # The records are not pages read through: these lints have a skip list of their own beside [docs] skip.
 [lints.sentence-words]
 skip = ["CHANGELOG.md", "FEATURES.md", "AGENTS.md", "CLAUDE.md", "**/CHANGELOG.md", "**/tests/**"]

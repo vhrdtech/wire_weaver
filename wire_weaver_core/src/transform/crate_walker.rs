@@ -950,6 +950,11 @@ impl CrateContext {
         self.manifest.roots()
     }
 
+    /// The crate's `[package.metadata.wire_weaver.retired_roots]` table: roots whose line left the crate.
+    pub(crate) fn retired_roots_table(&self) -> Result<BTreeMap<String, WireVersion>> {
+        self.manifest.retired_roots()
+    }
+
     /// The modules from the crate root to this one, by name: which module of the crate it is.
     pub(crate) fn module_names(&self) -> Vec<String> {
         self.mod_path.iter().map(|m| m.name.clone()).collect()

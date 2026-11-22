@@ -19,7 +19,7 @@ ignored = ["ww_date_time"]
 [features]
 default = ["usb", "clock_sync"]
 # USB (using nusb)
-usb = []
+usb = ["dep:nusb"]
 # PICOBOOT flashing (RP2040/RP2350 boot ROM): follow::rp2_update(), ww_picoboot re-export, ELF images
 picoboot = ["usb", "ww_picoboot/usb", "ww_picoboot/elf"]
 # STM32 system bootloader (ROM DFU, DfuSe) flashing: follow::stm32_dfu_update(), ww_stm32_dfu re-export, ELF images
@@ -34,8 +34,8 @@ ws = [
 ]
 # UDP, one ww_framer frame per datagram
 udp = ["tokio/net"]
-# RTT over JTAG/SWD
-rtt = ["dep:probe-rs"]
+# RTT over JTAG/SWD (nusb names who holds a busy probe)
+rtt = ["dep:probe-rs", "dep:nusb"]
 # device running in the same process (simulators, tests)
 in_process = ["dep:ww_device", "ww_device/udp"]
 # device served by another process (or the ww hub): Unix socket, named pipe on Windows
@@ -65,7 +65,7 @@ exact_units = { workspace = true, features = ["information"] }
 futures-lite.workspace = true
 futures-util = { workspace = true, features = ["sink", "std"], optional = true }
 hex = { workspace = true, features = ["std"] }
-nusb.workspace = true # TODO: try to use without tokio?
+nusb = { workspace = true, optional = true }
 probe-rs = { workspace = true, features = ["builtin-targets", "builtin-formats"], optional = true }
 ron.workspace = true
 semver.workspace = true

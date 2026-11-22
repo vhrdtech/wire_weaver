@@ -255,7 +255,7 @@ fn random_instance_id() -> u64 {
     h.finish().max(1)
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "android"))]
 mod sys {
     pub(super) fn host_name() -> Option<String> {
         let name = std::fs::read_to_string("/proc/sys/kernel/hostname").ok()?;
@@ -355,7 +355,12 @@ mod sys {
     }
 }
 
-#[cfg(not(any(target_os = "linux", target_os = "macos", windows)))]
+#[cfg(not(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "macos",
+    windows
+)))]
 mod sys {
     pub(super) fn host_name() -> Option<String> {
         std::env::var("HOSTNAME").ok().filter(|v| !v.is_empty())

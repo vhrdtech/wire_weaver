@@ -13,10 +13,12 @@
 
 #[cfg(feature = "local_socket")]
 mod handover;
+#[cfg(any(feature = "usb", feature = "rtt"))]
 mod proc_scan;
 
 #[cfg(all(feature = "usb", target_os = "linux"))]
 pub(crate) use proc_scan::describe_holder_of_node;
+#[cfg(any(feature = "usb", feature = "rtt"))]
 pub use proc_scan::holder_of_usb_device;
 #[cfg(all(feature = "usb", target_os = "linux"))]
 pub(crate) use proc_scan::usb_device_node;

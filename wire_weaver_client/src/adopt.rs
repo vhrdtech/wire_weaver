@@ -201,6 +201,7 @@ impl MediumResidualOwned {
     /// A partial message is bounded only by the wire's `u32` here: the medium bounds it by the host's limit when it
     /// takes the link over.
     pub fn check(&self) -> Result<(), String> {
+        #[cfg(any(feature = "usb", feature = "local_socket"))]
         let max_message_len = u32::MAX as usize;
         match self.kind {
             #[cfg(feature = "usb")]

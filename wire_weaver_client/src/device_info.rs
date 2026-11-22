@@ -41,6 +41,7 @@ pub struct ApiInfo {
 }
 
 impl ApiInfo {
+    #[cfg(feature = "usb")]
     fn from_api_id(id: &wire_weaver::api_id::ApiId<'_>) -> Self {
         let v = &id.version;
         let version = Version {

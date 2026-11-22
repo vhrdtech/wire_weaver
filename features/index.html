@@ -7597,7 +7597,7 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
   build firmware of an earlier revision from the current root: the resources added after it (<code>#[since]</code>) left out of
   dispatch and of the bundle, the bundle's and the hello's wire that revision. Mostly for tests: a host driver's
   bench could then simulate <code>w1.0</code> and <code>w2.0</code> devices without keeping the crates they were published from (EVO-42
-  keeps <code>thermo_api</code> 5.0.0 in <code>tests/thermo_api_old</code> for that). In practice an old line's maintenance
+  keeps <code>thermo_api</code> 2.0.0 in <code>tests/thermo_api_old</code> for that). In practice an old line's maintenance
   firmware is built from its module at that line's newest revision, so real firmware rarely needs it. Fields and
   variants with a newer <code>#[since]</code> can't be left out of a Rust type, so such a type would be refused.</li>
 </ul>
@@ -8623,7 +8623,7 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
   Scripts without generated code talk to every line from the device's introspection data: the dynamic client and
   Python write quantities (<code>DynQuantity::to_value</code>, <code>ww.Quantity("0.25 K")</code>) exactly into each line's types, and
   Python has <code>dev.wire</code>. Bench <code>tests/thermo</code> with three lines, each a wire break
-  (<code>tests/thermo_api/{w1_0,w1,w2_0,w2,w3}</code>, simulated firmware <code>tests/thermo_devices</code>); tests
+  (<code>tests/thermo_api</code>'s roots <code>wire_v1</code> to <code>wire_v3</code>, simulated firmware <code>tests/thermo_devices</code>); tests
   <code>tests/thermo/tests/lines.rs</code> (the facade), <code>dynamic.rs</code> (the dynamic client), <code>wire_weaver_py</code> <code>test_thermo_lines.py</code>,
   <code>wire_weaver_client</code> <code>host_of_two_lines_*</code>, <code>wire_weaver_core</code> <code>two_versions_of_one_crate_under_other_names</code>,
   <code>wire_weaver_evolution</code> <code>removed_variant_breaks_rust_code</code>; docs <code>docs/evolution/multi_line_host.md</code>. Follow-ups:
@@ -8687,11 +8687,13 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
   <code>wire_weaver_core</code> <code>moved_from_parses</code>, <code>tests/thermo</code> <code>checker_agrees_on_both_bumps</code>.</li>
 <li>✅ <strong>EVO-42 The multi-line bench on one crate</strong> · <code>v0.5</code> — <code>tests/thermo_api</code> is one crate, <code>thermo_api</code> 4.0.0,
   with a root per line (<code>wire_v1</code> w1.2, <code>wire_v2</code> w2.1, <code>wire_v3</code> w3.0) and what more than one line uses in <code>common</code>,
-  in the workspace; its <code>api_snapshots/</code> keeps the old crates' snapshots, and <code>tests/evolution.rs</code> checks each root
-  against its line. <code>tests/thermo</code> converts the <code>common</code> types once and reaches <code>ww_indication</code> through one shared
-  client (CLT-68). The first revisions w1.0 and w2.0 are the published 1.0.0 and 2.0.0 in <code>tests/thermo_api_old</code>,
-  as old firmware: a server can't be built at an earlier revision of its root (SRV-58); they connect to the one-crate
-  client unchanged. Measured against EVO-28's end and the CLT-64 facade, same PC and session: 699 hand-written
+  in the workspace. Its history is an API's development cycle: 0.1.0 on the design line w0, 1.0.0 the first release
+  at w1.0, lines 2 and 3 added in 2.0.0 and 3.0.0, revisions within each line, and 4.0.0 retiring line 1
+  (<code>ww api line retire</code>, its module behind <code>retired_wire_v1</code>). <code>api_snapshots/</code> keeps every version's snapshots and
+  the removal record, and <code>tests/evolution.rs</code> checks each root against its line. <code>tests/thermo</code> converts the
+  <code>common</code> types once and reaches <code>common::Indication</code> through one shared client (CLT-68). The first revisions w1.0
+  and w2.0 are the published 2.0.0 in <code>tests/thermo_api_old</code>, as old firmware: a server can't be built at an earlier
+  revision of its root (SRV-58); they connect to the one-crate client unchanged. Measured against EVO-28's end and the CLT-64 facade, same PC and session: 699 hand-written
   driver lines (764 with five crates, 1,074 before <code>facade!</code>), generated client 2,193 lines (2,575), stripped probe
   112.6 KiB smaller, rebuild times equal, the checker test 0.7 s (0.9 s), API source now linted by clippy. Found on
   the way: a sub-level trait named through a <code>use</code> wasn't found (<code>wire_weaver_core</code>), and the checker took two roots'
@@ -8701,8 +8703,8 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
   <code>tests/thermo_api</code> <code>api_evolution</code>, <code>wire_weaver_evolution</code> <code>same_name_in_two_modules_is_not_shared</code>.</li>
 <li>📋 <strong>EVO-54 A move into another module is a Rust break</strong> · <code>v0.5</code> — moving an API into the several-roots layout
   (EVO-37) changes every Rust path (<code>thermo_api::Sample</code> becomes <code>thermo_api::wire_v1::Sample</code>), a breaking crate bump,
-  but the checker asks for a compatible one (<code>thermo_api</code> 3.0.0 -&gt; 3.1.0 on the EVO-42 bench, "definitions
-  changed"). It matches a type by name when the name is unique in the bundle, so a type's changed path (in the model
+  but the checker asks for a compatible one ("definitions changed"; the EVO-42 bench's move came with line 2's
+  major, <code>thermo_api</code> 1.0.0 -&gt; 2.0.0). It matches a type by name when the name is unique in the bundle, so a type's changed path (in the model
   since API-46) goes unreported, and the model names a trait by crate and name only. The walker notes each trait's
   module (<code>SourceNotes::trait_modules</code>, EVO-42), but snapshots don't record it. Report a changed path as a move,
   <code>Rule::Signature</code>, Rust only, for types now and for traits once snapshots carry their module.</li>

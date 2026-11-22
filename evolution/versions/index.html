@@ -6848,7 +6848,7 @@ lines share unchanged in a module of their own (EVO-37, <code>tests/multi_root_a
 <ul>
 <li>A shared type is one Rust type on every line: a host of several lines converts nothing between them.</li>
 <li>The crate version is for Rust only, so one crate version serves firmware of every line it holds. A line leaves the
-  crate when no device runs it any more, a breaking crate bump.</li>
+  crate when no device runs it any more, a breaking crate bump (<a href="../multi_line_host/#retiring-a-line">retiring a line</a>).</li>
 <li><code>ww_codegen!</code> names a root by its module path, <code>ww_codegen!(thermo_api::wire_v2::Thermo for Client, ..)</code>; with
   several roots, a bare <code>Thermo</code> or no name is an error listing them. Two roots of one name differ by their line; two
   traits of one name in one root's tree are refused, since the API model names a trait by crate and name.</li>

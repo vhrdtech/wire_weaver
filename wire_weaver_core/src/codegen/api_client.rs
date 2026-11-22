@@ -704,7 +704,7 @@ fn level_method(
 }
 
 /// A `keyed!` companion (CLT-72): `<array>_by(&key)` (the element's client, or its index for an array of
-/// properties or streams), `<array>_key(index)` and `<array>_keys()`, each also `_blocking`, through
+/// properties or streams), `<array>_index_of(&key)`, `<array>_key(index)` and `<array>_keys()`, each also `_blocking`, through
 /// `wire_weaver_client::Keyed` and the connection's key cache.
 fn handle_keys(
     ctx: &Ctx,
@@ -743,6 +743,11 @@ fn handle_keys(
     let keyed_fn = Ident::new(&format!("{array_ident}_keyed"), Span::call_site());
     let by = Ident::new(&format!("{array_ident}_by"), Span::call_site());
     let by_blocking = Ident::new(&format!("{array_ident}_by_blocking"), Span::call_site());
+    let index_of_fn = Ident::new(&format!("{array_ident}_index_of"), Span::call_site());
+    let index_of_blocking = Ident::new(
+        &format!("{array_ident}_index_of_blocking"),
+        Span::call_site(),
+    );
     let key_fn = Ident::new(&format!("{array_ident}_key"), Span::call_site());
     let key_blocking = Ident::new(&format!("{array_ident}_key_blocking"), Span::call_site());
     let keys_fn = Ident::new(&format!("{array_ident}_keys"), Span::call_site());
@@ -788,6 +793,10 @@ fn handle_keys(
         " The element of `{array_ident}` with `key`, `None` when the device has none: the device is asked once \
          (`index_of`), later calls take the index from the connection's key cache."
     );
+    let index_of_doc = format!(
+        " Index of the element of `{array_ident}` with `key`, `None` when the device has none: the device is asked \
+         once (`index_of`), later calls take it from the connection's key cache."
+    );
     let key_doc = format!(
         " Key of the element of `{array_ident}` at `index`, read from the device; the key cache learns it."
     );
@@ -807,17 +816,27 @@ fn handle_keys(
             Ok(args.to_ww_bytes_owned()?)
         }
 
+        #[doc = #index_of_doc]
+        pub async fn #index_of_fn(&self, key: &#key_ty) -> Result<Option<u32>, wire_weaver_client::Error> {
+            let args = Self::#args_fn(key);
+            self.#keyed_fn()?.index_of::<#key_ty, #index_ty>(key, args).await
+        }
+
+        #[doc = #index_of_doc]
+        pub fn #index_of_blocking(&self, key: &#key_ty) -> Result<Option<u32>, wire_weaver_client::Error> {
+            let args = Self::#args_fn(key);
+            self.#keyed_fn()?.index_of_blocking::<#key_ty, #index_ty>(key, args)
+        }
+
         #[doc = #by_doc]
         pub async fn #by(&self, key: &#key_ty) -> Result<Option<#handle_ty>, wire_weaver_client::Error> {
-            let args = Self::#args_fn(key);
-            let index = self.#keyed_fn()?.index_of::<#key_ty, #index_ty>(key, args).await?;
+            let index = self.#index_of_fn(key).await?;
             Ok(index.map(|index| { #handle }))
         }
 
         #[doc = #by_doc]
         pub fn #by_blocking(&self, key: &#key_ty) -> Result<Option<#handle_ty>, wire_weaver_client::Error> {
-            let args = Self::#args_fn(key);
-            let index = self.#keyed_fn()?.index_of_blocking::<#key_ty, #index_ty>(key, args)?;
+            let index = self.#index_of_blocking(key)?;
             Ok(index.map(|index| { #handle }))
         }
 

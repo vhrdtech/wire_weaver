@@ -30,6 +30,9 @@
 
 - `GenServerConfigRaw::async_valid_indices`: valid indices from `async fn valid_indices_..(&self, cx, ..) -> Result<ValidIndicesOwned, Failure>` (CLT-58).
 - The local trait covers nested levels and resource arrays (CLT-58): a trait per level, `#[ww_trait(local = "..")]`, reached by accessors; `serve_trait` forwards every item.
+- A `keyed!` array's local trait has `<array>_index_of`, `<array>_key`, `<array>_keys` and a provided `<array>_by`; `serve_trait` forwards them (CLT-58).
+- `GenServerConfigRaw::keys_stream_handlers`: handlers open and close a `keyed!` array's `keys` stream (CLT-58).
+- The std client of a `keyed!` array has `<array>_index_of(&key)` and `_blocking` (CLT-58).
 - `load_root` and `CrateCache::load_root` load a root of `retired_roots` by name, to compare its kept module with its last snapshot (TOOL-33).
 - `gen_local_trait` and `gen_local_trait_client_impl` take `send`: without it the trait, its companion and its streams drop `Send` (SRV-73).
 - `codegen::serve_trait`: forwarding handlers, stream pumps and backend impls of a `serve_trait` server (SRV-49).

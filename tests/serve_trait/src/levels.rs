@@ -4,11 +4,12 @@
 
 use futures_lite::stream;
 use serve_trait_gauge_api::{Gauge, Reading};
-use serve_trait_levels_api::{Channel, ChannelIdx, Desk, Level, Plant, PlantError, Unit};
+use serve_trait_levels_api::{Channel, ChannelIdx, Desk, Level, Plant, PlantError, Tag, Unit};
 use std::sync::Mutex;
 use wire_weaver::call::{CallError, Error, ErrorKind, ItemStream, item_stream};
 use wire_weaver::shrink_wrap::UNib32;
 use wire_weaver::{CallContext, ValidIndicesOwned};
+use ww_keyed::KeyEvent;
 
 use super::locked;
 
@@ -16,6 +17,16 @@ use super::locked;
 pub const UNITS: u32 = 2;
 pub const SLOTS: u32 = 3;
 pub const CHANNELS: u8 = 2;
+
+/// The tag of unit `index`.
+pub fn unit_tag(index: u32) -> Tag {
+    Tag(10 + index)
+}
+
+/// The key of channel `index`.
+pub fn channel_key(index: u8) -> Level {
+    Level(100 + u32::from(index))
+}
 
 /// The plant: its levels are fields, handed out as `&` references.
 pub struct LocalPlant {
@@ -97,6 +108,24 @@ impl Plant for LocalPlant {
         Ok(first(UNITS))
     }
 
+    async fn unit_index_of(&self, _cx: &CallContext, key: Tag) -> Result<Option<u32>, Error> {
+        Ok((0..UNITS).find(|&index| unit_tag(index) == key))
+    }
+
+    async fn unit_key(&self, _cx: &CallContext, index: u32) -> Result<Tag, Error> {
+        element(&self.units, index as usize).map(|unit| unit_tag(unit.id))
+    }
+
+    async fn unit_keys(&self, _cx: &CallContext) -> Result<ItemStream<KeyEvent<u32, Tag>>, Error> {
+        let added = (0..UNITS).map(|index| {
+            Ok(KeyEvent::Added {
+                index,
+                key: unit_tag(index),
+            })
+        });
+        Ok(item_stream(stream::iter(added)))
+    }
+
     async fn read_slot(&self, _cx: &CallContext, index: u32) -> Result<Level, Error> {
         element(&locked(&self.slots), index as usize).copied()
     }
@@ -151,6 +180,37 @@ impl Unit for LocalUnit {
 
     async fn channel_valid_indices(&self, _cx: &CallContext) -> Result<ValidIndicesOwned, Error> {
         Ok(first(u32::from(CHANNELS)))
+    }
+
+    async fn channel_index_of(
+        &self,
+        _cx: &CallContext,
+        key: Level,
+    ) -> Result<Option<ChannelIdx>, Error> {
+        Ok((0..CHANNELS)
+            .find(|&index| channel_key(index) == key)
+            .map(ChannelIdx))
+    }
+
+    async fn channel_key(&self, _cx: &CallContext, index: ChannelIdx) -> Result<Level, Error> {
+        element(&self.channels, usize::from(index.0)).map(|channel| channel_key(channel.0))
+    }
+
+    async fn channel_keys(
+        &self,
+        _cx: &CallContext,
+    ) -> Result<ItemStream<KeyEvent<ChannelIdx, Level>>, Error> {
+        // the last channel only: its element is gone again
+        let last = CHANNELS - 1;
+        Ok(item_stream(stream::iter([
+            Ok(KeyEvent::Added {
+                index: ChannelIdx(last),
+                key: channel_key(last),
+            }),
+            Ok(KeyEvent::Removed {
+                index: ChannelIdx(last),
+            }),
+        ])))
     }
 
     async fn id(&self, _cx: &CallContext) -> Result<Level, Error> {

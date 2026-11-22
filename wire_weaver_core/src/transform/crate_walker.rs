@@ -814,7 +814,11 @@ impl Scratch {
 
     /// Note the module of `item_trait` ([Self::note_trait_module]) and the name of its local trait, if it has one
     /// (`#[ww_trait(local = "..")]`, CLT-58).
-    pub(crate) fn note_trait(&mut self, cx: &CrateContext, item_trait: &syn::ItemTrait) -> Result<()> {
+    pub(crate) fn note_trait(
+        &mut self,
+        cx: &CrateContext,
+        item_trait: &syn::ItemTrait,
+    ) -> Result<()> {
         let trait_name = item_trait.ident.to_string();
         self.note_trait_module(cx, &trait_name)?;
         if let Some(local) = super::util::get_local_attr(&item_trait.attrs, cx)? {

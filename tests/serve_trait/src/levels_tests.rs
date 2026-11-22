@@ -1,8 +1,8 @@
-use crate::levels::{LocalPlant, SLOTS, UNITS, client, server};
+use crate::levels::{LocalPlant, SLOTS, UNITS, channel_key, client, server, unit_tag};
 use futures_lite::StreamExt;
 use serve_trait_gauge_api::{Gauge, Reading};
 use serve_trait_levels_api::{
-    Channel, ChannelIdx, Desk, Level, Plant, PlantDyn, PlantError, Unit,
+    Channel, ChannelIdx, Desk, Level, Plant, PlantDyn, PlantError, Tag, Unit,
 };
 use std::sync::Arc;
 use tokio::sync::oneshot;
@@ -12,6 +12,7 @@ use wire_weaver::{CallContext, ValidIndicesOwned};
 use wire_weaver_client::in_process::TokioClock;
 use wire_weaver_server::in_process::InProcessListener;
 use wire_weaver_server::{Connection, Server};
+use ww_keyed::KeyEvent;
 
 /// A [LocalPlant] served on `path` until the sender is dropped, and a client connected to it.
 async fn served(path: &str) -> (client::Client, oneshot::Sender<()>) {
@@ -102,6 +103,59 @@ async fn exercise(plant: &impl Plant) {
     assert_eq!(
         unit.channel_valid_indices(cx).await.unwrap(),
         ValidIndicesOwned::Range(UNib32(0)..UNib32(2))
+    );
+
+    // keyed arrays: of levels, and nested under a typed index
+    assert_eq!(plant.unit_index_of(cx, unit_tag(1)).await.unwrap(), Some(1));
+    assert_eq!(plant.unit_index_of(cx, Tag(99)).await.unwrap(), None);
+    assert_eq!(plant.unit_key(cx, 0).await.unwrap(), unit_tag(0));
+    assert_eq!(
+        plant.unit_key(cx, UNITS).await.unwrap_err().kind(),
+        ErrorKind::BadIndex
+    );
+    let by_tag = plant.unit_by(cx, unit_tag(1)).await.unwrap().unwrap();
+    assert_eq!(by_tag.id(cx).await.unwrap(), Level(1));
+    assert!(plant.unit_by(cx, Tag(99)).await.unwrap().is_none());
+    let keys: Vec<_> = plant
+        .unit_keys(cx)
+        .await
+        .unwrap()
+        .map(Result::unwrap)
+        .collect()
+        .await;
+    let added = |index| KeyEvent::Added {
+        index,
+        key: unit_tag(index),
+    };
+    assert_eq!(keys, [added(0), added(1)]);
+    assert_eq!(
+        unit.channel_index_of(cx, channel_key(1)).await.unwrap(),
+        Some(ChannelIdx(1))
+    );
+    assert_eq!(
+        unit.channel_key(cx, ChannelIdx(0)).await.unwrap(),
+        channel_key(0)
+    );
+    let channel = unit.channel_by(cx, channel_key(1)).await.unwrap().unwrap();
+    assert_eq!(channel.gain(cx, Level(3)).await.unwrap(), Level(6));
+    let keys: Vec<_> = unit
+        .channel_keys(cx)
+        .await
+        .unwrap()
+        .map(Result::unwrap)
+        .collect()
+        .await;
+    assert_eq!(
+        keys,
+        [
+            KeyEvent::Added {
+                index: ChannelIdx(1),
+                key: channel_key(1)
+            },
+            KeyEvent::Removed {
+                index: ChannelIdx(1)
+            }
+        ]
     );
 
     // a level from another crate

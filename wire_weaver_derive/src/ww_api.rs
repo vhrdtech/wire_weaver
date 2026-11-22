@@ -203,6 +203,7 @@ fn api_inner(mut args: ApiArgs) -> Result<TokenStream, String> {
                 crate_paths: crate_paths.clone(),
                 global_paths,
                 async_valid_indices: serve_trait.is_some(),
+                keys_stream_handlers: serve_trait.is_some(),
             },
         );
         codegen_ts.append_all(ts);

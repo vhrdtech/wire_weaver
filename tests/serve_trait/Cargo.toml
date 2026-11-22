@@ -20,6 +20,7 @@ wire_weaver_client.workspace = true
 wire_weaver_server.workspace = true
 ww_client_server.workspace = true
 ww_device.workspace = true
+ww_keyed = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
 tests_common.workspace = true

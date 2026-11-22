@@ -18,6 +18,7 @@
 
 ### 🚀 Features
 
+- `KeyStream::into_item_stream`: a `keys` stream as the item stream of a local trait, the key cache following it (CLT-58).
 - Public for a tap decoder outside the crate: `envelope::request_variant`, `event_variant`, `inline_known`, `load_by_hash` and `tap::FRAMED_USB`, `FRAMED_USB_SEQ`, `FRAMED_UDP`, `STREAM_PLAIN` (TR-14).
 - A reconnect onto another revision of the device's API on the same wire line learns the device again instead of refusing it (CLT-81).
 - After such a reconnect, kept streams, sinks and observers resume only where their resource still holds; the rest end with a warning (CLT-81).

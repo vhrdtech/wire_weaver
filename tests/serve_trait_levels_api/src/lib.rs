@@ -9,6 +9,8 @@ pub trait PlantApi {
     ww_impl!(desk: DeskApi);
     /// Units by index
     ww_impl!(unit[]: UnitApi);
+    /// Units by their tag
+    keyed!(unit by Tag);
     /// A level from another crate
     ww_impl!(gauge: serve_trait_gauge_api::GaugeApi);
     /// One level per slot
@@ -37,6 +39,8 @@ pub trait UnitApi {
     fn ticks(count: Level) -> Result<Level, PlantError>;
     /// Channels by their own index type
     ww_impl!(channel[ChannelIdx]: ChannelApi);
+    /// Channels by their level
+    keyed!(channel by Level);
 }
 
 #[ww_trait(local = "Channel")]
@@ -53,6 +57,14 @@ pub trait ChannelApi {
     derive(Debug, Clone, Copy, PartialEq, Eq)
 )]
 pub struct Level(pub u32);
+
+/// What names a unit, whatever its index.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Debug, Clone, Copy, PartialEq, Eq)
+)]
+pub struct Tag(pub u32);
 
 /// The index of a channel: a typed index converts into `u32` for the client and back for `serve_trait`.
 #[derive_shrink_wrap(

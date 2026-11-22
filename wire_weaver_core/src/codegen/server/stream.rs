@@ -155,7 +155,12 @@ fn stream_ser_level(
                 }
             });
         }
-        if let Some((_, is_up, _)) = item.kind.as_stream() {
+        // a key companion's `keys` stream ends with a `Close` too, when its items come from a local trait (CLT-58)
+        let stream_dir = match &item.kind {
+            ApiItemKindOwned::Keys { .. } => Some(true),
+            kind => kind.as_stream().map(|(_, is_up, _)| is_up),
+        };
+        if let Some(is_up) = stream_dir {
             methods_ts.extend(sideband_ser_methods(
                 item.ident.as_str(),
                 if is_up { "stream" } else { "sink" },

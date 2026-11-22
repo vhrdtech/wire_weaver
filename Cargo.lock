@@ -3372,6 +3372,7 @@ dependencies = [
  "wire_weaver_server",
  "ww_client_server",
  "ww_device",
+ "ww_keyed",
 ]
 
 [[package]]
@@ -3397,6 +3398,7 @@ dependencies = [
  "serve_trait_gauge_api",
  "wire_weaver",
  "ww_api",
+ "ww_keyed",
 ]
 
 [[package]]

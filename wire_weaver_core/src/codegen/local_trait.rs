@@ -15,8 +15,10 @@
 //! With `local_trait_send = false` the traits, their companions and their streams drop `Send` (SRV-73): futures and
 //! item streams may hold `Rc` / `RefCell` state, the companions' trait objects are `Box` and `Rc`.
 //!
-//! Left out, and listed in each trait's docs: observing, sinks, counted, reliable or batched streams and keyed
-//! arrays.
+//! A `keyed!` array has `<array>_index_of`, `<array>_key` and `<array>_keys`, and an array of levels a provided
+//! `<array>_by` that finds the element by its key.
+//!
+//! Left out, and listed in each trait's docs: observing, sinks, counted, reliable or batched streams.
 use crate::codegen::CodegenBundle;
 use crate::codegen::ty_def::{TyPos, ty_def, ty_def_by_idx};
 use crate::transform::CratePaths;
@@ -79,6 +81,77 @@ pub(crate) enum LocalFnKind {
     Stream,
     /// The valid indices of a resource array, `<array>_valid_indices`.
     ValidIndices,
+    /// The index of a key of a `keyed!` array, `<array>_index_of`.
+    IndexOf,
+    /// The key of an element of a `keyed!` array, `<array>_key`.
+    Key,
+    /// The `keys` stream of a `keyed!` array, `<array>_keys`.
+    Keys,
+}
+
+/// The provided `<array>_by` of a `keyed!` array of levels: its `index_of`, then its accessor.
+pub(crate) struct KeyedBy {
+    ident: Ident,
+    index_of: Ident,
+    accessor: Ident,
+    assoc: Ident,
+    key: TokenStream,
+}
+
+/// A `keyed!` array's index and event types in a local trait: the index the array's accessor takes (`u32`, or the
+/// array's own index type), the event `KeyEvent<index, key>`, and whether the wire's index differs (`UNib32` of an
+/// array declared `name[]`).
+pub(crate) struct KeyedTypes {
+    pub(crate) index: TokenStream,
+    pub(crate) key: TokenStream,
+    /// `ww_keyed::KeyEvent`, the path without its arguments.
+    pub(crate) event_path: TokenStream,
+    /// The array is declared `name[]`: the wire's index is `UNib32`, the trait's `u32`.
+    pub(crate) unib_index: bool,
+}
+
+impl KeyedTypes {
+    /// The types of the `keyed!` companion `keys` of the array `array`.
+    pub(crate) fn new(
+        api_bundle: &CodegenBundle,
+        array: &ApiItemOwned,
+        keys: &ApiItemOwned,
+    ) -> Result<Self, String> {
+        let ApiItemKindOwned::Keys { key, event_ty, .. } = &keys.kind else {
+            return Err(format!("`{}` is not a keyed! companion", keys.ident));
+        };
+        let index = index_ty(api_bundle, &array.multiplicity)
+            .ok_or_else(|| format!("keyed! `{}`: `{}` is not an array", keys.ident, array.ident))?;
+        let key = ty_def(api_bundle, key, true, TyPos::Arg).map_err(|e| e.to_string())?;
+        let event = ty_def(api_bundle, event_ty, true, TyPos::Arg).map_err(|e| e.to_string())?;
+        let mut event: syn::TypePath = syn::parse2(event)
+            .map_err(|e| format!("keyed! `{}`: the event type: {e}", keys.ident))?;
+        if let Some(last) = event.path.segments.last_mut() {
+            last.arguments = syn::PathArguments::None;
+        }
+        Ok(KeyedTypes {
+            index,
+            key,
+            event_path: quote! { #event },
+            unib_index: matches!(
+                array.multiplicity,
+                Multiplicity::Array {
+                    index_type_idx: None
+                }
+            ),
+        })
+    }
+
+    /// The event type as the trait's `keys` stream gives it.
+    pub(crate) fn event(&self) -> TokenStream {
+        let KeyedTypes {
+            index,
+            key,
+            event_path,
+            ..
+        } = self;
+        quote! { #event_path<#index, #key> }
+    }
 }
 
 /// The accessor of a nested level: `fn sub(&self) -> Self::Sub<'_>`, or `fn unit(&self, index: u32) ->
@@ -100,6 +173,8 @@ pub(crate) struct LocalLevel<'b> {
     pub(crate) level: &'b ApiLevelOwned,
     pub(crate) fns: Vec<LocalFn>,
     pub(crate) accessors: Vec<Accessor<'b>>,
+    /// The provided `<array>_by` of its `keyed!` arrays of levels.
+    keyed_by: Vec<KeyedBy>,
     /// The items it leaves out, for its docs.
     skipped: Vec<String>,
 }
@@ -202,6 +277,7 @@ pub(crate) fn local_level<'b>(
         level,
         fns: vec![],
         accessors: vec![],
+        keyed_by: vec![],
         skipped: vec![],
     };
     for (item_index, item) in level.items.iter().enumerate() {
@@ -387,9 +463,86 @@ fn local_item<'b>(
                 level,
             });
         }
-        ApiItemKindOwned::Keys { .. } => {
-            out.skipped.push(format!("`{}` (keyed! companion)", item.ident));
+        ApiItemKindOwned::Keys { of, .. } => {
+            keyed_fns(api_bundle, out, item_index, item, *of, send)?;
         }
+    }
+    Ok(())
+}
+
+/// The functions of the `keyed!` companion `keys` of the array `of` of `out`'s level: `<array>_index_of`,
+/// `<array>_key` and `<array>_keys`, and the provided `<array>_by` of an array of levels.
+fn keyed_fns(
+    api_bundle: &CodegenBundle,
+    out: &mut LocalLevel<'_>,
+    item_index: usize,
+    keys: &ApiItemOwned,
+    of: shrink_wrap::UNib32,
+    send: bool,
+) -> Result<(), String> {
+    let array = out
+        .level
+        .items
+        .iter()
+        .find(|item| item.id == of)
+        .ok_or_else(|| format!("keyed! `{}`: no item {} in the level", keys.ident, of.0))?;
+    let types = KeyedTypes::new(api_bundle, array, keys)?;
+    let KeyedTypes { index, key, .. } = &types;
+    let name = |op: &str| Ident::new(&format!("{}_{op}", array.ident), Span::call_site());
+    let (index_of, key_fn, keys_fn) = (name("index_of"), name("key"), name("keys"));
+    let event = types.event();
+    let handle = if send {
+        quote! { wire_weaver::call::ItemStream<#event> }
+    } else {
+        quote! { wire_weaver::call::LocalItemStream<#event> }
+    };
+    // the client works with `u32` indices; an array's own index type comes from it as the server takes it
+    let from_u32 = if types.unib_index {
+        quote! {}
+    } else {
+        quote! {
+            .and_then(|index| index.map(|index| <#index as ::core::convert::TryFrom<u32>>::try_from(index).map_err(|_| wire_weaver::call::Error::from_kind(wire_weaver::call::ErrorKind::BadIndex))).transpose())
+        }
+    };
+    let array_ident = &array.ident;
+    out.fns.push(LocalFn {
+        client_body: quote! { Self::#index_of(self, &key).await.map_err(wire_weaver::call::Error::from) #from_u32 },
+        ident: index_of.clone(),
+        docs: vec![format!(" The index of the element of `{array_ident}[]` with `key`, `None` when there is none.")],
+        index: None,
+        args: vec![(Ident::new("key", Span::call_site()), key.clone())],
+        output: quote! { Result<Option<#index>, wire_weaver::call::Error> },
+        kind: LocalFnKind::IndexOf,
+        item: item_index,
+    });
+    out.fns.push(LocalFn {
+        client_body: quote! { Self::#key_fn(self, index).await.map_err(::core::convert::Into::into) },
+        ident: key_fn,
+        docs: vec![format!(" The key of the element of `{array_ident}[]` at `index`.")],
+        index: Some(index.clone()),
+        args: vec![],
+        output: quote! { Result<#key, wire_weaver::call::Error> },
+        kind: LocalFnKind::Key,
+        item: item_index,
+    });
+    out.fns.push(LocalFn {
+        client_body: quote! { Self::#keys_fn(self).await.map(|s| { let s: #handle = s.into_item_stream::<#index>(); s }).map_err(::core::convert::Into::into) },
+        ident: keys_fn,
+        docs: vec![format!(" Elements of `{array_ident}[]` as they appear and go away.")],
+        index: None,
+        args: vec![],
+        output: quote! { Result<#handle, wire_weaver::call::Error> },
+        kind: LocalFnKind::Keys,
+        item: item_index,
+    });
+    if let ApiItemKindOwned::Trait { .. } = array.kind {
+        out.keyed_by.push(KeyedBy {
+            ident: name("by"),
+            index_of,
+            accessor: Ident::new(array_ident, Span::call_site()),
+            assoc: Ident::new(&array_ident.to_case(Case::Pascal), Span::call_site()),
+            key: key.clone(),
+        });
     }
     Ok(())
 }
@@ -597,7 +750,11 @@ fn gen_level_trait(
         let child = paths.path(api_bundle, a.level, false)?;
         let child_dyn = paths.path(api_bundle, a.level, true)?;
         let (ident, assoc) = (&a.ident, &a.assoc);
-        let docs = a.docs.iter().map(|d| quote! { #[doc = #d] }).collect::<Vec<_>>();
+        let docs = a
+            .docs
+            .iter()
+            .map(|d| quote! { #[doc = #d] })
+            .collect::<Vec<_>>();
         let assoc_doc = format!(" The level `{}` hands out.", a.ident);
         let (index_def, index_name) = match &a.index {
             Some(ty) => (quote! { , index: #ty }, quote! { , index }),
@@ -648,7 +805,11 @@ fn gen_level_trait(
         let output = &f.output;
         let defs = f.arg_defs();
         let names = f.arg_names();
-        let docs = f.docs.iter().map(|d| quote! { #[doc = #d] }).collect::<Vec<_>>();
+        let docs = f
+            .docs
+            .iter()
+            .map(|d| quote! { #[doc = #d] })
+            .collect::<Vec<_>>();
         trait_items.push(quote! {
             #(#docs)*
             fn #ident(&self, cx: &wire_weaver::CallContext, #(#defs),*) -> impl ::core::future::Future<Output = #output> #future_send;
@@ -672,6 +833,29 @@ fn gen_level_trait(
         ref_items.push(quote! {
             fn #ident(&self, cx: &wire_weaver::CallContext, #(#defs),*) -> impl ::core::future::Future<Output = #output> #future_send {
                 <T as #trait_ident>::#ident(*self, cx, #(#names),*)
+            }
+        });
+    }
+    for by in &local.keyed_by {
+        let KeyedBy {
+            ident,
+            index_of,
+            accessor,
+            assoc,
+            key,
+        } = by;
+        let doc = format!(
+            " The element of `{accessor}[]` with `key`, `None` when there is none: `{index_of}`, then `{accessor}`."
+        );
+        trait_items.push(quote! {
+            #[doc = #doc]
+            fn #ident(&self, cx: &wire_weaver::CallContext, key: #key) -> impl ::core::future::Future<Output = Result<Option<Self::#assoc<'_>>, wire_weaver::call::Error>> #future_send {
+                async move {
+                    match self.#index_of(cx, key).await? {
+                        Some(index) => self.#accessor(index).map(Some),
+                        None => Ok(None),
+                    }
+                }
             }
         });
     }
@@ -769,7 +953,10 @@ fn client_impl(
 ) -> Result<TokenStream, String> {
     let trait_path = paths.path(api_bundle, local.level, false)?;
     let (generics, self_ty) = if path.is_empty() {
-        (quote! {}, client_struct(api_bundle, path, client_struct_path, quote! {}))
+        (
+            quote! {},
+            client_struct(api_bundle, path, client_struct_path, quote! {}),
+        )
     } else {
         (
             quote! { <'i> },

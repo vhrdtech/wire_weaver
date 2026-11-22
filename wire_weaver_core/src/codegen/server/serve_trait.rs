@@ -13,13 +13,15 @@
 //! `level_forwards` is the per-level part: the path from the service to a level and the call of each of its
 //! functions, for any wrapper that forwards to a local implementation.
 use crate::codegen::CodegenBundle;
-use crate::codegen::local_trait::{LocalFn, LocalFnKind, LocalLevel, TraitPaths, walk_levels};
+use crate::codegen::local_trait::{
+    KeyedTypes, LocalFn, LocalFnKind, LocalLevel, TraitPaths, walk_levels,
+};
 use crate::codegen::ty_def::{TyPos, ty_def};
 use crate::transform::CratePaths;
 use proc_macro2::{Ident, Literal, Span, TokenStream};
 use quote::quote;
 use syn::Path;
-use ww_self::{ApiItemKindOwned, ApiLevelOwned, Multiplicity, TypeOwned};
+use ww_self::{ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, Multiplicity, TypeOwned};
 
 /// What [gen_serve_trait] needs besides the API.
 pub struct ServeTraitConfig<'a> {
@@ -156,7 +158,7 @@ impl LevelForwards<'_> {
         let trait_path = &self.trait_path;
         let ident = &f.ident;
         let index = f.index.as_ref().map(|ty| {
-            let item = &self.local.level.items[f.item];
+            let item = self.indexed_item(f);
             let own = match &item.multiplicity {
                 Multiplicity::Array {
                     index_type_idx: Some(_),
@@ -168,6 +170,21 @@ impl LevelForwards<'_> {
         let index = index.into_iter();
         let args = f.args.iter().map(|(n, _)| n);
         quote! { #trait_path::#ident(ww_level, #cx, #(#index,)* #(#args),*).await }
+    }
+
+    /// The item whose index `f` takes: the item itself, or the array a `keyed!` companion keys.
+    fn indexed_item(&self, f: &LocalFn) -> &ApiItemOwned {
+        let item = &self.local.level.items[f.item];
+        match &item.kind {
+            ApiItemKindOwned::Keys { of, .. } => self
+                .local
+                .level
+                .items
+                .iter()
+                .find(|array| array.id == *of)
+                .unwrap_or(item),
+            _ => item,
+        }
     }
 
     /// The stream serializer of this level: `stream_data_ser()` and its accessors down to the level, each array's
@@ -293,7 +310,11 @@ fn handler(
 ) -> TokenStream {
     let item = &level.local.level.items[f.item];
     let service = quote! { wire_weaver_server::Serves::service(self) };
-    let arg_defs = f.args.iter().map(|(n, t)| quote! { #n: #t }).collect::<Vec<_>>();
+    let arg_defs = f
+        .args
+        .iter()
+        .map(|(n, t)| quote! { #n: #t })
+        .collect::<Vec<_>>();
     let failed = |result: TokenStream| quote! { #result::Failed(wire_weaver::Failure::from(e)) };
     match f.kind {
         LocalFnKind::Method => {
@@ -364,7 +385,13 @@ fn handler(
                 }
             }
         }
-        LocalFnKind::Stream => stream_handlers(api_bundle, level, f, cx_ty),
+        LocalFnKind::Stream => {
+            let stream = item.kind.as_stream_fn().expect("a stream");
+            stream_handlers(api_bundle, level, f, cx_ty, stream.return_ty, None)
+        }
+        LocalFnKind::IndexOf | LocalFnKind::Key | LocalFnKind::Keys => {
+            keyed_handler(api_bundle, level, f, cx_ty)
+        }
         LocalFnKind::ValidIndices => {
             // the dispatcher asks it before every request under the array, and answers the indices read with it
             let fail = quote! { Err(wire_weaver::Failure::from(e)) };
@@ -388,6 +415,72 @@ fn handler(
                     #call.map_err(wire_weaver::Failure::from)
                 }
             }
+        }
+    }
+}
+
+/// The handler of a function of a `keyed!` companion: `index_of`, the getter of `key[]`, or the open, close and
+/// sideband handlers of the `keys` stream (the dispatcher's `keys_stream_handlers`).
+fn keyed_handler(
+    api_bundle: &CodegenBundle,
+    level: &LevelForwards<'_>,
+    f: &LocalFn,
+    cx_ty: &TokenStream,
+) -> TokenStream {
+    let keys = &level.local.level.items[f.item];
+    let array = level.indexed_item(f);
+    let types = match KeyedTypes::new(api_bundle, array, keys) {
+        Ok(types) => types,
+        Err(e) => return quote! { compile_error!(#e); },
+    };
+    let service = quote! { wire_weaver_server::Serves::service(self) };
+    let name = level.prefixed(&f.ident.to_string());
+    let chain = level.chain_def(f.index.is_some());
+    let unib = quote! { wire_weaver::shrink_wrap::UNib32 };
+    match f.kind {
+        LocalFnKind::IndexOf => {
+            let fail = quote! { wire_weaver::RpcResult::Failed(wire_weaver::Failure::from(e)) };
+            let reach = level.reach(service, &fail);
+            let call = level.call(f, quote! { cx.call() }, &fail);
+            let (wire_index, to_wire) = if types.unib_index {
+                (unib.clone(), quote! { .map(|index| index.map(#unib)) })
+            } else {
+                (types.index.clone(), quote! {})
+            };
+            let ident = Ident::new(&name, Span::call_site());
+            let key = &types.key;
+            quote! {
+                async fn #ident(&self, cx: #cx_ty, #chain key: #key) -> wire_weaver::RpcResult<Option<#wire_index>> {
+                    #reach
+                    wire_weaver::forward::call(#call #to_wire)
+                }
+            }
+        }
+        LocalFnKind::Key => {
+            let fail = quote! { wire_weaver::GetResult::Failed(wire_weaver::Failure::from(e)) };
+            let reach = level.reach(service, &fail);
+            let call = level.call(f, quote! { cx.call() }, &fail);
+            let getter = Ident::new(&format!("get_{name}"), Span::call_site());
+            let key = &types.key;
+            quote! {
+                async fn #getter(&self, cx: #cx_ty, #chain) -> wire_weaver::GetResult<#key, wire_weaver::CommonError<'_>> {
+                    #reach
+                    wire_weaver::forward::read(#call)
+                }
+            }
+        }
+        _ => {
+            let path = &types.event_path;
+            let to_wire = types.unib_index.then(|| {
+                quote! {
+                    |event| match event {
+                        #path::Added { index, key } => #path::Added { index: #unib(index), key },
+                        #path::Removed { index } => #path::Removed { index: #unib(index) },
+                        #path::Unknown(other) => #path::Unknown(other),
+                    }
+                }
+            });
+            stream_handlers(api_bundle, level, f, cx_ty, None, to_wire)
         }
     }
 }
@@ -436,16 +529,22 @@ fn fnv1a(bytes: &[u8]) -> u64 {
     })
 }
 
-/// The open, close and sideband handlers of a plain stream: the open adds the trait's items as the connection's
-/// pump, until their first error, and their end sends the stream's `Close`; the close removes it.
+/// The open, close and sideband handlers of a plain stream returning `return_ty` on its open, or of a `keys`
+/// stream: the open adds the trait's items as the connection's pump, until their first error, each turned into the
+/// wire's form by `to_wire`, and their end sends the stream's `Close`; the close removes it.
 fn stream_handlers(
     api_bundle: &CodegenBundle,
     level: &LevelForwards<'_>,
     f: &LocalFn,
     cx_ty: &TokenStream,
+    return_ty: Option<&TypeOwned>,
+    to_wire: Option<TokenStream>,
 ) -> TokenStream {
     let item = &level.local.level.items[f.item];
-    let stream = item.kind.as_stream_fn().expect("a stream");
+    let items = match to_wire {
+        Some(to_wire) => quote! { wire_weaver::forward::until_error_map(items, #to_wire) },
+        None => quote! { wire_weaver::forward::until_error(items) },
+    };
     let own = f.index.is_some();
     let pump_id = pump_id(level, f, own);
     let name = level.prefixed(&item.ident);
@@ -471,7 +570,7 @@ fn stream_handlers(
         let ser = #ser;
         wire_weaver_server::Serves::pumps(self).add_ending(
             #pump_id,
-            wire_weaver::forward::until_error(items),
+            #items,
             move |item, buf| ser.#item_ident(#own_index item, buf).map(<[u8]>::len),
             Some(move |buf: &mut [u8]| {
                 #ser
@@ -480,7 +579,7 @@ fn stream_handlers(
             }),
         );
     };
-    let (output, open) = match stream.return_ty {
+    let (output, open) = match return_ty {
         None => (
             quote! { () },
             quote! {

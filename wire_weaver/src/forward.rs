@@ -72,31 +72,50 @@ pub fn until_error<T, S>(items: S) -> impl futures_core::Stream<Item = T> + use<
 where
     S: futures_core::Stream<Item = Result<T, Error>> + Unpin,
 {
-    UntilError { items: Some(items) }
+    until_error_map(items, core::convert::identity)
 }
 
-struct UntilError<S> {
-    items: Option<S>,
-}
-
-impl<T, S> futures_core::Stream for UntilError<S>
+/// [until_error], each item turned into the wire's form by `map`: a `keys` stream's `KeyEvent<u32, K>` into
+/// `KeyEvent<UNib32, K>` (CLT-58). `Send` when `items` and `map` are.
+pub fn until_error_map<T, U, S, F>(
+    items: S,
+    map: F,
+) -> impl futures_core::Stream<Item = U> + use<T, U, S, F>
 where
     S: futures_core::Stream<Item = Result<T, Error>> + Unpin,
+    F: FnMut(T) -> U + Unpin,
 {
-    type Item = T;
+    UntilError {
+        items: Some(items),
+        map,
+    }
+}
+
+struct UntilError<S, F> {
+    items: Option<S>,
+    map: F,
+}
+
+impl<T, U, S, F> futures_core::Stream for UntilError<S, F>
+where
+    S: futures_core::Stream<Item = Result<T, Error>> + Unpin,
+    F: FnMut(T) -> U + Unpin,
+{
+    type Item = U;
 
     fn poll_next(
         mut self: core::pin::Pin<&mut Self>,
         cx: &mut core::task::Context<'_>,
-    ) -> core::task::Poll<Option<T>> {
+    ) -> core::task::Poll<Option<U>> {
         use core::task::Poll;
-        let Some(items) = self.items.as_mut() else {
+        let this = &mut *self;
+        let Some(items) = this.items.as_mut() else {
             return Poll::Ready(None);
         };
         match core::pin::Pin::new(items).poll_next(cx) {
-            Poll::Ready(Some(Ok(item))) => Poll::Ready(Some(item)),
+            Poll::Ready(Some(Ok(item))) => Poll::Ready(Some((this.map)(item))),
             Poll::Ready(Some(Err(_)) | None) => {
-                self.items = None;
+                this.items = None;
                 Poll::Ready(None)
             }
             Poll::Pending => Poll::Pending,

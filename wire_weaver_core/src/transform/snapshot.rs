@@ -1076,7 +1076,7 @@ mod tests {
         let common = |since: &str| {
             std::fs::write(
                 dir.join("src/common.rs"),
-                format!("#[ww_trait] pub trait Channel {{ fn read(); #[since = \"{since}\"] fn reset(); }}"),
+                format!("#[ww_trait] #[effect(edit)] pub trait Channel {{ fn read(); #[since = \"{since}\"] fn reset(); }}"),
             )
             .unwrap();
         };
@@ -1165,13 +1165,13 @@ mod tests {
             impl<Q: Codec, C: Curve> Codec for Transfer<Q, C> {\n    \
             const DEF: CodecDef<'static> = CodecDef {\n        curve: Some(C::DEF),\n        ..Q::DEF\n    };\n}\n";
         let unused = format!(
-            "{codec}\n#[ww_api_root(wire = \"w1.0\")]\npub trait Api {{\n    fn code() -> Code;\n}}\n"
+            "{codec}\n#[ww_api_root(wire = \"w1.0\")] #[effect(edit)]\npub trait Api {{\n    fn code() -> Code;\n}}\n"
         );
         let dir = write_crate("generic_codec_unused_api", &[("lib.rs", &unused)]);
         load_crate(&dir).unwrap();
 
         let used = format!(
-            "{codec}\n#[ww_api_root(wire = \"w1.0\")]\npub trait Api {{\n    fn code() -> Transfer<Code, Code>;\n}}\n"
+            "{codec}\n#[ww_api_root(wire = \"w1.0\")] #[effect(edit)]\npub trait Api {{\n    fn code() -> Transfer<Code, Code>;\n}}\n"
         );
         let dir = write_crate("generic_codec_used_api", &[("lib.rs", &used)]);
         let err = format!("{:#}", load_crate(&dir).unwrap_err());
@@ -1190,7 +1190,8 @@ mod tests {
             format!(
                 "{consts}\n#[derive_shrink_wrap]\npub struct Limit<const MAX: i64>(pub u16);\n\n\
                 #[derive_shrink_wrap]\npub struct Caps {{\n    pub max: Limit<{arg}>,\n}}\n\n\
-                #[ww_api_root(wire = \"w1.0\")]\npub trait Api {{\n    fn caps() -> Caps;\n}}\n"
+                #[ww_api_root(wire = \"w1.0\")]
+                #[effect(edit)]\npub trait Api {{\n    fn caps() -> Caps;\n}}\n"
             )
         };
         let lib = api("pub const MAX_X: u16 = 300;", "{ MAX_X as i64 }");
@@ -1230,8 +1231,10 @@ mod tests {
         }
     }
 
-    const IMPORTED_COMMON: &str = "#[ww_trait]\npub trait Channel {\n    fn get() -> Code;\n}\n\n\
-        #[ww_trait]\npub trait Sensor {\n    fn read() -> Code;\n}\n\n\
+    const IMPORTED_COMMON: &str =
+        "#[ww_trait] #[effect(edit)]\npub trait Channel {\n    fn get() -> Code;\n}\n\n\
+        #[ww_trait]
+        #[effect(edit)]\npub trait Sensor {\n    fn read() -> Code;\n}\n\n\
         #[derive_shrink_wrap]\npub struct Code(pub u16);\n";
 
     /// A root names a sub-trait and a type through imports (EVO-42): a trait renamed by `use a::T as R`, a trait and
@@ -1240,7 +1243,8 @@ mod tests {
     #[test]
     fn traits_and_types_through_imports() {
         let lib = "pub mod common;\nuse common::Channel as Chan;\nuse common::*;\n\n\
-            #[ww_api_root(wire = \"w1.0\")]\npub trait Api {\n    fn code() -> Code;\n    \
+            #[ww_api_root(wire = \"w1.0\")]
+            #[effect(edit)]\npub trait Api {\n    fn code() -> Code;\n    \
             ww_impl!(renamed: Chan);\n    ww_impl!(globbed: Sensor);\n}\n";
         let dir = write_crate(
             "imports_api",
@@ -1301,7 +1305,7 @@ mod tests {
     fn a_subtrait_moved_into_its_own_module_is_still_a_root_item() {
         let lib = "pub mod group;\npub use group::Sub;\n\n\
             #[ww_api_root(wire = \"w1.0\")]\npub trait Api {\n    ww_impl!(sub: Sub);\n}\n";
-        let group = "#[ww_trait]\npub trait Sub {\n    fn get() -> u8;\n}\n";
+        let group = "#[ww_trait] #[effect(edit)]\npub trait Sub {\n    fn get() -> u8;\n}\n";
         let dir = write_crate(
             "subtrait_module_api",
             &[("lib.rs", lib), ("group.rs", group)],
@@ -1716,6 +1720,7 @@ mod tests {
             "api/src/lib.rs",
             "
             #[ww_api_root(wire = \"w1.0\")]
+            #[effect(edit)]
             pub trait Api {
                 fn a(v: units_lib::Volt, q: units_lib::Quantity<units_lib::units::Volt>);
                 fn b(q: units_lib::Quantity<units_lib::units::Per<units_lib::units::Volt, units_lib::units::Volt>>);

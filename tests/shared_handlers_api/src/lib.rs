@@ -7,6 +7,7 @@
 use ww_api::prelude::*;
 
 #[ww_api_root]
+#[effect(edit)]
 trait SharedHandlers {
     /// Shared: a call with arguments and a result.
     fn add(a: u32, b: u32) -> u32;
@@ -35,6 +36,7 @@ trait SharedHandlers {
 }
 
 #[ww_trait]
+#[effect(edit)]
 trait Sensors {
     /// Shared read.
     property!(ro temp: i32);
@@ -43,12 +45,14 @@ trait Sensors {
 }
 
 #[ww_trait]
+#[effect(edit)]
 trait Motor {
     /// Exclusive read and write.
     property!(rw speed: u32);
 }
 
 #[ww_trait]
+#[effect(edit)]
 trait Channel {
     /// Shared read of an element.
     property!(ro level: u32);

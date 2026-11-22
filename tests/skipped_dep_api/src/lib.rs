@@ -9,6 +9,7 @@ pub use ww_si::{Second, Volt};
 
 /// A port with a configurable line level.
 #[ww_trait]
+#[effect(edit)]
 pub trait Port {
     /// Applies `config`, answers what was set.
     #[errors(CommonError(Unsupported, InUse))]
@@ -19,6 +20,7 @@ pub trait Port {
 
 /// A bank of pins.
 #[ww_trait]
+#[effect(edit)]
 pub trait Bank {
     /// The pins of the bank.
     ww_impl!(pin[]: Pin);
@@ -28,6 +30,7 @@ pub trait Bank {
 
 /// One pin of a [Bank].
 #[ww_trait]
+#[effect(edit)]
 pub trait Pin {
     /// Drives the pin.
     fn set_level(level: Level);

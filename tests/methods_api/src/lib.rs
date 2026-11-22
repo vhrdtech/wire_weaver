@@ -3,6 +3,7 @@
 use ww_api::prelude::*;
 
 #[ww_api_root]
+#[effect(edit)]
 trait Methods {
     fn no_args();
     fn one_plain_arg(value: u8);
@@ -41,12 +42,14 @@ trait Methods {
 }
 
 #[ww_trait]
+#[effect(edit)]
 trait Plug {
     /// Answered later with the generated `plug_vbus_cycle_send_return`
     fn vbus_cycle() -> u8;
 }
 
 #[ww_trait]
+#[effect(edit)]
 trait Unit {
     /// `value` doubled, wrapping
     fn double(value: u8) -> u8;

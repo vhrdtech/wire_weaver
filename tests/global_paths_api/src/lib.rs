@@ -13,6 +13,7 @@ pub trait PathBenchDevice {
 }
 
 #[ww_trait]
+#[effect(edit)]
 pub trait Alpha {
     fn ping() -> bool;
 }

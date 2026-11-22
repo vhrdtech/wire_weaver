@@ -1937,6 +1937,7 @@ mod tests {
     fn removed_variant_breaks_rust_code() {
         let v1 = r#"
             #[ww_api_root(wire = "w1.0")]
+            #[effect(edit)]
             pub trait Api { property!(rw mode: Mode); }
             #[derive_shrink_wrap(ww_repr = u4)]
             pub enum Mode { Idle, Continuous, Triggered }
@@ -2003,6 +2004,7 @@ mod tests {
 
     const API: &str = r#"
         #[ww_api_root(wire = "w1.0")]
+        #[effect(edit)]
         pub trait Api {
             /// Turn on
             fn led_on();
@@ -2198,6 +2200,7 @@ mod tests {
             format!(
                 r#"
                 #[ww_api_root(wire = "w1.0")]
+                #[effect(edit)]
                 pub trait Api {{
                     fn write(data: {data}) -> {name};
                     property!(rw label: MaxLen<&'i str, 4>);
@@ -2257,6 +2260,7 @@ mod tests {
             format!(
                 r#"
                 #[ww_api_root(wire = "w1.0")]
+                #[effect(edit)]
                 pub trait Api {{
                     fn samples() -> {ty};
                 }}
@@ -2678,6 +2682,7 @@ mod tests {
         format!(
             r#"
                 #[ww_api_root(wire = "w1.0")]
+                #[effect(edit)]
                 pub trait Api {{
                     {items}
                 }}
@@ -2712,6 +2717,7 @@ mod tests {
                 }}
 
                 #[ww_trait]
+                #[effect(edit)]
                 pub trait Diag {{
                     {read}
                     fn read() -> u8;
@@ -2753,6 +2759,7 @@ mod tests {
                 }}
 
                 #[ww_trait]
+                #[effect(edit)]
                 {trait_attr}
                 pub trait Port {{
                     fn write();
@@ -2810,6 +2817,7 @@ mod tests {
             format!(
                 r#"
                 #[ww_api_root(wire = "w1.0")]
+                #[effect(edit)]
                 pub trait Api {{
                     {errors}
                     fn read() -> Result<u8, ReadError>;

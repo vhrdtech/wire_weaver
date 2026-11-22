@@ -122,6 +122,7 @@ in either direction. WireWeaver generates the device's server and the host's cli
 - **[Optional items](api/optional_items.md)**: Leave out what a board doesn't have, with no flash spent, and clients know before they call.
 - **[Optional traits](api/optional_items.md#optional-traits)**: Leave a whole block of the API out of a build, e.g. behind a Cargo feature, and clients see it is not there.
 - **[Error lists](api/methods.md#error-lists)**: Which errors each method can return, shown in docs and tools and checked in tests.
+- **[Effects](api/metadata.md#effect-what-an-item-does)**: Every method, writable property and sink says what it does (`read`, `persist`, `actuate`, ...): GUIs, agents and the hub know what is safe to call.
 - **[Stream functions](api/streams.md#stream-functions)**: Open a stream with typed arguments and a result, like a method call.
 - **[Observing properties](api/observing.md)**: Ask a device to send changes on change or periodically, within a byte budget.
 - **[Observing every sample](api/observing.md#every-sample-batched)**: A fast property's every sample, each at its time, in compressed batches; typed and dynamic clients, the CLI and Python.

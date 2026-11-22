@@ -1,5 +1,6 @@
 use super::{
     crate_walker::{CrateContext, LookupKey, Scratch},
+    effects,
     errors::{ListedOn, get_errors_attr, refuse_common_error_type, reject_errors_attr},
     keyed::{convert_api_item_keyed, reject_keys_ident_collisions},
     meta::{MetaSite, get_meta},
@@ -24,11 +25,13 @@ use syn::{
 };
 use ww_self::{
     ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned, ArgumentOwned, Batching,
-    Delivery, ErrorVariantOwned, Multiplicity, PropertyAccess, TypeOwned,
+    Delivery, Effects, ErrorVariantOwned, MetaOwned, Multiplicity, PropertyAccess, TypeOwned,
 };
 
+/// The items of `item_trait`, whose own attributes are `level_meta` (`#[effect]` there is the default of its items).
 pub(crate) fn convert_api_items(
     item_trait: &syn::ItemTrait,
+    level_meta: Option<&MetaOwned>,
     current_crate: &CrateContext,
     scratch: &mut Scratch,
 ) -> Result<Vec<ApiItemOwned>> {
@@ -161,6 +164,12 @@ pub(crate) fn convert_api_items(
         )?;
         idx += 1;
     }
+    effects::settle(
+        &item_trait.ident.to_string(),
+        level_meta.map_or(Effects::NONE, |m| m.effects),
+        &mut items,
+    )
+    .context(current_crate.err_context())?;
     reject_group_item_collisions(&items).context(current_crate.err_context())?;
     reject_keys_ident_collisions(&items).context(current_crate.err_context())?;
     Ok(items)
@@ -825,9 +834,9 @@ pub(crate) fn convert_trait(
     {
         return Ok(UNib32(idx as u32));
     }
-    let items = convert_api_items(item_trait, current_crate, scratch)?;
-    let compact_id = compact_trait_id(current_crate, &trait_name);
     let meta = get_meta(&item_trait.attrs, MetaSite::Trait, current_crate)?;
+    let items = convert_api_items(item_trait, meta.as_ref(), current_crate, scratch)?;
+    let compact_id = compact_trait_id(current_crate, &trait_name);
     let trait_idx = scratch.root_bundle.traits.len() as u32;
     scratch
         .root_bundle
@@ -1081,6 +1090,7 @@ pub(crate) mod tests {
             "meta",
             r#"
             #[ww_api_root(wire = "w1.0")]
+            #[effect(edit)]
             pub trait Api {
                 #[claim(shared)]
                 #[shares(index = 0, pins = "PA11, PA12", peripherals = "FDCAN1")]
@@ -1096,11 +1106,14 @@ pub(crate) mod tests {
                 property!(rw power: bool);
             }
             #[ww_trait]
+            #[effect(edit)]
             pub trait Bus { fn send(); }
             #[ww_trait]
+            #[effect(edit)]
             #[claim]
             pub trait Port { fn write(); }
             #[ww_trait]
+            #[effect(edit)]
             pub trait Plain { fn ping(); }
             "#,
         )
@@ -1146,7 +1159,7 @@ pub(crate) mod tests {
 
     #[test]
     fn meta_misplaced_or_malformed() {
-        let impls = "#[ww_trait] pub trait P { fn f(); }";
+        let impls = "#[ww_trait] #[effect(edit)] pub trait P { fn f(); }";
         for (src, expected) in [
             ("#[claim] fn send();", "#[claim] on `send`"),
             ("#[claim] property!(rw speed: u32);", "#[claim] on `speed`"),
@@ -1202,6 +1215,90 @@ pub(crate) mod tests {
         }
     }
 
+    /// `#[effect]` (API-58): an item's own wins, the trait's is the default of methods, writable properties and
+    /// sinks, reads by kind stay without, and the trait keeps its default in its `meta`.
+    #[test]
+    fn effects_settled_per_item() {
+        use ww_self::Effects;
+        let bundle = load_src(
+            "effects",
+            r#"
+            #[ww_api_root]
+            #[effect(edit)]
+            pub trait Api {
+                fn set();
+                #[effect(read)]
+                fn get() -> u8;
+                #[effect(persist, destructive)]
+                fn erase();
+                property!(rw speed: u32);
+                property!(ro temp: u8);
+                const MAX: u8;
+                sink!(tx: u8);
+                stream!(rx: u8);
+                #[effect(actuate)]
+                stream!(motion: u8);
+            }
+            "#,
+        )
+        .unwrap();
+        let effects = |name: &str| {
+            bundle
+                .root
+                .items
+                .iter()
+                .find(|i| i.ident == name)
+                .unwrap()
+                .effects()
+        };
+        assert_eq!(effects("set"), Effects::EDIT);
+        assert_eq!(effects("get"), Effects::READ);
+        assert_eq!(effects("erase"), Effects::PERSIST | Effects::DESTRUCTIVE);
+        assert_eq!(effects("speed"), Effects::EDIT);
+        assert_eq!(effects("tx"), Effects::EDIT);
+        assert_eq!(effects("motion"), Effects::ACTUATE);
+        for read in ["temp", "MAX", "rx"] {
+            assert_eq!(effects(read), Effects::READ, "{read}");
+            let item = bundle.root.items.iter().find(|i| i.ident == read).unwrap();
+            assert!(
+                item.meta.is_none(),
+                "{read}: nothing stored for a read by kind"
+            );
+        }
+        assert_eq!(bundle.root.meta.as_ref().unwrap().effects, Effects::EDIT);
+    }
+
+    #[test]
+    fn effects_required_and_checked() {
+        let impls = "#[ww_trait] #[effect(edit)] pub trait P { fn f(); }";
+        for (src, expected) in [
+            ("fn send();", "`Api::send` has no effect"),
+            ("property!(rw speed: u32);", "`Api::speed` has no effect"),
+            ("property!(wo beep: u8);", "`Api::beep` has no effect"),
+            ("sink!(tx: u8);", "`Api::tx` has no effect"),
+            ("#[effect(read, edit)] fn f();", "combines with no other"),
+            (
+                "#[effect(edit)] #[effect(persist)] fn f();",
+                "more than one #[effect]",
+            ),
+            ("#[effect(wobble)] fn f();", "unknown effect `wobble`"),
+            (
+                "#[effect(edit)] property!(ro t: u8);",
+                "it is only ever read",
+            ),
+            ("#[effect(edit)] const C: u8;", "it is only ever read"),
+            ("#[effect(edit)] ww_impl!(p: P);", "#[effect] on a ww_impl!"),
+        ] {
+            let src = format!("#[ww_api_root] pub trait Api {{ {src} }}\n{impls}");
+            let e = format!("{:?}", load_src("effects_bad", &src).unwrap_err());
+            assert!(e.contains(expected), "{src}: {e}");
+        }
+        // reads by kind need none
+        let src =
+            "#[ww_api_root] pub trait Api { property!(ro t: u8); stream!(rx: u8); const C: u8; }";
+        load_src("effects_reads", src).unwrap();
+    }
+
     /// `#[ww_api_root(wire = "w2.3")]` and `#[since = "w2.1"]` (EVO-24): the root's wire version in the bundle, every
     /// `#[since]` a wire revision; a crate version in either place is refused with a hint.
     #[test]
@@ -1212,6 +1309,7 @@ pub(crate) mod tests {
             #[derive_shrink_wrap]
             pub struct S { pub a: u8, #[since = "w2.2"] #[default = 0] pub b: u8 }
             #[ww_api_root(wire = "w2.3")]
+            #[effect(edit)]
             pub trait Api {
                 fn a(s: S);
                 #[since = "w2.1"]
@@ -1234,28 +1332,32 @@ pub(crate) mod tests {
         };
         assert_eq!(fields[1].since, Some(WireVersion::new(2, 2)));
 
-        let plain = load_src("wire_none", "#[ww_api_root] pub trait Api { fn a(); }").unwrap();
+        let plain = load_src(
+            "wire_none",
+            "#[ww_api_root] #[effect(edit)] pub trait Api { fn a(); }",
+        )
+        .unwrap();
         assert_eq!(plain.wire, None, "inline sources of tests may leave it out");
 
         for (src, expected) in [
             (
-                r#"#[ww_api_root(wire = "w1.0")] pub trait Api { #[since = "0.2.0"] fn a(); }"#,
+                r#"#[ww_api_root(wire = "w1.0")] #[effect(edit)] pub trait Api { #[since = "0.2.0"] fn a(); }"#,
                 "#[since = \"0.2.0\"] names a crate version",
             ),
             (
-                r#"#[ww_api_root(wire = "w1.0")] pub trait Api { #[since = "w0.2.0"] fn a(); }"#,
+                r#"#[ww_api_root(wire = "w1.0")] #[effect(edit)] pub trait Api { #[since = "w0.2.0"] fn a(); }"#,
                 "three numbers are a crate version",
             ),
             (
-                r#"#[ww_api_root(wire = "1.0")] pub trait Api { fn a(); }"#,
+                r#"#[ww_api_root(wire = "1.0")] #[effect(edit)] pub trait Api { fn a(); }"#,
                 "no `w` in front",
             ),
             (
-                r#"#[ww_api_root(wire = "w1.0.0")] pub trait Api { fn a(); }"#,
+                r#"#[ww_api_root(wire = "w1.0.0")] #[effect(edit)] pub trait Api { fn a(); }"#,
                 "three numbers are a crate version",
             ),
             (
-                r#"#[ww_api_root(version = "w1.0")] pub trait Api { fn a(); }"#,
+                r#"#[ww_api_root(version = "w1.0")] #[effect(edit)] pub trait Api { fn a(); }"#,
                 "takes one argument, `wire = ",
             ),
         ] {
@@ -1279,11 +1381,12 @@ pub(crate) mod tests {
         let metadata =
             |wire: &str| format!("\n[package.metadata.wire_weaver]\nwire = \"{wire}\"\n");
         for src in [
-            "#[ww_api_root] pub trait Api { #[since = \"w0.1\"] fn a(); }",
-            "#[ww_api_root] pub trait Api { #[since = \"w1.0\"] fn a(); }",
+            "#[ww_api_root] #[effect(edit)] pub trait Api { #[since = \"w0.1\"] fn a(); }",
+            "#[ww_api_root] #[effect(edit)] pub trait Api { #[since = \"w1.0\"] fn a(); }",
             r#"#[derive_shrink_wrap]
             pub struct S { pub a: u8, #[since = "w0.2"] #[default = 0] pub b: u8 }
-            #[ww_api_root] pub trait Api { fn a(s: S); }"#,
+            #[ww_api_root]
+            #[effect(edit)] pub trait Api { fn a(s: S); }"#,
         ] {
             let e = format!(
                 "{:#}",
@@ -1291,13 +1394,13 @@ pub(crate) mod tests {
             );
             assert!(e.contains("on w0, the design line"), "{src}: {e}");
         }
-        let src = "#[ww_api_root] pub trait Api { #[since = \"w1.1\"] fn a(); }";
+        let src = "#[ww_api_root] #[effect(edit)] pub trait Api { #[since = \"w1.1\"] fn a(); }";
         let bundle = load_src_with("since_w1", &metadata("w1.1"), src).unwrap();
         assert_eq!(bundle.root.items[0].since, Some(WireVersion::new(1, 1)));
         let bundle = load_src_with(
             "no_since_w0",
             &metadata("w0.3"),
-            "#[ww_api_root] pub trait Api { fn a(); }",
+            "#[ww_api_root] #[effect(edit)] pub trait Api { fn a(); }",
         )
         .unwrap();
         assert_eq!(bundle.wire, Some(WireVersion::new(0, 3)));
@@ -1311,13 +1414,13 @@ pub(crate) mod tests {
 
         let metadata =
             |wire: &str| format!("\n[package.metadata.wire_weaver]\nwire = \"{wire}\"\n");
-        let bare = "#[ww_api_root] pub trait Api { #[since = \"w2.1\"] fn a(); }";
+        let bare = "#[ww_api_root] #[effect(edit)] pub trait Api { #[since = \"w2.1\"] fn a(); }";
         let bundle = load_src_with("cargo_wire", &metadata("w2.3"), bare).unwrap();
         assert_eq!(bundle.wire, Some(WireVersion::new(2, 3)));
         assert_eq!(bundle.ext_wire, Some(vec![Some(WireVersion::new(2, 3))]));
 
         // the test entry point: a test crate, with or without the same one in Cargo.toml
-        let attr = r#"#[ww_api_root(wire = "w2.3")] pub trait Api { fn a(); }"#;
+        let attr = r#"#[ww_api_root(wire = "w2.3")] #[effect(edit)] pub trait Api { fn a(); }"#;
         let test_crate = format!("publish = false\n{}", metadata("w2.3"));
         let bundle = load_src_with("attr_same", &test_crate, attr).unwrap();
         assert_eq!(bundle.wire, Some(WireVersion::new(2, 3)));

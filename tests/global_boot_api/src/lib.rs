@@ -7,6 +7,7 @@ use ww_api::prelude::*;
 
 /// Reboots a unit between its app and its updater; implemented by the simulated old firmware.
 #[ww_trait]
+#[effect(edit)]
 pub trait Boot {
     /// Where the device stands between two updates.
     fn boot_state() -> BootState;
@@ -21,6 +22,7 @@ pub trait Boot {
 /// Registered but never implemented by anything in `tests/cross_version`: calls into it always answer
 /// `TraitNotFound`.
 #[ww_trait]
+#[effect(edit)]
 pub trait Missing {
     fn ping() -> u8;
 }

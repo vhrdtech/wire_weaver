@@ -6,6 +6,7 @@ use ww_si::{Fixed, prefix::One, units::Row};
 pub type RowCount = Fixed<Row, One, u32>;
 
 #[ww_api_root]
+#[effect(edit)]
 pub trait Archive {
     /// `rows` rows in one reply.
     fn table(rows: RowCount) -> RefVec<'i, Reading<'i>>;

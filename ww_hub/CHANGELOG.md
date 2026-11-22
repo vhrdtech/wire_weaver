@@ -8,6 +8,7 @@
 
 ### 🚀 Features
 
+- A call of an `#[effect(read)]` method passes another program's exclusive or shared claim, as a read (API-58).
 - Serves its API on `wire_weaver_server` (SRV-67): streams flow while calls run, deadline and cancel honored, exit tells clients why.
 
 - The hub refuses a client's `RequestKind::Cancel` (SRV-47) as it refuses an unknown kind: its seq is the client's, and no device behind the hub reads one.

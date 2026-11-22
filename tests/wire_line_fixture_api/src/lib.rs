@@ -5,6 +5,7 @@
 use ww_api::prelude::*;
 
 #[ww_trait]
+#[effect(edit)]
 pub trait Fixture {
     /// Added on this crate's wire `w1.2`, like a real stdlib crate's revision marker.
     #[since = "w1.2"]

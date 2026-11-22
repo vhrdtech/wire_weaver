@@ -9,8 +9,10 @@ use ww_api::prelude::*;
 #[ww_api_root]
 pub trait SettingsDemo {
     /// Averaging window of a sensor reading, milliseconds.
+    #[effect(edit, persist)]
     property!(rw meter_window_ms: u16);
     /// Whether the user LED lights up at boot.
+    #[effect(edit, persist)]
     property!(rw led_on_at_boot: bool);
 }
 

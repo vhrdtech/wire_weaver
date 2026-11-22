@@ -17,6 +17,7 @@ use ww_si::units::{Item, Kelvin, Ratio, Sample as SampleUnit, Second};
 use ww_si::{Fixed, IndexFrom1, Point, Range, Seq};
 
 #[ww_api_root]
+#[effect(edit)]
 pub trait Thermo {
     /// Sets the sampling rate and mode together. `Busy` while a triggered sample is running.
     fn configure(config: Config) -> Result<(), RateError>;
@@ -41,6 +42,7 @@ pub trait Thermo {
 }
 
 #[ww_trait]
+#[effect(edit)]
 pub trait Health {
     /// Time since boot.
     property!(ro uptime: Fixed<Second, Milli, u64>);

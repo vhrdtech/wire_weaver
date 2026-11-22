@@ -10,6 +10,7 @@
 
 ### ⚠️ Breaking
 
+- `#[effect(..)]` is required on every method, writable property and sink, on the item or its trait (API-58); the codegen refuses an API without it.
 - Generated multi-request code builds each item's `Request` with `context: Default::default()` (SRV-47, EVO-84): an item carries no context of its own; the request around it does.
 - `method_model`/`property_model` strings with text pest used to skip (typo, `;`, `+model`, `a=x b=y`) no longer compile.
 - Declares `rust-version = "1.99"`: cargo of an older Rust refuses the crate.

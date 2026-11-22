@@ -69,9 +69,10 @@ pub struct Resource<'a> {
     /// A multi request: it reaches the resources under [path](Self::path), not that one alone.
     pub multi: bool,
     /// The items [path](Self::path) goes through, from the root's down to the one it names, each with its array
-    /// index: their `ww_self` metadata (`meta`: SRV-34's claims, labels). Empty for the root (introspection of the
-    /// whole API); `None` without the model or for a path that names nothing in it (the dispatcher answers that one
-    /// with `BadPath` if it gets through).
+    /// index: their `ww_self` metadata (`meta`: SRV-34's claims, labels, API-58's effects, which
+    /// `ApiItemOwned::effects` answers for the last one, a read by kind included). Empty for the root (introspection
+    /// of the whole API); `None` without the model or for a path that names nothing in it (the dispatcher answers
+    /// that one with `BadPath` if it gets through).
     pub items: Option<&'a [(&'a ApiItemOwned, Option<u32>)]>,
     /// The API's model the server was given.
     pub api: Option<&'a ApiBundleOwned>,

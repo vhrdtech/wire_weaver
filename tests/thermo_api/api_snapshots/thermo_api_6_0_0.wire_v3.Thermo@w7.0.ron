@@ -1,7 +1,7 @@
 // thermo_api 6.0.0: API root wire_v3::Thermo at wire w7.0 and what it reaches, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 109c9f1a3502522eb5738f151a714fee5918ac65376927e5fcc71cbf4d136465
-(magic: 2837124336, ww_self_version: (major: 0, minor: 4, patch: 0), root: (docs: [
+// shrink_wrap sha256: 40a61e755240e6dcebd4a249e11fd98ee53a0e3903999454399ce05234dbdb8e
+(magic: 2837124336, ww_self_version: (major: 0, minor: 5, patch: 0), root: (docs: [
     "The API of the multi-line bench (EVO-28, EVO-42), a small temperature logger, with every wire line still in use in",
     "one crate: [wire_v1] at w5.2, [wire_v2] at w6.1 and [wire_v3] at w7.0, one API root each, their wire versions in",
     "`Cargo.toml`\'s `[package.metadata.wire_weaver.roots]`. What more than one line uses unchanged is in [common], one",
@@ -438,11 +438,11 @@
             (ident: "config", ty: OutOfLine(type_idx: 0), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 1))), errors: None), multiplicity: Flat, since: None, ident: "configure", docs: [
             "Sets the sampling rate and mode together. `Busy` while a triggered sample is running.",
-        ], optional: None, meta: None, identity: None),
+        ], optional: None, meta: Some((claim: None, shares: [], labels: [], effects: (2))), identity: None),
         (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 2)), errors: None), multiplicity: Flat, since: None, ident: "read_once", docs: [
             "Takes one sample now, whatever the mode.",
-        ], optional: None, meta: None, identity: None),
-        (id: 2, kind: Property(ty: OutOfLine(type_idx: 3), access: ReadWrite(observe: false), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "mode", docs: [], optional: None, meta: None, identity: None),
+        ], optional: None, meta: Some((claim: None, shares: [], labels: [], effects: (2))), identity: None),
+        (id: 2, kind: Property(ty: OutOfLine(type_idx: 3), access: ReadWrite(observe: false), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "mode", docs: [], optional: None, meta: Some((claim: None, shares: [], labels: [], effects: (2))), identity: None),
         (id: 3, kind: Property(ty: Instance(type_idx: 4, args: [
             Type(OutOfLine(type_idx: 5)),
             Type(OutOfLine(type_idx: 6)),
@@ -453,13 +453,13 @@
             ])),
         ]), access: ReadWrite(observe: true), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "amp_gain", docs: [
             "Amplifier gain, observable: the device changes it itself on overload.",
-        ], optional: None, meta: None, identity: Some("gain")),
+        ], optional: None, meta: Some((claim: None, shares: [], labels: [], effects: (2))), identity: Some("gain")),
         (id: 4, kind: Stream(ty: OutOfLine(type_idx: 8), is_up: true), multiplicity: Flat, since: None, ident: "samples", docs: [
             "Samples in batches while `mode` is `Continuous`, and a burst of consecutive samples per `Command::Trigger`.",
         ], optional: None, meta: None, identity: None),
         (id: 5, kind: Stream(ty: OutOfLine(type_idx: 9), is_up: false), multiplicity: Flat, since: None, ident: "commands", docs: [
             "Commands for the sampler, in order.",
-        ], optional: None, meta: None, identity: None),
+        ], optional: None, meta: Some((claim: None, shares: [], labels: [], effects: (2))), identity: None),
         (id: 6, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Array(index_type_idx: None), since: None, ident: "channel", docs: [
             "Input channels, 0-based on the wire.",
         ], optional: None, meta: None, identity: None),
@@ -475,26 +475,26 @@
             ]), default: None, flatten: false),
         ], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "calibrate", docs: [
             "Adds `offset` to every sample from now on.",
-        ], optional: None, meta: None, identity: None),
+        ], optional: None, meta: Some((claim: None, shares: [], labels: [], effects: (2))), identity: None),
         (id: 9, kind: Trait(trait_idx: 3, omitted: None), multiplicity: Flat, since: None, ident: "health", docs: [
             "Uptime and the sensor check, moved here from the root.",
         ], optional: None, meta: None, identity: None),
-    ], compact_id: None, meta: None), crate_idx: 0),
+    ], compact_id: None, meta: Some((claim: None, shares: [], labels: [], effects: (2)))), crate_idx: 0),
     InLine(level: (docs: [
         "Lines 2 and 3.",
     ], crate_idx: 0, trait_name: "Channel", items: [
-        (id: 0, kind: Property(ty: Bool, access: ReadWrite(observe: false), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "enabled", docs: [], optional: None, meta: None, identity: None),
+        (id: 0, kind: Property(ty: Bool, access: ReadWrite(observe: false), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "enabled", docs: [], optional: None, meta: Some((claim: None, shares: [], labels: [], effects: (2))), identity: None),
         (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 2)), errors: None), multiplicity: Flat, since: None, ident: "last", docs: [
             "The last sample taken on this channel.",
-        ], optional: None, meta: None, identity: None),
-    ], compact_id: None, meta: None), crate_idx: 0),
+        ], optional: None, meta: Some((claim: None, shares: [], labels: [], effects: (2))), identity: None),
+    ], compact_id: None, meta: Some((claim: None, shares: [], labels: [], effects: (2)))), crate_idx: 0),
     InLine(level: (docs: [
         "Stands in for `ww_indication::Indication` (R7): the status LED trait every line shares, same shape and wire",
         "repr, with the modes the bench\'s tests use (`IndicationMode::OnlyEssential` included, unlike `shared_sub_level`\'s",
         "smaller stand-in).",
     ], crate_idx: 0, trait_name: "Indication", items: [
-        (id: 0, kind: Property(ty: OutOfLine(type_idx: 21), access: ReadWrite(observe: false), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "mode", docs: [], optional: None, meta: None, identity: None),
-    ], compact_id: None, meta: None), crate_idx: 0),
+        (id: 0, kind: Property(ty: OutOfLine(type_idx: 21), access: ReadWrite(observe: false), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "mode", docs: [], optional: None, meta: Some((claim: None, shares: [], labels: [], effects: (2))), identity: None),
+    ], compact_id: None, meta: Some((claim: None, shares: [], labels: [], effects: (2)))), crate_idx: 0),
     InLine(level: (docs: [], crate_idx: 0, trait_name: "Health", items: [
         (id: 0, kind: Property(ty: Instance(type_idx: 4, args: [
             Type(OutOfLine(type_idx: 22)),
@@ -506,8 +506,8 @@
         ], optional: None, meta: None, identity: None),
         (id: 1, kind: Method(args: [], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 23))), errors: None), multiplicity: Flat, since: None, ident: "check_sensor", docs: [
             "Checks the sensor.",
-        ], optional: None, meta: None, identity: Some("self_test")),
-    ], compact_id: None, meta: None), crate_idx: 0),
+        ], optional: None, meta: Some((claim: None, shares: [], labels: [], effects: (2))), identity: Some("self_test")),
+    ], compact_id: None, meta: Some((claim: None, shares: [], labels: [], effects: (2)))), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "thermo_api", version: (major: 6, minor: 0, patch: 0, pre: None, build: None)),
     (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),

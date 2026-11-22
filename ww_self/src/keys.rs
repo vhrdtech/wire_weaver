@@ -5,7 +5,7 @@
 //! consumer (server and client codegen, the dynamic client, `ww`, Python).
 
 use crate::{
-    ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, ArgumentOwned, Multiplicity,
+    ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, ArgumentOwned, Effects, MetaOwned, Multiplicity,
     NumericAnyTypeOwned, NumericBaseType, PropertyAccess, TypeOwned,
 };
 use shrink_wrap::UNib32;
@@ -109,7 +109,7 @@ pub fn keys_level(level: &ApiLevelOwned, keys: &ApiItemOwned) -> Result<ApiLevel
         meta: None,
         identity: None,
     };
-    let items = vec![
+    let mut items = vec![
         item(
             INDEX_OF,
             ApiItemKindOwned::Method {
@@ -146,6 +146,11 @@ pub fn keys_level(level: &ApiLevelOwned, keys: &ApiItemOwned) -> Result<ApiLevel
             Multiplicity::Flat,
         ),
     ];
+    // a lookup: `index_of` changes nothing (API-58), the other two are reads by their kind
+    items[0].meta = Some(MetaOwned {
+        effects: Effects::READ,
+        ..MetaOwned::default()
+    });
     Ok(ApiLevelOwned {
         docs: vec![],
         crate_idx: level.crate_idx,

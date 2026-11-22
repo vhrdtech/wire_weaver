@@ -9,6 +9,7 @@
 use ww_api::prelude::*;
 
 #[ww_api_root]
+#[effect(edit)]
 pub trait CfgVariants {
     /// Last reading written, `Reading::Small(0)` at first
     fn read() -> Reading;

@@ -92,7 +92,9 @@ pub const MAX_PIECE: usize = 256;
 
 #[ww_trait]
 trait Stage {
+    #[effect(edit)]
     fn write(offset: u32, last: bool, data: MaxLen<RefVec<'i, u8>, MAX_PIECE>);
+    #[effect(edit)]
     property!(rw label: MaxLen<&'i str, 32>);
 }
 ```
@@ -163,7 +165,9 @@ dynamic client, `ww` and Python:
 ```rust
 #[ww_trait]
 trait Calc {
+    #[effect(read)]
     fn eval(expr: Expr<'i>) -> Option<i32>;
+    #[effect(edit)]
     property!(rw tree: Tree<'i>);
 }
 
@@ -245,7 +249,9 @@ arguments, return values, properties, stream items, fields of other types (API-4
 ```rust
 #[ww_trait]
 trait Sensor {
+    #[effect(read)]
     fn swap(pair: Pair<u8, u16>) -> Pair<u16, u8>;
+    #[effect(read)]
     fn sum(window: Window<4>) -> u32;
     property!(ro current: Timed<Ampere>);
     stream!(readings: Reading<i16>);
@@ -286,6 +292,7 @@ A `type` alias stands for what it names, in every API position (API-45):
 trait Supply {
     property!(ro voltage: Volt);
     property!(ro sampled: Timed<Volt>);
+    #[effect(read)]
     fn last(n: u8) -> Reading<u32>;
 }
 

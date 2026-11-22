@@ -95,6 +95,15 @@ mod tests {
                 Ready(Ok(id))
             }
 
+            /// Frames sent so far: a read (API-58), open under another program's claim.
+            fn bus_sent(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                _index_chain: [ww_client_server::ResourceIndex; 1],
+            ) -> RpcResult<u32> {
+                Ready(0)
+            }
+
             /// Bit rate.
             fn set_bus_speed(
                 &mut self,
@@ -683,8 +692,8 @@ mod tests {
         }
     }
 
-    /// A holds `bus[0]`: B's calls and writes there get `Common(InUse)` naming A, from the hub; its reads, streams
-    /// and calls elsewhere go on; A's own calls go through.
+    /// A holds `bus[0]`: B's calls and writes there get `Common(InUse)` naming A, from the hub; its reads, streams,
+    /// calls of `read` methods and calls elsewhere go on; A's own calls go through.
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn claimed_bus_refuses_others_calls_and_writes() {
         let bench = start("claim", Duration::from_secs(30));
@@ -732,6 +741,8 @@ mod tests {
         assert_eq!(rx.recv().await.unwrap(), 9);
         assert_eq!(b.dev.bus(1).send(8).call().await.unwrap(), 8);
         assert_eq!(a.dev.bus(0).send(7).call().await.unwrap(), 7);
+        // a method that only reads (API-58) is a read
+        assert_eq!(b.dev.bus(0).sent().call().await.unwrap(), 0);
 
         // released: B goes through
         assert_eq!(

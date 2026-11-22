@@ -19,6 +19,7 @@ UART bridge, frames for a CAN transmitter.
 trait Updater {
     /// Update plan: steps and data, tens to hundreds of KB, in pieces of up to 1 KiB
     #[credit]
+    #[effect(persist)]
     sink!(plan: MaxLen<RefVec<'i, u8>, 1024>);
 }
 ```

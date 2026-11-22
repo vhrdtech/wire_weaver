@@ -377,6 +377,7 @@ mod tests {
         let lib_rs = format!(
             r#"
             #[ww_api_root(wire = "w1.0")]
+            #[effect(edit)]
             pub trait Api {{
                 {methods}
             }}

@@ -28,30 +28,40 @@ truncated timestamp and correlate device time with its own.
 ```rust
 #[ww_trait]
 pub trait Clock {
+    #[effect(read)]
     fn now() -> Second;
 
+    #[effect(read)]
     fn info() -> ClockInfo<'i>;
 
     stream!(time_map: TimeMapPoint);
 
+    #[effect(edit, actuate)]
     fn configure_sync(config: SyncConfig) -> Result<(), ClockError>;
 
+    #[effect(read)]
     fn sync_config() -> SyncConfig;
 
+    #[effect(read)]
     fn sync_status() -> SyncStatus<'i>;
 
+    #[effect(edit)]
     fn set_time_of_day(t: DateTime) -> Result<(), ClockError>;
 
     #[optional(host_sync)]
+    #[effect(edit)]
     fn steer(point: SteerPoint<'i>) -> Result<Option<SyncSource>, ClockError>;
 
     #[optional(host_sync)]
+    #[effect(read)]
     fn shared_now() -> Option<u64>;
 
     #[optional(host_sync)]
+    #[effect(edit)]
     fn set_sources(sources: Option<MaxLen<RefVec<SyncSource>, 8>>) -> Result<(), ClockError>;
 
     #[optional(host_sync)]
+    #[effect(read)]
     fn sources() -> Option<MaxLen<RefVec<SyncSource>, 8>>;
 }
 ```

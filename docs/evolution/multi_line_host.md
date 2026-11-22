@@ -50,7 +50,9 @@ use super::common::{Channel, Command, Config, Mode, RateError, Sample, SelfTestE
 
 #[ww_api_root]
 pub trait Thermo {
+    #[effect(edit)]
     fn configure(config: Config) -> Result<(), RateError>;
+    #[effect(read)]
     fn read_once() -> Sample;
     ww_impl!(channel[]: Channel);
     // ..

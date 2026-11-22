@@ -1,7 +1,7 @@
 // pins_fixture_api 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: d60620af30538ce635f400ddb6edcaecad2090bb7b832cab89a95a3b0533dd72
-(magic: 2837124336, ww_self_version: (major: 0, minor: 4, patch: 0), root: (docs: [
+// shrink_wrap sha256: 7a9a6dba32594c7aba390de44e82d045e51d184919aa3a82e83872e7d32c0c9b
+(magic: 2837124336, ww_self_version: (major: 0, minor: 5, patch: 0), root: (docs: [
     "Frozen fixture for `wire_weaver_evolution`\'s own `pins::refresh` tests (EVO-70, `tests/check.rs`): one embedded",
     "trait of a tests/ stand-in dependency (`pins_dep::ValueApi`, framework types only), no `ww_stdlib` crate, so",
     "the tests survive the `ww_stdlib` cut (P2401#16nov-0955h).",
@@ -12,22 +12,22 @@
         (id: 0, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "value", docs: [], optional: None, meta: None, identity: None),
     ], compact_id: None, meta: None), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, trait_name: "ValueApi", signature: [
-        142,
+        206,
+        252,
+        197,
+        12,
+        253,
+        50,
+        116,
         42,
-        73,
-        71,
-        46,
-        181,
-        184,
-        114,
-        142,
+        206,
+        252,
+        197,
+        12,
+        253,
+        50,
+        116,
         42,
-        73,
-        71,
-        46,
-        181,
-        184,
-        114,
     ]),
 ], ext_crates: [
     (crate_id: "pins_fixture_api", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),

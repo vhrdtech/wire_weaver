@@ -14,8 +14,10 @@ Nothing is resent, nothing waits, and a plain sink carries it.
 #[ww_trait]
 trait Pointer {
     /// Moves the pointer by the change of the totals since the last write applied.
+    #[effect(edit)]
     sink!(motion: Totals<Delta>);
     /// Scrolls by the change since the last write applied.
+    #[effect(edit)]
     sink!(scroll: Totals<Fixed<Detent, One, i32>>);
 }
 

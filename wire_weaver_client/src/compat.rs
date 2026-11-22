@@ -643,6 +643,7 @@ pub(crate) mod tests {
 
     pub(crate) const BLINKY: &str = r#"
         #[ww_api_root(wire = "w1.0")]
+        #[effect(edit)]
         pub trait Blinky {
             fn led_on();
             fn led_off();
@@ -657,7 +658,7 @@ pub(crate) mod tests {
         let mut host = bundle(
             "recursive",
             "0.1.0",
-            "#[ww_api_root] pub trait Api { fn f(a: A<'i>); } pub struct A<'i> { x: RefBox<'i, A<'i>> }",
+            "#[ww_api_root] #[effect(edit)] pub trait Api { fn f(a: A<'i>); } pub struct A<'i> { x: RefBox<'i, A<'i>> }",
         );
         let TypeLocationOwned::InLine { ty: a, .. } = host.types[0].clone() else {
             panic!("in-line");
@@ -746,6 +747,7 @@ pub(crate) mod tests {
     fn newer_client_older_device() {
         let client = r#"
             #[ww_api_root(wire = "w1.1")]
+            #[effect(edit)]
             pub trait Blinky {
                 fn led_on();
                 fn led_off();
@@ -774,6 +776,7 @@ pub(crate) mod tests {
     fn method_signatures() {
         let client = r#"
             #[ww_api_root(wire = "w1.0")]
+            #[effect(edit)]
             pub trait Api {
                 fn set(x: u8);
                 fn get() -> u8;
@@ -785,6 +788,7 @@ pub(crate) mod tests {
         "#;
         let device = r#"
             #[ww_api_root(wire = "w1.0")]
+            #[effect(edit)]
             pub trait Api {
                 fn set(x: u16);
                 fn get() -> u8;
@@ -817,6 +821,7 @@ pub(crate) mod tests {
     fn evolved_struct() {
         let v1 = r#"
             #[ww_api_root(wire = "w1.0")]
+            #[effect(edit)]
             pub trait Api {
                 fn set(c: Coord);
                 fn get() -> Coord;
@@ -830,6 +835,7 @@ pub(crate) mod tests {
         "#;
         let v2_default = r#"
             #[ww_api_root(wire = "w1.0")]
+            #[effect(edit)]
             pub trait Api {
                 fn set(c: Coord);
                 fn get() -> Coord;
@@ -884,6 +890,7 @@ pub(crate) mod tests {
     fn enum_variants() {
         let v1 = r#"
             #[ww_api_root(wire = "w1.0")]
+            #[effect(edit)]
             pub trait Api {
                 fn get() -> Mode;
                 fn set(m: Mode);
@@ -897,6 +904,7 @@ pub(crate) mod tests {
         "#;
         let v2 = r#"
             #[ww_api_root(wire = "w1.0")]
+            #[effect(edit)]
             pub trait Api {
                 fn get() -> Mode;
                 fn set(m: Mode);
@@ -939,6 +947,7 @@ pub(crate) mod tests {
     fn properties_and_streams() {
         let client = r#"
             #[ww_api_root(wire = "w1.0")]
+            #[effect(edit)]
             pub trait Api {
                 property!(rw a: u8);
                 property!(ro b: u8);
@@ -948,6 +957,7 @@ pub(crate) mod tests {
         "#;
         let device = r#"
             #[ww_api_root(wire = "w1.0")]
+            #[effect(edit)]
             pub trait Api {
                 property!(ro a: u8);
                 property!(rw b: u8);
@@ -977,12 +987,14 @@ pub(crate) mod tests {
             }
 
             #[ww_trait]
+            #[effect(edit)]
             trait Channel {
                 property!(rw gain: f32);
                 fn run();
             }
 
             #[ww_trait]
+            #[effect(edit)]
             trait Subgroup {
                 fn m1();
             }
@@ -1038,12 +1050,14 @@ pub(crate) mod tests {
     fn skipped_trait_changed_without_version_bump() {
         let source = r#"
             #[ww_api_root(wire = "w1.0")]
+            #[effect(edit)]
             pub trait Api {
                 fn m0();
                 ww_impl!(sub: Subgroup);
             }
 
             #[ww_trait]
+            #[effect(edit)]
             trait Subgroup {
                 fn m1();
             }
@@ -1071,6 +1085,7 @@ pub(crate) mod tests {
     fn client_only_tracks_since() {
         let client = r#"
             #[ww_api_root(wire = "w1.2")]
+            #[effect(edit)]
             pub trait Api {
                 fn a();
                 #[since = "w1.2"]
@@ -1078,6 +1093,7 @@ pub(crate) mod tests {
             }
 
             #[ww_trait]
+            #[effect(edit)]
             trait Subgroup {
                 #[since = "w1.1"]
                 fn m1();
@@ -1224,6 +1240,7 @@ pub(crate) mod tests {
 
         let client = r#"
             #[ww_api_root(wire = "w1.1")]
+            #[effect(edit)]
             pub trait Api {
                 fn a(x: u8);
                 #[since = "w1.1"]
@@ -1233,6 +1250,7 @@ pub(crate) mod tests {
         "#;
         let device = r#"
             #[ww_api_root(wire = "w1.0")]
+            #[effect(edit)]
             pub trait Api {
                 fn a(x: u16);
             }
@@ -1319,6 +1337,7 @@ pub(crate) mod tests {
 
         let client = r#"
             #[ww_api_root(wire = "w0.3")]
+            #[effect(edit)]
             pub trait Api {
                 fn a(x: u8);
                 fn b();
@@ -1327,6 +1346,7 @@ pub(crate) mod tests {
         // a break without a new line: `a` changed its argument
         let device = r#"
             #[ww_api_root(wire = "w0.5")]
+            #[effect(edit)]
             pub trait Api {
                 fn a(x: u16);
                 fn b();
@@ -1407,6 +1427,7 @@ pub(crate) mod tests {
             format!(
                 r#"
                     #[ww_api_root(wire = "{wire}")]
+                    #[effect(edit)]
                     pub trait Api {{
                         fn a();
                     }}
@@ -1441,6 +1462,7 @@ pub(crate) mod tests {
             "0.1.0",
             r#"
                 #[ww_api_root(wire = "w1.0")]
+                #[effect(edit)]
                 pub trait Api {
                     fn a();
                 }
@@ -1515,6 +1537,7 @@ pub(crate) mod tests {
 
         let client = r#"
             #[ww_api_root(wire = "w2.1")]
+            #[effect(edit)]
             pub trait Api {
                 fn a();
                 #[since = "w1.1"]

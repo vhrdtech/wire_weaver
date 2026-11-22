@@ -250,6 +250,7 @@ and the place it had on the line before:
 ```rust
 #[ww_api_root(wire = "w3.0")]
 pub trait Thermo {
+    #[effect(edit)]
     fn configure(config: Config) -> Result<(), RateError>;
     ww_impl!(health: Health);
 }
@@ -258,6 +259,7 @@ pub trait Thermo {
 pub trait Health {
     /// Was `Thermo::self_test` on line 2.
     #[moved_from(w2.1, Thermo::self_test)]
+    #[effect(read)]
     fn self_test() -> Result<(), SelfTestError>;
 }
 ```

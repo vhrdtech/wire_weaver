@@ -3,6 +3,7 @@
 use ww_api::prelude::*;
 
 #[ww_api_root]
+#[effect(edit)]
 trait Traits {
     ww_impl!(g1: Subgroup);
     ww_impl!(gpio[]: Gpio);
@@ -24,11 +25,13 @@ trait Traits {
 }
 
 #[ww_trait]
+#[effect(edit)]
 trait Subgroup {
     fn m1();
 }
 
 #[ww_trait]
+#[effect(edit)]
 #[claim]
 trait Gpio {
     fn set_high();
@@ -40,6 +43,7 @@ trait Peripheral {
 }
 
 #[ww_trait]
+#[effect(edit)]
 trait Channel {
     property!(rw gain: f32);
     fn run();
@@ -75,6 +79,7 @@ mod doc_trait {
 
 /// Optional items (API-16): a server leaves them out with `ww_codegen!(.., omit = [..])`.
 #[ww_trait]
+#[effect(edit)]
 trait I2c {
     fn i2c_write(data: u8) -> u8;
     /// Clocks SCL until SDA is released.
@@ -92,6 +97,7 @@ trait I2c {
 
 /// Optional trait attachments (API-54): a server leaves a whole `ww_impl!` out with `omit = [..]` or `omit_if`.
 #[ww_api_root]
+#[effect(edit)]
 trait Board {
     fn ping() -> u8;
     /// Pin diagnostics, a firmware feature.
@@ -105,6 +111,7 @@ trait Board {
 }
 
 #[ww_trait]
+#[effect(edit)]
 trait Diag {
     fn read(point: u16) -> u8;
     /// Served without a handler, from the server's consts trait.

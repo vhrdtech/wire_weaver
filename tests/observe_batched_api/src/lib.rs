@@ -5,6 +5,7 @@
 use ww_api::prelude::*;
 
 #[ww_api_root]
+#[effect(edit)]
 trait ObserveBatched {
     /// Every sample observable, a number
     property!(ro+observe+batched current: i32);

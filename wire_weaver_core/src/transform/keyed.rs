@@ -300,8 +300,9 @@ mod tests {
 
     fn load_api(name: &str, body: &str) -> Result<ApiBundleOwned> {
         let lib_rs = format!(
-            "use ww_api::prelude::*;\n#[ww_api_root(wire = \"w1.0\")]\npub trait Api {{\n{body}\n}}\n\
-             #[ww_trait]\npub trait Flow {{ fn close(); }}\n"
+            "use ww_api::prelude::*;\n#[ww_api_root(wire = \"w1.0\")]\n#[effect(edit)]\npub trait Api {{\n{body}\n}}\n\
+             #[ww_trait]
+             #[effect(edit)]\npub trait Flow {{ fn close(); }}\n"
         );
         load_src_with(name, &deps(true), &lib_rs)
     }

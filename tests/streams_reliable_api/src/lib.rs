@@ -3,6 +3,7 @@
 use ww_api::prelude::*;
 
 #[ww_api_root]
+#[effect(edit)]
 trait StreamsReliable {
     /// Bytes received on a line, as a counted stream; unit: byte
     #[counted]

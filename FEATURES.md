@@ -183,13 +183,21 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   variant outside the list, tests fail (`tests_common`). Nothing on the device (`docs/api/methods.md#error-lists`,
   `tests/methods`, `tests/properties`, `tests/streams_reliable`). Not yet: the generated client's property reads
   (their errors are raw bytes, so only the dynamic client checks them); the GUI (`wire_weaver_tool`).
+- ✅ **API-58 Effects of API items** · `v0.5.x` — `#[effect(read | edit | persist | destructive | permanent |
+    outbound | actuate | reset | job)]` on a method, writable property or sink, or on its trait as the default of
+    its items: what using it does. Required on every effectful item (a compile error names the one without); `read`
+    stands alone; property reads, `ro`/`const` properties and stream opens are `read` by kind. Carried in
+    introspection as `ww_self::Effects`, a bitset in `Meta` (unknown bits kept, read as the most restrictive case),
+    stored only where an item changes something; model format 0.5.0, whose readers still read 0.4.0 snapshots.
+    The hub lets a call of a `read` method through another program's exclusive or shared claim, as a read (the
+    `observe` right of SRV-37 takes the same rule); `Authorize` sees the effects in `Resource::items`;
+    `ww info --effects` lists effectful items by effect, `ww api tree` and rustdoc show them;
+    `docs/api/metadata.md` maps them to MCP tool annotations. Absorbs API-56 (`actuate`). Every API in the
+    repository and in ww_stdlib is annotated. Tests: `wire_weaver_core` (`effects_*`), `tests/hub`
+    (`claimed_bus_refuses_others_calls_and_writes`), `wire_weaver_cli` (`effects_list_what_changes_something`).
 - 📋 **API-12 Calculate max path depth in server codegen** · `v0.5` — `MAX_DEPTH` is hardcoded to 16 in
   `wire_weaver_core/src/codegen/api_server.rs`.
 - 📋 **API-13 Error system, remove `unwrap`s from codegen** · `v0.5` — report errors with spans instead of panicking.
-- 📋 **API-56 care-marker Care marker on switching writes** — a typed attribute (the `ww_self::Meta` of SRV-34) on
-    a method or property whose call or write switches power or outputs (a rail, a relay, a motor enable), carried in
-    introspection: GUIs ask to confirm, `ww call` / `ww set` want `--yes`, the hub can log who did it. Wire
-    compatible, nothing on the device.
 - 📋 **API-57 device-metadata Device-level metadata** — typed attributes on the API root or in a stdlib trait for what
     a device is: product, board revision, connectors (with the resources behind each, so a label like "J4" points at
     pins and buses), supported clock sync (`ww_timebase` host sync and its sources); in introspection next to
@@ -493,10 +501,6 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   (`#[stream(T, codec = auto)]`), in the introspection data so dynamic clients and Python decode it; keyframes on
   open, after a gap and every N items. It is how a string or a frame, which a `Series` batch can't take (no size
   bound), would get cheaper per item. Prior art: Gorilla, Sprintz, Chimp, ALP.
-- 📋 **API-58 `#[read_only]` methods** · `v0.5.x` — a typed attribute in `ww_self::Meta` (next to SRV-34's `claim`)
-  for methods without effects, carried in introspection: the hub lets peers with only the `observe` right call them
-  (SRV-37), GUIs may call them freely. The API author's promise, not something the hub can check. Design: hub
-  federation (SRV-33).
 - ✅ **SRV-1 `no_std`, no-alloc server**, IO-free generated code.
 - ✅ **SRV-2 Sans-IO `DeviceLink`**, async `Server` with `wait()`/`handle()` for a user-owned event loop, and
   `blocking::Server`.
@@ -602,7 +606,7 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
     client instance (CLT-41) as its principal and drops with its last connection or at the ttl; overlap by path and by
     `#[shares]`, nesting within one instance. `docs/api/metadata.md`, `docs/transport/hub.md` (with how hub and
     device-side claims combine); tests `tests/traits` (`meta_in_introspection`), `wire_weaver_core` (`meta_*`),
-    `ww_hub` (`claims`), `tests/hub` (`claim*`). Later attributes: API-56, API-57.
+    `ww_hub` (`claims`), `tests/hub` (`claim*`). Later attributes: API-58 (effects), API-57.
 - 🧪 **SRV-19 ECC-safe STM32 flash for stores** — `mcu/ww_ecc_flash`: `EccSafeFlash` wraps any `NorFlash` (embassy-stm32's
   `Flash`) and reads it one ECC word at a time; a word with an uncorrectable ECC error (power cut while programming
   or erasing) reads as zeros instead of an NMI (STM32G0, `FLASH_ECCR.ECCD`, through `on_nmi()` or feature
@@ -850,7 +854,8 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   tunnels (the remote hub multiplexes), host names and remote keys validated, `ww hub detach`.
 - 📋 **SRV-37 Hub principals and per-device rights** · `v0.5.x` — who is connected, from what the OS, ssh or a key
   says (never the client's own metadata), and what it may do per device: `observe`, `control`, `dfu`, from glob
-  rules in `~/.config/ww/hub_peers.toml`; the hub answers refused requests with `Forbidden` itself, filters the
+  rules in `~/.config/ww/hub_peers.toml` (`observe` admits reads and calls of `#[effect(read)]` items, API-58,
+  through `claims::Target::access_seen`); the hub answers refused requests with `Forbidden` itself, filters the
   registry, keeps hub API methods local unless classified, and owns claims per principal.
 - 📋 **SRV-38 Restricted ssh keys for the hub** · `v0.5.x` — `authorized_keys` lines with
   `restrict,command="ww hub stdio --peer NAME"` give a key only the rights of `[peer.NAME]`; `ww hub allow --ssh`
@@ -3174,3 +3179,4 @@ Unicast Data0 to one node over the same bus is TR-6.
 - **Introspect as a trait, removed from `ww_client_server`** — won't do.
 - **WebUSB descriptors** — only some browsers support WebUSB and it needs separate host support; NCM is more
   appealing, especially with pre-programmed unique IPs.
+- **API-56 care-marker Care marker on switching writes** — folded into API-58 effects-of-api-items as the `actuate` effect.

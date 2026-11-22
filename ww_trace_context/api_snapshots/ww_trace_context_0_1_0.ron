@@ -1,7 +1,7 @@
 // ww_trace_context 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 0369482725143eb277e7a9956fcc1d0974ff0a552365f3651b3168b53a486253
-(magic: 2837124336, ww_self_version: (major: 0, minor: 4, patch: 0), root: (docs: [
+// shrink_wrap sha256: 7003cc29725ddd9f4645b6684faf6ab9590445d3214649404fb0b9ad47b21a20
+(magic: 2837124336, ww_self_version: (major: 0, minor: 5, patch: 0), root: (docs: [
     "W3C trace context (`traceparent`, version 00) as WireWeaver puts it on the wire: the trace and span a request",
     "belongs to, carried in `ww_client_server::RequestContext` (SRV-47) and read by handlers from",
     "`wire_weaver::CallContext`. Types only, `no_std`, no allocator.",

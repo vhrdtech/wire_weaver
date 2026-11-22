@@ -145,6 +145,20 @@ pub(crate) enum Target {
 }
 
 impl Target {
+    /// What `access` to this target is to claims (and to the per-peer rights of SRV-37): a call of an item whose
+    /// effects are `read` alone (API-58, the API author's promise) is a read, so it stays open under an exclusive or
+    /// shared claim as a property read does. Anything else, or without the device's model, stays as it is.
+    pub(crate) fn access_seen(&self, access: Access, bundle: Option<&ApiBundleOwned>) -> Access {
+        let (Access::Call, Target::At(path), Some(bundle)) = (access, self, bundle) else {
+            return access;
+        };
+        let reads = bundle
+            .item_chain(path)
+            .and_then(|chain| chain.last().map(|(item, _)| item.effects().is_read()))
+            .unwrap_or(false);
+        if reads { Access::Read } else { access }
+    }
+
     /// Whether the request reaches into the claimed resource at `claimed`.
     fn reaches(&self, claimed: &[u32]) -> bool {
         match self {

@@ -13,7 +13,9 @@ crossing the wire is any [ShrinkWrap](../serdes/shrink_wrap.md) type.
 ```rust
 #[ww_api_root]
 pub trait BlinkyApi {
+    #[effect(actuate)]
     fn led_on();
+    #[effect(actuate)]
     fn led_off();
 }
 ```
@@ -42,7 +44,9 @@ use ww_api::prelude::*;
 
 #[ww_api_root]
 pub trait BlinkyApi {
+    #[effect(actuate)]
     fn led_on();
+    #[effect(actuate)]
     fn led_off();
 }
 ```
@@ -132,16 +136,21 @@ use ww_si::units::{Ampere, Kelvin, Meter, Per, Ratio, Second};
 #[ww_api_root]
 trait MyDevice {
     /// Methods: any number of arguments, any return type, Result for errors.
+    #[effect(actuate)]
     fn set_brightness(value: Fixed<Ratio, Centi, u8, Range<0, 100>>);
+    #[effect(read)]
     fn temperature() -> Point<Celsius, Fixed<Kelvin, Centi, i16>>;
+    #[effect(read)]
     fn read() -> Result<u16, SensorError>;
 
     /// Properties: values the host reads, writes or observes.
+    #[effect(actuate)]
     property!(rw speed: Fixed<Per<Meter, Second>, Milli, i32>);
     property!(ro+observe current: Fixed<Ampere, Milli, i32>);
 
     /// Streams out of the device, sinks into it.
     stream!(button: ButtonEvent);
+    #[effect(outbound)]
     sink!(uart_tx: [u8]);
 
     /// Traits: groups of items, here an array of GPIO banks from the standard library.

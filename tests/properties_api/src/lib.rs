@@ -3,6 +3,7 @@
 use ww_api::prelude::*;
 
 #[ww_api_root]
+#[effect(edit)]
 trait Properties {
     property!(rw x: u8);
     property!(rw y: u8);
@@ -22,6 +23,7 @@ trait Properties {
 }
 
 #[ww_trait]
+#[effect(edit)]
 trait Channel {
     property!(rw level: u8);
 }

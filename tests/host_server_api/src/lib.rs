@@ -2,6 +2,7 @@
 use ww_api::prelude::*;
 
 #[ww_api_root]
+#[effect(edit)]
 trait HostServer {
     /// Answers `x`
     fn echo(x: u32) -> u32;

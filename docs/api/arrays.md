@@ -10,7 +10,9 @@ A property, stream, sink or trait can be an array of resources, written with `[]
 #[ww_trait]
 trait Board {
     stream!(adc[]: u16);
+    #[effect(outbound)]
     sink!(lanes[]: [u8]);
+    #[effect(edit)]
     property!(rw gain[]: f32);
     ww_impl!(port[]: ww_gpio::Bank);
 }
@@ -37,6 +39,7 @@ separately.
 ```rust
 #[ww_trait]
 trait ArrayOfResources {
+    #[effect(actuate)]
     property!(rw led[]: bool);
 }
 ```
@@ -46,6 +49,7 @@ Here `led` is one resource whose type is an array: all three values are read and
 ```rust
 #[ww_trait]
 trait ResourceOfArrays {
+    #[effect(actuate)]
     property!(rw led: [bool; 3]);
 }
 ```
@@ -55,6 +59,7 @@ Both together:
 ```rust
 #[ww_trait]
 trait ArrayOfArrays {
+    #[effect(actuate)]
     property!(rw rgb_led[]: [u8; 3]);
 }
 ```

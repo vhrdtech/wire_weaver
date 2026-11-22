@@ -79,8 +79,10 @@ resource, field or variant, so the host can tell what an older device has:
 ```rust
 #[ww_api_root]
 pub trait BlinkyApi {
+    #[effect(actuate)]
     fn led_on();
     #[since = "w2.4"]
+    #[effect(actuate)]
     fn led_toggle();
 }
 ```

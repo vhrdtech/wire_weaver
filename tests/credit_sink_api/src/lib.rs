@@ -4,6 +4,7 @@ use ww_api::prelude::*;
 
 /// Sinks with credit-based flow control (API-28), see `docs/api/streams.md`.
 #[ww_api_root]
+#[effect(edit)]
 trait CreditSinks {
     /// Bulk bytes, e.g., an update plan
     #[credit]

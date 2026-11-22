@@ -24,7 +24,9 @@ its own message. This is what makes observing cheaper than one `StreamData` even
 trait Motor {
     property!(ro+observe speed: f32);
     property!(ro+observe current: f32);
+    #[effect(edit)]
     property!(rw+observe mode: u8);
+    #[effect(edit)]
     property!(rw gain: f32); // not observable
 }
 ```

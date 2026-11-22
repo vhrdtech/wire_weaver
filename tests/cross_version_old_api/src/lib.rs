@@ -9,6 +9,7 @@
 use ww_api::prelude::*;
 
 #[ww_api_root]
+#[effect(edit)]
 pub trait CrossVersion {
     fn led_on();
     fn led_off();
@@ -17,6 +18,7 @@ pub trait CrossVersion {
 
 /// Everything about the unit that is not an interface
 #[ww_trait]
+#[effect(edit)]
 pub trait Device {
     fn uptime_s() -> u32;
     ww_impl!(boot: global_boot_api::Boot);

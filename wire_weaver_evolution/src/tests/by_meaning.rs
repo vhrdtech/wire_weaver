@@ -59,6 +59,7 @@ fn api_with(ty: &str, markers: &str) -> String {
         use ww_si::units::{{Coulomb, Degree, Joule, Kelvin, Meter, Newton, Pascal, Per, PoundForce, Radian, Second, Times, Volt}};
 
         #[ww_api_root(wire = "w1.0")]
+        #[effect(edit)]
         pub trait Api {{
             fn set(shared: {ty});
             property!(ro uptime: {ty});

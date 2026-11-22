@@ -10,10 +10,15 @@ return value.
 ```rust
 #[ww_trait]
 trait MyDevice {
+    #[effect(actuate)]
     fn led_on();
+    #[effect(actuate)]
     fn set_brightness(value: Fixed<Ratio, Centi, u8, Range<0, 100>>);
+    #[effect(read)]
     fn temperature() -> Point<Celsius, Fixed<Kelvin, Centi, i16>>;
+    #[effect(edit)]
     fn user_type(state: State);
+    #[effect(read)]
     fn user_ret_type() -> UserType<'i>;
 }
 
@@ -55,6 +60,7 @@ On the wire, the arguments of a method or a stream function are the fields of on
 #[ww_trait]
 trait Blinky {
     // 0.1.0: fn led_on();
+    #[effect(actuate)]
     fn led_on(brightness: Option<Fixed<Ratio, Centi, u8, Range<0, 100>>>, #[default = 3] blinks: u8);
 }
 ```
@@ -80,6 +86,7 @@ pub struct Config {
 #[ww_trait]
 trait Device {
     // before: fn configure(a: u8, b: u16);
+    #[effect(edit)]
     fn configure(#[flatten] cfg: Config);
 }
 ```
@@ -277,6 +284,7 @@ the common errors it returns (STD-16), `CommonError` all of them:
 trait Sensor {
     /// Reads one sample.
     #[errors(CommonError(Busy, InUse), Nack)]
+    #[effect(read)]
     fn read() -> Result<u16, SensorError>;
 }
 ```

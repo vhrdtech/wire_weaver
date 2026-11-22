@@ -8,6 +8,7 @@ use wire_weaver_evolution::{
 
 const API: &str = r#"
 #[ww_api_root(wire = "w1.0")]
+#[effect(edit)]
 pub trait Api {
     fn led_on();
     fn led_off();
@@ -512,6 +513,7 @@ pub struct SteerPoint {
 fn unit_suffix_hint_on_arguments_and_properties() {
     let api = r#"
 #[ww_api_root(wire = "w1.0")]
+#[effect(edit)]
 pub trait Api {
     fn configure(timeout_ms: u32, retries: u8);
     property!(ro rate_hz: u32);
@@ -584,6 +586,7 @@ pub struct SteerPoint {
 fn bare_no_unit_hint_on_arguments_needs_a_reason_under_strict() {
     let api = r#"
 #[ww_api_root(wire = "w1.0")]
+#[effect(edit)]
 pub trait Api {
     #[no_unit_hint(poll_hz)]
     fn configure(timeout_ms: u32, poll_hz: u32);
@@ -679,6 +682,7 @@ fn shared_dependency_type_is_named_once_for_every_item_it_reaches() {
 use dep_api::Shared;
 
 #[ww_api_root(wire = "w1.0")]
+#[effect(edit)]
 pub trait Api {
     fn one(s: Shared);
     fn two(s: Shared);
@@ -801,6 +805,7 @@ fn wire_version_of_a_crate_without_root_is_bumped_in_cargo_toml() {
 fn wire_version_in_cargo_toml_is_bumped(name: &str, marker: &str) {
     let shared = r#"
 #[ww_trait]
+#[effect(edit)]
 pub trait Shared {
     fn get() -> u8;
 }
@@ -838,6 +843,7 @@ const COMMON: &str = r#"
 pub struct Code(pub u16);
 
 #[ww_trait]
+#[effect(edit)]
 pub trait Channel {
     fn read() -> Code;
 }
@@ -846,6 +852,7 @@ pub trait Channel {
 const LINE_1: &str = r#"
 use super::common::Code;
 #[ww_api_root]
+#[effect(edit)]
 pub trait Api {
     fn read_once() -> Code;
     ww_impl!(channel: super::common::Channel);
@@ -855,6 +862,7 @@ pub trait Api {
 const LINE_2: &str = r#"
 use super::common::Code;
 #[ww_api_root]
+#[effect(edit)]
 pub trait Api {
     fn read_once(average: u8) -> Code;
     ww_impl!(channel: super::common::Channel);
@@ -944,7 +952,7 @@ fn snapshots_per_root() {
 
     // a doc comment on line 1: a compatible crate bump, no wire bump; a new file at 0.1.2, the released one of 0.1.0
     // never changes
-    let line_1b = LINE_1.replace("#[ww_api_root]", "/// The first line.\n#[ww_api_root]");
+    let line_1b = LINE_1.replace("#[ww_api_root]\n", "/// The first line.\n#[ww_api_root]\n");
     let modules = [
         ("common", COMMON),
         ("wire_v1", &line_1b),
@@ -1010,10 +1018,10 @@ fn snapshots_per_root() {
 #[test]
 fn crate_snapshot_is_a_roots_previous_one() {
     let c = TestCrate::new("one_to_several");
-    c.write("0.1.0", "#[ww_api_root(wire = \"w1.0\")]\npub trait Api {\n    fn led_on();\n    fn led_off();\n}\n#[derive_shrink_wrap]\npub struct Unused { pub a: u8 }\n")
+    c.write("0.1.0", "#[ww_api_root(wire = \"w1.0\")] #[effect(edit)]\npub trait Api {\n    fn led_on();\n    fn led_off();\n}\n#[derive_shrink_wrap]\npub struct Unused { pub a: u8 }\n")
         .save();
-    let line_1 = "#[ww_api_root]\npub trait Api {\n    fn led_on();\n}\n";
-    let line_2 = "#[ww_api_root]\npub trait Api {\n    fn blink();\n}\n";
+    let line_1 = "#[ww_api_root] #[effect(edit)]\npub trait Api {\n    fn led_on();\n}\n";
+    let line_2 = "#[ww_api_root] #[effect(edit)]\npub trait Api {\n    fn blink();\n}\n";
     let roots = [("wire_v1::Api", "w1.0"), ("wire_v2::Api", "w2.0")];
     c.write_roots("0.2.0", &roots, &[("wire_v1", line_1), ("wire_v2", line_2)]);
     // `led_off` removed from line 1 without a new line; `Unused`, which no root reaches, is not compared
@@ -1022,7 +1030,8 @@ fn crate_snapshot_is_a_roots_previous_one() {
     assert!(err.contains("led_off"), "{err}");
     assert!(!err.contains("Unused"), "{err}");
 
-    let line_1 = "#[ww_api_root]\npub trait Api {\n    fn led_on();\n    fn led_off();\n}\n";
+    let line_1 =
+        "#[ww_api_root] #[effect(edit)]\npub trait Api {\n    fn led_on();\n    fn led_off();\n}\n";
     c.write_roots("0.2.0", &roots, &[("wire_v1", line_1), ("wire_v2", line_2)]);
     let saved = Check::new(c.path()).save(false).unwrap();
     // line 1 is what 0.1.0 saved as the whole crate: that file stays its latest snapshot
@@ -1057,10 +1066,10 @@ fn renamed_root_is_saved_with_a_warning() {
     let c = TestCrate::new("renamed_root");
     c.write(
         "0.1.0",
-        "#[ww_api_root(wire = \"w1.0\")]\npub trait Api {\n    fn led_on();\n}\n",
+        "#[ww_api_root(wire = \"w1.0\")] #[effect(edit)]\npub trait Api {\n    fn led_on();\n}\n",
     )
     .save();
-    let line_1 = "#[ww_api_root]\npub trait Led {\n    fn led_on();\n}\n";
+    let line_1 = "#[ww_api_root] #[effect(edit)]\npub trait Led {\n    fn led_on();\n}\n";
     c.write_roots("0.2.0", &[("wire_v1::Led", "w1.0")], &[("wire_v1", line_1)]);
     let saved = save_one(c.path(), false);
     assert_eq!(saved.status, SaveStatus::Saved);
@@ -1081,7 +1090,8 @@ fn renamed_root_is_saved_with_a_warning() {
     }
     // still unchecked while 0.2.0 is worked on; the next version is checked against its own file, and isn't warned
     assert_eq!(save_one(c.path(), false).warnings.len(), 1);
-    let line_1 = "/// Docs.\n#[ww_api_root]\npub trait Led {\n    fn led_on();\n}\n";
+    let line_1 =
+        "/// Docs.\n#[ww_api_root]\n#[effect(edit)]\npub trait Led {\n    fn led_on();\n}\n";
     c.write_roots("0.2.1", &[("wire_v1::Led", "w1.0")], &[("wire_v1", line_1)]);
     let saved = save_one(c.path(), false);
     assert!(saved.warnings.is_empty(), "{:?}", saved.warnings);
@@ -1177,7 +1187,7 @@ fn design_line_in_a_publishable_crate_warns() {
     .unwrap();
     std::fs::write(
         c.path().join("src/lib.rs"),
-        "use ww_api::prelude::*;\n#[ww_api_root]\npub trait Api {\n    fn led_on();\n}\n",
+        "use ww_api::prelude::*;\n#[ww_api_root] #[effect(edit)]\npub trait Api {\n    fn led_on();\n}\n",
     )
     .unwrap();
     let outcome = Check::new(c.path()).strict(true).run().unwrap();
@@ -1376,7 +1386,7 @@ fn same_name_in_two_modules_is_not_shared() {
     let modules = |common_extra: &str, own_extra: &str| {
         let own_channel = LINE_1.replace("super::common::Channel", "Channel")
             + &format!(
-                "\n#[ww_trait]\npub trait Channel {{\n    fn read() -> Code;\n{own_extra}}}\n"
+                "\n#[ww_trait] #[effect(edit)]\npub trait Channel {{\n    fn read() -> Code;\n{own_extra}}}\n"
             );
         let mut m = per_root_modules(common_extra);
         m[1].1 = own_channel;
@@ -1425,7 +1435,7 @@ fn two_types_of_one_name_in_one_root() {
                 let ty = if module == changed { ty } else { "u8" };
                 format!("#[derive_shrink_wrap]\npub struct Point {{\n    pub {field}: {ty},\n}}\n")
             };
-            let root = "#[ww_api_root]\npub trait Api {\n    fn flat() -> super::geometry::Point;\n    \
+            let root = "#[ww_api_root] #[effect(edit)]\npub trait Api {\n    fn flat() -> super::geometry::Point;\n    \
                         fn high() -> super::other::Point;\n}\n";
             let (geometry, other) = (point("geometry", "x"), point("other", "z"));
             let modules = [
@@ -1527,7 +1537,7 @@ fn unchanged_roots_snapshot_stands_for_the_saved_version() {
     Check::new(c.path()).save(false).unwrap();
     assert!(check_current(c.path()).1.is_ok());
     // then line 1 gets a doc comment without a new version
-    modules[1].1 = LINE_1.replace("#[ww_api_root]", "/// Line 1.\n#[ww_api_root]");
+    modules[1].1 = LINE_1.replace("#[ww_api_root]\n", "/// Line 1.\n#[ww_api_root]\n");
     write_per_root(&c, "0.1.1", ["w1.0", "w2.1"], &modules);
     let err = check(c.path(), false).1.unwrap_err();
     has_all(
@@ -1583,7 +1593,7 @@ fn removal_of_a_root_saved_by_the_current_version() {
     write_per_root(&c, "0.1.0", ["w1.0", "w2.0"], &per_root_modules(""));
     Check::new(c.path()).save(false).unwrap();
     let mut modules = per_root_modules("");
-    modules[1].1 = LINE_1.replace("#[ww_api_root]", "/// Line 1.\n#[ww_api_root]");
+    modules[1].1 = LINE_1.replace("#[ww_api_root]\n", "/// Line 1.\n#[ww_api_root]\n");
     write_per_root(&c, "0.1.1", ["w1.0", "w2.0"], &modules);
     Check::new(c.path()).save(false).unwrap();
     assert!(c.snapshot("test_api_0_1_1.wire_v1.Api@w1.0.ron").exists());
@@ -1716,6 +1726,7 @@ fn shared_type_reached_by_a_design_line_root() {
 /// Line 2 of an API, and line 3 with `self_test` moved into a sub-level and `uptime` replaced there by a wider one.
 const MOVE_W2: &str = r#"
 #[ww_api_root(wire = "w2.1")]
+#[effect(edit)]
 pub trait Api {
     fn configure(rate: u16);
     property!(ro uptime: u32);
@@ -1725,12 +1736,14 @@ pub trait Api {
 
 const MOVE_W3: &str = r#"
 #[ww_api_root(wire = "w3.0")]
+#[effect(edit)]
 pub trait Api {
     fn configure(rate: u16);
     ww_impl!(health: Health);
 }
 
 #[ww_trait]
+#[effect(edit)]
 pub trait Health {
     property!(ro uptime: u64);
     #[moved_from(w2.1, Api::self_test)]
@@ -1828,6 +1841,7 @@ fn moved_from_of_a_new_root() {
 /// which keeps both links.
 const CHAIN_W1: &str = r#"
 #[ww_api_root(wire = "w1.0")]
+#[effect(edit)]
 pub trait Api {
     fn configure(rate: u16);
     fn check() -> bool;
@@ -1836,6 +1850,7 @@ pub trait Api {
 
 const CHAIN_W2: &str = r#"
 #[ww_api_root(wire = "w2.1")]
+#[effect(edit)]
 pub trait Api {
     fn configure(rate: u16);
     #[moved_from(w1.0, Api::check)]
@@ -1845,12 +1860,14 @@ pub trait Api {
 
 const CHAIN_W3: &str = r#"
 #[ww_api_root(wire = "w3.0")]
+#[effect(edit)]
 pub trait Api {
     fn configure(rate: u16);
     ww_impl!(health: Health);
 }
 
 #[ww_trait]
+#[effect(edit)]
 pub trait Health {
     #[moved_from(w2.1, Api::self_test)]
     #[moved_from(w1.0, Api::check)]
@@ -1920,7 +1937,7 @@ fn moved_from_on_a_trait_outside_the_root_tree() {
     let c = TestCrate::new("moved_from_on_a_trait_outside_the_root_tree");
     c.write("0.1.0", MOVE_W2).save();
     let unused = format!(
-        "{MOVE_W3}\n#[ww_trait]\npub trait Unused {{\n    #[moved_from(w2.1, Api::configure)]\n    fn configure(rate: u16);\n}}\n"
+        "{MOVE_W3}\n#[ww_trait] #[effect(edit)]\npub trait Unused {{\n    #[moved_from(w2.1, Api::configure)]\n    fn configure(rate: u16);\n}}\n"
     );
     c.write("0.2.0", &unused);
     let err = check(c.path(), true).1.unwrap_err();
@@ -1956,6 +1973,7 @@ pub struct Unused {
 
 const LAYOUT_CHANNEL: &str = r#"
 #[ww_trait]
+#[effect(edit)]
 pub trait Channel {
     fn mode() -> Mode;
     fn status() -> Status;
@@ -1969,6 +1987,7 @@ pub struct Status {
 
 const LAYOUT_API: &str = r#"
 #[ww_api_root(wire = "w1.0")]
+#[effect(edit)]
 pub trait Api {
     fn config() -> Config;
     ww_impl!(channel: Channel);
@@ -2077,11 +2096,13 @@ pub struct Status {
 }
 
 #[ww_trait]
+#[effect(edit)]
 pub trait Spare2 {
     fn spare() -> Spare;
 }
 
 #[ww_trait]
+#[effect(edit)]
 pub trait Channel {
     fn mode() -> Mode;
     fn status() -> Status;
@@ -2098,7 +2119,7 @@ fn snapshot_does_not_depend_on_layout_or_item_order() {
         "#[derive_shrink_wrap]\npub struct Spare {\n    pub y: u8,\n}\n\n#[derive_shrink_wrap]\npub struct Unused",
     );
     let channel = format!(
-        "{LAYOUT_CHANNEL}\n#[ww_trait]\npub trait Spare2 {{\n    fn spare() -> Spare;\n}}\n"
+        "{LAYOUT_CHANNEL}\n#[ww_trait] #[effect(edit)]\npub trait Spare2 {{\n    fn spare() -> Spare;\n}}\n"
     );
     let modules_lib_rs = format!(
         "pub mod types;\npub use types::{{Config, Mode, Spare, Unused}};\npub mod channel;\n\

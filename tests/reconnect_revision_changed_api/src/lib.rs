@@ -6,6 +6,7 @@ use ww_si::prefix::One;
 use ww_si::units::Item;
 
 #[ww_api_root]
+#[effect(edit)]
 trait Revision {
     /// Counts up on the device every millisecond
     property!(ro+observe ticks: Fixed<Item, One, u32>);

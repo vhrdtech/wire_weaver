@@ -3,6 +3,7 @@
 use ww_api::prelude::*;
 
 #[ww_api_root]
+#[effect(edit)]
 trait CommonErrors {
     /// Reads the sensor; `fail` picks the error: 0 none, 1 `InUse { by: "USART2" }`, 2 `Fault`, 3 `Nack`.
     fn read(fail: u8) -> Result<u16, SensorError>;

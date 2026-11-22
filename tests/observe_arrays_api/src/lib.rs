@@ -4,6 +4,7 @@
 use ww_api::prelude::*;
 
 #[ww_api_root]
+#[effect(edit)]
 trait Arrays {
     /// Browser slots 0..3
     ww_impl!(browsers[]: Browser);
@@ -19,6 +20,7 @@ trait Arrays {
 }
 
 #[ww_trait]
+#[effect(edit)]
 trait Browser {
     property!(ro+observe state: u8);
     /// `value_on_changed`, written by hosts: the write marks the element changed (SRV-57)
@@ -39,6 +41,7 @@ trait Player {
 }
 
 #[ww_trait]
+#[effect(edit)]
 trait Playback {
     property!(ro+observe title: &'i str);
     fn play();

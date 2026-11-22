@@ -12,7 +12,9 @@ out of the device to the host (`stream!`), a **sink** goes into the device from 
 trait MyDevice {
     stream!(button: ButtonEvent);
     stream!(uart_rx: [u8]);
+    #[effect(outbound)]
     sink!(uart_tx: [u8]);
+    #[effect(actuate)]
     sink!(leds: Vec<LedState>);
 }
 ```

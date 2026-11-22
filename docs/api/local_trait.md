@@ -30,10 +30,14 @@ The trait belongs where both sides can name it: in the API crate. The crate asks
 #[ww_api_root]
 pub trait CounterApi {
     /// Adds `by` times `step` to the total, returns the new total and sends it on `totals`
+    #[effect(edit)]
     fn add(by: u32) -> u32;
     /// The total divided by `parts`, `Err(CounterError::DivByZero)` for 0 parts
+    #[effect(read)]
     fn split(parts: u32) -> Result<u32, CounterError>;
+    #[effect(read)]
     fn snapshot() -> Snapshot<'i>;
+    #[effect(edit)]
     property!(rw step: u32);
     stream!(totals: u32);
 }

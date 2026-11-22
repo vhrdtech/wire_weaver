@@ -684,6 +684,9 @@ What is refused, for programs other than the holder, at or under the claimed pat
 | `shared` | refused for programs holding no claim on it; several programs claim it together | open |
 | `observe` | refused | refused |
 
+A call of a method marked `#[effect(read)]` (API-58, [Metadata](../api/metadata.md#effect-what-an-item-does)) counts
+as a read: it stays open under an `exclusive` or `shared` claim.
+
 - The answer is the protocol's common error event (`ErrorKind::Common(InUse { by })`, STD-16), whatever the item's
   own error type: the program's own client gets `CallError::Common` on a method with a `Result`, `Error::common()`
   on one without, Python a `RemoteError` with `.common`; the hub needs no definition from the device's API for it.

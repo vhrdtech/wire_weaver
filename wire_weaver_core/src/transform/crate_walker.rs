@@ -345,7 +345,7 @@ fn load_inner(
     root: Option<String>,
     scratch: &mut Scratch,
 ) -> Result<ApiBundleOwned> {
-    let (entry, root_cx, trait_name, wire, items) = scratch.walk(|scratch| {
+    let (entry, root_cx, trait_name, wire, meta, items) = scratch.walk(|scratch| {
         let entry = CrateContext::load_from_manifest(manifest.clone(), features.clone(), scratch)?;
         let (root_cx, trait_name) = find_root(&entry, root.as_deref(), scratch)?;
         let item_trait = get_trait(&root_cx.lib_rs_ast, &trait_name)?;
@@ -367,8 +367,9 @@ fn load_inner(
         // `#[since]` of the root crate's items names a revision of this root's line (EVO-37)
         scratch.root = Some((entry.version.clone(), wire));
         scratch.note_trait_module(&root_cx, &trait_name)?;
-        let items = convert_api_items(item_trait, &root_cx, scratch)?;
-        Ok((entry, root_cx, trait_name, wire, items))
+        let meta = get_meta(&item_trait.attrs, MetaSite::Trait, &root_cx)?;
+        let items = convert_api_items(item_trait, meta.as_ref(), &root_cx, scratch)?;
+        Ok((entry, root_cx, trait_name, wire, meta, items))
     })?;
     let item_trait = get_trait(&root_cx.lib_rs_ast, &trait_name)?;
 
@@ -376,7 +377,7 @@ fn load_inner(
         docs: collect_docs(&item_trait.attrs),
         crate_idx: 0.into(),
         compact_id: compact_trait_id(&entry, &trait_name),
-        meta: get_meta(&item_trait.attrs, MetaSite::Trait, &root_cx)?,
+        meta,
         trait_name,
         items,
     };
@@ -2260,7 +2261,7 @@ mod tests {
         );
         write(
             &dir.join("src/lib.rs"),
-            "#[ww_trait]\npub trait Info {\n    fn name() -> u8;\n}\n",
+            "#[ww_trait] #[effect(edit)]\npub trait Info {\n    fn name() -> u8;\n}\n",
         );
     }
 
@@ -2497,7 +2498,7 @@ mod tests {
             );
             write(
                 &dir.join(folder).join("src/lib.rs"),
-                "#[ww_api_root]\npub trait Api {\n    fn get() -> u8;\n}\n",
+                "#[ww_api_root] #[effect(edit)]\npub trait Api {\n    fn get() -> u8;\n}\n",
             );
         }
         write(
@@ -2540,7 +2541,7 @@ mod tests {
         );
         write(
             &dir.join("api/src/lib.rs"),
-            "pub use units_core as units;\n#[ww_api_root]\npub trait Api {\n    fn get() -> units::scale::Milli;\n}\n",
+            "pub use units_core as units;\n#[ww_api_root] #[effect(edit)]\npub trait Api {\n    fn get() -> units::scale::Milli;\n}\n",
         );
         write(
             &dir.join("server/Cargo.toml"),
@@ -2596,7 +2597,7 @@ mod tests {
             dir,
             "api",
             extra,
-            "#[ww_api_root]\npub trait Api {\n    fn get() -> units::Milli;\n}\n",
+            "#[ww_api_root] #[effect(edit)]\npub trait Api {\n    fn get() -> units::Milli;\n}\n",
         );
     }
 
@@ -2646,6 +2647,7 @@ hub = { path = \"../hub\" }
 ",
             "use hub::prelude::*;
 #[ww_api_root]
+#[effect(edit)]
 pub trait Api {
     fn get() -> Shared;
 }
@@ -2698,7 +2700,8 @@ pub trait Api {
             "[workspace]\n",
             "pub mod a {\n    exact_units::unit! { pub struct Rpm = \"rpm\", [rad 1, s -1], Exact(1 / 30, pi 1); }\n}\n\
              pub mod b {\n    exact_units::unit! { pub struct Rpm = \"r/min\", [rad 1, s -1], Exact(1 / 30, pi 1); }\n}\n\
-             #[ww_api_root]\npub trait Api {\n    fn a() -> a::Rpm;\n    fn b() -> b::Rpm;\n}\n",
+             #[ww_api_root]
+             #[effect(edit)]\npub trait Api {\n    fn a() -> a::Rpm;\n    fn b() -> b::Rpm;\n}\n",
         );
         let err = format!("{:#}", load_api(&dir.join("api")).unwrap_err());
         assert!(
@@ -2718,7 +2721,8 @@ pub trait Api {
             "my-api",
             "[workspace]\n",
             "pub mod speed {\n    exact_units::unit! { pub struct Rpm = \"rpm\", [rad 1, s -1], Exact(1 / 30, pi 1); }\n}\n\
-             #[ww_api_root]\npub trait Api {\n    fn rpm() -> speed::Rpm;\n}\n",
+             #[ww_api_root]
+             #[effect(edit)]\npub trait Api {\n    fn rpm() -> speed::Rpm;\n}\n",
         );
         let mut bundle = load_api(&dir.join("my-api")).unwrap();
         let rpm = bundle
@@ -2809,7 +2813,7 @@ pub trait Api {
                 "[workspace]\n\n[dependencies]\nunits = { path = \"../units\", features = [\"sw\"] }\n\
                  mid = { path = \"../mid\" }\n",
                 &format!(
-                    "#[ww_api_root]\npub trait Api {{\n    fn first() -> {first};\n    fn second() -> {second};\n}}\n"
+                    "#[ww_api_root] #[effect(edit)]\npub trait Api {{\n    fn first() -> {first};\n    fn second() -> {second};\n}}\n"
                 ),
             );
             let bundle = load_api(&dir.join("api")).unwrap();
@@ -2871,7 +2875,8 @@ pub trait Api {
                 &dir.join("src/lib.rs"),
                 &format!(
                     "mod unused;\nmod used;\npub use used::Value;\n\
-                     #[ww_trait] pub trait Api {{ fn get() -> {ty_module}; }}\n"
+                     #[ww_trait]
+                     #[effect(edit)] pub trait Api {{ fn get() -> {ty_module}; }}\n"
                 ),
             );
         };
@@ -2932,7 +2937,7 @@ pub trait Api {
         );
         write(
             &dir.join("src/lib.rs"),
-            "mod outer;\n#[ww_trait] pub trait Api { fn get() -> Value; }\npub use outer::Value;\n",
+            "mod outer;\n#[ww_trait] #[effect(edit)] pub trait Api { fn get() -> Value; }\npub use outer::Value;\n",
         );
         write(
             &dir.join("src/outer.rs"),

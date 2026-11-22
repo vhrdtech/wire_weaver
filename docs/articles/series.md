@@ -70,7 +70,9 @@ another struct.
 #[ww_trait]
 trait Sequences {
     /// Voltage history with device time
+    #[effect(read)]
     fn history() -> Series<'i, Timed<Volt>>;
+    #[effect(edit)]
     property!(rw stamps: Series<'i, u64>);
 }
 ```

@@ -13,13 +13,16 @@ apart from a device's own errors.
 ```rust
 #[ww_trait]
 pub trait I2c {
+    #[effect(edit)]
     fn i2c_configure(config: I2cConfig) -> Result<I2cConfig, I2cError>;
     // ...
     /// Clocks SCL until SDA is released, then a stop.
     #[optional]
+    #[effect(outbound)]
     fn i2c_wiggle_clock(count: u8) -> Result<I2cLinesState, I2cError>;
     /// Switchable pull-ups: both items or neither.
     #[optional(pullups)]
+    #[effect(actuate)]
     fn i2c_set_pullups(enabled: bool) -> Result<(), I2cError>;
     #[optional(pullups)]
     property!(ro i2c_pullups: bool);
@@ -75,6 +78,7 @@ served only in a debug build:
 ```rust
 #[ww_api_root]
 trait Board {
+    #[effect(read)]
     fn ping() -> u8;
     /// Pin diagnostics, the firmware's `pin-diag` feature.
     #[optional]
@@ -83,6 +87,7 @@ trait Board {
     #[optional(probes)]
     ww_impl!(probe[]: Probe);
     #[optional(probes)]
+    #[effect(read)]
     fn probe_count() -> u8;
 }
 

@@ -7,6 +7,7 @@
 use ww_api::prelude::*;
 
 #[ww_api_root]
+#[effect(edit)]
 pub trait DispatchGoldenTest {
     /// `Call` with no arguments and no return value: the smallest case.
     fn no_args();
@@ -51,6 +52,7 @@ pub trait DispatchGoldenTest {
 }
 
 #[ww_trait]
+#[effect(edit)]
 pub trait Channel {
     /// Called on one index of the array.
     fn pulse() -> u8;

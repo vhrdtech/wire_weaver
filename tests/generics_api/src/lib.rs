@@ -12,6 +12,7 @@ use ww_si::exact_units::niche::{Niched, Null};
 use ww_si::{Ampere, Fixed, Range, Timed, prefix::One, units::Ratio};
 
 #[ww_api_root]
+#[effect(edit)]
 trait Generics {
     /// The two values swapped
     fn swap(pair: Pair<u8, u16>) -> Pair<u16, u8>;

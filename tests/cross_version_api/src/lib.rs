@@ -6,6 +6,7 @@
 use ww_api::prelude::*;
 
 #[ww_api_root]
+#[effect(edit)]
 pub trait CrossVersion {
     fn identify();
     ww_impl!(device: Device);
@@ -13,6 +14,7 @@ pub trait CrossVersion {
 
 /// Everything about the unit that is not an interface
 #[ww_trait]
+#[effect(edit)]
 pub trait Device {
     ww_impl!(update: Node);
     ww_impl!(boot: global_boot_api::Boot);
@@ -21,6 +23,7 @@ pub trait Device {
 
 /// Stands in for a real update-identity trait: only its presence (and so the API's shape) matters here.
 #[ww_trait]
+#[effect(edit)]
 pub trait Node {
     fn node() -> u8;
 }

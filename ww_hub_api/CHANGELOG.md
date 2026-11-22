@@ -14,6 +14,7 @@
 
 ### 🚀 Features
 
+- Every method and writable property declares its effect (API-58).
 - `HubStatus::captures`: whether the hub records (SRV-64), `false` from an older hub.
 - `Captures` at `Hub::captures` (SRV-64): `start(key, CaptureOptions) -> CaptureId`, `stop`, `save(id, path) -> SaveInfo`, `discard` and `set_ram_max(id, RamMax)` (only for a client with a part in the capture), `captures(after) -> CapturePage` (paged by `MAX_CAPTURE_PAGE_BYTES`, `CaptureEntry::clients` as connection ids), `watch(id, Pressure) -> WatchId` and `watches[w].records`, a stream of `RecordBatch` (`WatchEntry::Link`, `Record`, `Gap` with `GapCause`); `CaptureError` with `NotAvailable { hub, started_by }` and its `Display` text. A relaying hub may only start and stop, within a quota for all relaying hubs, and never widens a local capture. A capture that ends unsaved drops its records. `CaptureEntry::broken` (a tap panicked) and `CaptureError::Closing` (the hub exits). Every length and count is bounded by a constant (`MAX_KEY_LEN`, `MAX_PATH_LEN`, `MAX_CAPTURES`, `MAX_CAPTURE_CLIENTS`, `MAX_RELAY_CAPTURES`, `MAX_CAPTURE_PAGE_BYTES`, `MAX_WATCHES`, `MAX_BATCH_ENTRIES`, `MAX_BATCH_BYTES`, `MAX_ITEM_LEN`, `MAX_LINK_KEY_LEN`, `RAM_MAX_MIN`/`MAX`/`DEFAULT`). Depends on `ww_si` (`time`, `information`, `counting`).
 - `api_error!` for `TakeError`, `ClaimError`, `ReleaseError`, `AdoptError`, `HandoverError` and their `Owned` forms (STD-16): the hub's handlers `?` them into `wire_weaver::Error`.

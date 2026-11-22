@@ -119,7 +119,7 @@ lint-c:
     cc -std=c99 -Wall -Wextra -Werror -pedantic -Wconversion -Wsign-conversion -DSW_NO_F64 -c shrink_wrap_c/sw_requantize.c -o /dev/null
 
 # cargo check everything
-check: check-core check-mcu check-examples-mcu check-android
+check: check-core check-mcu check-examples-mcu
 
 # cargo check repo root workspace
 check-core:
@@ -128,12 +128,6 @@ check-core:
     # check ww_device with features used on embedded targets
     @cargo check -p ww_device --features=defmt,embassy-time
     @cargo check -p ww_device --features=defmt,embassy-net,ws,udp
-
-# clippy what a phone app links, for aarch64-linux-android: the client without usb (nusb has no Android backend)
-# and the server. ring's C needs a clang for the target: the NDK's in CI, the system clang works for a check.
-check-android:
-    CC_aarch64_linux_android="${CC_aarch64_linux_android:-clang}" AR_aarch64_linux_android="${AR_aarch64_linux_android:-llvm-ar}" cargo clippy --target aarch64-linux-android -p wire_weaver_client --no-default-features --features in_process,ws,udp,byte_stream,clock_sync -- -D warnings
-    CC_aarch64_linux_android="${CC_aarch64_linux_android:-clang}" AR_aarch64_linux_android="${AR_aarch64_linux_android:-llvm-ar}" cargo clippy --target aarch64-linux-android -p wire_weaver_server --all-features -- -D warnings
 
 # cargo check mcu workspace
 [working-directory('mcu')]

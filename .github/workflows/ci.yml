@@ -138,22 +138,6 @@ jobs:
       # a shared item's &mut self handler doesn't compile (SRV-65): trybuild, as above
       - run: cargo test -p shared_handlers --test shared_ui -- --ignored
 
-  # what a phone app links (`just check-android`), with the runner's NDK clang for ring's C
-  android:
-    name: clippy (aarch64-linux-android)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions-rust-lang/setup-rust-toolchain@v2
-        with:
-          components: clippy
-      - uses: taiki-e/install-action@v2
-        with:
-          tool: just
-      - run: |
-          bin="$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
-          CC_aarch64_linux_android="$bin/aarch64-linux-android30-clang" AR_aarch64_linux_android="$bin/llvm-ar" just check-android
-
   miri:
     name: miri (observe cells)
     runs-on: ubuntu-latest

@@ -11,6 +11,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
+- A connect attempt stops half way without losing its command channel (CLT-75); see `wire_weaver_client`.
 - The local trait without `Send`, for single-threaded services, served by `serve_trait` (SRV-73); see `wire_weaver_derive`, `wire_weaver_server`.
 - A `serve_trait` stream that ends closes the client's stream; see `wire_weaver_core`.
 - The ww hub serves its API on the host server; shutdown futures carry the clients' disconnect reason (SRV-67); see `ww_hub`, `wire_weaver_server`.

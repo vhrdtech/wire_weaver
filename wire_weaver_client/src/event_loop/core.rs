@@ -314,13 +314,22 @@ async fn tx_task<T: Transport>(
                         warn!("ignoring connect command, while already connected, this is a bug");
                         continue;
                     };
-                    match connector
+                    let opening = connector
                         .connect(handle, link.clone(), max_message_len)
                         .instrument(tracing::debug_span!(
                             crate::client::prepared_connection::spans::OPEN
-                        ))
-                        .await
-                    {
+                        ));
+                    let mut held = Vec::new();
+                    let opened = open_or_stop(opening, &mut cmd_rx, &mut held).await;
+                    let Some(opened) = opened else {
+                        // a stop came while the medium opened: it goes in with what came before it, the opening is
+                        // dropped, rx sees the medium never come
+                        for input in held {
+                            core.handle(now(), input);
+                        }
+                        continue;
+                    };
+                    match opened {
                         Ok(o) => {
                             msg_tx = Some(o.tx.into());
                             let mut l = link.clone();
@@ -337,6 +346,10 @@ async fn tx_task<T: Transport>(
                             }
                         }
                         Err(e) => core.handle(now(), TxInput::TransportError(e)),
+                    }
+                    // in the order they came, after the medium's outcome as before it opened
+                    for input in held {
+                        core.handle(now(), input);
                     }
                 }
                 TxOutput::Send { kind, message } => {
@@ -450,6 +463,43 @@ async fn tx_task<T: Transport>(
         msg_tx.close().await;
     }
     ((core, result), cmd_rx)
+}
+
+/// Awaits `opening`, taking in the commands that come meanwhile into `held`, for after it: a medium that takes long
+/// to open (an address that doesn't answer, up to the link setup timeout) doesn't hold a stop back. A stop (a
+/// disconnect, [Command::StopAttempt], every Commander gone) drops the opening at once: `None`, the stop last in
+/// `held`.
+async fn open_or_stop<O>(
+    opening: impl Future<Output = O>,
+    cmd_rx: &mut mpsc::Receiver<Command>,
+    held: &mut Vec<TxInput>,
+) -> Option<O> {
+    let mut opening = std::pin::pin!(opening);
+    loop {
+        tokio::select! {
+            biased;
+            opened = &mut opening => return Some(opened),
+            cmd = cmd_rx.recv() => {
+                let input = match cmd {
+                    Some(cmd) => TxInput::Command(cmd),
+                    None => TxInput::CommanderDropped,
+                };
+                let stop = matches!(
+                    &input,
+                    TxInput::CommanderDropped
+                        | TxInput::Command(
+                            Command::StopAttempt
+                                | Command::DisconnectAndExit { .. }
+                                | Command::DisconnectKeepStreams { .. }
+                        )
+                );
+                held.push(input);
+                if stop {
+                    return None;
+                }
+            }
+        }
+    }
 }
 
 async fn rx_task(
@@ -1299,6 +1349,27 @@ mod tests {
         // the ping timer was due at the same instant and fired first, that is all that went out
         assert!(kinds(&p.take_sent()).iter().all(|k| *k == Kind::Ping));
         assert!(matches!(p.tx_exit, Some(Err(_))));
+    }
+
+    /// A StopAttempt with no attempt under way (left in the channel by a loop that exited by itself) is ignored; one
+    /// during link setup ends the loop, keeping streams.
+    #[test]
+    fn stop_attempt_stops_only_an_attempt() {
+        let now = Instant::now();
+        let mut p = Pair::new();
+        p.cmd(now, Command::StopAttempt);
+        assert!(p.tx_exit.is_none(), "nothing to stop before Connect");
+        let (connected_tx, _connected_rx) = oneshot::channel();
+        p.cmd(now, connect_cmd(connected_tx));
+        p.tx.handle(now, TxInput::TransportUp);
+        p.settle(now);
+        assert_eq!(kinds(&p.take_sent()), [Kind::Nop, Kind::Hello]);
+        p.cmd(now, Command::StopAttempt);
+        assert!(matches!(
+            p.tx_exit,
+            Some(Ok(EventLoopExitReason::DisconnectKeepStreamsCommand))
+        ));
+        assert_eq!(kinds(&p.take_sent()), [Kind::Disconnect]);
     }
 
     #[test]

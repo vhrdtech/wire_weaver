@@ -136,6 +136,12 @@ pub enum Command {
         reason: DisconnectReason,
     },
 
+    /// Stop the connection attempt under way, keeping streams as [Command::DisconnectKeepStreams] does: the loop exits
+    /// with its residual, an opening medium is dropped at once. Ignored by a loop with no attempt (before
+    /// [Command::Connect], or after it exited), so one left in the channel by a loop that exited by itself is harmless
+    /// to the next. A connect cancelled half way sends it to take its channel back (CLT-75).
+    StopAttempt,
+
     /// All incoming messages from a device and all outgoing commands will be sent to this channel.
     /// Multiple tracers could be installed.
     RegisterTracer {
@@ -205,6 +211,7 @@ impl Command {
             | Command::CallerGone
             | Command::Adopt { .. }
             | Command::GlobalPaths(_)
+            | Command::StopAttempt
             | Command::RegisterTracer { .. }
             | Command::SetTap { .. } => {}
         }

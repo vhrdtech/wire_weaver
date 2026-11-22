@@ -2,6 +2,7 @@
 
 ### 🐛 Fixes
 
+- A disconnect while a medium opens, or dropping a keep-trying client mid-attempt, stops the attempt at once (CLT-75).
 - The tap `Decoder` finds a record's link and the tap clock by the track definitions, not by numbers (ww_tape READ-5).
 - Builds outside this workspace again: tokio's `rt-multi-thread`, needed by `block_in_place` on `Commander` drop, is on.
 
@@ -40,6 +41,7 @@
 
 ### ⚠️ Breaking
 
+- `Command::StopAttempt` (CLT-75) stops a connection attempt under way, keeping streams: exhaustive matches add the arm.
 - `Command::SendMessage` has a `trace: Option<wire_weaver::TraceContext>` field (SRV-47) and `Command` a `CallerGone` variant: code building the command adds `trace: None`, exhaustive matches add the arm.
 - `tap::track_number` and `tap::track_of` are gone (ww_tape READ-5): `tap::link_stream_of` reads a track's link and stream from its definition.
 - `in_process::WsPort` is a stream of pipes, no longer a `ws::Socket`: serve it as `WsConnection::new(IoSocket::new(port))` (TR-19).

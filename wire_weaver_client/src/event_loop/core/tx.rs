@@ -615,13 +615,20 @@ impl TxCore {
                 reason,
             } => {
                 info!("disconnecting on user request (but keeping streams ready for re-use)");
-                // before rx learns that the link is down
-                self.output.push_back(TxOutput::ToRx(ToRx::KeepStreams));
-                self.events.disconnected("client request", true);
-                self.send_disconnect(now, reason);
                 self.disconnected_tx = disconnected_tx;
-                return Ok(Flow::Exit(
-                    EventLoopExitReason::DisconnectKeepStreamsCommand,
+                return Ok(self.exit_keeping_streams(now, reason, "client request"));
+            }
+            Command::StopAttempt => {
+                if matches!(self.phase, Phase::Idle | Phase::Exited) {
+                    // left in the channel by an attempt whose loop exited by itself: nothing here to stop
+                    debug!("ignoring StopAttempt: no connection under way");
+                    return Ok(Flow::Continue);
+                }
+                debug!("connection attempt stopped (keeping streams)");
+                return Ok(self.exit_keeping_streams(
+                    now,
+                    DisconnectReason::RequestByUser,
+                    "attempt stopped",
                 ));
             }
             Command::DisconnectAndExit {
@@ -1260,6 +1267,15 @@ impl TxCore {
     }
 
     /// Best effort, errors are ignored as we are going down anyway.
+    /// Ends the link with `reason`, keeping counted and reliable streams for the next one.
+    fn exit_keeping_streams(&mut self, now: Instant, reason: DisconnectReason, why: &str) -> Flow {
+        // before rx learns that the link is down
+        self.output.push_back(TxOutput::ToRx(ToRx::KeepStreams));
+        self.events.disconnected(why, true);
+        self.send_disconnect(now, reason);
+        Flow::Exit(EventLoopExitReason::DisconnectKeepStreamsCommand)
+    }
+
     fn send_disconnect(&mut self, now: Instant, reason: DisconnectReason) {
         // first: the other side may close the medium as soon as it reads the Disconnect, before rx hears Stop
         self.output.push_back(TxOutput::ToRx(ToRx::Disconnecting));

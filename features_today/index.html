@@ -1903,6 +1903,8 @@
       
         
       
+        
+      
     
     
     
@@ -2124,6 +2126,33 @@
     
   
   Introspection data
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/json/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  JSON for any API
 
     
   </span>
@@ -6803,7 +6832,6 @@ from the description the device sends of itself; the <code>ww</code> tool and Py
 <li><strong><a href="../transport/hub/#who-holds-a-device-clt-38">Who holds a device</a></strong>: A busy error names the program already holding a USB interface or RTT probe, pid and since when; a crash releases it right away.</li>
 <li><strong><a href="../transport/hub/#reaching-devices-through-the-hub-clt-39">Hub routing in connect</a></strong>: A device the ww hub holds, or one opened again and again from a shell, is reached through the hub, which a program starts by itself when needed; <code>WW_HUB</code> says when. <span class="ww-status">in progress</span></li>
 <li><strong><a href="../transport/overview/#where-a-connects-time-goes">Where a connect's time goes</a></strong>: A connect reports each step as a <code>tracing</code> span, and <code>just connect-bench</code> times them for many clients at once or a board on USB, cold and warm. <span class="ww-status">in progress</span></li>
-<li><strong><a href="../transport/websocket/#finding-servers-on-the-lan">Servers found on the LAN</a></strong>: A client finds WebSocket servers announced over DNS-SD and follows one to its new address after a DHCP change. <span class="ww-status">in progress</span></li>
 <li><strong><a href="../transport/keep_trying/#another-revision-of-the-devices-api">Reconnect onto another API revision</a></strong>: A reconnect to other firmware on the same wire line learns its API again and resumes what still fits.</li>
 <li><strong><a href="../transport/keep_trying/">Keep-trying connections</a></strong>: A client that exists at once, connects when the device comes up, reconnects whenever the link goes and resumes its observers and streams, racing its addresses; <code>retry_now()</code> hurries it. <span class="ww-status">in progress</span></li>
 <li><strong><a href="../transport/keep_trying/#what-it-does">Addresses raced</a></strong>: A device reachable at several addresses (LAN and VPN) is connected at whichever answers first, so an address that is gone costs nothing.</li>
@@ -6872,6 +6900,8 @@ layer checks on connect that both ends speak the same protocol.</p>
 <ul>
 <li><strong><a href="../std_library/ww_self/">Bit-sized numbers in the model</a></strong>: <code>U7</code>, <code>I12</code>, nibbles and the like, read and written by the dynamic client and Python.</li>
 <li><strong><a href="../std_library/units_in_the_model/">Units in the model</a></strong>: A device's API carries the definition of every unit, scale and origin it uses, also of your own crate's, so <code>ww</code>, the dynamic client and Python convert and show them without a built-in table.</li>
+<li><strong><a href="../api/json/">JSON for any API</a></strong>: <code>ww_json</code> turns the values of any method, property or stream into JSON and back, quantities as text with their unit (<code>"5 ms"</code>), big integers as strings, errors naming the JSON path.</li>
+<li><strong><a href="../api/json/#json-schema">JSON Schema of every item</a></strong>: <code>ww_json::schema</code> describes the arguments, results, properties and stream items of any API as a JSON Schema, quantities with their unit and bounds, for MCP servers and other JSON clients.</li>
 <li><strong><a href="../api/introspection/#compressed-introspection-data">Compressed introspection data</a></strong>: <code>introspect_compression = "lz4"</code> keeps a device's API description compressed in flash, the client decompresses it: 4.3 KB less on rePort.</li>
 <li><strong><a href="../evolution/rules/#moving-a-resource-to-another-place">Identity of a renamed resource</a></strong>: A resource renamed with <code>#[moved_from]</code> keeps its first name in the device's API description, so recordings follow it across the rename.</li>
 <li><strong><a href="../std_library/ww_self/">Moved flag bits</a></strong>: Relocated <code>#[flag]</code> fields in the model and in dynamic values.</li>

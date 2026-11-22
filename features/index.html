@@ -1733,6 +1733,8 @@
       
         
       
+        
+      
     
     
     
@@ -1954,6 +1956,33 @@
     
   
   Introspection data
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/json/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  JSON for any API
 
     
   </span>
@@ -7929,15 +7958,6 @@ observing), SRV-46 (peer identity).
   its tokio worker for 50 ms (fixed, <code>commander_drop_on_a_worker_lets_the_loop_answer</code>). See
   <a href="../docs/transport/overview/#where-a-connects-time-goes">Transport protocols</a>. Missing: the full-speed USB run
   (Nucleo G0B1RE).
-- 🚧 <strong>CLT-82 Servers found on the LAN</strong> · <code>v0.5</code> — <code>ww_dns_sd::Discovery</code> (feature <code>mdns</code>) browses for
-  <code>_wireweaver._tcp</code> (<code>Browser</code>, in-process <code>mdns-sd</code>) and keeps the found servers (<code>FoundServer</code>: name, id, API,
-  wire, path, port, addresses) as they come, move and go, at most <code>SERVERS_MAX</code>; <code>on_change()</code> tells the app.
-  <code>wire_weaver_client</code> re-exports it under feature <code>dns_sd</code>; <code>ClientConfig::websocket_urls_from(UrlSource)</code> asks for
-  the URLs at every connect and reconnect attempt, and <code>discovery::urls(&amp;Discovery, Select, fallback)</code> is such a
-  source, so a keep-trying client follows a server to its new address. The feature needs no <code>usb</code>, so it builds
-  for Android without USB code. See <code>docs/transport/websocket.md#finding-servers-on-the-lan</code>;
-  tested in <code>tests/dns_sd</code> (browser on loopback) and <code>tests/keep_trying</code> (<code>discovery</code>: found, moved, reconnected,
-  gone). Missing: <code>ww discover</code> and a discovered name where <code>ww</code> commands take a URL.
 - ✅ <strong>CLT-81 Reconnect onto another API revision</strong> · <code>v0.5</code> — a reconnect (keep-trying, hub-supervised,
   <code>Commander::reconnect</code>, <code>reconnect_as</code>) to a device with another API hash on the same wire line learns the device
   again as a first connect does (introspection data, global paths, the resource check, <code>HelloWireMismatch</code>) instead of
@@ -8239,7 +8259,7 @@ observing), SRV-46 (peer identity).
   Tests <code>tests/dns_sd</code>: a browser on loopback sees a record appear, change address and go; a fake Avahi over
   peer-to-peer D-Bus sees the calls. Example <code>blinky_ws_device</code>, checked with <code>avahi-browse</code> on a LAN PC with both
   responders. Announces to the whole LAN: no peer authentication until TR-24 (planned). Client-side discovery is
-  CLT-82.</li>
+  not there yet.</li>
 <li>💡 <strong>TR-5 USB CDC-NCM extras</strong> — test on Windows, macOS, iOS and Android; serve files from an SD card over HTTP;
   mass storage with a README.</li>
 <li>📋 <strong>TR-6 CAN</strong> · <code>v0.5.x</code> — <code>ww_client_server</code> on Data0 to one node of a CAN or CAN FD bus by its node id, over
@@ -8387,6 +8407,8 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
   <code>Type::Param</code> only remains inside the now-unreferenced generic definition, so neither is reachable from any
   property's resolved type. Testing them needs a conformance mode over the introspection bundle's own wire
   encoding, not over app-level property values as the corpus does now.</li>
+<li>✅ <strong>INT-14 json-codec</strong> — <code>ww_json</code> (value module): <code>ValueOwned</code> ⇄ <code>serde_json::Value</code> for any type of the API model, never per command. Integers beyond ±2⁵³ and every <code>u128</code>/<code>i128</code> are decimal strings (a number or such a string is accepted), <code>Vec&lt;u8&gt;</code> is hex, structs are objects in definition order, enums <code>"V"</code> / <code>{"V": fields}</code>, <code>Option</code> is <code>null</code>, <code>Result</code> is <code>{"Ok": ..}</code> / <code>{"Err": ..}</code>. Quantities (<code>ww_si</code>, <code>Fixed</code>, <code>Point</code>, <code>AnyQuantity</code>, <code>Coded</code>) are written as the exact text <code>"5 ms"</code> in the field's unit and scale (a <code>Point</code> in its origin, <code>"25 °C"</code>) and read from that text in any unit that converts exactly (<code>wire_weaver_client::quantity</code>, with <code>parse_point_in</code> for points), or from the stored number as Python accepts it; wrong dimension, a fraction of a step and out of bounds are refused. A typed <code>JsonError</code> names the JSON path (<code>args.timeout</code>, <code>items[2].name</code>) and the expectation; unknown fields and wrong kinds are errors. Method and stream-function arguments are one object by name, defaults may be left out. <code>Codec::raw()</code> is the structural form of the conformance corpus, which now reads its values through <code>ww_json</code>. Tests <code>ww_json</code> (<code>kinds</code>, <code>quantities</code>), <code>tests/conformance</code> (<code>json</code>: every corpus value through both forms). <a href="../docs/api/json/">JSON for any API</a>.</li>
+<li>✅ <strong>INT-15 json-schema</strong> — <code>ww_json::schema</code> (<code>item_schemas</code>, <code>type_schema</code>, <code>args_schema</code>): a JSON Schema (draft 2020-12) of every method's arguments and result, property, stream item and stream function, from the API model, describing what the INT-14 codec writes and accepts. Doc comments are descriptions; structs are objects with <code>required</code> and <code>additionalProperties: false</code>; enums with data, <code>Option</code>, <code>Result</code>, lists, tuples (<code>prefixItems</code>), arrays with lengths, <code>MaxLen</code> limits and integer ranges are expressed; wide integers are a number up to ±2⁵³ or a decimal string; quantities are strings with <code>x-unit</code>, <code>x-min</code>, <code>x-max</code> and a description naming the bounds; recursive types are <code>$defs</code>. Tests <code>ww_json</code> (<code>schema</code>), <code>tests/conformance</code> (<code>json</code>: every value the codec writes for the corpus validates against its type's schema, with <code>jsonschema</code> as a dev-dependency without default features). <a href="../docs/api/json/">JSON for any API</a>.</li>
 <li>💡 <strong>INT-7 Compress <code>ww_self</code> strings with a pre-shared dictionary</strong> — partly addressed by leaving snapshot-known
   traits and types out of introspection data.</li>
 <li>💡 <strong>INT-8 Model enums that tolerate newer variants</strong> — the <code>ww_self</code> enums (<code>Type</code>, <code>ApiItemKind</code>, <code>Fields</code>, ...)

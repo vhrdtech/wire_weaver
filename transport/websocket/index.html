@@ -1733,6 +1733,8 @@
       
         
       
+        
+      
     
     
     
@@ -1954,6 +1956,33 @@
     
   
   Introspection data
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/json/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  JSON for any API
 
     
   </span>
@@ -4875,17 +4904,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#finding-servers-on-the-lan" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Finding servers on the LAN
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#simulated-websocket-in-tests" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6377,17 +6395,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#finding-servers-on-the-lan" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Finding servers on the LAN
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#simulated-websocket-in-tests" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6602,40 +6609,6 @@ than announcing it raw), and pass only the addresses of the interfaces meant for
 queries (bounded by its packet size), Avahi does so in its own daemon. Every value the caller passes is checked
 against DNS limits before anything is sent: the instance name, the id, the path, each <code>key=value</code> within 255
 bytes, at most 16 addresses.</p>
-<h2 id="finding-servers-on-the-lan">Finding servers on the LAN<a class="headerlink" href="#finding-servers-on-the-lan" title="Permanent link">&para;</a></h2>
-<p><code>ww_dns_sd::Discovery</code> (feature <code>mdns</code>) browses the LAN for <code>_wireweaver._tcp</code> and keeps the list of servers
-current as they come, change address and go, on a thread of its own and without an async runtime (CLT-82). Each
-<code>FoundServer</code> has its instance name, port, path, TXT <code>api</code>, <code>wire</code> and <code>id</code>, and its addresses, IPv4 first.
-<code>wire_weaver_client</code> re-exports it under its <code>dns_sd</code> feature (off by default), and <code>discovery::urls</code> hands a
-<code>ClientConfig</code> a source of WebSocket URLs that is asked again at every connect and every reconnect attempt, so a
-keep-trying client follows a server to its new address after a DHCP change:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">use</span><span class="w"> </span><span class="n">wire_weaver_client</span><span class="p">::</span><span class="n">discovery</span><span class="p">::{</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">Discovery</span><span class="p">,</span><span class="w"> </span><span class="n">Select</span><span class="p">};</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="kd">let</span><span class="w"> </span><span class="n">discovery</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Discovery</span><span class="p">::</span><span class="n">start</span><span class="p">()</span><span class="o">?</span><span class="p">;</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">discovery</span><span class="p">.</span><span class="n">on_change</span><span class="p">(</span><span class="k">move</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">ctx</span><span class="p">.</span><span class="n">request_repaint</span><span class="p">());</span><span class="w"> </span><span class="c1">// called from the browsing thread</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="k">for</span><span class="w"> </span><span class="n">server</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="n">discovery</span><span class="p">.</span><span class="n">servers</span><span class="p">().</span><span class="n">iter</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;{} {:?} {:?}&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">server</span><span class="p">.</span><span class="n">instance</span><span class="p">(),</span><span class="w"> </span><span class="n">server</span><span class="p">.</span><span class="n">api</span><span class="p">(),</span><span class="w"> </span><span class="n">server</span><span class="p">.</span><span class="n">addresses</span><span class="p">());</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="p">}</span>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="kd">let</span><span class="w"> </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">MyClient</span><span class="p">::</span><span class="n">config</span><span class="p">(</span><span class="o">|</span><span class="n">c</span><span class="o">|</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">    </span><span class="n">c</span><span class="p">.</span><span class="n">websocket_urls_from</span><span class="p">(</span><span class="n">discovery</span><span class="p">::</span><span class="n">urls</span><span class="p">(</span>
-</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">        </span><span class="o">&amp;</span><span class="n">discovery</span><span class="p">,</span>
-</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">        </span><span class="n">Select</span><span class="p">::</span><span class="n">Name</span><span class="p">(</span><span class="s">&quot;Living room TV&quot;</span><span class="p">.</span><span class="n">into</span><span class="p">()),</span>
-</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="w">        </span><span class="fm">vec!</span><span class="p">[</span><span class="s">&quot;ws://100.64.0.5:7590/ww&quot;</span><span class="p">.</span><span class="n">into</span><span class="p">()],</span><span class="w"> </span><span class="c1">// tried after the found addresses: a saved or VPN address</span>
-</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="w">    </span><span class="p">))</span>
-</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="p">})</span>
-</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="p">.</span><span class="n">connect_keep_trying</span><span class="p">()</span><span class="o">?</span><span class="p">;</span>
-</span></code></pre></div>
-<p><code>Select</code> picks a server by instance name, by TXT <code>id</code> (stable across renames) or by API crate. While the server is
-not found, the attempt has only the fallback URLs; with none, it finds no device and the next attempt asks again.
-Browsing stops when the last clone of the <code>Discovery</code> is dropped. <code>Discovery::fed()</code> gives a discovery that the
-caller fills by hand instead, for tests or servers known some other way. <code>ww_dns_sd::Browser</code> is the browser
-underneath, for a caller that keeps its own list.</p>
-<p>The browser runs <code>mdns-sd</code> in-process, on every interface. On Android the app must hold a
-<code>WifiManager.MulticastLock</code> while it browses, or the Wi-Fi driver drops the multicast answers; browse only while
-the app is on screen. The <code>dns_sd</code> feature builds without <code>usb</code>, so a WebSocket-only client (an Android app) builds
-no USB code. A found server is what someone on the LAN announced: names are not authenticated, and link setup still
-checks the API. Values read from the LAN are checked against the same limits as announced ones; a record that breaks
-them is skipped, and at most <code>SERVERS_MAX</code> servers are kept.</p>
 <h2 id="simulated-websocket-in-tests">Simulated WebSocket in tests<a class="headerlink" href="#simulated-websocket-in-tests" title="Permanent link">&para;</a></h2>
 <p>With the client's <code>in_process</code> and <code>ws</code> features, <code>wire_weaver_client::in_process::ws_device(path)</code> registers a device
 that speaks WebSocket over an in-memory pipe instead of TCP (TR-22). The host connects with
@@ -6648,7 +6621,7 @@ this way (<code>1L-UPD-BULK</code>, <code>2R-APP-STEP</code>) and keeps one run 
 through. The same holds for UDP, see <a href="../udp/#simulated-udp-in-tests">Simulated UDP in tests</a>.</p>
 <h2 id="wire-format">Wire format<a class="headerlink" href="#wire-format" title="Permanent link">&para;</a></h2>
 <p>Each <a href="../ww_link/">ww_link</a> message is one binary WebSocket message:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>| kind: u8 | payload ... |
+<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>| kind: u8 | payload ... |
 </span></code></pre></div>
 <p><code>kind</code> is <code>ww_link::Kind</code>, the payload is what the same message carries over other media. The hello is frozen in this form, kind
 <code>04</code> and its payload (<a href="../ww_link/#the-frozen-hello">the frozen hello</a>, <code>ww_link::hello::ws</code>). WebSocket has its own

@@ -334,6 +334,9 @@ fn doc_trait(
                             .map(|ty| ty.to_token_stream())
                             .unwrap_or_else(|| quote! { #ww_api::shrink_wrap::UNib32 });
                         let key = &args.key;
+                        let mut lifetimes = vec![];
+                        collect_lifetimes(key, &mut lifetimes);
+                        let lifetimes = generic_lifetimes(lifetimes);
                         let ww_keyed = crate::crate_paths::ww_keyed();
                         let notes = notes([
                             Some(format!(
@@ -345,7 +348,7 @@ fn doc_trait(
                         items.extend(quote! {
                             #(#docs)*
                             #notes
-                            fn #ident () -> #ww_api::api_doc::Keys<#ww_keyed::KeyEvent<#index, #key>>;
+                            fn #ident #lifetimes () -> #ww_api::api_doc::Keys<#ww_keyed::KeyEvent<#index, #key>>;
                         });
                     }
                     // reserved!(..) only takes up resource ids, nothing to show

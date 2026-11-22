@@ -497,7 +497,10 @@ The server waits for the answer as part of the request:
   the other shared calls run, a pending write holds the requests after it;
 - its [deadline and cancel](#deadline-and-cancel) end the wait as they end a handler, and dropping the future
   withdraws the question (the approval queue sees its sender go away);
-- an approval starts the handler, a refusal answers `Denied`.
+- an approval starts the handler, a refusal answers `Denied`;
+- a request without a deadline waits as long as the answer takes and holds one of `Limits::requests_max` meanwhile,
+  so a hook that asks a person bounds its own future (a timeout that answers `Err(Denied)`) and limits the open
+  questions per peer.
 
 Nothing changes on the wire: the client sees a slower answer, then the result, `Denied` or `DeadlineExceeded`. A
 client that may wait for a person gives that call a longer timeout.

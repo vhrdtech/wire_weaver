@@ -597,6 +597,7 @@ fn level_method(
             model,
             path_mode,
             gid_paths,
+            maybe_index_arg,
             index_chain_push,
             access,
             batched.is_some(),
@@ -1012,6 +1013,7 @@ fn handle_property(
     model: ClientModel,
     path_mode: ClientPathMode,
     gid_paths: &GidPaths,
+    maybe_index_arg: TokenStream,
     index_chain_push: TokenStream,
     access: &PropertyAccess,
     batched: bool,
@@ -1056,7 +1058,7 @@ fn handle_property(
         let docs = docs.iter().map(|s| quote! { #[doc = #s] });
         quote! {
             #(#docs)*
-            pub fn #write_fn_name(&self, #prop_name: #ty) -> wire_weaver_client::PreparedWrite<#write_err_ty> {
+            pub fn #write_fn_name(&self #maybe_index_arg, #prop_name: #ty) -> wire_weaver_client::PreparedWrite<#write_err_ty> {
                 #ser_value
                 #index_chain_push
                 let path_kind = #path_kind;
@@ -1083,7 +1085,7 @@ fn handle_property(
         };
         quote! {
             #doc
-            pub fn #read_fn_name(&self) -> wire_weaver_client::PreparedRead<#ty> {
+            pub fn #read_fn_name(&self #maybe_index_arg) -> wire_weaver_client::PreparedRead<#ty> {
                 #index_chain_push
                 let path_kind = #path_kind;
                 self.cmd.#prepare_read(path_kind)
@@ -1119,14 +1121,14 @@ fn handle_property(
         );
         quote! {
             /// Property updates sent by the device (with generated `stream_data_ser().<property>_send()`).
-            pub async fn #observe(&self) -> Result<wire_weaver_client::Stream<#ty>, wire_weaver_client::Error> {
+            pub async fn #observe(&self #maybe_index_arg) -> Result<wire_weaver_client::Stream<#ty>, wire_weaver_client::Error> {
                 #index_chain_push
                 let path_kind = #path_kind;
                 self.cmd.prepare_stream(path_kind).await
             }
 
             /// Property updates sent by the device (with generated `stream_data_ser().<property>_send()`).
-            pub fn #observe_blocking(&self) -> Result<wire_weaver_client::Stream<#ty>, wire_weaver_client::Error> {
+            pub fn #observe_blocking(&self #maybe_index_arg) -> Result<wire_weaver_client::Stream<#ty>, wire_weaver_client::Error> {
                 #index_chain_push
                 let path_kind = #path_kind;
                 self.cmd.prepare_stream_blocking(path_kind)

@@ -50,6 +50,7 @@
 
 ### 🐛 Fixes
 
+- The std client of an array of properties takes the element's index: `read_x(index)`, `write_x(index, value)`, `observe_x(index)` (CLT-58).
 - A `serve_trait` stream whose trait stream ends sends `Close`, so the client's item stream ends too (SRV-49).
 - Generated code names a type of `ww_api` itself as `wire_weaver::ww_api::X`, not `wire_weaver::ww_api::ww_api::X` (API-70).
 - Model strings parse without pest: a string that used to parse wrongly without a word is now a `line:column` error; every model string in WireWeaver's repositories still parses.

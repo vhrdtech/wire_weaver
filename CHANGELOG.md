@@ -11,6 +11,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
+- `keyed!` takes a key that borrows, a string name, owned wherever a key is kept (API-72); see `wire_weaver_derive`, `wire_weaver_core`.
 - The client and server build for Android: USB is only where a crate asks for it (`wire_weaver_client`, `wire_weaver_server`).
 
 ## [0.6.0] - 2026-11-22

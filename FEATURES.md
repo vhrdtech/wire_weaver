@@ -258,6 +258,13 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   number: the links drop duplicates and late writes; the one gap is TR-33. Codegen names a type of `ww_api` itself
   through `wire_weaver::ww_api`. Conformance case `api.totals.item`. `docs/api/totals.md`, `tests/totals` (simulated
   UDP dropping and reordering datagrams, WebSocket, a second sender).
+- ✅ **API-72 Keyed arrays with a key that borrows** · `v0.5` — `keyed!(detector by DetectorName<'i>)` with
+  `pub struct DetectorName<'i>(pub &'i str)`: the doc trait declares the key's lifetime; a `no_alloc` server takes
+  and gives `DetectorName<'_>`, a server with an allocator, the client's key cache, the local trait and `serve_trait`
+  the owned `DetectorNameOwned`. A key type with a lifetime and no `owned` in its `derive_shrink_wrap` is refused
+  with that hint. Both forms write the same bytes, the input of a tape's `Segment::Key`. `tests/keyed` (both
+  servers, the client, the local trait, a `serve_trait` server forwarding to a client, the scaffold, pinned key
+  bytes), [docs](docs/api/arrays.md#keys-that-borrow).
 - 📋 **API-69 Streams ending with a common error** — a stream that stops because the device refused to go on
   (`Busy`, `NoPower`, `Fault`) ends today with the stream's `Close` sideband or an error of the API's own item type;
   the common error (STD-16) has no place in a running stream's items yet. Filed with SRV-63, not built: a `Common`

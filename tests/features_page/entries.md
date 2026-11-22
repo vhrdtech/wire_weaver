@@ -129,6 +129,7 @@ in either direction. WireWeaver generates the device's server and the host's cli
 - API-70 | Running totals | A pointer or scroll wheel over UDP: each sink write carries the sum so far, so a lost write loses nothing and nothing waits. | api/totals.md
 - API-68 | The API crate prelude `ww_api` | An API crate depends on `ww_api`, not the runtime: the macros, `shrink_wrap` and the common types in one prelude, checked by the layer lint. | api/folder_structure.md
 - API-67 | Keyed resource arrays | Address the elements of an array by a key (`keyed!(flow by FlowKey)`) instead of the index the device gave them. | api/arrays.md
+- API-72 | Keys that borrow | A string key (`DetectorName<'i>`): borrowed on a device without an allocator, owned where a key is kept. | api/arrays.md#keys-that-borrow
 - API-50 | Observe cells | Sample a level from an interrupt in place, value by value into a ring of atomics: a quarter of the cycles and a tenth of the stack of `sample()` at opt-level z, the same wire. | api/observing.md#cells-sampling-from-an-interrupt
 - API-52 | A cheaper observe poll | The poll that sends a level's samples spends its time on the codec: half the cycles at opt-level 3, a third at z, the same bytes. | articles/series.md#cpu-and-flash-on-a-microcontroller
 - API-41 | Batched streams | A stream opts into sending samples many per event as a compressed `Series` instead of one at a time, for plain, counted and reliable streams; typed and dynamic clients, the CLI and Python. | api/batching.md

@@ -104,6 +104,31 @@ One `keyed!` costs 316 B of flash on a Cortex-M0 at `fw-z` in a blocking server,
 `fw-z` and `fw-3`, blocking and async (TEST-30, `qemu-flash-keyed` against `qemu-flash-arrayed`). The `keys`
 stream's send helper is not counted: it is linked only where it is used.
 
+### Keys that borrow
+
+A key may borrow, a name for instance (API-72):
+
+```rust
+#[ww_api_root]
+trait Dissector {
+    property!(ro detector[]: Bytes<u64>);
+    keyed!(detector by DetectorName<'i>);
+}
+
+#[derive_shrink_wrap(owned(feature = "std"), derive(Debug, PartialEq, Eq, Clone))]
+pub struct DetectorName<'i>(pub &'i str);
+```
+
+A server without an allocator takes and gives the key as written, `detector_index_of(cx, key: DetectorName<'_>)`
+and `get_detector_key(..) -> GetResult<DetectorName<'_>, CommonError<'_>>`, so it can answer from a `&'static str`
+table. Everything that keeps a key takes its owned form, `DetectorNameOwned`: a server with an allocator, the
+client and its key cache, the [local trait](local_trait.md#keyed-arrays) and `serve_trait`. The key type therefore
+needs `owned` in its `derive_shrink_wrap`; without it `keyed!` is refused with that hint.
+
+Both forms write the same bytes: `"east"` is `65 61 73 74 04`, the string with its length at the back. These bytes
+are what a tape's `Segment::Key` hashes for the element, so a track of that detector keeps its key whatever index
+the device gave it. `tests/keyed` pins them.
+
 ### Keyed arrays on the client
 
 The generated client finds an element by its key (CLT-72):

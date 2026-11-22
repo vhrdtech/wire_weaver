@@ -8,7 +8,7 @@ use shrink_wrap::prelude::*;
 #[derive_shrink_wrap(
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Clone, Debug),
+    derive(Clone, Debug, PartialEq),
     ww_repr = u2
 )]
 pub enum ValidIndices<'i> {

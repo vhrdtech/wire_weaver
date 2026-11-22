@@ -2,6 +2,7 @@
 
 ### 🚀 Features
 
+- `dispatch::failed` answers a `call::ErrorKind::BadIndex` failure with `BadIndex`; `err_seq::LEVEL_INDICES_FAILED` for valid indices that failed (CLT-58).
 - `target::target` reads what a request does where (`Access`, `Place`, `TraitRef`), for claims and authorization (SRV-46).
 
 ### 📚 Documentation

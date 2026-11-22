@@ -537,6 +537,7 @@ fn write_failure<const MULTI: bool>(
             K::DeadlineExceeded => ErrorKind::DeadlineExceeded,
             K::Cancelled => ErrorKind::Cancelled,
             K::Overloaded => ErrorKind::Overloaded,
+            K::BadIndex => ErrorKind::BadIndex,
             _ => ErrorKind::Internal,
         };
         err_kind(wr, d, err_seq, kind)

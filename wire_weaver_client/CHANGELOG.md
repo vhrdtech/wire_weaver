@@ -54,6 +54,7 @@
 
 ### ⚠️ Breaking
 
+- A `BadIndex` answer converts into `wire_weaver::call::ErrorKind::BadIndex`, no longer `Internal` (CLT-58).
 - `Commander::info`, `device_api_info` and `device_introspect` (and `DynClient`'s) return owned values: a reconnect may replace them (CLT-81).
 - Several addresses race instead of being tried in order: the fastest to open wins, not the first listed (CLT-80).
 - `TotalsSender::run(sink, &Commander)` replaces `run(sink, state)` and returns a spawnable future holding neither (CLT-75).

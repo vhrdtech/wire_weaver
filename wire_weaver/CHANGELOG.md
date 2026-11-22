@@ -34,6 +34,8 @@
 
 ### 🚀 Features
 
+- `ValidIndices` and `ValidIndicesOwned` are `PartialEq`.
+- `call::ErrorKind::BadIndex` and `CallError::BadIndex`: no element at that index of a resource array, the wire's `BadIndex` (CLT-58).
 - `call::LocalBoxFuture`, `call::LocalItemStream` and `call::local_item_stream`: the types of a local trait without `Send` (SRV-73).
 - `forward::until_error` takes any `Unpin` stream of results, `Send` or not (SRV-73).
 - `Failure` and `wire_weaver::forward` turn a local-trait call into a handler's answer: `Denied`, `Internal` and the other kinds reach the client (SRV-49).

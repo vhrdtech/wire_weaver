@@ -1786,9 +1786,11 @@ fn device_info(
     no_observe_samples: bool,
     user_api_wire: Option<ww_link::WireVersion>,
 ) -> ww_link::DeviceInfoOwned {
+    // a fixed version, not LINK_VERSION: the golden bytes must not change with a release
+    let version = ww_link::CompactVersion::new(ww_link::LINK_VERSION.gid, 0, 5, 0);
     ww_link::DeviceInfoOwned {
-        dev_link_version: ww_link::LINK_VERSION,
-        api_model_version: ww_link::LINK_VERSION,
+        dev_link_version: version,
+        api_model_version: version,
         user_api_version: wire_weaver::ww_version::FullVersionOwned::new(
             "test".into(),
             wire_weaver::ww_version::VersionOwned::new(0, 1, 0),

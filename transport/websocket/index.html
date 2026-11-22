@@ -6412,7 +6412,7 @@ or a gateway in front of devices on other media.</p>
 check, introspection, pings, timeouts, streams. The client takes a URL: it doesn't browse for
 <a href="#announcing-on-the-lan">announced servers</a> yet, so device filters (serial, label, ...) are not checked before
 connecting, and only plain <code>ws://</code> is supported, no <code>wss://</code>.</p>
-<p><code>websocket_urls([..])</code> gives several URLs, opened at once, the first to answer wins (CLT-80); <code>connect_keep_trying()</code> makes a client
+<p><code>websocket_urls([..])</code> gives several URLs, tried in order until one answers; <code>connect_keep_trying()</code> makes a client
 that connects when the device comes up and again whenever the link goes (<a href="../keep_trying/">keep-trying connections</a>).</p>
 <h2 id="device-side">Device side<a class="headerlink" href="#device-side" title="Permanent link">&para;</a></h2>
 <p>The <code>ws</code> feature of <code>ww_device</code> is the device end: <code>ww_device::ws::WsTx</code> / <code>WsRx</code> implement <code>MessageTx</code> /

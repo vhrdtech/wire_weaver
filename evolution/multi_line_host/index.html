@@ -6797,7 +6797,8 @@ ever sees a line the facade already has a client of.</p>
 </span></code></pre></div>
 <ul>
 <li>On the <strong>same line</strong>, this resumes streams, sinks and observers exactly like the plain <code>Commander::reconnect</code>
-  (CLT-36, CLT-40) and returns an equivalent <code>Thermo</code>.</li>
+  (CLT-36, CLT-40) and returns an equivalent <code>Thermo</code>; another revision of the line's API is learned again first, and
+  what no longer holds on it ends (<a href="../../transport/keep_trying/#another-revision-of-the-devices-api">CLT-81</a>).</li>
 <li>On <strong>another line</strong> this facade also speaks, old streams, sinks and observers end instead of resuming: their
   resource paths assumed the old line's API, so nothing of that handle still applies. Use what <code>reconnect()</code>
   returns from here on, not the value it was called on — its calls still assume the old line.</li>

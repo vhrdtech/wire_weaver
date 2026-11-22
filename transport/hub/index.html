@@ -8044,7 +8044,8 @@ by <code>connect()</code>, or <code>ClientConfig::hub_device</code>) connects ag
   aren't idempotent in general.</li>
 <li><strong>Reconnecting.</strong> The client tries at once, then with backoff (10 ms doubling to 1 s): through a hub again, starting
   one when none runs (in <code>HubMode::Auto</code> as if <code>Prefer</code>, see <a href="#the-modes">the modes</a>), with link setup and the version
-  checks as on the first connect. A device with another API than before ends it.</li>
+  checks as on the first connect. A device on another wire line than before ends it; another revision of its API on
+  the same line is learned again (<a href="../keep_trying/#another-revision-of-the-devices-api">CLT-81</a>).</li>
 <li><strong>Streams.</strong> Counted and reliable streams wait and resume from their cursor (<code>StreamEvent::Resumed</code>, gaps if the
   device didn't keep everything), observed trait levels are subscribed again (<code>ObserveEvent::Resumed</code>), sinks are
   registered again and a credit sink's session goes on: the same path as

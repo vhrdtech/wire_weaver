@@ -864,9 +864,9 @@ fn gen_level_trait(
         });
     }
     trait_docs.push(String::new());
-    trait_docs.push(format!(
-        " `wire_weaver::authorize::Authorized<T, A>` implements it for any implementor `T`, asking the hook `A` before every call (SRV-72)."
-    ));
+    trait_docs.push(
+        " `wire_weaver::authorize::Authorized<T, A>` implements it for any implementor `T`, asking the hook `A` before every call (SRV-72).".to_owned(),
+    );
     let authorized = authorized_impl(api_bundle, paths, local, send)?;
     let trait_docs = trait_docs.iter().map(|d| quote! { #[doc = #d] });
     let dyn_doc = format!(

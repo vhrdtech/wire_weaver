@@ -6693,8 +6693,10 @@ effects, on the item or on its trait:</p>
 <li>The hub treats a call of a <code>read</code> method as a read: it stays open under another program's exclusive or shared
   claim, like a property read. With per-peer rights (SRV-37), a peer with only the right to observe may call such
   methods.</li>
-<li>A server's <code>Authorize</code> hook gets each item's metadata in <code>Resource::items</code>; <code>ApiItemOwned::effects()</code> answers an
-  item's effects, a read by kind included.</li>
+<li>An <code>Authorize</code> hook gets each item's effects and metadata in <code>Resource::items</code>, a read by kind included
+  (<code>resource.effects()</code> for the item itself): a server's for every request, <code>Authorized</code>'s for every call in the same
+  process (<a href="../host_server/#authorization">Authorization</a>). A hook can hold an <code>outbound</code> or <code>destructive</code> call until
+  a person approves it (<a href="../host_server/#waiting-for-an-answer">Waiting for an answer</a>).</li>
 <li><code>ww info --effects</code> lists the device's items that change something, by effect; <code>ww api tree</code> shows the attribute
   in front of each item, rustdoc of a <code>#[ww_trait]</code> notes it.</li>
 </ul>

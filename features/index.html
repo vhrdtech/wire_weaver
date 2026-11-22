@@ -6777,6 +6777,18 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
     <code>docs/api/metadata.md</code> maps them to MCP tool annotations. Absorbs API-56 (<code>actuate</code>). Every API in the
     repository and in ww_stdlib is annotated. Tests: <code>wire_weaver_core</code> (<code>effects_*</code>), <code>tests/hub</code>
     (<code>claimed_bus_refuses_others_calls_and_writes</code>), <code>wire_weaver_cli</code> (<code>effects_list_what_changes_something</code>).</li>
+<li>✅ <strong>API-71 Track attribute on streams</strong> · <code>v0.5.x</code> — <code>#[track(points | spans | series, dims(..), flags)]</code> on a
+    <code>stream!</code> or a stream function, or on its trait as the default of its streams: how a recorder lays the stream
+    out on a tape. Carried in introspection as <code>ww_self::Track</code> in <code>Meta</code> (<code>TrackLayout</code>, dimension names, flags),
+    stored on each stream with one; model format 0.6.0, whose readers still read 0.4.0 and 0.5.0 snapshots (one
+    whose metas grew by its body). Refused on any other item and on a <code>ww_impl!</code>; a <code>series</code> item must be numbers
+    (<code>ApiBundleOwned::series_shape</code> counts its channels), <code>flags</code> only on points and spans. <code>ww api check</code>:
+    another layout or flags word, or a dimension dropped, breaks (rule <code>Track</code>, the wire keeps); a dimension added
+    is compatible. <code>ww_tap</code>'s <code>LinkTap</code> streams are points with the link's dimensions. Recorders: <code>ww_tape_bundle</code>
+    reads the layout beside the name path, <code>ww_tap_decoder</code> lays tap tracks out by it (vhrdtech/ww_tools).
+    Docs: <code>docs/api/metadata.md#track-how-a-stream-is-recorded</code>. Tests: <code>tests/track</code>, <code>wire_weaver_core</code>
+    (<code>transform::track</code>), <code>wire_weaver_evolution</code> (<code>track_changes</code>), <code>ww_snapshots</code>
+    (<code>an_older_format_with_metas_reads_by_its_body</code>).</li>
 <li>📋 <strong>API-12 Calculate max path depth in server codegen</strong> · <code>v0.5</code> — <code>MAX_DEPTH</code> is hardcoded to 16 in
   <code>wire_weaver_core/src/codegen/api_server.rs</code>.</li>
 <li>📋 <strong>API-13 Error system, remove <code>unwrap</code>s from codegen</strong> · <code>v0.5</code> — report errors with spans instead of panicking.</li>
@@ -6840,13 +6852,6 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
   number: the links drop duplicates and late writes; the one gap is TR-33. Codegen names a type of <code>ww_api</code> itself
   through <code>wire_weaver::ww_api</code>. Conformance case <code>api.totals.item</code>. <code>docs/api/totals.md</code>, <code>tests/totals</code> (simulated
   UDP dropping and reordering datagrams, WebSocket, a second sender).</li>
-<li>✅ <strong>API-72 Keyed arrays with a key that borrows</strong> · <code>v0.5</code> — <code>keyed!(detector by DetectorName&lt;'i&gt;)</code> with
-  <code>pub struct DetectorName&lt;'i&gt;(pub &amp;'i str)</code>: the doc trait declares the key's lifetime; a <code>no_alloc</code> server takes
-  and gives <code>DetectorName&lt;'_&gt;</code>, a server with an allocator, the client's key cache, the local trait and <code>serve_trait</code>
-  the owned <code>DetectorNameOwned</code>. A key type with a lifetime and no <code>owned</code> in its <code>derive_shrink_wrap</code> is refused
-  with that hint. Both forms write the same bytes, the input of a tape's <code>Segment::Key</code>. <code>tests/keyed</code> (both
-  servers, the client, the local trait, a <code>serve_trait</code> server forwarding to a client, the scaffold, pinned key
-  bytes), <a href="../docs/api/arrays/#keys-that-borrow">docs</a>.</li>
 <li>📋 <strong>API-69 Streams ending with a common error</strong> — a stream that stops because the device refused to go on
   (<code>Busy</code>, <code>NoPower</code>, <code>Fault</code>) ends today with the stream's <code>Close</code> sideband or an error of the API's own item type;
   the common error (STD-16) has no place in a running stream's items yet. Filed with SRV-63, not built: a <code>Common</code>
@@ -7936,6 +7941,15 @@ observing), SRV-46 (peer identity).
   its tokio worker for 50 ms (fixed, <code>commander_drop_on_a_worker_lets_the_loop_answer</code>). See
   <a href="../docs/transport/overview/#where-a-connects-time-goes">Transport protocols</a>. Missing: the full-speed USB run
   (Nucleo G0B1RE).
+- 🚧 <strong>CLT-82 Servers found on the LAN</strong> · <code>v0.5</code> — <code>ww_dns_sd::Discovery</code> (feature <code>mdns</code>) browses for
+  <code>_wireweaver._tcp</code> (<code>Browser</code>, in-process <code>mdns-sd</code>) and keeps the found servers (<code>FoundServer</code>: name, id, API,
+  wire, path, port, addresses) as they come, move and go, at most <code>SERVERS_MAX</code>; <code>on_change()</code> tells the app.
+  <code>wire_weaver_client</code> re-exports it under feature <code>dns_sd</code>; <code>ClientConfig::websocket_urls_from(UrlSource)</code> asks for
+  the URLs at every connect and reconnect attempt, and <code>discovery::urls(&amp;Discovery, Select, fallback)</code> is such a
+  source, so a keep-trying client follows a server to its new address. The feature needs no <code>usb</code>, so it builds
+  for Android without USB code. See <code>docs/transport/websocket.md#finding-servers-on-the-lan</code>;
+  tested in <code>tests/dns_sd</code> (browser on loopback) and <code>tests/keep_trying</code> (<code>discovery</code>: found, moved, reconnected,
+  gone). Missing: <code>ww discover</code> and a discovered name where <code>ww</code> commands take a URL.
 - ✅ <strong>CLT-81 Reconnect onto another API revision</strong> · <code>v0.5</code> — a reconnect (keep-trying, hub-supervised,
   <code>Commander::reconnect</code>, <code>reconnect_as</code>) to a device with another API hash on the same wire line learns the device
   again as a first connect does (introspection data, global paths, the resource check, <code>HelloWireMismatch</code>) instead of
@@ -8237,7 +8251,7 @@ observing), SRV-46 (peer identity).
   Tests <code>tests/dns_sd</code>: a browser on loopback sees a record appear, change address and go; a fake Avahi over
   peer-to-peer D-Bus sees the calls. Example <code>blinky_ws_device</code>, checked with <code>avahi-browse</code> on a LAN PC with both
   responders. Announces to the whole LAN: no peer authentication until TR-24 (planned). Client-side discovery is
-  not there yet.</li>
+  CLT-82.</li>
 <li>💡 <strong>TR-5 USB CDC-NCM extras</strong> — test on Windows, macOS, iOS and Android; serve files from an SD card over HTTP;
   mass storage with a README.</li>
 <li>📋 <strong>TR-6 CAN</strong> · <code>v0.5.x</code> — <code>ww_client_server</code> on Data0 to one node of a CAN or CAN FD bus by its node id, over

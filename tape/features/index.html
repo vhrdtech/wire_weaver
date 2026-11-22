@@ -6210,10 +6210,32 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#tracks-clocks-and-definitions-track" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Tracks, clocks and definitions (<code>TRACK</code>)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#writer-write" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Writer (<code>WRITE</code>)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#writing-from-many-threads-mux" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Writing from many threads (<code>MUX</code>)
       </span>
     </span>
   </a>
@@ -6269,6 +6291,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         Book (<code>BOOK</code>)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example-and-cases-ex" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Example and cases (<code>EX</code>)
       </span>
     </span>
   </a>
@@ -6417,10 +6450,32 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#tracks-clocks-and-definitions-track" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Tracks, clocks and definitions (<code>TRACK</code>)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#writer-write" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Writer (<code>WRITE</code>)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#writing-from-many-threads-mux" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Writing from many threads (<code>MUX</code>)
       </span>
     </span>
   </a>
@@ -6476,6 +6531,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         Book (<code>BOOK</code>)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example-and-cases-ex" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Example and cases (<code>EX</code>)
       </span>
     </span>
   </a>
@@ -6573,386 +6639,308 @@
 <li>🐛 known bug, not yet fixed (the item says how to hit it)</li>
 <li><strong>Target</strong> is the release an item is planned for. <code>v0.5</code> is WireWeaver's next release; no tag means not scheduled.</li>
 <li><strong>IDs</strong> carry their area's prefix (<code>FMT-1</code>, <code>WRITE-6</code>) and are stable: never renumber or reuse one. A new item takes the next free number of its area.</li>
-<li>The former <code>STD</code> and <code>TAPE</code> ids are listed under <a href="#former-ids">Former ids</a>.</li>
+<li>An item moved to another area takes a new id there. Its old id is never reused and gets a row under <a href="#former-ids">Former ids</a>, as do the <code>STD</code> and <code>TAPE</code> ids of the first entries.</li>
 <li>Use the ID in commit messages, CHANGELOG entries and code comments such as <code>// TODO(FMT-1): ...</code> in the source.</li>
 <li>When talking to people, name an ID with a short slug from its title, such as <code>FMT-4 index-close-tail</code>, never bare.</li>
 <li>IDs of other areas (<code>TR</code>, <code>API</code>, <code>INT</code>) belong to <a href="https://github.com/vhrdtech/wire_weaver">WireWeaver</a>. So do <code>ww_tap</code>, <code>ww_tape_bundle</code> and <code>tests/tape_identity</code>.</li>
 <li>Each area starts with a line on what it covers. Done items come first, then open ones by target.</li>
-<li>An item has a short heading, then a few plain lines on what works today and where to read more. History stays in git and the CHANGELOG.</li>
+<li>An item has a heading line that names the feature and two to five plain sentences on what works today. A last line says where to read more. An open part takes one sentence. History stays in git and the CHANGELOG.</li>
 <li>When work finishes, update its item in the same change: mark it ✅ and add a pointer to a page, crate or test. Never delete a done item.</li>
 <li>An item that turns out obsolete moves to <a href="#dropped-and-superseded">Dropped and superseded</a> with a one-line reason.</li>
 <li>A new idea goes into its area with 💡 as its status. Small gaps in the code stay as <code>TODO</code> comments; only gaps that limit users or block a feature get an item.</li>
 </ul>
 <h2 id="format-fmt">Format (<code>FMT</code>)<a class="headerlink" href="#format-fmt" title="Permanent link">&para;</a></h2>
-<p>The bytes of blocks, records, chunks, definitions and the index, in the crate <code>ww_tape</code>.</p>
+<p>The bytes of blocks, records, chunks, sessions and the index, in the crate <code>ww_tape</code>.</p>
 <ul>
 <li>✅ <strong>FMT-1 Tape blocks and records</strong> · <code>v0.5</code></li>
-<li>A tape is a run of blocks. Each block has a 32-byte header, records and a CRC-32C, and is never padded.</li>
-<li>A record holds a track, a time delta, a length and the item bytes.</li>
-<li>A block of a later version or of an unknown kind is checked and skipped by its length, not taken for damage.</li>
-<li>Nothing in a block knows its producer. WireWeaver's link tap (TR-14) writes tapes, and eventfull uses them as its file format (CORE-19).</li>
-<li>Open: splitting a recording into files by size or time, and preallocation. Zeros at the end already read as the end.</li>
-<li>Read more: <a href="https://tape.vhrd.tech/blocks/#blocks">Blocks</a>. Tests cut and flip every byte; fuzz target <code>tape-reader</code>.</li>
-<li>✅ <strong>FMT-2 Clocks, clock maps and typed items</strong> · <code>v0.5</code></li>
-<li>A record's time is a signed 64-bit tick count of its track's clock. Times are deltas per clock, so a block reads alone and holds no wall time.</li>
-<li>A clock has a stable key and an exact rate and resolution. A clock map turns the ticks of one clock into another's, with a named rounding.</li>
-<li>A typed item carries any WireWeaver value by its type. A track names its clock, its dimensions and its item type.</li>
-<li>Read more: <a href="https://tape.vhrd.tech/records_and_clocks/#clocks-and-ticks">Clocks and ticks</a>.</li>
-<li>✅ <strong>FMT-3 Chunk blocks</strong> · <code>v0.5</code></li>
-<li>A chunk block holds one stretch of one track's events or samples, read in place. Its head places it without an index.</li>
-<li>The head has its own CRC, and the payload has a CRC for every 64 KiB. A flipped bit in a series chunk loses one segment.</li>
-<li>An aligned file puts every chunk payload on a 4 KiB boundary. Small blocks fill the gaps before them.</li>
-<li>Read more: <a href="https://tape.vhrd.tech/columns/">Chunks from columns</a>. Golden file <code>v1-chunks.hex</code>; fuzz target <code>tape-chunk</code>.</li>
-<li>✅ <strong>FMT-4 Index, close and tail</strong> · <code>v0.5</code></li>
-<li>A checkpoint index every 4 MiB lists the blocks since the one before, so a crash costs at most the open chunk.</li>
-<li>A closed piece ends with a final index sorted by track, a close block and a fixed tail found from the end of the file.</li>
-<li>The close holds a BLAKE3 hash of the piece's content. Offsets count from the piece, so files placed back to back keep their indexes.</li>
-<li>Read more: <a href="https://tape.vhrd.tech/format/#index-close-and-tail">Index, close and tail</a>. Golden file <code>v1-index.hex</code>; fuzz target <code>tape-index</code>.</li>
-<li>✅ <strong>FMT-5 Track identity by name path</strong> · <code>v0.5</code></li>
-<li>A track's key hashes the names of its resource, array indices and the keys of keyed arrays. Two runs that number things differently get the same ids (API-67).</li>
-<li>A resource renamed with <code>#[moved_from]</code> keeps its key (INT-17). A resource moved to another trait still gets a new key.</li>
-<li>The bundle side is WireWeaver's crate <code>ww_tape_bundle</code>.</li>
-<li>Read more: <a href="https://tape.vhrd.tech/format/#track-identity">Track identity</a>. Tests in WireWeaver's <code>tests/tape_identity</code>.</li>
-<li>✅ <strong>FMT-6 Series tracks</strong> · <code>v0.5</code></li>
-<li>A track is either events or a series. A series track states the type of one value, its period in ticks per sample and the scale of the stored numbers.</li>
-<li>The period is an exact ratio. A batch of fixed-point values becomes chunk columns without a float.</li>
-<li>A series track has no records: each chunk carries its own grid and scale (FMT-10).</li>
-<li>Read more: <a href="https://tape.vhrd.tech/series/">Series</a>. Golden file <code>v1-series.hex</code>; fuzz target <code>tape-series</code>.</li>
-<li>✅ <strong>FMT-7 Sessions, raw media and duplicates</strong> · <code>v0.5</code></li>
-<li>Every block carries a session tag, and seq numbers count per session. Stale blocks of another session end the data.</li>
-<li>Blank bytes are 0x00 or 0xFF. A blank or damaged stretch that the session's next block follows is a gap, not the end.</li>
-<li>The same block twice is a duplicate: the same bytes are dropped, and with other bytes the later one wins and is reported.</li>
-<li>Records and definition bodies may be stored or lz4. Codec and element numbers kept for later are refused today.</li>
-<li>Read more: <a href="https://tape.vhrd.tech/raw_media/">Where the data ends on a raw card</a>.</li>
-<li>✅ <strong>FMT-8 Closed pieces end on 4 KiB</strong> · <code>v0.5</code></li>
-<li>A closed piece is a multiple of 4 KiB long. Pieces clone back to back into one file on btrfs and XFS with nothing between them.</li>
-<li>The writer pads the close block, which states the padding. Blocks inside a piece stay unaligned.</li>
-<li>Read more: <a href="https://tape.vhrd.tech/pieces/#the-4-kib-end-and-cloning">The 4 KiB end and cloning</a>.</li>
-<li>✅ <strong>FMT-9 Definitions and state near their use</strong> · <code>v0.5</code></li>
-<li>Definitions are plain records on track 0: the producer, the layout, bundles, clocks, maps, tracks and typed items. Each has a slot, and the newest per slot counts.</li>
-<li>The application holds its definitions and passes them with each write. Data of a track it doesn't hold is refused.</li>
-<li>A state item is put again only where the same item doesn't lie close behind. A first write gets spaced copies.</li>
-<li>Adding 10 000 tracks one by one takes 60 milliseconds in all. A 256 MiB piece with 10 000 tracks in use holds 1.85 % puts and copies.</li>
-<li>The index lists state records, and the reader looks state up at any place, damage included.</li>
-<li>Read more: <a href="https://tape.vhrd.tech/blocks/#definitions-on-track-0">Definitions on track 0</a>, <a href="https://tape.vhrd.tech/tape/#state-tracks-and-near-use">State tracks</a>. Fuzz target <code>tape-state-hostile</code>.</li>
-<li>✅ <strong>FMT-10 Series chunks carry their own grid and scale</strong></li>
-<li>A series chunk's head carries its grid and scale, so a chunk times and scales its samples alone.</li>
-<li>A timeline of a track is built from chunk heads in any order. It checks each chunk against its neighbours and says where the gaps are.</li>
-<li>Building the timeline reads only the heads: 335 bytes per 1 MiB chunk, unaligned.</li>
-<li>Read more: <a href="https://tape.vhrd.tech/series/#grids-where-samples-are-in-time">Grids</a>. Fuzz targets <code>tape-series</code> and <code>tape-series-hostile</code>.</li>
-<li>✅ <strong>FMT-11 Track relations</strong></li>
-<li>A track's items can relate to another track's items by name, such as a source, a parent or a context. The writer gives the meaning, and ww_tape gives the blocks.</li>
-<li>Stored values are a chunk column. A relation that never decreases is searched by lower bound, and the writer keeps it in order across cuts and resumes.</li>
-<li>A caller may accept a break in such a relation. The tape marks it, and readers refuse a decrease that isn't marked.</li>
-<li>Kept for later, not built: postings and dictionary blocks and values stored only in the index.</li>
-<li>Read more: <a href="https://tape.vhrd.tech/format/#relation-columns">Relation columns</a>. Tests <code>relations.rs</code>; fuzz targets <code>tape-times</code> and <code>tape-index</code>.</li>
-<li>✅ <strong>FMT-12 What a track's items are</strong></li>
-<li>A track's definition says what its items are (<code>Items</code>): a WireWeaver stream's values, a ShrinkWrap type, plain bytes, numbers, or a foreign format. A foreign format has a name, a media type and a version, and may carry a schema in the tape. Numbers are of an element the definition describes. The bytes are stored as given.</li>
-<li><code>Items</code> is evolvable: a variant a newer ww_tape adds reads as unknown with the rest of the definition intact. A relay stores such events as given.</li>
-<li>A series' items are <code>Numbers</code> too: any width LSB or MSB first, floats of another layout, a zero offset that summaries keep exact.</li>
-<li>Read more: <a href="https://tape.vhrd.tech/tracks/#what-a-tracks-items-are">What a track's items are</a>, <a href="https://tape.vhrd.tech/format/#items-of-a-track">Items of a track</a>, <a href="https://tape.vhrd.tech/format/#sample-codecs">Sample codecs</a>. Tests <code>raw.rs</code>, <code>iq8.rs</code>, <code>series.rs</code>; fuzz targets <code>tape-series</code>, <code>tape-samples</code>, <code>tape-samples-hostile</code>.</li>
-<li>✅ <strong>FMT-13 Series chunks carry their samples' flags</strong></li>
-<li>A series chunk keeps its samples' flags words as runs of consecutive samples sharing a word, in a <code>Flags</code> column in codec <code>FLAG_RUNS</code>. Only a chunk with a flagged sample has it, so an unflagged series keeps its bytes.</li>
-<li>The runs are in one form only, at most <code>FLAG_RUNS_MAX</code> (4096) per chunk; a writer seals a chunk before one more.</li>
-<li>The summaries derive their flags from the runs, so a resumed writer rebuilds them from the kept chunks (<code>SeriesSummaries::push_runs</code>).</li>
-<li>Readers take the runs per chunk: <code>Chunk::flag_runs</code>, <code>SeriesSamples::flag_runs</code> of a track follower.</li>
-<li>Read more: <a href="https://tape.vhrd.tech/format/#sample-flags">Sample flags</a>. Golden file <code>v1-series.hex</code>; tests <code>series_flags.rs</code>, <code>mux_resume.rs</code>; fuzz targets <code>tape-flags</code>, <code>tape-flags-hostile</code>.</li>
 </ul>
+<p>A tape is a run of blocks, each with a 32-byte header, its records and a CRC-32C, never padded. A record holds a track, a time delta, a length and the item's bytes, stored raw or as lz4. A block of a later version or an unknown kind is checked and skipped by its length, not taken for damage. Nothing in a block names its producer: WireWeaver's link tap (TR-14) and eventfull (CORE-19) both write tapes.</p>
+<p>Open: splitting a recording into files by size or time, and preallocating them.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/blocks/#blocks">Blocks</a>. Tests cut and flip every byte; fuzz target <code>tape-reader</code>.</p>
+<ul>
+<li>✅ <strong>FMT-3 Chunk blocks</strong> · <code>v0.5</code></li>
+</ul>
+<p>A chunk block holds one stretch of one track's events or samples, read in place. Its head places it in the track without an index. The head has a CRC of its own, and the payload has one for every 64 KiB, so a flipped bit costs one segment. In an aligned file every chunk payload starts on a 4 KiB boundary, and small blocks fill the gaps.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/columns/">Chunks from columns</a>. Golden file <code>v1-chunks.hex</code>; fuzz target <code>tape-chunk</code>.</p>
+<ul>
+<li>✅ <strong>FMT-4 Index, close and tail</strong> · <code>v0.5</code></li>
+</ul>
+<p>A checkpoint index every 4 MiB lists the blocks since the one before, so a crash costs at most the open chunk. A closed piece ends with a final index sorted by track, a close block and a fixed tail. A reader finds the tail from the end of the file. The close holds a BLAKE3 hash of the piece's content. Offsets count from the start of the piece, so pieces placed back to back keep their indexes.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/format/#index-close-and-tail">Index, close and tail</a>. Golden file <code>v1-index.hex</code>; fuzz target <code>tape-index</code>.</p>
+<ul>
+<li>✅ <strong>FMT-6 Series tracks</strong> · <code>v0.5</code></li>
+</ul>
+<p>A track holds either events or a series. A series track states the type of one value, its period and the scale of the stored numbers. The period is an exact ratio of ticks per sample. A batch of fixed-point values becomes chunk columns without a float. A series track has no records: each chunk carries its own grid and scale (FMT-10).</p>
+<p>Read more: <a href="https://tape.vhrd.tech/series/">Series</a>. Golden file <code>v1-series.hex</code>; fuzz target <code>tape-series</code>.</p>
+<ul>
+<li>✅ <strong>FMT-7 Sessions, gaps and duplicates on raw media</strong> · <code>v0.5</code></li>
+</ul>
+<p>Every block carries a session tag, and seq numbers count per session, so stale blocks of an earlier session end the data. Blank bytes are 0x00 or 0xFF. A blank or damaged stretch followed by the session's next block is a gap, not the end. A block seen twice with the same bytes is dropped; with other bytes the later one wins and is reported.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/raw_media/">Where the data ends on a raw card</a>.</p>
+<ul>
+<li>✅ <strong>FMT-8 Closed pieces padded to 4 KiB</strong> · <code>v0.5</code></li>
+</ul>
+<p>A closed piece is a multiple of 4 KiB long. Pieces so clone back to back into one file on btrfs and XFS, with nothing between them. The writer pads the close block, which states its padding. Blocks inside a piece stay unaligned.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/pieces/#the-4-kib-end-and-cloning">The 4 KiB end and cloning</a>.</p>
+<ul>
+<li>✅ <strong>FMT-10 Series chunks carry their own grid and scale</strong></li>
+</ul>
+<p>A series chunk's head carries its grid and scale, so the chunk times and scales its samples alone. A track's timeline is built from chunk heads in any order: it checks each chunk against its neighbours and names the gaps. Building it reads only the heads, 335 bytes per 1 MiB chunk in an unaligned file.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/series/#grids-where-samples-are-in-time">Grids</a>. Fuzz targets <code>tape-series</code> and <code>tape-series-hostile</code>.</p>
+<ul>
+<li>✅ <strong>FMT-11 Track relations</strong></li>
+</ul>
+<p>A track's items can relate to another track's items by a named relation, such as a source, a parent or a context. The writer gives the meaning; ww_tape stores the values as a chunk column. A relation that never decreases is searched by lower bound, and the writer keeps it in order across cuts and resumes. A caller may accept a break in that order: the tape marks it, and readers refuse a decrease that is not marked.</p>
+<p>Open: postings and dictionary blocks, and values stored only in the index.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/format/#relation-columns">Relation columns</a>. Tests <code>relations.rs</code>; fuzz targets <code>tape-times</code> and <code>tape-index</code>.</p>
+<ul>
+<li>✅ <strong>FMT-13 Sample flags in series chunks</strong></li>
+</ul>
+<p>A series chunk keeps its samples' flag words as runs of consecutive samples sharing a word, in a <code>Flags</code> column of codec <code>FLAG_RUNS</code>. Only a chunk with a flagged sample has the column, so an unflagged series keeps its bytes. A chunk holds at most <code>FLAG_RUNS_MAX</code> (4096) runs; the writer seals it before one more. Readers take the runs per chunk (<code>Chunk::flag_runs</code>, <code>SeriesSamples::flag_runs</code>), and summaries derive their flags from them.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/format/#sample-flags">Sample flags</a>. Golden file <code>v1-series.hex</code>; tests <code>series_flags.rs</code>, <code>mux_resume.rs</code>; fuzz targets <code>tape-flags</code>, <code>tape-flags-hostile</code>.</p>
+<h2 id="tracks-clocks-and-definitions-track">Tracks, clocks and definitions (<code>TRACK</code>)<a class="headerlink" href="#tracks-clocks-and-definitions-track" title="Permanent link">&para;</a></h2>
+<p>Clocks, track identity, definitions on track 0, state, what items are and how tracks are numbered, in the crate <code>ww_tape</code>.</p>
+<ul>
+<li>✅ <strong>TRACK-1 Clocks, clock maps and typed items</strong> · <code>v0.5</code></li>
+</ul>
+<p>A record's time is a signed 64-bit tick count of its track's clock. Times are deltas per clock, so a block reads alone and holds no wall time. A clock has a stable key and an exact rate and resolution. A clock map turns one clock's ticks into another's with a named rounding. A track names its clock, its dimensions and its item type, and a typed item carries any WireWeaver value by that type.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/records_and_clocks/#clocks-and-ticks">Clocks and ticks</a>.</p>
+<ul>
+<li>✅ <strong>TRACK-2 Track identity by name path</strong> · <code>v0.5</code></li>
+</ul>
+<p>A track's key hashes the names of its resource, its array indices and the keys of keyed arrays. Two runs that number things differently so get the same ids (API-67). A resource renamed with <code>#[moved_from]</code> keeps its key (INT-17); one moved to another trait gets a new key. WireWeaver's crate <code>ww_tape_bundle</code> computes the names from an API bundle.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/format/#track-identity">Track identity</a>. Tests in WireWeaver's <code>tests/tape_identity</code>.</p>
+<ul>
+<li>✅ <strong>TRACK-3 Definitions on track 0, state near its use</strong> · <code>v0.5</code></li>
+</ul>
+<p>Definitions are plain records on track 0: the producer, the layout, bundles, clocks, maps, tracks and typed items. Each has a slot, and the newest record per slot counts. The application holds its definitions and passes them with each write; data of a track it does not hold is refused. A state item is put again only where the same item does not lie close behind. The index lists state records, so a reader looks state up anywhere, damage included.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/blocks/#definitions-on-track-0">Definitions on track 0</a>, <a href="https://tape.vhrd.tech/tape/#state-tracks-and-near-use">State tracks</a>; <code>just bench-tracks</code> measures the cost. Fuzz target <code>tape-state-hostile</code>.</p>
+<ul>
+<li>✅ <strong>TRACK-4 What a track's items are</strong></li>
+</ul>
+<p>A track's definition says what its items are (<code>Items</code>): a WireWeaver stream's values, a ShrinkWrap type, plain bytes, numbers or a foreign format. A foreign format has a name, a media type and a version, and may carry its schema in the tape. Numbers are of an element the definition describes, of any width and byte order; series samples are numbers too. <code>Items</code> is evolvable: a variant from a newer ww_tape reads as unknown, and the rest of the definition stays intact.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/tracks/#what-a-tracks-items-are">What a track's items are</a>, <a href="https://tape.vhrd.tech/format/#items-of-a-track">Items of a track</a>. Tests <code>raw.rs</code>, <code>iq8.rs</code>, <code>series.rs</code>; fuzz targets <code>tape-series</code>, <code>tape-samples</code>, <code>tape-samples-hostile</code>.</p>
+<ul>
+<li>✅ <strong>TRACK-5 Definitions carried into each new piece</strong></li>
+</ul>
+<p>A cut puts the definition of every track the new piece's head carries right after the head, with its clocks, maps and bundles. Dropping older pieces so keeps a quiet track's kind, clock and label. The carried definitions come in blocks of at most 4 KiB with their own tracks' clocks and maps, so damage costs only those tracks. Past the index policy's room the tracks with the oldest data are left out: the head marks them and a reader names them (<code>DefinitionsAt::not_carried</code>). A state track's newest item is carried beside its definition.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/carried_definitions/">The definitions a new piece carries</a>, <a href="https://tape.vhrd.tech/carried_definitions/#what-they-cost">What they cost</a> (<code>just bench-carried</code>). Tests <code>quiet.rs</code>.</p>
+<ul>
+<li>✅ <strong>TRACK-6 Layout and producer copied through the piece</strong></li>
+</ul>
+<p>Every call that puts a definition or a state item also keeps track 0's copy of the layout and the producer, spaced 1 MiB apart. Losing a piece's first blocks so loses neither, and a scan past the newest checkpoint takes its gap rules from the copy. A raw-media walk that starts before the first copy gets them from <code>OpenOptions::layout</code>. A piece under 1 MiB holds no copy.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/damage/#the-first-4-kib-lost">When bytes go bad</a>. Tests <code>head_copies.rs</code>.</p>
+<ul>
+<li>🚧 <strong>TRACK-7 Track and clock numbers given by the definitions</strong></li>
+</ul>
+<p>An application defines a track or a clock without a number (<code>TrackSpec</code>, <code>ClockSpec</code>), and <code>Definitions</code> gives it the lowest number not taken. The same track identity (key, dimensions, owner) or clock key gets its number back, also after a close. A number never goes to another track or clock. A resume reads the piece's numbers back (<code>Resumed::numbers</code>, <code>Definitions::with_numbers</code>), and a reader finds a track's number by its id (<code>DefinitionsAt::track_number</code>).</p>
+<p>Open: a chain resume that starts a new piece reads no closed piece, so its numbers start anew.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/tracks/#number-key-and-id">Number, key and id</a>, <a href="https://tape.vhrd.tech/definitions/#the-definitions-an-application-holds">The definitions an application holds</a>.</p>
 <h2 id="writer-write">Writer (<code>WRITE</code>)<a class="headerlink" href="#writer-write" title="Permanent link">&para;</a></h2>
-<p>Writing pieces and chains, resuming them, sinks in memory, in the crate <code>ww_tape</code>.</p>
+<p>Writing pieces and chains, resuming them, and sinks in memory, in the crate <code>ww_tape</code>.</p>
 <ul>
 <li>✅ <strong>WRITE-1 Pieces and chains</strong> · <code>v0.5</code></li>
-<li>One recording is cut into complete pieces at chunk boundaries. A cut happens by bytes, chunks or age, and never leaves a piece empty.</li>
-<li>Each piece names the one before by its id and content hash. A chain check reports gaps, broken links, an open end and a lost first piece.</li>
-<li>Read more: <a href="https://tape.vhrd.tech/anatomy/">Anatomy of a piece</a>, <a href="https://tape.vhrd.tech/pieces/">Pieces and chains</a>.</li>
-<li>✅ <strong>WRITE-2 Resume after a crash</strong> · <code>v0.5</code></li>
-<li>A writer reopens an unclosed piece and keeps every block up to the last one written. The resumed piece ends with the bytes of a write that never stopped.</li>
-<li>A chain resume also reads the closed pieces back. It handles a crash between a cut's close and the next piece.</li>
-<li>Writers write through a sink and chains through a store of tapes, so the same code writes files and memory.</li>
-<li>Read more: <a href="https://tape.vhrd.tech/crashes/">When the power fails</a>. Tests cut pieces and chains at every block and at random bytes; fuzz target <code>tape-resume</code>.</li>
-<li>✅ <strong>WRITE-3 Writes say where they landed</strong></li>
-<li>Each write of a chunk or a block returns the offset and length where the block landed. A chain also returns the piece it landed in.</li>
-<li>Tests read each returned offset back (<code>placed.rs</code>).</li>
-<li>✅ <strong>WRITE-4 Writer checks in proportion to their cost</strong></li>
-<li>The writer checks the head of a chunk it encodes, not the encoded bytes. A caller's own block is read once with its CRCs checked.</li>
-<li>On a 1 MiB series chunk this costs 466 µs past the encoding, down from 857 µs.</li>
-<li>Read more: <a href="https://tape.vhrd.tech/writing/#what-the-writer-checks">What the writer checks</a>.</li>
-<li>✅ <strong>WRITE-5 Pieces in memory</strong></li>
-<li>A closed piece can be taken out of memory, and readers holding it read on.</li>
-<li>A memory sink reserves room for a whole piece, so a reader waits at most 0.16 ms while a 256 MiB piece is written.</li>
-<li>Open: resuming a chain in memory whose first pieces were taken out.</li>
-<li>Read more: <a href="https://tape.vhrd.tech/live_feeds/#reading-while-the-writer-writes">Reading while the writer writes</a>.</li>
-<li>✅ <strong>WRITE-6 Pieces in one file, track owners and hashes</strong></li>
-<li>A chain writes a file per piece or all pieces into one file. Each session that opens the file adds a piece.</li>
-<li>A sink is the only writer of its bytes. A second writer is refused.</li>
-<li>Tracks of one identity are told apart by an owner. A running hash per track is the same alone or interleaved, in one piece or many.</li>
-<li>
-<p>Read more: <a href="https://tape.vhrd.tech/pieces/#writing-a-chain-into-one-file">Writing a chain into one file</a>, <a href="https://tape.vhrd.tech/track_hashes/">Track owners and hashes</a>. Fuzz target <code>tape-resume</code>.</p>
-</li>
-<li>
-<p>✅ <strong>WRITE-7 A piece closes more than once</strong></p>
-</li>
-<li>A close ends a write session, not the piece. A writer resumed on a closed piece appends after its tail and closes again.</li>
-<li>Nothing before the append moves. Each close hashes the close before it and the bytes since, so each close still checks its prefix.</li>
-<li>Readers take the last close whose tail is whole. Bytes after it read as an unclosed tail, never as damage.</li>
-<li>A resume cuts back only a torn end and refuses damage. A close with nothing appended writes no byte.</li>
-<li>
-<p>Read more: <a href="https://tape.vhrd.tech/growing_pieces/">Reading a growing piece</a>, <a href="https://tape.vhrd.tech/format/#the-close-in-force">The close in force</a>. Fuzz target <code>tape-reclose</code>.</p>
-</li>
-<li>
-<p>✅ <strong>WRITE-8 Pieces removed on purpose</strong></p>
-</li>
-<li>A close names pieces of its chain removed on purpose: sequence number, id and close hash, at most <code>REMOVED_PIECES_MAX</code> (65536).</li>
-<li><code>TapeWriter::record_removed</code> appends them to the chain's last piece after its close; every later close of the piece names them again.</li>
-<li><code>check_chain</code> links over the hole (<code>ChainLink::Removed</code>) when both ends match the rows. A head cut the rows cover reads as <code>head_removed</code>.</li>
-<li>Rows live in the piece that holds them: removing that piece later means naming them again (<code>ChainReport::removed</code>).</li>
-<li>
-<p>Read more: <a href="https://tape.vhrd.tech/pieces/#pieces-removed-on-purpose">Pieces removed on purpose</a>. Golden <code>v1-removed.hex</code>.</p>
-</li>
-<li>
-<p>✅ <strong>WRITE-9 A new piece carries its quiet tracks' definitions</strong></p>
-</li>
-<li>A cut puts the definition of every track the new head carries, with its clocks, maps and bundles, right after the head. Dropping older pieces keeps a quiet track's kind, clock and label.</li>
-<li>Blocks of at most 4 KiB, each with the clocks and maps of its own tracks: a damaged block costs only its tracks. Bundles come once, first.</li>
-<li>A call whose definitions fit no piece under the index policy is refused (<code>InputError::CarriedEntries</code>), nothing written, no cut. A resume that kept only the head puts them with the next call.</li>
-<li>A new piece carries every definition while the chain's tracks fit the index policy's state entries. A cut is never refused for them.</li>
-<li>Past the room it carries each once: the call's tracks first, then clocks and maps, then the newest tracks. The tracks with the oldest data are left out: the head marks them, the close counts them and a reader names them (<code>DefinitionsAt::not_carried</code>).</li>
-<li>A cut made for a call keeps room for its records. An admitted call so fits the piece a cut made for it: data on a track left out writes on, and that piece holds data.</li>
-<li>A state track gets a head row from its first put. A cut carries its newest item beside its definition, so a state put once outlives older pieces. About 275 to 330 bytes per carried state (<code>just bench-carried</code>).</li>
-<li>What carrying costs a piece, measured by <code>just bench-carried</code>: <a href="https://tape.vhrd.tech/carried_definitions/#what-they-cost">What they cost</a>.</li>
-<li>
-<p>Read more: <a href="https://tape.vhrd.tech/carried_definitions/">The definitions a new piece carries</a>. Tests <code>quiet.rs</code>.</p>
-</li>
-<li>
-<p>✅ <strong>WRITE-10 A piece's layout and producer survive damage to its first blocks</strong></p>
-</li>
-<li>Every call that puts a definition or a state item uses the layout and the producer. Each gets track 0's copy at the copy spacing (1 MiB) and is put again past <code>near</code>, in that call's block of puts.</li>
-<li>Losing a piece's first blocks loses neither: the reader takes the newest record. A scan past the newest checkpoint takes its gap rules from the copy.</li>
-<li>A raw-media walk that starts past lost first sectors knows no gap rules until the copy; <code>OpenOptions::layout</code> gives them there.</li>
-<li>A copy that finds the piece's state entries full is skipped, never refusing a call; such a piece names them once.</li>
-<li>Cost: 523 bytes in a 28 MiB piece of the drive, two records and their index entries; none in a piece under 1 MiB.</li>
-<li>Read more: <a href="https://tape.vhrd.tech/damage/#the-first-4-kib-lost">When bytes go bad</a>. Tests <code>head_copies.rs</code>.</li>
-<li>🚧 <strong>WRITE-11 The definitions number tracks and clocks</strong></li>
-<li>An application defines a track or a clock without a number (<code>TrackSpec</code>, <code>ClockSpec</code>); <code>Definitions</code> gives the lowest number not taken and returns it.</li>
-<li>The same track identity (key, dimensions, owner) or clock key gets its number back, also after a close.</li>
-<li>A number never goes to another track or clock.</li>
-<li>A resume reads the numbers of the piece's definitions (<code>Resumed::numbers</code>), so the application's definitions keep them (<code>Definitions::with_numbers</code>).</li>
-<li>A reader finds a track's number by its id (<code>DefinitionsAt::track_number</code>).</li>
-<li>Missing: a chain resume that starts a new piece reads no closed piece, so its numbers start anew.</li>
-<li>Read more: <a href="https://tape.vhrd.tech/tracks/#number-key-and-id">Number, key and id</a>, <a href="https://tape.vhrd.tech/definitions/#the-definitions-an-application-holds">The definitions an application holds</a>.</li>
-<li>✅ <strong>WRITE-12 A writing thread for producers on any thread</strong></li>
-<li>A <code>TapeMux</code> (crate <code>ww_tape_mux</code>) owns a chain and its definitions on a writing thread. Producers send through handles: <code>ChunkSender</code> (one track's chunks), <code>RecordsHandle</code>, <code>RelayHandle</code> (another producer's blocks) and <code>StateHandle</code> (puts on change).</li>
-<li>Tracks and clocks are defined on the mux, which gives their numbers; handles pass no definitions.</li>
-<li>One queue bounded by bytes, waiters served in arrival order. Per handle: wait (lossless), fail with the unit back, or drop and count. A dropped chunk leaves an item-number gap: readers take it as items lost.</li>
-<li>The writing thread places units in arrival order and does the puts, cuts, sync and checkpoints by time, and the close.</li>
-<li>A writer's refusal reaches the handle's next call; a failed write reaches every handle. A close refuses later calls with <code>Closed</code> and doesn't wait for handles. A mux dropped unclosed leaves its piece unclosed; <code>TapeMux::resume</code> and <code>ww_tape_fs::mux::resume</code> go on.</li>
-<li><code>PieceChain::relay_block</code> and <code>adopt_block</code> pass a producer's blocks on into a chain.</li>
-<li>Several muxes in one process write chains of their own; each resumes alone after a crash (test <code>mux_multi.rs</code>). The RF example writes its IQ and its decoded bursts through two (<a href="https://tape.vhrd.tech/series/#samples-and-what-they-mean-in-two-chains">Samples and what they mean, in two chains</a>).</li>
-<li>Async sends: WRITE-14.</li>
-<li>Tests <code>mux.rs</code>, <code>item_gap.rs</code>, <code>mux_multi.rs</code>.</li>
-<li>✅ <strong>WRITE-13 Typed track handles encode on the producer's thread</strong></li>
-<li><code>EventsHandle</code> takes items of one events track: instants, spans, flags, relation values, payloads. <code>SeriesHandle</code> takes samples on a grid, with <code>regrid</code>.</li>
-<li>Each encodes its chunks, hashes their payload and computes the leaves of the track's summaries on its own thread. <code>write_chunk_hashed</code> takes the hash; the bytes are the same.</li>
-<li><code>SeriesLeaves</code> and <code>SeriesTree</code>, and <code>EventRuns</code>, split the summary builders between producer and writing thread.</li>
-<li>The writing thread builds one summary tree per track and piece, ended before each cut and at the close.</li>
-<li>A resumed mux rebuilds the trees of the torn piece before it first writes. It reads the kept chunks back and computes their leaves again. Kept summary blocks are not written again; lost ones are deferred again in order.</li>
-<li>Given the lost items again, the chain gets the bytes of the run without the crash, in both layouts.</li>
-<li>A tree rebuilt for a track written without summaries is dropped by the track's next chunk. With no such chunk left in the piece, it writes blocks the run without the crash didn't.</li>
-<li>Series flags (<code>push_flagged</code>) are kept in the chunks' flag runs (FMT-13), so kept samples' leaves are rebuilt with them.</li>
-<li>A quiet handle's open chunk is sealed by the writing thread when its latency is up, behind the handle's earlier units.</li>
-<li>Items are checked at the call: start order, spans, flags, relation counts and monotone values, payload length.</li>
-<li>Missing: a resumed chain's track starts are passed by the caller (<code>first_item</code>); the mux doesn't give them yet.</li>
-<li><code>EventsHandle::push_all</code> takes a batch of <code>Event</code>s in one pass, the bytes of pushing them one by one. One events producer writes 56.0 M events/s through the mux, one thread writing directly 54.8 (bench <code>handles</code>).</li>
-<li>Tests <code>mux_handles.rs</code>, <code>split_tests.rs</code>, <code>placed.rs</code>, <code>mux_resume.rs</code>, <code>series_flags.rs</code>.</li>
-<li>Bench <code>handles</code> (<code>just bench-handles</code>): direct writer against the mux by 1, 4 and 16 tracks.</li>
-<li>✅ <strong>WRITE-14 Async twins of the mux's and the followers' waits</strong></li>
-<li>Every call that waits has an <code>_async</code> twin. Handles: send, put, push, regrid, seal, finish, flush, sync.</li>
-<li>The mux: definitions, making handles, cut, flush, sync, close. Readers: <code>ProgressWatch::wait_past_async</code>, the followers' <code>wait_next_async</code>.</li>
-<li>The queue's senders wait by waker, in arrival order, threads and tasks alike. A blocking call parks its thread on the same future.</li>
-<li>The writing thread stays an OS thread.</li>
-<li>No async runtime in any crate's dependencies: the writing thread, or a follower's own waiting thread on inotify, wakes the task.</li>
-<li>Cancel-safe: a send dropped while it waits leaves the line. A typed handle keeps the chunks a dropped push sealed, and sends them first on its next call.</li>
-<li>A timeout of the caller's runtime bounds a wait.</li>
-<li>Missing: a typed handle's drop still sends blocking; async code ends a handle with <code>finish_async</code>.</li>
-<li>Tests <code>mux_async.rs</code>: tokio's two schedulers and smol, without timer or I/O driver, woken from another thread.</li>
-<li>✅ <strong>WRITE-15 The example and the book's writer code through handles</strong></li>
-<li><code>Drive::record</code> writes through a <code>TapeMux</code> from one thread in the story's fixed order, with no tick and no latency seal: the placement is the same every run.</li>
-<li>The mode goes through a <code>StateHandle</code>, records blocks through a <code>RecordsHandle</code>, <code>can0</code> through a <code>ChunkSender</code>, <code>phase_a</code> through a <code>SeriesHandle</code> whose summaries the mux builds, one tree a piece.</li>
-<li>The relay (<code>writing::relay</code>) writes through a <code>RelayHandle</code>: the same bytes.</li>
-<li><code>Drive::crash</code> writes the chain, then cuts its bytes at the crash byte.</li>
-<li><code>Crashed::resume</code> is a <code>TapeMux::resume</code> given the acts the crash lost. The resume equals the whole run byte for byte, at every byte of a scaled run.</li>
-<li>The mux builds one summary tree a piece, where the direct writer built one across pieces. The pinned numbers were run again: <code>writing.out</code>, <code>fault.out</code>, the damage tests and the pages that quote them.</li>
-<li>The book's included writer code comes from the handles path (<code>first_tape.md</code>, <code>columns.md</code>, <code>sample_codecs.md</code>, <code>summaries.md</code>, <code>pieces.md</code>); <code>first_tape.rs</code> keeps the <code>TapeWriter</code> lesson beside it.</li>
-<li><code>ww_tape_example::handles::record</code> is the concurrent demo, one thread per source. Test <code>tests/handles.rs</code> compares each track's decoded items with the story's recording.</li>
 </ul>
+<p>A recording is cut into complete pieces at chunk boundaries, by bytes, chunks or age, and a cut never leaves a piece empty. Each piece names the one before by its id and content hash. A chain check reports gaps, broken links, an open end and a lost first piece.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/anatomy/">Anatomy of a piece</a>, <a href="https://tape.vhrd.tech/pieces/">Pieces and chains</a>.</p>
+<ul>
+<li>✅ <strong>WRITE-2 Resume after a crash</strong> · <code>v0.5</code></li>
+</ul>
+<p>A writer reopens an unclosed piece and keeps every block up to the last whole one. The resumed piece ends with the same bytes as a write that never stopped. A chain resume also reads its closed pieces back, and handles a crash between a cut's close and the next piece. Writers write through a sink and chains through a store of tapes, so the same code writes files and memory.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/crashes/">When the power fails</a>. Tests cut pieces and chains at every block and at random bytes; fuzz target <code>tape-resume</code>.</p>
+<ul>
+<li>✅ <strong>WRITE-3 Each write returns where it landed</strong></li>
+</ul>
+<p>Each write of a chunk or a block returns the offset and length of the block it wrote. A chain also returns the piece the block landed in.</p>
+<p>Read more: tests <code>placed.rs</code> read each returned offset back.</p>
+<ul>
+<li>✅ <strong>WRITE-4 Writer checks in proportion to their cost</strong></li>
+</ul>
+<p>The writer checks the head of a chunk it encodes, not the encoded bytes. A block the caller encoded is read once, with its CRCs checked. On a 1 MiB series chunk this costs 466 µs past the encoding.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/writing/#what-the-writer-checks">What the writer checks</a>.</p>
+<ul>
+<li>✅ <strong>WRITE-5 Pieces in memory</strong></li>
+</ul>
+<p>A memory sink reserves room for a whole piece, so a reader waits at most 0.16 ms while a 256 MiB piece is written. A closed piece can be taken out of memory, and readers holding it read on.</p>
+<p>Open: resuming a chain in memory whose first pieces were taken out.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/live_feeds/#reading-while-the-writer-writes">Reading while the writer writes</a>.</p>
+<ul>
+<li>✅ <strong>WRITE-6 A chain in one file, track owners and running hashes</strong></li>
+</ul>
+<p>A chain writes one file per piece, or all its pieces into one file, where each session that opens the file adds a piece. A sink is the only writer of its bytes, and a second writer is refused. Tracks of one identity are told apart by an owner. A running hash per track is the same whether the track is written alone or interleaved, in one piece or many.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/pieces/#writing-a-chain-into-one-file">Writing a chain into one file</a>, <a href="https://tape.vhrd.tech/track_hashes/">Track owners and hashes</a>. Fuzz target <code>tape-resume</code>.</p>
+<ul>
+<li>✅ <strong>WRITE-7 Appending to a closed piece</strong></li>
+</ul>
+<p>A close ends a write session, not the piece: a writer resumed on a closed piece appends after its tail and closes again. Nothing before the append moves, and each close hashes the close before it and the bytes since. Readers take the last close whose tail is whole and read bytes after it as an unclosed tail, never as damage. A resume cuts back only a torn end and refuses damage.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/growing_pieces/">Reading a growing piece</a>, <a href="https://tape.vhrd.tech/format/#the-close-in-force">The close in force</a>. Fuzz target <code>tape-reclose</code>.</p>
+<ul>
+<li>✅ <strong>WRITE-8 Pieces removed on purpose</strong></li>
+</ul>
+<p>A close can name pieces of its chain that were removed on purpose, by sequence number, id and close hash. <code>TapeWriter::record_removed</code> appends these rows to the chain's last piece, and every later close of that piece names them again. The chain check links over the hole (<code>ChainLink::Removed</code>) when both ends match the rows. Removing the piece that holds the rows means naming them again.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/pieces/#pieces-removed-on-purpose">Pieces removed on purpose</a>. Golden file <code>v1-removed.hex</code>.</p>
+<h2 id="writing-from-many-threads-mux">Writing from many threads (<code>MUX</code>)<a class="headerlink" href="#writing-from-many-threads-mux" title="Permanent link">&para;</a></h2>
+<p>The writing thread and its handles, in the crate <code>ww_tape_mux</code>.</p>
+<ul>
+<li>✅ <strong>MUX-1 One writing thread, handles on any thread</strong></li>
+</ul>
+<p>A <code>TapeMux</code> owns a chain and its definitions on a writing thread; producers on other threads send through handles. <code>ChunkSender</code> sends one track's chunks, <code>RecordsHandle</code> records, <code>RelayHandle</code> another producer's blocks and <code>StateHandle</code> puts on change. All share one queue bounded by bytes, where each handle waits, fails with its unit back, or drops and counts. The writing thread does the puts, cuts, syncs, checkpoints and the close, and a failed write reaches every handle. A mux dropped unclosed leaves its piece unclosed, and <code>TapeMux::resume</code> goes on from it.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/writing_thread/">Writing from many threads</a>. Tests <code>mux.rs</code>, <code>item_gap.rs</code>, <code>mux_multi.rs</code>.</p>
+<ul>
+<li>✅ <strong>MUX-2 Typed handles that encode on the producer's thread</strong></li>
+</ul>
+<p><code>EventsHandle</code> takes the items of one events track and <code>SeriesHandle</code> samples on a grid, each checked at the call. Each encodes its chunks, hashes their payload and computes the leaves of the track's summaries on its own thread. The writing thread joins the leaves into one summary tree per track and piece. A resumed mux rebuilds the trees of the torn piece from its kept chunks. The chain then ends with the bytes of a run without the crash.</p>
+<p>Open: a resumed chain's track starts come from the caller (<code>first_item</code>), not yet from the mux.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/writing_thread/#typed-handles-encode-on-their-own-thread">Typed handles encode on their own thread</a>; <code>just bench-handles</code> measures them. Tests <code>mux_handles.rs</code>, <code>split_tests.rs</code>, <code>placed.rs</code>, <code>mux_resume.rs</code>, <code>series_flags.rs</code>.</p>
+<ul>
+<li>✅ <strong>MUX-3 Async waits for the mux and the followers</strong></li>
+</ul>
+<p>Every call of the mux, its handles and the followers that waits has an <code>_async</code> twin. Threads and tasks wait in the same line, in arrival order, and a blocking call parks its thread on the same future. No crate depends on an async runtime: the writing thread, or a follower's own waiting thread, wakes the task. A send dropped while it waits leaves the line, and a typed handle sends the chunks a dropped push sealed on its next call.</p>
+<p>Open: a typed handle's drop still sends blocking, so async code ends a handle with <code>finish_async</code>.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/writing_thread/#threads-and-tasks">Threads and tasks</a>. Tests <code>mux_async.rs</code> on tokio's two schedulers and smol.</p>
 <h2 id="reader-read">Reader (<code>READ</code>)<a class="headerlink" href="#reader-read" title="Permanent link">&para;</a></h2>
-<p>Reading by position, checks and hashes, hostile bytes, in the crate <code>ww_tape</code>.</p>
+<p>Reading by position, checks and hashes, hostile bytes and live chains, in the crates <code>ww_tape</code> and <code>ww_tape_fs</code>.</p>
 <ul>
 <li>✅ <strong>READ-1 Positional reader</strong> · <code>v0.5</code></li>
-<li>The reader reads at offsets from any byte source: memory, a file or HTTP range requests in a browser. It finds pieces from their tails, one small read per piece.</li>
-<li>It opens an unclosed piece from its newest checkpoint. It needs no file system and no threads, and builds for wasm32.</li>
-<li>Read more: <a href="https://tape.vhrd.tech/reading/">Reading a tape</a>.</li>
-<li>✅ <strong>READ-2 No panic on file bytes</strong> · <code>v0.5</code></li>
-<li>Every reader takes damaged or hostile bytes without a panic, an overflow or an unbounded allocation.</li>
-<li>A number read from a block reaches a length or a loop only through a named cap. The caps are listed in one table in the crate docs.</li>
-<li>Clippy's panic-class lints are denied, and each exception names its invariant.</li>
-<li>Every decoder has a fuzz target that builds valid blocks with hostile fields. Their seeds replay in <code>just test</code>.</li>
-<li>Read more: <a href="https://tape.vhrd.tech/damage/#what-the-checks-cannot-do">What the checks cannot do</a>.</li>
-<li>✅ <strong>READ-3 A range hash from the index</strong></li>
-<li>A range hash folds each chunk by the hash its index entry states, without reading the chunk. It is the writer's statement until a check proves it.</li>
-<li>The content check replays the piece and compares each index entry with its block and each close row with its track.</li>
-<li>Read more: <a href="https://tape.vhrd.tech/track_hashes/#folding-from-the-index">Folding from the index</a>. Fuzz target <code>tape-index</code>.</li>
-<li>✅ <strong>READ-4 Index entries checked on every path</strong></li>
-<li>Entries of a piece are sorted by offset. Entries that name one block twice or overlap are refused, wherever they came from.</li>
-<li>A final index out of order is refused when read, so every call that gives entries agrees.</li>
-<li>Read more: <a href="https://tape.vhrd.tech/reading/#finding-blocks-through-the-index">Finding blocks through the index</a>.</li>
-<li>✅ <strong>READ-5 Typed numbers in the API</strong></li>
-<li>Track and clock numbers are <code>TrackNum</code> and <code>ClockNum</code>, 1 and up, each exactly a <code>UNib32</code> on the wire; a definition naming 0 doesn't decode. A record names its track as a <code>RecordTrack</code>, track 0 being the definitions.</li>
-<li>Track keys, track ids and clock keys are <code>TrackKey</code>, <code>TrackId</code> and <code>ClockKey</code>, any value valid, each exactly a <code>u64</code> on the wire. A key without dimensions is its id (<code>TrackKey::id</code>). The index lists record blocks of data under <code>RECORDS_TRACK_ID</code> and state records under <code>STATE_TRACK_ID</code>.</li>
-<li>Which relations of a track keep a column or never decrease is a <code>RelationSet</code>, a set of relation indexes below <code>RELATIONS_MAX</code> (<code>StoredRelations</code>, <code>TrackFacts</code>). A relation index itself stays a <code>u16</code>: only an index into <code>TrackDef::relations</code>.</li>
-<li>Byte sizes in the options and limits (<code>NearPolicy</code>, <code>IndexPolicy</code>, <code>CutPolicy</code>, <code>OpenOptions</code>, the summary builders' block caps, their default constants) are exact_units <code>Bytes&lt;T&gt;</code>; counts of entries, chunks and slots there are <code>Count&lt;_, u64&gt;</code>. Offsets and lengths read from a file stay <code>FromFile&lt;T&gt;</code> (READ-2); plain measurements in reports stay bare.</li>
-<li>An item's number on its track is an <code>ItemNum</code>, exactly a <code>u64</code> on the wire. It names items in the chunk, index, summary and piece heads, the series timeline, the range hash and the summary builders' API. A count of items stays a <code>u64</code>; <code>ItemNum::checked_add</code>, <code>offset_to</code> and <code>items</code> relate the two. A grid's own sample index (<code>SeriesGrid::grid_index</code>) and the builders' counters stay <code>u64</code>.</li>
-<li>Left bare on purpose: block seqs (<code>BlockId::seq</code>, <code>ChunkPlaced::seq</code>), counts, format and codec versions, codec ids, relation indexes, offsets and lengths. Each is a plain counter, an index or a measurement, and a number read from a file stays a <code>FromFile&lt;T&gt;</code> (READ-2).</li>
-<li>Read more: the crate docs of <code>ww_tape</code> (<code>TrackNum</code>, <code>ClockNum</code>, <code>RecordTrack</code>, <code>TrackKey</code>, <code>TrackId</code>, <code>ClockKey</code>, <code>RelationSet</code>).</li>
-<li>✅ <strong>READ-6 Readers following a live chain</strong></li>
-<li><code>ww_tape_fs::follow::ChainFollower</code> reads a chain directory or file while another process writes it, piece after piece. It hands out only blocks that check.</li>
-<li>A torn end is read again once a resume cut it back and wrote on. A block a resume took back is never handed out. inotify wakes it on Linux; a poll interval bounds each wait.</li>
-<li>It starts at the first piece, the newest or the end. <code>TrackFollower</code> decodes one track's events or series samples and reports item-number gaps as lost items.</li>
-<li><code>TimeMerge</code> merges chains by time. An item comes out once every source showed nothing older: the bound is the slowest source's newest time. A source quiet past a set wait is left out, and its older items come out marked late.</li>
-<li><code>TapeMux::watch</code> publishes the piece, bytes written and synced, and each track's newest chunk for readers in the writer's process.</li>
-<li>Tests <code>follow.rs</code> (a writer process killed and resumed), <code>progress.rs</code>. Read more: <a href="https://tape.vhrd.tech/growing_pieces/#following-a-chain-while-it-is-written">Reading a growing piece</a>.</li>
 </ul>
+<p>The reader reads at offsets from any byte source: memory, a file or HTTP range requests in a browser. It finds pieces from their tails with one small read per piece, and opens an unclosed piece from its newest checkpoint. It needs no file system and no threads, and builds for wasm32.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/reading/">Reading a tape</a>.</p>
+<ul>
+<li>✅ <strong>READ-2 No panic on hostile bytes</strong> · <code>v0.5</code></li>
+</ul>
+<p>Every reader takes damaged or hostile bytes without a panic, an overflow or an unbounded allocation. A number read from a block reaches a length or a loop only through a named cap. The crate docs list the caps in one table. Clippy's panic-class lints are denied, and each exception names its invariant. Every decoder has a fuzz target that builds valid blocks with hostile fields, and their seeds replay in <code>just test</code>.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/damage/#what-the-checks-cannot-do">What the checks cannot do</a>.</p>
+<ul>
+<li>✅ <strong>READ-3 Range hashes from the index</strong></li>
+</ul>
+<p>A range hash folds each chunk by the hash its index entry states, without reading the chunk. It is the writer's statement until a content check proves it. The content check replays the piece and compares each index entry with its block and each close row with its track.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/track_hashes/#folding-from-the-index">Folding from the index</a>. Fuzz target <code>tape-index</code>.</p>
+<ul>
+<li>✅ <strong>READ-4 Index entries checked on every path</strong></li>
+</ul>
+<p>A piece's index entries are sorted by offset. Entries that name one block twice or overlap are refused wherever they came from. A final index out of order is refused when it is read, so every call that gives entries agrees.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/reading/#finding-blocks-through-the-index">Finding blocks through the index</a>.</p>
+<ul>
+<li>✅ <strong>READ-5 Typed numbers in the API</strong></li>
+</ul>
+<p>Track and clock numbers, keys and ids are types of their own: <code>TrackNum</code>, <code>ClockNum</code>, <code>TrackKey</code>, <code>TrackId</code> and <code>ClockKey</code>. Each is exactly a <code>UNib32</code> or a <code>u64</code> on the wire. An item's number on its track is an <code>ItemNum</code>, and a set of relations is a <code>RelationSet</code>. Byte sizes in options and limits are exact_units <code>Bytes&lt;T&gt;</code>, and counts there are <code>Count&lt;_, u64&gt;</code>. Offsets, seqs and plain counters stay bare, and a number read from a file stays a <code>FromFile&lt;T&gt;</code> (READ-2).</p>
+<p>Read more: the crate docs of <code>ww_tape</code>.</p>
+<ul>
+<li>✅ <strong>READ-6 Followers of a live chain</strong></li>
+</ul>
+<p><code>ww_tape_fs::follow::ChainFollower</code> reads a chain while another process writes it, piece after piece, and hands out only blocks that check. A torn end is read again once a resume has cut it back, and a block the resume took back is never handed out. <code>TrackFollower</code> decodes one track and reports item-number gaps as lost items. <code>TimeMerge</code> merges chains by time, and <code>TapeMux::watch</code> shows readers in the writer's process what is written and synced.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/growing_pieces/#following-a-chain-while-it-is-written">Following a chain while it is written</a>. Tests <code>follow.rs</code> (a writer process killed and resumed), <code>progress.rs</code>.</p>
 <h2 id="files-and-locks-fs">Files and locks (<code>FS</code>)<a class="headerlink" href="#files-and-locks-fs" title="Permanent link">&para;</a></h2>
 <p>Everything that names a path, in the crate <code>ww_tape_fs</code>.</p>
 <ul>
 <li>✅ <strong>FS-1 Files, file sinks and locks</strong> · <code>v0.5</code></li>
-<li>A new file is created exclusively under its final name; the file and its directory are synced after the create. Whether a piece is closed is read from its close and tail.</li>
-<li>A sync policy syncs data by block count or time. A failed write or sync ends the file, never retried.</li>
-<li>A file sink holds the kernel's lock on its open file (<code>flock</code>; a share mode on Windows), so a second writer is refused. A crash leaves nothing behind; a fork handler keeps the lock out of a forked child.</li>
-<li>A file on a network or user-space file system (NFS, SMB, FUSE) gets a typed warning, <code>FsWarning</code>; writing goes on.</li>
-<li>An error names the step, the file and the kind, with the system's error as its source.</li>
-<li>Read more: <a href="https://tape.vhrd.tech/files/">Files and syncing</a>, <a href="https://tape.vhrd.tech/format/#writing-a-file-durably">Writing a file durably</a>.</li>
 </ul>
+<p>A new file is created exclusively under its final name, then the file and its directory are synced. A sync policy syncs data by block count or time, and a failed write or sync ends the file without a retry. A file sink holds the kernel's lock on its open file, so a second writer is refused and a crash leaves nothing behind. A file on a network or user-space file system gets a typed warning (<code>FsWarning</code>), and writing goes on.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/files/">Files and syncing</a>, <a href="https://tape.vhrd.tech/format/#writing-a-file-durably">Writing a file durably</a>.</p>
 <h2 id="codecs-codec">Codecs (<code>CODEC</code>)<a class="headerlink" href="#codecs-codec" title="Permanent link">&para;</a></h2>
 <p>Column codecs with no notion of a block, in the crate <code>ww_tape_codecs</code>.</p>
 <ul>
 <li>✅ <strong>CODEC-1 Sample codecs</strong> · <code>v0.5</code></li>
-<li>A sample column holds one element type, such as <code>I16</code>, <code>F32</code> or <code>ComplexI16</code>, in one or more channels. Any range of samples decodes in place.</li>
-<li>Raw device formats are stored as sent: big-endian and packed 10, 12 and 24 bits, converted on read.</li>
-<li>Integers code as deltas, bit-packed in groups of 128. Damage costs only its groups, and a payload column can be one lz4 block.</li>
-<li>Read more: <a href="https://tape.vhrd.tech/format/#sample-codecs">Sample codecs</a>. Golden file <code>v1-samples.hex</code>; fuzz target <code>tape-samples</code>.</li>
-<li>✅ <strong>CODEC-2 Event times</strong> · <code>v0.5</code></li>
-<li>Starts are implicit, from a period, or a linear fit per group of 128 with bit-packed residuals. Ends are absent, the next start, or packed durations.</li>
-<li>Times are searched and read in place. A damaged column marks only the bad groups' items suspect.</li>
-<li>The bit-pack kernels have AVX-512, AVX2 and NEON paths picked at run time, each checked against scalar.</li>
-<li>Read more: <a href="https://tape.vhrd.tech/columns/#event-times">Event times</a>. Golden file <code>v1-times.hex</code>; fuzz target <code>tape-times</code>.</li>
-<li>✅ <strong>CODEC-3 Payloads</strong> · <code>v0.5</code></li>
-<li>Item payloads are a column of bit-packed lengths and a column of raw or lz4 bytes, whichever is smaller.</li>
-<li>A damaged column is salvaged group by group. Only a bad group's items are marked.</li>
-<li>Read more: <a href="https://tape.vhrd.tech/columns/#payloads">Payloads</a>. Golden file <code>v1-payloads.hex</code>; fuzz target <code>tape-payloads</code>.</li>
-<li>✅ <strong>CODEC-4 ALP for floats</strong> · <code>v0.5</code></li>
-<li>ALP codes floats that began as decimals as bit-packed integers, after Afroozeh, Kuffó and Boncz (SIGMOD 2024). Other floats are coded by their front bits.</li>
-<li>It is lossless, and a group never takes more than 7 bytes over raw. The same input gives the same bytes on every platform.</li>
-<li>Fixed point stays smaller than any float codec measured.</li>
-<li>Read more: <a href="https://tape.vhrd.tech/sizes/#samples-fixed-point-first">Samples: fixed point first</a>. Fuzz target <code>tape-samples</code>.</li>
-<li>✅ <strong>CODEC-5 One fast CRC-32C</strong></li>
-<li>Every block kind checks its CRC-32C with one table, or with the CPU's CRC instruction where there is one.</li>
-<li>On x86-64 the instruction reaches 31 to 37 GiB/s on large buffers. The ARMv8 path runs in CI.</li>
-<li>Tests check every kernel against the table, at lengths past 2^29.</li>
-<li>Read more: <a href="https://tape.vhrd.tech/damage/#checks-at-three-levels">Checks at three levels</a>.</li>
-<li>💡 <strong>CODEC-6 Fast sample encoders</strong></li>
-<li><code>DELTA</code> and the packed codecs encode through a scalar 64-bit path, about 3.6 ns per value for <code>ComplexI16</code>, while <code>DELTA</code> decodes at 0.65 ns.</li>
-<li>On one core the encoder is the writer's limit. Packed at 12 bits, the writer takes 157 MS/s of IQ and the codec 58 % of its time (<code>just bench-rf-core</code>; <a href="https://tape.vhrd.tech/sizes/#how-fast-a-radio-capture-records">How fast a radio capture records</a>).</li>
-<li>Vector kernels for 16-bit values, as the decoders and summaries have, would lift it. The bytes must stay the same.</li>
 </ul>
+<p>A sample column holds one element type, such as <code>I16</code>, <code>F32</code> or <code>ComplexI16</code>, in one or more channels. Any range of samples decodes in place. Raw device formats are stored as sent, big-endian or packed in 10, 12 or 24 bits, and converted on read. Integers code as deltas, bit-packed in groups of 128, so damage costs only its groups.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/format/#sample-codecs">Sample codecs</a>. Golden file <code>v1-samples.hex</code>; fuzz target <code>tape-samples</code>.</p>
+<ul>
+<li>✅ <strong>CODEC-2 Event times</strong> · <code>v0.5</code></li>
+</ul>
+<p>An event's start is implicit, from a period, or from a linear fit per group of 128 with bit-packed residuals. Its end is absent, the next start, or a packed duration. Times are searched and read in place, and a damaged column marks only the bad groups' items as suspect. The bit-pack kernels have AVX-512, AVX2 and NEON paths, each checked against the scalar one.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/columns/#event-times">Event times</a>. Golden file <code>v1-times.hex</code>; fuzz target <code>tape-times</code>.</p>
+<ul>
+<li>✅ <strong>CODEC-3 Payloads</strong> · <code>v0.5</code></li>
+</ul>
+<p>Item payloads are a column of bit-packed lengths and a column of bytes, stored raw or as lz4, whichever is smaller. A damaged column is salvaged group by group, and only a bad group's items are marked.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/columns/#payloads">Payloads</a>. Golden file <code>v1-payloads.hex</code>; fuzz target <code>tape-payloads</code>.</p>
+<ul>
+<li>✅ <strong>CODEC-4 ALP for floats</strong> · <code>v0.5</code></li>
+</ul>
+<p>ALP codes floats that began as decimals as bit-packed integers, after Afroozeh, Kuffó and Boncz (SIGMOD 2024). Other floats are coded by their front bits. The codec is lossless, a group never takes more than 7 bytes over raw, and the same input gives the same bytes on every platform. Fixed point stays smaller than any float codec measured.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/sizes/#samples-fixed-point-first">Samples: fixed point first</a>. Fuzz target <code>tape-samples</code>.</p>
+<ul>
+<li>✅ <strong>CODEC-5 CRC-32C with hardware kernels</strong></li>
+</ul>
+<p>Every block kind checks its CRC-32C with one table, or with the CPU's CRC instruction where there is one. On x86-64 the instruction reaches 31 to 37 GiB/s on large buffers, and the ARMv8 path runs in CI. Tests check every kernel against the table.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/damage/#checks-at-three-levels">Checks at three levels</a>.</p>
+<ul>
+<li>💡 <strong>CODEC-6 Vector kernels for the sample encoders</strong></li>
+</ul>
+<p><code>DELTA</code> and the packed codecs encode through a scalar 64-bit path, while their decoders have vector kernels. On one core the encoder limits the writer: packed at 12 bits, the codec takes 58 % of the writer's time on IQ. Vector kernels for 16-bit values would lift that limit, and the bytes must stay the same.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/sizes/#how-fast-a-radio-capture-records">How fast a radio capture records</a> (<code>just bench-rf-core</code>).</p>
 <h2 id="summaries-sum">Summaries (<code>SUM</code>)<a class="headerlink" href="#summaries-sum" title="Permanent link">&para;</a></h2>
 <p>Summary blocks, nodes and kernels, in the crates <code>ww_tape_summary</code> and <code>ww_tape_codecs</code>.</p>
 <ul>
 <li>✅ <strong>SUM-1 Summary blocks</strong> · <code>v0.5</code></li>
-<li>A summary block stores a level of a track's summary tree. Nodes run over item numbers, so the nodes of pieces line up.</li>
-<li>An event tree holds first and last tick, flags and latest end per node. A series summary holds minimum, maximum, sums and counts per channel.</li>
-<li>Every statistic merges in item order to the bits the writer stores. An overview of a billion items reads about 630 KB.</li>
-<li>Read more: <a href="https://tape.vhrd.tech/summaries/">Summaries</a>. Golden file <code>v1-summary.hex</code>; fuzz target <code>tape-summary</code>.</li>
-<li>✅ <strong>SUM-2 Summaries across a change of scale</strong> · <code>v0.5</code></li>
-<li>A node holding samples of two scales keeps them at their common scale. Minimum and maximum stay exact.</li>
-<li>A value past its type or a scale that isn't a ratio of integers is a typed error, never a silent mix.</li>
-<li>Read more: <a href="https://tape.vhrd.tech/summaries/#how-nodes-merge">How nodes merge</a>.</li>
-<li>✅ <strong>SUM-3 Summary kernels in one pass</strong> · <code>v0.5</code></li>
-<li>A batch of samples is summarised in one pass, fast enough to keep up with ingest. Any order of addition gives the same result.</li>
-<li>Kernels for AVX2 and AVX-512 are picked at run time and checked against the scalar model.</li>
-<li>Read more: <a href="https://tape.vhrd.tech/sizes/#summaries">Summaries</a>; <code>just bench-summaries</code> measures them.</li>
-<li>💡 <strong>SUM-4 Minimum and maximum at the element's width</strong></li>
-<li>A series node stores its minimum and maximum as 8 bytes per component, whatever the element: a <code>ComplexI16</code> node takes 32 bytes for them.</li>
-<li>The RF capture's nodes take 40 bytes each, 1.1 % of its piece; at the element's width they would take 16.</li>
-<li>A format change: the summary block's version and its readers change with it.</li>
 </ul>
+<p>A summary block stores one level of a track's summary tree. Nodes run over item numbers, so the nodes of different pieces line up. An event tree holds the first and last tick, flags and latest end per node. A series summary holds minimum, maximum, sums and counts per channel. Every statistic merges in item order to the bits the writer stores, and an overview of a billion items reads about 630 KB.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/summaries/">Summaries</a>. Golden file <code>v1-summary.hex</code>; fuzz target <code>tape-summary</code>.</p>
+<ul>
+<li>✅ <strong>SUM-2 Summaries across a change of scale</strong> · <code>v0.5</code></li>
+</ul>
+<p>A node holding samples of two scales keeps them at their common scale, so minimum and maximum stay exact. A value past its type, or a scale that is not a ratio of integers, is a typed error rather than a silent mix.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/summaries/#how-nodes-merge">How nodes merge</a>.</p>
+<ul>
+<li>✅ <strong>SUM-3 Summary kernels in one pass</strong> · <code>v0.5</code></li>
+</ul>
+<p>A batch of samples is summarised in one pass, fast enough to keep up with ingest, and any order of addition gives the same result. Kernels for AVX2 and AVX-512 are picked at run time and checked against the scalar model.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/sizes/#how-fast-summaries-keep-up">Summaries</a>; <code>just bench-summaries</code> measures them.</p>
+<ul>
+<li>💡 <strong>SUM-4 Minimum and maximum at the element's width</strong></li>
+</ul>
+<p>A series node stores its minimum and maximum in 8 bytes per component, whatever the element. A <code>ComplexI16</code> node so spends 32 bytes on them. At the element's width the RF capture's nodes would take 16 bytes for them instead of 40 bytes. It is a format change: the summary block's version and its readers change with it.</p>
 <h2 id="book-book">Book (<code>BOOK</code>)<a class="headerlink" href="#book-book" title="Permanent link">&para;</a></h2>
 <p>The pages in <code>docs/</code>.</p>
 <ul>
-<li>✅ <strong>BOOK-1 A book of its own</strong></li>
-<li>The pages build as a Zensical site of their own. A broken link or anchor fails <code>just book-check</code>, which runs in CI.</li>
-<li>The book links the WireWeaver and logring books and includes neither. It is published from main to <a href="https://tape.vhrd.tech/">https://tape.vhrd.tech/</a> once CI passes.</li>
-<li>Read more: <a href="https://tape.vhrd.tech/">Tapes</a>.</li>
-<li>🚧 <strong>BOOK-2 A book that teaches</strong></li>
-<li>Done: <code>[[term]]</code> marks a glossary term and <code>[`Item`]</code> links code, both with a card on hover; a stale name fails <code>just book-check</code>.</li>
-<li>Done: six parts in dependency order, a reading level on every page, and doctests of a page's <code>rust</code> blocks.</li>
-<li>Done: the chapter "When the power fails", its figures drawn from a real crash and its code from a test.</li>
-<li>Done: the running example as code (BOOK-3).</li>
-<li>Done: Part I, "Tapes" and "A first tape": the drive's hour as a tape, and a program that writes and reads its first minute.</li>
-<li>Done: Part II, how a tape is built: five chapters with the drive's case, tested code and seven new figures.</li>
-<li>Done: Part III, writing: five chapters with every writing call the drive makes in tested code, and eight new figures.</li>
-<li>Done: Part IV, reading: five chapters that find the drive's fault in code, with six new figures.</li>
-<li>Done: Part V, damage and raw media, with the drive's archive and card, four new figures and the lessons appendix.</li>
-<li>Done: the owner's read: one term each for record, item and sample; event times and samples on pages of their own.</li>
-<li>Done: the chapter "Sizes and speeds", every number from a bench report in <code>docs/bench/</code>.</li>
-<li>Done: the chapter "Writing from many threads": the mux, its queue and back-pressure, order, cuts, errors, async, followers and speed from the handles bench.</li>
-<li>Done: data figures as eventfull screenshots in <code>docs/shots/</code>: the drive's hour, the fault, the zoom and the RF minute. <code>just book-shots</code> copies them; eventfull's tests keep them current (eventfull TL-79).</li>
-<li>Done: the format reference with numbered sections, conventions, policies, verify and the detail the guides dropped. Its chunk head, index entry and tail are drawn from blocks.</li>
-<li>Open: autorange and damage as screenshots, and log and temp rows in them, once eventfull draws them.</li>
-<li>Open: the chapters still stubs, tested code in every guide chapter.</li>
-<li>
-<p>Read more: <a href="https://tape.vhrd.tech/writers/">For writers</a>, <a href="https://tape.vhrd.tech/glossary/">Glossary</a>.</p>
-</li>
-<li>
-<p>✅ <strong>BOOK-3 The running example as code</strong></p>
-</li>
-<li><code>ww_tape_example</code> records the drive motor controller's hour: log lines, mode, CAN frames, phase current with summaries and temperature, in a chain of pieces.</li>
-<li><code>Drive::scaled</code> shrinks the data and the byte policies for figures; a crash at any byte resumes to the bytes of the run without it.</li>
-<li><code>cargo run -p ww_tape_example</code> prints the story's numbers; <code>tests/story.rs</code> checks them and that the full hour is the same every run.</li>
-<li>Damage to the last piece and the run on a raw card over an earlier run; <code>tests/damage.rs</code> pins what each costs.</li>
-<li><code>rf</code> records an RF capture, ComplexI16 IQ at 20 MS/s with summaries, as the book's case for high rates; <code>tests/rf.rs</code> pins its size per codec. <code>rf chains</code> writes it into two chains, IQ and decoded bursts, through two muxes while a reader merges both.</li>
-<li>
-<p>Read more: <a href="https://github.com/vhrdtech/ww_tape/blob/1bb010ec1690f334ee40901069daf24cece0f095/ww_tape_example/README.md">ww_tape_example</a>.</p>
-</li>
-<li>
-<p>✅ <strong>BOOK-4 Cases beside the drive</strong></p>
-</li>
-<li><code>ethernet</code> records a protocol analyser on both directions of a 10 Gbps link. Frames are raw-bytes events; decoded IPv4 and TCP or UDP headers are tracks related to their frames. Each receive queue has a capture and a decoder thread; one mux or a mux per port writes them. <code>tests/ethernet.rs</code> reads every frame and header back.</li>
-<li><code>wideband</code> records a 1 GS/s receiver in channels, each a series track with a producer thread. The channels spread over several muxes and chains; an overview reads only the summary nodes. <code>tests/wideband.rs</code> reads every sample back and finds the bursts from the overview.</li>
-<li><code>just bench-ethernet</code> and <code>just bench-wideband</code> measure how much of the link and the band one PC keeps, without a disk and into piece files; <code>bench-book</code> runs both.</li>
-<li>Read more: <a href="https://tape.vhrd.tech/protocol_analyser/">Every frame of a 10 Gbps link</a>, <a href="https://tape.vhrd.tech/wideband/">A billion samples a second</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/1bb010ec1690f334ee40901069daf24cece0f095/ww_tape_example/README.md">ww_tape_example</a>.</li>
+<li>✅ <strong>BOOK-1 The book as a site of its own</strong></li>
 </ul>
+<p>The pages build as a Zensical site of their own, and a broken link or anchor fails <code>just book-check</code> in CI. The book links the WireWeaver and logring books and includes neither. It is published from main to <a href="https://tape.vhrd.tech/">https://tape.vhrd.tech/</a> once CI passes.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/">Tapes</a>.</p>
+<ul>
+<li>🚧 <strong>BOOK-2 A book that teaches the format</strong></li>
+</ul>
+<p>The book runs in six parts in dependency order, each page with a reading level, from a first tape through building, writing, reading and damage. Glossary terms and code links carry a card on hover, and a stale name fails <code>just book-check</code>. The pages' <code>rust</code> blocks run as doctests, their figures are drawn from real blocks, and their numbers come from bench reports. A format reference with numbered sections holds the detail.</p>
+<p>Open: the chapters that are still stubs, tested code in every guide chapter, and screenshots of autorange and damage once eventfull draws them.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/writers/">For writers</a>, <a href="https://tape.vhrd.tech/glossary/">Glossary</a>.</p>
+<h2 id="example-and-cases-ex">Example and cases (<code>EX</code>)<a class="headerlink" href="#example-and-cases-ex" title="Permanent link">&para;</a></h2>
+<p>The book's running example and its other cases, in the crate <code>ww_tape_example</code>.</p>
+<ul>
+<li>✅ <strong>EX-1 The drive's hour as code</strong></li>
+</ul>
+<p><code>ww_tape_example</code> records the drive motor controller's hour: log lines, mode, CAN frames, phase current with summaries and temperature, in a chain of pieces. <code>Drive::scaled</code> shrinks the data and the byte policies for figures, and a crash at any byte resumes to the bytes of the run without it. The RF capture (<code>rf</code>) records ComplexI16 IQ at 20 MS/s as the book's case for high rates. <code>cargo run -p ww_tape_example</code> prints the story's numbers, and the tests pin them.</p>
+<p>Read more: <a href="https://github.com/vhrdtech/ww_tape/blob/5e3881165f56fc8d58ec2ef807292ffc1c2f284a/ww_tape_example/README.md">ww_tape_example</a>. Tests <code>story.rs</code>, <code>damage.rs</code>, <code>rf.rs</code>.</p>
+<ul>
+<li>✅ <strong>EX-2 A 10 Gbps link and a 1 GS/s receiver</strong></li>
+</ul>
+<p><code>ethernet</code> records a protocol analyser on both directions of a 10 Gbps link: frames as raw-bytes events, decoded headers as tracks related to their frames. <code>wideband</code> records a 1 GS/s receiver in channels, each a series track with its own producer thread, over several muxes and chains. <code>just bench-ethernet</code> and <code>just bench-wideband</code> measure how much of the link and the band one PC keeps.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/protocol_analyser/">Every frame of a 10 Gbps link</a>, <a href="https://tape.vhrd.tech/wideband/">A billion samples a second</a>. Tests <code>ethernet.rs</code>, <code>wideband.rs</code>.</p>
+<ul>
+<li>✅ <strong>EX-3 The example writes through the mux</strong></li>
+</ul>
+<p><code>Drive::record</code> writes through a <code>TapeMux</code> from one thread in the story's fixed order, so the placement is the same every run. Each source uses the handle that fits it, and <code>Crashed::resume</code> resumes the mux to the bytes of the whole run. The book's writer code comes from this path, and <code>ww_tape_example::handles::record</code> runs one thread per source.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/writing_thread/#the-drive-with-one-thread-per-source">The drive with one thread per source</a>. Tests <code>handles.rs</code>.</p>
 <h2 id="repository-repo">Repository (<code>REPO</code>)<a class="headerlink" href="#repository-repo" title="Permanent link">&para;</a></h2>
 <p>Crates, checks, fuzzing and benches.</p>
 <ul>
-<li>🚧 <strong>REPO-1 Crates by what they touch</strong></li>
-<li>Done: <code>ww_tape_codecs</code> holds the codecs, and <code>ww_tape</code> writes and reads tapes on sinks and sources without std. <code>ww_tape_summary</code> builds summaries, and <code>ww_tape_fs</code> holds everything that names a path.</li>
-<li>Done: the writer, chain and resume build with alloc only, and the codecs build for wasm32 without std.</li>
-<li>Open: owned definition records without std, which need owned types in <code>shrink_wrap</code> and <code>ww_version</code>.</li>
-<li>Open: the sample, time and payload codecs on slices, memory tapes in segments, a verify-on-read setting, integrity levels and a seal.</li>
-<li>Read more: <a href="https://tape.vhrd.tech/tape/#the-crates">The crates</a>.</li>
 <li>✅ <strong>REPO-84 spirit_level checks in <code>just lint</code></strong></li>
-<li><code>just lint</code> and CI run <code>spl check</code> with every lint of <code>spirit_level.toml</code>. The prose lints read the book, the READMEs, AGENTS.md, the CHANGELOG and this file.</li>
-<li>Every crate inherits the workspace lints, the panic-class set included.</li>
-<li>✅ <strong>REPO-85 Benches that rerun the book's numbers</strong></li>
-<li>Every bench binary takes <code>--json FILE</code>, <code>--color</code>, <code>--version</code> and shell completion through <code>ww_tape_bench</code>. Each table records the machine and the load average before and after it.</li>
-<li><code>just bench-book</code> reruns every number of "Sizes and speeds" into <code>docs/bench/</code>; <code>ww_tape_figures</code> draws the page's charts and tables from those reports, and a test keeps them current.</li>
-<li>Read more: <a href="https://tape.vhrd.tech/sizes/">Sizes and speeds</a>.</li>
 </ul>
+<p><code>just lint</code> and CI run <code>spl check</code> with every lint of <code>spirit_level.toml</code>. The prose lints read the book, the READMEs, AGENTS.md and the CHANGELOG. Every crate inherits the workspace lints, the panic-class set included.</p>
+<ul>
+<li>✅ <strong>REPO-85 Benches that rerun the book's numbers</strong></li>
+</ul>
+<p>Every bench binary takes <code>--json FILE</code>, <code>--color</code>, <code>--version</code> and shell completion through <code>ww_tape_bench</code>, and records the machine and its load with each table. <code>just bench-book</code> reruns every number of "Sizes and speeds" into <code>docs/bench/</code>. <code>ww_tape_figures</code> draws the page's charts and tables from those reports, and a test keeps them current.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/sizes/">Sizes and speeds</a>.</p>
+<ul>
+<li>🚧 <strong>REPO-1 Crates by what they touch</strong></li>
+</ul>
+<p><code>ww_tape</code> writes and reads tapes on sinks and sources without std, <code>ww_tape_codecs</code> holds the codecs and <code>ww_tape_summary</code> the summaries. <code>ww_tape_fs</code> holds everything that names a path. The writer, chain and resume build with alloc only, and the codecs build for wasm32 without std.</p>
+<p>Open: std-free definition records (owned types in <code>shrink_wrap</code> and <code>ww_version</code>), codecs on slices, segmented memory tapes, verify-on-read, integrity levels, a seal.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/tape/#the-crates">The crates</a>.</p>
 <h2 id="dropped-and-superseded">Dropped and superseded<a class="headerlink" href="#dropped-and-superseded" title="Permanent link">&para;</a></h2>
 <p>Nothing yet.</p>
 <h2 id="former-ids">Former ids<a class="headerlink" href="#former-ids" title="Permanent link">&para;</a></h2>
-<p>The entries came from WireWeaver with <code>STD</code> ids, and new ones took <code>TAPE</code> ids. Each now has an id of its area.</p>
+<p>The first entries came from WireWeaver with <code>STD</code> ids, and later ones took <code>TAPE</code> ids. Entries moved between areas keep a row here too.</p>
 <table>
 <thead>
 <tr>
@@ -6967,7 +6955,7 @@
 </tr>
 <tr>
 <td>STD-117</td>
-<td>FMT-2</td>
+<td>TRACK-1</td>
 </tr>
 <tr>
 <td>STD-118</td>
@@ -6979,7 +6967,7 @@
 </tr>
 <tr>
 <td>STD-125</td>
-<td>FMT-5</td>
+<td>TRACK-2</td>
 </tr>
 <tr>
 <td>STD-127</td>
@@ -6995,7 +6983,7 @@
 </tr>
 <tr>
 <td>STD-135</td>
-<td>FMT-9</td>
+<td>TRACK-3</td>
 </tr>
 <tr>
 <td>TAPE-3</td>
@@ -7088,6 +7076,58 @@
 <tr>
 <td>TAPE-12</td>
 <td>REPO-1</td>
+</tr>
+<tr>
+<td>FMT-2</td>
+<td>TRACK-1</td>
+</tr>
+<tr>
+<td>FMT-5</td>
+<td>TRACK-2</td>
+</tr>
+<tr>
+<td>FMT-9</td>
+<td>TRACK-3</td>
+</tr>
+<tr>
+<td>FMT-12</td>
+<td>TRACK-4</td>
+</tr>
+<tr>
+<td>WRITE-9</td>
+<td>TRACK-5</td>
+</tr>
+<tr>
+<td>WRITE-10</td>
+<td>TRACK-6</td>
+</tr>
+<tr>
+<td>WRITE-11</td>
+<td>TRACK-7</td>
+</tr>
+<tr>
+<td>WRITE-12</td>
+<td>MUX-1</td>
+</tr>
+<tr>
+<td>WRITE-13</td>
+<td>MUX-2</td>
+</tr>
+<tr>
+<td>WRITE-14</td>
+<td>MUX-3</td>
+</tr>
+<tr>
+<td>BOOK-3</td>
+<td>EX-1</td>
+</tr>
+<tr>
+<td>BOOK-4</td>
+<td>EX-2</td>
+</tr>
+<tr>
+<td>WRITE-15</td>
+<td>EX-3</td>
 </tr>
 </tbody>
 </table>

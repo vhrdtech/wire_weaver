@@ -2,11 +2,18 @@
 
 ## Unreleased
 
+### 🚀 Features
+
+- A hook may answer `Verdict::Pending`: the request waits for the answer within its deadline and cancel, other shared requests go on (SRV-72).
+- The hook sees the steps of a keyed array's companion (`index_of`, `key`, `keys`), which had no items before.
+
 ### 📚 Documentation
 
 - `Resource::items` carries the items' effects (API-58).
 
 ### ⚠️ Breaking
+
+- `Authorize`, `Denied` and `Resource` are `wire_weaver::authorize`'s, re-exported here (SRV-72): `check` returns a `Verdict` (`Result<(), Denied>` converts with `.into()`), a closure becomes a hook through `from_fn(..)`, and `Resource::items` is a slice of `Step` (name, id, index, effects, meta) instead of `(&ApiItemOwned, Option<u32>)`; `resource.api` with `item_chain(path)` still gives the items' model.
 
 - `PumpId` names an element of a stream array too, `PumpId::indexed(id, &[index])` (CLT-58): `PumpId(n)` becomes `PumpId::new(n)`, and it is no longer `Copy`.
 - The shutdown future of `serve` and `accepting` completes with a `ShutdownReason` (SRV-67): clients hear it; `pending()` becomes `pending::<()>()`.

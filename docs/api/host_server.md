@@ -436,15 +436,21 @@ before the request starts. A request it denies is answered `ErrorKind::Denied` a
 the server can't place (malformed, or of a kind this build doesn't know) is denied without asking. Link setup and
 pings are not requests and are not asked about.
 
+The hook is `wire_weaver::authorize::Authorize`, the same one a call in the same process asks through
+[`Authorized`](local_trait.md#authorization-in-the-same-process): one `Arc` of a hook can guard both, and sees the
+same path and items for the same call.
+
 ```rust
+use wire_weaver::authorize::{Access, Denied, Resource, from_fn};
+
 let api = Arc::new(ApiBundleOwned::from_ww_bytes_owned(&ww_self::compressed::bundle_bytes(
     &api_impl::WW_SELF_BYTES,
 )?)?);
-let hook = |call: &CallContext, resource: &Resource<'_>| match call.peer {
+let hook = from_fn(|call: &CallContext, resource: &Resource<'_>| match call.peer {
     Peer::Unix { uid, .. } if admins.contains(&uid.0) => Ok(()),
     Peer::Unix { .. } if matches!(resource.access, Access::Read | Access::Introspect) => Ok(()),
     _ => Err(Denied),
-};
+});
 Server::new(clock).authorize(hook, Some(api)).serve(link, listener, make_backend, shutdown).await?;
 ```
 
@@ -452,13 +458,55 @@ Server::new(clock).authorize(hook, Some(api)).serve(link, listener, make_backend
 
 - `access`: `Call`, `Write`, `Read`, `Stream`, `Observe` or `Introspect`;
 - `place`: the path as the request names it, absolute or a trait wherever it sits (`TraitRef`);
-- `path`: the path from the root, also of a global path when the server has the API's model;
+- `path`: the path from the root, array indices included, also of a global path when the server has the API's model;
 - `multi`: a multi request, which reaches resources under `path`;
-- `items`: the items on the way with their array indices, so the hook reads their `ww_self` metadata
-  (`#[claim]`, `#[label]`, `#[shares]`); `None` without the model.
+- `items`: a `Step` per item on the way, from the root's level down to the item: its name, id, array index,
+  [effects](metadata.md) (`#[effect]`, `read` by kind; a property's describe its write) and `ww_self` metadata
+  (`#[claim]`, `#[label]`, `#[shares]`). A keyed array's `index_of`, `key` and `keys` are a step after the array's
+  `keyed!` item, all `read`. `None` without the model; `resource.item()` is the last step, `resource.effects()` its
+  effects;
+- `api`: the model, for what the steps leave out (`api.item_chain(path)` gives the items' kinds and types).
 
 A hook that names what it allows and answers `Denied` to the rest denies by default, also items added to the API
 later. Without `authorize` every request runs.
+
+### Waiting for an answer
+
+`check` answers a `Verdict`: `Allow`, `Deny`, or `Pending`, an answer that comes later. A pending verdict is a future
+of `Ok(())` or `Err(Denied)`: a person approving an agent's `outbound` or `destructive` call, a second factor, a
+policy service. The check itself stays quick and never blocks; what takes long is the future.
+
+```rust
+let hook = from_fn(move |call: &CallContext, resource: &Resource<'_>| {
+    let effects = resource.effects();
+    if !(effects.contains(Effects::OUTBOUND) || effects.contains(Effects::DESTRUCTIVE)) {
+        return Verdict::Allow;
+    }
+    // what the person reads, owned: the resource lives only as long as the check
+    let question = format!("{:?} asks for {:?}", call.peer, resource.path);
+    let answer = approvals.ask(question); // a future of bool
+    Verdict::Pending(Pending::new(async move {
+        if answer.await { Ok(()) } else { Err(Denied) }
+    }))
+});
+```
+
+The server waits for the answer as part of the request:
+
+- the request counts as running and holds its place in the [order](#order-of-requests): a pending shared call lets
+  the other shared calls run, a pending write holds the requests after it;
+- its [deadline and cancel](#deadline-and-cancel) end the wait as they end a handler, and dropping the future
+  withdraws the question (the approval queue sees its sender go away);
+- an approval starts the handler, a refusal answers `Denied`.
+
+Nothing changes on the wire: the client sees a slower answer, then the result, `Denied` or `DeadlineExceeded`. A
+client that may wait for a person gives that call a longer timeout.
+
+Why a future, not a "pending" answer on the wire: a sync policy costs nothing (no allocation, no `.await` in the
+connection's loop), and an approval reuses what every request already has, its deadline, its cancel and the
+connection's order. An answer "ask again later" would need a new error kind, a ticket to retry with in every client,
+the dynamic client, Python and the local trait, and a second state machine for the same decision. In the same process
+`Authorized` awaits the same future in the call's own, so both paths have one shape.
 
 ## Order of requests
 

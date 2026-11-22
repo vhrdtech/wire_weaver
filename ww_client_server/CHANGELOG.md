@@ -9,6 +9,10 @@
 
 - Crate-level docs.
 
+### ⚠️ Breaking
+
+- `target::Access`, `Place` and `TraitRef` are `wire_weaver::authorize`'s, re-exported at the same paths (SRV-72).
+
 ### ⚙️ Miscellaneous Tasks
 
 - The API snapshot refers to `ww_trace_context::TraceContext` (SRV-47), which has a snapshot of its own.

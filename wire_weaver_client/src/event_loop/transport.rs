@@ -7,6 +7,8 @@
 
 use std::time::Duration;
 
+use tokio::sync::oneshot;
+
 use crate::event_loop::DeviceHandle;
 use crate::event_loop::medium::{MediumRx, MediumTx};
 
@@ -270,6 +272,143 @@ pub(crate) struct Paused {
 pub(crate) struct Adopting {
     pub handle: DeviceHandle,
     pub medium: crate::adopt::MediumResidualOwned,
+}
+
+/// One address of a [Race]: what it is called and the transport's handle for it.
+#[cfg_attr(
+    not(any(feature = "ws", feature = "in_process")),
+    allow(dead_code, reason = "only made by the ws and in_process transports")
+)]
+pub(crate) struct Candidate {
+    /// As the config names it (a URL, an in-process path): what [ValidatedConfig::without_address] takes
+    ///
+    /// [ValidatedConfig::without_address]: crate::config::ValidatedConfig::without_address
+    pub(crate) address: String,
+    /// As [DeviceInfo::location](crate::DeviceInfo::location) names it
+    pub(crate) location: String,
+    pub(crate) handle: DeviceHandle,
+}
+
+/// What a [Race] opened, see [Candidates::watch].
+#[derive(Clone, Debug)]
+pub(crate) struct Won {
+    pub(crate) address: String,
+    pub(crate) location: String,
+}
+
+/// The handle of a [Race]: the addresses of one device, opened at once (CLT-80).
+pub(crate) struct Candidates {
+    entries: Vec<Candidate>,
+    /// Told the index of the entry that opened
+    opened: Option<oneshot::Sender<usize>>,
+}
+
+impl Candidates {
+    #[cfg_attr(
+        not(any(feature = "ws", feature = "in_process")),
+        allow(dead_code, reason = "only made by the ws and in_process transports")
+    )]
+    pub(crate) fn new(entries: Vec<Candidate>) -> Self {
+        Candidates {
+            entries,
+            opened: None,
+        }
+    }
+
+    /// Where each entry is, and a receiver of the one that opens: taken before the handle goes to the event loop.
+    pub(crate) fn watch(&mut self) -> (Vec<Won>, oneshot::Receiver<usize>) {
+        let (tx, rx) = oneshot::channel();
+        self.opened = Some(tx);
+        let entries = self
+            .entries
+            .iter()
+            .map(|c| Won {
+                address: c.address.clone(),
+                location: c.location.clone(),
+            })
+            .collect();
+        (entries, rx)
+    }
+}
+
+/// A transport that opens every address of [Candidates] with `T` at once (CLT-80): the first to open is the medium,
+/// the others still opening are dropped. A tie goes to the earlier address. Each opening may take `open_timeout`;
+/// when all fail, the error names each.
+#[cfg(any(feature = "ws", feature = "in_process"))]
+pub(crate) struct Race<T> {
+    pub(crate) transport: T,
+    pub(crate) open_timeout: Duration,
+}
+
+#[cfg(any(feature = "ws", feature = "in_process"))]
+impl<T: Transport + Clone + Send + 'static> Transport for Race<T> {
+    type Tx = T::Tx;
+    type Rx = T::Rx;
+
+    fn link_setup_timeout(&self) -> Duration {
+        self.transport.link_setup_timeout()
+    }
+
+    async fn connect(
+        &mut self,
+        handle: DeviceHandle,
+        tap: crate::tap::ClientTap,
+        max_message_len: usize,
+    ) -> Result<Opened<T::Tx, T::Rx>, String> {
+        type Opening<Tx, Rx> =
+            std::pin::Pin<Box<dyn Future<Output = Result<Opened<Tx, Rx>, String>> + Send>>;
+        let Candidates { entries, opened } = *handle
+            .downcast::<Candidates>()
+            .map_err(|_| "expected the addresses to race".to_string())?;
+        let timeout = self.open_timeout;
+        let mut openings: Vec<Option<Opening<T::Tx, T::Rx>>> = entries
+            .into_iter()
+            .map(|c| {
+                let mut transport = self.transport.clone();
+                let tap = tap.clone();
+                let opening: Opening<T::Tx, T::Rx> = Box::pin(async move {
+                    tokio::time::timeout(timeout, transport.connect(c.handle, tap, max_message_len))
+                        .await
+                        .unwrap_or_else(|_| {
+                            Err(format!("{}: no answer within {timeout:?}", c.address))
+                        })
+                });
+                Some(opening)
+            })
+            .collect();
+        let mut errors = Vec::new();
+        let won = std::future::poll_fn(|cx| {
+            // in order, so a tie goes to the earlier address
+            for (i, slot) in openings.iter_mut().enumerate() {
+                let Some(opening) = slot else { continue };
+                if let std::task::Poll::Ready(r) = opening.as_mut().poll(cx) {
+                    *slot = None;
+                    match r {
+                        Ok(o) => return std::task::Poll::Ready(Some((i, o))),
+                        Err(e) => errors.push(e),
+                    }
+                }
+            }
+            if openings.iter().all(Option::is_none) {
+                std::task::Poll::Ready(None)
+            } else {
+                std::task::Poll::Pending
+            }
+        })
+        .await;
+        // the ones still opening go with this
+        drop(openings);
+        match won {
+            Some((i, o)) => {
+                if let Some(opened) = opened {
+                    _ = opened.send(i);
+                }
+                Ok(o)
+            }
+            None if errors.is_empty() => Err("no address to open".into()),
+            None => Err(errors.join("; ")),
+        }
+    }
 }
 
 /// Outcome of selecting a device for a transport.

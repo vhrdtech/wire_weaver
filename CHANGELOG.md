@@ -11,6 +11,9 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
+- A connect races a device's addresses and takes the first to open (CLT-80); see `wire_weaver_client`.
+- `retry_now()` hurries a keep-trying connection: next attempt now, a restart, or a ping (CLT-75); see `wire_weaver_client`.
+- A connect attempt stops half way without losing its command channel (CLT-75); see `wire_weaver_client`.
 - Host server listeners stop alone, and one client's error no longer ends a listener (SRV-75); see `ww_calloop`, `wire_weaver_server`, `ww_device`.
 - A host server's backend gets an `end` step when its connection ends (SRV-74); see `wire_weaver_server`.
 - The tap records a device's identity as track dimensions: two devices of one API share keys, differ in ids (TR-14); see `ww_tap`, `wire_weaver_client`.

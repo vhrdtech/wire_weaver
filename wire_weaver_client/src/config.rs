@@ -571,10 +571,11 @@ impl ClientConfig {
         self.websocket_urls([url])
     }
 
-    /// Connect over WebSocket to the first of `urls` that answers, in order (CLT-75), see [Self::websocket_url]: a
-    /// device's LAN address before its VPN one, a discovered address before a typed one. `connect()`,
-    /// `reconnect()` and `connect_keep_trying()` (each attempt) try them in order; `connect_blocking()` takes the
-    /// first. Replaces the URLs set before.
+    /// Connect over WebSocket to whichever of `urls` answers first (CLT-75, CLT-80), see [Self::websocket_url]: a
+    /// device's LAN address and its VPN one, a discovered address and a typed one. Each connect opens all of them at
+    /// once (TCP and the WebSocket handshake); the first to open goes on to link setup and the others are dropped,
+    /// an earlier one winning a tie. When link setup fails on it, `connect()`, `reconnect()` and
+    /// `connect_keep_trying()` (each attempt) race the rest. Replaces the URLs set before.
     pub fn websocket_urls(self, urls: impl IntoIterator<Item = impl Into<String>>) -> Self {
         let mut f = self;
         let urls = urls.into_iter().map(Into::into).collect();
@@ -849,8 +850,8 @@ impl ClientConfig {
         self.in_process_paths([path])
     }
 
-    /// Select the first in-process node of `paths` that is registered, in order, as [Self::websocket_urls] does
-    /// for WebSocket URLs. Replaces the paths set before.
+    /// Select whichever in-process node of `paths` opens first, as [Self::websocket_urls] does for WebSocket URLs:
+    /// the registered ones are opened at once (CLT-80). Replaces the paths set before.
     pub fn in_process_paths(self, paths: impl IntoIterator<Item = impl Into<String>>) -> Self {
         let mut f = self;
         let paths = paths.into_iter().map(Into::into).collect();
@@ -1248,11 +1249,10 @@ impl ValidatedConfig {
             .collect()
     }
 
-    /// One config per address to try, in order (CLT-75): the effective [ClientConfig::websocket_urls] and
-    /// [ClientConfig::in_process_paths] lists each split into one address per config, everything else as it is.
-    /// Just this config when no list has more than one address.
-    pub(crate) fn alternatives(&self) -> Vec<ValidatedConfig> {
-        let mut alternatives = vec![self.clone()];
+    /// This config without `address` in its effective [ClientConfig::websocket_urls] or
+    /// [ClientConfig::in_process_paths] list, for the next race of a connect after that address opened and failed
+    /// link setup (CLT-80): `None` when no list has it or nothing else is left in its list.
+    pub(crate) fn without_address(&self, address: &str) -> Option<ValidatedConfig> {
         let lists = [
             self.last_piece(ConfigPieceDiscriminants::WebSocketUrl),
             self.last_piece(ConfigPieceDiscriminants::InProcessPath),
@@ -1263,28 +1263,36 @@ impl ValidatedConfig {
                 ConfigPiece::InProcessPath { paths } => paths,
                 _ => unreachable!("last_piece found one of these two kinds"),
             };
-            if addresses.len() < 2 {
+            if !addresses.iter().any(|a| a == address) {
                 continue;
             }
-            alternatives = alternatives
-                .into_iter()
-                .flat_map(|config| {
-                    addresses.iter().map(move |address| {
-                        let mut one = config.clone();
-                        one.pieces[at] = match &one.pieces[at] {
-                            ConfigPiece::WebSocketUrl { .. } => ConfigPiece::WebSocketUrl {
-                                urls: vec![address.clone()],
-                            },
-                            _ => ConfigPiece::InProcessPath {
-                                paths: vec![address.clone()],
-                            },
-                        };
-                        one
-                    })
-                })
+            let rest: Vec<String> = addresses
+                .iter()
+                .filter(|a| *a != address)
+                .cloned()
                 .collect();
+            if rest.is_empty() {
+                return None;
+            }
+            let mut config = self.clone();
+            config.pieces[at] = match &self.pieces[at] {
+                ConfigPiece::WebSocketUrl { .. } => ConfigPiece::WebSocketUrl { urls: rest },
+                _ => ConfigPiece::InProcessPath { paths: rest },
+            };
+            return Some(config);
         }
-        alternatives
+        None
+    }
+
+    /// How long opening a medium may take (CLT-80): [ClientConfig::link_setup_timeout] when set, else `default`, the
+    /// transport's own.
+    #[cfg_attr(
+        not(any(feature = "ws", feature = "in_process")),
+        allow(dead_code, reason = "only used by the ws and in_process transports")
+    )]
+    pub(crate) fn open_timeout(&self, default: Duration) -> Duration {
+        self.link_setup_timeout_ms
+            .map_or(default, |ms| Duration::from_millis(ms.get().into()))
     }
 
     /// Index of the last piece of `kind`: the one in effect.
@@ -1442,6 +1450,29 @@ mod tests {
                 "client {client:?}, device {device}"
             );
         }
+    }
+
+    /// The address that failed link setup leaves its list, in whichever list it is; the last one leaves nothing to race.
+    #[test]
+    fn without_address_leaves_the_rest_to_race() {
+        let c = ClientConfig::new()
+            .websocket_urls(["ws://a/ww", "ws://b/ww"])
+            .in_process_paths(["p", "q"])
+            .validate()
+            .unwrap();
+        let rest = c.without_address("ws://a/ww").expect("b is left");
+        assert!(rest.pieces.iter().any(
+            |p| matches!(p, ConfigPiece::WebSocketUrl { urls } if urls == &["ws://b/ww".to_owned()])
+        ));
+        let rest = rest.without_address("q").expect("p is left");
+        assert!(rest.pieces.iter().any(
+            |p| matches!(p, ConfigPiece::InProcessPath { paths } if paths == &["p".to_owned()])
+        ));
+        assert!(rest.without_address("ws://b/ww").is_none(), "nothing left");
+        assert!(
+            c.without_address("ws://other/ww").is_none(),
+            "not in a list"
+        );
     }
 
     #[test]

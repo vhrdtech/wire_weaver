@@ -996,6 +996,30 @@ impl Commander {
         self.reconnect.as_ref().map(|r| r.state.clone())
     }
 
+    /// Hurries a connection that reconnects by itself (CLT-75: a keep-trying one, or one through the ww hub), for an
+    /// app that knows more than the backoff does: the network just came back, the user pressed "retry".
+    ///
+    /// - Waiting between attempts: the next one starts now and the backoff starts over from its first wait
+    ///   ([Attempting](crate::RetryNow::Attempting)).
+    /// - During an attempt: it is stopped and a new one starts at once ([Restarted](crate::RetryNow::Restarted)).
+    /// - Connected: a ping goes to the device, so that a link whose other end is gone is found
+    ///   ([Pinged](crate::RetryNow::Pinged)).
+    /// - A connection that doesn't reconnect by itself is left as it is ([NotTrying](crate::RetryNow::NotTrying)).
+    pub async fn retry_now(&self) -> crate::RetryNow {
+        match &self.reconnect {
+            Some(r) => r.retry_now().await,
+            None => crate::RetryNow::NotTrying,
+        }
+    }
+
+    /// What [Self::retry_now] reaches, without keeping the connection alive (a [TotalsSender](crate::TotalsSender)).
+    pub(crate) fn retry_handle(&self) -> std::sync::Weak<Reconnect> {
+        self.reconnect
+            .as_ref()
+            .map(Arc::downgrade)
+            .unwrap_or_default()
+    }
+
     /// A handle that doesn't keep the connection alive, for the keeper that reconnects through the hub (CLT-40).
     pub(crate) fn downgrade(&self) -> WeakCommander {
         WeakCommander {

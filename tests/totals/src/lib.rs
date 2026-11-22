@@ -18,7 +18,7 @@ mod tests {
     use tests_common::{Fate, TestDevice};
     use totals_api::{Delta, Detents, Px};
     use wire_weaver::prelude::*;
-    use wire_weaver_client::{ConnectionState, KeepTrying, TotalsSender};
+    use wire_weaver_client::{ConnectionState, KeepTrying, RetryNow, TotalsSender};
     use ww_stream::totals::{TotalsRx, TotalsRxStats};
 
     /// What the device applied, and how.
@@ -209,8 +209,7 @@ mod tests {
             .expect("connects");
         let sender = TotalsSender::new();
         let sink = client.motion().await.expect("the motion sink");
-        let running = sender.clone();
-        tokio::task::spawn_local(async move { running.run(sink, state).await });
+        tokio::task::spawn_local(sender.run(sink, &client.cmd));
         sender
     }
 
@@ -377,6 +376,24 @@ mod tests {
                 "a repeat over a lossless link changes nothing"
             );
             assert_eq!(tx.adds, tx.merged + tx.writes - 1 + tx.unsent, "{tx:?}");
+        })
+        .await
+    }
+
+    /// `retry_now()` on a sender reaches the connection it runs on: nothing before `run`, a ping once it runs on a
+    /// connected client.
+    #[tokio::test(start_paused = true)]
+    async fn sender_retries_its_connection() {
+        run(async {
+            let seen = Arc::new(Mutex::new(Seen::default()));
+            let device = start_ws("totals/retry", &seen);
+            let client = connect(&device);
+            assert_eq!(
+                TotalsSender::<Delta>::new().retry_now().await,
+                RetryNow::NotTrying
+            );
+            let sender = start_sender(&client).await;
+            assert_eq!(sender.retry_now().await, RetryNow::Pinged);
         })
         .await
     }

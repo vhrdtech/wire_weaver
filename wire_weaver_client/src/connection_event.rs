@@ -62,7 +62,7 @@ impl std::fmt::Display for GapReason {
 #[non_exhaustive]
 pub enum ConnectionEvent {
     /// A keep-trying connection (CLT-75) starts attempt `attempt` (1 for the first since the link went, or since the
-    /// connection was made), trying its addresses in order.
+    /// connection was made), racing its addresses (CLT-80).
     Connecting { attempt: u32 },
     /// A keep-trying connection (CLT-75) connected for the first time, at `address` (as `DeviceInfo::location` names
     /// it), after `attempts` attempts. Later connects are [Self::Reconnected].
@@ -107,6 +107,23 @@ pub enum ConnectionState {
     /// Not connected, and not trying: the link went on a connection that doesn't reconnect by itself, `disconnect()`
     /// was asked for, or the client gave up ([ConnectionEvent::GaveUp]).
     Disconnected,
+}
+
+/// What [Commander::retry_now](crate::Commander::retry_now) did (CLT-75), by where the connection was.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum RetryNow {
+    /// Waiting between attempts: the next one starts now, and the wait after it is the backoff's first again.
+    Attempting,
+    /// An attempt was under way: it was stopped and a new one starts now, from the first address.
+    Restarted,
+    /// Connected: a ping went to the device. A link whose other end is gone shows up as an error of the medium when
+    /// its OS knows (a reset TCP connection), otherwise at the peer timeout (10 s without a word from the device),
+    /// and then reconnects as any lost link does.
+    Pinged,
+    /// The connection doesn't reconnect by itself, so there is nothing to hurry: a plain `connect()` (unless through
+    /// the ww hub), `connect_blocking()`, one stopped by `disconnect()`, or one that gave up. Nothing was done.
+    NotTrying,
 }
 
 /// The numbers above are `ww_local_socket`'s, which the client links only with the `local_socket` feature.

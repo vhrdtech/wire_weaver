@@ -61,7 +61,9 @@ use tokio::sync::mpsc;
 use crate::config::{ConfigPiece, ValidatedConfig};
 use crate::event_loop::DeviceHandle;
 use crate::event_loop::command::Command;
-use crate::event_loop::transport::{MessageRx, MessageTx, Opened, Selected, Transport};
+use crate::event_loop::transport::{
+    Candidate, Candidates, MessageRx, MessageTx, Opened, Race, Selected, Transport,
+};
 use ww_link::{UdpFraming, UsbFraming, UsbFramingProtocol};
 use ww_tap::Tap;
 
@@ -617,21 +619,38 @@ pub(crate) fn try_connect(
     }) else {
         bail!("Internal error: in-process selected without a path");
     };
-    let registered = {
+    let registered: Vec<String> = {
         let devices = DEVICES.locked();
-        paths.iter().find(|p| devices.contains_key(*p)).cloned()
+        paths
+            .iter()
+            .filter(|p| devices.contains_key(*p))
+            .cloned()
+            .collect()
     };
-    let Some(path) = registered else {
+    if registered.is_empty() {
         let unmatched = devices().into_iter().map(device_info).collect();
         return Ok(Selected::NotFound { unmatched });
-    };
+    }
     let Some(cmd_rx) = cmd_rx.take() else {
         bail!("Internal error: cmd_rx is None");
     };
-    tokio::spawn(crate::event_loop::core::worker(cmd_rx, InProcessTransport));
+    // the registered paths open at once, the first to open goes on to link setup (CLT-80)
+    let race = Race {
+        transport: InProcessTransport,
+        open_timeout: c.open_timeout(InProcessTransport.link_setup_timeout()),
+    };
+    tokio::spawn(crate::event_loop::core::worker(cmd_rx, race));
+    let candidates = registered
+        .iter()
+        .map(|path| Candidate {
+            address: path.clone(),
+            location: device_info(path.clone()).location,
+            handle: Box::new(path.clone()),
+        })
+        .collect();
     Ok(Selected::Device {
-        info: Box::new(device_info(path.clone())),
-        handle: Box::new(path),
+        info: Box::new(device_info(registered.join(", "))),
+        handle: Box::new(Candidates::new(candidates)),
         via_hub: false,
     })
 }
@@ -648,6 +667,7 @@ fn device_info(path: String) -> crate::DeviceInfo {
     }
 }
 
+#[derive(Clone)]
 pub(crate) struct InProcessTransport;
 
 impl Transport for InProcessTransport {

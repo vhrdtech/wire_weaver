@@ -8,6 +8,7 @@
 
 ### 🚀 Features
 
+- `LinkIdentity`, `dims` and `Medium::name`: a link's medium and peer are its tracks' dimensions; `Recorder::identity` gives a link's (TR-14).
 - `Medium::ByteStream`: TCP, a command's stdio or a stream the program opened (TR-19).
 - `Recorder::tape_clock`: a `ww_tape::ClockRef` on the recorder's clock, so a storing writer syncs on fake time in tests.
 - `LinkKey { medium, peer }`: the key of a link named by its peer, made from its first `Session` (TR-14).
@@ -25,6 +26,10 @@
 
 ### ⚠️ Breaking
 
+- `LinkTap` holds the streams itself; `Link` and `ids::LINK` are gone. Track paths are `<stream>`, not `link[n].<stream>` (TR-14).
+- `track_key(stream)` takes no link: every link's tracks of a stream share the key; their dimensions tell links apart (TR-14).
+- `link_stream_of` and `link_stream_in` return the link's `LinkIdentity`, not a link number (TR-14).
+- A link's tracks are defined at its first session or record, not by `Recorder::link`; `Recorder::track` is None before (TR-14).
 - The definitions number tracks and clocks (ww_tape READ-5): `track_number`, `track_of`, `HOST_CLOCK` and `WALL_CLOCK` are gone; use `Recorder::track` or `link_stream_of`.
 - `recorder::track_key` returns a `ww_tape::TrackKey` (ww_tape READ-5).
 - Tapes take ww_tape 0081196: a track's definition holds its WireWeaver items (FMT-12); older tap files don't read.

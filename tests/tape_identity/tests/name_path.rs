@@ -127,15 +127,15 @@ fn key_companion_items_are_named() {
     );
 }
 
-/// The tap's keys name the streams of its `LinkTap` bundle.
+/// The tap's keys name the streams of its `LinkTap` bundle: one key per stream, for every link.
 #[test]
 fn tap_keys_match_its_bundle() {
     let b = bundle("ww_tap", "LinkTap");
     use ww_tap::ids;
     for stream in [ids::SESSION, ids::EVENTS, ids::RX_FRAMES, ids::CLIENT_MAP] {
         assert_eq!(
-            key_in_bundle(&b, &[ids::LINK, 2, stream], &[]).unwrap(),
-            ww_tap::track_key(2, stream)
+            key_in_bundle(&b, &[stream], &[]).unwrap(),
+            ww_tap::track_key(stream)
         );
     }
 }
@@ -147,14 +147,10 @@ fn tap_keys_from_the_public_names() {
     assert_eq!(ww_tap::api(), ww_tap::LINK_TAP_FULL_GID);
     assert_eq!(ww_tap::api().crate_id, "ww_tap");
     for stream in [ids::SESSION, ids::EVENTS, ids::TX_MESSAGES, ids::CLIENT_MAP] {
-        let path = [
-            Segment::Name("link"),
-            Segment::Index(5),
-            Segment::Name(ids::stream_name(stream).unwrap()),
-        ];
+        let path = [Segment::Name(ids::stream_name(stream).unwrap())];
         assert_eq!(
             track_key(api_root_id(ww_tap::api().crate_id), &path),
-            ww_tap::track_key(5, stream)
+            ww_tap::track_key(stream)
         );
     }
     assert_eq!(ids::stream_name(7), None);

@@ -21,9 +21,11 @@
 //! stream names it ([RecorderConfig::name]).
 //!
 //! The definitions number the tracks and clocks ([Definitions::define_track], [Definitions::define_clock]): the
-//! recorder keeps each link's track numbers, and a link's tracks keep them when it closes. A reader finds a link and
-//! stream by the track's definition ([link_stream_of]), never by its number ([Recorder::track] gives the number of a
-//! link's stream).
+//! recorder keeps each link's track numbers, and a link's tracks keep them when it closes. A link's tracks are
+//! defined at its first session, with the link's identity as their dimensions ([LinkIdentity]): every link's
+//! tracks have the same keys ([track_key]), and the same device has the same track ids in every capture. A reader
+//! finds a link and stream by the track's definition ([link_stream_of]), never by its number ([Recorder::track]
+//! gives the number of a link's stream).
 //!
 //! Record times are nanoseconds of the recorder's own clock (origin the recorder's start); a definition maps it to
 //! the wall clock read once at the start.
@@ -37,13 +39,13 @@ use wire_weaver::prelude::*;
 use wire_weaver::shrink_wrap::SerializeShrinkWrap;
 use ww_tape::{
     Block, BlockId, BlockKind, BlockState, BlockWriter, ClockMap, ClockNum, ClockOrigin, ClockSpec,
-    ClockTime, DefinitionKind, Definitions, Describe, ItemHash, Magnitude, MapSegment, RecordRef,
-    RecordTrack, Segment, SessionTag, Slot, StatePolicy, TrackDef, TrackNum, TrackRepeat,
-    TrackSpec,
+    ClockTime, DefinitionKind, Definitions, Describe, Dimension, ItemHash, Magnitude, MapSegment,
+    RecordRef, RecordTrack, Segment, SessionTag, Slot, StatePolicy, TrackDef, TrackId, TrackNum,
+    TrackRepeat, TrackSpec,
     writer::near::{Near, NearPolicy, Rule},
 };
 
-use crate::{Dir, Frame, LinkEvent, Message, Session, Tap, api, ids};
+use crate::{Dir, Frame, LinkEvent, Message, Session, Tap, api, dims, ids};
 
 /// Settings of a [Recorder].
 #[derive(Clone, Debug)]
@@ -336,8 +338,19 @@ struct LinkState {
     /// Newest session record: its time, bytes and hash
     session: Option<(ClockTime, Arc<[u8]>, ItemHash)>,
     lost: u64,
-    /// The number of each stream's track, by stream id ([ids])
-    tracks: [TrackNum; STREAMS],
+    /// The number of each stream's track, by stream id ([ids]); None until the link's first record
+    tracks: Option<[TrackNum; STREAMS]>,
+    /// Its tracks' dimensions, fixed with them
+    identity: Option<LinkIdentity>,
+    /// It closed: its identity is free for another link
+    closed: bool,
+}
+
+impl LinkState {
+    /// The number of `stream`'s track, once the link's tracks are defined.
+    fn track(&self, stream: u32) -> Option<TrackNum> {
+        self.tracks?.get(stream as usize).copied()
+    }
 }
 
 struct State {
@@ -362,42 +375,106 @@ struct State {
 /// Streams of a link, each a track: the ids of [ids] from 0 on.
 const STREAMS: usize = 7;
 
-/// Stable key of a link's stream, the [ww_tape::track_key] of its name path `link[link].<stream>` in [LinkTap](crate::LinkTap).
+/// Stable key of a tap stream, the [ww_tape::track_key] of its name path `<stream>` in [LinkTap](crate::LinkTap):
+/// the same for every link, whose tracks the [LinkIdentity] tells apart.
 ///
 /// # Panics
 ///
 /// When `stream` is not one of [ids]' streams.
-pub fn track_key(link: u32, stream: u32) -> ww_tape::TrackKey {
+pub fn track_key(stream: u32) -> ww_tape::TrackKey {
     let name = ids::stream_name(stream).expect("stream is one of ids' streams");
-    ww_tape::track_key(
-        ww_tape::api_root_id(api().crate_id),
-        &[
-            Segment::Name("link"),
-            Segment::Index(link),
-            Segment::Name(name),
-        ],
-    )
+    ww_tape::track_key(ww_tape::api_root_id(api().crate_id), &[Segment::Name(name)])
 }
 
-/// Link id and stream id of the tap track `def` defines: its path `link[link].<stream>` in
-/// [LinkTap](crate::LinkTap), with its key from [track_key]. None for any other track. How a reader finds a link's
-/// stream: the number is the definitions', not the link's.
-pub fn link_stream_of(def: &TrackDef<'_>) -> Option<(u32, u32)> {
+/// The identity of a tapped link: its tracks' dimensions ([dims]), in the ascending order of name a definition
+/// keeps them in.
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct LinkIdentity {
+    /// Name and value of each dimension
+    pub dimensions: Vec<(String, String)>,
+}
+
+impl LinkIdentity {
+    /// The identity of a link whose first session is `session`: its medium and peer, and the producer's number of
+    /// the link `link` when given (no peer, or another open link of the same medium and peer).
+    pub fn of(session: &Session<'_>, link: Option<u32>) -> Self {
+        let mut dimensions = Vec::with_capacity(3);
+        if let Some(link) = link {
+            dimensions.push((dims::LINK.to_owned(), link.to_string()));
+        }
+        dimensions.push((dims::MEDIUM.to_owned(), session.medium.name().to_owned()));
+        if !session.peer.is_empty() {
+            dimensions.push((dims::PEER.to_owned(), session.peer.to_owned()));
+        }
+        LinkIdentity { dimensions }
+    }
+
+    /// The identity of a link recorded before any session: only the producer's number of it.
+    pub fn numbered(link: u32) -> Self {
+        LinkIdentity {
+            dimensions: vec![(dims::LINK.to_owned(), link.to_string())],
+        }
+    }
+
+    /// The identity a track's definition carries.
+    pub fn of_track(def: &TrackDef<'_>) -> Self {
+        LinkIdentity {
+            dimensions: def
+                .dimensions
+                .iter()
+                .filter_map(Result::ok)
+                .map(|d| (d.name.to_owned(), d.value.to_owned()))
+                .collect(),
+        }
+    }
+
+    /// The value of dimension `name` ([dims]), None when the link has none: how a reader picks a device
+    /// ([dims::PEER]).
+    pub fn get(&self, name: &str) -> Option<&str> {
+        let (_, value) = self.dimensions.iter().find(|(n, _)| n == name)?;
+        Some(value)
+    }
+
+    /// As ww_tape's dimensions.
+    pub fn dimensions(&self) -> impl Iterator<Item = Dimension<'_>> + Clone {
+        self.dimensions
+            .iter()
+            .map(|(name, value)| Dimension { name, value })
+    }
+
+    /// The [ww_tape::track_id] of `stream`'s track of the link.
+    pub fn track_id(&self, stream: u32) -> TrackId {
+        ww_tape::track_id(track_key(stream), self.dimensions())
+    }
+}
+
+impl core::fmt::Display for LinkIdentity {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        for (i, (name, value)) in self.dimensions.iter().enumerate() {
+            let sep = if i == 0 { "" } else { " " };
+            write!(f, "{sep}{name}={value}")?;
+        }
+        Ok(())
+    }
+}
+
+/// The link and stream id of the tap track `def` defines: its path `<stream>` in [LinkTap](crate::LinkTap), with
+/// its key from [track_key], and its link's identity from its dimensions. None for any other track. How a reader
+/// finds a link's stream: the number is the definitions', not the link's.
+pub fn link_stream_of(def: &TrackDef<'_>) -> Option<(LinkIdentity, u32)> {
     let ww_tape::Items::WireWeaver { path, .. } = &def.items else {
         return None;
     };
     let mut path = path.iter();
-    let (Some(Ok(UNib32(ids::LINK))), Some(Ok(UNib32(link))), Some(Ok(UNib32(stream))), None) =
-        (path.next(), path.next(), path.next(), path.next())
-    else {
+    let (Some(Ok(UNib32(stream))), None) = (path.next(), path.next()) else {
         return None;
     };
     ids::stream_name(stream)?;
-    (def.key == track_key(link, stream)).then_some((link, stream))
+    (def.key == track_key(stream)).then(|| (LinkIdentity::of_track(def), stream))
 }
 
-/// Link id and stream id of tap track `track` held in `defs`, see [link_stream_of].
-pub fn link_stream_in(defs: &Definitions, track: TrackNum) -> Option<(u32, u32)> {
+/// The link's identity and stream id of tap track `track` held in `defs`, see [link_stream_of].
+pub fn link_stream_in(defs: &Definitions, track: TrackNum) -> Option<(LinkIdentity, u32)> {
     let item = defs.get(&Slot::Track { number: track })?;
     match Describe::from_ww_bytes(item) {
         Ok(Describe::Track(t)) => link_stream_of(&t),
@@ -514,15 +591,17 @@ impl Recorder {
         ww_tape::ClockRef::new(self.inner.clock.clone())
     }
 
-    /// A new link: its tracks are added, records go through the returned [Tap].
+    /// A new link: records go through the returned [Tap]. Its tracks are defined at its first session, with its
+    /// identity ([LinkIdentity::of]), or at its first record before any session, numbered ([LinkIdentity::numbered]).
     pub fn link(&self) -> RecorderLink {
         let mut st = self.inner.state.locked();
         let id = st.links.len() as u32;
-        let tracks = Inner::define_link(&mut st, id);
         st.links.push(LinkState {
             session: None,
             lost: 0,
-            tracks,
+            tracks: None,
+            identity: None,
+            closed: false,
         });
         RecorderLink {
             recorder: self.clone(),
@@ -608,15 +687,17 @@ impl Recorder {
         self.inner.poll_flush();
     }
 
-    /// The number of the track of link `link`'s `stream` ([ids]); None for a link or stream there isn't. A closed
-    /// link's tracks keep their numbers.
+    /// The number of the track of link `link`'s `stream` ([ids]); None for a link or stream there isn't, or a link
+    /// with no record yet. A closed link's tracks keep their numbers.
     pub fn track(&self, link: u32, stream: u32) -> Option<TrackNum> {
         let st = self.inner.state.locked();
-        st.links
-            .get(link as usize)?
-            .tracks
-            .get(stream as usize)
-            .copied()
+        st.links.get(link as usize)?.track(stream)
+    }
+
+    /// The identity of link `link`, its tracks' dimensions; None before its first record.
+    pub fn identity(&self, link: u32) -> Option<LinkIdentity> {
+        let st = self.inner.state.locked();
+        st.links.get(link as usize)?.identity.clone()
     }
 
     fn record<T: SerializeShrinkWrap>(&self, link: u32, stream: u32, item: &T) {
@@ -728,8 +809,9 @@ impl Inner {
                 let ev = LinkEvent::Lost {
                     records: UVlq64(lost),
                 };
-                let track = st.links[link].tracks[ids::EVENTS as usize];
-                _ = self.push(st, track, now, &ev);
+                if let Some(track) = st.links[link].track(ids::EVENTS) {
+                    _ = self.push(st, track, now, &ev);
+                }
             }
         }
         true
@@ -754,16 +836,19 @@ impl Inner {
         r.map(|()| len).map_err(|_| ())
     }
 
-    /// Record `item` on link `link`'s `stream`.
+    /// Record `item` on link `link`'s `stream`; a link without tracks yet gets them, numbered.
     fn record<T: SerializeShrinkWrap>(&self, link: u32, stream: u32, item: &T) {
         let mut st = self.state.locked();
         let st = &mut *st;
         let now = self.now();
-        let Some(&track) = st
+        if st
             .links
             .get(link as usize)
-            .and_then(|l| l.tracks.get(stream as usize))
-        else {
+            .is_some_and(|l| l.tracks.is_none())
+        {
+            Inner::define_link(st, link, LinkIdentity::numbered(link));
+        }
+        let Some(track) = st.links.get(link as usize).and_then(|l| l.track(stream)) else {
             tracing::warn!("tap record of link {link} stream {stream}: no such track, dropped");
             return;
         };
@@ -833,32 +918,49 @@ impl Inner {
     fn close_link(st: &mut State, link: u32) {
         if let Some(l) = st.links.get_mut(link as usize) {
             l.session = None;
-            for t in l.tracks {
+            l.closed = true;
+            for t in l.tracks.into_iter().flatten() {
                 st.defs.close(t);
             }
         }
     }
 
-    /// Define the tracks of link `link` and give their numbers, by stream id. The clocks come back first when the
-    /// last link's tracks took them with them ([Definitions::close]).
-    fn define_link(st: &mut State, link: u32) -> [TrackNum; STREAMS] {
+    /// The identity of link `link` whose first session is `session`: its medium and peer, numbered too when it has
+    /// no peer or another open link has the same.
+    fn identity_of(st: &State, link: u32, session: &Session<'_>) -> LinkIdentity {
+        let named = LinkIdentity::of(session, None);
+        let taken = st
+            .links
+            .iter()
+            .any(|l| !l.closed && l.identity.as_ref() == Some(&named));
+        if session.peer.is_empty() || taken {
+            LinkIdentity::of(session, Some(link))
+        } else {
+            named
+        }
+    }
+
+    /// Define the tracks of link `link` with the dimensions of `identity`, and keep their numbers by stream id. The
+    /// clocks come back first when the last link's tracks took them with them ([Definitions::close]).
+    fn define_link(st: &mut State, link: u32, identity: LinkIdentity) {
         if !st.defs.has_clock(st.host) {
             st.host = define_clocks(&mut st.defs, st.wall_ns_at_zero);
         }
         let api = api();
-        core::array::from_fn(|stream| {
+        let dimensions: Vec<Dimension<'_>> = identity.dimensions().collect();
+        let tracks = core::array::from_fn(|stream| {
             let stream = stream as u32;
-            let path = [UNib32(ids::LINK), UNib32(link), UNib32(stream)];
+            let path = [UNib32(stream)];
             let label = format!(
-                "link[{link}].{}",
+                "{} {identity}",
                 ids::stream_name(stream).expect("one of ids' streams")
             );
             let track = st
                 .defs
                 .define_track(TrackSpec {
-                    key: track_key(link, stream),
+                    key: track_key(stream),
                     clock: st.host,
-                    dimensions: RefVec::Slice { slice: &[] },
+                    dimensions: RefVec::Slice { slice: &dimensions },
                     items: ww_tape::Items::WireWeaver {
                         api,
                         bundle: RefVec::Slice { slice: &[] },
@@ -880,7 +982,24 @@ impl Inner {
                 .expect("a link's track definition is valid and its clock held");
             st.by_track.insert(track, (link, stream));
             track
-        })
+        });
+        if let Some(l) = st.links.get_mut(link as usize) {
+            l.tracks = Some(tracks);
+            l.identity = Some(identity);
+        }
+    }
+
+    /// Define the tracks of link `link` at its first session `session`, with its identity.
+    fn session(&self, link: u32, session: &Session<'_>) {
+        let mut st = self.state.locked();
+        if st
+            .links
+            .get(link as usize)
+            .is_some_and(|l| l.tracks.is_none())
+        {
+            let identity = Inner::identity_of(&st, link, session);
+            Inner::define_link(&mut st, link, identity);
+        }
     }
 
     /// Hand each consumer what records on `tracks` need that it doesn't have near ([Needs]), as blocks of puts
@@ -903,7 +1022,7 @@ impl Inner {
             .iter()
             .flat_map(|s| s.lost.keys().copied())
             .collect();
-        let events = |link: &u32| Some(st.links.get(*link as usize)?.tracks[ids::EVENTS as usize]);
+        let events = |link: &u32| st.links.get(*link as usize)?.track(ids::EVENTS);
         let with_lost = (data.is_some() && !lost_links.is_empty()).then(|| {
             let events = lost_links.iter().filter_map(events);
             Needs::of(st, tracks.iter().copied().chain(events))
@@ -1113,7 +1232,7 @@ impl Needs {
         // a link's session is put with its track's definitions
         let sessions = links.iter().filter_map(|link| {
             let l = st.links.get(*link as usize)?;
-            l.session.as_ref().map(|_| l.tracks[ids::SESSION as usize])
+            l.session.as_ref().and(l.track(ids::SESSION))
         });
         let defined: std::collections::BTreeSet<TrackNum> =
             tracks.iter().copied().chain(sessions).collect();
@@ -1158,7 +1277,9 @@ impl Needs {
             let Some(l) = st.links.get(link as usize) else {
                 continue;
             };
-            let track = l.tracks[ids::SESSION as usize];
+            let Some(track) = l.track(ids::SESSION) else {
+                continue;
+            };
             if let Some(policy) = st.defs.policy(track)
                 && let Some((at, bytes, hash)) = &l.session
             {
@@ -1305,6 +1426,16 @@ struct LinkShared {
 impl Drop for LinkShared {
     fn drop(&mut self) {
         if let Some(inner) = self.recorder.upgrade() {
+            // a link that recorded nothing has no tracks to close
+            let defined = {
+                let st = inner.state.locked();
+                st.links
+                    .get(self.link as usize)
+                    .is_some_and(|l| l.tracks.is_some())
+            };
+            if !defined {
+                return;
+            }
             // the stream says so, in a block handed over while the link's tracks are still defined
             inner.record(self.link, ids::EVENTS, &LinkEvent::Closed);
             let mut st = inner.state.locked();
@@ -1379,6 +1510,7 @@ impl Tap for RecorderLink {
     }
 
     fn session(&mut self, session: &Session<'_>) {
+        self.recorder.inner.session(self.link, session);
         self.recorder.record(self.link, ids::SESSION, session);
     }
 

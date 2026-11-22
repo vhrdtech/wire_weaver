@@ -13,7 +13,9 @@
 //! Its input is records: [Decoder::record] (and [Decoder::session]) per record of a link's tracks in time order,
 //! [Decoder::gap] for records missing from it. [Decoder::feed] takes a `ww_tape` block, wherever it came from, and
 //! feeds its records the same way: it finds each record's link and stream by its track's definition
-//! ([ww_tap::link_stream_of]), never by the track's number.
+//! ([ww_tap::link_stream_of]), never by the track's number. A link is its tracks' identity
+//! ([ww_tap::LinkIdentity], the device's medium and peer), numbered by the decoder in the order it
+//! first sees them ([Decoder::link_identity], [Decoder::find_link]).
 
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::sync::Arc;
@@ -24,7 +26,9 @@ use wire_weaver::shrink_wrap::{
 use ww_client_server::{Event, PathKind, Request};
 use ww_link::DeviceInfoOwned;
 use ww_self::ApiBundleOwned;
-use ww_tap::{Dir, FrameOwned, LinkEventOwned, MessageOwned, SessionOwned, ids, link_stream_of};
+use ww_tap::{
+    Dir, FrameOwned, LinkEventOwned, LinkIdentity, MessageOwned, SessionOwned, ids, link_stream_of,
+};
 use ww_tape::{Block, ClockNum, Describe, TrackNum};
 
 use super::reassembly::{FrameOutcome, FramePart, HelloFrame, Reassembled, Reassembler, walker};
@@ -229,6 +233,8 @@ pub struct Decoder {
     session: Option<ww_tape::SessionTag>,
     /// The tap's tracks by number, from their definitions
     tracks: BTreeMap<TrackNum, TapTrack>,
+    /// The identity of each link, by the decoder's number of it
+    identities: Vec<LinkIdentity>,
     /// The clock the tap's tracks count, from their definitions
     tap_clock: Option<ClockNum>,
     /// The clocks defined as the wall clock
@@ -258,6 +264,7 @@ impl Decoder {
             next_seq: None,
             session: None,
             tracks: BTreeMap::new(),
+            identities: Vec::new(),
             tap_clock: None,
             wall_clocks: Vec::new(),
             wall_ns_at_zero: BTreeMap::new(),
@@ -297,6 +304,34 @@ impl Decoder {
     /// The device API bundles the decoder knows, by hash, e.g. to write into a capture.
     pub fn bundles(&self) -> impl Iterator<Item = (&[u8], &Arc<ApiBundleOwned>)> {
         self.bundles.iter().map(|(h, b)| (h.as_slice(), b))
+    }
+
+    /// The identity of link `link` (the decoder's number of it): the dimensions its tracks carry, the device's medium
+    /// and peer.
+    pub fn link_identity(&self, link: u32) -> Option<&LinkIdentity> {
+        self.identities.get(link as usize)
+    }
+
+    /// The link whose dimension `name` ([ww_tap::dims]) is `value`, e.g. the device of a serial
+    /// ([ww_tap::dims::PEER]); the first one when several are.
+    pub fn find_link(&self, name: &str, value: &str) -> Option<u32> {
+        let i = self
+            .identities
+            .iter()
+            .position(|id| id.get(name) == Some(value))?;
+        u32::try_from(i).ok()
+    }
+
+    /// The decoder's number of the link of `identity`, a new one the first time.
+    fn link_number(&mut self, identity: LinkIdentity) -> u32 {
+        let i = match self.identities.iter().position(|id| *id == identity) {
+            Some(i) => i,
+            None => {
+                self.identities.push(identity);
+                self.identities.len() - 1
+            }
+        };
+        u32::try_from(i).unwrap_or(u32::MAX)
     }
 
     /// The device API of a link, once its bundle was found (by its first data message after the bundle came).
@@ -371,7 +406,7 @@ impl Decoder {
     }
 
     /// A record of `link`'s `stream` ([ww_tap::ids]) at `t` (tap clock, ns): `item` is its ShrinkWrap bytes, as
-    /// [Link](ww_tap::Link) declares the stream. A record that doesn't decode is skipped.
+    /// [LinkTap](ww_tap::LinkTap) declares the stream. A record that doesn't decode is skipped.
     ///
     /// Records are fed in time order: a reader of several tracks merges them by time first.
     pub fn record(&mut self, link: u32, stream: u32, t: u64, item: &[u8]) {
@@ -426,7 +461,8 @@ impl Decoder {
         };
         match d {
             Describe::Track(t) => match link_stream_of(&t) {
-                Some((link, stream)) => {
+                Some((identity, stream)) => {
+                    let link = self.link_number(identity);
                     self.tap_clock = Some(t.clock);
                     let tt = TapTrack {
                         link,

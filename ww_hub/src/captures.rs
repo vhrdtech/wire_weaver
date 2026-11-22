@@ -55,7 +55,7 @@ pub trait HostCapture: Send + Sync {
     fn set_options(&self, options: &CaptureOptions);
 
     /// The hub forwarded client `client`'s request `client_seq` to the device as `device_seq`, as it went out
-    /// (`ww_tap::Link::client_map`).
+    /// (`ww_tap::LinkTap::client_map`).
     fn client_map(&self, map: ClientMap);
 
     /// Keep what is in RAM now, then everything after, in a project file with one run at `to`, created with

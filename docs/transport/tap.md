@@ -59,11 +59,27 @@ its definitions don't grow with every link ever seen.
 
 ## Records
 
-The records are ordinary WireWeaver types: streams of the `ww_tap::LinkTap` trait, one entry per link
-(`link[id]`) with the streams `session` (medium, framer, frame size, peer, the device's `DeviceInfo` once the link is
-set up), `events`, `tx_frames`, `rx_frames`, `tx_messages`, `rx_messages` and, on a server, `client_map` (which
-client's request a device-side request was). A capture is described by the API bundle of `ww_tap` like any device
-log is by its device's, and every frame and message has a number, so the decoder sees a missing one.
+The records are ordinary WireWeaver types: streams of the `ww_tap::LinkTap` trait, one set per link: `session`
+(medium, framer, frame size, peer, the device's `DeviceInfo` once the link is set up), `events`, `tx_frames`,
+`rx_frames`, `tx_messages`, `rx_messages` and, on a server, `client_map` (which client's request a device-side
+request was). A capture is described by the API bundle of `ww_tap` like any device log is by its device's, and every
+frame and message has a number, so the decoder sees a missing one.
+
+## Links and devices
+
+Every link's tracks of one stream have the same key, the hash of the stream's name (`ww_tap::track_key`). The link's
+identity tells them apart: the recorder defines a link's tracks at its first session, with the [track
+dimensions](https://tape.vhrd.tech/tracks/#number-key-and-id) `medium` and `peer` (`ww_tap::dims`), the USB serial
+or the address the session reports. Two devices of one API recorded into one capture thus give two track ids per
+stream with one key, and the same device gives the same ids in every capture and after a reconnect, whichever link
+number the producer gave it.
+
+A link the peer doesn't tell apart, with no peer or with the peer of another open link, adds the dimension `link`,
+the recorder's number of it; so does a link recorded before any session.
+
+A reader picks a device by its dimension: `ww_tap::link_stream_of` gives a tap track's stream and its link's
+`LinkIdentity` (`identity.get(dims::PEER)`), and the decoder numbers links by identity (`Decoder::find_link(dims::PEER,
+"SN-1234")`, `Decoder::link_identity`).
 
 ## Capture files
 
@@ -76,8 +92,8 @@ with `Recovery::Resync` ([Files](https://tape.vhrd.tech/format/#files)). A captu
 close record and a tail; cutting a recording into several files is [tape
 pieces](https://tape.vhrd.tech/format/#tape-pieces). The definitions carry the device's API bundle, so `ww
 explain FILE` explains the requests and replies of a capture on any PC, without the device. A track's key hashes its
-resource names, so two runs give the same ids ([track
-identity](https://tape.vhrd.tech/format/#track-identity), `ww_tap::track_key`).
+resource names and its dimensions name the device, so two runs give the same ids ([Links and
+devices](#links-and-devices)).
 
 ## Decoding
 

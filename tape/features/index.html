@@ -6775,6 +6775,15 @@
 <li>A timeout of the caller's runtime bounds a wait.</li>
 <li>Missing: a typed handle's drop still sends blocking; async code ends a handle with <code>finish_async</code>.</li>
 <li>Tests <code>mux_async.rs</code>: tokio's two schedulers and smol, without timer or I/O driver, woken from another thread.</li>
+<li>✅ <strong>WRITE-15 The example and the book's writer code through handles</strong></li>
+<li><code>Drive::record</code> writes through a <code>TapeMux</code> from one thread in the story's fixed order, with no tick and no latency seal: the placement is the same every run.</li>
+<li>The mode goes through a <code>StateHandle</code>, records blocks through a <code>RecordsHandle</code>, <code>can0</code> through a <code>ChunkSender</code>, <code>phase_a</code> through a <code>SeriesHandle</code> whose summaries the mux builds, one tree a piece.</li>
+<li>The relay (<code>writing::relay</code>) writes through a <code>RelayHandle</code>: the same bytes.</li>
+<li><code>Drive::crash</code> writes the chain, then cuts its bytes at the crash byte.</li>
+<li><code>Crashed::resume</code> is a <code>TapeMux::resume</code> given the acts the crash lost. The resume equals the whole run byte for byte, at every byte of a scaled run.</li>
+<li>The mux builds one summary tree a piece, where the direct writer built one across pieces. The pinned numbers were run again: <code>writing.out</code>, <code>fault.out</code>, the damage tests and the pages that quote them.</li>
+<li>The book's included writer code comes from the handles path (<code>first_tape.md</code>, <code>columns.md</code>, <code>sample_codecs.md</code>, <code>summaries.md</code>, <code>pieces.md</code>); <code>first_tape.rs</code> keeps the <code>TapeWriter</code> lesson beside it.</li>
+<li><code>ww_tape_example::handles::record</code> is the concurrent demo, one thread per source. Test <code>tests/handles.rs</code> compares each track's decoded items with the story's recording.</li>
 </ul>
 <h2 id="reader-read">Reader (<code>READ</code>)<a class="headerlink" href="#reader-read" title="Permanent link">&para;</a></h2>
 <p>Reading by position, checks and hashes, hostile bytes, in the crate <code>ww_tape</code>.</p>
@@ -6911,7 +6920,7 @@
 <li><code>cargo run -p ww_tape_example</code> prints the story's numbers; <code>tests/story.rs</code> checks them and that the full hour is the same every run.</li>
 <li>Damage to the last piece and the run on a raw card over an earlier run; <code>tests/damage.rs</code> pins what each costs.</li>
 <li><code>rf</code> records an RF capture, ComplexI16 IQ at 20 MS/s with summaries, as the book's case for high rates; <code>tests/rf.rs</code> pins its size per codec. <code>rf chains</code> writes it into two chains, IQ and decoded bursts, through two muxes while a reader merges both.</li>
-<li>Read more: <a href="https://github.com/vhrdtech/ww_tape/blob/a4cc788883d362f8e1da409852a53e832363a098/ww_tape_example/README.md">ww_tape_example</a>.</li>
+<li>Read more: <a href="https://github.com/vhrdtech/ww_tape/blob/d7abba98a40a754a760a9f1513572564a0a3af35/ww_tape_example/README.md">ww_tape_example</a>.</li>
 </ul>
 <h2 id="repository-repo">Repository (<code>REPO</code>)<a class="headerlink" href="#repository-repo" title="Permanent link">&para;</a></h2>
 <p>Crates, checks, fuzzing and benches.</p>

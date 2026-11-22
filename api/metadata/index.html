@@ -33,7 +33,7 @@
     
     
       
-        <title>Metadata: claims, pins, labels - WireWeaver</title>
+        <title>Metadata: effects, claims, pins, labels - WireWeaver</title>
       
     
     
@@ -125,7 +125,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Metadata: claims, pins, labels
+              Metadata: effects, claims, pins, labels
             
           </span>
         </div>
@@ -1968,7 +1968,7 @@
   <span class="md-ellipsis">
     
   
-  Metadata: claims, pins, labels
+  Metadata: effects, claims, pins, labels
 
     
   </span>
@@ -1985,7 +1985,7 @@
   <span class="md-ellipsis">
     
   
-  Metadata: claims, pins, labels
+  Metadata: effects, claims, pins, labels
 
     
   </span>
@@ -2009,6 +2009,34 @@
       On this page
     </label>
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#effect-what-an-item-does" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>#[effect(..)]</code>: what an item does
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="#[effect(..)]: what an item does">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#as-mcp-tool-annotations" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        As MCP tool annotations
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
       
         <li class="md-nav__item">
   <a href="#claim-resources-one-program-can-have-to-itself" class="md-nav__link">
@@ -6293,6 +6321,34 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#effect-what-an-item-does" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>#[effect(..)]</code>: what an item does
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="#[effect(..)]: what an item does">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#as-mcp-tool-annotations" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        As MCP tool annotations
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#claim-resources-one-program-can-have-to-itself" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6486,9 +6542,9 @@
   
 
 
-<h1 id="metadata-claims-pins-labels">Metadata: claims, pins, labels<a class="headerlink" href="#metadata-claims-pins-labels" title="Permanent link">&para;</a></h1>
-<p>Some things about an API matter to people and tools but not to the bytes on the wire: which resources one program
-may have to itself for a while, which pins a resource uses, what a person calls it. They are written as typed
+<h1 id="metadata-effects-claims-pins-labels">Metadata: effects, claims, pins, labels<a class="headerlink" href="#metadata-effects-claims-pins-labels" title="Permanent link">&para;</a></h1>
+<p>Some things about an API matter to people and tools but not to the bytes on the wire: what calling a method does,
+which resources one program may have to itself for a while, which pins a resource uses, what a person calls it. They are written as typed
 attributes next to the items, checked when the API is loaded (a typo is a compile error of the API crate, like a
 wrong <code>#[errors(..)]</code> list), and carried in the device's introspection data as data, not as doc text, so the hub,
 <code>ww</code> and GUIs read them without parsing prose.</p>
@@ -6516,14 +6572,132 @@ wrong <code>#[errors(..)]</code> list), and carried in the device's introspectio
 </span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">gpio_a</span><span class="p">:</span><span class="w"> </span><span class="nc">ww_gpio</span><span class="p">::</span><span class="n">Bank</span><span class="p">);</span>
 </span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>
 </span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="w">    </span><span class="cp">#[label(</span><span class="s">&quot;Main power&quot;</span><span class="cp">)]</span>
-</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">power</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">);</span>
-</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="p">}</span>
+</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="w">    </span><span class="cp">#[effect(actuate)]</span>
+</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">power</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">);</span>
+</span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>Nothing changes on the device: a server is generated the same way. Adding, changing or removing any of these
 attributes is wire compatible (only the introspection data and so the API hash change, as for a doc comment);
 <code>ww api check</code> reports them as compatible changes.</p>
 <p>Claiming through the hub, its <code>claims</code> API group, is described in
 <a href="../../transport/hub/#claims-on-resources-srv-34">Claims on resources</a>.</p>
+<h2 id="effect-what-an-item-does"><code>#[effect(..)]</code>: what an item does<a class="headerlink" href="#effect-what-an-item-does" title="Permanent link">&para;</a></h2>
+<p>Every method, writable property and sink says what using it does, so a GUI knows which buttons it may press
+freely, an agent or a script knows what to confirm first, and the hub knows which calls only read. One or more
+effects, on the item or on its trait:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="cp">#[ww_trait]</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="cp">#[effect(edit)]</span><span class="w"> </span><span class="c1">// the default of every item below without its own</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">Settings</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="cp">#[effect(read)]</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">summary</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">Summary</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="sd">/// Writes the settings to flash.</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="cp">#[effect(persist)]</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">save</span><span class="p">();</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">    </span><span class="sd">/// Back to the factory settings, in flash.</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">    </span><span class="cp">#[effect(persist, destructive)]</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">reset_to_defaults</span><span class="p">();</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">    </span><span class="sd">/// Takes the `edit` of the trait.</span>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">window</span><span class="p">:</span><span class="w"> </span><span class="nc">Millis</span><span class="o">&lt;</span><span class="kt">u16</span><span class="o">&gt;</span><span class="p">);</span>
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="p">}</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Effect</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>read</code></td>
+<td>changes no state; combines with no other effect</td>
+</tr>
+<tr>
+<td><code>edit</code></td>
+<td>changes state that can be undone or overwritten: a setpoint, a mode, a volatile buffer</td>
+</tr>
+<tr>
+<td><code>persist</code></td>
+<td>writes non-volatile storage: wears flash, survives a reboot</td>
+</tr>
+<tr>
+<td><code>destructive</code></td>
+<td>loses data: an erase, a cleared log, a factory reset</td>
+</tr>
+<tr>
+<td><code>permanent</code></td>
+<td>an irreversible hardware change: OTP, fuses, readout protection</td>
+</tr>
+<tr>
+<td><code>outbound</code></td>
+<td>reaches outside the system: sends a frame on a bus, publishes, calls out</td>
+</tr>
+<tr>
+<td><code>actuate</code></td>
+<td>switches power or outputs, moves things: a rail, a relay, a motor enable, an LED</td>
+</tr>
+<tr>
+<td><code>reset</code></td>
+<td>reboots the device or drops the link</td>
+</tr>
+<tr>
+<td><code>job</code></td>
+<td>starts work that outlives the call: a capture, a scan, an update</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Required: a method, a writable (<code>rw</code>, <code>wo</code>) property or a sink without an effect of its own or of its trait is a
+  compile error naming it.</li>
+<li>On a trait definition (after <code>#[ww_trait]</code>) the attribute is the default for that trait's items; one on an item
+  wins. It doesn't reach the items of traits nested with <code>ww_impl!</code>, and it can't go on a <code>ww_impl!</code>.</li>
+<li>Reads by their kind need none: a property read, a <code>ro</code> or <code>const</code> property, a stream open (<code>stream!</code>, a stream
+  function) are <code>read</code>. On a property, <code>#[effect]</code> describes its write. A stream whose opening does more (powers a
+  sensor) may say so: <code>#[effect(actuate)] stream!(..)</code>. A <code>ro</code> property or a const can't have one.</li>
+<li><code>read</code> is the API author's promise, nothing checks it. A FIFO that a read empties is no <code>read</code>: make it a method
+  with <code>edit</code>, or claim it with <code>#[claim(observe)]</code>.</li>
+</ul>
+<p>Who reads them:</p>
+<ul>
+<li>The hub treats a call of a <code>read</code> method as a read: it stays open under another program's exclusive or shared
+  claim, like a property read. With per-peer rights (SRV-37), a peer with only the right to observe may call such
+  methods.</li>
+<li>A server's <code>Authorize</code> hook gets each item's metadata in <code>Resource::items</code>; <code>ApiItemOwned::effects()</code> answers an
+  item's effects, a read by kind included.</li>
+<li><code>ww info --effects</code> lists the device's items that change something, by effect; <code>ww api tree</code> shows the attribute
+  in front of each item, rustdoc of a <code>#[ww_trait]</code> notes it.</li>
+</ul>
+<h3 id="as-mcp-tool-annotations">As MCP tool annotations<a class="headerlink" href="#as-mcp-tool-annotations" title="Permanent link">&para;</a></h3>
+<p>A tool that exposes API items to a language model through the Model Context Protocol maps the effects to its tool
+annotations:</p>
+<table>
+<thead>
+<tr>
+<th>MCP annotation</th>
+<th>From the effects</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>readOnlyHint</code></td>
+<td><code>true</code> for <code>read</code> alone</td>
+</tr>
+<tr>
+<td><code>destructiveHint</code></td>
+<td><code>true</code> with <code>destructive</code>, <code>permanent</code> or <code>reset</code>, with a bit the tool doesn't know, or with none declared; <code>false</code> otherwise (an <code>edit</code> can be written back)</td>
+</tr>
+<tr>
+<td><code>idempotentHint</code></td>
+<td><code>true</code> for <code>read</code>; otherwise left out (<code>false</code>), the effects don't say</td>
+</tr>
+<tr>
+<td><code>openWorldHint</code></td>
+<td><code>true</code> with <code>outbound</code>, <code>false</code> otherwise</td>
+</tr>
+</tbody>
+</table>
+<p><code>actuate</code> and <code>permanent</code> have no MCP annotation of their own: a host asks before such a call, as <code>ww</code> and GUIs
+should.</p>
 <h2 id="claim-resources-one-program-can-have-to-itself"><code>#[claim(..)]</code>: resources one program can have to itself<a class="headerlink" href="#claim-resources-one-program-can-have-to-itself" title="Permanent link">&para;</a></h2>
 <p>Several programs can share one device through the hub (one per user, it holds the devices and serves every client).
 Most of the time that is what you want: a GUI shows a CAN bus while a script sends frames on it. Sometimes one
@@ -6595,11 +6769,15 @@ person recognises on the bench. <code>ww</code> shows it, an <code>InUse</code> 
 to the item. A resource array takes one label per element, by index: <code>#[label("CAN1", "CAN2")]</code>; any other item
 takes one.</p>
 <h2 id="in-the-api-model">In the API model<a class="headerlink" href="#in-the-api-model" title="Permanent link">&para;</a></h2>
-<p><code>ww_self::Meta</code> holds the attributes: <code>claim: Option&lt;ClaimMode&gt;</code>, <code>shares: Vec&lt;Shares&gt;</code>, <code>labels: Vec&lt;String&gt;</code>. It
-sits on <code>ApiItem::meta</code> (the item's own attributes) and <code>ApiLevel::meta</code> (a trait definition's <code>#[claim]</code>), both
-<code>Option</code> and evolvable, so the attributes that come later (a care marker for writes that switch power or outputs,
-API-56; device-level metadata, API-57) are new fields there. <code>ApiItemOwned::claim_mode(&amp;bundle)</code> answers how a
-<code>ww_impl!</code> can be claimed (its own <code>#[claim]</code>, else its trait's), <code>ApiItemOwned::label(index)</code> its label. <code>ww api
+<p><code>ww_self::Meta</code> holds the attributes: <code>claim: Option&lt;ClaimMode&gt;</code>, <code>shares: Vec&lt;Shares&gt;</code>, <code>labels: Vec&lt;String&gt;</code>,
+<code>effects: Effects</code>. It sits on <code>ApiItem::meta</code> (the item's own attributes) and <code>ApiLevel::meta</code> (a trait definition's
+<code>#[claim]</code> and <code>#[effect]</code>), both <code>Option</code> and evolvable, so the attributes that come later (device-level metadata,
+API-57) are new fields there. <code>Effects</code> is a set of bits, one per effect in the table's order (<code>read</code> is bit 0);
+the codegen stores on each item its own effects or its trait's, and nothing for a read by kind, so introspection
+grows only where an item changes something. A new effect takes the next bit, and a reader keeps a bit it doesn't
+know (<code>Effects::unknown</code>), treating the item as the most restrictive case. <code>ApiItemOwned::claim_mode(&amp;bundle)</code> answers how a
+<code>ww_impl!</code> can be claimed (its own <code>#[claim]</code>, else its trait's), <code>ApiItemOwned::label(index)</code> its label,
+<code>ApiItemOwned::effects()</code> its effects. <code>ww api
 tree</code> shows the attributes in front of the item, and rustdoc of a <code>#[ww_trait]</code> notes them.</p>
 
 

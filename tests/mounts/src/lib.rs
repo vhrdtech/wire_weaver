@@ -674,6 +674,30 @@ mod tests {
         assert_up(&slot.presence().blocking_read().unwrap());
     }
 
+    /// A generated client of the mounted API on a view made for it (CLT-84): its calls go through the slot, and its
+    /// own slot accessors name paths in the mounted API. A view without the client's API refuses to make one.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn generated_client_on_a_view() {
+        let slots = slots();
+        slots.lock().unwrap().hub_backend = Some(tv_backend());
+        let device = start_blocking("mounts/client_on_view", slots.clone());
+        let client =
+            std_client::Client::config(|c| c.in_process_path(device.path()).resolver(no_cache()))
+                .connect()
+                .await
+                .expect("connect");
+        let line = std_client::Client::client_line();
+        let view = client.hub().unwrap().view_for(&line).await.unwrap();
+        let hub = std_client::Client::on_mount(&view).unwrap();
+        hub.mute().call().await.unwrap();
+        assert_eq!(slots.lock().unwrap().seen.last().unwrap().path, [3]);
+        let inner = hub.hub().unwrap().presence().read().await.unwrap();
+        assert!(matches!(inner, MountPresenceOwned::Absent));
+
+        let dynamic = client.hub().unwrap().view().await.unwrap();
+        assert!(std_client::Client::on_mount(&dynamic).is_err());
+    }
+
     /// A blocking program makes a view too, with a runtime entered for its follower (CLT-84).
     #[test]
     fn view_blocking() {

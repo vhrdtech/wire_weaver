@@ -7,9 +7,10 @@ use crate::client::observe::{
     LevelUpdate, ObserveEvent, Observer, PreparedObserve, Second, on_change,
 };
 use crate::client::prepared_connection::learn_mounted;
+use crate::config::IntrospectBundle;
 use crate::device_info::DeviceApiInfo;
 use crate::event_loop::commander::WeakCommander;
-use crate::{Commander, DynConfig, Error, PreparedRead};
+use crate::{ClientLine, Commander, DynConfig, Error, PreparedRead, WwClient};
 use std::collections::BTreeMap;
 use std::time::{Duration, Instant};
 use tokio::sync::watch;
@@ -92,22 +93,29 @@ struct Parts {
 impl MountSlot<'_> {
     /// A view of the API mounted at this slot, its API learned when a backend is mounted now, following the slot
     /// from then on (see [MountView]). Needs a tokio runtime, which runs the follower.
+    /// The view knows no client API: the dynamic client's, or a tool's that walks the mounted API's introspection data.
     pub async fn view(&self) -> Result<MountView, Error> {
-        let parts = self.parts()?;
-        let observer = parts.observe().subscribe().await?;
-        let presence = parts.learn().await?;
-        parts.follow(observer, presence)
+        self.parts(None)?.start().await
     }
 
     /// Blocking variant of [Self::view], from outside an async task with a tokio runtime entered.
     pub fn view_blocking(&self) -> Result<MountView, Error> {
-        let parts = self.parts()?;
-        let observer = parts.observe().subscribe_blocking()?;
-        let presence = parts.learn_blocking()?;
-        parts.follow(observer, presence)
+        self.parts(None)?.start_blocking()
     }
 
-    fn parts(&self) -> Result<Parts, Error> {
+    /// A view of the API mounted at this slot for a generated client of `line` (its `client_line()`): calls are
+    /// checked against the mounted API as a connect checks them against a device's, and the client is made with its
+    /// generated `on_mount(&view)`. Otherwise as [Self::view].
+    pub async fn view_for(&self, line: &ClientLine) -> Result<MountView, Error> {
+        self.parts(Some(line))?.start().await
+    }
+
+    /// Blocking variant of [Self::view_for].
+    pub fn view_for_blocking(&self, line: &ClientLine) -> Result<MountView, Error> {
+        self.parts(Some(line))?.start_blocking()
+    }
+
+    fn parts(&self, line: Option<&ClientLine>) -> Result<Parts, Error> {
         let (slot, _) = self.cmd.to_ww_client_server_path(as_ref(&self.slot))?;
         let PathKindOwned::Absolute { path: slot } = slot else {
             return Err(Error::User(format!(
@@ -116,15 +124,37 @@ impl MountSlot<'_> {
         };
         let mut api = slot.clone();
         api.push(ResourceIndex::new(UNib32(API)));
+        let mut view = self.cmd.mount_view(api);
+        if let Some(line) = line {
+            let bundle = IntrospectBundle::from_client(
+                line.ww_self_bytes,
+                line.api_hash.clone(),
+                view.resolver,
+            )
+            .map_err(|e| Error::Other(format!("{e:#}")))?;
+            view.set_client_introspect(bundle);
+        }
         Ok(Parts {
             link: self.cmd.clone(),
-            view: self.cmd.mount_view(api),
+            view,
             slot,
         })
     }
 }
 
 impl Parts {
+    async fn start(self) -> Result<MountView, Error> {
+        let observer = self.observe().subscribe().await?;
+        let presence = self.learn().await?;
+        self.follow(observer, presence)
+    }
+
+    fn start_blocking(self) -> Result<MountView, Error> {
+        let observer = self.observe().subscribe_blocking()?;
+        let presence = self.learn_blocking()?;
+        self.follow(observer, presence)
+    }
+
     /// Observing the slot's `presence`, on the link.
     fn observe(&self) -> PreparedObserve<PresenceUpdate, MountPresenceOwned> {
         let modes = DynConfig(BTreeMap::from([(PRESENCE, on_change(Duration::ZERO))]));
@@ -278,6 +308,20 @@ impl MountView {
     /// paths are in the mounted API, [Commander::device_api_info] and [Commander::device_introspect] describe it.
     pub fn commander(&self) -> &Commander {
         &self.view
+    }
+
+    /// A generated client of `line` on this view, what its `on_mount(&view)` returns: refused unless the view was made
+    /// for that client ([MountSlot::view_for]), so that its calls are checked against the mounted API.
+    pub fn client<T: WwClient>(&self, line: &ClientLine) -> Result<T, Error> {
+        match self.view.client_introspect() {
+            Some(client) if client.api_hash.no_docs == line.api_hash.no_docs => {
+                T::try_from_cmd(self.view.clone())
+            }
+            _ => Err(Error::User(format!(
+                "a client of {:?} needs a view made for it: MountSlot::view_for(&Client::client_line())",
+                line.version
+            ))),
+        }
     }
 
     /// Path of the slot's level, as the device names it.

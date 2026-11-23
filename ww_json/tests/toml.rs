@@ -322,7 +322,7 @@ action = "beep"
     let again = decode_onto(&base, &level, settings_ty(), settings_bundle()).unwrap();
     assert_eq!(again, changed);
 
-    // `None` over a base that has a value has no form
+    // `None` over a base that has a value is written as the `unset_to_none` marker (Q22), which decodes back to it
     let mut no_limits = changed.clone();
     let ValueOwned::Struct { fields } = &mut no_limits else {
         panic!("a struct");
@@ -338,14 +338,79 @@ action = "beep"
         panic!("a struct");
     };
     audio.iter_mut().find(|(n, _)| n == "limits").unwrap().1 = ValueOwned::Option(None);
-    let e = write_onto(
+    write_onto(
         &mut level,
         &base,
         &no_limits,
         settings_ty(),
         settings_bundle(),
     )
-    .unwrap_err();
-    assert_eq!(e.path.to_string(), "value.audio.limits");
+    .unwrap();
+    assert!(
+        level
+            .to_string()
+            .contains("limits = { unset_to_none = true }"),
+        "{level}"
+    );
+    assert_eq!(
+        decode_onto(&base, &level, settings_ty(), settings_bundle()).unwrap(),
+        no_limits
+    );
+    // nothing changed: the marker line stays as it is
+    let before = level.to_string();
+    write_onto(
+        &mut level,
+        &base,
+        &no_limits,
+        settings_ty(),
+        settings_bundle(),
+    )
+    .unwrap();
+    assert_eq!(level.to_string(), before);
+}
+
+#[test]
+fn unset_to_none_marker_sets_an_option_field_to_none() {
+    let base = built_in();
+    let level: DocumentMut = "[audio]\nlimits = { unset_to_none = true }"
+        .parse()
+        .unwrap();
+    let value = decode_onto(&base, &level, settings_ty(), settings_bundle()).unwrap();
+    let out = document(&value);
+    assert!(!out.contains("limits"), "{out}");
+    // the marker decodes to none over any base value, including one already at none
+    let again = decode_onto(&value, &level, settings_ty(), settings_bundle()).unwrap();
+    assert_eq!(again, value);
+}
+
+#[test]
+fn unset_to_none_marker_refused_on_a_field_that_is_no_option() {
+    let base = built_in();
+    let level: DocumentMut = "[audio]\nmode = { unset_to_none = true }".parse().unwrap();
+    let e = decode_onto(&base, &level, settings_ty(), settings_bundle()).unwrap_err();
+    assert_eq!(e.path.to_string(), "value.audio.mode");
     assert!(matches!(e.kind, ErrorKind::Unsupported(_)), "{e}");
+}
+
+#[test]
+fn use_parent_marker_keeps_the_base_value() {
+    let base = built_in();
+    // `use_parent` on `window` is the same as leaving the key out: only `gain` changes
+    let left_out: DocumentMut = "[audio]\ngain = 3.0".parse().unwrap();
+    let marked: DocumentMut = "[audio]\ngain = 3.0\nwindow = { use_parent = true }"
+        .parse()
+        .unwrap();
+    let a = decode_onto(&base, &left_out, settings_ty(), settings_bundle()).unwrap();
+    let b = decode_onto(&base, &marked, settings_ty(), settings_bundle()).unwrap();
+    assert_eq!(a, b);
+}
+
+#[test]
+fn write_onto_keeps_an_existing_use_parent_line() {
+    let base = built_in();
+    let level_text = "[audio]\ngain = 3.0\nwindow = { use_parent = true } # explicit\n";
+    let mut level: DocumentMut = level_text.parse().unwrap();
+    let value = decode_onto(&base, &level, settings_ty(), settings_bundle()).unwrap();
+    write_onto(&mut level, &base, &value, settings_ty(), settings_bundle()).unwrap();
+    assert_eq!(level.to_string(), level_text);
 }

@@ -3,6 +3,9 @@
 //! The walk ([crate::value]) turns values into a [Doc] and back; each text format is a thin conversion of the tree
 //! that applies only what the format itself can't hold: JSON writes integers beyond ±2⁵³ and floats that are no
 //! number as strings, TOML ([crate::toml]) integers beyond `i64` as strings and leaves a `null` out of its table.
+//!
+//! [Marker] is the TOML-only escape from that: decoding onto a base value reads `{ unset_to_none = true }` and
+//! `{ use_parent = true }` before trying a field's ordinary type (Q22/Q23).
 
 use serde_json::{Map, Number, Value as J};
 use ww_numeric::NumericValue as N;
@@ -28,6 +31,43 @@ impl Doc {
     /// The member `key` of a map.
     pub(crate) fn get<'d>(map: &'d [(String, Doc)], key: &str) -> Option<&'d Doc> {
         map.iter().find(|(k, _)| k == key).map(|(_, v)| v)
+    }
+}
+
+/// The reserved key of each [Marker]: no struct field may use either name, so a map of exactly one of them never
+/// reads as a struct's value (Q22/Q23).
+pub(crate) const UNSET_TO_NONE: &str = "unset_to_none";
+pub(crate) const USE_PARENT: &str = "use_parent";
+
+/// What a one-key `{ name = true }` table means for the field it sits on, read only while decoding onto a base
+/// value ([crate::toml::Codec::decode_onto]): [Marker::UnsetToNone] sets an `Option` field to `None` over any base
+/// value; [Marker::UseParent] keeps the base's value, as if the key were left out.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Marker {
+    UnsetToNone,
+    UseParent,
+}
+
+impl Marker {
+    pub(crate) fn key(self) -> &'static str {
+        match self {
+            Marker::UnsetToNone => UNSET_TO_NONE,
+            Marker::UseParent => USE_PARENT,
+        }
+    }
+}
+
+/// `j` as a [Marker], if it is shaped like one: a map of exactly one key, `unset_to_none` or `use_parent`, set to
+/// `true`.
+pub(crate) fn marker(j: &Doc) -> Option<Marker> {
+    let Doc::Map(members) = j else { return None };
+    let [(key, Doc::Bool(true))] = members.as_slice() else {
+        return None;
+    };
+    match key.as_str() {
+        UNSET_TO_NONE => Some(Marker::UnsetToNone),
+        USE_PARENT => Some(Marker::UseParent),
+        _ => None,
     }
 }
 
@@ -245,6 +285,36 @@ fn non_finite_text(x: f64) -> &'static str {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn marker_shapes() {
+        assert_eq!(
+            marker(&Doc::Map(vec![("unset_to_none".into(), Doc::Bool(true))])),
+            Some(Marker::UnsetToNone)
+        );
+        assert_eq!(
+            marker(&Doc::Map(vec![("use_parent".into(), Doc::Bool(true))])),
+            Some(Marker::UseParent)
+        );
+        // not a marker: wrong value, an extra key, an unrelated name, an empty table (a unit struct), no table
+        assert_eq!(
+            marker(&Doc::Map(vec![("unset_to_none".into(), Doc::Bool(false))])),
+            None
+        );
+        assert_eq!(
+            marker(&Doc::Map(vec![
+                ("use_parent".into(), Doc::Bool(true)),
+                ("extra".into(), Doc::Bool(true))
+            ])),
+            None
+        );
+        assert_eq!(
+            marker(&Doc::Map(vec![("other".into(), Doc::Bool(true))])),
+            None
+        );
+        assert_eq!(marker(&Doc::Map(vec![])), None);
+        assert_eq!(marker(&Doc::Null), None);
+    }
 
     #[test]
     fn hex_round_trip() {

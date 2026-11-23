@@ -7352,14 +7352,23 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
   go on. An error about one client no longer ends <code>serve</code> and every connection: a TCP stream that fails its setup
   is dropped, and <code>StdUdpSocket</code> skips receive errors about one datagram
   (<a href="../docs/api/host_server/#moving-to-another-address">Host server</a>, <code>tests/calloop_server</code>, <code>tests/host_server</code>).</li>
+<li>✅ <strong>SRV-77 Mount prefix rewrite and global paths</strong> — what crosses a mount slot (SRV-76) is rewritten in the
+    envelope only, never decoded with the mounted API's types, and without a wire change: a request goes to the
+    backend with the slot's path taken off (<code>ww_client_server::mount::MountRequest::forward_into</code>, <code>request_at</code>), its
+    events come back with the slot's path in front of theirs (<code>MountPrefix::event_out</code>), seqs pass through. A global
+    trait path the server's own tree doesn't have reaches into a mounted API through
+    <code>wire_weaver_server::mount::MountedTraits</code>, from each backend's learned introspection data: the server's own
+    traits first, then the slots in path order (<a href="../docs/api/mounts/#forwarding">Docs</a>, <code>tests/mounts</code>
+    <code>forward_to_a_backend</code>).</li>
 <li>🚧 <strong>SRV-76 Mount slots</strong> — <code>mount!(hub)</code> (one slot, <code>mount!(hub: hub_api)</code> names the expected API crate) and
     <code>mounts!(ext)</code> (slots keyed by <code>ww_api::mount::MountName</code> through a <code>keyed!</code> companion): a level whose API is known
     only at run time. Done: the <code>ww_self</code> <code>Mount</code> item (model 0.7.0; the parent's hash covers the declaration only),
     the slot's fixed level (<code>presence</code>, an observable <code>MountPresence</code>, and <code>api</code>), server handlers
     <code>get_&lt;slot&gt;_presence</code> and <code>&lt;slot&gt;_request</code> with <code>MountRequest</code>/<code>MountAnswer</code>, <code>ErrorKind::Unavailable</code>
     (<code>ww_client_server</code> w2.2), introspection below the root reaching the handler, <code>ww api scaffold</code>, the generated
-    client's <code>MountSlot</code>, <code>presence</code> in the dynamic client, evolution and authorization steps. Missing: forwarding to
-    a backend process and the keys stream driven by mounts, the client view of the mounted API (<code>TODO(SRV-76)</code>).
+    client's <code>MountSlot</code>, <code>presence</code> in the dynamic client, evolution and authorization steps; the rewrite is
+    SRV-77. Missing: forwarding to a backend process and the keys stream driven by mounts, the client view of the
+    mounted API (<code>TODO(SRV-76)</code>).
     <a href="../docs/api/mounts/">Docs</a>, <code>tests/mounts</code>.</li>
 <li>📋 <strong>SRV-9 Handle USB suspend/resume</strong> · <code>v0.5</code> — run until suspend, wait for resume, loop
   (<code>mcu/wire_weaver_usb_embassy</code>). Later (<code>v0.5.x</code>): detect the host going to sleep and keep the connection,

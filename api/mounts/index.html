@@ -1906,6 +1906,34 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#forwarding" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Forwarding
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Forwarding">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#global-paths-into-a-mount" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Global paths into a mount
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#client" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6393,6 +6421,34 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#forwarding" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Forwarding
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Forwarding">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#global-paths-into-a-mount" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Global paths into a mount
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#client" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6631,18 +6687,52 @@ and the presence type. Mounting another backend never changes the parent's hash.
 </ul>
 <p>An authorization hook sees a slot's <code>presence</code> as a read and the slot's <code>api</code> as the last step, with no effects: the
 path below it is the mounted API's, not in the parent's model.</p>
+<h2 id="forwarding">Forwarding<a class="headerlink" href="#forwarding" title="Permanent link">&para;</a></h2>
+<p>A forwarder sends what crosses a slot on to the backend and back without knowing the mounted API: it rewrites the
+envelope only (seq, priority, context, path, kind), and copies arguments, values and stream data as bytes. Seqs pass
+through unchanged, since each front connection has a backend connection of its own. There is no wire change: the
+backend sees an ordinary request at its own absolute path, the client an ordinary event at the front's.</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_client_server</span><span class="p">::</span><span class="n">mount</span><span class="p">::</span><span class="n">MountPrefix</span><span class="p">;</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="k">fn</span><span class="w"> </span><span class="nf">hub_request</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">cx</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">Context</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="p">,</span><span class="w"> </span><span class="k">impl</span><span class="w"> </span><span class="n">EventOut</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">request</span><span class="p">:</span><span class="w"> </span><span class="nc">MountRequest</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="p">,</span><span class="w"> </span><span class="o">&#39;</span><span class="nb">_</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">MountAnswer</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="c1">// in: the request with the path below the slot, everything else as it arrived</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">bytes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">request</span><span class="p">.</span><span class="n">forward_into</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">buf</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="c1">// remembered per slot: the path of its `api`, [hub, 1] here</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">prefix</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">MountPrefix</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">request</span><span class="p">.</span><span class="n">prefix</span><span class="p">()</span><span class="o">?</span><span class="p">);</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">    </span><span class="o">..</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="p">}</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="c1">// out: each event of the backend, its path (stream data, sideband, stream items, property updates) with the</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="c1">// prefix in front; replies, writes and errors carry no path and are copied as they are</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="kd">let</span><span class="w"> </span><span class="n">event</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">prefix</span><span class="p">.</span><span class="n">event_out</span><span class="p">(</span><span class="o">&amp;</span><span class="n">backend_event</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">buf</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+</span></code></pre></div>
+<p><code>ww_client_server::mount::request_at</code> writes any request at another absolute path, <code>request_bytes_at</code> the same from
+bytes. A message that doesn't decode or doesn't fit the buffer is a <code>RewriteError</code>.</p>
+<h3 id="global-paths-into-a-mount">Global paths into a mount<a class="headerlink" href="#global-paths-into-a-mount" title="Permanent link">&para;</a></h3>
+<p>A global trait path (<code>GlobalFull</code>, <code>GlobalCompact</code>) names a trait wherever it sits in the device's tree. A server
+knows the traits of a mounted API only from the backend's introspection data, learned when the slot comes <code>Up</code>.
+<code>wire_weaver_server::mount::MountedTraits</code> holds them: <code>mount(api_path, bundle)</code> at <code>Up</code>, <code>unmount(api_path)</code> at
+<code>Absent</code>, and <code>request_into_mount(request, buf)</code> rewrites a request whose global path reaches into a mounted API to
+the front's absolute path into the slot, which the generated dispatch then routes to the slot's handler.</p>
+<ul>
+<li>The server's own tree comes first: a trait it has resolves as without mounts (by its dispatch, or by the client
+  from its introspection data), and mounting a backend never moves it.</li>
+<li>Then the slots, in path order: depth first, in id order, the elements of <code>mounts!</code> by index.</li>
+<li>Inside a mounted API, a trait is found as its own server finds it: the first one depth first, never under a
+  resource array, in a protocol compatible version of its crate (<code>ww_global</code> id for <code>GlobalCompact</code>).</li>
+</ul>
 <h2 id="client">Client<a class="headerlink" href="#client" title="Permanent link">&para;</a></h2>
 <p>The generated client hands out a <code>wire_weaver_client::MountSlot</code>:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kd">let</span><span class="w"> </span><span class="n">hub</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span><span class="p">.</span><span class="n">hub</span><span class="p">()</span><span class="o">?</span><span class="p">;</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kd">let</span><span class="w"> </span><span class="n">presence</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">hub</span><span class="p">.</span><span class="n">presence</span><span class="p">().</span><span class="n">read</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span><span class="w">          </span><span class="c1">// MountPresenceOwned</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="kd">let</span><span class="w"> </span><span class="n">api_path</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">hub</span><span class="p">.</span><span class="n">api_path</span><span class="p">();</span><span class="w">                         </span><span class="c1">// path of the mounted API&#39;s root</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="kd">let</span><span class="w"> </span><span class="n">ext</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span><span class="p">.</span><span class="n">ext_by</span><span class="p">(</span><span class="o">&amp;</span><span class="n">name</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span><span class="w">                 </span><span class="c1">// Option&lt;MountSlot&gt;, by MountNameOwned</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="kd">let</span><span class="w"> </span><span class="n">first</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span><span class="p">.</span><span class="n">ext</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kd">let</span><span class="w"> </span><span class="n">hub</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span><span class="p">.</span><span class="n">hub</span><span class="p">()</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kd">let</span><span class="w"> </span><span class="n">presence</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">hub</span><span class="p">.</span><span class="n">presence</span><span class="p">().</span><span class="n">read</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span><span class="w">          </span><span class="c1">// MountPresenceOwned</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="kd">let</span><span class="w"> </span><span class="n">api_path</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">hub</span><span class="p">.</span><span class="n">api_path</span><span class="p">();</span><span class="w">                         </span><span class="c1">// path of the mounted API&#39;s root</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="kd">let</span><span class="w"> </span><span class="n">ext</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span><span class="p">.</span><span class="n">ext_by</span><span class="p">(</span><span class="o">&amp;</span><span class="n">name</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span><span class="w">                 </span><span class="c1">// Option&lt;MountSlot&gt;, by MountNameOwned</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="kd">let</span><span class="w"> </span><span class="n">first</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span><span class="p">.</span><span class="n">ext</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
 </span></code></pre></div>
 <p><code>api_path()</code> is the prefix a view of the mounted API puts before its own paths. The dynamic client and <code>ww</code> read
 <code>hub.presence</code> and <code>ext[i].presence</code> by path; walking into <code>hub.api</code> says the mounted API is known only at run
 time. Working with the mounted API itself (its introspection, its items under the slot) is not built yet.</p>
-<p>Tests: <code>tests/mounts</code> (both server kinds, the generated and dynamic clients), <code>tests/mounts_api</code>. Conformance cases:
+<p>Tests: <code>tests/mounts</code> (both server kinds, the generated and dynamic clients, <code>forward_to_a_backend</code>: the hub
+forwarding to another TV through the rewrite), <code>tests/mounts_api</code>. Conformance cases:
 <code>api.mount.presence.absent</code>, <code>api.mount.presence.up</code>, <code>api.mount.name</code>, <code>client_server.error.unavailable</code>.</p>
 
 

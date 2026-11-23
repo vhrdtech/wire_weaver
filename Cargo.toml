@@ -181,7 +181,6 @@ ww_numeric = { version = "0.3.0", git = "https://github.com/vhrdtech/ww_base", d
 ww_si = { version = "0.5.0", git = "https://github.com/vhrdtech/ww_base", default-features = false }
 ww_version = { version = "0.2.0", git = "https://github.com/vhrdtech/ww_base", default-features = false }
 
-
 # framework crates, versioned together via [workspace.package] version
 wire_weaver = { version = "0.6.0", path = "./wire_weaver", default-features = false }
 wire_weaver_client = { version = "0.6.0", path = "./wire_weaver_client", default-features = false }
@@ -259,6 +258,7 @@ large_messages_api = { version = "0.1.0", path = "./tests/large_messages_api" }
 local_trait_api = { version = "0.1.0", path = "./examples/local_trait_api" }
 methods_api = { version = "0.1.0", path = "./tests/methods_api" }
 module_paths_api = { version = "0.1.0", path = "./tests/module_paths_api" }
+mounts_api = { version = "0.1.0", path = "./tests/mounts_api" }
 multi_req_api = { version = "0.1.0", path = "./tests/multi_req_api" }
 multi_root_api = { version = "0.1.0", path = "./tests/multi_root_api" }
 observe_api = { version = "0.1.0", path = "./tests/observe_api" }

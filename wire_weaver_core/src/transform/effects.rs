@@ -45,7 +45,8 @@ enum Need {
     Required,
     /// A read by its kind unless it says otherwise: a stream open.
     ReadUnlessDeclared,
-    /// Only ever read: a const or read-only property, a key companion, a `ww_impl!` (whose items carry their own).
+    /// Only ever read: a const or read-only property, a key companion, a `ww_impl!` or a mount slot (whose items
+    /// carry their own).
     Never,
 }
 
@@ -61,7 +62,9 @@ fn need(kind: &ApiItemKindOwned) -> Need {
         ApiItemKindOwned::Stream { is_up: true, .. } | ApiItemKindOwned::StreamFn { .. } => {
             Need::ReadUnlessDeclared
         }
-        ApiItemKindOwned::Trait { .. } | ApiItemKindOwned::Keys { .. } => Need::Never,
+        ApiItemKindOwned::Trait { .. }
+        | ApiItemKindOwned::Keys { .. }
+        | ApiItemKindOwned::Mount { .. } => Need::Never,
     }
 }
 

@@ -6,6 +6,7 @@
 
 ### 🚀 Features
 
+- `mount::slot_level`, `PRESENCE`, `API` and `item_name`: the fixed level of a mount slot (SRV-76).
 - `ApiBundleOwned::item_chain` and `trait_path`: the items a request path names, where a global path leads (SRV-46).
 
 - `host::root()` and `host::HOME_ENV` (EVO-80): the host's root, `WIRE_WEAVER_HOME` or `~/.wire_weaver`; `definition_cache::default_dir` is under it.
@@ -16,6 +17,7 @@
 
 ### ⚠️ Breaking
 
+- `ApiItemKind::Mount` (SRV-76): a mount slot's declaration; model format 0.6.0, tools matching item kinds exhaustively add an arm.
 - `Meta::effects: Effects` (`#[default]`, API-58): what an item does; model format `VERSION` is 0.5.0. New `Effects` bitset and `ApiItemOwned::effects()`.
 - Declares `rust-version = "1.99"`: cargo of an older Rust refuses the crate.
 - `VERSION`, written as `ApiBundle::ww_self_version`, is the format of the API model, 0.4.0, no longer the crate version: it moves with every change of the model's shape (EVO-82). Bundles and snapshot files of format 0.3.0 are not read; re-save them.

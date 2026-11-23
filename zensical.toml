@@ -53,6 +53,7 @@ nav = [
             "api/errors.md",
             { "Advanced" = [
                     "api/arrays.md",
+                    "api/mounts.md",
                     { "Sync, async and shared handlers" = "api/handlers.md" },
                     { "Local trait" = "api/local_trait.md" },
                     { "Host server" = "api/host_server.md" },

@@ -9,6 +9,7 @@ pub mod builder;
 pub mod dispatch;
 pub mod err_seq;
 pub mod max_len;
+pub mod mount;
 #[cfg(feature = "multi")]
 pub mod multi_req;
 pub mod observe;
@@ -125,7 +126,10 @@ pub const GENERATION: u8 = wire_weaver::shrink_wrap::generation_from_manifest!()
 /// Wire version of this API model, `[package.metadata.wire_weaver] wire` in its `Cargo.toml` (a test keeps the two
 /// equal). A client sends it in link setup (`ww_link::LinkSetup::host_model_wire`), so a server knows which forms the
 /// client reads: the error kinds of [CONTEXT_SINCE] and later.
-pub const WIRE_VERSION: WireVersion = WireVersion::new(GENERATION as u32, 1);
+pub const WIRE_VERSION: WireVersion = WireVersion::new(GENERATION as u32, 2);
+
+/// The wire version that added mount slots (SRV-76): the error kind [ErrorKind::Unavailable].
+pub const MOUNTS_SINCE: WireVersion = WireVersion::new(2, 2);
 
 /// The wire version that added request contexts (SRV-47): [Request::context], [RequestKind::Cancel] and the error
 /// kinds `Denied`, `DeadlineExceeded`, `Cancelled` and `Internal`.
@@ -624,6 +628,11 @@ pub enum ErrorKind<'i> {
     /// The server failed in a way the request didn't cause, a bug in it or in a handler (SRV-47).
     #[cfg(feature = "std")]
     Internal = 22,
+    /// The request went into a mount slot (SRV-76) with nothing mounted, or whose backend is gone: nothing ran, the
+    /// slot's `presence` says when it is back. Sent only to a client whose model knows it
+    /// ([MOUNTS_SINCE]), an older one gets [ErrorKind::UserStr] with the same text ([ErrorKind::for_client]).
+    #[since = "w2.2"]
+    Unavailable = 23,
 }
 
 // Optional shaper configuration request.
@@ -735,20 +744,31 @@ impl<'i> ErrorKind<'i> {
     /// The text of a kind an older client doesn't know, which it gets as [ErrorKind::UserStr] instead; `None` for
     /// the kinds every client of this line reads.
     pub const fn added_text(&self) -> Option<&'static str> {
+        match self.added() {
+            Some((text, _)) => Some(text),
+            None => None,
+        }
+    }
+
+    /// The text of a kind an older client doesn't know and the wire version that added it; `None` for the kinds
+    /// every client of this line reads.
+    const fn added(&self) -> Option<(&'static str, WireVersion)> {
         match self {
-            ErrorKind::Denied => Some("denied"),
-            ErrorKind::DeadlineExceeded => Some("deadline exceeded"),
-            ErrorKind::Cancelled => Some("cancelled"),
-            ErrorKind::Internal => Some("internal error"),
+            ErrorKind::Denied => Some(("denied", CONTEXT_SINCE)),
+            ErrorKind::DeadlineExceeded => Some(("deadline exceeded", CONTEXT_SINCE)),
+            ErrorKind::Cancelled => Some(("cancelled", CONTEXT_SINCE)),
+            ErrorKind::Internal => Some(("internal error", CONTEXT_SINCE)),
+            ErrorKind::Unavailable => Some(("unavailable", MOUNTS_SINCE)),
             _ => None,
         }
     }
 
     /// This kind as a client of model `client_model` (from its link setup) reads it: a kind added in
-    /// [CONTEXT_SINCE] becomes [ErrorKind::UserStr] with its text for an older client, the rest stays.
+    /// [CONTEXT_SINCE] or later becomes [ErrorKind::UserStr] with its text for a client older than that, the rest
+    /// stays.
     pub fn for_client(self, client_model: Option<WireVersion>) -> ErrorKind<'i> {
-        match self.added_text() {
-            Some(text) if !model_reads(client_model, CONTEXT_SINCE) => ErrorKind::UserStr(text),
+        match self.added() {
+            Some((text, since)) if !model_reads(client_model, since) => ErrorKind::UserStr(text),
             _ => self,
         }
     }
@@ -821,6 +841,7 @@ impl Error<'_> {
             ErrorKind::DeadlineExceeded => ErrorKindOwned::DeadlineExceeded,
             ErrorKind::Cancelled => ErrorKindOwned::Cancelled,
             ErrorKind::Internal => ErrorKindOwned::Internal,
+            ErrorKind::Unavailable => ErrorKindOwned::Unavailable,
             ErrorKind::UserBytes(bytes) => ErrorKindOwned::UserBytes(bytes.to_vec()),
             ErrorKind::UserStr(s) => ErrorKindOwned::UserStr(s.to_string()),
             ErrorKind::Common(c) => ErrorKindOwned::Common(c.make_owned()),
@@ -1144,6 +1165,22 @@ mod tests {
             ErrorKind::Overloaded
         ));
         assert!(!model_reads(Some(WireVersion::new(1, 9)), CONTEXT_SINCE));
+    }
+
+    #[test]
+    fn unavailable_reaches_only_clients_of_mounts() {
+        for client in [None, Some(CONTEXT_SINCE)] {
+            assert!(matches!(
+                ErrorKind::Unavailable.for_client(client),
+                ErrorKind::UserStr("unavailable")
+            ));
+        }
+        for client in [Some(MOUNTS_SINCE), Some(WIRE_VERSION)] {
+            assert!(matches!(
+                ErrorKind::Unavailable.for_client(client),
+                ErrorKind::Unavailable
+            ));
+        }
     }
 
     #[test]

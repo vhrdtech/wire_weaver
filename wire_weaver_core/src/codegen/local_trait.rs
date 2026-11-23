@@ -22,7 +22,7 @@
 //! hook with its access and the steps to its item (ids, indices, effects and metadata from the model, as constants),
 //! then forwards; an accessor wraps the level it hands out.
 //!
-//! Left out, and listed in each trait's docs: observing, sinks, counted, reliable or batched streams.
+//! Left out, and listed in each trait's docs: observing, sinks, counted, reliable or batched streams, mount slots.
 use crate::codegen::CodegenBundle;
 use crate::codegen::ty_def::{TyPos, ty_def, ty_def_by_idx};
 use crate::transform::CratePaths;
@@ -467,8 +467,21 @@ fn local_item<'b>(
                 level,
             });
         }
+        // the keys of `mounts!` go with its slots, which a local trait leaves out
+        ApiItemKindOwned::Keys { of, .. }
+            if out.level.items.iter().any(|array| {
+                array.id == *of && matches!(array.kind, ApiItemKindOwned::Mount { .. })
+            }) =>
+        {
+            out.skipped
+                .push(format!("`{}` (keys of mount slots)", item.ident));
+        }
         ApiItemKindOwned::Keys { of, .. } => {
             keyed_fns(api_bundle, out, item_index, item, *of, send)?;
+        }
+        // TODO(SRV-76): a local trait has no view of a mounted API
+        ApiItemKindOwned::Mount { .. } => {
+            out.skipped.push(format!("`{}` (mount slot)", item.ident));
         }
     }
     Ok(())

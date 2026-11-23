@@ -67,8 +67,11 @@ enum Node {
     Level { trait_idx: Option<u32> },
     /// A `keyed!` companion (CLT-72): its fixed level is in [KeyedRole::Companion].
     Keys,
-    /// Array of resources, not yet indexed
-    Array,
+    /// A mount slot (SRV-76), with its fixed level (`ww_self::mount`): its `presence`. The mounted API is not in
+    /// the bundle.
+    Mount(Box<ApiLevelOwned>),
+    /// Array of resources, not yet indexed, with the node of its elements: resolved where the array's level is known
+    Array(Box<Node>),
     /// Method, property or stream
     Item,
 }
@@ -152,8 +155,10 @@ impl DynResource {
     pub fn kind(&self) -> Result<DynResourceKind<'_>, Error> {
         let item = self.item.as_ref();
         Ok(match (&self.node, item) {
-            (Node::Level { .. } | Node::Keys, _) => DynResourceKind::Level(self.level()?),
-            (Node::Array, Some(item)) => DynResourceKind::Array(item),
+            (Node::Level { .. } | Node::Keys | Node::Mount(_), _) => {
+                DynResourceKind::Level(self.level()?)
+            }
+            (Node::Array(_), Some(item)) => DynResourceKind::Array(item),
             (Node::Item, Some(item)) => match &item.kind {
                 ApiItemKindOwned::Method {
                     args,
@@ -186,6 +191,7 @@ impl DynResource {
                 },
                 ApiItemKindOwned::Trait { .. } => unreachable!("traits are levels"),
                 ApiItemKindOwned::Keys { .. } => unreachable!("keyed! companions are levels"),
+                ApiItemKindOwned::Mount { .. } => unreachable!("mount slots are levels"),
             },
             (_, None) => unreachable!("only the API root has no item"),
         })
@@ -223,6 +229,15 @@ impl DynResource {
 
     /// Resource named `name` in the API root or a trait.
     pub fn child(&self, name: &str) -> Result<DynResource, Error> {
+        // TODO(SRV-76): walk into the mounted API through the slot's own introspection
+        if let Node::Mount(_) = self.node
+            && ww_self::mount::item_name(ww_self::mount::API) == Some(name)
+        {
+            return Err(Error::Other(format!(
+                "the API mounted at '{}' is known only at run time, it is not in this bundle",
+                self.display_path()
+            )));
+        }
         let level = self.level()?;
         let Some(item) = level.items.iter().find(|i| i.ident == name) else {
             let names: Vec<_> = level.items.iter().map(|i| i.ident.as_str()).collect();
@@ -239,10 +254,11 @@ impl DynResource {
         } else {
             format!("{}.{name}", self.path)
         };
+        let node = self.resolve(item)?;
         let node = if matches!(item.multiplicity, Multiplicity::Array { .. }) {
-            Node::Array
+            Node::Array(Box::new(node))
         } else {
-            self.resolve(item)?
+            node
         };
         let keyed = self.keyed_role(level, item)?;
         Ok(DynResource {
@@ -261,7 +277,7 @@ impl DynResource {
     pub fn descend(&self, chain: &[u32]) -> Result<DynResource, Error> {
         let mut res = self.clone();
         for &id in chain {
-            res = if matches!(res.node, Node::Array) {
+            res = if matches!(res.node, Node::Array(_)) {
                 res.index(id)?
             } else {
                 let level = res.level()?;
@@ -280,7 +296,7 @@ impl DynResource {
 
     /// Element of an array of resources.
     pub fn index(&self, index: u32) -> Result<DynResource, Error> {
-        let (Node::Array, Some(item)) = (&self.node, &self.item) else {
+        let (Node::Array(element), Some(item)) = (&self.node, &self.item) else {
             return Err(Error::Other(format!(
                 "'{}' is not an array",
                 self.display_path()
@@ -293,7 +309,7 @@ impl DynResource {
             index_chain,
             path: format!("{}[{index}]", self.path),
             item: Some(item.clone()),
-            node: self.resolve(item)?,
+            node: (**element).clone(),
             omitted: self.omitted,
             // `key[i]` stays in the companion, an element of a keyed array is a resource like any other
             keyed: self
@@ -313,6 +329,13 @@ impl DynResource {
                 }
             }
             ApiItemKindOwned::Keys { .. } => Node::Keys,
+            ApiItemKindOwned::Mount { .. } => {
+                let level = self.level()?;
+                Node::Mount(Box::new(
+                    ww_self::mount::slot_level(level, item)
+                        .map_err(|e| Error::Other(e.to_string()))?,
+                ))
+            }
             _ => Node::Item,
         })
     }
@@ -327,6 +350,7 @@ impl DynResource {
                 Some(KeyedRole::Companion(companion)) => Ok(&companion.level),
                 _ => unreachable!("a companion's resource has its role"),
             },
+            Node::Mount(slot) => Ok(slot),
             _ => Err(Error::Other(format!(
                 "'{}' is not a trait",
                 self.display_path()
@@ -553,7 +577,7 @@ impl DynResource {
 
     /// Read which indices are valid for an array of resources.
     pub async fn valid_indices(&self, cmd: &Commander) -> Result<ValidIndicesOwned, Error> {
-        if !matches!(self.node, Node::Array) {
+        if !matches!(self.node, Node::Array(_)) {
             return Err(self.not_a("array"));
         }
         cmd.prepare_read::<ValidIndicesOwned>(self.path_kind()?)
@@ -563,7 +587,7 @@ impl DynResource {
 
     /// Read which indices are valid for an array of resources.
     pub fn valid_indices_blocking(&self, cmd: &Commander) -> Result<ValidIndicesOwned, Error> {
-        if !matches!(self.node, Node::Array) {
+        if !matches!(self.node, Node::Array(_)) {
             return Err(self.not_a("array"));
         }
         cmd.prepare_read::<ValidIndicesOwned>(self.path_kind()?)
@@ -861,7 +885,7 @@ impl DynResource {
     /// This array's own absolute path (an `#[optional]` one checked first), the request path of every multi
     /// request on it, see [Self::multi_read]/[Self::multi_write]/[Self::multi_call].
     fn array_path(&self) -> Result<Vec<ResourceIndex>, Error> {
-        if !matches!(self.node, Node::Array) {
+        if !matches!(self.node, Node::Array(_)) {
             return Err(self.not_a("array"));
         }
         // reuses path_kind()'s `#[optional]` check (API-16); an array is always addressed by Absolute path
@@ -883,7 +907,7 @@ impl DynResource {
         &self,
         child: Option<&str>,
     ) -> Result<(Option<ResourceIndex>, &ApiItemKindOwned), Error> {
-        if !matches!(self.node, Node::Array) {
+        if !matches!(self.node, Node::Array(_)) {
             return Err(self.not_a("array"));
         }
         let item = self.item.as_ref().expect("array node always has an item");

@@ -1,4 +1,4 @@
-ww_self model format 0.5.0
+ww_self model format 0.6.0
 ApiBundleOwned: Struct(
     [
         Named {
@@ -283,6 +283,25 @@ ApiItemKindOwned: Enum(
                     },
                     Named {
                         name: "event_ty",
+                        value: TypeName(
+                            "TypeOwned",
+                        ),
+                    },
+                ],
+            ),
+        },
+        7: Named {
+            name: "Mount",
+            value: Struct(
+                [
+                    Named {
+                        name: "expects",
+                        value: Option(
+                            Str,
+                        ),
+                    },
+                    Named {
+                        name: "presence_ty",
                         value: TypeName(
                             "TypeOwned",
                         ),

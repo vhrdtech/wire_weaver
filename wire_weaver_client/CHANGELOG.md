@@ -20,6 +20,8 @@
 
 ### 🚀 Features
 
+- The dynamic client reads a mount slot's `presence`, also of an element of `mounts!` (SRV-76).
+- `MountSlot` and `Commander::mount_slot`: a slot's `presence` and `api_path` (SRV-76).
 - `KeyStream::into_item_stream`: a `keys` stream as the item stream of a local trait, the key cache following it (CLT-58).
 - Public for a tap decoder outside the crate: `envelope::request_variant`, `event_variant`, `inline_known`, `load_by_hash` and `tap::FRAMED_USB`, `FRAMED_USB_SEQ`, `FRAMED_UDP`, `STREAM_PLAIN` (TR-14).
 - A reconnect onto another revision of the device's API on the same wire line learns the device again instead of refusing it (CLT-81).

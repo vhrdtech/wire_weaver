@@ -11,6 +11,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
+- Mount slots: `mount!` and `mounts!` declare levels whose API is known only at run time (SRV-76); see `ww_api`, `ww_self`, `ww_client_server`, `wire_weaver_core`, `wire_weaver_client`.
 - The client and server build for Android: USB is only where a crate asks for it (`wire_weaver_client`, `wire_weaver_server`).
 
 ## [0.6.0] - 2026-11-22

@@ -688,6 +688,15 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   go on. An error about one client no longer ends `serve` and every connection: a TCP stream that fails its setup
   is dropped, and `StdUdpSocket` skips receive errors about one datagram
   ([Host server](docs/api/host_server.md#moving-to-another-address), `tests/calloop_server`, `tests/host_server`).
+- 🚧 **SRV-76 Mount slots** — `mount!(hub)` (one slot, `mount!(hub: hub_api)` names the expected API crate) and
+    `mounts!(ext)` (slots keyed by `ww_api::mount::MountName` through a `keyed!` companion): a level whose API is known
+    only at run time. Done: the `ww_self` `Mount` item (model 0.6.0; the parent's hash covers the declaration only),
+    the slot's fixed level (`presence`, an observable `MountPresence`, and `api`), server handlers
+    `get_<slot>_presence` and `<slot>_request` with `MountRequest`/`MountAnswer`, `ErrorKind::Unavailable`
+    (`ww_client_server` w2.2), introspection below the root reaching the handler, `ww api scaffold`, the generated
+    client's `MountSlot`, `presence` in the dynamic client, evolution and authorization steps. Missing: forwarding to
+    a backend process and the keys stream driven by mounts, the client view of the mounted API (`TODO(SRV-76)`).
+    [Docs](docs/api/mounts.md), `tests/mounts`.
 - 📋 **SRV-9 Handle USB suspend/resume** · `v0.5` — run until suspend, wait for resume, loop
   (`mcu/wire_weaver_usb_embassy`). Later (`v0.5.x`): detect the host going to sleep and keep the connection,
   informing the device.

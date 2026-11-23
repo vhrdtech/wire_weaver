@@ -43,7 +43,8 @@ pub const RESUME: u32 = 6;
 /// The data is longer than the item's bound.
 pub const TOO_LONG: u32 = 7;
 // 8 was `CREDIT_POS`, a credit sink's write position that didn't decode (API-28, gone with API-34): not reused
-/// A deferred method in a multi request (CLT-15), refused before the handler runs.
+/// A deferred method in a multi request (CLT-15), or a request under a mount slot in one (SRV-76), refused before
+/// the handler runs.
 pub const DEFERRED_IN_MULTI: u32 = 9;
 
 /// Sites of a method, by step.
@@ -103,6 +104,14 @@ pub mod sink {
     pub const OPENED: u32 = super::ENCODE;
     /// Read of a credit sink: the status didn't fit into the answer.
     pub const STATUS: u32 = super::ENCODE;
+}
+
+/// Sites of a request under a mount slot's `api` (SRV-76).
+pub mod mount {
+    /// The slot's handler answered `Unavailable`: nothing is mounted, or the backend is gone.
+    pub const HANDLER: u32 = super::HANDLER;
+    /// A request under the slot inside a multi request, never sent on.
+    pub const IN_MULTI: u32 = super::DEFERRED_IN_MULTI;
 }
 
 /// `<method>_ser_return_event`: the return value didn't fit into the scratch buffer.
@@ -230,7 +239,7 @@ impl Site {
                     TOO_LONG => "data too long",
                     // `CREDIT_POS` until API-34: still named for errors of older firmware
                     8 => "credit sink position (firmware before API-34)",
-                    DEFERRED_IN_MULTI => "deferred method in a multi request",
+                    DEFERRED_IN_MULTI => "deferred method or mount slot in a multi request",
                     _ => return None,
                 });
             }

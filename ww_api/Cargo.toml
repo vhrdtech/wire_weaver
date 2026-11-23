@@ -15,7 +15,13 @@ default = ["std"]
 # build against std instead of no_std
 std = ["shrink_wrap/std", "ww_error/std", "ww_version/std", "exact_units/std"]
 # defmt formatting for the prelude's types
-defmt = ["dep:defmt", "shrink_wrap/defmt", "ww_error/defmt", "ww_version/defmt", "exact_units/defmt"]
+defmt = [
+    "dep:defmt",
+    "shrink_wrap/defmt",
+    "ww_error/defmt",
+    "ww_version/defmt",
+    "exact_units/defmt",
+]
 # serde for the prelude's types
 serde = ["shrink_wrap/serde", "ww_version/serde"]
 

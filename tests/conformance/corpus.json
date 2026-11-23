@@ -1171,6 +1171,14 @@
       "note": "ww_client_server ErrorKind::Internal (SRV-47, feature std), appended after Overloaded: a server failure the request did not cause; sent only to a client whose model is w2.1 or later, an older one gets UserStr"
     },
     {
+      "name": "client_server.error.unavailable",
+      "type": "Error",
+      "value": {"err_seq": 2, "kind": "Unavailable"},
+      "bytes": "201701",
+      "gaps": {"dynamic": "ww_client_server's Error is the error answer of a request, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail)", "explain": "ww_client_server's Error is the error answer of a request, not a type of an API in the model", "python": "ww_client_server's Error is the error answer of a request, not a type of an API in the model", "c": "ww_client_server's Error is the error answer of a request, not a type of an API in the model"},
+      "note": "ww_client_server ErrorKind::Unavailable (SRV-76), appended after Internal: a mount slot with nothing mounted; sent only to a client whose model is w2.2 or later, an older one gets UserStr"
+    },
+    {
       "name": "disconnect_reason.hub_handover",
       "type": "DisconnectReason",
       "value": "HubHandover",
@@ -2010,6 +2018,30 @@
       "bytes": "1cd4",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "the element at index 300 went away, its index may be given to another key (API-67)"
+    },
+    {
+      "name": "api.mount.presence.absent",
+      "type": "mount_presence",
+      "value": "Absent",
+      "bytes": "00",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "a mount slot with nothing mounted (SRV-76)"
+    },
+    {
+      "name": "api.mount.presence.up",
+      "type": "mount_presence",
+      "value": {"Up": {"api": {"crate_id": "hub_api", "version": {"major": 0, "minor": 3, "patch": 1, "pre": null, "build": null}}, "hash": {"no_docs": {"hash": [1, 2, 3, 4]}, "with_docs": {"hash": [5, 6]}}, "wire": {"line": 1, "revision": 2}}},
+      "bytes": "106875625f6170690310010203040506812247",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "a mount slot whose backend serves hub_api 0.3.1 with wire w1.2: its hashes, not the parent API, describe it (SRV-76)"
+    },
+    {
+      "name": "api.mount.name",
+      "type": "mount_name",
+      "value": "cast",
+      "bytes": "6361737404",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "the key of a mounts! slot, at most 64 bytes (SRV-76)"
     },
     {
       "name": "stdlib.si.timed.default",

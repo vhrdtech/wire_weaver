@@ -5,11 +5,11 @@ use std::sync::Arc;
 use wire_weaver::CallContext;
 use wire_weaver::authorize::{Authorize, Place, Resource, Step, Verdict};
 use ww_client_server::target::Target;
-use ww_self::{ApiBundleOwned, ApiItemKindOwned, ApiLevelOwned, Effects, keys};
+use ww_self::{ApiBundleOwned, ApiItemKindOwned, ApiLevelOwned, Effects, keys, mount};
 
 /// The items `path` goes through in `api`, as the hook sees them ([Resource::items]): a keyed array's companion
-/// (`index_of`, `key[]`, `keys`) is a step of its own, `read` like every one of its items. `None` when the path names
-/// nothing in the model.
+/// (`index_of`, `key[]`, `keys`) is a step of its own, `read` like every one of its items, and so is a mount slot's
+/// `presence` or `api`. `None` when the path names nothing in the model.
 fn steps<'a>(api: &'a ApiBundleOwned, path: &[u32]) -> Option<Vec<Step<'a>>> {
     let mut steps = Vec::new();
     let mut level = &api.root;
@@ -42,6 +42,22 @@ fn steps<'a>(api: &'a ApiBundleOwned, path: &[u32]) -> Option<Vec<Step<'a>>> {
                 return None;
             }
             steps.push(Step::new(ident, op, index, Effects::READ, None));
+            return Some(steps);
+        }
+        // a mount slot (SRV-76): `presence` is a read; below `api` is the mounted API, not in this model, so the
+        // hook sees the slot's `api` as the last step, with no effects declared
+        if let ApiItemKindOwned::Mount { .. } = item.kind {
+            let (&op, after) = rest.split_first()?;
+            let ident = mount::item_name(op)?;
+            let effects = if op == mount::PRESENCE {
+                if !after.is_empty() {
+                    return None;
+                }
+                Effects::READ
+            } else {
+                Effects::NONE
+            };
+            steps.push(Step::new(ident, op, None, effects, None));
             return Some(steps);
         }
         level = item.get_as_level(api).ok()?;
@@ -224,5 +240,73 @@ mod tests {
                 ),
             ]
         );
+    }
+
+    /// A bundle whose root has the slot `hub` (id 0).
+    fn tv() -> ApiBundleOwned {
+        use ww_self::{ApiItemOwned, Multiplicity, TypeOwned};
+        let item = |id: u32, ident: &str, kind| ApiItemOwned {
+            id: UNib32(id),
+            kind,
+            multiplicity: Multiplicity::Flat,
+            since: None,
+            ident: ident.to_owned(),
+            docs: vec![],
+            optional: None,
+            meta: None,
+            identity: None,
+        };
+        let hub = ApiItemKindOwned::Mount {
+            expects: None,
+            presence_ty: TypeOwned::OutOfLine {
+                type_idx: UNib32(0),
+            },
+        };
+        ApiBundleOwned {
+            magic: ww_self::MAGIC,
+            ww_self_version: ww_self::VERSION,
+            root: ApiLevelOwned {
+                docs: vec![],
+                crate_idx: UNib32(0),
+                trait_name: "Tv".to_owned(),
+                items: vec![item(0, "hub", hub)],
+                compact_id: None,
+                meta: None,
+            },
+            types: vec![],
+            traits: vec![],
+            ext_crates: vec![],
+            root_omitted: None,
+            wire: None,
+            ext_wire: None,
+        }
+    }
+
+    fn idents_and_effects(steps: &[Step<'_>]) -> Vec<(String, Effects)> {
+        steps
+            .iter()
+            .map(|s| (s.ident.to_owned(), s.effects))
+            .collect()
+    }
+
+    /// A slot's `presence` is a read, its `api` the last step with no effects, whatever path is below it; a path
+    /// below `presence` or to an id the slot has not names nothing.
+    #[test]
+    fn mount_slot_steps() {
+        let api = tv();
+        let presence = steps(&api, &[0, mount::PRESENCE]).expect("presence is in the model");
+        assert_eq!(
+            idents_and_effects(&presence)[1..],
+            [("presence".to_owned(), Effects::READ)]
+        );
+        for path in [&[0, mount::API][..], &[0, mount::API, 4, 2]] {
+            let below = steps(&api, path).expect("api is a step");
+            assert_eq!(
+                idents_and_effects(&below)[1..],
+                [("api".to_owned(), Effects::NONE)]
+            );
+        }
+        assert!(steps(&api, &[0, mount::PRESENCE, 1]).is_none());
+        assert!(steps(&api, &[0, 2]).is_none());
     }
 }

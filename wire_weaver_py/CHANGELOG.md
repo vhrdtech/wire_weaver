@@ -2,6 +2,7 @@
 
 ### 🚀 Features
 
+- The API tree shows mount slots (SRV-76).
 - `set_hub_host(ww_hub::HubHost)` (SRV-64): the wheel crate gives the hub `run_hub` serves its capture host, so `python -m wire_weaver.hub` records.
 - The wheel embeds the API snapshots of every crate in its build's lock: ww_stdlib devices are understood offline (EVO-80).
 - `Opaque` (EVO-80): a value whose type has no snapshot on this host, with `crate`, `version`, `name`, `signature` and `bytes`; sending one is refused.

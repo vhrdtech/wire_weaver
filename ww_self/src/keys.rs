@@ -51,7 +51,7 @@ impl core::fmt::Display for KeysError {
             }
             KeysError::NotKeyable { of } => write!(
                 f,
-                "keyed! names `{of}`, which is not an array of traits, properties, streams or sinks"
+                "keyed! names `{of}`, which is not an array of traits, properties, streams, sinks or mount slots"
             ),
         }
     }
@@ -59,7 +59,8 @@ impl core::fmt::Display for KeysError {
 
 impl core::error::Error for KeysError {}
 
-/// Whether a key companion may name `item`: an array of traits, properties, streams, sinks or stream functions.
+/// Whether a key companion may name `item`: an array of traits, properties, streams, sinks, stream functions or
+/// mount slots (`mounts!`, SRV-76).
 pub fn is_keyable(item: &ApiItemOwned) -> bool {
     matches!(item.multiplicity, Multiplicity::Array { .. })
         && !matches!(

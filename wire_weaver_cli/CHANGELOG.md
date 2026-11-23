@@ -17,6 +17,7 @@
 
 ### 🚀 Features
 
+- `ww api tree` shows mount slots with their expected API crate (SRV-76).
 - `ww info --effects` lists the items that change something, by effect; `ww api tree` shows `#[effect(..)]` (API-58).
 - `ww api scaffold --receiver-model` (SRV-65): `&self` for shared items' handlers and the valid indices on their path.
 - `ww hub status` says whether the hub records: `recording: yes` or `recording: no (built without eventfull)`; `ww hub serve` and a hub started from the binary get `Program::hub` (SRV-64).

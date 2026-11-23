@@ -179,6 +179,7 @@ macro_rules! define_visitor {
                     v.visit_type(key);
                     v.visit_type(event_ty);
                 }
+                ApiItemKindOwned::Mount { presence_ty, .. } => v.visit_type(presence_ty),
                 ApiItemKindOwned::Trait { .. } => {}
             }
         }

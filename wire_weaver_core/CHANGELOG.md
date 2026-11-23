@@ -2,6 +2,7 @@
 
 ### 🚀 Features
 
+- Mount slots (SRV-76): server handlers `get_<slot>_presence` and `<slot>_request`, scaffold, observe, the client's `MountSlot` accessors.
 - Every level's local trait is implemented for `wire_weaver::authorize::Authorized<T, A>`: each function asks the hook with its access, path and steps (effects and metadata of the model, as constants), accessors wrap the levels they hand out (SRV-72).
 
 ### 📚 Documentation

@@ -174,6 +174,7 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 <p class="ww-features__level"><span class="ww-level ww-level--advanced"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6" class="ww-level__off"/></svg><span class="ww-level__label">Advanced</span></span></p>
 
 - **[Server of a keyed array](api/arrays.md#keyed-arrays)**: `ww api scaffold` prints two handlers per `keyed!`, the generated code answers the rest.
+- **[Mount slots](api/mounts.md)**: `mount!(hub)` and `mounts!(ext)` declare levels whose API is known only at run time, served by one handler per slot. <span class="ww-status">in progress</span>
 - **[Deferred replies everywhere](api/methods.md#deferred)**: Answer a call later, also on nested trait levels.
 - **[Replies by priority](transport/ww_framer.md#latency-and-priority)**: A reply to an urgent request leaves at once, also a deferred one sent later from your main loop; `Sink::flush` sends what waits now. <span class="ww-status">hardware check open</span>
 - **[Errors that say where](api/errors.md#where-on-the-device-an-error-came-from)**: A device's error names the site that raised it, by a number that is the same in every firmware.

@@ -7,6 +7,7 @@ mod keyed;
 mod macro_cache;
 mod markers;
 mod meta;
+mod mount;
 mod moved_from;
 mod projection;
 pub(crate) use crate_walker::PRELUDE_REEXPORTS;
@@ -24,6 +25,7 @@ pub use crate_walker::{
 };
 pub use errors::ErrorListError;
 pub use keyed::{KeyedMacroArgs, array_index_ty, keys_ident};
+pub use mount::MountMacroArgs;
 pub use moved_from::MovedFrom;
 pub use snapshot::{
     SourceNotes, UnreadableDependencySnapshot, load_crate, load_crate_with_notes, load_root,

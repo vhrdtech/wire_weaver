@@ -514,6 +514,9 @@ impl Scaffold<'_> {
                 ApiItemKindOwned::Keys { .. } => {
                     self.keys(level, item, prefix, index_len, item_path)?
                 }
+                ApiItemKindOwned::Mount { .. } => {
+                    self.mount(level, item, &name, item_index_len, item_path)?
+                }
                 ApiItemKindOwned::Trait { .. } => {}
             }
         }
@@ -603,6 +606,55 @@ impl Scaffold<'_> {
         });
         self.property_model = property_model;
         result
+    }
+
+    /// Handlers of the mount slot `mount` (SRV-76): `get_<slot>_presence`, always a getter, and `<slot>_request`,
+    /// which forwards a request under the slot's `api` or answers it `Unavailable`.
+    fn mount(
+        &mut self,
+        level: &ApiLevelOwned,
+        mount: &ApiItemOwned,
+        name: &str,
+        index_len: usize,
+        item_path: &[String],
+    ) -> Result<()> {
+        let slot = ww_self::mount::slot_level(level, mount)?;
+        writeln!(
+            self.handlers,
+            "// mount slot `{}`: `mark_changed_{name}_presence` tells observers when a backend comes or goes\n",
+            mount.ident
+        )?;
+        let property_model = std::mem::take(&mut self.property_model);
+        let result = slot.items.iter().try_for_each(|item| {
+            self.current = format!("{}.{}", dotted(item_path, &mount.ident), item.ident);
+            match &item.kind {
+                ApiItemKindOwned::Property { ty, access, .. } => self.property(
+                    item,
+                    &format!("{name}_{}", item.ident),
+                    index_len,
+                    ty,
+                    *access,
+                    &None,
+                ),
+                _ => Ok(()),
+            }
+        });
+        self.property_model = property_model;
+        result?;
+        self.current = format!("{}.request", dotted(item_path, &mount.ident));
+        writeln!(
+            self.handlers,
+            "/// A request under the API mounted at `{}`: send it on with `request.path`, or answer `Unavailable`.\n\
+             {}fn {name}_request(&mut self, {}{}request: ww_client_server::mount::MountRequest<'_, '_>) -> \
+             ww_client_server::mount::MountAnswer {{\n\
+             ww_client_server::mount::MountAnswer::Unavailable\n\
+             }}\n",
+            mount.ident,
+            self.maybe_async(),
+            self.cx,
+            index_chain_arg(index_len),
+        )?;
+        Ok(())
     }
 
     fn valid_indices(

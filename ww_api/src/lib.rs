@@ -5,10 +5,11 @@
 //! no events, no transport. It depends on this crate and on the `ww_stdlib` crates and `ww_si` unit groups it
 //! uses, and writes `use ww_api::prelude::*;`. Server and client crates take the runtime from `wire_weaver`, whose
 //! prelude includes this one, so a server writes `use wire_weaver::prelude::*;` and sees both.
-#![no_std]
+#![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod api_doc;
 mod error;
+pub mod mount;
 mod totals;
 
 pub use error::Error;

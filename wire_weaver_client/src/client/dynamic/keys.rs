@@ -191,7 +191,9 @@ impl DynResource {
     /// The companion of a keyed array, for an array that has one.
     fn companion(&self) -> Result<&Companion, Error> {
         match &self.keyed {
-            Some(KeyedRole::Array(companion)) if matches!(self.node, Node::Array) => Ok(companion),
+            Some(KeyedRole::Array(companion)) if matches!(self.node, Node::Array(_)) => {
+                Ok(companion)
+            }
             _ => Err(self.not_a("keyed array")),
         }
     }

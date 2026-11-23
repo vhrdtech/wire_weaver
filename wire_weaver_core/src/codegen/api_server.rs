@@ -1686,6 +1686,10 @@ fn collect_item_paths(
                 out.extend(keys_handler_items(&keys).map(|ident| dotted(level_path, ident)));
                 level_path.pop();
             }
+        } else if let ApiItemKindOwned::Mount { .. } = item.kind {
+            level_path.push(item.ident.clone());
+            out.extend(MOUNT_HANDLER_ITEMS.map(|ident| dotted(level_path, ident)));
+            level_path.pop();
         } else {
             out.push(dotted(level_path, &item.ident));
         }
@@ -1748,6 +1752,17 @@ fn level_awaits(
                         level_path.pop();
                         awaits
                     })
+                }
+                // the `&self` tree has no mount slot
+                ApiItemKindOwned::Mount { .. } => {
+                    !cx.shared && {
+                        level_path.push(item.ident.clone());
+                        let awaits = MOUNT_HANDLER_ITEMS
+                            .iter()
+                            .any(|ident| cx.handlers.is_async(&dotted(level_path, ident)));
+                        level_path.pop();
+                        awaits
+                    }
                 }
                 kind => {
                     in_tree(level_path, &item.ident, kind)
@@ -2088,6 +2103,9 @@ fn level_matcher(
             &mod_ident,
             cx,
         ),
+        ApiItemKindOwned::Mount { .. } => {
+            handle_mount(api_bundle, api_level, api_item, index_chain, cx)
+        }
         ApiItemKindOwned::Trait { .. } => {
             let process_fn_name = cx.process_fn(&format!("{level_name_chain}_{}", api_item.ident));
             let mut level_path = cx.level_path.clone();
@@ -2253,6 +2271,104 @@ fn handle_keys(
             None => ww_err(wr, d, #es_level, ErrorKindDiscriminants::OperationNotSupported),
         }
     }
+}
+
+/// Items of a mount slot's level that have a handler, as `handler_model` paths name them under the slot:
+/// `get_<slot>_presence` and `<slot>_request`.
+const MOUNT_HANDLER_ITEMS: [&str; 2] = ["presence", "request"];
+
+/// Dispatch of a mount slot, `mount!(hub)` or `mounts!(ext)` (SRV-76): its level from `ww_self::mount`. `presence` is
+/// answered by the getter `get_hub_presence` (whatever the `property_model`), a request under `api` goes to the
+/// handler `hub_request` with the path below the slot, which forwards it or answers `Unavailable`. An element of
+/// `mounts!` reaches here checked by the array's `valid_indices_..` (see `array_arm`) and is passed to both handlers
+/// by its index.
+fn handle_mount(
+    api_bundle: &CodegenBundle,
+    api_level: &ApiLevelOwned,
+    mount: &ApiItemOwned,
+    index_chain: IndexChain,
+    cx: &ApiServerCGContext<'_>,
+) -> TokenStream {
+    let slot = match ww_self::mount::slot_level(api_level, mount) {
+        Ok(slot) => slot,
+        Err(e) => {
+            let msg = format!("mount `{}`: {e}", mount.ident);
+            return quote! { compile_error!(#msg) };
+        }
+    };
+    let get_set = PropertyModel::default();
+    let mut mcx = ApiServerCGContext {
+        property_model: &get_set,
+        ..cx.clone()
+    };
+    let prefixed = match &cx.ident_prefix {
+        Some(prefix) => format!("{prefix}_{}", mount.ident),
+        None => mount.ident.clone(),
+    };
+    mcx.ident_prefix = Some(prefixed.clone());
+    mcx.level_path.push(mount.ident.clone());
+    let presence = &slot.items[0];
+    let ApiItemKindOwned::Property { ty, access, .. } = &presence.kind else {
+        unreachable!("a slot's presence is a property, ww_self::mount builds it so")
+    };
+    let presence_id = Lit::Int(LitInt::new(
+        &format!("{}u32", ww_self::mount::PRESENCE),
+        Span::call_site(),
+    ));
+    let api_id = Lit::Int(LitInt::new(
+        &format!("{}u32", ww_self::mount::API),
+        Span::call_site(),
+    ));
+    let request_fn = Ident::new(&format!("{prefixed}_request"), Span::call_site());
+    let es_unavailable = item_err_seq("mount", "HANDLER");
+    let es_multi = item_err_seq("mount", "IN_MULTI");
+    let es_path = fixed_err_seq("LEVEL_BAD_PATH");
+    let es_level = fixed_err_seq("LEVEL_NOT_SUPPORTED");
+    let slot_arms = |index_chain: IndexChain| {
+        let presence_ident = Ident::new(&presence.ident, Span::call_site());
+        let get_presence = handle_property(
+            api_bundle,
+            index_chain,
+            &mcx,
+            &presence_ident,
+            ty,
+            &None,
+            *access,
+        );
+        let maybe_index_chain_arg = index_chain.fun_argument_call();
+        let request_call = mcx.call(
+            &Ident::new("request", Span::call_site()),
+            quote! {
+                self.#request_fn(
+                    cx,
+                    #maybe_index_chain_arg
+                    ww_client_server::mount::MountRequest { request, path: path_iter.as_slice() },
+                )
+            },
+        );
+        quote! {
+            match path_iter.next().copied() {
+                Some(id) => match id.get().0 {
+                    #presence_id => { #get_presence }
+                    #api_id => {
+                        // a multi request answers in one event, a forwarded request answers later
+                        if d.in_multi {
+                            return ww_err(wr, d, #es_multi, ErrorKindDiscriminants::OperationNotSupported);
+                        }
+                        match #request_call {
+                            ww_client_server::mount::MountAnswer::Unavailable => {
+                                ww_err(wr, d, #es_unavailable, ErrorKindDiscriminants::Unavailable)
+                            }
+                            ww_client_server::mount::MountAnswer::Forwarded => WrAction::Deferred,
+                        }
+                    }
+                    _ => ww_err(wr, d, #es_path, ErrorKindDiscriminants::BadPath),
+                },
+                None => ww_err(wr, d, #es_level, ErrorKindDiscriminants::OperationNotSupported),
+            }
+        }
+    };
+    slot_arms(index_chain)
 }
 
 impl ApiServerCGContext<'_> {

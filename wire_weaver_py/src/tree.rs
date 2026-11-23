@@ -184,6 +184,10 @@ fn item_signature(res: &DynResource, item: &ApiItemOwned) -> String {
         ApiItemKindOwned::Keys { key, .. } => {
             format!("keyed {name}: by {}", type_name(key, bundle))
         }
+        ApiItemKindOwned::Mount { expects, .. } => match expects {
+            Some(expects) => format!("mount {name}{array}: {expects}"),
+            None => format!("mount {name}{array}"),
+        },
     }
 }
 

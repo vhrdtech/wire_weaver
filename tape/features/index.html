@@ -6762,6 +6762,14 @@
 <p>A piece names its level in its head: <code>Full</code> computes every CRC and hash, <code>CrcOnly</code> no hashes, <code>None</code> no payload CRCs either. Below <code>Full</code> the hashes hold zero and each index entry is marked unhashed; at <code>None</code> each chunk is marked <code>FLAG_PAYLOAD_UNCHECKED</code> and reads as <code>Checked::Unprotected</code>. Chunk head CRCs and every structure block stay checked, so framing, resume and salvage work at every level. Verify checks the structure, the chain check links by id (<code>ChainLink::Unproven</code>), and <code>range_hash</code> hashes the chunks' bytes.</p>
 <p>A seal raises a closed piece to <code>Full</code>, byte for byte what a <code>Full</code> writer writes from the same calls. It comes as <code>TapeWriter::seal_on</code>, <code>MemPieces::seal</code> (a sealed copy swapped in), <code>ww_tape_fs::writer::seal</code> (in place, each piece head written last). Tests: golden pieces per level, the fuzz target <code>tape-seal</code>, <code>tape-resume</code> at every level, and the bench <code>levels</code>.</p>
 <p>Read more: <a href="https://tape.vhrd.tech/integrity/">Fewer checks, sealed later</a>.</p>
+<ul>
+<li>🚧 <strong>FMT-15 Grids: series tracks with fixed axes</strong></li>
+</ul>
+<p>A <code>GridDef</code> takes up to 31 fixed axes beside time, each cut into tiles, with regular or listed coordinates and a downsample flag. A series is the grid of none and keeps its bytes. A chunk holds one tile, and its head carries the tile's coordinates. Its index entry packs them into a tile number: bit fields of ⌈log2(tiles)⌉ bits per axis in a u128. <code>TapeReader::grid_tiles</code> finds the chunks of a time range and a box of cells from the index alone.</p>
+<p>Index entries are 128 bytes: the fields before keep their offsets and bytes 120..128 are reserved for every kind. Each index block declares its entry length, and readers read the first 120 bytes of each entry, so pieces of 120-byte entries still read.</p>
+<p>A <code>GridHandle</code> (<code>TapeMux::grid</code>, <code>grid_box</code>) takes a time step of the grid or of a box of its tiles and splits it into the open chunk of each tile. The tiles' chunks are completed together, by steps, bytes or latency. Edge tiles hold the cells left over, and a tile no box holds is never written. A tile's time step that fits no chunk or block is refused, never split. A series is the grid of no fixed axes and writes the bytes it wrote before.</p>
+<p>Open: summaries per tile, space overviews, a book chapter.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/format/#fixed-axes-and-tiles">Fixed axes and tiles</a>, <a href="https://tape.vhrd.tech/format/#index-entries">Index entries</a>, <a href="https://tape.vhrd.tech/writing_thread/#typed-handles-encode-on-their-own-thread">Typed handles encode on their own thread</a>. Golden files <code>v1-index.hex</code>, <code>v1-grid-{1,2,5,31}.hex</code>; tests <code>grids.rs</code>, <code>mux_grids.rs</code>, <code>reserved.rs</code>, <code>grid::tests</code>, <code>index::tests</code>; fuzz targets <code>tape-grid</code>, <code>tape-grid-hostile</code>, <code>tape-index</code>.</p>
 <h2 id="tracks-clocks-and-definitions-track">Tracks, clocks and definitions (<code>TRACK</code>)<a class="headerlink" href="#tracks-clocks-and-definitions-track" title="Permanent link">&para;</a></h2>
 <p>Clocks, track identity, definitions on track 0, state, what items are and how tracks are numbered, in the crate <code>ww_tape</code>.</p>
 <ul>
@@ -6901,6 +6909,20 @@
 </ul>
 <p>A new file is created exclusively under its final name, then the file and its directory are synced. A sync policy syncs data by block count or time, and a failed write or sync ends the file without a retry. A file sink holds the kernel's lock on its open file, so a second writer is refused and a crash leaves nothing behind. A file on a network or user-space file system gets a typed warning (<code>FsWarning</code>), and writing goes on.</p>
 <p>Read more: <a href="https://tape.vhrd.tech/files/">Files and syncing</a>, <a href="https://tape.vhrd.tech/format/#writing-a-file-durably">Writing a file durably</a>.</p>
+<ul>
+<li>✅ <strong>FS-2 Verifying and range-hashing pieces in parallel</strong></li>
+</ul>
+<p>Each piece's <code>verify</code> or <code>range_hash</code> is independent of every other piece's. <code>ww_tape_fs::check</code> gives both over
+  many piece files at once:</p>
+<ul>
+<li><code>verify_each</code> and <code>range_hash_each</code>: one piece at a time.</li>
+<li><code>verify_each_parallel</code> and <code>range_hash_each_parallel</code>: the same pieces over rayon's thread pool, behind the
+    cargo feature <code>parallel</code>, the same results in the same order (a test proves it).</li>
+</ul>
+<p>A bench measured this first: pieces in parallel won clearly, over one piece at a time and over BLAKE3's own
+  multithreaded hashing of one piece.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/check_pieces/">Checking many pieces at once</a>. Tests
+  <code>ww_tape_tests/tests/it/check_parallel.rs</code>.</p>
 <h2 id="codecs-codec">Codecs (<code>CODEC</code>)<a class="headerlink" href="#codecs-codec" title="Permanent link">&para;</a></h2>
 <p>Column codecs with no notion of a block, in the crate <code>ww_tape_codecs</code>.</p>
 <ul>
@@ -6973,7 +6995,7 @@
 <li>✅ <strong>EX-1 The drive's hour as code</strong></li>
 </ul>
 <p><code>example_drive</code> records the drive motor controller's hour: log lines, mode, CAN frames, phase current with summaries and temperature, in a chain of pieces. <code>Drive::scaled</code> shrinks the data and the byte policies for figures, and a crash at any byte resumes to the bytes of the run without it. The RF capture (<code>example_rf</code>) records ComplexI16 IQ at 20 MS/s as the book's case for high rates. <code>cargo run -p example_drive</code> prints the story's numbers, and the tests pin them.</p>
-<p>Read more: <a href="https://github.com/vhrdtech/ww_tape/blob/9659308c8209337ace0c4de0ddb22066793789b0/examples/example_drive/README.md">example_drive</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/9659308c8209337ace0c4de0ddb22066793789b0/examples/example_rf/README.md">example_rf</a>. Tests <code>story.rs</code>, <code>damage.rs</code>, <code>rf.rs</code>.</p>
+<p>Read more: <a href="https://github.com/vhrdtech/ww_tape/blob/c56ba1b9edee1d9a5abd931776b67a919e2acdef/examples/example_drive/README.md">example_drive</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/c56ba1b9edee1d9a5abd931776b67a919e2acdef/examples/example_rf/README.md">example_rf</a>. Tests <code>story.rs</code>, <code>damage.rs</code>, <code>rf.rs</code>.</p>
 <ul>
 <li>✅ <strong>EX-2 A 10 Gbps link and a 1 GS/s receiver</strong></li>
 </ul>
@@ -6994,7 +7016,7 @@
 <li>✅ <strong>EX-5 A crate per case, its pipeline a library</strong></li>
 </ul>
 <p>Each case is a crate of its own: <code>example_drive</code> the book's running example, <code>example_rf</code>, <code>example_ethernet</code> and <code>example_wideband</code>. What they share, the memory window and the RF signal, is in <code>example_capture</code>, so no case depends on another. <code>window::start</code> and each case's <code>start</code> return a running pipeline. It hands out its memory window, the pieces in memory and each mux's watch, so a viewer follows it live. Each case has a headless binary whose <code>main</code> reads like a block diagram of its threads.</p>
-<p>Read more: <a href="https://tape.vhrd.tech/protocol_analyser/#the-pipeline">The pipeline</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/9659308c8209337ace0c4de0ddb22066793789b0/examples/example_capture/README.md">example_capture</a>. Tests <code>window.rs</code>.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/protocol_analyser/#the-pipeline">The pipeline</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/c56ba1b9edee1d9a5abd931776b67a919e2acdef/examples/example_capture/README.md">example_capture</a>. Tests <code>window.rs</code>.</p>
 <ul>
 <li>✅ <strong>EX-6 Payload compression measured on the cases</strong></li>
 </ul>

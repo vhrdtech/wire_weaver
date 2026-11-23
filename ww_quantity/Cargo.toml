@@ -12,7 +12,7 @@ license.workspace = true
 [dependencies]
 shrink_wrap.workspace = true
 ww_numeric = { workspace = true, features = ["std"] }
-ww_self = { workspace = true, features = ["std"] }
+ww_self = { workspace = true, features = ["expr", "std"] }
 # customary: a host knows every unit by name (DynUnit::from_name)
 ww_si = { workspace = true, features = ["std", "customary"] }
 

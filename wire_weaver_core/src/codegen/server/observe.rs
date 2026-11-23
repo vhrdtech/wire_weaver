@@ -184,6 +184,9 @@ pub(crate) struct Observe {
     arrays: Vec<Array>,
     /// Element tables of each level under arrays (`observe_elements = K`)
     elements: usize,
+    /// Paths of the mount slots' `api` items (SRV-76), `None` where an array's index goes: an observe request under
+    /// one is the mounted API's, sent on by the slot's handler
+    mounts: Vec<Vec<Option<u32>>>,
 }
 
 /// Element tables of a level under resource arrays unless `observe_elements = K` says otherwise (API-63).
@@ -201,6 +204,7 @@ impl Observe {
             levels: vec![],
             arrays: vec![],
             elements: observe_elements.unwrap_or(DEFAULT_ELEMENTS).max(1),
+            mounts: vec![],
         };
         observe.walk(
             api_bundle,
@@ -305,6 +309,16 @@ impl Observe {
                         });
                         Some(e)
                     };
+                    if let ApiItemKindOwned::Mount { .. } = item.kind {
+                        let holes = elements.as_ref().map_or(&[][..], |e| e.holes.as_slice());
+                        let api = path
+                            .iter()
+                            .enumerate()
+                            .map(|(at, id)| (!holes.contains(&at)).then_some(*id))
+                            .chain([Some(ww_self::mount::API)])
+                            .collect();
+                        self.mounts.push(api);
+                    }
                     // a mount slot's level (SRV-76): its `presence`, always through its getter
                     let slot;
                     let get_set = PropertyModel::default();
@@ -392,6 +406,21 @@ impl Observe {
     /// Whether the API has anything to observe: the rest is generated only then.
     pub(crate) fn is_enabled(&self) -> bool {
         self.levels.iter().any(|l| !l.props.is_empty())
+    }
+
+    /// Guard of the `RequestKind::Observe` arm: a path at or under a mount slot's `api` (SRV-76) is left to the
+    /// dispatch, which hands it to the slot's handler. Empty without mount slots.
+    pub(crate) fn not_under_mount(&self) -> TokenStream {
+        if self.mounts.is_empty() {
+            return quote! {};
+        }
+        let alternatives = self.mounts.iter().map(|api| {
+            let checks = api.iter().enumerate().filter_map(|(at, id)| {
+                id.map(|id| quote! { path.get(#at).is_some_and(|i| i.get().0 == #id) })
+            });
+            quote! { (#(#checks)&&*) }
+        });
+        quote! { if !(#(#alternatives)||*) }
     }
 
     /// Prefixed names of the observable properties: `mark_changed_<name>()` exists for them.

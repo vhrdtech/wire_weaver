@@ -9,6 +9,10 @@
 - `#[track(points | spans | series, dims(..), flags)]` on streams and traits, into `Meta::track` (API-71); refused on other items, a series must hold numbers.
 - Every level's local trait is implemented for `wire_weaver::authorize::Authorized<T, A>`: each function asks the hook with its access, path and steps (effects and metadata of the model, as constants), accessors wrap the levels they hand out (SRV-72).
 
+### 🐛 Fixes
+
+- A server with mount slots sends an `Observe` under a slot's `api` to `<slot>_request` instead of refusing it (SRV-76).
+
 ### 📚 Documentation
 
 - Crate-level docs and a comment on the `std` feature.

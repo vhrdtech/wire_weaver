@@ -434,10 +434,11 @@ pub fn gen_server(
         config.observe_outbox,
     );
     let observe_methods = observe.methods(api_bundle, cx.handlers, &medium_ty, config.no_alloc);
+    let not_under_mount = observe.not_under_mount();
     let observe_arm = if observe.is_enabled() {
         let es = fixed_err_seq("OBSERVE_MALFORMED");
         quote! {
-            RequestKind::Observe { cfg } => {
+            RequestKind::Observe { cfg } #not_under_mount => {
                 // decoded here, not with the request: only a server that observes links the decoder (SRV-54)
                 let Ok(cfg) = cfg.read() else {
                     wr.write(&Error::new(#es, ErrorKind::ArgsDesFailed))?;
@@ -466,7 +467,7 @@ pub fn gen_server(
         // path, so a host gets one defined error and the request is never walked as a call (SRV-54)
         let es = fixed_err_seq("OBSERVE_PATH");
         quote! {
-            RequestKind::Observe { .. } => {
+            RequestKind::Observe { .. } #not_under_mount => {
                 wr.write(&Error::bad_path(#es))?;
                 event_builder.finish(false, &mut wr);
                 wr.finish_and_take()

@@ -8507,7 +8507,7 @@
 <tr>
 <td><code>client_server.request.highest_reserved</code></td>
 <td><code>Request</code></td>
-<td>decode</td>
+<td>both</td>
 <td>✅</td>
 <td>✅</td>
 <td>gap -</td>
@@ -12198,7 +12198,7 @@
 <li><code>client_server.request.sideband_ack</code>: EVO-76 / the priority nibble is now priority: U3 and a reserved bit; NORMAL (2, reserved false) has the old NORMAL's bits, so the bytes stay.</li>
 <li><code>client_server.request.absolute_path</code>: EVO-76 / the priority nibble is now priority: U3 and a reserved bit; NORMAL (2, reserved false) has the old NORMAL's bits, so the bytes stay.</li>
 <li><code>client_server.request.global_path</code>: EVO-76 / the priority nibble is now priority: U3 and a reserved bit; NORMAL (2, reserved false) has the old NORMAL's bits, so the bytes stay.</li>
-<li><code>client_server.request.highest_reserved</code>: EVO-85 / the bytes of a host from before the appended forwarded_for, read as None; encoding None now writes its flag (EVO-84 made the reserved bit the context's flag).</li>
+<li><code>client_server.request.highest_reserved</code>: EVO-84 / the reserved bit after priority is the flag of the request context; no sender ever set it.</li>
 <li><code>stdlib.si.dim.volt</code>: EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has.</li>
 <li><code>stdlib.si.dim.rad_bit</code>: EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has.</li>
 <li><code>stdlib.si.dim.counted</code>: EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has.</li>

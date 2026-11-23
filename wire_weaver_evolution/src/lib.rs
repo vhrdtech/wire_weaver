@@ -44,8 +44,8 @@ use ww_self::errors::fmt_error_list;
 use ww_self::visit_mut::VisitMut;
 use ww_self::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned,
-    ClaimMode, ErrorVariantOwned, FieldsOwned, FutureVersionOwned, MetaOwned, TypeLocationOwned,
-    TypeOwned,
+    ClaimMode, ErrorVariantOwned, FieldsOwned, FutureVersionOwned, MetaOwned, TrackLayout,
+    TrackOwned, TypeLocationOwned, TypeOwned,
 };
 use ww_version::{FullVersionOwned, VersionOwned, WireVersion};
 
@@ -1243,6 +1243,67 @@ impl<'a> Checker<'a> {
         self.compare_error_lists(path, old_item, new_item);
         self.compare_optional(path, old_item, new_item);
         self.compare_meta(path, old_item.meta.as_ref(), new_item.meta.as_ref());
+        self.compare_track(path, old_item, new_item);
+    }
+
+    /// `#[track]` (API-71) of a stream: what a recorder writes. Not on the wire, but the identity of the stream's
+    /// tracks on a tape: another layout or flags word, or a dimension dropped, breaks [Rule::Track]; a dimension
+    /// added is compatible, a writer of the old version simply never gives it. No `#[track]` is `points` without
+    /// dimensions and flags.
+    fn compare_track(&mut self, path: &str, old: &ApiItemOwned, new: &ApiItemOwned) {
+        let points = TrackOwned {
+            layout: TrackLayout::Points,
+            dims: vec![],
+            flags: false,
+        };
+        let track = |item: &ApiItemOwned| {
+            item.meta
+                .as_ref()
+                .and_then(|m| m.track.clone())
+                .unwrap_or_else(|| points.clone())
+        };
+        let (old, new) = (track(old), track(new));
+        if old.layout != new.layout {
+            self.breaks(
+                Rule::Track,
+                format!(
+                    "{path}: #[track({})] became #[track({})] (recorders lay it out differently)",
+                    old.layout, new.layout
+                ),
+            );
+        }
+        if old.flags != new.flags {
+            let change = if new.flags { "added" } else { "removed" };
+            self.breaks(
+                Rule::Track,
+                format!("{path}: #[track] flags {change} (its items' flags word on a tape)"),
+            );
+        }
+        let dropped: Vec<&str> = old
+            .dims
+            .iter()
+            .filter(|d| !new.dims.contains(d))
+            .map(String::as_str)
+            .collect();
+        if !dropped.is_empty() {
+            self.breaks(
+                Rule::Track,
+                format!(
+                    "{path}: #[track] dims drops {} (a writer giving it is refused)",
+                    dropped.join(", ")
+                ),
+            );
+        }
+        let added: Vec<&str> = new
+            .dims
+            .iter()
+            .filter(|d| !old.dims.contains(d))
+            .map(String::as_str)
+            .collect();
+        if !added.is_empty() {
+            self.compatible
+                .push(format!("{path}: #[track] dims adds {}", added.join(", ")));
+        }
     }
 
     /// An `#[errors(..)]` list (API-32) of a method, stream function or property changing is compatible: nothing on the wire changes and the device
@@ -2786,6 +2847,67 @@ mod tests {
                 "trait Port: not claimable became #[claim(exclusive)]",
             ]
         );
+    }
+
+    /// `#[track]` (API-71): a dimension added is compatible; another layout, flags word or a dimension dropped
+    /// breaks [Rule::Track] without touching the wire; none is `points` without dims.
+    #[test]
+    fn track_changes() {
+        let api = |attr: &str| {
+            format!(
+                r#"
+                #[ww_api_root(wire = "w1.0")]
+                pub trait Api {{
+                    {attr}
+                    stream!(events: u8);
+                }}
+                "#
+            )
+        };
+        let same = report(&api(""), &api("#[track(points)]"));
+        assert!(same.breaking.is_empty(), "{same:?}");
+        let added = report(
+            &api("#[track(spans, dims(input))]"),
+            &api("#[track(spans, dims(producer, input))]"),
+        );
+        assert_eq!(added.change, Change::Compatible, "{added:?}");
+        assert_eq!(
+            added.compatible,
+            ["Api::events: #[track] dims adds producer"]
+        );
+        for (old, new, expected) in [
+            (
+                "",
+                "#[track(spans)]",
+                "#[track(points)] became #[track(spans)]",
+            ),
+            (
+                "#[track(series)]",
+                "#[track(points)]",
+                "#[track(series)] became #[track(points)]",
+            ),
+            (
+                "#[track(points)]",
+                "#[track(points, flags)]",
+                "#[track] flags added",
+            ),
+            (
+                "#[track(points, dims(a, b))]",
+                "#[track(points, dims(b))]",
+                "dims drops a",
+            ),
+        ] {
+            let r = report(&api(old), &api(new));
+            assert_eq!(r.change, Change::Breaking, "{old} -> {new}: {r:?}");
+            assert_eq!(r.breaking.len(), 1, "{r:?}");
+            assert_eq!(r.breaking[0].rule, Rule::Track);
+            assert!(r.breaking[0].contains(expected), "{}", r.breaking[0]);
+            assert_eq!(
+                r.wire_bump,
+                WireBump::None,
+                "{old} -> {new}: the wire keeps"
+            );
+        }
     }
 
     /// An `#[errors(..)]` list of a stream function or a property changing is compatible and reported, as for

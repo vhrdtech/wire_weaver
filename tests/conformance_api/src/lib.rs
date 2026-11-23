@@ -88,6 +88,7 @@ trait Conformance {
     // evolution
     property!(rw config_v1: ConfigV1<'i>);
     property!(rw config_v2: ConfigV2<'i>);
+    property!(rw config_elided: ConfigElided<'i>);
     // fixed layout
     property!(rw fixed_numbers: FixedNumbers);
     property!(rw fixed_bits: FixedBits);
@@ -529,6 +530,19 @@ pub struct ConfigV1<'i> {
 /// [ConfigV1] with fields appended: reads old data with the defaults.
 #[derive_shrink_wrap(owned, derive(Debug, PartialEq, Clone))]
 pub struct ConfigV2<'i> {
+    pub rate: u16,
+    pub name: &'i str,
+    #[default = 7]
+    pub timeout: u16,
+    #[default = None]
+    pub retries: Option<u8>,
+    #[default = None]
+    pub tags: Option<RefVec<'i, u8>>,
+}
+
+/// [ConfigV2] with `elide_defaults` (SW-85): the trailing fields at their defaults are left off the wire.
+#[derive_shrink_wrap(owned, derive(Debug, PartialEq, Clone), elide_defaults)]
+pub struct ConfigElided<'i> {
     pub rate: u16,
     pub name: &'i str,
     #[default = 7]

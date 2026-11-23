@@ -42,6 +42,9 @@ pub enum Rule {
     /// An enum variant is never removed: Rust code using it breaks. The wire keeps with a catch-all (a reader of the
     /// new version takes an old writer's value as it), the type check finds the break of an enum without one.
     VariantRemoved,
+    /// How a recorder lays a stream out (`#[track]`, API-71) is the identity of its tracks: another layout, flags
+    /// word or fewer dimensions is another track, which tapes of the two versions don't share.
+    Track,
 }
 
 impl Rule {
@@ -86,6 +89,10 @@ impl Rule {
                 "an enum variant is never removed: Rust code using it breaks, and a newer reader takes an older \
                  writer's value as the catch-all"
             }
+            Rule::Track => {
+                "a stream's #[track] layout and flags never change and its dims are only added: recorders of the two \
+                 versions would write tracks a reader can't put together"
+            }
         }
     }
 
@@ -105,11 +112,12 @@ impl Rule {
             Rule::Bound => "docs/evolution/rules.md#bounds",
             Rule::Signature => "docs/evolution/rules.md#arguments",
             Rule::VariantRemoved => "docs/evolution/rules.md#unsized-types",
+            Rule::Track => "docs/evolution/rules.md#recorded-streams",
         }
     }
 
-    /// The rule is about Rust code only: a change breaking it keeps every byte on the wire, devices and hosts of the
-    /// two versions still work together.
+    /// The rule is about Rust code or recorders only: a change breaking it keeps every byte on the wire, devices
+    /// and hosts of the two versions still work together.
     pub fn keeps_wire(&self) -> bool {
         matches!(
             self,
@@ -119,6 +127,7 @@ impl Rule {
                 | Rule::CatchAll
                 | Rule::Signature
                 | Rule::VariantRemoved
+                | Rule::Track
         )
     }
 }

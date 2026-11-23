@@ -139,8 +139,8 @@ pub fn parse(text: &str) -> Result<Snapshot> {
     if hash != saved && format != ww_self::VERSION {
         bail!(
             "saved in model format {}, which this tool reads only where the fields added since (an item's \
-             `effects`) don't change the bytes, and here they do: re-save it (`ww api save` in the crate at the \
-             commit of that version)",
+             `effects`, a stream's `track`) don't change the bytes, and here they do: re-save it (`ww api save` in \
+             the crate at the commit of that version)",
             format_triplet(&format)
         );
     }
@@ -164,11 +164,18 @@ pub fn parse(text: &str) -> Result<Snapshot> {
 /// struct, field). Since each of them the model only gained fields with a `#[default]`, which RON fills in. Such a
 /// file's hash still has to match its re-encoded bytes, which holds while the new fields are at their default where
 /// the old format had nothing for them.
-const READABLE_OLDER_FORMATS: [(VersionTriplet, &[(&str, &str)]); 1] = [(
-    VersionTriplet::new(0, 4, 0),
-    // API-58
-    &[("MetaOwned", "effects")],
-)];
+const READABLE_OLDER_FORMATS: [(VersionTriplet, &[(&str, &str)]); 2] = [
+    (
+        VersionTriplet::new(0, 4, 0),
+        // API-58, API-71
+        &[("MetaOwned", "effects"), ("MetaOwned", "track")],
+    ),
+    (
+        VersionTriplet::new(0, 5, 0),
+        // API-71
+        &[("MetaOwned", "track")],
+    ),
+];
 
 /// Fields of the model, as (serde name of the struct, field), that a file of model `format` doesn't have: added in a
 /// later format. None for the current format and for one this build doesn't read.
@@ -355,6 +362,16 @@ mod tests {
         let text = render_ron(&bundle).unwrap();
         assert_eq!(check_format(&text).unwrap(), VersionTriplet::new(0, 4, 0));
         assert_eq!(parse(&text).unwrap().version().crate_id, "dep");
+        let format_5 = render_ron(&ApiBundleOwned {
+            ww_self_version: VersionTriplet::new(0, 5, 0),
+            ..bundle.clone()
+        })
+        .unwrap();
+        assert_eq!(
+            check_format(&format_5).unwrap(),
+            VersionTriplet::new(0, 5, 0)
+        );
+        parse(&format_5).unwrap();
         let older = text.replace("minor: 4", "minor: 3");
         let e = parse(&older).unwrap_err().to_string();
         assert!(e.contains("saved in model format 0.3.0"), "{e}");

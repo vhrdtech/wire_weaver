@@ -2,10 +2,11 @@
 level: advanced
 ---
 
-# Metadata: effects, claims, pins, labels
+# Metadata: effects, claims, pins, labels, tracks
 
 Some things about an API matter to people and tools but not to the bytes on the wire: what calling a method does,
-which resources one program may have to itself for a while, which pins a resource uses, what a person calls it. They are written as typed
+which resources one program may have to itself for a while, which pins a resource uses, what a person calls it,
+how a recorder lays a stream out on a tape. They are written as typed
 attributes next to the items, checked when the API is loaded (a typo is a compile error of the API crate, like a
 wrong `#[errors(..)]` list), and carried in the device's introspection data as data, not as doc text, so the hub,
 `ww` and GUIs read them without parsing prose.
@@ -172,15 +173,64 @@ person recognises on the bench. `ww` shows it, an `InUse` error names the claime
 to the item. A resource array takes one label per element, by index: `#[label("CAN1", "CAN2")]`; any other item
 takes one.
 
+## `#[track(..)]`: how a stream is recorded
+
+A recorder that writes a device's streams to a tape (`ww_tape`, through `ww_tape_bundle` in the ww_tools repository)
+needs to know what an item of each stream is there: an event at an instant, an event with a start and an end, or a
+sample of a series. `#[track(..)]` on a `stream!` or a stream function says so, or on a trait for every stream of it
+without its own:
+
+```rust
+#[ww_api_root]
+#[track(points, dims(input, producer))] // the default of every stream below without its own
+pub trait Detector {
+    /// Something seen, at an instant.
+    stream!(events: Event);
+
+    /// A detection with a start and an end, its severity in the flags word.
+    #[track(spans, dims(input), flags)]
+    stream!(detections: Detection);
+
+    /// Left and right levels: two channels of a series.
+    #[track(series, dims(input))]
+    stream!(levels: Levels);
+}
+```
+
+| Layout   | An item on the tape                                                                                  |
+|----------|------------------------------------------------------------------------------------------------------|
+| `points` | an event at an instant, the item its payload; what a stream without `#[track]` is                     |
+| `spans`  | an event with a start and an end, which the tape holds; the item holds the rest                       |
+| `series` | a sample at an exact period, no time per item; the writer gives the period, the API doesn't           |
+
+- The layout comes first, then `dims(..)` and `flags` in any order, each at most once.
+- `dims(input, producer, ..)` names the dimensions a track of the stream may carry, at most 16, each once. A writer
+  gives their values when it records (`input=mic1`); a name not listed is refused. Without `dims` a track has none.
+- `flags`: every item carries a `u32` flags word beside it (a severity in its low bits, which summaries OR together).
+  Points and spans only; `#[track(series, flags)]` is refused.
+- A `series` item is a number, a fixed-size array of numbers or a struct of numbers, nested (each number a channel,
+  a `Fixed<..>` is its number). Anything else (a bool, a string, a vector, an enum, an option) is refused when the
+  API is loaded. A dependency's type the device leaves out of its introspection data is checked by the recorder once
+  the host has put its definition back (`ApiBundleOwned::series_shape` answers `Unresolved` until then).
+- Only streams a device sends are recorded: `#[track]` on a method, property, const, sink or `ww_impl!` is refused.
+  A trait's `#[track]` reaches the streams of that trait, not those of the traits it has through `ww_impl!`, which
+  have their own.
+
+The model names no tape type: a recorder maps `points` to `ww_tape`'s `EventsDef { ends: Instants }`, `spans` to
+`EventsDef { ends: Spans }` and `series` to a `SeriesDef`. Changing a stream's layout or `flags`, or dropping a name
+from `dims`, makes its tracks other tracks: `ww api check` reports a break of the API crate that keeps the wire,
+adding a name is compatible ([recorded streams](../evolution/rules.md#recorded-streams)).
+
 ## In the API model
 
 `ww_self::Meta` holds the attributes: `claim: Option<ClaimMode>`, `shares: Vec<Shares>`, `labels: Vec<String>`,
-`effects: Effects`. It sits on `ApiItem::meta` (the item's own attributes) and `ApiLevel::meta` (a trait definition's
-`#[claim]` and `#[effect]`), both `Option` and evolvable, so the attributes that come later (device-level metadata,
+`effects: Effects`, `track: Option<Track>`. It sits on `ApiItem::meta` (the item's own attributes) and
+`ApiLevel::meta` (a trait definition's `#[claim]`, `#[effect]` and `#[track]`), both `Option` and evolvable, so the attributes that come later (device-level metadata,
 API-57) are new fields there. `Effects` is a set of bits, one per effect in the table's order (`read` is bit 0);
 the codegen stores on each item its own effects or its trait's, and nothing for a read by kind, so introspection
 grows only where an item changes something. A new effect takes the next bit, and a reader keeps a bit it doesn't
 know (`Effects::unknown`), treating the item as the most restrictive case. `ApiItemOwned::claim_mode(&bundle)` answers how a
 `ww_impl!` can be claimed (its own `#[claim]`, else its trait's), `ApiItemOwned::label(index)` its label,
-`ApiItemOwned::effects()` its effects. `ww api
+`ApiItemOwned::effects()` its effects. `Track` is a `TrackLayout`, the `dims` names and `flags`; the codegen stores
+on each stream its own or its trait's, nothing on a stream without either (model format 0.6.0). `ww api
 tree` shows the attributes in front of the item, and rustdoc of a `#[ww_trait]` notes them.

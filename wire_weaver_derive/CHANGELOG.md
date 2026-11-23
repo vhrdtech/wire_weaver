@@ -1,5 +1,9 @@
 ## Unreleased
 
+### 🚀 Features
+
+- The doc trait notes `#[track(..)]` (API-71) beside the other metadata attributes.
+
 ### 📚 Documentation
 
 - Crate-level docs.

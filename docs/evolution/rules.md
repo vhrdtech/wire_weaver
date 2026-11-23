@@ -373,6 +373,20 @@ server doesn't use them: adding, changing or removing one is compatible, `ww api
 introspection data (and so the API hash) changes. Removing a `#[claim]` does change what the hub lets a program do: a
 program that claims that resource is refused from then on, so say so in the changelog.
 
+### Recorded streams
+
+`#[track(..)]` (API-71, [metadata](../api/metadata.md#track-how-a-stream-is-recorded)) is not on the wire either, but
+it is the identity of a stream's tracks on a tape: a recorder of the old version and one of the new version must
+write tracks that a reader puts together. `ww api check` treats it by that:
+
+* Adding a name to `dims(..)`: compatible. A writer of the old version never gives it, a track without it is still
+  one of the stream.
+* Another layout (`points`, `spans`, `series`), adding or removing `flags`, or dropping a name from `dims(..)`: a break
+  of the API crate (rule "recorded streams"), the wire stays. A tape's track of the old layout and one of the new are
+  different tracks, and a writer still giving the dropped dimension is refused.
+* No `#[track]` is `points` without dimensions and flags: writing `#[track(points)]` on such a stream changes nothing
+  a recorder sees.
+
 ### Choices of one firmware image
 
 Some choices belong to a firmware image and not to its API: `ww_codegen!(.., observe_samples = false)` is one. Two

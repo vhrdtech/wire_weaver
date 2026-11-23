@@ -119,6 +119,7 @@ fn trace_enums(tracer: &mut Tracer, samples: &Samples) {
         ww_self::Repr,
         ww_self::TimeCounting,
         ww_self::TimeZero,
+        ww_self::TrackLayout,
         ww_self::TypeLocationOwned,
         ww_self::TypeOwned,
         ww_self::ValueOwned,

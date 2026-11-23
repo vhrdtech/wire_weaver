@@ -25,6 +25,9 @@ on `uart_rx` gives the same three slices on the other end. A byte item (`[u8]`, 
 [`MaxLen<RefVec<'i, u8>, N>`](../types.md#bounded-lists-and-strings-maxlent-n) to bound it) is sent as is, without a
 length prefix.
 
+How a recorder lays a stream out on a tape (events at instants, spans with an end, or samples of a series) is
+`#[track(..)]` on the stream, see [Metadata](metadata.md#track-how-a-stream-is-recorded).
+
 Streams and sinks come in kinds that differ in what they promise about delivery:
 
 | Kind | Declared as | What is guaranteed |

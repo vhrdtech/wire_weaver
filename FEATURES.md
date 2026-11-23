@@ -195,6 +195,18 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
     `docs/api/metadata.md` maps them to MCP tool annotations. Absorbs API-56 (`actuate`). Every API in the
     repository and in ww_stdlib is annotated. Tests: `wire_weaver_core` (`effects_*`), `tests/hub`
     (`claimed_bus_refuses_others_calls_and_writes`), `wire_weaver_cli` (`effects_list_what_changes_something`).
+- ✅ **API-71 Track attribute on streams** · `v0.5.x` — `#[track(points | spans | series, dims(..), flags)]` on a
+    `stream!` or a stream function, or on its trait as the default of its streams: how a recorder lays the stream
+    out on a tape. Carried in introspection as `ww_self::Track` in `Meta` (`TrackLayout`, dimension names, flags),
+    stored on each stream with one; model format 0.6.0, whose readers still read 0.4.0 and 0.5.0 snapshots (one
+    whose metas grew by its body). Refused on any other item and on a `ww_impl!`; a `series` item must be numbers
+    (`ApiBundleOwned::series_shape` counts its channels), `flags` only on points and spans. `ww api check`:
+    another layout or flags word, or a dimension dropped, breaks (rule `Track`, the wire keeps); a dimension added
+    is compatible. `ww_tap`'s `LinkTap` streams are points with the link's dimensions. Recorders: `ww_tape_bundle`
+    reads the layout beside the name path, `ww_tap_decoder` lays tap tracks out by it (vhrdtech/ww_tools).
+    Docs: `docs/api/metadata.md#track-how-a-stream-is-recorded`. Tests: `tests/track`, `wire_weaver_core`
+    (`transform::track`), `wire_weaver_evolution` (`track_changes`), `ww_snapshots`
+    (`an_older_format_with_metas_reads_by_its_body`).
 - 📋 **API-12 Calculate max path depth in server codegen** · `v0.5` — `MAX_DEPTH` is hardcoded to 16 in
   `wire_weaver_core/src/codegen/api_server.rs`.
 - 📋 **API-13 Error system, remove `unwrap`s from codegen** · `v0.5` — report errors with spans instead of panicking.

@@ -33,7 +33,7 @@ use std::collections::BTreeSet;
 use syn::Path;
 use ww_self::{
     ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, Batching, ClaimMode, Delivery, Effects,
-    MetaOwned, Multiplicity, PropertyAccess, SharesOwned, TypeOwned,
+    MetaOwned, Multiplicity, PropertyAccess, SharesOwned, TrackLayout, TrackOwned, TypeOwned,
 };
 
 /// One async function of a level's local trait.
@@ -950,6 +950,7 @@ fn meta_tokens(meta: &MetaOwned) -> TokenStream {
         shares,
         labels,
         effects,
+        track,
     } = meta;
     let claim = match claim {
         Some(ClaimMode::Exclusive) => quote! { Some(wire_weaver::ww_self::ClaimMode::Exclusive) },
@@ -976,12 +977,35 @@ fn meta_tokens(meta: &MetaOwned) -> TokenStream {
     });
     let labels = strings(labels);
     let effects = effects_tokens(*effects);
+    let track = match track {
+        Some(TrackOwned {
+            layout,
+            dims,
+            flags,
+        }) => {
+            let layout = match layout {
+                TrackLayout::Points => quote! { Points },
+                TrackLayout::Spans => quote! { Spans },
+                TrackLayout::Series => quote! { Series },
+            };
+            let dims = strings(dims);
+            quote! {
+                Some(wire_weaver::ww_self::TrackOwned {
+                    layout: wire_weaver::ww_self::TrackLayout::#layout,
+                    dims: #dims,
+                    flags: #flags,
+                })
+            }
+        }
+        None => quote! { None },
+    };
     quote! {
         wire_weaver::ww_self::MetaOwned {
             claim: #claim,
             shares: ::std::vec![#(#shares),*],
             labels: #labels,
             effects: #effects,
+            track: #track,
         }
     }
 }

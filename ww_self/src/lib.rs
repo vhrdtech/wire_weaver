@@ -9,6 +9,12 @@
 
 mod effects;
 pub use effects::Effects;
+mod track;
+#[cfg(feature = "std")]
+pub use track::TrackOwned;
+#[cfg(feature = "std")]
+pub use track::{SERIES_DEPTH_MAX, SeriesShape};
+pub use track::{Track, TrackLayout};
 #[cfg(feature = "std")]
 mod alloc;
 #[cfg(feature = "std")]
@@ -80,7 +86,7 @@ pub const MAGIC: u32 = 0xA91B_14F0;
 /// file or introspection data) was written in. Not the crate's version: it moves with every change of the model's
 /// shape (a field, a variant, a type of a dependency the model uses), which `ww_snapshots`' `model_format` test
 /// checks, and a snapshot file of another format is refused with the step that re-saves it.
-pub const VERSION: VersionTriplet = VersionTriplet::new(0, 5, 0);
+pub const VERSION: VersionTriplet = VersionTriplet::new(0, 6, 0);
 
 #[derive_shrink_wrap(
     owned(feature = "std"),
@@ -232,11 +238,13 @@ pub struct ErrorVariant<'i> {
 
 /// Typed attributes of an [ApiItem] or an [ApiLevel] that don't change the wire contract (SRV-34): checked by the
 /// codegen like `#[optional]` and `#[errors]`, carried in introspection, read by the hub, `ww` and GUIs. See
-/// `docs/api/metadata.md`. New attributes are new fields here, appended with a `#[default]`.
+/// `docs/api/metadata.md`. New attributes are new fields here, appended with a `#[default]`. `elide_defaults` leaves
+/// the trailing ones at their defaults off the wire, so a new attribute changes no bytes or signatures where unused.
 #[derive_shrink_wrap(
     owned(feature = "std"),
     cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
-    derive(Clone, Debug, PartialEq, Default)
+    derive(Clone, Debug, PartialEq, Default),
+    elide_defaults
 )]
 pub struct Meta<'i> {
     /// `#[claim(mode)]` on a `ww_impl!` or a trait definition: a client can claim the resource through the hub, and
@@ -254,6 +262,10 @@ pub struct Meta<'i> {
     /// [ApiItemOwned::effects] for an item's.
     #[default = Effects::NONE]
     pub effects: Effects,
+    /// `#[track(..)]` (API-71): how a recorder lays a stream out on a tape. On a stream the codegen stores its own or
+    /// its trait's, on a trait definition the trait's default. `None`: points without dimensions.
+    #[default = None]
+    pub track: Option<Track<'i>>,
 }
 
 /// What a claim on a resource takes from other clients (SRV-34), `#[claim(exclusive | shared | observe)]`.

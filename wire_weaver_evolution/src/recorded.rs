@@ -7,7 +7,8 @@
 //! there, and both sides are compared without it ([Recorded::leave_out]). This holds for any field added to the model
 //! later, without a list of fields. A field of a struct the file has no instance of at all can't be told apart that
 //! way; the fields a readable older model format doesn't have ([ww_snapshots::file::fields_missing_from]) count as not
-//! recorded too. `Meta::effects` (API-58) is one: an item whose meta only held effects compares as one without a meta.
+//! recorded too. `Meta::effects` (API-58) and `Meta::track` (API-71) are such: an item whose meta only held them
+//! compares as one without a meta.
 //! A file of a model format this build doesn't read (`ww_self_version`) is refused before it is read
 //! ([ww_snapshots::file::check_format]).
 

@@ -1,7 +1,7 @@
 // ww_timebase 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: d642138326cb16436d304081cb7f807d3df382dd5332518865ace64a0666f10d
-(magic: 2837124336, ww_self_version: (major: 0, minor: 5, patch: 0), root: (docs: [
+// shrink_wrap sha256: 525fce710ab06bda55b19fcfeeafc20f4a901b3dabfb6b226fcb3f31a812da6c
+(magic: 2837124336, ww_self_version: (major: 0, minor: 6, patch: 0), root: (docs: [
     "Device time and synchronisation over WireWeaver.",
     "",
     "Every device has one free-running clock that timestamps everything it captures, as [Second]s since the clock",
@@ -440,11 +440,11 @@
         ])), errors: None), multiplicity: Flat, since: None, ident: "now", docs: [
             "Device time now, full width: the value every truncated timestamp elsewhere in this device\'s API wraps",
             "around.",
-        ], optional: None, meta: Some((claim: None, shares: [], labels: [], effects: (1))), identity: None),
+        ], optional: None, meta: Some((claim: None, shares: [], labels: [], effects: (1), track: None)), identity: None),
         (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 3)), errors: None), multiplicity: Flat, since: None, ident: "info", docs: [
             "Static description of this clock: its resolution, what it calls itself, and which [SyncFormat]s it",
             "supports.",
-        ], optional: None, meta: Some((claim: None, shares: [], labels: [], effects: (1))), identity: None),
+        ], optional: None, meta: Some((claim: None, shares: [], labels: [], effects: (1), track: None)), identity: None),
         (id: 2, kind: Stream(ty: OutOfLine(type_idx: 4), is_up: true), multiplicity: Flat, since: None, ident: "time_map", docs: [
             "Local time mapped to the shared sync time, sent about once a second while synced and on every",
             "[SyncState] or [SyncSource] change, so a host can line up this device\'s timeline with others and see the",
@@ -466,14 +466,14 @@
             "configuration it rejects, `InUse` if sync mode cannot be switched while already locked to something else.",
             "",
             "Host steering needs no configuration: it is a source of its own, taken when the line gives nothing better.",
-        ], optional: None, meta: Some((claim: None, shares: [], labels: [], effects: (66))), identity: None),
+        ], optional: None, meta: Some((claim: None, shares: [], labels: [], effects: (66), track: None)), identity: None),
         (id: 4, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 5)), errors: None), multiplicity: Flat, since: None, ident: "sync_config", docs: [
             "Current sync configuration, as last accepted by `configure_sync` (`Off` until configured).",
-        ], optional: None, meta: Some((claim: None, shares: [], labels: [], effects: (1))), identity: None),
+        ], optional: None, meta: Some((claim: None, shares: [], labels: [], effects: (1), track: None)), identity: None),
         (id: 5, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 6)), errors: None), multiplicity: Flat, since: None, ident: "sync_status", docs: [
             "Current sync state, with the source followed, its estimated error and the offset and local time of the",
             "last lock, when known.",
-        ], optional: None, meta: Some((claim: None, shares: [], labels: [], effects: (1))), identity: None),
+        ], optional: None, meta: Some((claim: None, shares: [], labels: [], effects: (1), track: None)), identity: None),
         (id: 6, kind: Method(args: [
             (ident: "t", ty: OutOfLine(type_idx: 7), default: None, flatten: false),
         ], return_ty: None, errors: Some([
@@ -483,7 +483,7 @@
         ])), multiplicity: Flat, since: None, ident: "set_time_of_day", docs: [
             "Time of day a sync master sends on the sync line, set from its host. Has no effect on a slave or while",
             "sync is off: `WrongState` unless `configure_sync` currently has this device set as `Master`.",
-        ], optional: None, meta: Some((claim: None, shares: [], labels: [], effects: (2))), identity: None),
+        ], optional: None, meta: Some((claim: None, shares: [], labels: [], effects: (2), track: None)), identity: None),
         (id: 7, kind: Method(args: [
             (ident: "point", ty: OutOfLine(type_idx: 8), default: None, flatten: false),
         ], return_ty: Some(Option(some_ty: OutOfLine(type_idx: 9))), errors: Some([
@@ -506,7 +506,7 @@
             "steered by different hosts agree to NTP precision, and devices on one sync line to the line\'s. A host fits",
             "against its monotonic clock and adds the wall clock\'s offset when it sends, so a step of its wall clock",
             "moves the points without disturbing the fit (the `ww_clock_sync` crate does all this).",
-        ], optional: Some((group: Some("host_sync"))), meta: Some((claim: None, shares: [], labels: [], effects: (2))), identity: None),
+        ], optional: Some((group: Some("host_sync"))), meta: Some((claim: None, shares: [], labels: [], effects: (2), track: None)), identity: None),
         (id: 8, kind: Method(args: [], return_ty: Some(Option(some_ty: Instance(type_idx: 10, args: [
             Type(OutOfLine(type_idx: 11)),
             Type(Instance(type_idx: 12, args: [
@@ -518,7 +518,7 @@
         ]))), errors: None), multiplicity: Flat, since: None, ident: "shared_now", docs: [
             "The device\'s shared time now (UTC); `None` while the clock runs free. What a host compares with its own",
             "clock to see how well the device follows (the residual offset).",
-        ], optional: Some((group: Some("host_sync"))), meta: Some((claim: None, shares: [], labels: [], effects: (1))), identity: None),
+        ], optional: Some((group: Some("host_sync"))), meta: Some((claim: None, shares: [], labels: [], effects: (1), track: None)), identity: None),
         (id: 9, kind: Method(args: [
             (ident: "sources", ty: Option(some_ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 9)))), default: Some("None"), flatten: false),
         ], return_ty: None, errors: Some([
@@ -534,10 +534,10 @@
             "then free. `Unsupported` for a line format the device doesn\'t have (see `info().sync_formats`),",
             "`InvalidArgument` for a source named twice. Switching to another source because of a new list slews, as",
             "any switch does.",
-        ], optional: Some((group: Some("host_sync"))), meta: Some((claim: None, shares: [], labels: [], effects: (2))), identity: None),
+        ], optional: Some((group: Some("host_sync"))), meta: Some((claim: None, shares: [], labels: [], effects: (2), track: None)), identity: None),
         (id: 10, kind: Method(args: [], return_ty: Some(Option(some_ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 9))))), errors: None), multiplicity: Flat, since: None, ident: "sources", docs: [
             "The source list last accepted by `set_sources`; `None` for the fixed ranking.",
-        ], optional: Some((group: Some("host_sync"))), meta: Some((claim: None, shares: [], labels: [], effects: (1))), identity: None),
+        ], optional: Some((group: Some("host_sync"))), meta: Some((claim: None, shares: [], labels: [], effects: (1), track: None)), identity: None),
     ], compact_id: Some(24), meta: None), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_timebase", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),

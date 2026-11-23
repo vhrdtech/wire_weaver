@@ -3815,7 +3815,7 @@ checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 [[package]]
 name = "shrink_wrap"
 version = "0.2.0"
-source = "git+https://github.com/romixlab/shrink_wrap#12c2742b54d3ccb8a73cda4a95bc795326c4c60f"
+source = "git+https://github.com/romixlab/shrink_wrap#a3254497008a5f9671d31eaa7bc062c5b094880d"
 dependencies = [
  "defmt 1.1.1",
  "either",
@@ -3838,7 +3838,7 @@ dependencies = [
 [[package]]
 name = "shrink_wrap_derive"
 version = "0.2.0"
-source = "git+https://github.com/romixlab/shrink_wrap#12c2742b54d3ccb8a73cda4a95bc795326c4c60f"
+source = "git+https://github.com/romixlab/shrink_wrap#a3254497008a5f9671d31eaa7bc062c5b094880d"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -4540,6 +4540,27 @@ dependencies = [
  "thread_local",
  "tracing-core",
  "tracing-log",
+]
+
+[[package]]
+name = "track"
+version = "0.1.0"
+dependencies = [
+ "tests_common",
+ "track_api",
+ "wire_weaver",
+ "ww_client_server",
+ "ww_self",
+ "ww_si",
+ "ww_stream",
+]
+
+[[package]]
+name = "track_api"
+version = "0.1.0"
+dependencies = [
+ "ww_api",
+ "ww_si",
 ]
 
 [[package]]

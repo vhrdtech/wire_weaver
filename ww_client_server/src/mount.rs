@@ -281,6 +281,7 @@ mod tests {
         let context = RequestContext {
             trace: None,
             deadline: Some(ww_si::Millis::new(UNib32(250))),
+            forwarded_for: None,
         };
         let kinds = [
             RequestKind::Read,

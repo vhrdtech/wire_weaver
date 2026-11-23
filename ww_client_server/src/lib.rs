@@ -8,6 +8,7 @@
 pub mod builder;
 pub mod dispatch;
 pub mod err_seq;
+pub mod forwarded;
 pub mod max_len;
 pub mod mount;
 #[cfg(feature = "multi")]
@@ -208,6 +209,11 @@ pub struct RequestContext {
     /// What was left of the caller's time budget when the request was sent: a host server drops the request when it
     /// runs out, before or while it runs, and answers [ErrorKind::DeadlineExceeded].
     pub deadline: Option<ww_si::Millis<UNib32>>,
+    /// Who the request is from, when a mount forwarder (SRV-78) sent it on for a client of its own (SRV-79): the peer
+    /// its front's transport saw. A server takes it only from a connection it trusts to forward, see
+    /// [forwarded](crate::forwarded).
+    #[default = None]
+    pub forwarded_for: Option<forwarded::ForwardedPeer>,
 }
 
 /// Path to a resource.
@@ -1192,6 +1198,7 @@ mod tests {
                 flags: wire_weaver::TraceFlags::SAMPLED,
             }),
             deadline: Some(ww_si::Millis::new(UNib32(250))),
+            forwarded_for: None,
         };
         let request = Request {
             seq: UVlq32Backfill(0),

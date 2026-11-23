@@ -10,12 +10,12 @@ Every case of the [conformance corpus](conformance.md) and what each consumer do
 
 | Consumer | Cases run | Gaps |
 |---|---|---|
-| derive | 410 of 410 | 0 |
-| borrowed | 406 of 410 | 4 |
-| dynamic | 347 of 410 | 63 |
-| explain | 347 of 410 | 63 |
-| python | 345 of 410 | 65 |
-| c | 34 of 410 | 376 |
+| derive | 413 of 413 | 0 |
+| borrowed | 409 of 413 | 4 |
+| dynamic | 347 of 413 | 66 |
+| explain | 347 of 413 | 66 |
+| python | 345 of 413 | 68 |
+| c | 34 of 413 | 379 |
 
 | Case | Type | Direction | derive | borrowed | dynamic | explain | python | c |
 |---|---|---|---|---|---|---|---|---|
@@ -192,9 +192,12 @@ Every case of the [conformance corpus](conformance.md) and what each consumer do
 | `client_server.request.absolute_path` | `Request` | both | ✅ | ✅ | gap - | gap - | gap - | gap - |
 | `client_server.request.global_path` | `Request` | both | ✅ | ✅ | gap - | gap - | gap - | gap - |
 | `client_server.request.urgent` | `Request` | both | ✅ | ✅ | gap - | gap - | gap - | gap - |
-| `client_server.request.highest_reserved` | `Request` | both | ✅ | ✅ | gap - | gap - | gap - | gap - |
+| `client_server.request.highest_reserved` | `Request` | decode | ✅ | ✅ | gap - | gap - | gap - | gap - |
 | `client_server.request.context_deadline` | `Request` | both | ✅ | ✅ | gap - | gap - | gap - | gap - |
 | `client_server.request.context_trace` | `Request` | both | ✅ | ✅ | gap - | gap - | gap - | gap - |
+| `client_server.request.context_forwarded_unix` | `Request` | both | ✅ | ✅ | gap - | gap - | gap - | gap - |
+| `client_server.request.context_forwarded_addr` | `Request` | both | ✅ | ✅ | gap - | gap - | gap - | gap - |
+| `client_server.request.context_forwarded_unknown` | `Request` | both | ✅ | ✅ | gap - | gap - | gap - | gap - |
 | `client_server.request.cancel` | `Request` | both | ✅ | ✅ | gap - | gap - | gap - | gap - |
 | `client_server.event.stream_data_path` | `Event` | both | ✅ | ✅ | gap - | gap - | gap - | gap - |
 | `client_server.event.common_error` | `Event` | both | ✅ | ✅ | gap - | gap - | gap - | gap - |
@@ -535,7 +538,7 @@ The shape signature and the signature with docs of a definition (EVO-69), by whi
 - **c**: ww_client_server's Error is the error answer of a request, not a type of an API in the model. 6 cases: `client_server.error.overloaded`, `client_server.error.denied`, `client_server.error.deadline_exceeded`, `client_server.error.cancelled`, `client_server.error.internal`, `client_server.error.unavailable`.
 - **c**: ww_client_server's Event is a protocol message, not a type of an API in the model. 2 cases: `client_server.event.stream_data_path`, `client_server.event.common_error`.
 - **c**: ww_client_server's MultiIndex is a protocol message, not a type of an API in the model. 1 case: `client_server.multi_index.list`.
-- **c**: ww_client_server's Request is a protocol message, not a type of an API in the model. 7 cases: `client_server.request.absolute_path`, `client_server.request.global_path`, `client_server.request.urgent`, `client_server.request.highest_reserved`, `client_server.request.context_deadline`, `client_server.request.context_trace`, `client_server.request.cancel`.
+- **c**: ww_client_server's Request is a protocol message, not a type of an API in the model. 10 cases: `client_server.request.absolute_path`, `client_server.request.global_path`, `client_server.request.urgent`, `client_server.request.highest_reserved`, `client_server.request.context_deadline`, `client_server.request.context_trace`, `client_server.request.context_forwarded_unix`, `client_server.request.context_forwarded_addr`, `client_server.request.context_forwarded_unknown`, `client_server.request.cancel`.
 - **c**: ww_client_server's RequestKind is the request envelope, not a type of an API in the model. 2 cases: `client_server.stream_open.compressed`, `client_server.stream_open.raw`.
 - **c**: ww_client_server's StreamOpened is the answer envelope of a stream open, not a type of an API in the model. 2 cases: `client_server.stream_opened.lz4`, `client_server.stream_opened.unknown`.
 - **c**: ww_client_server's request envelope, not a type of an API in the model. 3 cases: `client_server.request.multi_read`, `client_server.request.sink_write`, `client_server.request.sideband_ack`.
@@ -554,7 +557,7 @@ The shape signature and the signature with docs of a definition (EVO-69), by whi
 - **dynamic**: ww_client_server's Error is the error answer of a request, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 6 cases: `client_server.error.overloaded`, `client_server.error.denied`, `client_server.error.deadline_exceeded`, `client_server.error.cancelled`, `client_server.error.internal`, `client_server.error.unavailable`.
 - **dynamic**: ww_client_server's Event is a protocol message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 2 cases: `client_server.event.stream_data_path`, `client_server.event.common_error`.
 - **dynamic**: ww_client_server's MultiIndex is a protocol message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 1 case: `client_server.multi_index.list`.
-- **dynamic**: ww_client_server's Request is a protocol message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 7 cases: `client_server.request.absolute_path`, `client_server.request.global_path`, `client_server.request.urgent`, `client_server.request.highest_reserved`, `client_server.request.context_deadline`, `client_server.request.context_trace`, `client_server.request.cancel`.
+- **dynamic**: ww_client_server's Request is a protocol message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 10 cases: `client_server.request.absolute_path`, `client_server.request.global_path`, `client_server.request.urgent`, `client_server.request.highest_reserved`, `client_server.request.context_deadline`, `client_server.request.context_trace`, `client_server.request.context_forwarded_unix`, `client_server.request.context_forwarded_addr`, `client_server.request.context_forwarded_unknown`, `client_server.request.cancel`.
 - **dynamic**: ww_client_server's RequestKind is the request envelope, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 2 cases: `client_server.stream_open.compressed`, `client_server.stream_open.raw`.
 - **dynamic**: ww_client_server's StreamOpened is the answer envelope of a stream open, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 2 cases: `client_server.stream_opened.lz4`, `client_server.stream_opened.unknown`.
 - **dynamic**: ww_client_server's request envelope, not a type of an API in the model; a dynamic consumer reads API types. 3 cases: `client_server.request.multi_read`, `client_server.request.sink_write`, `client_server.request.sideband_ack`.
@@ -573,7 +576,7 @@ The shape signature and the signature with docs of a definition (EVO-69), by whi
 - **explain**: ww_client_server's Error is the error answer of a request, not a type of an API in the model. 6 cases: `client_server.error.overloaded`, `client_server.error.denied`, `client_server.error.deadline_exceeded`, `client_server.error.cancelled`, `client_server.error.internal`, `client_server.error.unavailable`.
 - **explain**: ww_client_server's Event is a protocol message, not a type of an API in the model. 2 cases: `client_server.event.stream_data_path`, `client_server.event.common_error`.
 - **explain**: ww_client_server's MultiIndex is a protocol message, not a type of an API in the model. 1 case: `client_server.multi_index.list`.
-- **explain**: ww_client_server's Request is a protocol message, not a type of an API in the model. 7 cases: `client_server.request.absolute_path`, `client_server.request.global_path`, `client_server.request.urgent`, `client_server.request.highest_reserved`, `client_server.request.context_deadline`, `client_server.request.context_trace`, `client_server.request.cancel`.
+- **explain**: ww_client_server's Request is a protocol message, not a type of an API in the model. 10 cases: `client_server.request.absolute_path`, `client_server.request.global_path`, `client_server.request.urgent`, `client_server.request.highest_reserved`, `client_server.request.context_deadline`, `client_server.request.context_trace`, `client_server.request.context_forwarded_unix`, `client_server.request.context_forwarded_addr`, `client_server.request.context_forwarded_unknown`, `client_server.request.cancel`.
 - **explain**: ww_client_server's RequestKind is the request envelope, not a type of an API in the model. 2 cases: `client_server.stream_open.compressed`, `client_server.stream_open.raw`.
 - **explain**: ww_client_server's StreamOpened is the answer envelope of a stream open, not a type of an API in the model. 2 cases: `client_server.stream_opened.lz4`, `client_server.stream_opened.unknown`.
 - **explain**: ww_client_server's request envelope, not a type of an API in the model. 3 cases: `client_server.request.multi_read`, `client_server.request.sink_write`, `client_server.request.sideband_ack`.
@@ -592,7 +595,7 @@ The shape signature and the signature with docs of a definition (EVO-69), by whi
 - **python**: ww_client_server's Error is the error answer of a request, not a type of an API in the model. 6 cases: `client_server.error.overloaded`, `client_server.error.denied`, `client_server.error.deadline_exceeded`, `client_server.error.cancelled`, `client_server.error.internal`, `client_server.error.unavailable`.
 - **python**: ww_client_server's Event is a protocol message, not a type of an API in the model. 2 cases: `client_server.event.stream_data_path`, `client_server.event.common_error`.
 - **python**: ww_client_server's MultiIndex is a protocol message, not a type of an API in the model. 1 case: `client_server.multi_index.list`.
-- **python**: ww_client_server's Request is a protocol message, not a type of an API in the model. 7 cases: `client_server.request.absolute_path`, `client_server.request.global_path`, `client_server.request.urgent`, `client_server.request.highest_reserved`, `client_server.request.context_deadline`, `client_server.request.context_trace`, `client_server.request.cancel`.
+- **python**: ww_client_server's Request is a protocol message, not a type of an API in the model. 10 cases: `client_server.request.absolute_path`, `client_server.request.global_path`, `client_server.request.urgent`, `client_server.request.highest_reserved`, `client_server.request.context_deadline`, `client_server.request.context_trace`, `client_server.request.context_forwarded_unix`, `client_server.request.context_forwarded_addr`, `client_server.request.context_forwarded_unknown`, `client_server.request.cancel`.
 - **python**: ww_client_server's RequestKind is the request envelope, not a type of an API in the model. 2 cases: `client_server.stream_open.compressed`, `client_server.stream_open.raw`.
 - **python**: ww_client_server's StreamOpened is the answer envelope of a stream open, not a type of an API in the model. 2 cases: `client_server.stream_opened.lz4`, `client_server.stream_opened.unknown`.
 - **python**: ww_client_server's request envelope, not a type of an API in the model. 3 cases: `client_server.request.multi_read`, `client_server.request.sink_write`, `client_server.request.sideband_ack`.
@@ -612,7 +615,7 @@ Accepted by the frozen golden bytes guard (TEST-24) as a deliberate break, each 
 - `client_server.request.sideband_ack`: EVO-76 / the priority nibble is now priority: U3 and a reserved bit; NORMAL (2, reserved false) has the old NORMAL's bits, so the bytes stay.
 - `client_server.request.absolute_path`: EVO-76 / the priority nibble is now priority: U3 and a reserved bit; NORMAL (2, reserved false) has the old NORMAL's bits, so the bytes stay.
 - `client_server.request.global_path`: EVO-76 / the priority nibble is now priority: U3 and a reserved bit; NORMAL (2, reserved false) has the old NORMAL's bits, so the bytes stay.
-- `client_server.request.highest_reserved`: EVO-84 / the reserved bit after priority is the flag of the request context; no sender ever set it.
+- `client_server.request.highest_reserved`: EVO-85 / the bytes of a host from before the appended forwarded_for, read as None; encoding None now writes its flag (EVO-84 made the reserved bit the context's flag).
 - `stdlib.si.dim.volt`: EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has.
 - `stdlib.si.dim.rad_bit`: EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has.
 - `stdlib.si.dim.counted`: EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has.

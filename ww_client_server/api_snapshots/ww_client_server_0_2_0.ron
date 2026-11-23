@@ -1,6 +1,6 @@
 // ww_client_server 0.2.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 203b5fcf50f6b5ee302ad4491df512274065995c2f08aa5a2689d2184aa1c1b6
+// shrink_wrap sha256: c60b1403339cbafa0492c8a0fe24770d5921cbdd511d4861d574c717c072ae34
 (magic: 2837124336, ww_self_version: (major: 0, minor: 7, patch: 0), root: (docs: [
     "Client-server API model data types for both `no_std` and `std`: [`dispatch`]\'s request/response envelopes,",
     "[`observe`] for property change notifications, [`stream`] for reliable and counted streams, path and",
@@ -797,6 +797,11 @@
             "What was left of the caller\'s time budget when the request was sent: a host server drops the request when it",
             "runs out, before or while it runs, and answers [ErrorKind::DeadlineExceeded].",
         ], slot: None, series_opaque: false),
+        (ident: Some("forwarded_for"), default: Some(Bool(false)), since: None, ty: Option(some_ty: OutOfLine(type_idx: 31)), docs: [
+            "Who the request is from, when a mount forwarder (SRV-78) sent it on for a client of its own (SRV-79): the peer",
+            "its front\'s transport saw. A server takes it only from a connection it trusts to forward, see",
+            "[forwarded](crate::forwarded).",
+        ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Enum((size: UnsizedFinalStructure, repr: Nibble, crate_idx: 0, docs: [
         "Operation (call, read, write, etc.) to be performed on a resource.",
@@ -882,7 +887,7 @@
             "`resume` with the arguments the session was opened with. Answered with [EventKind::Value] holding",
             "[stream::StreamOpened].",
         ], ident: "StreamOpen", fields: Named([
-            (ident: Some("resume"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 31)), docs: [
+            (ident: Some("resume"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 32)), docs: [
                 "Resume from this point instead of starting a new session.",
             ], slot: None, series_opaque: false),
             (ident: Some("max_age"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 0, args: [
@@ -911,7 +916,7 @@
             "`cfg` is decoded when it is read ([RefBox::read]), the same bytes as a plain [ObserveRequest]: a server that",
             "observes nothing never links its decoder (SRV-54).",
         ], ident: "Observe", fields: Named([
-            (ident: Some("cfg"), default: None, since: None, ty: Box(OutOfLine(type_idx: 32)), docs: [], slot: None, series_opaque: false),
+            (ident: Some("cfg"), default: None, since: None, ty: Box(OutOfLine(type_idx: 33)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 9, since: None),
         (docs: [
             "Write an item of one unit to a credit sink (API-34): its position in units from the start of the session,",
@@ -963,6 +968,34 @@
         153,
         247,
     ]),
+    InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
+        "[wire_weaver::Peer] on the wire, as the front\'s transport saw it; [Peer::Local] has no form here, since a call",
+        "from the forwarder\'s own process is the forwarder\'s.",
+    ], ident: "ForwardedPeer", generics: [], variants: [
+        (docs: [
+            "The front\'s transport says nothing about its client (USB, RTT, a device\'s link): [Peer::Unknown].",
+        ], ident: "Unknown", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "A process on the front\'s machine, from the unix socket\'s peer credentials: [Peer::Unix].",
+        ], ident: "Unix", fields: Named([
+            (ident: Some("uid"), default: None, since: None, ty: OutOfLine(type_idx: 34), docs: [], slot: None, series_opaque: false),
+            (ident: Some("gid"), default: None, since: None, ty: OutOfLine(type_idx: 35), docs: [], slot: None, series_opaque: false),
+            (ident: Some("pid"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 36)), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 1, since: None),
+        (docs: [
+            "A peer that proved a key: [Peer::Key].",
+        ], ident: "Key", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 37), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 2, since: None),
+        (docs: [
+            "A network peer known by its address only: [Peer::Addr].",
+        ], ident: "Addr", fields: Named([
+            (ident: Some("ip"), default: None, since: None, ty: OutOfLine(type_idx: 38), docs: [], slot: None, series_opaque: false),
+            (ident: Some("port"), default: None, since: None, ty: OutOfLine(type_idx: 39), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 3, since: None),
+    ], path: Some([
+        "forwarded",
+    ]), instance_of: None, future_version: Some(Variant(ident: "Newer", bits: None)))), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "A point in a stream: a position in a session. The host keeps one per open stream and passes it back to resume",
         "after a reconnect or a restart ([RequestKind::StreamOpen](crate::RequestKind::StreamOpen)).",
@@ -982,7 +1015,7 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Body of [RequestKind::Observe](crate::RequestKind::Observe), sent to a trait level\'s path.",
     ], ident: "ObserveRequest", generics: [], fields: Named([
-        (ident: Some("entries"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 33)), docs: [
+        (ident: Some("entries"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 40)), docs: [
             "Settings per property, at most one entry per index.",
         ], slot: None, series_opaque: false),
         (ident: Some("patch"), default: None, since: None, ty: Bool, docs: [
@@ -1005,6 +1038,53 @@
         "observe",
     ]), instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A user id on the front\'s machine.",
+    ], ident: "UnixUid", generics: [], fields: Unnamed([
+        (ident: None, default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
+    ]), sparse: false, path: Some([
+        "forwarded",
+    ]), instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A group id on the front\'s machine.",
+    ], ident: "UnixGid", generics: [], fields: Unnamed([
+        (ident: None, default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
+    ]), sparse: false, path: Some([
+        "forwarded",
+    ]), instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A process id on the front\'s machine.",
+    ], ident: "UnixPid", generics: [], fields: Unnamed([
+        (ident: None, default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
+    ]), sparse: false, path: Some([
+        "forwarded",
+    ]), instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Sized(size_bits: 0), crate_idx: 0, docs: [
+        "The 32 bytes of a [PeerKey].",
+    ], ident: "KeyBytes", generics: [], fields: Unnamed([
+        (ident: None, default: None, since: None, ty: Array(len: Fixed(32), ty: NumericAny(Base(U8))), docs: [], slot: None, series_opaque: false),
+    ]), sparse: false, path: Some([
+        "forwarded",
+    ]), instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: BitAligned(1), crate_idx: 0, docs: [
+        "An IP address.",
+    ], ident: "IpBytes", generics: [], variants: [
+        (docs: [], ident: "V4", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: Array(len: Fixed(4), ty: NumericAny(Base(U8))), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 0, since: None),
+        (docs: [], ident: "V6", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: Array(len: Fixed(16), ty: NumericAny(Base(U8))), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 1, since: None),
+    ], path: Some([
+        "forwarded",
+    ]), instance_of: None, future_version: Some(Off))), crate_idx: 0),
+    InLine(ty: Struct((size: Sized(size_bits: 0), crate_idx: 0, docs: [
+        "A TCP or UDP port.",
+    ], ident: "Port", generics: [], fields: Unnamed([
+        (ident: None, default: None, since: None, ty: NumericAny(Base(U16)), docs: [], slot: None, series_opaque: false),
+    ]), sparse: false, path: Some([
+        "forwarded",
+    ]), instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One property of a level and how it is (to be) observed.",
     ], ident: "ObserveEntry", generics: [], fields: Named([
         (ident: Some("index"), default: None, since: None, ty: Instance(type_idx: 1, args: [
@@ -1014,7 +1094,7 @@
         ]), docs: [
             "Resource index of the property within its trait level.",
         ], slot: None, series_opaque: false),
-        (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 34), docs: [], slot: None, series_opaque: false),
+        (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 41), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: Some([
         "observe",
     ]), instance_of: None, extra: None)), crate_idx: 0),
@@ -1092,11 +1172,11 @@
         "Answer to [RequestKind::Observe](crate::RequestKind::Observe), in an",
         "[EventKind::Value](crate::EventKind::Value): the level\'s settings as the device applies them now.",
     ], ident: "ObserveGranted", generics: [], fields: Named([
-        (ident: Some("entries"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 33)), docs: [
+        (ident: Some("entries"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 40)), docs: [
             "Every property of the level that is observed now (not `Off`), with its period clamped to what the device can",
             "do, in index order.",
         ], slot: None, series_opaque: false),
-        (ident: Some("refused"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 36)), docs: [
+        (ident: Some("refused"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 43)), docs: [
             "Entries of the request that were not applied, and why.",
         ], slot: None, series_opaque: false),
         (ident: Some("budget"), default: None, since: None, ty: Instance(type_idx: 0, args: [
@@ -1121,7 +1201,7 @@
             Type(NumericAny(Base(UNib32))),
             Type(OutOfLine(type_idx: 2)),
         ]), docs: [], slot: None, series_opaque: false),
-        (ident: Some("reason"), default: None, since: None, ty: OutOfLine(type_idx: 37), docs: [], slot: None, series_opaque: false),
+        (ident: Some("reason"), default: None, since: None, ty: OutOfLine(type_idx: 44), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: Some([
         "observe",
     ]), instance_of: None, extra: None)), crate_idx: 0),
@@ -1242,7 +1322,7 @@
             "Batched streams (API-41): the most a batch waits on the device before it is sent, granted for the",
             "`max_age` of [StreamOpen](crate::RequestKind::StreamOpen); `None` for a stream that isn\'t batched.",
         ], slot: None, series_opaque: false),
-        (ident: Some("codec"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 39)), docs: [
+        (ident: Some("codec"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 46)), docs: [
             "Compressed streams (API-55): the codec the device compresses this session\'s events with, `None` for events",
             "sent as they are (the host asked for `raw`, or a stream that doesn\'t compress).",
         ], slot: None, series_opaque: false),
@@ -1278,7 +1358,7 @@
         ]), docs: [
             "Bytes sent and not acknowledged yet (reliable streams).",
         ], slot: None, series_opaque: false),
-        (ident: Some("store"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 38)), docs: [
+        (ident: Some("store"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 45)), docs: [
             "What the store holds, `None` without one (plain and counted streams).",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: Some([

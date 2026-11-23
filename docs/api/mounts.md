@@ -72,6 +72,45 @@ The elements of `mounts!(ext)` take `index_chain` like any array, plus `valid_in
 An authorization hook sees a slot's `presence` as a read and the slot's `api` as the last step, with no effects: the
 path below it is the mounted API's, not in the parent's model.
 
+## Forwarding
+
+A forwarder sends what crosses a slot on to the backend and back without knowing the mounted API: it rewrites the
+envelope only (seq, priority, context, path, kind), and copies arguments, values and stream data as bytes. Seqs pass
+through unchanged, since each front connection has a backend connection of its own. There is no wire change: the
+backend sees an ordinary request at its own absolute path, the client an ordinary event at the front's.
+
+```rust
+use ww_client_server::mount::MountPrefix;
+
+fn hub_request(&mut self, cx: &mut Context<'_, impl EventOut>, request: MountRequest<'_, '_>) -> MountAnswer {
+    // in: the request with the path below the slot, everything else as it arrived
+    let bytes = request.forward_into(&mut self.buf)?;
+    // remembered per slot: the path of its `api`, [hub, 1] here
+    let prefix = MountPrefix::new(request.prefix()?);
+    ..
+}
+// out: each event of the backend, its path (stream data, sideband, stream items, property updates) with the
+// prefix in front; replies, writes and errors carry no path and are copied as they are
+let event = prefix.event_out(&backend_event, &mut buf)?;
+```
+
+`ww_client_server::mount::request_at` writes any request at another absolute path, `request_bytes_at` the same from
+bytes. A message that doesn't decode or doesn't fit the buffer is a `RewriteError`.
+
+### Global paths into a mount
+
+A global trait path (`GlobalFull`, `GlobalCompact`) names a trait wherever it sits in the device's tree. A server
+knows the traits of a mounted API only from the backend's introspection data, learned when the slot comes `Up`.
+`wire_weaver_server::mount::MountedTraits` holds them: `mount(api_path, bundle)` at `Up`, `unmount(api_path)` at
+`Absent`, and `request_into_mount(request, buf)` rewrites a request whose global path reaches into a mounted API to
+the front's absolute path into the slot, which the generated dispatch then routes to the slot's handler.
+
+- The server's own tree comes first: a trait it has resolves as without mounts (by its dispatch, or by the client
+  from its introspection data), and mounting a backend never moves it.
+- Then the slots, in path order: depth first, in id order, the elements of `mounts!` by index.
+- Inside a mounted API, a trait is found as its own server finds it: the first one depth first, never under a
+  resource array, in a protocol compatible version of its crate (`ww_global` id for `GlobalCompact`).
+
 ## Client
 
 The generated client hands out a `wire_weaver_client::MountSlot`:
@@ -88,5 +127,6 @@ let first = device.ext(0)?;
 `hub.presence` and `ext[i].presence` by path; walking into `hub.api` says the mounted API is known only at run
 time. Working with the mounted API itself (its introspection, its items under the slot) is not built yet.
 
-Tests: `tests/mounts` (both server kinds, the generated and dynamic clients), `tests/mounts_api`. Conformance cases:
+Tests: `tests/mounts` (both server kinds, the generated and dynamic clients, `forward_to_a_backend`: the hub
+forwarding to another TV through the rewrite), `tests/mounts_api`. Conformance cases:
 `api.mount.presence.absent`, `api.mount.presence.up`, `api.mount.name`, `client_server.error.unavailable`.

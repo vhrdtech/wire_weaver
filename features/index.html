@@ -7367,8 +7367,8 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
     <code>get_&lt;slot&gt;_presence</code> and <code>&lt;slot&gt;_request</code> with <code>MountRequest</code>/<code>MountAnswer</code>, <code>ErrorKind::Unavailable</code>
     (<code>ww_client_server</code> w2.2), introspection below the root reaching the handler, <code>ww api scaffold</code>, the generated
     client's <code>MountSlot</code>, <code>presence</code> in the dynamic client, evolution and authorization steps; the rewrite is
-    SRV-77. Missing: forwarding to a backend process and the keys stream driven by mounts, the client view of the
-    mounted API (<code>TODO(SRV-76)</code>).
+    SRV-77, the client view of the mounted API is CLT-84. Missing: forwarding to a backend process and the keys stream
+    driven by mounts.
     <a href="../docs/api/mounts/">Docs</a>, <code>tests/mounts</code>.</li>
 <li>📋 <strong>SRV-9 Handle USB suspend/resume</strong> · <code>v0.5</code> — run until suspend, wait for resume, loop
   (<code>mcu/wire_weaver_usb_embassy</code>). Later (<code>v0.5.x</code>): detect the host going to sleep and keep the connection,
@@ -8047,6 +8047,16 @@ observing), SRV-46 (peer identity).
   the client's API still matches and the device's resource at the same path is compatible with the one it had; the
   rest end with a warning. Another wire line keeps CLT-63's handling. See <code>docs/transport/keep_trying.md</code>; tested in
   <code>tests/reconnect_revision</code>. The clock steering (CLT-46) keeps what the first connect decided.
+- ✅ <strong>CLT-84 Mount views</strong> · <code>v0.5</code> — a client reaches an API mounted at a slot (SRV-76) through a
+  <code>MountView</code> (<code>MountSlot::view</code>, <code>view_for(&amp;ClientLine)</code>): a <code>Commander</code> with the slot's <code>api</code> in front of every
+  path and its own device facts, learned through the slot (introspection data, hash, global trait paths, the resource
+  check). It follows the slot's <code>presence</code>: learns the API when a backend comes <code>Up</code>, again on another hash (CLT-81
+  per mount), resumes its streams, sinks and observers on the first <code>Up</code> after a link gap; <code>status()</code> tells the
+  program, apart from the link's state. Generated root clients get <code>on_mount(&amp;view)</code>;
+  <code>DynResource::walk_mounted</code> walks the dynamic client into mounts (<code>hub.mute</code>, <code>ext.cast.mute</code>), and <code>ww observe</code>
+  and <code>ww stream</code> with it. A global trait path the view can't resolve is refused, never sent to the front's own tree.
+  See <a href="../docs/api/mounts/#client">Mount slots</a>; tested in <code>tests/mounts</code>. Not covered: a facade of several wire lines
+  on a view, <code>ww call</code> (vhrdtech/ww_tools).
 - 🚧 <strong>CLT-75 Keep-trying connections</strong> · <code>v0.5</code> — <code>PreparedConnection::connect_keep_trying()</code> returns the client at
   once and connects in the background, again whenever the link goes: each attempt races the config's addresses
   (<code>ClientConfig::websocket_urls</code>, <code>in_process_paths</code>; <code>connect()</code> and <code>reconnect()</code> too, CLT-80), backoff and give-up

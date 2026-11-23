@@ -411,10 +411,18 @@ async fn pass_on<C: Connect>(
             full.extend(below);
             front.streams.remove(&full);
         }
+        // a backend answers only what it was sent: a reply under another seq could pose as the answer to a request
+        // of the same client to the front itself or to another slot
         let priority = match seq {
             0 => None,
-            seq if last => front.in_flight.remove(&seq),
-            seq => front.in_flight.get(&seq).copied(),
+            seq if last => match front.in_flight.remove(&seq) {
+                Some(priority) => Some(priority),
+                None => continue,
+            },
+            seq => match front.in_flight.get(&seq) {
+                Some(priority) => Some(*priority),
+                None => continue,
+            },
         };
         let Ok(rewritten) = front.prefix.event_out(bytes, buf) else {
             if seq != 0 && last {

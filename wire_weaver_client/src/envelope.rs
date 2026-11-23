@@ -44,7 +44,6 @@ pub struct Envelope {
     pub resource: Option<DynResource>,
 }
 
-// spirit-level: allow(nested-locks) no lock here: `rd.read()` is shrink_wrap's BufReader, not RwLock::read
 /// Explain `bytes` as a request (as the host sends it), its payload by the resource its path names in `root`'s API,
 /// or in the snapshot of a global trait ([global_trait], found through `resolver`). Without a `root` (the API of the
 /// device is not known) only the requests through global traits are explained.
@@ -244,7 +243,6 @@ pub fn explain_event<'r>(
     explain_reply(bytes, root.into(), for_resource, false)
 }
 
-// spirit-level: allow(nested-locks) no lock here: `rd.read()` is shrink_wrap's BufReader, not RwLock::read
 /// [explain_event] knowing what the event answers: with `observe` the value is what an `Observe` request of the
 /// trait level `for_resource` was granted (`ObserveGranted`), not a property.
 pub fn explain_reply<'r>(

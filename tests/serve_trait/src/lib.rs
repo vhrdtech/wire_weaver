@@ -45,7 +45,6 @@ impl Service {
 
 /// Takes `m`; a poisoned lock panics, as the thread that poisoned it did.
 fn locked<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
-    // spirit-level: allow(lock-unwrap) the crate's one place that decides poison: it panics
     m.lock()
         .expect("lock poisoned: a thread panicked while holding it")
 }

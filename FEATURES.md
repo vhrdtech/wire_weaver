@@ -729,6 +729,16 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
     answers its open requests `Unavailable` and closes its streams and observed levels; a reply under a seq the
     backend wasn't sent is dropped. `Connect` opens the stream: `LocalSocket` on tokio, `ww_calloop::UnixConnector` on calloop
     ([Docs](docs/api/mounts.md#backend-processes), `tests/mounts` `forwarder`, `tests/calloop_server`).
+- ✅ **SRV-79 Caller identity and effects across a mount** — a mounted call is checked on both sides of the mount
+    (SRV-78). The front's `Authorize` hook (SRV-46) sees the items below a slot's `api` with the effects the backend
+    declares (API-58), from its learned API, and `Resource::mount` names the slot (`Mounted`: its path, the learned API
+    or `None` while none is). The forwarder names the client in every request it sends on
+    (`RequestContext::forwarded_for`, `ww_client_server::forwarded::ForwardedPeer`, EVO-85), `Unknown` included, and
+    replaces whatever the client put there; a backend with `Server::trust_forwarders` serves it as that client's
+    (`cx.call().peer`, `forwarded`), any other as the forwarder's. A slot's API is learned before its presence turns
+    `Up`. No effect caps per mount yet: every effect passes the mount, limits are the hooks' (TR-24 adds peer
+    authentication) ([Docs](docs/api/mounts.md#who-calls-and-what-it-does), `tests/mounts`
+    `a_trusting_backend_sees_the_fronts_client`, `the_fronts_hook_sees_effects_inside_the_mount`).
 - 🚧 **SRV-76 Mount slots** — `mount!(hub)` (one slot, `mount!(hub: hub_api)` names the expected API crate) and
     `mounts!(ext)` (slots keyed by `ww_api::mount::MountName` through a `keyed!` companion): a level whose API is known
     only at run time. Done: the `ww_self` `Mount` item (model 0.7.0; the parent's hash covers the declaration only),
@@ -2013,6 +2023,11 @@ Unicast Data0 to one node over the same bus is TR-6.
   mismatch (test `wire_weaver_evolution` `old_format`). Format 0.3.0 had held about 40 encodings: every stored
   snapshot was rewritten once into 0.4.0 ([snapshots](docs/evolution/snapshots.md#model-format)). No device or
   host depends on an older format.
+- ✅ **EVO-85 `RequestContext::forwarded_for` appended** · `v0.5` — wire addition to `ww_client_server`, no break:
+  the request context ends with an optional `ForwardedPeer` (unix uid, gid and pid, a key, an address, or
+  `Unknown`; a kind of a newer forwarder reads as `Newer`), which a mount forwarder fills in (SRV-79). An older reader
+  skips it; encoding `None` writes its flag, so the sealed `client_server.request.highest_reserved` is decode-only now
+  (`wire_change`). Conformance cases `client_server.request.context_forwarded_*`.
 - ✅ **EVO-84 Request context on the wire** · `v0.5` — wire change of `ww_client_server` (line `w2.1`) behind
   SRV-47: the reserved bit after `Request::priority` is the flag of an optional `RequestContext` (trace, deadline),
   `RequestKind::Cancel` and the error kinds `Denied`, `DeadlineExceeded`, `Cancelled`, `Internal` are appended. A

@@ -180,6 +180,7 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 - **[Mount slots](api/mounts.md)**: `mount!(hub)` and `mounts!(ext)` declare levels whose API is known only at run time, served by one handler per slot. <span class="ww-status">in progress</span>
 - **[Forwarding into a mount](api/mounts.md#forwarding)**: Requests into a slot lose its path, events coming back get it, global trait paths reach mounted APIs.
 - **[Mount forwarder](api/mounts.md#backend-processes)**: A mount slot reaches another WireWeaver server over a socket, each connection with a link of its own, on tokio or calloop.
+- **[Who calls through a mount](api/mounts.md#who-calls-and-what-it-does)**: The front's policy sees a mounted call's effects, the backend learns which client of the front called.
 - **[Deferred replies everywhere](api/methods.md#deferred)**: Answer a call later, also on nested trait levels.
 - **[Replies by priority](transport/ww_framer.md#latency-and-priority)**: A reply to an urgent request leaves at once, also a deferred one sent later from your main loop; `Sink::flush` sends what waits now. <span class="ww-status">hardware check open</span>
 - **[Errors that say where](api/errors.md#where-on-the-device-an-error-came-from)**: A device's error names the site that raised it, by a number that is the same in every firmware.

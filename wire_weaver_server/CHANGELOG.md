@@ -4,6 +4,8 @@
 
 ### 🚀 Features
 
+- The authorization hook sees items and effects below a mount slot, from the backend's learned API (SRV-79).
+- `Server::trust_forwarders`: take a trusted forwarder's word on which client a request is from (SRV-79).
 - `mount::Mounts`, `Forwarder`, `Connect`, `LocalSocket`: mount slots forward to backend processes, a link per front connection (SRV-78).
 - `Forwarder`: a backend that goes ends the streams and observed levels under its slot with `Close` (SRV-78).
 - `Server::mounts` reroutes global paths into mounted APIs before authorization; `Backend::cancel` gets cancels of forwarded requests (SRV-78).
@@ -14,6 +16,7 @@
 
 ### 🐛 Fixes
 
+- A mount slot's API is learned before its presence turns `Up`, so the hook never misses it (SRV-79).
 - Takes `wire_weaver_client` without its default features: `in_process` no longer pulls in USB, so Android builds.
 
 ### 📚 Documentation
@@ -22,6 +25,8 @@
 
 ### ⚠️ Breaking
 
+- A path below a slot whose API isn't learned has no items; it was the slot's `api` as last step (SRV-79).
+- `mount::Forwarder::forward` takes the handler's `cx.call()`: the backend is told which client called (SRV-79).
 - `Authorize`, `Denied` and `Resource` are `wire_weaver::authorize`'s, re-exported here (SRV-72): `check` returns a `Verdict` (`Result<(), Denied>` converts with `.into()`), a closure becomes a hook through `from_fn(..)`, and `Resource::items` is a slice of `Step` (name, id, index, effects, meta) instead of `(&ApiItemOwned, Option<u32>)`; `resource.api` with `item_chain(path)` still gives the items' model.
 
 - `PumpId` names an element of a stream array too, `PumpId::indexed(id, &[index])` (CLT-58): `PumpId(n)` becomes `PumpId::new(n)`, and it is no longer `Copy`.

@@ -133,6 +133,28 @@ pub struct Resource<'a> {
     /// The API's model a server was given, for what [items](Self::items) leaves out (`api.item_chain(path)`: the
     /// items' kinds and types); `None` for a call through [Authorized].
     pub api: Option<&'a ApiBundleOwned>,
+    /// The mount slot (SRV-76) the request goes into, when [path](Self::path) goes below a slot's `api`: the request
+    /// is sent on to the slot's backend. `None` for every other request.
+    pub mount: Option<Mounted<'a>>,
+}
+
+/// Where a request goes into a mount slot, see [Resource::mount].
+#[derive(Clone, Copy, Debug)]
+#[non_exhaustive]
+pub struct Mounted<'a> {
+    /// The path of the slot's `api` from the API's root: [Resource::path] goes on from there in the mounted API.
+    pub api_path: &'a [u32],
+    /// The mounted API's model, learned from its backend when it came up (SRV-79): the [Resource::items] below the
+    /// slot's `api` are its items, with the effects the backend declares. `None` while none is learned; the items
+    /// are `None` then, since nothing is known of what the request does.
+    pub api: Option<&'a ApiBundleOwned>,
+}
+
+impl<'a> Mounted<'a> {
+    /// The slot whose `api` is at `api_path`, serving the API `api` describes.
+    pub fn new(api_path: &'a [u32], api: Option<&'a ApiBundleOwned>) -> Self {
+        Mounted { api_path, api }
+    }
 }
 
 impl<'a> Resource<'a> {
@@ -152,7 +174,15 @@ impl<'a> Resource<'a> {
             multi,
             items,
             api,
+            mount: None,
         }
+    }
+
+    /// The same resource, going into the mount slot `mount`.
+    #[must_use]
+    pub fn with_mount(mut self, mount: Option<Mounted<'a>>) -> Self {
+        self.mount = mount;
+        self
     }
 
     /// The last item on the way: the one the request names.

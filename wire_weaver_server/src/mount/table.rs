@@ -37,7 +37,8 @@ const EVENTS_QUEUED_MAX: usize = 64;
 /// The seq of a control link's introspection request: the only request it sends.
 const INTROSPECT_SEQ: u32 = 1;
 
-/// How a slot reaches its backend, beside its [Connect].
+/// How a slot reaches its backend, beside its [Connect]. Every effect of the mounted API passes the slot: the
+/// server's `Authorize` hook limits its calls, seeing their effects (SRV-79).
 #[derive(Clone, Debug)]
 pub struct MountOptions {
     /// What the preamble asks for: `Target::Device("")`, the default, is the only API of a server's listener;
@@ -80,6 +81,22 @@ pub type Learn = dyn Fn(&[u8]) -> Option<ApiBundleOwned> + Send + Sync;
 pub struct MountRoutes(Arc<Mutex<MountedTraits>>);
 
 impl MountRoutes {
+    /// The routes of a server whose own API is `own`, with nothing mounted.
+    pub(crate) fn new(own: Arc<ApiBundleOwned>) -> Self {
+        MountRoutes(Arc::new(Mutex::new(MountedTraits::new(own))))
+    }
+
+    /// A backend at the slot whose `api` is at `api_path` came up serving `api`.
+    #[cfg(test)]
+    pub(crate) fn learned(&self, api_path: &[u32], api: Arc<ApiBundleOwned>) {
+        locked(&self.0).mount(&paths(api_path), api);
+    }
+
+    /// The API learned from the backend of the slot `path` goes into, with the path of the slot's `api`.
+    pub(crate) fn mounted(&self, path: &[u32]) -> Option<(Vec<u32>, Arc<ApiBundleOwned>)> {
+        locked(&self.0).mounted(path)
+    }
+
     /// [MountedTraits::request_into_mount] of the current table; `None` when the request stays as it is, also when
     /// it doesn't decode (the dispatcher answers it).
     pub fn request_into_mount<'b>(&self, request: &[u8], buf: &'b mut [u8]) -> Option<&'b [u8]> {
@@ -150,7 +167,7 @@ impl<C: Connect> Mounts<C> {
                 waker: None,
             })),
             events: Fanout::new(EVENTS_QUEUED_MAX),
-            routes: MountRoutes(Arc::new(Mutex::new(MountedTraits::new(own)))),
+            routes: MountRoutes::new(own),
             learn: Arc::new(decode_as_sent),
         }
     }
@@ -404,9 +421,25 @@ impl<C: Connect> Mounts<C> {
         info: DeviceInfoOwned,
         api: Option<ApiBundleOwned>,
     ) {
+        let current =
+            |table: &Table<C>| table.slots.get(key).is_some_and(|slot| slot.epoch == epoch);
+        if !current(&locked(&self.table)) {
+            return;
+        }
+        // learned before the slot is up: no request reaches the backend before the hook can see its effects
+        {
+            let mut routes = locked(&self.routes.0);
+            match api {
+                Some(api) => routes.mount(api_path, Arc::new(api)),
+                None => routes.unmount(api_path),
+            }
+        }
         {
             let mut table = locked(&self.table);
             let Some(slot) = table.slots.get_mut(key).filter(|slot| slot.epoch == epoch) else {
+                drop(table);
+                // mounted again or unmounted meanwhile; only `run` learns, so nothing newer is undone
+                locked(&self.routes.0).unmount(api_path);
                 return;
             };
             slot.presence = MountPresenceOwned::Up {
@@ -415,13 +448,6 @@ impl<C: Connect> Mounts<C> {
                 wire: info.user_api_wire,
             };
             slot.info = Some(info);
-        }
-        {
-            let mut routes = locked(&self.routes.0);
-            match api {
-                Some(api) => routes.mount(api_path, Arc::new(api)),
-                None => routes.unmount(api_path),
-            }
         }
         self.events.send(MountEvent::Presence {
             api_path: api_path.to_vec(),

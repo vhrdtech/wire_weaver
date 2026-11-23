@@ -201,6 +201,7 @@ pub type ContextField<'i> = bool;
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
+    elide_defaults,
     derive(Debug, Clone, Copy, PartialEq, Eq)
 )]
 pub struct RequestContext {

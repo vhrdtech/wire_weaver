@@ -3,6 +3,7 @@
 ### 🚀 Features
 
 - `forwarded::ForwardedPeer`, `RequestContext::forwarded_for`: the client a mount forwarder sent a request on for (SRV-79, EVO-85).
+- `RequestContext` leaves trailing defaults off the wire (`elide_defaults`): contexts without `forwarded_for` keep their bytes (EVO-85).
 - `err_seq::MOUNT_BACKEND_GONE`, `MOUNT_QUEUE_FULL`, `MOUNT_TOO_LONG`: sites of a mount forwarder's own answers (SRV-78).
 - `mount::MountPrefix`, `request_at`, `MountRequest::forward_into`: header-only prefix rewrite of requests and events crossing a mount slot (SRV-77).
 - `Request` and `RequestKind` are `Clone` (SRV-77).

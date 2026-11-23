@@ -1421,6 +1421,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#attributes-for-one-generated-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Attributes for one generated type
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -6942,6 +6953,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#attributes-for-one-generated-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Attributes for one generated type
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -7139,6 +7161,10 @@ so do the examples):</p>
 <tr>
 <td><code>#[default]</code>, <code>#[flag]</code>, <code>#[slot]</code>, <code>#[future_version]</code>, <code>#[cfg]</code></td>
 <td><a href="#field-and-variant-attributes">Field and variant attributes</a></td>
+</tr>
+<tr>
+<td><code>#[attr_owned(..)]</code>, <code>#[attr_borrowed(..)]</code> on a field or variant</td>
+<td><a href="#attributes-for-one-generated-type">Attributes for one generated type</a></td>
 </tr>
 </tbody>
 </table>
@@ -7846,6 +7872,11 @@ It is a promise the impl's tests check: a value past it doesn't fit a buffer siz
 <td>struct and variant fields</td>
 <td>the field keeps its Rust type, the bytes are <code>W</code>'s (<a href="#wirew-field-attribute">above</a>)</td>
 </tr>
+<tr>
+<td><code>#[attr_owned(..)]</code>, <code>#[attr_borrowed(..)]</code></td>
+<td>fields and variants</td>
+<td>the attributes inside go on the owned or the borrowed type only (<a href="#attributes-for-one-generated-type">below</a>)</td>
+</tr>
 </tbody>
 </table>
 <h3 id="behind-cfg_attr-and-attributes-the-derive-doesnt-read">Behind <code>cfg_attr</code>, and attributes the derive doesn't read<a class="headerlink" href="#behind-cfg_attr-and-attributes-the-derive-doesnt-read" title="Permanent link">&para;</a></h3>
@@ -7863,9 +7894,37 @@ evaluate a <code>cfg</code>. So:</p>
   <code>#[cfg_attr(feature = "defmt", defmt(Debug2Format))]</code>, a <code>cfg_attr</code> of those) stays on the generated field or variant
   as written, and rustc expands it there. It goes on the type with the item's own name only (the borrowed <code>Type&lt;'i&gt;</code>,
   or <code>TypeOwned</code> when that is what is written), like the item's own <code>derive</code>s: the owned mirror may not derive what
-  the attribute belongs to.</li>
+  the attribute belongs to. <code>serde</code> attributes and <code>#[attr_owned(..)]</code> / <code>#[attr_borrowed(..)]</code> go elsewhere, see
+  <a href="#attributes-for-one-generated-type">below</a>.</li>
 <li>A name the derive doesn't know is a compile error from rustc ("cannot find attribute"), never silently nothing.</li>
 </ul>
+<h3 id="attributes-for-one-generated-type">Attributes for one generated type<a class="headerlink" href="#attributes-for-one-generated-type" title="Permanent link">&para;</a></h3>
+<p><code>#[attr_owned(attr, ..)]</code> puts the attributes inside on the owned type only, <code>#[attr_borrowed(attr, ..)]</code> on the
+borrowed type only: the field form of <code>cfg_attr_owned(..)</code> / <code>cfg_attr_borrowed(..)</code>. They work on struct fields,
+on variants and on their fields, named or not. An <a href="../derive/#borrowed-owned-or-both">ambiguous</a> type with both sides
+is one type and takes both. A condition goes inside, <code>#[attr_owned(cfg_attr(feature = "x", serde(..)))]</code>.</p>
+<p>A <code>#[serde(..)]</code> (or a <code>#[cfg_attr(pred, serde(..))]</code> holding only <code>serde</code> attributes) needs no marking: it goes on
+every generated type that derives <code>Serialize</code> or <code>Deserialize</code>, through <code>derive(..)</code>, <code>derive_owned(..)</code> /
+<code>derive_borrowed(..)</code>, the item's own outer <code>#[derive(..)]</code> (on the type with its name) or a <code>cfg_attr</code> naming
+them, under that <code>cfg_attr</code>'s condition. When no generated type visibly derives them, it stays on the type with
+the item's name. So a type whose owned side alone has serde takes a unit's <code>with</code> attribute as written:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="cp">#[derive_shrink_wrap(</span>
+</span><span id="__span-23-2"><a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="cp">    borrowed,</span>
+</span><span id="__span-23-3"><a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a><span class="cp">    owned,</span>
+</span><span id="__span-23-4"><a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="cp">    derive(Debug, PartialEq),</span>
+</span><span id="__span-23-5"><a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a><span class="cp">    derive_owned(Clone, serde::Serialize, serde::Deserialize)</span>
+</span><span id="__span-23-6"><a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a><span class="cp">)]</span>
+</span><span id="__span-23-7"><a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a><span class="k">struct</span><span class="w"> </span><span class="nc">Settings</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-23-8"><a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a><span class="w">    </span><span class="n">laugh_tokens</span><span class="p">:</span><span class="w"> </span><span class="nc">RefVec</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;&#39;</span><span class="na">i</span><span class="w"> </span><span class="kt">str</span><span class="o">&gt;</span><span class="p">,</span>
+</span><span id="__span-23-9"><a id="__codelineno-23-9" name="__codelineno-23-9" href="#__codelineno-23-9"></a><span class="w">    </span><span class="cp">#[serde(with = </span><span class="s">&quot;exact_units::serde::with_unit&quot;</span><span class="cp">)]</span><span class="w"> </span><span class="c1">// on SettingsOwned only</span>
+</span><span id="__span-23-10"><a id="__codelineno-23-10" name="__codelineno-23-10" href="#__codelineno-23-10"></a><span class="w">    </span><span class="n">delay</span><span class="p">:</span><span class="w"> </span><span class="nc">Quantity</span><span class="p">,</span>
+</span><span id="__span-23-11"><a id="__codelineno-23-11" name="__codelineno-23-11" href="#__codelineno-23-11"></a><span class="w">    </span><span class="cp">#[attr_owned(serde(rename = </span><span class="s">&quot;lvl&quot;</span><span class="cp">))]</span>
+</span><span id="__span-23-12"><a id="__codelineno-23-12" name="__codelineno-23-12" href="#__codelineno-23-12"></a><span class="w">    </span><span class="cp">#[attr_borrowed(allow(deprecated))]</span>
+</span><span id="__span-23-13"><a id="__codelineno-23-13" name="__codelineno-23-13" href="#__codelineno-23-13"></a><span class="w">    </span><span class="n">level</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+</span><span id="__span-23-14"><a id="__codelineno-23-14" name="__codelineno-23-14" href="#__codelineno-23-14"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>Both types read and write the same shrink_wrap bytes; the attributes change nothing on the wire
+(<code>shrink_wrap/tests/one_side_attrs.rs</code>).</p>
 <p>Special field types the macro handles itself: <a href="../special_types/#tailsizen-the-size-of-the-rest-of-a-value"><code>TailSize&lt;N&gt;</code></a>
 (filled in with the size of the rest of the value; only in types without a size assumption, the same on the borrowed
 and owned side) and <code>MaxLen&lt;T, N&gt;</code> (checked on serialize and deserialize, see

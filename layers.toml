@@ -180,6 +180,7 @@ tests_common = { layer = "runtime" }
 thermo = { layer = "runtime" }
 thermo_api = { layer = "runtime", no_std = true }
 thermo_devices = { layer = "runtime" }
+toml_settings_api = { layer = "runtime", no_std = true }
 totals = { layer = "runtime" }
 totals_api = { layer = "runtime", no_std = true }
 traits = { layer = "runtime" }

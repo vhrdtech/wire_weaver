@@ -32,7 +32,8 @@ use ww_self::{
     MAX_DECODE_DEPTH, TypeOwned,
 };
 
-use crate::value::{EXACT_INT, base_name, is_u8};
+use crate::doc::EXACT_INT;
+use crate::value::{base_name, is_u8};
 
 /// The dialect every schema declares.
 pub const DIALECT: &str = "https://json-schema.org/draft/2020-12/schema";

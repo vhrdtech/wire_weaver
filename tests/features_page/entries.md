@@ -321,6 +321,7 @@ A device can send a description of its own API, so tools and scripts work with i
 - INT-15 | JSON Schema of every item | `ww_json::schema` describes the arguments, results, properties and stream items of any API as a JSON Schema, quantities with their unit and bounds, for MCP servers and other JSON clients. | api/json.md#json-schema
 - INT-16 | Compressed introspection data | `introspect_compression = "lz4"` keeps a device's API description compressed in flash, the client decompresses it: 4.3 KB less on rePort. | api/introspection.md#compressed-introspection-data
 - INT-17 | Identity of a renamed resource | A resource renamed with `#[moved_from]` keeps its first name in the device's API description, so recordings follow it across the rename. | evolution/rules.md#moving-a-resource-to-another-place
+- INT-18 | TOML for any API | `ww_json::toml` reads and writes the values of any API type as TOML by the JSON form's rules, decodes a settings level onto a base value and writes changes back into a file, keeping its comments. | api/json.md
 - INT-3 | Moved flag bits | Relocated `#[flag]` fields in the model and in dynamic values. | std_library/ww_self.md
 
 ## Nomicon

@@ -1,0 +1,24 @@
+[package]
+name = "mount_backend_api"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "The backend mounted in the mount forwarder tests (SRV-78): a hub with calls and a nested trait"
+
+[package.metadata.wire_weaver]
+wire = "w1.0"
+
+[features]
+default = ["std"]
+# turns no_std off and switches the derived types from borrowed to owned
+std = ["ww_api/std"]
+
+[dependencies]
+ww_api.workspace = true
+
+[lints]
+workspace = true

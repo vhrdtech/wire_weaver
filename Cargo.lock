@@ -2555,17 +2555,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "mount_backend_api"
+version = "0.1.0"
+dependencies = [
+ "ww_api",
+]
+
+[[package]]
 name = "mounts"
 version = "0.1.0"
 dependencies = [
+ "mount_backend_api",
  "mounts_api",
  "tests_common",
  "tokio",
  "tracing-subscriber",
  "wire_weaver",
  "wire_weaver_client",
+ "wire_weaver_server",
  "ww_client_server",
+ "ww_device",
  "ww_keyed",
+ "ww_local_socket",
  "ww_self",
  "ww_stream",
 ]
@@ -5307,6 +5318,7 @@ dependencies = [
  "ww_byte_stream",
  "ww_client_server",
  "ww_device",
+ "ww_link",
  "ww_local_socket",
  "ww_self",
 ]

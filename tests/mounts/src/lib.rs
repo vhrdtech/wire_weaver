@@ -4,6 +4,7 @@
 //! its extensions through `ext_keys`. The generated and dynamic clients reach the slots.
 
 pub mod device;
+pub mod forwarder;
 
 #[cfg(test)]
 mod tests {

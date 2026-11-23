@@ -264,6 +264,7 @@ large_messages_api = { version = "0.1.0", path = "./tests/large_messages_api" }
 local_trait_api = { version = "0.1.0", path = "./examples/local_trait_api" }
 methods_api = { version = "0.1.0", path = "./tests/methods_api" }
 module_paths_api = { version = "0.1.0", path = "./tests/module_paths_api" }
+mount_backend_api = { version = "0.1.0", path = "./tests/mount_backend_api" }
 mounts_api = { version = "0.1.0", path = "./tests/mounts_api" }
 multi_req_api = { version = "0.1.0", path = "./tests/multi_req_api" }
 multi_root_api = { version = "0.1.0", path = "./tests/multi_root_api" }

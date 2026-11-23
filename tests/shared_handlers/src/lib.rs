@@ -18,7 +18,6 @@ use std::sync::{Mutex, MutexGuard};
 ///
 /// When a handler panicked while holding it: that already failed the test that ran it.
 pub(crate) fn locked<T>(slot: &Mutex<T>) -> MutexGuard<'_, T> {
-    // spirit-level: allow(lock-unwrap) the one place the test servers take a lock; poison means a handler panicked
     slot.lock()
         .expect("a handler panicked while holding the lock")
 }

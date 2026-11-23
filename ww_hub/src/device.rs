@@ -166,7 +166,6 @@ pub(crate) async fn join(
 ) -> Result<DeviceHandle, Status> {
     let slot = hub.device_slot(key);
     let mut guard = slot.lock().await;
-    // spirit-level: allow(lock-held-across) the slot's async lock is held until the device's task is in it, so one task opens a device; the send is an unbounded channel's and never waits
     if let Some(handle) = guard.as_ref()
         && handle
             .tx
@@ -181,6 +180,7 @@ pub(crate) async fn join(
     if hub.lent_to(key).is_some() {
         return Err(Status::Lent);
     }
+    // spirit-level: allow(lock-held-across) the slot's async lock is held while the device opens, so one task opens a device
     let handle = open(hub, key, slot.clone()).await?;
     let _ = handle.tx.send(ToDevice::Join {
         id,

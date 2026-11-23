@@ -32,10 +32,11 @@ pub(crate) async fn stream(args: StreamArgs, device: &DynClient) -> Result<()> {
         .ok_or_else(|| anyhow!("device did not provide introspection data"))?
         .api_bundle
         .clone();
-    let resource = DynResource::root(bundle)
-        .walk_on(device.cmd(), &args.path)
+    let walked = DynResource::root(bundle)
+        .walk_mounted(device.cmd(), &args.path)
         .await
         .with_context(|| format!("'{}'", display_path(&args.path)))?;
+    let (resource, cmd) = (&walked.resource, walked.cmd(device.cmd()));
     let ty = match resource.kind()? {
         DynResourceKind::Stream {
             ty, is_up: true, ..
@@ -58,10 +59,7 @@ pub(crate) async fn stream(args: StreamArgs, device: &DynClient) -> Result<()> {
 
     match resource.delivery() {
         None => {
-            let mut stream = resource
-                .stream(device.cmd())
-                .await
-                .context("opening the stream")?;
+            let mut stream = resource.stream(cmd).await.context("opening the stream")?;
             if args.batches {
                 loop {
                     let batch = stream.recv_batch().await.context("receiving a batch")?;
@@ -76,7 +74,7 @@ pub(crate) async fn stream(args: StreamArgs, device: &DynClient) -> Result<()> {
         }
         Some(_) => {
             let open = resource
-                .positioned_stream(device.cmd(), &[], AckMode::OnReceive, None)
+                .positioned_stream(cmd, &[], AckMode::OnReceive, None)
                 .await
                 .context("opening the stream")?;
             let mut stream = match open {

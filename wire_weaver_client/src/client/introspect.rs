@@ -154,9 +154,10 @@ impl Introspect {
 
     async fn download_as_sent(self) -> Result<Option<(ApiBundleOwned, usize)>> {
         let rx = self.transport_cmd_tx.send_introspect(None).await?;
+        let path = self.transport_cmd_tx.root.to_vec();
         let mut stream = Stream {
             transport_cmd_tx: self.transport_cmd_tx,
-            path_kind: PathKindOwned::Absolute { path: vec![] },
+            path_kind: PathKindOwned::Absolute { path },
             rx,
             unpacker: crate::client::batch::Unpacker::new(None),
             pending: Default::default(),
@@ -168,9 +169,10 @@ impl Introspect {
 
     fn download_as_sent_blocking(self) -> Result<Option<(ApiBundleOwned, usize)>> {
         let rx = self.transport_cmd_tx.send_introspect_blocking(None)?;
+        let path = self.transport_cmd_tx.root.to_vec();
         let mut stream = Stream {
             transport_cmd_tx: self.transport_cmd_tx,
-            path_kind: PathKindOwned::Absolute { path: vec![] },
+            path_kind: PathKindOwned::Absolute { path },
             rx,
             unpacker: crate::client::batch::Unpacker::new(None),
             pending: Default::default(),

@@ -54,6 +54,9 @@ pub struct Commander {
     ///
     /// "Some" cases are only for trait clients (`client = "trait_client"`). API root client (`client = "std_client"`) uses absolute addressing.
     base_path: Option<Vec<ResourceIndex>>,
+    /// Path of a mount slot's `api` this Commander is a view of (CLT-84), put in front of every request path after it
+    /// was resolved and checked in the mounted API; empty for the connected device's own API.
+    prefix: Arc<[ResourceIndex]>,
 
     default_timeout: Duration,
     /// Priority of requests that don't set their own, see [Commander::set_default_priority]
@@ -115,6 +118,9 @@ pub struct TransportCommander {
     /// The caller's trace, sent with the requests' deadline to a device that reads request contexts (SRV-47); set
     /// by `with_call_context`.
     pub(crate) trace: Option<wire_weaver::TraceContext>,
+    /// Path of the API root: a mount view's prefix (CLT-84), empty for the device's own API. Introspection data is
+    /// asked for there.
+    pub(crate) root: Arc<[ResourceIndex]>,
 }
 
 /// A [TransportCommander] that doesn't keep the event loop's command channel open: the connection's
@@ -128,6 +134,7 @@ pub(crate) struct WeakTransport {
     consts: ConstCache,
     keys: KeyCaches,
     observes: ObserveRegistry,
+    root: Arc<[ResourceIndex]>,
 }
 
 impl WeakTransport {
@@ -141,6 +148,7 @@ impl WeakTransport {
             keys: self.keys.clone(),
             observes: self.observes.clone(),
             trace: None,
+            root: self.root.clone(),
         })
     }
 }
@@ -152,6 +160,7 @@ pub(crate) struct WeakCommander {
     last_clone: Weak<()>,
     loop_thread: Option<std::thread::ThreadId>,
     base_path: Option<Vec<ResourceIndex>>,
+    prefix: Arc<[ResourceIndex]>,
     default_timeout: Duration,
     default_priority: Priority,
     client_introspect: Option<IntrospectBundle>,
@@ -178,6 +187,7 @@ impl WeakCommander {
             last_clone: self.last_clone.upgrade()?,
             loop_thread: self.loop_thread,
             base_path: self.base_path.clone(),
+            prefix: self.prefix.clone(),
             default_timeout: self.default_timeout,
             default_priority: self.default_priority,
             client_introspect: self.client_introspect.clone(),
@@ -310,6 +320,7 @@ impl Commander {
         Self {
             transport_cmd_tx,
             base_path: None,
+            prefix: Arc::new([]),
             default_timeout: DEFAULT_REQUEST_TIMEOUT,
             default_priority: Priority::NORMAL,
             client_introspect: None,
@@ -401,12 +412,12 @@ impl Commander {
         path: PathKind<'_>,
     ) -> PreparedRead<T> {
         // postpone error return to have a better syntax
-        let path_kind = self.to_ww_client_server_path(path);
+        let path_kind = self.to_api_path(path);
         let version_check = match &path_kind {
             Ok((path_kind, false)) => self.check_resource(path_kind),
             Ok((_, true)) | Err(_) => Ok(()),
         };
-        let path_kind = path_kind.map(|(path_kind, _)| path_kind);
+        let path_kind = path_kind.and_then(|(path_kind, _)| self.on_front(path_kind));
         PreparedRead {
             transport_cmd_tx: self.transport(),
             version_check,
@@ -471,6 +482,7 @@ impl Commander {
             keys: self.keys.clone(),
             observes: self.observes.clone(),
             trace: None,
+            root: self.prefix.clone(),
         }
     }
 
@@ -1099,6 +1111,48 @@ impl Commander {
             .unwrap_or_default()
     }
 
+    /// A view of the API mounted at `api` (CLT-84), the path of a slot's `api` as the device names it: the same link,
+    /// its own device facts (nothing learned yet), trait paths, `const` values, keys and kept streams, sinks and
+    /// observers. Requests go out with `api` in front of their path.
+    pub(crate) fn mount_view(&self, api: Vec<ResourceIndex>) -> Commander {
+        Commander {
+            transport_cmd_tx: self.transport_cmd_tx.clone(),
+            base_path: None,
+            prefix: api.into(),
+            default_timeout: self.default_timeout,
+            default_priority: self.default_priority,
+            client_introspect: None,
+            facts: Arc::new(RwLock::new(Arc::new(DeviceFacts {
+                connected_device: DeviceApiInfo::empty(),
+                device_introspect: None,
+                api_match: ApiMatch::NoClientApi,
+                learned: false,
+            }))),
+            traits_only: false,
+            global_paths: GlobalPaths::new(self.resolver),
+            resolver: self.resolver,
+            stream_queue_bytes: self.stream_queue_bytes,
+            stream_compression: self.stream_compression,
+            streams: StreamRegistry::default(),
+            sinks: SinkRegistry::default(),
+            consts: ConstCache::default(),
+            keys: KeyCaches::default(),
+            observes: ObserveRegistry::default(),
+            // the link's Commander reconnects, the view learns the mounted API again
+            reconnect: None,
+            last_clone: self.last_clone.clone(),
+            loop_thread: self.loop_thread,
+            // the device's clock is the link's
+            #[cfg(feature = "clock_sync")]
+            clock_sync: None,
+        }
+    }
+
+    /// Path of the API root this Commander talks to: a mount view's prefix (CLT-84), empty for the device's own.
+    pub(crate) fn prefix(&self) -> &[ResourceIndex] {
+        &self.prefix
+    }
+
     /// A handle that doesn't keep the connection alive, for the keeper that reconnects through the hub (CLT-40).
     pub(crate) fn downgrade(&self) -> WeakCommander {
         WeakCommander {
@@ -1106,6 +1160,7 @@ impl Commander {
             last_clone: Arc::downgrade(&self.last_clone),
             loop_thread: self.loop_thread,
             base_path: self.base_path.clone(),
+            prefix: self.prefix.clone(),
             default_timeout: self.default_timeout,
             default_priority: self.default_priority,
             client_introspect: self.client_introspect.clone(),
@@ -1212,7 +1267,12 @@ impl Commander {
             (Some(before), Some(now)) => Some(ApiCompat::new(&before.api_bundle, &now.api_bundle)),
             _ => None,
         };
-        let holds = |path: &[ResourceIndex]| kept_resource_holds(&now, devices.as_ref(), path);
+        // registries hold paths as the device names them: a mount view's prefix comes off first (CLT-84)
+        let in_api = |path: &[ResourceIndex]| path.strip_prefix(&*self.prefix).map(<[_]>::to_vec);
+        let holds = |path: &[ResourceIndex]| match in_api(path) {
+            Some(path) => kept_resource_holds(&now, devices.as_ref(), &path),
+            None => Err("not under the mounted API's path".into()),
+        };
         let streams: Vec<Arc<Shared>> = {
             let streams = self.streams.lock().unwrap_or_else(|e| e.into_inner());
             streams.iter().filter_map(Weak::upgrade).collect()
@@ -1236,11 +1296,16 @@ impl Commander {
             let mut observes = self.observes.lock().unwrap_or_else(|e| e.into_inner());
             let shifted: Vec<Vec<ResourceIndex>> = observes
                 .keys()
-                .filter(|path| match level_holds(&now, devices.as_ref(), path) {
-                    Ok(()) => false,
-                    Err(reason) => {
-                        warn!("observing {path:?} ends, the device's API changed: {reason}");
-                        true
+                .filter(|path| {
+                    match in_api(path).map_or_else(
+                        || Err("not under the mounted API's path".into()),
+                        |path| level_holds(&now, devices.as_ref(), &path),
+                    ) {
+                        Ok(()) => false,
+                        Err(reason) => {
+                            warn!("observing {path:?} ends, the device's API changed: {reason}");
+                            true
+                        }
                     }
                 })
                 .cloned()
@@ -1351,13 +1416,39 @@ impl Commander {
         self.facts().connected_device.clone()
     }
 
-    /// The request path for `path`: a trait client's base path in place of a global one, or a global path the
-    /// device's introspection data resolves to an absolute one (SRV-53, then true), or the global path as it goes on
-    /// the wire.
+    /// The request path for `path`, as [Self::to_api_path] resolves it, with a mount view's prefix in front (CLT-84).
     pub(crate) fn to_ww_client_server_path(
         &self,
         path: PathKind<'_>,
     ) -> Result<(PathKindOwned, bool), Error> {
+        let (path_kind, from_global) = self.to_api_path(path)?;
+        Ok((self.on_front(path_kind)?, from_global))
+    }
+
+    /// `path`, a path in this Commander's API, as the connected device names it: a mount view's prefix in front
+    /// (CLT-84). A global trait path the view couldn't resolve is refused: the device would look for the trait in its
+    /// own tree first, not in the mounted API.
+    fn on_front(&self, path_kind: PathKindOwned) -> Result<PathKindOwned, Error> {
+        if self.prefix.is_empty() {
+            return Ok(path_kind);
+        }
+        match path_kind {
+            PathKindOwned::Absolute { path } => Ok(PathKindOwned::Absolute {
+                path: self.prefix.iter().copied().chain(path).collect(),
+            }),
+            global => Err(Error::Unsupported {
+                what: "a global trait path into a mount",
+                reason: format!(
+                    "{global:?} is not in the mounted API's introspection data, which is needed to find it"
+                ),
+            }),
+        }
+    }
+
+    /// The path in this Commander's API for `path`: a trait client's base path in place of a global one, or a global
+    /// path the API's introspection data resolves to an absolute one (SRV-53, then true), or the global path as it
+    /// goes on the wire.
+    fn to_api_path(&self, path: PathKind<'_>) -> Result<(PathKindOwned, bool), Error> {
         if matches!(path, PathKind::Absolute { .. }) && self.base_path.is_some() {
             return Err(Error::User(
                 "CommandSender configured as trait attachment, but used with absolute path".into(),
@@ -1458,12 +1549,12 @@ impl Commander {
     }
 
     fn resolve_path(&self, path: PathKind<'_>) -> Result<PathKindOwned, Error> {
-        let (path_kind, from_global) = self.to_ww_client_server_path(path)?;
+        let (path_kind, from_global) = self.to_api_path(path)?;
         // a path resolved from a global one is in the device's tree, not the client's API (SRV-53)
         if !from_global {
             self.check_resource(&path_kind)?;
         }
-        Ok(path_kind)
+        self.on_front(path_kind)
     }
 
     /// Check that the connected device has a compatible resource at the path, see [Commander::resolve_api_match].
@@ -1671,6 +1762,7 @@ impl TransportCommander {
             consts: self.consts.clone(),
             keys: self.keys.clone(),
             observes: self.observes.clone(),
+            root: self.root.clone(),
         }
     }
 
@@ -2230,7 +2322,9 @@ impl TransportCommander {
             seq: UVlq32Backfill(0),
             priority: self.priority.to_wire(),
             context: None,
-            path_kind: PathKindOwned::Absolute { path: vec![] },
+            path_kind: PathKindOwned::Absolute {
+                path: self.root.to_vec(),
+            },
             kind: RequestKindOwned::Introspect,
         };
         let req = req.to_ww_bytes_owned()?;
@@ -2238,7 +2332,9 @@ impl TransportCommander {
         let (stream_event_tx, stream_event_rx) = event_queue(usize::MAX);
         self.cmd_tx
             .send(Command::OnStreamEvent {
-                path_kind: Box::new(PathKindOwned::Absolute { path: vec![] }),
+                path_kind: Box::new(PathKindOwned::Absolute {
+                    path: self.root.to_vec(),
+                }),
                 stream_event_tx,
                 // the request is sent after this, its events can't overtake the registration
                 registered_tx: oneshot::channel().0,
@@ -2265,7 +2361,9 @@ impl TransportCommander {
             seq: UVlq32Backfill(0),
             priority: self.priority.to_wire(),
             context: None,
-            path_kind: PathKindOwned::Absolute { path: vec![] },
+            path_kind: PathKindOwned::Absolute {
+                path: self.root.to_vec(),
+            },
             kind: RequestKindOwned::Introspect,
         };
         let req = req.to_ww_bytes_owned()?;
@@ -2273,7 +2371,9 @@ impl TransportCommander {
         let (stream_event_tx, stream_event_rx) = event_queue(usize::MAX);
         self.cmd_tx
             .blocking_send(Command::OnStreamEvent {
-                path_kind: Box::new(PathKindOwned::Absolute { path: vec![] }),
+                path_kind: Box::new(PathKindOwned::Absolute {
+                    path: self.root.to_vec(),
+                }),
                 stream_event_tx,
                 // the request is sent after this, its events can't overtake the registration
                 registered_tx: oneshot::channel().0,

@@ -12,6 +12,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 ## [Unreleased]
 
 - Mount forwarding: requests and events crossing a mount slot are rewritten in the envelope, global paths reach mounted APIs (SRV-77); see `ww_client_server`, `wire_weaver_server`.
+- Mount views: clients reach a mounted API with its own facts, relearned per mount and resumed after link gaps (CLT-84); see `wire_weaver_client`, `wire_weaver_core`, `wire_weaver_cli`.
 - Mount slots: `mount!` and `mounts!` declare levels whose API is known only at run time (SRV-76); see `ww_api`, `ww_self`, `ww_client_server`, `wire_weaver_core`, `wire_weaver_client`.
 - An API crate carries its own model as bytes, `ww_codegen!(crate :: Root, bundle = ..)`, for `ww_json` in installed programs (API-73); see `wire_weaver_derive`, `wire_weaver_core`.
 - Clients find WebSocket servers on the LAN over DNS-SD and follow one to its new address (CLT-82); see `ww_dns_sd`, `wire_weaver_client`.

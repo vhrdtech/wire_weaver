@@ -40,6 +40,10 @@ pub struct Slots {
     pub seen: Vec<Seen>,
     /// The hub's backend; `None`: the stand-in answers with the path.
     pub hub_backend: Option<Backend>,
+    /// Another revision of the hub's backend: its presence names other hashes (the async server only).
+    pub hub_revision: u8,
+    /// The hub's presence changed: the async server tells observers at its next poll.
+    pub hub_changed: bool,
 }
 
 impl Slots {
@@ -111,12 +115,13 @@ impl BlockingEventOut for Collect {
     }
 }
 
-/// A TV with nothing mounted as the hub's backend, served by the blocking server.
+/// A TV with nothing mounted as the hub's backend, served by the blocking server with introspection on: the hub's
+/// `presence` then names its API.
 pub fn tv_backend() -> Backend {
-    let mut tv = blocking_server::Server {
+    let mut tv = backend_server::Server {
         slots: Arc::default(),
         valid: vec![],
-        observe: blocking_server::api_impl::ObserveState::new(Default::default()),
+        observe: backend_server::api_impl::ObserveState::new(Default::default()),
     };
     Box::new(move |request| {
         let mut out = Collect::default();
@@ -151,6 +156,15 @@ fn up() -> MountPresence<'static> {
     }
 }
 
+/// The presence of the hub when [tv_backend] is mounted there: its crate, version, hashes and wire version.
+fn backend_up() -> MountPresence<'static> {
+    MountPresence::Up {
+        api: mounts_api::TV_FULL_GID,
+        hash: backend_server::api_impl::api_hash(),
+        wire: Some(mounts_api::TV_WIRE_VERSION),
+    }
+}
+
 /// The answer of the stand-in backend: the path the request arrived with, as a value under the request's seq.
 fn reply(scratch: &mut [u8], request: &MountRequest<'_, '_>) -> Result<usize, ShrinkWrapError> {
     let path: Vec<u32> = request.path.iter().map(|i| i.get().0).collect();
@@ -166,8 +180,11 @@ macro_rules! handlers {
             &mut self,
             _cx: &mut Context<'_, impl $out>,
         ) -> GetResult<$presence, CommonError<'_>> {
-            let mounted = self.slots.lock().unwrap().hub;
-            Value(presence(mounted))
+            let slots = self.slots.lock().unwrap();
+            if slots.hub && slots.hub_backend.is_some() {
+                return Value(backend_presence(slots.hub_revision));
+            }
+            Value(presence(slots.hub))
         }
 
         $($async)? fn hub_request(
@@ -268,6 +285,10 @@ pub mod blocking_server {
         if mounted { up() } else { MountPresence::Absent }
     }
 
+    fn backend_presence(_revision: u8) -> MountPresence<'static> {
+        backend_up()
+    }
+
     fn name_of(name: String) -> MountName<'static> {
         let name: &'static str = Box::leak(name.into_boxed_str());
         MountName(MaxLen::new(name).expect("test names are short"))
@@ -303,6 +324,45 @@ pub mod blocking_server {
     }
 }
 
+/// The hub's real backend in [tv_backend]: the blocking server with introspection on.
+pub mod backend_server {
+    use super::*;
+
+    pub struct Server {
+        pub slots: Arc<Mutex<Slots>>,
+        pub valid: Vec<UNib32>,
+        pub observe: api_impl::ObserveState,
+    }
+
+    fn presence(mounted: bool) -> MountPresence<'static> {
+        if mounted { up() } else { MountPresence::Absent }
+    }
+
+    fn backend_presence(_revision: u8) -> MountPresence<'static> {
+        backend_up()
+    }
+
+    fn name_of(name: String) -> MountName<'static> {
+        let name: &'static str = Box::leak(name.into_boxed_str());
+        MountName(MaxLen::new(name).expect("test names are short"))
+    }
+
+    impl Server {
+        handlers!(; BlockingEventOut; send_with_blocking; MountPresence<'_>; MountName<'_>;);
+    }
+
+    pub mod api_impl {
+        wire_weaver::ww_codegen!(
+            mounts_api :: Tv for super::Server,
+            server = true, no_alloc = true, use_async = false,
+            method_model = "_=immediate",
+            property_model = "_=get_set",
+            multi_req = true,
+            introspect = "no_docs"
+        );
+    }
+}
+
 pub mod async_server {
     use super::*;
     use tests_common::TestProcessEventsAsync;
@@ -312,16 +372,32 @@ pub mod async_server {
         pub slots: Arc<Mutex<Slots>>,
         pub valid: Vec<UNib32>,
         pub observe: api_impl::ObserveState,
+        /// The device's clock starts here.
+        pub started: std::time::Instant,
     }
 
     fn presence(mounted: bool) -> MountPresenceOwned {
         if mounted {
-            let mut buf = [0u8; 64];
-            let bytes = up().to_ww_bytes(&mut buf).expect("presence encodes");
-            MountPresenceOwned::from_ww_bytes_owned(bytes).expect("presence decodes")
+            owned(up())
         } else {
             MountPresenceOwned::Absent
         }
+    }
+
+    fn backend_presence(revision: u8) -> MountPresenceOwned {
+        let mut presence = owned(backend_up());
+        if let MountPresenceOwned::Up { hash, .. } = &mut presence
+            && let Some(last) = hash.no_docs.hash.last_mut()
+        {
+            *last ^= revision;
+        }
+        presence
+    }
+
+    fn owned(presence: MountPresence<'_>) -> MountPresenceOwned {
+        let mut buf = [0u8; 256];
+        let bytes = presence.to_ww_bytes(&mut buf).expect("presence encodes");
+        MountPresenceOwned::from_ww_bytes_owned(bytes).expect("presence decodes")
     }
 
     fn name_of(name: String) -> MountNameOwned {
@@ -355,6 +431,19 @@ pub mod async_server {
             self.process_request_bytes(bytes, scratch, out, medium)
                 .await
         }
+
+        /// Tells observers of the hub's presence when the test changed it.
+        async fn poll(&mut self, out: &mut impl EventOut, _now_ms: u64) {
+            let changed = std::mem::take(&mut self.slots.lock().unwrap().hub_changed);
+            if changed {
+                self.mark_changed_hub_presence();
+            }
+            let now_us = self.started.elapsed().as_micros() as u64;
+            let mut buf = [0u8; 512];
+            self.poll_properties(out, (), now_us, &mut buf)
+                .await
+                .expect("updates sent");
+        }
     }
 }
 
@@ -369,6 +458,8 @@ pub fn slots() -> Arc<Mutex<Slots>> {
         ],
         seen: vec![],
         hub_backend: None,
+        hub_revision: 0,
+        hub_changed: false,
     }))
 }
 
@@ -394,8 +485,27 @@ pub fn start_async(path: &str, slots: Arc<Mutex<Slots>>) -> TestDevice {
         slots,
         valid: vec![],
         observe: async_server::api_impl::ObserveState::new(Default::default()),
+        started: std::time::Instant::now(),
     };
     tests_common::start_device_async(
+        path,
+        server,
+        mounts_api::TV_FULL_GID,
+        mounts_api::TV_WIRE_VERSION,
+        tests_common::api!(async_server::api_impl),
+    )
+}
+
+/// [start_async] on the simulated WebSocket: a device that can go away and come back under the same path.
+pub fn start_async_ws(path: &str, slots: Arc<Mutex<Slots>>) -> TestDevice {
+    let _ = tracing_subscriber::fmt::try_init();
+    let server = async_server::Server {
+        slots,
+        valid: vec![],
+        observe: async_server::api_impl::ObserveState::new(Default::default()),
+        started: std::time::Instant::now(),
+    };
+    tests_common::start_device_async_ws(
         path,
         server,
         mounts_api::TV_FULL_GID,

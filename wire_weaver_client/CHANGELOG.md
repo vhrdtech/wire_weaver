@@ -22,6 +22,10 @@
 
 ### 🚀 Features
 
+- `MountSlot::view` gives a `MountView`: requests into a mounted API, checked against its own learned introspection and hashes (CLT-84).
+- A `MountView` follows its slot: `status()`, relearning on a new API hash, streams resumed after a link gap (CLT-84).
+- `DynResource::walk_mounted` walks into mounted APIs (`hub.mute`, `ext.cast.mute`), returning `DynWalked` with its view (CLT-84).
+- `MountSlot::view_for(&ClientLine)` and `MountView::client`: a generated client of the mounted API on a view (CLT-84).
 - The dynamic client reads a mount slot's `presence`, also of an element of `mounts!` (SRV-76).
 - `MountSlot` and `Commander::mount_slot`: a slot's `presence` and `api_path` (SRV-76).
 - `ClientConfig::websocket_urls_from(UrlSource)`: URLs asked again at every connect and reconnect attempt (CLT-82).

@@ -229,12 +229,12 @@ impl DynResource {
 
     /// Resource named `name` in the API root or a trait.
     pub fn child(&self, name: &str) -> Result<DynResource, Error> {
-        // TODO(SRV-76): walk into the mounted API through the slot's own introspection
         if let Node::Mount(_) = self.node
             && ww_self::mount::item_name(ww_self::mount::API) == Some(name)
         {
             return Err(Error::Other(format!(
-                "the API mounted at '{}' is known only at run time, it is not in this bundle",
+                "the API mounted at '{}' is known only at run time, it is not in this bundle: walk into it \
+                 with walk_mounted",
                 self.display_path()
             )));
         }
@@ -1513,8 +1513,10 @@ impl DynSink {
 }
 
 mod keys;
+mod mount;
 pub(crate) use keys::KeyedRole;
 pub use keys::{PathStep, parse_path};
+pub use mount::DynWalked;
 
 fn other(e: anyhow::Error) -> Error {
     Error::Other(format!("{e:#}"))

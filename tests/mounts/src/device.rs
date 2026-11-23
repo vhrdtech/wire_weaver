@@ -40,6 +40,10 @@ pub struct Slots {
     pub seen: Vec<Seen>,
     /// The hub's backend; `None`: the stand-in answers with the path.
     pub hub_backend: Option<Backend>,
+    /// Another revision of the hub's backend: its presence names other hashes (the async server only).
+    pub hub_revision: u8,
+    /// The hub's presence changed: the async server tells observers at its next poll.
+    pub hub_changed: bool,
 }
 
 impl Slots {
@@ -178,7 +182,7 @@ macro_rules! handlers {
         ) -> GetResult<$presence, CommonError<'_>> {
             let slots = self.slots.lock().unwrap();
             if slots.hub && slots.hub_backend.is_some() {
-                return Value(backend_presence());
+                return Value(backend_presence(slots.hub_revision));
             }
             Value(presence(slots.hub))
         }
@@ -281,7 +285,7 @@ pub mod blocking_server {
         if mounted { up() } else { MountPresence::Absent }
     }
 
-    fn backend_presence() -> MountPresence<'static> {
+    fn backend_presence(_revision: u8) -> MountPresence<'static> {
         backend_up()
     }
 
@@ -334,7 +338,7 @@ pub mod backend_server {
         if mounted { up() } else { MountPresence::Absent }
     }
 
-    fn backend_presence() -> MountPresence<'static> {
+    fn backend_presence(_revision: u8) -> MountPresence<'static> {
         backend_up()
     }
 
@@ -368,6 +372,8 @@ pub mod async_server {
         pub slots: Arc<Mutex<Slots>>,
         pub valid: Vec<UNib32>,
         pub observe: api_impl::ObserveState,
+        /// The device's clock starts here.
+        pub started: std::time::Instant,
     }
 
     fn presence(mounted: bool) -> MountPresenceOwned {
@@ -378,8 +384,14 @@ pub mod async_server {
         }
     }
 
-    fn backend_presence() -> MountPresenceOwned {
-        owned(backend_up())
+    fn backend_presence(revision: u8) -> MountPresenceOwned {
+        let mut presence = owned(backend_up());
+        if let MountPresenceOwned::Up { hash, .. } = &mut presence
+            && let Some(last) = hash.no_docs.hash.last_mut()
+        {
+            *last ^= revision;
+        }
+        presence
     }
 
     fn owned(presence: MountPresence<'_>) -> MountPresenceOwned {
@@ -419,6 +431,19 @@ pub mod async_server {
             self.process_request_bytes(bytes, scratch, out, medium)
                 .await
         }
+
+        /// Tells observers of the hub's presence when the test changed it.
+        async fn poll(&mut self, out: &mut impl EventOut, _now_ms: u64) {
+            let changed = std::mem::take(&mut self.slots.lock().unwrap().hub_changed);
+            if changed {
+                self.mark_changed_hub_presence();
+            }
+            let now_us = self.started.elapsed().as_micros() as u64;
+            let mut buf = [0u8; 512];
+            self.poll_properties(out, (), now_us, &mut buf)
+                .await
+                .expect("updates sent");
+        }
     }
 }
 
@@ -433,6 +458,8 @@ pub fn slots() -> Arc<Mutex<Slots>> {
         ],
         seen: vec![],
         hub_backend: None,
+        hub_revision: 0,
+        hub_changed: false,
     }))
 }
 
@@ -458,8 +485,27 @@ pub fn start_async(path: &str, slots: Arc<Mutex<Slots>>) -> TestDevice {
         slots,
         valid: vec![],
         observe: async_server::api_impl::ObserveState::new(Default::default()),
+        started: std::time::Instant::now(),
     };
     tests_common::start_device_async(
+        path,
+        server,
+        mounts_api::TV_FULL_GID,
+        mounts_api::TV_WIRE_VERSION,
+        tests_common::api!(async_server::api_impl),
+    )
+}
+
+/// [start_async] on the simulated WebSocket: a device that can go away and come back under the same path.
+pub fn start_async_ws(path: &str, slots: Arc<Mutex<Slots>>) -> TestDevice {
+    let _ = tracing_subscriber::fmt::try_init();
+    let server = async_server::Server {
+        slots,
+        valid: vec![],
+        observe: async_server::api_impl::ObserveState::new(Default::default()),
+        started: std::time::Instant::now(),
+    };
+    tests_common::start_device_async_ws(
         path,
         server,
         mounts_api::TV_FULL_GID,

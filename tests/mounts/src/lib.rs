@@ -344,7 +344,11 @@ mod tests {
             .unwrap()
             .observe(
                 vcmd,
-                [(PRESENCE, wire_weaver_client::observe::on_change(Duration::ZERO))].into(),
+                [(
+                    PRESENCE,
+                    wire_weaver_client::observe::on_change(Duration::ZERO),
+                )]
+                .into(),
             )
             .await
             .unwrap();
@@ -370,6 +374,153 @@ mod tests {
         };
         let refused = mute(elsewhere).await.unwrap_err();
         assert!(matches!(refused, Error::Unsupported { .. }), "{refused:?}");
+    }
+
+    /// A view follows its slot (CLT-84): an empty slot is `Absent`; a backend that comes is learned before the
+    /// status says `Up`; another revision of it is learned again; an unmounted slot is `Absent` and its requests are
+    /// refused with `Unavailable`.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn view_follows_the_slot() {
+        const MUTE: u32 = 3;
+        let slots = slots();
+        slots.lock().unwrap().hub = false;
+        let device = start_async("mounts/follow", slots.clone());
+        let client =
+            std_client::Client::config(|c| c.in_process_path(device.path()).resolver(no_cache()))
+                .connect()
+                .await
+                .expect("connect");
+        let view = client.hub().unwrap().view().await.unwrap();
+        let mut status = view.status();
+        assert!(matches!(*status.borrow(), MountPresenceOwned::Absent));
+        assert!(!view.has_learned());
+
+        let change = |f: &dyn Fn(&mut Slots)| {
+            let mut slots = slots.lock().unwrap();
+            f(&mut slots);
+            slots.hub_changed = true;
+        };
+        let up_with = |status: &MountPresenceOwned| match status {
+            MountPresenceOwned::Up { hash, .. } => Some(hash.no_docs.clone()),
+            _ => None,
+        };
+        let introspected = || {
+            slots
+                .lock()
+                .unwrap()
+                .seen
+                .iter()
+                .filter(|s| s.slot.is_none() && s.introspect)
+                .count()
+        };
+
+        change(&|s| {
+            s.hub = true;
+            s.hub_backend = Some(tv_backend());
+        });
+        let first = up_with(&status.wait_for(|p| up_with(p).is_some()).await.unwrap()).unwrap();
+        assert!(view.has_learned());
+        let vcmd = view.commander();
+        assert_eq!(vcmd.device_api_info().user_api_hash.no_docs, first);
+        assert!(vcmd.device_introspect().is_some());
+        assert_eq!(introspected(), 1);
+        vcmd.prepare_call::<(), Error>(as_ref(&absolute(&[MUTE])), Ok(vec![]), "mute")
+            .call()
+            .await
+            .unwrap();
+
+        change(&|s| s.hub_revision = 1);
+        let second = up_with(
+            &status
+                .wait_for(|p| up_with(p).is_some_and(|h| h != first))
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(vcmd.device_api_info().user_api_hash.no_docs, second);
+        assert_eq!(introspected(), 2, "the new revision is learned again");
+
+        change(&|s| s.hub = false);
+        status
+            .wait_for(|p| matches!(p, MountPresenceOwned::Absent))
+            .await
+            .unwrap();
+        let refused = vcmd
+            .prepare_call::<(), Error>(as_ref(&absolute(&[MUTE])), Ok(vec![]), "mute")
+            .call()
+            .await;
+        assert_refused(refused.map(|()| vec![]), ErrorKindOwned::Unavailable);
+    }
+
+    /// A view's observers resume once the slot is `Up` again after the link came back (CLT-84): the device went away
+    /// and a new one serves the same slots; the view subscribes again through the slot, with no relearning.
+    #[tokio::test(start_paused = true)]
+    async fn view_resumes_after_the_link_came_back() {
+        tokio::task::LocalSet::new().run_until(view_resumes()).await;
+    }
+
+    async fn view_resumes() {
+        const PATH: &str = "mounts/view_resumes";
+        let slots = slots();
+        slots.lock().unwrap().hub_backend = Some(tv_backend());
+        let start = || start_async_ws(PATH, slots.clone());
+        let observes = || {
+            slots
+                .lock()
+                .unwrap()
+                .seen
+                .iter()
+                .filter(|s| s.slot.is_none() && !s.introspect && s.path == [HUB])
+                .count()
+        };
+        let device = start();
+        let client = std_client::Client::config(|c| {
+            c.in_process_path(device.path())
+                .resolver(no_cache())
+                .keep_trying(wire_weaver_client::KeepTrying::default())
+        })
+        .connect_keep_trying()
+        .expect("the handle is made at once");
+        let mut events = client.cmd.connection_events();
+        while !matches!(
+            events.recv().await.unwrap(),
+            wire_weaver_client::ConnectionEvent::Connected { .. }
+        ) {}
+        let view = client.hub().unwrap().view().await.unwrap();
+        let bundle = view.commander().device_introspect().unwrap().api_bundle;
+        // the backend's own hub slot, a level with an observable property
+        let observer = DynResource::root(bundle)
+            .walk("hub")
+            .unwrap()
+            .observe(
+                view.commander(),
+                [(
+                    PRESENCE,
+                    wire_weaver_client::observe::on_change(Duration::ZERO),
+                )]
+                .into(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(observes(), 1);
+        let learned = view.commander().device_api_info().user_api_hash.no_docs;
+
+        drop(device);
+        let _device = start();
+        while !matches!(
+            events.recv().await.unwrap(),
+            wire_weaver_client::ConnectionEvent::Reconnected { .. }
+        ) {}
+        let mut status = view.status();
+        while observes() < 2 {
+            status.changed().await.unwrap();
+        }
+        assert_eq!(observes(), 2, "subscribed again through the slot");
+        assert_eq!(
+            view.commander().device_api_info().user_api_hash.no_docs,
+            learned
+        );
+        assert!(observer.granted().is_some());
     }
 
     fn absolute(path: &[u32]) -> PathKindOwned {
@@ -521,5 +672,25 @@ mod tests {
         let cast = MountNameOwned(MaxLen::new("cast".to_owned()).unwrap());
         let slot = client.ext_by_blocking(&cast).unwrap().expect("named slot");
         assert_up(&slot.presence().blocking_read().unwrap());
+    }
+
+    /// A blocking program makes a view too, with a runtime entered for its follower (CLT-84).
+    #[test]
+    fn view_blocking() {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let _guard = rt.enter();
+        let slots = slots();
+        slots.lock().unwrap().hub_backend = Some(tv_backend());
+        let device = start_blocking("mounts/view_blocking", slots);
+        let client =
+            std_client::Client::config(|c| c.in_process_path(device.path()).resolver(no_cache()))
+                .connect_blocking()
+                .expect("connect");
+        let view = client.hub().unwrap().view_blocking().unwrap();
+        assert!(view.has_learned());
+        assert_eq!(
+            view.commander().device_api_info().user_api_version.crate_id,
+            "mounts_api"
+        );
     }
 }

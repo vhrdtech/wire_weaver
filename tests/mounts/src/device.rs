@@ -111,12 +111,13 @@ impl BlockingEventOut for Collect {
     }
 }
 
-/// A TV with nothing mounted as the hub's backend, served by the blocking server.
+/// A TV with nothing mounted as the hub's backend, served by the blocking server with introspection on: the hub's
+/// `presence` then names its API.
 pub fn tv_backend() -> Backend {
-    let mut tv = blocking_server::Server {
+    let mut tv = backend_server::Server {
         slots: Arc::default(),
         valid: vec![],
-        observe: blocking_server::api_impl::ObserveState::new(Default::default()),
+        observe: backend_server::api_impl::ObserveState::new(Default::default()),
     };
     Box::new(move |request| {
         let mut out = Collect::default();
@@ -151,6 +152,15 @@ fn up() -> MountPresence<'static> {
     }
 }
 
+/// The presence of the hub when [tv_backend] is mounted there: its crate, version, hashes and wire version.
+fn backend_up() -> MountPresence<'static> {
+    MountPresence::Up {
+        api: mounts_api::TV_FULL_GID,
+        hash: backend_server::api_impl::api_hash(),
+        wire: Some(mounts_api::TV_WIRE_VERSION),
+    }
+}
+
 /// The answer of the stand-in backend: the path the request arrived with, as a value under the request's seq.
 fn reply(scratch: &mut [u8], request: &MountRequest<'_, '_>) -> Result<usize, ShrinkWrapError> {
     let path: Vec<u32> = request.path.iter().map(|i| i.get().0).collect();
@@ -166,8 +176,11 @@ macro_rules! handlers {
             &mut self,
             _cx: &mut Context<'_, impl $out>,
         ) -> GetResult<$presence, CommonError<'_>> {
-            let mounted = self.slots.lock().unwrap().hub;
-            Value(presence(mounted))
+            let slots = self.slots.lock().unwrap();
+            if slots.hub && slots.hub_backend.is_some() {
+                return Value(backend_presence());
+            }
+            Value(presence(slots.hub))
         }
 
         $($async)? fn hub_request(
@@ -268,6 +281,10 @@ pub mod blocking_server {
         if mounted { up() } else { MountPresence::Absent }
     }
 
+    fn backend_presence() -> MountPresence<'static> {
+        backend_up()
+    }
+
     fn name_of(name: String) -> MountName<'static> {
         let name: &'static str = Box::leak(name.into_boxed_str());
         MountName(MaxLen::new(name).expect("test names are short"))
@@ -303,6 +320,45 @@ pub mod blocking_server {
     }
 }
 
+/// The hub's real backend in [tv_backend]: the blocking server with introspection on.
+pub mod backend_server {
+    use super::*;
+
+    pub struct Server {
+        pub slots: Arc<Mutex<Slots>>,
+        pub valid: Vec<UNib32>,
+        pub observe: api_impl::ObserveState,
+    }
+
+    fn presence(mounted: bool) -> MountPresence<'static> {
+        if mounted { up() } else { MountPresence::Absent }
+    }
+
+    fn backend_presence() -> MountPresence<'static> {
+        backend_up()
+    }
+
+    fn name_of(name: String) -> MountName<'static> {
+        let name: &'static str = Box::leak(name.into_boxed_str());
+        MountName(MaxLen::new(name).expect("test names are short"))
+    }
+
+    impl Server {
+        handlers!(; BlockingEventOut; send_with_blocking; MountPresence<'_>; MountName<'_>;);
+    }
+
+    pub mod api_impl {
+        wire_weaver::ww_codegen!(
+            mounts_api :: Tv for super::Server,
+            server = true, no_alloc = true, use_async = false,
+            method_model = "_=immediate",
+            property_model = "_=get_set",
+            multi_req = true,
+            introspect = "no_docs"
+        );
+    }
+}
+
 pub mod async_server {
     use super::*;
     use tests_common::TestProcessEventsAsync;
@@ -316,12 +372,20 @@ pub mod async_server {
 
     fn presence(mounted: bool) -> MountPresenceOwned {
         if mounted {
-            let mut buf = [0u8; 64];
-            let bytes = up().to_ww_bytes(&mut buf).expect("presence encodes");
-            MountPresenceOwned::from_ww_bytes_owned(bytes).expect("presence decodes")
+            owned(up())
         } else {
             MountPresenceOwned::Absent
         }
+    }
+
+    fn backend_presence() -> MountPresenceOwned {
+        owned(backend_up())
+    }
+
+    fn owned(presence: MountPresence<'_>) -> MountPresenceOwned {
+        let mut buf = [0u8; 256];
+        let bytes = presence.to_ww_bytes(&mut buf).expect("presence encodes");
+        MountPresenceOwned::from_ww_bytes_owned(bytes).expect("presence decodes")
     }
 
     fn name_of(name: String) -> MountNameOwned {

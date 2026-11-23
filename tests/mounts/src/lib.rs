@@ -280,6 +280,113 @@ mod tests {
         assert_eq!(raw(cmd, &[MUTE], call()).await.unwrap(), Vec::<u8>::new());
     }
 
+    /// A resolver without a cache: what the client knows of a mounted API comes through the slot, never from the
+    /// introspection data the test device seeded.
+    fn no_cache() -> &'static wire_weaver_client::snapshots::Resolver {
+        Box::leak(Box::new(wire_weaver_client::snapshots::Resolver::offline(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")),
+        )))
+    }
+
+    /// A view of the hub's API (CLT-84) learns it through the slot: the backend's introspection data, downloaded
+    /// below the slot's `api`. Its calls go out with the slot's `api` in front, a global trait path resolves in the
+    /// mounted API; one it can't resolve is refused, never sent to the front's own tree.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn view_of_the_hub() {
+        const MUTE: u32 = 3;
+        let slots = slots();
+        slots.lock().unwrap().hub_backend = Some(tv_backend());
+        let device = start_blocking("mounts/view", slots.clone());
+        let client =
+            std_client::Client::config(|c| c.in_process_path(device.path()).resolver(no_cache()))
+                .connect()
+                .await
+                .expect("connect");
+
+        let view = client.hub().unwrap().view().await.unwrap();
+        assert!(view.has_learned());
+        assert_eq!(view.api_path(), resource_path(&[HUB, API]));
+        let vcmd = view.commander();
+        let info = vcmd.device_api_info();
+        assert_eq!(info.user_api_version.crate_id, "mounts_api");
+        let bundle = vcmd.device_introspect().expect("learned through the slot");
+        assert_eq!(bundle.api_hash.no_docs, info.user_api_hash.no_docs);
+        let introspected = slots
+            .lock()
+            .unwrap()
+            .seen
+            .iter()
+            .any(|s| s.slot.is_none() && s.introspect);
+        assert!(introspected, "introspection data asked for below the slot");
+
+        let mute = |path: PathKindOwned| {
+            vcmd.prepare_call::<(), Error>(as_ref(&path), Ok(vec![]), "mute")
+                .call()
+        };
+        mute(absolute(&[MUTE])).await.unwrap();
+        let seen = slots.lock().unwrap().seen.last().cloned().unwrap();
+        assert_eq!(
+            seen.path,
+            [MUTE],
+            "the slot's handler got the path below `api`"
+        );
+
+        // the backend's own hub slot, read through the view
+        let inner = vcmd
+            .prepare_read::<MountPresenceOwned>(as_ref(&absolute(&[HUB, PRESENCE])))
+            .read()
+            .await
+            .unwrap();
+        assert!(matches!(inner, MountPresenceOwned::Absent));
+
+        // the mounted API's root trait by its global path, resolved in the view
+        let global = PathKindOwned::GlobalFull {
+            gid: mounts_api::TV_FULL_GID.make_owned(),
+            trait_name: "Tv".into(),
+            path_from_trait: resource_path(&[MUTE]),
+        };
+        mute(global).await.unwrap();
+        assert_eq!(slots.lock().unwrap().seen.last().unwrap().path, [MUTE]);
+
+        let elsewhere = PathKindOwned::GlobalFull {
+            gid: wire_weaver::ww_version::FullVersionOwned::new(
+                "other_api".into(),
+                wire_weaver::ww_version::VersionOwned::new(1, 0, 0),
+            ),
+            trait_name: "Other".into(),
+            path_from_trait: vec![],
+        };
+        let refused = mute(elsewhere).await.unwrap_err();
+        assert!(matches!(refused, Error::Unsupported { .. }), "{refused:?}");
+    }
+
+    fn absolute(path: &[u32]) -> PathKindOwned {
+        PathKindOwned::Absolute {
+            path: resource_path(path),
+        }
+    }
+
+    fn as_ref(path: &PathKindOwned) -> ww_client_server::PathKind<'_> {
+        use wire_weaver::shrink_wrap::RefVec;
+        match path {
+            PathKindOwned::Absolute { path } => ww_client_server::PathKind::Absolute {
+                path: RefVec::Slice { slice: path },
+            },
+            PathKindOwned::GlobalFull {
+                gid,
+                trait_name,
+                path_from_trait,
+            } => ww_client_server::PathKind::GlobalFull {
+                gid: gid.as_ref(),
+                trait_name,
+                path_from_trait: RefVec::Slice {
+                    slice: path_from_trait,
+                },
+            },
+            PathKindOwned::GlobalCompact { .. } => unreachable!("not used here"),
+        }
+    }
+
     fn call() -> RequestKindOwned {
         RequestKindOwned::Call {
             args: TailBytesOwned(vec![]),

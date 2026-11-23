@@ -7368,6 +7368,16 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
     answers its open requests <code>Unavailable</code> and closes its streams and observed levels; a reply under a seq the
     backend wasn't sent is dropped. <code>Connect</code> opens the stream: <code>LocalSocket</code> on tokio, <code>ww_calloop::UnixConnector</code> on calloop
     (<a href="../docs/api/mounts/#backend-processes">Docs</a>, <code>tests/mounts</code> <code>forwarder</code>, <code>tests/calloop_server</code>).</li>
+<li>✅ <strong>SRV-79 Caller identity and effects across a mount</strong> — a mounted call is checked on both sides of the mount
+    (SRV-78). The front's <code>Authorize</code> hook (SRV-46) sees the items below a slot's <code>api</code> with the effects the backend
+    declares (API-58), from its learned API, and <code>Resource::mount</code> names the slot (<code>Mounted</code>: its path, the learned API
+    or <code>None</code> while none is). The forwarder names the client in every request it sends on
+    (<code>RequestContext::forwarded_for</code>, <code>ww_client_server::forwarded::ForwardedPeer</code>, EVO-85), <code>Unknown</code> included, and
+    replaces whatever the client put there; a backend with <code>Server::trust_forwarders</code> serves it as that client's
+    (<code>cx.call().peer</code>, <code>forwarded</code>), any other as the forwarder's. A slot's API is learned before its presence turns
+    <code>Up</code>. No effect caps per mount yet: every effect passes the mount, limits are the hooks' (TR-24 adds peer
+    authentication) (<a href="../docs/api/mounts/#who-calls-and-what-it-does">Docs</a>, <code>tests/mounts</code>
+    <code>a_trusting_backend_sees_the_fronts_client</code>, <code>the_fronts_hook_sees_effects_inside_the_mount</code>).</li>
 <li>🚧 <strong>SRV-76 Mount slots</strong> — <code>mount!(hub)</code> (one slot, <code>mount!(hub: hub_api)</code> names the expected API crate) and
     <code>mounts!(ext)</code> (slots keyed by <code>ww_api::mount::MountName</code> through a <code>keyed!</code> companion): a level whose API is known
     only at run time. Done: the <code>ww_self</code> <code>Mount</code> item (model 0.7.0; the parent's hash covers the declaration only),
@@ -8659,6 +8669,11 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
   mismatch (test <code>wire_weaver_evolution</code> <code>old_format</code>). Format 0.3.0 had held about 40 encodings: every stored
   snapshot was rewritten once into 0.4.0 (<a href="../docs/evolution/snapshots/#model-format">snapshots</a>). No device or
   host depends on an older format.</li>
+<li>✅ <strong>EVO-85 <code>RequestContext::forwarded_for</code> appended</strong> · <code>v0.5</code> — wire addition to <code>ww_client_server</code>, no break:
+  the request context ends with an optional <code>ForwardedPeer</code> (unix uid, gid and pid, a key, an address, or
+  <code>Unknown</code>; a kind of a newer forwarder reads as <code>Newer</code>), which a mount forwarder fills in (SRV-79). An older reader
+  skips it; encoding <code>None</code> writes its flag, so the sealed <code>client_server.request.highest_reserved</code> is decode-only now
+  (<code>wire_change</code>). Conformance cases <code>client_server.request.context_forwarded_*</code>.</li>
 <li>✅ <strong>EVO-84 Request context on the wire</strong> · <code>v0.5</code> — wire change of <code>ww_client_server</code> (line <code>w2.1</code>) behind
   SRV-47: the reserved bit after <code>Request::priority</code> is the flag of an optional <code>RequestContext</code> (trace, deadline),
   <code>RequestKind::Cancel</code> and the error kinds <code>Denied</code>, <code>DeadlineExceeded</code>, <code>Cancelled</code>, <code>Internal</code> are appended. A

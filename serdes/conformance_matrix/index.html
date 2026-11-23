@@ -6556,33 +6556,33 @@
 <tbody>
 <tr>
 <td>derive</td>
-<td>410 of 410</td>
+<td>413 of 413</td>
 <td>0</td>
 </tr>
 <tr>
 <td>borrowed</td>
-<td>406 of 410</td>
+<td>409 of 413</td>
 <td>4</td>
 </tr>
 <tr>
 <td>dynamic</td>
-<td>347 of 410</td>
-<td>63</td>
+<td>347 of 413</td>
+<td>66</td>
 </tr>
 <tr>
 <td>explain</td>
-<td>347 of 410</td>
-<td>63</td>
+<td>347 of 413</td>
+<td>66</td>
 </tr>
 <tr>
 <td>python</td>
-<td>345 of 410</td>
-<td>65</td>
+<td>345 of 413</td>
+<td>68</td>
 </tr>
 <tr>
 <td>c</td>
-<td>34 of 410</td>
-<td>376</td>
+<td>34 of 413</td>
+<td>379</td>
 </tr>
 </tbody>
 </table>
@@ -8507,7 +8507,7 @@
 <tr>
 <td><code>client_server.request.highest_reserved</code></td>
 <td><code>Request</code></td>
-<td>both</td>
+<td>decode</td>
 <td>✅</td>
 <td>✅</td>
 <td>gap -</td>
@@ -8528,6 +8528,39 @@
 </tr>
 <tr>
 <td><code>client_server.request.context_trace</code></td>
+<td><code>Request</code></td>
+<td>both</td>
+<td>✅</td>
+<td>✅</td>
+<td>gap -</td>
+<td>gap -</td>
+<td>gap -</td>
+<td>gap -</td>
+</tr>
+<tr>
+<td><code>client_server.request.context_forwarded_unix</code></td>
+<td><code>Request</code></td>
+<td>both</td>
+<td>✅</td>
+<td>✅</td>
+<td>gap -</td>
+<td>gap -</td>
+<td>gap -</td>
+<td>gap -</td>
+</tr>
+<tr>
+<td><code>client_server.request.context_forwarded_addr</code></td>
+<td><code>Request</code></td>
+<td>both</td>
+<td>✅</td>
+<td>✅</td>
+<td>gap -</td>
+<td>gap -</td>
+<td>gap -</td>
+<td>gap -</td>
+</tr>
+<tr>
+<td><code>client_server.request.context_forwarded_unknown</code></td>
 <td><code>Request</code></td>
 <td>both</td>
 <td>✅</td>
@@ -12089,7 +12122,7 @@
 <li><strong>c</strong>: ww_client_server's Error is the error answer of a request, not a type of an API in the model. 6 cases: <code>client_server.error.overloaded</code>, <code>client_server.error.denied</code>, <code>client_server.error.deadline_exceeded</code>, <code>client_server.error.cancelled</code>, <code>client_server.error.internal</code>, <code>client_server.error.unavailable</code>.</li>
 <li><strong>c</strong>: ww_client_server's Event is a protocol message, not a type of an API in the model. 2 cases: <code>client_server.event.stream_data_path</code>, <code>client_server.event.common_error</code>.</li>
 <li><strong>c</strong>: ww_client_server's MultiIndex is a protocol message, not a type of an API in the model. 1 case: <code>client_server.multi_index.list</code>.</li>
-<li><strong>c</strong>: ww_client_server's Request is a protocol message, not a type of an API in the model. 7 cases: <code>client_server.request.absolute_path</code>, <code>client_server.request.global_path</code>, <code>client_server.request.urgent</code>, <code>client_server.request.highest_reserved</code>, <code>client_server.request.context_deadline</code>, <code>client_server.request.context_trace</code>, <code>client_server.request.cancel</code>.</li>
+<li><strong>c</strong>: ww_client_server's Request is a protocol message, not a type of an API in the model. 10 cases: <code>client_server.request.absolute_path</code>, <code>client_server.request.global_path</code>, <code>client_server.request.urgent</code>, <code>client_server.request.highest_reserved</code>, <code>client_server.request.context_deadline</code>, <code>client_server.request.context_trace</code>, <code>client_server.request.context_forwarded_unix</code>, <code>client_server.request.context_forwarded_addr</code>, <code>client_server.request.context_forwarded_unknown</code>, <code>client_server.request.cancel</code>.</li>
 <li><strong>c</strong>: ww_client_server's RequestKind is the request envelope, not a type of an API in the model. 2 cases: <code>client_server.stream_open.compressed</code>, <code>client_server.stream_open.raw</code>.</li>
 <li><strong>c</strong>: ww_client_server's StreamOpened is the answer envelope of a stream open, not a type of an API in the model. 2 cases: <code>client_server.stream_opened.lz4</code>, <code>client_server.stream_opened.unknown</code>.</li>
 <li><strong>c</strong>: ww_client_server's request envelope, not a type of an API in the model. 3 cases: <code>client_server.request.multi_read</code>, <code>client_server.request.sink_write</code>, <code>client_server.request.sideband_ack</code>.</li>
@@ -12108,7 +12141,7 @@
 <li><strong>dynamic</strong>: ww_client_server's Error is the error answer of a request, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 6 cases: <code>client_server.error.overloaded</code>, <code>client_server.error.denied</code>, <code>client_server.error.deadline_exceeded</code>, <code>client_server.error.cancelled</code>, <code>client_server.error.internal</code>, <code>client_server.error.unavailable</code>.</li>
 <li><strong>dynamic</strong>: ww_client_server's Event is a protocol message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 2 cases: <code>client_server.event.stream_data_path</code>, <code>client_server.event.common_error</code>.</li>
 <li><strong>dynamic</strong>: ww_client_server's MultiIndex is a protocol message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 1 case: <code>client_server.multi_index.list</code>.</li>
-<li><strong>dynamic</strong>: ww_client_server's Request is a protocol message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 7 cases: <code>client_server.request.absolute_path</code>, <code>client_server.request.global_path</code>, <code>client_server.request.urgent</code>, <code>client_server.request.highest_reserved</code>, <code>client_server.request.context_deadline</code>, <code>client_server.request.context_trace</code>, <code>client_server.request.cancel</code>.</li>
+<li><strong>dynamic</strong>: ww_client_server's Request is a protocol message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 10 cases: <code>client_server.request.absolute_path</code>, <code>client_server.request.global_path</code>, <code>client_server.request.urgent</code>, <code>client_server.request.highest_reserved</code>, <code>client_server.request.context_deadline</code>, <code>client_server.request.context_trace</code>, <code>client_server.request.context_forwarded_unix</code>, <code>client_server.request.context_forwarded_addr</code>, <code>client_server.request.context_forwarded_unknown</code>, <code>client_server.request.cancel</code>.</li>
 <li><strong>dynamic</strong>: ww_client_server's RequestKind is the request envelope, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 2 cases: <code>client_server.stream_open.compressed</code>, <code>client_server.stream_open.raw</code>.</li>
 <li><strong>dynamic</strong>: ww_client_server's StreamOpened is the answer envelope of a stream open, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 2 cases: <code>client_server.stream_opened.lz4</code>, <code>client_server.stream_opened.unknown</code>.</li>
 <li><strong>dynamic</strong>: ww_client_server's request envelope, not a type of an API in the model; a dynamic consumer reads API types. 3 cases: <code>client_server.request.multi_read</code>, <code>client_server.request.sink_write</code>, <code>client_server.request.sideband_ack</code>.</li>
@@ -12127,7 +12160,7 @@
 <li><strong>explain</strong>: ww_client_server's Error is the error answer of a request, not a type of an API in the model. 6 cases: <code>client_server.error.overloaded</code>, <code>client_server.error.denied</code>, <code>client_server.error.deadline_exceeded</code>, <code>client_server.error.cancelled</code>, <code>client_server.error.internal</code>, <code>client_server.error.unavailable</code>.</li>
 <li><strong>explain</strong>: ww_client_server's Event is a protocol message, not a type of an API in the model. 2 cases: <code>client_server.event.stream_data_path</code>, <code>client_server.event.common_error</code>.</li>
 <li><strong>explain</strong>: ww_client_server's MultiIndex is a protocol message, not a type of an API in the model. 1 case: <code>client_server.multi_index.list</code>.</li>
-<li><strong>explain</strong>: ww_client_server's Request is a protocol message, not a type of an API in the model. 7 cases: <code>client_server.request.absolute_path</code>, <code>client_server.request.global_path</code>, <code>client_server.request.urgent</code>, <code>client_server.request.highest_reserved</code>, <code>client_server.request.context_deadline</code>, <code>client_server.request.context_trace</code>, <code>client_server.request.cancel</code>.</li>
+<li><strong>explain</strong>: ww_client_server's Request is a protocol message, not a type of an API in the model. 10 cases: <code>client_server.request.absolute_path</code>, <code>client_server.request.global_path</code>, <code>client_server.request.urgent</code>, <code>client_server.request.highest_reserved</code>, <code>client_server.request.context_deadline</code>, <code>client_server.request.context_trace</code>, <code>client_server.request.context_forwarded_unix</code>, <code>client_server.request.context_forwarded_addr</code>, <code>client_server.request.context_forwarded_unknown</code>, <code>client_server.request.cancel</code>.</li>
 <li><strong>explain</strong>: ww_client_server's RequestKind is the request envelope, not a type of an API in the model. 2 cases: <code>client_server.stream_open.compressed</code>, <code>client_server.stream_open.raw</code>.</li>
 <li><strong>explain</strong>: ww_client_server's StreamOpened is the answer envelope of a stream open, not a type of an API in the model. 2 cases: <code>client_server.stream_opened.lz4</code>, <code>client_server.stream_opened.unknown</code>.</li>
 <li><strong>explain</strong>: ww_client_server's request envelope, not a type of an API in the model. 3 cases: <code>client_server.request.multi_read</code>, <code>client_server.request.sink_write</code>, <code>client_server.request.sideband_ack</code>.</li>
@@ -12146,7 +12179,7 @@
 <li><strong>python</strong>: ww_client_server's Error is the error answer of a request, not a type of an API in the model. 6 cases: <code>client_server.error.overloaded</code>, <code>client_server.error.denied</code>, <code>client_server.error.deadline_exceeded</code>, <code>client_server.error.cancelled</code>, <code>client_server.error.internal</code>, <code>client_server.error.unavailable</code>.</li>
 <li><strong>python</strong>: ww_client_server's Event is a protocol message, not a type of an API in the model. 2 cases: <code>client_server.event.stream_data_path</code>, <code>client_server.event.common_error</code>.</li>
 <li><strong>python</strong>: ww_client_server's MultiIndex is a protocol message, not a type of an API in the model. 1 case: <code>client_server.multi_index.list</code>.</li>
-<li><strong>python</strong>: ww_client_server's Request is a protocol message, not a type of an API in the model. 7 cases: <code>client_server.request.absolute_path</code>, <code>client_server.request.global_path</code>, <code>client_server.request.urgent</code>, <code>client_server.request.highest_reserved</code>, <code>client_server.request.context_deadline</code>, <code>client_server.request.context_trace</code>, <code>client_server.request.cancel</code>.</li>
+<li><strong>python</strong>: ww_client_server's Request is a protocol message, not a type of an API in the model. 10 cases: <code>client_server.request.absolute_path</code>, <code>client_server.request.global_path</code>, <code>client_server.request.urgent</code>, <code>client_server.request.highest_reserved</code>, <code>client_server.request.context_deadline</code>, <code>client_server.request.context_trace</code>, <code>client_server.request.context_forwarded_unix</code>, <code>client_server.request.context_forwarded_addr</code>, <code>client_server.request.context_forwarded_unknown</code>, <code>client_server.request.cancel</code>.</li>
 <li><strong>python</strong>: ww_client_server's RequestKind is the request envelope, not a type of an API in the model. 2 cases: <code>client_server.stream_open.compressed</code>, <code>client_server.stream_open.raw</code>.</li>
 <li><strong>python</strong>: ww_client_server's StreamOpened is the answer envelope of a stream open, not a type of an API in the model. 2 cases: <code>client_server.stream_opened.lz4</code>, <code>client_server.stream_opened.unknown</code>.</li>
 <li><strong>python</strong>: ww_client_server's request envelope, not a type of an API in the model. 3 cases: <code>client_server.request.multi_read</code>, <code>client_server.request.sink_write</code>, <code>client_server.request.sideband_ack</code>.</li>
@@ -12165,7 +12198,7 @@
 <li><code>client_server.request.sideband_ack</code>: EVO-76 / the priority nibble is now priority: U3 and a reserved bit; NORMAL (2, reserved false) has the old NORMAL's bits, so the bytes stay.</li>
 <li><code>client_server.request.absolute_path</code>: EVO-76 / the priority nibble is now priority: U3 and a reserved bit; NORMAL (2, reserved false) has the old NORMAL's bits, so the bytes stay.</li>
 <li><code>client_server.request.global_path</code>: EVO-76 / the priority nibble is now priority: U3 and a reserved bit; NORMAL (2, reserved false) has the old NORMAL's bits, so the bytes stay.</li>
-<li><code>client_server.request.highest_reserved</code>: EVO-84 / the reserved bit after priority is the flag of the request context; no sender ever set it.</li>
+<li><code>client_server.request.highest_reserved</code>: EVO-85 / the bytes of a host from before the appended forwarded_for, read as None; encoding None now writes its flag (EVO-84 made the reserved bit the context's flag).</li>
 <li><code>stdlib.si.dim.volt</code>: EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has.</li>
 <li><code>stdlib.si.dim.rad_bit</code>: EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has.</li>
 <li><code>stdlib.si.dim.counted</code>: EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has.</li>

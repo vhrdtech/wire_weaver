@@ -7625,6 +7625,8 @@ The peer each listener gives its connections:</p>
 </tr>
 </tbody>
 </table>
+<p>A request a trusted mount forwarder sent on is its client's: <code>Server::trust_forwarders</code> names the peers whose word on
+that is taken, and <code>cx.call().forwarded</code> is set (<a href="../mounts/#who-calls-and-what-it-does">mounts</a>).</p>
 <p>Two places decide: the socket keeps out who must not connect at all, and a hook decides each request.</p>
 <h3 id="listener-policy">Listener policy<a class="headerlink" href="#listener-policy" title="Permanent link">&para;</a></h3>
 <p><code>ww_local_socket::listen_with</code> takes a <code>PeerPolicy</code>, which sets the modes of the socket file and of its directory

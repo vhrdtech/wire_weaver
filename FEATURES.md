@@ -713,14 +713,23 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   go on. An error about one client no longer ends `serve` and every connection: a TCP stream that fails its setup
   is dropped, and `StdUdpSocket` skips receive errors about one datagram
   ([Host server](docs/api/host_server.md#moving-to-another-address), `tests/calloop_server`, `tests/host_server`).
+- ✅ **SRV-77 Mount prefix rewrite and global paths** — what crosses a mount slot (SRV-76) is rewritten in the
+    envelope only, never decoded with the mounted API's types, and without a wire change: a request goes to the
+    backend with the slot's path taken off (`ww_client_server::mount::MountRequest::forward_into`, `request_at`), its
+    events come back with the slot's path in front of theirs (`MountPrefix::event_out`), seqs pass through. A global
+    trait path the server's own tree doesn't have reaches into a mounted API through
+    `wire_weaver_server::mount::MountedTraits`, from each backend's learned introspection data: the server's own
+    traits first, then the slots in path order ([Docs](docs/api/mounts.md#forwarding), `tests/mounts`
+    `forward_to_a_backend`).
 - 🚧 **SRV-76 Mount slots** — `mount!(hub)` (one slot, `mount!(hub: hub_api)` names the expected API crate) and
     `mounts!(ext)` (slots keyed by `ww_api::mount::MountName` through a `keyed!` companion): a level whose API is known
     only at run time. Done: the `ww_self` `Mount` item (model 0.7.0; the parent's hash covers the declaration only),
     the slot's fixed level (`presence`, an observable `MountPresence`, and `api`), server handlers
     `get_<slot>_presence` and `<slot>_request` with `MountRequest`/`MountAnswer`, `ErrorKind::Unavailable`
     (`ww_client_server` w2.2), introspection below the root reaching the handler, `ww api scaffold`, the generated
-    client's `MountSlot`, `presence` in the dynamic client, evolution and authorization steps. Missing: forwarding to
-    a backend process and the keys stream driven by mounts, the client view of the mounted API (`TODO(SRV-76)`).
+    client's `MountSlot`, `presence` in the dynamic client, evolution and authorization steps; the rewrite is
+    SRV-77. Missing: forwarding to a backend process and the keys stream driven by mounts, the client view of the
+    mounted API (`TODO(SRV-76)`).
     [Docs](docs/api/mounts.md), `tests/mounts`.
 - 📋 **SRV-9 Handle USB suspend/resume** · `v0.5` — run until suspend, wait for resume, loop
   (`mcu/wire_weaver_usb_embassy`). Later (`v0.5.x`): detect the host going to sleep and keep the connection,

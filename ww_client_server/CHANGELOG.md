@@ -2,6 +2,8 @@
 
 ### 🚀 Features
 
+- `mount::MountPrefix`, `request_at`, `MountRequest::forward_into`: header-only prefix rewrite of requests and events crossing a mount slot (SRV-77).
+- `Request` and `RequestKind` are `Clone` (SRV-77).
 - `mount::MountRequest` and `mount::MountAnswer`, what a mount slot's handler takes and answers; `err_seq::mount` sites (SRV-76).
 - `ErrorKind::Unavailable` and `MOUNTS_SINCE` (wire w2.2): an older client gets `UserStr("unavailable")` (SRV-76).
 - `dispatch::failed` answers a `call::ErrorKind::BadIndex` failure with `BadIndex`; `err_seq::LEVEL_INDICES_FAILED` for valid indices that failed (CLT-58).

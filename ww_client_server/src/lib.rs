@@ -157,7 +157,7 @@ pub const fn model_reads(client: Option<WireVersion>, since: WireVersion) -> boo
 /// - 4B (seq <= 127, path len 1 <= 7, Kind with 1B args)
 ///
 /// The priority (3 bits) and the flag of `context` right after `seq` share a byte with `path_kind`'s discriminant.
-#[derive_shrink_wrap(owned(feature = "std"), derive(Debug))]
+#[derive_shrink_wrap(owned(feature = "std"), derive(Debug, Clone))]
 pub struct Request<'i> {
     /// Request ID, starting from 1 and wrapping back to 1 that allows to map responses to requests.
     /// 0 means no answer is expected.
@@ -257,7 +257,7 @@ pub enum PathKind<'i> {
 /// requests (feature `streams`) are compiled out of a firmware that doesn't use them, and every build numbers the
 /// rest the same. Such a firmware reads a request it left out as [RequestKind::Unknown] and answers
 /// [ErrorKind::OperationNotSupported], as it does a request kind from a newer version.
-#[derive_shrink_wrap(owned(feature = "std"), derive(Debug), final_structure, ww_repr = nib)]
+#[derive_shrink_wrap(owned(feature = "std"), derive(Debug, Clone), final_structure, ww_repr = nib)]
 pub enum RequestKind<'i> {
     /// Call a method with provided arguments.
     /// Expected to get [EventKind::Value], unless request ID is 0.

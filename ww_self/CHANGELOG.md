@@ -17,7 +17,8 @@
 ### ⚠️ Breaking
 
 - `Meta::track: Option<Track>` (`#[default = None]`, API-71): how a recorder lays a stream out; model format `VERSION` is 0.6.0. New `Track`, `TrackLayout`, `ApiBundleOwned::series_shape`.
-- `Meta` is `elide_defaults` (SW-85): trailing `effects` and `track` at their defaults take no bits, so a meta without them encodes as before API-58.
+- `Meta` is `elide_defaults` (SW-85): `effects` and `track` at their defaults take no bits. Signatures of items without effects change once.
+- Snapshots of model format 0.5.0 with a meta without effects no longer match their hash: re-save them.
 - `Meta::effects: Effects` (`#[default]`, API-58): what an item does; model format `VERSION` is 0.5.0. New `Effects` bitset and `ApiItemOwned::effects()`.
 - Declares `rust-version = "1.99"`: cargo of an older Rust refuses the crate.
 - `VERSION`, written as `ApiBundle::ww_self_version`, is the format of the API model, 0.4.0, no longer the crate version: it moves with every change of the model's shape (EVO-82). Bundles and snapshot files of format 0.3.0 are not read; re-save them.

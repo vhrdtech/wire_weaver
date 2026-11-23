@@ -11,7 +11,7 @@ homepage.workspace = true
 
 [package.metadata.wire_weaver]
 # its line is the GENERATION in the link setup hello (EVO-23): a wire break bumps it
-wire = "w2.1"
+wire = "w2.2"
 
 [features]
 default = ["std"]

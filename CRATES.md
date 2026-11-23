@@ -129,6 +129,8 @@ This page lists the crates of the root workspace. The first table links each pub
 | [`minimal_shrink_wrap`](examples/minimal_shrink_wrap) | runtime | WireWeaver is a wire format and API code generator for resource constrained systems. |
 | [`module_paths`](tests/module_paths) | runtime | Tests of types named by their module path through generated server and client code (API-46) |
 | [`module_paths_api`](tests/module_paths_api) | runtime | API-46 test API: types in modules named by path, re-exports, renames, same-named types in different modules |
+| [`mounts`](tests/mounts) | runtime | Server and client of mount slots (SRV-76): presence, requests under a slot, introspection below the root, names |
+| [`mounts_api`](tests/mounts_api) | runtime | Mount slots (SRV-76): a TV whose hub and extensions are APIs of other processes, known only at run time |
 | [`multi_req`](tests/multi_req) | runtime | Tests of multi requests (MultiCall, MultiRead, MultiWrite) and malformed ones against a real server |
 | [`multi_req_api`](tests/multi_req_api) | runtime | API for multi requests (MultiCall, MultiRead, MultiWrite) and the malformed ones a server must survive |
 | [`multi_root`](tests/multi_root) | runtime | Tests of two wire lines of one API in one crate (EVO-37): a server and client of each line |

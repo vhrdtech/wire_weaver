@@ -1,0 +1,34 @@
+[package]
+name = "mounts"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Server and client of mount slots (SRV-76): presence, requests under a slot, introspection below the root, names"
+
+[package.metadata.cargo-machete]
+# the code ww_codegen! generates names ww_keyed (the keys of `mounts!`) and ww_stream (the observable presence)
+ignored = ["ww_keyed", "ww_stream"]
+
+[features]
+default = ["std"]
+# default, unused here: this crate has no no_std gate and no owned/borrowed derive choice
+std = []
+
+[dependencies]
+mounts_api.workspace = true
+tests_common.workspace = true
+tokio = { workspace = true, features = ["sync", "rt-multi-thread", "rt", "macros", "test-util"] }
+tracing-subscriber.workspace = true
+wire_weaver.workspace = true
+wire_weaver_client = { workspace = true, features = ["clock_sync", "usb"] }
+ww_client_server.workspace = true
+ww_keyed = { workspace = true, features = ["std"] }
+ww_self.workspace = true
+ww_stream.workspace = true
+
+[lints]
+workspace = true

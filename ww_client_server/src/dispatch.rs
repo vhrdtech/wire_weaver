@@ -116,6 +116,7 @@ fn write_err(
         D::StreamNoSession => ErrorKind::StreamNoSession,
         D::StreamStoreFailed => ErrorKind::StreamStoreFailed,
         D::Overloaded => ErrorKind::Overloaded,
+        D::Unavailable => ErrorKind::Unavailable,
         // written with its payload by `common_error`, never through here; nor is a kind of a newer version
         D::Common | D::Unknown(_) => ErrorKind::OperationNotSupported,
         // a host server's own answers (SRV-47), never a dispatcher's
@@ -538,6 +539,7 @@ fn write_failure<const MULTI: bool>(
             K::Cancelled => ErrorKind::Cancelled,
             K::Overloaded => ErrorKind::Overloaded,
             K::BadIndex => ErrorKind::BadIndex,
+            K::Unavailable => ErrorKind::Unavailable,
             _ => ErrorKind::Internal,
         };
         err_kind(wr, d, err_seq, kind)

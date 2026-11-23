@@ -4,6 +4,7 @@ use super::{
     errors::{ListedOn, get_errors_attr, refuse_common_error_type, reject_errors_attr},
     keyed::{convert_api_item_keyed, reject_keys_ident_collisions},
     meta::{MetaSite, get_meta},
+    mount::{convert_api_item_mount, reject_mount_ident_collisions},
     moved_from::get_moved_from_attrs,
     track,
     ty::{convert_ty, convert_ty_path, convert_ty_path_segment},
@@ -90,6 +91,20 @@ pub(crate) fn convert_api_items(
                             idx as u32,
                         )?;
                         items.push(api_item_keyed);
+                    }
+                    "mount" | "mounts" => {
+                        let keyed = kind == "mounts";
+                        items.extend(convert_api_item_mount(
+                            current_crate,
+                            scratch,
+                            item_macro,
+                            idx as u32,
+                            keyed,
+                        )?);
+                        // the key companion of `mounts!` takes the next id
+                        if keyed {
+                            idx += 1;
+                        }
                     }
                     "reserved" => {
                         let args: ReservedMacroArgs = parse2(item_macro.mac.tokens.clone())
@@ -180,6 +195,7 @@ pub(crate) fn convert_api_items(
     .context(current_crate.err_context())?;
     reject_group_item_collisions(&items).context(current_crate.err_context())?;
     reject_keys_ident_collisions(&items).context(current_crate.err_context())?;
+    reject_mount_ident_collisions(&items).context(current_crate.err_context())?;
     Ok(items)
 }
 
@@ -1072,8 +1088,10 @@ pub(crate) mod tests {
         package: &str,
         lib_rs: &str,
     ) -> Result<ww_self::ApiBundleOwned> {
-        let dir = std::env::temp_dir()
-            .join("ww_core_api_tests")
+        // inside the repository, so the crate walker finds the workspace's Cargo.lock above it for git and registry
+        // dependencies (ww_api's own, which `mount!` walks)
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../target/ww_core_api_tests")
             .join(format!("{name}-{}", std::process::id()));
         std::fs::create_dir_all(dir.join("src")).unwrap();
         std::fs::write(

@@ -1,0 +1,25 @@
+[package]
+name = "mounts_api"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Mount slots (SRV-76): a TV whose hub and extensions are APIs of other processes, known only at run time"
+
+[package.metadata.wire_weaver]
+wire = "w1.0"
+
+[features]
+default = ["std"]
+# turns no_std off, switches the derived types from borrowed to owned, and forwards std to ww_api and ww_keyed
+std = ["ww_api/std", "ww_keyed/std"]
+
+[dependencies]
+ww_api.workspace = true
+ww_keyed.workspace = true
+
+[lints]
+workspace = true

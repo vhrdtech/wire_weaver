@@ -275,7 +275,7 @@ impl Observe {
                         samples: batched.is_some() && observe_samples && elements.is_none(),
                     });
                 }
-                ApiItemKindOwned::Trait { .. } => {
+                ApiItemKindOwned::Trait { .. } | ApiItemKindOwned::Mount { .. } => {
                     let prefix = match prefix {
                         Some(prefix) => format!("{prefix}_{}", item.ident),
                         None => item.ident.clone(),
@@ -305,9 +305,20 @@ impl Observe {
                         });
                         Some(e)
                     };
+                    // a mount slot's level (SRV-76): its `presence`, always through its getter
+                    let slot;
+                    let get_set = PropertyModel::default();
+                    let (child, property_model) = if let ApiItemKindOwned::Mount { .. } = item.kind
+                    {
+                        slot = ww_self::mount::slot_level(level, item)
+                            .expect("a mount item has a slot level");
+                        (&slot, &get_set)
+                    } else {
+                        (item.get_as_level(api_bundle).unwrap(), property_model)
+                    };
                     self.walk(
                         api_bundle,
-                        item.get_as_level(api_bundle).unwrap(),
+                        child,
                         omissions,
                         property_model,
                         observe_samples,

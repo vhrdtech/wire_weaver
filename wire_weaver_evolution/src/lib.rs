@@ -1872,6 +1872,7 @@ mod tests {
     mod foreign_wrapper;
     mod in_place;
     mod keyed;
+    mod mount;
     mod moved_from;
     mod older_format;
     mod root_cause;

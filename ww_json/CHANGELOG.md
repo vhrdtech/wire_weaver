@@ -4,6 +4,7 @@
 
 ### 🚀 Features
 
+- `schema::item_schemas` answers no schema for a mount slot, a level like a trait (SRV-76).
 - Depends on `ww_quantity`, not `wire_weaver_client`: no client runtime, codegen or snapshot fetch (`ureq`, `rustls`) in its tree.
 - `ww_json::toml`: values to and from `toml_edit` by the JSON form's rules, `decode_onto` for settings levels, `write_onto` keeping comments (INT-18).
 - `ww_json::toml`'s `decode_onto` reads `{ unset_to_none = true }` (an `Option` field is `None` over any base value) and `{ use_parent = true }` (keeps the base's value, same as leaving the key out); `write_onto` writes the first where a left-out key would read back wrong and leaves either alone when unchanged (INT-18).

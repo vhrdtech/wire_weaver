@@ -1,7 +1,7 @@
 // ww_tap 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 32dc2b2cde68afedb4e73b362699c48ec66745ace911190a9c4e116d0c4a225e
-(magic: 2837124336, ww_self_version: (major: 0, minor: 6, patch: 0), root: (docs: [
+// shrink_wrap sha256: 5cad4aa10f59706438cb1609cdef101d4cb15f8d59fab978d6858fed2f5531bf
+(magic: 2837124336, ww_self_version: (major: 0, minor: 7, patch: 0), root: (docs: [
     "The link tap: what crosses a wire_weaver link, recorded at the transport edge, for monitors, statistics and",
     "captures (TR-14).",
     "",

@@ -1,7 +1,7 @@
 // global_fixture_api 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: d71e90591304f9b3b5bc00a8f712b05a13e567e00e2141233fd59417fb12c221
-(magic: 2837124336, ww_self_version: (major: 0, minor: 6, patch: 0), root: (docs: [
+// shrink_wrap sha256: 0c9d6fe53bc0141c15d7962a57a4791ce8050d468043aa10f4e3bf315dc2359c
+(magic: 2837124336, ww_self_version: (major: 0, minor: 7, patch: 0), root: (docs: [
     "A global trait for `tests/dispatch_golden` (TEST-31, API-20): a const next to a writable property, reached by",
     "`GlobalFull` and `GlobalCompact`. Standing in for a real `ww_stdlib` crate (R7): only the global-path shape",
     "matters here, not any real API\'s behavior.",

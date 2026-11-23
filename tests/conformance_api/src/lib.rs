@@ -173,6 +173,10 @@ trait Conformance {
     /// `ww_keyed::KeyEvent<I, K>`, the item of a `keyed!` array's `keys` stream (API-67), with the `UNib32` index of
     /// an array declared as `name[]`
     property!(rw key_event: ww_keyed::KeyEvent<UNib32, u16>);
+    /// `ww_api::mount::MountPresence`, the `presence` of a mount slot (SRV-76)
+    property!(rw mount_presence: ww_api::mount::MountPresence<'i>);
+    /// `ww_api::mount::MountName`, the key of a `mounts!` slot (SRV-76)
+    property!(rw mount_name: ww_api::mount::MountName<'i>);
     /// `ww_si::Timed<V, Tm>` with a coarser time, `DeviceMillis<u16>` (STD-110)
     property!(rw si_timed_millis: ww_si::Timed<u16, ww_si::origins::DeviceMillis<u16>>);
     /// A batch of `ww_si::Timed<V>` as a timed batched stream sends it (STD-110)

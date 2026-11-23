@@ -419,6 +419,7 @@ impl Error {
                 Remote::DeadlineExceeded => CallErrorKind::DeadlineExceeded,
                 Remote::Cancelled => CallErrorKind::Cancelled,
                 Remote::Internal => CallErrorKind::Internal,
+                Remote::Unavailable => CallErrorKind::Unavailable,
                 Remote::Common(c) => CallErrorKind::of_common(c),
             },
             Error::Timeout => CallErrorKind::DeadlineExceeded,

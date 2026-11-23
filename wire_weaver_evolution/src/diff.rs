@@ -331,7 +331,7 @@ fn type_name(bundle: &ApiBundleOwned, ty: &TypeOwned) -> String {
 }
 
 /// `fn set(c: Coord) -> u8`, `rw property speed: u32 observable`, `impl gpio[]: ww_gpio::Gpio`,
-/// `keyed!(flow by FlowKey)`, ... of `item` in `level`.
+/// `keyed!(flow by FlowKey)`, `mount!(hub: pult_hub_api)`, ... of `item` in `level`.
 fn item_signature(bundle: &ApiBundleOwned, level: &ApiLevelOwned, item: &ApiItemOwned) -> String {
     let ident = match &item.multiplicity {
         Multiplicity::Flat => item.ident.clone(),
@@ -431,6 +431,13 @@ fn item_signature(bundle: &ApiBundleOwned, level: &ApiLevelOwned, item: &ApiItem
                 .find(|i| i.id == *of)
                 .map_or_else(|| format!("<no item {}>", of.0), |i| i.ident.clone());
             format!("keyed!({array} by {})", type_name(bundle, key))
+        }
+        ApiItemKindOwned::Mount { expects, .. } => {
+            let mac = if item.is_array() { "mounts" } else { "mount" };
+            match expects {
+                Some(expects) => format!("{mac}!({}: {expects})", item.ident),
+                None => format!("{mac}!({})", item.ident),
+            }
         }
         ApiItemKindOwned::Trait { trait_idx, .. } => {
             let crate_name = |crate_idx: u32| bundle.crate_name(crate_idx).unwrap_or("?");

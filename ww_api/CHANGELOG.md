@@ -15,6 +15,7 @@
 
 ### 🚀 Features
 
+- `mount!(hub)` and `mounts!(ext)` in API traits, with `mount::MountPresence` and `mount::MountName` (SRV-76).
 - `Totals<T>`, `TotalsSession` and `Accumulate` in the prelude (API-70): running totals a plain sink carries; a lost write loses nothing.
 - `api_doc::Keys<E>`: the rustdoc marker of a keyed array's key companion (API-67).
 - `Error<'i, E>` (STD-16): what a handler answers instead of a value, `Common(CommonError)` or `Api(E)`, with `From<CommonError>`; `api_error!(XError<'i>)` adds `From<XError>` for it in the error enum's crate (a blanket `From<E>` would overlap at `E = CommonError`). Both in the prelude. Generated servers take it from the next codegen on.

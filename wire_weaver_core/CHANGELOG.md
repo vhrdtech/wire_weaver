@@ -2,6 +2,7 @@
 
 ### 🚀 Features
 
+- Mount slots (SRV-76): server handlers `get_<slot>_presence` and `<slot>_request`, scaffold, observe, the client's `MountSlot` accessors.
 - `codegen::bundle::gen_bundle`: an API root's whole model, dependency types inline, as a byte const (API-73).
 - `keyed!` takes a key that borrows (`DetectorName<'i>`), and refuses one without `owned` in its `derive_shrink_wrap`, naming the missing `<Name>Owned` (API-72).
 - A type's `elide_defaults` directive (SW-85) is accepted; the API model's writers still write every field (INT-10).

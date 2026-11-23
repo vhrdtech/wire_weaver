@@ -182,6 +182,8 @@ borrowed_types! {
         si_timed => ww_si::Timed<u16>,
         totals_item => wire_weaver::ww_api::Totals<ww_si::Fixed<ww_si::units::Item, ww_si::prefix::One, i32>>,
         key_event => ww_keyed::KeyEvent<UNib32, u16>,
+        mount_presence => wire_weaver::ww_api::mount::MountPresence<'_>,
+        mount_name => wire_weaver::ww_api::mount::MountName<'_>,
         si_timed_millis => ww_si::Timed<u16, ww_si::origins::DeviceMillis<u16>>,
         series_si_timed => Series<'_, ww_si::Timed<u16>>,
         series_si_timed_ampere => Series<'_, ww_si::Timed<ww_si::Ampere>>,

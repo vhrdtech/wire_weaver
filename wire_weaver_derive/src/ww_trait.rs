@@ -10,8 +10,9 @@ use syn::{
 use wire_weaver_core::internal::ww_self::ApiBundleOwned;
 use wire_weaver_core::internal::ww_self::errors::error_list_docs;
 use wire_weaver_core::internal::{
-    ErrorListError, KeyedMacroArgs, PropertyAccess, PropertyMacroArgs, StreamAndImplMacroArgs,
-    WireVersion, array_index_ty, keys_ident, parse_local_arg, parse_wire_arg,
+    ErrorListError, KeyedMacroArgs, MountMacroArgs, PropertyAccess, PropertyMacroArgs,
+    StreamAndImplMacroArgs, WireVersion, array_index_ty, keys_ident, parse_local_arg,
+    parse_wire_arg,
 };
 use wire_weaver_core::load;
 
@@ -350,6 +351,49 @@ fn doc_trait(
                             #notes
                             fn #ident #lifetimes () -> #ww_api::api_doc::Keys<#ww_keyed::KeyEvent<#index, #key>>;
                         });
+                    }
+                    "mount" | "mounts" => {
+                        let keyed = kind == "mounts";
+                        let args: MountMacroArgs =
+                            parse2(tokens).map_err(|e| format!("{kind}!: {e}"))?;
+                        let ident = &args.name;
+                        let expects = args
+                            .expects
+                            .as_ref()
+                            .map(|expects| format!("Expected to serve the API of `{expects}`."));
+                        let what = if keyed {
+                            "Mount slots keyed by name: each one a level whose API is known only at run time, \
+                             with a `presence` and the mounted API's root `api`."
+                        } else {
+                            "Mount slot: a level whose API is known only at run time, with a `presence` and the \
+                             mounted API's root `api`."
+                        };
+                        let index = keyed.then(|| quote! { index: #ww_api::shrink_wrap::UNib32 });
+                        let slot_notes = notes([
+                            Some(what.to_string()),
+                            expects,
+                            since.clone(),
+                            meta_note(&item_macro.attrs),
+                        ]);
+                        items.extend(quote! {
+                            #(#docs)*
+                            #slot_notes
+                            fn #ident (#index) -> #ww_api::api_doc::Mount;
+                        });
+                        if keyed {
+                            let keys = Ident::new(&keys_ident(&ident.to_string()), ident.span());
+                            let ww_keyed = crate::crate_paths::ww_keyed();
+                            let keys_notes = notes([
+                                Some(format!(
+                                    "Key companion of `{ident}[]`: `index_of(name)`, `key[index]` and the `keys` stream."
+                                )),
+                                since,
+                            ]);
+                            items.extend(quote! {
+                                #keys_notes
+                                fn #keys () -> #ww_api::api_doc::Keys<#ww_keyed::KeyEvent<#ww_api::shrink_wrap::UNib32, #ww_api::mount::MountName<'static>>>;
+                            });
+                        }
                     }
                     // reserved!(..) only takes up resource ids, nothing to show
                     _ => {}

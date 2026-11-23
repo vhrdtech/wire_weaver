@@ -335,6 +335,18 @@ fn compare_kinds<'a>(
                 .map_err(|e| format!("key type: {e}"))?;
         }
         (
+            // the expected backend crate is a hint for clients, the slot carries whatever is mounted (SRV-76)
+            Mount { presence_ty, .. },
+            Mount {
+                presence_ty: device_presence_ty,
+                ..
+            },
+        ) => {
+            to_client
+                .check(device_presence_ty, presence_ty)
+                .map_err(|e| format!("presence type: {e}"))?;
+        }
+        (
             Trait { trait_idx, .. },
             Trait {
                 trait_idx: device_trait_idx,
@@ -562,6 +574,7 @@ fn kind_name(kind: &ApiItemKindOwned) -> &'static str {
         } => "a reliable stream",
         ApiItemKindOwned::Trait { .. } => "a trait",
         ApiItemKindOwned::Keys { .. } => "a keyed! companion",
+        ApiItemKindOwned::Mount { .. } => "a mount slot",
     }
 }
 

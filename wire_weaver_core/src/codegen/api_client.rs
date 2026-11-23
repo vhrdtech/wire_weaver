@@ -658,6 +658,21 @@ fn level_method(
             let msg = format!("keyed! `{}`: {e:#}", item.ident);
             quote! { compile_error!(#msg); }
         }),
+        ApiItemKindOwned::Mount { .. } => {
+            let path_kind = path_kind(path_mode, gid_paths);
+            let doc = format!(
+                " Mount slot `{}`: its `presence` and the path of the API mounted there.",
+                item.ident
+            );
+            quote! {
+                #[doc = #doc]
+                pub fn #ident(&self #maybe_index_arg) -> Result<wire_weaver_client::MountSlot<'_>, wire_weaver_client::Error> {
+                    #index_chain_push
+                    let path_kind = #path_kind;
+                    self.cmd.mount_slot(path_kind)
+                }
+            }
+        }
         ApiItemKindOwned::Trait { .. } => {
             let level = item.get_as_level(api_bundle).expect("api level");
             let level_entry_fn_name = Ident::new(&item.ident, Span::call_site());
@@ -785,6 +800,23 @@ fn handle_keys(
                 },
             )
         }
+    } else if let ApiItemKindOwned::Mount { .. } = &array.kind {
+        // the slot, as `<slots>(index)` makes it
+        let p0 = level_chain.push_back(
+            quote! { self. },
+            quote! { ResourceIndex::new(UNib32(#of_id)) },
+        );
+        let p1 = level_chain.push_back(quote! {}, quote! { ResourceIndex::new(UNib32(index)) });
+        let path_kind = path_kind(path_mode, gid_paths);
+        (
+            quote! { wire_weaver_client::MountSlot<'_> },
+            quote! {
+                #p0
+                #p1
+                let path_kind = #path_kind;
+                self.cmd.mount_slot(path_kind)?
+            },
+        )
     } else {
         (quote! { u32 }, quote! { index })
     };
@@ -831,13 +863,13 @@ fn handle_keys(
         #[doc = #by_doc]
         pub async fn #by(&self, key: &#key_ty) -> Result<Option<#handle_ty>, wire_weaver_client::Error> {
             let index = self.#index_of_fn(key).await?;
-            Ok(index.map(|index| { #handle }))
+            index.map(|index| -> Result<_, wire_weaver_client::Error> { Ok({ #handle }) }).transpose()
         }
 
         #[doc = #by_doc]
         pub fn #by_blocking(&self, key: &#key_ty) -> Result<Option<#handle_ty>, wire_weaver_client::Error> {
             let index = self.#index_of_blocking(key)?;
-            Ok(index.map(|index| { #handle }))
+            index.map(|index| -> Result<_, wire_weaver_client::Error> { Ok({ #handle }) }).transpose()
         }
 
         #[doc = #key_doc]

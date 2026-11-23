@@ -11,6 +11,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
+- Mount slots: `mount!` and `mounts!` declare levels whose API is known only at run time (SRV-76); see `ww_api`, `ww_self`, `ww_client_server`, `wire_weaver_core`, `wire_weaver_client`.
 - An API crate carries its own model as bytes, `ww_codegen!(crate :: Root, bundle = ..)`, for `ww_json` in installed programs (API-73); see `wire_weaver_derive`, `wire_weaver_core`.
 - Clients find WebSocket servers on the LAN over DNS-SD and follow one to its new address (CLT-82); see `ww_dns_sd`, `wire_weaver_client`.
 - `keyed!` takes a key that borrows, a string name, owned wherever a key is kept (API-72); see `wire_weaver_derive`, `wire_weaver_core`.

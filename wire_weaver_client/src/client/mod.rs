@@ -7,6 +7,7 @@ pub mod dyn_positioned;
 pub mod dynamic;
 pub mod introspect;
 pub mod keyed;
+pub mod mount;
 pub mod multi;
 pub mod observe;
 pub mod positioned;

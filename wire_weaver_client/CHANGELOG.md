@@ -22,6 +22,8 @@
 
 ### 🚀 Features
 
+- The dynamic client reads a mount slot's `presence`, also of an element of `mounts!` (SRV-76).
+- `MountSlot` and `Commander::mount_slot`: a slot's `presence` and `api_path` (SRV-76).
 - `ClientConfig::websocket_urls_from(UrlSource)`: URLs asked again at every connect and reconnect attempt (CLT-82).
 - `discovery` (feature `dns_sd`): `ww_dns_sd`'s `Discovery` and `discovery::urls`, a server's URLs per attempt (CLT-82).
 - `KeyStream::into_item_stream`: a `keys` stream as the item stream of a local trait, the key cache following it (CLT-58).

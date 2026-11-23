@@ -174,6 +174,7 @@ impl<'a> Validator<'a> {
                     .chain(batch_item_ty.as_ref())
                     .collect(),
                 ApiItemKindOwned::Keys { key, event_ty, .. } => vec![key, event_ty],
+                ApiItemKindOwned::Mount { presence_ty, .. } => vec![presence_ty],
                 ApiItemKindOwned::Trait { .. } => vec![],
             };
             for ty in types {
@@ -882,6 +883,7 @@ impl Instantiator {
                     self.ty(bundle, key)?;
                     self.ty(bundle, event_ty)?;
                 }
+                ApiItemKindOwned::Mount { presence_ty, .. } => self.ty(bundle, presence_ty)?,
                 ApiItemKindOwned::Stream { .. }
                 | ApiItemKindOwned::FlowSink { .. }
                 | ApiItemKindOwned::Trait { .. } => {}

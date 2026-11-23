@@ -757,7 +757,8 @@ pub fn table() -> Vec<Typed> {
         }),
         // the host's ww_client_server wire version (SRV-47), appended after the API's
         case_debug("link_setup.model_wire", || ww_link::LinkSetupOwned {
-            host_model_wire: Some(ww_client_server::WIRE_VERSION),
+            // a fixed version, not ww_client_server's WIRE_VERSION: the golden bytes must not change with it
+            host_model_wire: Some(ww_link::WireVersion::new(2, 1)),
             ..link_setup(None, Some(ww_link::WireVersion::new(2, 3)))
         }),
         case_debug("link_setup.with_meta", || {
@@ -791,6 +792,13 @@ pub fn table() -> Vec<Typed> {
             ww_client_server::ErrorOwned::new(
                 ww_client_server::err_seq::REQUEST_OVERLOADED,
                 ww_client_server::ErrorKindOwned::Overloaded,
+            )
+        }),
+        // a mount slot with nothing mounted (SRV-76), appended after Internal
+        case_debug("client_server.error.unavailable", || {
+            ww_client_server::ErrorOwned::new(
+                ww_client_server::err_seq::mount::HANDLER,
+                ww_client_server::ErrorKindOwned::Unavailable,
             )
         }),
         // a host server's own answers (SRV-47), appended after Overloaded
@@ -1102,6 +1110,16 @@ pub fn table() -> Vec<Typed> {
         case(
             "stdlib.keyed.removed",
             ww_keyed::KeyEvent::<UNib32, u16>::Removed { index: UNib32(300) },
+        ),
+        case_debug("api.mount.presence.absent", || {
+            wire_weaver::ww_api::mount::MountPresenceOwned::Absent
+        }),
+        case_debug("api.mount.presence.up", mount_up),
+        case(
+            "api.mount.name",
+            wire_weaver::ww_api::mount::MountNameOwned(
+                wire_weaver::prelude::MaxLen::new("cast".to_owned()).unwrap(),
+            ),
         ),
         case(
             "stdlib.si.timed.default",
@@ -1936,5 +1954,22 @@ impl crate::Consumer for Derive {
             Decoded::Differs(e) => Ok(Err(e)),
             Decoded::Failed(e) => Err(e),
         })
+    }
+}
+
+/// A mount slot's presence with a backend mounted (SRV-76): crate, version, hashes and wire version.
+fn mount_up() -> wire_weaver::ww_api::mount::MountPresenceOwned {
+    use wire_weaver::ww_version::{
+        ApiHashOwned, ApiHashPairOwned, FullVersionOwned, VersionOwned, WireVersion,
+    };
+    wire_weaver::ww_api::mount::MountPresenceOwned::Up {
+        api: FullVersionOwned::new("hub_api".to_owned(), VersionOwned::new(0, 3, 1)),
+        hash: ApiHashPairOwned {
+            no_docs: ApiHashOwned {
+                hash: vec![1, 2, 3, 4],
+            },
+            with_docs: ApiHashOwned { hash: vec![5, 6] },
+        },
+        wire: Some(WireVersion::new(1, 2)),
     }
 }

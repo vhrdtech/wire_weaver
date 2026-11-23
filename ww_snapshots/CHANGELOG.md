@@ -23,6 +23,7 @@
 
 ### 🚀 Features
 
+- Snapshots of model format 0.6.0 stay readable beside 0.7.0, which adds mount slots (SRV-76).
 - Reads snapshots of model formats 0.4.0 and 0.5.0, from before `Meta::track` (API-71).
 - Reads snapshots of model format 0.4.0, from before `Meta::effects` (API-58), hash still checked; new `file::fields_missing_from`.
 - `file::parse` reads snapshot files of model format 0.4.0 (API-58); a file whose re-encoded bytes miss its hash is refused with the re-save step.

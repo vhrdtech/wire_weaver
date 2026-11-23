@@ -549,7 +549,7 @@ where
     }
 }
 
-fn path_mut(path_kind: &mut PathKindOwned) -> &mut Vec<ResourceIndex> {
+pub(crate) fn path_mut(path_kind: &mut PathKindOwned) -> &mut Vec<ResourceIndex> {
     match path_kind {
         PathKindOwned::Absolute { path } => path,
         PathKindOwned::GlobalCompact {
@@ -561,7 +561,7 @@ fn path_mut(path_kind: &mut PathKindOwned) -> &mut Vec<ResourceIndex> {
     }
 }
 
-fn to_owned(path: PathKind<'_>) -> Result<PathKindOwned, Error> {
+pub(crate) fn to_owned(path: PathKind<'_>) -> Result<PathKindOwned, Error> {
     let collect = |p: wire_weaver::shrink_wrap::RefVec<'_, ResourceIndex>| {
         p.iter().collect::<Result<Vec<_>, _>>()
     };
@@ -588,7 +588,7 @@ fn to_owned(path: PathKind<'_>) -> Result<PathKindOwned, Error> {
     })
 }
 
-fn as_ref(path: &PathKindOwned) -> PathKind<'_> {
+pub(crate) fn as_ref(path: &PathKindOwned) -> PathKind<'_> {
     use wire_weaver::shrink_wrap::RefVec;
     match path {
         PathKindOwned::Absolute { path } => PathKind::Absolute {

@@ -164,7 +164,7 @@ pub fn parse(text: &str) -> Result<Snapshot> {
 /// struct, field). Since each of them the model only gained fields with a `#[default]`, which RON fills in. Such a
 /// file's hash still has to match its re-encoded bytes, which holds while the new fields are at their default where
 /// the old format had nothing for them.
-const READABLE_OLDER_FORMATS: [(VersionTriplet, &[(&str, &str)]); 2] = [
+const READABLE_OLDER_FORMATS: [(VersionTriplet, &[(&str, &str)]); 3] = [
     (
         VersionTriplet::new(0, 4, 0),
         // API-58, API-71
@@ -175,6 +175,8 @@ const READABLE_OLDER_FORMATS: [(VersionTriplet, &[(&str, &str)]); 2] = [
         // API-71
         &[("MetaOwned", "track")],
     ),
+    // SRV-76 added a variant, `ApiItemKind::Mount`, and no field
+    (VersionTriplet::new(0, 6, 0), &[]),
 ];
 
 /// Fields of the model, as (serde name of the struct, field), that a file of model `format` doesn't have: added in a

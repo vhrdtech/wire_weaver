@@ -4,6 +4,7 @@
 
 ### 🚀 Features
 
+- The authorization hook sees a mount slot's `presence` as a read and its `api` as the last step (SRV-76).
 - A hook may answer `Verdict::Pending`: the request waits for the answer within its deadline and cancel, other shared requests go on (SRV-72).
 - The hook sees the steps of a keyed array's companion (`index_of`, `key`, `keys`), which had no items before.
 

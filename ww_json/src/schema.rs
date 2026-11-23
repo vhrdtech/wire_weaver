@@ -70,7 +70,7 @@ pub struct ItemSchemas {
     pub description: Option<String>,
 }
 
-/// The schemas of `item`, `None` for a resource that holds none (a trait, a key companion's operations).
+/// The schemas of `item`, `None` for a resource that holds none (a trait, a mount slot, a key companion's operations).
 pub fn item_schemas(item: &ApiItemOwned, bundle: &ApiBundleOwned) -> Result<ItemSchemas> {
     let mut schemas = ItemSchemas {
         description: docs(&item.docs),
@@ -107,7 +107,8 @@ pub fn item_schemas(item: &ApiItemOwned, bundle: &ApiBundleOwned) -> Result<Item
             schemas.value = Some(ty(value)?);
         }
         ApiItemKindOwned::Keys { key, .. } => schemas.value = Some(ty(key)?),
-        ApiItemKindOwned::Trait { .. } => {}
+        // a mount slot is a level: its `presence` is an item of `ww_self::mount::slot_level` (SRV-76)
+        ApiItemKindOwned::Trait { .. } | ApiItemKindOwned::Mount { .. } => {}
     }
     Ok(schemas)
 }

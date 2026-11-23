@@ -287,7 +287,7 @@ impl<'ast> Visit<'ast> for FloatFinder {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::super::api::tests::load_src_with;
     use super::*;
     use std::path::Path;
@@ -296,7 +296,7 @@ mod tests {
 
     /// `[package]` lines of a throwaway API crate that depends on this checkout's `wire_weaver`, and on its
     /// `ww_keyed` with `keyed`.
-    fn deps(keyed: bool) -> String {
+    pub(crate) fn deps(keyed: bool) -> String {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
         let dep = |name: &str, path: &str| {
             format!(

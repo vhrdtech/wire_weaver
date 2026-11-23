@@ -47,6 +47,8 @@ pub mod inline;
 #[cfg(feature = "std")]
 pub mod keys;
 #[cfg(feature = "std")]
+pub mod mount;
+#[cfg(feature = "std")]
 pub mod order;
 #[cfg(feature = "std")]
 mod series;
@@ -86,7 +88,7 @@ pub const MAGIC: u32 = 0xA91B_14F0;
 /// file or introspection data) was written in. Not the crate's version: it moves with every change of the model's
 /// shape (a field, a variant, a type of a dependency the model uses), which `ww_snapshots`' `model_format` test
 /// checks, and a snapshot file of another format is refused with the step that re-saves it.
-pub const VERSION: VersionTriplet = VersionTriplet::new(0, 6, 0);
+pub const VERSION: VersionTriplet = VersionTriplet::new(0, 7, 0);
 
 #[derive_shrink_wrap(
     owned(feature = "std"),
@@ -416,6 +418,18 @@ pub enum ApiItemKind<'i> {
         /// `ww_keyed::KeyEvent<I, K>` of the array's index type and the key, the item of the `keys` stream:
         /// computed once when the model is built, so a dynamic decoder finds its definition.
         event_ty: Type<'i>,
+    },
+    /// Mount slot (SRV-76): a level whose API is known only at run time, `mount!(hub)` as a flat item, `mounts!(ext)`
+    /// as an array keyed by name (its [Keys](ApiItemKind::Keys) companion `ext_keys` follows it). Its operations are
+    /// a fixed level that [mount::slot_level] builds: a read-only observed `presence` (id [mount::PRESENCE]) and the
+    /// mounted API's root (id [mount::API]), which a request under the slot reaches with the slot's path taken off.
+    /// The bundle holds only this declaration: the mounted API has its own introspection data and hash.
+    Mount {
+        /// Crate of the API a backend of this slot is expected to serve (`mount!(hub: pult_hub_api)`), `None`: any.
+        expects: Option<&'i str>,
+        /// `ww_api::mount::MountPresence`, the type of `presence`: computed once when the model is built, so a
+        /// dynamic decoder finds its definition.
+        presence_ty: Type<'i>,
     },
     // Reserved, no useful info keeping reserved items after IDs are calculated
 }

@@ -2,6 +2,8 @@
 
 ### 🚀 Features
 
+- `mount::MountRequest` and `mount::MountAnswer`, what a mount slot's handler takes and answers; `err_seq::mount` sites (SRV-76).
+- `ErrorKind::Unavailable` and `MOUNTS_SINCE` (wire w2.2): an older client gets `UserStr("unavailable")` (SRV-76).
 - `dispatch::failed` answers a `call::ErrorKind::BadIndex` failure with `BadIndex`; `err_seq::LEVEL_INDICES_FAILED` for valid indices that failed (CLT-58).
 - `target::target` reads what a request does where (`Access`, `Place`, `TraitRef`), for claims and authorization (SRV-46).
 

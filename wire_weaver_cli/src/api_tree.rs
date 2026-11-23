@@ -369,6 +369,13 @@ impl TreePrinter<'_> {
                     );
                 _ = write!(self.out, ": {array} by {}", self.ty(key));
             }
+            ApiItemKindOwned::Mount { expects, .. } => {
+                _ = write!(self.out, "{} ", style("mount").true_color(0xCF, 0x8E, 0x6D));
+                self.ident(item);
+                if let Some(expects) = expects {
+                    _ = write!(self.out, ": {}", escape(expects));
+                }
+            }
         }
         if let Some(since) = &item.since {
             _ = write!(self.out, " {}", style(format!("since {since:?}")).dim());

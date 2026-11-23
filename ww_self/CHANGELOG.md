@@ -6,6 +6,7 @@
 
 ### 🚀 Features
 
+- `mount::slot_level`, `PRESENCE`, `API` and `item_name`: the fixed level of a mount slot (SRV-76).
 - `ApiBundleOwned::item_chain` and `trait_path`: the items a request path names, where a global path leads (SRV-46).
 
 - `host::root()` and `host::HOME_ENV` (EVO-80): the host's root, `WIRE_WEAVER_HOME` or `~/.wire_weaver`; `definition_cache::default_dir` is under it.
@@ -16,6 +17,7 @@
 
 ### ⚠️ Breaking
 
+- `ApiItemKind::Mount` (SRV-76): a mount slot's declaration; model format 0.7.0, tools matching item kinds exhaustively add an arm.
 - `Meta::track: Option<Track>` (`#[default = None]`, API-71): how a recorder lays a stream out; model format `VERSION` is 0.6.0. New `Track`, `TrackLayout`, `ApiBundleOwned::series_shape`.
 - `Meta` is `elide_defaults` (SW-85): `effects` and `track` at their defaults take no bits. Signatures of items without effects change once.
 - Snapshots of model format 0.5.0 with a meta without effects no longer match their hash: re-save them.

@@ -265,6 +265,7 @@ fn with_context(
     owned.context = Some(Box::new(ww_client_server::RequestContext {
         trace,
         deadline: Some(ww_client_server::ww_si::Millis::new(UNib32(millis))),
+        forwarded_for: None,
     }));
     if let Ok(bytes) = owned.to_ww_bytes_owned() {
         *request = bytes;

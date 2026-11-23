@@ -1379,6 +1379,7 @@ pub fn table() -> Vec<Typed> {
                 ww_client_server::RequestContext {
                     trace: None,
                     deadline: Some(ww_si::Millis::new(UNib32(250))),
+                    forwarded_for: None,
                 },
             )
         }),
@@ -1388,6 +1389,7 @@ pub fn table() -> Vec<Typed> {
                 ww_client_server::RequestContext {
                     trace: None,
                     deadline: Some(ww_si::Millis::new(UNib32(1500))),
+                    forwarded_for: None,
                 },
             )
         }),
@@ -1401,8 +1403,26 @@ pub fn table() -> Vec<Typed> {
                         flags: wire_weaver::TraceFlags::SAMPLED,
                     }),
                     deadline: None,
+                    forwarded_for: None,
                 },
             )
+        }),
+        // a mount forwarder names its client (SRV-79, EVO-85)
+        case_debug("client_server.request.context_forwarded_unix", || {
+            forwarded_request(ww_client_server::forwarded::ForwardedPeer::Unix {
+                uid: ww_client_server::forwarded::UnixUid(UNib32(1000)),
+                gid: ww_client_server::forwarded::UnixGid(UNib32(100)),
+                pid: Some(ww_client_server::forwarded::UnixPid(UNib32(4242))),
+            })
+        }),
+        case_debug("client_server.request.context_forwarded_addr", || {
+            forwarded_request(ww_client_server::forwarded::ForwardedPeer::Addr {
+                ip: ww_client_server::forwarded::IpBytes::V4([192, 168, 1, 20]),
+                port: ww_client_server::forwarded::Port(7590),
+            })
+        }),
+        case_debug("client_server.request.context_forwarded_unknown", || {
+            forwarded_request(ww_client_server::forwarded::ForwardedPeer::Unknown)
         }),
         case_debug("client_server.request.cancel", || {
             ww_client_server::RequestOwned {
@@ -1871,6 +1891,20 @@ fn context_request(
         },
         kind: ww_client_server::RequestKindOwned::Read,
     }
+}
+
+/// A Read of `/3` that a mount forwarder sent on for `peer` (SRV-79).
+fn forwarded_request(
+    peer: ww_client_server::forwarded::ForwardedPeer,
+) -> ww_client_server::RequestOwned {
+    context_request(
+        ww_client_server::Priority::NORMAL,
+        ww_client_server::RequestContext {
+            trace: None,
+            deadline: None,
+            forwarded_for: Some(peer),
+        },
+    )
 }
 
 fn stream_open(raw: bool) -> ww_client_server::RequestKindOwned {

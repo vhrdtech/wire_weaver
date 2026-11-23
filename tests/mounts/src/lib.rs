@@ -254,6 +254,38 @@ mod tests {
     }
 
     /// The device's introspection data holds the slots' declarations only: the mounted APIs have their own.
+    /// The hub forwards to a real backend, another TV with nothing mounted (SRV-77): the request reaches it with the
+    /// slot's path taken off, its replies and errors reach the client under the request's seq.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn forward_to_a_backend() {
+        const MUTE: u32 = 3;
+        let slots = slots();
+        slots.lock().unwrap().hub_backend = Some(tv_backend());
+        let device = start_blocking("mounts/forward", slots.clone());
+        let client = connect(&device).await;
+        let cmd = client.cmd();
+        let muted = raw(cmd, &[HUB, API, MUTE], call()).await;
+        assert_eq!(muted.unwrap(), Vec::<u8>::new());
+        // the backend's own hub slot: nothing mounted there
+        let inner = raw(cmd, &[HUB, API, HUB, PRESENCE], RequestKindOwned::Read).await;
+        assert!(matches!(
+            presence(&inner.unwrap()),
+            MountPresenceOwned::Absent
+        ));
+        let absent = raw(cmd, &[HUB, API, HUB, API, MUTE], call()).await;
+        assert_refused(absent, ErrorKindOwned::Unavailable);
+        let missing = raw(cmd, &[HUB, API, 9], RequestKindOwned::Read).await;
+        assert_refused(missing, ErrorKindOwned::BadPath);
+        // the front's own items stay its own
+        assert_eq!(raw(cmd, &[MUTE], call()).await.unwrap(), Vec::<u8>::new());
+    }
+
+    fn call() -> RequestKindOwned {
+        RequestKindOwned::Call {
+            args: TailBytesOwned(vec![]),
+        }
+    }
+
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn bundle_has_declarations_only() {
         let device = start_blocking("mounts/bundle", slots());

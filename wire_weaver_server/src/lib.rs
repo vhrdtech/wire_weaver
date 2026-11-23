@@ -41,6 +41,7 @@ mod lifecycle;
 mod listener;
 #[cfg(feature = "local_socket")]
 pub mod local_socket;
+pub mod mount;
 pub mod opened;
 mod outbox;
 mod pump;

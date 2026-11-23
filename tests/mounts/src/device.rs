@@ -1,6 +1,7 @@
 //! The TV of the mount tests: a hub slot and named extension slots, with blocking `no_alloc` and async servers. A
 //! slot's backend is a stand-in: a request under a mounted slot is recorded and answered with the path it arrived
-//! with, as a mount forwarder answers with the backend's reply.
+//! with, as a mount forwarder answers with the backend's reply. With a [Backend] the hub forwards for real: the
+//! request rewritten below the slot, the backend's events rewritten back (SRV-77).
 
 use std::sync::{Arc, Mutex};
 use tests_common::TestDevice;
@@ -8,7 +9,7 @@ use wire_weaver::prelude::*;
 use wire_weaver::ww_api::mount::{MountName, MountPresence};
 use wire_weaver::ww_version::{ApiHash, ApiHashPair, Version, WireVersion};
 use ww_client_server::ResourceIndex;
-use ww_client_server::mount::{MountAnswer, MountRequest};
+use ww_client_server::mount::{MountAnswer, MountPrefix, MountRequest};
 
 /// Crate, version, hashes and wire version of the API mounted at a slot.
 pub const HUB_CRATE: &str = "hub_api";
@@ -26,6 +27,9 @@ pub struct Seen {
     pub introspect: bool,
 }
 
+/// A backend the hub forwards to: the request as the backend gets it in, the events it answers with out.
+pub type Backend = Box<dyn FnMut(&[u8]) -> Vec<Vec<u8>> + Send>;
+
 /// What is mounted where.
 #[derive(Default)]
 pub struct Slots {
@@ -34,6 +38,8 @@ pub struct Slots {
     /// Extensions by index: name, mounted; `None` is a free index.
     pub ext: Vec<Option<(String, bool)>>,
     pub seen: Vec<Seen>,
+    /// The hub's backend; `None`: the stand-in answers with the path.
+    pub hub_backend: Option<Backend>,
 }
 
 impl Slots {
@@ -67,6 +73,62 @@ impl Slots {
         });
         mounted
     }
+
+    /// The events the hub's backend answers `request` with, as the front's client gets them; `None` without a
+    /// backend.
+    fn forward(&mut self, request: &MountRequest<'_, '_>) -> Option<Vec<Vec<u8>>> {
+        let backend = self.hub_backend.as_mut()?;
+        let mut buf = [0u8; 512];
+        let bytes = request.forward_into(&mut buf).expect("the request fits");
+        let mut prefix = MountPrefix::new(request.prefix().expect("an absolute path"));
+        let events = backend(bytes)
+            .iter()
+            .map(|event| {
+                let mut out = [0u8; 512];
+                prefix
+                    .event_out(event, &mut out)
+                    .expect("the event rewrites")
+                    .to_vec()
+            })
+            .collect();
+        Some(events)
+    }
+}
+
+/// A blocking server's events, collected.
+#[derive(Default)]
+pub struct Collect(pub Vec<Vec<u8>>);
+
+impl BlockingEventOut for Collect {
+    fn send_with_blocking<F>(&mut self, ser: F) -> Result<(), SendError>
+    where
+        F: FnOnce(&mut [u8]) -> Result<usize, ShrinkWrapError>,
+    {
+        let mut scratch = [0u8; 512];
+        let len = ser(&mut scratch).map_err(SendError::Serialize)?;
+        self.0.push(scratch[..len].to_vec());
+        Ok(())
+    }
+}
+
+/// A TV with nothing mounted as the hub's backend, served by the blocking server.
+pub fn tv_backend() -> Backend {
+    let mut tv = blocking_server::Server {
+        slots: Arc::default(),
+        valid: vec![],
+        observe: blocking_server::api_impl::ObserveState::new(Default::default()),
+    };
+    Box::new(move |request| {
+        let mut out = Collect::default();
+        let mut scratch = [0u8; 512];
+        let reply = tv
+            .process_request_bytes(request, &mut scratch, &mut out, ())
+            .expect("the backend answers");
+        if !reply.is_empty() {
+            out.0.push(reply.to_vec());
+        }
+        out.0
+    })
 }
 
 fn up() -> MountPresence<'static> {
@@ -113,10 +175,24 @@ macro_rules! handlers {
             cx: &mut Context<'_, impl $out>,
             request: MountRequest<'_, '_>,
         ) -> MountAnswer {
-            if !self.slots.lock().unwrap().route(None, &request) {
-                return MountAnswer::Unavailable;
+            let forwarded = {
+                let mut slots = self.slots.lock().unwrap();
+                if !slots.route(None, &request) {
+                    return MountAnswer::Unavailable;
+                }
+                slots.forward(&request)
+            };
+            match forwarded {
+                Some(events) => {
+                    for event in events {
+                        cx.$send(|scratch| {
+                            scratch[..event.len()].copy_from_slice(&event);
+                            Ok(event.len())
+                        })$($await)*.expect("event sent");
+                    }
+                }
+                None => cx.$send(|scratch| reply(scratch, &request))$($await)*.expect("reply sent"),
             }
-            cx.$send(|scratch| reply(scratch, &request))$($await)*.expect("reply sent");
             MountAnswer::Forwarded
         }
 
@@ -292,6 +368,7 @@ pub fn slots() -> Arc<Mutex<Slots>> {
             Some(("adwatch".to_owned(), false)),
         ],
         seen: vec![],
+        hub_backend: None,
     }))
 }
 

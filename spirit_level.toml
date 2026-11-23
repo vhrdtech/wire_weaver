@@ -844,3 +844,12 @@ paths = ["docs/**"]
 level = "allow"
 reason = "the book's and READMEs' prose; P2401#20nov-1155i (book prose) removes them"
 expires = "2027-01-31"
+
+# --- lint false positives: each goes with the spl fix it names ---
+
+[[exceptions]]
+lint = "lock-held-across"
+paths = ["wire_weaver_client/src/client/mount.rs"]
+level = "allow"
+reason = "PreparedRead::read().await? returns a value, not a guard; spl takes it for a lock until P2645#23nov-1456 lands"
+expires = "2026-12-15"

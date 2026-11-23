@@ -12,7 +12,7 @@
 //! a request that is not a WebSocket upgrade gets `400 Bad Request`.
 //!
 //! Tx and Rx share the socket through a [WsConnection] (an async mutex, they are never used at the same time by
-//! [Server]). With the `embassy-net` feature, [EmbassyNetSocket] implements [Socket] on an `embassy-net` TCP socket;
+//! [Server]). With the `embassy-net` feature, `EmbassyNetSocket` implements [Socket] on an `embassy-net` TCP socket;
 //! with `futures-io` (needs `std`), [IoSocket] on futures-io streams (a TCP listener on the host, a simulator's pipes);
 //! [ws_server] puts everything together.
 

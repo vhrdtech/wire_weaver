@@ -403,6 +403,9 @@ The peer each listener gives its connections:
 | a stream the program accepted | the `Peer` it passes to `serve_stream`: `Key` for a key the other side proved |
 | in process | `Local`, or any peer given with `with_peer` (tests) |
 
+A request a trusted mount forwarder sent on is its client's: `Server::trust_forwarders` names the peers whose word on
+that is taken, and `cx.call().forwarded` is set ([mounts](mounts.md#who-calls-and-what-it-does)).
+
 Two places decide: the socket keeps out who must not connect at all, and a hook decides each request.
 
 ### Listener policy

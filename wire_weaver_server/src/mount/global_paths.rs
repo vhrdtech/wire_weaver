@@ -48,6 +48,14 @@ impl MountedTraits {
         self.slots.remove(&ids(api_path));
     }
 
+    /// The API learned at the slot whose `api` the front's absolute path `path` goes below, with that slot's path.
+    pub(crate) fn mounted(&self, path: &[u32]) -> Option<(Vec<u32>, Arc<ApiBundleOwned>)> {
+        self.slots
+            .iter()
+            .find(|(slot, _)| path.len() > slot.len() && path.starts_with(slot))
+            .map(|(slot, api)| (slot.clone(), api.clone()))
+    }
+
     /// The front's absolute path of the global path `path`, when it reaches into a mounted API: the slot's `api`,
     /// the trait's path in the backend, then the path from the trait. `None` for an absolute path, for a trait the
     /// server's own tree has (its dispatch or the client resolves it, as without mounts), and for one no mounted

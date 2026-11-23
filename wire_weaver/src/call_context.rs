@@ -23,7 +23,9 @@ pub struct CallContext {
     pub seq: u32,
     /// How soon the call should be served and answered (CLT-50), [Priority::NORMAL] unless set.
     pub priority: Priority,
-    /// Who asked, as the transport saw it: never from the caller's own words.
+    /// Who asked, as the transport saw it: never from the caller's own words. For a request a mount forwarder sent
+    /// on, the peer the forwarder's own transport saw, when this server trusts the forwarder (SRV-79,
+    /// [forwarded](Self::forwarded)).
     pub peer: Peer,
     /// W3C trace context of the caller, if it sent one.
     pub trace: Option<TraceContext>,
@@ -31,6 +33,9 @@ pub struct CallContext {
     pub deadline: Option<Millis<u32>>,
     /// The connection the call came on, to tell the callers of one server apart.
     pub connection: ConnectionId,
+    /// [peer](Self::peer) is the word of a mount forwarder this server trusts (SRV-79): the client of another
+    /// server that sent the request on. The connection's own peer is the forwarder.
+    pub forwarded: bool,
 }
 
 impl CallContext {
@@ -43,6 +48,7 @@ impl CallContext {
             trace: None,
             deadline: None,
             connection: ConnectionId::LOCAL,
+            forwarded: false,
         }
     }
 
@@ -56,6 +62,7 @@ impl CallContext {
             trace: None,
             deadline: None,
             connection: ConnectionId::LOCAL,
+            forwarded: false,
         }
     }
 
@@ -81,6 +88,14 @@ impl CallContext {
 
     pub const fn with_connection(mut self, connection: ConnectionId) -> Self {
         self.connection = connection;
+        self
+    }
+
+    /// The call as a trusted mount forwarder says `peer` asked for it (SRV-79): [peer](Self::peer) and
+    /// [forwarded](Self::forwarded).
+    pub const fn forwarded_for(mut self, peer: Peer) -> Self {
+        self.peer = peer;
+        self.forwarded = true;
         self
     }
 

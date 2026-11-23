@@ -8,7 +8,7 @@ use std::task::{Context, Poll, Waker};
 use std::time::Duration;
 
 use futures_util::stream::{FuturesUnordered, StreamExt};
-use wire_weaver::{ConnectionId, DisconnectReason, WireWeaverAsyncApiBackend};
+use wire_weaver::{ConnectionId, DisconnectReason, Peer, WireWeaverAsyncApiBackend};
 use ww_device::{Clock, Instant, LinkConfig};
 
 use wire_weaver::authorize::Authorize;
@@ -126,12 +126,30 @@ where
     fn medium(&self, _connection: &LocalConnection) {}
 }
 
+/// Whether a connection's peer is a mount forwarder whose word on who sent a request on is taken (SRV-79).
+type TrustForwarder = dyn Fn(&Peer) -> bool + Send + Sync;
+
+/// What a server's connections check their requests with: the [Authorize] hook, global paths into mount slots,
+/// the forwarders it trusts.
+#[derive(Clone, Default)]
+pub(crate) struct Checks {
+    pub authorization: Option<Arc<Authorization>>,
+    pub routes: Option<MountRoutes>,
+    forwarders: Option<Arc<TrustForwarder>>,
+}
+
+impl Checks {
+    /// Whether this server takes `peer`'s word on who it sent a request on for.
+    pub fn trusts_forwarder(&self, peer: &Peer) -> bool {
+        self.forwarders.as_ref().is_some_and(|trust| trust(peer))
+    }
+}
+
 /// A host server: see the [crate docs](crate).
 pub struct Server<C> {
     clock: C,
     limits: Limits,
-    authorization: Option<Arc<Authorization>>,
-    routes: Option<MountRoutes>,
+    checks: Checks,
 }
 
 impl<C: Clock + Clone> Server<C> {
@@ -140,8 +158,7 @@ impl<C: Clock + Clone> Server<C> {
         Server {
             clock,
             limits: Limits::default(),
-            authorization: None,
-            routes: None,
+            checks: Checks::default(),
         }
     }
 
@@ -155,7 +172,7 @@ impl<C: Clock + Clone> Server<C> {
         hook: impl Authorize + Send + Sync + 'static,
         api: Option<Arc<ww_self::ApiBundleOwned>>,
     ) -> Self {
-        self.authorization = Some(Arc::new(Authorization::new(hook, api)));
+        self.checks.authorization = Some(Arc::new(Authorization::new(hook, api)));
         self
     }
 
@@ -164,7 +181,24 @@ impl<C: Clock + Clone> Server<C> {
     /// the generated dispatch routes it to the slot's handler.
     #[must_use]
     pub fn mounts(mut self, routes: MountRoutes) -> Self {
-        self.routes = Some(routes);
+        self.checks.routes = Some(routes);
+        self
+    }
+
+    /// The same server taking the word of the peers `trust` admits on who a request is from (SRV-79): a mount
+    /// forwarder (`mount::Forwarder` of another server) names the client it sends each request on for, and the
+    /// handlers and the [authorize](Self::authorize) hook see that client as `cx.call().peer`, with
+    /// `forwarded` set. `trust` is asked once per connection, with the peer its transport saw. Without it, or for a
+    /// peer it refuses, the name is ignored: the request is the connection's own.
+    ///
+    /// Trust only a peer that is the forwarder: a peer trusted here may say any request is anyone's. On a local
+    /// socket, the forwarder's user (`Peer::Unix { uid, .. }`) is the usual choice.
+    #[must_use]
+    pub fn trust_forwarders(
+        mut self,
+        trust: impl Fn(&Peer) -> bool + Send + Sync + 'static,
+    ) -> Self {
+        self.checks.forwarders = Some(Arc::new(trust));
         self
     }
 
@@ -210,8 +244,7 @@ impl<C: Clock + Clone> Server<C> {
                 &make,
                 self.limits,
                 &life,
-                self.authorization.clone(),
-                self.routes.clone(),
+                self.checks.clone(),
             ));
         }
         Ok(())
@@ -243,8 +276,7 @@ impl<C: Clock + Clone> Server<C> {
             make: Arc::new(make),
             life: Arc::new(Lifecycle::new()),
             running: Arc::new(Running::default()),
-            authorization: self.authorization.clone(),
-            routes: self.routes.clone(),
+            checks: self.checks.clone(),
         }
     }
 }
@@ -256,8 +288,7 @@ pub struct Accepting<C, L, M, S> {
     make: Arc<M>,
     life: Arc<Lifecycle>,
     running: Arc<Running>,
-    authorization: Option<Arc<Authorization>>,
-    routes: Option<MountRoutes>,
+    checks: Checks,
 }
 
 impl<C, L, M, S> Accepting<C, L, M, S>
@@ -294,8 +325,7 @@ where
             self.make.clone(),
             self.gate.limits,
             self.life.clone(),
-            self.authorization.clone(),
-            self.routes.clone(),
+            self.checks.clone(),
         );
         Ok(Some(async move {
             connection.await;

@@ -13,7 +13,8 @@ use wire_weaver::authorize::{Pending, Verdict};
 use wire_weaver::shrink_wrap::{DeserializeShrinkWrap, Error as ShrinkWrapError};
 use wire_weaver::ww_version::WireVersion;
 use wire_weaver::{CallContext, ConnectionId, EventWriter, Peer, Priority};
-use ww_client_server::{ErrorKind, Request, RequestKind, err_seq};
+use ww_client_server::forwarded::ForwardedPeer;
+use ww_client_server::{ErrorKind, Request, RequestContext, RequestKind, err_seq};
 use ww_device::link::{Phase, Received, Transmit};
 use ww_device::{
     Clock, DeviceLink, Instant, LinkConfig, LinkEvent, MessageRx, MessageTx, PeerMeta, PeerVersion,
@@ -26,7 +27,7 @@ use crate::lifecycle::{Lifecycle, Running, Stage};
 use crate::mount::MountRoutes;
 use crate::outbox::{Outbox, OutboxSink};
 use crate::pump::{PumpSetOps, Pumps};
-use crate::server::{Limits, MakeBackend};
+use crate::server::{Checks, Limits, MakeBackend};
 
 /// A connection whose link is up, as its backend's factory sees it.
 ///
@@ -126,17 +127,21 @@ struct Queued {
     deadline: Option<Instant>,
     /// The caller's trace, for the handler's `CallContext`.
     trace: Option<wire_weaver::TraceContext>,
+    /// Who a trusted mount forwarder sent the request on for (SRV-79).
+    forwarded: Option<Peer>,
 }
 
 impl Queued {
     /// Read the head and the context of `request`; one that can't be read is queued as it is, for the dispatcher
-    /// to answer.
-    fn read(request: &[u8], now: Instant) -> Result<Queued, u32> {
+    /// to answer. `forwarder`: the connection is a mount forwarder this server trusts, whose word on who sent the
+    /// request on is taken (SRV-79).
+    fn read(request: &[u8], now: Instant, forwarder: bool) -> Result<Queued, u32> {
         let mut queued = Queued {
             request: request.to_vec(),
             seq: 0,
             deadline: None,
             trace: None,
+            forwarded: None,
         };
         let Ok(head) = Request::from_ww_bytes(request) else {
             return Ok(queued);
@@ -145,12 +150,17 @@ impl Queued {
             return Err(seq.0);
         }
         queued.seq = head.seq.0;
-        if let Some(context) = head.context.and_then(|context| context.read().ok()) {
+        let Some(context) = head.context else {
+            return Ok(queued);
+        };
+        let context = context.read();
+        if let Ok(context) = &context {
             queued.trace = context.trace;
             queued.deadline = context
                 .deadline
                 .map(|left| now + Duration::from_millis(left.get().0.into()));
         }
+        queued.forwarded = forwarded_for(context.as_ref().ok(), forwarder);
         Ok(queued)
     }
 
@@ -158,12 +168,29 @@ impl Queued {
     /// deadline at `now`. The generated entry adds `seq` and the priority.
     fn call(&self, origin: &CallContext, now: Instant) -> CallContext {
         let mut call = *origin;
+        if let Some(peer) = self.forwarded {
+            call = call.forwarded_for(peer);
+        }
         call.trace = self.trace;
         call.deadline = self.deadline.map(|at| {
             let left = at.saturating_duration_since(now).as_millis();
             ww_client_server::ww_si::Millis::new(u32::try_from(left).unwrap_or(u32::MAX))
         });
         call
+    }
+}
+
+/// Who a request with a context is from, when not the connection's own peer (SRV-79): the client a trusted
+/// forwarder names; `context` is `None` when it doesn't read. A connection that isn't a trusted forwarder speaks
+/// for itself, whatever it says.
+fn forwarded_for(context: Option<&RequestContext>, forwarder: bool) -> Option<Peer> {
+    if !forwarder {
+        return None;
+    }
+    match context {
+        Some(context) => context.forwarded_for.map(ForwardedPeer::to_peer),
+        // a forwarder's request whose context doesn't read may be anyone's: never the forwarder's own
+        None => Some(Peer::Unknown),
     }
 }
 
@@ -216,8 +243,10 @@ struct Conn<'a, Tx, Rx, C, S> {
     life: &'a Lifecycle,
     /// The server's stage as this connection last saw it.
     stage: Stage,
-    /// Global paths into mount slots (SRV-78).
-    routes: Option<MountRoutes>,
+    /// The server's hook, global paths into mount slots (SRV-78) and trusted forwarders.
+    checks: Checks,
+    /// The connection's peer is a mount forwarder this server trusts (SRV-79).
+    forwarder: bool,
     /// A request rerouted into a mount slot is written here.
     rerouted: Vec<u8>,
     /// Cancels of requests the connection doesn't hold (answered, or sent on by the backend), for the backend's
@@ -340,8 +369,9 @@ impl<Tx: MessageTx, Rx: MessageRx, C: Clock, S: PumpSetOps> Conn<'_, Tx, Rx, C, 
         if let Some((kind, message)) = self.rx.message() {
             match self.link.handle_message(now, kind, message) {
                 Some(Received::Data(request)) => match Queued::read(
-                    reroute(self.routes.as_ref(), request, &mut self.rerouted),
+                    reroute(self.checks.routes.as_ref(), request, &mut self.rerouted),
                     now,
+                    self.forwarder,
                 ) {
                     Ok(queued) => self.pending.push_back(queued),
                     Err(seq) => cancel = Some(seq),
@@ -490,7 +520,7 @@ impl<Tx: MessageTx, Rx: MessageRx, C: Clock, S: PumpSetOps> Conn<'_, Tx, Rx, C, 
         let mut call = queued.call(origin, self.clock.now());
         call.seq = queued.seq;
         call.priority = priority;
-        match authorization.admits(&call, &queued.request) {
+        match authorization.admits(&call, &queued.request, self.checks.routes.as_ref()) {
             Verdict::Allow => return Some(None),
             Verdict::Pending(pending) => return Some(Some(pending)),
             Verdict::Deny => {}
@@ -806,11 +836,10 @@ pub(crate) async fn run<M: MakeBackend>(
     make: impl Deref<Target = M>,
     limits: Limits,
     life: impl Deref<Target = Lifecycle>,
-    authorization: Option<impl Deref<Target = Authorization>>,
-    routes: Option<MountRoutes>,
+    checks: Checks,
 ) {
     let (make, life) = (&*make, &*life);
-    let authorization = authorization.as_deref();
+    let forwarder = checks.trusts_forwarder(&peer);
     // deadlines and cancels are acted on here (SRV-47), so clients may send them
     config.request_context = true;
     rx.wait_connected().await;
@@ -836,7 +865,8 @@ pub(crate) async fn run<M: MakeBackend>(
         limits,
         life,
         stage: Stage::Run,
-        routes,
+        checks: checks.clone(),
+        forwarder,
         rerouted: vec![0; buffer_len],
         cancels: Vec::new(),
     };
@@ -863,6 +893,7 @@ pub(crate) async fn run<M: MakeBackend>(
     let origin = info.origin();
     let mut backend = make.make(&info);
     let medium = make.medium(&info);
+    let authorization = checks.authorization.as_deref();
     serve(&mut conn, &mut backend, medium, &origin, authorization).await;
     // the link is gone and no request runs: the backend lets go of what the client held (SRV-74)
     let until = conn.clock.now() + limits.shutdown_grace;
@@ -1062,5 +1093,82 @@ impl<Tx: MessageTx, Rx: MessageRx, C: Clock + Clone, S: PumpSetOps> Conn<'_, Tx,
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use wire_weaver::shrink_wrap::{RefBox, SerializeShrinkWrap, UVlq32Backfill};
+    use wire_weaver::{Gid, Uid};
+    use ww_client_server::PathKind;
+
+    fn request(forwarded_for: Option<ForwardedPeer>) -> Vec<u8> {
+        let context = RequestContext {
+            trace: None,
+            deadline: None,
+            forwarded_for,
+        };
+        let request = Request {
+            seq: UVlq32Backfill(5),
+            priority: Priority::NORMAL.to_wire(),
+            context: Some(RefBox::new(&context)),
+            path_kind: PathKind::absolute(&[]),
+            kind: RequestKind::Read,
+        };
+        let mut buf = [0u8; 64];
+        request.to_ww_bytes(&mut buf).expect("fits").to_vec()
+    }
+
+    fn peer_of(request: &[u8], forwarder: bool) -> (Peer, bool) {
+        let now = Instant::from_millis(0);
+        let queued = Queued::read(request, now, forwarder).expect("not a cancel");
+        let origin = CallContext::new(0).with_peer(Peer::Unix {
+            uid: Uid(1000),
+            gid: Gid(1000),
+            pid: None,
+        });
+        let call = queued.call(&origin, now);
+        (call.peer, call.forwarded)
+    }
+
+    const PHONE: ForwardedPeer = ForwardedPeer::Addr {
+        ip: ww_client_server::forwarded::IpBytes::V4([192, 168, 1, 20]),
+        port: ww_client_server::forwarded::Port(5555),
+    };
+
+    #[test]
+    fn a_trusted_forwarder_names_the_client() {
+        assert_eq!(
+            peer_of(&request(Some(PHONE)), true),
+            (PHONE.to_peer(), true)
+        );
+        assert_eq!(
+            peer_of(&request(Some(ForwardedPeer::Unknown)), true),
+            (Peer::Unknown, true)
+        );
+        // a kind of a newer forwarder is a client, never the forwarder
+        assert_eq!(
+            peer_of(&request(Some(ForwardedPeer::Newer(9))), true),
+            (Peer::Unknown, true)
+        );
+    }
+
+    #[test]
+    fn any_other_peer_speaks_for_itself() {
+        let (peer, forwarded) = peer_of(&request(Some(PHONE)), false);
+        assert!(matches!(peer, Peer::Unix { .. }) && !forwarded);
+    }
+
+    #[test]
+    fn a_forwarders_own_request_is_its_own() {
+        let (peer, forwarded) = peer_of(&request(None), true);
+        assert!(matches!(peer, Peer::Unix { .. }) && !forwarded);
+    }
+
+    #[test]
+    fn a_forwarders_unreadable_context_is_nobodys() {
+        assert_eq!(forwarded_for(None, true), Some(Peer::Unknown));
+        assert_eq!(forwarded_for(None, false), None);
     }
 }

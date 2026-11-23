@@ -123,7 +123,7 @@ byte stream (a local socket, TCP, a pipe), with no tokio needed: it runs on any 
 - `Server::mounts(mounts.routes())` reroutes a global path into a mounted API as the request arrives, before the
   authorization hook sees it.
 - `Forwarder` belongs to one front connection and opens that connection's own link to each backend it uses. The
-  slot handler calls `forward(&request)`; the backend's `wait`, `next_wake`, `poll`, `cancel` and `end` call the
+  slot handler calls `forward(cx.call(), &request)`; the backend's `wait`, `next_wake`, `poll`, `cancel` and `end` call the
   forwarder's.
 - `Forwarder::poll` sends the backend's replies and events with the slot's path in front, and returns the
   `MountEvent`s (a slot mounted, its presence changed, unmounted): the backend then calls
@@ -140,8 +140,8 @@ let table = mounts.clone();
 spawn(async move { table.run(clock).await });
 
 // per connection
-fn hub_request(&mut self, _cx: &mut Context<'_, impl EventOut>, request: MountRequest<'_, '_>) -> MountAnswer {
-    self.forwarder.forward(&request)
+fn hub_request(&mut self, cx: &mut Context<'_, impl EventOut>, request: MountRequest<'_, '_>) -> MountAnswer {
+    self.forwarder.forward(cx.call(), &request)
 }
 ```
 
@@ -155,7 +155,55 @@ takes, with `ResponseSerFailed` (`err_seq::MOUNT_TOO_LONG`).
 What is trusted: the mount table (the host's own configuration) and whoever listens on the backend's socket
 (`LocalSocket` refuses a process of another user). The backend's messages are not: only their envelope is decoded,
 a reply passes only under a seq sent on that link, events get the slot's path in front, and introspection data is
-capped at 4 MiB. Effects inside a mounted API are not checked yet: every request reaches the backend.
+capped at 4 MiB.
+
+### Who calls and what it does
+
+A call into a mount is checked twice: by the front server's [authorization hook](host_server.md#who-may-call) before
+it is sent on, and by the backend's before it runs.
+
+The front's hook sees the whole way, also below the slot. The steps of `Resource::items` after the slot's `api` are
+the mounted API's items, with the effects its backend declares (`#[effect(..)]`, [metadata](metadata.md)), taken from
+the API learned when the backend came up. `Resource::mount` says the request goes into a slot: `api_path` is the path
+of the slot's `api`, `api` the learned API. A slot's API is learned before its presence turns `Up`. When none could be
+learned (introspection off, longer than 4 MiB), `api` is `None` and so are the items: nothing is known of what the
+request does, and a policy that limits effects refuses such a request.
+
+```rust
+let policy = from_fn(|cx: &CallContext, resource: &Resource<'_>| {
+    let unknown = resource.mount.is_some_and(|mount| mount.api.is_none());
+    if unknown || resource.effects().contains(Effects::DESTRUCTIVE) {
+        return Err(Denied);
+    }
+    Ok(())
+});
+let server = Server::new(clock).mounts(mounts.routes()).authorize(policy, Some(own_bundle));
+```
+
+The backend learns which client of the front called. The forwarder sends the peer the front's transport saw
+(`cx.call().peer`: a unix user, a key, an address, or `Unknown`) in each request's context,
+`RequestContext::forwarded_for`, and replaces whatever the client put there. A call from the front's own process
+names nobody. The backend takes that word only from a peer it trusts to forward:
+
+```rust
+// the hub: its socket lets in only its own user, and the TV runs as that user
+let server = Server::new(clock).trust_forwarders(|peer| matches!(peer, Peer::Unix { .. }));
+```
+
+Then its handlers and its own hook see the front's client as `cx.call().peer`, with `cx.call().forwarded` set; the
+connection's peer (`Connection::peer`) stays the forwarder. Without `trust_forwarders`, or from any other peer, the
+name is ignored and the request is the forwarder's. A trusted peer may name any client, so trust only the forwarder.
+A trusted forwarder's request whose context doesn't decode is `Unknown`'s, never the forwarder's own.
+
+What each side relies on:
+
+| Side | Trusts | A hostile one can |
+|---|---|---|
+| Front | its mount table, the peer listening on the backend's socket | (backend) misstate the effects of its own items, so the front's hook judges its calls by them; it reaches nothing of the front's own tree |
+| Backend | the forwarders `trust_forwarders` admits | (trusted forwarder) name any client for any request; (any other peer) nothing: its names are ignored |
+
+Every effect passes a mount: the host limits a mounted API's calls through its hook. Network peers are known by
+their address only until peer authentication (TR-24, planned) lands.
 
 ## Client
 

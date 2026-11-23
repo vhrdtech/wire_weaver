@@ -6,15 +6,17 @@ use std::future::{pending, poll_fn};
 
 use futures_util::future::{select, select_all};
 use futures_util::pin_mut;
+use wire_weaver::shrink_wrap::RefBox;
 use wire_weaver::shrink_wrap::{
     DeserializeShrinkWrap, SerializeShrinkWrap, UVlq32, UVlq32Backfill,
 };
 use wire_weaver::ww_version::WireVersion;
-use wire_weaver::{EventOut, EventWriter, MessageSink, Priority};
+use wire_weaver::{CallContext, EventOut, EventWriter, MessageSink, Priority};
+use ww_client_server::forwarded::ForwardedPeer;
 use ww_client_server::mount::{MountAnswer, MountPrefix, MountRequest, request_at};
 use ww_client_server::{
-    Error, ErrorKind, Event, EventKind, PathKind, Request, RequestKind, ResourceIndex,
-    StreamSideband, err_seq,
+    Error, ErrorKind, Event, EventKind, PathKind, Request, RequestContext, RequestKind,
+    ResourceIndex, StreamSideband, err_seq,
 };
 use ww_device::{Clock, Instant};
 
@@ -37,8 +39,8 @@ const CLOSABLE_MAX: usize = 256;
 /// [next_wake](Self::next_wake), [poll](Self::poll), [cancel](Self::cancel), [end](Self::end)).
 ///
 /// ```ignore
-/// fn hub_request(&mut self, _cx: &mut Context<'_, impl EventOut>, request: MountRequest<'_, '_>) -> MountAnswer {
-///     self.mounts.forward(&request)
+/// fn hub_request(&mut self, cx: &mut Context<'_, impl EventOut>, request: MountRequest<'_, '_>) -> MountAnswer {
+///     self.mounts.forward(cx.call(), &request)
 /// }
 ///
 /// impl Backend for Tv {
@@ -114,10 +116,15 @@ impl<C: Connect, K: Clock> Forwarder<C, K> {
         }
     }
 
-    /// Send `request` on to the backend mounted at its slot; for a slot's `<slot>_request` handler. `Unavailable`
-    /// when nothing is up there. Errors found on the way (too long, too many waiting) are answered in the next
-    /// [poll](Self::poll).
-    pub fn forward(&mut self, request: &MountRequest<'_, '_>) -> MountAnswer {
+    /// Send `request` on to the backend mounted at its slot; for a slot's `<slot>_request` handler, with its
+    /// `cx.call()`. `Unavailable` when nothing is up there. Errors found on the way (too long, too many waiting) are
+    /// answered in the next [poll](Self::poll).
+    ///
+    /// The request goes with `call.peer`, the client as this server sees it, in its context's `forwarded_for`
+    /// (SRV-79): whatever the client put there is replaced. A backend that trusts this server's connections
+    /// (`Server::trust_forwarders`) serves it as that client's; one that doesn't, or doesn't read contexts, as this
+    /// server's.
+    pub fn forward(&mut self, call: &CallContext, request: &MountRequest<'_, '_>) -> MountAnswer {
         let Some(prefix) = request.prefix() else {
             return MountAnswer::Unavailable;
         };
@@ -167,10 +174,12 @@ impl<C: Connect, K: Clock> Forwarder<C, K> {
             );
         }
         let mut sent = request.request.clone();
-        if !front.reads_context {
-            // an older reader takes the context's flag for a reserved bit
-            sent.context = None;
-        }
+        let context = front
+            .reads_context
+            .then(|| forwarded_context(call, request))
+            .flatten();
+        // an older reader takes the context's flag for a reserved bit
+        sent.context = context.as_ref().map(RefBox::new);
         let bytes = match request_at(&sent, request.path, &mut self.buf) {
             Ok(bytes) if bytes.len() <= front.message_len_max => bytes,
             _ => {
@@ -382,6 +391,25 @@ impl<C: Connect, K: Clock> Forwarder<C, K> {
     }
 }
 
+/// The context `request` goes to its backend with: the client's trace and deadline, and who the client is
+/// (SRV-79); `None` when there is nothing to say.
+fn forwarded_context(call: &CallContext, request: &MountRequest<'_, '_>) -> Option<RequestContext> {
+    // one that doesn't read loses its trace and deadline; who the client is never comes from it
+    let terms = request
+        .request
+        .context
+        .as_ref()
+        .and_then(|context| context.read().ok());
+    let context = RequestContext {
+        trace: terms.and_then(|terms| terms.trace),
+        deadline: terms.and_then(|terms| terms.deadline),
+        forwarded_for: ForwardedPeer::from_peer(call.peer),
+    };
+    let empty =
+        context.trace.is_none() && context.deadline.is_none() && context.forwarded_for.is_none();
+    (!empty).then_some(context)
+}
+
 /// Whether `change` is about the slot of `front`.
 fn touches<C: Connect>(change: &MountEvent, front: &FrontLink<C>) -> bool {
     let (MountEvent::Mounted { api_path }
@@ -478,4 +506,58 @@ async fn pass_on<C: Connect>(
         }
     }
     false
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::SocketAddr;
+    use wire_weaver::shrink_wrap::UNib32;
+    use wire_weaver::{Peer, PeerKey, TraceContext, TraceFlags, TraceId};
+    use ww_client_server::ww_si::Millis;
+
+    fn request<'a>(context: Option<&'a RequestContext>) -> Request<'a> {
+        Request {
+            seq: UVlq32Backfill(3),
+            priority: Priority::NORMAL.to_wire(),
+            context: context.map(RefBox::new),
+            path_kind: PathKind::absolute(&[]),
+            kind: RequestKind::Read,
+        }
+    }
+
+    fn sent_for(call: &CallContext, request: &Request<'_>) -> Option<RequestContext> {
+        forwarded_context(call, &MountRequest { request, path: &[] })
+    }
+
+    /// The backend hears who the client is from this server, never from the client: a name it put in its own
+    /// context is replaced, its trace and deadline go on.
+    #[test]
+    fn the_client_is_named_by_the_front() {
+        let phone = Peer::Addr(SocketAddr::from(([192, 168, 1, 20], 5555)));
+        let call = CallContext::new(3).with_peer(phone);
+        let trace = TraceContext {
+            trace_id: TraceId([1; 16]),
+            parent_id: wire_weaver::SpanId([2; 8]),
+            flags: TraceFlags::SAMPLED,
+        };
+        let forged = RequestContext {
+            trace: Some(trace),
+            deadline: Some(Millis::new(UNib32(250))),
+            forwarded_for: ForwardedPeer::from_peer(Peer::Key(PeerKey([9; 32]))),
+        };
+        let sent = sent_for(&call, &request(Some(&forged))).expect("a context");
+        assert_eq!(sent.forwarded_for.map(ForwardedPeer::to_peer), Some(phone));
+        assert_eq!((sent.trace, sent.deadline), (forged.trace, forged.deadline));
+
+        // a client the front's transport knows nothing of is named so: never left to be the front's own
+        let unknown = sent_for(&CallContext::new(3), &request(None)).expect("a context");
+        assert_eq!(unknown.forwarded_for, Some(ForwardedPeer::Unknown));
+    }
+
+    /// A call from the front's own process is the front's: nothing is named, no context without a trace or deadline.
+    #[test]
+    fn a_call_of_the_fronts_own_process_names_nobody() {
+        assert_eq!(sent_for(&CallContext::local(), &request(None)), None);
+    }
 }

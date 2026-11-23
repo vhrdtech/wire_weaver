@@ -176,6 +176,7 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 - SRV-76 | Mount slots | `mount!(hub)` and `mounts!(ext)` declare levels whose API is known only at run time, served by one handler per slot. | api/mounts.md
 - SRV-77 | Forwarding into a mount | Requests into a slot lose its path, events coming back get it, global trait paths reach mounted APIs. | api/mounts.md#forwarding
 - SRV-78 | Mount forwarder | A mount slot reaches another WireWeaver server over a socket, each connection with a link of its own, on tokio or calloop. | api/mounts.md#backend-processes
+- SRV-79 | Who calls through a mount | The front's policy sees a mounted call's effects, the backend learns which client of the front called. | api/mounts.md#who-calls-and-what-it-does
 - SRV-20 | Deferred replies everywhere | Answer a call later, also on nested trait levels. | api/methods.md#deferred
 - SRV-42 | Replies by priority | A reply to an urgent request leaves at once, also a deferred one sent later from your main loop; `Sink::flush` sends what waits now. | transport/ww_framer.md#latency-and-priority
 - SRV-22 | Errors that say where | A device's error names the site that raised it, by a number that is the same in every firmware. | api/errors.md#where-on-the-device-an-error-came-from
@@ -587,6 +588,7 @@ How WireWeaver is kept working: every change runs through CI, against the real c
 - EVO-60 | The wire change behind `ww_user_info`'s bounded `NameMax` / `NotesMax` caps: the user-visible side is `docs/std_library/ww_user_info.md`.
 - EVO-61 | The wire change behind `ww_onewire`'s new wire line (`SearchState::last_discrepancy`'s added `1..=64` bound): the user-visible side is STD-113.
 - EVO-84 | The wire change behind request contexts, `Cancel` and the new error kinds: the user-visible side is SRV-47.
+- EVO-85 | The wire change behind naming a forwarded client in the request context (appended, no break): the user-visible side is SRV-79.
 - EVO-83 | The wire change behind `ErrorKind::Overloaded`, appended (no break, an older host reads `Unknown`): the user-visible side is SRV-12.
 - EVO-81 | The wire change behind the empty-list padding fix in multi requests (no break, both forms read the same): the user-visible side is SW-81.
 - EVO-72 | The wire change behind the capability limits bounded by their `MAX_*` consts (`ww_i2c` `w2.0`, `ww_user_info` and `ww_spi` `w3.0`): the user-visible side is the docs of those crates.

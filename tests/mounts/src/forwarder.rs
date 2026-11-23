@@ -72,9 +72,14 @@ pub mod hub {
     use super::*;
     use wire_weaver::ReplyTo;
 
-    /// Requests of `hang`, never answered, and the seqs the hub's clients cancelled.
+    /// Requests of `hang`, never answered, the seqs the hub's clients cancelled, and who called `add` as the hub
+    /// saw it: the peer and whether a trusted forwarder named it (SRV-79).
     #[derive(Default)]
-    pub struct Hung(pub Mutex<Vec<ReplyTo<()>>>, pub Mutex<Vec<u32>>);
+    pub struct Hung(
+        pub Mutex<Vec<ReplyTo<()>>>,
+        pub Mutex<Vec<u32>>,
+        pub Mutex<Vec<(wire_weaver::Peer, bool)>>,
+    );
 
     pub struct Hub {
         pub hung: Arc<Hung>,
@@ -91,10 +96,16 @@ pub mod hub {
     impl Hub {
         async fn add(
             &mut self,
-            _cx: &mut Context<'_, impl EventOut>,
+            cx: &mut Context<'_, impl EventOut>,
             a: u32,
             b: u32,
         ) -> RpcResult<u32> {
+            let call = cx.call();
+            self.hung
+                .2
+                .lock()
+                .unwrap()
+                .push((call.peer, call.forwarded));
             Ready(a + b)
         }
 
@@ -203,10 +214,10 @@ pub mod tv {
 
         async fn hub_request(
             &mut self,
-            _cx: &mut Context<'_, impl EventOut>,
+            cx: &mut Context<'_, impl EventOut>,
             request: MountRequest<'_, '_>,
         ) -> MountAnswer {
-            self.forwarder.forward(&request)
+            self.forwarder.forward(cx.call(), &request)
         }
 
         fn valid_indices_root_ext(&mut self) -> ValidIndices<'_> {
@@ -223,11 +234,11 @@ pub mod tv {
 
         async fn ext_request(
             &mut self,
-            _cx: &mut Context<'_, impl EventOut>,
+            cx: &mut Context<'_, impl EventOut>,
             _index_chain: [ResourceIndex; 1],
             request: MountRequest<'_, '_>,
         ) -> MountAnswer {
-            self.forwarder.forward(&request)
+            self.forwarder.forward(cx.call(), &request)
         }
 
         async fn ext_index_of(
@@ -321,7 +332,10 @@ mod tests {
     use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
     use wire_weaver::ww_version::FullVersionOwned;
 
+    use std::net::SocketAddr;
     use tokio::sync::mpsc;
+    use wire_weaver::authorize::{Denied, Resource, Step, from_fn};
+    use wire_weaver::{CallContext, Peer};
     use wire_weaver_client::internal::{Command, ForwardSink, Forwarded};
     use wire_weaver_client::{ClientConfig, Commander, DynClient, Error};
     use wire_weaver_server::Server;
@@ -375,6 +389,11 @@ mod tests {
 
     impl HubProcess {
         fn start(path: &Path) -> Self {
+            Self::start_with(path, false)
+        }
+
+        /// The hub, taking the word of a forwarder on its socket on who a request is from when `trust`.
+        fn start_with(path: &Path, trust: bool) -> Self {
             let socket = ww_local_socket::listen(path, true).expect("the hub listens");
             let listener = listen(
                 LocalSocketIncoming::new(socket),
@@ -400,7 +419,12 @@ mod tests {
                 let shutdown = async {
                     let _ = stopped.await;
                 };
-                Server::new(TokioClock::new())
+                let mut server = Server::new(TokioClock::new());
+                if trust {
+                    // the socket lets in no other user
+                    server = server.trust_forwarders(|peer| matches!(peer, Peer::Unix { .. }));
+                }
+                server
                     .serve(link, listener, make, shutdown)
                     .await
                     .expect("the hub serves");
@@ -428,10 +452,15 @@ mod tests {
 
     impl TvProcess {
         fn start(path: &str) -> Self {
+            Self::start_with(path, Peer::Local, None)
+        }
+
+        /// The TV whose clients are `peer` as its transport sees them, asking `hook` before every request.
+        fn start_with(path: &str, peer: Peer, hook: Option<Hook>) -> Self {
             let clock = TokioClock::new();
             let own = ww_self::compressed::bundle_bytes(&tv::api_impl::WW_SELF_BYTES).unwrap();
             let own = Arc::new(ApiBundleOwned::from_ww_bytes_owned(&own).unwrap());
-            let mounts = Mounts::<LocalSocket>::new(own);
+            let mounts = Mounts::<LocalSocket>::new(own.clone());
             let link = ww_device::LinkConfig::new(
                 mounts_api::TV_FULL_GID,
                 mounts_api::TV_WIRE_VERSION,
@@ -439,10 +468,13 @@ mod tests {
                 tv::api_impl::image_facts(),
                 ww_client_server::COMPACT_VERSION,
             );
-            let listener = InProcessListener::new(path, MESSAGE_LEN_MAX);
+            let listener = InProcessListener::new(path, MESSAGE_LEN_MAX).with_peer(peer);
             let for_backends = mounts.clone();
             let seen = Arc::new(Mutex::new(Vec::new()));
-            let server = Server::new(clock).mounts(mounts.routes());
+            let mut server = Server::new(clock).mounts(mounts.routes());
+            if let Some(hook) = hook {
+                server = server.authorize(hook, Some(own.clone()));
+            }
             let served = tokio::spawn(async move {
                 let make = move |connection: &Connection| {
                     tv::Tv::new(&for_backends, connection, clock, seen.clone())
@@ -496,6 +528,11 @@ mod tests {
             .expect("connect")
         }
     }
+
+    /// A TV's authorization hook.
+    type Hook = wire_weaver::authorize::FromFn<
+        Box<dyn Fn(&CallContext, &Resource<'_>) -> Result<(), Denied> + Send + Sync>,
+    >;
 
     async fn soon<T>(what: &str, f: impl std::future::Future<Output = T>) -> T {
         tokio::time::timeout(SOON, f)
@@ -921,5 +958,114 @@ mod tests {
             add(client.cmd(), 1, 2).await.map(|_| vec![]),
             ErrorKindOwned::Unavailable,
         );
+    }
+    /// A phone on the LAN, as the TV's transport sees it.
+    fn phone() -> Peer {
+        Peer::Addr(SocketAddr::from(([192, 168, 1, 20], 5555)))
+    }
+
+    /// Who the hub sees calling `add` through a TV whose client is `front`; the hub trusts the TV when `trust`.
+    async fn hub_sees(name: &str, front: Peer, trust: bool) -> (Peer, bool) {
+        let socket = socket_path(name);
+        let hub = HubProcess::start_with(&socket, trust);
+        let tv = TvProcess::start_with(&format!("mounts/forwarder/{name}"), front, None);
+        tv.mount_hub(&socket);
+        tv.hub_up(true).await;
+        let client = tv.client().await;
+        assert_eq!(add(client.cmd(), 2, 3).await.unwrap(), 5);
+        let seen = hub.hung.2.lock().unwrap().clone();
+        hub.stop().await;
+        std::fs::remove_dir_all(socket.parent().unwrap()).unwrap();
+        assert_eq!(seen.len(), 1, "one call: {seen:?}");
+        seen[0]
+    }
+
+    /// A hub that trusts the TV serves a call through it as the TV's client's (SRV-79): handlers and the hub's own
+    /// hook see the phone, `forwarded` set; a client the TV's transport knows nothing of is `Unknown`, never the TV.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn a_trusting_backend_sees_the_fronts_client() {
+        assert_eq!(hub_sees("trusted", phone(), true).await, (phone(), true));
+        assert_eq!(
+            hub_sees("trusted-unknown", Peer::Unknown, true).await,
+            (Peer::Unknown, true)
+        );
+    }
+
+    /// A hub that doesn't trust the TV, and a call from the TV's own process, are the TV's: the peer its socket saw.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn otherwise_the_forwarder_is_the_caller() {
+        let (peer, forwarded) = hub_sees("untrusted", phone(), false).await;
+        assert!(matches!(peer, Peer::Unix { .. }) && !forwarded, "{peer:?}");
+        let (peer, forwarded) = hub_sees("own-process", Peer::Local, true).await;
+        assert!(matches!(peer, Peer::Unix { .. }) && !forwarded, "{peer:?}");
+    }
+
+    /// The TV's hook sees a mounted call's effects, from the API learned from the hub (SRV-79): a policy refusing
+    /// edits refuses the hub's `add`, and lets a read of its lamp through.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn the_fronts_hook_sees_effects_inside_the_mount() {
+        let socket = socket_path("effects");
+        let hub = HubProcess::start(&socket);
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let record = seen.clone();
+        let policy = move |_: &CallContext, resource: &Resource<'_>| {
+            let names: Vec<String> = resource
+                .items
+                .unwrap_or_default()
+                .iter()
+                .map(|step: &Step<'_>| step.ident.to_owned())
+                .collect();
+            let mount = resource
+                .mount
+                .map(|m| (m.api_path.to_vec(), m.api.is_some()));
+            record.lock().unwrap().push((names, mount));
+            if resource.effects().contains(ww_self::Effects::EDIT) {
+                Err(Denied)
+            } else {
+                Ok(())
+            }
+        };
+        let hook = from_fn(Box::new(policy)
+            as Box<
+                dyn Fn(&CallContext, &Resource<'_>) -> Result<(), Denied> + Send + Sync,
+            >);
+        let tv = TvProcess::start_with("mounts/forwarder/effects", phone(), Some(hook));
+        tv.mount_hub(&socket);
+        tv.hub_up(true).await;
+        let client = tv.client().await;
+        let cmd = client.cmd();
+        seen.lock().unwrap().clear();
+        assert_refused(add(cmd, 1, 2).await.map(|_| vec![]), ErrorKindOwned::Denied);
+        let on = raw(cmd, under_hub(&[LAMP, ON]), RequestKindOwned::Read)
+            .await
+            .expect("a read goes through");
+        assert!(!bool::from_ww_bytes(&on).unwrap());
+        let calls: Vec<_> = seen
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|(_, mount)| mount.is_some())
+            .cloned()
+            .collect();
+        let mounted = Some((HUB_API.to_vec(), true));
+        assert_eq!(
+            calls,
+            vec![
+                (
+                    vec!["hub".into(), "api".into(), "add".into()],
+                    mounted.clone()
+                ),
+                (
+                    vec!["hub".into(), "api".into(), "lamp".into(), "on".into()],
+                    mounted
+                ),
+            ]
+        );
+        assert!(
+            hub.hung.2.lock().unwrap().is_empty(),
+            "the denied add never ran"
+        );
+        hub.stop().await;
+        std::fs::remove_dir_all(socket.parent().unwrap()).unwrap();
     }
 }

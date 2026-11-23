@@ -315,6 +315,7 @@ mod tests {
     use std::path::{Path, PathBuf};
     use std::time::Duration;
 
+    use std::collections::BTreeMap;
     use tokio::sync::oneshot;
     use tokio::task::JoinHandle;
     use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
@@ -345,10 +346,12 @@ mod tests {
     const HUB: u32 = 0;
     const PRESENCE: u32 = 0;
     const HUB_API: [u32; 2] = [HUB, 1];
+    const MUTE: u32 = 3;
     const ADD: u32 = 0;
     const HANG: u32 = 1;
     const LAMP: u32 = 2;
     const TICKS: u32 = 3;
+    const STRAY: u32 = 4;
     const TOGGLE: u32 = 0;
     const ON: u32 = 1;
 
@@ -356,6 +359,11 @@ mod tests {
     struct AddArgs {
         a: u32,
         b: u32,
+    }
+
+    #[derive_shrink_wrap(owned)]
+    struct StrayArgs {
+        seq: u32,
     }
 
     /// The hub process, serving on a local socket until told to stop.
@@ -681,32 +689,42 @@ mod tests {
         std::fs::remove_dir_all(socket.parent().unwrap()).unwrap();
     }
 
-    /// What the front connection sends a client, raw: every event answering a request forwarded with
-    /// [Command::Forward] and every event with seq 0.
+    /// What the front connection sends a client, raw: requests forwarded with [Command::Forward] get their seqs
+    /// recorded, every event answering them and every event with seq 0 is kept.
     struct Front {
         events: mpsc::UnboundedReceiver<Forwarded>,
+        seqs: Arc<Mutex<BTreeMap<u64, u32>>>,
     }
 
     struct FrontSink {
         events: mpsc::UnboundedSender<Forwarded>,
+        seqs: Arc<Mutex<BTreeMap<u64, u32>>>,
     }
 
     impl ForwardSink for FrontSink {
         fn forward(&mut self, forwarded: Forwarded) {
             let _ = self.events.send(forwarded);
         }
+
+        fn sent(&mut self, tag: u64, seq: u32) {
+            self.seqs.lock().unwrap().insert(tag, seq);
+        }
     }
 
     impl Front {
         async fn new(cmd: &Commander) -> Self {
             let (tx, events) = mpsc::unbounded_channel();
-            let sink = FrontSink { events: tx };
+            let seqs = Arc::new(Mutex::new(BTreeMap::new()));
+            let sink = FrontSink {
+                events: tx,
+                seqs: seqs.clone(),
+            };
             cmd.send(Command::ForwardSink {
                 sink: Box::new(sink),
             })
             .await
             .unwrap();
-            Front { events }
+            Front { events, seqs }
         }
 
         /// Sends a request as is; `tag` `None` sends it with seq 0, unanswered.
@@ -732,6 +750,19 @@ mod tests {
             })
             .await
             .unwrap();
+        }
+
+        /// The seq the request with `tag` went out with.
+        async fn seq(&self, tag: u64) -> u32 {
+            soon("the forwarded request's seq", async {
+                loop {
+                    if let Some(seq) = self.seqs.lock().unwrap().get(&tag) {
+                        return *seq;
+                    }
+                    tokio::time::sleep(Duration::from_millis(10)).await;
+                }
+            })
+            .await
         }
 
         /// The next event: `Some(tag)` for an answer to the request with that tag, `None` for one with seq 0.
@@ -838,6 +869,46 @@ mod tests {
         closed.sort();
         let under = |path: &[u32]| HUB_API.iter().chain(path).copied().collect::<Vec<_>>();
         assert_eq!(closed, vec![under(&[LAMP]), under(&[TICKS])]);
+        std::fs::remove_dir_all(socket.parent().unwrap()).unwrap();
+    }
+
+    /// A backend answering under a seq its link was never sent can't answer the client's request held elsewhere:
+    /// the TV's own `mute` stays unanswered while the hub's other replies arrive.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn reply_under_a_foreign_seq_is_dropped() {
+        const HELD: u64 = 1;
+        const ASKED: u64 = 2;
+        const ADDED: u64 = 3;
+        let socket = socket_path("stray");
+        let hub = HubProcess::start(&socket);
+        let tv = TvProcess::start("mounts/forwarder/stray");
+        tv.mount_hub(&socket);
+        tv.hub_up(true).await;
+        let client = tv.client().await;
+        let cmd = client.cmd();
+        let mut front = Front::new(cmd).await;
+        // the TV holds `mute`: its seq is the client's, waiting, but never sent to the hub
+        Front::send(cmd, Some(HELD), absolute(&[MUTE]), call(vec![])).await;
+        let held = front.seq(HELD).await;
+        let forged = StrayArgs { seq: held }.to_ww_bytes_owned().unwrap();
+        Front::send(cmd, Some(ASKED), under_hub(&[STRAY]), call(forged)).await;
+        // the hub sends the forged reply before its own, on one link, and the add's after both
+        Front::send(cmd, Some(ADDED), under_hub(&[ADD]), call(add_args(2, 2))).await;
+        let mut answered = Vec::new();
+        while answered.len() < 2 {
+            let (tag, event) = front.next().await;
+            // events without a tag: presence changes of the hub slot
+            if let Some(tag) = tag {
+                assert!(event.result.is_ok(), "{tag}: {event:?}");
+                answered.push(tag);
+            }
+        }
+        assert_eq!(
+            answered,
+            vec![ASKED, ADDED],
+            "the held request stays unanswered"
+        );
+        hub.stop().await;
         std::fs::remove_dir_all(socket.parent().unwrap()).unwrap();
     }
 

@@ -24,8 +24,8 @@
 //! quantity), never looser.
 
 use serde_json::{Map, Value as J, json};
-use wire_weaver_client::quantity::{coded_of, fixed_of, is_any_quantity, point_of, unit_of};
 use ww_numeric::{NumericAnyTypeOwned, NumericBaseType as B, NumericValue};
+use ww_quantity::{coded_of, fixed_of, is_any_quantity, point_of, unit_of};
 use ww_self::units::{Bound, NumBounds, Wrapper, wrapper_of};
 use ww_self::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ArgumentOwned, FieldOwned, FieldsOwned,

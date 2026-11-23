@@ -8,13 +8,11 @@ mod tests {
     use std::sync::{Arc, Mutex};
     use tests_common::TestDevice;
     use wire_weaver::prelude::*;
-    use wire_weaver_client::quantity::{
-        CountKind, DynCount, DynPrefix, DynQuantity, DynUnit, is_quantity, unit_of,
-    };
     use wire_weaver_client::ww_self::{
         self, ApiItemKindOwned, FieldsValueOwned, GenericArgOwned, TypeOwned, ValueOwned,
     };
     use wire_weaver_client::{ClientConfig, DynClient, DynResource};
+    use ww_quantity::{CountKind, DynCount, DynPrefix, DynQuantity, DynUnit, is_quantity, unit_of};
     use ww_si::origins::{Angle, DeviceMicros};
     use ww_si::prefix::{Centi, FullScale, Kibi, Micro, Milli, One, Product, Quotient, Rational};
     use ww_si::units::{
@@ -1173,7 +1171,7 @@ mod tests {
         let (client, root) = connect(&device).await;
         let bundle = root.bundle();
         let (value, ty) = read(&client, &root, "voice").await;
-        let coded = wire_weaver_client::quantity::coded_of(&ty, bundle).expect("a Coded");
+        let coded = ww_quantity::coded_of(&ty, bundle).expect("a Coded");
         assert_eq!(coded.codec.id.name, "MuLaw");
         let v = DynQuantity::from_value(&value, &ty, bundle).expect("a quantity");
         assert_eq!(v.value, NumericValue::I16(8031));
@@ -1216,7 +1214,7 @@ mod tests {
         let (client, root) = connect(&device).await;
         let bundle = root.bundle();
         let (value, ty) = read(&client, &root, "luma").await;
-        let coded = wire_weaver_client::quantity::coded_of(&ty, bundle).expect("a Coded");
+        let coded = ww_quantity::coded_of(&ty, bundle).expect("a Coded");
         assert_eq!(coded.codec.id.name, "Narrow10");
         let curve = coded.codec.curve.as_ref().expect("a curve");
         assert_eq!(curve.id.name, "Pq");

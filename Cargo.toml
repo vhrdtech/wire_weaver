@@ -32,6 +32,7 @@ members = [
     "ww_local_socket",
     "ww_lz4",
     "ww_plugin",
+    "ww_quantity",
     "ww_self",
     "ww_settings/*",
     "ww_snapshots",
@@ -218,6 +219,7 @@ ww_hub_api = { version = "0.1.0", path = "./ww_hub_api", default-features = fals
 ww_json = { version = "0.1.0", path = "./ww_json" }
 ww_lz4 = { version = "0.1.0", path = "./ww_lz4" }
 ww_plugin = { version = "0.1.0", path = "./ww_plugin" }
+ww_quantity = { version = "0.1.0", path = "./ww_quantity" }
 ww_self = { version = "0.3.0", path = "./ww_self" }
 ww_tap = { version = "0.1.0", path = "./ww_tap", default-features = false }
 ww_timebase = { version = "0.1.0", path = "./ww_timebase", default-features = false }

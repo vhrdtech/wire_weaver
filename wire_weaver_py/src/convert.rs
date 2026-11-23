@@ -32,12 +32,12 @@ use pyo3::types::{
     PyBool, PyByteArray, PyBytes, PyDict, PyFloat, PyInt, PyList, PyRange, PyString, PyTuple,
 };
 use shrink_wrap::{INib32, Nibble, UNib32, UVlq32, UVlq64};
-use wire_weaver_client::quantity::{
-    DynQuantity, Prefix, coded_of, fixed_of, is_any_quantity, point_of, stored_number, unit_of,
-};
 use wire_weaver_client::ww_numeric::{NumericAnyTypeOwned, NumericBaseType, NumericValue};
 use wire_weaver_client::ww_self::{
     ApiBundleOwned, FieldOwned, FieldsOwned, FieldsValueOwned, TypeOwned, ValueOwned,
+};
+use ww_quantity::{
+    DynQuantity, Prefix, coded_of, fixed_of, is_any_quantity, point_of, stored_number, unit_of,
 };
 
 pub(crate) fn to_value(

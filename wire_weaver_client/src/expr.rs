@@ -4,10 +4,10 @@
 //! `q!(5 ms)` is converted exactly into its scale and storage, a plain number is the stored number (`5000` into a
 //! `Fixed<Second, Micro, u32>` is 5 ms); an `Index`, `IndexFrom1` or `Seq` is written as its plain number.
 
-use crate::quantity::{
+use anyhow::{Result, anyhow};
+use ww_quantity::{
     DynQuantity, fixed_of, is_any_quantity, parse_quantity_in, stored_number, unit_of,
 };
-use anyhow::{Result, anyhow};
 use ww_self::expr::syn::{self, Expr, Lit};
 use ww_self::expr::{self, Hook};
 pub use ww_self::expr::{Call, parse_call};

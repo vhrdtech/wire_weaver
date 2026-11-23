@@ -1,6 +1,8 @@
 # Crates
 
 [![CI](https://github.com/vhrdtech/wire_weaver/actions/workflows/ci.yml/badge.svg)](https://github.com/vhrdtech/wire_weaver/actions/workflows/ci.yml) [![Book](https://img.shields.io/badge/book-ww.vhrd.tech-blue)](https://ww.vhrd.tech/)
+[![crates.io](https://img.shields.io/crates/v/ww_quantity)](https://crates.io/crates/ww_quantity)
+[![docs.rs](https://img.shields.io/docsrs/ww_quantity)](https://docs.rs/ww_quantity)
 
 This page lists the crates of the root workspace. The first table links each published crate to crates.io and docs.rs. The second gives every crate's layer from `layers.toml` and the description from its `Cargo.toml`. spirit_level checks both: a published crate without a badge, or a row that differs from the manifests, fails `spl check`. [Architecture](https://ww.vhrd.tech/architecture/) groups the crates by what they do.
 
@@ -212,6 +214,7 @@ This page lists the crates of the root workspace. The first table links each pub
 | [`ww_link`](ww_link) | runtime | WireWeaver is a wire format and API code generator for resource constrained systems. |
 | [`ww_local_socket`](ww_local_socket) | runtime | WireWeaver over local sockets: user-only Unix sockets and named pipes, the holders handover |
 | [`ww_plugin`](ww_plugin) | runtime | Device arguments and the protocol an executable ww plugin (ww-NAME) needs, without the ww hub |
+| [`ww_quantity`](ww_quantity) | runtime | ww_si quantities known only from introspection data: units, values, text input and conversion for dynamic WireWeaver clients |
 | [`ww_settings`](ww_settings/ww_settings) | runtime | Power-cut safe settings store for devices: a struct of fields with defaults, kept as an evolvable shrink_wrap record in NOR flash |
 | [`ww_settings_derive`](ww_settings/ww_settings_derive) | runtime | #[derive(Settings)] for ww_settings groups |
 | [`ww_stream`](ww_stream) | runtime | Counted and reliable WireWeaver streams: positions, loss accounting, acknowledgements, stores, backfill |

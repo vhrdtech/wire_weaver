@@ -22,6 +22,7 @@ wire_weaver_client = { workspace = true, features = ["clock_sync", "hub", "usb"]
 wire_weaver_core.workspace = true
 ww_error = { workspace = true, features = ["std"] }
 ww_hub.workspace = true
+ww_quantity.workspace = true
 
 [lints]
 workspace = true

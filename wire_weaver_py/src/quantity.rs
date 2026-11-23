@@ -5,8 +5,8 @@ use exact_units::{Exp, MarkerId, Prefix};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
-use wire_weaver_client::quantity::{DynQuantity, DynUnit, parse_quantity};
 use wire_weaver_client::ww_self::units::{Bound as Bound_, Light};
+use ww_quantity::{DynQuantity, DynUnit, parse_quantity};
 
 /// A value with a unit, as the device sent it: `value` in units of `prefix`, `str()` is `3300 mV`, `float()` the
 /// value in the unit itself (3.3), `to_si()` in coherent SI. Read from a `ww_si::Quantity`, an `AnyQuantity` or an

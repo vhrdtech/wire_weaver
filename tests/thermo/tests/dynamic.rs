@@ -10,13 +10,13 @@
 
 use thermo_devices as devices;
 use wire_weaver::ww_version::WireVersion;
-use wire_weaver_client::quantity::{DynQuantity, DynUnit};
 use wire_weaver_client::ww_self::{
     ApiBundleOwned, ApiItemKindOwned, FieldOwned, FieldsOwned, FieldsValueOwned, ItemStructOwned,
     TypeOwned, ValueOwned,
 };
 use wire_weaver_client::{ClientConfig, DynClient, DynResource};
 use ww_client_server::observe::ObserveMode;
+use ww_quantity::{DynQuantity, DynUnit};
 use ww_si::ww_numeric::NumericValue;
 use ww_si::{Micros, Prefix};
 

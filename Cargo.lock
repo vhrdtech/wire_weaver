@@ -970,6 +970,7 @@ dependencies = [
  "wire_weaver",
  "wire_weaver_client",
  "ww_client_server",
+ "ww_quantity",
  "ww_si",
 ]
 
@@ -3159,6 +3160,7 @@ dependencies = [
  "wire_weaver",
  "wire_weaver_client",
  "ww_client_server",
+ "ww_quantity",
  "ww_si",
 ]
 
@@ -4240,6 +4242,7 @@ dependencies = [
  "wire_weaver_core",
  "wire_weaver_evolution",
  "ww_client_server",
+ "ww_quantity",
  "ww_si",
 ]
 
@@ -5118,6 +5121,7 @@ dependencies = [
  "ww_hub_api",
  "ww_numeric",
  "ww_plugin",
+ "ww_quantity",
  "ww_settings",
  "ww_si",
  "ww_snapshots",
@@ -5167,6 +5171,7 @@ dependencies = [
  "ww_local_socket",
  "ww_lz4",
  "ww_numeric",
+ "ww_quantity",
  "ww_self",
  "ww_si",
  "ww_snapshots",
@@ -5260,6 +5265,7 @@ dependencies = [
  "wire_weaver_core",
  "ww_error",
  "ww_hub",
+ "ww_quantity",
 ]
 
 [[package]]
@@ -5485,9 +5491,9 @@ dependencies = [
  "shrink_wrap",
  "thiserror 2.0.20",
  "toml_edit",
- "wire_weaver_client",
  "wire_weaver_core",
  "ww_numeric",
+ "ww_quantity",
  "ww_self",
  "ww_si",
 ]
@@ -5567,6 +5573,16 @@ dependencies = [
  "tokio",
  "toml",
  "wire_weaver_client",
+]
+
+[[package]]
+name = "ww_quantity"
+version = "0.1.0"
+dependencies = [
+ "shrink_wrap",
+ "ww_numeric",
+ "ww_self",
+ "ww_si",
 ]
 
 [[package]]

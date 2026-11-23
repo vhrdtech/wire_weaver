@@ -29,11 +29,11 @@ use crate::doc::{self, Doc, Form, hex, int_of, is_unit, numeric_doc, stored_text
 use crate::error::{ErrorKind, JsonError, JsonPath, Step};
 use serde_json::Value as J;
 use shrink_wrap::{INib32, Nibble, UNib32, UVlq32, UVlq64};
-use wire_weaver_client::quantity::{
+use ww_numeric::{NumericAnyTypeOwned, NumericBaseType as B, NumericValue as N};
+use ww_quantity::{
     DynCount, DynQuantity, coded_of, fixed_of, is_any_quantity, is_quantity, parse_point_in,
     parse_quantity_in, stored_number, unit_of,
 };
-use ww_numeric::{NumericAnyTypeOwned, NumericBaseType as B, NumericValue as N};
 use ww_self::{
     ApiBundleOwned, ArgumentOwned, FieldOwned, FieldsOwned, FieldsValueOwned, ItemEnumOwned,
     MAX_DECODE_DEPTH, TypeOwned, ValueOwned, VariantOwned,

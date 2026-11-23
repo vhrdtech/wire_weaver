@@ -66,6 +66,7 @@ published = [
     "ww_local_socket",
     "ww_lz4",
     "ww_plugin",
+    "ww_quantity",
     "ww_self",
     "ww_settings",
     "ww_settings_derive",
@@ -308,6 +309,7 @@ crates = [
     "wire_weaver_evolution",
     "ww_hub",
     "ww_plugin",
+    "ww_quantity",
     "ww_snapshots",
 ]
 level = "allow"

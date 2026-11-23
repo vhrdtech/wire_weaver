@@ -16,8 +16,16 @@
 //! [Codec::decode_onto] reads a level onto a base value, keeping every key the table doesn't name;
 //! [Codec::write_onto] is its inverse for write-back, editing a parsed [toml_edit::DocumentMut] in place so
 //! untouched lines and comments stay.
+//!
+//! Decoding onto a base value also reads two markers (Q22/Q23), a one-key inline table in place of a field's
+//! ordinary value: `{ unset_to_none = true }` sets an `Option` field to `None` over any base value, where a left-out
+//! key would keep it; `{ use_parent = true }` keeps the base's value outright, the same as leaving the key out, for
+//! a level that wants to say so. `write_onto` writes the first when it must (`None` over a base that has a value,
+//! where a left-out key would read back wrong) and never writes the second, but leaves an existing line of either
+//! alone when the value still matches. No struct field may be named `unset_to_none` or `use_parent`, so a one-key
+//! table of either name is never read as a struct's own value.
 
-use crate::doc::{Doc, Form};
+use crate::doc::{self, Doc, Form, Marker};
 use crate::error::{ErrorKind, JsonError, JsonPath, Step};
 use crate::value::{Codec, quantity_type, value_fields};
 use toml_edit::{Array, InlineTable, Item, Table, TableLike, Value as T};
@@ -66,7 +74,8 @@ impl<'a> Codec<'a> {
     /// name is not added. Nested structs are edited key by key. `table` is often a parsed
     /// [toml_edit::DocumentMut] (`&mut doc`).
     ///
-    /// An `Option` field that is `None` where `base` has a value can't be written: TOML has no null.
+    /// An `Option` field that is `None` where `base` has a value is written as `{ unset_to_none = true }`: TOML
+    /// has no null, and a left-out key would read back as `base`'s value (Q22).
     pub fn write_onto(
         &self,
         table: &mut Table,
@@ -121,9 +130,14 @@ impl<'a> Codec<'a> {
         path: &mut JsonPath,
         depth: usize,
     ) -> Result<()> {
+        // a marker table is never a struct's own table, whatever the new value is (Q22/Q23)
+        let current_marker = table
+            .get(name)
+            .and_then(|item| item_doc(item, &mut path.clone()).ok())
+            .and_then(|doc| doc::marker(&doc));
         // a struct, or an option of one that is `Some`, is edited key by key, as `decode_onto` reads it
         let (inner_new, inner_old, inner_ty) = self.some_inner(new, old, ty);
-        if self.struct_parts(inner_new, inner_ty).is_some() {
+        if current_marker.is_none() && self.struct_parts(inner_new, inner_ty).is_some() {
             if let Some(sub) = table.get_mut(name).and_then(Item::as_table_like_mut) {
                 return self.write_struct(sub, inner_old, inner_new, inner_ty, path, depth + 1);
             }
@@ -139,7 +153,7 @@ impl<'a> Codec<'a> {
         }
         if let Some(item) = table.get_mut(name) {
             let current = item_doc(item, &mut path.clone())
-                .and_then(|doc| self.decode_doc(&doc, ty, Form::Toml, path));
+                .and_then(|doc| self.current_value(&doc, old, ty, path));
             if current.as_ref() == Ok(new) {
                 return Ok(());
             }
@@ -147,33 +161,59 @@ impl<'a> Codec<'a> {
             return Ok(());
         }
         match self.encode_doc(new, ty, Form::Toml, path)? {
-            Doc::Null if old.is_some_and(|o| *o != ValueOwned::Option(None)) => Err(JsonError::new(
-                path,
-                ErrorKind::Unsupported(
-                    "TOML has no null: a field can't be set to none over a base that has a value"
-                        .into(),
-                ),
-            )),
+            // TOML has no null: a key left out would read back as `old`, so write the marker instead (Q22)
+            Doc::Null if old.is_some_and(|o| *o != ValueOwned::Option(None)) => {
+                self.set_item(table, name, marker_item(Marker::UnsetToNone));
+                Ok(())
+            }
             Doc::Null => {
                 table.remove(name);
                 Ok(())
             }
             doc => {
-                let mut item = to_item(doc, &mut path.clone())?;
-                match table.get_mut(name) {
-                    Some(slot) => {
-                        // the old value's comment and spacing stay with the new value
-                        if let (Some(was), Item::Value(now)) = (slot.as_value(), &mut item) {
-                            *now.decor_mut() = was.decor().clone();
-                        }
-                        *slot = item;
-                    }
-                    None => {
-                        table.insert(name, item);
-                    }
-                }
+                let item = to_item(doc, &mut path.clone())?;
+                self.set_item(table, name, item);
                 Ok(())
             }
+        }
+    }
+
+    /// `name` of `table` set to `item`, the old value's comment and spacing kept with it.
+    fn set_item(&self, table: &mut dyn TableLike, name: &str, mut item: Item) {
+        match table.get_mut(name) {
+            Some(slot) => {
+                if let (Some(was), Item::Value(now)) = (slot.as_value(), &mut item) {
+                    *now.decor_mut() = was.decor().clone();
+                }
+                *slot = item;
+            }
+            None => {
+                table.insert(name, item);
+            }
+        }
+    }
+
+    /// What `doc` currently decodes to at a field whose base value is `old`: a [Marker] resolves against `old`
+    /// without needing `ty` ([Marker::UseParent] is `old` itself, [Marker::UnsetToNone] is `None`), anything else
+    /// decodes by `ty` as usual.
+    fn current_value(
+        &self,
+        doc: &Doc,
+        old: Option<&ValueOwned>,
+        ty: &TypeOwned,
+        path: &JsonPath,
+    ) -> Result<ValueOwned> {
+        match doc::marker(doc) {
+            Some(Marker::UseParent) => old.cloned().ok_or_else(|| {
+                JsonError::new(
+                    path,
+                    ErrorKind::Unsupported(
+                        "`{ use_parent = true }` has no base value to keep here".into(),
+                    ),
+                )
+            }),
+            Some(Marker::UnsetToNone) => Ok(ValueOwned::Option(None)),
+            None => self.decode_doc(doc, ty, Form::Toml, path),
         }
     }
 
@@ -267,6 +307,13 @@ pub fn write_onto(
 
 fn unsupported(path: &JsonPath, what: &str) -> JsonError {
     JsonError::new(path, ErrorKind::Unsupported(what.into()))
+}
+
+/// `marker` as the one-key inline table it is written as, `{ unset_to_none = true }`.
+fn marker_item(marker: Marker) -> Item {
+    let mut table = InlineTable::new();
+    table.insert(marker.key(), T::from(true));
+    Item::Value(T::InlineTable(table))
 }
 
 fn item_doc(item: &Item, path: &mut JsonPath) -> Result<Doc> {

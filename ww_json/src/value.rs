@@ -25,7 +25,9 @@
 //! Output is deterministic. Input is strict: an unknown field, a value of another kind and a number that does not
 //! fit are errors naming the [JsonPath] of the failing value.
 
-use crate::doc::{self, Doc, Form, hex, int_of, is_unit, numeric_doc, stored_text, u8s, unhex};
+use crate::doc::{
+    self, Doc, Form, Marker, hex, int_of, is_unit, numeric_doc, stored_text, u8s, unhex,
+};
 use crate::error::{ErrorKind, JsonError, JsonPath, Step};
 use serde_json::Value as J;
 use shrink_wrap::{INib32, Nibble, UNib32, UVlq32, UVlq64};
@@ -734,7 +736,9 @@ impl De<'_> {
         })
     }
 
-    /// `base` with what `j` holds set on it ([Codec::onto_doc]).
+    /// `base` with what `j` holds set on it ([Codec::onto_doc]). In TOML, a one-key marker table takes the field
+    /// over its ordinary type: `{ use_parent = true }` is `base` itself, `{ unset_to_none = true }` is `None` of
+    /// an `Option` field (Q22/Q23).
     fn onto(
         &mut self,
         base: &ValueOwned,
@@ -744,6 +748,22 @@ impl De<'_> {
     ) -> Result<ValueOwned> {
         if depth >= MAX_DECODE_DEPTH {
             return Err(self.err(ErrorKind::TooDeep(MAX_DECODE_DEPTH)));
+        }
+        if self.form == Form::Toml {
+            match doc::marker(j) {
+                Some(Marker::UseParent) => return Ok(base.clone()),
+                Some(Marker::UnsetToNone) => {
+                    return match ty.get_in_line(self.bundle) {
+                        Ok(TypeOwned::Option { .. }) => Ok(ValueOwned::Option(None)),
+                        Ok(resolved) => Err(self.err(ErrorKind::Unsupported(format!(
+                            "`{{ unset_to_none = true }}` sets only an Option field to none, not {}",
+                            type_name(resolved, self.bundle)
+                        )))),
+                        Err(e) => Err(self.model(format!("{e:#}"))),
+                    };
+                }
+                None => {}
+            }
         }
         let bundle = self.bundle;
         let ty = ty

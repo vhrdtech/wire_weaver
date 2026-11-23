@@ -149,7 +149,24 @@ window = "0.4 s"   # as typed
 strict = true
 ```
 
-An `Option` field set to `None` over a base that has a value can't be written: TOML has no null.
+### Markers
+
+`decode_onto` reads two markers, a one-key inline table in place of a field's ordinary value:
+
+| Marker | Means |
+|---|---|
+| `{ unset_to_none = true }` | an `Option` field is `None` over any base value, where a left-out key would keep it (Q22) |
+| `{ use_parent = true }` | the field keeps the base's value outright, the same as leaving the key out (Q23) |
+
+```toml
+[audio.limits]
+max_clip_length = { unset_to_none = true }   # the channel clears the streamer's limit
+window = { use_parent = true }               # explicit: this level keeps the channel's value
+```
+
+`write_onto` writes `{ unset_to_none = true }` when it must: `None` set over a base that has a value, where TOML's own way of saying so, leaving the key out, would read back as the base's value instead. It never writes `{ use_parent = true }` itself, since a field equal to the base is left out as usual, but keeps an existing line of either marker alone when the value it stands for still matches, same as any other untouched key.
+
+No struct field may be named `unset_to_none` or `use_parent`: a one-key table of either name is read as the marker, never as a struct's own value, so the two names stay unambiguous.
 
 Errors are the JSON form's, with the path from the root: an unknown key is `UnknownField` with the names valid there (so a caller can offer the nearest), a value of another kind `WrongType`, a value that doesn't parse in its unit `Quantity`:
 

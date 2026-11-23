@@ -49,12 +49,12 @@ pub use client::dyn_client::DynClient;
 pub use client::dyn_observe::{DynConfig, DynObserved, DynObserver, DynSamples};
 pub use client::dyn_positioned::{DynPositionedStream, DynStreamOpen, seconds};
 pub use client::dynamic::{
-    DynMultiArgs, DynMultiValue, DynResource, DynResourceKind, DynSink, DynStream, PathStep,
-    parse_path,
+    DynMultiArgs, DynMultiValue, DynResource, DynResourceKind, DynSink, DynStream, DynWalked,
+    PathStep, parse_path,
 };
 pub use client::introspect::{Introspect, cache_introspection, decode_introspection, inline_known};
 pub use client::keyed::{KEY_CACHE_ENTRIES_MAX, KeyStream, Keyed};
-pub use client::mount::MountSlot;
+pub use client::mount::{MountSlot, MountView};
 pub use client::multi::{self, MultiCall, MultiRead, MultiWrite};
 pub use client::positioned::{
     AckMode, Cause, DEFAULT_STREAM_QUEUE_BYTES, DEFAULT_WINDOW, PositionedStream, Run, Second,

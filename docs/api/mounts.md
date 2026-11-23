@@ -169,10 +169,48 @@ let ext = device.ext_by(&name).await?;                 // Option<MountSlot>, by 
 let first = device.ext(0)?;
 ```
 
-`api_path()` is the prefix a view of the mounted API puts before its own paths. The dynamic client and `ww` read
-`hub.presence` and `ext[i].presence` by path; walking into `hub.api` says the mounted API is known only at run
-time. Working with the mounted API itself (its introspection, its items under the slot) is not built yet.
+### Views of a mounted API
 
-Tests: `tests/mounts` (both server kinds, the generated and dynamic clients, `forward_to_a_backend`: the hub
-forwarding to another TV through the rewrite), `tests/mounts_api`. Conformance cases:
+A `MountView` is how a client works with the API mounted at a slot. Its `commander()` is a `Commander` whose paths
+are in the mounted API: each request goes out with the slot's `api` in front, and each answer, event and stream item
+comes back under the same path. The view holds its own facts of the mounted API, apart from the device's: crate,
+version, hashes, introspection data (asked for below the slot's `api`), global trait paths, `const` values and keys.
+
+```rust
+// a generated client of the mounted API
+let view = tv.hub()?.view_for(&hub_api::Client::client_line()).await?;
+let hub = hub_api::Client::on_mount(&view)?;
+hub.player().pause().call().await?;
+
+// the dynamic client
+let view = tv.hub()?.view().await?;
+let info = view.commander().device_api_info();           // the mounted API, not the TV's
+```
+
+- `view_for` checks calls against the mounted API as a connect checks them against a device's API.
+  `on_mount` refuses a view made without the client's line. `view()` is for the dynamic client and tools.
+- The view follows the slot's `presence`, observed on the link, while one of its clones lives. When a backend
+  comes `Up`, the view learns its API. Another hash later means another revision, learned again as a reconnect
+  learns a device's (CLT-81): the view's kept streams, sinks and observers that don't hold on it end.
+- After a link gap, the view resumes its streams, sinks and observers on the first `Up`. The device's own API is
+  not relearned.
+- `status()` is a `watch` of the presence the view handled last. It says `Up` only once the API is learned. It
+  doesn't change while the link is down: `Commander::connection_state` tells that.
+- A global trait path resolves in the mounted API's introspection data. One the view can't resolve is refused:
+  sent as it is, the device would look for the trait in its own tree first.
+- A request into an empty slot fails with `Unavailable`.
+
+### Walking into mounts
+
+`DynResource::walk_mounted(cmd, path)` walks the dynamic client into mounted APIs. It returns the resource and the
+view it lives in (`DynWalked`); use the resource with `walked.cmd(cmd)`.
+
+- `hub.api.player.pause` and `hub.player.pause` name the same item: the slot's `api` may be left out.
+- `hub.presence` stays the slot's own item; `hub.api.presence` reaches an item of the mounted API named so.
+- A name after a `mounts!` array picks a slot by name: `ext.cast.pause` is `ext[MountName("cast")].pause`.
+
+`ww observe` and `ww stream` walk this way.
+
+Tests: `tests/mounts` (both server kinds, the generated and dynamic clients, views and walks,
+`forward_to_a_backend`: the hub forwarding to another TV through the rewrite), `tests/mounts_api`. Conformance cases:
 `api.mount.presence.absent`, `api.mount.presence.up`, `api.mount.name`, `client_server.error.unavailable`.

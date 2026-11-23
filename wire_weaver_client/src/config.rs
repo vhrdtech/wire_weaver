@@ -249,7 +249,7 @@ pub struct IntrospectBundle {
 
 impl IntrospectBundle {
     /// A generated client's own introspection data: as a device sends it, with known traits and types left out.
-    fn from_client(
+    pub(crate) fn from_client(
         ww_self_bytes: &[u8],
         api_hash: ApiHashPairOwned,
         resolver: &Resolver,

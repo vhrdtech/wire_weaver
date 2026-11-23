@@ -21,7 +21,7 @@ std = []
 [dependencies]
 mount_backend_api.workspace = true
 mounts_api.workspace = true
-tests_common.workspace = true
+tests_common = { workspace = true, features = ["ws"] }
 tokio = { workspace = true, features = ["sync", "rt-multi-thread", "rt", "macros", "test-util"] }
 tracing-subscriber.workspace = true
 wire_weaver.workspace = true

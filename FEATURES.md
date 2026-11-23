@@ -736,8 +736,8 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
     `get_<slot>_presence` and `<slot>_request` with `MountRequest`/`MountAnswer`, `ErrorKind::Unavailable`
     (`ww_client_server` w2.2), introspection below the root reaching the handler, `ww api scaffold`, the generated
     client's `MountSlot`, `presence` in the dynamic client, evolution and authorization steps; the rewrite is
-    SRV-77, the forwarder SRV-78. Missing: the keys stream driven by mounts, the client view of the mounted API
-    (`TODO(SRV-76)`).
+    SRV-77, the forwarder SRV-78, the client view of the mounted API CLT-84. Missing: the keys stream driven by
+    mounts.
     [Docs](docs/api/mounts.md), `tests/mounts`.
 - 📋 **SRV-9 Handle USB suspend/resume** · `v0.5` — run until suspend, wait for resume, loop
   (`mcu/wire_weaver_usb_embassy`). Later (`v0.5.x`): detect the host going to sleep and keep the connection,
@@ -1409,6 +1409,16 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   the client's API still matches and the device's resource at the same path is compatible with the one it had; the
   rest end with a warning. Another wire line keeps CLT-63's handling. See `docs/transport/keep_trying.md`; tested in
   `tests/reconnect_revision`. The clock steering (CLT-46) keeps what the first connect decided.
+- ✅ **CLT-84 Mount views** · `v0.5` — a client reaches an API mounted at a slot (SRV-76) through a
+  `MountView` (`MountSlot::view`, `view_for(&ClientLine)`): a `Commander` with the slot's `api` in front of every
+  path and its own device facts, learned through the slot (introspection data, hash, global trait paths, the resource
+  check). It follows the slot's `presence`: learns the API when a backend comes `Up`, again on another hash (CLT-81
+  per mount), resumes its streams, sinks and observers on the first `Up` after a link gap; `status()` tells the
+  program, apart from the link's state. Generated root clients get `on_mount(&view)`;
+  `DynResource::walk_mounted` walks the dynamic client into mounts (`hub.mute`, `ext.cast.mute`), and `ww observe`
+  and `ww stream` with it. A global trait path the view can't resolve is refused, never sent to the front's own tree.
+  See [Mount slots](docs/api/mounts.md#client); tested in `tests/mounts`. Not covered: a facade of several wire lines
+  on a view, `ww call` (vhrdtech/ww_tools).
 - 🚧 **CLT-75 Keep-trying connections** · `v0.5` — `PreparedConnection::connect_keep_trying()` returns the client at
   once and connects in the background, again whenever the link goes: each attempt races the config's addresses
   (`ClientConfig::websocket_urls`, `in_process_paths`; `connect()` and `reconnect()` too, CLT-80), backoff and give-up

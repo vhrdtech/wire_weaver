@@ -1312,6 +1312,40 @@ pub(crate) async fn learn_again(
     Ok(())
 }
 
+/// What a mount view (CLT-84) learns of the API `info` describes, mounted at its slot: the first time, that API; on
+/// another hash, that API again as [learn_again] learns a device's (CLT-81 per mount), and the view's kept streams,
+/// sinks and observers whose resource doesn't hold on it end. Nothing on the API it learned already. A view of a
+/// generated client refuses another wire line than the one it learned ([crate::Error::ReconnectedOnAnotherLine]); a
+/// dynamic one learns any. True when the facts changed.
+pub(crate) async fn learn_mounted(
+    view: &Commander,
+    info: DeviceApiInfo,
+) -> Result<bool, crate::Error> {
+    let before = view.facts();
+    if before.learned {
+        if info.user_api_hash.no_docs == before.connected_device.user_api_hash.no_docs {
+            return Ok(false);
+        }
+        if view.client_introspect().is_some() && other_line(&before.connected_device, &info) {
+            return Err(view.reconnected_elsewhere_error(info));
+        }
+        info!(
+            "{}: the mounted API changed (API hash {} -> {}), learning it again",
+            info.user_api_version.crate_id,
+            before.connected_device.user_api_hash.no_docs,
+            info.user_api_hash.no_docs,
+        );
+    }
+    let facts = learn_facts(view, info).await?;
+    view.clear_const_cache();
+    view.keys.clear();
+    view.publish(facts);
+    if before.learned {
+        view.end_shifted(&before);
+    }
+    Ok(true)
+}
+
 async fn try_select_rtt_routed(
     config: &ValidatedConfig,
     cmd_rx: &mut Option<mpsc::Receiver<Command>>,

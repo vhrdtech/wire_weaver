@@ -17,6 +17,7 @@
 
 ### 🚀 Features
 
+- `ww observe` and `ww stream` walk into mounted APIs: `hub.player.state`, `ext.cast.items` (CLT-84).
 - `ww api tree` shows mount slots with their expected API crate (SRV-76).
 - `ww info --effects` lists the items that change something, by effect; `ww api tree` shows `#[effect(..)]` (API-58).
 - `ww api scaffold --receiver-model` (SRV-65): `&self` for shared items' handlers and the valid indices on their path.

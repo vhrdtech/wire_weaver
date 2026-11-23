@@ -298,6 +298,276 @@ mod tests {
         assert_eq!(raw(cmd, &[MUTE], call()).await.unwrap(), Vec::<u8>::new());
     }
 
+    /// A resolver without a cache: what the client knows of a mounted API comes through the slot, never from the
+    /// introspection data the test device seeded.
+    fn no_cache() -> &'static wire_weaver_client::snapshots::Resolver {
+        Box::leak(Box::new(wire_weaver_client::snapshots::Resolver::offline(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")),
+        )))
+    }
+
+    /// A view of the hub's API (CLT-84) learns it through the slot: the backend's introspection data, downloaded
+    /// below the slot's `api`. Its calls go out with the slot's `api` in front, a global trait path resolves in the
+    /// mounted API; one it can't resolve is refused, never sent to the front's own tree.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn view_of_the_hub() {
+        const MUTE: u32 = 3;
+        let slots = slots();
+        slots.lock().unwrap().hub_backend = Some(tv_backend());
+        let device = start_blocking("mounts/view", slots.clone());
+        let client =
+            std_client::Client::config(|c| c.in_process_path(device.path()).resolver(no_cache()))
+                .connect()
+                .await
+                .expect("connect");
+
+        let view = client.hub().unwrap().view().await.unwrap();
+        assert!(view.has_learned());
+        assert_eq!(view.api_path(), resource_path(&[HUB, API]));
+        let vcmd = view.commander();
+        let info = vcmd.device_api_info();
+        assert_eq!(info.user_api_version.crate_id, "mounts_api");
+        let bundle = vcmd.device_introspect().expect("learned through the slot");
+        assert_eq!(bundle.api_hash.no_docs, info.user_api_hash.no_docs);
+        let introspected = slots
+            .lock()
+            .unwrap()
+            .seen
+            .iter()
+            .any(|s| s.slot.is_none() && s.introspect);
+        assert!(introspected, "introspection data asked for below the slot");
+
+        let mute = |path: PathKindOwned| {
+            vcmd.prepare_call::<(), Error>(as_ref(&path), Ok(vec![]), "mute")
+                .call()
+        };
+        mute(absolute(&[MUTE])).await.unwrap();
+        let seen = slots.lock().unwrap().seen.last().cloned().unwrap();
+        assert_eq!(
+            seen.path,
+            [MUTE],
+            "the slot's handler got the path below `api`"
+        );
+
+        // the backend's own hub slot, read through the view
+        let inner = vcmd
+            .prepare_read::<MountPresenceOwned>(as_ref(&absolute(&[HUB, PRESENCE])))
+            .read()
+            .await
+            .unwrap();
+        assert!(matches!(inner, MountPresenceOwned::Absent));
+        // observing a level of the mounted API goes through the slot to the backend (SRV-76)
+        let observer = DynResource::root(bundle.api_bundle.clone())
+            .walk("hub")
+            .unwrap()
+            .observe(
+                vcmd,
+                [(
+                    PRESENCE,
+                    wire_weaver_client::observe::on_change(Duration::ZERO),
+                )]
+                .into(),
+            )
+            .await
+            .unwrap();
+        assert!(observer.granted().is_some());
+        assert_eq!(slots.lock().unwrap().seen.last().unwrap().path, [HUB]);
+
+        // the mounted API's root trait by its global path, resolved in the view
+        let global = PathKindOwned::GlobalFull {
+            gid: mounts_api::TV_FULL_GID.make_owned(),
+            trait_name: "Tv".into(),
+            path_from_trait: resource_path(&[MUTE]),
+        };
+        mute(global).await.unwrap();
+        assert_eq!(slots.lock().unwrap().seen.last().unwrap().path, [MUTE]);
+
+        let elsewhere = PathKindOwned::GlobalFull {
+            gid: wire_weaver::ww_version::FullVersionOwned::new(
+                "other_api".into(),
+                wire_weaver::ww_version::VersionOwned::new(1, 0, 0),
+            ),
+            trait_name: "Other".into(),
+            path_from_trait: vec![],
+        };
+        let refused = mute(elsewhere).await.unwrap_err();
+        assert!(matches!(refused, Error::Unsupported { .. }), "{refused:?}");
+    }
+
+    /// A view follows its slot (CLT-84): an empty slot is `Absent`; a backend that comes is learned before the
+    /// status says `Up`; another revision of it is learned again; an unmounted slot is `Absent` and its requests are
+    /// refused with `Unavailable`.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn view_follows_the_slot() {
+        const MUTE: u32 = 3;
+        let slots = slots();
+        slots.lock().unwrap().hub = false;
+        let device = start_async("mounts/follow", slots.clone());
+        let client =
+            std_client::Client::config(|c| c.in_process_path(device.path()).resolver(no_cache()))
+                .connect()
+                .await
+                .expect("connect");
+        let view = client.hub().unwrap().view().await.unwrap();
+        let mut status = view.status();
+        assert!(matches!(*status.borrow(), MountPresenceOwned::Absent));
+        assert!(!view.has_learned());
+
+        let change = |f: &dyn Fn(&mut Slots)| {
+            let mut slots = slots.lock().unwrap();
+            f(&mut slots);
+            slots.hub_changed = true;
+        };
+        let up_with = |status: &MountPresenceOwned| match status {
+            MountPresenceOwned::Up { hash, .. } => Some(hash.no_docs.clone()),
+            _ => None,
+        };
+        let introspected = || {
+            slots
+                .lock()
+                .unwrap()
+                .seen
+                .iter()
+                .filter(|s| s.slot.is_none() && s.introspect)
+                .count()
+        };
+
+        change(&|s| {
+            s.hub = true;
+            s.hub_backend = Some(tv_backend());
+        });
+        let first = up_with(&status.wait_for(|p| up_with(p).is_some()).await.unwrap()).unwrap();
+        assert!(view.has_learned());
+        let vcmd = view.commander();
+        assert_eq!(vcmd.device_api_info().user_api_hash.no_docs, first);
+        assert!(vcmd.device_introspect().is_some());
+        assert_eq!(introspected(), 1);
+        vcmd.prepare_call::<(), Error>(as_ref(&absolute(&[MUTE])), Ok(vec![]), "mute")
+            .call()
+            .await
+            .unwrap();
+
+        change(&|s| s.hub_revision = 1);
+        let second = up_with(
+            &status
+                .wait_for(|p| up_with(p).is_some_and(|h| h != first))
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(vcmd.device_api_info().user_api_hash.no_docs, second);
+        assert_eq!(introspected(), 2, "the new revision is learned again");
+
+        change(&|s| s.hub = false);
+        status
+            .wait_for(|p| matches!(p, MountPresenceOwned::Absent))
+            .await
+            .unwrap();
+        let refused = vcmd
+            .prepare_call::<(), Error>(as_ref(&absolute(&[MUTE])), Ok(vec![]), "mute")
+            .call()
+            .await;
+        assert_refused(refused.map(|()| vec![]), ErrorKindOwned::Unavailable);
+    }
+
+    /// A view's observers resume once the slot is `Up` again after the link came back (CLT-84): the device went away
+    /// and a new one serves the same slots; the view subscribes again through the slot, with no relearning.
+    #[tokio::test(start_paused = true)]
+    async fn view_resumes_after_the_link_came_back() {
+        tokio::task::LocalSet::new().run_until(view_resumes()).await;
+    }
+
+    async fn view_resumes() {
+        const PATH: &str = "mounts/view_resumes";
+        let slots = slots();
+        slots.lock().unwrap().hub_backend = Some(tv_backend());
+        let start = || start_async_ws(PATH, slots.clone());
+        let observes = || {
+            slots
+                .lock()
+                .unwrap()
+                .seen
+                .iter()
+                .filter(|s| s.slot.is_none() && !s.introspect && s.path == [HUB])
+                .count()
+        };
+        let device = start();
+        let client = std_client::Client::config(|c| {
+            c.in_process_path(device.path())
+                .resolver(no_cache())
+                .keep_trying(wire_weaver_client::KeepTrying::default())
+        })
+        .connect_keep_trying()
+        .expect("the handle is made at once");
+        let mut events = client.cmd.connection_events();
+        while !matches!(
+            events.recv().await.unwrap(),
+            wire_weaver_client::ConnectionEvent::Connected { .. }
+        ) {}
+        let view = client.hub().unwrap().view().await.unwrap();
+        let bundle = view.commander().device_introspect().unwrap().api_bundle;
+        // the backend's own hub slot, a level with an observable property
+        let observer = DynResource::root(bundle)
+            .walk("hub")
+            .unwrap()
+            .observe(
+                view.commander(),
+                [(
+                    PRESENCE,
+                    wire_weaver_client::observe::on_change(Duration::ZERO),
+                )]
+                .into(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(observes(), 1);
+        let learned = view.commander().device_api_info().user_api_hash.no_docs;
+
+        drop(device);
+        let _device = start();
+        while !matches!(
+            events.recv().await.unwrap(),
+            wire_weaver_client::ConnectionEvent::Reconnected { .. }
+        ) {}
+        let mut status = view.status();
+        while observes() < 2 {
+            status.changed().await.unwrap();
+        }
+        assert_eq!(observes(), 2, "subscribed again through the slot");
+        assert_eq!(
+            view.commander().device_api_info().user_api_hash.no_docs,
+            learned
+        );
+        assert!(observer.granted().is_some());
+    }
+
+    fn absolute(path: &[u32]) -> PathKindOwned {
+        PathKindOwned::Absolute {
+            path: resource_path(path),
+        }
+    }
+
+    fn as_ref(path: &PathKindOwned) -> ww_client_server::PathKind<'_> {
+        use wire_weaver::shrink_wrap::RefVec;
+        match path {
+            PathKindOwned::Absolute { path } => ww_client_server::PathKind::Absolute {
+                path: RefVec::Slice { slice: path },
+            },
+            PathKindOwned::GlobalFull {
+                gid,
+                trait_name,
+                path_from_trait,
+            } => ww_client_server::PathKind::GlobalFull {
+                gid: gid.as_ref(),
+                trait_name,
+                path_from_trait: RefVec::Slice {
+                    slice: path_from_trait,
+                },
+            },
+            PathKindOwned::GlobalCompact { .. } => unreachable!("not used here"),
+        }
+    }
+
     fn call() -> RequestKindOwned {
         RequestKindOwned::Call {
             args: TailBytesOwned(vec![]),
@@ -420,5 +690,91 @@ mod tests {
         let cast = MountNameOwned(MaxLen::new("cast".to_owned()).unwrap());
         let slot = client.ext_by_blocking(&cast).unwrap().expect("named slot");
         assert_up(&slot.presence().blocking_read().unwrap());
+    }
+
+    /// A generated client of the mounted API on a view made for it (CLT-84): its calls go through the slot, and its
+    /// own slot accessors name paths in the mounted API. A view without the client's API refuses to make one.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn generated_client_on_a_view() {
+        let slots = slots();
+        slots.lock().unwrap().hub_backend = Some(tv_backend());
+        let device = start_blocking("mounts/client_on_view", slots.clone());
+        let client =
+            std_client::Client::config(|c| c.in_process_path(device.path()).resolver(no_cache()))
+                .connect()
+                .await
+                .expect("connect");
+        let line = std_client::Client::client_line();
+        let view = client.hub().unwrap().view_for(&line).await.unwrap();
+        let hub = std_client::Client::on_mount(&view).unwrap();
+        hub.mute().call().await.unwrap();
+        assert_eq!(slots.lock().unwrap().seen.last().unwrap().path, [3]);
+        let inner = hub.hub().unwrap().presence().read().await.unwrap();
+        assert!(matches!(inner, MountPresenceOwned::Absent));
+
+        let dynamic = client.hub().unwrap().view().await.unwrap();
+        assert!(std_client::Client::on_mount(&dynamic).is_err());
+    }
+
+    /// The dynamic client walks into a mounted API (CLT-84): past the slot with or without `api`, a slot of `mounts!`
+    /// by name, and the resource found is used through the view the walk made.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn dynamic_client_walks_into_mounts() {
+        let slots = slots();
+        slots.lock().unwrap().hub_backend = Some(tv_backend());
+        let device = start_blocking("mounts/dynamic_walk", slots.clone());
+        let client = connect(&device).await;
+        let cmd = client.cmd();
+        let root = DynResource::root(client.device_introspect().unwrap().api_bundle.clone());
+
+        for path in ["hub.mute", "hub.api.mute"] {
+            let walked = root.walk_mounted(cmd, path).await.unwrap();
+            assert!(walked.view.is_some(), "{path}");
+            walked.resource.call(walked.cmd(cmd), &[]).await.unwrap();
+            assert_eq!(slots.lock().unwrap().seen.last().unwrap().path, [3]);
+        }
+        // the slot's own presence, and the backend's own hub slot inside the mounted API
+        let own = root.walk_mounted(cmd, "hub.presence").await.unwrap();
+        assert!(own.view.is_none());
+        own.resource.read(own.cmd(cmd)).await.unwrap();
+        let inner = root.walk_mounted(cmd, "hub.hub.presence").await.unwrap();
+        inner.resource.read(inner.cmd(cmd)).await.unwrap();
+        assert_eq!(slots.lock().unwrap().seen.last().unwrap().path, [0, 0]);
+
+        // `ext.adwatch` is `ext["adwatch"]`, an empty slot: nothing to walk into
+        let empty = root
+            .walk_mounted(cmd, "ext.adwatch.mute")
+            .await
+            .err()
+            .unwrap();
+        assert!(empty.to_string().contains("not known"), "{empty}");
+        let presence = root
+            .walk_mounted(cmd, "ext.adwatch.presence")
+            .await
+            .unwrap();
+        assert_eq!(
+            presence.resource.index_chain(),
+            resource_path(&[EXT, 2, PRESENCE])
+        );
+    }
+
+    /// A blocking program makes a view too, with a runtime entered for its follower (CLT-84).
+    #[test]
+    fn view_blocking() {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let _guard = rt.enter();
+        let slots = slots();
+        slots.lock().unwrap().hub_backend = Some(tv_backend());
+        let device = start_blocking("mounts/view_blocking", slots);
+        let client =
+            std_client::Client::config(|c| c.in_process_path(device.path()).resolver(no_cache()))
+                .connect_blocking()
+                .expect("connect");
+        let view = client.hub().unwrap().view_blocking().unwrap();
+        assert!(view.has_learned());
+        assert_eq!(
+            view.commander().device_api_info().user_api_version.crate_id,
+            "mounts_api"
+        );
     }
 }

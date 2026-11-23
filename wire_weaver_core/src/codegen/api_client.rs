@@ -1580,6 +1580,12 @@ fn connect_disconnect_methods(api_bundle: &CodegenBundle) -> TokenStream {
             }
         }
 
+        /// A client of this API where it is mounted in another device's (CLT-84): `view` from
+        /// `slot.view_for(&Client::client_line())`, its paths prefixed with the slot's.
+        pub fn on_mount(view: &wire_weaver_client::MountView) -> Result<Self, wire_weaver_client::Error> {
+            view.client(&Self::client_line())
+        }
+
         fn introspect_bytes() -> &'static [u8] {
             const WW_SELF_BYTES: #introspect_bytes;
             &WW_SELF_BYTES

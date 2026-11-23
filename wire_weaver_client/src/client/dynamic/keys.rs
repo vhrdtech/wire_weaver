@@ -273,7 +273,7 @@ impl DynResource {
     }
 
     /// The element of a keyed array with the key `text`, a Rust expression of the key type.
-    fn by_key_text(&self, text: &str) -> Result<ValueOwned, Error> {
+    pub(super) fn by_key_text(&self, text: &str) -> Result<ValueOwned, Error> {
         let key_ty = self
             .key_ty()
             .ok_or_else(|| self.not_a("keyed array"))?
@@ -365,7 +365,7 @@ impl DynResource {
     }
 }
 
-fn no_element(array: &DynResource, key: &str) -> Error {
+pub(super) fn no_element(array: &DynResource, key: &str) -> Error {
     Error::Other(format!(
         "'{}' has no element with the key {key}",
         array.path

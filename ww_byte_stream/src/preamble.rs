@@ -455,6 +455,34 @@ impl Answer {
         bytes
     }
 
+    /// The answer at the start of `bytes` and its length, without IO: `None` while `bytes` holds only part of it. A
+    /// reader that must not lose what it read when its wait is dropped keeps the bytes itself and calls this.
+    ///
+    /// # Errors
+    ///
+    /// [AnswerError::BadMagic] or [AnswerError::NotUtf8]: the other side is not a WireWeaver server.
+    pub fn parse(bytes: &[u8]) -> Result<Option<(Answer, usize)>, AnswerError> {
+        let Some(head) = bytes.get(..7) else {
+            if !MAGIC.starts_with(&bytes[..bytes.len().min(4)]) {
+                return Err(AnswerError::BadMagic);
+            }
+            return Ok(None);
+        };
+        if head[..4] != MAGIC {
+            return Err(AnswerError::BadMagic);
+        }
+        let len = 7 + usize::from(head[6]);
+        let Some(v) = bytes.get(7..len) else {
+            return Ok(None);
+        };
+        let answer = Answer {
+            version: head[4],
+            status: Status::from_u8(head[5]),
+            hub_version: String::from_utf8(v.to_vec()).map_err(|_| AnswerError::NotUtf8)?,
+        };
+        Ok(Some((answer, len)))
+    }
+
     /// Reads an answer of any preamble version: the layout up to the hub version stays the same in every one.
     pub async fn read<R: AsyncRead + Unpin>(r: &mut R) -> Result<Answer, AnswerError> {
         let mut head = [0u8; 7];
@@ -475,6 +503,21 @@ impl Answer {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn answer_parses_in_pieces() {
+        let answer = Answer::new(Status::Ok, "0.5.1");
+        let mut bytes = answer.encode();
+        let len = bytes.len();
+        for end in 0..len {
+            assert!(Answer::parse(&bytes[..end]).unwrap().is_none(), "{end} bytes");
+        }
+        bytes.extend_from_slice(&[9, 9]);
+        let (parsed, used) = Answer::parse(&bytes).unwrap().unwrap();
+        assert_eq!((parsed, used), (answer, len));
+        assert!(matches!(Answer::parse(b"HTTP/1.1"), Err(AnswerError::BadMagic)));
+        assert!(matches!(Answer::parse(b"HT"), Err(AnswerError::BadMagic)));
+    }
 
     #[tokio::test]
     async fn preamble_bytes_and_round_trip() {

@@ -2,6 +2,7 @@
 
 ### 🚀 Features
 
+- `err_seq::MOUNT_BACKEND_GONE`, `MOUNT_QUEUE_FULL`, `MOUNT_TOO_LONG`: sites of a mount forwarder's own answers (SRV-78).
 - `mount::MountPrefix`, `request_at`, `MountRequest::forward_into`: header-only prefix rewrite of requests and events crossing a mount slot (SRV-77).
 - `Request` and `RequestKind` are `Clone` (SRV-77).
 - `mount::MountRequest` and `mount::MountAnswer`, what a mount slot's handler takes and answers; `err_seq::mount` sites (SRV-76).

@@ -698,6 +698,48 @@ mod tests {
         assert!(std_client::Client::on_mount(&dynamic).is_err());
     }
 
+    /// The dynamic client walks into a mounted API (CLT-84): past the slot with or without `api`, a slot of `mounts!`
+    /// by name, and the resource found is used through the view the walk made.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn dynamic_client_walks_into_mounts() {
+        let slots = slots();
+        slots.lock().unwrap().hub_backend = Some(tv_backend());
+        let device = start_blocking("mounts/dynamic_walk", slots.clone());
+        let client = connect(&device).await;
+        let cmd = client.cmd();
+        let root = DynResource::root(client.device_introspect().unwrap().api_bundle.clone());
+
+        for path in ["hub.mute", "hub.api.mute"] {
+            let walked = root.walk_mounted(cmd, path).await.unwrap();
+            assert!(walked.view.is_some(), "{path}");
+            walked.resource.call(walked.cmd(cmd), &[]).await.unwrap();
+            assert_eq!(slots.lock().unwrap().seen.last().unwrap().path, [3]);
+        }
+        // the slot's own presence, and the backend's own hub slot inside the mounted API
+        let own = root.walk_mounted(cmd, "hub.presence").await.unwrap();
+        assert!(own.view.is_none());
+        own.resource.read(own.cmd(cmd)).await.unwrap();
+        let inner = root.walk_mounted(cmd, "hub.hub.presence").await.unwrap();
+        inner.resource.read(inner.cmd(cmd)).await.unwrap();
+        assert_eq!(slots.lock().unwrap().seen.last().unwrap().path, [0, 0]);
+
+        // `ext.adwatch` is `ext["adwatch"]`, an empty slot: nothing to walk into
+        let empty = root
+            .walk_mounted(cmd, "ext.adwatch.mute")
+            .await
+            .err()
+            .unwrap();
+        assert!(empty.to_string().contains("not known"), "{empty}");
+        let presence = root
+            .walk_mounted(cmd, "ext.adwatch.presence")
+            .await
+            .unwrap();
+        assert_eq!(
+            presence.resource.index_chain(),
+            resource_path(&[EXT, 2, PRESENCE])
+        );
+    }
+
     /// A blocking program makes a view too, with a runtime entered for its follower (CLT-84).
     #[test]
     fn view_blocking() {

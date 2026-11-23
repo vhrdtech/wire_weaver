@@ -53,9 +53,10 @@ pub(crate) async fn observe(args: ObserveArgs, device: &DynClient) -> Result<()>
         .ok_or_else(|| anyhow!("device did not provide introspection data"))?
         .api_bundle
         .clone();
-    let level = DynResource::root(bundle)
-        .walk_on(device.cmd(), &args.path)
+    let walked = DynResource::root(bundle)
+        .walk_mounted(device.cmd(), &args.path)
         .await?;
+    let (level, cmd) = (&walked.resource, walked.cmd(device.cmd()));
     let props = level
         .observable_properties()
         .with_context(|| format!("'{}'", display_path(&args.path)))?;
@@ -111,7 +112,7 @@ pub(crate) async fn observe(args: ObserveArgs, device: &DynClient) -> Result<()>
         .map(|(_, name, ty)| (name.as_str(), ty))
         .collect();
     let mut observer = level
-        .observe(device.cmd(), entries)
+        .observe(cmd, entries)
         .await
         .context("observe request")?;
     if let Some(granted) = observer.granted() {

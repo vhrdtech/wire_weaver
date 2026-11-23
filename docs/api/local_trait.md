@@ -351,6 +351,9 @@ A level defined in another crate keeps that crate's trait. The other crate gener
 and re-exports it at its root, next to the `#[ww_trait]` it belongs to: `pub use local::{Gauge, GaugeDyn};`. The
 root's trait finds it there, in the same `Send` form as its own.
 
+A level whose own API is known only at run time — another process's, present or absent — is not `ww_impl!`'s
+business: it is a [mount slot](mounts.md), served by `wire_weaver_server::mount` rather than `serve_trait`.
+
 ## Resource arrays
 
 An array of levels, `ww_impl!(unit[]: UnitApi)`, gets an accessor that takes the element's index and can fail:

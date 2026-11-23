@@ -8,6 +8,10 @@ A mount slot is a place in an API whose own API is known only at run time: a TV 
 process, or extensions that any local program can register. The parent API declares the slot; whatever is mounted
 there brings its own introspection data, API hash and version.
 
+This differs from [`ww_impl!`](local_trait.md#nested-levels), whose nested level is a fixed type known at compile
+time, and from [`serve_trait`](local_trait.md#serving-a-local-implementation), which composes such levels in one
+process: a mount slot's backend is a separate process, unknown until it connects, with its own hash and version.
+
 ```rust
 #[ww_api_root]
 #[effect(edit)]

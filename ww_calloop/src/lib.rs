@@ -41,6 +41,6 @@ mod unix;
 
 pub use clock::LoopClock;
 pub use tcp::{TcpIncoming, TcpStop};
+pub use udp::{LoopReadiness, LoopUdpListener, LoopUdpSocket, LoopUdpStop, bind_udp};
 #[cfg(unix)]
 pub use unix::UnixConnector;
-pub use udp::{LoopReadiness, LoopUdpListener, LoopUdpSocket, LoopUdpStop, bind_udp};

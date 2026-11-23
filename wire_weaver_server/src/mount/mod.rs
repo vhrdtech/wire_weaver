@@ -13,9 +13,9 @@ mod link;
 mod table;
 
 pub use connect::Connect;
-pub use forward::Forwarder;
 #[cfg(feature = "local_socket")]
 pub use connect::LocalSocket;
+pub use forward::Forwarder;
 pub use link::LinkDown;
 pub use table::{Learn, MountEvent, MountOptions, MountRoutes, Mounts};
 

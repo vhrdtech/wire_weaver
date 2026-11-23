@@ -261,10 +261,7 @@ impl<C: Connect> BackendLink<C> {
         }
         let mut buf = [0u8; ANSWER_LEN_MAX];
         let want = ANSWER_LEN_MAX - got.len();
-        let n = stream
-            .read(&mut buf[..want])
-            .await
-            .map_err(LinkDown::Io)?;
+        let n = stream.read(&mut buf[..want]).await.map_err(LinkDown::Io)?;
         if n == 0 {
             return Err(LinkDown::Io(io::ErrorKind::UnexpectedEof.into()));
         }
@@ -374,13 +371,7 @@ impl<C: Connect> BackendLink<C> {
     pub fn send(&mut self, bytes: &[u8], now: Instant) -> bool {
         match self.phase {
             Phase::Up => {
-                self.push(
-                    &Message::Data {
-                        channel: 0,
-                        bytes,
-                    },
-                    now,
-                );
+                self.push(&Message::Data { channel: 0, bytes }, now);
                 true
             }
             Phase::Down => false,
@@ -428,9 +419,7 @@ impl<C: Connect> BackendLink<C> {
     pub fn next_wake(&self) -> Option<Instant> {
         match self.phase {
             Phase::Opening | Phase::Hello | Phase::Setup => Some(self.setup_deadline),
-            Phase::Up => Some(
-                (self.last_tx + PING_INTERVAL).min(self.last_rx + PEER_TIMEOUT),
-            ),
+            Phase::Up => Some((self.last_tx + PING_INTERVAL).min(self.last_rx + PEER_TIMEOUT)),
             Phase::Down => None,
         }
     }
@@ -581,4 +570,3 @@ fn new_setup_token() -> u64 {
     h.write_u32(std::process::id());
     h.finish().max(1)
 }
-

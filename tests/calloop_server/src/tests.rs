@@ -279,7 +279,12 @@ async fn mounts_on_the_loop_reach_a_unix_socket() {
             wire_weaver_client::in_process::TokioClock::new(),
         );
         Server::new(wire_weaver_client::in_process::TokioClock::new())
-            .serve(counter::link(), listener, Counter::make, stopped.map(|_| ()))
+            .serve(
+                counter::link(),
+                listener,
+                Counter::make,
+                stopped.map(|_| ()),
+            )
             .await
             .expect("the counter serves");
     });

@@ -88,7 +88,12 @@ pub mod hub {
     }
 
     impl Hub {
-        async fn add(&mut self, _cx: &mut Context<'_, impl EventOut>, a: u32, b: u32) -> RpcResult<u32> {
+        async fn add(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+            a: u32,
+            b: u32,
+        ) -> RpcResult<u32> {
             Ready(a + b)
         }
 
@@ -198,7 +203,9 @@ pub mod tv {
             _cx: &mut Context<'_, impl EventOut>,
             _index_chain: [ResourceIndex; 1],
         ) -> GetResult<MountNameOwned, CommonError<'_>> {
-            Value(MountNameOwned(MaxLen::new(String::new()).expect("empty fits")))
+            Value(MountNameOwned(
+                MaxLen::new(String::new()).expect("empty fits"),
+            ))
         }
 
         async fn mute(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {
@@ -221,7 +228,12 @@ pub mod tv {
             self.forwarder.next_wake()
         }
 
-        async fn poll(&mut self, out: &mut EventWriter<'_, impl MessageSink>, _medium: (), _now: Instant) {
+        async fn poll(
+            &mut self,
+            out: &mut EventWriter<'_, impl MessageSink>,
+            _medium: (),
+            _now: Instant,
+        ) {
             let changes = self.forwarder.poll(out).await;
             for change in changes {
                 if let MountEvent::Presence { .. } = change {
@@ -273,7 +285,9 @@ mod tests {
     use wire_weaver_server::in_process::InProcessListener;
     use wire_weaver_server::local_socket::LocalSocketIncoming;
     use wire_weaver_server::mount::MountOptions;
-    use ww_client_server::{ErrorKindOwned, ErrorOwned, PathKindOwned, RequestKindOwned, RequestOwned};
+    use ww_client_server::{
+        ErrorKindOwned, ErrorOwned, PathKindOwned, RequestKindOwned, RequestOwned,
+    };
     use ww_self::ApiBundleOwned;
 
     const MESSAGE_LEN_MAX: usize = 4096;
@@ -402,7 +416,11 @@ mod tests {
         /// Waits until the hub slot's presence is up (`true`) or absent.
         async fn hub_up(&self, up: bool) {
             soon("the hub's presence", async {
-                while matches!(self.mounts.presence(&hub_api_path()), MountPresenceOwned::Up { .. }) != up {
+                while matches!(
+                    self.mounts.presence(&hub_api_path()),
+                    MountPresenceOwned::Up { .. }
+                ) != up
+                {
                     tokio::time::sleep(Duration::from_millis(10)).await;
                 }
             })
@@ -435,7 +453,10 @@ mod tests {
 
     fn absolute(path: &[u32]) -> PathKindOwned {
         PathKindOwned::Absolute {
-            path: path.iter().map(|i| ResourceIndex::new(UNib32(*i))).collect(),
+            path: path
+                .iter()
+                .map(|i| ResourceIndex::new(UNib32(*i)))
+                .collect(),
         }
     }
 
@@ -455,7 +476,11 @@ mod tests {
     }
 
     /// Send a request as is and wait for the answer: the value bytes, or the error.
-    async fn raw(cmd: &Commander, path_kind: PathKindOwned, kind: RequestKindOwned) -> Result<Vec<u8>, Error> {
+    async fn raw(
+        cmd: &Commander,
+        path_kind: PathKindOwned,
+        kind: RequestKindOwned,
+    ) -> Result<Vec<u8>, Error> {
         let bytes = RequestOwned {
             seq: UVlq32Backfill(0),
             priority: ww_client_server::Priority::NORMAL.to_wire(),
@@ -499,7 +524,9 @@ mod tests {
         let client = tv.client().await;
         let cmd = client.cmd();
         assert_eq!(add(cmd, 2, 3).await.unwrap(), 5);
-        let toggled = raw(cmd, under_hub(&[LAMP, TOGGLE]), call(vec![])).await.unwrap();
+        let toggled = raw(cmd, under_hub(&[LAMP, TOGGLE]), call(vec![]))
+            .await
+            .unwrap();
         assert!(bool::from_ww_bytes(&toggled).unwrap());
         // the TV has no `Lamp`: its global path reaches into the hub
         let (major, minor, patch) = mount_backend_api_version();
@@ -514,7 +541,10 @@ mod tests {
         let toggled = raw(cmd, global, call(vec![])).await.unwrap();
         assert!(!bool::from_ww_bytes(&toggled).unwrap());
         // the TV's own items stay its own
-        assert_eq!(raw(cmd, absolute(&[MUTE]), call(vec![])).await.unwrap(), Vec::<u8>::new());
+        assert_eq!(
+            raw(cmd, absolute(&[MUTE]), call(vec![])).await.unwrap(),
+            Vec::<u8>::new()
+        );
         let missing = raw(cmd, under_hub(&[9]), call(vec![])).await;
         assert_refused(missing, ErrorKindOwned::BadPath);
         hub.stop().await;
@@ -552,7 +582,10 @@ mod tests {
         let answer = soon("the hanging request", hanging).await.unwrap();
         assert_refused(answer, ErrorKindOwned::Unavailable);
         tv.hub_up(false).await;
-        assert_refused(add(&cmd, 1, 2).await.map(|_| vec![]), ErrorKindOwned::Unavailable);
+        assert_refused(
+            add(&cmd, 1, 2).await.map(|_| vec![]),
+            ErrorKindOwned::Unavailable,
+        );
         let hub = HubProcess::start(&socket);
         tv.hub_up(true).await;
         assert_eq!(add(&cmd, 3, 4).await.unwrap(), 7);
@@ -600,6 +633,9 @@ mod tests {
     async fn nothing_mounted() {
         let tv = TvProcess::start("mounts/forwarder/nothing");
         let client = tv.client().await;
-        assert_refused(add(client.cmd(), 1, 2).await.map(|_| vec![]), ErrorKindOwned::Unavailable);
+        assert_refused(
+            add(client.cmd(), 1, 2).await.map(|_| vec![]),
+            ErrorKindOwned::Unavailable,
+        );
     }
 }

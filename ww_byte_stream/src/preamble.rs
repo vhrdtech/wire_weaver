@@ -510,12 +510,18 @@ mod tests {
         let mut bytes = answer.encode();
         let len = bytes.len();
         for end in 0..len {
-            assert!(Answer::parse(&bytes[..end]).unwrap().is_none(), "{end} bytes");
+            assert!(
+                Answer::parse(&bytes[..end]).unwrap().is_none(),
+                "{end} bytes"
+            );
         }
         bytes.extend_from_slice(&[9, 9]);
         let (parsed, used) = Answer::parse(&bytes).unwrap().unwrap();
         assert_eq!((parsed, used), (answer, len));
-        assert!(matches!(Answer::parse(b"HTTP/1.1"), Err(AnswerError::BadMagic)));
+        assert!(matches!(
+            Answer::parse(b"HTTP/1.1"),
+            Err(AnswerError::BadMagic)
+        ));
         assert!(matches!(Answer::parse(b"HT"), Err(AnswerError::BadMagic)));
     }
 

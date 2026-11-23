@@ -14,11 +14,11 @@ use ww_device::{Clock, Instant, LinkConfig};
 use wire_weaver::authorize::Authorize;
 
 use crate::authorize::Authorization;
-use crate::mount::MountRoutes;
 use crate::backend::Backend;
 use crate::connection::{self, Connection, LocalConnection};
 use crate::lifecycle::{Lifecycle, ShutdownReason, Stage};
 use crate::listener::{Accept, Accepted, Listener};
+use crate::mount::MountRoutes;
 use crate::pump::{LocalPumps, PumpHandle, Pumps};
 use crate::sync::locked;
 

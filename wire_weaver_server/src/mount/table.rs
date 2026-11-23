@@ -158,7 +158,10 @@ impl<C: Connect> Mounts<C> {
     /// Learn each backend's API with `learn` instead of decoding its introspection data as sent. It runs inside
     /// [run](Self::run): one that reads files or fetches holds up the table's other slots meanwhile.
     #[must_use]
-    pub fn learn_with(mut self, learn: impl Fn(&[u8]) -> Option<ApiBundleOwned> + Send + Sync + 'static) -> Self {
+    pub fn learn_with(
+        mut self,
+        learn: impl Fn(&[u8]) -> Option<ApiBundleOwned> + Send + Sync + 'static,
+    ) -> Self {
         self.learn = Arc::new(learn);
         self
     }
@@ -222,7 +225,11 @@ impl<C: Connect> Mounts<C> {
 
     /// Why the slot's backend last went away or could not be reached: for logs and status lines.
     pub fn last_down(&self, api_path: &[ResourceIndex]) -> Option<String> {
-        locked(&self.table).slots.get(&ids(api_path))?.last_down.clone()
+        locked(&self.table)
+            .slots
+            .get(&ids(api_path))?
+            .last_down
+            .clone()
     }
 
     /// The `api` paths of the mounted slots, in path order.
@@ -230,7 +237,11 @@ impl<C: Connect> Mounts<C> {
         locked(&self.table)
             .slots
             .keys()
-            .map(|key| key.iter().map(|id| ResourceIndex::new(UNib32(*id))).collect())
+            .map(|key| {
+                key.iter()
+                    .map(|id| ResourceIndex::new(UNib32(*id)))
+                    .collect()
+            })
             .collect()
     }
 
@@ -256,7 +267,12 @@ impl<C: Connect> Mounts<C> {
                 request_context: info.request_context,
                 dev_max_message_len: info.dev_max_message_len,
             };
-            (slot.connector.clone(), slot.options.clone(), slot.epoch, facts)
+            (
+                slot.connector.clone(),
+                slot.options.clone(),
+                slot.epoch,
+                facts,
+            )
         })
     }
 
@@ -362,9 +378,14 @@ impl<C: Connect> Mounts<C> {
         }
         let api_path = paths(key);
         if let Some(bytes) = learned {
-            let info = link.info().cloned().expect("introspection comes after link setup");
+            let info = link
+                .info()
+                .cloned()
+                .expect("introspection comes after link setup");
             // empty: a backend with introspection off; `None`: too long to learn
-            let api = bytes.filter(|b| !b.is_empty()).and_then(|b| (self.learn)(&b));
+            let api = bytes
+                .filter(|b| !b.is_empty())
+                .and_then(|b| (self.learn)(&b));
             self.up(key, &api_path, control.epoch, info, api);
         }
         if let Some(why) = down {
@@ -554,5 +575,7 @@ pub(crate) fn ids(path: &[ResourceIndex]) -> Vec<u32> {
 }
 
 fn paths(key: &[u32]) -> Vec<ResourceIndex> {
-    key.iter().map(|id| ResourceIndex::new(UNib32(*id))).collect()
+    key.iter()
+        .map(|id| ResourceIndex::new(UNib32(*id)))
+        .collect()
 }

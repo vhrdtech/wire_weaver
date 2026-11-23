@@ -6,7 +6,9 @@ use std::future::{pending, poll_fn};
 
 use futures_util::future::{select, select_all};
 use futures_util::pin_mut;
-use wire_weaver::shrink_wrap::{DeserializeShrinkWrap, SerializeShrinkWrap, UVlq32, UVlq32Backfill};
+use wire_weaver::shrink_wrap::{
+    DeserializeShrinkWrap, SerializeShrinkWrap, UVlq32, UVlq32Backfill,
+};
 use wire_weaver::ww_version::WireVersion;
 use wire_weaver::{EventOut, EventWriter, MessageSink, Priority};
 use ww_client_server::mount::{MountAnswer, MountPrefix, MountRequest, request_at};
@@ -52,7 +54,7 @@ const STREAMS_MAX: usize = 256;
 /// ```
 ///
 /// Each slot gets a link of its own, opened by the first request under it and kept while the backend is up: seqs
-/// pass through unchanged. While it comes up, requests wait (at most [WAITING_MAX]). When the backend goes, every
+/// pass through unchanged. While it comes up, requests wait (at most 64). When the backend goes, every
 /// request it didn't answer is answered `Unavailable`, and every stream opened under the slot gets a `Close`
 /// sideband; observed properties under it are not told, the slot's `presence` going `Absent` says it.
 pub struct Forwarder<C: Connect, K: Clock> {
@@ -406,7 +408,11 @@ async fn pass_on<C: Connect>(
                 sideband: StreamSideband::Close,
             }) = &result
         {
-            let below: Vec<u32> = path.iter().filter_map(Result::ok).map(|i| i.get().0).collect();
+            let below: Vec<u32> = path
+                .iter()
+                .filter_map(Result::ok)
+                .map(|i| i.get().0)
+                .collect();
             let mut full = ids(front.prefix.path());
             full.extend(below);
             front.streams.remove(&full);

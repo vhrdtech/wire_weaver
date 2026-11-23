@@ -1905,6 +1905,8 @@
       
         
       
+        
+      
     
     
     
@@ -1964,6 +1966,33 @@
     
   
   Arrays
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/mounts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Mount slots
 
     
   </span>
@@ -6753,6 +6782,7 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 
 <ul>
 <li><strong><a href="../api/arrays/#keyed-arrays">Server of a keyed array</a></strong>: <code>ww api scaffold</code> prints two handlers per <code>keyed!</code>, the generated code answers the rest.</li>
+<li><strong><a href="../api/mounts/">Mount slots</a></strong>: <code>mount!(hub)</code> and <code>mounts!(ext)</code> declare levels whose API is known only at run time, served by one handler per slot. <span class="ww-status">in progress</span></li>
 <li><strong><a href="../api/methods/#deferred">Deferred replies everywhere</a></strong>: Answer a call later, also on nested trait levels.</li>
 <li><strong><a href="../transport/ww_framer/#latency-and-priority">Replies by priority</a></strong>: A reply to an urgent request leaves at once, also a deferred one sent later from your main loop; <code>Sink::flush</code> sends what waits now. <span class="ww-status">hardware check open</span></li>
 <li><strong><a href="../api/errors/#where-on-the-device-an-error-came-from">Errors that say where</a></strong>: A device's error names the site that raised it, by a number that is the same in every firmware.</li>

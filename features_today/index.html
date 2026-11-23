@@ -1983,6 +1983,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../api/mounts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Mount slots
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../api/handlers/" class="md-nav__link">
         
   
@@ -2126,33 +2153,6 @@
     
   
   Introspection data
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../api/json/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  JSON and TOML for any API
 
     
   </span>
@@ -6699,7 +6699,6 @@ in either direction. WireWeaver generates the device's server and the host's cli
 <li><strong><a href="../api/optional_items/#optional-traits">Optional traits</a></strong>: Leave a whole block of the API out of a build, e.g. behind a Cargo feature, and clients see it is not there.</li>
 <li><strong><a href="../api/methods/#error-lists">Error lists</a></strong>: Which errors each method can return, shown in docs and tools and checked in tests.</li>
 <li><strong><a href="../api/metadata/#effect-what-an-item-does">Effects</a></strong>: Every method, writable property and sink says what it does (<code>read</code>, <code>persist</code>, <code>actuate</code>, ...): GUIs, agents and the hub know what is safe to call.</li>
-<li><strong><a href="../api/metadata/#track-how-a-stream-is-recorded">Track layout</a></strong>: Each stream says how a recorder lays it out on a tape: points, spans or a series, with its dimensions and flags.</li>
 <li><strong><a href="../api/streams/#stream-functions">Stream functions</a></strong>: Open a stream with typed arguments and a result, like a method call.</li>
 <li><strong><a href="../api/observing/">Observing properties</a></strong>: Ask a device to send changes on change or periodically, within a byte budget.</li>
 <li><strong><a href="../api/observing/#every-sample-batched">Observing every sample</a></strong>: A fast property's every sample, each at its time, in compressed batches; typed and dynamic clients, the CLI and Python.</li>
@@ -6708,8 +6707,6 @@ in either direction. WireWeaver generates the device's server and the host's cli
 <li><strong><a href="../api/totals/">Running totals</a></strong>: A pointer or scroll wheel over UDP: each sink write carries the sum so far, so a lost write loses nothing and nothing waits.</li>
 <li><strong><a href="../api/folder_structure/">The API crate prelude <code>ww_api</code></a></strong>: An API crate depends on <code>ww_api</code>, not the runtime: the macros, <code>shrink_wrap</code> and the common types in one prelude, checked by the layer lint.</li>
 <li><strong><a href="../api/arrays/">Keyed resource arrays</a></strong>: Address the elements of an array by a key (<code>keyed!(flow by FlowKey)</code>) instead of the index the device gave them.</li>
-<li><strong><a href="../api/arrays/#keys-that-borrow">Keys that borrow</a></strong>: A string key (<code>DetectorName&lt;'i&gt;</code>): borrowed on a device without an allocator, owned where a key is kept.</li>
-<li><strong><a href="../api/json/#the-model-in-a-program">The model in a program</a></strong>: An API crate carries its own model as bytes, so a program reads and writes its values (settings TOML, JSON) without the source.</li>
 <li><strong><a href="../api/observing/#cells-sampling-from-an-interrupt">Observe cells</a></strong>: Sample a level from an interrupt in place, value by value into a ring of atomics: a quarter of the cycles and a tenth of the stack of <code>sample()</code> at opt-level z, the same wire.</li>
 <li><strong><a href="../articles/series/#cpu-and-flash-on-a-microcontroller">A cheaper observe poll</a></strong>: The poll that sends a level's samples spends its time on the codec: half the cycles at opt-level 3, a third at z, the same bytes.</li>
 <li><strong><a href="../api/batching/">Batched streams</a></strong>: A stream opts into sending samples many per event as a compressed <code>Series</code> instead of one at a time, for plain, counted and reliable streams; typed and dynamic clients, the CLI and Python.</li>
@@ -6753,6 +6750,7 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 
 <ul>
 <li><strong><a href="../api/arrays/#keyed-arrays">Server of a keyed array</a></strong>: <code>ww api scaffold</code> prints two handlers per <code>keyed!</code>, the generated code answers the rest.</li>
+<li><strong><a href="../api/mounts/">Mount slots</a></strong>: <code>mount!(hub)</code> and <code>mounts!(ext)</code> declare levels whose API is known only at run time, served by one handler per slot. <span class="ww-status">in progress</span></li>
 <li><strong><a href="../api/methods/#deferred">Deferred replies everywhere</a></strong>: Answer a call later, also on nested trait levels.</li>
 <li><strong><a href="../transport/ww_framer/#latency-and-priority">Replies by priority</a></strong>: A reply to an urgent request leaves at once, also a deferred one sent later from your main loop; <code>Sink::flush</code> sends what waits now. <span class="ww-status">hardware check open</span></li>
 <li><strong><a href="../api/errors/#where-on-the-device-an-error-came-from">Errors that say where</a></strong>: A device's error names the site that raised it, by a number that is the same in every firmware.</li>
@@ -6835,7 +6833,6 @@ from the description the device sends of itself; the <code>ww</code> tool and Py
 <li><strong><a href="../transport/hub/#who-holds-a-device-clt-38">Who holds a device</a></strong>: A busy error names the program already holding a USB interface or RTT probe, pid and since when; a crash releases it right away.</li>
 <li><strong><a href="../transport/hub/#reaching-devices-through-the-hub-clt-39">Hub routing in connect</a></strong>: A device the ww hub holds, or one opened again and again from a shell, is reached through the hub, which a program starts by itself when needed; <code>WW_HUB</code> says when. <span class="ww-status">in progress</span></li>
 <li><strong><a href="../transport/overview/#where-a-connects-time-goes">Where a connect's time goes</a></strong>: A connect reports each step as a <code>tracing</code> span, and <code>just connect-bench</code> times them for many clients at once or a board on USB, cold and warm. <span class="ww-status">in progress</span></li>
-<li><strong><a href="../transport/websocket/#finding-servers-on-the-lan">Servers found on the LAN</a></strong>: A client finds WebSocket servers announced over DNS-SD and follows one to its new address after a DHCP change. <span class="ww-status">in progress</span></li>
 <li><strong><a href="../transport/keep_trying/#another-revision-of-the-devices-api">Reconnect onto another API revision</a></strong>: A reconnect to other firmware on the same wire line learns its API again and resumes what still fits.</li>
 <li><strong><a href="../transport/keep_trying/">Keep-trying connections</a></strong>: A client that exists at once, connects when the device comes up, reconnects whenever the link goes and resumes its observers and streams, racing its addresses; <code>retry_now()</code> hurries it. <span class="ww-status">in progress</span></li>
 <li><strong><a href="../transport/keep_trying/#what-it-does">Addresses raced</a></strong>: A device reachable at several addresses (LAN and VPN) is connected at whichever answers first, so an address that is gone costs nothing.</li>
@@ -6904,11 +6901,8 @@ layer checks on connect that both ends speak the same protocol.</p>
 <ul>
 <li><strong><a href="../std_library/ww_self/">Bit-sized numbers in the model</a></strong>: <code>U7</code>, <code>I12</code>, nibbles and the like, read and written by the dynamic client and Python.</li>
 <li><strong><a href="../std_library/units_in_the_model/">Units in the model</a></strong>: A device's API carries the definition of every unit, scale and origin it uses, also of your own crate's, so <code>ww</code>, the dynamic client and Python convert and show them without a built-in table.</li>
-<li><strong><a href="../api/json/">JSON for any API</a></strong>: <code>ww_json</code> turns the values of any method, property or stream into JSON and back, quantities as text with their unit (<code>"5 ms"</code>), big integers as strings, errors naming the JSON path.</li>
-<li><strong><a href="../api/json/#json-schema">JSON Schema of every item</a></strong>: <code>ww_json::schema</code> describes the arguments, results, properties and stream items of any API as a JSON Schema, quantities with their unit and bounds, for MCP servers and other JSON clients.</li>
 <li><strong><a href="../api/introspection/#compressed-introspection-data">Compressed introspection data</a></strong>: <code>introspect_compression = "lz4"</code> keeps a device's API description compressed in flash, the client decompresses it: 4.3 KB less on rePort.</li>
 <li><strong><a href="../evolution/rules/#moving-a-resource-to-another-place">Identity of a renamed resource</a></strong>: A resource renamed with <code>#[moved_from]</code> keeps its first name in the device's API description, so recordings follow it across the rename.</li>
-<li><strong><a href="../api/json/">TOML for any API</a></strong>: <code>ww_json::toml</code> reads and writes the values of any API type as TOML by the JSON form's rules, decodes a settings level onto a base value and writes changes back into a file, keeping its comments.</li>
 <li><strong><a href="../std_library/ww_self/">Moved flag bits</a></strong>: Relocated <code>#[flag]</code> fields in the model and in dynamic values.</li>
 </ul>
 <p class="ww-features__level"><span class="ww-level ww-level--nomicon"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6"/></svg><span class="ww-level__label">Nomicon</span></span></p>

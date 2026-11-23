@@ -1813,6 +1813,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../../api/mounts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Mount slots
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../api/handlers/" class="md-nav__link">
         
   
@@ -1956,33 +1983,6 @@
     
   
   Introspection data
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../api/json/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  JSON and TOML for any API
 
     
   </span>
@@ -6724,13 +6724,6 @@ for humans and AI agents alike.</p>
   and the reader; before, the six impls panicked (<code>todo!()</code>). A value wider than its bit count is
   <code>Error::SubtypeOutOfRange</code>, a variant above 3 <code>Error::EnumFutureVersionOrMalformedData</code>. No size-bench case uses
   the types and no reader or writer function changed (<code>shrink_wrap/src/un.rs</code>, <code>docs/wire_format.md</code>).</li>
-<li>✅ <strong>SW-85 Trailing defaults left off the wire (<code>elide_defaults</code>)</strong> — an evolvable struct with the directive writes
-  the longest trailing run of <code>#[default = ..]</code> fields that equal their default (<code>PartialEq</code>, no allocation for
-  defaults like <code>None</code>) and read back as it from a zero byte; the bytes are those of the type without these fields,
-  so a new trailing field never changes the bytes of values that don't use it. Borrowed and owned; refused on enums,
-  size assumptions, <code>sparse</code>, <code>transparent</code>, <code>fixed_layout</code>, <code>head_tail</code>, <code>series</code> and moved flags. Generated code
-  changes only for types with the directive (<code>docs/derive_reference.md#elide_defaults</code>; test
-  <code>shrink_wrap/tests/elide_defaults.rs</code>). For <code>ww_self::Meta</code>. Conformance cases in WireWeaver's corpus: open.</li>
 <li>✅ <strong>SW-19 Bounded lists and strings <code>MaxLen&lt;T, N&gt;</code></strong>: a <code>RefVec</code>, <code>Vec</code>, <code>&amp;str</code> or <code>String</code> with at most <code>N</code>
   elements, same bytes as <code>T</code> (a bound can be added, raised or removed without a new wire form), checked on
   serialize and deserialize (<code>Error::MaxLenExceeded</code>, never truncated). Works in derived types and in every API

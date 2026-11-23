@@ -9,9 +9,9 @@ mod tests {
     use tests_common::TestDevice;
     use wire_weaver::prelude::*;
     use wire_weaver::shrink_wrap::RefBox;
-    use wire_weaver_client::quantity::{DynQuantity, DynUnit};
     use wire_weaver_client::ww_self::{ApiItemKindOwned, FieldsValueOwned, TypeOwned, ValueOwned};
     use wire_weaver_client::{ClientConfig, DynClient, DynResource};
+    use ww_quantity::{DynQuantity, DynUnit};
     use ww_si::prefix::{Milli, One, Pico, Pow10};
     use ww_si::units::{Gram, Newton, PoundAvdp, PoundForce, Second, Times};
     use ww_si::ww_numeric::NumericValue;

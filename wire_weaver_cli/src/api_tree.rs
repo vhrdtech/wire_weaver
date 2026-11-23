@@ -416,7 +416,7 @@ impl TreePrinter<'_> {
             Err(e) => return style(format!("<{e}>")).red().to_string(),
         };
         // a Fixed with what its numbers are in, and its bounds (CLT-54): `Fixed<Second, Micro, u32, Unbounded> [µs]`
-        match wire_weaver_client::quantity::fixed_of(ty, self.bundle) {
+        match ww_quantity::fixed_of(ty, self.bundle) {
             Some(fixed) => {
                 let bounds = &fixed.storage.bounds;
                 let unit = match bounds.is_none() {

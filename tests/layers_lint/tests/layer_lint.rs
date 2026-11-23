@@ -288,6 +288,26 @@ fn ww_plugin_is_free_of_the_hub() {
     );
 }
 
+/// `ww_json` is a codec that settings files and MCP servers take without a transport, so its normal dependencies
+/// reach neither the client runtime nor codegen nor the snapshot fetch (`ureq`, `rustls`, `ring`): its quantities come
+/// from `ww_quantity`.
+#[test]
+fn ww_json_is_free_of_the_client() {
+    let root = repo_root();
+    let graph = collect_graph(&root, &[root.join("Cargo.toml")]);
+    assert!(
+        graph.local_crates.contains("ww_json"),
+        "ww_json is a crate of the root workspace"
+    );
+    let reached = graph.normal_closure("ww_json");
+    for heavy in ["wire_weaver_client", "wire_weaver_core", "ww_snapshots"] {
+        assert!(
+            !reached.contains(heavy),
+            "ww_json reaches {heavy} through its normal dependencies: {reached:?}"
+        );
+    }
+}
+
 /// R1: a crate named in `layers.toml`'s `[api] crates` describes an API and never runs one, so its normal
 /// dependencies, direct or transitive, reach no layer-5 crate (`wire_weaver` first of all) beyond what `ww_api`'s
 /// own closure holds. Dev dependencies are free: a test may drive the API through the runtime.

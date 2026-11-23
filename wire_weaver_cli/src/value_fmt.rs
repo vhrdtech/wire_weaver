@@ -2,10 +2,10 @@
 //! `ww observe`. With the type known it is a Rust expression `ww_self::expr` reads back (quantities aside).
 
 use crate::untrusted::escape;
-use wire_weaver_client::quantity::{DynCount, DynQuantity};
 use wire_weaver_client::ww_self::{
     ApiBundleOwned, FieldOwned, FieldsOwned, FieldsValueOwned, TypeOwned, ValueOwned,
 };
+use ww_quantity::{DynCount, DynQuantity};
 
 /// `{ name: "b200", version: { major: 0, .. }, commit: 0xa1b2c3 }`: struct and enum names are not in the value,
 /// byte vectors and arrays are shown as hex, `ww_si` quantities and `exact_units::Fixed` values with their unit

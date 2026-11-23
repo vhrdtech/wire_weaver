@@ -17,6 +17,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - `#[track(points | spans | series, dims(..), flags)]` on streams says how recorders lay them out; model format 0.6.0 (`ww_self`, `wire_weaver_core`, `wire_weaver_evolution`, `ww_snapshots`, `ww_tap`; API-71).
 - The client and server build for Android: USB is only where a crate asks for it (`wire_weaver_client`, `wire_weaver_server`).
 - `ww_json` reads and writes TOML by the JSON form's rules: settings levels decoded onto a base value, changes written back keeping comments (INT-18); see `ww_json`.
+- New crate `ww_quantity`: the dynamic quantities of `wire_weaver_client::quantity`, so `ww_json` builds without the client runtime (CLT-31); see `ww_quantity`, `wire_weaver_client`, `ww_json`.
 
 ## [0.6.0] - 2026-11-22
 

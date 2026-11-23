@@ -143,7 +143,7 @@ impl DynBatching {
                         "batched stream: Timed<T> value is missing 't' or 'value'".into(),
                     ))
                 })?;
-                let second = crate::quantity::DynQuantity::from_value(&t, second_ty, bundle)
+                let second = ww_quantity::DynQuantity::from_value(&t, second_ty, bundle)
                     .ok_or_else(|| {
                         StreamError::Other(Error::Other(
                             "batched stream: 't' is not a quantity".into(),

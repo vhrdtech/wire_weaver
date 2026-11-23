@@ -14,8 +14,8 @@ serde_json = { workspace = true, features = ["preserve_order"] }
 shrink_wrap.workspace = true
 thiserror.workspace = true
 toml_edit.workspace = true
-wire_weaver_client.workspace = true
 ww_numeric = { workspace = true, features = ["std"] }
+ww_quantity.workspace = true
 ww_self = { workspace = true, features = ["std"] }
 
 [dev-dependencies]

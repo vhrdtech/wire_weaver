@@ -2,13 +2,10 @@
 
 ### ⚠️ Breaking
 
+- The `quantity` module moved to the new crate `ww_quantity`: depend on it and write `ww_quantity::DynQuantity` for `wire_weaver_client::quantity::DynQuantity` (CLT-31).
 - `tap::decode`, `tap::stats`, `tap::Decoder` and the other decoder types moved to `ww_tap_decoder` (vhrdtech/ww_tools); `tap` keeps `Tap` and `TapSource` (TR-14).
 - The `ww_tape` and `ww_tape_fs` re-exports are removed: depend on them directly.
 - `tap` no longer re-exports `Recorder`, `RecorderConfig`, `RecorderLink`, `Subscription`, `Chunk` and `Layers`, and `TapSource` has no `From<Recorder>`: give `TapSource::new` a `Tap` (TOOL-14).
-
-### 🚀 Features
-
-- `quantity::parse_point_in` writes a `Point` from text, `25 °C` in its origin or `298.15 K` in its unit, exactly (INT-14).
 
 ### 🐛 Fixes
 

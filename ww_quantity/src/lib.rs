@@ -22,8 +22,8 @@
 //! [DynQuantity] is a value with that unit: `3300 mV` as stored, `3.3 V` with `{:#}`, [DynQuantity::to_si_f64]. Units
 //! are shown, named and converted by `ww_si::tree`, the code that does it for typed quantities.
 
+use shrink_wrap::{DeserializeShrinkWrap, RefBox, SerializeShrinkWrapOwned};
 use std::fmt;
-use wire_weaver::shrink_wrap::{DeserializeShrinkWrap, RefBox, SerializeShrinkWrapOwned};
 use ww_numeric::{NumericBaseType, NumericValue};
 pub use ww_self::units::NumBounds;
 use ww_self::units::{Wrapper, wrapper_of};
@@ -1751,7 +1751,7 @@ fn unit(ty: &TypeOwned, bundle: &ApiBundleOwned, depth: usize) -> DynUnit {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wire_weaver::shrink_wrap::SerializeShrinkWrap;
+    use shrink_wrap::SerializeShrinkWrap;
     use ww_si::units::{AngularVelocity, Degree, Meter, Per, Ratio, Second, Speed, Times, Torque};
 
     #[test]

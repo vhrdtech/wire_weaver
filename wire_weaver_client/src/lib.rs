@@ -1,5 +1,5 @@
-//! The `std` client runtime: the event loop, `Commander`, the dynamic client ([`mod@facade`]), typed quantities
-//! ([`quantity`]) and property observation ([`observe`]). Host transports (USB, RTT, WebSocket, UDP, local
+//! The `std` client runtime: the event loop, `Commander`, the dynamic client ([`mod@facade`], its quantities from
+//! `ww_quantity`) and property observation ([`observe`]). Host transports (USB, RTT, WebSocket, UDP, local
 //! socket, in-process, the ww hub) are `Transport` impls behind features, selected by a generated client's
 //! `ClientConfig`. There is no `no_std` client yet (CLT-14).
 use std::time::Duration;
@@ -37,7 +37,6 @@ pub mod local;
 pub use client::observe;
 mod local_registry;
 pub use local_registry::load_by_hash;
-pub mod quantity;
 pub mod tap;
 pub mod totals;
 mod tracing;

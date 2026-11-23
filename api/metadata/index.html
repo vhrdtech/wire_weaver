@@ -19,7 +19,7 @@
       
       
       
-        <link rel="prev" href="../introspection/">
+        <link rel="prev" href="../json/">
       
       
         <link rel="next" href="../multi_requests/">
@@ -1823,33 +1823,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../mounts/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Mount slots
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../handlers/" class="md-nav__link">
         
   
@@ -2009,6 +1982,33 @@
                   
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../json/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  JSON and TOML for any API
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
     
   
   
@@ -2125,6 +2125,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         <code>#[label(..)]</code>: what a person calls it
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#track-how-a-stream-is-recorded" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>#[track(..)]</code>: how a stream is recorded
       </span>
     </span>
   </a>
@@ -6442,6 +6453,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#track-how-a-stream-is-recorded" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>#[track(..)]</code>: how a stream is recorded
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#in-the-api-model" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6604,9 +6626,10 @@
   
 
 
-<h1 id="metadata-effects-claims-pins-labels">Metadata: effects, claims, pins, labels<a class="headerlink" href="#metadata-effects-claims-pins-labels" title="Permanent link">&para;</a></h1>
+<h1 id="metadata-effects-claims-pins-labels-tracks">Metadata: effects, claims, pins, labels, tracks<a class="headerlink" href="#metadata-effects-claims-pins-labels-tracks" title="Permanent link">&para;</a></h1>
 <p>Some things about an API matter to people and tools but not to the bytes on the wire: what calling a method does,
-which resources one program may have to itself for a while, which pins a resource uses, what a person calls it. They are written as typed
+which resources one program may have to itself for a while, which pins a resource uses, what a person calls it,
+how a recorder lays a stream out on a tape. They are written as typed
 attributes next to the items, checked when the API is loaded (a typo is a compile error of the API crate, like a
 wrong <code>#[errors(..)]</code> list), and carried in the device's introspection data as data, not as doc text, so the hub,
 <code>ww</code> and GUIs read them without parsing prose.</p>
@@ -6832,16 +6855,77 @@ board's API, not on a trait definition.</p>
 person recognises on the bench. <code>ww</code> shows it, an <code>InUse</code> error names the claimed resource by it, GUIs put it next
 to the item. A resource array takes one label per element, by index: <code>#[label("CAN1", "CAN2")]</code>; any other item
 takes one.</p>
+<h2 id="track-how-a-stream-is-recorded"><code>#[track(..)]</code>: how a stream is recorded<a class="headerlink" href="#track-how-a-stream-is-recorded" title="Permanent link">&para;</a></h2>
+<p>A recorder that writes a device's streams to a tape (<code>ww_tape</code>, through <code>ww_tape_bundle</code> in the ww_tools repository)
+needs to know what an item of each stream is there: an event at an instant, an event with a start and an end, or a
+sample of a series. <code>#[track(..)]</code> on a <code>stream!</code> or a stream function says so, or on a trait for every stream of it
+without its own:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="cp">#[ww_api_root]</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="cp">#[track(points, dims(input, producer))]</span><span class="w"> </span><span class="c1">// the default of every stream below without its own</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">Detector</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="sd">/// Something seen, at an instant.</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="n">stream</span><span class="o">!</span><span class="p">(</span><span class="n">events</span><span class="p">:</span><span class="w"> </span><span class="nc">Event</span><span class="p">);</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="sd">/// A detection with a start and an end, its severity in the flags word.</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">    </span><span class="cp">#[track(spans, dims(input), flags)]</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span><span class="n">stream</span><span class="o">!</span><span class="p">(</span><span class="n">detections</span><span class="p">:</span><span class="w"> </span><span class="nc">Detection</span><span class="p">);</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">    </span><span class="sd">/// Left and right levels: two channels of a series.</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">    </span><span class="cp">#[track(series, dims(input))]</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">    </span><span class="n">stream</span><span class="o">!</span><span class="p">(</span><span class="n">levels</span><span class="p">:</span><span class="w"> </span><span class="nc">Levels</span><span class="p">);</span>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="p">}</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Layout</th>
+<th>An item on the tape</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>points</code></td>
+<td>an event at an instant, the item its payload; what a stream without <code>#[track]</code> is</td>
+</tr>
+<tr>
+<td><code>spans</code></td>
+<td>an event with a start and an end, which the tape holds; the item holds the rest</td>
+</tr>
+<tr>
+<td><code>series</code></td>
+<td>a sample at an exact period, no time per item; the writer gives the period, the API doesn't</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>The layout comes first, then <code>dims(..)</code> and <code>flags</code> in any order, each at most once.</li>
+<li><code>dims(input, producer, ..)</code> names the dimensions a track of the stream may carry, at most 16, each once. A writer
+  gives their values when it records (<code>input=mic1</code>); a name not listed is refused. Without <code>dims</code> a track has none.</li>
+<li><code>flags</code>: every item carries a <code>u32</code> flags word beside it (a severity in its low bits, which summaries OR together).
+  Points and spans only; <code>#[track(series, flags)]</code> is refused.</li>
+<li>A <code>series</code> item is a number, a fixed-size array of numbers or a struct of numbers, nested (each number a channel,
+  a <code>Fixed&lt;..&gt;</code> is its number). Anything else (a bool, a string, a vector, an enum, an option) is refused when the
+  API is loaded. A dependency's type the device leaves out of its introspection data is checked by the recorder once
+  the host has put its definition back (<code>ApiBundleOwned::series_shape</code> answers <code>Unresolved</code> until then).</li>
+<li>Only streams a device sends are recorded: <code>#[track]</code> on a method, property, const, sink or <code>ww_impl!</code> is refused.
+  A trait's <code>#[track]</code> reaches the streams of that trait, not those of the traits it has through <code>ww_impl!</code>, which
+  have their own.</li>
+</ul>
+<p>The model names no tape type: a recorder maps <code>points</code> to <code>ww_tape</code>'s <code>EventsDef { ends: Instants }</code>, <code>spans</code> to
+<code>EventsDef { ends: Spans }</code> and <code>series</code> to a <code>SeriesDef</code>. Changing a stream's layout or <code>flags</code>, or dropping a name
+from <code>dims</code>, makes its tracks other tracks: <code>ww api check</code> reports a break of the API crate that keeps the wire,
+adding a name is compatible (<a href="../../evolution/rules/#recorded-streams">recorded streams</a>).</p>
 <h2 id="in-the-api-model">In the API model<a class="headerlink" href="#in-the-api-model" title="Permanent link">&para;</a></h2>
 <p><code>ww_self::Meta</code> holds the attributes: <code>claim: Option&lt;ClaimMode&gt;</code>, <code>shares: Vec&lt;Shares&gt;</code>, <code>labels: Vec&lt;String&gt;</code>,
-<code>effects: Effects</code>. It sits on <code>ApiItem::meta</code> (the item's own attributes) and <code>ApiLevel::meta</code> (a trait definition's
-<code>#[claim]</code> and <code>#[effect]</code>), both <code>Option</code> and evolvable, so the attributes that come later (device-level metadata,
+<code>effects: Effects</code>, <code>track: Option&lt;Track&gt;</code>. It sits on <code>ApiItem::meta</code> (the item's own attributes) and
+<code>ApiLevel::meta</code> (a trait definition's <code>#[claim]</code>, <code>#[effect]</code> and <code>#[track]</code>), both <code>Option</code> and evolvable, so the attributes that come later (device-level metadata,
 API-57) are new fields there. <code>Effects</code> is a set of bits, one per effect in the table's order (<code>read</code> is bit 0);
 the codegen stores on each item its own effects or its trait's, and nothing for a read by kind, so introspection
 grows only where an item changes something. A new effect takes the next bit, and a reader keeps a bit it doesn't
 know (<code>Effects::unknown</code>), treating the item as the most restrictive case. <code>ApiItemOwned::claim_mode(&amp;bundle)</code> answers how a
 <code>ww_impl!</code> can be claimed (its own <code>#[claim]</code>, else its trait's), <code>ApiItemOwned::label(index)</code> its label,
-<code>ApiItemOwned::effects()</code> its effects. <code>ww api
+<code>ApiItemOwned::effects()</code> its effects. <code>Track</code> is a <code>TrackLayout</code>, the <code>dims</code> names and <code>flags</code>; the codegen stores
+on each stream its own or its trait's, nothing on a stream without either (model format 0.6.0). <code>ww api
 tree</code> shows the attributes in front of the item, and rustdoc of a <code>#[ww_trait]</code> notes them.</p>
 
 
@@ -6886,7 +6970,7 @@ tree</code> shows the attributes in front of the item, and rustdoc of a <code>#[
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../introspection/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Introspection data">
+          <a href="../json/" class="md-footer__link md-footer__link--prev" aria-label="Previous: JSON and TOML for any API">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
@@ -6896,7 +6980,7 @@ tree</code> shows the attributes in front of the item, and rustdoc of a <code>#[
                 Previous
               </span>
               <div class="md-ellipsis">
-                Introspection data
+                JSON and TOML for any API
               </div>
             </div>
           </a>

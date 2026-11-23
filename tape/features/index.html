@@ -1813,33 +1813,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api/mounts/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Mount slots
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../api/handlers/" class="md-nav__link">
         
   
@@ -1983,6 +1956,33 @@
     
   
   Introspection data
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/json/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  JSON and TOML for any API
 
     
   </span>
@@ -6725,13 +6725,13 @@
 <ul>
 <li>✅ <strong>FMT-13 Sample flags in series chunks</strong></li>
 </ul>
-<p>A series chunk keeps its samples' flag words as runs of consecutive samples sharing a word, in a <code>Flags</code> column of codec <code>FLAG_RUNS</code>. Only a chunk with a flagged sample has the column, so an unflagged series keeps its bytes. A chunk holds at most <code>FLAG_RUNS_MAX</code> (4096) runs; the writer seals it before one more. Readers take the runs per chunk (<code>Chunk::flag_runs</code>, <code>SeriesSamples::flag_runs</code>), and summaries derive their flags from them.</p>
+<p>A series chunk keeps its samples' flag words as runs of consecutive samples sharing a word, in a <code>Flags</code> column of codec <code>FLAG_RUNS</code>. Only a chunk with a flagged sample has the column, so an unflagged series keeps its bytes. A chunk holds at most <code>FLAG_RUNS_MAX</code> (4096) runs; the writer completes it before one more. Readers take the runs per chunk (<code>Chunk::flag_runs</code>, <code>SeriesSamples::flag_runs</code>), and summaries derive their flags from them.</p>
 <p>Read more: <a href="https://tape.vhrd.tech/format/#sample-flags">Sample flags</a>. Golden file <code>v1-series.hex</code>; tests <code>series_flags.rs</code>, <code>mux_resume.rs</code>; fuzz targets <code>tape-flags</code>, <code>tape-flags-hostile</code>.</p>
 <ul>
 <li>✅ <strong>FMT-14 Integrity levels and a seal</strong></li>
 </ul>
 <p>A piece names its level in its head: <code>Full</code> computes every CRC and hash, <code>CrcOnly</code> no hashes, <code>None</code> no payload CRCs either. Below <code>Full</code> the hashes hold zero and each index entry is marked unhashed; at <code>None</code> each chunk is marked <code>FLAG_PAYLOAD_UNCHECKED</code> and reads as <code>Checked::Unprotected</code>. Chunk head CRCs and every structure block stay checked, so framing, resume and salvage work at every level. Verify checks the structure, the chain check links by id (<code>ChainLink::Unproven</code>), and <code>range_hash</code> hashes the chunks' bytes.</p>
-<p>A seal raises a closed piece to <code>Full</code>, byte for byte what a <code>Full</code> writer writes from the same calls. It comes as <code>TapeWriter::seal_on</code>, <code>MemTapes::seal</code> (a sealed copy swapped in), <code>ww_tape_fs::writer::seal</code> (in place, each piece head written last). Tests: golden pieces per level, the fuzz target <code>tape-seal</code>, <code>tape-resume</code> at every level, and the bench <code>levels</code>.</p>
+<p>A seal raises a closed piece to <code>Full</code>, byte for byte what a <code>Full</code> writer writes from the same calls. It comes as <code>TapeWriter::seal_on</code>, <code>MemPieces::seal</code> (a sealed copy swapped in), <code>ww_tape_fs::writer::seal</code> (in place, each piece head written last). Tests: golden pieces per level, the fuzz target <code>tape-seal</code>, <code>tape-resume</code> at every level, and the bench <code>levels</code>.</p>
 <p>Read more: <a href="https://tape.vhrd.tech/integrity/">Fewer checks, sealed later</a>.</p>
 <h2 id="tracks-clocks-and-definitions-track">Tracks, clocks and definitions (<code>TRACK</code>)<a class="headerlink" href="#tracks-clocks-and-definitions-track" title="Permanent link">&para;</a></h2>
 <p>Clocks, track identity, definitions on track 0, state, what items are and how tracks are numbered, in the crate <code>ww_tape</code>.</p>
@@ -6830,7 +6830,7 @@
 <ul>
 <li>✅ <strong>MUX-3 Async waits for the mux and the followers</strong></li>
 </ul>
-<p>Every call of the mux, its handles and the followers that waits has an <code>_async</code> twin. Threads and tasks wait in the same line, in arrival order, and a blocking call parks its thread on the same future. No crate depends on an async runtime: the writing thread, or a follower's own waiting thread, wakes the task. A send dropped while it waits leaves the line, and a typed handle sends the chunks a dropped push sealed on its next call.</p>
+<p>Every call of the mux, its handles and the followers that waits has an <code>_async</code> twin. Threads and tasks wait in the same line, in arrival order, and a blocking call parks its thread on the same future. No crate depends on an async runtime: the writing thread, or a follower's own waiting thread, wakes the task. A send dropped while it waits leaves the line, and a typed handle sends the chunks a dropped push completed on its next call.</p>
 <p>Open: a typed handle's drop still sends blocking, so async code ends a handle with <code>finish_async</code>.</p>
 <p>Read more: <a href="https://tape.vhrd.tech/writing_thread/#threads-and-tasks">Threads and tasks</a>. Tests <code>mux_async.rs</code> on tokio's two schedulers and smol.</p>
 <h2 id="reader-read">Reader (<code>READ</code>)<a class="headerlink" href="#reader-read" title="Permanent link">&para;</a></h2>
@@ -6944,7 +6944,7 @@
 <li>✅ <strong>EX-1 The drive's hour as code</strong></li>
 </ul>
 <p><code>example_drive</code> records the drive motor controller's hour: log lines, mode, CAN frames, phase current with summaries and temperature, in a chain of pieces. <code>Drive::scaled</code> shrinks the data and the byte policies for figures, and a crash at any byte resumes to the bytes of the run without it. The RF capture (<code>example_rf</code>) records ComplexI16 IQ at 20 MS/s as the book's case for high rates. <code>cargo run -p example_drive</code> prints the story's numbers, and the tests pin them.</p>
-<p>Read more: <a href="https://github.com/vhrdtech/ww_tape/blob/ee51579287e12ebe7137998b221703646cc22304/examples/example_drive/README.md">example_drive</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/ee51579287e12ebe7137998b221703646cc22304/examples/example_rf/README.md">example_rf</a>. Tests <code>story.rs</code>, <code>damage.rs</code>, <code>rf.rs</code>.</p>
+<p>Read more: <a href="https://github.com/vhrdtech/ww_tape/blob/9659308c8209337ace0c4de0ddb22066793789b0/examples/example_drive/README.md">example_drive</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/9659308c8209337ace0c4de0ddb22066793789b0/examples/example_rf/README.md">example_rf</a>. Tests <code>story.rs</code>, <code>damage.rs</code>, <code>rf.rs</code>.</p>
 <ul>
 <li>✅ <strong>EX-2 A 10 Gbps link and a 1 GS/s receiver</strong></li>
 </ul>
@@ -6965,7 +6965,7 @@
 <li>✅ <strong>EX-5 A crate per case, its pipeline a library</strong></li>
 </ul>
 <p>Each case is a crate of its own: <code>example_drive</code> the book's running example, <code>example_rf</code>, <code>example_ethernet</code> and <code>example_wideband</code>. What they share, the memory window and the RF signal, is in <code>example_capture</code>, so no case depends on another. <code>window::start</code> and each case's <code>start</code> return a running pipeline. It hands out its memory window, the pieces in memory and each mux's watch, so a viewer follows it live. Each case has a headless binary whose <code>main</code> reads like a block diagram of its threads.</p>
-<p>Read more: <a href="https://tape.vhrd.tech/protocol_analyser/#the-pipeline">The pipeline</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/ee51579287e12ebe7137998b221703646cc22304/examples/example_capture/README.md">example_capture</a>. Tests <code>window.rs</code>.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/protocol_analyser/#the-pipeline">The pipeline</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/9659308c8209337ace0c4de0ddb22066793789b0/examples/example_capture/README.md">example_capture</a>. Tests <code>window.rs</code>.</p>
 <ul>
 <li>✅ <strong>EX-6 Payload compression measured on the cases</strong></li>
 </ul>
@@ -6991,7 +6991,7 @@
 <li>🚧 <strong>REPO-1 Crates by what they touch</strong></li>
 </ul>
 <p><code>ww_tape</code> writes and reads tapes on sinks and sources without std, <code>ww_tape_codecs</code> holds the codecs and <code>ww_tape_summary</code> the summaries. <code>ww_tape_fs</code> holds everything that names a path. The writer, chain and resume build with alloc only, and the codecs build for wasm32 without std.</p>
-<p>The codecs work on slices. Memory tapes keep their bytes in extents that never move, and <code>MemTapes::drop_front</code> frees a tape's oldest pieces. A reader checks payload CRCs as <code>OpenOptions::check_payloads</code> says: by default a file is checked and a memory tape of this process is not.</p>
+<p>The codecs work on slices. Memory tapes keep their bytes in extents that never move, and <code>MemPieces::drop_front</code> frees a tape's oldest pieces. A reader checks payload CRCs as <code>OpenOptions::check_payloads</code> says: by default a file is checked and a memory tape of this process is not.</p>
 <p>Open: std-free definition records (owned types in <code>shrink_wrap</code> and <code>ww_version</code>), integrity levels, a seal.</p>
 <p>Read more: <a href="https://tape.vhrd.tech/tape/#the-crates">The crates</a>.</p>
 <h2 id="dropped-and-superseded">Dropped and superseded<a class="headerlink" href="#dropped-and-superseded" title="Permanent link">&para;</a></h2>

@@ -1823,33 +1823,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../mounts/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Mount slots
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../handlers/" class="md-nav__link">
         
   
@@ -2194,6 +2167,33 @@
     
   
   Introspection data
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../json/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  JSON and TOML for any API
 
     
   </span>
@@ -7160,7 +7160,7 @@ three functions, and an array of levels a fourth one that the trait provides:</p
 </table>
 <p>The index is the array's, as in <a href="#resource-arrays">Resource arrays</a>: <code>u32</code>, or the array's own index type. A local
 implementation answers <code>unit_index_of</code> and <code>unit_key</code> from its table and builds <code>unit_keys</code> from its own events; it
-never implements <code>unit_by</code>. The client asks the device once per key and keeps the answer in the connection's key
+never implements <code>unit_by</code>. A key that borrows (<code>keyed!(unit by Name&lt;'i&gt;)</code>) is taken and given as its owned form, <code>NameOwned</code>. The client asks the device once per key and keeps the answer in the connection's key
 cache, which follows the <code>keys</code> stream.</p>
 <h2 id="serving-a-local-implementation">Serving a local implementation<a class="headerlink" href="#serving-a-local-implementation" title="Permanent link">&para;</a></h2>
 <p>One implementation of the trait can also be served to remote clients. <code>serve_trait</code> generates the server's handlers,

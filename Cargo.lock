@@ -451,7 +451,10 @@ dependencies = [
  "wire_weaver_client",
  "wire_weaver_server",
  "ww_calloop",
+ "ww_client_server",
  "ww_device",
+ "ww_local_socket",
+ "ww_self",
 ]
 
 [[package]]

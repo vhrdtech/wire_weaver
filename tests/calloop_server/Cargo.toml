@@ -17,10 +17,13 @@ host_server.workspace = true
 tests_common.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }
 wire_weaver = { workspace = true, features = ["std"] }
-wire_weaver_client = { workspace = true, features = ["clock_sync", "udp", "usb", "ws"] }
-wire_weaver_server.workspace = true
+wire_weaver_client = { workspace = true, features = ["clock_sync", "in_process", "udp", "usb", "ws"] }
+wire_weaver_server = { workspace = true, features = ["local_socket"] }
 ww_calloop.workspace = true
+ww_client_server.workspace = true
 ww_device.workspace = true
+ww_local_socket = { workspace = true, features = ["socket"] }
+ww_self.workspace = true
 
 [lints]
 workspace = true

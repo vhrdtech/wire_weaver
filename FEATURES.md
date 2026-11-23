@@ -2026,8 +2026,8 @@ Unicast Data0 to one node over the same bus is TR-6.
 - ✅ **EVO-85 `RequestContext::forwarded_for` appended** · `v0.5` — wire addition to `ww_client_server`, no break:
   the request context ends with an optional `ForwardedPeer` (unix uid, gid and pid, a key, an address, or
   `Unknown`; a kind of a newer forwarder reads as `Newer`), which a mount forwarder fills in (SRV-79). An older reader
-  skips it; encoding `None` writes its flag, so the sealed `client_server.request.highest_reserved` is decode-only now
-  (`wire_change`). Conformance cases `client_server.request.context_forwarded_*`.
+  skips it; `RequestContext` is `elide_defaults` (SW-85), so a context without it keeps its bytes. Conformance cases
+  `client_server.request.context_forwarded_*`.
 - ✅ **EVO-84 Request context on the wire** · `v0.5` — wire change of `ww_client_server` (line `w2.1`) behind
   SRV-47: the reserved bit after `Request::priority` is the flag of an optional `RequestContext` (trace, deadline),
   `RequestKind::Cancel` and the error kinds `Denied`, `DeadlineExceeded`, `Cancelled`, `Internal` are appended. A

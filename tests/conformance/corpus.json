@@ -1291,8 +1291,7 @@
       "type": "Request",
       "value": {"seq": 0, "priority": 7, "context": {"trace": null, "deadline": 250}, "path_kind": {"Absolute": {"path": [3]}}, "kind": "Read"},
       "bytes": "8080808000f04af3032012",
-      "direction": "decode",
-      "wire_change": "EVO-85 / the bytes of a host from before the appended forwarded_for, read as None; encoding None now writes its flag (EVO-84 made the reserved bit the context's flag)",
+      "wire_change": "EVO-84 / the reserved bit after priority is the flag of the request context; no sender ever set it",
       "gaps": {"dynamic": "ww_client_server's Request is a protocol message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail)", "explain": "ww_client_server's Request is a protocol message, not a type of an API in the model", "python": "ww_client_server's Request is a protocol message, not a type of an API in the model", "c": "ww_client_server's Request is a protocol message, not a type of an API in the model"},
       "note": "Priority::HIGHEST (7) with the bit after it set: the flag of the request context (SRV-47), here a 250 ms deadline. The bit was reserved and ignored on read (EVO-76); no sender set it"
     },

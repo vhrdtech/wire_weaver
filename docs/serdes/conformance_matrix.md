@@ -192,7 +192,7 @@ Every case of the [conformance corpus](conformance.md) and what each consumer do
 | `client_server.request.absolute_path` | `Request` | both | ✅ | ✅ | gap - | gap - | gap - | gap - |
 | `client_server.request.global_path` | `Request` | both | ✅ | ✅ | gap - | gap - | gap - | gap - |
 | `client_server.request.urgent` | `Request` | both | ✅ | ✅ | gap - | gap - | gap - | gap - |
-| `client_server.request.highest_reserved` | `Request` | decode | ✅ | ✅ | gap - | gap - | gap - | gap - |
+| `client_server.request.highest_reserved` | `Request` | both | ✅ | ✅ | gap - | gap - | gap - | gap - |
 | `client_server.request.context_deadline` | `Request` | both | ✅ | ✅ | gap - | gap - | gap - | gap - |
 | `client_server.request.context_trace` | `Request` | both | ✅ | ✅ | gap - | gap - | gap - | gap - |
 | `client_server.request.context_forwarded_unix` | `Request` | both | ✅ | ✅ | gap - | gap - | gap - | gap - |
@@ -615,7 +615,7 @@ Accepted by the frozen golden bytes guard (TEST-24) as a deliberate break, each 
 - `client_server.request.sideband_ack`: EVO-76 / the priority nibble is now priority: U3 and a reserved bit; NORMAL (2, reserved false) has the old NORMAL's bits, so the bytes stay.
 - `client_server.request.absolute_path`: EVO-76 / the priority nibble is now priority: U3 and a reserved bit; NORMAL (2, reserved false) has the old NORMAL's bits, so the bytes stay.
 - `client_server.request.global_path`: EVO-76 / the priority nibble is now priority: U3 and a reserved bit; NORMAL (2, reserved false) has the old NORMAL's bits, so the bytes stay.
-- `client_server.request.highest_reserved`: EVO-85 / the bytes of a host from before the appended forwarded_for, read as None; encoding None now writes its flag (EVO-84 made the reserved bit the context's flag).
+- `client_server.request.highest_reserved`: EVO-84 / the reserved bit after priority is the flag of the request context; no sender ever set it.
 - `stdlib.si.dim.volt`: EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has.
 - `stdlib.si.dim.rad_bit`: EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has.
 - `stdlib.si.dim.counted`: EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has.

@@ -133,6 +133,7 @@ in either direction. WireWeaver generates the device's server and the host's cli
 - **[The API crate prelude `ww_api`](api/folder_structure.md)**: An API crate depends on `ww_api`, not the runtime: the macros, `shrink_wrap` and the common types in one prelude, checked by the layer lint.
 - **[Keyed resource arrays](api/arrays.md)**: Address the elements of an array by a key (`keyed!(flow by FlowKey)`) instead of the index the device gave them.
 - **[Keys that borrow](api/arrays.md#keys-that-borrow)**: A string key (`DetectorName<'i>`): borrowed on a device without an allocator, owned where a key is kept.
+- **[The model in a program](api/json.md#the-model-in-a-program)**: An API crate carries its own model as bytes, so a program reads and writes its values (settings TOML, JSON) without the source.
 - **[Observe cells](api/observing.md#cells-sampling-from-an-interrupt)**: Sample a level from an interrupt in place, value by value into a ring of atomics: a quarter of the cycles and a tenth of the stack of `sample()` at opt-level z, the same wire.
 - **[A cheaper observe poll](articles/series.md#cpu-and-flash-on-a-microcontroller)**: The poll that sends a level's samples spends its time on the codec: half the cycles at opt-level 3, a third at z, the same bytes.
 - **[Batched streams](api/batching.md)**: A stream opts into sending samples many per event as a compressed `Series` instead of one at a time, for plain, counted and reliable streams; typed and dynamic clients, the CLI and Python.

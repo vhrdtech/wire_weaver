@@ -349,3 +349,31 @@ action = "beep"
     assert_eq!(e.path.to_string(), "value.audio.limits");
     assert!(matches!(e.kind, ErrorKind::Unsupported(_)), "{e}");
 }
+
+/// A program reads its levels with the model compiled into the API crate (API-73), no source at hand: the bytes are
+/// the bundle the crate walker loads, and decode the same levels to the same values.
+#[test]
+fn compiled_bundle_reads_levels_as_the_loaded_one() {
+    use shrink_wrap::{DeserializeShrinkWrapOwned, SerializeShrinkWrapOwned};
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/toml_settings_api");
+    let loaded = wire_weaver_core::load(&path, Some("SettingsTest".into()), false).unwrap();
+    assert_eq!(
+        &toml_settings_api::SETTINGS_TEST_BUNDLE[..],
+        &loaded.to_ww_bytes_owned().unwrap()[..]
+    );
+
+    let mut compiled =
+        ApiBundleOwned::from_ww_bytes_owned(&toml_settings_api::SETTINGS_TEST_BUNDLE).unwrap();
+    ww_self::generics::prepare(&mut compiled).unwrap();
+    let ty = property(&compiled, "settings");
+    let doc: DocumentMut = BUILT_IN.parse().unwrap();
+    let base = from_toml(doc.as_item(), ty, &compiled).unwrap();
+    assert_eq!(base, built_in());
+    let level: DocumentMut = "[audio]\nwindow = \"0.25 s\"\n[swear]\naction = \"mute\""
+        .parse()
+        .unwrap();
+    assert_eq!(
+        decode_onto(&base, &level, ty, &compiled).unwrap(),
+        decode_onto(&base, &level, settings_ty(), settings_bundle()).unwrap()
+    );
+}

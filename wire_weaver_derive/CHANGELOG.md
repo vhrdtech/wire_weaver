@@ -2,6 +2,7 @@
 
 ### 🚀 Features
 
+- `ww_codegen!(.., bundle = "no_docs" | "with_docs")` emits `<ROOT>_BUNDLE`, the API model as bytes, also in the API crate (API-73).
 - The doc trait notes `#[track(..)]` (API-71) beside the other metadata attributes.
 
 ### 📚 Documentation

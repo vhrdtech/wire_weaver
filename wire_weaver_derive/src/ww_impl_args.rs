@@ -77,6 +77,10 @@ pub(crate) struct ImplExtArgs {
     #[darling(default)]
     pub(crate) introspect_compression: String,
 
+    /// `"no_docs"` or `"with_docs"`: emit `<ROOT>_BUNDLE`, the whole model as bytes (API-73).
+    #[darling(default)]
+    pub(crate) bundle: String,
+
     #[darling(default)]
     pub(crate) multi_req: bool,
 

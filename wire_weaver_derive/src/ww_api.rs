@@ -10,6 +10,7 @@ use wire_weaver_core::codegen::api_client::GenClientConfigRaw;
 use wire_weaver_core::codegen::api_server::{
     GenServerConfigRaw, GlobalPaths, IntrospectCompression, IntrospectMode,
 };
+use wire_weaver_core::codegen::bundle::{BundleDocs, gen_bundle};
 use wire_weaver_core::codegen::local_trait::{gen_local_trait, gen_local_trait_client_impl};
 use wire_weaver_core::codegen::serve_trait::{ServeTraitConfig, gen_serve_trait};
 use wire_weaver_core::const_model::ConstModel;
@@ -48,8 +49,8 @@ fn api_inner(mut args: ApiArgs) -> Result<TokenStream, String> {
         load_dep_with_paths(args.dep_name.to_string(), Some(root)).map_err(|e| format!("{e:?}"))?
     };
     if own_crate && (args.ext.server || !args.ext.client.is_empty()) {
-        return Err("`crate :: Trait` only generates `local_trait`, server and client code is generated from \
-                    another crate depending on the API crate"
+        return Err("`crate :: Trait` only generates `local_trait` and `bundle`, server and client code is \
+                    generated from another crate depending on the API crate"
             .into());
     }
     let context_ident = || {
@@ -145,6 +146,13 @@ fn api_inner(mut args: ApiArgs) -> Result<TokenStream, String> {
             &crate_paths,
             &ident,
             local_trait_send,
+        ));
+    }
+
+    if !args.ext.bundle.is_empty() {
+        codegen_ts.append_all(gen_bundle(
+            &api_bundle,
+            BundleDocs::parse(&args.ext.bundle)?,
         ));
     }
 

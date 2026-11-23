@@ -6717,6 +6717,9 @@
 <p>A mount slot is a place in an API whose own API is known only at run time: a TV whose home hub runs in another
 process, or extensions that any local program can register. The parent API declares the slot; whatever is mounted
 there brings its own introspection data, API hash and version.</p>
+<p>This differs from <a href="../local_trait/#nested-levels"><code>ww_impl!</code></a>, whose nested level is a fixed type known at compile
+time, and from <a href="../local_trait/#serving-a-local-implementation"><code>serve_trait</code></a>, which composes such levels in one
+process: a mount slot's backend is a separate process, unknown until it connects, with its own hash and version.</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="cp">#[ww_api_root]</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="cp">#[effect(edit)]</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="k">trait</span><span class="w"> </span><span class="n">Tv</span><span class="w"> </span><span class="p">{</span>

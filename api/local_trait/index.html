@@ -7138,6 +7138,8 @@ client's level struct, which implements <code>Desk</code> with <code>impl_local_
 <p>A level defined in another crate keeps that crate's trait. The other crate generates it with its own <code>ww_codegen!</code>
 and re-exports it at its root, next to the <code>#[ww_trait]</code> it belongs to: <code>pub use local::{Gauge, GaugeDyn};</code>. The
 root's trait finds it there, in the same <code>Send</code> form as its own.</p>
+<p>A level whose own API is known only at run time — another process's, present or absent — is not <code>ww_impl!</code>'s
+business: it is a <a href="../mounts/">mount slot</a>, served by <code>wire_weaver_server::mount</code> rather than <code>serve_trait</code>.</p>
 <h2 id="resource-arrays">Resource arrays<a class="headerlink" href="#resource-arrays" title="Permanent link">&para;</a></h2>
 <p>An array of levels, <code>ww_impl!(unit[]: UnitApi)</code>, gets an accessor that takes the element's index and can fail:</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="k">type</span><span class="w"> </span><span class="nc">Unit</span><span class="o">&lt;&#39;</span><span class="na">a</span><span class="o">&gt;</span><span class="p">:</span><span class="w"> </span><span class="nc">Unit</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="o">&#39;</span><span class="na">a</span><span class="w"> </span><span class="k">where</span><span class="w"> </span><span class="bp">Self</span><span class="p">:</span><span class="w"> </span><span class="o">&#39;</span><span class="na">a</span><span class="p">;</span>

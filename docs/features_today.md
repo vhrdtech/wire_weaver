@@ -552,7 +552,7 @@ Working projects to start from: host programs, firmware for a few boards, and th
 - **[Counters in firmware](std_library/ww_counters.md)**: `cnt` counters in every probe-connected board example.
 - **[Settings demo](api/settings.md)**: Settings that survive a reboot, on the host and on two Nucleo boards.
 
-<p class="ww-features__more" markdown>Details and what is planned: [Examples](features.md#examples-ex), [Example and cases (ww_tape)](tape/features.md#example-and-cases-ex) in the feature tracker.</p>
+<p class="ww-features__more" markdown>Details and what is planned: [Example and cases (ww_tape)](tape/features.md#example-and-cases-ex), [Examples](features.md#examples-ex) in the feature tracker.</p>
 
 ## Testing
 

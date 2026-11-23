@@ -338,6 +338,18 @@ mod tests {
             .await
             .unwrap();
         assert!(matches!(inner, MountPresenceOwned::Absent));
+        // observing a level of the mounted API goes through the slot to the backend (SRV-76)
+        let observer = DynResource::root(bundle.api_bundle.clone())
+            .walk("hub")
+            .unwrap()
+            .observe(
+                vcmd,
+                [(PRESENCE, wire_weaver_client::observe::on_change(Duration::ZERO))].into(),
+            )
+            .await
+            .unwrap();
+        assert!(observer.granted().is_some());
+        assert_eq!(slots.lock().unwrap().seen.last().unwrap().path, [HUB]);
 
         // the mounted API's root trait by its global path, resolved in the view
         let global = PathKindOwned::GlobalFull {

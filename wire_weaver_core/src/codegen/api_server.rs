@@ -434,10 +434,11 @@ pub fn gen_server(
         config.observe_outbox,
     );
     let observe_methods = observe.methods(api_bundle, cx.handlers, &medium_ty, config.no_alloc);
+    let not_into_mount = not_into_mount(api_bundle, api_level);
     let observe_arm = if observe.is_enabled() {
         let es = fixed_err_seq("OBSERVE_MALFORMED");
         quote! {
-            RequestKind::Observe { cfg } => {
+            RequestKind::Observe { cfg } #not_into_mount => {
                 // decoded here, not with the request: only a server that observes links the decoder (SRV-54)
                 let Ok(cfg) = cfg.read() else {
                     wr.write(&Error::new(#es, ErrorKind::ArgsDesFailed))?;
@@ -466,7 +467,7 @@ pub fn gen_server(
         // path, so a host gets one defined error and the request is never walked as a call (SRV-54)
         let es = fixed_err_seq("OBSERVE_PATH");
         quote! {
-            RequestKind::Observe { .. } => {
+            RequestKind::Observe { .. } #not_into_mount => {
                 wr.write(&Error::bad_path(#es))?;
                 event_builder.finish(false, &mut wr);
                 wr.finish_and_take()
@@ -2270,6 +2271,62 @@ fn handle_keys(
             },
             None => ww_err(wr, d, #es_level, ErrorKindDiscriminants::OperationNotSupported),
         }
+    }
+}
+
+/// Guard of the `Observe` arm of a server with mount slots (SRV-76): a path below a slot's `api` is the mounted API's,
+/// so the request takes the tree walk to the slot's handler, which forwards it, instead of the server's own observe
+/// table. Empty without mount slots.
+fn not_into_mount(api_bundle: &CodegenBundle, api_level: &ApiLevelOwned) -> TokenStream {
+    let mut patterns = vec![];
+    mount_api_patterns(api_bundle, api_level, &mut vec![], &mut patterns);
+    let Some(depth) = patterns.iter().map(|(len, _)| *len).max() else {
+        return TokenStream::new();
+    };
+    let patterns = patterns.iter().map(|(_, pattern)| pattern);
+    quote! {
+        if !{
+            let mut numbers = [0u32; #depth];
+            let len = path.len().min(#depth);
+            for (n, index) in numbers.iter_mut().zip(path) {
+                *n = index.get().0;
+            }
+            matches!(&numbers[..len], #(#patterns)|*)
+        }
+    }
+}
+
+/// Slice patterns of the paths below each mount slot's `api` in `level` and the levels under it, `at` the path of
+/// `level` (`_` for an array's index), with each pattern's length before its `..`.
+fn mount_api_patterns(
+    api_bundle: &CodegenBundle,
+    level: &ApiLevelOwned,
+    at: &mut Vec<TokenStream>,
+    out: &mut Vec<(usize, TokenStream)>,
+) {
+    for item in &level.items {
+        let depth = at.len();
+        let id = Lit::Int(LitInt::new(&format!("{}u32", item.id.0), Span::call_site()));
+        at.push(quote! { #id });
+        if matches!(item.multiplicity, Multiplicity::Array { .. }) {
+            at.push(quote! { _ });
+        }
+        match &item.kind {
+            ApiItemKindOwned::Mount { .. } => {
+                let api = Lit::Int(LitInt::new(
+                    &format!("{}u32", ww_self::mount::API),
+                    Span::call_site(),
+                ));
+                out.push((at.len() + 1, quote! { [#(#at,)* #api, ..] }));
+            }
+            ApiItemKindOwned::Trait { .. } => {
+                if let Ok(child) = item.get_as_level(api_bundle) {
+                    mount_api_patterns(api_bundle, child, at, out);
+                }
+            }
+            _ => {}
+        }
+        at.truncate(depth);
     }
 }
 

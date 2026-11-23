@@ -4,6 +4,7 @@
 //! its extensions through `ext_keys`. The generated and dynamic clients reach the slots.
 
 pub mod device;
+pub mod forwarder;
 
 #[cfg(test)]
 mod tests {
@@ -20,6 +21,7 @@ mod tests {
     use wire_weaver::ww_api::mount::{MountNameOwned, MountPresenceOwned};
     use wire_weaver_client::internal::Command;
     use wire_weaver_client::{ClientConfig, Commander, DynClient, DynResource, Error};
+    use ww_client_server::observe::ObserveRequestOwned;
     use ww_client_server::{
         ErrorKindOwned, ErrorOwned, MultiIndexOwned, PathKindOwned, RequestKindOwned, RequestOwned,
         ResourceIndex,
@@ -147,14 +149,28 @@ mod tests {
             [3]
         );
 
-        // the device handles requests in order: the read's answer comes after the introspect was handled
-        cmd.send(Command::SendMessage {
-            bytes: request(&[HUB, API], RequestKindOwned::Introspect),
-            done_tx: None,
-            trace: None,
-        })
-        .await
-        .unwrap();
+        // the device handles requests in order: the read's answer comes after the introspect and the observes were
+        // handled; an observe under a slot is the mounted API's, not the front's own (SRV-78)
+        let observe = || RequestKindOwned::Observe {
+            cfg: Box::new(ObserveRequestOwned {
+                entries: vec![],
+                patch: true,
+                budget: None,
+            }),
+        };
+        for bytes in [
+            request(&[HUB, API], RequestKindOwned::Introspect),
+            request(&[HUB, API, 2], observe()),
+            request(&[EXT, 0, API], observe()),
+        ] {
+            cmd.send(Command::SendMessage {
+                bytes,
+                done_tx: None,
+                trace: None,
+            })
+            .await
+            .unwrap();
+        }
         raw(cmd, &[HUB, PRESENCE], RequestKindOwned::Read)
             .await
             .unwrap();
@@ -171,6 +187,8 @@ mod tests {
                 seen_at(None, &[5, 7], false),
                 seen_at(Some(0), &[3], false),
                 seen_at(None, &[], true),
+                seen_at(None, &[2], false),
+                seen_at(Some(0), &[], false),
             ]
         );
     }

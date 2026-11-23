@@ -253,3 +253,84 @@ async fn stopped_listeners_free_the_port_and_keep_their_connections() {
         .unwrap();
     assert_eq!(peers.len(), 2);
 }
+
+/// A mount table on the loop (SRV-78) reaches a backend on a Unix socket through `UnixConnector`: the counter,
+/// served by tokio in another thread, comes up in its slot with its API learned.
+#[cfg(unix)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn mounts_on_the_loop_reach_a_unix_socket() {
+    use wire_weaver::shrink_wrap::{DeserializeShrinkWrapOwned, UNib32};
+    use wire_weaver::ww_api::mount::MountPresenceOwned;
+    use wire_weaver_server::byte_stream::PreambleFraming;
+    use wire_weaver_server::local_socket::LocalSocketIncoming;
+    use wire_weaver_server::mount::{MountOptions, Mounts};
+    use ww_calloop::UnixConnector;
+    use ww_client_server::ResourceIndex;
+
+    let dir = std::env::temp_dir().join(format!("ww-calloop-mount-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("counter.sock");
+    let socket = ww_local_socket::listen(&path, true).expect("the counter listens");
+    let (stop, stopped) = oneshot::channel::<()>();
+    let served = tokio::spawn(async move {
+        let listener = listen(
+            LocalSocketIncoming::new(socket),
+            PreambleFraming::new("counter 0.1.0", counter::MESSAGE_LEN_MAX),
+            wire_weaver_client::in_process::TokioClock::new(),
+        );
+        Server::new(wire_weaver_client::in_process::TokioClock::new())
+            .serve(
+                counter::link(),
+                listener,
+                Counter::make,
+                stopped.map(|_| ()),
+            )
+            .await
+            .expect("the counter serves");
+    });
+
+    let for_loop = path.clone();
+    let presence = tokio::task::spawn_blocking(move || {
+        let mut event_loop: EventLoop<'static, ()> = EventLoop::try_new().expect("a loop");
+        let handle = event_loop.handle();
+        let (executor, scheduler) = calloop::futures::executor().expect("an executor");
+        handle
+            .insert_source(executor, |(), _, ()| ())
+            .expect("the loop takes the executor");
+        let own = ww_self::compressed::bundle_bytes(&counter::api_impl::WW_SELF_BYTES).unwrap();
+        let own = ww_self::ApiBundleOwned::from_ww_bytes_owned(&own).unwrap();
+        let mounts = Mounts::new(std::sync::Arc::new(own));
+        let slot = [ResourceIndex::new(UNib32(0)), ResourceIndex::new(UNib32(1))];
+        mounts.mount(
+            &slot,
+            UnixConnector::new(&handle, for_loop),
+            MountOptions::default(),
+        );
+        let table = mounts.clone();
+        let clock = LoopClock::new(handle.clone());
+        scheduler
+            .schedule(async move { table.run(clock).await })
+            .expect("the loop runs the table");
+        let deadline = std::time::Instant::now() + SOON;
+        loop {
+            event_loop
+                .dispatch(Some(Duration::from_millis(10)), &mut ())
+                .expect("the loop runs");
+            let presence = mounts.presence(&slot);
+            if matches!(presence, MountPresenceOwned::Up { .. })
+                || std::time::Instant::now() > deadline
+            {
+                return presence;
+            }
+        }
+    })
+    .await
+    .expect("the loop thread doesn't panic");
+    let MountPresenceOwned::Up { api, .. } = presence else {
+        panic!("the counter is not up: {presence:?}");
+    };
+    assert_eq!(api.crate_id, "keep_trying_api");
+    let _ = stop.send(());
+    served.await.unwrap();
+    std::fs::remove_dir_all(&dir).unwrap();
+}

@@ -7,7 +7,9 @@
 //! - [LoopClock]: timers on the loop's timers;
 //! - [TcpIncoming]: TCP clients, for [listen](wire_weaver_server::byte_stream::listen) with WebSocket
 //!   ([WsFraming](wire_weaver_server::byte_stream::WsFraming)) or preamble framing;
-//! - [bind_udp]: a [UdpListener](wire_weaver_server::udp::UdpListener) whose socket the loop watches.
+//! - [bind_udp]: a [UdpListener](wire_weaver_server::udp::UdpListener) whose socket the loop watches;
+//! - [UnixConnector] (Unix): backends of mount slots on Unix sockets, for
+//!   [Mounts](wire_weaver_server::mount::Mounts) and its [Forwarder](wire_weaver_server::mount::Forwarder)s.
 //!
 //! Each listener stops alone while the program runs, to move to another address: [TcpIncoming::stop_handle] closes
 //! its socket at once, `UdpListener::stop_handle` ([LoopUdpStop]) takes no new host. Their connections go on.
@@ -34,7 +36,11 @@
 mod clock;
 mod tcp;
 mod udp;
+#[cfg(unix)]
+mod unix;
 
 pub use clock::LoopClock;
 pub use tcp::{TcpIncoming, TcpStop};
 pub use udp::{LoopReadiness, LoopUdpListener, LoopUdpSocket, LoopUdpStop, bind_udp};
+#[cfg(unix)]
+pub use unix::UnixConnector;

@@ -41,6 +41,7 @@ wire_weaver_client = { workspace = true, optional = true }
 ww_byte_stream = { workspace = true, features = ["device", "ws"] }
 ww_client_server = { workspace = true, features = ["std"] }
 ww_device.workspace = true
+ww_link = { workspace = true, features = ["std"] }
 ww_local_socket = { workspace = true, optional = true }
 ww_self = { workspace = true, features = ["std"] }
 

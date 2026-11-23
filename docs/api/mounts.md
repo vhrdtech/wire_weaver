@@ -111,6 +111,52 @@ the front's absolute path into the slot, which the generated dispatch then route
 - Inside a mounted API, a trait is found as its own server finds it: the first one depth first, never under a
   resource array, in a protocol compatible version of its crate (`ww_global` id for `GlobalCompact`).
 
+### Backend processes
+
+`wire_weaver_server::mount` does all of the above for a backend that is another WireWeaver server reached over a
+byte stream (a local socket, TCP, a pipe), with no tokio needed: it runs on any executor, a calloop loop included.
+
+- `Mounts` is the host's mount table, shared by every connection. `mount(api_path, connector, MountOptions)` adds a
+  slot, `unmount` removes it. `run(clock)` keeps a control link to each backend: when it comes up, the backend's
+  introspection data is learned into `MountedTraits` and `presence` turns `Up` with the backend's API, version and
+  hash; when it goes, `presence` turns `Absent` and the link is tried again after `MountOptions::retry_after`.
+- `Server::mounts(mounts.routes())` reroutes a global path into a mounted API as the request arrives, before the
+  authorization hook sees it.
+- `Forwarder` belongs to one front connection and opens that connection's own link to each backend it uses. The
+  slot handler calls `forward(&request)`; the backend's `wait`, `next_wake`, `poll`, `cancel` and `end` call the
+  forwarder's.
+- `Forwarder::poll` sends the backend's replies and events with the slot's path in front, and returns the
+  `MountEvent`s (a slot mounted, its presence changed, unmounted): the backend then calls
+  `mark_changed_<slot>_presence()` and, for `mounts!`, `ext_keys_send(..)`.
+- `Connect` opens the byte stream: `LocalSocket` on tokio (feature `local_socket`), `ww_calloop::UnixConnector` on a
+  calloop loop.
+
+```rust
+// once per host
+let mounts = Mounts::<LocalSocket>::new(own_bundle);
+mounts.mount(&hub_path, LocalSocket::new("/run/user/1000/hub.sock"), MountOptions::default());
+let server = Server::new(clock).mounts(mounts.routes());
+let table = mounts.clone();
+spawn(async move { table.run(clock).await });
+
+// per connection
+fn hub_request(&mut self, _cx: &mut Context<'_, impl EventOut>, request: MountRequest<'_, '_>) -> MountAnswer {
+    self.forwarder.forward(&request)
+}
+```
+
+A client cancelling a forwarded request reaches the backend through `Backend::cancel`. When the backend goes, each
+request it didn't answer gets `Unavailable` (`err_seq::MOUNT_BACKEND_GONE`), and each stream opened and each trait
+level observed through the slot a `Close` sideband at its path: the client's stream ends, its observers get
+`ObserveEvent::Ended`. A request past 64 waiting for the link or 256 in flight is refused with `Overloaded`
+(`err_seq::MOUNT_QUEUE_FULL`); a request longer than the backend takes, or a reply longer than the front's link
+takes, with `ResponseSerFailed` (`err_seq::MOUNT_TOO_LONG`).
+
+What is trusted: the mount table (the host's own configuration) and whoever listens on the backend's socket
+(`LocalSocket` refuses a process of another user). The backend's messages are not: only their envelope is decoded,
+a reply passes only under a seq sent on that link, events get the slot's path in front, and introspection data is
+capped at 4 MiB. Effects inside a mounted API are not checked yet: every request reaches the backend.
+
 ## Client
 
 The generated client hands out a `wire_weaver_client::MountSlot`:

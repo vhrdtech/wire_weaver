@@ -18,6 +18,7 @@ use crate::backend::Backend;
 use crate::connection::{self, Connection, LocalConnection};
 use crate::lifecycle::{Lifecycle, ShutdownReason, Stage};
 use crate::listener::{Accept, Accepted, Listener};
+use crate::mount::MountRoutes;
 use crate::pump::{LocalPumps, PumpHandle, Pumps};
 use crate::sync::locked;
 
@@ -130,6 +131,7 @@ pub struct Server<C> {
     clock: C,
     limits: Limits,
     authorization: Option<Arc<Authorization>>,
+    routes: Option<MountRoutes>,
 }
 
 impl<C: Clock + Clone> Server<C> {
@@ -139,6 +141,7 @@ impl<C: Clock + Clone> Server<C> {
             clock,
             limits: Limits::default(),
             authorization: None,
+            routes: None,
         }
     }
 
@@ -153,6 +156,15 @@ impl<C: Clock + Clone> Server<C> {
         api: Option<Arc<ww_self::ApiBundleOwned>>,
     ) -> Self {
         self.authorization = Some(Arc::new(Authorization::new(hook, api)));
+        self
+    }
+
+    /// The same server with mount slots (SRV-78): a request whose global trait path reaches into a mounted API goes
+    /// on with the front's absolute path into its slot, before the [authorize](Self::authorize) hook sees it, and
+    /// the generated dispatch routes it to the slot's handler.
+    #[must_use]
+    pub fn mounts(mut self, routes: MountRoutes) -> Self {
+        self.routes = Some(routes);
         self
     }
 
@@ -199,6 +211,7 @@ impl<C: Clock + Clone> Server<C> {
                 self.limits,
                 &life,
                 self.authorization.clone(),
+                self.routes.clone(),
             ));
         }
         Ok(())
@@ -231,6 +244,7 @@ impl<C: Clock + Clone> Server<C> {
             life: Arc::new(Lifecycle::new()),
             running: Arc::new(Running::default()),
             authorization: self.authorization.clone(),
+            routes: self.routes.clone(),
         }
     }
 }
@@ -243,6 +257,7 @@ pub struct Accepting<C, L, M, S> {
     life: Arc<Lifecycle>,
     running: Arc<Running>,
     authorization: Option<Arc<Authorization>>,
+    routes: Option<MountRoutes>,
 }
 
 impl<C, L, M, S> Accepting<C, L, M, S>
@@ -280,6 +295,7 @@ where
             self.gate.limits,
             self.life.clone(),
             self.authorization.clone(),
+            self.routes.clone(),
         );
         Ok(Some(async move {
             connection.await;

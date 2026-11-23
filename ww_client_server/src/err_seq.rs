@@ -189,6 +189,15 @@ pub const REQUEST_CANCELLED: u32 = 65;
 /// A request a host server's policy or authorization hook refused before any handler saw it (SRV-46). Answered
 /// with [Denied](crate::ErrorKind::Denied).
 pub const REQUEST_DENIED: u32 = 66;
+/// A request a mount forwarder (SRV-78) sent on lost its answer: the backend's link went down, or never came up.
+/// Answered with [Unavailable](crate::ErrorKind::Unavailable).
+pub const MOUNT_BACKEND_GONE: u32 = 67;
+/// A request a mount forwarder refused: too many of the connection's requests wait for the backend's link.
+/// Answered with [Overloaded](crate::ErrorKind::Overloaded).
+pub const MOUNT_QUEUE_FULL: u32 = 68;
+/// A request or its answer longer than the other side of a mount takes. Answered with
+/// [ResponseSerFailed](crate::ErrorKind::ResponseSerFailed).
+pub const MOUNT_TOO_LONG: u32 = 69;
 
 /// `ww_device`'s answer when the server failed without an error to send.
 pub const GENERIC: u32 = u32::MAX;
@@ -204,7 +213,7 @@ pub enum Site {
     Level(u32),
     /// The request as a whole, one of the `REQUEST_*`, `MULTI_*`, `OBSERVE_*` sites, [INTROSPECT], [REPLY_OVER_LIMIT]
     /// [REQUEST_KIND_UNKNOWN], [REQUEST_NOT_SHARED], [REQUEST_OVERLOADED], [REQUEST_DEADLINE],
-    /// [REQUEST_CANCELLED] or [REQUEST_DENIED].
+    /// [REQUEST_CANCELLED], [REQUEST_DENIED] or a `MOUNT_*` site.
     Request(u32),
     /// [GENERIC].
     Generic,
@@ -218,7 +227,7 @@ impl Site {
             0..ITEM_END => Site::Item(err_seq),
             DEFERRED_OUTPUT_SER..=DEFERRED_EVENT_FINISH => Site::DeferredReturn(err_seq),
             LEVEL_BAD_PATH..=REPLY_START => Site::Level(err_seq),
-            REQUEST_TRAIT_NOT_FOUND..=REQUEST_DENIED => Site::Request(err_seq),
+            REQUEST_TRAIT_NOT_FOUND..=MOUNT_TOO_LONG => Site::Request(err_seq),
             GENERIC => Site::Generic,
             _ => Site::Unknown(err_seq),
         }
@@ -279,6 +288,9 @@ impl Site {
             REQUEST_DEADLINE => "dropped by a host server at its deadline",
             REQUEST_CANCELLED => "dropped by a host server for the client's cancel",
             REQUEST_DENIED => "refused by a host server's policy",
+            MOUNT_BACKEND_GONE => "mount: the backend's link went down",
+            MOUNT_QUEUE_FULL => "mount: too many requests wait for the backend",
+            MOUNT_TOO_LONG => "mount: longer than the other side takes",
             _ => return None,
         })
     }

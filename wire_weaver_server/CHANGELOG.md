@@ -4,6 +4,9 @@
 
 ### 🚀 Features
 
+- `mount::Mounts`, `Forwarder`, `Connect`, `LocalSocket`: mount slots forward to backend processes, a link per front connection (SRV-78).
+- `Forwarder`: a backend that goes ends the streams and observed levels under its slot with `Close` (SRV-78).
+- `Server::mounts` reroutes global paths into mounted APIs before authorization; `Backend::cancel` gets cancels of forwarded requests (SRV-78).
 - `mount::MountedTraits`: global trait paths into mounted APIs, from each backend's learned introspection; own tree first (SRV-77).
 - The authorization hook sees a mount slot's `presence` as a read and its `api` as the last step (SRV-76).
 - A hook may answer `Verdict::Pending`: the request waits for the answer within its deadline and cancel, other shared requests go on (SRV-72).

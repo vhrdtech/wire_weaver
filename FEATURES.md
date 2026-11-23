@@ -721,6 +721,14 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
     `wire_weaver_server::mount::MountedTraits`, from each backend's learned introspection data: the server's own
     traits first, then the slots in path order ([Docs](docs/api/mounts.md#forwarding), `tests/mounts`
     `forward_to_a_backend`).
+- ✅ **SRV-78 Mount forwarder** — `wire_weaver_server::mount` forwards a mount slot (SRV-76) to a backend process,
+    another WireWeaver server on a byte stream, without tokio: `Mounts` is the host's mount table (a control link per
+    slot sets `presence` and learns the backend's introspection data for global paths, retried after it goes),
+    `Forwarder` gives each front connection its own link to each backend, so seqs pass through, `Server::mounts`
+    reroutes global paths before authorization, `Backend::cancel` passes a client's cancel on. A backend that goes
+    answers its open requests `Unavailable` and closes its streams and observed levels; a reply under a seq the
+    backend wasn't sent is dropped. `Connect` opens the stream: `LocalSocket` on tokio, `ww_calloop::UnixConnector` on calloop
+    ([Docs](docs/api/mounts.md#backend-processes), `tests/mounts` `forwarder`, `tests/calloop_server`).
 - 🚧 **SRV-76 Mount slots** — `mount!(hub)` (one slot, `mount!(hub: hub_api)` names the expected API crate) and
     `mounts!(ext)` (slots keyed by `ww_api::mount::MountName` through a `keyed!` companion): a level whose API is known
     only at run time. Done: the `ww_self` `Mount` item (model 0.7.0; the parent's hash covers the declaration only),
@@ -728,8 +736,8 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
     `get_<slot>_presence` and `<slot>_request` with `MountRequest`/`MountAnswer`, `ErrorKind::Unavailable`
     (`ww_client_server` w2.2), introspection below the root reaching the handler, `ww api scaffold`, the generated
     client's `MountSlot`, `presence` in the dynamic client, evolution and authorization steps; the rewrite is
-    SRV-77, the client view of the mounted API is CLT-84. Missing: forwarding to a backend process and the keys stream
-    driven by mounts.
+    SRV-77, the forwarder SRV-78, the client view of the mounted API CLT-84. Missing: the keys stream driven by
+    mounts.
     [Docs](docs/api/mounts.md), `tests/mounts`.
 - 📋 **SRV-9 Handle USB suspend/resume** · `v0.5` — run until suspend, wait for resume, loop
   (`mcu/wire_weaver_usb_embassy`). Later (`v0.5.x`): detect the host going to sleep and keep the connection,

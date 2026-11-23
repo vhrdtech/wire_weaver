@@ -11,6 +11,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
+- Mount forwarder: mount slots reach backend processes over a socket, on tokio or calloop (SRV-78); see `ww_byte_stream`, `ww_client_server`, `wire_weaver_server`, `ww_calloop`.
 - Mount forwarding: requests and events crossing a mount slot are rewritten in the envelope, global paths reach mounted APIs (SRV-77); see `ww_client_server`, `wire_weaver_server`.
 - Mount views: clients reach a mounted API with its own facts, relearned per mount and resumed after link gaps (CLT-84); see `wire_weaver_client`, `wire_weaver_core`, `wire_weaver_cli`.
 - Mount slots: `mount!` and `mounts!` declare levels whose API is known only at run time (SRV-76); see `ww_api`, `ww_self`, `ww_client_server`, `wire_weaver_core`, `wire_weaver_client`.

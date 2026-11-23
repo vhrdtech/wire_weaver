@@ -1740,6 +1740,8 @@
       
         
       
+        
+      
     
     
     
@@ -1874,6 +1876,17 @@
   
     <nav class="md-nav" aria-label="Keyed arrays">
       <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#keys-that-borrow" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Keys that borrow
+      </span>
+    </span>
+  </a>
+  
+</li>
         
           <li class="md-nav__item">
   <a href="#keyed-arrays-on-the-client" class="md-nav__link">
@@ -2050,6 +2063,33 @@
     
   
   Introspection data
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../json/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  JSON for any API
 
     
   </span>
@@ -6342,6 +6382,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#keys-that-borrow" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Keys that borrow
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#keyed-arrays-on-the-client" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6424,6 +6475,8 @@
   
     
     
+      
+        
       
         
       
@@ -6593,7 +6646,7 @@ any other item. The key is any wire_weaver type without a float in it. The API c
 </table>
 <p><code>I</code> is the array's own index type, <code>UNib32</code> for <code>flow[]</code>.</p>
 <p>On the device the companion takes two handlers, <code>flow_index_of(cx, key) -&gt; RpcResult&lt;Option&lt;I&gt;&gt;</code> and
-<code>get_flow_key(cx, index_chain) -&gt; GetResult&lt;FlowKey, ()&gt;</code> (always a getter, whatever the <code>property_model</code>); the
+<code>get_flow_key(cx, index_chain) -&gt; GetResult&lt;FlowKey, CommonError&lt;'_&gt;&gt;</code> (always a getter, whatever the <code>property_model</code>); the
 server keeps its key table, as it keeps the flows. The key array's indices are the array's own, checked by
 <code>valid_indices_root_flow</code>, so <code>get_flow_key</code> is only called for an index the device has. The <code>keys</code> stream needs no
 handler: the generated code opens and closes it, and the device announces each element with
@@ -6603,13 +6656,32 @@ prints the handlers.</p>
 <p>One <code>keyed!</code> costs 316 B of flash on a Cortex-M0 at <code>fw-z</code> in a blocking server, 276 to 784 B on M0 and M3 at
 <code>fw-z</code> and <code>fw-3</code>, blocking and async (TEST-30, <code>qemu-flash-keyed</code> against <code>qemu-flash-arrayed</code>). The <code>keys</code>
 stream's send helper is not counted: it is linked only where it is used.</p>
+<h3 id="keys-that-borrow">Keys that borrow<a class="headerlink" href="#keys-that-borrow" title="Permanent link">&para;</a></h3>
+<p>A key may borrow, a name for instance (API-72):</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="cp">#[ww_api_root]</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="k">trait</span><span class="w"> </span><span class="n">Dissector</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">ro</span><span class="w"> </span><span class="n">detector</span><span class="p">[]:</span><span class="w"> </span><span class="nc">Bytes</span><span class="o">&lt;</span><span class="kt">u64</span><span class="o">&gt;</span><span class="p">);</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="n">keyed</span><span class="o">!</span><span class="p">(</span><span class="n">detector</span><span class="w"> </span><span class="n">by</span><span class="w"> </span><span class="n">DetectorName</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="p">);</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="p">}</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="cp">#[derive_shrink_wrap(owned(feature = </span><span class="s">&quot;std&quot;</span><span class="cp">), derive(Debug, PartialEq, Eq, Clone))]</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">DetectorName</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="p">(</span><span class="k">pub</span><span class="w"> </span><span class="o">&amp;&#39;</span><span class="na">i</span><span class="w"> </span><span class="kt">str</span><span class="p">);</span>
+</span></code></pre></div>
+<p>A server without an allocator takes and gives the key as written, <code>detector_index_of(cx, key: DetectorName&lt;'_&gt;)</code>
+and <code>get_detector_key(..) -&gt; GetResult&lt;DetectorName&lt;'_&gt;, CommonError&lt;'_&gt;&gt;</code>, so it can answer from a <code>&amp;'static str</code>
+table. Everything that keeps a key takes its owned form, <code>DetectorNameOwned</code>: a server with an allocator, the
+client and its key cache, the <a href="../local_trait/#keyed-arrays">local trait</a> and <code>serve_trait</code>. The key type therefore
+needs <code>owned</code> in its <code>derive_shrink_wrap</code>; without it <code>keyed!</code> is refused with that hint.</p>
+<p>Both forms write the same bytes: <code>"east"</code> is <code>65 61 73 74 04</code>, the string with its length at the back. These bytes
+are what a tape's <code>Segment::Key</code> hashes for the element, so a track of that detector keeps its key whatever index
+the device gave it. <code>tests/keyed</code> pins them.</p>
 <h3 id="keyed-arrays-on-the-client">Keyed arrays on the client<a class="headerlink" href="#keyed-arrays-on-the-client" title="Permanent link">&para;</a></h3>
 <p>The generated client finds an element by its key (CLT-72):</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">if</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">flow</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">client</span><span class="p">.</span><span class="n">flow_by</span><span class="p">(</span><span class="o">&amp;</span><span class="n">key</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">bytes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">flow</span><span class="p">.</span><span class="n">read_bytes</span><span class="p">().</span><span class="n">read</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="p">}</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="kd">let</span><span class="w"> </span><span class="n">key</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">client</span><span class="p">.</span><span class="n">flow_key</span><span class="p">(</span><span class="mi">3</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span><span class="w">    </span><span class="c1">// the key of flow 3</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">keys</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">client</span><span class="p">.</span><span class="n">flow_keys</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span><span class="w"> </span><span class="c1">// KeyEvent::Added and Removed as they happen</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">if</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">flow</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">client</span><span class="p">.</span><span class="n">flow_by</span><span class="p">(</span><span class="o">&amp;</span><span class="n">key</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">bytes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">flow</span><span class="p">.</span><span class="n">read_bytes</span><span class="p">().</span><span class="n">read</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="p">}</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="kd">let</span><span class="w"> </span><span class="n">key</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">client</span><span class="p">.</span><span class="n">flow_key</span><span class="p">(</span><span class="mi">3</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span><span class="w">    </span><span class="c1">// the key of flow 3</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">keys</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">client</span><span class="p">.</span><span class="n">flow_keys</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span><span class="w"> </span><span class="c1">// KeyEvent::Added and Removed as they happen</span>
 </span></code></pre></div>
 <p><code>flow_by</code> returns the element's client, <code>None</code> when the device has no element with that key; it returns the index
 for an array of properties, streams or sinks. <code>flow_index_of(&amp;key)</code> returns the index for any array. Each has a
@@ -6624,16 +6696,16 @@ index, a cached index can already belong to another flow: a client that must not
 <code>keys</code> stream open, so the <code>Removed</code> drops it at once.</p>
 <p>The dynamic client, <code>ww</code> and Python take a key in a path. In <code>ww</code> and the dynamic client
 (<code>DynResource::walk_on</code>) the brackets hold the key as a Rust expression of its type, all fields given:</p>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>ww<span class="w"> </span>stream<span class="w"> </span><span class="s1">&#39;flow[FlowKey { proto: Proto::Tcp, src: Endpoint { addr: [10, 0, 0, 1], port: Port(6000) },</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="s1">    dst: Endpoint { addr: [10, 0, 0, 2], port: Port(443) }, first_seen: Point { coord: 100 } }].packets&#39;</span>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>ww<span class="w"> </span>stream<span class="w"> </span><span class="s1">&#39;flow[FlowKey { proto: Proto::Tcp, src: Endpoint { addr: [10, 0, 0, 1], port: Port(6000) },</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="s1">    dst: Endpoint { addr: [10, 0, 0, 2], port: Port(443) }, first_seen: Point { coord: 100 } }].packets&#39;</span>
 </span></code></pre></div>
 <p>A time point in a key is written as its <code>coord</code> (<code>Point { coord: 100 }</code>) for now. A number in brackets is an index.</p>
 <p>In Python an int indexes and anything else is a key, in the form any argument takes:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">key</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;proto&quot;</span><span class="p">:</span> <span class="s2">&quot;Tcp&quot;</span><span class="p">,</span> <span class="s2">&quot;src&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;addr&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="s2">&quot;port&quot;</span><span class="p">:</span> <span class="mi">6000</span><span class="p">},</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>       <span class="s2">&quot;dst&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;addr&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="s2">&quot;port&quot;</span><span class="p">:</span> <span class="mi">443</span><span class="p">},</span> <span class="s2">&quot;first_seen&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;coord&quot;</span><span class="p">:</span> <span class="mi">100</span><span class="p">}}</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">dev</span><span class="o">.</span><span class="n">flow</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">bytes</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>  <span class="c1"># KeyError when the device has no such flow</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="n">dev</span><span class="o">.</span><span class="n">flow</span><span class="o">.</span><span class="n">by</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>            <span class="c1"># None instead</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="n">dev</span><span class="o">.</span><span class="n">flow</span><span class="o">.</span><span class="n">key_type</span>           <span class="c1"># &quot;FlowKey&quot;</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">key</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;proto&quot;</span><span class="p">:</span> <span class="s2">&quot;Tcp&quot;</span><span class="p">,</span> <span class="s2">&quot;src&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;addr&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="s2">&quot;port&quot;</span><span class="p">:</span> <span class="mi">6000</span><span class="p">},</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>       <span class="s2">&quot;dst&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;addr&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="s2">&quot;port&quot;</span><span class="p">:</span> <span class="mi">443</span><span class="p">},</span> <span class="s2">&quot;first_seen&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;coord&quot;</span><span class="p">:</span> <span class="mi">100</span><span class="p">}}</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="n">dev</span><span class="o">.</span><span class="n">flow</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">bytes</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>  <span class="c1"># KeyError when the device has no such flow</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="n">dev</span><span class="o">.</span><span class="n">flow</span><span class="o">.</span><span class="n">by</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>            <span class="c1"># None instead</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="n">dev</span><span class="o">.</span><span class="n">flow</span><span class="o">.</span><span class="n">key_type</span>           <span class="c1"># &quot;FlowKey&quot;</span>
 </span></code></pre></div>
 
 

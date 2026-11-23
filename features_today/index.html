@@ -1903,6 +1903,8 @@
       
         
       
+        
+      
     
     
     
@@ -2124,6 +2126,33 @@
     
   
   Introspection data
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/json/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  JSON for any API
 
     
   </span>
@@ -6679,6 +6708,7 @@ in either direction. WireWeaver generates the device's server and the host's cli
 <li><strong><a href="../api/totals/">Running totals</a></strong>: A pointer or scroll wheel over UDP: each sink write carries the sum so far, so a lost write loses nothing and nothing waits.</li>
 <li><strong><a href="../api/folder_structure/">The API crate prelude <code>ww_api</code></a></strong>: An API crate depends on <code>ww_api</code>, not the runtime: the macros, <code>shrink_wrap</code> and the common types in one prelude, checked by the layer lint.</li>
 <li><strong><a href="../api/arrays/">Keyed resource arrays</a></strong>: Address the elements of an array by a key (<code>keyed!(flow by FlowKey)</code>) instead of the index the device gave them.</li>
+<li><strong><a href="../api/arrays/#keys-that-borrow">Keys that borrow</a></strong>: A string key (<code>DetectorName&lt;'i&gt;</code>): borrowed on a device without an allocator, owned where a key is kept.</li>
 <li><strong><a href="../api/observing/#cells-sampling-from-an-interrupt">Observe cells</a></strong>: Sample a level from an interrupt in place, value by value into a ring of atomics: a quarter of the cycles and a tenth of the stack of <code>sample()</code> at opt-level z, the same wire.</li>
 <li><strong><a href="../articles/series/#cpu-and-flash-on-a-microcontroller">A cheaper observe poll</a></strong>: The poll that sends a level's samples spends its time on the codec: half the cycles at opt-level 3, a third at z, the same bytes.</li>
 <li><strong><a href="../api/batching/">Batched streams</a></strong>: A stream opts into sending samples many per event as a compressed <code>Series</code> instead of one at a time, for plain, counted and reliable streams; typed and dynamic clients, the CLI and Python.</li>
@@ -6873,6 +6903,8 @@ layer checks on connect that both ends speak the same protocol.</p>
 <ul>
 <li><strong><a href="../std_library/ww_self/">Bit-sized numbers in the model</a></strong>: <code>U7</code>, <code>I12</code>, nibbles and the like, read and written by the dynamic client and Python.</li>
 <li><strong><a href="../std_library/units_in_the_model/">Units in the model</a></strong>: A device's API carries the definition of every unit, scale and origin it uses, also of your own crate's, so <code>ww</code>, the dynamic client and Python convert and show them without a built-in table.</li>
+<li><strong><a href="../api/json/">JSON for any API</a></strong>: <code>ww_json</code> turns the values of any method, property or stream into JSON and back, quantities as text with their unit (<code>"5 ms"</code>), big integers as strings, errors naming the JSON path.</li>
+<li><strong><a href="../api/json/#json-schema">JSON Schema of every item</a></strong>: <code>ww_json::schema</code> describes the arguments, results, properties and stream items of any API as a JSON Schema, quantities with their unit and bounds, for MCP servers and other JSON clients.</li>
 <li><strong><a href="../api/introspection/#compressed-introspection-data">Compressed introspection data</a></strong>: <code>introspect_compression = "lz4"</code> keeps a device's API description compressed in flash, the client decompresses it: 4.3 KB less on rePort.</li>
 <li><strong><a href="../evolution/rules/#moving-a-resource-to-another-place">Identity of a renamed resource</a></strong>: A resource renamed with <code>#[moved_from]</code> keeps its first name in the device's API description, so recordings follow it across the rename.</li>
 <li><strong><a href="../std_library/ww_self/">Moved flag bits</a></strong>: Relocated <code>#[flag]</code> fields in the model and in dynamic values.</li>
@@ -7093,7 +7125,7 @@ feature tracker.</p>
 <li><strong><a href="../std_library/ww_counters/">Counters in firmware</a></strong>: <code>cnt</code> counters in every probe-connected board example.</li>
 <li><strong><a href="../api/settings/">Settings demo</a></strong>: Settings that survive a reboot, on the host and on two Nucleo boards.</li>
 </ul>
-<p class="ww-features__more">Details and what is planned: <a href="../features/#examples-ex">Examples</a>, <a href="../tape/features/#example-and-cases-ex">Example and cases (ww_tape)</a> in the feature tracker.</p>
+<p class="ww-features__more">Details and what is planned: <a href="../tape/features/#example-and-cases-ex">Example and cases (ww_tape)</a>, <a href="../features/#examples-ex">Examples</a> in the feature tracker.</p>
 <h2 id="testing">Testing<a class="headerlink" href="#testing" title="Permanent link">&para;</a></h2>
 <p>How WireWeaver is kept working: every change runs through CI, against the real client and server code.</p>
 <p class="ww-features__level"><span class="ww-level ww-level--advanced"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6" class="ww-level__off"/></svg><span class="ww-level__label">Advanced</span></span></p>

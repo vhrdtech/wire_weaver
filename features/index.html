@@ -6806,6 +6806,18 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
     <code>docs/api/metadata.md</code> maps them to MCP tool annotations. Absorbs API-56 (<code>actuate</code>). Every API in the
     repository and in ww_stdlib is annotated. Tests: <code>wire_weaver_core</code> (<code>effects_*</code>), <code>tests/hub</code>
     (<code>claimed_bus_refuses_others_calls_and_writes</code>), <code>wire_weaver_cli</code> (<code>effects_list_what_changes_something</code>).</li>
+<li>✅ <strong>API-71 Track attribute on streams</strong> · <code>v0.5.x</code> — <code>#[track(points | spans | series, dims(..), flags)]</code> on a
+    <code>stream!</code> or a stream function, or on its trait as the default of its streams: how a recorder lays the stream
+    out on a tape. Carried in introspection as <code>ww_self::Track</code> in <code>Meta</code> (<code>TrackLayout</code>, dimension names, flags),
+    stored on each stream with one; model format 0.6.0, whose readers still read 0.4.0 and 0.5.0 snapshots (one
+    whose metas grew by its body). Refused on any other item and on a <code>ww_impl!</code>; a <code>series</code> item must be numbers
+    (<code>ApiBundleOwned::series_shape</code> counts its channels), <code>flags</code> only on points and spans. <code>ww api check</code>:
+    another layout or flags word, or a dimension dropped, breaks (rule <code>Track</code>, the wire keeps); a dimension added
+    is compatible. <code>ww_tap</code>'s <code>LinkTap</code> streams are points with the link's dimensions. Recorders: <code>ww_tape_bundle</code>
+    reads the layout beside the name path, <code>ww_tap_decoder</code> lays tap tracks out by it (vhrdtech/ww_tools).
+    Docs: <code>docs/api/metadata.md#track-how-a-stream-is-recorded</code>. Tests: <code>tests/track</code>, <code>wire_weaver_core</code>
+    (<code>transform::track</code>), <code>wire_weaver_evolution</code> (<code>track_changes</code>), <code>ww_snapshots</code>
+    (<code>an_older_format_with_metas_reads_by_its_body</code>).</li>
 <li>📋 <strong>API-12 Calculate max path depth in server codegen</strong> · <code>v0.5</code> — <code>MAX_DEPTH</code> is hardcoded to 16 in
   <code>wire_weaver_core/src/codegen/api_server.rs</code>.</li>
 <li>📋 <strong>API-13 Error system, remove <code>unwrap</code>s from codegen</strong> · <code>v0.5</code> — report errors with spans instead of panicking.</li>

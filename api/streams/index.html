@@ -6611,6 +6611,8 @@ one value, in order, even when several are packed into one packet on the way. Se
 on <code>uart_rx</code> gives the same three slices on the other end. A byte item (<code>[u8]</code>, <code>Vec&lt;u8&gt;</code>, or
 <a href="../../types/#bounded-lists-and-strings-maxlent-n"><code>MaxLen&lt;RefVec&lt;'i, u8&gt;, N&gt;</code></a> to bound it) is sent as is, without a
 length prefix.</p>
+<p>How a recorder lays a stream out on a tape (events at instants, spans with an end, or samples of a series) is
+<code>#[track(..)]</code> on the stream, see <a href="../metadata/#track-how-a-stream-is-recorded">Metadata</a>.</p>
 <p>Streams and sinks come in kinds that differ in what they promise about delivery:</p>
 <table>
 <thead>

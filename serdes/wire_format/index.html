@@ -6885,6 +6885,9 @@ sub-reader bounded to exactly the number of bytes a length slot says a value tak
 <li>code that doesn't know a newer field skips whatever trailing bytes it doesn't understand;</li>
 <li>code reading data that lacks a field it knows runs out of bytes and falls back to that field's default.</li>
 </ul>
+<p>A writer can use the second rule on purpose: a struct with
+<a href="../derive_reference/#elide_defaults"><code>elide_defaults</code></a> leaves its trailing defaulted fields off while they hold
+their defaults, so its bytes are those of the older version without them.</p>
 <p>See the <a href="../../evolution/rules/">evolution rules</a> for which changes stay wire-compatible.</p>
 <h3 id="nesting-depth">Nesting depth<a class="headerlink" href="#nesting-depth" title="Permanent link">&para;</a></h3>
 <p>A type that contains itself (<code>Box&lt;T&gt;</code>, <code>RefBox&lt;T&gt;</code>, <code>Vec&lt;T&gt;</code> or <code>RefVec&lt;T&gt;</code> of a type with <code>T</code> in it, like a tree

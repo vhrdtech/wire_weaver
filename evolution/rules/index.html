@@ -2997,6 +2997,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#recorded-streams" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Recorded streams
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#choices-of-one-firmware-image" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6735,6 +6746,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#recorded-streams" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Recorded streams
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#choices-of-one-firmware-image" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -7211,6 +7233,19 @@ so <code>ww api check</code> treats the marker by what it does to their Rust cod
 server doesn't use them: adding, changing or removing one is compatible, <code>ww api check</code> lists it. Only the
 introspection data (and so the API hash) changes. Removing a <code>#[claim]</code> does change what the hub lets a program do: a
 program that claims that resource is refused from then on, so say so in the changelog.</p>
+<h3 id="recorded-streams">Recorded streams<a class="headerlink" href="#recorded-streams" title="Permanent link">&para;</a></h3>
+<p><code>#[track(..)]</code> (API-71, <a href="../../api/metadata/#track-how-a-stream-is-recorded">metadata</a>) is not on the wire either, but
+it is the identity of a stream's tracks on a tape: a recorder of the old version and one of the new version must
+write tracks that a reader puts together. <code>ww api check</code> treats it by that:</p>
+<ul>
+<li>Adding a name to <code>dims(..)</code>: compatible. A writer of the old version never gives it, a track without it is still
+  one of the stream.</li>
+<li>Another layout (<code>points</code>, <code>spans</code>, <code>series</code>), adding or removing <code>flags</code>, or dropping a name from <code>dims(..)</code>: a break
+  of the API crate (rule "recorded streams"), the wire stays. A tape's track of the old layout and one of the new are
+  different tracks, and a writer still giving the dropped dimension is refused.</li>
+<li>No <code>#[track]</code> is <code>points</code> without dimensions and flags: writing <code>#[track(points)]</code> on such a stream changes nothing
+  a recorder sees.</li>
+</ul>
 <h3 id="choices-of-one-firmware-image">Choices of one firmware image<a class="headerlink" href="#choices-of-one-firmware-image" title="Permanent link">&para;</a></h3>
 <p>Some choices belong to a firmware image and not to its API: <code>ww_codegen!(.., observe_samples = false)</code> is one. Two
 images of one API have the same API hash, snapshot and introspection data, and a host that has the data cached by its

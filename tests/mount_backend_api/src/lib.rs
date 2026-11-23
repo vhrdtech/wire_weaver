@@ -12,6 +12,10 @@ trait Hub {
     fn hang();
     /// A trait the TV doesn't have, reached by a global path through the TV.
     ww_impl!(lamp: Lamp);
+    /// Ticks of the hub: a stream open through the forwarder when the backend goes away.
+    stream!(ticks: [u8]);
+    /// Answers twice: first under `seq`, a seq it was never sent, then under its own. `seq` is a raw wire seq.
+    fn stray(seq: u32);
 }
 
 /// A lamp in the hub's room.
@@ -20,4 +24,6 @@ trait Hub {
 pub trait Lamp {
     /// Switches the lamp and says whether it is on now.
     fn toggle() -> bool;
+    /// Whether the lamp is on: observed through the forwarder when the backend goes away.
+    property!(ro+observe on: bool);
 }

@@ -726,8 +726,8 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
     slot sets `presence` and learns the backend's introspection data for global paths, retried after it goes),
     `Forwarder` gives each front connection its own link to each backend, so seqs pass through, `Server::mounts`
     reroutes global paths before authorization, `Backend::cancel` passes a client's cancel on. A backend that goes
-    answers its open requests `Unavailable` and closes its streams; a reply under a seq the backend wasn't sent is
-    dropped. `Connect` opens the stream: `LocalSocket` on tokio, `ww_calloop::UnixConnector` on calloop
+    answers its open requests `Unavailable` and closes its streams and observed levels; a reply under a seq the
+    backend wasn't sent is dropped. `Connect` opens the stream: `LocalSocket` on tokio, `ww_calloop::UnixConnector` on calloop
     ([Docs](docs/api/mounts.md#backend-processes), `tests/mounts` `forwarder`, `tests/calloop_server`).
 - 🚧 **SRV-76 Mount slots** — `mount!(hub)` (one slot, `mount!(hub: hub_api)` names the expected API crate) and
     `mounts!(ext)` (slots keyed by `ww_api::mount::MountName` through a `keyed!` companion): a level whose API is known

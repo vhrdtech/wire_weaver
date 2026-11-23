@@ -79,6 +79,7 @@ pub mod hub {
     pub struct Hub {
         pub hung: Arc<Hung>,
         pub lamp_on: bool,
+        pub observe: api_impl::ObserveState,
     }
 
     impl wire_weaver_server::Backend for Hub {
@@ -108,6 +109,45 @@ pub mod hub {
             self.lamp_on = !self.lamp_on;
             Ready(self.lamp_on)
         }
+
+        async fn get_lamp_on(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+        ) -> GetResult<bool, CommonError<'_>> {
+            Value(self.lamp_on)
+        }
+
+        async fn ticks(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {
+            Ready(())
+        }
+
+        async fn close_ticks(&mut self, _cx: &mut Context<'_, impl EventOut>) {}
+
+        async fn sideband_ticks(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+            sideband: ww_client_server::StreamSideband,
+        ) -> Option<ww_client_server::StreamSideband> {
+            Some(sideband)
+        }
+
+        async fn stray(&mut self, cx: &mut Context<'_, impl EventOut>, seq: u32) -> RpcResult<()> {
+            let Some(reply_to) = cx.reply_to() else {
+                return Deferred;
+            };
+            let forged = ReplyTo { seq, ..reply_to };
+            Self::stray_send_return(cx, forged, ())
+                .await
+                .expect("the forged reply is sent");
+            Self::stray_send_return(cx, reply_to, ())
+                .await
+                .expect("the reply is sent");
+            Deferred
+        }
+
+        fn observe_state(&mut self) -> &mut api_impl::ObserveState {
+            &mut self.observe
+        }
     }
 
     backend_entries!(Hub, mount_backend_api::HUB_FULL_GID);
@@ -116,7 +156,7 @@ pub mod hub {
         wire_weaver::ww_codegen!(
             mount_backend_api :: Hub for super::Hub,
             server = true, no_alloc = false, use_async = true,
-            method_model = "hang=deferred, _=immediate",
+            method_model = "hang=deferred, stray=deferred, _=immediate",
             property_model = "_=get_set",
             introspect = "no_docs",
             debug_to_file = "../../target/tests_mounts_hub.rs"
@@ -208,8 +248,9 @@ pub mod tv {
             ))
         }
 
+        /// Never answered: a request the TV itself holds, under a seq its hub link was never sent.
         async fn mute(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {
-            Ready(())
+            Deferred
         }
 
         fn observe_state(&mut self) -> &mut api_impl::ObserveState {
@@ -256,7 +297,7 @@ pub mod tv {
         wire_weaver::ww_codegen!(
             mounts_api :: Tv for super::Tv,
             server = true, no_alloc = false, use_async = true,
-            method_model = "_=immediate",
+            method_model = "mute=deferred, _=immediate",
             property_model = "_=get_set",
             introspect = "no_docs",
         );
@@ -278,30 +319,38 @@ mod tests {
     use tokio::task::JoinHandle;
     use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
     use wire_weaver::ww_version::FullVersionOwned;
-    use wire_weaver_client::internal::Command;
+
+    use tokio::sync::mpsc;
+    use wire_weaver_client::internal::{Command, ForwardSink, Forwarded};
     use wire_weaver_client::{ClientConfig, Commander, DynClient, Error};
     use wire_weaver_server::Server;
     use wire_weaver_server::byte_stream::{PreambleFraming, listen};
     use wire_weaver_server::in_process::InProcessListener;
     use wire_weaver_server::local_socket::LocalSocketIncoming;
     use wire_weaver_server::mount::MountOptions;
+    use ww_client_server::observe::{ObserveEntry, ObserveMode, ObserveRequestOwned};
+    use ww_client_server::ww_si::Micros;
     use ww_client_server::{
         ErrorKindOwned, ErrorOwned, PathKindOwned, RequestKindOwned, RequestOwned,
     };
+    use ww_client_server::{EventKindOwned, EventOwned, StreamSideband};
     use ww_self::ApiBundleOwned;
 
     const MESSAGE_LEN_MAX: usize = 4096;
     /// How long a test waits for what must happen.
     const SOON: Duration = Duration::from_secs(5);
 
-    // ids: the TV's `hub` 0 (`api` 1 below it), `mute` 3; the hub's `add` 0, `hang` 1, `lamp` 2; the lamp's
-    // `toggle` 0
-    const HUB_API: [u32; 2] = [0, 1];
-    const MUTE: u32 = 3;
+    // ids: the TV's `hub` 0 (`presence` 0, `api` 1 below it), `mute` 3; the hub's `add` 0, `hang` 1, `lamp` 2,
+    // `ticks` 3, `stray` 4; the lamp's `toggle` 0, `on` 1
+    const HUB: u32 = 0;
+    const PRESENCE: u32 = 0;
+    const HUB_API: [u32; 2] = [HUB, 1];
     const ADD: u32 = 0;
     const HANG: u32 = 1;
     const LAMP: u32 = 2;
+    const TICKS: u32 = 3;
     const TOGGLE: u32 = 0;
+    const ON: u32 = 1;
 
     #[derive_shrink_wrap(owned)]
     struct AddArgs {
@@ -338,6 +387,7 @@ mod tests {
                 let make = move |_: &Connection| hub::Hub {
                     hung: for_backends.clone(),
                     lamp_on: false,
+                    observe: hub::api_impl::ObserveState::new(Default::default()),
                 };
                 let shutdown = async {
                     let _ = stopped.await;
@@ -541,10 +591,13 @@ mod tests {
         let toggled = raw(cmd, global, call(vec![])).await.unwrap();
         assert!(!bool::from_ww_bytes(&toggled).unwrap());
         // the TV's own items stay its own
-        assert_eq!(
-            raw(cmd, absolute(&[MUTE]), call(vec![])).await.unwrap(),
-            Vec::<u8>::new()
-        );
+        let presence = raw(cmd, absolute(&[HUB, PRESENCE]), RequestKindOwned::Read)
+            .await
+            .unwrap();
+        assert!(matches!(
+            MountPresenceOwned::from_ww_bytes_owned(&presence).unwrap(),
+            MountPresenceOwned::Up { .. }
+        ));
         let missing = raw(cmd, under_hub(&[9]), call(vec![])).await;
         assert_refused(missing, ErrorKindOwned::BadPath);
         hub.stop().await;
@@ -625,6 +678,166 @@ mod tests {
         })
         .await;
         hub.stop().await;
+        std::fs::remove_dir_all(socket.parent().unwrap()).unwrap();
+    }
+
+    /// What the front connection sends a client, raw: every event answering a request forwarded with
+    /// [Command::Forward] and every event with seq 0.
+    struct Front {
+        events: mpsc::UnboundedReceiver<Forwarded>,
+    }
+
+    struct FrontSink {
+        events: mpsc::UnboundedSender<Forwarded>,
+    }
+
+    impl ForwardSink for FrontSink {
+        fn forward(&mut self, forwarded: Forwarded) {
+            let _ = self.events.send(forwarded);
+        }
+    }
+
+    impl Front {
+        async fn new(cmd: &Commander) -> Self {
+            let (tx, events) = mpsc::unbounded_channel();
+            let sink = FrontSink { events: tx };
+            cmd.send(Command::ForwardSink {
+                sink: Box::new(sink),
+            })
+            .await
+            .unwrap();
+            Front { events }
+        }
+
+        /// Sends a request as is; `tag` `None` sends it with seq 0, unanswered.
+        async fn send(
+            cmd: &Commander,
+            tag: Option<u64>,
+            path_kind: PathKindOwned,
+            kind: RequestKindOwned,
+        ) {
+            let bytes = RequestOwned {
+                seq: UVlq32Backfill(0),
+                priority: ww_client_server::Priority::NORMAL.to_wire(),
+                context: None,
+                path_kind,
+                kind,
+            }
+            .to_ww_bytes_owned()
+            .unwrap();
+            cmd.send(Command::Forward {
+                bytes,
+                tag,
+                timeout: SOON,
+            })
+            .await
+            .unwrap();
+        }
+
+        /// The next event: `Some(tag)` for an answer to the request with that tag, `None` for one with seq 0.
+        async fn next(&mut self) -> (Option<u64>, EventOwned) {
+            let forwarded = soon("an event from the front", self.events.recv())
+                .await
+                .expect("the client runs");
+            let (tag, bytes) = match forwarded {
+                Forwarded::Reply { tag, event, .. } => (Some(tag), event),
+                Forwarded::Event(event) => (None, event),
+                other => panic!("unexpected {other:?}"),
+            };
+            (tag, EventOwned::from_ww_bytes_owned(&bytes).unwrap())
+        }
+    }
+
+    fn ids(path: &[ResourceIndex]) -> Vec<u32> {
+        path.iter().map(|i| i.get().0).collect()
+    }
+
+    /// A backend that goes away ends everything of the client's under its slot: the request it held fails
+    /// `Unavailable`, the stream open there and the trait level observed there each get a `Close`.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn backend_gone_ends_streams_and_observes() {
+        const OPEN: u64 = 1;
+        const OBSERVE: u64 = 2;
+        const HANGING: u64 = 3;
+        let socket = socket_path("ends");
+        let hub = HubProcess::start(&socket);
+        let tv = TvProcess::start("mounts/forwarder/ends");
+        tv.mount_hub(&socket);
+        tv.hub_up(true).await;
+        let client = tv.client().await;
+        let cmd = client.cmd();
+        let mut front = Front::new(cmd).await;
+        let open = RequestKindOwned::StreamSideband {
+            sideband: StreamSideband::Open,
+        };
+        Front::send(cmd, Some(OPEN), under_hub(&[TICKS]), open).await;
+        let (tag, event) = front.next().await;
+        assert_eq!(tag, Some(OPEN), "the hub answers the open with a sideband");
+        assert!(matches!(
+            event.result,
+            Ok(EventKindOwned::StreamSideband {
+                sideband: StreamSideband::Open,
+                ..
+            })
+        ));
+        let observe = RequestKindOwned::Observe {
+            cfg: Box::new(ObserveRequestOwned {
+                entries: vec![ObserveEntry {
+                    index: ResourceIndex::new(UNib32(ON)),
+                    mode: ObserveMode::OnChange {
+                        min: Micros::new(UNib32(0)),
+                    },
+                }],
+                patch: false,
+                budget: None,
+            }),
+        };
+        Front::send(cmd, Some(OBSERVE), under_hub(&[LAMP]), observe).await;
+        let (tag, event) = front.next().await;
+        assert_eq!(tag, Some(OBSERVE));
+        assert!(
+            matches!(event.result, Ok(EventKindOwned::Value { .. })),
+            "granted: {event:?}"
+        );
+        Front::send(cmd, Some(HANGING), under_hub(&[HANG]), call(vec![])).await;
+        soon("the hub holds the request", async {
+            while hub.hung.0.lock().unwrap().is_empty() {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await;
+        hub.stop().await;
+        let mut closed = Vec::new();
+        let mut failed = None;
+        while closed.len() < 2 || failed.is_none() {
+            match front.next().await {
+                (Some(HANGING), event) => failed = Some(event.result),
+                (
+                    None,
+                    EventOwned {
+                        result:
+                            Ok(EventKindOwned::StreamSideband {
+                                path,
+                                sideband: StreamSideband::Close,
+                            }),
+                        ..
+                    },
+                ) => closed.push(ids(&path)),
+                // presence changes of the hub slot
+                (None, _) => {}
+                other => panic!("unexpected {other:?}"),
+            }
+        }
+        match failed.expect("answered") {
+            Err(ErrorOwned {
+                kind: ErrorKindOwned::Unavailable,
+                ..
+            }) => {}
+            other => panic!("expected Unavailable, got {other:?}"),
+        }
+        closed.sort();
+        let under = |path: &[u32]| HUB_API.iter().chain(path).copied().collect::<Vec<_>>();
+        assert_eq!(closed, vec![under(&[LAMP]), under(&[TICKS])]);
         std::fs::remove_dir_all(socket.parent().unwrap()).unwrap();
     }
 

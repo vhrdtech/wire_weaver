@@ -28,8 +28,9 @@ use crate::fanout::Subscription;
 const WAITING_MAX: usize = 64;
 /// Requests of one front connection sent on to one backend and not answered yet; more are refused `Overloaded`.
 const IN_FLIGHT_MAX: usize = 256;
-/// Streams opened under one slot that a front connection tracks, to close them when the backend goes.
-const STREAMS_MAX: usize = 256;
+/// Streams opened and trait levels observed under one slot that a front connection tracks, to close them when the
+/// backend goes.
+const CLOSABLE_MAX: usize = 256;
 
 /// What a front connection does with its mount slots: hold it in the connection's backend, send each request of a
 /// slot's handler on with [forward](Self::forward), and give it the backend's turns ([wait](Self::wait),
@@ -55,8 +56,8 @@ const STREAMS_MAX: usize = 256;
 ///
 /// Each slot gets a link of its own, opened by the first request under it and kept while the backend is up: seqs
 /// pass through unchanged. While it comes up, requests wait (at most 64). When the backend goes, every
-/// request it didn't answer is answered `Unavailable`, and every stream opened under the slot gets a `Close`
-/// sideband; observed properties under it are not told, the slot's `presence` going `Absent` says it.
+/// request it didn't answer is answered `Unavailable`, and every stream opened and every trait level observed under
+/// the slot gets a `Close` sideband at its path, which ends the client's stream or observers.
 pub struct Forwarder<C: Connect, K: Clock> {
     mounts: Mounts<C>,
     clock: K,
@@ -87,8 +88,9 @@ struct FrontLink<C: Connect> {
     message_len_max: usize,
     /// Requests sent on and not answered yet, with their priority.
     in_flight: BTreeMap<u32, Priority>,
-    /// Paths (the front's) of streams opened under the slot.
-    streams: BTreeSet<Vec<u32>>,
+    /// Paths (the front's) of the streams open and the trait levels observed under the slot: each is sent a
+    /// `Close` sideband when the backend goes.
+    closable: BTreeSet<Vec<u32>>,
 }
 
 impl<C: Connect, K: Clock> Forwarder<C, K> {
@@ -147,7 +149,7 @@ impl<C: Connect, K: Clock> Forwarder<C, K> {
             reads_context: facts.request_context,
             message_len_max: usize::try_from(facts.dev_max_message_len).unwrap_or(usize::MAX),
             in_flight: BTreeMap::new(),
-            streams: BTreeSet::new(),
+            closable: BTreeSet::new(),
         });
         let seq = request.request.seq.0;
         let priority = Priority::from(request.request.priority);
@@ -190,13 +192,24 @@ impl<C: Connect, K: Clock> Forwarder<C, K> {
             RequestKind::StreamOpen { .. }
             | RequestKind::StreamSideband {
                 sideband: StreamSideband::Open,
-            } if front.streams.len() < STREAMS_MAX => {
-                front.streams.insert(ids(&path));
+            } if front.closable.len() < CLOSABLE_MAX => {
+                front.closable.insert(ids(&path));
             }
             RequestKind::StreamSideband {
                 sideband: StreamSideband::Close,
             } => {
-                front.streams.remove(&ids(&path));
+                front.closable.remove(&ids(&path));
+            }
+            RequestKind::Observe { cfg } => {
+                // `entries: [], patch: false` stops observing the level; one that doesn't decode may start it
+                let stops = cfg
+                    .read()
+                    .is_ok_and(|cfg| cfg.entries.is_empty() && !cfg.patch);
+                if stops {
+                    front.closable.remove(&ids(&path));
+                } else if front.closable.len() < CLOSABLE_MAX {
+                    front.closable.insert(ids(&path));
+                }
             }
             _ => {}
         }
@@ -338,7 +351,8 @@ impl<C: Connect, K: Clock> Forwarder<C, K> {
         }
     }
 
-    /// `front`'s backend is gone: what it didn't answer is answered `Unavailable`, its streams are closed.
+    /// `front`'s backend is gone: what it didn't answer is answered `Unavailable`, its streams and observed levels
+    /// are closed.
     async fn gone(&mut self, front: FrontLink<C>, out: &mut EventWriter<'_, impl MessageSink>) {
         for (seq, priority) in front.in_flight {
             self.answers.push_back((
@@ -348,7 +362,7 @@ impl<C: Connect, K: Clock> Forwarder<C, K> {
                 ErrorKind::Unavailable,
             ));
         }
-        for path in front.streams {
+        for path in front.closable {
             let path: Vec<ResourceIndex> = path
                 .iter()
                 .map(|id| ResourceIndex::new(wire_weaver::shrink_wrap::UNib32(*id)))
@@ -415,7 +429,7 @@ async fn pass_on<C: Connect>(
                 .collect();
             let mut full = ids(front.prefix.path());
             full.extend(below);
-            front.streams.remove(&full);
+            front.closable.remove(&full);
         }
         // a backend answers only what it was sent: a reply under another seq could pose as the answer to a request
         // of the same client to the front itself or to another slot

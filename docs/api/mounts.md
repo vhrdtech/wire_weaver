@@ -146,8 +146,9 @@ fn hub_request(&mut self, _cx: &mut Context<'_, impl EventOut>, request: MountRe
 ```
 
 A client cancelling a forwarded request reaches the backend through `Backend::cancel`. When the backend goes, each
-request it didn't answer gets `Unavailable` (`err_seq::MOUNT_BACKEND_GONE`) and each stream opened through the slot
-a `Close` sideband. A request past 64 waiting for the link or 256 in flight is refused with `Overloaded`
+request it didn't answer gets `Unavailable` (`err_seq::MOUNT_BACKEND_GONE`), and each stream opened and each trait
+level observed through the slot a `Close` sideband at its path: the client's stream ends, its observers get
+`ObserveEvent::Ended`. A request past 64 waiting for the link or 256 in flight is refused with `Overloaded`
 (`err_seq::MOUNT_QUEUE_FULL`); a request longer than the backend takes, or a reply longer than the front's link
 takes, with `ResponseSerFailed` (`err_seq::MOUNT_TOO_LONG`).
 

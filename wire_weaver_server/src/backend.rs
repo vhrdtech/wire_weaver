@@ -60,6 +60,13 @@ pub trait Backend: WireWeaverSharedApiBackend {
         async {}
     }
 
+    /// The client cancelled its request `seq` (SRV-47), which the connection doesn't hold: it was answered, or the
+    /// backend sent it on and answers it later (a mount forwarder, SRV-78). Called before the backend's next
+    /// [poll](Self::poll). Does nothing by default.
+    fn cancel(&mut self, seq: u32) {
+        let _ = seq;
+    }
+
     /// The connection is over: the client left, its link timed out, or the server disconnected it. Let go of what
     /// the client held (keys it pressed, locks it took). Runs once, after every request of the connection ended
     /// and before the backend is dropped, for at most [Limits::shutdown_grace](crate::Limits::shutdown_grace);

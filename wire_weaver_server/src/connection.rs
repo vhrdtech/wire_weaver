@@ -21,6 +21,7 @@ use ww_device::{
 };
 
 use crate::authorize::Authorization;
+use crate::mount::MountRoutes;
 use crate::backend::Backend;
 use crate::lifecycle::{Lifecycle, Running, Stage};
 use crate::outbox::{Outbox, OutboxSink};
@@ -215,6 +216,13 @@ struct Conn<'a, Tx, Rx, C, S> {
     life: &'a Lifecycle,
     /// The server's stage as this connection last saw it.
     stage: Stage,
+    /// Global paths into mount slots (SRV-78).
+    routes: Option<MountRoutes>,
+    /// A request rerouted into a mount slot is written here.
+    rerouted: Vec<u8>,
+    /// Cancels of requests the connection doesn't hold (answered, or sent on by the backend), for the backend's
+    /// next turn ([Backend::cancel]).
+    cancels: Vec<u32>,
 }
 
 /// No request runs.
@@ -331,7 +339,10 @@ impl<Tx: MessageTx, Rx: MessageRx, C: Clock, S: PumpSetOps> Conn<'_, Tx, Rx, C, 
         let (mut loopback, mut cancel) = (None, None);
         if let Some((kind, message)) = self.rx.message() {
             match self.link.handle_message(now, kind, message) {
-                Some(Received::Data(request)) => match Queued::read(request, now) {
+                Some(Received::Data(request)) => match Queued::read(
+                    reroute(self.routes.as_ref(), request, &mut self.rerouted),
+                    now,
+                ) {
                     Ok(queued) => self.pending.push_back(queued),
                     Err(seq) => cancel = Some(seq),
                 },
@@ -363,6 +374,9 @@ impl<Tx: MessageTx, Rx: MessageRx, C: Clock, S: PumpSetOps> Conn<'_, Tx, Rx, C, 
             self.answer_error(seq, priority, Why::Cancelled).await;
         } else if let Some((_, handle)) = self.running.iter().find(|(s, _)| *s == seq) {
             handle.abort();
+        } else if self.cancels.len() < self.limits.pending_max {
+            // the backend may hold it: a mount forwarder sent it on (SRV-78)
+            self.cancels.push(seq);
         }
     }
 
@@ -751,14 +765,27 @@ async fn next_finished<F: Future<Output = Finished>>(
     .await
 }
 
-/// Let the backend send what is due.
+/// `request`, or the same request with the absolute path into the mount slot its global path reaches, written into
+/// `buf` (SRV-78).
+fn reroute<'a>(routes: Option<&MountRoutes>, request: &'a [u8], buf: &'a mut [u8]) -> &'a [u8] {
+    match routes {
+        Some(routes) => routes.request_into_mount(request, buf).unwrap_or(request),
+        None => request,
+    }
+}
+
+/// Let the backend send what is due, after the cancels it may hold.
 async fn poll<B: Backend>(
     backend: &mut B,
     medium: B::Medium,
     outbox: &Outbox,
     now: ww_device::Instant,
     mut events: Vec<u8>,
+    cancels: Vec<u32>,
 ) -> Finished {
+    for seq in cancels {
+        backend.cancel(seq);
+    }
     let mut out = EventWriter::new(OutboxSink(outbox), &mut events);
     backend.poll(&mut out, medium, now).await;
     Finished::Polled(events)
@@ -780,6 +807,7 @@ pub(crate) async fn run<M: MakeBackend>(
     limits: Limits,
     life: impl Deref<Target = Lifecycle>,
     authorization: Option<impl Deref<Target = Authorization>>,
+    routes: Option<MountRoutes>,
 ) {
     let (make, life) = (&*make, &*life);
     let authorization = authorization.as_deref();
@@ -808,6 +836,9 @@ pub(crate) async fn run<M: MakeBackend>(
         limits,
         life,
         stage: Stage::Run,
+        routes,
+        rerouted: vec![0; buffer_len],
+        cancels: Vec::new(),
     };
     conn.rx.reset();
     conn.tx.reset();
@@ -888,7 +919,8 @@ async fn serve<Tx: MessageTx, Rx: MessageRx, C: Clock + Clone, S: PumpSetOps, B:
         }
         // the backend's own turn, to its end
         let (events, now) = (conn.take_buffer(), conn.clock.now());
-        let work = pin!(poll(backend, medium, outbox, now, events));
+        let cancels = std::mem::take(&mut conn.cancels);
+        let work = pin!(poll(backend, medium, outbox, now, events, cancels));
         if !conn.finish(work).await {
             return;
         }
@@ -1023,6 +1055,9 @@ impl<Tx: MessageTx, Rx: MessageRx, C: Clock + Clone, S: PumpSetOps> Conn<'_, Tx,
                 Flow::Continue | Flow::Up => {
                     if !self.pending.is_empty() || self.stage != Stage::Run {
                         return Idle::Request;
+                    }
+                    if !self.cancels.is_empty() {
+                        return Idle::Woke;
                     }
                 }
             }

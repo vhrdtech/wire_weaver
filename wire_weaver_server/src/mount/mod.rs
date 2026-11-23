@@ -6,6 +6,17 @@
 //! - The prefix rewrite of requests and events crossing a slot is `ww_client_server::mount`'s
 //!   ([MountPrefix](ww_client_server::mount::MountPrefix), [request_at](ww_client_server::mount::request_at)).
 
+mod connect;
+mod forward;
 mod global_paths;
+mod link;
+mod table;
+
+pub use connect::Connect;
+pub use forward::Forwarder;
+#[cfg(feature = "local_socket")]
+pub use connect::LocalSocket;
+pub use link::LinkDown;
+pub use table::{Learn, MountEvent, MountOptions, MountRoutes, Mounts};
 
 pub use global_paths::MountedTraits;

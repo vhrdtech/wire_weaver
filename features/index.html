@@ -6888,6 +6888,12 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
   with that hint. Both forms write the same bytes, the input of a tape's <code>Segment::Key</code>. <code>tests/keyed</code> (both
   servers, the client, the local trait, a <code>serve_trait</code> server forwarding to a client, the scaffold, pinned key
   bytes), <a href="../docs/api/arrays/#keys-that-borrow">docs</a>.</li>
+<li>✅ <strong>API-73 The model of an API root in a program</strong> · <code>v0.5.x</code> — <code>ww_codegen!(crate :: Settings, bundle =
+  "no_docs" | "with_docs")</code> emits <code>pub const SETTINGS_BUNDLE: [u8; N]</code>, the root's <code>ApiBundleOwned</code> in shrink_wrap
+  bytes with every dependency type inline, so a program decodes it with no source or snapshot at hand (<code>ww_json</code>'s
+  TOML codec over settings files in an installed binary). No server or client needed; works in the API crate itself,
+  which stays free of the runtime. <code>wire_weaver_core::codegen::bundle</code>, <code>ww_json</code> test
+  <code>compiled_bundle_reads_levels_as_the_loaded_one</code>, <a href="../docs/api/json/#the-model-in-a-program">docs</a>.</li>
 <li>📋 <strong>API-69 Streams ending with a common error</strong> — a stream that stops because the device refused to go on
   (<code>Busy</code>, <code>NoPower</code>, <code>Fault</code>) ends today with the stream's <code>Close</code> sideband or an error of the API's own item type;
   the common error (STD-16) has no place in a running stream's items yet. Filed with SRV-63, not built: a <code>Common</code>

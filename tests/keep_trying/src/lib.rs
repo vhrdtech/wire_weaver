@@ -3,9 +3,13 @@
 //! clock. The server starts late, goes away and comes back while an observer keeps delivering; addresses are tried in
 //! order; the backoff and the give-up time are the configured ones; `retry_now()` hurries a waiting connection,
 //! restarts an attempt under way and pings a running link; the addresses of an attempt open at once (CLT-80).
+//! `discovery` follows a server found over DNS-SD to its new address, on real sockets (CLT-82).
 
 #[cfg(test)]
-mod tests {
+mod discovery;
+
+#[cfg(test)]
+pub(crate) mod tests {
     use std::time::Duration;
 
     use tokio::sync::broadcast;
@@ -20,7 +24,7 @@ mod tests {
 
     type Ticks = Fixed<Item, One, u32>;
 
-    mod server {
+    pub(crate) mod server {
         use super::*;
 
         pub struct Server {
@@ -83,7 +87,7 @@ mod tests {
         }
     }
 
-    mod client {
+    pub(crate) mod client {
         use wire_weaver_client::{ClientConfig, Commander, WwClient};
 
         pub struct Client {
@@ -136,7 +140,9 @@ mod tests {
     }
 
     /// The next event that isn't a [ConnectionEvent::Connecting] or [ConnectionEvent::AttemptFailed].
-    async fn next_outcome(events: &mut broadcast::Receiver<ConnectionEvent>) -> ConnectionEvent {
+    pub(crate) async fn next_outcome(
+        events: &mut broadcast::Receiver<ConnectionEvent>,
+    ) -> ConnectionEvent {
         loop {
             match events.recv().await.expect("the connection's events") {
                 ConnectionEvent::Connecting { .. } | ConnectionEvent::AttemptFailed { .. } => {}

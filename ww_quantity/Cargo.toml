@@ -1,0 +1,20 @@
+[package]
+name = "ww_quantity"
+version = "0.1.0"
+authors.workspace = true
+description = "ww_si quantities known only from introspection data: units, values, text input and conversion for dynamic WireWeaver clients"
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+homepage.workspace = true
+license.workspace = true
+
+[dependencies]
+shrink_wrap.workspace = true
+ww_numeric = { workspace = true, features = ["std"] }
+ww_self = { workspace = true, features = ["expr", "std"] }
+# customary: a host knows every unit by name (DynUnit::from_name)
+ww_si = { workspace = true, features = ["std", "customary"] }
+
+[lints]
+workspace = true

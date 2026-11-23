@@ -600,6 +600,9 @@ enum Media {
     /// The simulated WebSocket (`in_process::ws_device`), served on the test's runtime and `LocalSet`.
     #[cfg(feature = "ws")]
     Ws,
+    /// A real WebSocket on this TCP listener, served on the test's runtime and `LocalSet`.
+    #[cfg(feature = "ws")]
+    WsTcp(Arc<std::net::TcpListener>),
     /// The simulated UDP device (`in_process::udp_device`), served on the test's runtime and `LocalSet`, every
     /// datagram from the host going through the [Impair].
     Udp(Arc<Mutex<Impair>>),
@@ -623,6 +626,51 @@ pub fn start_device_async_ws<S: TestProcessEventsAsync<Medium = ()> + Send + 'st
     api: DeviceApi,
 ) -> TestDevice {
     start_on(path, Media::Ws, AsyncServer(server), version, wire, api, ())
+}
+
+/// Like [start_device_async_ws], but over a real WebSocket on `listener` (TCP, non-blocking, bound by the test):
+/// hosts reach it with `websocket_url("ws://ADDR/ww")`. Dropping the [TestDevice] closes the listener and the link,
+/// as a server that goes away. Runs on real sockets: not for a paused clock.
+///
+/// # Panics
+///
+/// Outside a `LocalSet`, or when `listener` is not usable by tokio.
+#[cfg(feature = "ws")]
+pub fn start_device_async_ws_tcp<S: TestProcessEventsAsync<Medium = ()> + Send + 'static>(
+    listener: std::net::TcpListener,
+    server: S,
+    version: FullVersion<'static>,
+    wire: WireVersion,
+    api: DeviceApi,
+) -> TestDevice {
+    let path = format!(
+        "ws tcp {}",
+        listener.local_addr().expect("a bound listener")
+    );
+    let media = Media::WsTcp(Arc::new(listener));
+    start_on(&path, media, AsyncServer(server), version, wire, api, ())
+}
+
+/// The connections of `listener` on tokio, with Nagle off as a device's.
+#[cfg(feature = "ws")]
+fn tcp_incoming(
+    listener: &std::net::TcpListener,
+) -> impl futures_util::Stream<Item = tokio_util::compat::Compat<tokio::net::TcpStream>> + Unpin + use<>
+{
+    use tokio_util::compat::TokioAsyncReadCompatExt;
+    let listener = listener.try_clone().expect("a listener to serve");
+    listener
+        .set_nonblocking(true)
+        .expect("a non-blocking listener");
+    let listener = tokio::net::TcpListener::from_std(listener).expect("a listener tokio can use");
+    Box::pin(futures_util::stream::unfold(
+        listener,
+        |listener| async move {
+            let (stream, _) = listener.accept().await.ok()?;
+            stream.set_nodelay(true).ok()?;
+            Some((stream.compat(), listener))
+        },
+    ))
 }
 
 /// Like [start_device_async], but over simulated UDP (`in_process::udp_device`, `ww_device::udp`, `ww_link`'s UDP
@@ -838,12 +886,16 @@ fn start_with<S: Process + Send + 'static>(
             usb_sim = Some(ready.recv().expect("the device listens"));
         }
         #[cfg(feature = "ws")]
-        Media::Ws => {
+        media @ (Media::Ws | Media::WsTcp(_)) => {
+            use futures_util::{StreamExt, future::Either};
             use ww_device::ws::{IoSocket, WS_OVERHEAD, WsConnection, WsRx, WsTx};
-            // registered now: a host connecting right after this returns finds it
-            let port = in_process::ws_device(path);
+            // registered or listening now: a host connecting right after this returns finds it
+            let incoming = match media {
+                Media::WsTcp(listener) => Either::Right(tcp_incoming(&listener).map(Either::Right)),
+                _ => Either::Left(in_process::ws_device(path).map(Either::Left)),
+            };
             tokio::task::spawn_local(async move {
-                let conn = WsConnection::new(IoSocket::new(port));
+                let conn = WsConnection::new(IoSocket::new(incoming));
                 let mut tx_buf = vec![0u8; MAX_MESSAGE_LEN + WS_OVERHEAD];
                 let mut rx_buf = vec![0u8; MAX_MESSAGE_LEN + WS_OVERHEAD];
                 let tx = WsTx::new(&conn, &mut tx_buf);

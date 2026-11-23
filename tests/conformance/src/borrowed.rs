@@ -119,6 +119,7 @@ borrowed_types! {
         cfg_subset => CfgSubset,
         config_v1 => ConfigV1<'_>,
         config_v2 => ConfigV2<'_>,
+        config_elided => ConfigElided<'_>,
         fixed_numbers => FixedNumbers,
         fixed_bits => FixedBits,
         fixed_nested => FixedOuter,

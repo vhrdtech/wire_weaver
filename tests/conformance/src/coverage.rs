@@ -72,6 +72,7 @@ const DIRECTIVE_KINDS: &[(&str, &str)] = &[
     ("no_future_version", "no_future_version"),
     ("flag", "#[flag]"),
     ("default", "#[default = "),
+    ("elide_defaults", "elide_defaults"),
     ("wire", "#[wire("),
 ];
 

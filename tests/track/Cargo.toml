@@ -1,0 +1,27 @@
+[package]
+name = "track"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Tests of #[track] (API-71): the layout of each stream in a device's introspection data"
+
+[features]
+default = ["std"]
+# default, unused here: this crate has no no_std gate and no owned/borrowed derive choice
+std = []
+
+[dev-dependencies]
+tests_common.workspace = true
+track_api.workspace = true
+wire_weaver = { workspace = true, features = ["std"] }
+ww_client_server.workspace = true
+ww_self.workspace = true
+ww_si.workspace = true
+ww_stream = { workspace = true, features = ["std"] }
+
+[lints]
+workspace = true

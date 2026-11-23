@@ -1,7 +1,7 @@
 // global_fixture_api 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 1e68e0420a5cd8346d93f9bb819ac86848091df3b255504c3bc3f2b8ca4c47dc
-(magic: 2837124336, ww_self_version: (major: 0, minor: 5, patch: 0), root: (docs: [
+// shrink_wrap sha256: 0c9d6fe53bc0141c15d7962a57a4791ce8050d468043aa10f4e3bf315dc2359c
+(magic: 2837124336, ww_self_version: (major: 0, minor: 7, patch: 0), root: (docs: [
     "A global trait for `tests/dispatch_golden` (TEST-31, API-20): a const next to a writable property, reached by",
     "`GlobalFull` and `GlobalCompact`. Standing in for a real `ww_stdlib` crate (R7): only the global-path shape",
     "matters here, not any real API\'s behavior.",
@@ -14,8 +14,8 @@
         ], optional: None, meta: None, identity: None),
         (id: 1, kind: Property(ty: MaxLen(max_len: Fixed(32), ty: String), access: ReadWrite(observe: false), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "name", docs: [
             "Written and read on a global path.",
-        ], optional: None, meta: Some((claim: None, shares: [], labels: [], effects: (2))), identity: None),
-    ], compact_id: Some(516), meta: Some((claim: None, shares: [], labels: [], effects: (2)))), crate_idx: 0),
+        ], optional: None, meta: Some((claim: None, shares: [], labels: [], effects: (2), track: None)), identity: None),
+    ], compact_id: Some(516), meta: Some((claim: None, shares: [], labels: [], effects: (2), track: None))), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "global_fixture_api", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
 ], root_omitted: None, wire: None, ext_wire: None)

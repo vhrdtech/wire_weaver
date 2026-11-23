@@ -222,9 +222,11 @@ The codegen pipeline (read `wire_weaver_derive`, then `wire_weaver_core`):
   `ww_api::prelude`), `WireWeaverAsyncApiBackend`/`WireWeaverApiBackend`
   (sans-IO server traits), the handler `Context` (seq, medium, `EventOut`/`BlockingEventOut`), `RpcResult`/
   `GetResult`/`SetResult`. Generated server code is IO-free; transport is separate.
-- **`wire_weaver_client/`**: the `std` client runtime (event loop, `Commander`, the dynamic client, `quantity`);
-  host transports (USB, RTT, WebSocket, UDP, local socket, in-process, hub) are `Transport` impls behind features
+- **`wire_weaver_client/`**: the `std` client runtime (event loop, `Commander`, the dynamic client); host
+  transports (USB, RTT, WebSocket, UDP, local socket, in-process, hub) are `Transport` impls behind features
   (`event_loop/transport.rs`). There is no `no_std` client yet (CLT-14).
+- **`ww_quantity/`**: `ww_si` quantities known only from introspection data (`DynUnit`, `DynQuantity`, text input),
+  for the dynamic client, `ww`, Python and `ww_json`; free of the client runtime (`tests/layers_lint`).
 - **Transport and device**: `ww_link` (link layer), `ww_framer` (packs small messages into packets and splits big
   ones), `ww_device` (sans-IO `DeviceLink`, async `Server` with `wait()`/`handle()`, `blocking::Server`; RTT,
   WebSocket, UDP and `embassy-net` behind features), `mcu/wire_weaver_usb_embassy` (embassy-usb class).

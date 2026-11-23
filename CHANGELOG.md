@@ -12,7 +12,14 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 ## [Unreleased]
 
 - Mount slots: `mount!` and `mounts!` declare levels whose API is known only at run time (SRV-76); see `ww_api`, `ww_self`, `ww_client_server`, `wire_weaver_core`, `wire_weaver_client`.
+- An API crate carries its own model as bytes, `ww_codegen!(crate :: Root, bundle = ..)`, for `ww_json` in installed programs (API-73); see `wire_weaver_derive`, `wire_weaver_core`.
+- Clients find WebSocket servers on the LAN over DNS-SD and follow one to its new address (CLT-82); see `ww_dns_sd`, `wire_weaver_client`.
+- `keyed!` takes a key that borrows, a string name, owned wherever a key is kept (API-72); see `wire_weaver_derive`, `wire_weaver_core`.
+- New crate `ww_json`: the values of any API as JSON and back, quantities as text with their unit, errors with JSON paths (INT-14), and a JSON Schema of every argument list, result, property and stream item (INT-15); see `ww_json`, `wire_weaver_client`.
+- `#[track(points | spans | series, dims(..), flags)]` on streams says how recorders lay them out; model format 0.6.0 (`ww_self`, `wire_weaver_core`, `wire_weaver_evolution`, `ww_snapshots`, `ww_tap`; API-71).
 - The client and server build for Android: USB is only where a crate asks for it (`wire_weaver_client`, `wire_weaver_server`).
+- `ww_json` reads and writes TOML by the JSON form's rules: settings levels decoded onto a base value, changes written back keeping comments (INT-18); see `ww_json`.
+- New crate `ww_quantity`: the dynamic quantities of `wire_weaver_client::quantity`, so `ww_json` builds without the client runtime (CLT-31); see `ww_quantity`, `wire_weaver_client`, `ww_json`.
 
 ## [0.6.0] - 2026-11-22
 

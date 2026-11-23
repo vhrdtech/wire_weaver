@@ -2,12 +2,14 @@
 
 ### ⚠️ Breaking
 
+- The `quantity` module moved to the new crate `ww_quantity`: depend on it and write `ww_quantity::DynQuantity` for `wire_weaver_client::quantity::DynQuantity` (CLT-31).
 - `tap::decode`, `tap::stats`, `tap::Decoder` and the other decoder types moved to `ww_tap_decoder` (vhrdtech/ww_tools); `tap` keeps `Tap` and `TapSource` (TR-14).
 - The `ww_tape` and `ww_tape_fs` re-exports are removed: depend on them directly.
 - `tap` no longer re-exports `Recorder`, `RecorderConfig`, `RecorderLink`, `Subscription`, `Chunk` and `Layers`, and `TapSource` has no `From<Recorder>`: give `TapSource::new` a `Tap` (TOOL-14).
 
 ### 🐛 Fixes
 
+- `quantity::parse_quantity_in` reads what `DynQuantity` writes: a ratio's `%`, `‰`, `ppm` and `ppb`, a `Fixed` scale without a symbol as its factor (`3·2⁻¹⁵ V`) and `Pow10`, `Pow2` and `FullScale` prefixes (`12345·10⁻⁴ s`).
 - Builds without `usb` (Android): `nusb` is optional under `usb`; `holder_of_usb_device` needs `usb` or `rtt`.
 - Android gets the client kind and host name from `/proc`, as Linux does.
 - A disconnect while a medium opens, or dropping a keep-trying client mid-attempt, stops the attempt at once (CLT-75).
@@ -22,6 +24,8 @@
 
 - The dynamic client reads a mount slot's `presence`, also of an element of `mounts!` (SRV-76).
 - `MountSlot` and `Commander::mount_slot`: a slot's `presence` and `api_path` (SRV-76).
+- `ClientConfig::websocket_urls_from(UrlSource)`: URLs asked again at every connect and reconnect attempt (CLT-82).
+- `discovery` (feature `dns_sd`): `ww_dns_sd`'s `Discovery` and `discovery::urls`, a server's URLs per attempt (CLT-82).
 - `KeyStream::into_item_stream`: a `keys` stream as the item stream of a local trait, the key cache following it (CLT-58).
 - Public for a tap decoder outside the crate: `envelope::request_variant`, `event_variant`, `inline_known`, `load_by_hash` and `tap::FRAMED_USB`, `FRAMED_USB_SEQ`, `FRAMED_UDP`, `STREAM_PLAIN` (TR-14).
 - A reconnect onto another revision of the device's API on the same wire line learns the device again instead of refusing it (CLT-81).

@@ -60,6 +60,7 @@ nav = [
                     { "Large messages and result sets" = "api/large_messages.md" },
                     "api/optional_items.md",
                     "api/introspection.md",
+                    { "JSON and TOML for any API" = "api/json.md" },
                     { "Metadata: effects, claims, pins, labels" = "api/metadata.md" },
                     "api/multi_requests.md",
                     "api/observing.md",

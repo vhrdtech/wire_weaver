@@ -439,6 +439,36 @@ pub fn table() -> Vec<Typed> {
             },
         ),
         case("evolution.old_reads_new", config_v1()),
+        case(
+            "evolution.elide_defaults.elided",
+            ConfigElidedOwned {
+                rate: 1000,
+                name: s("abc"),
+                timeout: 7,
+                retries: None,
+                tags: None,
+            },
+        ),
+        case(
+            "evolution.elide_defaults.partial",
+            ConfigElidedOwned {
+                rate: 1000,
+                name: s("abc"),
+                timeout: 20,
+                retries: Some(9),
+                tags: None,
+            },
+        ),
+        case(
+            "evolution.elide_defaults.non_default_after",
+            ConfigElidedOwned {
+                rate: 1000,
+                name: s("abc"),
+                timeout: 7,
+                retries: None,
+                tags: Some(vec![1, 2]),
+            },
+        ),
         // fixed layout
         case(
             "fixed.numbers",

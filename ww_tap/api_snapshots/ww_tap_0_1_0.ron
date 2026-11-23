@@ -1,7 +1,7 @@
 // ww_tap 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: aab358a1f09013a5b77265a15d4cc54d2a0c22cdbea78ef2cd25110cb8b55ed2
-(magic: 2837124336, ww_self_version: (major: 0, minor: 5, patch: 0), root: (docs: [
+// shrink_wrap sha256: 5cad4aa10f59706438cb1609cdef101d4cb15f8d59fab978d6858fed2f5531bf
+(magic: 2837124336, ww_self_version: (major: 0, minor: 7, patch: 0), root: (docs: [
     "The link tap: what crosses a wire_weaver link, recorded at the transport edge, for monitors, statistics and",
     "captures (TR-14).",
     "",
@@ -196,30 +196,63 @@
         "",
         "One link\'s records are one set of these streams: the tracks of every link share their keys, and the link\'s",
         "identity, its [dimensions](dims) (the medium and the peer, a USB serial or an address), tells them",
-        "apart. The same device recorded twice, in one capture or in two, gives its tracks the same ids.",
+        "apart. The same device recorded twice, in one capture or in two, gives its tracks the same ids. Every stream is",
+        "recorded as points (`#[track]`, API-71) with the dimensions of [dims].",
     ], crate_idx: 0, trait_name: "LinkTap", items: [
         (id: 0, kind: Stream(ty: OutOfLine(type_idx: 0), is_up: true), multiplicity: Flat, since: None, ident: "session", docs: [
             "The link\'s session, updated when it is set up (a state track: put near each use).",
-        ], optional: None, meta: None, identity: None),
+        ], optional: None, meta: Some((claim: None, shares: [], labels: [], effects: (0), track: Some((layout: Points, dims: [
+            "link",
+            "medium",
+            "peer",
+        ], flags: false)))), identity: None),
         (id: 1, kind: Stream(ty: OutOfLine(type_idx: 1), is_up: true), multiplicity: Flat, since: None, ident: "events", docs: [
             "Connects, disconnects, errors, lost records.",
-        ], optional: None, meta: None, identity: None),
+        ], optional: None, meta: Some((claim: None, shares: [], labels: [], effects: (0), track: Some((layout: Points, dims: [
+            "link",
+            "medium",
+            "peer",
+        ], flags: false)))), identity: None),
         (id: 2, kind: Stream(ty: OutOfLine(type_idx: 2), is_up: true), multiplicity: Flat, since: None, ident: "tx_frames", docs: [
             "Frames sent.",
-        ], optional: None, meta: None, identity: None),
+        ], optional: None, meta: Some((claim: None, shares: [], labels: [], effects: (0), track: Some((layout: Points, dims: [
+            "link",
+            "medium",
+            "peer",
+        ], flags: false)))), identity: None),
         (id: 3, kind: Stream(ty: OutOfLine(type_idx: 2), is_up: true), multiplicity: Flat, since: None, ident: "rx_frames", docs: [
             "Frames received.",
-        ], optional: None, meta: None, identity: None),
+        ], optional: None, meta: Some((claim: None, shares: [], labels: [], effects: (0), track: Some((layout: Points, dims: [
+            "link",
+            "medium",
+            "peer",
+        ], flags: false)))), identity: None),
         (id: 4, kind: Stream(ty: OutOfLine(type_idx: 3), is_up: true), multiplicity: Flat, since: None, ident: "tx_messages", docs: [
             "Messages sent.",
-        ], optional: None, meta: None, identity: None),
+        ], optional: None, meta: Some((claim: None, shares: [], labels: [], effects: (0), track: Some((layout: Points, dims: [
+            "link",
+            "medium",
+            "peer",
+        ], flags: false)))), identity: None),
         (id: 5, kind: Stream(ty: OutOfLine(type_idx: 3), is_up: true), multiplicity: Flat, since: None, ident: "rx_messages", docs: [
             "Messages received.",
-        ], optional: None, meta: None, identity: None),
+        ], optional: None, meta: Some((claim: None, shares: [], labels: [], effects: (0), track: Some((layout: Points, dims: [
+            "link",
+            "medium",
+            "peer",
+        ], flags: false)))), identity: None),
         (id: 6, kind: Stream(ty: OutOfLine(type_idx: 4), is_up: true), multiplicity: Flat, since: None, ident: "client_map", docs: [
             "Server only: which client\'s request a device-side request was.",
-        ], optional: None, meta: None, identity: None),
-    ], compact_id: None, meta: None), crate_idx: 0),
+        ], optional: None, meta: Some((claim: None, shares: [], labels: [], effects: (0), track: Some((layout: Points, dims: [
+            "link",
+            "medium",
+            "peer",
+        ], flags: false)))), identity: None),
+    ], compact_id: None, meta: Some((claim: None, shares: [], labels: [], effects: (0), track: Some((layout: Points, dims: [
+        "link",
+        "medium",
+        "peer",
+    ], flags: false))))), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_tap", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
 ], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([

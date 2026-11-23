@@ -22,8 +22,8 @@
 //! [DynQuantity] is a value with that unit: `3300 mV` as stored, `3.3 V` with `{:#}`, [DynQuantity::to_si_f64]. Units
 //! are shown, named and converted by `ww_si::tree`, the code that does it for typed quantities.
 
+use shrink_wrap::{DeserializeShrinkWrap, RefBox, SerializeShrinkWrapOwned};
 use std::fmt;
-use wire_weaver::shrink_wrap::{DeserializeShrinkWrap, RefBox, SerializeShrinkWrapOwned};
 use ww_numeric::{NumericBaseType, NumericValue};
 pub use ww_self::units::NumBounds;
 use ww_self::units::{Wrapper, wrapper_of};
@@ -995,6 +995,19 @@ fn prefix_before(symbol: &str, unit: &str, scale: Option<&DynPrefix>) -> Option<
     if symbol == unit || symbol.is_empty() {
         return Some(DynPrefix::UNIT);
     }
+    // a ratio has no symbol of its own, its prefixes are written as `%`, `‰`, `ppm`, `ppb` (as `exact_units` writes them)
+    if unit.is_empty() {
+        let prefix = match symbol {
+            "%" => Some(Prefix::Centi),
+            "‰" | "permille" => Some(Prefix::Milli),
+            "ppm" => Some(Prefix::Micro),
+            "ppb" => Some(Prefix::Nano),
+            _ => None,
+        };
+        if let Some(p) = prefix {
+            return Some(p.into());
+        }
+    }
     let head = symbol
         .strip_suffix(unit.as_str())
         .or_else(|| symbol.strip_suffix(&format!("({unit})")))?;
@@ -1006,6 +1019,40 @@ fn prefix_before(symbol: &str, unit: &str, scale: Option<&DynPrefix>) -> Option<
         && scale.symbol() == head
     {
         return Some(scale.clone());
+    }
+    // a scale without a symbol is written as its factor, `3·2⁻¹⁵ V`, `5·10⁻⁴ s` (see write_prefix_unit)
+    if let Some(scale) = scale
+        && let DynPrefix::Exact { symbol, magnitude } = scale
+        && symbol.is_empty()
+    {
+        let factor: String = magnitude
+            .to_string()
+            .chars()
+            .filter(|c| !c.is_whitespace())
+            .collect();
+        if factor == head {
+            return Some(scale.clone());
+        }
+    }
+    if head.starts_with('·') {
+        // a prefix without a symbol, written as its factor: `10⁻⁴`, `2⁻¹⁵`, `1/65535`
+        use ww_si::exact_units::{FullScaleBits, Pow2Exp, Pow10Exp};
+        let candidates = (-63..=63i8)
+            .filter_map(|e| Pow10Exp::new(e).map(Prefix::Pow10))
+            .chain((-63..=63i8).filter_map(|e| Pow2Exp::new(e).map(Prefix::Pow2)))
+            .chain((2..=32u8).filter_map(|n| FullScaleBits::new(n).map(Prefix::FullScale)));
+        for p in candidates {
+            let factor: String = p
+                .magnitude()
+                .map(|m| m.to_string())
+                .unwrap_or_default()
+                .chars()
+                .filter(|c| !c.is_whitespace())
+                .collect();
+            if factor == head {
+                return Some(DynPrefix::Si(p));
+            }
+        }
     }
     Prefix::ALL
         .into_iter()
@@ -1368,6 +1415,96 @@ pub fn stored_number(
     })())
 }
 
+/// A `Point`'s value (`ty` is `Point<O, Fixed<..>>`) from text, `None` when `ty` is no `Point`: the number in the origin's
+/// own symbol (`25.5 °C`), or an absolute quantity in the coordinate's unit with an SI prefix (`298.15 K`). The
+/// number is placed exactly (the origin's offset and step as fractions) and written into the coordinate's scale and
+/// storage; a position that falls between two stored steps, out of bounds or in another unit is an error. A plain
+/// number is ambiguous (raw or shown) and is not accepted here, see [stored_number].
+pub fn parse_point_in(
+    text: &str,
+    ty: &TypeOwned,
+    bundle: &ApiBundleOwned,
+) -> Option<Result<ValueOwned, String>> {
+    let (origin, coord_ty) = point_of(ty, bundle)?;
+    Some((|| {
+        let name = type_name(ty, bundle);
+        let refuse = |why: String| format!("`{text}` can't be written into {name}: {why}");
+        let fixed = fixed_of(&coord_ty, bundle)
+            .ok_or_else(|| refuse(format!("{} is no Fixed", type_name(&coord_ty, bundle))))?;
+        let squeezed: String = text.chars().filter(|c| !c.is_whitespace()).collect();
+        // the number in the origin's own symbol, else in the coordinate's unit
+        let symbol: String = origin
+            .symbol
+            .chars()
+            .filter(|c| !c.is_whitespace())
+            .collect();
+        let own = match symbol.is_empty() {
+            true => None,
+            false => squeezed.strip_suffix(symbol.as_str()),
+        };
+        let q = match own {
+            Some(number) => parse_quantity_in(number, Some(&fixed.unit), None),
+            None => parse_quantity_in(text, Some(&fixed.unit), None),
+        }
+        .map_err(|e| refuse(format!("expected a number in {}: {e}", origin.symbol)))?;
+        let (mantissa, exp) =
+            decimal_of(&q.value).ok_or_else(|| refuse("not a finite number".into()))?;
+        let number = i64::try_from(mantissa)
+            .ok()
+            .zip(Magnitude::checked_pow10(exp))
+            .map(|(m, p)| Offset::ratio(m, 1).mul(p))
+            .ok_or_else(|| refuse("the number is past what an exact offset holds".into()))?;
+        let scale = q
+            .prefix
+            .magnitude()
+            .ok_or_else(|| refuse("a scale from a newer version".into()))?;
+        let stored_scale = fixed
+            .prefix
+            .magnitude()
+            .and_then(|m| m.checked_recip().ok())
+            .ok_or_else(|| refuse("a scale from a newer version".into()))?;
+        let x = number.mul(scale);
+        // physical = shown · step + shown zero, and raw · scale = physical - offset
+        let physical = match own {
+            Some(_) => x.mul(origin.step).checked_add(origin.shown),
+            None => Some(x),
+        };
+        let raw = physical
+            .and_then(|p| p.checked_add(origin.offset.neg()))
+            .map(|r| r.mul(stored_scale))
+            .ok_or_else(|| refuse("the position doesn't fit exact arithmetic".into()))?;
+        let value = if fixed.storage.is_float() {
+            let x = raw
+                .checked_to_f64()
+                .ok_or_else(|| refuse("not a finite number".into()))?;
+            match fixed.storage.base {
+                NumericBaseType::F32 => NumericValue::F32(x as f32),
+                _ => NumericValue::F64(x),
+            }
+        } else {
+            let whole = match raw.to_ratio() {
+                Some((n, 1)) => n,
+                _ => {
+                    return Err(refuse(format!(
+                        "not a whole number of {}",
+                        prefix_unit(&fixed.prefix, &fixed.unit)
+                    )));
+                }
+            };
+            ww_self::expr::int_value(whole, &fixed.storage.base)
+                .map_err(|e| refuse(e.to_string()))?
+        };
+        DynQuantity {
+            prefix: fixed.prefix.clone(),
+            value,
+            unit: fixed.unit.clone(),
+            storage: Some(fixed.storage.clone()),
+            origin: Some(origin),
+        }
+        .to_value(ty, bundle)
+    })())
+}
+
 /// `ty`'s name for messages: `Fixed<Second, Micro, u32, Unbounded>`.
 fn type_name(ty: &TypeOwned, bundle: &ApiBundleOwned) -> String {
     ty.human_name(false, bundle)
@@ -1614,7 +1751,7 @@ fn unit(ty: &TypeOwned, bundle: &ApiBundleOwned, depth: usize) -> DynUnit {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wire_weaver::shrink_wrap::SerializeShrinkWrap;
+    use shrink_wrap::SerializeShrinkWrap;
     use ww_si::units::{AngularVelocity, Degree, Meter, Per, Ratio, Second, Speed, Times, Torque};
 
     #[test]

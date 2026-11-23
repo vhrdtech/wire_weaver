@@ -146,6 +146,46 @@ queries (bounded by its packet size), Avahi does so in its own daemon. Every val
 against DNS limits before anything is sent: the instance name, the id, the path, each `key=value` within 255
 bytes, at most 16 addresses.
 
+## Finding servers on the LAN
+
+`ww_dns_sd::Discovery` (feature `mdns`) browses the LAN for `_wireweaver._tcp` and keeps the list of servers
+current as they come, change address and go, on a thread of its own and without an async runtime (CLT-82). Each
+`FoundServer` has its instance name, port, path, TXT `api`, `wire` and `id`, and its addresses, IPv4 first.
+`wire_weaver_client` re-exports it under its `dns_sd` feature (off by default), and `discovery::urls` hands a
+`ClientConfig` a source of WebSocket URLs that is asked again at every connect and every reconnect attempt, so a
+keep-trying client follows a server to its new address after a DHCP change:
+
+```rust
+use wire_weaver_client::discovery::{self, Discovery, Select};
+
+let discovery = Discovery::start()?;
+discovery.on_change(move || ctx.request_repaint()); // called from the browsing thread
+for server in discovery.servers().iter() {
+    println!("{} {:?} {:?}", server.instance(), server.api(), server.addresses());
+}
+let client = MyClient::config(|c| {
+    c.websocket_urls_from(discovery::urls(
+        &discovery,
+        Select::Name("Living room TV".into()),
+        vec!["ws://100.64.0.5:7590/ww".into()], // tried after the found addresses: a saved or VPN address
+    ))
+})
+.connect_keep_trying()?;
+```
+
+`Select` picks a server by instance name, by TXT `id` (stable across renames) or by API crate. While the server is
+not found, the attempt has only the fallback URLs; with none, it finds no device and the next attempt asks again.
+Browsing stops when the last clone of the `Discovery` is dropped. `Discovery::fed()` gives a discovery that the
+caller fills by hand instead, for tests or servers known some other way. `ww_dns_sd::Browser` is the browser
+underneath, for a caller that keeps its own list.
+
+The browser runs `mdns-sd` in-process, on every interface. On Android the app must hold a
+`WifiManager.MulticastLock` while it browses, or the Wi-Fi driver drops the multicast answers; browse only while
+the app is on screen. The `dns_sd` feature builds without `usb`, so a WebSocket-only client (an Android app) builds
+no USB code. A found server is what someone on the LAN announced: names are not authenticated, and link setup still
+checks the API. Values read from the LAN are checked against the same limits as announced ones; a record that breaks
+them is skipped, and at most `SERVERS_MAX` servers are kept.
+
 ## Simulated WebSocket in tests
 
 With the client's `in_process` and `ws` features, `wire_weaver_client::in_process::ws_device(path)` registers a device

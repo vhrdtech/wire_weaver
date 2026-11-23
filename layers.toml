@@ -182,8 +182,11 @@ tests_common = { layer = "runtime" }
 thermo = { layer = "runtime" }
 thermo_api = { layer = "runtime", no_std = true }
 thermo_devices = { layer = "runtime" }
+toml_settings_api = { layer = "runtime", no_std = true }
 totals = { layer = "runtime" }
 totals_api = { layer = "runtime", no_std = true }
+track = { layer = "runtime" }
+track_api = { layer = "runtime" }
 traits = { layer = "runtime" }
 traits_api = { layer = "runtime" }
 wire_line = { layer = "runtime" }
@@ -205,6 +208,8 @@ ww_device = { layer = "runtime", no_std = true, unsafe = true }
 ww_dns_sd = { layer = "runtime" }
 ww_framer = { layer = "runtime", no_std = true, unsafe = true }
 ww_hub = { layer = "runtime" }
+ww_json = { layer = "runtime" }
+ww_quantity = { layer = "runtime" }
 ww_hub_api = { layer = "runtime", no_std = true }
 ww_link = { layer = "runtime", no_std = true }
 ww_local_socket = { layer = "runtime", unsafe = true }

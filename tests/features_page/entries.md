@@ -121,6 +121,7 @@ in either direction. WireWeaver generates the device's server and the host's cli
 - API-54 | Optional traits | Leave a whole block of the API out of a build, e.g. behind a Cargo feature, and clients see it is not there. | api/optional_items.md#optional-traits
 - API-32 | Error lists | Which errors each method can return, shown in docs and tools and checked in tests. | api/methods.md#error-lists
 - API-58 | Effects | Every method, writable property and sink says what it does (`read`, `persist`, `actuate`, ...): GUIs, agents and the hub know what is safe to call. | api/metadata.md#effect-what-an-item-does
+- API-71 | Track layout | Each stream says how a recorder lays it out on a tape: points, spans or a series, with its dimensions and flags. | api/metadata.md#track-how-a-stream-is-recorded
 - API-31, API-35 | Stream functions | Open a stream with typed arguments and a result, like a method call. | api/streams.md#stream-functions
 - API-38 | Observing properties | Ask a device to send changes on change or periodically, within a byte budget. | api/observing.md
 - API-39 | Observing every sample | A fast property's every sample, each at its time, in compressed batches; typed and dynamic clients, the CLI and Python. | api/observing.md#every-sample-batched
@@ -129,6 +130,8 @@ in either direction. WireWeaver generates the device's server and the host's cli
 - API-70 | Running totals | A pointer or scroll wheel over UDP: each sink write carries the sum so far, so a lost write loses nothing and nothing waits. | api/totals.md
 - API-68 | The API crate prelude `ww_api` | An API crate depends on `ww_api`, not the runtime: the macros, `shrink_wrap` and the common types in one prelude, checked by the layer lint. | api/folder_structure.md
 - API-67 | Keyed resource arrays | Address the elements of an array by a key (`keyed!(flow by FlowKey)`) instead of the index the device gave them. | api/arrays.md
+- API-72 | Keys that borrow | A string key (`DetectorName<'i>`): borrowed on a device without an allocator, owned where a key is kept. | api/arrays.md#keys-that-borrow
+- API-73 | The model in a program | An API crate carries its own model as bytes, so a program reads and writes its values (settings TOML, JSON) without the source. | api/json.md#the-model-in-a-program
 - API-50 | Observe cells | Sample a level from an interrupt in place, value by value into a ring of atomics: a quarter of the cycles and a tenth of the stack of `sample()` at opt-level z, the same wire. | api/observing.md#cells-sampling-from-an-interrupt
 - API-52 | A cheaper observe poll | The poll that sends a level's samples spends its time on the codec: half the cycles at opt-level 3, a third at z, the same bytes. | articles/series.md#cpu-and-flash-on-a-microcontroller
 - API-41 | Batched streams | A stream opts into sending samples many per event as a compressed `Series` instead of one at a time, for plain, counted and reliable streams; typed and dynamic clients, the CLI and Python. | api/batching.md
@@ -251,6 +254,7 @@ from the description the device sends of itself; the `ww` tool and Python are bu
 - CLT-38 | Who holds a device | A busy error names the program already holding a USB interface or RTT probe, pid and since when; a crash releases it right away. | transport/hub.md#who-holds-a-device-clt-38
 - CLT-39 | Hub routing in connect | A device the ww hub holds, or one opened again and again from a shell, is reached through the hub, which a program starts by itself when needed; `WW_HUB` says when. | transport/hub.md#reaching-devices-through-the-hub-clt-39
 - CLT-79 | Where a connect's time goes | A connect reports each step as a `tracing` span, and `just connect-bench` times them for many clients at once or a board on USB, cold and warm. | transport/overview.md#where-a-connects-time-goes
+- CLT-82 | Servers found on the LAN | A client finds WebSocket servers announced over DNS-SD and follows one to its new address after a DHCP change. | transport/websocket.md#finding-servers-on-the-lan
 - CLT-81 | Reconnect onto another API revision | A reconnect to other firmware on the same wire line learns its API again and resumes what still fits. | transport/keep_trying.md#another-revision-of-the-devices-api
 - CLT-75 | Keep-trying connections | A client that exists at once, connects when the device comes up, reconnects whenever the link goes and resumes its observers and streams, racing its addresses; `retry_now()` hurries it. | transport/keep_trying.md
 - CLT-80 | Addresses raced | A device reachable at several addresses (LAN and VPN) is connected at whichever answers first, so an address that is gone costs nothing. | transport/keep_trying.md#what-it-does
@@ -316,8 +320,11 @@ A device can send a description of its own API, so tools and scripts work with i
 
 - INT-4 | Bit-sized numbers in the model | `U7`, `I12`, nibbles and the like, read and written by the dynamic client and Python. | std_library/ww_self.md
 - INT-13 | Units in the model | A device's API carries the definition of every unit, scale and origin it uses, also of your own crate's, so `ww`, the dynamic client and Python convert and show them without a built-in table. | std_library/units_in_the_model.md
+- INT-14 | JSON for any API | `ww_json` turns the values of any method, property or stream into JSON and back, quantities as text with their unit (`"5 ms"`), big integers as strings, errors naming the JSON path. | api/json.md
+- INT-15 | JSON Schema of every item | `ww_json::schema` describes the arguments, results, properties and stream items of any API as a JSON Schema, quantities with their unit and bounds, for MCP servers and other JSON clients. | api/json.md#json-schema
 - INT-16 | Compressed introspection data | `introspect_compression = "lz4"` keeps a device's API description compressed in flash, the client decompresses it: 4.3 KB less on rePort. | api/introspection.md#compressed-introspection-data
 - INT-17 | Identity of a renamed resource | A resource renamed with `#[moved_from]` keeps its first name in the device's API description, so recordings follow it across the rename. | evolution/rules.md#moving-a-resource-to-another-place
+- INT-18 | TOML for any API | `ww_json::toml` reads and writes the values of any API type as TOML by the JSON form's rules, decodes a settings level onto a base value and writes changes back into a file, keeping its comments. | api/json.md
 - INT-3 | Moved flag bits | Relocated `#[flag]` fields in the model and in dynamic values. | std_library/ww_self.md
 
 ## Nomicon

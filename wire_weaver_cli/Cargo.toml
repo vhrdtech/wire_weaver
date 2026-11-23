@@ -33,7 +33,7 @@ serde = { workspace = true, features = ["std"] }
 serde_json.workspace = true
 shrink_wrap = { workspace = true, features = ["std"] }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal", "sync"] }
-toml_edit.workspace = true
+toml_edit = { workspace = true, features = ["display", "parse"] }
 tracing.workspace = true
 tracing-subscriber.workspace = true
 wire_weaver.workspace = true
@@ -46,6 +46,7 @@ ww_snapshots.workspace = true
 wire_weaver_core.workspace = true
 wire_weaver_evolution = { workspace = true, features = ["source"] }
 ww_numeric.workspace = true
+ww_quantity.workspace = true
 ww_settings = { workspace = true, features = ["dump"] }
 ww_si = { workspace = true, features = ["std"] }
 ww_timebase = { workspace = true, features = ["std"] }

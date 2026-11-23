@@ -401,7 +401,7 @@ dependencies = [
 [[package]]
 name = "shrink_wrap"
 version = "0.2.0"
-source = "git+https://github.com/romixlab/shrink_wrap#12c2742b54d3ccb8a73cda4a95bc795326c4c60f"
+source = "git+https://github.com/romixlab/shrink_wrap#a3254497008a5f9671d31eaa7bc062c5b094880d"
 dependencies = [
  "either",
  "pastey",
@@ -412,7 +412,7 @@ dependencies = [
 [[package]]
 name = "shrink_wrap_derive"
 version = "0.2.0"
-source = "git+https://github.com/romixlab/shrink_wrap#12c2742b54d3ccb8a73cda4a95bc795326c4c60f"
+source = "git+https://github.com/romixlab/shrink_wrap#a3254497008a5f9671d31eaa7bc062c5b094880d"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -432,7 +432,7 @@ dependencies = [
 [[package]]
 name = "size_bench_rt"
 version = "0.1.0"
-source = "git+https://github.com/romixlab/shrink_wrap#12c2742b54d3ccb8a73cda4a95bc795326c4c60f"
+source = "git+https://github.com/romixlab/shrink_wrap#a3254497008a5f9671d31eaa7bc062c5b094880d"
 
 [[package]]
 name = "stable_deref_trait"

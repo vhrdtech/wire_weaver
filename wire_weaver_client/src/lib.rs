@@ -1,5 +1,5 @@
-//! The `std` client runtime: the event loop, `Commander`, the dynamic client ([`mod@facade`]), typed quantities
-//! ([`quantity`]) and property observation ([`observe`]). Host transports (USB, RTT, WebSocket, UDP, local
+//! The `std` client runtime: the event loop, `Commander`, the dynamic client ([`mod@facade`], its quantities from
+//! `ww_quantity`) and property observation ([`observe`]). Host transports (USB, RTT, WebSocket, UDP, local
 //! socket, in-process, the ww hub) are `Transport` impls behind features, selected by a generated client's
 //! `ClientConfig`. There is no `no_std` client yet (CLT-14).
 use std::time::Duration;
@@ -37,7 +37,6 @@ pub mod local;
 pub use client::observe;
 mod local_registry;
 pub use local_registry::load_by_hash;
-pub mod quantity;
 pub mod tap;
 pub mod totals;
 mod tracing;
@@ -74,7 +73,7 @@ pub use client::sink::CreditConfig;
 pub use client::sink::Sink;
 pub use client::stream::{RawStreamEvent, Stream, StreamError, TypedStreamEvent};
 pub use client_meta::{ClientKind, ClientMeta};
-pub use config::{ClientApi, ClientConfig, ClientLine, DEFAULT_HUB_GIVE_UP};
+pub use config::{ClientApi, ClientConfig, ClientLine, DEFAULT_HUB_GIVE_UP, UrlSource};
 pub use connection_event::{ConnectionEvent, ConnectionState, GapReason, RetryNow};
 pub use device_info::{ApiInfo, DeviceApiInfo, DeviceInfo, MessageLimit, UsbLocation};
 pub use event_loop::commander::Commander;
@@ -108,6 +107,9 @@ pub mod in_process;
 pub mod local_socket;
 #[cfg(feature = "local_socket")]
 pub mod usb_sim;
+
+#[cfg(feature = "dns_sd")]
+pub mod discovery;
 
 #[cfg(feature = "ws")]
 mod ws;

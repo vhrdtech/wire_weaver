@@ -4,7 +4,7 @@ use std::net::{IpAddr, UdpSocket};
 use std::time::Duration;
 
 use mdns_sd::{IfKind, ResolvedService, ServiceDaemon, ServiceEvent};
-use ww_dns_sd::{Advertiser, MdnsResponder};
+use ww_dns_sd::{Advertiser, Browsed, Browser, MdnsOptions, MdnsResponder};
 
 use crate::common::{PORT, record};
 
@@ -106,4 +106,63 @@ fn browser_sees_record_appear_change_and_go() {
 
     drop(adv);
     assert_eq!(removed(&events), "Living room TV._wireweaver._tcp.local.");
+}
+
+/// The next thing `browser` saw, which must come before the hang detector fires.
+fn browsed(browser: &Browser) -> Browsed {
+    browser
+        .next(EVENT_TIMEOUT)
+        .unwrap()
+        .expect("a DNS-SD change")
+}
+
+#[test]
+fn ww_browser_finds_the_record_follows_its_address_and_sees_it_go() {
+    let options = MdnsOptions {
+        port: free_port(),
+        loopback_only: true,
+    };
+    let responder = MdnsResponder::with_options(&options).unwrap();
+    let browser = Browser::with_options(&options).unwrap();
+
+    let first: IpAddr = "127.0.0.1".parse().unwrap();
+    let mut adv =
+        Advertiser::new(responder, record("tv-1").with_addresses([first]).unwrap()).unwrap();
+
+    let Browsed::Found(found) = browsed(&browser) else {
+        panic!("expected the record to be found");
+    };
+    assert_eq!(found.instance(), "Living room TV");
+    assert_eq!(found.port().get(), PORT);
+    assert_eq!(found.path(), "/ww");
+    assert_eq!(found.api(), Some("tv_api@0.3.1"));
+    assert_eq!(found.api_crate(), Some("tv_api"));
+    assert_eq!(found.wire(), Some("w1.2"));
+    assert_eq!(found.id().map(|id| id.as_str()), Some("tv-1"));
+    assert_eq!(found.addresses(), [first]);
+    assert_eq!(found.websocket_urls(), ["ws://127.0.0.1:7590/ww"]);
+
+    // a new lease: the goodbye of the old address may show as the server going, then it comes back at the new one
+    let second: IpAddr = "127.0.0.2".parse().unwrap();
+    assert!(adv.set_addresses([second]).unwrap());
+    let mut seen = Vec::new();
+    loop {
+        assert!(seen.len() < 6, "the old address stays: {seen:?}");
+        match browsed(&browser) {
+            Browsed::Found(found) => {
+                assert_eq!(found.instance(), "Living room TV");
+                seen.push(format!("found {:?}", found.addresses()));
+                if found.addresses() == [second] {
+                    break;
+                }
+            }
+            Browsed::Gone(name) => seen.push(format!("gone {name}")),
+        }
+    }
+
+    drop(adv);
+    assert_eq!(
+        browsed(&browser),
+        Browsed::Gone("Living room TV".to_owned())
+    );
 }

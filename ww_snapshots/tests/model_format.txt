@@ -1,4 +1,4 @@
-ww_self model format 0.6.0
+ww_self model format 0.7.0
 ApiBundleOwned: Struct(
     [
         Named {
@@ -1855,6 +1855,14 @@ MetaOwned: Struct(
                 "Effects",
             ),
         },
+        Named {
+            name: "track",
+            value: Option(
+                TypeName(
+                    "TrackOwned",
+                ),
+            ),
+        },
     ],
 )
 Multiplicity: Enum(
@@ -2806,6 +2814,42 @@ TimeZero: Enum(
             ),
         },
     },
+)
+TrackLayout: Enum(
+    {
+        0: Named {
+            name: "Points",
+            value: Unit,
+        },
+        1: Named {
+            name: "Spans",
+            value: Unit,
+        },
+        2: Named {
+            name: "Series",
+            value: Unit,
+        },
+    },
+)
+TrackOwned: Struct(
+    [
+        Named {
+            name: "layout",
+            value: TypeName(
+                "TrackLayout",
+            ),
+        },
+        Named {
+            name: "dims",
+            value: Seq(
+                Str,
+            ),
+        },
+        Named {
+            name: "flags",
+            value: Bool,
+        },
+    ],
 )
 TypeLocationOwned: Enum(
     {

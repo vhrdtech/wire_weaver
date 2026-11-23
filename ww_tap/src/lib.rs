@@ -134,8 +134,10 @@ impl<T: Tap> Tap for Option<T> {
 ///
 /// One link's records are one set of these streams: the tracks of every link share their keys, and the link's
 /// identity, its [dimensions](dims) (the medium and the peer, a USB serial or an address), tells them
-/// apart. The same device recorded twice, in one capture or in two, gives its tracks the same ids.
+/// apart. The same device recorded twice, in one capture or in two, gives its tracks the same ids. Every stream is
+/// recorded as points (`#[track]`, API-71) with the dimensions of [dims].
 #[ww_trait]
+#[track(points, dims(link, medium, peer))]
 pub trait LinkTap {
     /// The link's session, updated when it is set up (a state track: put near each use).
     stream!(session: Session<'i>);

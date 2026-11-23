@@ -5,13 +5,13 @@ use std::time::Duration;
 
 use mdns_sd::{ServiceDaemon, ServiceInfo, TxtProperty};
 
-use crate::{Error, InstanceName, Responder, SERVICE_TYPE, ServiceRecord};
+use crate::{Error, InstanceName, MdnsOptions, Responder, SERVICE_TYPE, ServiceRecord};
 
 /// The standard mDNS port.
 pub const MDNS_PORT: u16 = 5353;
 
 /// How long a withdraw or shutdown waits for the responder's thread to confirm.
-const CONFIRM_TIMEOUT: Duration = Duration::from_secs(2);
+pub(crate) const CONFIRM_TIMEOUT: Duration = Duration::from_secs(2);
 
 /// Answers mDNS queries for the records it publishes, in this process: no Avahi or Bonjour needed. Joins the mDNS
 /// group on every interface, and announces each address only on the interface whose subnet holds it.
@@ -30,7 +30,15 @@ impl MdnsResponder {
     /// Starts the responder's thread on `port`: only browsers on the same port see it, which keeps tests off the
     /// LAN's mDNS.
     pub fn with_port(port: u16) -> Result<Self, Error> {
-        let daemon = ServiceDaemon::new_with_port(port)?;
+        Self::with_options(&MdnsOptions {
+            port,
+            loopback_only: false,
+        })
+    }
+
+    /// Starts the responder's thread with `options`.
+    pub fn with_options(options: &MdnsOptions) -> Result<Self, Error> {
+        let daemon = options.start()?;
         Ok(Self {
             daemon,
             published: HashMap::new(),
@@ -52,7 +60,7 @@ impl MdnsResponder {
 }
 
 /// `mdns-sd`'s service type, `_wireweaver._tcp.local.`.
-fn ty_domain() -> String {
+pub(crate) fn ty_domain() -> String {
     format!("{SERVICE_TYPE}.local.")
 }
 

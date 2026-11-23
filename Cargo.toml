@@ -27,10 +27,12 @@ members = [
     "ww_framer",
     "ww_hub",
     "ww_hub_api",
+    "ww_json",
     "ww_link",
     "ww_local_socket",
     "ww_lz4",
     "ww_plugin",
+    "ww_quantity",
     "ww_self",
     "ww_settings/*",
     "ww_snapshots",
@@ -111,6 +113,8 @@ indicatif = { version = "0.18", default-features = false, features = ["unicode-w
 interprocess = { version = "2.4", default-features = false, features = ["tokio"] }
 # commands of the ww command line register themselves from their own crate and module
 inventory = { version = "0.3", default-features = false }
+# validates the values of the JSON codec against its schemas in tests (ww_json), no remote or file references
+jsonschema = { version = "0.63", default-features = false }
 libc = { version = "0.2", default-features = false, features = ["std"] }
 log = { version = "0.4", default-features = false }
 # exact: ww_tape pins it, its lz4 payload columns must compress to the same bytes
@@ -150,7 +154,7 @@ tokio-tungstenite = { version = "0.30", default-features = false, features = ["c
 # futures-io streams over tokio ones (`compat`): byte-stream transports on tokio sockets, pipes and processes
 tokio-util = { version = "0.7", default-features = false, features = ["compat"] }
 toml = { version = "1", default-features = false, features = ["parse", "serde", "std"] }
-toml_edit = { version = "0.25", default-features = false, features = ["display", "parse"] }
+toml_edit = { version = "0.25", default-features = false }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 tracing-subscriber = { version = "0.3", default-features = false, features = ["ansi", "fmt", "smallvec", "std", "tracing-log"] }
 trybuild = { version = "1", default-features = false }
@@ -212,8 +216,10 @@ ww_stream = { version = "0.6.0", path = "./ww_stream", default-features = false 
 # framework-level base types, each crate has its own version
 ww_client_server = { version = "0.2.0", path = "./ww_client_server", default-features = false }
 ww_hub_api = { version = "0.1.0", path = "./ww_hub_api", default-features = false }
+ww_json = { version = "0.1.0", path = "./ww_json" }
 ww_lz4 = { version = "0.1.0", path = "./ww_lz4" }
 ww_plugin = { version = "0.1.0", path = "./ww_plugin" }
+ww_quantity = { version = "0.1.0", path = "./ww_quantity" }
 ww_self = { version = "0.3.0", path = "./ww_self" }
 ww_tap = { version = "0.1.0", path = "./ww_tap", default-features = false }
 ww_timebase = { version = "0.1.0", path = "./ww_timebase", default-features = false }
@@ -292,7 +298,9 @@ thermo_api = { version = "4.0.0", path = "./tests/thermo_api" }
 # firmware of the first revision of lines 1 and 2, built from the crate of that time (EVO-42)
 thermo_api_2_0_0 = { package = "thermo_api", version = "2.0.0", path = "./tests/thermo_api_old/2_0_0" }
 thermo_devices = { version = "0.1.0", path = "./tests/thermo_devices" }
+toml_settings_api = { version = "0.1.0", path = "./tests/toml_settings_api" }
 totals_api = { version = "0.1.0", path = "./tests/totals_api" }
+track_api = { version = "0.1.0", path = "./tests/track_api" }
 traits_api = { version = "0.1.0", path = "./tests/traits_api" }
 wire_line_api = { version = "0.4.0", path = "./tests/wire_line_api" }
 wire_line_old_api = { version = "0.3.0", path = "./tests/wire_line_old_api" }

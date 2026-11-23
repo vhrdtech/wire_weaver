@@ -118,7 +118,8 @@ impl<T: WwClient> PreparedConnection<T> {
     }
 
     fn connect_blocking_steps(self) -> Result<T> {
-        let config = debug_span!(spans::VALIDATE).in_scope(|| self.config.validate())?;
+        let validated = debug_span!(spans::VALIDATE).in_scope(|| self.config.validate())?;
+        let config = validated.with_urls_resolved().unwrap_or(validated);
         let (cmd_tx, cmd_rx) = mpsc::channel::<Command>(config.cmd_queue_size);
         let mut cmd_rx = Some(cmd_rx);
         let mut unmatched = vec![];
@@ -470,7 +471,11 @@ pub(crate) async fn connect_to(
     cmd_tx: &mpsc::Sender<Command>,
     channel: &mut Channel,
 ) -> Attempt {
-    let mut config = std::borrow::Cow::Borrowed(config);
+    // a URL source is asked again at each attempt: a server that moved is found at its new address (CLT-82)
+    let mut config = match config.with_urls_resolved() {
+        Some(resolved) => std::borrow::Cow::Owned(resolved),
+        None => std::borrow::Cow::Borrowed(config),
+    };
     let mut failed = Vec::new();
     loop {
         let mut attempt = connect_one(&config, cmd_tx, channel).await;

@@ -61,10 +61,12 @@ published = [
     "ww_framer",
     "ww_hub",
     "ww_hub_api",
+    "ww_json",
     "ww_link",
     "ww_local_socket",
     "ww_lz4",
     "ww_plugin",
+    "ww_quantity",
     "ww_self",
     "ww_settings",
     "ww_settings_derive",
@@ -228,13 +230,6 @@ expires = "2026-12-15"
 # --- locks and shared state: P2401#20nov-1155c removes these ---
 
 [[exceptions]]
-lint = "lock-unwrap"
-crates = ["hub"]
-level = "allow"
-reason = "spl counts tests/captures.rs, a module inside #[cfg(test)] mod tests, as library code; P2645#20nov-1010 fixes spl"
-expires = "2026-12-15"
-
-[[exceptions]]
 lint = "thread-local-state"
 crates = ["wire_weaver_core", "wire_weaver_evolution"]
 level = "allow"
@@ -314,6 +309,7 @@ crates = [
     "wire_weaver_evolution",
     "ww_hub",
     "ww_plugin",
+    "ww_quantity",
     "ww_snapshots",
 ]
 level = "allow"

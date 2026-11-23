@@ -6,6 +6,7 @@ use super::{
     meta::{MetaSite, get_meta},
     mount::{convert_api_item_mount, reject_mount_ident_collisions},
     moved_from::get_moved_from_attrs,
+    track,
     ty::{convert_ty, convert_ty_path, convert_ty_path_segment},
     unit_hint::{is_silenced, suggest, unreasoned_silence},
     util::{
@@ -183,6 +184,13 @@ pub(crate) fn convert_api_items(
         &item_trait.ident.to_string(),
         level_meta.map_or(Effects::NONE, |m| m.effects),
         &mut items,
+    )
+    .context(current_crate.err_context())?;
+    track::settle(
+        &item_trait.ident.to_string(),
+        level_meta.and_then(|m| m.track.as_ref()),
+        &mut items,
+        || scratch.root_bundle.to_bundle(),
     )
     .context(current_crate.err_context())?;
     reject_group_item_collisions(&items).context(current_crate.err_context())?;

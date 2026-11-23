@@ -6,6 +6,7 @@
 
 ### ⚠️ Breaking
 
+- New `Rule::Track` (API-71): another `#[track]` layout or flags word, or a dimension dropped, breaks; a dimension added is compatible.
 - Declares `rust-version = "1.99"`: cargo of an older Rust refuses the crate.
 - The checker refuses a snapshot file of another model format with the step that re-saves it, instead of a RON error such as "missing field `line` in `WireVersion`" (EVO-82).
 - The checker resolves snapshots through `ww_snapshots::Resolver` (EVO-80): the walked crates' `api_snapshots/` first, then the process's `Resolver::global()`. `compare_recorded`, `verify_move`, `superseded::keep_superseded` and `compat::normalize_references` take a resolver, `compat::Bounds` and `TypeCheck` carry one (`Resolver::global()` by default); `compare` and `compare_moved` use the global one. `wire_weaver_snapshots` is no longer a dependency.

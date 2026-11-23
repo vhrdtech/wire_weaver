@@ -32,6 +32,8 @@ ws = [
     "ww_device?/futures-io",
     "tokio/io-util",
 ]
+# finds WebSocket servers on the LAN over DNS-SD (mdns-sd in-process): discovery, CLT-82
+dns_sd = ["dep:ww_dns_sd", "ww_dns_sd/mdns"]
 # UDP, one ww_framer frame per datagram
 udp = ["tokio/net"]
 # RTT over JTAG/SWD (nusb names who holds a busy probe)
@@ -82,6 +84,7 @@ ww_byte_stream = { workspace = true, optional = true }
 ww_client_server = { workspace = true, features = ["std"] }
 ww_date_time = { workspace = true, features = ["std"], optional = true }
 ww_device = { workspace = true, optional = true }
+ww_dns_sd = { workspace = true, optional = true }
 ww_error = { workspace = true, features = ["std"] }
 ww_framer = { workspace = true, features = ["std", "large"] }
 ww_global.workspace = true
@@ -92,6 +95,7 @@ ww_local_socket.workspace = true # the runtime dir for holders' lock files, sock
 ww_lz4 = { workspace = true, features = ["std"] }
 ww_numeric = { workspace = true, features = ["std"] }
 ww_picoboot.workspace = true
+ww_quantity.workspace = true
 ww_self = { workspace = true, features = ["expr", "serde", "std"] }
 # customary: a host knows every unit by name (DynUnit::from_name, Python's convert), firmware opts in on its own
 ww_si = { workspace = true, features = ["std", "customary"] }

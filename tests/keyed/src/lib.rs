@@ -1,12 +1,15 @@
 //! Server of a keyed array (SRV-62): the Dissector of `keyed_api` answers `index_of`, `key[i]`, a multi read of all
 //! keys and the `keys` stream, from a blocking `no_alloc` server and an async one, through the host event loop, to
 //! requests built by hand. The generated and dynamic clients (CLT-72) address flows a device created in shuffled
-//! order by their keys.
+//! order by their keys. A string key that borrows (API-72) also goes through the local trait and `serve_trait`.
 
 pub mod device;
+pub mod local;
 
 #[cfg(test)]
 mod tests {
+    mod string_keys;
+
     use crate::device::*;
     use std::sync::{Arc, Mutex};
     use std::time::Duration;

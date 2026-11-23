@@ -1,6 +1,8 @@
 # Crates
 
 [![CI](https://github.com/vhrdtech/wire_weaver/actions/workflows/ci.yml/badge.svg)](https://github.com/vhrdtech/wire_weaver/actions/workflows/ci.yml) [![Book](https://img.shields.io/badge/book-ww.vhrd.tech-blue)](https://ww.vhrd.tech/)
+[![crates.io](https://img.shields.io/crates/v/ww_quantity)](https://crates.io/crates/ww_quantity)
+[![docs.rs](https://img.shields.io/docsrs/ww_quantity)](https://docs.rs/ww_quantity)
 
 This page lists the crates of the root workspace. The first table links each published crate to crates.io and docs.rs. The second gives every crate's layer from `layers.toml` and the description from its `Cargo.toml`. spirit_level checks both: a published crate without a badge, or a row that differs from the manifests, fails `spl check`. [Architecture](https://ww.vhrd.tech/architecture/) groups the crates by what they do.
 
@@ -25,6 +27,7 @@ This page lists the crates of the root workspace. The first table links each pub
 | `ww_framer` | [![crates.io](https://img.shields.io/crates/v/ww_framer)](https://crates.io/crates/ww_framer) | [![docs.rs](https://img.shields.io/docsrs/ww_framer)](https://docs.rs/ww_framer) |
 | `ww_hub` | [![crates.io](https://img.shields.io/crates/v/ww_hub)](https://crates.io/crates/ww_hub) | [![docs.rs](https://img.shields.io/docsrs/ww_hub)](https://docs.rs/ww_hub) |
 | `ww_hub_api` | [![crates.io](https://img.shields.io/crates/v/ww_hub_api)](https://crates.io/crates/ww_hub_api) | [![docs.rs](https://img.shields.io/docsrs/ww_hub_api)](https://docs.rs/ww_hub_api) |
+| `ww_json` | [![crates.io](https://img.shields.io/crates/v/ww_json)](https://crates.io/crates/ww_json) | [![docs.rs](https://img.shields.io/docsrs/ww_json)](https://docs.rs/ww_json) |
 | `ww_link` | [![crates.io](https://img.shields.io/crates/v/ww_link)](https://crates.io/crates/ww_link) | [![docs.rs](https://img.shields.io/docsrs/ww_link)](https://docs.rs/ww_link) |
 | `ww_local_socket` | [![crates.io](https://img.shields.io/crates/v/ww_local_socket)](https://crates.io/crates/ww_local_socket) | [![docs.rs](https://img.shields.io/docsrs/ww_local_socket)](https://docs.rs/ww_local_socket) |
 | `ww_lz4` | [![crates.io](https://img.shields.io/crates/v/ww_lz4)](https://crates.io/crates/ww_lz4) | [![docs.rs](https://img.shields.io/docsrs/ww_lz4)](https://docs.rs/ww_lz4) |
@@ -111,7 +114,7 @@ This page lists the crates of the root workspace. The first table links each pub
 | [`introspect_compressed_api`](tests/introspect_compressed_api) | runtime | Test API for compressed introspection data (INT-16), used by tests/introspect_compressed |
 | [`io_timebase`](tests/io_timebase) | runtime | ww_timebase end to end: a mock server through tests_common::start_device, the generated client through the real host event loop |
 | [`io_timebase_api`](tests/io_timebase_api) | runtime | Test API root for ww_timebase: every trait of the crate at one level, used by tests/io_timebase |
-| [`keep_trying`](tests/keep_trying) | runtime | Keep-trying connections end to end (CLT-75): a generated client made with connect_keep_trying() against a generated server |
+| [`keep_trying`](tests/keep_trying) | runtime | Keep-trying connections end to end (CLT-75): a generated client made with connect_keep_trying() against a generated server, and one following a server found over DNS-SD (CLT-82) |
 | [`keep_trying_api`](tests/keep_trying_api) | runtime | API of the keep-trying connection tests (CLT-75): one observed property the device counts up |
 | [`keyed`](tests/keyed) | runtime | Server of a keyed array (SRV-62): answers index_of, key[i], a multi read of all keys and the keys stream |
 | [`keyed_api`](tests/keyed_api) | runtime | Keyed resource arrays (API-67): a packet dissector whose flows a client addresses by their key, not by index |
@@ -182,8 +185,11 @@ This page lists the crates of the root workspace. The first table links each pub
 | [`thermo`](tests/thermo) | runtime | A host driver for every wire line of thermo_api (EVO-28, EVO-42): one generated client per line behind one facade. |
 | [`thermo_api`](tests/thermo_api) | runtime | The API of the multi-line bench (EVO-28, EVO-42): a small temperature logger with every wire line still in use. |
 | [`thermo_devices`](tests/thermo_devices) | runtime | Simulated firmware of every line of the thermo_api bench (EVO-28), on tests_common's in-process link. |
+| [`toml_settings_api`](tests/toml_settings_api) | runtime | Test API of ww_json's TOML form (INT-18): a settings tree of nested structs, quantities, enums, lists and options |
 | [`totals`](tests/totals) | runtime | Tests of running totals over plain sinks (API-70): a lossy UDP link that drops and reorders datagrams, WebSocket, a second sender. |
 | [`totals_api`](tests/totals_api) | runtime | Test API of tests/totals: running totals over plain sinks, of a struct of Fixed values and of a counted unit. |
+| [`track`](tests/track) | runtime | Tests of #[track] (API-71): the layout of each stream in a device's introspection data |
+| [`track_api`](tests/track_api) | runtime | API of the #[track] tests (API-71): streams laid out as points, spans and series, with dims and flags |
 | [`traits`](tests/traits) | runtime | Tests of traits_api's trait composition and addressing: sub-traits nested, in arrays and shared/claimable through the hub. |
 | [`traits_api`](tests/traits_api) | runtime | Test API of tests/traits: sub-traits nested, in arrays and shared/claimable through the hub (SRV-34). |
 | [`wire_line`](tests/wire_line) | runtime | Link setup decides on the wire line, not the crate version (EVO-25): old firmware on an old line connecting to a host built against a newer one. |
@@ -206,9 +212,11 @@ This page lists the crates of the root workspace. The first table links each pub
 | [`ww_framer`](ww_framer) | runtime | Packs many small WireWeaver messages into one packet or splits a big one across several |
 | [`ww_hub`](ww_hub) | runtime | The ww hub: one process per user that holds WireWeaver devices and serves every program (SRV-13) |
 | [`ww_hub_api`](ww_hub_api) | runtime | API of the ww hub: the per-user process that holds devices and serves every program (SRV-13) |
+| [`ww_json`](ww_json) | runtime | JSON and TOML for any WireWeaver API: values to and from serde_json and toml_edit, and a JSON Schema of every argument, result, property and stream item, guided by the API model |
 | [`ww_link`](ww_link) | runtime | WireWeaver is a wire format and API code generator for resource constrained systems. |
 | [`ww_local_socket`](ww_local_socket) | runtime | WireWeaver over local sockets: user-only Unix sockets and named pipes, the holders handover |
 | [`ww_plugin`](ww_plugin) | runtime | Device arguments and the protocol an executable ww plugin (ww-NAME) needs, without the ww hub |
+| [`ww_quantity`](ww_quantity) | runtime | ww_si quantities known only from introspection data: units, values, text input and conversion for dynamic WireWeaver clients |
 | [`ww_settings`](ww_settings/ww_settings) | runtime | Power-cut safe settings store for devices: a struct of fields with defaults, kept as an evolvable shrink_wrap record in NOR flash |
 | [`ww_settings_derive`](ww_settings/ww_settings_derive) | runtime | #[derive(Settings)] for ww_settings groups |
 | [`ww_stream`](ww_stream) | runtime | Counted and reliable WireWeaver streams: positions, loss accounting, acknowledgements, stores, backfill |

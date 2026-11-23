@@ -1253,7 +1253,7 @@ impl Hub {
         if self.lent_to(key).is_some() {
             return Err(Status::Lent);
         }
-        // spirit-level: allow(lock-held-across) the slot's async lock is held while the device opens, so one task opens a device
+        // spirit-level: allow(lock-held-across) the slot's async lock is held until the device's task is in it, so one task opens a device; the send is an unbounded channel's and never waits
         let handle = device::open(self, key, slot.clone()).await?;
         let _ = handle.tx.send(msg);
         *guard = Some(handle);

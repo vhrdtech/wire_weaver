@@ -423,7 +423,7 @@ impl TreePrinter<'_> {
             Err(e) => return style(format!("<{e}>")).red().to_string(),
         };
         // a Fixed with what its numbers are in, and its bounds (CLT-54): `Fixed<Second, Micro, u32, Unbounded> [µs]`
-        match wire_weaver_client::quantity::fixed_of(ty, self.bundle) {
+        match ww_quantity::fixed_of(ty, self.bundle) {
             Some(fixed) => {
                 let bounds = &fixed.storage.bounds;
                 let unit = match bounds.is_none() {
@@ -697,7 +697,9 @@ trait Dissector keyed_api@0.1.0
 │  ├─ 0 ro property bytes: Fixed<Byte, One, u64, Unbounded>
 │  └─ 1 stream packets: Vec<u8>
 ├─ 1 keyed flow_keys: flow by FlowKey
-└─ 2 #[effect(edit)] fn clear()
+├─ 2 #[effect(edit)] fn clear()
+├─ 3 ro property detector[] keyed by DetectorName: Fixed<Byte, One, u64, Unbounded>
+└─ 4 keyed detector_keys: detector by DetectorName
 ";
         assert_eq!(tree, expected);
     }

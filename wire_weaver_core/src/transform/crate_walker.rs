@@ -11,7 +11,7 @@ use anyhow::{Context, Result, anyhow};
 use cargo_toml::{Dependency, DepsSet, Inheritable, Manifest};
 use shrink_wrap::UNib32;
 use std::cell::{OnceCell, RefCell};
-use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -553,6 +553,9 @@ pub(crate) struct Scratch {
     /// Every `impl Trait for Ty` of a crate ([CrateContext::trait_impls]), by crate: indexed when a projection first
     /// looks into the crate.
     trait_impls: HashMap<FullVersionOwned, Rc<[TraitImpl]>>,
+    /// Definitions with a lifetime whose `#[derive_shrink_wrap(..)]` has no `owned`, so no `<Name>Owned` exists for
+    /// code that keeps a value (a `keyed!` key, API-72).
+    pub(crate) no_owned_form: HashSet<UNib32>,
 }
 
 /// Whether no `#[cfg(..)]` of `attrs` is known to be false for a crate built with `features`.

@@ -606,6 +606,8 @@ pub(crate) struct Args {
     pub(crate) no_future_version: bool,
     pub(crate) future_version: Option<String>,
     pub(crate) transparent: bool,
+    /// `owned` is among the directives: a type with a lifetime has a `<Name>Owned` form.
+    pub(crate) owned: bool,
 }
 
 impl Parse for Args {
@@ -617,6 +619,7 @@ impl Parse for Args {
         let mut no_future_version = false;
         let mut future_version = None;
         let mut transparent = false;
+        let mut owned = false;
 
         while !input.is_empty() {
             let ident: Ident = input.parse()?;
@@ -659,11 +662,19 @@ impl Parse for Args {
                          used in an API",
                     ));
                 }
-                "borrowed" | "owned" | "derive" | "derive_owned" | "derive_borrowed"
-                | "cfg_attr" | "cfg_attr_owned" | "cfg_attr_borrowed" | "discriminants"
-                | "crate_path" | "non_exhaustive" | "display" | "series" | "niche" => {
+                "owned" => {
+                    owned = true;
+                    if input.peek(syn::token::Paren) {
+                        let _group: proc_macro2::Group = input.parse()?;
+                    }
+                }
+                "borrowed" | "derive" | "derive_owned" | "derive_borrowed" | "cfg_attr"
+                | "cfg_attr_owned" | "cfg_attr_borrowed" | "discriminants" | "crate_path"
+                | "non_exhaustive" | "display" | "series" | "niche" | "elide_defaults" => {
                     // Directives irrelevant to wire_weaver_core's introspection (it only cares
                     // about `ww_repr`, the size assumption and `sparse`) - skip their arguments, if any.
+                    // `elide_defaults` (SW-85) changes which bytes a value takes, not how they read: the
+                    // model has no `#[default]` values to elide by (INT-10), so its writers write every field.
                     if input.peek(syn::token::Paren) {
                         let _group: proc_macro2::Group = input.parse()?;
                     }
@@ -703,6 +714,7 @@ impl Parse for Args {
             no_future_version,
             future_version,
             transparent,
+            owned,
         })
     }
 }

@@ -1733,8 +1733,6 @@
       
         
       
-        
-      
     
     
     
@@ -1956,33 +1954,6 @@
     
   
   Introspection data
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../api/json/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  JSON for any API
 
     
   </span>
@@ -6881,8 +6852,8 @@
 <ul>
 <li>✅ <strong>CODEC-3 Payloads</strong> · <code>v0.5</code></li>
 </ul>
-<p>Item payloads are a column of bit-packed lengths and a column of bytes, stored raw or as lz4, whichever is smaller. A damaged column is salvaged group by group, and only a bad group's items are marked.</p>
-<p>Read more: <a href="https://tape.vhrd.tech/columns/#payloads">Payloads</a>. Golden file <code>v1-payloads.hex</code>; fuzz target <code>tape-payloads</code>.</p>
+<p>Item payloads are a column of bit-packed lengths and a column of bytes, stored raw or as lz4. The writer picks the codec per track: by default whichever is smaller, raw always for payloads that don't compress, or a named codec. A later codec is a new entry in a registry, never a format break. A damaged column is salvaged group by group, and only a bad group's items are marked.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/columns/#payloads">Payloads</a>, <a href="https://tape.vhrd.tech/format/#adding-a-payload-codec">Adding a codec</a>. Golden file <code>v1-payloads.hex</code>; fuzz target <code>tape-payloads</code>.</p>
 <ul>
 <li>✅ <strong>CODEC-4 ALP for floats</strong> · <code>v0.5</code></li>
 </ul>
@@ -6933,22 +6904,38 @@
 <p>Open: the chapters that are still stubs, tested code in every guide chapter, and screenshots of autorange and damage once eventfull draws them.</p>
 <p>Read more: <a href="https://tape.vhrd.tech/writers/">For writers</a>, <a href="https://tape.vhrd.tech/glossary/">Glossary</a>.</p>
 <h2 id="example-and-cases-ex">Example and cases (<code>EX</code>)<a class="headerlink" href="#example-and-cases-ex" title="Permanent link">&para;</a></h2>
-<p>The book's running example and its other cases, in the crate <code>ww_tape_example</code>.</p>
+<p>The book's running example and its other cases: <code>example_drive</code>, <code>example_rf</code>, <code>example_ethernet</code> and <code>example_wideband</code>, with what they share in <code>example_capture</code>.</p>
 <ul>
 <li>✅ <strong>EX-1 The drive's hour as code</strong></li>
 </ul>
-<p><code>ww_tape_example</code> records the drive motor controller's hour: log lines, mode, CAN frames, phase current with summaries and temperature, in a chain of pieces. <code>Drive::scaled</code> shrinks the data and the byte policies for figures, and a crash at any byte resumes to the bytes of the run without it. The RF capture (<code>rf</code>) records ComplexI16 IQ at 20 MS/s as the book's case for high rates. <code>cargo run -p ww_tape_example</code> prints the story's numbers, and the tests pin them.</p>
-<p>Read more: <a href="https://github.com/vhrdtech/ww_tape/blob/a0a5eefa0514609dbca7eeb7bfaeddbc0015dc1d/ww_tape_example/README.md">ww_tape_example</a>. Tests <code>story.rs</code>, <code>damage.rs</code>, <code>rf.rs</code>.</p>
+<p><code>example_drive</code> records the drive motor controller's hour: log lines, mode, CAN frames, phase current with summaries and temperature, in a chain of pieces. <code>Drive::scaled</code> shrinks the data and the byte policies for figures, and a crash at any byte resumes to the bytes of the run without it. The RF capture (<code>example_rf</code>) records ComplexI16 IQ at 20 MS/s as the book's case for high rates. <code>cargo run -p example_drive</code> prints the story's numbers, and the tests pin them.</p>
+<p>Read more: <a href="https://github.com/vhrdtech/ww_tape/blob/eed43fa8b45ca38a09c2332bbcf80a9b77367559/example_drive/README.md">example_drive</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/eed43fa8b45ca38a09c2332bbcf80a9b77367559/example_rf/README.md">example_rf</a>. Tests <code>story.rs</code>, <code>damage.rs</code>, <code>rf.rs</code>.</p>
 <ul>
 <li>✅ <strong>EX-2 A 10 Gbps link and a 1 GS/s receiver</strong></li>
 </ul>
-<p><code>ethernet</code> records a protocol analyser on both directions of a 10 Gbps link: frames as raw-bytes events, decoded headers as tracks related to their frames. <code>wideband</code> records a 1 GS/s receiver in channels, each a series track with its own producer thread, over several muxes and chains. <code>just bench-ethernet</code> and <code>just bench-wideband</code> measure how much of the link and the band one PC keeps.</p>
-<p>Read more: <a href="https://tape.vhrd.tech/protocol_analyser/">Every frame of a 10 Gbps link</a>, <a href="https://tape.vhrd.tech/wideband/">A billion samples a second</a>. Tests <code>ethernet.rs</code>, <code>wideband.rs</code>.</p>
+<p><code>example_ethernet</code> records a protocol analyser on both directions of a 10 Gbps link: frames as raw-bytes events, decoded headers as tracks related to their frames. <code>example_wideband</code> records a 1 GS/s receiver in channels, each a series track with its own producer thread, over several muxes and chains. <code>just bench-ethernet</code> and <code>just bench-wideband</code> measure how much of the link and the band one PC keeps.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/protocol_analyser/">Keeping what matters of a 10 Gbps link</a>, <a href="https://tape.vhrd.tech/wideband/">Keeping the bursts of a fast band</a>. Tests <code>ethernet.rs</code>, <code>wideband.rs</code>.</p>
 <ul>
 <li>✅ <strong>EX-3 The example writes through the mux</strong></li>
 </ul>
-<p><code>Drive::record</code> writes through a <code>TapeMux</code> from one thread in the story's fixed order, so the placement is the same every run. Each source uses the handle that fits it, and <code>Crashed::resume</code> resumes the mux to the bytes of the whole run. The book's writer code comes from this path, and <code>ww_tape_example::handles::record</code> runs one thread per source.</p>
+<p><code>Drive::record</code> writes through a <code>TapeMux</code> from one thread in the story's fixed order, so the placement is the same every run. Each source uses the handle that fits it, and <code>Crashed::resume</code> resumes the mux to the bytes of the whole run. The book's writer code comes from this path, and <code>example_drive::handles::record</code> runs one thread per source.</p>
 <p>Read more: <a href="https://tape.vhrd.tech/writing_thread/#the-drive-with-one-thread-per-source">The drive with one thread per source</a>. Tests <code>handles.rs</code>.</p>
+<ul>
+<li>✅ <strong>EX-4 Capture into memory, keep what matters</strong></li>
+</ul>
+<p><code>example_capture::window</code> runs a capture into chains of pieces in memory, each written by a mux of its own. An analyser on a thread per chain reads each piece as it closes. The pieces it keeps, with their neighbours, are copied to a store of their own, and the rest leave memory unwritten.</p>
+<p><code>example_ethernet::ram</code> captures the 10 Gbps link in a chain per port and keeps the pieces around each TCP reset. It writes the resets it finds to a results chain. <code>example_wideband::ram</code> captures a 250 MS/s receiver and keeps the pieces around each burst, found by energy detection on the summary nodes alone. <code>just bench-ethernet</code> and <code>just bench-wideband</code> measure the capture's pace, the triage's speed and the bytes kept.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/protocol_analyser/">Keeping what matters of a 10 Gbps link</a>, <a href="https://tape.vhrd.tech/wideband/">Keeping the bursts of a fast band</a>. Tests <code>window.rs</code>, <code>ethernet_ram.rs</code>, <code>wideband_ram.rs</code>.</p>
+<ul>
+<li>✅ <strong>EX-5 A crate per case, its pipeline a library</strong></li>
+</ul>
+<p>Each case is a crate of its own: <code>example_drive</code> the book's running example, <code>example_rf</code>, <code>example_ethernet</code> and <code>example_wideband</code>. What they share, the memory window and the RF signal, is in <code>example_capture</code>, so no case depends on another. <code>window::start</code> and each case's <code>start</code> return a running pipeline. It hands out its memory window, the pieces in memory and each mux's watch, so a viewer follows it live. Each case has a headless binary whose <code>main</code> reads like a block diagram of its threads.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/protocol_analyser/#the-pipeline">The pipeline</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/eed43fa8b45ca38a09c2332bbcf80a9b77367559/example_capture/README.md">example_capture</a>. Tests <code>window.rs</code>.</p>
+<ul>
+<li>✅ <strong>EX-6 Payload compression measured on the cases</strong></li>
+</ul>
+<p><code>example_ethernet</code> records its <code>frames</code> payloads raw, as its payloads are random like encrypted traffic, and <code>Link::payload(PayloadMix::Plain)</code> makes a synthetic plaintext mix whose payloads compress. <code>just bench-ethernet</code> measures both mixes with <code>PayloadCodec</code> Raw and Auto: the bytes kept and the CPU time a frame takes. <code>just bench-wideband</code> measures the bytes and CPU time a sample takes under each sample codec.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/protocol_analyser/">Keeping what matters of a 10 Gbps link</a>, <a href="https://tape.vhrd.tech/wideband/">Keeping the bursts of a fast band</a>. Test <code>ethernet.rs</code>.</p>
 <h2 id="repository-repo">Repository (<code>REPO</code>)<a class="headerlink" href="#repository-repo" title="Permanent link">&para;</a></h2>
 <p>Crates, checks, fuzzing and benches.</p>
 <ul>
@@ -6963,8 +6950,9 @@
 <ul>
 <li>🚧 <strong>REPO-1 Crates by what they touch</strong></li>
 </ul>
-<p><code>ww_tape</code> writes and reads tapes on sinks and sources without std, <code>ww_tape_codecs</code> holds the codecs and <code>ww_tape_summary</code> the summaries. <code>ww_tape_fs</code> holds everything that names a path. The writer, chain and resume build with alloc only, and the codecs build for wasm32 without std. The codecs work on slices. Memory tapes keep their bytes in extents that never move, and <code>MemTapes::drop_front</code> frees a tape's oldest pieces.</p>
-<p>Open: std-free definition records (owned types in <code>shrink_wrap</code> and <code>ww_version</code>), verify-on-read, integrity levels, a seal.</p>
+<p><code>ww_tape</code> writes and reads tapes on sinks and sources without std, <code>ww_tape_codecs</code> holds the codecs and <code>ww_tape_summary</code> the summaries. <code>ww_tape_fs</code> holds everything that names a path. The writer, chain and resume build with alloc only, and the codecs build for wasm32 without std.</p>
+<p>The codecs work on slices. Memory tapes keep their bytes in extents that never move, and <code>MemTapes::drop_front</code> frees a tape's oldest pieces. A reader checks payload CRCs as <code>OpenOptions::check_payloads</code> says: by default a file is checked and a memory tape of this process is not.</p>
+<p>Open: std-free definition records (owned types in <code>shrink_wrap</code> and <code>ww_version</code>), integrity levels, a seal.</p>
 <p>Read more: <a href="https://tape.vhrd.tech/tape/#the-crates">The crates</a>.</p>
 <h2 id="dropped-and-superseded">Dropped and superseded<a class="headerlink" href="#dropped-and-superseded" title="Permanent link">&para;</a></h2>
 <p>Nothing yet.</p>

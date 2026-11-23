@@ -332,6 +332,7 @@ A device can send a description of its own API, so tools and scripts work with i
 - **[JSON Schema of every item](api/json.md#json-schema)**: `ww_json::schema` describes the arguments, results, properties and stream items of any API as a JSON Schema, quantities with their unit and bounds, for MCP servers and other JSON clients.
 - **[Compressed introspection data](api/introspection.md#compressed-introspection-data)**: `introspect_compression = "lz4"` keeps a device's API description compressed in flash, the client decompresses it: 4.3 KB less on rePort.
 - **[Identity of a renamed resource](evolution/rules.md#moving-a-resource-to-another-place)**: A resource renamed with `#[moved_from]` keeps its first name in the device's API description, so recordings follow it across the rename.
+- **[TOML for any API](api/json.md)**: `ww_json::toml` reads and writes the values of any API type as TOML by the JSON form's rules, decodes a settings level onto a base value and writes changes back into a file, keeping its comments.
 - **[Moved flag bits](std_library/ww_self.md)**: Relocated `#[flag]` fields in the model and in dynamic values.
 
 <p class="ww-features__level"><span class="ww-level ww-level--nomicon"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6"/></svg><span class="ww-level__label">Nomicon</span></span></p>

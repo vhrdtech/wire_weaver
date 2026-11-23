@@ -181,6 +181,7 @@ This page lists the crates of the root workspace. The first table links each pub
 | [`thermo`](tests/thermo) | runtime | A host driver for every wire line of thermo_api (EVO-28, EVO-42): one generated client per line behind one facade. |
 | [`thermo_api`](tests/thermo_api) | runtime | The API of the multi-line bench (EVO-28, EVO-42): a small temperature logger with every wire line still in use. |
 | [`thermo_devices`](tests/thermo_devices) | runtime | Simulated firmware of every line of the thermo_api bench (EVO-28), on tests_common's in-process link. |
+| [`toml_settings_api`](tests/toml_settings_api) | runtime | Test API of ww_json's TOML form (INT-18): a settings tree of nested structs, quantities, enums, lists and options |
 | [`totals`](tests/totals) | runtime | Tests of running totals over plain sinks (API-70): a lossy UDP link that drops and reorders datagrams, WebSocket, a second sender. |
 | [`totals_api`](tests/totals_api) | runtime | Test API of tests/totals: running totals over plain sinks, of a struct of Fixed values and of a counted unit. |
 | [`track`](tests/track) | runtime | Tests of #[track] (API-71): the layout of each stream in a device's introspection data |
@@ -207,7 +208,7 @@ This page lists the crates of the root workspace. The first table links each pub
 | [`ww_framer`](ww_framer) | runtime | Packs many small WireWeaver messages into one packet or splits a big one across several |
 | [`ww_hub`](ww_hub) | runtime | The ww hub: one process per user that holds WireWeaver devices and serves every program (SRV-13) |
 | [`ww_hub_api`](ww_hub_api) | runtime | API of the ww hub: the per-user process that holds devices and serves every program (SRV-13) |
-| [`ww_json`](ww_json) | runtime | JSON for any WireWeaver API: values to and from serde_json, and a JSON Schema of every argument, result, property and stream item, guided by the API model |
+| [`ww_json`](ww_json) | runtime | JSON and TOML for any WireWeaver API: values to and from serde_json and toml_edit, and a JSON Schema of every argument, result, property and stream item, guided by the API model |
 | [`ww_link`](ww_link) | runtime | WireWeaver is a wire format and API code generator for resource constrained systems. |
 | [`ww_local_socket`](ww_local_socket) | runtime | WireWeaver over local sockets: user-only Unix sockets and named pipes, the holders handover |
 | [`ww_plugin`](ww_plugin) | runtime | Device arguments and the protocol an executable ww plugin (ww-NAME) needs, without the ww hub |

@@ -2,9 +2,9 @@
 level: advanced
 ---
 
-# JSON for any API
+# JSON and TOML for any API
 
-`ww_json` turns the values of any API into JSON and back, and describes both with a JSON Schema. It works from the API model (introspection data or an API crate), so nothing is written per command: an MCP server, a web client or a script gets arguments as a JSON object, results as JSON, and a schema per method, property and stream item.
+`ww_json` turns the values of any API into JSON and back, and describes both with a JSON Schema. The same walk reads and writes [TOML](#toml), for settings files. It works from the API model (introspection data or an API crate), so nothing is written per command: an MCP server, a web client or a script gets arguments as a JSON object, results as JSON, and a schema per method, property and stream item.
 
 ```rust
 let codec = ww_json::Codec::new(&bundle).root("args");
@@ -90,6 +90,55 @@ value: 256 is out of range for u8
 ## Structural form
 
 `Codec::raw()` writes the structs quantities are on the wire (`{"value": 5000}`, `{"prefix": "Milli", "value": {"U32": 3300}}`) and byte lists as lists. It is what the conformance corpus is written in, so every consumer reads the same values ([conformance](../serdes/conformance.md)).
+
+## TOML
+
+`ww_json::toml` is the same codec for TOML files, such as an application's settings levels, on `toml_edit` (re-exported as `ww_json::toml_edit`, without serde). It follows the JSON form's rules, with what TOML holds natively:
+
+| WireWeaver | TOML |
+|---|---|
+| integers | integer; beyond `i64` a decimal string, so a `u64` tick count stays an integer up to 2⁶³ |
+| `f32`, `f64` | float, `nan` and `inf` included |
+| struct with named fields | table; a nested struct is a sub-table `[audio.limits]` |
+| unit struct | empty table `{}` |
+| enum unit variant | snake_case string, `"fast_start"`; the name as defined is read too |
+| enum variant with fields | `{fast_start = fields}` |
+| `Option<T>` | the key left out for `None`; a `None` inside a list has no form |
+| quantities | text with the unit, `"300 ms"`, `"16 kHz"`, read in any unit that converts exactly |
+| lists, tuples, `Result`, bytes, ranges | as in JSON |
+
+A date or time of TOML has no value in the model and is refused.
+
+```rust
+use ww_json::toml_edit::DocumentMut;
+let codec = ww_json::Codec::new(&bundle).root("streamer");
+let base = codec.from_toml(&built_in_doc.as_item(), ty)?;   // the type's Default, encoded once
+let level: DocumentMut = text.parse()?;
+let settings = codec.decode_onto(&base, &level, ty)?;       // each level onto the one before
+```
+
+`decode_onto(base, table, ty)` sets only the keys the table holds and keeps every other field of `base`. A key naming a nested struct (or a `Some` option of one) goes onto that field key by key; any other key replaces the field. A caller's built-in level is the type's `Default` encoded to a value, and each level's table goes onto the result of the one before, so field defaults need not enter the API model. `to_toml` gives the full table.
+
+`write_onto(&mut level, &base, &settings, ty)` is the inverse, for write-back: it edits the parsed document so that `decode_onto` of it gives `settings`. A key whose value already decodes to the wanted one stays as typed (`"0.4 s"` stays, although the encoder writes `"400 ms"`), a changed key gets its new value with the old one's comment, and a field equal to `base` that the level doesn't name is not added. Untouched lines and comments stay:
+
+```toml
+# the streamer's level
+[audio]
+gain = 3.0 # louder        ← was 2.0
+window = "0.4 s"   # as typed
+
+[audio.limits]             ← added: strict differs from the base
+strict = true
+```
+
+An `Option` field set to `None` over a base that has a value can't be written: TOML has no null.
+
+Errors are the JSON form's, with the path from the root: an unknown key is `UnknownField` with the names valid there (so a caller can offer the nearest), a value of another kind `WrongType`, a value that doesn't parse in its unit `Quantity`:
+
+```text
+streamer.audio: no field `span`, expected one of: window, rate, duty, gain, mode, limits
+streamer.audio.window: `3 V`: expected a quantity in Second (s), e.g. `1 s` or with a prefix
+```
 
 ## JSON Schema
 

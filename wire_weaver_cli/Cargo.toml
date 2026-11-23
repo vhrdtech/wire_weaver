@@ -33,7 +33,7 @@ serde = { workspace = true, features = ["std"] }
 serde_json.workspace = true
 shrink_wrap = { workspace = true, features = ["std"] }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal", "sync"] }
-toml_edit.workspace = true
+toml_edit = { workspace = true, features = ["display", "parse"] }
 tracing.workspace = true
 tracing-subscriber.workspace = true
 wire_weaver.workspace = true

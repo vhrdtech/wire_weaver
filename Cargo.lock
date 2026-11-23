@@ -4457,6 +4457,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "toml_settings_api"
+version = "0.1.0"
+dependencies = [
+ "ww_api",
+ "ww_si",
+]
+
+[[package]]
 name = "toml_writer"
 version = "1.1.2+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5476,6 +5484,7 @@ dependencies = [
  "serde_json",
  "shrink_wrap",
  "thiserror 2.0.20",
+ "toml_edit",
  "wire_weaver_client",
  "wire_weaver_core",
  "ww_numeric",

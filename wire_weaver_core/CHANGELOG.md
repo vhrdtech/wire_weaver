@@ -2,6 +2,7 @@
 
 ### 🚀 Features
 
+- `codegen::bundle::gen_bundle`: an API root's whole model, dependency types inline, as a byte const (API-73).
 - `keyed!` takes a key that borrows (`DetectorName<'i>`), and refuses one without `owned` in its `derive_shrink_wrap`, naming the missing `<Name>Owned` (API-72).
 - A type's `elide_defaults` directive (SW-85) is accepted; the API model's writers still write every field (INT-10).
 - `#[track(points | spans | series, dims(..), flags)]` on streams and traits, into `Meta::track` (API-71); refused on other items, a series must hold numbers.

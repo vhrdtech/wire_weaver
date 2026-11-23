@@ -1,6 +1,7 @@
 pub mod api_client;
 mod api_common;
 pub mod api_server;
+pub mod bundle;
 mod client;
 mod index_chain;
 pub mod local_trait;

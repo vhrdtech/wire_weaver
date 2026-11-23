@@ -14,6 +14,24 @@ let json = codec.args_to_json(&values, args)?;                                  
 
 `bundle` is a [prepared](../std_library/ww_self.md) `ApiBundleOwned`, the same one the dynamic client and Python use. The codec is `ValueOwned` ⇄ `serde_json::Value`: serializing to bytes is the dynamic client's.
 
+## The model in a program
+
+A host program that talks to a device has the device's introspection data. A program that only reads and writes values of its own types (settings files, an MCP server of its commands) takes the model from the API crate: `bundle` in a `ww_codegen!` call there emits the whole model as a byte const (API-73).
+
+```rust
+// in the API crate, next to the root: emits `SETTINGS_BUNDLE`
+ww_codegen!(crate :: Settings, bundle = "no_docs"); // or "with_docs"
+```
+
+```rust
+use shrink_wrap::DeserializeShrinkWrapOwned;
+let mut bundle = ww_self::ApiBundleOwned::from_ww_bytes_owned(&settings_api::SETTINGS_BUNDLE)?;
+ww_self::generics::prepare(&mut bundle)?;
+let codec = ww_json::Codec::new(&bundle).root("settings");
+```
+
+Unlike a device's `WW_SELF_BYTES`, nothing is left out: dependency types (`ww_si`'s quantities, a standard library trait) are in the bytes, so no snapshot is looked up. The API crate stays free of the runtime: the call needs no server, client or `for <struct>`. With `"with_docs"` the bytes are those of the bundle `wire_weaver_core::load` gives from source, so tests and the installed program use the same model.
+
 ## The forms
 
 | WireWeaver | JSON |

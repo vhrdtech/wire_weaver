@@ -7,6 +7,9 @@ use ww_si::prefix::{Centi, Kilo, Milli, One};
 use ww_si::units::{Hertz, Item, Ratio, Second};
 use ww_si::{Fixed, Range};
 
+// `SETTINGS_TEST_BUNDLE`, the model a program reads its levels with, no source at hand (API-73)
+ww_codegen!(crate::SettingsTest, bundle = "with_docs");
+
 #[ww_api_root]
 #[effect(persist)]
 pub trait SettingsTest {

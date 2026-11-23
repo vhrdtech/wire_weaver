@@ -22,6 +22,7 @@ ww_self = { workspace = true, features = ["std"] }
 jsonschema.workspace = true
 shrink_wrap.workspace = true
 toml_edit = { workspace = true, features = ["display", "parse"] }
+toml_settings_api.workspace = true
 wire_weaver_core.workspace = true
 ww_si = { workspace = true, features = ["std", "time", "electrical", "information", "counting", "angle"] }
 

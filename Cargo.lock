@@ -5491,6 +5491,7 @@ dependencies = [
  "shrink_wrap",
  "thiserror 2.0.20",
  "toml_edit",
+ "toml_settings_api",
  "wire_weaver_core",
  "ww_numeric",
  "ww_quantity",

@@ -277,6 +277,12 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   with that hint. Both forms write the same bytes, the input of a tape's `Segment::Key`. `tests/keyed` (both
   servers, the client, the local trait, a `serve_trait` server forwarding to a client, the scaffold, pinned key
   bytes), [docs](docs/api/arrays.md#keys-that-borrow).
+- ✅ **API-73 The model of an API root in a program** · `v0.5.x` — `ww_codegen!(crate :: Settings, bundle =
+  "no_docs" | "with_docs")` emits `pub const SETTINGS_BUNDLE: [u8; N]`, the root's `ApiBundleOwned` in shrink_wrap
+  bytes with every dependency type inline, so a program decodes it with no source or snapshot at hand (`ww_json`'s
+  TOML codec over settings files in an installed binary). No server or client needed; works in the API crate itself,
+  which stays free of the runtime. `wire_weaver_core::codegen::bundle`, `ww_json` test
+  `compiled_bundle_reads_levels_as_the_loaded_one`, [docs](docs/api/json.md#the-model-in-a-program).
 - 📋 **API-69 Streams ending with a common error** — a stream that stops because the device refused to go on
   (`Busy`, `NoPower`, `Fault`) ends today with the stream's `Close` sideband or an error of the API's own item type;
   the common error (STD-16) has no place in a running stream's items yet. Filed with SRV-63, not built: a `Common`

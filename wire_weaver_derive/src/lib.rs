@@ -72,6 +72,10 @@ mod ww_trait;
 /// * introspect_compression = "lz4" | "none" - keep `WW_SELF_BYTES` compressed (INT-16, `docs/api/introspection.md`):
 ///   LZ4 blocks made at build time (`ww_self::compressed`, `WWz4` magic), sent like a plain bundle, decompressed by
 ///   the client. The device carries no decoder; API hashes are those of the uncompressed bundle. Absent: none.
+/// * bundle = "no_docs" | "with_docs" - emit `pub const <ROOT>_BUNDLE: [u8; N]`, the API's whole model as shrink_wrap
+///   bytes of `ww_self::ApiBundleOwned`, dependency types included (API-73, `docs/api/json.md`), for a program that
+///   needs the model at run time (`ww_json`'s codec) without the source. Works in the API crate itself,
+///   `ww_codegen!(crate :: Api, bundle = "no_docs")`, and with no server or client.
 /// * medium = "crate::Medium" - type (usually an enum) telling handlers which medium (USB, CAN, ...) a request came from,
 ///   `()` if absent. Every handler gets `cx: &mut wire_weaver::Context<'_, impl EventOut, Medium>` (`BlockingEventOut`
 ///   if `use_async = false`) as the first argument, with request seq, medium and a way to send stream updates.

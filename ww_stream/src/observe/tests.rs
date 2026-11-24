@@ -22,6 +22,45 @@ const DESC_BB: LevelDesc<'static> = LevelDesc {
     batched: &[true, true, false],
 };
 
+/// [select] driven to its end, `size(k, buf)` measuring each slot it names.
+fn select_with<'m>(
+    plan: &Plan<'_>,
+    desc: &LevelDesc<'_>,
+    path: &[ResourceIndex],
+    buf: &mut [u8],
+    marks: &'m mut [Mark],
+    batch: Option<&BatchOffer<'_>>,
+    size: &mut dyn FnMut(usize, &mut [u8]) -> Option<usize>,
+) -> Result<Selected<'m>, ShrinkWrapError> {
+    let mut selecting = select(plan, desc, path, &mut *buf, marks)?;
+    while let Some(k) = selecting.next_slot(plan, batch) {
+        let len = size(k, &mut *buf);
+        selecting.offer(k, len);
+    }
+    Ok(selecting.finish())
+}
+
+/// [WritePass]es until [end_pass] has the update, `value(k, column, wr)` writing each slot named.
+fn write_with(
+    round: &mut Round<'_>,
+    plan: &Plan<'_>,
+    desc: &LevelDesc<'_>,
+    buf: &mut [u8],
+    value: &mut dyn FnMut(usize, bool, &mut UpdateWriter<'_, '_>) -> bool,
+) -> Option<Update> {
+    loop {
+        let mut pass = WritePass::start(round, desc, &mut *buf)?;
+        while let Some((k, column)) = pass.next_slot() {
+            let ok = value(k, column, pass.writer());
+            pass.put(ok);
+        }
+        let end = pass.finish();
+        if let core::ops::ControlFlow::Break(update) = end_pass(round, plan, desc, end) {
+            return update;
+        }
+    }
+}
+
 const LIMITS: ObserveLimits = ObserveLimits {
     min_period_us: 100,
     default_budget: 1_000,
@@ -798,7 +837,7 @@ fn poll_server(
     let mut marks = vec![Mark::NONE; table.len()];
     let mut buf = [0u8; 1024];
     let plan = table.plan(now, &LIMITS, &mut due);
-    let round = match select(&plan, desc, &[], &mut buf, &mut marks, None, &mut |k, _| {
+    let round = match select_with(&plan, desc, &[], &mut buf, &mut marks, None, &mut |k, _| {
         Some(size(k))
     })
     .unwrap()
@@ -986,7 +1025,7 @@ fn shared_loop_writes_the_chosen_values() {
     let plan = t.plan(0, &LIMITS, &mut due);
     assert!(plan.is_due(0) && !plan.is_due(1) && plan.is_due(2));
     let mut measured = vec![];
-    let mut round = select(
+    let mut round = select_with(
         &plan,
         &DESC,
         &path,
@@ -1004,7 +1043,7 @@ fn shared_loop_writes_the_chosen_values() {
     assert_eq!(measured, [0, 2]);
     assert!(round.needs_value(0) && !round.needs_value(1) && round.needs_value(2));
     let mut written = vec![];
-    let update = write(&mut round, &plan, &DESC, &mut buf, &mut |k, column, wr| {
+    let update = write_with(&mut round, &plan, &DESC, &mut buf, &mut |k, column, wr| {
         assert!(!column);
         written.push(k);
         wr.write(DESC.observable[k], &(k as u32 * 100)).is_ok()
@@ -1035,7 +1074,7 @@ fn shared_loop_writes_the_chosen_values() {
 
     // a value that can't be written: nothing goes out, the chosen ones count as missed
     let plan = t.plan(1_000, &LIMITS, &mut due);
-    let mut round = select(
+    let mut round = select_with(
         &plan,
         &DESC,
         &path,
@@ -1047,7 +1086,7 @@ fn shared_loop_writes_the_chosen_values() {
     .unwrap()
     .into_round()
     .unwrap();
-    assert!(write(&mut round, &plan, &DESC, &mut buf, &mut |_, _, _| false).is_none());
+    assert!(write_with(&mut round, &plan, &DESC, &mut buf, &mut |_, _, _| false).is_none());
     t.commit(&plan, round.selection(), 1_000, None);
     assert_eq!(t.plan(1_100, &LIMITS, &mut due).missed(), Some(UNib32(2)));
 }
@@ -1076,7 +1115,7 @@ fn shared_loop_drops_a_value_that_cannot_be_written() {
     let path = ww_client_server::resource_path([2]);
     let mut buf = [0u8; 128];
     let plan = t.plan(0, &LIMITS, &mut due);
-    let mut round = select(
+    let mut round = select_with(
         &plan,
         &DESC,
         &path,
@@ -1089,7 +1128,7 @@ fn shared_loop_drops_a_value_that_cannot_be_written() {
     .into_round()
     .expect("all due");
     let mut written = vec![];
-    let update = write(&mut round, &plan, &DESC, &mut buf, &mut |k, _, wr| {
+    let update = write_with(&mut round, &plan, &DESC, &mut buf, &mut |k, _, wr| {
         written.push(k);
         k != 1 && wr.write(DESC.observable[k], &(k as u32 * 100)).is_ok()
     })

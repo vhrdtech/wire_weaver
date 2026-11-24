@@ -8,6 +8,7 @@
 
 ### ⚠️ Breaking
 
+- `observe::select` returns a caller-driven `Selecting`; `observe::write` becomes `WritePass` and `end_pass` (SRV-83).
 - Declares `rust-version = "1.99"`: cargo of an older Rust refuses the crate.
 - `LogStore` and `PersistentRamRing` take their CRC-32C from `ww_crc`: bitwise without `std` unless the firmware turns on `ww_crc/table-256` (the 1 KiB table they had) or `table-slice16`; same bytes (TR-31).
 - `codec` (EVO-73): the device compresses a `Compressed` stream unless the host asked for `raw`, no offer anymore. `CountedState::open_offered(session, codecs)` and `resume_offered(cursor, codecs)` become `open_session(session, raw)` and `resume_session(cursor, raw)` (not `open` / `resume`, which `Counted` has itself); `ItemCodec::answer(&self, offer)` becomes `ItemCodec::codec(&self) -> StreamCodec`, the codec as the device declares it.

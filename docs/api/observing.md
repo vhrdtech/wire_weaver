@@ -119,9 +119,12 @@ server.poll_streams(&mut ww_server.sink(), now_ms, &mut stream_buf, 4096).await?
 `ObserveState` holds one `ObserveTable<[Slot; N]>` per trait level, sized at compile time (`N` = the level's
 property count) - the per-property deadlines, modes and the level's token bucket. The table's code is the same for
 every level (it works on `ObserveTable<[Slot]>`, SRV-23), and so is the loop of `poll_properties` (SRV-24): plan,
-choice, writing the update and its bookkeeping are `ww_stream::observe`'s (`plan_level`, `select`, `write`,
-`ser_update`), one loop over the levels sends from one place, and what the generated code adds per property is
-reading its value (`size` and `write` arms, and the `.await` of an async getter). A firmware carries the algorithm
+choice, writing the update and its bookkeeping are `ww_stream::observe`'s (`plan_level`, `select`, `WritePass`,
+`end_pass`, `ser_update`), one loop over the levels sends from one place, and what the generated code adds per
+property is reading its value (a `size` and a `write` arm, an async getter awaited in it). The loop drives the
+choice and the writing a slot at a time, so each getter is read where its value is measured or written and the value
+is dropped there: a value borrowed from the server (`MountPresence<'_>` of a `no_alloc` server) never lives beside
+another one (SRV-83). A value without a size bound is read twice, to measure and to write it. A firmware carries the algorithm
 once however many levels its API has. `ww_stream::observe::ObserveLimits` is
 what the device allows every observer: shortest period, default/max budget per level, the total budget, and
 whether to send timestamps.

@@ -1,5 +1,6 @@
 //! The TV's hub slot served by modules loaded into the TV's process, seen by the generated and dynamic clients.
 
+use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -7,7 +8,10 @@ use tokio::sync::oneshot;
 use wire_weaver::prelude::*;
 use wire_weaver::ww_api::mount::MountPresenceOwned;
 use wire_weaver_client::internal::Command;
+use wire_weaver_client::observe::on_change;
+use wire_weaver_client::ww_self::ValueOwned;
 use wire_weaver_client::{Commander, Error};
+use wire_weaver_client::{DynObserver, DynResource};
 use ww_client_server::{
     ErrorKindOwned, ErrorOwned, PathKindOwned, RequestKindOwned, RequestOwned, ResourceIndex,
 };
@@ -66,6 +70,7 @@ fn no_cache() -> &'static wire_weaver_client::snapshots::Resolver {
 // ids: the TV's `hub` 0, a slot's `presence` 0 and `api` 1; the hub's `add` 0, `hang` 1
 const HUB: u32 = 0;
 const API: u32 = 1;
+const PRESENCE: u32 = 0;
 const ADD: u32 = 0;
 
 fn path(ids: &[u32]) -> Vec<ResourceIndex> {
@@ -194,6 +199,60 @@ async fn a_module_serves_the_slot() {
     }
     assert_eq!(got, [7, 8]);
     assert_eq!(control.lock().unwrap().counters, Default::default());
+}
+
+/// Both slots' presences observed at once on the async `no_alloc` TV, whose getters give a presence borrowed from
+/// the server: the hub's level and `ext`'s element level each send theirs, and a module loaded into the hub slot
+/// reaches its observer while `ext` stays empty.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn both_presences_are_observed() {
+    let control = Arc::new(Mutex::new(Control::default()));
+    let device = start("mount_module/observe_both", control.clone());
+    let tv = connect(&device).await;
+    let bundle = tv
+        .cmd
+        .device_introspect()
+        .expect("introspection enabled")
+        .api_bundle
+        .clone();
+    let root = DynResource::root(bundle);
+    let entries = || BTreeMap::from([(PRESENCE, on_change(Duration::ZERO))]);
+    let mut hub = root
+        .child("hub")
+        .unwrap()
+        .observe(&tv.cmd, entries())
+        .await
+        .unwrap();
+    let mut ext = root
+        .child("ext")
+        .unwrap()
+        .index(0)
+        .unwrap()
+        .observe(&tv.cmd, entries())
+        .await
+        .unwrap();
+    assert_eq!(observed_variant(&mut hub).await, "Absent");
+    assert_eq!(observed_variant(&mut ext).await, "Absent");
+
+    let (module, _) = hub_module();
+    control.lock().unwrap().next = Some(Some(module));
+    assert_eq!(observed_variant(&mut hub).await, "Up");
+    assert!(
+        ext.try_recv().unwrap().is_none(),
+        "ext's presence didn't change"
+    );
+}
+
+/// The variant of the presence in the observer's next update.
+async fn observed_variant(observer: &mut DynObserver) -> String {
+    let update = tokio::time::timeout(Duration::from_secs(5), observer.recv())
+        .await
+        .expect("an update arrives")
+        .expect("the observer runs");
+    match &update.values[..] {
+        [(name, ValueOwned::Enum { variant, .. })] if name == "presence" => variant.clone(),
+        other => panic!("not one presence: {other:?}"),
+    }
 }
 
 /// Presence follows load and unload: a request into an empty slot is `Unavailable` at once, a stream open through

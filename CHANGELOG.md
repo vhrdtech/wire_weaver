@@ -11,6 +11,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
+- Async `no_alloc` servers observe getters borrowing from the server, like two mount presences (SRV-83); see `wire_weaver_core`, `ww_stream`.
 - Mount slots served in process: a firmware serves a slot from a wasm or linked module, checked, no heap (SRV-81); see `ww_device`, `ww_self`, `ww_client_server`, `wire_weaver_core`.
 - Decoding an `Event` on an MCU takes 520 B of stack, was 6.6 KB, via shrink_wrap SW-87; see `ww_client_server`.
 - Mount prefix rewrite without a heap: firmware forwards through a fixed-capacity path, same bytes as hosts (SRV-80); see `ww_client_server`.

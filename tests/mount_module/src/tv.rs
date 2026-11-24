@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 
 use tests_common::{TestDevice, TestProcessEventsAsync};
 use wire_weaver::prelude::*;
-use wire_weaver::ww_api::mount::{MountNameOwned, MountPresence, MountPresenceOwned};
+use wire_weaver::ww_api::mount::{MountName, MountPresence};
 use ww_client_server::ResourceIndex;
 use ww_client_server::mount::{MountAnswer, MountRequest};
 use ww_device::mount::{ModuleCounters, ModuleSlot};
@@ -37,8 +37,8 @@ impl Tv {
     async fn get_hub_presence(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-    ) -> GetResult<MountPresenceOwned, CommonError<'_>> {
-        Value(owned(&self.hub.presence()))
+    ) -> GetResult<MountPresence<'_>, CommonError<'_>> {
+        Value(self.hub.presence())
     }
 
     async fn hub_request(
@@ -59,8 +59,8 @@ impl Tv {
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
         _index_chain: [ResourceIndex; 1],
-    ) -> GetResult<MountPresenceOwned, CommonError<'_>> {
-        Value(MountPresenceOwned::Absent)
+    ) -> GetResult<MountPresence<'_>, CommonError<'_>> {
+        Value(MountPresence::Absent)
     }
 
     async fn ext_request(
@@ -75,7 +75,7 @@ impl Tv {
     async fn ext_index_of(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-        _key: MountNameOwned,
+        _key: MountName<'_>,
     ) -> RpcResult<Option<UNib32>> {
         Ready(None)
     }
@@ -84,10 +84,8 @@ impl Tv {
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
         _index_chain: [ResourceIndex; 1],
-    ) -> GetResult<MountNameOwned, CommonError<'_>> {
-        Value(MountNameOwned(
-            MaxLen::new(String::new()).expect("empty fits"),
-        ))
+    ) -> GetResult<MountName<'_>, CommonError<'_>> {
+        Value(MountName(MaxLen::new("").expect("empty fits")))
     }
 
     async fn mute(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {
@@ -100,10 +98,9 @@ impl Tv {
 }
 
 pub mod api_impl {
-    // `no_alloc = false`: an async `no_alloc` server's observe poll can't hold two borrowed presences (P2401#24nov-0856)
     wire_weaver::ww_codegen!(
         mounts_api :: Tv for super::Tv,
-        server = true, no_alloc = false, use_async = true,
+        server = true, no_alloc = true, use_async = true,
         method_model = "_=immediate",
         property_model = "_=get_set",
         introspect = "no_docs",
@@ -151,19 +148,13 @@ impl TestProcessEventsAsync for Tv {
     }
 }
 
-fn owned(presence: &MountPresence<'_>) -> MountPresenceOwned {
-    let mut buf = [0u8; 256];
-    let bytes = presence.to_ww_bytes(&mut buf).expect("presence encodes");
-    MountPresenceOwned::from_ww_bytes_owned(bytes).expect("presence decodes")
-}
-
-/// The TV on the in-process link at `path`, its hub slot empty.
+/// The TV on the in-process link at `path`, its hub slot empty, `ext` with the one empty slot 0.
 pub fn start(path: &str, control: Arc<Mutex<Control>>) -> TestDevice {
     let _ = tracing_subscriber::fmt::try_init();
     let tv = Tv {
         hub: Box::new(ModuleSlot::new()),
         control,
-        valid: vec![],
+        valid: vec![UNib32(0)],
         observe: api_impl::ObserveState::new(Default::default()),
         started: std::time::Instant::now(),
     };

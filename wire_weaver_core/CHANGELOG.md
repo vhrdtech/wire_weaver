@@ -19,6 +19,11 @@
 
 - Generated servers after STD-16 cost 444 B more flash at `fw-z` sync (the floor, the common error event's writer) and 41 B more per property, nothing more per call or stream; numbers in the `ww_client_server` changelog.
 
+### 🐛 Fixes
+
+- Async `no_alloc` servers compile with several borrowed observed getters: `poll_properties` reads each getter in place (SRV-83).
+- `poll_properties` keeps no value caches; async getters without a size bound are read twice, like sync ones (SRV-83).
+
 ### ⚠️ Breaking
 
 - A local trait whose API has a nested level needs `#[ww_trait(local = "Name")]` on that level's definition (CLT-58).

@@ -585,7 +585,7 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   `ww_device::Server::wait_until(at)`; `ww api scaffold` prints the signal. Tests: `ww_stream` (polling only at
   `next_wake` sends what polling every µs does), `tests/observe` (fake clock: polls only on the grid, a change from
   another thread sent at once), `tests/observe_batched`. `docs/api/observing.md#the-server-loop`.
-- ✅ **SRV-24 shared-observe-loop One observe loop for every level** — the algorithm of `poll_properties` (plan, overhead, selection, measuring, writing, commit, missed counts, batches of samples) is `ww_stream::observe`'s, sync: `plan_level`, `select`, `write`, `ser_update`. The generated `poll_properties` is one loop over the levels with one send site; per property it gives only a `size` and a `write` arm (through `&mut dyn FnMut`) and awaits its async getters (SRV-21) itself, reading an unbounded async value once. `ObserveState::level` / `oldest_batch` / `remove_oldest_batch` reach a level by its number. Portwright, on top of SRV-21 and SRV-23: −5.8 KiB flash at `opt-level = 3`, −5.0 KiB at `z`. `ww_stream/src/observe.rs`, `docs/api/observing.md#the-device-side`; tests `tests/observe`, `tests/observe_batched`, `ww_stream/src/observe/tests.rs`. A value that can't be had at write time is dropped alone (counted missed), the rest of the update goes; tested on Portwright B153A (`plug` with `cc` unimplemented).
+- ✅ **SRV-24 shared-observe-loop One observe loop for every level** — the algorithm of `poll_properties` (plan, overhead, selection, measuring, writing, commit, missed counts, batches of samples) is `ww_stream::observe`'s, sync: `plan_level`, `select` (`Selecting`), `WritePass`, `end_pass`, `ser_update`. The generated `poll_properties` is one loop over the levels with one send site; per property it gives only a `size` and a `write` arm, which the loop runs a slot at a time, awaiting an async getter (SRV-21) in place (SRV-83). `ObserveState::level` / `oldest_batch` / `remove_oldest_batch` reach a level by its number. Portwright, on top of SRV-21 and SRV-23: −5.8 KiB flash at `opt-level = 3`, −5.0 KiB at `z`. `ww_stream/src/observe.rs`, `docs/api/observing.md#the-device-side`; tests `tests/observe`, `tests/observe_batched`, `ww_stream/src/observe/tests.rs`. A value that can't be had at write time is dropped alone (counted missed), the rest of the update goes; tested on Portwright B153A (`plug` with `cc` unimplemented).
 - ✅ **SRV-22 error-seq-per-item Error sites numbered the same in every server** — `err_seq` of an `Error` is no
   longer one counter across the generated server (705 numbers on Portwright) but fixed per site
   (`ww_client_server::err_seq`): item steps in step order and the same for every item (0 kind not taken, 1 decode,
@@ -756,6 +756,14 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
     caps go in `ModuleSlot::forward`. Cortex-M3 `fw-z`: a call 4 180 instructions, 1.6 KB of stack
     ([Docs](docs/api/mounts.md#modules-in-the-firmwares-process), `tests/mount_module`, `ww_device` `mount::tests`,
     `examples_mcu/mcu_qemu` `qemu-mount-module`).
+- ✅ **SRV-83 Two borrowed observable slot presences** — an async `no_alloc` server whose observed getters return
+    values borrowed from the server (two slots' `MountPresence<'_>`) compiles: `poll_properties` drives
+    `ww_stream::observe`'s `Selecting` and `WritePass` a slot at a time and reads each getter where its value is
+    measured or written, so no value outlives its slot; no value caches. Cost on Cortex-M: 4 observed properties
+    (M0+) +0.4 KiB flash at `fw-z`, +0.3 KiB sync and +1.7 KiB async at `fw-3`; the 21-property FOC demo (M3, two
+    servers) −176 B at `fw-z`, +3.7 KiB at `fw-3`, a poll +0.5 % instructions at `fw-z`, +1.1 % at `fw-3`, +88 B of
+    stack; the async poll future +240 B on x86_64 ([Docs](docs/api/observing.md#the-device-side), `tests/mount_module`
+    `both_presences_are_observed`).
 - 🚧 **SRV-76 Mount slots** — `mount!(hub)` (one slot, `mount!(hub: hub_api)` names the expected API crate) and
     `mounts!(ext)` (slots keyed by `ww_api::mount::MountName` through a `keyed!` companion): a level whose API is known
     only at run time. Done: the `ww_self` `Mount` item (model 0.7.0; the parent's hash covers the declaration only),
@@ -1134,9 +1142,6 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
 - 📋 **SRV-82 Global paths into a firmware's module** — a global trait path (`GlobalFull`, `GlobalCompact`) reaches
     a trait of a module served in process (SRV-81), from the model the slot holds, as `MountedTraits` does for
     backend processes (SRV-77), without a heap.
-- 📋 **SRV-83 Two borrowed observable slot presences** — an async `no_alloc` server with two slots whose observed
-    `presence` getters return `MountPresence<'_>` compiles: the generated observe poll borrows the server once per
-    getter (E0499 now).
 
 ## Client / host side (`CLT`)
 

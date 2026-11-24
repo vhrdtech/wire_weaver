@@ -1292,7 +1292,7 @@ impl Selection<'_> {
     }
 }
 
-/// The writer of an update's values, as [write](fn@write) gives it to the level's value callback.
+/// The writer of an update's values, as [WritePass::writer] gives it.
 pub type UpdateWriter<'b, 'd> = OptionAnyVecWriter<'b, Present<'d>>;
 
 /// Resource indices of the chosen properties of an update, increasing: see [Selection::present].
@@ -1387,7 +1387,7 @@ impl<'m> Round<'m> {
     }
 
     /// Whether slot `k` goes into the update with a value of its own (not a column of a batch of samples): what
-    /// the level reads before [write](fn@write).
+    /// the level reads before its [WritePass].
     pub fn needs_value(&self, k: usize) -> bool {
         self.sel
             .marks
@@ -1406,7 +1406,7 @@ impl<'m> Round<'m> {
     }
 }
 
-/// An update of a level written by [write](fn@write), to send with [ser_update].
+/// An update of a level written by a [WritePass] and [end_pass], to send with [ser_update].
 #[derive(Debug, Clone, Copy)]
 pub struct Update {
     data_len: usize,
@@ -1416,7 +1416,7 @@ pub struct Update {
 }
 
 impl Update {
-    /// Length of the update's values at the start of the buffer [write](fn@write) wrote them to.
+    /// Length of the update's values at the start of the buffer the [WritePass] wrote them to.
     pub fn data_len(&self) -> usize {
         self.data_len
     }
@@ -1428,58 +1428,122 @@ impl Update {
 }
 
 /// What goes into the next update of a level (SRV-24), chosen from `plan` within the budget and `buf`: due
-/// properties earliest deadline first, `size(k, scratch)` the upper bound of the bytes slot `k` takes (None: its
-/// value can't be had), a slot in `Samples` mode offering `batch`, the level's oldest batch, with all its columns.
-/// `marks` keeps the choice (one per slot). [Selected::Nothing] when the level has nothing to send at this poll,
-/// [Selected::Hold] when only a missed count is due and waits for the bytes it takes (SRV-25: give them to
-/// [ObserveTable::hold], so `next_wake` waits for the bucket).
+/// properties earliest deadline first, a slot in `Samples` mode offering the level's oldest batch with all its
+/// columns. `marks` keeps the choice (one per slot).
+///
+/// The caller drives the choice, so it can read each value where it is (an async getter awaited between steps,
+/// a value borrowed from the server dropped before the next one is read): [Selecting::next_slot] names the next
+/// slot whose size is wanted, [Selecting::offer] takes the upper bound of the bytes it takes (None: its value can't
+/// be had), [Selecting::finish] gives the result.
 pub fn select<'m>(
     plan: &Plan<'_>,
     desc: &LevelDesc<'_>,
     path: &[ResourceIndex],
     buf: &mut [u8],
     marks: &'m mut [Mark],
-    batch: Option<&BatchOffer<'_>>,
-    size: &mut dyn FnMut(usize, &mut [u8]) -> Option<usize>,
-) -> Result<Selected<'m>, ShrinkWrapError> {
+) -> Result<Selecting<'m>, ShrinkWrapError> {
     if plan.is_empty() && plan.missed == 0 {
-        return Ok(Selected::Nothing);
+        return Ok(Selecting::ended(Choice::Nothing));
     }
     let overhead = event_overhead(buf, path, plan.t(), plan.missed())?;
     // nothing due: the missed count goes alone, or waits for budget
     let missed_only = plan.report_missed(desc, overhead);
     if plan.is_empty() && !missed_only {
-        return Ok(Selected::Hold(plan.missed_need(desc, overhead)));
+        return Ok(Selecting::ended(Choice::Hold(
+            plan.missed_need(desc, overhead),
+        )));
     }
-    let mut sel = plan.selection(desc, overhead, buf.len(), marks);
-    let mut batch_offered = false;
-    let mut batch_dropped = false;
-    for due in plan.due {
-        if due.samples {
+    Ok(Selecting {
+        choice: Choice::Open(plan.selection(desc, overhead, buf.len(), marks)),
+        at: 0,
+        missed_only,
+        batch_offered: false,
+        batch_dropped: false,
+        done: false,
+    })
+}
+
+/// A choice of [select] under way: the caller measures the slots it names.
+#[derive(Debug)]
+pub struct Selecting<'m> {
+    choice: Choice<'m>,
+    /// Next entry of the plan's due list.
+    at: usize,
+    missed_only: bool,
+    batch_offered: bool,
+    batch_dropped: bool,
+    /// The update is full, or a slot was named and waits for its size.
+    done: bool,
+}
+
+#[derive(Debug)]
+enum Choice<'m> {
+    Open(Selection<'m>),
+    Nothing,
+    Hold(usize),
+}
+
+impl<'m> Selecting<'m> {
+    fn ended(choice: Choice<'m>) -> Self {
+        Selecting {
+            choice,
+            at: 0,
+            missed_only: false,
+            batch_offered: false,
+            batch_dropped: false,
+            done: true,
+        }
+    }
+
+    /// The next due slot whose size is wanted, earliest deadline first: give it to [offer](Self::offer) before
+    /// asking again. The level's batch of samples (`batch`, its oldest one, the same at every call) is offered
+    /// here, without the caller. None when the update is full or nothing more is due.
+    pub fn next_slot(&mut self, plan: &Plan<'_>, batch: Option<&BatchOffer<'_>>) -> Option<usize> {
+        let Choice::Open(sel) = &mut self.choice else {
+            return None;
+        };
+        while !self.done {
+            let due = plan.due.get(self.at)?;
+            self.at += 1;
+            if !due.samples {
+                self.done = true;
+                return Some(due.k);
+            }
             // the level's oldest batch, its time column and every column, once
-            if batch_offered {
+            if self.batch_offered {
                 continue;
             }
-            batch_offered = true;
+            self.batch_offered = true;
             let Some(batch) = batch else {
                 continue;
             };
             let fits = sel.offer_batch(batch.ks, batch.size);
-            batch_dropped = batch.ks.first().is_some_and(|&k| sel.is_dropped(k));
-            if !fits {
-                break;
-            }
-            continue;
+            self.batch_dropped = batch.ks.first().is_some_and(|&k| sel.is_dropped(k));
+            self.done = !fits;
         }
-        if !sel.offer(due.k, size(due.k, buf)) {
-            break;
+        None
+    }
+
+    /// Slot `k`, the one [next_slot](Self::next_slot) named, takes at most `size` bytes (None: its value can't be
+    /// had).
+    pub fn offer(&mut self, k: usize, size: Option<usize>) {
+        if let Choice::Open(sel) = &mut self.choice {
+            self.done = !sel.offer(k, size);
         }
     }
-    Ok(Selected::Round(Round {
-        sel,
-        missed_only,
-        batch_dropped,
-    }))
+
+    /// What the choice came to.
+    pub fn finish(self) -> Selected<'m> {
+        match self.choice {
+            Choice::Open(sel) => Selected::Round(Round {
+                sel,
+                missed_only: self.missed_only,
+                batch_dropped: self.batch_dropped,
+            }),
+            Choice::Nothing => Selected::Nothing,
+            Choice::Hold(need) => Selected::Hold(need),
+        }
+    }
 }
 
 /// What [select] made of a level's plan.
@@ -1503,37 +1567,112 @@ impl<'m> Selected<'m> {
     }
 }
 
-/// The values of the update `round` chose, into `buf`: `value(k, column, wr)` writes slot `k`'s value (`column`:
-/// its column of the batch of samples), false when it can't. A value that can't be written after all (a getter that
-/// fails, e.g. `Unimplemented`) is [dropped](Selection::drop_slot) and the update written again without it, so the
-/// others still go; it counts as missed at the commit. None when nothing goes out: nothing chosen (or all dropped),
-/// or a column of the batch that couldn't be written (the chosen ones count as missed at the commit).
-pub fn write(
-    round: &mut Round<'_>,
-    plan: &Plan<'_>,
-    desc: &LevelDesc<'_>,
-    buf: &mut [u8],
-    value: &mut dyn FnMut(usize, bool, &mut UpdateWriter<'_, '_>) -> bool,
-) -> Option<Update> {
-    // each pass drops a value that couldn't be written, at most one pass per slot
-    let data_len = loop {
+/// A pass writing the values of the update `round` chose into `buf` (SRV-24), driven by the caller so it can read
+/// each value where it is: [WritePass::next_slot] names the next chosen slot (`column`: its column of the batch of
+/// samples), the caller writes it with [WritePass::writer] and tells [WritePass::put] whether it could. A value that
+/// can't be written after all (a getter that fails, e.g. `Unimplemented`) ends the pass; [end_pass] drops it and
+/// asks for another pass without it, so the others still go, and it counts as missed at the commit. None when
+/// nothing goes out: nothing chosen (or all dropped).
+///
+/// ```ignore
+/// let update = loop {
+///     let Some(mut pass) = WritePass::start(&round, desc, &mut buf) else { break None };
+///     while let Some((k, column)) = pass.next_slot() {
+///         let ok = pass.writer().write(desc.observable[k], &value_of(k)).is_ok();
+///         pass.put(ok);
+///     }
+///     let end = pass.finish();
+///     if let ControlFlow::Break(update) = end_pass(&mut round, &plan, desc, end) { break update }
+/// };
+/// ```
+pub struct WritePass<'b, 'r> {
+    wr: UpdateWriter<'b, 'r>,
+    marks: core::iter::Enumerate<core::slice::Iter<'r, Mark>>,
+    /// The slot named last and whether it is a column.
+    named: Option<(usize, bool)>,
+    failed: Option<(usize, bool)>,
+}
+
+/// How a [WritePass] ended, for [end_pass].
+#[derive(Debug, Clone, Copy)]
+pub enum PassEnd {
+    /// Every chosen value written: the update's values take this many bytes.
+    Written(usize),
+    /// Slot `k` couldn't be written (`column`: a column of the batch).
+    Failed { k: usize, column: bool },
+    /// The values didn't make a complete update.
+    Broken,
+}
+
+impl<'b, 'r> WritePass<'b, 'r> {
+    /// A pass over what `round` chose, into `buf`. None when nothing goes out.
+    pub fn start(round: &'r Round<'_>, desc: &'r LevelDesc<'r>, buf: &'b mut [u8]) -> Option<Self> {
         let sel = &round.sel;
         if sel.is_empty() && !round.missed_only {
             return None;
         }
-        let mut wr = OptionAnyVecWriter::new(&mut *buf, sel.present(desc)).ok()?;
-        let mut failed = None;
-        for (k, mark) in sel.marks.iter().enumerate() {
-            if mark.is_chosen() && !value(k, mark.is_column(), &mut wr) {
-                failed = Some((k, mark.is_column()));
-                break;
-            }
+        Some(WritePass {
+            wr: OptionAnyVecWriter::new(buf, sel.present(desc)).ok()?,
+            marks: sel.marks.iter().enumerate(),
+            named: None,
+            failed: None,
+        })
+    }
+
+    /// The next chosen slot and whether it goes as its column of the batch of samples: write it, then
+    /// [put](Self::put). None at the end of the pass, or once a value couldn't be written.
+    pub fn next_slot(&mut self) -> Option<(usize, bool)> {
+        if self.failed.is_some() {
+            return None;
         }
-        match failed {
-            None => break wr.finish_and_take().ok()?.len(),
-            // a batch goes whole or not at all
-            Some((_, true)) => return None,
-            Some((k, false)) => round.sel.drop_slot(k),
+        let (k, mark) = self.marks.by_ref().find(|(_, m)| m.is_chosen())?;
+        let slot = (k, mark.is_column());
+        self.named = Some(slot);
+        Some(slot)
+    }
+
+    /// The update's writer, for the value of the slot [next_slot](Self::next_slot) named.
+    pub fn writer(&mut self) -> &mut UpdateWriter<'b, 'r> {
+        &mut self.wr
+    }
+
+    /// Whether the value of the slot named last was written.
+    pub fn put(&mut self, written: bool) {
+        if !written {
+            self.failed = self.named;
+        }
+    }
+
+    /// How the pass ended.
+    pub fn finish(self) -> PassEnd {
+        match self.failed {
+            Some((k, column)) => PassEnd::Failed { k, column },
+            None => match self.wr.finish_and_take() {
+                Ok(data) => PassEnd::Written(data.len()),
+                Err(_) => PassEnd::Broken,
+            },
+        }
+    }
+}
+
+/// After a [WritePass]: `Break` with the update (None when nothing goes out: nothing written, or a column of the
+/// batch that couldn't be written, the chosen ones counted as missed at the commit), `Continue` for another pass
+/// without the value that couldn't be written. At most one more pass per slot.
+pub fn end_pass(
+    round: &mut Round<'_>,
+    plan: &Plan<'_>,
+    desc: &LevelDesc<'_>,
+    end: PassEnd,
+) -> core::ops::ControlFlow<Option<Update>> {
+    use core::ops::ControlFlow;
+    let data_len = match end {
+        PassEnd::Written(len) => len,
+        PassEnd::Broken => return ControlFlow::Break(None),
+        // a batch goes whole or not at all
+        PassEnd::Failed { column: true, .. } => return ControlFlow::Break(None),
+        PassEnd::Failed { k, column: false } => {
+            round.sel.drop_slot(k);
+            return ControlFlow::Continue(());
         }
     };
     let sel = &round.sel;
@@ -1541,7 +1680,7 @@ pub fn write(
     // times in `sample_times`
     let one_value = sel.marks.iter().any(|m| m.is_chosen() && !m.is_column());
     let has_batched = desc.batched.iter().any(|b| *b);
-    Some(Update {
+    ControlFlow::Break(Some(Update {
         data_len,
         t: if has_batched && !one_value {
             None
@@ -1550,11 +1689,12 @@ pub fn write(
         },
         missed: plan.missed(),
         sample_times: sel.time,
-    })
+    }))
 }
 
-/// The `PropertyUpdate` event of `update` for the level at `path` into `scratch`, its values `data` (what [write](fn@write)
-/// wrote), with the time column of the batch sent (`sample_times`, API-39). Returns the event's length.
+/// The `PropertyUpdate` event of `update` for the level at `path` into `scratch`, its values `data` (what the
+/// [WritePass] wrote), with the time column of the batch sent (`sample_times`, API-39). Returns the event's
+/// length.
 pub fn ser_update(
     scratch: &mut [u8],
     path: &[ResourceIndex],

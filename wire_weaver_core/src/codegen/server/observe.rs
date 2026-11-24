@@ -2052,13 +2052,8 @@ impl Observe {
         } else {
             quote! { let path = PATHS[level]; }
         };
-        // a value read through an async getter is read before the update is put together, into `value_<i>_<k>`
-        // (None: not read yet, Some(None): the getter failed), so that the shared, sync part of the loop
-        // (`ww_stream::observe::select` / `write`) gets it from there; sync getters and fields are read in place
-        let is_async =
-            |p: &Prop| matches!(p.model, PropertyModelKind::GetSet) && handlers.is_async(&p.dotted);
-        let cache_ident =
-            |i: usize, k: usize| Ident::new(&format!("value_{i}_{k}"), Span::call_site());
+        // every getter, sync or async, is read where its slot is measured or written, and its value dropped there:
+        // a value borrowed from the server (`no_alloc`) never lives beside another one
         let max_len_of = |p: &Prop, ty: &TokenStream, owned: bool| {
             if owned {
                 // no bound for a value that can grow
@@ -2069,14 +2064,10 @@ impl Observe {
                 quote! { ww_stream::observe::max_write_len::<#ty>() }
             }
         };
-        let mut caches = vec![];
-        let mut read_unbounded = vec![];
-        let mut read_chosen = vec![];
         let mut measure = vec![];
         let mut write = vec![];
         let mut encode = vec![];
         for (i, level) in levels.iter().enumerate() {
-            let field = &level.field;
             let outbox = level.outbox();
             let pat_i = pat(i);
             // an element's handlers get its chain (API-63)
@@ -2090,8 +2081,6 @@ impl Observe {
                 }
                 None => (quote! {}, quote! {}),
             };
-            let mut unbounded_i = vec![];
-            let mut chosen_i = vec![];
             for (k, p) in level.props.iter().enumerate() {
                 // the handlers of a `no_alloc = false` server give owned values (API-21): written through `OwnedSer`
                 // when they aren't the borrowed type (a batched property's type never borrows)
@@ -2106,31 +2095,6 @@ impl Observe {
                 let max_len = max_len_of(p, &ty, owned);
                 let get = Ident::new(&format!("get_{}", p.prefixed), Span::call_site());
                 let get_call = handlers.call(&p.dotted, quote! { self.#get(&mut cx #chain_arg) });
-                let v = cache_ident(i, k);
-                if is_async(p) {
-                    // a `+batched` property in `Samples` mode is sent as a column of its level's batch, never read
-                    let not_column = maybe_quote(
-                        p.samples,
-                        quote! { && self.observe_state().#field.samples(#k).is_none() },
-                    );
-                    let read = quote! {
-                        #v = Some(match #get_call {
-                            GetResult::Value(value) => Some(value),
-                            _ => None,
-                        });
-                    };
-                    caches.push(quote! { let mut #v: Option<Option<#ty>> = None; });
-                    unbounded_i.push(quote! {
-                        if #max_len.is_none() && plan.is_due(#k) #not_column {
-                            #read
-                        }
-                    });
-                    chosen_i.push(quote! {
-                        if #v.is_none() && round.needs_value(#k) {
-                            #read
-                        }
-                    });
-                }
                 // upper bound of the bytes slot `k` takes, `Batched::One` of a `+batched` property (its tag in
                 // front)
                 let measured = if p.batched {
@@ -2145,23 +2109,6 @@ impl Observe {
                     quote! { wr.write(#index, #value).is_ok() }
                 };
                 let (size_one, write_one) = match p.model {
-                    PropertyModelKind::GetSet if is_async(p) => (
-                        quote! {
-                            match #max_len {
-                                Some(len) => Some(len),
-                                None => match &#v {
-                                    Some(Some(value)) => #measured,
-                                    _ => None,
-                                },
-                            }
-                        },
-                        quote! {
-                            match &#v {
-                                Some(Some(value)) => #put,
-                                _ => false,
-                            }
-                        },
-                    ),
                     PropertyModelKind::GetSet => (
                         quote! {
                             match #max_len {
@@ -2216,10 +2163,6 @@ impl Observe {
                 }
                 write.push(quote! { (#pat_i, #k) => #write_one, });
             }
-            if !unbounded_i.is_empty() {
-                read_unbounded.push(quote! { #pat_i => { #(#unbounded_i)* } });
-                read_chosen.push(quote! { #pat_i => { #(#chosen_i)* } });
-            }
             if level.has_samples() {
                 let body = self.encode_batches(level);
                 encode.push(quote! { #pat_i => { #body } });
@@ -2231,24 +2174,6 @@ impl Observe {
                 // the level's sealed rows into its outbox, encoded once
                 match level {
                     #(#encode)*
-                    _ => {}
-                }
-            }
-        });
-        let read_unbounded = maybe_quote_cl(!read_unbounded.is_empty(), || {
-            quote! {
-                // async getters of values without a size bound, read to be measured
-                match level {
-                    #(#read_unbounded)*
-                    _ => {}
-                }
-            }
-        });
-        let read_chosen = maybe_quote_cl(!read_chosen.is_empty(), || {
-            quote! {
-                // async getters of the values chosen
-                match level {
-                    #(#read_chosen)*
                     _ => {}
                 }
             }
@@ -2321,8 +2246,9 @@ impl Observe {
             /// Send what observed properties are due (SRV-18): a `PropertyUpdate` per trait level, its
             /// properties earliest deadline first, within the level's granted budget and `buf` (as big as the
             /// biggest update the link carries); the rest slips to the next call and counts as missed. `now_us` is
-            /// any microsecond clock. Call it often (every millisecond or so), before `poll_streams`. Async getters
-            /// of values without a size bound are read once to measure and send them, sync ones twice.
+            /// any microsecond clock. Call it often (every millisecond or so), before `poll_streams`. A getter of a
+            /// value without a size bound is read twice, to measure and to send it, and once more for every value
+            /// of its update that turns out not to write.
             #scratch_doc
             pub #maybe_async fn poll_properties #scratch_generic(
                 &mut self,
@@ -2361,21 +2287,23 @@ impl Observe {
                             let (table, oldest) = self.observe_state().level(level);
                             ww_stream::observe::plan_level(table, oldest.as_ref(), now_us, &limits, &mut due)
                         };
-                        #(#caches)*
-                        #read_unbounded
                         #batch_offer
-                        let mut round = match ww_stream::observe::select(
+                        // the slots due, earliest deadline first, measured one at a time
+                        let mut selecting = ww_stream::observe::select(
                             &plan,
                             desc,
                             path,
                             &mut *buf,
                             &mut marks[..desc.observable.len()],
-                            offer.as_ref(),
-                            &mut |k, buf: &mut [u8]| match (level, k) {
+                        )?;
+                        while let Some(k) = selecting.next_slot(&plan, offer.as_ref()) {
+                            let size = match (level, k) {
                                 #(#measure)*
                                 _ => None,
-                            },
-                        )? {
+                            };
+                            selecting.offer(k, size);
+                        }
+                        let mut round = match selecting.finish() {
                             ww_stream::observe::Selected::Round(round) => round,
                             ww_stream::observe::Selected::Nothing => break,
                             // a missed count waiting alone for budget: `next_wake` waits for its bytes (SRV-25)
@@ -2384,18 +2312,28 @@ impl Observe {
                                 break;
                             }
                         };
-                        #read_chosen
-                        #column_cursor
-                        let update = ww_stream::observe::write(
-                            &mut round,
-                            &plan,
-                            desc,
-                            &mut *buf,
-                            &mut |k, column, wr| match (level, k) {
-                                #(#write)*
-                                _ => false,
-                            },
-                        );
+                        // the values chosen, a slot at a time; a pass that meets a value it can't write goes again
+                        // without it
+                        let update = loop {
+                            let Some(mut pass) = ww_stream::observe::WritePass::start(&round, desc, &mut *buf) else {
+                                break None;
+                            };
+                            #column_cursor
+                            while let Some((k, column)) = pass.next_slot() {
+                                let wr = pass.writer();
+                                let written = match (level, k) {
+                                    #(#write)*
+                                    _ => false,
+                                };
+                                pass.put(written);
+                            }
+                            let end = pass.finish();
+                            if let core::ops::ControlFlow::Break(update) =
+                                ww_stream::observe::end_pass(&mut round, &plan, desc, end)
+                            {
+                                break update;
+                            }
+                        };
                         let mut sent = None;
                         if let Some(update) = update {
                             let data = &buf[..update.data_len()];

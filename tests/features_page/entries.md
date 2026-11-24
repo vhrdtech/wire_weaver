@@ -179,6 +179,7 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 - SRV-78 | Mount forwarder | A mount slot reaches another WireWeaver server over a socket, each connection with a link of its own, on tokio or calloop. | api/mounts.md#backend-processes
 - SRV-79 | Who calls through a mount | The front's policy sees a mounted call's effects, the backend learns which client of the front called. | api/mounts.md#who-calls-and-what-it-does
 - SRV-81 | Modules in the firmware's process | A firmware serves a mount slot from a wasm module or a linked server, checked and without a heap. | api/mounts.md#modules-in-the-firmwares-process
+- SRV-83 | Borrowed observed values | An async `no_alloc` server observes getters that return values borrowed from it, such as several mount presences. | api/observing.md#the-device-side
 - SRV-20 | Deferred replies everywhere | Answer a call later, also on nested trait levels. | api/methods.md#deferred
 - SRV-42 | Replies by priority | A reply to an urgent request leaves at once, also a deferred one sent later from your main loop; `Sink::flush` sends what waits now. | transport/ww_framer.md#latency-and-priority
 - SRV-22 | Errors that say where | A device's error names the site that raised it, by a number that is the same in every firmware. | api/errors.md#where-on-the-device-an-error-came-from

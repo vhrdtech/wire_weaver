@@ -7783,9 +7783,10 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
   keeps <code>thermo_api</code> 2.0.0 in <code>tests/thermo_api_old</code> for that). In practice an old line's maintenance
   firmware is built from its module at that line's newest revision, so real firmware rarely needs it. Fields and
   variants with a newer <code>#[since]</code> can't be left out of a Rust type, so such a type would be refused.</li>
-<li>📋 <strong>SRV-82 Global paths into a firmware's module</strong> — a global trait path (<code>GlobalFull</code>, <code>GlobalCompact</code>) reaches
-    a trait of a module served in process (SRV-81), from the model the slot holds, as <code>MountedTraits</code> does for
-    backend processes (SRV-77), without a heap.</li>
+<li>✅ <strong>SRV-82 Global paths into a firmware's module</strong> — a global trait path (<code>GlobalFull</code>, <code>GlobalCompact</code>) reaches
+    a trait of a module served in process (SRV-81), as <code>MountedTraits</code> does for backend processes (SRV-77), without a
+    heap: <code>ModuleSlot::load</code> reads the module's traits into a fixed table (<code>ModuleTraits</code>, the generated
+    <code>has_global_trait</code>, <code>docs/api/mounts.md</code>).</li>
 </ul>
 <h2 id="client-host-side-clt">Client / host side (<code>CLT</code>)<a class="headerlink" href="#client-host-side-clt" title="Permanent link">&para;</a></h2>
 <ul>

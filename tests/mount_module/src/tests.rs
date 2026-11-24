@@ -72,6 +72,8 @@ const HUB: u32 = 0;
 const API: u32 = 1;
 const PRESENCE: u32 = 0;
 const ADD: u32 = 0;
+// the lamp's `toggle` 0 (the hub's `lamp` 2)
+const TOGGLE: u32 = 0;
 
 fn path(ids: &[u32]) -> Vec<ResourceIndex> {
     ids.iter().map(|i| ResourceIndex::new(UNib32(*i))).collect()
@@ -79,11 +81,20 @@ fn path(ids: &[u32]) -> Vec<ResourceIndex> {
 
 /// Send a request as is and wait for the answer: the value bytes, or the device's error.
 async fn raw(cmd: &Commander, ids: &[u32], kind: RequestKindOwned) -> Result<Vec<u8>, Error> {
+    raw_at(cmd, PathKindOwned::Absolute { path: path(ids) }, kind).await
+}
+
+/// [raw] at any path.
+async fn raw_at(
+    cmd: &Commander,
+    path_kind: PathKindOwned,
+    kind: RequestKindOwned,
+) -> Result<Vec<u8>, Error> {
     let bytes = RequestOwned {
         seq: UVlq32Backfill(0),
         priority: ww_client_server::Priority::NORMAL.to_wire(),
         context: None,
-        path_kind: PathKindOwned::Absolute { path: path(ids) },
+        path_kind,
         kind,
     }
     .to_ww_bytes_owned()
@@ -395,4 +406,75 @@ async fn a_misbehaving_module_never_reaches_the_parent() {
         (counters.malformed, counters.stray, counters.faults),
         (2, 1, 1)
     );
+}
+
+/// A global path to `trait_name` of `crate_version`'s crate, then `from_trait`.
+fn global(crate_version: FullVersion<'_>, trait_name: &str, from_trait: &[u32]) -> PathKindOwned {
+    PathKindOwned::GlobalFull {
+        gid: crate_version.make_owned(),
+        trait_name: trait_name.to_owned(),
+        path_from_trait: path(from_trait),
+    }
+}
+
+/// A global path the TV's own tree doesn't have reaches the trait of the module in the hub slot (SRV-82), by name
+/// and by the module's root; an empty slot reaches nothing.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn global_paths_reach_into_the_module() {
+    let control = Arc::new(Mutex::new(Control::default()));
+    let device = start("mount_module/global", control.clone());
+    let tv = connect(&device).await;
+    let cmd = tv.cmd.clone();
+    let call = || RequestKindOwned::Call {
+        args: wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned(vec![]),
+    };
+    let lamp = global(mount_backend_api::HUB_FULL_GID, "Lamp", &[TOGGLE]);
+    let empty = raw_at(&cmd, lamp.clone(), call()).await;
+    assert!(
+        matches!(kind_of(empty), Some(ErrorKindOwned::TraitNotFound)),
+        "an empty slot"
+    );
+
+    control.lock().unwrap().next = Some(Some(hub_module().0));
+    wait_presence(&tv, true).await;
+    let toggled = raw_at(&cmd, lamp.clone(), call()).await.unwrap();
+    assert!(bool::from_ww_bytes(&toggled).unwrap());
+    let toggled = raw_at(&cmd, lamp.clone(), call()).await.unwrap();
+    assert!(!bool::from_ww_bytes(&toggled).unwrap());
+    let hub = global(mount_backend_api::HUB_FULL_GID, "Hub", &[ADD]);
+    let sum = raw_at(&cmd, hub, add_args(2, 3)).await.unwrap();
+    assert_eq!(u32::from_ww_bytes(&sum).unwrap(), 5);
+
+    control.lock().unwrap().next = Some(None);
+    wait_presence(&tv, false).await;
+    let unloaded = raw_at(&cmd, lamp, call()).await;
+    assert!(matches!(
+        kind_of(unloaded),
+        Some(ErrorKindOwned::TraitNotFound)
+    ));
+    assert_eq!(control.lock().unwrap().counters, Default::default());
+}
+
+/// The TV's own tree answers first (SRV-82): the generated `has_global_trait` knows the TV's traits, also with
+/// `global_paths` off (introspection on), and none of a module's. A client resolves the TV's own global paths before
+/// sending them, so this is where the order shows.
+#[test]
+fn own_traits_are_known_to_the_tv() {
+    let at = |gid, trait_name| ww_client_server::PathKind::GlobalFull {
+        gid,
+        trait_name,
+        path_from_trait: wire_weaver::shrink_wrap::RefVec::Slice { slice: &[] },
+    };
+    assert!(crate::tv::api_impl::has_global_trait(&at(
+        mounts_api::TV_FULL_GID,
+        "Tv"
+    )));
+    assert!(!crate::tv::api_impl::has_global_trait(&at(
+        mount_backend_api::HUB_FULL_GID,
+        "Lamp"
+    )));
+    let absolute = ww_client_server::PathKind::Absolute {
+        path: wire_weaver::shrink_wrap::RefVec::Slice { slice: &[] },
+    };
+    assert!(!crate::tv::api_impl::has_global_trait(&absolute));
 }

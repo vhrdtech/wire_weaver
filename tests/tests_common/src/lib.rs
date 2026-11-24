@@ -149,6 +149,13 @@ pub trait TestProcessEventsAsync {
     fn wakeup(&mut self) -> Option<Wakeup> {
         None
     }
+
+    /// A global trait path into a module the server serves in process (SRV-82): see
+    /// `WireWeaverAsyncApiBackend::global_into_mount`. `None` by default.
+    fn global_into_mount<'b>(&self, request: &[u8], buf: &'b mut [u8]) -> Option<&'b [u8]> {
+        _ = (request, buf);
+        None
+    }
 }
 
 /// What an event-driven test device waits for before its next poll, see [TestProcessEventsAsync::wakeup].
@@ -490,6 +497,11 @@ trait Process {
     ) -> impl Future<Output = ()>;
 
     fn wakeup(&mut self) -> Option<Wakeup>;
+
+    fn global_into_mount<'b>(&self, request: &[u8], buf: &'b mut [u8]) -> Option<&'b [u8]> {
+        _ = (request, buf);
+        None
+    }
 }
 
 struct SyncServer<S>(S);
@@ -539,6 +551,10 @@ impl<S: TestProcessEventsAsync> Process for AsyncServer<S> {
 
     fn wakeup(&mut self) -> Option<Wakeup> {
         self.0.wakeup()
+    }
+
+    fn global_into_mount<'b>(&self, request: &[u8], buf: &'b mut [u8]) -> Option<&'b [u8]> {
+        self.0.global_into_mount(request, buf)
     }
 }
 
@@ -1033,6 +1049,10 @@ impl<S: Process> WireWeaverAsyncApiBackend for TestBackend<S> {
 
     fn version(&self) -> FullVersion<'_> {
         self.version
+    }
+
+    fn global_into_mount<'b>(&self, request: &[u8], buf: &'b mut [u8]) -> Option<&'b [u8]> {
+        self.server.global_into_mount(request, buf)
     }
 }
 

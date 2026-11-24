@@ -8,7 +8,7 @@ use wire_weaver::prelude::*;
 use wire_weaver::ww_api::mount::{MountName, MountPresence};
 use ww_client_server::ResourceIndex;
 use ww_client_server::mount::{MountAnswer, MountRequest};
-use ww_device::mount::{ModuleCounters, ModuleSlot};
+use ww_device::mount::{ModuleCounters, ModuleSlot, ModuleTraits};
 
 use crate::modules::Loaded;
 
@@ -120,6 +120,12 @@ impl TestProcessEventsAsync for Tv {
     ) -> Result<&'a [u8], ShrinkWrapError> {
         self.process_request_bytes(bytes, scratch, out, medium)
             .await
+    }
+
+    fn global_into_mount<'b>(&self, request: &[u8], buf: &'b mut [u8]) -> Option<&'b [u8]> {
+        ModuleTraits::<1>::new()
+            .slot(&api_impl::HUB_API_PATH, &self.hub)
+            .request_into_mount(request, api_impl::has_global_trait, buf)
     }
 
     async fn poll(&mut self, out: &mut impl EventOut, _now_ms: u64) {

@@ -1557,3 +1557,94 @@ fn a_request_into_a_mount_moves_to_the_end_of_scratch() {
         assert_eq!(reply.len(), 8);
     }
 }
+
+/// [EchoBackend] whose `global_into_mount` takes the request `[6, 0x4A]` into a mount as `[6, 0x4C, 0x4D]` (SRV-82).
+struct Rerouting;
+
+impl WireWeaverApiBackend for Rerouting {
+    type Medium = u8;
+
+    fn process_bytes<'a>(
+        &mut self,
+        out: &mut impl BlockingEventOut,
+        medium: u8,
+        data: &[u8],
+        scratch: &'a mut [u8],
+    ) -> Result<&'a [u8], ShrinkWrapError> {
+        EchoBackend.process_bytes(out, medium, data, scratch)
+    }
+
+    fn version(&self) -> FullVersion<'_> {
+        EchoBackend.version()
+    }
+
+    fn global_into_mount<'b>(&self, request: &[u8], buf: &'b mut [u8]) -> Option<&'b [u8]> {
+        if request != [6, 0x4A] {
+            return None;
+        }
+        let rewritten = buf.get_mut(..3)?;
+        rewritten.copy_from_slice(&[6, 0x4C, 0x4D]);
+        Some(rewritten)
+    }
+}
+
+/// The blocking server asks the backend for a request into a mount before dispatch (SRV-82).
+#[test]
+fn blocking_server_routes_a_global_path_into_a_mount() {
+    const PACKET: usize = 16;
+    let mut tx_frame = [0u8; PACKET];
+    let mut rx = crate::RxBuffer::<PACKET, 128>::new();
+    let mut scratch = [0u8; 128];
+    let mut event_scratch = [0u8; 128];
+    let mut sent = Packets::default();
+    let mut host = Host {
+        tx_buf: [0; 16],
+        rx_buf: [0; 512],
+    };
+    let mut backend = Rerouting;
+    let mut now = Instant::from_millis(10);
+    {
+        let mut server = blocking::Server::new(
+            config(),
+            &mut sent,
+            &mut tx_frame,
+            rx.assembly_buf(PACKET),
+            &mut scratch,
+            &mut event_scratch,
+        )
+        .with_medium(7u8);
+        server.on_transport_up(now);
+        let host_version = FullVersion::new("test_api", Version::new(0, 3, 0));
+        for p in host.packets(&[Message::Nop, get_device_info(), link_setup(host_version)]) {
+            server.on_packet(now, &p, &mut backend);
+        }
+        let requests = [
+            Message::Data {
+                channel: 0,
+                bytes: &[6, 0x4A],
+            },
+            Message::Data {
+                channel: 0,
+                bytes: &[1, 0x4A],
+            },
+        ];
+        for p in host.packets(&requests) {
+            server.on_packet(now, &p, &mut backend);
+        }
+        now = now + ACC;
+        server.poll(now);
+    }
+    let received = host.messages(&sent.0);
+    let events: Vec<Event<'_>> = received
+        .iter()
+        .filter(|(kind, _)| *kind == Kind::Data0)
+        .map(|(_, bytes)| Event::from_ww_bytes(bytes).unwrap())
+        .collect();
+    assert_eq!(events.len(), 2);
+    assert_eq!(events[0].seq, UVlq32(6));
+    assert!(
+        matches!(&events[0].result, Ok(EventKind::Value { data }) if data.0 == [0x4C, 0x4D]),
+        "the rewritten request"
+    );
+    assert!(matches!(&events[1].result, Ok(EventKind::Value { data }) if data.0 == [0x4A]));
+}

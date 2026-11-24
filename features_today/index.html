@@ -6784,6 +6784,7 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 <li><strong><a href="../api/arrays/#keyed-arrays">Server of a keyed array</a></strong>: <code>ww api scaffold</code> prints two handlers per <code>keyed!</code>, the generated code answers the rest.</li>
 <li><strong><a href="../api/mounts/">Mount slots</a></strong>: <code>mount!(hub)</code> and <code>mounts!(ext)</code> declare levels whose API is known only at run time, served by one handler per slot. <span class="ww-status">in progress</span></li>
 <li><strong><a href="../api/mounts/#forwarding">Forwarding into a mount</a></strong>: Requests into a slot lose its path, events coming back get it, global trait paths reach mounted APIs.</li>
+<li><strong><a href="../api/mounts/#forwarding-in-firmware">Forwarding in firmware</a></strong>: The mount prefix rewrite without a heap: a path of fixed capacity, the same bytes as on a host.</li>
 <li><strong><a href="../api/mounts/#backend-processes">Mount forwarder</a></strong>: A mount slot reaches another WireWeaver server over a socket, each connection with a link of its own, on tokio or calloop.</li>
 <li><strong><a href="../api/mounts/#who-calls-and-what-it-does">Who calls through a mount</a></strong>: The front's policy sees a mounted call's effects, the backend learns which client of the front called.</li>
 <li><strong><a href="../api/methods/#deferred">Deferred replies everywhere</a></strong>: Answer a call later, also on nested trait levels.</li>

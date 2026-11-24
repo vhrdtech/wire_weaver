@@ -8,7 +8,7 @@ export NEXTEST_TEST_THREADS := if jobs != "" { jobs } else { env_var_or_default(
 # The book kit: cards, glossary, abbreviations, lexers, the footer stamp and the `vz` command, with its tested
 # Zensical pinned as an extra, so this one pin covers both. The PyPI wheel, not the git tag: CI installs it
 # without compiling Rust.
-kit := "vhrd-zensical[zensical]==0.2.0"
+kit := "vhrd-zensical[zensical]==0.2.1"
 
 # List all available targets
 default:

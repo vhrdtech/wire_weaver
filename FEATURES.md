@@ -2860,7 +2860,7 @@ Unicast Data0 to one node over the same bus is TR-6.
   copies only its feature tracker, whose links point into the ww_tape book, and `entries.md` may link an
   `https://` page of such a book, so the Features page keeps its Tape items.
 - ✅ **DOC-13 The book on the `vhrd_zensical` kit**: one pin in the justfile
-  (`vhrd-zensical[zensical]==0.2.0`), the footer build stamp (`vz stamp`, `overrides/partials/copyright.html`
+  (`vhrd-zensical[zensical]==0.2.1`), the footer build stamp (`vz stamp`, `overrides/partials/copyright.html`
   includes `partials/vz-stamp.html`), the `vz-console`/`vz-rust` Pygments lexers over the `console`/`rust` fences
   (`pymdownx.highlight.extend_pygments_lang`), `vz-code.css` beside `ww_highlight.css`, and `vhrd_zensical.code_refs`
   for the main crates (`wire_weaver`, `wire_weaver_core`, `wire_weaver_derive`, `ww_api`, `wire_weaver_client`,

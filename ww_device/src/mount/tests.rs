@@ -481,3 +481,22 @@ fn a_reload_replaces_the_module() {
         [Seen::Error(2, err_seq::MOUNT_BACKEND_GONE, "unavailable")]
     );
 }
+
+/// A slot built in place over memory that held something else serves as one made by `new`.
+#[test]
+fn a_slot_built_in_place_serves() {
+    let mut memory = std::boxed::Box::new(core::mem::MaybeUninit::<Slot>::uninit());
+    // SAFETY: bytes written into a `MaybeUninit`, never read as a `Slot` before `init`
+    unsafe { memory.as_mut_ptr().cast::<u8>().write_bytes(0xAA, size_of::<Slot>()) };
+    let slot = Slot::init(&mut memory);
+    assert!(!slot.is_loaded());
+    assert!(!slot.take_changed());
+    assert_eq!(slot.counters(), ModuleCounters::default());
+    assert!(slot.load(Fake::new(Behave::Echo)).unwrap().is_none());
+    let mut out = Collect::default();
+    assert_eq!(call(slot, &mut out, 5, &[4, 0]), MountAnswer::Forwarded);
+    assert_eq!(
+        seen(&out),
+        [Seen::Data(vec![3, 1, 2]), Seen::Value(5, vec![4, 0])]
+    );
+}

@@ -14,7 +14,10 @@
 //! [PATH_IDS_MAX] ids or a message past the slot's buffers is dropped. A module that fails ([ModuleError::Fault]: a
 //! wasm trap) is unloaded. Nothing a module sends makes the slot panic.
 //!
-//! Everything lives in the slot, which is set up in place in a `static` ([ModuleSlot::new] is `const`): no heap.
+//! Everything lives in the slot, which is set up in place in a `static` ([ModuleSlot::init]): no heap.
+
+use core::mem::MaybeUninit;
+use core::ptr::addr_of_mut;
 
 use shrink_wrap::prelude::{DeserializeShrinkWrap, ShrinkWrapError};
 use shrink_wrap::{BufReader, RefVec};
@@ -247,7 +250,7 @@ struct Answering {
 }
 
 /// A [Module] at one mount slot, for one front connection, with every buffer it needs: set it up in place in a
-/// `static` with [ModuleSlot::new]. `MSG` is the longest message in and out (the front link's message limit), `OUT`
+/// `static` with [ModuleSlot::init]. `MSG` is the longest message in and out (the front link's message limit), `OUT`
 /// the bytes of the module's events per turn.
 ///
 /// ```ignore
@@ -297,6 +300,77 @@ impl<M: Module, const MSG: usize, const OUT: usize> Default for ModuleSlot<M, MS
 }
 
 impl<M: Module, const MSG: usize, const OUT: usize> ModuleSlot<M, MSG, OUT> {
+    /// An empty slot, built in place: for a slot in a `static` of `MaybeUninit` (`static_cell::StaticCell::uninit`),
+    /// nothing of it on the stack and nothing of it in flash. A `static` of [new](Self::new) is placed in `.data`,
+    /// its whole size in flash too: the padding of its fields keeps it out of `.bss`.
+    pub fn init(slot: &mut MaybeUninit<Self>) -> &mut Self {
+        // every field is written below: a new one fails to compile here until it is
+        let _ = |s: Self| {
+            let ModuleSlot {
+                module: _,
+                hash: _,
+                prefix: _,
+                in_flight: _,
+                in_flight_len: _,
+                closable: _,
+                closable_len: _,
+                closing: _,
+                closing_len: _,
+                answers: _,
+                answers_len: _,
+                request_buf: _,
+                reply_buf: _,
+                reply: _,
+                reply_seq: _,
+                current: _,
+                rewrite_buf: _,
+                out_buf: _,
+                out_len: _,
+                out_read: _,
+                changed: _,
+                counters: _,
+            } = s;
+        };
+        let at = slot.as_mut_ptr();
+        // SAFETY: every field written in place, each through its own pointer; an array of `N` items is `N` items one
+        // after the other, and zero bytes are a valid `u8`
+        unsafe {
+            addr_of_mut!((*at).module).write(None);
+            addr_of_mut!((*at).hash).cast::<u8>().write_bytes(0, SIGNATURE_LEN);
+            addr_of_mut!((*at).prefix).write(None);
+            let in_flight = addr_of_mut!((*at).in_flight).cast::<(u32, Priority)>();
+            for i in 0..IN_FLIGHT_MAX {
+                in_flight.add(i).write((0, Priority::NORMAL));
+            }
+            addr_of_mut!((*at).in_flight_len).write(0);
+            let closable = addr_of_mut!((*at).closable).cast::<PathArray<PATH_IDS_MAX>>();
+            let closing = addr_of_mut!((*at).closing).cast::<PathArray<PATH_IDS_MAX>>();
+            for i in 0..CLOSABLE_MAX {
+                closable.add(i).write(PathArray::new());
+                closing.add(i).write(PathArray::new());
+            }
+            addr_of_mut!((*at).closable_len).write(0);
+            addr_of_mut!((*at).closing_len).write(0);
+            let answers = addr_of_mut!((*at).answers).cast::<(u32, Priority, Refusal)>();
+            for i in 0..ANSWERS_MAX {
+                answers.add(i).write((0, Priority::NORMAL, Refusal::Gone));
+            }
+            addr_of_mut!((*at).answers_len).write(0);
+            addr_of_mut!((*at).request_buf).cast::<u8>().write_bytes(0, MSG);
+            addr_of_mut!((*at).reply_buf).cast::<u8>().write_bytes(0, MSG);
+            addr_of_mut!((*at).reply).write((0, 0));
+            addr_of_mut!((*at).reply_seq).write(0);
+            addr_of_mut!((*at).current).write((0, 0));
+            addr_of_mut!((*at).rewrite_buf).cast::<u8>().write_bytes(0, MSG);
+            addr_of_mut!((*at).out_buf).cast::<u8>().write_bytes(0, OUT);
+            addr_of_mut!((*at).out_len).write(0);
+            addr_of_mut!((*at).out_read).write(0);
+            addr_of_mut!((*at).changed).write(false);
+            addr_of_mut!((*at).counters).write(ModuleCounters::default());
+            slot.assume_init_mut()
+        }
+    }
+
     /// An empty slot.
     pub const fn new() -> Self {
         ModuleSlot {

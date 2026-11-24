@@ -53,6 +53,9 @@ ww_timebase = { path = "../../ww_timebase", default-features = false, optional =
 ww_date_time = { git = "https://github.com/vhrdtech/ww_base", default-features = false, optional = true }
 # KeyEvent of the qemu-flash-keyed server's `keys` stream (SRV-62)
 ww_keyed = { git = "https://github.com/vhrdtech/ww_base", default-features = false }
+# qemu-mount-module (SRV-81): a mount slot served by a module in the firmware's process
+ww_device = { path = "../../ww_device" }
+mount_backend_api = { path = "../../tests/mount_backend_api", default-features = false }
 
 # Cortex-M0 has no compare-and-swap: ww_stream's atomics go through critical sections there (the units budget is also
 # built for thumbv6m, TEST-27)
@@ -150,6 +153,13 @@ bench = false
 [[bin]]
 name = "qemu-mount-prefix"
 path = "src/bin/mount_prefix.rs"
+test = false
+doctest = false
+bench = false
+
+[[bin]]
+name = "qemu-mount-module"
+path = "src/bin/mount_module.rs"
 test = false
 doctest = false
 bench = false

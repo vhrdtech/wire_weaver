@@ -290,6 +290,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "embassy-futures"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc2d050bdc5c21e0862a89256ed8029ae6c290a93aecefc73084b3002cdebb01"
+
+[[package]]
 name = "embedded-hal"
 version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -420,6 +426,7 @@ dependencies = [
  "flash_budget_api",
  "foc_observe_api",
  "global_paths_api",
+ "mount_backend_api",
  "panic-semihosting",
  "portable-atomic",
  "static_cell",
@@ -427,6 +434,7 @@ dependencies = [
  "ww_client_server",
  "ww_crc",
  "ww_date_time",
+ "ww_device",
  "ww_framer",
  "ww_keyed",
  "ww_link",
@@ -440,6 +448,13 @@ name = "memchr"
 version = "2.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
+
+[[package]]
+name = "mount_backend_api"
+version = "0.1.0"
+dependencies = [
+ "ww_api",
+]
 
 [[package]]
 name = "nb"
@@ -1010,6 +1025,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "ww_device"
+version = "0.6.0"
+dependencies = [
+ "embassy-futures",
+ "shrink_wrap",
+ "wire_weaver",
+ "ww_client_server",
+ "ww_framer",
+ "ww_link",
+ "ww_self",
+ "ww_tap",
+]
+
+[[package]]
 name = "ww_error"
 version = "0.1.0"
 source = "git+https://github.com/vhrdtech/ww_base#b35d6919bb6d54256ecac1db4fef62f984e4cfa8"
@@ -1124,6 +1153,13 @@ dependencies = [
  "wire_weaver",
  "ww_client_server",
  "ww_si",
+]
+
+[[package]]
+name = "ww_tap"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
 ]
 
 [[package]]

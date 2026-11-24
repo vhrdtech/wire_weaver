@@ -127,6 +127,7 @@ minimal_shrink_wrap = { layer = "runtime" }
 module_paths = { layer = "runtime" }
 module_paths_api = { layer = "runtime", no_std = true }
 mount_backend_api = { layer = "runtime", no_std = true }
+mount_module = { layer = "runtime" }
 mounts = { layer = "runtime" }
 mounts_api = { layer = "runtime", no_std = true }
 multi_req = { layer = "runtime" }

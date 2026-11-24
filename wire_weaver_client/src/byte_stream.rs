@@ -26,8 +26,9 @@ use crate::event_loop::transport::{
     MessageRx, MessageTx, Opened, Selected, SharedClaim, Transport, handover_requested,
 };
 
-/// The other side must answer the preamble within this time: a socket nobody serves fails fast.
-const ANSWER_TIMEOUT: Duration = Duration::from_secs(2);
+/// A local socket must answer the preamble within this time: a socket nobody serves fails fast. TCP, a command
+/// and an opened stream wait their link setup timeout instead, which covers a login first (ssh).
+pub(crate) const LOCAL_ANSWER_TIMEOUT: Duration = Duration::from_secs(2);
 
 /// The read half of a connection.
 pub(crate) type BoxRead = Box<dyn AsyncRead + Send + Unpin>;
@@ -260,38 +261,55 @@ pub(crate) struct Tunnel {
 }
 
 /// Connects to `reach` and asks for `target` with the preamble, which carries this program's versions and
-/// generations; a server that only reads the first preamble layout is asked again with it.
-pub(crate) async fn open(reach: &Reach, target: Target) -> Result<Tunnel, OpenError> {
-    open_preamble(reach, Preamble::new(target)).await
+/// generations; a server that only reads the first preamble layout is asked again with it. The answer must come
+/// within `answer_timeout`, the connection's own setup included.
+pub(crate) async fn open(
+    reach: &Reach,
+    target: Target,
+    answer_timeout: Duration,
+) -> Result<Tunnel, OpenError> {
+    open_preamble(reach, Preamble::new(target), answer_timeout).await
 }
 
 /// [open] with `preamble`, to which this program's versions and generations are added.
-pub(crate) async fn open_preamble(reach: &Reach, preamble: Preamble) -> Result<Tunnel, OpenError> {
+pub(crate) async fn open_preamble(
+    reach: &Reach,
+    preamble: Preamble,
+    answer_timeout: Duration,
+) -> Result<Tunnel, OpenError> {
     let (link, api_model) = own_versions();
     let preamble = preamble
         .with_versions(link, api_model)
         .with_generations(own_generations());
-    match open_with(reach, &preamble).await {
+    match open_with(reach, &preamble, answer_timeout).await {
         Err(OpenError::Refused { answer, .. }) if answer.status == Status::PreambleVersion => {
             debug!(
                 "{reach}: preamble version 1 for a hub {}",
                 answer.hub_version
             );
-            open_with(reach, &preamble.v1()).await
+            open_with(reach, &preamble.v1(), answer_timeout).await
         }
         r => r,
     }
 }
 
-async fn open_with(reach: &Reach, preamble: &Preamble) -> Result<Tunnel, OpenError> {
+async fn open_with(
+    reach: &Reach,
+    preamble: &Preamble,
+    answer_timeout: Duration,
+) -> Result<Tunnel, OpenError> {
     let shown = reach.to_string();
     let io = |e: &dyn fmt::Display| OpenError::Io(format!("{shown}: {e}"));
     let (mut rx, mut tx) = reach.connect().await.map_err(|e| io(&e))?;
     tx.write_all(&preamble.encode()).await.map_err(|e| io(&e))?;
     tx.flush().await.map_err(|e| io(&e))?;
-    let answer = tokio::time::timeout(ANSWER_TIMEOUT, Answer::read(&mut rx))
+    let answer = tokio::time::timeout(answer_timeout, Answer::read(&mut rx))
         .await
-        .map_err(|_| io(&"no answer to the preamble"))?
+        .map_err(|_| {
+            io(&format!(
+                "no answer to the preamble within {answer_timeout:?}"
+            ))
+        })?
         .map_err(|e| io(&e))?;
     if answer.status != Status::Ok {
         return Err(OpenError::Refused { shown, answer });
@@ -308,7 +326,9 @@ async fn open_with(reach: &Reach, preamble: &Preamble) -> Result<Tunnel, OpenErr
 
 /// TCP, a command's pipes or a stream the program opens ([ClientConfig::tcp](crate::ClientConfig::tcp),
 /// [command](crate::ClientConfig::command), [stream](crate::ClientConfig::stream)): opens the connection now, so
-/// that a refusal (an unknown service, a busy server) is an [Error::HubRefused](crate::Error::HubRefused).
+/// that a refusal (an unknown service, a busy server) is an [Error::HubRefused](crate::Error::HubRefused). The
+/// preamble's answer and the link setup both wait [ClientConfig::link_setup_timeout](
+/// crate::ClientConfig::link_setup_timeout), else the transport's default.
 pub(crate) async fn try_connect(
     c: &ValidatedConfig,
     cmd_rx: &mut Option<mpsc::Receiver<Command>>,
@@ -324,17 +344,12 @@ pub(crate) async fn try_connect(
     }) else {
         return Ok(Selected::NotFound { unmatched: vec![] });
     };
-    let tunnel = open(&reach, service_or(c, Target::Device(String::new())))
+    let setup = c.open_timeout(crate::event_loop::transport::link_setup_timeout::BYTE_STREAM);
+    let tunnel = open(&reach, service_or(c, Target::Device(String::new())), setup)
         .await
         .map_err(OpenError::into_error)?;
     let location = tunnel.shown.clone();
-    started(
-        cmd_rx,
-        location,
-        tunnel,
-        false,
-        crate::event_loop::transport::link_setup_timeout::BYTE_STREAM,
-    )
+    started(cmd_rx, location, tunnel, false, setup)
 }
 
 /// What to ask for: the service the config names, else `otherwise`.
@@ -405,9 +420,15 @@ impl Transport for ByteStreamTransport {
         max_message_len: usize,
     ) -> Result<Opened<ByteTx, ByteRx>, String> {
         let tunnel = match handle.downcast::<StreamTarget>() {
-            Ok(to) => open(&to.reach, to.target.clone())
-                .await
-                .map_err(|e| e.to_string())?,
+            Ok(to) => {
+                let answer_timeout = match to.reach {
+                    Reach::LocalSocket(_) => LOCAL_ANSWER_TIMEOUT,
+                    _ => self.link_setup_timeout,
+                };
+                open(&to.reach, to.target.clone(), answer_timeout)
+                    .await
+                    .map_err(|e| e.to_string())?
+            }
             // opened already: by connect(), or through the hub when connect() picked the route (CLT-39)
             Err(handle) => *handle
                 .downcast::<Tunnel>()
@@ -688,6 +709,7 @@ mod tests {
         let Err(OpenError::Refused { shown, answer }) = open(
             &Reach::Tcp(addr.to_string()),
             Target::Service("journal".into()),
+            LOCAL_ANSWER_TIMEOUT,
         )
         .await
         else {
@@ -695,6 +717,38 @@ mod tests {
         };
         assert_eq!(answer.status, Status::UnknownService);
         assert_eq!(shown, format!("tcp {addr}"));
+    }
+
+    /// A stream whose server answers late, as ssh does after its login, connects within the config's link setup
+    /// timeout: the preamble's answer is not held to the local socket's 2 s.
+    #[tokio::test(start_paused = true)]
+    async fn a_late_answer_within_the_link_setup_timeout_connects() {
+        let (dev_side, host_side) = tokio::io::duplex(4096);
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_secs(5)).await;
+            device(dev_side.compat(), mpsc::unbounded_channel().0).await
+        });
+        let host_side = std::sync::Mutex::new(Some(host_side));
+        let opener = StreamOpener::new("slow login", move || {
+            let stream = host_side.lock().unwrap().take();
+            async move {
+                stream
+                    .map(TokioAsyncReadCompatExt::compat)
+                    .ok_or_else(|| io::Error::other("the pipes were taken"))
+            }
+        });
+        let config = crate::ClientConfig::default()
+            .stream(opener)
+            .link_setup_timeout(Duration::from_secs(30))
+            .validate()
+            .unwrap();
+        let (_cmd_tx, cmd_rx) = mpsc::channel::<Command>(64);
+        let selected = try_connect(&config, &mut Some(cmd_rx)).await;
+        assert!(
+            matches!(selected, Ok(Selected::Device { .. })),
+            "connected: {:?}",
+            selected.err()
+        );
     }
 
     /// Configs with the same opener compare equal, with another one not.

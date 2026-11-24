@@ -2565,6 +2565,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "mount_module"
+version = "0.1.0"
+dependencies = [
+ "mount_backend_api",
+ "mounts_api",
+ "tests_common",
+ "tokio",
+ "tracing-subscriber",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_client_server",
+ "ww_device",
+ "ww_keyed",
+ "ww_self",
+ "ww_stream",
+]
+
+[[package]]
 name = "mounts"
 version = "0.1.0"
 dependencies = [

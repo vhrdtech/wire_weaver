@@ -49,8 +49,12 @@ pub enum TraitWalk {
 }
 
 impl<'m> ApiBundle<'m> {
-    /// Visit the traits of this model, see the [module](self) docs, with their paths in `path`, whose length limits
-    /// the depth too, at most [TRAIT_WALK_DEPTH_MAX]. No heap; the stack of a model decode.
+    /// Visit the traits of this model as a global path finds them, with their paths in `path`.
+    ///
+    /// Depth first, in the model's order, never under a resource array. A trait the model leaves out (a
+    /// dependency's) is visited without its `ww_global` id and not descended into. The length of `path` limits the
+    /// depth too, at most [TRAIT_WALK_DEPTH_MAX]. No heap; the stack of a model decode, so walk once, never per
+    /// request.
     pub fn visit_traits(
         &self,
         path: &mut [u32],

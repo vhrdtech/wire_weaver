@@ -801,10 +801,16 @@ pub fn global_full_path(
     let hash = ww_global::trait_hash(gid.crate_id, trait_name);
     let t = table.iter().find(|t| t.hash == hash)?;
     let (major, minor) = (gid.version.major.0, gid.version.minor.0);
-    let compatible = if t.major >= 1 {
-        major == t.major as u32
+    version_compatible(u32::from(t.major), u32::from(t.minor), major, minor).then_some(t.path)
+}
+
+/// Whether the crate version `major.minor` a global path names reaches a trait whose crate was built at
+/// `built_major.built_minor`: the same major from 1.0 on, the same major and minor before it, as
+/// `FullVersion::is_protocol_compatible`.
+pub fn version_compatible(built_major: u32, built_minor: u32, major: u32, minor: u32) -> bool {
+    if built_major >= 1 {
+        major == built_major
     } else {
-        major == 0 && minor == t.minor as u32
-    };
-    compatible.then_some(t.path)
+        major == 0 && minor == built_minor
+    }
 }

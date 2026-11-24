@@ -1072,6 +1072,18 @@ impl Request<'_> {
         rd.read_uvlq32()?;
         Ok(U3::des_shrink_wrap(&mut rd)?.into())
     }
+
+    /// Whether a serialized request names a global trait path ([PathKind::GlobalFull], [PathKind::GlobalCompact]),
+    /// without deserializing its path or kind: a firmware asks before each request whether it goes into a module
+    /// (SRV-82).
+    pub fn peek_is_global(bytes: &[u8]) -> Result<bool, shrink_wrap::Error> {
+        let mut rd = BufReader::new(bytes);
+        rd.read_uvlq32()?;
+        U3::des_shrink_wrap(&mut rd)?;
+        ContextField::des_shrink_wrap(&mut rd)?;
+        // `PathKind`'s discriminant, `Absolute` is 0
+        Ok(rd.read_nib_value()? != 0)
+    }
 }
 
 #[cfg(feature = "std")]
@@ -1139,6 +1151,47 @@ mod tests {
             assert_eq!(request.seq, UVlq32Backfill(seq));
             assert!(matches!(request.kind, RequestKind::Read));
         }
+    }
+
+    /// The peek agrees with a full decode for each path kind, with and without a context.
+    #[test]
+    fn peek_is_global_agrees_with_the_decode() {
+        let gid = ww_version::FullVersion::new("player_api", ww_version::Version::new(0, 3, 0));
+        let compact =
+            ww_version::CompactVersion::new(ww_version::GlobalTypeId { id: UNib32(77) }, 0, 3, 0);
+        let from = resource_path([4, 5]);
+        let kinds = [
+            PathKind::absolute(&from),
+            PathKind::GlobalFull {
+                gid,
+                trait_name: "Player",
+                path_from_trait: RefVec::Slice { slice: &from },
+            },
+            PathKind::GlobalCompact {
+                gid: compact,
+                path_from_trait: RefVec::Slice { slice: &from },
+            },
+        ];
+        let context = RequestContext {
+            trace: None,
+            deadline: Some(ww_si::Millis::new(UNib32(250))),
+            forwarded_for: None,
+        };
+        for (i, path_kind) in kinds.into_iter().enumerate() {
+            for context in [None, Some(RefBox::new(&context))] {
+                let request = Request {
+                    seq: UVlq32Backfill(300),
+                    priority: crate::Priority::NORMAL.to_wire(),
+                    context,
+                    path_kind: path_kind.clone(),
+                    kind: RequestKind::Read,
+                };
+                let mut buf = [0u8; 64];
+                let bytes = request.to_ww_bytes(&mut buf).unwrap();
+                assert_eq!(Request::peek_is_global(bytes), Ok(i != 0), "kind {i}");
+            }
+        }
+        assert!(Request::peek_is_global(&[]).is_err());
     }
 
     #[test]

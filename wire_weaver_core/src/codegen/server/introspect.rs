@@ -27,6 +27,7 @@ pub(crate) fn introspect(
         let device_bundle = omissions.mark(api_bundle, &active);
         let IntrospectTs {
             introspect_bytes,
+            no_docs_bytes,
             no_docs_hash,
             with_docs_hash,
         } = introspect_prepare(
@@ -41,6 +42,10 @@ pub(crate) fn introspect(
             pub const WW_SELF_BYTES: #introspect_bytes;
         });
         hash_consts.extend(quote! {
+            /// The introspection data without docs and uncompressed: the bytes `API_HASH_NO_DOCS` is the hash of.
+            /// The model a module hands its mount slot (SRV-81).
+            #maybe_cfg
+            pub const WW_SELF_BYTES_NO_DOCS: #no_docs_bytes;
             #maybe_cfg
             pub const API_HASH_NO_DOCS: #no_docs_hash;
             #maybe_cfg
@@ -118,6 +123,8 @@ pub(crate) fn introspect(
 
 pub(crate) struct IntrospectTs {
     pub(crate) introspect_bytes: TokenStream,
+    /// The bytes `no_docs_hash` is computed over: the introspection data without docs, uncompressed.
+    pub(crate) no_docs_bytes: TokenStream,
     pub(crate) no_docs_hash: TokenStream,
     pub(crate) with_docs_hash: TokenStream,
 }
@@ -179,6 +186,7 @@ pub(crate) fn introspect_prepare(
     } else {
         (sent_no_docs_bytes.clone(), bytes_to_ts(&[]))
     };
+    let no_docs_bytes = sent_no_docs_bytes.clone();
     let introspect_bytes = if include_docs && contains_docs.contains {
         sent_with_docs_bytes
     } else {
@@ -190,6 +198,7 @@ pub(crate) fn introspect_prepare(
     };
     IntrospectTs {
         introspect_bytes: bytes_to_ts(&introspect_bytes),
+        no_docs_bytes: bytes_to_ts(&no_docs_bytes),
         no_docs_hash,
         with_docs_hash,
     }

@@ -1522,6 +1522,7 @@ fn connect_disconnect_methods(api_bundle: &CodegenBundle) -> TokenStream {
         introspect_bytes,
         no_docs_hash,
         with_docs_hash,
+        ..
     } = introspect_prepare(
         api_bundle,
         api_bundle.crate_dirs(),

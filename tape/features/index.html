@@ -6812,6 +6812,11 @@
 <p>An application defines a track or a clock without a number (<code>TrackSpec</code>, <code>ClockSpec</code>), and <code>Definitions</code> gives it the lowest number not taken. The same track identity (key, dimensions, owner) or clock key gets its number back, also after a close. A number never goes to another track or clock. A resume reads the numbers back (<code>Resumed::numbers</code>, <code>Definitions::with_numbers</code>), a chain's from every piece present, counting unread ones (<code>Resumed::numbers_unread</code>). A track or clock defined only in a removed piece loses its number, and a reader finds a track's number by its id (<code>DefinitionsAt::track_number</code>).</p>
 <p>Open: <code>TapeWriter::resume_on</code> alone, outside a chain, reads a closed piece's numbers only from its head's puts and after its last close.</p>
 <p>Read more: <a href="https://tape.vhrd.tech/tracks/#number-key-and-id">Number, key and id</a>, <a href="https://tape.vhrd.tech/definitions/#the-definitions-an-application-holds">The definitions an application holds</a>, <code>ww_tape_tests/tests/it/chain_numbers.rs</code>.</p>
+<ul>
+<li>✅ <strong>TRACK-9 Definitions written twice at once</strong></li>
+</ul>
+<p>A track whose definition says <code>defined_twice</code> has every definition it needs written twice: its clock chain, its bundles and its own. The first record goes into a block marked <code>FLAG_TWICE</code> inside its run. Its copy follows right after the block that ends the run and belongs with no other block. In a piece under 1 MiB each definition so reads after any one damaged block. A resume writes the copies a crash cut off, so the bytes equal those written without the crash.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/format/#definitions-written-twice-at-once">Definitions written twice at once</a>. Tests <code>definitions_twice.rs</code>.</p>
 <h2 id="writer-write">Writer (<code>WRITE</code>)<a class="headerlink" href="#writer-write" title="Permanent link">&para;</a></h2>
 <p>Writing pieces and chains, resuming them, and sinks in memory, in the crate <code>ww_tape</code>.</p>
 <ul>
@@ -6860,6 +6865,13 @@
 </ul>
 <p>A chain resumes from its lowest piece at hand, so retention and a writer that restarts work together. A hole in the middle is walked over when the closes at hand name its pieces as removed on purpose. Any other hole is refused. <code>PieceChain::remove</code> removes closed pieces in one call. It names them in the piece written, closes and syncs it (<code>TapeWriter::close_and_go_on</code>), then takes the pieces out of the store.</p>
 <p>Read more: <a href="https://tape.vhrd.tech/pieces/#removing-pieces-while-the-chain-is-written">Removing pieces while the chain is written</a>. Tests <code>ww_tape_tests/tests/it/chain_removal.rs</code>.</p>
+<ul>
+<li>✅ <strong>WRITE-17 Groups of puts taken whole</strong></li>
+</ul>
+<p><code>TapeWriter::put_group</code> puts items on several state tracks as one group, and every reader takes all of it or none. The group is a run of blocks of puts marked <code>FLAG_WITH_NEXT</code>, so a crash inside it leaves a run without its last block. A scan lists such a run in <code>PieceInfo::dropped_runs</code> and none of its records. A follower hands out none of it, and a resume drops it and names it in <code>Resumed::dropped_run</code>.</p>
+<p>Each of its blocks carries <code>FLAG_GROUP</code> and its first <code>FLAG_GROUP_START</code>. A scan and a lookup through the index so drop a damaged group whole and keep one that starts after damage.</p>
+<p>A chain cuts before a group, never inside it, and <code>GroupHandle</code> sends one through the mux. A relay holds each producer's group until its last block and writes it whole; it drops none without an error. A group's block of definitions written twice at once is one of its blocks; the copy follows the group. Followers hold the places of a run's blocks, at most <code>RUN_BLOCKS_MAX</code>, not their bytes.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/format/#groups-of-puts">Groups of puts</a>, <a href="https://tape.vhrd.tech/crashes/#a-torn-group-of-puts">A torn group of puts</a>. Tests <code>ww_tape_tests/tests/it/groups.rs</code>, <code>ww_tape_fs/tests/follow_heap.rs</code>.</p>
 <h2 id="writing-from-many-threads-mux">Writing from many threads (<code>MUX</code>)<a class="headerlink" href="#writing-from-many-threads-mux" title="Permanent link">&para;</a></h2>
 <p>The writing thread and its handles, in the crate <code>ww_tape_mux</code>.</p>
 <ul>
@@ -7007,13 +7019,18 @@
 <li>✅ <strong>BOOK-5 Fields and images over time</strong></li>
 </ul>
 <p>A chapter explains grid tracks: fixed axes, tiles and the box query. It covers the time pyramid of a region and the space overviews, with the level a viewer picks. It also shows where per-tile overviews end. Two cases run in tests: <code>example_thermal</code>, a plate of sensors, and <code>example_images</code>, an image sequence in three tile sizes. Every number on the page comes from their runs.</p>
-<p>Read more: <a href="https://tape.vhrd.tech/grids/">Fields and images over time</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/d1345474d2dbc4381d4a1075ea76aedc1ae9ecf2/examples/example_thermal/README.md">example_thermal</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/d1345474d2dbc4381d4a1075ea76aedc1ae9ecf2/examples/example_images/README.md">example_images</a>. Tests <code>thermal.rs</code>, <code>images.rs</code>.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/grids/">Fields and images over time</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/7734c353d8cbdc301b6e30d31b895acc104f8c59/examples/example_thermal/README.md">example_thermal</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/7734c353d8cbdc301b6e30d31b895acc104f8c59/examples/example_images/README.md">example_images</a>. Tests <code>thermal.rs</code>, <code>images.rs</code>.</p>
 <ul>
 <li>✅ <strong>BOOK-6 The book kit from its own repository</strong></li>
 </ul>
 <p>The book pins <code>vhrd_zensical</code> in the justfile; <code>vz prep</code> writes the code index, the cards and the footer stamp,
   replacing spirit_level's book extension. The lexers are now <code>vz-console</code> and <code>vz-rust</code>, and the long forms of
   <code>abbreviation-first-use</code> live in <code>docs/abbreviations.toml</code>, read by the kit, not <code>spirit_level.toml</code>.</p>
+<ul>
+<li>✅ <strong>BOOK-7 The book kit from PyPI</strong></li>
+</ul>
+<p>The justfile pins <code>vhrd-zensical[zensical]==0.2.1</code> from PyPI, not the git tag: <code>just book-check</code> installs a wheel
+  and compiles nothing.</p>
 <p>Read more: <a href="https://tape.vhrd.tech/writers/">For writers</a>.</p>
 <h2 id="example-and-cases-ex">Example and cases (<code>EX</code>)<a class="headerlink" href="#example-and-cases-ex" title="Permanent link">&para;</a></h2>
 <p>The book's running example and its other cases: <code>example_drive</code>, <code>example_rf</code>, <code>example_ethernet</code> and <code>example_wideband</code>, with what they share in <code>example_capture</code>.</p>
@@ -7021,7 +7038,7 @@
 <li>✅ <strong>EX-1 The drive's hour as code</strong></li>
 </ul>
 <p><code>example_drive</code> records the drive motor controller's hour: log lines, mode, CAN frames, phase current with summaries and temperature, in a chain of pieces. <code>Drive::scaled</code> shrinks the data and the byte policies for figures, and a crash at any byte resumes to the bytes of the run without it. The RF capture (<code>example_rf</code>) records ComplexI16 IQ at 20 MS/s as the book's case for high rates. <code>cargo run -p example_drive</code> prints the story's numbers, and the tests pin them.</p>
-<p>Read more: <a href="https://github.com/vhrdtech/ww_tape/blob/d1345474d2dbc4381d4a1075ea76aedc1ae9ecf2/examples/example_drive/README.md">example_drive</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/d1345474d2dbc4381d4a1075ea76aedc1ae9ecf2/examples/example_rf/README.md">example_rf</a>. Tests <code>story.rs</code>, <code>damage.rs</code>, <code>rf.rs</code>.</p>
+<p>Read more: <a href="https://github.com/vhrdtech/ww_tape/blob/7734c353d8cbdc301b6e30d31b895acc104f8c59/examples/example_drive/README.md">example_drive</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/7734c353d8cbdc301b6e30d31b895acc104f8c59/examples/example_rf/README.md">example_rf</a>. Tests <code>story.rs</code>, <code>damage.rs</code>, <code>rf.rs</code>.</p>
 <ul>
 <li>✅ <strong>EX-2 A 10 Gbps link and a 1 GS/s receiver</strong></li>
 </ul>
@@ -7042,7 +7059,7 @@
 <li>✅ <strong>EX-5 A crate per case, its pipeline a library</strong></li>
 </ul>
 <p>Each case is a crate of its own: <code>example_drive</code> the book's running example, <code>example_rf</code>, <code>example_ethernet</code> and <code>example_wideband</code>. What they share, the memory window and the RF signal, is in <code>example_capture</code>, so no case depends on another. <code>window::start</code> and each case's <code>start</code> return a running pipeline. It hands out its memory window, the pieces in memory and each mux's watch, so a viewer follows it live. Each case has a headless binary whose <code>main</code> reads like a block diagram of its threads.</p>
-<p>Read more: <a href="https://tape.vhrd.tech/protocol_analyser/#the-pipeline">The pipeline</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/d1345474d2dbc4381d4a1075ea76aedc1ae9ecf2/examples/example_capture/README.md">example_capture</a>. Tests <code>window.rs</code>.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/protocol_analyser/#the-pipeline">The pipeline</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/7734c353d8cbdc301b6e30d31b895acc104f8c59/examples/example_capture/README.md">example_capture</a>. Tests <code>window.rs</code>.</p>
 <ul>
 <li>✅ <strong>EX-6 Payload compression measured on the cases</strong></li>
 </ul>
@@ -7065,7 +7082,20 @@
 <p>Every bench binary takes <code>--json FILE</code>, <code>--color</code>, <code>--version</code> and shell completion through <code>ww_tape_bench</code>, and records the machine and its load with each table. <code>just bench-book</code> reruns every number of "Sizes and speeds" into <code>docs/bench/</code>. <code>ww_tape_figures</code> draws the page's charts and tables from those reports, and a test keeps them current.</p>
 <p>Read more: <a href="https://tape.vhrd.tech/sizes/">Sizes and speeds</a>.</p>
 <ul>
-<li>🚧 <strong>REPO-1 Crates by what they touch</strong></li>
+<li>✅ <strong>REPO-86 The big tier of spirit_level, with a crate map</strong></li>
+</ul>
+<p><code>spirit_level.toml</code> extends the big tier, the ai add-on and the units sets.</p>
+<ul>
+<li>The crate map puts every crate in a layer, from the codecs up to the figures. spl checks each edge of cargo's graph against it.</li>
+<li><code>ww_tape_codecs</code>, <code>ww_tape</code> and <code>ww_tape_summary</code> are marked no_std and wasm, and spl builds them so.</li>
+<li>The workspace forbids unsafe code. The crates the map marks unsafe allow it in their own <code>[lints]</code>.</li>
+<li>Heap tests, the memory bench and fuzz cases count allocations through one allocator, <code>ww_tape_testalloc</code>.</li>
+<li>
+<p>Clippy's pedantic and cargo groups are on.</p>
+</li>
+<li>
+<p>🚧 <strong>REPO-1 Crates by what they touch</strong></p>
+</li>
 </ul>
 <p><code>ww_tape</code> writes and reads tapes on sinks and sources without std, <code>ww_tape_codecs</code> holds the codecs and <code>ww_tape_summary</code> the summaries. <code>ww_tape_fs</code> holds everything that names a path. The writer, chain and resume build with alloc only, and the codecs build for wasm32 without std.</p>
 <p>The codecs work on slices. Memory tapes keep their bytes in extents that never move, and <code>MemPieces::drop_front</code> frees a tape's oldest pieces. A reader checks payload CRCs as <code>OpenOptions::check_payloads</code> says: by default a file is checked and a memory tape of this process is not.</p>

@@ -1995,6 +1995,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#wasm-modules" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Wasm modules
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -6621,6 +6632,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#wasm-modules" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Wasm modules
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -7176,6 +7198,118 @@ absolute path, so the hook mostly sees global paths into modules.</p>
 the borrowed <code>ApiBundle</code>. The whole bench is 76 750 B of flash at <code>fw-z</code>: the slot's code about 12 KB, the SHA-256
 of the model hash 7 KB, decoding the model at <code>load</code> 8 KB. Global paths add about 9 KB: 3.2 KB of it decodes the
 model's items, 1.1 KB a <code>Request</code>, which a firmware's dispatch has already.</p>
+<h4 id="wasm-modules">Wasm modules<a class="headerlink" href="#wasm-modules" title="Permanent link">&para;</a></h4>
+<p><code>ww_wasm</code> runs a WireWeaver server compiled to <code>wasm32-unknown-unknown</code> as a <code>Module</code>, so a firmware can load,
+replace and unload an API at run time. The guest is an ordinary server generated with <code>use_async = false</code>, exported by
+<code>ww_wasm::guest_module!</code>; the host side is <code>WasefireModule</code> (wasefire-interpreter, feature <code>wasefire</code>) or
+<code>WasmiModule</code> (wasmi, feature <code>wasmi</code>). <code>ww_wasm</code> is its own workspace on nightly, because wasefire-interpreter
+needs it.</p>
+<ul>
+<li>The module ABI: the guest exports its memory, <code>ww_request</code>, <code>ww_reply</code> and <code>ww_buf_len</code> (its buffers) and
+  <code>ww_process(len)</code>, and may export <code>ww_poll</code>. It imports <code>ww.event(ptr, len)</code> for its events. The model is the
+  server's <code>WW_SELF_BYTES_NO_DOCS</code> in a custom section, <code>ww_model</code>, which the host reads without running the module.</li>
+<li>The host copies each request into the guest's buffer and the reply out of it, both bounds-checked. A trap, wasmi
+  running out of fuel or a reply outside the buffer is a <code>ModuleError::Fault</code>: the slot unloads the module and the
+  parent goes on.</li>
+<li>wasefire-interpreter needs the binary prepared on the host first: <code>ww-wasm-prepare</code> adds its side table.
+  <code>just wasm-modules</code> builds the example guest (<code>examples_mcu/wasm_module</code>) for both of its APIs and prepares them.</li>
+<li>wasefire-interpreter has no fuel, so a module that loops never returns, and the firmware's server task hangs with it
+  (SRV-86). wasmi stops it with <code>Limits::fuel</code>.</li>
+<li>Both interpreters allocate: the firmware needs a global allocator. A failed allocation during a load is a refused
+  load, but one during a call panics.</li>
+</ul>
+<p>The example is <code>stm32h725ig-wasm-slot</code> on B135B (<code>examples_mcu/usb_stm32h725ig</code>), with <code>wasm_slot_api</code>: a slot per
+interpreter, <code>load</code>, <code>unload</code>, the slot counters, and the cycles, stack and heap each step took. Its host side
+<code>examples/wasm_slot</code> checks the following on the board over USB (<code>just hw-wasm-slot</code>):</p>
+<ul>
+<li>calls into each slot;</li>
+<li>a reload with <code>wasm_module_api_evolved</code>, which the client relearns for that slot only;</li>
+<li>a trapping module unloaded while the firmware answers on;</li>
+<li>wasmi stopping a loop.</li>
+</ul>
+<p>The firmware unloads a slot's module before it loads the next one: two wasmi modules don't fit its 192 KiB heap at
+once.</p>
+<p>The numbers below are for the module <code>add(a, b)</code> of the example guest:</p>
+<ul>
+<li>STM32H725 at 540 MHz, I- and D-cache on, the images in flash;</li>
+<li>the cycles counted by DWT <code>CYCCNT</code>;</li>
+<li>the stack painted below the handler;</li>
+<li>the heap counted by the firmware's allocator.</li>
+</ul>
+<p>The firmware is built at its shipping profile, <code>opt-level = "z"</code>. The guest image is 19.3 KB prepared (15.3 KB
+without the side table), its model 111 B, its memory one 64 KiB page with a 4 KiB stack.</p>
+<table>
+<thead>
+<tr>
+<th><code>opt-level = "z"</code></th>
+<th style="text-align: right;">wasefire-interpreter 0.5</th>
+<th style="text-align: right;">wasmi 2.0</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Flash, the interpreter and its glue</td>
+<td style="text-align: right;">76.0 KB</td>
+<td style="text-align: right;">527 KB</td>
+</tr>
+<tr>
+<td>Heap after <code>load</code></td>
+<td style="text-align: right;">9 288 B</td>
+<td style="text-align: right;">95 916 B</td>
+</tr>
+<tr>
+<td>Heap peak during <code>load</code></td>
+<td style="text-align: right;">9 428 B</td>
+<td style="text-align: right;">105 356 B</td>
+</tr>
+<tr>
+<td>Heap after 100 calls</td>
+<td style="text-align: right;">9 288 B</td>
+<td style="text-align: right;">134 312 B</td>
+</tr>
+<tr>
+<td>Instantiate, cycles</td>
+<td style="text-align: right;">3 560 528</td>
+<td style="text-align: right;">3 918 236</td>
+</tr>
+<tr>
+<td>Instantiate, stack</td>
+<td style="text-align: right;">1 400 B</td>
+<td style="text-align: right;">5 824 B</td>
+</tr>
+<tr>
+<td>A call, <code>process</code> cycles (median of 100)</td>
+<td style="text-align: right;">3 915 047</td>
+<td style="text-align: right;">136 284</td>
+</tr>
+<tr>
+<td>A call, the slowest of the 100 (the first)</td>
+<td style="text-align: right;">3 920 401</td>
+<td style="text-align: right;">10 717 078</td>
+</tr>
+<tr>
+<td>A call, the slot's whole <code>forward</code>, cycles</td>
+<td style="text-align: right;">3 922 443</td>
+<td style="text-align: right;">143 781</td>
+</tr>
+<tr>
+<td>A call, stack</td>
+<td style="text-align: right;">896 B</td>
+<td style="text-align: right;">656 B</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Flash is the firmware with the interpreter less the one without it, the two images (38.8 KB) left out.</li>
+<li>wasmi's heap is mostly the guest's 64 KiB page: wasefire-interpreter takes only the memory it is given (8 KiB
+  here).</li>
+<li>wasmi translates a function at its first call (<code>Limits::eager</code> does it at load), so its first call and its heap
+  grow then.</li>
+<li>The slot's own <code>load</code> is the same for both, 62 000 cycles and 6 656 B of stack (the model's decode, see above).</li>
+<li>wasefire-interpreter executes the binary in place, which makes it about 29 times slower than wasmi per call.</li>
+</ul>
+<p>At <code>opt-level = 3</code> wasefire-interpreter takes 1 328 148 cycles to instantiate and 1 057 376 per call, with 780 B of
+stack. wasmi doesn't fit the 1 MB of flash at <code>opt-level = 3</code>, alone (524 B over) or next to wasefire-interpreter.</p>
 <h3 id="who-calls-and-what-it-does">Who calls and what it does<a class="headerlink" href="#who-calls-and-what-it-does" title="Permanent link">&para;</a></h3>
 <p>A call into a mount is checked twice: by the front server's <a href="../host_server/#who-may-call">authorization hook</a> before
 it is sent on, and by the backend's before it runs.</p>

@@ -6,6 +6,7 @@
 
 ### 🚀 Features
 
+- `ApiBundle::visit_traits`, `TraitAt`, `TraitWalk`: find the traits of a borrowed model without `std` (SRV-82).
 - Feature `hash`: `hash::api_hash` without `std`, so a firmware hashes a module's model (SRV-81).
 - `mount::slot_level`, `PRESENCE`, `API` and `item_name`: the fixed level of a mount slot (SRV-76).
 - `ApiBundleOwned::item_chain` and `trait_path`: the items a request path names, where a global path leads (SRV-46).
@@ -275,6 +276,7 @@
 
 ### 🐛 Fixes
 
+- `ApiBundleOwned::trait_path` is bounded: a model holding a trait twice no longer makes it take exponential time.
 * Builds without its `std` feature again: the error-message module is std-only, `ww_error` an optional dependency.
 * `expr::Call::Write.value` is boxed (clippy `large_enum_variant`): `Call` held a bare `syn::Expr` next to a plain
   `String` variant, four times its size. Tool-side only (`parse_call`, the `ww` CLI, the dynamic client), never on

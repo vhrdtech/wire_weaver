@@ -6,6 +6,7 @@
 
 ### 🚀 Features
 
+- `Request::peek_is_global`, `dispatch::version_compatible`: tell a global path without decoding the request (SRV-82).
 - `MountPrefix::rewrite` returns the event's seq, path and whether it ends or closes; `forwarded::forwarded_context` (SRV-81).
 - `mount::PathStore`, `PathArray<N>`, `MountRequest::prefix_in`: mount prefix rewrite in `no_std` without a heap (SRV-80).
 - `forwarded::ForwardedPeer`, `RequestContext::forwarded_for`: the client a mount forwarder sent a request on for (SRV-79, EVO-85).

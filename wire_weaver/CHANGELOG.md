@@ -2,6 +2,7 @@
 
 ### 🚀 Features
 
+- `global_into_mount` on both backend traits: rewrite a global path into an in-process module before dispatch (SRV-82).
 - `authorize::Resource::mount`, `Mounted`: the mount slot a request goes into, with the backend's learned API (SRV-79).
 - `CallContext::forwarded`, `forwarded_for`: the peer is a trusted mount forwarder's client (SRV-79).
 - `authorize` (feature `std`): the authorization hook `Authorize` with `Verdict` (`Allow`, `Deny`, `Pending`), `Pending`, `Denied`, `Resource`, `Step`, `Access`, `Place`, `TraitRef` and `from_fn`, asked by a host server and by `Authorized<T, A>`, which every level's local trait is implemented for (SRV-72).

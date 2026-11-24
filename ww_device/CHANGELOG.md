@@ -8,6 +8,8 @@
 
 ### 🚀 Features
 
+- `Server` and `blocking::Server` call the backend's `global_into_mount` before dispatch (SRV-82).
+- `mount::ModuleTraits`, `MODULE_TRAITS_MAX`, `LoadError::TooManyTraits`, `TraitsTooDeep`: global paths reach a loaded module's traits (SRV-82).
 - `mount::ModuleSlot`, `Module`, `Linked`, `Outbox`: serve a mount slot from a module in the firmware's process, checked, no heap (SRV-81).
 - `udp::UdpPeers::stop_accepting`: no more hosts are handed out, and a new host ends no connection (SRV-75).
 

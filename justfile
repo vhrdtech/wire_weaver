@@ -5,6 +5,11 @@ jobs := ""
 export CARGO_BUILD_JOBS := if jobs != "" { jobs } else { env_var_or_default('CARGO_BUILD_JOBS', num_cpus()) }
 export NEXTEST_TEST_THREADS := if jobs != "" { jobs } else { env_var_or_default('NEXTEST_TEST_THREADS', 'num-cpus') }
 
+# The book kit: cards, glossary, abbreviations, lexers, the footer stamp and the `vz` command, with its tested
+# Zensical pinned as an extra, so this one pin covers both. The PyPI wheel, not the git tag: CI installs it
+# without compiling Rust.
+kit := "vhrd-zensical[zensical]==0.2.0"
+
 # List all available targets
 default:
     @just --list
@@ -239,15 +244,21 @@ pre-commit:
 book-assemble:
     cargo run -q -p ww_book -- assemble
 
-# Serve the documentation locally
+# Serve the documentation locally; root is a virtual workspace, so the stamp needs --name
 [group('docs')]
 serve-docs: book-assemble
-    uv run --with zensical zensical serve
+    uv run --with "{{ kit }}" vz serve --name wire_weaver
 
-# Build the documentation
+# Build the documentation; root is a virtual workspace, so the stamp needs --name
 [group('docs')]
 build-docs: book-assemble
-    uv run --with zensical zensical build --clean
+    uv run --with "{{ kit }}" vz build --name wire_weaver
+
+# Build the documentation with warnings as errors: a link to a missing page, anchor or figure fails; links to
+# other sites are not fetched
+[group('docs')]
+build-docs-strict: book-assemble
+    uv run --with "{{ kit }}" vz build --name wire_weaver -- --strict
 
 # Code size of a generated server's method reply on small CPUs (examples_mcu/size_bench_reply), through shrink_wrap's
 # size bench runner: `just size-bench-reply --help`, `--fw-features finish_for` (TEST-17)

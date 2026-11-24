@@ -939,7 +939,7 @@ Before claiming the USB interface or attaching to the probe, the holder takes an
 `LockFileEx` on Windows — stable since Rust 1.89, no extra crate) on `<runtime dir>/ww/holders/<key>.lock`, and
 keeps the file open for as long as it holds the device:
 
-```rust,ignore
+```rust
 use wire_weaver_client::holders::{self, DeviceRef, Mode};
 
 let key = holders::key_for(DeviceRef::Usb { vid, pid, serial, iface: Some(iface_number) });

@@ -176,8 +176,8 @@ event scratch buffer size.
 
 ### Handler context
 
-Every handler (methods, `get_`/`set_`/`changed_` of properties, `sideband_`/`write_` of streams) gets
-`cx: &mut wire_weaver::Context` as the first argument:
+Every handler (methods, `get_`/`set_`/`changed_` of properties, `sideband_`/`write_` of streams) gets a
+[`Context`] (`cx: &mut wire_weaver::Context`) as the first argument:
 
 * `cx.seq()` - sequence number of the request, 0 if the client does not expect a reply.
 * `cx.medium()` - the medium the request came from. The type is set with `ww_codegen!(.., medium = "crate::Medium")`

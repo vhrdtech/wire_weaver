@@ -1,0 +1,17 @@
+{#- Zensical's own footer line (zensical_ui's partials/copyright.html), and below it the build stamp: the crate's
+    version, the commit and the build time, written by `vz prep` (`just build-docs`), with the age script
+    (javascripts/vz-stamp-age.js, registered as extra_javascript in zensical.toml) showing how stale it is -#}
+<div class="md-copyright">
+  {% if config.copyright %}
+    <div class="md-copyright__highlight">
+      {{ config.copyright }}
+    </div>
+  {% endif %}
+  {% if not config.extra.generator == false %}
+    Made with
+    <a href="https://zensical.org/" target="_blank" rel="noopener">
+      Zensical
+    </a>
+  {% endif %}
+  {% include "partials/vz-stamp.html" ignore missing %}
+</div>

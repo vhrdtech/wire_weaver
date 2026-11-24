@@ -8,3 +8,10 @@ __pycache__/
 ww_tools/wire_weaver_wheel/python/wire_weaver/*.so
 ww_tools/wire_weaver_wheel/python/wire_weaver/*.pyd
 tests/dfu_scenarios/transcripts/*.actual.md
+# The cards' stylesheet and script and the code colours `vz prep` writes, and the footer's build stamp and its
+# age script, also `vz prep`'s (just build-docs)
+docs/stylesheets/vz-refs.css
+docs/stylesheets/vz-code.css
+docs/javascripts/vz-refs.js
+/overrides/partials/vz-stamp.html
+/docs/javascripts/vz-stamp-age.js

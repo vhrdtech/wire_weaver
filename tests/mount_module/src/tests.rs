@@ -12,7 +12,7 @@ use ww_client_server::{
     ErrorKindOwned, ErrorOwned, PathKindOwned, RequestKindOwned, RequestOwned, ResourceIndex,
 };
 
-use crate::modules::{Broken, HubControl, HubModule, Loaded, TvModule, hub_impl, models, tv_impl};
+use crate::modules::{Broken, HubControl, HubModule, Loaded, TvModule, hub_impl, tv_impl};
 use crate::tv::{Control, start};
 
 mod clients {
@@ -138,18 +138,17 @@ async fn connect(device: &tests_common::TestDevice) -> clients::tv::Client {
         .expect("connect")
 }
 
-/// The slot's presence hash is the hash of the model the module handed over, computed by the slot. For the hub, whose
-/// API reaches no dependency type, its API-73 bundle is its introspection data: the hash is the server's own, and a
-/// generated client takes it as known. The TV's model has dependency types inline (`ww_keyed`'s key events), which
-/// its introspection data leaves out: another hash, so a client learns it through the slot.
+/// The slot's presence hash is the hash of the model the module handed over, computed by the slot: a server's
+/// introspection data without docs hashes to its own `API_HASH_NO_DOCS`, dependency types left out or not.
 #[test]
-fn presence_hash_is_the_models() {
+fn presence_hash_is_the_servers() {
     assert_eq!(
-        ww_self::hash::api_hash(&models::hub::HUB_BUNDLE),
+        ww_self::hash::api_hash(&hub_impl::WW_SELF_BYTES_NO_DOCS),
         hub_impl::API_HASH_NO_DOCS
     );
-    assert_ne!(
-        ww_self::hash::api_hash(&models::tv::TV_BUNDLE),
+    // the TV's model leaves `ww_keyed`'s key events out, as its introspection data does
+    assert_eq!(
+        ww_self::hash::api_hash(&tv_impl::WW_SELF_BYTES_NO_DOCS),
         tv_impl::API_HASH_NO_DOCS
     );
 }
@@ -275,10 +274,7 @@ async fn a_reload_relearns_only_its_slot() {
         .await
         .unwrap()
         .clone();
-    assert_eq!(
-        hash_of(&second),
-        Some(ww_self::hash::api_hash(&models::tv::TV_BUNDLE).to_vec())
-    );
+    assert_eq!(hash_of(&second), Some(tv_impl::API_HASH_NO_DOCS.to_vec()));
     let vcmd = view.commander();
     assert_eq!(
         vcmd.device_api_info().user_api_version.crate_id,

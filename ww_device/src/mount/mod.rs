@@ -7,7 +7,8 @@
 //! replies, events and stream items to the client through the handler's [EventOut] with the slot's path in front.
 //!
 //! A loaded module is untrusted: everything it says is checked before it reaches the parent's [EventOut]. Its model
-//! must decode as a `ww_self::ApiBundle`, and the slot hashes it itself. Each event must decode as an `Event`; a
+//! must decode as a `ww_self::ApiBundle`, and the slot hashes it itself: the module's word on its hash is never
+//! taken. Each event must decode as an `Event`; a
 //! reply or a request's stream data passes only under a seq the module was sent and hasn't answered; an event with
 //! a path gets the slot's path in front, so it can't reach the parent's own tree; a joined path past
 //! [PATH_IDS_MAX] ids or a message past the slot's buffers is dropped. A module that fails ([ModuleError::Fault]: a
@@ -41,10 +42,11 @@ const OUTBOX_LEN_BYTES: usize = 2;
 /// bytes, events and replies come out as bytes. A wasm interpreter implements it from its host calls, [Linked] for a
 /// server linked into the firmware.
 pub trait Module {
-    /// The module's model, a `ww_self::ApiBundle` in shrink_wrap bytes: the API-73 bundle of its API root
-    /// (`ww_codegen!(.., bundle = "no_docs")`), or its introspection data without docs and uncompressed. The slot
-    /// reads the crate, version and wire version a slot's `presence` names from it, and hashes it for the presence's
-    /// hash. The same bytes while the module is loaded.
+    /// The module's model: its server's introspection data without docs and uncompressed, a `ww_self::ApiBundle`
+    /// in shrink_wrap bytes with dependency types left out (the generated `WW_SELF_BYTES_NO_DOCS`). The slot reads
+    /// the crate, version and wire version a slot's `presence` names from it, and hashes it for the presence's hash:
+    /// the server's own `API_HASH_NO_DOCS`, so a generated client of the module's API takes it as known. The same
+    /// bytes while the module is loaded.
     fn model(&self) -> &[u8];
 
     /// Serve `request`, a request at the module's own absolute path. Events go to `events`, the reply is written into
@@ -87,7 +89,7 @@ pub enum ModuleError {
 pub struct Linked<S> {
     /// The generated server.
     pub server: S,
-    /// Its model: the API-73 bundle of its root, see [Module::model].
+    /// Its model: the generated `WW_SELF_BYTES_NO_DOCS`, see [Module::model].
     pub model: &'static [u8],
 }
 

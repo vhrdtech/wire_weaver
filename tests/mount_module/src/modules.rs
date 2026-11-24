@@ -110,7 +110,7 @@ pub mod hub_impl {
 
 impl Module for HubModule {
     fn model(&self) -> &[u8] {
-        &models::hub::HUB_BUNDLE
+        &hub_impl::WW_SELF_BYTES_NO_DOCS
     }
 
     fn process<'r>(
@@ -147,7 +147,7 @@ impl TvModule {
                 valid: vec![],
                 observe: tv_impl::ObserveState::new(Default::default()),
             },
-            model: &models::tv::TV_BUNDLE,
+            model: &tv_impl::WW_SELF_BYTES_NO_DOCS,
         }
     }
 
@@ -246,7 +246,7 @@ pub struct Broken;
 
 impl Module for Broken {
     fn model(&self) -> &[u8] {
-        &models::hub::HUB_BUNDLE
+        &hub_impl::WW_SELF_BYTES_NO_DOCS
     }
 
     fn process<'r>(

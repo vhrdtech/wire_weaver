@@ -6,6 +6,7 @@
 
 ### 🚀 Features
 
+- Feature `hash`: `hash::api_hash` without `std`, so a firmware hashes a module's model (SRV-81).
 - `mount::slot_level`, `PRESENCE`, `API` and `item_name`: the fixed level of a mount slot (SRV-76).
 - `ApiBundleOwned::item_chain` and `trait_path`: the items a request path names, where a global path leads (SRV-46).
 

@@ -183,6 +183,108 @@ What is trusted: the mount table (the host's own configuration) and whoever list
 a reply passes only under a seq sent on that link, events get the slot's path in front, and introspection data is
 capped at 4 MiB.
 
+### Modules in the firmware's process
+
+A firmware can serve a slot from code in its own process: a module. The module may be a wasm module run by an
+interpreter, or a WireWeaver server linked into the firmware. Nothing crosses a link: the slot handler calls the
+module with the request as bytes, and sends the module's replies and events to the client with the slot's path in
+front. `ww_device::mount` does this without a heap.
+
+- `Module` is the trait a module implements. `model()` returns the module's model, `process(request, events, reply)`
+  serves one request at the module's own absolute path, and `poll(events)` gives the module a turn outside of a
+  request, for stream items, observed property updates and deferred replies. Everything is bytes, so a wasm host
+  implements it from its host calls.
+- `Linked<S>` turns a server generated with `use_async = false` into a `Module`: the server and its
+  `WW_SELF_BYTES_NO_DOCS`.
+- `ModuleSlot<M, MSG, OUT>` holds one module for one front connection, with every buffer it needs. `MSG` is the
+  longest message in and out, normally the front link's message limit. `OUT` is the room for the module's events in
+  one turn.
+
+The module's model is its server's introspection data without docs and uncompressed: the `WW_SELF_BYTES_NO_DOCS`
+constant that every generated server has. A constant takes flash only where it is used. The slot reads the crate, version and wire version
+from the model once, at `load`, and hashes the model itself. That hash is the server's own `API_HASH_NO_DOCS`, so a
+generated client of the module's API takes the slot's API as known. A client that sees a new hash after a reload
+relearns this slot's API only; the parent's hash and the other slots stay as they were.
+
+```rust
+use ww_device::mount::{Linked, ModuleSlot};
+
+// in .bss, built in place: nothing of it on the stack
+static HUB: StaticCell<ModuleSlot<Linked<HubServer>, 128, 256>> = StaticCell::new();
+let hub = ModuleSlot::init(HUB.uninit());
+hub.load(Linked { server: HubServer::new(), model: &hub_impl::WW_SELF_BYTES_NO_DOCS })?;
+
+// the parent's handlers
+fn get_hub_presence(&mut self, cx: &mut Context<'_, impl BlockingEventOut>)
+    -> GetResult<MountPresence<'_>, CommonError<'_>> {
+    Value(self.hub.presence())
+}
+fn hub_request(&mut self, cx: &mut Context<'_, impl BlockingEventOut>, request: MountRequest<'_, '_>) -> MountAnswer {
+    self.hub.forward_blocking(cx, &request)
+}
+
+// the parent's event loop
+hub.poll_blocking(&mut out);
+if hub.take_changed() {
+    server.mark_changed_hub_presence();
+}
+```
+
+An async parent calls `forward` and `poll` instead. `load` replaces the module loaded before and returns it, and
+`unload` takes it out. Either way the old module's requests are answered `Unavailable` and its streams and
+observed levels get a `Close` sideband, as when a backend process goes. `presence` follows: `Up` with the module's
+API while one is loaded, `Absent` otherwise, and `take_changed` says when the backend should call
+`mark_changed_hub_presence()`. A `static` of `ModuleSlot::new()` works too, but it is placed in `.data`, so its whole
+size also takes flash: the padding of its fields keeps it out of `.bss`.
+
+#### What the slot checks
+
+A loaded module is untrusted code. The slot checks everything the module says before it reaches the parent's
+`EventOut`, and a misbehaving module never makes the parent panic:
+
+- The model must decode as a `ww_self::ApiBundle` that names a crate for its root, with its crate name, pre-release
+  and build metadata within 64 bytes (`IDENTITY_TEXT_MAX`). Otherwise `load` refuses the module and the slot stays as
+  it was. The module's word on its hash is never taken.
+- Each event must decode as an `Event`. A reply, or stream data of a request, passes only under a seq the slot sent
+  the module and the module hasn't answered yet.
+- An event with a path gets the slot's path in front, so it can't reach the parent's own tree. A joined path past
+  16 ids (`PATH_IDS_MAX`), or a message that doesn't fit the slot's buffers, is dropped.
+- A reply the module writes outside of the buffer it was given, or a `ModuleError::Fault` (a wasm trap, a module out
+  of fuel), unloads the module.
+- A reply that doesn't decode is answered `ResponseSerFailed` under its request's seq.
+- More than 8 requests in flight (`IN_FLIGHT_MAX`) are refused `Overloaded`, a request longer than `MSG`
+  `ResponseSerFailed`.
+
+`ModuleSlot::counters` counts what was dropped or refused (`ModuleCounters`): malformed events, stray replies, events
+that didn't fit, messages the parent's `EventOut` refused, refused requests, lost answers and faults. The module
+never sees a request's context: the slot clears it, so a client can't tell a module who it is.
+
+A module's effects all pass for now: the slot doesn't check what a module may do. Per-module effect caps (TR-24)
+will be checked in `ModuleSlot::forward`, before the module sees the request.
+
+#### Limits and cost
+
+- A global trait path into a firmware's module (`GlobalFull`, `GlobalCompact`) is not resolved yet (SRV-82): reach
+  the module's traits by their absolute path under the slot.
+- An async `no_alloc` server with two slots whose observed `presence` getters both borrow the server
+  (`MountPresence<'_>`) doesn't compile yet: the generated observe poll borrows the server twice (SRV-83). Use
+  `no_alloc = false` and `MountPresenceOwned`, or one observed slot.
+- One `ModuleSlot` serves one front connection.
+
+`examples_mcu/mcu_qemu`'s `qemu-mount-module` measures a slot with `mount_backend_api`'s hub, `MSG` 128 and `OUT`
+256, on a Cortex-M3 under QEMU. The table gives instructions, not cycles, and the stack painted below each call.
+
+| Step                          | `fw-z` instructions | `fw-z` stack | `fw-3` instructions | `fw-3` stack |
+|-------------------------------|--------------------:|-------------:|--------------------:|-------------:|
+| `load` (decode model, hash)   |              33 515 |       1 888 B |              30 392 |      1 920 B |
+| `presence`                    |                 141 |          64 B |                 132 |         64 B |
+| `forward_blocking` of a call  |               4 180 |       1 584 B |               2 827 |      1 152 B |
+| `forward_blocking` of a stream open |         5 177 |       1 584 B |               3 343 |      1 152 B |
+| `poll_blocking`, one item     |               3 050 |         760 B |               1 823 |        580 B |
+
+The slot takes 2 336 B of RAM at these sizes. At `fw-z` its code is about 12 KB of flash, the SHA-256 of the
+model hash 7 KB, and decoding the model at `load` 8 KB.
+
 ### Who calls and what it does
 
 A call into a mount is checked twice: by the front server's [authorization hook](host_server.md#who-may-call) before

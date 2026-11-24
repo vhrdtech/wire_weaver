@@ -2,6 +2,7 @@
 
 ### 🚀 Features
 
+- Generated servers emit `WW_SELF_BYTES_NO_DOCS` beside `API_HASH_NO_DOCS`: the uncompressed, docless model that hash covers (SRV-81).
 - Mount slots (SRV-76): server handlers `get_<slot>_presence` and `<slot>_request` (an `Observe` below `api` included), scaffold, observe, the client's `MountSlot` accessors.
 - Generated root clients have `on_mount(&MountView)`: the client of an API mounted in another device (CLT-84).
 - `codegen::bundle::gen_bundle`: an API root's whole model, dependency types inline, as a byte const (API-73).

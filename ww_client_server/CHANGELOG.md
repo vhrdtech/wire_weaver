@@ -6,6 +6,7 @@
 
 ### 🚀 Features
 
+- `MountPrefix::rewrite` returns the event's seq, path and whether it ends or closes; `forwarded::forwarded_context` (SRV-81).
 - `mount::PathStore`, `PathArray<N>`, `MountRequest::prefix_in`: mount prefix rewrite in `no_std` without a heap (SRV-80).
 - `forwarded::ForwardedPeer`, `RequestContext::forwarded_for`: the client a mount forwarder sent a request on for (SRV-79, EVO-85).
 - `RequestContext` leaves trailing defaults off the wire (`elide_defaults`): contexts without `forwarded_for` keep their bytes (EVO-85).

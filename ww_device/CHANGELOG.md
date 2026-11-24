@@ -8,6 +8,7 @@
 
 ### 🚀 Features
 
+- `mount::ModuleSlot`, `Module`, `Linked`, `Outbox`: serve a mount slot from a module in the firmware's process, checked, no heap (SRV-81).
 - `udp::UdpPeers::stop_accepting`: no more hosts are handed out, and a new host ends no connection (SRV-75).
 
 ### 🐛 Fixes

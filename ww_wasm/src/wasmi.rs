@@ -1,10 +1,13 @@
 //! A module run by wasmi as a `ww_device::mount::Module`. wasmi meters fuel: a module that loops is stopped and
-//! unloaded, never hangs its parent.
+//! unloaded, never hangs its parent. Everything a call needs is allocated at load: every function is translated, the
+//! stack and the event queue get their whole size, and memory or table growth past [Limits] traps. A call allocates
+//! only when the module grows its memory or a table, and wasmi reserves that fallibly: a failed growth traps.
 
 use alloc::vec::Vec;
 
 use ::wasmi::{
-    CompilationMode, Config, Engine, Linker, Memory, Module as WasmiBinary, Store, TypedFunc,
+    CompilationMode, Config, Engine, Linker, Memory, Module as WasmiBinary, Store, StoreLimits,
+    StoreLimitsBuilder, TypedFunc,
 };
 use ww_device::mount::{Module, ModuleError, Outbox};
 
@@ -25,9 +28,11 @@ pub struct Limits {
     pub stack: usize,
     /// Calls deep: deeper calls trap.
     pub recursion: usize,
-    /// Translate every function at load (`true`) or each on its first call: lazy translation loads faster and keeps
-    /// code that is never called out of RAM, but the first call of each function pays for its translation.
-    pub eager: bool,
+    /// Bytes the module's memory may grow to: `memory.grow` past it fails and traps. Size it to what the heap has
+    /// room for; a module whose memory starts larger isn't loaded.
+    pub memory: usize,
+    /// Elements a table may grow to, as `memory` for memory.
+    pub table: usize,
 }
 
 impl Default for Limits {
@@ -37,15 +42,19 @@ impl Default for Limits {
             events: 1024,
             stack: 16 * 1024,
             recursion: 64,
-            eager: false,
+            memory: 64 * 1024,
+            table: 1024,
         }
     }
 }
 
-/// The events a call queues, each behind its length (`u16`, little endian), until the host hands them to the slot.
+/// The store's data: the events a call queues, each behind its length (`u16`, little endian), until the host hands
+/// them to the slot, and the limits of the module's memory and tables.
 struct Queued {
+    /// Allocated to `cap` at load, never grown.
     bytes: Vec<u8>,
     cap: usize,
+    limits: StoreLimits,
 }
 
 /// A wasm module run by wasmi: the module ABI (crate docs) as a `ww_device::mount::Module`.
@@ -73,22 +82,33 @@ impl WasmiModule {
         config
             .consume_fuel(true)
             // wasmi's defaults (1 MB of stack, 1000 calls deep) would let a module take all of a firmware's heap
-            .set_min_stack_height(limits.stack.min(1024))
+            // the whole stack at once: a call never grows it
+            .set_min_stack_height(limits.stack)
             .set_max_stack_height(limits.stack)
             .set_max_recursion_depth(limits.recursion)
             .set_max_cached_stacks(1)
-            .compilation_mode(if limits.eager {
-                CompilationMode::Eager
-            } else {
-                CompilationMode::LazyTranslation
-            });
+            // lazy translation would allocate inside a module's first call of each function
+            .compilation_mode(CompilationMode::Eager);
         let engine = Engine::new(&config);
         let binary = WasmiBinary::new(&engine, wasm).map_err(|_| LoadError::Invalid)?;
+        let mut bytes = Vec::new();
+        bytes
+            .try_reserve_exact(limits.events)
+            .map_err(|_| LoadError::Instantiate)?;
         let queued = Queued {
-            bytes: Vec::new(),
+            bytes,
             cap: limits.events,
+            limits: StoreLimitsBuilder::new()
+                .memory_size(limits.memory)
+                .table_elements(limits.table)
+                .instances(1)
+                .memories(1)
+                .tables(1)
+                .trap_on_grow_failure(true)
+                .build(),
         };
         let mut store = Store::new(&engine, queued);
+        store.limiter(|queued| &mut queued.limits);
         store
             .set_fuel(limits.fuel)
             .map_err(|_| LoadError::Instantiate)?;

@@ -34,6 +34,7 @@ unsafe_code = "allow" # unsafe = true in layers.toml: the workspace forbids it e
 wire_weaver = { version = "0.6.0", path = "../wire_weaver", features = ["std"] }
 ww_client_server = { version = "0.2.0", path = "../ww_client_server" }
 ww_device = { version = "0.6.0", path = "../ww_device" }
+wat = "1"
 
 [[test]]
 name = "interpreters"

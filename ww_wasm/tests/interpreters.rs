@@ -233,3 +233,35 @@ fn wasefire_refuses_a_memory_too_small() {
         Some(LoadError::Instantiate)
     );
 }
+
+/// A module that grows its memory past `Limits::memory` on a call: wasmi refuses the growth and traps, and the slot
+/// unloads the module; nothing is allocated for it.
+#[test]
+fn wasmi_traps_on_memory_growth_past_the_limit() {
+    let model: String = model_section(CALC)
+        .unwrap()
+        .iter()
+        .map(|b| format!("\\{b:02x}"))
+        .collect();
+    let wat = format!(
+        r#"(module
+            (memory (export "memory") 1)
+            (func (export "ww_request") (result i32) i32.const 1024)
+            (func (export "ww_reply") (result i32) i32.const 2048)
+            (func (export "ww_buf_len") (result i32) i32.const 512)
+            (func (export "ww_process") (param i32) (result i32)
+                (if (i32.eq (memory.grow (i32.const 1)) (i32.const -1)) (then (return (i32.const 0))))
+                i32.const 0)
+            (@custom "ww_model" "{model}"))"#
+    );
+    let wasm: &'static [u8] = Box::leak(wat::parse_str(wat).unwrap().into_boxed_slice());
+    let limits = Limits {
+        memory: 64 * 1024,
+        ..Limits::default()
+    };
+    let mut slot = Box::new(ModuleSlot::<WasmiModule, MSG, OUT>::new());
+    assert!(slot.load(WasmiModule::new(wasm, limits).unwrap()).is_ok());
+    assert_eq!(call(&mut slot, 1, ADD, 1, 1), Answer::Error("unavailable"));
+    assert!(!slot.is_loaded(), "the growth trapped");
+    assert_eq!(slot.counters().faults, 1);
+}

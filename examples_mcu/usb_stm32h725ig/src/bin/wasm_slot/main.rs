@@ -352,6 +352,8 @@ fn new_wasefire(_: &'static [u8]) -> Result<WasefireModule, LoadRefused> {
 fn new_wasmi(wasm: &'static [u8]) -> Result<WasmiModule, LoadRefused> {
     let limits = ww_wasm::wasmi::Limits {
         events: OUT,
+        // the guest's one page: with the engine and the stack it takes ~100 KiB of the 192 KiB heap, a growth traps
+        memory: 64 * 1024,
         ..Default::default()
     };
     let module = ww_wasm::wasmi::WasmiModule::new(wasm, limits).map_err(|e| {

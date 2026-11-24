@@ -262,25 +262,61 @@ never sees a request's context: the slot clears it, so a client can't tell a mod
 A module's effects all pass for now: the slot doesn't check what a module may do. Per-module effect caps (TR-24)
 will be checked in `ModuleSlot::forward`, before the module sees the request.
 
+#### Global paths into modules
+
+A global trait path (`GlobalFull`, `GlobalCompact`) reaches a module's traits as it reaches a backend process's, in
+the same order: the firmware's own tree first, then the slots in path order, inside a module the first trait depth
+first, never under a resource array, in a protocol compatible version of its crate.
+
+- `ModuleSlot::load` reads the module's traits from its model once, into a table of fixed size in the slot: reaching
+  an item of the model decodes everything before it, so a walk per request would cost a model decode each time
+  (about 69 000 instructions and 8 KB of stack in the bench below).
+- A server with mount slots gets a generated `has_global_trait(&PathKind)`, which says whether its own tree has the
+  trait, and the `api` paths of its slots: `HUB_API_PATH` for a slot `hub`, `ext_api_path(index_chain)` for an
+  element of `mounts!`.
+- The backend's `global_into_mount(request, buf)` (`WireWeaverApiBackend`, `WireWeaverAsyncApiBackend`) rewrites a
+  request into a module. `ww_device`'s `Server` and `blocking::Server` call it before dispatch; the generated dispatch
+  then routes the rewritten request to the slot's handler. `ModuleTraits` does the rewrite with no heap.
+- A request with an absolute path is only peeked at, not decoded: the hook costs every request about 500
+  instructions.
+
+```rust
+fn global_into_mount<'b>(&self, request: &[u8], buf: &'b mut [u8]) -> Option<&'b [u8]> {
+    ModuleTraits::<1>::new()
+        .slot(&api_impl::HUB_API_PATH, &self.hub)
+        .request_into_mount(request, api_impl::has_global_trait, buf)
+}
+```
+
+A generated client resolves a trait of the device's own tree from the device's introspection data and sends its
+absolute path, so the hook mostly sees global paths into modules.
+
 #### Limits and cost
 
-- A global trait path into a firmware's module (`GlobalFull`, `GlobalCompact`) is not resolved yet (SRV-82): reach
-  the module's traits by their absolute path under the slot.
+- A module holds at most 16 traits (`MODULE_TRAITS_MAX`) whose paths take 48 ids together
+  (`MODULE_TRAIT_IDS_MAX`), each at most 14 levels deep (`MODULE_TRAIT_DEPTH_MAX`). A module past them is refused at
+  `load` (`LoadError::TooManyTraits`, `TraitsTooDeep`), never served with part of its traits.
+- `GlobalCompact` doesn't reach a trait of a dependency crate that the module's model leaves out (it carries no
+  `ww_global` id there): `GlobalFull` does.
 - One `ModuleSlot` serves one front connection.
 
 `examples_mcu/mcu_qemu`'s `qemu-mount-module` measures a slot with `mount_backend_api`'s hub, `MSG` 128 and `OUT`
 256, on a Cortex-M3 under QEMU. The table gives instructions, not cycles, and the stack painted below each call.
 
-| Step                          | `fw-z` instructions | `fw-z` stack | `fw-3` instructions | `fw-3` stack |
-|-------------------------------|--------------------:|-------------:|--------------------:|-------------:|
-| `load` (decode model, hash)   |              33 515 |       1 888 B |              30 392 |      1 920 B |
-| `presence`                    |                 141 |          64 B |                 132 |         64 B |
-| `forward_blocking` of a call  |               4 180 |       1 584 B |               2 827 |      1 152 B |
-| `forward_blocking` of a stream open |         5 177 |       1 584 B |               3 343 |      1 152 B |
-| `poll_blocking`, one item     |               3 050 |         760 B |               1 823 |        580 B |
+| Step                                        | `fw-z` instructions | `fw-z` stack | `fw-3` instructions | `fw-3` stack |
+|---------------------------------------------|--------------------:|-------------:|--------------------:|-------------:|
+| `load` (decode model, trait table, hash)    |              99 565 |      5 240 B |              91 559 |      5 736 B |
+| `presence`                                  |                 148 |         64 B |                 132 |         64 B |
+| `forward_blocking` of a call                |               4 537 |      1 672 B |               2 965 |      1 304 B |
+| `forward_blocking` of a stream open         |               5 531 |      1 672 B |               3 487 |      1 304 B |
+| `poll_blocking`, one item                   |               3 058 |        752 B |               1 818 |        580 B |
+| `global_into_mount`, an absolute path       |                 576 |        528 B |                 467 |        504 B |
+| `global_into_mount`, `GlobalFull` to `Lamp` |               4 854 |      1 056 B |               3 481 |        968 B |
 
-The slot takes 2 336 B of RAM at these sizes. At `fw-z` its code is about 12 KB of flash, the SHA-256 of the
-model hash 7 KB, and decoding the model at `load` 8 KB.
+The slot takes 2 920 B of RAM at these sizes, 584 B of it the trait table. Most of `load`'s stack is the decode of
+the borrowed `ApiBundle`. The whole bench is 76 750 B of flash at `fw-z`: the slot's code about 12 KB, the SHA-256
+of the model hash 7 KB, decoding the model at `load` 8 KB. Global paths add about 9 KB: 3.2 KB of it decodes the
+model's items, 1.1 KB a `Request`, which a firmware's dispatch has already.
 
 ### Who calls and what it does
 

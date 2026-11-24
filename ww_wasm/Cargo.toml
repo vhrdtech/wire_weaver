@@ -1,0 +1,53 @@
+# A workspace of its own: wasefire-interpreter builds on nightly only, the root workspace on the stable toolchain.
+[workspace]
+resolver = "3"
+
+[workspace.lints.cargo]
+unused_workspace_dependencies = "deny"
+
+[package]
+name = "ww_wasm"
+version = "0.6.0"
+edition = "2024"
+authors = ["Roman Isaikin <romix.lab@gmail.com>"]
+description = "WireWeaver servers compiled to wasm, run by an interpreter in a mount slot: the module ABI, the guest's exports and the host's ww_device Module over wasefire-interpreter or wasmi, no_std"
+license = "MIT"
+repository = "https://github.com/vhrdtech/wire_weaver"
+
+[features]
+default = []
+# The guest side: a server compiled to wasm32 exports the module ABI (`guest_module!`)
+guest = ["dep:wire_weaver"]
+# A ww_device Module over wasefire-interpreter (alloc, nightly)
+wasefire = ["dep:wasefire-interpreter", "dep:ww_device"]
+# A ww_device Module over wasmi (alloc)
+wasmi = ["dep:wasmi", "dep:ww_device"]
+# defmt formatting of the host's errors
+defmt = ["dep:defmt", "ww_device?/defmt"]
+
+[dependencies]
+defmt = { version = "1.1", optional = true }
+wasefire-interpreter = { version = "0.5", default-features = false, optional = true }
+wasmi = { version = "2.0", default-features = false, features = ["auto-dispatch", "validate"], optional = true }
+wire_weaver = { version = "0.6.0", path = "../wire_weaver", default-features = false, optional = true }
+ww_device = { version = "0.6.0", path = "../ww_device", optional = true }
+
+[lints.cargo]
+unused_workspace_dependencies = "deny"
+
+# The guest's exports are unsafe code (`unsafe = true` in layers.toml); every unsafe block has a `// SAFETY:` comment.
+[lints.rust]
+unsafe_code = "allow"
+
+[dev-dependencies]
+wire_weaver = { version = "0.6.0", path = "../wire_weaver", features = ["std"] }
+ww_client_server = { version = "0.2.0", path = "../ww_client_server" }
+ww_device = { version = "0.6.0", path = "../ww_device" }
+
+[[test]]
+name = "interpreters"
+required-features = ["wasefire", "wasmi"]
+
+[[bin]]
+name = "ww-wasm-prepare"
+required-features = ["wasefire"]

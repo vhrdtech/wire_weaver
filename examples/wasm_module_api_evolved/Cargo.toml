@@ -1,0 +1,24 @@
+[package]
+name = "wasm_module_api_evolved"
+version = "0.1.1"
+description = "The wasm module example API in a later version: what a reloaded module serves"
+publish = false
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# Wire version of the API (EVO-31): link setup decides on its line, `#[since]` names its revisions
+[package.metadata.wire_weaver]
+wire = "w1.1"
+
+[features]
+# build against std instead of no_std
+std = ["ww_api/std"]
+
+[dependencies]
+ww_api = { workspace = true }
+
+[lints]
+workspace = true

@@ -30,6 +30,8 @@ test-all:
     just test-lz4-c
     # ww_ecc_flash's read modes on a simulated flash (mcu/ workspace)
     just test-ecc-flash
+    # the wasm module images on wasefire-interpreter and wasmi (ww_wasm/ workspace, nightly)
+    just test-wasm
     # facade!'s compile errors (CLT-64): trybuild, too slow for nextest's hang limit
     just test-facade-ui
     # the client alone, as a downstream crate builds it: no dev-dependency or workspace member adds tokio features
@@ -49,6 +51,19 @@ test-lean-server:
 test-ecc-flash:
     cargo test -q -p ww_ecc_flash --features stm32h7
     cargo test -q -p ww_ecc_flash --features stm32g0
+
+# ww_wasm's module ABI and both interpreters running the example images in a mount slot (SRV-85)
+[working-directory('ww_wasm')]
+test-wasm:
+    cargo test -q --features wasefire,wasmi
+
+# Build the wasm module example (examples_mcu/wasm_module) into the B135B firmware's modules/: wasm_module_api and
+# wasm_module_api_evolved, each with wasefire-interpreter's side table (SRV-85)
+wasm-modules:
+    cd examples_mcu/wasm_module && cargo build -q --release
+    cd examples_mcu/wasm_module && cargo build -q --release --no-default-features --features evolved --target-dir target/evolved
+    cd ww_wasm && cargo run -q --features wasefire --bin ww-wasm-prepare -- ../examples_mcu/wasm_module/target/wasm32-unknown-unknown/release/wasm_module.wasm ../examples_mcu/usb_stm32h725ig/modules/calc.wasm
+    cd ww_wasm && cargo run -q --features wasefire --bin ww-wasm-prepare -- ../examples_mcu/wasm_module/target/evolved/wasm32-unknown-unknown/release/wasm_module.wasm ../examples_mcu/usb_stm32h725ig/modules/calc_evolved.wasm
 
 # facade! and facade_line!: what they accept and their compile errors (CLT-64), with trybuild; TRYBUILD=overwrite to update
 test-facade-ui:
@@ -119,7 +134,7 @@ lint-c:
     cc -std=c99 -Wall -Wextra -Werror -pedantic -Wconversion -Wsign-conversion -DSW_NO_F64 -c shrink_wrap_c/sw_requantize.c -o /dev/null
 
 # cargo check everything
-check: check-core check-mcu check-examples-mcu
+check: check-core check-mcu check-wasm check-examples-mcu
 
 # cargo check repo root workspace
 check-core:
@@ -137,6 +152,13 @@ check-mcu:
     # ww_ecc_flash needs its MCU family
     @cargo check -p ww_ecc_flash --features nmi-handler --target thumbv6m-none-eabi
     @cargo check -p ww_ecc_flash --features stm32h7 --target thumbv7em-none-eabihf
+
+# cargo check and clippy the ww_wasm workspace (nightly: wasefire-interpreter) and the wasm module example
+check-wasm:
+    # Checking ww_wasm
+    cd ww_wasm && CARGO_BUILD_WARNINGS=deny cargo clippy -q --all-targets --features guest,wasefire,wasmi -- -D warnings
+    cd ww_wasm && CARGO_BUILD_WARNINGS=deny cargo clippy -q --lib --features wasefire,wasmi,defmt --target thumbv7em-none-eabihf -- -D warnings
+    cd examples_mcu/wasm_module && CARGO_BUILD_WARNINGS=deny cargo clippy -q -- -D warnings
 
 check-examples-mcu:
     # Checking examples-mcu

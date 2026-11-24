@@ -1,0 +1,5 @@
+# wasefire-interpreter needs nightly; the same nightly as examples_mcu/usb_stm32h725ig, its user.
+[toolchain]
+channel = "nightly-2026-11-19"
+components = ["clippy", "rustfmt", "rust-src"]
+targets = ["thumbv7em-none-eabihf", "wasm32-unknown-unknown"]

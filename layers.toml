@@ -191,6 +191,9 @@ track = { layer = "runtime" }
 track_api = { layer = "runtime" }
 traits = { layer = "runtime" }
 traits_api = { layer = "runtime" }
+wasm_module_api = { layer = "runtime", no_std = true }
+wasm_module_api_evolved = { layer = "runtime", no_std = true }
+wasm_slot_api = { layer = "runtime", no_std = true }
 wire_line = { layer = "runtime" }
 wire_line_api = { layer = "runtime", no_std = true }
 wire_line_fixture_api = { layer = "runtime", no_std = true }
@@ -236,6 +239,7 @@ size_bench_reply = { layer = "runtime", workspace = "examples_mcu/size_bench_rep
 usb_fdcan_h725ig = { layer = "runtime", workspace = "examples_mcu/usb_stm32h725ig", unsafe = true }
 wire_weaver_tool = { layer = "runtime", workspace = "wire_weaver_tool" }
 wire_weaver_usb_embassy = { layer = "runtime", workspace = "mcu" }
+ww_wasm = { layer = "runtime", workspace = "ww_wasm", no_std = true, unsafe = true }
 ww_ecc_flash = { layer = "runtime", workspace = "mcu", unsafe = true }
 
 # Crates of other repositories, taken by git without a pin (Cargo.lock records the commit), each with its layer.

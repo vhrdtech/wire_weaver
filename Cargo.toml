@@ -48,6 +48,7 @@ exclude = [
     "fuzz",
     "tests/thermo_api_old",
     "wire_weaver_tool",
+    "ww_wasm",
 ]
 
 [workspace.package]

@@ -1,0 +1,11 @@
+[build]
+target = "wasm32-unknown-unknown"
+
+# One 64 KiB page, never grown (no allocator): a 4 KiB shadow stack first, then the data. An interpreter that takes
+# less memory than a page (wasefire-interpreter) gives the module what its data and stack need.
+[target.wasm32-unknown-unknown]
+rustflags = [
+    "-C", "link-arg=-zstack-size=4096",
+    "-C", "link-arg=--initial-memory=65536",
+    "-C", "link-arg=--max-memory=65536",
+]

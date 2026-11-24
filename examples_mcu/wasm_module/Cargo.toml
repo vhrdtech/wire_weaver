@@ -1,0 +1,47 @@
+# A workspace of its own, built for wasm32-unknown-unknown: the module the stm32h725ig-wasm-slot firmware carries
+# in flash. `just wasm-modules` builds both images into ../usb_stm32h725ig/modules/.
+[workspace]
+resolver = "3"
+
+[package]
+name = "wasm_module"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+publish = false
+description = "The wasm module example: wasm_module_api's Calc as a ww_wasm guest, wasm_module_api_evolved's with the feature evolved"
+
+[lib]
+crate-type = ["cdylib"]
+test = false
+doctest = false
+bench = false
+
+[features]
+default = ["calc"]
+# Serve wasm_module_api
+calc = ["dep:wasm_module_api"]
+# Serve wasm_module_api_evolved (with `mul`): build with --no-default-features --features evolved
+evolved = ["dep:wasm_module_api_evolved"]
+
+[dependencies]
+wasm_module_api = { path = "../../examples/wasm_module_api", optional = true }
+wasm_module_api_evolved = { path = "../../examples/wasm_module_api_evolved", optional = true }
+wire_weaver = { path = "../../wire_weaver", default-features = false }
+ww_client_server = { path = "../../ww_client_server", default-features = false }
+ww_wasm = { path = "../../ww_wasm", features = ["guest"] }
+
+[profile.release]
+codegen-units = 1
+debug = false
+lto = "fat"
+opt-level = "z"
+panic = "abort"
+strip = "symbols"
+
+[profile.dev]
+panic = "abort"
+
+# Exports and the panic handler are unsafe code (`unsafe = true` in layers.toml)
+[lints.rust]
+unsafe_code = "allow"

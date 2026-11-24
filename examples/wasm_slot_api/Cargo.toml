@@ -1,0 +1,25 @@
+[package]
+name = "wasm_slot_api"
+version = "0.1.0"
+description = "API of the wasm slot example firmware: mount slots served by wasm interpreters, loaded from images in flash"
+publish = false
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# Wire version of the API (EVO-31): link setup decides on its line, `#[since]` names its revisions
+[package.metadata.wire_weaver]
+wire = "w1.0"
+
+[features]
+# build against std instead of no_std
+std = ["ww_api/std", "ww_si/std"]
+
+[dependencies]
+ww_api = { workspace = true }
+ww_si = { workspace = true, features = ["time", "counting"] }
+
+[lints]
+workspace = true

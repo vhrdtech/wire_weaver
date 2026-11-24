@@ -7363,8 +7363,9 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
 <li>✅ <strong>SRV-80 Mount prefix rewrite without a heap</strong> — the prefix rewrite of SRV-77 runs in firmware:
     <code>ww_client_server::mount::MountPrefix&lt;S&gt;</code> keeps its path in a <code>PathStore</code>, a <code>PathArray&lt;N&gt;</code> (no heap, a joined
     path over <code>N</code> ids is <code>RewriteError::PathTooLong</code>) or a host's <code>Vec</code>, through one implementation with the same
-    bytes; <code>MountRequest::prefix_in</code> finds a slot's prefix into either. Cost on thumbv7m at <code>fw-z</code>: 7.6 KB of flash and
-    a 7.8 KB stack frame, nearly all of it decoding the backend's 776-byte <code>Event</code> (<a href="../docs/api/mounts/#forwarding-in-firmware">Docs</a>,
+    bytes; <code>MountRequest::prefix_in</code> finds a slot's prefix into either. Stack on thumbv7m at <code>fw-z</code>: 648 B for an
+    observe update, 3.5 KB with <code>sample_times</code> (a decoded <code>Event</code> is 100 B since shrink_wrap SW-87, was 776 B and
+    7.4 KB of stack) (<a href="../docs/api/mounts/#forwarding-in-firmware">Docs</a>,
     <code>ww_client_server</code> <code>fixed_and_vec_forms_give_the_same_bytes</code>, <code>examples_mcu/mcu_qemu</code> <code>qemu-mount-prefix</code>).</li>
 <li>✅ <strong>SRV-78 Mount forwarder</strong> — <code>wire_weaver_server::mount</code> forwards a mount slot (SRV-76) to a backend process,
     another WireWeaver server on a byte stream, without tokio: <code>Mounts</code> is the host's mount table (a control link per

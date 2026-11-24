@@ -6808,9 +6808,9 @@
 <ul>
 <li>🚧 <strong>TRACK-7 Track and clock numbers given by the definitions</strong></li>
 </ul>
-<p>An application defines a track or a clock without a number (<code>TrackSpec</code>, <code>ClockSpec</code>), and <code>Definitions</code> gives it the lowest number not taken. The same track identity (key, dimensions, owner) or clock key gets its number back, also after a close. A number never goes to another track or clock. A resume reads the piece's numbers back (<code>Resumed::numbers</code>, <code>Definitions::with_numbers</code>), and a reader finds a track's number by its id (<code>DefinitionsAt::track_number</code>).</p>
-<p>Open: a chain resume that starts a new piece reads no closed piece, so its numbers start anew.</p>
-<p>Read more: <a href="https://tape.vhrd.tech/tracks/#number-key-and-id">Number, key and id</a>, <a href="https://tape.vhrd.tech/definitions/#the-definitions-an-application-holds">The definitions an application holds</a>.</p>
+<p>An application defines a track or a clock without a number (<code>TrackSpec</code>, <code>ClockSpec</code>), and <code>Definitions</code> gives it the lowest number not taken. The same track identity (key, dimensions, owner) or clock key gets its number back, also after a close. A number never goes to another track or clock. A resume reads the numbers back (<code>Resumed::numbers</code>, <code>Definitions::with_numbers</code>), a chain's from every piece present, counting unread ones (<code>Resumed::numbers_unread</code>). A track or clock defined only in a removed piece loses its number, and a reader finds a track's number by its id (<code>DefinitionsAt::track_number</code>).</p>
+<p>Open: <code>TapeWriter::resume_on</code> alone, outside a chain, reads a closed piece's numbers only from its head's puts and after its last close.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/tracks/#number-key-and-id">Number, key and id</a>, <a href="https://tape.vhrd.tech/definitions/#the-definitions-an-application-holds">The definitions an application holds</a>, <code>ww_tape_tests/tests/it/chain_numbers.rs</code>.</p>
 <h2 id="writer-write">Writer (<code>WRITE</code>)<a class="headerlink" href="#writer-write" title="Permanent link">&para;</a></h2>
 <p>Writing pieces and chains, resuming them, and sinks in memory, in the crate <code>ww_tape</code>.</p>
 <ul>
@@ -7003,7 +7003,7 @@
 <li>✅ <strong>EX-1 The drive's hour as code</strong></li>
 </ul>
 <p><code>example_drive</code> records the drive motor controller's hour: log lines, mode, CAN frames, phase current with summaries and temperature, in a chain of pieces. <code>Drive::scaled</code> shrinks the data and the byte policies for figures, and a crash at any byte resumes to the bytes of the run without it. The RF capture (<code>example_rf</code>) records ComplexI16 IQ at 20 MS/s as the book's case for high rates. <code>cargo run -p example_drive</code> prints the story's numbers, and the tests pin them.</p>
-<p>Read more: <a href="https://github.com/vhrdtech/ww_tape/blob/93d3c79752194fb10a99c7e92736e4ef515001a2/examples/example_drive/README.md">example_drive</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/93d3c79752194fb10a99c7e92736e4ef515001a2/examples/example_rf/README.md">example_rf</a>. Tests <code>story.rs</code>, <code>damage.rs</code>, <code>rf.rs</code>.</p>
+<p>Read more: <a href="https://github.com/vhrdtech/ww_tape/blob/a72d4e12c113b4361f819b7816276d6d9d76ede2/examples/example_drive/README.md">example_drive</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/a72d4e12c113b4361f819b7816276d6d9d76ede2/examples/example_rf/README.md">example_rf</a>. Tests <code>story.rs</code>, <code>damage.rs</code>, <code>rf.rs</code>.</p>
 <ul>
 <li>✅ <strong>EX-2 A 10 Gbps link and a 1 GS/s receiver</strong></li>
 </ul>
@@ -7024,7 +7024,7 @@
 <li>✅ <strong>EX-5 A crate per case, its pipeline a library</strong></li>
 </ul>
 <p>Each case is a crate of its own: <code>example_drive</code> the book's running example, <code>example_rf</code>, <code>example_ethernet</code> and <code>example_wideband</code>. What they share, the memory window and the RF signal, is in <code>example_capture</code>, so no case depends on another. <code>window::start</code> and each case's <code>start</code> return a running pipeline. It hands out its memory window, the pieces in memory and each mux's watch, so a viewer follows it live. Each case has a headless binary whose <code>main</code> reads like a block diagram of its threads.</p>
-<p>Read more: <a href="https://tape.vhrd.tech/protocol_analyser/#the-pipeline">The pipeline</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/93d3c79752194fb10a99c7e92736e4ef515001a2/examples/example_capture/README.md">example_capture</a>. Tests <code>window.rs</code>.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/protocol_analyser/#the-pipeline">The pipeline</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/a72d4e12c113b4361f819b7816276d6d9d76ede2/examples/example_capture/README.md">example_capture</a>. Tests <code>window.rs</code>.</p>
 <ul>
 <li>✅ <strong>EX-6 Payload compression measured on the cases</strong></li>
 </ul>

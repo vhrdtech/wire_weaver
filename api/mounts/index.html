@@ -6844,10 +6844,11 @@ joined path longer than <code>N</code> is <code>RewriteError::PathTooLong</code>
 </span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="kd">let</span><span class="w"> </span><span class="n">event</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">prefix</span><span class="p">.</span><span class="n">event_out</span><span class="p">(</span><span class="o">&amp;</span><span class="n">backend_event</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">buf</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
 </span></code></pre></div>
 <p>The cost is decoding the backend's <code>Event</code>, measured with <code>examples_mcu/mcu_qemu</code>'s <code>qemu-mount-prefix</code> on
-thumbv7m. A decoded <code>Event</code> is 776 B, 704 B of it the <code>Series</code> reader of <code>sample_times</code>, and the derived decoder
-moves it several times: the rewrite's frame is 7.8 KB at <code>fw-z</code> (4.4 KB at <code>fw-3</code>), about 1 KB more below it. Flash
-is 7.6 KB at <code>fw-z</code>, plus the event writer a server sending events already links (3.9 KB).
-A firmware forwarder needs that stack in the task that rewrites.</p>
+thumbv7m (QEMU, stack painted below the call). A decoded <code>Event</code> is 100 B: a <code>Series</code> in it keeps only where its
+columns start (shrink_wrap SW-87). Rewriting an observe update takes 648 B of stack at <code>fw-z</code> (556 B at <code>fw-3</code>) and
+about 2 300 instructions (1 600). An update with <code>sample_times</code> adds the validation of that <code>Series</code>: 3.5 KB of stack
+at <code>fw-z</code> (2.7 KB at <code>fw-3</code>) for three <code>Second</code>s, most of it the series contexts of <code>NumericValue</code>'s variants
+(shrink_wrap SW-88). A firmware forwarder needs that stack in the task that rewrites.</p>
 <h3 id="global-paths-into-a-mount">Global paths into a mount<a class="headerlink" href="#global-paths-into-a-mount" title="Permanent link">&para;</a></h3>
 <p>A global trait path (<code>GlobalFull</code>, <code>GlobalCompact</code>) names a trait wherever it sits in the device's tree. A server
 knows the traits of a mounted API only from the backend's introspection data, learned when the slot comes <code>Up</code>.

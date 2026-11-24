@@ -6767,6 +6767,15 @@ for humans and AI agents alike.</p>
   with the item's name when none visibly does: a type whose owned side alone has serde takes
   <code>#[serde(with = "exact_units::serde::with_unit")]</code> as written (<code>docs/derive_reference.md</code>; test
   <code>shrink_wrap/tests/one_side_attrs.rs</code>).</li>
+<li>✅ <strong>SW-87 A decoded <code>Series</code> without its column cursors</strong> — <code>Series::Buf</code> keeps the item count and where the
+  columns start (<code>columns: BufReader</code>), not a cursor per column: its size no longer depends on <code>T</code> (a
+  <code>Series&lt;ww_si::Second&gt;</code> was 704 bytes on thumbv7m, one cursor per <code>NumericValue</code> variant). Deserializing validates
+  the group with <code>SeriesColumns::validate_group</code>, which structs, enums, tuples, arrays and <code>Option</code> (derived and
+  built in) implement part by part, so no cursors of two parts are on the stack together; <code>iter</code> skims again for the
+  cursors. Same bytes. In WireWeaver's <code>qemu-mount-prefix</code> (Cortex-M3) decoding an observe <code>Event</code> without sample
+  times went from 6.6 KB of stack and 5130 instructions to 520 bytes and 738 at <code>opt-level = "z"</code>
+  (<code>docs/series.md</code>; tests <code>validate_group_agrees_with_skim</code>, <code>decoded_series_size_is_independent_of_t</code> in
+  <code>shrink_wrap/tests/series_derive.rs</code>).</li>
 <li>✅ <strong>SW-19 Bounded lists and strings <code>MaxLen&lt;T, N&gt;</code></strong>: a <code>RefVec</code>, <code>Vec</code>, <code>&amp;str</code> or <code>String</code> with at most <code>N</code>
   elements, same bytes as <code>T</code> (a bound can be added, raised or removed without a new wire form), checked on
   serialize and deserialize (<code>Error::MaxLenExceeded</code>, never truncated). Works in derived types and in every API
@@ -6877,6 +6886,11 @@ for humans and AI agents alike.</p>
   type and the derive's features.</li>
 <li>🔍 <strong>SW-23 Tuple enum variants evolution</strong> — check that tuple variants evolve as <code>docs/evolution/rules.md</code> says
   (fields can be appended) and add a test.</li>
+<li>📋 <strong>SW-88 Smaller series skim contexts</strong> — validating a <code>Series&lt;ww_si::Second&gt;</code> of 3 items still takes 3.4 KB of
+  stack and about 24 k instructions on a Cortex-M3 at <code>opt-level = "z"</code> (2.7 KB and 6.5 k at <code>3</code>): every variant
+  of <code>NumericValue</code> gets its own <code>VariantCtx</code> and <code>SiblingCtx</code> copy, each holding a <code>TagRun</code> (a <code>BufReader</code> and run
+  state, about 48 bytes) per field of every enclosing struct, tagged or not. Keep runs for tagged fields only,
+  shrink <code>BufReader</code> / <code>RunReader</code>, and skip the walk of a variant the tag run never names.</li>
 <li>💡 <strong>SW-65 Aligned plain <code>Series</code> columns</strong> — numbers byte-aligned and little-endian at their width (numeric
   escape <code>11 11</code>, float codec <code>0010</code>, an <code>AlignedPlain</code> policy), copied from a <code>SeriesStore</code>: 34 k cycles per FOC
   level batch on an STM32H725 at <code>opt-level = 3</code> against 60 k for column-wise <code>DeltaPacked</code> (SW-64), for 2.3x the

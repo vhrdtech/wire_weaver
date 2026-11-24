@@ -7216,7 +7216,14 @@ needs it.</p>
 <li>wasefire-interpreter has no fuel, so a module that loops never returns, and the firmware's server task hangs with it
   (SRV-86). wasmi stops it with <code>Limits::fuel</code>.</li>
 <li>Both interpreters allocate: the firmware needs a global allocator. A failed allocation during a load is a refused
-  load, but one during a call panics.</li>
+  load.</li>
+<li><code>WasmiModule</code> allocates everything a call needs at load: it translates every function, takes the whole stack
+  (<code>Limits::stack</code>) and the event queue (<code>Limits::events</code>). Memory and table growth past <code>Limits::memory</code> and
+  <code>Limits::table</code> trap, and growth below them is reserved fallibly, so a failed one traps too.</li>
+<li>Some allocations inside a call can't fail gracefully yet, and one that fails panics the firmware (SRV-87).
+  wasmi grows its frame stack once per new call depth, up to <code>Limits::recursion</code> frames. wasefire-interpreter
+  allocates its thread, frames, locals and values on every call: 167 times for <code>add</code> below.
+  <code>ww_wasm</code>'s <code>tests/allocations.rs</code> counts both.</li>
 </ul>
 <p>The example is <code>stm32h725ig-wasm-slot</code> on B135B (<code>examples_mcu/usb_stm32h725ig</code>), with <code>wasm_slot_api</code>: a slot per
 interpreter, <code>load</code>, <code>unload</code>, the slot counters, and the cycles, stack and heap each step took. Its host side
@@ -7255,22 +7262,22 @@ without the side table), its model 111 B, its memory one 64 KiB page with a 4 Ki
 <tr>
 <td>Heap after <code>load</code></td>
 <td style="text-align: right;">9 288 B</td>
-<td style="text-align: right;">95 916 B</td>
+<td style="text-align: right;">156 600 B</td>
 </tr>
 <tr>
 <td>Heap peak during <code>load</code></td>
 <td style="text-align: right;">9 428 B</td>
-<td style="text-align: right;">105 356 B</td>
+<td style="text-align: right;">167 160 B</td>
 </tr>
 <tr>
 <td>Heap after 100 calls</td>
 <td style="text-align: right;">9 288 B</td>
-<td style="text-align: right;">134 312 B</td>
+<td style="text-align: right;">156 664 B</td>
 </tr>
 <tr>
 <td>Instantiate, cycles</td>
-<td style="text-align: right;">3 560 528</td>
-<td style="text-align: right;">3 918 236</td>
+<td style="text-align: right;">3 554 622</td>
+<td style="text-align: right;">18 211 041</td>
 </tr>
 <tr>
 <td>Instantiate, stack</td>
@@ -7279,18 +7286,18 @@ without the side table), its model 111 B, its memory one 64 KiB page with a 4 Ki
 </tr>
 <tr>
 <td>A call, <code>process</code> cycles (median of 100)</td>
-<td style="text-align: right;">3 915 047</td>
-<td style="text-align: right;">136 284</td>
+<td style="text-align: right;">3 913 285</td>
+<td style="text-align: right;">136 191</td>
 </tr>
 <tr>
-<td>A call, the slowest of the 100 (the first)</td>
-<td style="text-align: right;">3 920 401</td>
-<td style="text-align: right;">10 717 078</td>
+<td>A call, the slowest of the 100</td>
+<td style="text-align: right;">3 918 836</td>
+<td style="text-align: right;">139 729</td>
 </tr>
 <tr>
 <td>A call, the slot's whole <code>forward</code>, cycles</td>
-<td style="text-align: right;">3 922 443</td>
-<td style="text-align: right;">143 781</td>
+<td style="text-align: right;">3 920 335</td>
+<td style="text-align: right;">143 667</td>
 </tr>
 <tr>
 <td>A call, stack</td>
@@ -7301,12 +7308,13 @@ without the side table), its model 111 B, its memory one 64 KiB page with a 4 Ki
 </table>
 <ul>
 <li>Flash is the firmware with the interpreter less the one without it, the two images (38.8 KB) left out.</li>
-<li>wasmi's heap is mostly the guest's 64 KiB page: wasefire-interpreter takes only the memory it is given (8 KiB
-  here).</li>
-<li>wasmi translates a function at its first call (<code>Limits::eager</code> does it at load), so its first call and its heap
-  grow then.</li>
+<li>wasmi's heap is the guest's 64 KiB page, its 16 KiB stack and the code of every function, translated at load:
+  wasefire-interpreter takes only the memory it is given (8 KiB here).</li>
+<li>wasmi's 64 B after the calls is its frame stack, grown at the first call.</li>
 <li>The slot's own <code>load</code> is the same for both, 62 000 cycles and 6 656 B of stack (the model's decode, see above).</li>
-<li>wasefire-interpreter executes the binary in place, which makes it about 29 times slower than wasmi per call.</li>
+<li>wasefire-interpreter executes the binary in place, about 29 times slower than wasmi per call. It's the call itself:
+  <code>add</code> runs about 6 400 wasm instructions (wasmi's fuel), some 600 cycles each. Looking up the export and the side
+  table takes under 0.1 % of a call (156 ns of 177 µs on the host), and nothing is validated per call.</li>
 </ul>
 <p>At <code>opt-level = 3</code> wasefire-interpreter takes 1 328 148 cycles to instantiate and 1 057 376 per call, with 780 B of
 stack. wasmi doesn't fit the 1 MB of flash at <code>opt-level = 3</code>, alone (524 B over) or next to wasefire-interpreter.</p>

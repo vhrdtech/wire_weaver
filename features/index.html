@@ -7408,7 +7408,8 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
     fuel). The guest exports its buffers and <code>ww_process</code> through <code>guest_module!</code>, its model sits in a <code>ww_model</code>
     custom section. A trap, out of fuel or a bad reply unloads the module. Tested on B135B (STM32H725, 540 MHz,
     <code>opt-level = "z"</code>) over USB: calls, a reload with another API relearned for that slot only, a trap unloading the
-    module. A call takes 3.9 M cycles on wasefire-interpreter, 136 k on wasmi; flash +76 KB and +527 KB
+    module. A call takes 3.9 M cycles on wasefire-interpreter, 136 k on wasmi; flash +76 KB and +527 KB. wasmi
+    allocates a call's needs at load and traps on memory or table growth past <code>Limits</code>
     (<a href="../docs/api/mounts/#wasm-modules">Docs</a>, <code>ww_wasm</code> <code>tests/interpreters.rs</code>, <code>examples/wasm_slot</code>,
     <code>examples_mcu/usb_stm32h725ig</code> <code>stm32h725ig-wasm-slot</code>).</li>
 <li>🚧 <strong>SRV-76 Mount slots</strong> — <code>mount!(hub)</code> (one slot, <code>mount!(hub: hub_api)</code> names the expected API crate) and
@@ -7420,6 +7421,11 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
     client's <code>MountSlot</code>, <code>presence</code> in the dynamic client, evolution and authorization steps; the rewrite is
     SRV-77, the forwarder SRV-78, the client view of the mounted API CLT-84. Missing: the keys stream driven by
     mounts.</li>
+<li>📋 <strong>SRV-87 No allocation inside a module's call</strong> — a heap exhausted while a loaded module runs panics the
+    firmware: wasefire-interpreter 0.5 allocates on every call (167 times for the example's <code>add</code>), and wasmi 2.0
+    grows its frame stack with an infallible push at each new call depth. Needs fallible or preallocated stacks in
+    the interpreters, a fork or upstream. Estimate: wasmi 0.5 day, wasefire-interpreter 2-3 days
+    (<code>ww_wasm/tests/allocations.rs</code>, task P2401#25nov-0205).</li>
 <li>📋 <strong>SRV-86 Fuel for wasefire-interpreter modules</strong> — wasefire-interpreter 0.5 has no fuel or instruction limit,
     so a module that loops never returns from <code>process</code> and the firmware task serving its slot hangs with it. Needs a
     step budget in the interpreter (upstream) or a watchdog that aborts the call. Estimate: 1-2 days with a fork,

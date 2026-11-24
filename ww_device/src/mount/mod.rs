@@ -22,7 +22,7 @@ use core::ptr::addr_of_mut;
 use shrink_wrap::prelude::{DeserializeShrinkWrap, ShrinkWrapError};
 use shrink_wrap::{BufReader, RefVec};
 use wire_weaver::ww_api::mount::MountPresence;
-use wire_weaver::ww_version::{ApiHash, ApiHashPair, FullVersion, WireVersion};
+use wire_weaver::ww_version::{ApiHash, ApiHashPair, FullVersion, Version, WireVersion};
 use wire_weaver::{BlockingEventOut, Context, EventOut, Priority, WireWeaverApiBackend};
 use ww_client_server::mount::{
     MountAnswer, MountPrefix, MountRequest, PathArray, PathStore, RewriteError, request_at,
@@ -40,6 +40,12 @@ pub const CLOSABLE_MAX: usize = 8;
 const ANSWERS_MAX: usize = 2 * IN_FLIGHT_MAX + 2;
 /// Bytes of the length in front of each message of an [Outbox].
 const OUTBOX_LEN_BYTES: usize = 2;
+/// Bytes of a module's crate name, pre-release and build metadata together, kept by the slot for its `presence`.
+pub const IDENTITY_TEXT_MAX: usize = 64;
+const _: () = assert!(
+    IDENTITY_TEXT_MAX <= u8::MAX as usize,
+    "a part's length is a u8"
+);
 
 /// A WireWeaver server in the firmware's process, served at a mount slot through a [ModuleSlot]: requests go in as
 /// bytes, events and replies come out as bytes. A wasm interpreter implements it from its host calls, [Linked] for a
@@ -190,6 +196,8 @@ impl BlockingEventOut for Outbox<'_> {
 pub enum LoadError {
     /// The model doesn't decode as a `ww_self::ApiBundle`, or names no crate for its root.
     Model,
+    /// The crate name, pre-release and build metadata of the model are past [IDENTITY_TEXT_MAX] bytes together.
+    NameTooLong,
 }
 
 /// What a [ModuleSlot] dropped or refused: a module's misbehavior shows here, never as a panic.
@@ -265,6 +273,8 @@ pub struct ModuleSlot<M, const MSG: usize, const OUT: usize> {
     module: Option<M>,
     /// The hash of the loaded module's model.
     hash: [u8; SIGNATURE_LEN],
+    /// The loaded module's API, read from its model at load: the model is never decoded again.
+    identity: Identity,
     /// The front's path of the slot's `api`, from the requests under it.
     prefix: Option<MountPrefix<PathArray<PATH_IDS_MAX>>>,
     in_flight: [(u32, Priority); IN_FLIGHT_MAX],
@@ -309,6 +319,7 @@ impl<M: Module, const MSG: usize, const OUT: usize> ModuleSlot<M, MSG, OUT> {
             let ModuleSlot {
                 module: _,
                 hash: _,
+                identity: _,
                 prefix: _,
                 in_flight: _,
                 in_flight_len: _,
@@ -336,7 +347,10 @@ impl<M: Module, const MSG: usize, const OUT: usize> ModuleSlot<M, MSG, OUT> {
         // after the other, and zero bytes are a valid `u8`
         unsafe {
             addr_of_mut!((*at).module).write(None);
-            addr_of_mut!((*at).hash).cast::<u8>().write_bytes(0, SIGNATURE_LEN);
+            addr_of_mut!((*at).hash)
+                .cast::<u8>()
+                .write_bytes(0, SIGNATURE_LEN);
+            addr_of_mut!((*at).identity).write(Identity::EMPTY);
             addr_of_mut!((*at).prefix).write(None);
             let in_flight = addr_of_mut!((*at).in_flight).cast::<(u32, Priority)>();
             for i in 0..IN_FLIGHT_MAX {
@@ -356,12 +370,18 @@ impl<M: Module, const MSG: usize, const OUT: usize> ModuleSlot<M, MSG, OUT> {
                 answers.add(i).write((0, Priority::NORMAL, Refusal::Gone));
             }
             addr_of_mut!((*at).answers_len).write(0);
-            addr_of_mut!((*at).request_buf).cast::<u8>().write_bytes(0, MSG);
-            addr_of_mut!((*at).reply_buf).cast::<u8>().write_bytes(0, MSG);
+            addr_of_mut!((*at).request_buf)
+                .cast::<u8>()
+                .write_bytes(0, MSG);
+            addr_of_mut!((*at).reply_buf)
+                .cast::<u8>()
+                .write_bytes(0, MSG);
             addr_of_mut!((*at).reply).write((0, 0));
             addr_of_mut!((*at).reply_seq).write(0);
             addr_of_mut!((*at).current).write((0, 0));
-            addr_of_mut!((*at).rewrite_buf).cast::<u8>().write_bytes(0, MSG);
+            addr_of_mut!((*at).rewrite_buf)
+                .cast::<u8>()
+                .write_bytes(0, MSG);
             addr_of_mut!((*at).out_buf).cast::<u8>().write_bytes(0, OUT);
             addr_of_mut!((*at).out_len).write(0);
             addr_of_mut!((*at).out_read).write(0);
@@ -376,6 +396,7 @@ impl<M: Module, const MSG: usize, const OUT: usize> ModuleSlot<M, MSG, OUT> {
         ModuleSlot {
             module: None,
             hash: [0; SIGNATURE_LEN],
+            identity: Identity::EMPTY,
             prefix: None,
             in_flight: [(0, Priority::NORMAL); IN_FLIGHT_MAX],
             in_flight_len: 0,
@@ -413,14 +434,17 @@ impl<M: Module, const MSG: usize, const OUT: usize> ModuleSlot<M, MSG, OUT> {
     ///
     /// # Errors
     ///
-    /// [LoadError::Model] when the module's model doesn't decode; `module` comes back and the slot stays as it was.
+    /// [LoadError::Model] when the module's model doesn't decode, [LoadError::NameTooLong] when its names don't fit
+    /// the slot; `module` comes back and the slot stays as it was.
     pub fn load(&mut self, module: M) -> Result<Option<M>, (LoadError, M)> {
-        if identity(module.model()).is_none() {
-            return Err((LoadError::Model, module));
-        }
+        let identity = match Identity::of(module.model()) {
+            Ok(identity) => identity,
+            Err(e) => return Err((e, module)),
+        };
         let hash = api_hash(module.model());
         let old = self.unload();
         self.hash = hash;
+        self.identity = identity;
         self.module = Some(module);
         self.changed = true;
         Ok(old)
@@ -467,7 +491,10 @@ impl<M: Module, const MSG: usize, const OUT: usize> ModuleSlot<M, MSG, OUT> {
     /// The slot's `presence`, what its `get_<slot>_presence` handler answers: `Up` with the crate, version and wire
     /// version of the module's model and the hash the slot computed of it, `Absent` with nothing loaded.
     pub fn presence(&self) -> MountPresence<'_> {
-        let Some((api, wire)) = self.module.as_ref().and_then(|m| identity(m.model())) else {
+        if self.module.is_none() {
+            return MountPresence::Absent;
+        }
+        let Some((api, wire)) = self.identity.get() else {
             return MountPresence::Absent;
         };
         MountPresence::Up {
@@ -934,7 +961,85 @@ fn fill(store: &mut PathArray<PATH_IDS_MAX>, path: &[ResourceIndex]) -> Result<(
 }
 
 /// The crate, version and wire version of a model's root; `None` when it isn't a model.
-fn identity(model: &[u8]) -> Option<(FullVersion<'_>, Option<WireVersion>)> {
+/// The crate, version and wire version of a module's model, copied out of it.
+#[derive(Clone, Copy)]
+struct Identity {
+    /// The crate name, then the pre-release, then the build metadata.
+    text: [u8; IDENTITY_TEXT_MAX],
+    crate_len: u8,
+    pre_len: Option<u8>,
+    build_len: Option<u8>,
+    major: u32,
+    minor: u32,
+    patch: u32,
+    wire: Option<WireVersion>,
+}
+
+impl Identity {
+    const EMPTY: Identity = Identity {
+        text: [0; IDENTITY_TEXT_MAX],
+        crate_len: 0,
+        pre_len: None,
+        build_len: None,
+        major: 0,
+        minor: 0,
+        patch: 0,
+        wire: None,
+    };
+
+    /// Reads the identity of the root of `model`, a `ww_self::ApiBundle`.
+    fn of(model: &[u8]) -> Result<Identity, LoadError> {
+        let (api, wire) = root_identity(model).ok_or(LoadError::Model)?;
+        let mut identity = Identity {
+            major: api.version.major.0,
+            minor: api.version.minor.0,
+            patch: api.version.patch.0,
+            wire,
+            ..Identity::EMPTY
+        };
+        let mut at = 0;
+        let mut put = |part: &str| -> Result<u8, LoadError> {
+            let to = identity
+                .text
+                .get_mut(at..at + part.len())
+                .ok_or(LoadError::NameTooLong)?;
+            to.copy_from_slice(part.as_bytes());
+            at += part.len();
+            Ok(u8::try_from(part.len()).expect("bounded by IDENTITY_TEXT_MAX"))
+        };
+        let crate_len = put(api.crate_id)?;
+        let pre_len = api.version.pre.map(&mut put).transpose()?;
+        let build_len = api.version.build.map(&mut put).transpose()?;
+        identity.crate_len = crate_len;
+        identity.pre_len = pre_len;
+        identity.build_len = build_len;
+        Ok(identity)
+    }
+
+    /// The identity as a slot's `presence` names it; `None` only for text that isn't UTF-8, which [of](Self::of)
+    /// never stores.
+    fn get(&self) -> Option<(FullVersion<'_>, Option<WireVersion>)> {
+        let mut rest = &self.text[..];
+        let mut take = |len: u8| -> Option<&str> {
+            let (part, after) = rest.split_at_checked(usize::from(len))?;
+            rest = after;
+            core::str::from_utf8(part).ok()
+        };
+        let crate_id = take(self.crate_len)?;
+        let pre = match self.pre_len {
+            Some(len) => Some(take(len)?),
+            None => None,
+        };
+        let build = match self.build_len {
+            Some(len) => Some(take(len)?),
+            None => None,
+        };
+        let version = Version::full(self.major, self.minor, self.patch, pre, build);
+        Some((FullVersion::new(crate_id, version), self.wire))
+    }
+}
+
+fn root_identity(model: &[u8]) -> Option<(FullVersion<'_>, Option<WireVersion>)> {
     let bundle = ww_self::ApiBundle::from_ww_bytes(model).ok()?;
     if bundle.magic != ww_self::MAGIC {
         return None;

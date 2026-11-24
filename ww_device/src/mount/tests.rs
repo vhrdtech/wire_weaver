@@ -30,7 +30,12 @@ fn model() -> Vec<u8> {
 
 /// [model] of the version 0.2.`patch`.
 fn model_of(patch: u32) -> Vec<u8> {
-    let crates = [FullVersion::new("mod_api", Version::new(0, 2, patch))];
+    model_named(FullVersion::new("mod_api", Version::new(0, 2, patch)))
+}
+
+/// [model] of the crate `api`.
+fn model_named(api: FullVersion<'_>) -> Vec<u8> {
+    let crates = [api];
     let bundle = ww_self::ApiBundle {
         magic: ww_self::MAGIC,
         ww_self_version: ww_self::VERSION,
@@ -49,7 +54,7 @@ fn model_of(patch: u32) -> Vec<u8> {
         wire: Some(WireVersion::new(1, 4)),
         ext_wire: None,
     };
-    let mut buf = [0u8; 128];
+    let mut buf = [0u8; 256];
     bundle.to_ww_bytes(&mut buf).unwrap().to_vec()
 }
 
@@ -487,7 +492,12 @@ fn a_reload_replaces_the_module() {
 fn a_slot_built_in_place_serves() {
     let mut memory = std::boxed::Box::new(core::mem::MaybeUninit::<Slot>::uninit());
     // SAFETY: bytes written into a `MaybeUninit`, never read as a `Slot` before `init`
-    unsafe { memory.as_mut_ptr().cast::<u8>().write_bytes(0xAA, size_of::<Slot>()) };
+    unsafe {
+        memory
+            .as_mut_ptr()
+            .cast::<u8>()
+            .write_bytes(0xAA, size_of::<Slot>())
+    };
     let slot = Slot::init(&mut memory);
     assert!(!slot.is_loaded());
     assert!(!slot.take_changed());
@@ -499,4 +509,34 @@ fn a_slot_built_in_place_serves() {
         seen(&out),
         [Seen::Data(vec![3, 1, 2]), Seen::Value(5, vec![4, 0])]
     );
+}
+
+/// The presence names what the model said at load, with its pre-release and build metadata: a module that changes
+/// its model later changes nothing, and names past the slot's room are refused.
+#[test]
+fn presence_is_read_once_at_load() {
+    let api = FullVersion::new(
+        "mod_api",
+        Version::full(0, 2, 1, Some("alpha.1"), Some("zstd.1.5")),
+    );
+    let mut fake = Fake::new(Behave::Echo);
+    fake.model = model_named(api);
+    let mut slot = Slot::new();
+    assert!(slot.load(fake).unwrap().is_none());
+    slot.module().unwrap().model = vec![1, 2, 3];
+    let MountPresence::Up {
+        api: named, wire, ..
+    } = slot.presence()
+    else {
+        panic!("up");
+    };
+    assert_eq!(named, api);
+    assert_eq!(wire, Some(WireVersion::new(1, 4)));
+
+    let long = "x".repeat(IDENTITY_TEXT_MAX + 1);
+    let mut fake = Fake::new(Behave::Echo);
+    fake.model = model_named(FullVersion::new(&long, Version::new(0, 1, 0)));
+    let (error, _) = slot.load(fake).unwrap_err();
+    assert_eq!(error, LoadError::NameTooLong);
+    assert!(slot.is_loaded(), "a refused module leaves the loaded one");
 }

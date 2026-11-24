@@ -84,7 +84,7 @@ impl Slots {
         let backend = self.hub_backend.as_mut()?;
         let mut buf = [0u8; 512];
         let bytes = request.forward_into(&mut buf).expect("the request fits");
-        let mut prefix = MountPrefix::new(request.prefix().expect("an absolute path"));
+        let mut prefix = MountPrefix::from_vec(request.prefix().expect("an absolute path"));
         let events = backend(bytes)
             .iter()
             .map(|event| {

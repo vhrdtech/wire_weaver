@@ -10,11 +10,9 @@
 //! decoded with the mounted API's types. Seqs pass through unchanged, since one front connection owns its backend
 //! connection. Events going back to the client get the slot's path in front of theirs ([MountPrefix::event_out]).
 
-use wire_weaver::shrink_wrap::{DeserializeShrinkWrap, RefVec, SerializeShrinkWrap};
+use wire_weaver::shrink_wrap::{DeserializeShrinkWrap, RefVec, SerializeShrinkWrap, UNib32};
 
-#[cfg(feature = "std")]
-use crate::{Event, EventKind};
-use crate::{PathKind, Request, ResourceIndex};
+use crate::{Event, EventKind, PathKind, Request, ResourceIndex};
 
 /// A request under a mount slot's `api`: the whole request and the part of its path below the slot.
 #[derive(Debug, Clone, Copy)]
@@ -46,6 +44,11 @@ pub enum RewriteError {
     Unreadable(wire_weaver::shrink_wrap::Error),
     /// The rewritten message doesn't fit the buffer.
     TooBig(wire_weaver::shrink_wrap::Error),
+    /// The path doesn't fit the [PathStore] of a [MountPrefix]: a [PathArray] holds `len_max` ids.
+    PathTooLong {
+        /// How many ids the store holds.
+        len_max: usize,
+    },
 }
 
 impl core::fmt::Display for RewriteError {
@@ -53,6 +56,9 @@ impl core::fmt::Display for RewriteError {
         match self {
             RewriteError::Unreadable(e) => write!(f, "message doesn't decode: {e:?}"),
             RewriteError::TooBig(e) => write!(f, "rewritten message doesn't fit its buffer: {e:?}"),
+            RewriteError::PathTooLong { len_max } => {
+                write!(f, "path longer than the {len_max} ids its store holds")
+            }
         }
     }
 }
@@ -71,15 +77,41 @@ impl MountRequest<'_, '_> {
     }
 
     /// Path of the slot's `api`: the request's absolute path without [MountRequest::path]. `None` when the request
-    /// has no absolute path, which the generated dispatch never hands a slot.
+    /// has no absolute path, which the generated dispatch never hands a slot, or it doesn't decode.
     #[cfg(feature = "std")]
     pub fn prefix(&self) -> Option<std::vec::Vec<ResourceIndex>> {
+        let prefix = self.prefix_in(std::vec::Vec::new()).ok().flatten()?;
+        Some(prefix.path().to_vec())
+    }
+
+    /// The [MountPrefix] of the slot, its path kept in `store`: the request's absolute path without
+    /// [MountRequest::path]. `None` when the request has no absolute path, which the generated dispatch never hands
+    /// a slot, or its path doesn't end with [MountRequest::path].
+    ///
+    /// # Errors
+    ///
+    /// [RewriteError::Unreadable] when the path doesn't decode, [RewriteError::PathTooLong] when `store` can't
+    /// hold the prefix.
+    pub fn prefix_in<S: PathStore>(
+        &self,
+        mut store: S,
+    ) -> Result<Option<MountPrefix<S>>, RewriteError> {
         let PathKind::Absolute { path } = &self.request.path_kind else {
-            return None;
+            return Ok(None);
         };
-        let full = path.iter().collect::<Result<std::vec::Vec<_>, _>>().ok()?;
-        let len = full.len().checked_sub(self.path.len())?;
-        (full[len..] == *self.path).then(|| full[..len].to_vec())
+        let Some(prefix_len) = path.len().checked_sub(self.path.len()) else {
+            return Ok(None);
+        };
+        store.truncate(0);
+        for (i, id) in path.iter().enumerate() {
+            let id = id.map_err(RewriteError::Unreadable)?;
+            match i.checked_sub(prefix_len) {
+                None => store.push(id)?,
+                Some(below) if self.path.get(below) == Some(&id) => {}
+                Some(_) => return Ok(None),
+            }
+        }
+        Ok(Some(MountPrefix { store, prefix_len }))
     }
 }
 
@@ -118,36 +150,144 @@ pub fn request_bytes_at<'b>(
     request_at(&request, path, buf)
 }
 
-/// The path of a mount slot's `api` on the front, and what puts it in front of the paths the backend sends back.
-#[cfg(feature = "std")]
+/// Where a [MountPrefix] keeps its path: a [PathArray] of fixed capacity in firmware, a `Vec` on a host.
+pub trait PathStore {
+    /// The ids stored, in order.
+    fn as_slice(&self) -> &[ResourceIndex];
+    /// Drop the ids past the first `len`.
+    fn truncate(&mut self, len: usize);
+    /// Append `id`.
+    ///
+    /// # Errors
+    ///
+    /// [RewriteError::PathTooLong] when the store is full.
+    fn push(&mut self, id: ResourceIndex) -> Result<(), RewriteError>;
+}
+
+/// A path of at most `N` ids, without a heap: the [PathStore] of a firmware's [MountPrefix].
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct MountPrefix {
-    prefix: std::vec::Vec<ResourceIndex>,
-    /// Reused for the joined path of each event.
-    joined: std::vec::Vec<ResourceIndex>,
+pub struct PathArray<const N: usize> {
+    ids: [ResourceIndex; N],
+    len: usize,
+}
+
+impl<const N: usize> PathArray<N> {
+    const UNUSED: ResourceIndex = ResourceIndex::new(UNib32(0));
+
+    /// An empty path.
+    pub const fn new() -> Self {
+        Self {
+            ids: [Self::UNUSED; N],
+            len: 0,
+        }
+    }
+}
+
+impl<const N: usize> Default for PathArray<N> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<const N: usize> PathStore for PathArray<N> {
+    fn as_slice(&self) -> &[ResourceIndex] {
+        &self.ids[..self.len]
+    }
+
+    fn truncate(&mut self, len: usize) {
+        self.len = self.len.min(len);
+    }
+
+    fn push(&mut self, id: ResourceIndex) -> Result<(), RewriteError> {
+        let slot = self
+            .ids
+            .get_mut(self.len)
+            .ok_or(RewriteError::PathTooLong { len_max: N })?;
+        *slot = id;
+        self.len += 1;
+        Ok(())
+    }
 }
 
 #[cfg(feature = "std")]
-impl MountPrefix {
+impl PathStore for std::vec::Vec<ResourceIndex> {
+    fn as_slice(&self) -> &[ResourceIndex] {
+        self
+    }
+
+    fn truncate(&mut self, len: usize) {
+        std::vec::Vec::truncate(self, len);
+    }
+
+    fn push(&mut self, id: ResourceIndex) -> Result<(), RewriteError> {
+        std::vec::Vec::push(self, id);
+        Ok(())
+    }
+}
+
+/// The path of a mount slot's `api` on the front, and what puts it in front of the paths the backend sends back.
+///
+/// `S` holds the prefix followed by the joined path of the last [join](Self::join) or
+/// [event_out](Self::event_out): `MountPrefix<PathArray<N>>` in firmware, where a joined path longer than `N` is
+/// [RewriteError::PathTooLong], `MountPrefix<Vec<ResourceIndex>>` on a host, with no limit of its own.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MountPrefix<S> {
+    store: S,
+    prefix_len: usize,
+}
+
+#[cfg(feature = "std")]
+impl MountPrefix<std::vec::Vec<ResourceIndex>> {
     /// The prefix of the slot whose `api` is at `prefix`: `[hub, 1]` for `mount!(hub)`, `[ext, index, 1]` for an
     /// element of `mounts!(ext)`.
-    pub fn new(prefix: std::vec::Vec<ResourceIndex>) -> Self {
+    pub fn from_vec(prefix: std::vec::Vec<ResourceIndex>) -> Self {
         Self {
-            prefix,
-            joined: std::vec::Vec::new(),
+            prefix_len: prefix.len(),
+            store: prefix,
         }
+    }
+}
+
+impl<S: PathStore> MountPrefix<S> {
+    /// The prefix `prefix`, kept in `store`; whatever `store` held is dropped.
+    ///
+    /// # Errors
+    ///
+    /// [RewriteError::PathTooLong] when `store` can't hold `prefix`.
+    pub fn new(mut store: S, prefix: &[ResourceIndex]) -> Result<Self, RewriteError> {
+        store.truncate(0);
+        for id in prefix {
+            store.push(*id)?;
+        }
+        Ok(Self {
+            store,
+            prefix_len: prefix.len(),
+        })
     }
 
     /// The path of the slot's `api`.
     pub fn path(&self) -> &[ResourceIndex] {
-        &self.prefix
+        &self.store.as_slice()[..self.prefix_len]
     }
 
     /// The front's absolute path of the backend's path `below`.
-    pub fn join(&self, below: &[ResourceIndex]) -> std::vec::Vec<ResourceIndex> {
-        let mut path = self.prefix.clone();
-        path.extend_from_slice(below);
-        path
+    ///
+    /// # Errors
+    ///
+    /// [RewriteError::PathTooLong] when the store can't hold the joined path.
+    pub fn join(&mut self, below: &[ResourceIndex]) -> Result<&[ResourceIndex], RewriteError> {
+        self.join_ids(below.iter().copied().map(Ok))
+    }
+
+    fn join_ids(
+        &mut self,
+        below: impl Iterator<Item = Result<ResourceIndex, RewriteError>>,
+    ) -> Result<&[ResourceIndex], RewriteError> {
+        self.store.truncate(self.prefix_len);
+        for id in below {
+            self.store.push(id?)?;
+        }
+        Ok(self.store.as_slice())
     }
 
     /// The backend's event in `event` as the front client gets it, written into `buf`: stream data, sideband, stream
@@ -156,15 +296,17 @@ impl MountPrefix {
     ///
     /// # Errors
     ///
-    /// [RewriteError::Unreadable] when `event` isn't an event, [RewriteError::TooBig] when it doesn't fit `buf`.
+    /// [RewriteError::Unreadable] when `event` isn't an event, [RewriteError::TooBig] when it doesn't fit `buf`,
+    /// [RewriteError::PathTooLong] when the joined path doesn't fit the store.
     pub fn event_out<'b>(
         &mut self,
         event: &[u8],
         buf: &'b mut [u8],
     ) -> Result<&'b [u8], RewriteError> {
-        let Event { seq, result } =
-            Event::from_ww_bytes(event).map_err(RewriteError::Unreadable)?;
-        let path = match &result {
+        // a decoded event is large (776 B on thumbv7m, most of it a `Series` reader): its path is replaced in place,
+        // never moved into a second event
+        let mut decoded = Event::from_ww_bytes(event).map_err(RewriteError::Unreadable)?;
+        let path = match &mut decoded.result {
             Ok(EventKind::StreamData { path, .. })
             | Ok(EventKind::StreamSideband { path, .. })
             | Ok(EventKind::PropertyUpdate { path, .. }) => path,
@@ -178,41 +320,10 @@ impl MountPrefix {
                 return Ok(out);
             }
         };
-        self.joined.clear();
-        self.joined.extend_from_slice(&self.prefix);
-        for id in path.iter() {
-            self.joined.push(id.map_err(RewriteError::Unreadable)?);
-        }
-        let path = RefVec::Slice {
-            slice: self.joined.as_slice(),
-        };
-        let result = match result {
-            Ok(EventKind::StreamData { data, .. }) => Ok(EventKind::StreamData { path, data }),
-            Ok(EventKind::StreamSideband { sideband, .. }) => {
-                Ok(EventKind::StreamSideband { path, sideband })
-            }
-            #[cfg(feature = "streams")]
-            Ok(EventKind::StreamItem { head, data, .. }) => {
-                Ok(EventKind::StreamItem { path, head, data })
-            }
-            Ok(EventKind::PropertyUpdate {
-                t,
-                missed,
-                sample_times,
-                data,
-                ..
-            }) => Ok(EventKind::PropertyUpdate {
-                path,
-                t,
-                missed,
-                sample_times,
-                data,
-            }),
-            _ => unreachable!("only events with a path get here, matched above"),
-        };
-        Event { seq, result }
-            .to_ww_bytes(buf)
-            .map_err(RewriteError::TooBig)
+        let below = *path;
+        let joined = self.join_ids(below.iter().map(|id| id.map_err(RewriteError::Unreadable)))?;
+        *path = RefVec::Slice { slice: joined };
+        decoded.to_ww_bytes(buf).map_err(RewriteError::TooBig)
     }
 }
 
@@ -337,7 +448,7 @@ mod tests {
         event.to_ww_bytes(&mut buf).unwrap().to_vec()
     }
 
-    fn out(prefix: &mut MountPrefix, event: &[u8]) -> std::vec::Vec<u8> {
+    fn out<S: PathStore>(prefix: &mut MountPrefix<S>, event: &[u8]) -> std::vec::Vec<u8> {
         let mut buf = [0u8; 128];
         prefix.event_out(event, &mut buf).unwrap().to_vec()
     }
@@ -346,8 +457,8 @@ mod tests {
     fn events_with_a_path_get_the_prefix() {
         let below = resource_path([0, 4]);
         let joined = resource_path([3, 1, 0, 4]);
-        let mut prefix = MountPrefix::new(resource_path([3, 1]).to_vec());
-        assert_eq!(prefix.join(&below), joined);
+        let mut prefix = MountPrefix::from_vec(resource_path([3, 1]).to_vec());
+        assert_eq!(prefix.join(&below).unwrap(), joined);
         let data = |path| EventKind::StreamData {
             path,
             data: TailBytes(&[9, 9]),
@@ -381,13 +492,16 @@ mod tests {
             static JOINED: [ResourceIndex; 4] = resource_path([3, 1, 0, 4]);
             assert_eq!(out(&mut prefix, &at(&BELOW)), at(&JOINED));
             // an empty prefix gives the bytes back: the rewrite touches the path only
-            assert_eq!(out(&mut MountPrefix::new(vec![]), &at(&BELOW)), at(&BELOW));
+            assert_eq!(
+                out(&mut MountPrefix::from_vec(vec![]), &at(&BELOW)),
+                at(&BELOW)
+            );
         }
     }
 
     #[test]
     fn replies_pass_unchanged() {
-        let mut prefix = MountPrefix::new(resource_path([3, 1]).to_vec());
+        let mut prefix = MountPrefix::from_vec(resource_path([3, 1]).to_vec());
         let value = event_bytes(Event {
             seq: UVlq32(300),
             result: Ok(EventKind::Value {
@@ -409,5 +523,122 @@ mod tests {
             prefix.event_out(&[], &mut small),
             Err(RewriteError::Unreadable(_))
         ));
+    }
+
+    /// Events with paths `[0]`, `[0, 4]`, ... below the slot, one of each kind with a path.
+    fn events_below(len_max: u32) -> std::vec::Vec<std::vec::Vec<u8>> {
+        let mut events = std::vec::Vec::new();
+        for len in 0..=len_max {
+            let ids: std::vec::Vec<ResourceIndex> = (0..len)
+                .map(|i| ResourceIndex::new(UNib32(i * 4)))
+                .collect();
+            let path = || RefVec::Slice { slice: &ids };
+            let kinds = [
+                EventKind::StreamData {
+                    path: path(),
+                    data: TailBytes(&[9, 9]),
+                },
+                EventKind::StreamSideband {
+                    path: path(),
+                    sideband: StreamSideband::Close,
+                },
+                EventKind::StreamItem {
+                    path: path(),
+                    head: StreamHead::at(17),
+                    data: TailBytes(&[5]),
+                },
+                EventKind::PropertyUpdate {
+                    path: path(),
+                    t: None,
+                    missed: None,
+                    sample_times: None,
+                    data: TailBytes(&[1, 0]),
+                },
+            ];
+            for kind in kinds {
+                events.push(event_bytes(Event {
+                    seq: UVlq32(len),
+                    result: Ok(kind),
+                }));
+            }
+        }
+        events
+    }
+
+    /// The fixed-capacity form gives the bytes of the `Vec` form up to its capacity, and `PathTooLong` past it, after
+    /// which it rewrites the next event as before.
+    #[test]
+    fn fixed_and_vec_forms_give_the_same_bytes() {
+        let front = resource_path([3, 1]);
+        let mut host = MountPrefix::from_vec(front.to_vec());
+        // the prefix and at most 4 ids below it
+        let mut fixed = MountPrefix::new(PathArray::<6>::new(), &front).unwrap();
+        let reply = event_bytes(Event {
+            seq: UVlq32(300),
+            result: Ok(EventKind::Value {
+                data: TailBytes(&[1, 2, 3]),
+            }),
+        });
+        for event in events_below(4).iter().chain([&reply]) {
+            assert_eq!(out(&mut fixed, event), out(&mut host, event));
+        }
+        for event in events_below(5).iter().skip(5 * 4) {
+            let host_bytes = out(&mut host, event);
+            assert!(host_bytes.len() > event.len(), "the Vec form takes it");
+            let mut buf = [0u8; 128];
+            assert_eq!(
+                fixed.event_out(event, &mut buf),
+                Err(RewriteError::PathTooLong { len_max: 6 })
+            );
+            assert_eq!(fixed.path(), front, "the prefix survives an overflow");
+        }
+        let last_fitting = &events_below(4)[4 * 4];
+        assert_eq!(out(&mut fixed, last_fitting), out(&mut host, last_fitting));
+        // a buffer too small is TooBig in both, never a truncated message
+        for event in events_below(4).iter().chain([&reply]) {
+            let (mut a, mut b) = ([0u8; 4], [0u8; 4]);
+            let fixed_out = fixed.event_out(event, &mut a);
+            assert!(matches!(fixed_out, Err(RewriteError::TooBig(_))));
+            assert_eq!(fixed_out, host.event_out(event, &mut b));
+        }
+    }
+
+    #[test]
+    fn fixed_join_and_prefix_up_to_capacity() {
+        let front = resource_path([3, 1]);
+        let below = resource_path([2, 5]);
+        let full = resource_path([3, 1, 2, 5]);
+        let mut host = MountPrefix::from_vec(front.to_vec());
+        let mut fixed = MountPrefix::new(PathArray::<4>::new(), &front).unwrap();
+        assert_eq!(fixed.join(&below).unwrap(), host.join(&below).unwrap());
+        assert_eq!(
+            fixed.join(&resource_path([2, 5, 6])),
+            Err(RewriteError::PathTooLong { len_max: 4 })
+        );
+        assert_eq!(host.join(&resource_path([2, 5, 6])).unwrap().len(), 5);
+        assert_eq!(
+            MountPrefix::new(PathArray::<1>::new(), &front),
+            Err(RewriteError::PathTooLong { len_max: 1 })
+        );
+
+        let req = request(&full, RequestKind::Read);
+        let at = |path| MountRequest {
+            request: &req,
+            path,
+        };
+        let fitting = at(&below).prefix_in(PathArray::<2>::new()).unwrap();
+        assert_eq!(fitting.map(|p| p.path().to_vec()), at(&below).prefix());
+        assert_eq!(at(&below).prefix(), Some(front.to_vec()));
+        assert_eq!(
+            at(&below[1..]).prefix_in(PathArray::<2>::new()),
+            Err(RewriteError::PathTooLong { len_max: 2 })
+        );
+        // a path that doesn't end with the one below the slot has no prefix in either form
+        let other = resource_path([2, 6]);
+        assert_eq!(at(&other).prefix_in(PathArray::<2>::new()), Ok(None));
+        assert_eq!(at(&other).prefix(), None);
+        let longer = resource_path([0, 3, 1, 2, 5]);
+        assert_eq!(at(&longer).prefix_in(PathArray::<2>::new()), Ok(None));
+        assert_eq!(at(&longer).prefix(), None);
     }
 }

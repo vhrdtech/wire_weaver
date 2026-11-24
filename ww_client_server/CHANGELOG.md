@@ -2,6 +2,7 @@
 
 ### 🚀 Features
 
+- `mount::PathStore`, `PathArray<N>`, `MountRequest::prefix_in`: mount prefix rewrite in `no_std` without a heap (SRV-80).
 - `forwarded::ForwardedPeer`, `RequestContext::forwarded_for`: the client a mount forwarder sent a request on for (SRV-79, EVO-85).
 - `RequestContext` leaves trailing defaults off the wire (`elide_defaults`): contexts without `forwarded_for` keep their bytes (EVO-85).
 - `err_seq::MOUNT_BACKEND_GONE`, `MOUNT_QUEUE_FULL`, `MOUNT_TOO_LONG`: sites of a mount forwarder's own answers (SRV-78).
@@ -18,6 +19,8 @@
 
 ### ⚠️ Breaking
 
+- `mount::MountPrefix<S>` is generic over its `PathStore`: `MountPrefix::new(vec)` is `MountPrefix::from_vec(vec)`, `join` returns `Result<&[ResourceIndex], _>` (SRV-80).
+- `mount::RewriteError::PathTooLong`: a joined path past a `PathArray`'s capacity (SRV-80).
 - `target::Access`, `Place` and `TraitRef` are `wire_weaver::authorize`'s, re-exported at the same paths (SRV-72).
 
 ### ⚙️ Miscellaneous Tasks

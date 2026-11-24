@@ -83,7 +83,7 @@ struct FrontLink<C: Connect> {
     link: BackendLink<C>,
     /// The mount this link belongs to: another one at the same slot makes it stale.
     epoch: u64,
-    prefix: MountPrefix,
+    prefix: MountPrefix<Vec<ResourceIndex>>,
     /// The backend reads request contexts and cancels.
     reads_context: bool,
     /// The longest request the backend takes.
@@ -152,7 +152,7 @@ impl<C: Connect, K: Clock> Forwarder<C, K> {
                 now,
             ),
             epoch,
-            prefix: MountPrefix::new(prefix),
+            prefix: MountPrefix::from_vec(prefix),
             reads_context: facts.request_context,
             message_len_max: usize::try_from(facts.dev_max_message_len).unwrap_or(usize::MAX),
             in_flight: BTreeMap::new(),
@@ -196,18 +196,21 @@ impl<C: Connect, K: Clock> Forwarder<C, K> {
         if seq != 0 {
             front.in_flight.insert(seq, priority);
         }
-        let path = front.prefix.join(request.path);
+        let path = ids(front
+            .prefix
+            .join(request.path)
+            .expect("a Vec store holds any path"));
         match &request.request.kind {
             RequestKind::StreamOpen { .. }
             | RequestKind::StreamSideband {
                 sideband: StreamSideband::Open,
             } if front.closable.len() < CLOSABLE_MAX => {
-                front.closable.insert(ids(&path));
+                front.closable.insert(path);
             }
             RequestKind::StreamSideband {
                 sideband: StreamSideband::Close,
             } => {
-                front.closable.remove(&ids(&path));
+                front.closable.remove(&path);
             }
             RequestKind::Observe { cfg } => {
                 // `entries: [], patch: false` stops observing the level; one that doesn't decode may start it
@@ -215,9 +218,9 @@ impl<C: Connect, K: Clock> Forwarder<C, K> {
                     .read()
                     .is_ok_and(|cfg| cfg.entries.is_empty() && !cfg.patch);
                 if stops {
-                    front.closable.remove(&ids(&path));
+                    front.closable.remove(&path);
                 } else if front.closable.len() < CLOSABLE_MAX {
-                    front.closable.insert(ids(&path));
+                    front.closable.insert(path);
                 }
             }
             _ => {}

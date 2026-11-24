@@ -175,6 +175,7 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 - SRV-62 | Server of a keyed array | `ww api scaffold` prints two handlers per `keyed!`, the generated code answers the rest. | api/arrays.md#keyed-arrays
 - SRV-76 | Mount slots | `mount!(hub)` and `mounts!(ext)` declare levels whose API is known only at run time, served by one handler per slot. | api/mounts.md
 - SRV-77 | Forwarding into a mount | Requests into a slot lose its path, events coming back get it, global trait paths reach mounted APIs. | api/mounts.md#forwarding
+- SRV-80 | Forwarding in firmware | The mount prefix rewrite without a heap: a path of fixed capacity, the same bytes as on a host. | api/mounts.md#forwarding-in-firmware
 - SRV-78 | Mount forwarder | A mount slot reaches another WireWeaver server over a socket, each connection with a link of its own, on tokio or calloop. | api/mounts.md#backend-processes
 - SRV-79 | Who calls through a mount | The front's policy sees a mounted call's effects, the backend learns which client of the front called. | api/mounts.md#who-calls-and-what-it-does
 - SRV-20 | Deferred replies everywhere | Answer a call later, also on nested trait levels. | api/methods.md#deferred

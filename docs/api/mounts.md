@@ -90,7 +90,7 @@ fn hub_request(&mut self, cx: &mut Context<'_, impl EventOut>, request: MountReq
     // in: the request with the path below the slot, everything else as it arrived
     let bytes = request.forward_into(&mut self.buf)?;
     // remembered per slot: the path of its `api`, [hub, 1] here
-    let prefix = MountPrefix::new(request.prefix()?);
+    let prefix = MountPrefix::from_vec(request.prefix()?);
     ..
 }
 // out: each event of the backend, its path (stream data, sideband, stream items, property updates) with the
@@ -100,6 +100,27 @@ let event = prefix.event_out(&backend_event, &mut buf)?;
 
 `ww_client_server::mount::request_at` writes any request at another absolute path, `request_bytes_at` the same from
 bytes. A message that doesn't decode or doesn't fit the buffer is a `RewriteError`.
+
+### Forwarding in firmware
+
+The rewrite needs no heap: `MountPrefix<S>` keeps the slot's path and the joined path of the last event in a
+`PathStore`. A host uses a `Vec` (`MountPrefix::from_vec`, no limit of its own), a firmware a `PathArray<N>` of at
+most `N` ids, in a `static` with the forwarder's other state. Both run the same code and give the same bytes; a
+joined path longer than `N` is `RewriteError::PathTooLong`, never a cut path.
+
+```rust
+use ww_client_server::mount::{MountPrefix, PathArray};
+
+// 8 ids in all: the slot's path and the path below it
+let mut prefix = request.prefix_in(PathArray::<8>::new())?.ok_or(NoPrefix)?;
+let event = prefix.event_out(&backend_event, &mut buf)?;
+```
+
+The cost is decoding the backend's `Event`, measured with `examples_mcu/mcu_qemu`'s `qemu-mount-prefix` on
+thumbv7m. A decoded `Event` is 776 B, 704 B of it the `Series` reader of `sample_times`, and the derived decoder
+moves it several times: the rewrite's frame is 7.8 KB at `fw-z` (4.4 KB at `fw-3`), about 1 KB more below it. Flash
+is 7.6 KB at `fw-z`, plus the event writer a server sending events already links (3.9 KB).
+A firmware forwarder needs that stack in the task that rewrites.
 
 ### Global paths into a mount
 

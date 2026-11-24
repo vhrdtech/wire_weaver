@@ -28,6 +28,7 @@ mod fmt;
 pub mod blocking;
 mod buffer;
 pub mod link;
+pub mod mount;
 #[cfg(feature = "rtt")]
 pub mod rtt;
 pub mod server;

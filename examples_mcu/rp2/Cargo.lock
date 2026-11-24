@@ -2420,10 +2420,12 @@ dependencies = [
  "embassy-time",
  "httparse",
  "rtt-target",
+ "shrink_wrap",
  "wire_weaver",
  "ww_client_server",
  "ww_framer",
  "ww_link",
+ "ww_self",
  "ww_tap",
 ]
 

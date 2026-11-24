@@ -1265,10 +1265,12 @@ dependencies = [
  "embassy-futures",
  "embassy-net",
  "embassy-time",
+ "shrink_wrap",
  "wire_weaver",
  "ww_client_server",
  "ww_framer",
  "ww_link",
+ "ww_self",
  "ww_tap",
 ]
 

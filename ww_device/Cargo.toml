@@ -49,10 +49,12 @@ futures-util = { workspace = true, optional = true }
 httparse = { workspace = true, optional = true }
 log = { workspace = true, optional = true }
 rtt-target = { workspace = true, optional = true }
+shrink_wrap.workspace = true
 wire_weaver.workspace = true
 ww_client_server.workspace = true
 ww_framer.workspace = true
 ww_link.workspace = true
+ww_self = { workspace = true, features = ["hash"] }
 ww_tap.workspace = true
 
 [dev-dependencies]

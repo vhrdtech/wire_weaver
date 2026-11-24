@@ -1,5 +1,9 @@
 ## Unreleased
 
+### 🐛 Fixes
+
+- Decoding an `Event` takes 520 B of stack on thumbv7m at `opt-level = "z"`, was 6.6 KB, and 738 instructions, was 5 130: a decoded `Event` is 100 B, was 776 B (shrink_wrap SW-87, a decoded `Series` without its column cursors). Same bytes.
+
 ### 🚀 Features
 
 - `mount::PathStore`, `PathArray<N>`, `MountRequest::prefix_in`: mount prefix rewrite in `no_std` without a heap (SRV-80).

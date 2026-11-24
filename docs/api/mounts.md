@@ -117,10 +117,11 @@ let event = prefix.event_out(&backend_event, &mut buf)?;
 ```
 
 The cost is decoding the backend's `Event`, measured with `examples_mcu/mcu_qemu`'s `qemu-mount-prefix` on
-thumbv7m. A decoded `Event` is 776 B, 704 B of it the `Series` reader of `sample_times`, and the derived decoder
-moves it several times: the rewrite's frame is 7.8 KB at `fw-z` (4.4 KB at `fw-3`), about 1 KB more below it. Flash
-is 7.6 KB at `fw-z`, plus the event writer a server sending events already links (3.9 KB).
-A firmware forwarder needs that stack in the task that rewrites.
+thumbv7m (QEMU, stack painted below the call). A decoded `Event` is 100 B: a `Series` in it keeps only where its
+columns start (shrink_wrap SW-87). Rewriting an observe update takes 648 B of stack at `fw-z` (556 B at `fw-3`) and
+about 2 300 instructions (1 600). An update with `sample_times` adds the validation of that `Series`: 3.5 KB of stack
+at `fw-z` (2.7 KB at `fw-3`) for three `Second`s, most of it the series contexts of `NumericValue`'s variants
+(shrink_wrap SW-88). A firmware forwarder needs that stack in the task that rewrites.
 
 ### Global paths into a mount
 

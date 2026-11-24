@@ -303,8 +303,7 @@ impl<S: PathStore> MountPrefix<S> {
         event: &[u8],
         buf: &'b mut [u8],
     ) -> Result<&'b [u8], RewriteError> {
-        // a decoded event is large (776 B on thumbv7m, most of it a `Series` reader): its path is replaced in place,
-        // never moved into a second event
+        // the path is replaced in place, the event is never moved into a second one
         let mut decoded = Event::from_ww_bytes(event).map_err(RewriteError::Unreadable)?;
         let path = match &mut decoded.result {
             Ok(EventKind::StreamData { path, .. })

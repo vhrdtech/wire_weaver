@@ -1,4 +1,5 @@
 pub(crate) mod introspect;
+pub(crate) mod mount;
 pub(crate) mod observe;
 mod property;
 pub(crate) mod scaffold;

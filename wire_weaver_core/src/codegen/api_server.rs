@@ -489,6 +489,10 @@ pub fn gen_server(
         Ok(global) => global,
         Err(e) => return quote! { compile_error!(#e); },
     };
+    let mount_items = match crate::codegen::server::mount::mount_items(api_bundle, global_paths) {
+        Ok(items) => items,
+        Err(e) => return quote! { compile_error!(#e); },
+    };
     let is_shared = maybe_quote_cl(with_shared, || {
         let (arms, _) = global_trait_path(api_bundle, global_paths, &quote! { return false })
             .expect("checked above");
@@ -622,6 +626,7 @@ pub fn gen_server(
         #stream_send_methods
 
         #global_trait_items
+        #mount_items
 
         #consts_trait
     }
@@ -1338,7 +1343,7 @@ fn global_trait_path(
 
 /// The `const` table `GlobalFull` paths are looked up in (SRV-53), or an error naming two traits whose hashes
 /// collide, or a crate version that doesn't fit.
-fn global_full_table(traits: &[GlobalTrait]) -> Result<TokenStream, String> {
+pub(crate) fn global_full_table(traits: &[GlobalTrait]) -> Result<TokenStream, String> {
     let mut entries = vec![];
     for (i, t) in traits.iter().enumerate() {
         let crate_id = t.crate_version.crate_id.as_str();
@@ -1375,7 +1380,7 @@ fn global_full_table(traits: &[GlobalTrait]) -> Result<TokenStream, String> {
 }
 
 /// `ww_global_compact_trait_path`: absolute path of a trait by its `ww_global` id.
-fn global_compact_lookup(traits: &[GlobalTrait]) -> TokenStream {
+pub(crate) fn global_compact_lookup(traits: &[GlobalTrait]) -> TokenStream {
     let version_check = |crate_version: &FullVersionOwned| {
         let (major, minor) = (crate_version.version.major.0, crate_version.version.minor.0);
         if major >= 1 {
@@ -1409,14 +1414,14 @@ fn global_compact_lookup(traits: &[GlobalTrait]) -> TokenStream {
 }
 
 /// A trait in the API tree that a global path can reach.
-struct GlobalTrait {
+pub(crate) struct GlobalTrait {
     path: Vec<u32>,
     crate_version: FullVersionOwned,
     trait_name: String,
     compact_id: Option<u32>,
 }
 
-fn global_traits_recursive(
+pub(crate) fn global_traits_recursive(
     api_bundle: &CodegenBundle,
     level: &ApiLevelOwned,
     path: &mut Vec<u32>,

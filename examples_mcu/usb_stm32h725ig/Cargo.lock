@@ -1925,6 +1925,7 @@ dependencies = [
  "wire_weaver",
  "ww_client_server",
  "ww_framer",
+ "ww_global",
  "ww_link",
  "ww_self",
  "ww_tap",

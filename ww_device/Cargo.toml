@@ -53,6 +53,7 @@ shrink_wrap.workspace = true
 wire_weaver.workspace = true
 ww_client_server.workspace = true
 ww_framer.workspace = true
+ww_global.workspace = true
 ww_link.workspace = true
 ww_self = { workspace = true, features = ["hash"] }
 ww_tap.workspace = true

@@ -33,7 +33,10 @@ use ww_self::hash::{SIGNATURE_LEN, api_hash};
 use crate::sub_range;
 
 mod global_paths;
-pub use global_paths::ModuleTraits;
+use global_paths::TraitTable;
+pub use global_paths::{
+    MODULE_TRAIT_DEPTH_MAX, MODULE_TRAIT_IDS_MAX, MODULE_TRAITS_MAX, ModuleTraits,
+};
 
 /// Ids in the front's path of anything under a slot: the slot's `api` and the path below it.
 pub const PATH_IDS_MAX: usize = 16;
@@ -203,6 +206,12 @@ pub enum LoadError {
     Model,
     /// The crate name, pre-release and build metadata of the model are past [IDENTITY_TEXT_MAX] bytes together.
     NameTooLong,
+    /// The model has more traits a global path can reach than [MODULE_TRAITS_MAX], or their paths take more than
+    /// [MODULE_TRAIT_IDS_MAX] ids together.
+    TooManyTraits,
+    /// The model has more trait items than `ww_self::TRAIT_WALK_ITEMS_MAX`, or a trait deeper than
+    /// [MODULE_TRAIT_DEPTH_MAX] levels.
+    TraitsTooDeep,
 }
 
 /// What a [ModuleSlot] dropped or refused: a module's misbehavior shows here, never as a panic.
@@ -280,6 +289,8 @@ pub struct ModuleSlot<M, const MSG: usize, const OUT: usize> {
     hash: [u8; SIGNATURE_LEN],
     /// The loaded module's API, read from its model at load: the model is never decoded again.
     identity: Identity,
+    /// The loaded module's traits for global paths, read from its model at load.
+    traits: TraitTable,
     /// The front's path of the slot's `api`, from the requests under it.
     prefix: Option<MountPrefix<PathArray<PATH_IDS_MAX>>>,
     in_flight: [(u32, Priority); IN_FLIGHT_MAX],
@@ -325,6 +336,7 @@ impl<M: Module, const MSG: usize, const OUT: usize> ModuleSlot<M, MSG, OUT> {
                 module: _,
                 hash: _,
                 identity: _,
+                traits: _,
                 prefix: _,
                 in_flight: _,
                 in_flight_len: _,
@@ -356,6 +368,7 @@ impl<M: Module, const MSG: usize, const OUT: usize> ModuleSlot<M, MSG, OUT> {
                 .cast::<u8>()
                 .write_bytes(0, SIGNATURE_LEN);
             addr_of_mut!((*at).identity).write(Identity::EMPTY);
+            addr_of_mut!((*at).traits).write(TraitTable::EMPTY);
             addr_of_mut!((*at).prefix).write(None);
             let in_flight = addr_of_mut!((*at).in_flight).cast::<(u32, Priority)>();
             for i in 0..IN_FLIGHT_MAX {
@@ -402,6 +415,7 @@ impl<M: Module, const MSG: usize, const OUT: usize> ModuleSlot<M, MSG, OUT> {
             module: None,
             hash: [0; SIGNATURE_LEN],
             identity: Identity::EMPTY,
+            traits: TraitTable::EMPTY,
             prefix: None,
             in_flight: [(0, Priority::NORMAL); IN_FLIGHT_MAX],
             in_flight_len: 0,
@@ -440,16 +454,21 @@ impl<M: Module, const MSG: usize, const OUT: usize> ModuleSlot<M, MSG, OUT> {
     /// # Errors
     ///
     /// [LoadError::Model] when the module's model doesn't decode, [LoadError::NameTooLong] when its names don't fit
-    /// the slot; `module` comes back and the slot stays as it was.
+    /// the slot, [LoadError::TooManyTraits] and [LoadError::TraitsTooDeep] when its traits don't fit the slot's table
+    /// for global paths; `module` comes back and the slot stays as it was.
     pub fn load(&mut self, module: M) -> Result<Option<M>, (LoadError, M)> {
-        let identity = match Identity::of(module.model()) {
-            Ok(identity) => identity,
+        let read = ww_self::ApiBundle::from_ww_bytes(module.model())
+            .map_err(|_| LoadError::Model)
+            .and_then(|model| Ok((Identity::of(&model)?, TraitTable::of(&model)?)));
+        let (identity, traits) = match read {
+            Ok(read) => read,
             Err(e) => return Err((e, module)),
         };
         let hash = api_hash(module.model());
         let old = self.unload();
         self.hash = hash;
         self.identity = identity;
+        self.traits = traits;
         self.module = Some(module);
         self.changed = true;
         Ok(old)
@@ -488,9 +507,9 @@ impl<M: Module, const MSG: usize, const OUT: usize> ModuleSlot<M, MSG, OUT> {
         self.module.is_some()
     }
 
-    /// The loaded module's model, for global trait paths into it ([ModuleTraits]); `None` with nothing loaded.
-    pub fn model(&self) -> Option<&[u8]> {
-        self.module.as_ref().map(Module::model)
+    /// The loaded module's traits, for global paths into it ([ModuleTraits]).
+    fn traits(&self) -> &TraitTable {
+        &self.traits
     }
 
     /// The loaded module.
@@ -986,8 +1005,8 @@ impl Identity {
         wire: None,
     };
 
-    /// Reads the identity of the root of `model`, a `ww_self::ApiBundle`.
-    fn of(model: &[u8]) -> Result<Identity, LoadError> {
+    /// Reads the identity of the root of `model`.
+    fn of(model: &ww_self::ApiBundle<'_>) -> Result<Identity, LoadError> {
         let (api, wire) = root_identity(model).ok_or(LoadError::Model)?;
         let mut identity = Identity {
             major: api.version.major.0,
@@ -1038,8 +1057,9 @@ impl Identity {
     }
 }
 
-fn root_identity(model: &[u8]) -> Option<(FullVersion<'_>, Option<WireVersion>)> {
-    let bundle = ww_self::ApiBundle::from_ww_bytes(model).ok()?;
+fn root_identity<'m>(
+    bundle: &ww_self::ApiBundle<'m>,
+) -> Option<(FullVersion<'m>, Option<WireVersion>)> {
     if bundle.magic != ww_self::MAGIC {
         return None;
     }

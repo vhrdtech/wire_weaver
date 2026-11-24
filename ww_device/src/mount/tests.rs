@@ -541,59 +541,106 @@ fn presence_is_read_once_at_load() {
     assert!(slot.is_loaded(), "a refused module leaves the loaded one");
 }
 
-/// A module whose root `Mod` (`mod_api` 0.2.1) holds `player: Player` (`player_api` 0.3.0, compact id 77) at id 2.
-fn model_with_player() -> Vec<u8> {
-    let crates = [
-        FullVersion::new("mod_api", Version::new(0, 2, 1)),
-        FullVersion::new("player_api", Version::new(0, 3, 0)),
-    ];
-    let empty = RefVec::Slice { slice: &[] };
-    let player = ww_self::ApiItem {
-        id: UNib32(2),
+static NAMES: [&str; 20] = [
+    "T0", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10", "T11", "T12", "T13", "T14",
+    "T15", "T16", "T17", "T18", "T19",
+];
+
+fn trait_item(id: u32, trait_idx: u32) -> ww_self::ApiItem<'static> {
+    ww_self::ApiItem {
+        id: UNib32(id),
         kind: ww_self::ApiItemKind::Trait {
-            trait_idx: UNib32(0),
+            trait_idx: UNib32(trait_idx),
             omitted: None,
         },
         multiplicity: ww_self::Multiplicity::Flat,
         since: None,
-        ident: "player",
-        docs: empty,
+        ident: "t",
+        docs: RefVec::Slice { slice: &[] },
         optional: None,
         meta: None,
         identity: None,
-    };
-    let items = [player];
-    let traits = [ww_self::ApiLevelLocation::InLine {
+    }
+}
+
+/// A level of crate 1 (`player_api` 0.3.0) named `name`.
+fn level<'a>(
+    name: &'a str,
+    compact_id: Option<u32>,
+    items: &'a [ww_self::ApiItem<'a>],
+) -> ww_self::ApiLevelLocation<'a> {
+    ww_self::ApiLevelLocation::InLine {
         level: ww_self::ApiLevel {
-            docs: empty,
+            docs: RefVec::Slice { slice: &[] },
             crate_idx: UNib32(1),
-            trait_name: "Player",
-            items: RefVec::Slice { slice: &[] },
-            compact_id: Some(UNib32(77)),
+            trait_name: name,
+            items: RefVec::Slice { slice: items },
+            compact_id: compact_id.map(UNib32),
             meta: None,
         },
         crate_idx: UNib32(1),
-    }];
+    }
+}
+
+/// A model whose root `Mod` (`mod_api` 0.2.1) holds `root_items`, the traits they refer to in `traits`.
+fn model_with(
+    root_items: &[ww_self::ApiItem<'_>],
+    traits: &[ww_self::ApiLevelLocation<'_>],
+) -> Vec<u8> {
+    let crates = [
+        FullVersion::new("mod_api", Version::new(0, 2, 1)),
+        FullVersion::new("player_api", Version::new(0, 3, 0)),
+    ];
     let bundle = ww_self::ApiBundle {
         magic: ww_self::MAGIC,
         ww_self_version: ww_self::VERSION,
         root: ww_self::ApiLevel {
-            docs: empty,
+            docs: RefVec::Slice { slice: &[] },
             crate_idx: UNib32(0),
             trait_name: "Mod",
-            items: RefVec::Slice { slice: &items },
+            items: RefVec::Slice { slice: root_items },
             compact_id: None,
             meta: None,
         },
         types: RefVec::Slice { slice: &[] },
-        traits: RefVec::Slice { slice: &traits },
+        traits: RefVec::Slice { slice: traits },
         ext_crates: RefVec::Slice { slice: &crates },
         root_omitted: None,
         wire: None,
         ext_wire: None,
     };
-    let mut buf = [0u8; 256];
-    bundle.to_ww_bytes(&mut buf).unwrap().to_vec()
+    let mut buf = vec![0u8; 4096];
+    let len = bundle.to_ww_bytes(&mut buf).unwrap().len();
+    buf.truncate(len);
+    buf
+}
+
+/// A module whose root `Mod` holds `player: Player` (`player_api` 0.3.0, compact id 77) at id 2.
+fn model_with_player() -> Vec<u8> {
+    model_with(&[trait_item(2, 0)], &[level("Player", Some(77), &[])])
+}
+
+fn with_model(model: Vec<u8>) -> std::boxed::Box<ModuleSlot<Fake, MSG, OUT>> {
+    let mut slot: std::boxed::Box<ModuleSlot<Fake, MSG, OUT>> = std::boxed::Box::default();
+    let fake = Fake {
+        model,
+        ..Fake::new(Behave::Echo)
+    };
+    slot.load(fake).expect("loads");
+    slot
+}
+
+fn load_error(model: Vec<u8>) -> LoadError {
+    let mut slot: std::boxed::Box<ModuleSlot<Fake, MSG, OUT>> = std::boxed::Box::default();
+    let fake = Fake {
+        model,
+        ..Fake::new(Behave::Echo)
+    };
+    let Err((error, _)) = slot.load(fake) else {
+        panic!("refused");
+    };
+    assert!(!slot.is_loaded());
+    error
 }
 
 fn player(minor: u32, from_trait: &[ResourceIndex]) -> PathKind<'_> {
@@ -613,10 +660,13 @@ fn ids(path: &PathArray<PATH_IDS_MAX>) -> Vec<u32> {
 
 #[test]
 fn global_path_reaches_a_module_in_path_order() {
-    let model = model_with_player();
-    let later = resource_path([5, 1]);
+    let (first, later) = (
+        with_model(model_with_player()),
+        with_model(model_with_player()),
+    );
+    let later_api = resource_path([5, 1]);
     let mut traits = ModuleTraits::<2>::new();
-    traits.model(&later, &model).model(&API, &model);
+    traits.slot(&later_api, &later).slot(&API, &first);
     let from = resource_path([4]);
     let not_own = |_: &PathKind<'_>| false;
     let found = traits
@@ -654,51 +704,82 @@ fn global_path_reaches_a_module_in_path_order() {
 
 #[test]
 fn own_tree_first() {
-    let model = model_with_player();
+    let slot = with_model(model_with_player());
     let mut traits = ModuleTraits::<1>::new();
-    traits.model(&API, &model);
+    traits.slot(&API, &slot);
     assert!(traits.resolve(&player(3, &[]), |_| true).is_none());
 }
 
 #[test]
-fn an_empty_slot_or_a_bad_model_reaches_nothing() {
-    let mut slot: ModuleSlot<Fake, MSG, OUT> = ModuleSlot::new();
-    let mut traits = ModuleTraits::<1>::new();
-    traits.slot(&API, &slot);
-    assert!(traits.resolve(&player(3, &[]), |_| false).is_none());
-    let bad = [0xffu8; 4];
-    let mut traits = ModuleTraits::<1>::new();
-    traits.model(&API, &bad);
-    assert!(traits.resolve(&player(3, &[]), |_| false).is_none());
-    // a path past PATH_IDS_MAX ids
-    let model = model_with_player();
+fn an_empty_slot_or_a_long_path_reaches_nothing() {
+    let mut slot = with_model(model_with_player());
     let deep = [ResourceIndex::new(UNib32(1)); PATH_IDS_MAX - 2];
     let mut traits = ModuleTraits::<1>::new();
-    traits.model(&API, &model);
-    assert!(traits.resolve(&player(3, &deep), |_| false).is_none());
-    let fake = Fake {
-        model: model_with_player(),
-        ..Fake::new(Behave::Echo)
-    };
-    slot.load(fake).expect("loads");
+    traits.slot(&API, &slot);
+    assert!(
+        traits.resolve(&player(3, &deep), |_| false).is_none(),
+        "past PATH_IDS_MAX"
+    );
+    assert!(traits.resolve(&player(3, &[]), |_| false).is_some());
+    slot.unload();
     let mut traits = ModuleTraits::<1>::new();
     traits.slot(&API, &slot);
-    assert!(traits.resolve(&player(3, &[]), |_| false).is_some());
+    assert!(
+        traits.resolve(&player(3, &[]), |_| false).is_none(),
+        "unloaded"
+    );
+}
+
+/// A model whose traits don't fit the slot's table is refused at load, never served with some of them.
+#[test]
+fn traits_past_the_table_refuse_the_load() {
+    let root: Vec<_> = (0..17).map(|i| trait_item(i, i)).collect();
+    let many: Vec<_> = (0..17).map(|i| level(NAMES[i], None, &[])).collect();
+    assert_eq!(
+        load_error(model_with(&root, &many)),
+        LoadError::TooManyTraits
+    );
+    let fit: Vec<_> = (0..15).map(|i| trait_item(i, i)).collect();
+    with_model(model_with(&fit, &many[..15]));
+
+    // a chain of 11 traits, T0 holds T1 holds T2 ..: paths of 1 + 2 + .. + 11 ids, past MODULE_TRAIT_IDS_MAX
+    let chain_items: Vec<_> = (0..11).map(|i| [trait_item(0, i + 1)]).collect();
+    let chain: Vec<_> = (0..11)
+        .map(|i| {
+            level(
+                NAMES[i],
+                None,
+                if i < 10 { &chain_items[i][..] } else { &[] },
+            )
+        })
+        .collect();
+    assert_eq!(
+        load_error(model_with(&[trait_item(0, 0)], &chain)),
+        LoadError::TooManyTraits
+    );
+
+    // a trait that holds itself: deeper than MODULE_TRAIT_DEPTH_MAX
+    let itself = [trait_item(0, 0)];
+    let looped = [level("Loop", None, &itself)];
+    assert_eq!(
+        load_error(model_with(&[trait_item(0, 0)], &looped)),
+        LoadError::TraitsTooDeep
+    );
 }
 
 #[test]
 #[should_panic(expected = "at most N slots")]
 fn more_slots_than_room_panics() {
-    let model = model_with_player();
+    let slot = with_model(model_with_player());
     let mut traits = ModuleTraits::<1>::new();
-    traits.model(&API, &model).model(&API, &model);
+    traits.slot(&API, &slot).slot(&API, &slot);
 }
 
 #[test]
 fn request_goes_on_at_the_slots_path() {
-    let model = model_with_player();
+    let slot = with_model(model_with_player());
     let mut traits = ModuleTraits::<1>::new();
-    traits.model(&API, &model);
+    traits.slot(&API, &slot);
     let from = resource_path([4]);
     let mut buf = [0u8; 64];
     let request = Request {

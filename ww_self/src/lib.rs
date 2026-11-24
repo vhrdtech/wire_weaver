@@ -64,6 +64,8 @@ pub use series_write::ENCODE_MAX_VALUES;
 pub mod signature;
 #[cfg(feature = "std")]
 pub mod snapshot;
+mod trait_walk;
+pub use trait_walk::{TRAIT_WALK_DEPTH_MAX, TRAIT_WALK_ITEMS_MAX, TraitWalk, WantedTrait};
 #[cfg(feature = "std")]
 pub mod units;
 #[cfg(feature = "std")]

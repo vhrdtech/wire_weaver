@@ -84,3 +84,61 @@ fn nesting_within_the_limit_decodes() {
     });
     assert_eq!(r, Ok(100));
 }
+
+/// A trait that holds itself twice makes a tree of 2^depth levels: the walk for a global path ends at its item limit,
+/// it doesn't run for hours.
+#[test]
+fn a_trait_that_holds_itself_twice_ends() {
+    use ww_self::{
+        ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned,
+        Multiplicity,
+    };
+    use ww_version::{FullVersionOwned, VersionOwned};
+    let item = |id: u32| ApiItemOwned {
+        id: UNib32(id),
+        kind: ApiItemKindOwned::Trait {
+            trait_idx: UNib32(0),
+            omitted: None,
+        },
+        multiplicity: Multiplicity::Flat,
+        since: None,
+        ident: format!("t{id}"),
+        docs: vec![],
+        optional: None,
+        meta: None,
+        identity: None,
+    };
+    let level = |name: &str, items| ApiLevelOwned {
+        docs: vec![],
+        crate_idx: UNib32(0),
+        trait_name: name.to_owned(),
+        items,
+        compact_id: None,
+        meta: None,
+    };
+    let looped = ApiBundleOwned {
+        magic: ww_self::MAGIC,
+        ww_self_version: ww_self::VERSION,
+        root: level("Root", vec![item(0)]),
+        types: vec![],
+        traits: vec![ApiLevelLocationOwned::InLine {
+            crate_idx: UNib32(0),
+            level: level("Twice", vec![item(0), item(1)]),
+        }],
+        ext_crates: vec![FullVersionOwned::new(
+            "looped_api".to_owned(),
+            VersionOwned::new(0, 1, 0),
+        )],
+        root_omitted: None,
+        wire: None,
+        ext_wire: None,
+    };
+    assert_eq!(
+        looped.trait_path(|level, _| level.trait_name == "Missing"),
+        None
+    );
+    assert_eq!(
+        looped.trait_path(|level, _| level.trait_name == "Twice"),
+        Some(vec![0])
+    );
+}

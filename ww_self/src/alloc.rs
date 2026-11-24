@@ -350,7 +350,9 @@ impl ApiBundleOwned {
     }
 
     /// Where a server answers a global path to the trait `is` picks (API-20): the first place the trait sits in the
-    /// tree, depth first in id order, not under a resource array, at most [TRAIT_DEPTH_MAX] levels down.
+    /// tree, depth first in id order, not under a resource array, at most [TRAIT_DEPTH_MAX] levels down and
+    /// [TRAIT_WALK_ITEMS_MAX](crate::TRAIT_WALK_ITEMS_MAX) trait items looked at: a model whose traits hold each other
+    /// over and over ends there.
     pub fn trait_path(
         &self,
         is: impl Fn(&ApiLevelOwned, &ApiBundleOwned) -> bool,
@@ -360,6 +362,7 @@ impl ApiBundleOwned {
             bundle: &ApiBundleOwned,
             is: &dyn Fn(&ApiLevelOwned, &ApiBundleOwned) -> bool,
             prefix: &mut Vec<u32>,
+            items_left: &mut usize,
         ) -> Option<Vec<u32>> {
             if is(level, bundle) {
                 return Some(prefix.clone());
@@ -374,11 +377,12 @@ impl ApiBundleOwned {
                 .collect();
             items.sort_by_key(|i| i.id.0);
             for item in items {
+                *items_left = items_left.checked_sub(1)?;
                 let Ok(sub) = item.get_as_level(bundle) else {
                     continue;
                 };
                 prefix.push(item.id.0);
-                let found = walk(sub, bundle, is, prefix);
+                let found = walk(sub, bundle, is, prefix, items_left);
                 prefix.pop();
                 if found.is_some() {
                     return found;
@@ -386,7 +390,8 @@ impl ApiBundleOwned {
             }
             None
         }
-        walk(&self.root, self, &is, &mut vec![])
+        let mut items_left = crate::TRAIT_WALK_ITEMS_MAX;
+        walk(&self.root, self, &is, &mut vec![], &mut items_left)
     }
 }
 

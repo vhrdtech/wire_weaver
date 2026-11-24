@@ -142,7 +142,12 @@ pub(crate) async fn worker(cmd_rx: mpsc::Receiver<Command>) {
 
 /// Connects to the socket at `path` and asks for `target`, see [crate::byte_stream::open].
 pub(crate) async fn open(path: &std::path::Path, target: Target) -> Result<Tunnel, OpenError> {
-    crate::byte_stream::open(&Reach::LocalSocket(path.to_owned()), target).await
+    crate::byte_stream::open(
+        &Reach::LocalSocket(path.to_owned()),
+        target,
+        crate::byte_stream::LOCAL_ANSWER_TIMEOUT,
+    )
+    .await
 }
 
 /// [open] with `preamble`, to which this program's versions and generations are added.
@@ -154,7 +159,12 @@ pub(crate) async fn open_preamble(
     path: &std::path::Path,
     preamble: Preamble,
 ) -> Result<Tunnel, OpenError> {
-    crate::byte_stream::open_preamble(&Reach::LocalSocket(path.to_owned()), preamble).await
+    crate::byte_stream::open_preamble(
+        &Reach::LocalSocket(path.to_owned()),
+        preamble,
+        crate::byte_stream::LOCAL_ANSWER_TIMEOUT,
+    )
+    .await
 }
 
 /// Device side: a [ww_device::Server] medium for a device served by this process on a local socket

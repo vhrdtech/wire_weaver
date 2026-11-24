@@ -9,6 +9,7 @@
 
 ### 🐛 Fixes
 
+- TCP, command and stream connects wait the config's `link_setup_timeout` for the preamble answer, not 2 s (TR-19).
 - `quantity::parse_quantity_in` reads what `DynQuantity` writes: a ratio's `%`, `‰`, `ppm` and `ppb`, a `Fixed` scale without a symbol as its factor (`3·2⁻¹⁵ V`) and `Pow10`, `Pow2` and `FullScale` prefixes (`12345·10⁻⁴ s`).
 - Builds without `usb` (Android): `nusb` is optional under `usb`; `holder_of_usb_device` needs `usb` or `rtt`.
 - Android gets the client kind and host name from `/proc`, as Linux does.

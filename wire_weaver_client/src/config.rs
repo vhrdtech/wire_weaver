@@ -1362,8 +1362,11 @@ impl ValidatedConfig {
     /// How long opening a medium may take (CLT-80): [ClientConfig::link_setup_timeout] when set, else `default`, the
     /// transport's own.
     #[cfg_attr(
-        not(any(feature = "ws", feature = "in_process")),
-        allow(dead_code, reason = "only used by the ws and in_process transports")
+        not(any(feature = "ws", feature = "in_process", feature = "byte_stream")),
+        allow(
+            dead_code,
+            reason = "only used by the ws, in_process and byte_stream transports"
+        )
     )]
     pub(crate) fn open_timeout(&self, default: Duration) -> Duration {
         self.link_setup_timeout_ms

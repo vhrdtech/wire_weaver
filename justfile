@@ -57,13 +57,20 @@ test-ecc-flash:
 test-wasm:
     cargo test -q --features wasefire,wasmi
 
-# Build the wasm module example (examples_mcu/wasm_module) into the B135B firmware's modules/: wasm_module_api and
-# wasm_module_api_evolved, each with wasefire-interpreter's side table (SRV-85)
-wasm-modules:
+# Build the wasm module example (examples_mcu/wasm_module) into `out` (default: the B135B firmware's modules/):
+# wasm_module_api and wasm_module_api_evolved, each with wasefire-interpreter's side table (SRV-85)
+wasm-modules out="examples_mcu/usb_stm32h725ig/modules":
     cd examples_mcu/wasm_module && cargo build -q --release
     cd examples_mcu/wasm_module && cargo build -q --release --no-default-features --features evolved --target-dir target/evolved
-    cd ww_wasm && cargo run -q --features wasefire --bin ww-wasm-prepare -- ../examples_mcu/wasm_module/target/wasm32-unknown-unknown/release/wasm_module.wasm ../examples_mcu/usb_stm32h725ig/modules/calc.wasm
-    cd ww_wasm && cargo run -q --features wasefire --bin ww-wasm-prepare -- ../examples_mcu/wasm_module/target/evolved/wasm32-unknown-unknown/release/wasm_module.wasm ../examples_mcu/usb_stm32h725ig/modules/calc_evolved.wasm
+    mkdir -p {{ out }}
+    cd ww_wasm && cargo run -q --features wasefire --bin ww-wasm-prepare -- ../examples_mcu/wasm_module/target/wasm32-unknown-unknown/release/wasm_module.wasm {{ justfile_directory() }}/{{ out }}/calc.wasm
+    cd ww_wasm && cargo run -q --features wasefire --bin ww-wasm-prepare -- ../examples_mcu/wasm_module/target/evolved/wasm32-unknown-unknown/release/wasm_module.wasm {{ justfile_directory() }}/{{ out }}/calc_evolved.wasm
+
+# The committed module images are the ones examples_mcu/wasm_module builds now, byte for byte: `just wasm-modules`
+# refreshes them
+check-wasm-modules: (wasm-modules "target/wasm-modules")
+    cmp target/wasm-modules/calc.wasm examples_mcu/usb_stm32h725ig/modules/calc.wasm
+    cmp target/wasm-modules/calc_evolved.wasm examples_mcu/usb_stm32h725ig/modules/calc_evolved.wasm
 
 # facade! and facade_line!: what they accept and their compile errors (CLT-64), with trybuild; TRYBUILD=overwrite to update
 test-facade-ui:
@@ -159,6 +166,7 @@ check-wasm:
     cd ww_wasm && CARGO_BUILD_WARNINGS=deny cargo clippy -q --all-targets --features guest,wasefire,wasmi -- -D warnings
     cd ww_wasm && CARGO_BUILD_WARNINGS=deny cargo clippy -q --lib --features wasefire,wasmi,defmt --target thumbv7em-none-eabihf -- -D warnings
     cd examples_mcu/wasm_module && CARGO_BUILD_WARNINGS=deny cargo clippy -q -- -D warnings
+    just check-wasm-modules
 
 check-examples-mcu:
     # Checking examples-mcu

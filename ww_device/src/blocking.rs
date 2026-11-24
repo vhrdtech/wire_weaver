@@ -274,6 +274,9 @@ impl<'a, P: PacketSink> Ctx<'_, 'a, P> {
         } = scratch;
         match self.link.handle_message(self.now, kind, message) {
             Some(Received::Data(request)) => {
+                let (request, scratch) = crate::into_mount(request, scratch, |request, buf| {
+                    backend.global_into_mount(request, buf)
+                });
                 let sink = Sink {
                     ctx: self.reborrow(),
                 };

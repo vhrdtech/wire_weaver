@@ -448,6 +448,9 @@ async fn process_request<B: WireWeaverAsyncApiBackend, Tx: MessageTx, C: Clock>(
     request: &[u8],
     scratch: &mut [u8],
 ) {
+    let (request, scratch) = crate::into_mount(request, scratch, |request, buf| {
+        backend.global_into_mount(request, buf)
+    });
     let reply = match backend.process_bytes(out, medium, request, scratch).await {
         Ok(reply) => reply,
         Err(e) => {

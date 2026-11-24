@@ -30,6 +30,11 @@ use ww_client_server::mount::{
 use ww_client_server::{Error, ErrorKind, RequestKind, ResourceIndex, StreamSideband, err_seq};
 use ww_self::hash::{SIGNATURE_LEN, api_hash};
 
+use crate::sub_range;
+
+mod global_paths;
+pub use global_paths::ModuleTraits;
+
 /// Ids in the front's path of anything under a slot: the slot's `api` and the path below it.
 pub const PATH_IDS_MAX: usize = 16;
 /// Requests sent to a module and not answered yet; more are refused `Overloaded`.
@@ -483,6 +488,11 @@ impl<M: Module, const MSG: usize, const OUT: usize> ModuleSlot<M, MSG, OUT> {
         self.module.is_some()
     }
 
+    /// The loaded module's model, for global trait paths into it ([ModuleTraits]); `None` with nothing loaded.
+    pub fn model(&self) -> Option<&[u8]> {
+        self.module.as_ref().map(Module::model)
+    }
+
     /// The loaded module.
     pub fn module(&mut self) -> Option<&mut M> {
         self.module.as_mut()
@@ -931,17 +941,6 @@ impl<M: Module, const MSG: usize, const OUT: usize> ModuleSlot<M, MSG, OUT> {
         }
         Some((len, reply))
     }
-}
-
-/// Where `part`, a slice of the buffer of `len` bytes at the address `base`, starts in it, and its length; `None`
-/// when it lies outside of the buffer.
-fn sub_range(base: usize, len: usize, part: &[u8]) -> Option<(usize, usize)> {
-    if part.is_empty() {
-        return Some((0, 0));
-    }
-    let start = (part.as_ptr() as usize).checked_sub(base)?;
-    let end = start.checked_add(part.len())?;
-    (end <= len).then_some((start, part.len()))
 }
 
 fn copy_into(message: &[u8], scratch: &mut [u8]) -> Result<usize, ShrinkWrapError> {

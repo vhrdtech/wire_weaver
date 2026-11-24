@@ -99,6 +99,42 @@ pub fn overloaded_reply<'s>(request: &[u8], scratch: &'s mut [u8]) -> Option<&'s
     ww_client_server::util::ser_err_event(scratch, seq, ww_client_server::Error::overloaded()).ok()
 }
 
+/// `request`, or the request `rewrite` wrote into `scratch` in its place (a global path into a mount slot,
+/// [WireWeaverAsyncApiBackend::global_into_mount](wire_weaver::WireWeaverAsyncApiBackend::global_into_mount)), moved
+/// to the end of `scratch`; and the rest of `scratch` for the reply. A rewritten request answers in events from the
+/// slot, so its reply is short.
+pub(crate) fn into_mount<'r>(
+    request: &'r [u8],
+    scratch: &'r mut [u8],
+    rewrite: impl for<'b> FnOnce(&[u8], &'b mut [u8]) -> Option<&'b [u8]>,
+) -> (&'r [u8], &'r mut [u8]) {
+    let (base, size) = (scratch.as_ptr() as usize, scratch.len());
+    let found = rewrite(request, scratch).and_then(|rewritten| sub_range(base, size, rewritten));
+    let Some((start, len)) = found.filter(|(_, len)| *len > 0) else {
+        return (request, scratch);
+    };
+    let Some(at) = scratch.len().checked_sub(len) else {
+        return (request, scratch);
+    };
+    if start.checked_add(len).is_none_or(|end| end > scratch.len()) {
+        return (request, scratch);
+    }
+    scratch.copy_within(start..start + len, at);
+    let (reply, rewritten) = scratch.split_at_mut(at);
+    (rewritten, reply)
+}
+
+/// Where `part`, a slice of the buffer of `len` bytes at the address `base`, starts in it, and its length; `None`
+/// when it lies outside of the buffer.
+pub(crate) fn sub_range(base: usize, len: usize, part: &[u8]) -> Option<(usize, usize)> {
+    if part.is_empty() {
+        return Some((0, 0));
+    }
+    let start = (part.as_ptr() as usize).checked_sub(base)?;
+    let end = start.checked_add(part.len())?;
+    (end <= len).then_some((start, part.len()))
+}
+
 /// Priority of a serialized request, [Priority::NORMAL](wire_weaver::Priority::NORMAL) when it can't be read
 /// (the backend answers such a request with an error anyway).
 pub(crate) fn request_priority(request: &[u8]) -> wire_weaver::Priority {

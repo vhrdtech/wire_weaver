@@ -88,6 +88,14 @@ pub trait WireWeaverAsyncApiBackend {
 
     /// Implemented version of an API. Return `<your_ww_api_crate>::DEVICE_API_ROOT_FULL_GID` from this method.
     fn version(&self) -> FullVersion<'_>;
+    /// The request `request` with the absolute path into a mount slot in place of its global path, written into
+    /// `buf`, when the path names a trait of a module this server serves in process and none of its own (SRV-82,
+    /// `ww_device::mount::ModuleTraits`). `ww_device`'s servers ask before dispatch. `None`, the default: the
+    /// request goes on as it is.
+    fn global_into_mount<'b>(&self, request: &[u8], buf: &'b mut [u8]) -> Option<&'b [u8]> {
+        _ = (request, buf);
+        None
+    }
 }
 
 /// An async server as a host runtime (SRV-12) serves it: every request with the connection's origin, and the shared
@@ -147,4 +155,12 @@ pub trait WireWeaverApiBackend {
 
     /// Implemented version of an API. Return `<your_ww_api_crate>::DEVICE_API_ROOT_FULL_GID` from this method.
     fn version(&self) -> FullVersion<'_>;
+    /// The request `request` with the absolute path into a mount slot in place of its global path, written into
+    /// `buf`, when the path names a trait of a module this server serves in process and none of its own (SRV-82,
+    /// `ww_device::mount::ModuleTraits`). `ww_device`'s servers ask before dispatch. `None`, the default: the
+    /// request goes on as it is.
+    fn global_into_mount<'b>(&self, request: &[u8], buf: &'b mut [u8]) -> Option<&'b [u8]> {
+        _ = (request, buf);
+        None
+    }
 }

@@ -1532,3 +1532,28 @@ fn hello_outside_the_framer() {
         ]
     );
 }
+
+/// A request a backend rewrote into a mount slot (SRV-82) goes on from the end of the scratch, the rest for the reply;
+/// none, an empty one or one outside of the scratch leaves the request as it is.
+#[test]
+fn a_request_into_a_mount_moves_to_the_end_of_scratch() {
+    let request = [9u8, 9];
+    let mut scratch = [0u8; 8];
+    let (req, reply) = crate::into_mount(&request, &mut scratch, |_, buf| {
+        buf[..3].copy_from_slice(&[1, 2, 3]);
+        Some(&buf[..3])
+    });
+    assert_eq!(req, [1, 2, 3]);
+    assert_eq!(reply.len(), 5);
+    static FOREIGN: [u8; 2] = [7, 7];
+    for rewrite in [None, Some(0), Some(1)] {
+        let mut scratch = [0u8; 8];
+        let (req, reply) = crate::into_mount(&request, &mut scratch, |_, buf| match rewrite {
+            None => None,
+            Some(0) => Some(&buf[..0]),
+            Some(_) => Some(&FOREIGN[..]),
+        });
+        assert_eq!(req, request);
+        assert_eq!(reply.len(), 8);
+    }
+}

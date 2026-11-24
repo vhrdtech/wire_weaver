@@ -540,3 +540,194 @@ fn presence_is_read_once_at_load() {
     assert_eq!(error, LoadError::NameTooLong);
     assert!(slot.is_loaded(), "a refused module leaves the loaded one");
 }
+
+/// A module whose root `Mod` (`mod_api` 0.2.1) holds `player: Player` (`player_api` 0.3.0, compact id 77) at id 2.
+fn model_with_player() -> Vec<u8> {
+    let crates = [
+        FullVersion::new("mod_api", Version::new(0, 2, 1)),
+        FullVersion::new("player_api", Version::new(0, 3, 0)),
+    ];
+    let empty = RefVec::Slice { slice: &[] };
+    let player = ww_self::ApiItem {
+        id: UNib32(2),
+        kind: ww_self::ApiItemKind::Trait {
+            trait_idx: UNib32(0),
+            omitted: None,
+        },
+        multiplicity: ww_self::Multiplicity::Flat,
+        since: None,
+        ident: "player",
+        docs: empty,
+        optional: None,
+        meta: None,
+        identity: None,
+    };
+    let items = [player];
+    let traits = [ww_self::ApiLevelLocation::InLine {
+        level: ww_self::ApiLevel {
+            docs: empty,
+            crate_idx: UNib32(1),
+            trait_name: "Player",
+            items: RefVec::Slice { slice: &[] },
+            compact_id: Some(UNib32(77)),
+            meta: None,
+        },
+        crate_idx: UNib32(1),
+    }];
+    let bundle = ww_self::ApiBundle {
+        magic: ww_self::MAGIC,
+        ww_self_version: ww_self::VERSION,
+        root: ww_self::ApiLevel {
+            docs: empty,
+            crate_idx: UNib32(0),
+            trait_name: "Mod",
+            items: RefVec::Slice { slice: &items },
+            compact_id: None,
+            meta: None,
+        },
+        types: RefVec::Slice { slice: &[] },
+        traits: RefVec::Slice { slice: &traits },
+        ext_crates: RefVec::Slice { slice: &crates },
+        root_omitted: None,
+        wire: None,
+        ext_wire: None,
+    };
+    let mut buf = [0u8; 256];
+    bundle.to_ww_bytes(&mut buf).unwrap().to_vec()
+}
+
+fn player(minor: u32, from_trait: &[ResourceIndex]) -> PathKind<'_> {
+    PathKind::GlobalFull {
+        gid: FullVersion::new("player_api", Version::new(0, minor, 0)),
+        trait_name: "Player",
+        path_from_trait: RefVec::Slice { slice: from_trait },
+    }
+}
+
+fn ids(path: &PathArray<PATH_IDS_MAX>) -> Vec<u32> {
+    PathStore::as_slice(path)
+        .iter()
+        .map(|id| id.get().0)
+        .collect()
+}
+
+#[test]
+fn global_path_reaches_a_module_in_path_order() {
+    let model = model_with_player();
+    let later = resource_path([5, 1]);
+    let mut traits = ModuleTraits::<2>::new();
+    traits.model(&later, &model).model(&API, &model);
+    let from = resource_path([4]);
+    let not_own = |_: &PathKind<'_>| false;
+    let found = traits
+        .resolve(&player(3, &from), not_own)
+        .expect("into a module");
+    assert_eq!(ids(&found), [3, 1, 2, 4], "the first slot in path order");
+    assert!(
+        traits.resolve(&player(4, &from), not_own).is_none(),
+        "another minor"
+    );
+    let compact = PathKind::GlobalCompact {
+        gid: wire_weaver::ww_version::CompactVersion::new(
+            wire_weaver::ww_version::GlobalTypeId { id: UNib32(77) },
+            0,
+            3,
+            0,
+        ),
+        path_from_trait: RefVec::Slice { slice: &[] },
+    };
+    assert_eq!(
+        ids(&traits.resolve(&compact, not_own).expect("by id")),
+        [3, 1, 2]
+    );
+    let root = PathKind::GlobalFull {
+        gid: FullVersion::new("mod_api", Version::new(0, 2, 0)),
+        trait_name: "Mod",
+        path_from_trait: RefVec::Slice { slice: &[] },
+    };
+    assert_eq!(
+        ids(&traits.resolve(&root, not_own).expect("the root")),
+        [3, 1]
+    );
+    assert!(traits.resolve(&PathKind::absolute(&API), not_own).is_none());
+}
+
+#[test]
+fn own_tree_first() {
+    let model = model_with_player();
+    let mut traits = ModuleTraits::<1>::new();
+    traits.model(&API, &model);
+    assert!(traits.resolve(&player(3, &[]), |_| true).is_none());
+}
+
+#[test]
+fn an_empty_slot_or_a_bad_model_reaches_nothing() {
+    let mut slot: ModuleSlot<Fake, MSG, OUT> = ModuleSlot::new();
+    let mut traits = ModuleTraits::<1>::new();
+    traits.slot(&API, &slot);
+    assert!(traits.resolve(&player(3, &[]), |_| false).is_none());
+    let bad = [0xffu8; 4];
+    let mut traits = ModuleTraits::<1>::new();
+    traits.model(&API, &bad);
+    assert!(traits.resolve(&player(3, &[]), |_| false).is_none());
+    // a path past PATH_IDS_MAX ids
+    let model = model_with_player();
+    let deep = [ResourceIndex::new(UNib32(1)); PATH_IDS_MAX - 2];
+    let mut traits = ModuleTraits::<1>::new();
+    traits.model(&API, &model);
+    assert!(traits.resolve(&player(3, &deep), |_| false).is_none());
+    let fake = Fake {
+        model: model_with_player(),
+        ..Fake::new(Behave::Echo)
+    };
+    slot.load(fake).expect("loads");
+    let mut traits = ModuleTraits::<1>::new();
+    traits.slot(&API, &slot);
+    assert!(traits.resolve(&player(3, &[]), |_| false).is_some());
+}
+
+#[test]
+#[should_panic(expected = "at most N slots")]
+fn more_slots_than_room_panics() {
+    let model = model_with_player();
+    let mut traits = ModuleTraits::<1>::new();
+    traits.model(&API, &model).model(&API, &model);
+}
+
+#[test]
+fn request_goes_on_at_the_slots_path() {
+    let model = model_with_player();
+    let mut traits = ModuleTraits::<1>::new();
+    traits.model(&API, &model);
+    let from = resource_path([4]);
+    let mut buf = [0u8; 64];
+    let request = Request {
+        seq: UVlq32Backfill(9),
+        priority: Priority::NORMAL.to_wire(),
+        context: Default::default(),
+        path_kind: player(3, &from),
+        kind: RequestKind::Read,
+    };
+    let bytes = request.to_ww_bytes(&mut buf).unwrap().to_vec();
+    let mut out = [0u8; 64];
+    let rewritten = traits
+        .request_into_mount(&bytes, |_| false, &mut out)
+        .expect("into the slot");
+    let back = Request::from_ww_bytes(rewritten).unwrap();
+    assert_eq!(back.seq.0, 9);
+    let PathKind::Absolute { path } = back.path_kind else {
+        panic!("an absolute path");
+    };
+    let path: Vec<u32> = path.iter().map(|id| id.unwrap().get().0).collect();
+    assert_eq!(path, [3, 1, 2, 4]);
+    assert!(
+        traits
+            .request_into_mount(&[0xff], |_| false, &mut out)
+            .is_none()
+    );
+    assert!(
+        ModuleTraits::<1>::new()
+            .request_into_mount(&bytes, |_| false, &mut out)
+            .is_none()
+    );
+}

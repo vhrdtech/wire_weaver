@@ -191,8 +191,10 @@ track = { layer = "runtime" }
 track_api = { layer = "runtime" }
 traits = { layer = "runtime" }
 traits_api = { layer = "runtime" }
+wasm_module = { layer = "runtime", workspace = "examples_mcu/wasm_module", no_std = true }
 wasm_module_api = { layer = "runtime", no_std = true }
 wasm_module_api_evolved = { layer = "runtime", no_std = true }
+wasm_slot = { layer = "runtime" }
 wasm_slot_api = { layer = "runtime", no_std = true }
 wire_line = { layer = "runtime" }
 wire_line_api = { layer = "runtime", no_std = true }
@@ -259,6 +261,7 @@ ww_version = { git = "https://github.com/vhrdtech/ww_base", role = "base" }
 ww_highlight = { git = "https://github.com/romixlab/ww_lsp", role = "runtime" }
 picoboot_host = { git = "https://github.com/vhrdtech/picoboot_host", role = "runtime" }
 cnt_core = { git = "https://github.com/romixlab/cnt", role = "runtime" }
+bedrock_led = { git = "https://github.com/romixlab/embedded_bedrock", role = "runtime" }
 
 # API crates (R1): a crate that defines `#[ww_trait]` APIs describes an API and never runs one. Its normal
 # dependencies, direct or transitive, reach no layer-5 crate (`wire_weaver` first of all) beyond what `ww_api`'s

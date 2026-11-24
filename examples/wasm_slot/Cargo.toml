@@ -1,0 +1,28 @@
+[package]
+name = "wasm_slot"
+version = "0.1.0"
+description = "Client of the wasm slot example firmware on B135B: modules in mount slots, run by wasefire-interpreter and wasmi"
+publish = false
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[package.metadata.cargo-machete]
+# the code ww_codegen! generates names the module API crates
+ignored = ["wasm_module_api", "wasm_module_api_evolved"]
+
+[dependencies]
+tokio = { workspace = true, features = ["sync", "rt"] }
+wasm_module_api = { workspace = true, features = ["std"] }
+wasm_module_api_evolved = { workspace = true, features = ["std"] }
+wasm_slot_api = { workspace = true, features = ["std"] }
+wire_weaver.workspace = true
+wire_weaver_client = { workspace = true, features = ["usb"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }
+
+[lints]
+workspace = true

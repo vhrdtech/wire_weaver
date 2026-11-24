@@ -42,6 +42,5 @@ strip = "symbols"
 [profile.dev]
 panic = "abort"
 
-# Exports and the panic handler are unsafe code (`unsafe = true` in layers.toml)
 [lints.rust]
-unsafe_code = "allow"
+unsafe_code = "forbid"

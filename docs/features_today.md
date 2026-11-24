@@ -185,6 +185,7 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 - **[Modules in the firmware's process](api/mounts.md#modules-in-the-firmwares-process)**: A firmware serves a mount slot from a wasm module or a linked server, checked and without a heap.
 - **[Global paths into firmware modules](api/mounts.md#global-paths-into-modules)**: A global trait path reaches the traits of a module a firmware serves in process, without a heap.
 - **[Borrowed observed values](api/observing.md#the-device-side)**: An async `no_alloc` server observes getters that return values borrowed from it, such as several mount presences.
+- **[Wasm modules in a mount slot](api/mounts.md#wasm-modules)**: A firmware loads an API compiled to wasm into a mount slot at run time, on wasefire-interpreter or wasmi, and unloads it when it traps.
 - **[Deferred replies everywhere](api/methods.md#deferred)**: Answer a call later, also on nested trait levels.
 - **[Replies by priority](transport/ww_framer.md#latency-and-priority)**: A reply to an urgent request leaves at once, also a deferred one sent later from your main loop; `Sink::flush` sends what waits now. <span class="ww-status">hardware check open</span>
 - **[Errors that say where](api/errors.md#where-on-the-device-an-error-came-from)**: A device's error names the site that raised it, by a number that is the same in every firmware.

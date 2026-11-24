@@ -11,6 +11,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
+- Wasm modules in a mount slot: a firmware loads an API compiled to wasm on wasefire-interpreter or wasmi, tested on B135B (SRV-85); see `ww_wasm`.
 - Global trait paths reach a firmware's in-process modules, no heap (SRV-82); see `ww_device`, `wire_weaver`, `ww_self`, `ww_client_server`, `wire_weaver_core`.
 - Async `no_alloc` servers observe getters borrowing from the server, like two mount presences (SRV-83); see `wire_weaver_core`, `ww_stream`.
 - Mount slots served in process: a firmware serves a slot from a wasm or linked module, checked, no heap (SRV-81); see `ww_device`, `ww_self`, `ww_client_server`, `wire_weaver_core`.

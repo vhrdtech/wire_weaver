@@ -181,6 +181,7 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 - SRV-81 | Modules in the firmware's process | A firmware serves a mount slot from a wasm module or a linked server, checked and without a heap. | api/mounts.md#modules-in-the-firmwares-process
 - SRV-82 | Global paths into firmware modules | A global trait path reaches the traits of a module a firmware serves in process, without a heap. | api/mounts.md#global-paths-into-modules
 - SRV-83 | Borrowed observed values | An async `no_alloc` server observes getters that return values borrowed from it, such as several mount presences. | api/observing.md#the-device-side
+- SRV-85 | Wasm modules in a mount slot | A firmware loads an API compiled to wasm into a mount slot at run time, on wasefire-interpreter or wasmi, and unloads it when it traps. | api/mounts.md#wasm-modules
 - SRV-20 | Deferred replies everywhere | Answer a call later, also on nested trait levels. | api/methods.md#deferred
 - SRV-42 | Replies by priority | A reply to an urgent request leaves at once, also a deferred one sent later from your main loop; `Sink::flush` sends what waits now. | transport/ww_framer.md#latency-and-priority
 - SRV-22 | Errors that say where | A device's error names the site that raised it, by a number that is the same in every firmware. | api/errors.md#where-on-the-device-an-error-came-from

@@ -1,10 +1,4 @@
-# A workspace of its own: wasefire-interpreter builds on nightly only, the root workspace on the stable toolchain.
-[workspace]
-resolver = "3"
-
-[workspace.lints.cargo]
-unused_workspace_dependencies = "deny"
-
+# Not in the root workspace (`exclude`): wasefire-interpreter builds on nightly only, the root on the stable toolchain.
 [package]
 name = "ww_wasm"
 version = "0.6.0"
@@ -32,12 +26,9 @@ wasmi = { version = "2.0", default-features = false, features = ["auto-dispatch"
 wire_weaver = { version = "0.6.0", path = "../wire_weaver", default-features = false, optional = true }
 ww_device = { version = "0.6.0", path = "../ww_device", optional = true }
 
-[lints.cargo]
-unused_workspace_dependencies = "deny"
-
 # The guest's exports are unsafe code (`unsafe = true` in layers.toml); every unsafe block has a `// SAFETY:` comment.
 [lints.rust]
-unsafe_code = "allow"
+unsafe_code = "allow" # unsafe = true in layers.toml: the workspace forbids it elsewhere
 
 [dev-dependencies]
 wire_weaver = { version = "0.6.0", path = "../wire_weaver", features = ["std"] }

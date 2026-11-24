@@ -764,6 +764,14 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
     servers) −176 B at `fw-z`, +3.7 KiB at `fw-3`, a poll +0.5 % instructions at `fw-z`, +1.1 % at `fw-3`, +88 B of
     stack; the async poll future +240 B on x86_64 ([Docs](docs/api/observing.md#the-device-side), `tests/mount_module`
     `both_presences_are_observed`).
+- ✅ **SRV-85 Wasm modules in a mount slot** — `ww_wasm` runs a server compiled to `wasm32-unknown-unknown` as a
+    `ww_device::mount::Module` (SRV-81), on wasefire-interpreter (`WasefireModule`) or wasmi (`WasmiModule`, with
+    fuel). The guest exports its buffers and `ww_process` through `guest_module!`, its model sits in a `ww_model`
+    custom section. A trap, out of fuel or a bad reply unloads the module. Tested on B135B (STM32H725, 540 MHz,
+    `opt-level = "z"`) over USB: calls, a reload with another API relearned for that slot only, a trap unloading the
+    module. A call takes 3.9 M cycles on wasefire-interpreter, 136 k on wasmi; flash +76 KB and +527 KB
+    ([Docs](docs/api/mounts.md#wasm-modules), `ww_wasm` `tests/interpreters.rs`, `examples/wasm_slot`,
+    `examples_mcu/usb_stm32h725ig` `stm32h725ig-wasm-slot`).
 - 🚧 **SRV-76 Mount slots** — `mount!(hub)` (one slot, `mount!(hub: hub_api)` names the expected API crate) and
     `mounts!(ext)` (slots keyed by `ww_api::mount::MountName` through a `keyed!` companion): a level whose API is known
     only at run time. Done: the `ww_self` `Mount` item (model 0.7.0; the parent's hash covers the declaration only),
@@ -773,6 +781,10 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
     client's `MountSlot`, `presence` in the dynamic client, evolution and authorization steps; the rewrite is
     SRV-77, the forwarder SRV-78, the client view of the mounted API CLT-84. Missing: the keys stream driven by
     mounts.
+- 📋 **SRV-86 Fuel for wasefire-interpreter modules** — wasefire-interpreter 0.5 has no fuel or instruction limit,
+    so a module that loops never returns from `process` and the firmware task serving its slot hangs with it. Needs a
+    step budget in the interpreter (upstream) or a watchdog that aborts the call. Estimate: 1-2 days with a fork,
+    more for an upstream change (`ww_wasm/src/wasefire.rs`).
     [Docs](docs/api/mounts.md), `tests/mounts`.
 - 📋 **SRV-9 Handle USB suspend/resume** · `v0.5` — run until suspend, wait for resume, loop
   (`mcu/wire_weaver_usb_embassy`). Later (`v0.5.x`): detect the host going to sleep and keep the connection,

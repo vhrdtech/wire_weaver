@@ -168,6 +168,7 @@ paths = [
     "examples_mcu/nucleo_h743zi2/Cargo.toml",
     "examples_mcu/rp2/Cargo.toml",
     "examples_mcu/usb_stm32h725ig/Cargo.toml",
+    "ww_wasm/Cargo.toml",
 ]
 level = "allow"
 reason = "a package outside any workspace that the map marks unsafe: its [lints.rust] is the workspace's and the crate's, and it allows the unsafe code it holds"

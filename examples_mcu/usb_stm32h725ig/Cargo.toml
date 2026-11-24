@@ -10,6 +10,9 @@ flash-async = []
 # the units budget (`mcu_qemu/src/unit_budget.rs`) with only the plain cases / only the Fixed cases
 only-plain = []
 only-fixed = []
+# the wasm slot firmware's interpreters (`src/bin/wasm_slot`): either one alone for its flash and RAM
+wasefire = ["dep:ww_wasm", "ww_wasm/wasefire"]
+wasmi = ["dep:ww_wasm", "ww_wasm/wasmi"]
 
 [dependencies]
 cortex-m-rt = "0.7"
@@ -44,6 +47,10 @@ wire_weaver = { path = "../../wire_weaver", default-features = false, features =
 ww_client_server = { path = "../../ww_client_server", default-features = false }
 ww_stream = { path = "../../ww_stream", default-features = false }
 flash_budget_api = { path = "../../tests/flash_budget_api", default-features = false }
+wasm_slot_api = { path = "../../examples/wasm_slot_api", default-features = false }
+ww_device = { path = "../../ww_device", features = ["defmt"] }
+ww_wasm = { path = "../../ww_wasm", features = ["defmt"], optional = true }
+embedded-alloc = { version = "0.7", default-features = false, features = ["llff"] }
 ww_si = { git = "https://github.com/vhrdtech/ww_base", default-features = false, features = ["electrical", "angle", "dimensionless", "time", "f32", "u32", "i32"] }
 
 [[bin]]

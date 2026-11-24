@@ -304,6 +304,9 @@ toml_settings_api = { version = "0.1.0", path = "./tests/toml_settings_api" }
 totals_api = { version = "0.1.0", path = "./tests/totals_api" }
 track_api = { version = "0.1.0", path = "./tests/track_api" }
 traits_api = { version = "0.1.0", path = "./tests/traits_api" }
+wasm_module_api = { version = "0.1.0", path = "./examples/wasm_module_api" }
+wasm_module_api_evolved = { version = "0.1.1", path = "./examples/wasm_module_api_evolved" }
+wasm_slot_api = { version = "0.1.0", path = "./examples/wasm_slot_api" }
 wire_line_api = { version = "0.4.0", path = "./tests/wire_line_api" }
 wire_line_old_api = { version = "0.3.0", path = "./tests/wire_line_old_api" }
 

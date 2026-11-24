@@ -5,7 +5,10 @@ target = "wasm32-unknown-unknown"
 # less memory than a page (wasefire-interpreter) gives the module what its data and stack need.
 [target.wasm32-unknown-unknown]
 rustflags = [
-    "-C", "link-arg=-zstack-size=4096",
-    "-C", "link-arg=--initial-memory=65536",
-    "-C", "link-arg=--max-memory=65536",
+    "-C",
+    "link-arg=-zstack-size=4096",
+    "-C",
+    "link-arg=--initial-memory=65536",
+    "-C",
+    "link-arg=--max-memory=65536",
 ]

@@ -223,10 +223,21 @@ check-examples-mcu-size-bench-reply:
 hw-ecc-flash-h7:
     cargo run --release
 
+# Flash the wasm slot firmware (SRV-85) to B135B with both interpreters, and print its log (probe: PROBE_RS_PROBE=VID:PID)
+[working-directory('examples_mcu/usb_stm32h725ig')]
+flash-wasm-slot:
+    cargo run --release --features wasefire,wasmi --bin stm32h725ig-wasm-slot
+
+# Hardware check of the wasm slot firmware on B135B over USB, flashed by flash-wasm-slot: calls, a reload the client
+# relearns, a trap unloading the module, wasmi's fuel, and the numbers of docs/api/mounts.md#wasm-modules
+hw-wasm-slot:
+    cargo nextest run -p wasm_slot --run-ignored only --no-capture
+
 [working-directory('examples_mcu/usb_stm32h725ig')]
 check-examples-mcu-stm32h725ig:
     # Checking usb_stm32h725ig
     @cargo check
+    @cargo check --features wasefire,wasmi --bin stm32h725ig-wasm-slot
 
 [working-directory('examples_mcu/rp2')]
 check-examples-mcu-rp2:

@@ -3,6 +3,7 @@
 [![CI](https://github.com/vhrdtech/wire_weaver/actions/workflows/ci.yml/badge.svg)](https://github.com/vhrdtech/wire_weaver/actions/workflows/ci.yml) [![Book](https://img.shields.io/badge/book-ww.vhrd.tech-blue)](https://ww.vhrd.tech/)
 [![crates.io](https://img.shields.io/crates/v/ww_quantity)](https://crates.io/crates/ww_quantity)
 [![docs.rs](https://img.shields.io/docsrs/ww_quantity)](https://docs.rs/ww_quantity)
+[![spirit level](.github/spl-badge.svg)](https://spl.vhrd.tech/tiers/big/)
 
 This page lists the crates of the root workspace. The first table links each published crate to crates.io and docs.rs. The second gives every crate's layer from `layers.toml` and the description from its `Cargo.toml`. spirit_level checks both: a published crate without a badge, or a row that differs from the manifests, fails `spl check`. [Architecture](https://ww.vhrd.tech/architecture/) groups the crates by what they do.
 
@@ -194,6 +195,10 @@ This page lists the crates of the root workspace. The first table links each pub
 | [`track_api`](tests/track_api) | runtime | API of the #[track] tests (API-71): streams laid out as points, spans and series, with dims and flags |
 | [`traits`](tests/traits) | runtime | Tests of traits_api's trait composition and addressing: sub-traits nested, in arrays and shared/claimable through the hub. |
 | [`traits_api`](tests/traits_api) | runtime | Test API of tests/traits: sub-traits nested, in arrays and shared/claimable through the hub (SRV-34). |
+| [`wasm_module_api`](examples/wasm_module_api) | runtime | API of the wasm module example: a calculator a firmware serves from a wasm module in a mount slot |
+| [`wasm_module_api_evolved`](examples/wasm_module_api_evolved) | runtime | The wasm module example API in a later version: what a reloaded module serves |
+| [`wasm_slot`](examples/wasm_slot) | runtime | Client of the wasm slot example firmware on B135B: modules in mount slots, run by wasefire-interpreter and wasmi |
+| [`wasm_slot_api`](examples/wasm_slot_api) | runtime | API of the wasm slot example firmware: mount slots served by wasm interpreters, loaded from images in flash |
 | [`wire_line`](tests/wire_line) | runtime | Link setup decides on the wire line, not the crate version (EVO-25): old firmware on an old line connecting to a host built against a newer one. |
 | [`wire_line_api`](tests/wire_line_api) | runtime | An API after a crate breaking bump that stayed on its wire line (EVO-25); used by tests/wire_line against wire_line_old_api firmware. |
 | [`wire_line_fixture_api`](tests/wire_line_fixture_api) | runtime | Test trait of EVO-26 (a sub-trait's #[since] names its own crate's wire line): used by wire_weaver_client's compat/global_paths tests instead of a path dependency on ww_stdlib/ww_board_info. |

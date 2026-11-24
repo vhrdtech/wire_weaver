@@ -10,8 +10,8 @@ extern crate panic_semihosting;
 use core::fmt::Write;
 use cortex_m_rt::entry;
 use cortex_m_semihosting::{debug, hio};
-use wire_weaver::prelude::*;
 use counted_stream_api::Edge;
+use wire_weaver::prelude::*;
 use ww_client_server::stream::StreamHead;
 use ww_stream::tx::Counted;
 
@@ -26,10 +26,11 @@ fn main() -> ! {
         stream_sessions: 0,
     };
 
-    let r = api_server::stream_data_ser()
-        .group(0)
-        .item(0)
-        .event(&StreamHead::at(0), &Edge::Rising, &mut scratch);
+    let r = api_server::stream_data_ser().group(0).item(0).event(
+        &StreamHead::at(0),
+        &Edge::Rising,
+        &mut scratch,
+    );
     writeln!(stdout, "{r:02x?}").unwrap();
 
     let event = [1u8, 2, 3];

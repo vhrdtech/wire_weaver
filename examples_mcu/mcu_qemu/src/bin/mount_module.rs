@@ -3,7 +3,10 @@
 //!
 //! Each step is bracketed by `mark_start` / `mark_end` for `qemu_icount`: the first bracket is the empty calibration
 //! pair, then `load` (decodes the model and hashes it), `presence`, `forward_blocking` of an `add` twice (cold, warm),
-//! `forward_blocking` of the `ticks` stream open, and `poll_blocking` with one tick queued. Each step also prints its
+//! `forward_blocking` of the `ticks` stream open, `poll_blocking` with one tick queued, then global trait paths (SRV-82):
+//! `ModuleTraits::request_into_mount` of an absolute request (what every request of a server with slots pays) and of
+//! a `GlobalFull` path to the hub's `Lamp` (the parent's own table first, then the module's model walked), and
+//! `forward_blocking` of the rewritten request. Each step also prints its
 //! stack high-water mark below `main`'s frame, measured by painting the stack below it, and the bytes it sent to the
 //! parent's event out. The size of the slot comes first.
 #![no_main]
@@ -20,8 +23,9 @@ use wire_weaver::prelude::*;
 use wire_weaver::shrink_wrap::UVlq32Backfill;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytes;
 use ww_client_server::mount::{MountAnswer, MountRequest};
+use ww_client_server::dispatch::{GlobalTrait, global_full_path};
 use ww_client_server::{PathKind, Priority, Request, RequestKind, ResourceIndex, resource_path};
-use ww_device::mount::{Module, ModuleError, ModuleSlot, Outbox};
+use ww_device::mount::{Module, ModuleError, ModuleSlot, ModuleTraits, Outbox};
 
 /// The longest message in and out of the slot.
 const MSG: usize = 128;
@@ -154,6 +158,38 @@ impl BlockingEventOut for Sink {
     }
 }
 
+/// The slot's `api` in the parent.
+const API_PATH: [ResourceIndex; 2] = resource_path([2, 1]);
+
+/// The parent's own traits, as its generated `has_global_trait` looks them up: its root only.
+const PARENT_TRAITS: &[GlobalTrait] = &[GlobalTrait {
+    hash: ww_global::trait_hash("parent_api", "Parent"),
+    major: 0,
+    minor: 1,
+    path: &[],
+}];
+
+fn parent_has(path: &PathKind<'_>) -> bool {
+    match path {
+        PathKind::GlobalFull {
+            gid, trait_name, ..
+        } => global_full_path(PARENT_TRAITS, gid, trait_name).is_some(),
+        _ => false,
+    }
+}
+
+/// The parent backend's `global_into_mount`: `request` into the hub slot, written into `buf`.
+#[inline(never)]
+fn into_mount<'b>(
+    slot: &ModuleSlot<HubModule, MSG, OUT>,
+    request: &[u8],
+    buf: &'b mut [u8],
+) -> Option<&'b [u8]> {
+    ModuleTraits::<1>::new()
+        .slot(&API_PATH, slot)
+        .request_into_mount(request, parent_has, buf)
+}
+
 /// Hand `request` to the slot as the parent's `hub_request` handler would.
 #[inline(never)]
 fn forward(
@@ -284,6 +320,69 @@ fn main() -> ! {
     writeln!(
         stdout,
         "poll one tick: sent {} B, stack {stack} B",
+        sink.bytes
+    )
+    .expect("semihosting write");
+
+    let mut add_bytes = [0u8; MSG];
+    let add_bytes = add.to_ww_bytes(&mut add_bytes).expect("fits");
+    let toggle_below: [ResourceIndex; 1] = resource_path([0]);
+    let lamp = Request {
+        seq: UVlq32Backfill(9),
+        priority: Priority::NORMAL.to_wire(),
+        context: Default::default(),
+        path_kind: PathKind::GlobalFull {
+            gid: mount_backend_api::HUB_FULL_GID,
+            trait_name: "Lamp",
+            path_from_trait: wire_weaver::shrink_wrap::RefVec::Slice {
+                slice: &toggle_below,
+            },
+        },
+        kind: RequestKind::Call {
+            args: TailBytes(&[]),
+        },
+    };
+    let mut lamp_bytes = [0u8; MSG];
+    let lamp_bytes = lamp.to_ww_bytes(&mut lamp_bytes).expect("fits");
+    let mut buf = [0u8; MSG];
+
+    let top = paint();
+    mark_start();
+    let absolute = into_mount(slot, black_box(add_bytes), &mut buf).is_some();
+    mark_end();
+    let stack = high_water(top);
+    writeln!(stdout, "global hook, absolute: rewritten {absolute}, stack {stack} B")
+        .expect("semihosting write");
+
+    let top = paint();
+    mark_start();
+    let rewritten = into_mount(slot, black_box(lamp_bytes), &mut buf).map(<[u8]>::len);
+    mark_end();
+    let stack = high_water(top);
+    writeln!(stdout, "global hook, Lamp: rewritten {rewritten:?} B, stack {stack} B")
+        .expect("semihosting write");
+
+    let rewritten = into_mount(slot, lamp_bytes, &mut buf).expect("rewritten");
+    let rewritten = Request::from_ww_bytes(rewritten).expect("a request");
+    let PathKind::Absolute { path } = rewritten.path_kind else {
+        panic!("an absolute path");
+    };
+    let mut below = [ResourceIndex::new(wire_weaver::shrink_wrap::UNib32(0)); 4];
+    let mut below_len = 0;
+    for id in path.iter().skip(API_PATH.len()) {
+        below[below_len] = id.expect("decodes");
+        below_len += 1;
+    }
+    sink.bytes = 0;
+    let top = paint();
+    mark_start();
+    let answer = forward(slot, &mut sink, black_box(&rewritten), &below[..below_len]);
+    mark_end();
+    let stack = high_water(top);
+    writeln!(
+        stdout,
+        "forward Lamp toggle {:?}: {answer:?}, sent {} B, stack {stack} B",
+        &below[..below_len],
         sink.bytes
     )
     .expect("semihosting write");

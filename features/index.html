@@ -7385,6 +7385,16 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
     <code>Up</code>. No effect caps per mount yet: every effect passes the mount, limits are the hooks' (TR-24 adds peer
     authentication) (<a href="../docs/api/mounts/#who-calls-and-what-it-does">Docs</a>, <code>tests/mounts</code>
     <code>a_trusting_backend_sees_the_fronts_client</code>, <code>the_fronts_hook_sees_effects_inside_the_mount</code>).</li>
+<li>✅ <strong>SRV-81 Mount slot served in process</strong> — <code>ww_device::mount</code> serves a mount slot (SRV-76) from a module in the
+    firmware's own process, a wasm module or a linked server, with no link and no heap. <code>Module</code> is bytes in and out
+    (<code>model</code>, <code>process</code>, <code>poll</code>), <code>Linked&lt;S&gt;</code> wraps a blocking generated server, <code>ModuleSlot&lt;M, MSG, OUT&gt;</code> (built in
+    place in <code>.bss</code> by <code>init</code>) takes the slot's path off each request and puts it in front of each event. The slot
+    hashes the module's <code>WW_SELF_BYTES_NO_DOCS</code> itself and reads its identity once at <code>load</code>; <code>presence</code> follows
+    <code>load</code>/<code>unload</code>, a reload relearns only that slot. Everything the module says is checked (decode, seq in flight,
+    path under the slot, lengths), a fault unloads it, <code>ModuleCounters</code> counts the rest. Effects all pass: TR-24's
+    caps go in <code>ModuleSlot::forward</code>. Cortex-M3 <code>fw-z</code>: a call 4 180 instructions, 1.6 KB of stack
+    (<a href="../docs/api/mounts/#modules-in-the-firmwares-process">Docs</a>, <code>tests/mount_module</code>, <code>ww_device</code> <code>mount::tests</code>,
+    <code>examples_mcu/mcu_qemu</code> <code>qemu-mount-module</code>).</li>
 <li>🚧 <strong>SRV-76 Mount slots</strong> — <code>mount!(hub)</code> (one slot, <code>mount!(hub: hub_api)</code> names the expected API crate) and
     <code>mounts!(ext)</code> (slots keyed by <code>ww_api::mount::MountName</code> through a <code>keyed!</code> companion): a level whose API is known
     only at run time. Done: the <code>ww_self</code> <code>Mount</code> item (model 0.7.0; the parent's hash covers the declaration only),
@@ -7765,6 +7775,12 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
   keeps <code>thermo_api</code> 2.0.0 in <code>tests/thermo_api_old</code> for that). In practice an old line's maintenance
   firmware is built from its module at that line's newest revision, so real firmware rarely needs it. Fields and
   variants with a newer <code>#[since]</code> can't be left out of a Rust type, so such a type would be refused.</li>
+<li>📋 <strong>SRV-82 Global paths into a firmware's module</strong> — a global trait path (<code>GlobalFull</code>, <code>GlobalCompact</code>) reaches
+    a trait of a module served in process (SRV-81), from the model the slot holds, as <code>MountedTraits</code> does for
+    backend processes (SRV-77), without a heap.</li>
+<li>📋 <strong>SRV-83 Two borrowed observable slot presences</strong> — an async <code>no_alloc</code> server with two slots whose observed
+    <code>presence</code> getters return <code>MountPresence&lt;'_&gt;</code> compiles: the generated observe poll borrows the server once per
+    getter (E0499 now).</li>
 </ul>
 <h2 id="client-host-side-clt">Client / host side (<code>CLT</code>)<a class="headerlink" href="#client-host-side-clt" title="Permanent link">&para;</a></h2>
 <ul>

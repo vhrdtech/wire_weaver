@@ -1951,6 +1951,45 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#modules-in-the-firmwares-process" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Modules in the firmware's process
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Modules in the firmware&#x27;s process">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-the-slot-checks" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What the slot checks
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#limits-and-cost" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Limits and cost
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#who-calls-and-what-it-does" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6527,6 +6566,45 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#modules-in-the-firmwares-process" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Modules in the firmware's process
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Modules in the firmware&#x27;s process">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-the-slot-checks" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What the slot checks
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#limits-and-cost" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Limits and cost
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#who-calls-and-what-it-does" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6903,6 +6981,138 @@ takes, with <code>ResponseSerFailed</code> (<code>err_seq::MOUNT_TOO_LONG</code>
 (<code>LocalSocket</code> refuses a process of another user). The backend's messages are not: only their envelope is decoded,
 a reply passes only under a seq sent on that link, events get the slot's path in front, and introspection data is
 capped at 4 MiB.</p>
+<h3 id="modules-in-the-firmwares-process">Modules in the firmware's process<a class="headerlink" href="#modules-in-the-firmwares-process" title="Permanent link">&para;</a></h3>
+<p>A firmware can serve a slot from code in its own process: a module. The module may be a wasm module run by an
+interpreter, or a WireWeaver server linked into the firmware. Nothing crosses a link: the slot handler calls the
+module with the request as bytes, and sends the module's replies and events to the client with the slot's path in
+front. <code>ww_device::mount</code> does this without a heap.</p>
+<ul>
+<li><code>Module</code> is the trait a module implements. <code>model()</code> returns the module's model, <code>process(request, events, reply)</code>
+  serves one request at the module's own absolute path, and <code>poll(events)</code> gives the module a turn outside of a
+  request, for stream items, observed property updates and deferred replies. Everything is bytes, so a wasm host
+  implements it from its host calls.</li>
+<li><code>Linked&lt;S&gt;</code> turns a server generated with <code>use_async = false</code> into a <code>Module</code>: the server and its
+  <code>WW_SELF_BYTES_NO_DOCS</code>.</li>
+<li><code>ModuleSlot&lt;M, MSG, OUT&gt;</code> holds one module for one front connection, with every buffer it needs. <code>MSG</code> is the
+  longest message in and out, normally the front link's message limit. <code>OUT</code> is the room for the module's events in
+  one turn.</li>
+</ul>
+<p>The module's model is its server's introspection data without docs and uncompressed: the <code>WW_SELF_BYTES_NO_DOCS</code>
+constant that every generated server has. A constant takes flash only where it is used. The slot reads the crate, version and wire version
+from the model once, at <code>load</code>, and hashes the model itself. That hash is the server's own <code>API_HASH_NO_DOCS</code>, so a
+generated client of the module's API takes the slot's API as known. A client that sees a new hash after a reload
+relearns this slot's API only; the parent's hash and the other slots stay as they were.</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_device</span><span class="p">::</span><span class="n">mount</span><span class="p">::{</span><span class="n">Linked</span><span class="p">,</span><span class="w"> </span><span class="n">ModuleSlot</span><span class="p">};</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="c1">// in .bss, built in place: nothing of it on the stack</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="k">static</span><span class="w"> </span><span class="n">HUB</span><span class="p">:</span><span class="w"> </span><span class="nc">StaticCell</span><span class="o">&lt;</span><span class="n">ModuleSlot</span><span class="o">&lt;</span><span class="n">Linked</span><span class="o">&lt;</span><span class="n">HubServer</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="mi">128</span><span class="p">,</span><span class="w"> </span><span class="mi">256</span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">StaticCell</span><span class="p">::</span><span class="n">new</span><span class="p">();</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="kd">let</span><span class="w"> </span><span class="n">hub</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ModuleSlot</span><span class="p">::</span><span class="n">init</span><span class="p">(</span><span class="n">HUB</span><span class="p">.</span><span class="n">uninit</span><span class="p">());</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="n">hub</span><span class="p">.</span><span class="n">load</span><span class="p">(</span><span class="n">Linked</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">server</span><span class="p">:</span><span class="w"> </span><span class="nc">HubServer</span><span class="p">::</span><span class="n">new</span><span class="p">(),</span><span class="w"> </span><span class="n">model</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">hub_impl</span><span class="p">::</span><span class="n">WW_SELF_BYTES_NO_DOCS</span><span class="w"> </span><span class="p">})</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="c1">// the parent&#39;s handlers</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="k">fn</span><span class="w"> </span><span class="nf">get_hub_presence</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">cx</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">Context</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="p">,</span><span class="w"> </span><span class="k">impl</span><span class="w"> </span><span class="n">BlockingEventOut</span><span class="o">&gt;</span><span class="p">)</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">    </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">GetResult</span><span class="o">&lt;</span><span class="n">MountPresence</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">CommonError</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">    </span><span class="n">Value</span><span class="p">(</span><span class="bp">self</span><span class="p">.</span><span class="n">hub</span><span class="p">.</span><span class="n">presence</span><span class="p">())</span>
+</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="p">}</span>
+</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="k">fn</span><span class="w"> </span><span class="nf">hub_request</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">cx</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">Context</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="p">,</span><span class="w"> </span><span class="k">impl</span><span class="w"> </span><span class="n">BlockingEventOut</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">request</span><span class="p">:</span><span class="w"> </span><span class="nc">MountRequest</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="p">,</span><span class="w"> </span><span class="o">&#39;</span><span class="nb">_</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">MountAnswer</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="w">    </span><span class="bp">self</span><span class="p">.</span><span class="n">hub</span><span class="p">.</span><span class="n">forward_blocking</span><span class="p">(</span><span class="n">cx</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">request</span><span class="p">)</span>
+</span><span id="__span-5-15"><a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="p">}</span>
+</span><span id="__span-5-16"><a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a>
+</span><span id="__span-5-17"><a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="c1">// the parent&#39;s event loop</span>
+</span><span id="__span-5-18"><a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a><span class="n">hub</span><span class="p">.</span><span class="n">poll_blocking</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">out</span><span class="p">);</span>
+</span><span id="__span-5-19"><a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a><span class="k">if</span><span class="w"> </span><span class="n">hub</span><span class="p">.</span><span class="n">take_changed</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-5-20"><a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a><span class="w">    </span><span class="n">server</span><span class="p">.</span><span class="n">mark_changed_hub_presence</span><span class="p">();</span>
+</span><span id="__span-5-21"><a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>An async parent calls <code>forward</code> and <code>poll</code> instead. <code>load</code> replaces the module loaded before and returns it, and
+<code>unload</code> takes it out. Either way the old module's requests are answered <code>Unavailable</code> and its streams and
+observed levels get a <code>Close</code> sideband, as when a backend process goes. <code>presence</code> follows: <code>Up</code> with the module's
+API while one is loaded, <code>Absent</code> otherwise, and <code>take_changed</code> says when the backend should call
+<code>mark_changed_hub_presence()</code>. A <code>static</code> of <code>ModuleSlot::new()</code> works too, but it is placed in <code>.data</code>, so its whole
+size also takes flash: the padding of its fields keeps it out of <code>.bss</code>.</p>
+<h4 id="what-the-slot-checks">What the slot checks<a class="headerlink" href="#what-the-slot-checks" title="Permanent link">&para;</a></h4>
+<p>A loaded module is untrusted code. The slot checks everything the module says before it reaches the parent's
+<code>EventOut</code>, and a misbehaving module never makes the parent panic:</p>
+<ul>
+<li>The model must decode as a <code>ww_self::ApiBundle</code> that names a crate for its root, with its crate name, pre-release
+  and build metadata within 64 bytes (<code>IDENTITY_TEXT_MAX</code>). Otherwise <code>load</code> refuses the module and the slot stays as
+  it was. The module's word on its hash is never taken.</li>
+<li>Each event must decode as an <code>Event</code>. A reply, or stream data of a request, passes only under a seq the slot sent
+  the module and the module hasn't answered yet.</li>
+<li>An event with a path gets the slot's path in front, so it can't reach the parent's own tree. A joined path past
+  16 ids (<code>PATH_IDS_MAX</code>), or a message that doesn't fit the slot's buffers, is dropped.</li>
+<li>A reply the module writes outside of the buffer it was given, or a <code>ModuleError::Fault</code> (a wasm trap, a module out
+  of fuel), unloads the module.</li>
+<li>A reply that doesn't decode is answered <code>ResponseSerFailed</code> under its request's seq.</li>
+<li>More than 8 requests in flight (<code>IN_FLIGHT_MAX</code>) are refused <code>Overloaded</code>, a request longer than <code>MSG</code>
+  <code>ResponseSerFailed</code>.</li>
+</ul>
+<p><code>ModuleSlot::counters</code> counts what was dropped or refused (<code>ModuleCounters</code>): malformed events, stray replies, events
+that didn't fit, messages the parent's <code>EventOut</code> refused, refused requests, lost answers and faults. The module
+never sees a request's context: the slot clears it, so a client can't tell a module who it is.</p>
+<p>A module's effects all pass for now: the slot doesn't check what a module may do. Per-module effect caps (TR-24)
+will be checked in <code>ModuleSlot::forward</code>, before the module sees the request.</p>
+<h4 id="limits-and-cost">Limits and cost<a class="headerlink" href="#limits-and-cost" title="Permanent link">&para;</a></h4>
+<ul>
+<li>A global trait path into a firmware's module (<code>GlobalFull</code>, <code>GlobalCompact</code>) is not resolved yet (SRV-82): reach
+  the module's traits by their absolute path under the slot.</li>
+<li>An async <code>no_alloc</code> server with two slots whose observed <code>presence</code> getters both borrow the server
+  (<code>MountPresence&lt;'_&gt;</code>) doesn't compile yet: the generated observe poll borrows the server twice (SRV-83). Use
+  <code>no_alloc = false</code> and <code>MountPresenceOwned</code>, or one observed slot.</li>
+<li>One <code>ModuleSlot</code> serves one front connection.</li>
+</ul>
+<p><code>examples_mcu/mcu_qemu</code>'s <code>qemu-mount-module</code> measures a slot with <code>mount_backend_api</code>'s hub, <code>MSG</code> 128 and <code>OUT</code>
+256, on a Cortex-M3 under QEMU. The table gives instructions, not cycles, and the stack painted below each call.</p>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th style="text-align: right;"><code>fw-z</code> instructions</th>
+<th style="text-align: right;"><code>fw-z</code> stack</th>
+<th style="text-align: right;"><code>fw-3</code> instructions</th>
+<th style="text-align: right;"><code>fw-3</code> stack</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>load</code> (decode model, hash)</td>
+<td style="text-align: right;">33 515</td>
+<td style="text-align: right;">1 888 B</td>
+<td style="text-align: right;">30 392</td>
+<td style="text-align: right;">1 920 B</td>
+</tr>
+<tr>
+<td><code>presence</code></td>
+<td style="text-align: right;">141</td>
+<td style="text-align: right;">64 B</td>
+<td style="text-align: right;">132</td>
+<td style="text-align: right;">64 B</td>
+</tr>
+<tr>
+<td><code>forward_blocking</code> of a call</td>
+<td style="text-align: right;">4 180</td>
+<td style="text-align: right;">1 584 B</td>
+<td style="text-align: right;">2 827</td>
+<td style="text-align: right;">1 152 B</td>
+</tr>
+<tr>
+<td><code>forward_blocking</code> of a stream open</td>
+<td style="text-align: right;">5 177</td>
+<td style="text-align: right;">1 584 B</td>
+<td style="text-align: right;">3 343</td>
+<td style="text-align: right;">1 152 B</td>
+</tr>
+<tr>
+<td><code>poll_blocking</code>, one item</td>
+<td style="text-align: right;">3 050</td>
+<td style="text-align: right;">760 B</td>
+<td style="text-align: right;">1 823</td>
+<td style="text-align: right;">580 B</td>
+</tr>
+</tbody>
+</table>
+<p>The slot takes 2 336 B of RAM at these sizes. At <code>fw-z</code> its code is about 12 KB of flash, the SHA-256 of the
+model hash 7 KB, and decoding the model at <code>load</code> 8 KB.</p>
 <h3 id="who-calls-and-what-it-does">Who calls and what it does<a class="headerlink" href="#who-calls-and-what-it-does" title="Permanent link">&para;</a></h3>
 <p>A call into a mount is checked twice: by the front server's <a href="../host_server/#who-may-call">authorization hook</a> before
 it is sent on, and by the backend's before it runs.</p>
@@ -6912,21 +7122,21 @@ the API learned when the backend came up. <code>Resource::mount</code> says the 
 of the slot's <code>api</code>, <code>api</code> the learned API. A slot's API is learned before its presence turns <code>Up</code>. When none could be
 learned (introspection off, longer than 4 MiB), <code>api</code> is <code>None</code> and so are the items: nothing is known of what the
 request does, and a policy that limits effects refuses such a request.</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kd">let</span><span class="w"> </span><span class="n">policy</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">from_fn</span><span class="p">(</span><span class="o">|</span><span class="n">cx</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">CallContext</span><span class="p">,</span><span class="w"> </span><span class="n">resource</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">Resource</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="o">&gt;|</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">unknown</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">resource</span><span class="p">.</span><span class="n">mount</span><span class="p">.</span><span class="n">is_some_and</span><span class="p">(</span><span class="o">|</span><span class="n">mount</span><span class="o">|</span><span class="w"> </span><span class="n">mount</span><span class="p">.</span><span class="n">api</span><span class="p">.</span><span class="n">is_none</span><span class="p">());</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="n">unknown</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">resource</span><span class="p">.</span><span class="n">effects</span><span class="p">().</span><span class="n">contains</span><span class="p">(</span><span class="n">Effects</span><span class="p">::</span><span class="n">DESTRUCTIVE</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nb">Err</span><span class="p">(</span><span class="n">Denied</span><span class="p">);</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">    </span><span class="p">}</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">    </span><span class="nb">Ok</span><span class="p">(())</span>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="p">});</span>
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="kd">let</span><span class="w"> </span><span class="n">server</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Server</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">clock</span><span class="p">).</span><span class="n">mounts</span><span class="p">(</span><span class="n">mounts</span><span class="p">.</span><span class="n">routes</span><span class="p">()).</span><span class="n">authorize</span><span class="p">(</span><span class="n">policy</span><span class="p">,</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">own_bundle</span><span class="p">));</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kd">let</span><span class="w"> </span><span class="n">policy</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">from_fn</span><span class="p">(</span><span class="o">|</span><span class="n">cx</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">CallContext</span><span class="p">,</span><span class="w"> </span><span class="n">resource</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">Resource</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="o">&gt;|</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">unknown</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">resource</span><span class="p">.</span><span class="n">mount</span><span class="p">.</span><span class="n">is_some_and</span><span class="p">(</span><span class="o">|</span><span class="n">mount</span><span class="o">|</span><span class="w"> </span><span class="n">mount</span><span class="p">.</span><span class="n">api</span><span class="p">.</span><span class="n">is_none</span><span class="p">());</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="n">unknown</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">resource</span><span class="p">.</span><span class="n">effects</span><span class="p">().</span><span class="n">contains</span><span class="p">(</span><span class="n">Effects</span><span class="p">::</span><span class="n">DESTRUCTIVE</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nb">Err</span><span class="p">(</span><span class="n">Denied</span><span class="p">);</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">    </span><span class="nb">Ok</span><span class="p">(())</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="p">});</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="kd">let</span><span class="w"> </span><span class="n">server</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Server</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">clock</span><span class="p">).</span><span class="n">mounts</span><span class="p">(</span><span class="n">mounts</span><span class="p">.</span><span class="n">routes</span><span class="p">()).</span><span class="n">authorize</span><span class="p">(</span><span class="n">policy</span><span class="p">,</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">own_bundle</span><span class="p">));</span>
 </span></code></pre></div>
 <p>The backend learns which client of the front called. The forwarder sends the peer the front's transport saw
 (<code>cx.call().peer</code>: a unix user, a key, an address, or <code>Unknown</code>) in each request's context,
 <code>RequestContext::forwarded_for</code>, and replaces whatever the client put there. A call from the front's own process
 names nobody. The backend takes that word only from a peer it trusts to forward:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1">// the hub: its socket lets in only its own user, and the TV runs as that user</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="kd">let</span><span class="w"> </span><span class="n">server</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Server</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">clock</span><span class="p">).</span><span class="n">trust_forwarders</span><span class="p">(</span><span class="o">|</span><span class="n">peer</span><span class="o">|</span><span class="w"> </span><span class="fm">matches!</span><span class="p">(</span><span class="n">peer</span><span class="p">,</span><span class="w"> </span><span class="n">Peer</span><span class="p">::</span><span class="n">Unix</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="p">}));</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1">// the hub: its socket lets in only its own user, and the TV runs as that user</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="kd">let</span><span class="w"> </span><span class="n">server</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Server</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">clock</span><span class="p">).</span><span class="n">trust_forwarders</span><span class="p">(</span><span class="o">|</span><span class="n">peer</span><span class="o">|</span><span class="w"> </span><span class="fm">matches!</span><span class="p">(</span><span class="n">peer</span><span class="p">,</span><span class="w"> </span><span class="n">Peer</span><span class="p">::</span><span class="n">Unix</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="p">}));</span>
 </span></code></pre></div>
 <p>Then its handlers and its own hook see the front's client as <code>cx.call().peer</code>, with <code>cx.call().forwarded</code> set; the
 connection's peer (<code>Connection::peer</code>) stays the forwarder. Without <code>trust_forwarders</code>, or from any other peer, the
@@ -6958,25 +7168,25 @@ A trusted forwarder's request whose context doesn't decode is <code>Unknown</cod
 their address only until peer authentication (TR-24, planned) lands.</p>
 <h2 id="client">Client<a class="headerlink" href="#client" title="Permanent link">&para;</a></h2>
 <p>The generated client hands out a <code>wire_weaver_client::MountSlot</code>:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kd">let</span><span class="w"> </span><span class="n">hub</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span><span class="p">.</span><span class="n">hub</span><span class="p">()</span><span class="o">?</span><span class="p">;</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="kd">let</span><span class="w"> </span><span class="n">presence</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">hub</span><span class="p">.</span><span class="n">presence</span><span class="p">().</span><span class="n">read</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span><span class="w">          </span><span class="c1">// MountPresenceOwned</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="kd">let</span><span class="w"> </span><span class="n">api_path</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">hub</span><span class="p">.</span><span class="n">api_path</span><span class="p">();</span><span class="w">                         </span><span class="c1">// path of the mounted API&#39;s root</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="kd">let</span><span class="w"> </span><span class="n">ext</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span><span class="p">.</span><span class="n">ext_by</span><span class="p">(</span><span class="o">&amp;</span><span class="n">name</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span><span class="w">                 </span><span class="c1">// Option&lt;MountSlot&gt;, by MountNameOwned</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="kd">let</span><span class="w"> </span><span class="n">first</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span><span class="p">.</span><span class="n">ext</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kd">let</span><span class="w"> </span><span class="n">hub</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span><span class="p">.</span><span class="n">hub</span><span class="p">()</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="kd">let</span><span class="w"> </span><span class="n">presence</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">hub</span><span class="p">.</span><span class="n">presence</span><span class="p">().</span><span class="n">read</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span><span class="w">          </span><span class="c1">// MountPresenceOwned</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="kd">let</span><span class="w"> </span><span class="n">api_path</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">hub</span><span class="p">.</span><span class="n">api_path</span><span class="p">();</span><span class="w">                         </span><span class="c1">// path of the mounted API&#39;s root</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="kd">let</span><span class="w"> </span><span class="n">ext</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span><span class="p">.</span><span class="n">ext_by</span><span class="p">(</span><span class="o">&amp;</span><span class="n">name</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span><span class="w">                 </span><span class="c1">// Option&lt;MountSlot&gt;, by MountNameOwned</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="kd">let</span><span class="w"> </span><span class="n">first</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span><span class="p">.</span><span class="n">ext</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
 </span></code></pre></div>
 <h3 id="views-of-a-mounted-api">Views of a mounted API<a class="headerlink" href="#views-of-a-mounted-api" title="Permanent link">&para;</a></h3>
 <p>A <code>MountView</code> is how a client works with the API mounted at a slot. Its <code>commander()</code> is a <code>Commander</code> whose paths
 are in the mounted API: each request goes out with the slot's <code>api</code> in front, and each answer, event and stream item
 comes back under the same path. The view holds its own facts of the mounted API, apart from the device's: crate,
 version, hashes, introspection data (asked for below the slot's <code>api</code>), global trait paths, <code>const</code> values and keys.</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1">// a generated client of the mounted API</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="kd">let</span><span class="w"> </span><span class="n">view</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tv</span><span class="p">.</span><span class="n">hub</span><span class="p">()</span><span class="o">?</span><span class="p">.</span><span class="n">view_for</span><span class="p">(</span><span class="o">&amp;</span><span class="n">hub_api</span><span class="p">::</span><span class="n">Client</span><span class="p">::</span><span class="n">client_line</span><span class="p">()).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="kd">let</span><span class="w"> </span><span class="n">hub</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">hub_api</span><span class="p">::</span><span class="n">Client</span><span class="p">::</span><span class="n">on_mount</span><span class="p">(</span><span class="o">&amp;</span><span class="n">view</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="n">hub</span><span class="p">.</span><span class="n">player</span><span class="p">().</span><span class="n">pause</span><span class="p">().</span><span class="n">call</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>
-</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="c1">// the dynamic client</span>
-</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="kd">let</span><span class="w"> </span><span class="n">view</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tv</span><span class="p">.</span><span class="n">hub</span><span class="p">()</span><span class="o">?</span><span class="p">.</span><span class="n">view</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
-</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="kd">let</span><span class="w"> </span><span class="n">info</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">view</span><span class="p">.</span><span class="n">commander</span><span class="p">().</span><span class="n">device_api_info</span><span class="p">();</span><span class="w">           </span><span class="c1">// the mounted API, not the TV&#39;s</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1">// a generated client of the mounted API</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="kd">let</span><span class="w"> </span><span class="n">view</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tv</span><span class="p">.</span><span class="n">hub</span><span class="p">()</span><span class="o">?</span><span class="p">.</span><span class="n">view_for</span><span class="p">(</span><span class="o">&amp;</span><span class="n">hub_api</span><span class="p">::</span><span class="n">Client</span><span class="p">::</span><span class="n">client_line</span><span class="p">()).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="kd">let</span><span class="w"> </span><span class="n">hub</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">hub_api</span><span class="p">::</span><span class="n">Client</span><span class="p">::</span><span class="n">on_mount</span><span class="p">(</span><span class="o">&amp;</span><span class="n">view</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="n">hub</span><span class="p">.</span><span class="n">player</span><span class="p">().</span><span class="n">pause</span><span class="p">().</span><span class="n">call</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="c1">// the dynamic client</span>
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="kd">let</span><span class="w"> </span><span class="n">view</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tv</span><span class="p">.</span><span class="n">hub</span><span class="p">()</span><span class="o">?</span><span class="p">.</span><span class="n">view</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="kd">let</span><span class="w"> </span><span class="n">info</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">view</span><span class="p">.</span><span class="n">commander</span><span class="p">().</span><span class="n">device_api_info</span><span class="p">();</span><span class="w">           </span><span class="c1">// the mounted API, not the TV&#39;s</span>
 </span></code></pre></div>
 <ul>
 <li><code>view_for</code> checks calls against the mounted API as a connect checks them against a device's API.

@@ -19,7 +19,7 @@ wire_weaver_client = { workspace = true, features = ["clock_sync", "in_process",
 ww_client_server.workspace = true
 ww_hub.workspace = true
 ww_local_socket.workspace = true
-ww_self.workspace = true
+ww_self = { workspace = true, features = ["std"] }
 
 [lints]
 workspace = true

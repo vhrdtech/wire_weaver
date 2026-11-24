@@ -22,6 +22,7 @@ std = [
     "ww_version/std",
     "ww_trace_context/std",
     "dep:ww_self",
+    "ww_self/std",
 ]
 # defmt formatting for the runtime's types
 defmt = [

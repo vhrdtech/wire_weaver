@@ -40,6 +40,8 @@ pub mod fuzz_bundle;
 pub mod fuzz_series;
 #[cfg(feature = "std")]
 pub mod generics;
+#[cfg(feature = "hash")]
+pub mod hash;
 #[cfg(feature = "std")]
 pub mod host;
 #[cfg(feature = "std")]

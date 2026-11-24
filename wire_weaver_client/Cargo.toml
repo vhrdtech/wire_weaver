@@ -112,7 +112,7 @@ trybuild.workspace = true
 wire_weaver_core = { workspace = true }
 ww_byte_stream = { workspace = true, features = ["device"] }
 ww_device = { workspace = true, features = ["futures-io", "std"] }
-ww_self = { workspace = true, features = ["fuzz"] }
+ww_self = { workspace = true, features = ["fuzz", "std"] }
 ww_stream = { workspace = true, features = ["std", "lz4"] }
 
 # The workspace lints, copied: this crate holds unsafe code (`unsafe = true` in layers.toml), which the workspace

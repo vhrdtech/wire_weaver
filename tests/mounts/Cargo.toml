@@ -30,7 +30,7 @@ wire_weaver_server = { workspace = true, features = ["in_process", "local_socket
 ww_client_server.workspace = true
 ww_device.workspace = true
 ww_keyed = { workspace = true, features = ["std"] }
-ww_self.workspace = true
+ww_self = { workspace = true, features = ["std"] }
 ww_stream.workspace = true
 
 [dev-dependencies]

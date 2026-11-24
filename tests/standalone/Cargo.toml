@@ -18,7 +18,7 @@ tracing-subscriber.workspace = true
 wire_weaver = { workspace = true, features = ["std"] }
 wire_weaver_client = { workspace = true, features = ["clock_sync", "usb"] }
 ww_client_server.workspace = true
-ww_self.workspace = true
+ww_self = { workspace = true, features = ["std"] }
 
 [lints]
 workspace = true

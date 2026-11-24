@@ -19,7 +19,7 @@ tests_common.workspace = true
 track_api.workspace = true
 wire_weaver = { workspace = true, features = ["std"] }
 ww_client_server.workspace = true
-ww_self.workspace = true
+ww_self = { workspace = true, features = ["std"] }
 ww_si.workspace = true
 ww_stream = { workspace = true, features = ["std"] }
 

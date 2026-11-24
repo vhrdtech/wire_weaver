@@ -37,7 +37,7 @@ wire_weaver_client = { workspace = true, features = ["clock_sync", "in_process",
 ww_client_server.workspace = true
 ww_device = { workspace = true, features = ["futures-io"] }
 ww_dns_sd = { workspace = true, features = ["mdns", "avahi"] }
-ww_self = { workspace = true }
+ww_self = { workspace = true, features = ["std"] }
 
 [[example]]
 name = "blinky_blocking"

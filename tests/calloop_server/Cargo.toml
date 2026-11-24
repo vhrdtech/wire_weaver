@@ -23,7 +23,7 @@ ww_calloop.workspace = true
 ww_client_server.workspace = true
 ww_device.workspace = true
 ww_local_socket = { workspace = true, features = ["socket"] }
-ww_self.workspace = true
+ww_self = { workspace = true, features = ["std"] }
 
 [lints]
 workspace = true

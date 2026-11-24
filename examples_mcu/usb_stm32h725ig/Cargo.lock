@@ -60,6 +60,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "bedrock_led"
+version = "0.1.0"
+source = "git+https://github.com/romixlab/embedded_bedrock#da52ad1226499bcca2b96d3052f02fe5ca8c1190"
+dependencies = [
+ "defmt 1.1.1",
+ "embassy-sync",
+ "embassy-time",
+ "embedded-hal 1.0.0",
+ "ww_indication",
+]
+
+[[package]]
 name = "bit_field"
 version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -96,7 +108,7 @@ dependencies = [
 name = "blinky_api"
 version = "0.1.0"
 dependencies = [
- "ww_api",
+ "ww_api 0.6.0",
 ]
 
 [[package]]
@@ -836,7 +848,7 @@ checksum = "d45db016d36b838f563236e9193d0ee6ce38f3f68b6c94e914b4929c96bbb890"
 name = "flash_budget_api"
 version = "0.1.0"
 dependencies = [
- "ww_api",
+ "ww_api 0.6.0",
  "ww_keyed",
  "ww_si",
 ]
@@ -851,7 +863,7 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 name = "foc_observe_api"
 version = "0.1.0"
 dependencies = [
- "ww_api",
+ "ww_api 0.6.0",
  "ww_si",
 ]
 
@@ -1123,7 +1135,7 @@ checksum = "05c8b63e8d9609db387f0324918f81d68fe27748f084ef092fb35954d0539a85"
 name = "power_stage_api"
 version = "0.1.0"
 dependencies = [
- "ww_api",
+ "ww_api 0.6.0",
  "ww_si",
 ]
 
@@ -1678,6 +1690,7 @@ dependencies = [
 name = "usb_fdcan_h725ig"
 version = "0.1.0"
 dependencies = [
+ "bedrock_led",
  "blinky_api",
  "cnt",
  "cortex-m",
@@ -1826,7 +1839,7 @@ dependencies = [
  "defmt 1.1.1",
  "exact_units",
  "shrink_wrap",
- "ww_api",
+ "ww_api 0.6.0",
  "ww_trace_context",
  "ww_version",
 ]
@@ -1849,8 +1862,32 @@ dependencies = [
  "syn 3.0.3",
  "ww_global",
  "ww_numeric",
- "ww_self",
- "ww_snapshots",
+ "ww_self 0.3.0",
+ "ww_snapshots 0.6.0",
+ "ww_version",
+]
+
+[[package]]
+name = "wire_weaver_core"
+version = "0.6.0"
+source = "git+https://github.com/vhrdtech/wire_weaver#efc0cc242d14f9806725b01ea32907dd5521f993"
+dependencies = [
+ "anyhow",
+ "cargo_toml",
+ "convert_case",
+ "exact_units",
+ "hex",
+ "proc-macro2",
+ "quote",
+ "regex",
+ "ron",
+ "semver 1.0.28",
+ "shrink_wrap",
+ "syn 3.0.3",
+ "ww_global",
+ "ww_numeric",
+ "ww_self 0.3.0 (git+https://github.com/vhrdtech/wire_weaver)",
+ "ww_snapshots 0.6.0 (git+https://github.com/vhrdtech/wire_weaver)",
  "ww_version",
 ]
 
@@ -1867,7 +1904,25 @@ dependencies = [
  "quote",
  "subprocess",
  "syn 3.0.3",
- "wire_weaver_core",
+ "wire_weaver_core 0.6.0",
+ "ww_global",
+]
+
+[[package]]
+name = "wire_weaver_derive"
+version = "0.6.0"
+source = "git+https://github.com/vhrdtech/wire_weaver#efc0cc242d14f9806725b01ea32907dd5521f993"
+dependencies = [
+ "anyhow",
+ "convert_case",
+ "darling 0.24.0",
+ "pathsearch",
+ "proc-macro-crate",
+ "proc-macro2",
+ "quote",
+ "subprocess",
+ "syn 3.0.3",
+ "wire_weaver_core 0.6.0 (git+https://github.com/vhrdtech/wire_weaver)",
  "ww_global",
 ]
 
@@ -1890,7 +1945,20 @@ dependencies = [
  "defmt 1.1.1",
  "exact_units",
  "shrink_wrap",
- "wire_weaver_derive",
+ "wire_weaver_derive 0.6.0",
+ "ww_error",
+ "ww_version",
+]
+
+[[package]]
+name = "ww_api"
+version = "0.6.0"
+source = "git+https://github.com/vhrdtech/wire_weaver#efc0cc242d14f9806725b01ea32907dd5521f993"
+dependencies = [
+ "defmt 1.1.1",
+ "exact_units",
+ "shrink_wrap",
+ "wire_weaver_derive 0.6.0 (git+https://github.com/vhrdtech/wire_weaver)",
  "ww_error",
  "ww_version",
 ]
@@ -1927,7 +1995,7 @@ dependencies = [
  "ww_framer",
  "ww_global",
  "ww_link",
- "ww_self",
+ "ww_self 0.3.0",
  "ww_tap",
 ]
 
@@ -1960,6 +2028,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ww_indication"
+version = "0.1.0"
+source = "git+https://github.com/vhrdtech/ww_stdlib#e882a68d5d573b1609786b29e24ad1ecaaf02fba"
+dependencies = [
+ "defmt 1.1.1",
+ "ww_api 0.6.0 (git+https://github.com/vhrdtech/wire_weaver)",
+ "ww_si",
+]
+
+[[package]]
 name = "ww_keyed"
 version = "0.1.0"
 source = "git+https://github.com/vhrdtech/ww_base#b35d6919bb6d54256ecac1db4fef62f984e4cfa8"
@@ -1987,6 +2065,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ww_lz4"
+version = "0.1.0"
+source = "git+https://github.com/vhrdtech/wire_weaver#efc0cc242d14f9806725b01ea32907dd5521f993"
+dependencies = [
+ "lz4_flex",
+]
+
+[[package]]
 name = "ww_numeric"
 version = "0.3.0"
 source = "git+https://github.com/vhrdtech/ww_base#b35d6919bb6d54256ecac1db4fef62f984e4cfa8"
@@ -2006,7 +2092,23 @@ dependencies = [
  "sha2",
  "shrink_wrap",
  "ww_error",
- "ww_lz4",
+ "ww_lz4 0.1.0",
+ "ww_numeric",
+ "ww_version",
+]
+
+[[package]]
+name = "ww_self"
+version = "0.3.0"
+source = "git+https://github.com/vhrdtech/wire_weaver#efc0cc242d14f9806725b01ea32907dd5521f993"
+dependencies = [
+ "anyhow",
+ "exact_units",
+ "serde",
+ "sha2",
+ "shrink_wrap",
+ "ww_error",
+ "ww_lz4 0.1.0 (git+https://github.com/vhrdtech/wire_weaver)",
  "ww_numeric",
  "ww_version",
 ]
@@ -2034,7 +2136,24 @@ dependencies = [
  "serde",
  "toml",
  "tracing",
- "ww_self",
+ "ww_self 0.3.0",
+ "ww_version",
+]
+
+[[package]]
+name = "ww_snapshots"
+version = "0.6.0"
+source = "git+https://github.com/vhrdtech/wire_weaver#efc0cc242d14f9806725b01ea32907dd5521f993"
+dependencies = [
+ "anyhow",
+ "elsa",
+ "ron",
+ "rustc-stable-hash",
+ "semver 1.0.28",
+ "serde",
+ "toml",
+ "tracing",
+ "ww_self 0.3.0 (git+https://github.com/vhrdtech/wire_weaver)",
  "ww_version",
 ]
 

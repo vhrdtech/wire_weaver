@@ -34,6 +34,7 @@ embassy-sync = { version = "0.8", features = ["defmt"] }
 embassy-futures = "0.1"
 embassy-usb = { version = "0.6", features = ["defmt"] }
 static_cell = "2.1"
+bedrock_led = { git = "https://github.com/romixlab/embedded_bedrock", features = ["embassy", "defmt"] }
 
 blinky_api = { path = "../../examples/blinky_api", default-features = false }
 foc_observe_api = { path = "../../examples/foc_observe_api", default-features = false }
@@ -177,3 +178,10 @@ bench = false
 # (`unsafe = true` in layers.toml).
 [lints.rust]
 unsafe_code = "allow" # unsafe = true in layers.toml: the workspace forbids it elsewhere
+
+[[bin]]
+name = "stm32h725ig-wasm-slot"
+path = "src/bin/wasm_slot/main.rs"
+test = false
+doctest = false
+bench = false

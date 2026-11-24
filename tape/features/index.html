@@ -6879,6 +6879,11 @@
 <p>Every call of the mux, its handles and the followers that waits has an <code>_async</code> twin. Threads and tasks wait in the same line, in arrival order, and a blocking call parks its thread on the same future. No crate depends on an async runtime: the writing thread, or a follower's own waiting thread, wakes the task. A send dropped while it waits leaves the line, and a typed handle sends the chunks a dropped push completed on its next call.</p>
 <p>Open: a typed handle's drop still sends blocking, so async code ends a handle with <code>finish_async</code>.</p>
 <p>Read more: <a href="https://tape.vhrd.tech/writing_thread/#threads-and-tasks">Threads and tasks</a>. Tests <code>mux_async.rs</code> on tokio's two schedulers and smol.</p>
+<ul>
+<li>✅ <strong>MUX-4 A producer's own chunks, receipts and carried items</strong></li>
+</ul>
+<p>A sender from <code>TapeMux::summarized_chunks</code> takes each chunk a producer encoded with its summary leaves. The writing thread joins them into the track's tree, ends it at its cuts and rebuilds it after a resume. <code>ChunkSender::send_placed</code> gives a receipt naming the chunk's piece, offset, length and unit hash. <code>TapeMux::put_item</code> puts a typed item again in each piece a cut starts: every piece, or those holding a track of its owner. Carrying never cuts, and the held items are capped.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/own_chunks/">A producer's own chunks</a>. Tests <code>mux_leaves.rs</code>, <code>mux_placing.rs</code>, <code>mux_items.rs</code>.</p>
 <h2 id="reader-read">Reader (<code>READ</code>)<a class="headerlink" href="#reader-read" title="Permanent link">&para;</a></h2>
 <p>Reading by position, checks and hashes, hostile bytes and live chains, in the crates <code>ww_tape</code> and <code>ww_tape_fs</code>.</p>
 <ul>
@@ -6909,7 +6914,7 @@
 <ul>
 <li>✅ <strong>READ-6 Followers of a live chain</strong></li>
 </ul>
-<p><code>ww_tape_fs::follow::ChainFollower</code> reads a chain while another process writes it, piece after piece, and hands out only blocks that check. A torn end is read again once a resume has cut it back, and a block the resume took back is never handed out. <code>TrackFollower</code> decodes one track and reports item-number gaps as lost items. <code>TimeMerge</code> merges chains by time, and <code>TapeMux::watch</code> shows readers in the writer's process what is written and synced.</p>
+<p><code>ww_tape_fs::follow::ChainFollower</code> reads a chain while another process writes it, piece after piece, and hands out only blocks that check. A torn end is read again once a resume has cut it back, and a block the resume took back is never handed out. <code>TrackFollower</code> decodes one track and reports item-number gaps as lost items; <code>ChainFollower::track_of</code> follows one owner's track in a chain several owners write. <code>TimeMerge</code> merges chains by time, and <code>TapeMux::watch</code> shows readers in the writer's process what is written and synced.</p>
 <p>Read more: <a href="https://tape.vhrd.tech/growing_pieces/#following-a-chain-while-it-is-written">Following a chain while it is written</a>. Tests <code>follow.rs</code> (a writer process killed and resumed), <code>progress.rs</code>.</p>
 <h2 id="files-and-locks-fs">Files and locks (<code>FS</code>)<a class="headerlink" href="#files-and-locks-fs" title="Permanent link">&para;</a></h2>
 <p>Everything that names a path, in the crate <code>ww_tape_fs</code>.</p>
@@ -6998,13 +7003,25 @@
 <p>The book runs in six parts in dependency order, each page with a reading level, from a first tape through building, writing, reading and damage. Glossary terms and code links carry a card on hover, and a stale name fails <code>just book-check</code>. The pages' <code>rust</code> blocks run as doctests, their figures are drawn from real blocks, and their numbers come from bench reports. A format reference with numbered sections holds the detail.</p>
 <p>Open: the chapters that are still stubs, tested code in every guide chapter, and screenshots of autorange and damage once eventfull draws them.</p>
 <p>Read more: <a href="https://tape.vhrd.tech/writers/">For writers</a>, <a href="https://tape.vhrd.tech/glossary/">Glossary</a>.</p>
+<ul>
+<li>✅ <strong>BOOK-5 Fields and images over time</strong></li>
+</ul>
+<p>A chapter explains grid tracks: fixed axes, tiles and the box query. It covers the time pyramid of a region and the space overviews, with the level a viewer picks. It also shows where per-tile overviews end. Two cases run in tests: <code>example_thermal</code>, a plate of sensors, and <code>example_images</code>, an image sequence in three tile sizes. Every number on the page comes from their runs.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/grids/">Fields and images over time</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/d1345474d2dbc4381d4a1075ea76aedc1ae9ecf2/examples/example_thermal/README.md">example_thermal</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/d1345474d2dbc4381d4a1075ea76aedc1ae9ecf2/examples/example_images/README.md">example_images</a>. Tests <code>thermal.rs</code>, <code>images.rs</code>.</p>
+<ul>
+<li>✅ <strong>BOOK-6 The book kit from its own repository</strong></li>
+</ul>
+<p>The book pins <code>vhrd_zensical</code> in the justfile; <code>vz prep</code> writes the code index, the cards and the footer stamp,
+  replacing spirit_level's book extension. The lexers are now <code>vz-console</code> and <code>vz-rust</code>, and the long forms of
+  <code>abbreviation-first-use</code> live in <code>docs/abbreviations.toml</code>, read by the kit, not <code>spirit_level.toml</code>.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/writers/">For writers</a>.</p>
 <h2 id="example-and-cases-ex">Example and cases (<code>EX</code>)<a class="headerlink" href="#example-and-cases-ex" title="Permanent link">&para;</a></h2>
 <p>The book's running example and its other cases: <code>example_drive</code>, <code>example_rf</code>, <code>example_ethernet</code> and <code>example_wideband</code>, with what they share in <code>example_capture</code>.</p>
 <ul>
 <li>✅ <strong>EX-1 The drive's hour as code</strong></li>
 </ul>
 <p><code>example_drive</code> records the drive motor controller's hour: log lines, mode, CAN frames, phase current with summaries and temperature, in a chain of pieces. <code>Drive::scaled</code> shrinks the data and the byte policies for figures, and a crash at any byte resumes to the bytes of the run without it. The RF capture (<code>example_rf</code>) records ComplexI16 IQ at 20 MS/s as the book's case for high rates. <code>cargo run -p example_drive</code> prints the story's numbers, and the tests pin them.</p>
-<p>Read more: <a href="https://github.com/vhrdtech/ww_tape/blob/6dd784f0074a78d24a78128ab85a303b6185a7a3/examples/example_drive/README.md">example_drive</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/6dd784f0074a78d24a78128ab85a303b6185a7a3/examples/example_rf/README.md">example_rf</a>. Tests <code>story.rs</code>, <code>damage.rs</code>, <code>rf.rs</code>.</p>
+<p>Read more: <a href="https://github.com/vhrdtech/ww_tape/blob/d1345474d2dbc4381d4a1075ea76aedc1ae9ecf2/examples/example_drive/README.md">example_drive</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/d1345474d2dbc4381d4a1075ea76aedc1ae9ecf2/examples/example_rf/README.md">example_rf</a>. Tests <code>story.rs</code>, <code>damage.rs</code>, <code>rf.rs</code>.</p>
 <ul>
 <li>✅ <strong>EX-2 A 10 Gbps link and a 1 GS/s receiver</strong></li>
 </ul>
@@ -7025,7 +7042,7 @@
 <li>✅ <strong>EX-5 A crate per case, its pipeline a library</strong></li>
 </ul>
 <p>Each case is a crate of its own: <code>example_drive</code> the book's running example, <code>example_rf</code>, <code>example_ethernet</code> and <code>example_wideband</code>. What they share, the memory window and the RF signal, is in <code>example_capture</code>, so no case depends on another. <code>window::start</code> and each case's <code>start</code> return a running pipeline. It hands out its memory window, the pieces in memory and each mux's watch, so a viewer follows it live. Each case has a headless binary whose <code>main</code> reads like a block diagram of its threads.</p>
-<p>Read more: <a href="https://tape.vhrd.tech/protocol_analyser/#the-pipeline">The pipeline</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/6dd784f0074a78d24a78128ab85a303b6185a7a3/examples/example_capture/README.md">example_capture</a>. Tests <code>window.rs</code>.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/protocol_analyser/#the-pipeline">The pipeline</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/d1345474d2dbc4381d4a1075ea76aedc1ae9ecf2/examples/example_capture/README.md">example_capture</a>. Tests <code>window.rs</code>.</p>
 <ul>
 <li>✅ <strong>EX-6 Payload compression measured on the cases</strong></li>
 </ul>

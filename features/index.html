@@ -7225,7 +7225,7 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
   <code>ww_device::Server::wait_until(at)</code>; <code>ww api scaffold</code> prints the signal. Tests: <code>ww_stream</code> (polling only at
   <code>next_wake</code> sends what polling every µs does), <code>tests/observe</code> (fake clock: polls only on the grid, a change from
   another thread sent at once), <code>tests/observe_batched</code>. <code>docs/api/observing.md#the-server-loop</code>.
-- ✅ <strong>SRV-24 shared-observe-loop One observe loop for every level</strong> — the algorithm of <code>poll_properties</code> (plan, overhead, selection, measuring, writing, commit, missed counts, batches of samples) is <code>ww_stream::observe</code>'s, sync: <code>plan_level</code>, <code>select</code>, <code>write</code>, <code>ser_update</code>. The generated <code>poll_properties</code> is one loop over the levels with one send site; per property it gives only a <code>size</code> and a <code>write</code> arm (through <code>&amp;mut dyn FnMut</code>) and awaits its async getters (SRV-21) itself, reading an unbounded async value once. <code>ObserveState::level</code> / <code>oldest_batch</code> / <code>remove_oldest_batch</code> reach a level by its number. Portwright, on top of SRV-21 and SRV-23: −5.8 KiB flash at <code>opt-level = 3</code>, −5.0 KiB at <code>z</code>. <code>ww_stream/src/observe.rs</code>, <code>docs/api/observing.md#the-device-side</code>; tests <code>tests/observe</code>, <code>tests/observe_batched</code>, <code>ww_stream/src/observe/tests.rs</code>. A value that can't be had at write time is dropped alone (counted missed), the rest of the update goes; tested on Portwright B153A (<code>plug</code> with <code>cc</code> unimplemented).
+- ✅ <strong>SRV-24 shared-observe-loop One observe loop for every level</strong> — the algorithm of <code>poll_properties</code> (plan, overhead, selection, measuring, writing, commit, missed counts, batches of samples) is <code>ww_stream::observe</code>'s, sync: <code>plan_level</code>, <code>select</code> (<code>Selecting</code>), <code>WritePass</code>, <code>end_pass</code>, <code>ser_update</code>. The generated <code>poll_properties</code> is one loop over the levels with one send site; per property it gives only a <code>size</code> and a <code>write</code> arm, which the loop runs a slot at a time, awaiting an async getter (SRV-21) in place (SRV-83). <code>ObserveState::level</code> / <code>oldest_batch</code> / <code>remove_oldest_batch</code> reach a level by its number. Portwright, on top of SRV-21 and SRV-23: −5.8 KiB flash at <code>opt-level = 3</code>, −5.0 KiB at <code>z</code>. <code>ww_stream/src/observe.rs</code>, <code>docs/api/observing.md#the-device-side</code>; tests <code>tests/observe</code>, <code>tests/observe_batched</code>, <code>ww_stream/src/observe/tests.rs</code>. A value that can't be had at write time is dropped alone (counted missed), the rest of the update goes; tested on Portwright B153A (<code>plug</code> with <code>cc</code> unimplemented).
 - ✅ <strong>SRV-22 error-seq-per-item Error sites numbered the same in every server</strong> — <code>err_seq</code> of an <code>Error</code> is no
   longer one counter across the generated server (705 numbers on Portwright) but fixed per site
   (<code>ww_client_server::err_seq</code>): item steps in step order and the same for every item (0 kind not taken, 1 decode,
@@ -7395,6 +7395,14 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
     caps go in <code>ModuleSlot::forward</code>. Cortex-M3 <code>fw-z</code>: a call 4 180 instructions, 1.6 KB of stack
     (<a href="../docs/api/mounts/#modules-in-the-firmwares-process">Docs</a>, <code>tests/mount_module</code>, <code>ww_device</code> <code>mount::tests</code>,
     <code>examples_mcu/mcu_qemu</code> <code>qemu-mount-module</code>).</li>
+<li>✅ <strong>SRV-83 Two borrowed observable slot presences</strong> — an async <code>no_alloc</code> server whose observed getters return
+    values borrowed from the server (two slots' <code>MountPresence&lt;'_&gt;</code>) compiles: <code>poll_properties</code> drives
+    <code>ww_stream::observe</code>'s <code>Selecting</code> and <code>WritePass</code> a slot at a time and reads each getter where its value is
+    measured or written, so no value outlives its slot; no value caches. Cost on Cortex-M: 4 observed properties
+    (M0+) +0.4 KiB flash at <code>fw-z</code>, +0.3 KiB sync and +1.7 KiB async at <code>fw-3</code>; the 21-property FOC demo (M3, two
+    servers) −176 B at <code>fw-z</code>, +3.7 KiB at <code>fw-3</code>, a poll +0.5 % instructions at <code>fw-z</code>, +1.1 % at <code>fw-3</code>, +88 B of
+    stack; the async poll future +240 B on x86_64 (<a href="../docs/api/observing/#the-device-side">Docs</a>, <code>tests/mount_module</code>
+    <code>both_presences_are_observed</code>).</li>
 <li>🚧 <strong>SRV-76 Mount slots</strong> — <code>mount!(hub)</code> (one slot, <code>mount!(hub: hub_api)</code> names the expected API crate) and
     <code>mounts!(ext)</code> (slots keyed by <code>ww_api::mount::MountName</code> through a <code>keyed!</code> companion): a level whose API is known
     only at run time. Done: the <code>ww_self</code> <code>Mount</code> item (model 0.7.0; the parent's hash covers the declaration only),
@@ -7778,9 +7786,6 @@ there, with a pointer each under <a href="#dropped-and-superseded">Dropped and s
 <li>📋 <strong>SRV-82 Global paths into a firmware's module</strong> — a global trait path (<code>GlobalFull</code>, <code>GlobalCompact</code>) reaches
     a trait of a module served in process (SRV-81), from the model the slot holds, as <code>MountedTraits</code> does for
     backend processes (SRV-77), without a heap.</li>
-<li>📋 <strong>SRV-83 Two borrowed observable slot presences</strong> — an async <code>no_alloc</code> server with two slots whose observed
-    <code>presence</code> getters return <code>MountPresence&lt;'_&gt;</code> compiles: the generated observe poll borrows the server once per
-    getter (E0499 now).</li>
 </ul>
 <h2 id="client-host-side-clt">Client / host side (<code>CLT</code>)<a class="headerlink" href="#client-host-side-clt" title="Permanent link">&para;</a></h2>
 <ul>

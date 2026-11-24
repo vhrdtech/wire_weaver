@@ -7056,9 +7056,6 @@ will be checked in <code>ModuleSlot::forward</code>, before the module sees the 
 <ul>
 <li>A global trait path into a firmware's module (<code>GlobalFull</code>, <code>GlobalCompact</code>) is not resolved yet (SRV-82): reach
   the module's traits by their absolute path under the slot.</li>
-<li>An async <code>no_alloc</code> server with two slots whose observed <code>presence</code> getters both borrow the server
-  (<code>MountPresence&lt;'_&gt;</code>) doesn't compile yet: the generated observe poll borrows the server twice (SRV-83). Use
-  <code>no_alloc = false</code> and <code>MountPresenceOwned</code>, or one observed slot.</li>
 <li>One <code>ModuleSlot</code> serves one front connection.</li>
 </ul>
 <p><code>examples_mcu/mcu_qemu</code>'s <code>qemu-mount-module</code> measures a slot with <code>mount_backend_api</code>'s hub, <code>MSG</code> 128 and <code>OUT</code>

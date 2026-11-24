@@ -12,11 +12,11 @@ use wire_weaver::shrink_wrap::{
 };
 use wire_weaver::ww_version::WireVersion;
 use wire_weaver::{CallContext, EventOut, EventWriter, MessageSink, Priority};
-use ww_client_server::forwarded::ForwardedPeer;
+use ww_client_server::forwarded::forwarded_context;
 use ww_client_server::mount::{MountAnswer, MountPrefix, MountRequest, request_at};
 use ww_client_server::{
-    Error, ErrorKind, Event, EventKind, PathKind, Request, RequestContext, RequestKind,
-    ResourceIndex, StreamSideband, err_seq,
+    Error, ErrorKind, Event, EventKind, PathKind, Request, RequestKind, ResourceIndex,
+    StreamSideband, err_seq,
 };
 use ww_device::{Clock, Instant};
 
@@ -176,7 +176,7 @@ impl<C: Connect, K: Clock> Forwarder<C, K> {
         let mut sent = request.request.clone();
         let context = front
             .reads_context
-            .then(|| forwarded_context(call, request))
+            .then(|| forwarded_context(call.peer, request.request))
             .flatten();
         // an older reader takes the context's flag for a reserved bit
         sent.context = context.as_ref().map(RefBox::new);
@@ -394,25 +394,6 @@ impl<C: Connect, K: Clock> Forwarder<C, K> {
     }
 }
 
-/// The context `request` goes to its backend with: the client's trace and deadline, and who the client is
-/// (SRV-79); `None` when there is nothing to say.
-fn forwarded_context(call: &CallContext, request: &MountRequest<'_, '_>) -> Option<RequestContext> {
-    // one that doesn't read loses its trace and deadline; who the client is never comes from it
-    let terms = request
-        .request
-        .context
-        .as_ref()
-        .and_then(|context| context.read().ok());
-    let context = RequestContext {
-        trace: terms.and_then(|terms| terms.trace),
-        deadline: terms.and_then(|terms| terms.deadline),
-        forwarded_for: ForwardedPeer::from_peer(call.peer),
-    };
-    let empty =
-        context.trace.is_none() && context.deadline.is_none() && context.forwarded_for.is_none();
-    (!empty).then_some(context)
-}
-
 /// Whether `change` is about the slot of `front`.
 fn touches<C: Connect>(change: &MountEvent, front: &FrontLink<C>) -> bool {
     let (MountEvent::Mounted { api_path }
@@ -517,6 +498,8 @@ mod tests {
     use std::net::SocketAddr;
     use wire_weaver::shrink_wrap::UNib32;
     use wire_weaver::{Peer, PeerKey, TraceContext, TraceFlags, TraceId};
+    use ww_client_server::RequestContext;
+    use ww_client_server::forwarded::ForwardedPeer;
     use ww_client_server::ww_si::Millis;
 
     fn request<'a>(context: Option<&'a RequestContext>) -> Request<'a> {
@@ -530,7 +513,7 @@ mod tests {
     }
 
     fn sent_for(call: &CallContext, request: &Request<'_>) -> Option<RequestContext> {
-        forwarded_context(call, &MountRequest { request, path: &[] })
+        forwarded_context(call.peer, request)
     }
 
     /// The backend hears who the client is from this server, never from the client: a name it put in its own

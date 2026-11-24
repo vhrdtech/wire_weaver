@@ -85,6 +85,29 @@ pub enum IpBytes {
 )]
 pub struct Port(pub u16);
 
+/// The context a forwarder sends `request` on with: the client's trace and deadline, and `peer`, the client as the
+/// forwarder's transport saw it, in place of whatever the client put in `forwarded_for`; `None` when there is
+/// nothing to say. A firmware reads no context: there [Request::context](crate::Request::context) is a flag alone.
+#[cfg(feature = "std")]
+pub fn forwarded_context(
+    peer: Peer,
+    request: &crate::Request<'_>,
+) -> Option<crate::RequestContext> {
+    // one that doesn't read loses its trace and deadline; who the client is never comes from it
+    let terms = request
+        .context
+        .as_ref()
+        .and_then(|context| context.read().ok());
+    let context = crate::RequestContext {
+        trace: terms.and_then(|terms| terms.trace),
+        deadline: terms.and_then(|terms| terms.deadline),
+        forwarded_for: ForwardedPeer::from_peer(peer),
+    };
+    let empty =
+        context.trace.is_none() && context.deadline.is_none() && context.forwarded_for.is_none();
+    (!empty).then_some(context)
+}
+
 impl ForwardedPeer {
     /// `peer` as a forwarder sends it on; `None` for [Peer::Local]: the forwarder's own process, which its backend
     /// sees as the connection's peer.

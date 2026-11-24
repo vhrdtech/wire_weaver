@@ -12,7 +12,7 @@
 
 use wire_weaver::shrink_wrap::{DeserializeShrinkWrap, RefVec, SerializeShrinkWrap, UNib32};
 
-use crate::{Event, EventKind, PathKind, Request, ResourceIndex};
+use crate::{Event, EventKind, PathKind, Request, ResourceIndex, StreamSideband};
 
 /// A request under a mount slot's `api`: the whole request and the part of its path below the slot.
 #[derive(Debug, Clone, Copy)]
@@ -303,8 +303,38 @@ impl<S: PathStore> MountPrefix<S> {
         event: &[u8],
         buf: &'b mut [u8],
     ) -> Result<&'b [u8], RewriteError> {
+        Ok(self.rewrite(event, buf)?.bytes)
+    }
+
+    /// [event_out](Self::event_out), with what a forwarder checks before it sends the event on: its seq, whether it
+    /// is the last answer to its request, whether it closes a stream. After a rewrite of an event with a path,
+    /// [joined](Self::joined) is that path on the front.
+    ///
+    /// # Errors
+    ///
+    /// As [event_out](Self::event_out).
+    pub fn rewrite<'b>(
+        &mut self,
+        event: &[u8],
+        buf: &'b mut [u8],
+    ) -> Result<Rewritten<'b>, RewriteError> {
         // the path is replaced in place, the event is never moved into a second one
         let mut decoded = Event::from_ww_bytes(event).map_err(RewriteError::Unreadable)?;
+        let seq = decoded.seq.0;
+        // stream data under a request's seq (introspection) comes before its answer
+        let last = !matches!(
+            decoded.result,
+            Ok(EventKind::StreamData { .. } | EventKind::PropertyUpdate { .. })
+        );
+        #[cfg(feature = "streams")]
+        let last = last && !matches!(decoded.result, Ok(EventKind::StreamItem { .. }));
+        let closes = matches!(
+            decoded.result,
+            Ok(EventKind::StreamSideband {
+                sideband: StreamSideband::Close,
+                ..
+            })
+        );
         let path = match &mut decoded.result {
             Ok(EventKind::StreamData { path, .. })
             | Ok(EventKind::StreamSideband { path, .. })
@@ -316,14 +346,48 @@ impl<S: PathStore> MountPrefix<S> {
                     wire_weaver::shrink_wrap::Error::OutOfBoundsWriteRawSlice,
                 ))?;
                 out.copy_from_slice(event);
-                return Ok(out);
+                return Ok(Rewritten {
+                    bytes: out,
+                    seq,
+                    last,
+                    path: false,
+                    closes: false,
+                });
             }
         };
         let below = *path;
         let joined = self.join_ids(below.iter().map(|id| id.map_err(RewriteError::Unreadable)))?;
         *path = RefVec::Slice { slice: joined };
-        decoded.to_ww_bytes(buf).map_err(RewriteError::TooBig)
+        let bytes = decoded.to_ww_bytes(buf).map_err(RewriteError::TooBig)?;
+        Ok(Rewritten {
+            bytes,
+            seq,
+            last,
+            path: true,
+            closes,
+        })
     }
+
+    /// The front's path of the last event [rewrite](Self::rewrite) or [join](Self::join) put the prefix in front of.
+    pub fn joined(&self) -> &[ResourceIndex] {
+        self.store.as_slice()
+    }
+}
+
+/// An event as [MountPrefix::rewrite] wrote it, and what a forwarder checks before sending it on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Rewritten<'b> {
+    /// The event as the front client gets it.
+    pub bytes: &'b [u8],
+    /// Its seq: 0 for an event of no request.
+    pub seq: u32,
+    /// It is the last event of its request: not stream data, a stream item or a property update, which come before
+    /// a request's answer (introspection data) or under seq 0.
+    pub last: bool,
+    /// It carries a path, now [MountPrefix::joined].
+    pub path: bool,
+    /// It is a stream's `Close` sideband.
+    pub closes: bool,
 }
 
 #[cfg(all(test, feature = "std"))]
@@ -522,6 +586,43 @@ mod tests {
             prefix.event_out(&[], &mut small),
             Err(RewriteError::Unreadable(_))
         ));
+    }
+
+    /// What a forwarder checks comes with the rewritten bytes: the seq, whether the event ends its request, whether
+    /// it closes a stream, and the front's path of an event with one.
+    #[test]
+    fn rewrite_tells_seq_and_kind() {
+        let mut prefix = MountPrefix::from_vec(resource_path([3, 1]).to_vec());
+        static BELOW: [ResourceIndex; 1] = resource_path([4]);
+        let close = event_bytes(Event {
+            seq: UVlq32(0),
+            result: Ok(EventKind::StreamSideband {
+                path: RefVec::Slice { slice: &BELOW },
+                sideband: StreamSideband::Close,
+            }),
+        });
+        let chunk = event_bytes(Event {
+            seq: UVlq32(9),
+            result: Ok(EventKind::StreamData {
+                path: RefVec::Slice { slice: &[] },
+                data: TailBytes(&[1]),
+            }),
+        });
+        let value = event_bytes(Event {
+            seq: UVlq32(9),
+            result: Ok(EventKind::Value {
+                data: TailBytes(&[1]),
+            }),
+        });
+        let mut buf = [0u8; 64];
+        let r = prefix.rewrite(&close, &mut buf).unwrap();
+        assert_eq!((r.seq, r.last, r.path, r.closes), (0, true, true, true));
+        assert_eq!(prefix.joined(), resource_path([3, 1, 4]));
+        let r = prefix.rewrite(&chunk, &mut buf).unwrap();
+        assert_eq!((r.seq, r.last, r.path, r.closes), (9, false, true, false));
+        let r = prefix.rewrite(&value, &mut buf).unwrap();
+        assert_eq!((r.seq, r.last, r.path, r.closes), (9, true, false, false));
+        assert_eq!(r.bytes, value);
     }
 
     /// Events with paths `[0]`, `[0, 4]`, ... below the slot, one of each kind with a path.

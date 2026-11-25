@@ -21,6 +21,11 @@ short = "A type whose values point into the buffer they were read from, so readi
 chapter = "../serdes/derive/"
 
 [[term]]
+name = "bounds"
+short = "The smallest and largest value a number's type accepts, such as `Range<1, 16>`; checked whenever a value is built or decoded."
+chapter = "../basic/properties/"
+
+[[term]]
 name = "claim"
 forms = ["claims"]
 short = "A host's exclusive hold on a resource of a device, so that only one script drives it at a time."
@@ -117,7 +122,13 @@ chapter = "../serdes/derive/"
 name = "property"
 forms = ["properties"]
 short = "An item of an API trait holding a value that a host can read, write and observe."
-chapter = "../api/properties/"
+chapter = "../basic/properties/"
+
+[[term]]
+name = "property model"
+forms = ["property models"]
+short = "How a server serves a property, chosen in `ww_codegen!`: `get_set` calls a read and a write handler, `value_on_changed` keeps a plain field."
+chapter = "../basic/properties/"
 
 [[term]]
 name = "reading level"

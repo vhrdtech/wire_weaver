@@ -1004,7 +1004,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api/properties/" class="md-nav__link">
+      <a href="../../basic/properties/" class="md-nav__link">
         
   
   
@@ -2767,6 +2767,8 @@
       
         
       
+        
+      
     
     
     
@@ -2810,6 +2812,33 @@
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/properties/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Properties in depth
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
               
                 
                   
@@ -6809,6 +6838,11 @@
 <p>A series chunk of level 0 is a grid start where its grid or scale changes or it comes out of sample order. It carries <code>FLAG_GRID_START</code> in its header and bit 3 in its index entry, the bits an events chunk's relation break takes. <code>TapeReader::series_timeline</code> builds a track's timeline from the entries, and <code>verify</code> checks the marks. The timeline reads a head only at a mark, a piece's start, lost samples, a chunk out of file order or ticks that don't fit. The writer marks its own chunks, refuses a caller's marked otherwise than due and restamps a relayed one; resumes and cuts keep the grids.</p>
 <p>Read more: <a href="https://tape.vhrd.tech/format/#grid-starts">Grid starts</a>. Tests <code>grid_starts.rs</code>; fuzz target <code>tape-series-hostile</code>.</p>
 <ul>
+<li>✅ <strong>FMT-17 Header flags only mark</strong></li>
+</ul>
+<p>A flag only marks: a reader that doesn't know it reads every byte of the block right. A body read another way is a block kind of its own, which such a reader skips as good. Coded records are kind 15, keyed puts kind 16 and tile summaries kind 17; header bits 0, 5 and 6 are retired. Header bits 1 and 3 belong to the block contract: a bit-1 block holds state outside the seq order, whatever its kind. A reader skips an unknown kind with bit 3 unchecked, and never resumes at one after damage.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/format/#header-flags">Header flags</a>. Tests <code>keyed.rs</code>, <code>grid_summaries.rs</code>, <code>reserved.rs</code>; fuzz targets <code>tape-keyed-hostile</code>, <code>tape-summary-hostile</code>, <code>tape-records-hostile</code>.</p>
+<ul>
 <li>🚧 <strong>FMT-15 Grids: series tracks with fixed axes</strong></li>
 </ul>
 <p>A <code>GridDef</code> takes up to 31 fixed axes beside time, each cut into tiles, with regular or listed coordinates and a downsample flag. A series is the grid of none and keeps its bytes. A chunk holds one tile, and its head carries the tile's coordinates. Its index entry packs them into a tile number: bit fields of ⌈log2(tiles)⌉ bits per axis in a u128. <code>TapeReader::grid_tiles</code> finds the chunks of a time range and a box of cells from the index alone.</p>
@@ -7085,7 +7119,7 @@
 <li>✅ <strong>BOOK-5 Fields and images over time</strong></li>
 </ul>
 <p>A chapter explains grid tracks: fixed axes, tiles and the box query. It covers the time pyramid of a region and the space overviews, with the level a viewer picks. It also shows where per-tile overviews end. Two cases run in tests: <code>example_thermal</code>, a plate of sensors, and <code>example_images</code>, an image sequence in three tile sizes. Every number on the page comes from their runs.</p>
-<p>Read more: <a href="https://tape.vhrd.tech/grids/">Fields and images over time</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/126fc7fc2e684ec7b69a0e710f48087e63f9f58b/examples/example_thermal/README.md">example_thermal</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/126fc7fc2e684ec7b69a0e710f48087e63f9f58b/examples/example_images/README.md">example_images</a>. Tests <code>thermal.rs</code>, <code>images.rs</code>.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/grids/">Fields and images over time</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/9a4272d7ab468529a09421b07f0c4fb1a7e44f02/examples/example_thermal/README.md">example_thermal</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/9a4272d7ab468529a09421b07f0c4fb1a7e44f02/examples/example_images/README.md">example_images</a>. Tests <code>thermal.rs</code>, <code>images.rs</code>.</p>
 <ul>
 <li>✅ <strong>BOOK-6 The book kit from its own repository</strong></li>
 </ul>
@@ -7104,7 +7138,7 @@
 <li>✅ <strong>EX-1 The drive's hour as code</strong></li>
 </ul>
 <p><code>example_drive</code> records the drive motor controller's hour: log lines, mode, <abbr title="Controller Area Network">CAN</abbr> frames, phase current with summaries and temperature, in a chain of pieces. <code>Drive::scaled</code> shrinks the data and the byte policies for figures, and a crash at any byte resumes to the bytes of the run without it. The RF capture (<code>example_rf</code>) records ComplexI16 IQ at 20 MS/s as the book's case for high rates. <code>cargo run -p example_drive</code> prints the story's numbers, and the tests pin them.</p>
-<p>Read more: <a href="https://github.com/vhrdtech/ww_tape/blob/126fc7fc2e684ec7b69a0e710f48087e63f9f58b/examples/example_drive/README.md">example_drive</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/126fc7fc2e684ec7b69a0e710f48087e63f9f58b/examples/example_rf/README.md">example_rf</a>. Tests <code>story.rs</code>, <code>damage.rs</code>, <code>rf.rs</code>.</p>
+<p>Read more: <a href="https://github.com/vhrdtech/ww_tape/blob/9a4272d7ab468529a09421b07f0c4fb1a7e44f02/examples/example_drive/README.md">example_drive</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/9a4272d7ab468529a09421b07f0c4fb1a7e44f02/examples/example_rf/README.md">example_rf</a>. Tests <code>story.rs</code>, <code>damage.rs</code>, <code>rf.rs</code>.</p>
 <ul>
 <li>✅ <strong>EX-2 A 10 Gbps link and a 1 GS/s receiver</strong></li>
 </ul>
@@ -7125,7 +7159,7 @@
 <li>✅ <strong>EX-5 A crate per case, its pipeline a library</strong></li>
 </ul>
 <p>Each case is a crate of its own: <code>example_drive</code> the book's running example, <code>example_rf</code>, <code>example_ethernet</code> and <code>example_wideband</code>. What they share, the memory window and the RF signal, is in <code>example_capture</code>, so no case depends on another. <code>window::start</code> and each case's <code>start</code> return a running pipeline. It hands out its memory window, the pieces in memory and each mux's watch, so a viewer follows it live. Each case has a headless binary whose <code>main</code> reads like a block diagram of its threads.</p>
-<p>Read more: <a href="https://tape.vhrd.tech/protocol_analyser/#the-pipeline">The pipeline</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/126fc7fc2e684ec7b69a0e710f48087e63f9f58b/examples/example_capture/README.md">example_capture</a>. Tests <code>window.rs</code>.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/protocol_analyser/#the-pipeline">The pipeline</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/9a4272d7ab468529a09421b07f0c4fb1a7e44f02/examples/example_capture/README.md">example_capture</a>. Tests <code>window.rs</code>.</p>
 <ul>
 <li>✅ <strong>EX-6 Payload compression measured on the cases</strong></li>
 </ul>
@@ -7415,7 +7449,7 @@
       Zensical
     </a>
   
-  <div class="book-stamp" data-built="1795616107">wire_weaver 0.6.0 · 758d76d · built 2026-11-25 14:15 UTC (<span class="book-stamp-age">just built</span>)</div>
+  <div class="book-stamp" data-built="1795617732">wire_weaver 0.6.0 · 4bc416c · built 2026-11-25 14:42 UTC (<span class="book-stamp-age">just built</span>)</div>
 </div>
       
         

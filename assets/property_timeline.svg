@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="430" viewBox="0 0 720 430" font-family="Helvetica, Arial, sans-serif" font-size="13">
+  <title>A read, a write and a refused write of the thermometer's gain</title>
+  <desc>Three lanes: the host program, the device's decoder and the gain's handler. A read reaches get_gain and returns 4. A write of 8 is decoded and reaches set_gain. A write of 20 fails in the decoder with PropertyDesFailed, and the handler is not called. The typed client and Python refuse 20 before sending.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#222"/>
+    </marker>
+    <marker id="arrow-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#b03a2e"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="720" height="430" rx="10" fill="#ffffff"/>
+
+  <!-- lanes -->
+  <g text-anchor="middle" font-weight="bold" fill="#222">
+    <rect x="50" y="18" width="160" height="32" rx="6" fill="#eef2f7" stroke="#222"/>
+    <text x="130" y="39">Host program</text>
+    <rect x="310" y="18" width="160" height="32" rx="6" fill="#eef2f7" stroke="#222"/>
+    <text x="390" y="39">Device: decode</text>
+    <rect x="530" y="18" width="160" height="32" rx="6" fill="#eef2f7" stroke="#222"/>
+    <text x="610" y="39">Handler</text>
+  </g>
+  <g stroke="#999" stroke-dasharray="4 4">
+    <line x1="130" y1="50" x2="130" y2="410"/>
+    <line x1="390" y1="50" x2="390" y2="410"/>
+    <line x1="610" y1="50" x2="610" y2="410"/>
+  </g>
+
+  <!-- read -->
+  <g fill="#222" stroke="#222">
+    <line x1="130" y1="85" x2="386" y2="85" marker-end="url(#arrow)"/>
+    <line x1="390" y1="85" x2="606" y2="85" marker-end="url(#arrow)"/>
+    <line x1="610" y1="112" x2="134" y2="112" stroke-dasharray="6 4" marker-end="url(#arrow)"/>
+  </g>
+  <g fill="#222">
+    <text x="258" y="79" text-anchor="middle">read gain</text>
+    <text x="498" y="79" text-anchor="middle">get_gain()</text>
+    <rect x="284" y="94" width="172" height="16" fill="#ffffff"/>
+    <text x="370" y="106" text-anchor="middle">Value(4): the host reads 4</text>
+  </g>
+
+  <!-- write 8 -->
+  <g fill="#222" stroke="#222">
+    <line x1="130" y1="165" x2="386" y2="165" marker-end="url(#arrow)"/>
+    <line x1="390" y1="165" x2="606" y2="165" marker-end="url(#arrow)"/>
+    <line x1="610" y1="192" x2="134" y2="192" stroke-dasharray="6 4" marker-end="url(#arrow)"/>
+  </g>
+  <g fill="#222">
+    <text x="258" y="159" text-anchor="middle">write gain 8</text>
+    <text x="498" y="159" text-anchor="middle">set_gain(8)</text>
+    <rect x="292" y="174" width="156" height="16" fill="#ffffff"/>
+    <text x="370" y="186" text-anchor="middle">Set: the write succeeds</text>
+  </g>
+
+  <!-- write 20, refused by the decoder -->
+  <g stroke="#b03a2e" fill="#b03a2e">
+    <line x1="130" y1="250" x2="380" y2="250" marker-end="url(#arrow-red)"/>
+    <line x1="381" y1="241" x2="399" y2="259" stroke-width="3"/>
+    <line x1="399" y1="241" x2="381" y2="259" stroke-width="3"/>
+    <line x1="390" y1="280" x2="134" y2="280" stroke-dasharray="6 4" marker-end="url(#arrow-red)"/>
+  </g>
+  <g>
+    <text x="258" y="244" text-anchor="middle" fill="#222">write gain 20 (bytes from any tool)</text>
+    <text x="410" y="246" fill="#b03a2e">20 is out of 1..=16</text>
+    <text x="260" y="274" text-anchor="middle" fill="#b03a2e">PropertyDesFailed</text>
+    <rect x="574" y="241" width="72" height="17" fill="#ffffff"/>
+    <text x="610" y="254" text-anchor="middle" fill="#888" font-style="italic">not called</text>
+  </g>
+
+  <!-- refused before sending -->
+  <rect x="30" y="320" width="300" height="74" rx="6" fill="#fbeeee" stroke="#b03a2e"/>
+  <g fill="#b03a2e">
+    <text x="45" y="342">Gain::try_new(20) in Rust,</text>
+    <text x="45" y="362">dev.gain.write(20) in Python:</text>
+    <text x="45" y="382">refused before anything is sent</text>
+  </g>
+</svg>

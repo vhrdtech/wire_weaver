@@ -1010,7 +1010,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api/properties/" class="md-nav__link">
+      <a href="../../basic/properties/" class="md-nav__link">
         
   
   
@@ -2773,6 +2773,8 @@
       
         
       
+        
+      
     
     
     
@@ -2816,6 +2818,33 @@
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/properties/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Properties in depth
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
               
                 
                   
@@ -6839,40 +6868,13 @@ a <code>&lt;name&gt;</code> crate with the host client using it (see <a href="..
 </tbody>
 </table>
 <p><code>minimal_shrink_wrap</code> writes a <code>bool</code> and a <code>u8</code> by hand:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">wr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">BufWriter</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">buf</span><span class="p">);</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">    </span><span class="n">wr</span><span class="p">.</span><span class="n">write_bool</span><span class="p">(</span><span class="kc">true</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="n">wr</span><span class="p">.</span><span class="n">write_u8</span><span class="p">(</span><span class="mh">0xaa</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">bytes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">wr</span><span class="p">.</span><span class="n">finish</span><span class="p">().</span><span class="n">unwrap</span><span class="p">();</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">wr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">BufWriter</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">buf</span><span class="p">);</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">wr</span><span class="p">.</span><span class="n">write_bool</span><span class="p">(</span><span class="kc">true</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">wr</span><span class="p">.</span><span class="n">write_u8</span><span class="p">(</span><span class="mh">0xaa</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="kd">let</span><span class="w"> </span><span class="n">bytes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">wr</span><span class="p">.</span><span class="n">finish</span><span class="p">().</span><span class="n">unwrap</span><span class="p">();</span>
 </span></code></pre></div>
 <p>The <code>bool</code> takes the first bit of the first byte, and the <code>u8</code> starts on the next byte:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>80 aa
-</span></code></pre></div>
-<p><code>compare_wire_formats</code> encodes one example value with ShrinkWrap and eight other pure-Rust formats (postcard,
-MessagePack, JSON, CBOR, wincode, protobuf, FlatBuffers, ASN.1 UPER). <code>bytes</code> is that value's size on the wire;
-<code>evolution</code> says how this example's encoding lets a later revision add a field: <code>schema_rules</code> (field numbers or layout rules), <code>self_describing</code> (field names travel with the data), <code>extension_markers</code> (reserved room for later fields) or <code>none</code> (any schema change breaks old readers). MessagePack is rmp-serde's default array form, without field names:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>format,bytes,evolution
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>WireWeaver,18,schema_rules
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>Postcard,27,none
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>MessagePack (array form),49,none
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>JSON,193,self_describing
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>CBOR,113,self_describing
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>wincode,77,none
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>Protobuf,34,schema_rules
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>FlatBuffers,144,schema_rules
-</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>ASN.1 UPER (closed),29,none
-</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>ASN.1 UPER (extensible),29,extension_markers
-</span></code></pre></div>
-<p>Every format's exact bytes:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>WireWeaver: len: 18: [D2, 04, 00, 12, 03, 00, AA, BB, CC, 03, 2A, CC, 61, 62, 63, 01, 22, 53]
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>Postcard: len: 27: [D2, 09, 00, 03, 00, 01, 02, 00, 03, AA, BB, CC, 00, 01, 00, 01, 00, 01, CC, 00, 00, 02, 02, 61, 62, 01, 63]
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>MessagePack (array form): len: 49: [98, CD, 04, D2, 81, A8, 41, 62, 73, 6F, 6C, 75, 74, 65, 91, 93, 00, 01, 02, 81, A4, 43, 61, 6C, 6C, 91, 93, CC, AA, CC, BB, CC, CC, 95, C2, C3, C2, C3, C2, CC, CC, C0, C0, 92, A2, 61, 62, A1, 63]
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>JSON: len: 193: [7B, 22, 73, 65, 71, 22, 3A, 31, 32, 33, 34, 2C, 22, 70, 61, 74, 68, 5F, 6B, 69, 6E, 64, 22, 3A, 7B, 22, 41, 62, 73, 6F, 6C, 75, 74, 65, 22, 3A, 7B, 22, 70, 61, 74, 68, 22, 3A, 5B, 30, 2C, 31, 2C, 32, 5D, 7D, 7D, 2C, 22, 6B, 69, 6E, 64, 22, 3A, 7B, 22, 43, 61, 6C, 6C, 22, 3A, 7B, 22, 61, 72, 67, 73, 22, 3A, 5B, 31, 37, 30, 2C, 31, 38, 37, 2C, 32, 30, 34, 5D, 7D, 7D, 2C, 22, 66, 6C, 61, 67, 73, 22, 3A, 5B, 66, 61, 6C, 73, 65, 2C, 74, 72, 75, 65, 2C, 66, 61, 6C, 73, 65, 2C, 74, 72, 75, 65, 2C, 66, 61, 6C, 73, 65, 5D, 2C, 22, 64, 75, 6D, 6D, 79, 5F, 61, 22, 3A, 32, 30, 34, 2C, 22, 64, 75, 6D, 6D, 79, 5F, 62, 22, 3A, 6E, 75, 6C, 6C, 2C, 22, 64, 75, 6D, 6D, 79, 5F, 63, 22, 3A, 6E, 75, 6C, 6C, 2C, 22, 73, 74, 72, 73, 22, 3A, 5B, 22, 61, 62, 22, 2C, 22, 63, 22, 5D, 7D]
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>CBOR: len: 113: [A8, 63, 73, 65, 71, 19, 04, D2, 69, 70, 61, 74, 68, 5F, 6B, 69, 6E, 64, A1, 68, 41, 62, 73, 6F, 6C, 75, 74, 65, A1, 64, 70, 61, 74, 68, 83, 00, 01, 02, 64, 6B, 69, 6E, 64, A1, 64, 43, 61, 6C, 6C, A1, 64, 61, 72, 67, 73, 83, 18, AA, 18, BB, 18, CC, 65, 66, 6C, 61, 67, 73, 85, F4, F5, F4, F5, F4, 67, 64, 75, 6D, 6D, 79, 5F, 61, 18, CC, 67, 64, 75, 6D, 6D, 79, 5F, 62, F6, 67, 64, 75, 6D, 6D, 79, 5F, 63, F6, 64, 73, 74, 72, 73, 82, 62, 61, 62, 61, 63]
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>wincode: len: 77: [D2, 04, 00, 00, 00, 00, 03, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 01, 00, 00, 00, 02, 00, 00, 00, 00, 00, 00, 00, 03, 00, 00, 00, 00, 00, 00, 00, AA, BB, CC, 00, 01, 00, 01, 00, 01, CC, 00, 00, 02, 00, 00, 00, 00, 00, 00, 00, 02, 00, 00, 00, 00, 00, 00, 00, 61, 62, 01, 00, 00, 00, 00, 00, 00, 00, 63]
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>Protobuf: len: 34: [08, D2, 09, 12, 05, 0A, 03, 00, 01, 02, 2A, 05, 0A, 03, AA, BB, CC, 3A, 05, 00, 01, 00, 01, 00, 40, CC, 01, 5A, 02, 61, 62, 5A, 01, 63]
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>FlatBuffers: len: 144: [04, 00, 00, 00, E4, FF, FF, FF, 68, 00, 00, 00, 54, 00, 00, 00, 44, 00, 00, 00, 24, 00, 00, 00, D2, 04, 01, 01, CC, 00, 00, 00, 18, 00, 19, 00, 14, 00, 16, 00, 04, 00, 17, 00, 08, 00, 0C, 00, 18, 00, 00, 00, 00, 00, 10, 00, 02, 00, 00, 00, 10, 00, 00, 00, 04, 00, 00, 00, 01, 00, 00, 00, 63, 00, 00, 00, 02, 00, 00, 00, 61, 62, 00, 00, 05, 00, 00, 00, 00, 01, 00, 01, 00, 00, 00, 00, E6, FF, FF, FF, 04, 00, 00, 00, 03, 00, 00, 00, AA, BB, CC, 00, F6, FF, FF, FF, 0C, 00, 00, 00, 00, 00, 06, 00, 08, 00, 04, 00, 03, 00, 00, 00, 00, 00, 00, 00, 01, 00, 00, 00, 02, 00, 00, 00]
-</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>ASN.1 UPER (closed): len: 29: [80, 9A, 40, 18, 00, 00, 00, 00, 00, 00, 00, 08, 00, 00, 00, 10, 0E, AA, EF, 30, 15, 59, 80, 40, 4C, 2C, 40, 2C, 60]
-</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>ASN.1 UPER (extensible): len: 29: [40, 4D, 20, 0C, 00, 00, 00, 00, 00, 00, 00, 04, 00, 00, 00, 08, 07, 55, 77, 98, 0A, AC, C0, 20, 26, 16, 20, 16, 30]
 </span></code></pre></div>
 <h2 id="in-other-repos">In other repos<a class="headerlink" href="#in-other-repos" title="Permanent link">&para;</a></h2>
 <table>
@@ -7022,7 +7024,7 @@ targets a byte-wise <code>memcpy</code> about 320 bytes, with downsides, see
       Zensical
     </a>
   
-  <div class="book-stamp" data-built="1795616107">wire_weaver 0.6.0 · 758d76d · built 2026-11-25 14:15 UTC (<span class="book-stamp-age">just built</span>)</div>
+  <div class="book-stamp" data-built="1795617732">wire_weaver 0.6.0 · 4bc416c · built 2026-11-25 14:42 UTC (<span class="book-stamp-age">just built</span>)</div>
 </div>
       
         

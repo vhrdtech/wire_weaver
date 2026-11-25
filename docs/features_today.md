@@ -53,7 +53,7 @@ copying. Every message between host and device is made of it, and it works on it
 - **[`#[cfg]` on enum variants](serdes/derive_reference.md#cfg-on-enum-variants)**: Compile a variant out; it keeps its number on the wire.
 - **[Checked discriminants](serdes/derive_reference.md#ww_repr-repr-enums-only)**: Variant numbers must fit the chosen `ww_repr`, implicit ones count like in Rust.
 - **[Generic field types](serdes/derive.md#type-mapping)**: `Wrapper<'i, T>` and types from `macro_rules` work as fields.
-- **[Generic types](serdes/derive_reference.md#generics)**: Structs and enums with type and const parameters (`Timed<T>`, `Buf<const N: usize>`) and where clauses derive like any other type.
+- **[Generic types](types.md#generic-types-in-an-api)**: Structs and enums with type and const parameters (`Timed<T>`, `Buf<const N: usize>`) and where clauses derive like any other type.
 - **[`PhantomData` fields](serdes/derive_reference.md#generics)**: A zero-bit `PhantomData<U>` field carries a unit marker type (`Quantity<Volt>`) that needs no impls of its own.
 - **[`#[default]` fields default in serde too](serdes/derive.md#evolving-types)**: A RON or JSON file saved before a field was added still reads, the field taking its default.
 - **[`#[wire(W)]` fields](serdes/derive_reference.md#wirew-field-attribute)**: Keep a plain `i8` or `u64` in Rust and send it as `I4` or `UNib32`: range-checked on write, widened on read.
@@ -125,7 +125,7 @@ in either direction. WireWeaver generates the device's server and the host's cli
 - **[Effects](api/metadata.md#effect-what-an-item-does)**: Every method, writable property and sink says what it does (`read`, `persist`, `actuate`, ...): GUIs, agents and the hub know what is safe to call.
 - **[Track layout](api/metadata.md#track-how-a-stream-is-recorded)**: Each stream says how a recorder lays it out on a tape: points, spans or a series, with its dimensions and flags.
 - **[Stream functions](api/streams.md#stream-functions)**: Open a stream with typed arguments and a result, like a method call.
-- **[Observing properties](api/observing.md)**: Ask a device to send changes on change or periodically, within a byte budget.
+- **[Observing properties](api/observing.md#the-host-side)**: Ask a device to send changes on change or periodically, within a byte budget.
 - **[Observing every sample](api/observing.md#every-sample-batched)**: A fast property's every sample, each at its time, in compressed batches; typed and dynamic clients, the CLI and Python.
 - **[One clock per observed level](api/observing.md#every-sample-batched)**: The samples of a level's properties share one time column per update: about a third fewer bytes and half the encoding CPU.
 - **[Observing elements of resource arrays](api/observing.md#levels-under-resource-arrays)**: Observe a property of one element of an array (`players[2].state`): updates for that element only, and a removed element ends its observers.

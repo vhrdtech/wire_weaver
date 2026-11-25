@@ -53,7 +53,7 @@ copying. Every message between host and device is made of it, and it works on it
 - DER-8 | `#[cfg]` on enum variants | Compile a variant out; it keeps its number on the wire. | serdes/derive_reference.md#cfg-on-enum-variants
 - DER-2 | Checked discriminants | Variant numbers must fit the chosen `ww_repr`, implicit ones count like in Rust. | serdes/derive_reference.md#ww_repr-repr-enums-only
 - DER-10, DER-11 | Generic field types | `Wrapper<'i, T>` and types from `macro_rules` work as fields. | serdes/derive.md#type-mapping
-- DER-14 | Generic types | Structs and enums with type and const parameters (`Timed<T>`, `Buf<const N: usize>`) and where clauses derive like any other type. | serdes/derive_reference.md#generics
+- DER-14 | Generic types | Structs and enums with type and const parameters (`Timed<T>`, `Buf<const N: usize>`) and where clauses derive like any other type. | types.md#generic-types-in-an-api
 - DER-15 | `PhantomData` fields | A zero-bit `PhantomData<U>` field carries a unit marker type (`Quantity<Volt>`) that needs no impls of its own. | serdes/derive_reference.md#generics
 - DER-17 | `#[default]` fields default in serde too | A RON or JSON file saved before a field was added still reads, the field taking its default. | serdes/derive.md#evolving-types
 - DER-19 | `#[wire(W)]` fields | Keep a plain `i8` or `u64` in Rust and send it as `I4` or `UNib32`: range-checked on write, widened on read. | serdes/derive_reference.md#wirew-field-attribute
@@ -123,7 +123,7 @@ in either direction. WireWeaver generates the device's server and the host's cli
 - API-58 | Effects | Every method, writable property and sink says what it does (`read`, `persist`, `actuate`, ...): GUIs, agents and the hub know what is safe to call. | api/metadata.md#effect-what-an-item-does
 - API-71 | Track layout | Each stream says how a recorder lays it out on a tape: points, spans or a series, with its dimensions and flags. | api/metadata.md#track-how-a-stream-is-recorded
 - API-31, API-35 | Stream functions | Open a stream with typed arguments and a result, like a method call. | api/streams.md#stream-functions
-- API-38 | Observing properties | Ask a device to send changes on change or periodically, within a byte budget. | api/observing.md
+- API-38 | Observing properties | Ask a device to send changes on change or periodically, within a byte budget. | api/observing.md#the-host-side
 - API-39 | Observing every sample | A fast property's every sample, each at its time, in compressed batches; typed and dynamic clients, the CLI and Python. | api/observing.md#every-sample-batched
 - API-49 | One clock per observed level | The samples of a level's properties share one time column per update: about a third fewer bytes and half the encoding CPU. | api/observing.md#every-sample-batched
 - API-63 | Observing elements of resource arrays | Observe a property of one element of an array (`players[2].state`): updates for that element only, and a removed element ends its observers. | api/observing.md#levels-under-resource-arrays
@@ -244,10 +244,10 @@ from the description the device sends of itself; the `ww` tool and Python are bu
 - CLT-49 | Same method twice in a multi call | Two writes over the same I2C bus (or any repeated call) go into one batch, answers in order. | api/multi_requests.md#several-resources-at-the-same-level
 - CLT-28 | Observing properties | Typed subscriptions and a cache of the latest values, shared by everyone watching. | api/observing.md#the-host-side
 - CLT-29 | `Series` without generated code | `ww`, Python and any dynamic client read and write a `Series<T>` from introspection alone, Python reads it as numpy columns. | serdes/series.md#introspection-and-dynamic-clients
-- CLT-31 | Quantities without generated code | `ww` and Python show a `ww_si` value with its unit (`3300 mV`), Python as a quantity object with `to_si()`. | std_library/ww_si.md#in-ww-python-and-dynamic-clients
-- CLT-66 | Unit references through the model | A dynamic client resolves a value's unit references through the API's model and writes the API's units by reference. | std_library/ww_si.md#in-ww-python-and-dynamic-clients
-- CLT-54 | Exact units without generated code | `ww` and Python show a `Fixed` value as the device stores it (`1730000000000000 µs`, `4 KiB`) and write `5 ms` into it exactly, or refuse with the type named instead of rounding. | std_library/exact_units.md#in-ww-python-and-dynamic-clients
-- CLT-65 | Points without generated code | `ww` and Python show a `Point` (a temperature in °C, a heading) in its own origin, not its `Fixed`'s raw unit. | std_library/points.md#in-ww-python-and-dynamic-clients
+- CLT-31 | Quantities without generated code | `ww` and Python show a `ww_si` value with its unit (`3300 mV`), Python as a quantity object with `to_si()`. | std_library/units_in_tools.md#quantity-in-clients
+- CLT-66 | Unit references through the model | A dynamic client resolves a value's unit references through the API's model and writes the API's units by reference. | std_library/units_in_tools.md#quantity-in-clients
+- CLT-54 | Exact units without generated code | `ww` and Python show a `Fixed` value as the device stores it (`1730000000000000 µs`, `4 KiB`) and write `5 ms` into it exactly, or refuse with the type named instead of rounding. | std_library/units_in_tools.md#fixed-in-clients
+- CLT-65 | Points without generated code | `ww` and Python show a `Point` (a temperature in °C, a heading) in its own origin, not its `Fixed`'s raw unit. | std_library/points_and_origins.md#in-ww-python-and-dynamic-clients
 - CLT-70 | Typed times of batched items | A timed batched stream's items carry their full device time as a typed point (`DeviceMicros<u64>`), not a `Second`. | api/batching.md#host-side
 - CLT-72 | Client of a keyed array | `device.flow_by(&key)` gives an element's client by its key; the index is asked once and kept in a key cache. | api/arrays.md#keyed-arrays-on-the-client
 - CLT-74 | Python module as a library and a wheel | `wire_weaver_py` is a library crate; the wheel `wire_weaver_wheel` (vhrdtech/ww_tools) is a thin `cdylib` holding `pyproject.toml`, the Python package and the tests. | python.md#installation
@@ -384,14 +384,14 @@ round, and tell you before a release when a change would break that.
 - EVO-40 | `#[moved_from]` | Across a wire break the checker matches resources by path and by `#[moved_from]` on their new place, verifies a moved resource is exactly the same and reports a move; a resource of the same name elsewhere is only proposed. | evolution/rules.md#moving-a-resource-to-another-place
 - EVO-34 | Wire versions and generations shown | `ww info` and the Python client show a device's wire version and the hello generations a connection agreed on, next to its crate version. | std_library/device_contract.md#ww-info
 - EVO-35 | Unit definitions with an identity | The API model holds each unit's whole definition with the crate and marker that declare it, so two crates' units of one name stay apart. | std_library/units_in_the_model.md#identity
-- EVO-36 | Unit references on the wire | A run-time unit names a unit the API lists by its crate and marker, a few bytes instead of its whole definition. | std_library/ww_si.md#units-known-only-at-run-time
+- EVO-36 | Unit references on the wire | A run-time unit names a unit the API lists by its crate and marker, a few bytes instead of its whole definition. | std_library/runtime_units.md
 - EVO-10 | Checker knows the catch-all | Appending a variant to an enum with the `Unknown` catch-all passes the evolution check as compatible. | evolution/rules.md#unsized-types
 - EVO-11 | Evolution check at every commit | A test of your API crate fails when the API changed without the version bump it needs. | evolution/checker_tool.md#checking-at-every-commit
 - EVO-12 | Current version's snapshot required | The API crate's test fails until the version it is at has a saved snapshot, and saves it for you. | evolution/checker_tool.md#checking-at-every-commit
 - EVO-14 | Priority in every request | Requests carry a priority; hosts and devices built before it don't talk to ones after. | transport/ww_framer.md#latency-and-priority
 - EVO-76 | Priority as on a CAN bus | A request's priority has 8 levels in 3 bits, as CAN and Cyphal carry in a frame's ID, with one bit reserved beside it; the upper four are urgent. | transport/ww_framer.md#latency-and-priority
 - EVO-13 | Upgrades don't touch your snapshots | A newer wire_weaver compares an older snapshot only by what it recorded: no version bump or re-save just for upgrading. | evolution/checker_tool.md#the-current-versions-snapshot
-- EVO-16 | One encoding per dimension | A unit's dimension on the wire has exactly one form: distinguished bases sorted, out-of-order, repeated or zero ones refused, so two devices' `Sample/Frame` compare equal byte for byte. | std_library/ww_si.md#units-known-only-at-run-time
+- EVO-16 | One encoding per dimension | A unit's dimension on the wire has exactly one form: distinguished bases sorted, out-of-order, repeated or zero ones refused, so two devices' `Sample/Frame` compare equal byte for byte. | std_library/runtime_units.md
 - EVO-15 | Units and bounds in the checker | Wrapping a plain number in a unit type passes as the same bytes; changing its unit, prefix or bound is caught as breaking. | evolution/rules.md#transparent-wrappers-units-and-scales
 
 ## Advanced
@@ -452,10 +452,10 @@ feature tracker.
 - STD-101 | The rework guard | A firmware never runs a board with a rework it doesn't know: before any init it blinks an error code and goes back to the ROM bootloader, unless the user allowed that rework for this very image; an image tells flashers which reworks it knows and where the board's record is. | std_library/ww_board_info.md#the-rework-guard
 - STD-16 | Common errors | `CommonError` (`Busy`, `Timeout`, `InvalidArgument`, ...) shared by all APIs. | std_library/ww_error.md
 - STD-3, STD-23 | Units and numbers | `ww_si` quantities like volts, hertz and seconds, `ww_numeric` values. | std_library/ww_si.md
-- STD-38 | Units checked by the compiler | One generic quantity type with the unit in the type: `Volt * Ampere` is a `Watt`, `Volt + Ampere` doesn't build, `3300 mV` prints itself. | std_library/ww_si.md#unit-algebra
-- STD-37 | Units known at run time | A value whose unit is only known on the device, a configurable sensor channel, carries its unit and is shown like a typed one. | std_library/ww_si.md#units-known-only-at-run-time
-- STD-59 | Quantities as exact as `Fixed` | A run-time `Quantity` takes binary prefixes (KiB), powers of ten and two without a name and full-scale fractions (1/65535), and carries bounds checked on decode. | std_library/ww_si.md#quantity-fixed-or-anyquantity
-- STD-60 | Angles, bytes and samples are dimensions | Bytes never convert into % or rad, rad/s isn't Hz, a torque isn't a joule, and samples per second aren't a frequency: the compiler and every client tell them apart. | std_library/ww_si.md#dimensions
+- STD-38 | Units checked by the compiler | One generic quantity type with the unit in the type: `Volt * Ampere` is a `Watt`, `Volt + Ampere` doesn't build, `3300 mV` prints itself. | std_library/unit_algebra.md
+- STD-37 | Units known at run time | A value whose unit is only known on the device, a configurable sensor channel, carries its unit and is shown like a typed one. | std_library/runtime_units.md
+- STD-59 | Quantities as exact as `Fixed` | A run-time `Quantity` takes binary prefixes (KiB), powers of ten and two without a name and full-scale fractions (1/65535), and carries bounds checked on decode. | std_library/ww_si.md#fixed-or-quantity
+- STD-60 | Angles, bytes and samples are dimensions | Bytes never convert into % or rad, rad/s isn't Hz, a torque isn't a joule, and samples per second aren't a frequency: the compiler and every client tell them apart. | std_library/dimensions.md
 - STD-4 | Date and time | `ww_date_time`. | std_library/ww_date_time.md
 - STD-13 | IO family | GPIO, UART, I2C, SPI, ADC, PWM, 1-Wire and more, all in one style. | std_library/io_family.md
 - STD-5 | GPIO | Pins and banks: levels, modes, pulls and edge events. | std_library/ww_gpio.md
@@ -471,21 +471,21 @@ feature tracker.
 
 ## Advanced
 
-- STD-104 | Finite floats in clients | A float quantity whose type says `Finite` is refused as ±∞ or NaN in `ww`, Python and the dynamic client, and the evolution check tells when ±∞ starts to be refused. | std_library/exact_units.md#in-ww-python-and-dynamic-clients
+- STD-104 | Finite floats in clients | A float quantity whose type says `Finite` is refused as ±∞ or NaN in `ww`, Python and the dynamic client, and the evolution check tells when ±∞ starts to be refused. | std_library/units_in_tools.md#fixed-in-clients
 - STD-105 | NaN-free floats in clients | A float quantity sent or received as NaN is refused unless its type says `MaybeNan`, in `ww`, Python and the dynamic client alike; the evolution check tells when a NaN starts to be refused. | std_library/exact_units.md
 - STD-108 | Time scales in the model | An origin says what its zero is measured from and how that zero is known (exact, at run time, a time scale), so clients and the evolution check tell why a Unix time and a TAI or device time don't convert. | std_library/units_in_the_model.md#references
-- STD-109 | Non-linear codes in clients | A G.711 μ-law byte and other codec values read as the number they mean in `ww`, Python and the dynamic client, written by their exact code, from the codec's definition in the API model. | std_library/exact_units.md#non-linear-codes
-- STD-111 | `Offset` codes and a curve above them | Video's narrow-range quantizers (`CodecShape::Offset`) and a transfer curve above a codec (`CurveDef`, signal to light) read into the API model, checked against the compiled codec. | std_library/exact_units.md#non-linear-codes
+- STD-109 | Non-linear codes in clients | A G.711 μ-law byte and other codec values read as the number they mean in `ww`, Python and the dynamic client, written by their exact code, from the codec's definition in the API model. | std_library/coded_numbers.md
+- STD-111 | `Offset` codes and a curve above them | Video's narrow-range quantizers (`CodecShape::Offset`) and a transfer curve above a codec (`CurveDef`, signal to light) read into the API model, checked against the compiled codec. | std_library/coded_numbers.md
 - STD-115 | Typed protocol numbers | Observe periods, budgets, byte grants, store sizes, resource indices and resource paths of the request/event protocol are `Micros`, `Bytes`, B/s and `Index` types, the same bytes as before. | std_library/ww_client_server.md
-- STD-112 | Transfer curves | A video code with its transfer curve (`Transfer<Narrow10, Pq>`) in an API: clients read its signal and the light each code means, exact where it is a rational. | std_library/exact_units.md#transfer-curves
-- STD-110 | Device time points in `Timed` | A timed value carries its time as a point on the device clock (`DeviceMicros<u32>` by default), four plain bytes in a column, and the host gets the full 64-bit time back across wraps. | std_library/ww_si.md#timed-values
-- STD-116 | Run-time scales | A number whose exact scale is read at run time (a video stream's time base, a quantizer step) next to a unit fixed in the type: `ww_si::Scaled<U, T>` and `Ticks<T>`, refused on decode unless the scale is in its one canonical form. | std_library/ww_si.md#run-time-scales
+- STD-112 | Transfer curves | A video code with its transfer curve (`Transfer<Narrow10, Pq>`) in an API: clients read its signal and the light each code means, exact where it is a rational. | std_library/coded_numbers.md#transfer-curves
+- STD-110 | Device time points in `Timed` | A timed value carries its time as a point on the device clock (`DeviceMicros<u32>` by default), four plain bytes in a column, and the host gets the full 64-bit time back across wraps. | std_library/timed.md
+- STD-116 | Run-time scales | A number whose exact scale is read at run time (a video stream's time base, a quantizer step) next to a unit fixed in the type: `ww_si::Scaled<U, T>` and `Ticks<T>`, refused on decode unless the scale is in its one canonical form. | std_library/run_time_scales.md
 - STD-113 | Typed numbers in 1-Wire and UART | `ww_onewire`'s family code, byte counts, pin index and ROM search bit position, and `ww_uart`'s byte counts and idle character count, are typed instead of bare integers, so a client or `ww api check` knows what each one means and whether it is in range. | std_library/ww_onewire.md
 - STD-106 | Unit identity in the model | A unit is known by its crate and name, the definition `unit!` compiles is the one clients read, and two units of one name in one crate are refused. | std_library/units_in_the_model.md#identity
-- STD-107 | Run-time units by reference | An `AnyQuantity` names the API's units by their identity, a few bytes instead of the whole definition, and any reader with the API's model (a client, `ww`, Python, a saved tape) resolves them. | std_library/ww_si.md#units-known-only-at-run-time
+- STD-107 | Run-time units by reference | An `AnyQuantity` names the API's units by their identity, a few bytes instead of the whole definition, and any reader with the API's model (a client, `ww`, Python, a saved tape) resolves them. | std_library/runtime_units.md
 - STD-99 | Levels and their rates, Np and dB | A cable's attenuation in dB/100 m or dB/km, a resonator's damping in Np/s, is a quantity like any other, over the wire like any other; loss and gain are kept apart so a datasheet's positive number never flips sign by accident. |
-- STD-43 | Quantities without wide integers | On a small MCU, comparing and converting quantities with 32-bit numbers takes only 32-bit code: no 64- or 128-bit arithmetic is linked. | std_library/ww_si.md#conversions-and-comparisons
-- STD-102 | Exact conversions without floats | A quantity converts into any prefix and integer type with the rounding and overflow you name, exactly for every scale, with no float or 128-bit code on the device. | std_library/ww_si.md#conversions-and-comparisons
+- STD-43 | Quantities without wide integers | On a small MCU, comparing and converting quantities with 32-bit numbers takes only 32-bit code: no 64- or 128-bit arithmetic is linked. | std_library/conversions.md
+- STD-102 | Exact conversions without floats | A quantity converts into any prefix and integer type with the rounding and overflow you name, exactly for every scale, with no float or 128-bit code on the device. | std_library/conversions.md
 - STD-56 | Typed numbers in `ww_stdlib` | Word sizes, byte and bit counts, offsets and counted things are their own types instead of a bare integer, crate by crate (`ww_spi` so far); a run-time-fixed value like an IO level moves from `Quantity` to `Fixed`. | std_library/ww_spi.md
 - STD-18 | ADC | Single reads, sample streams and triggered captures. | std_library/ww_adc.md
 - STD-19 | PWM | Outputs and input capture. | std_library/ww_pwm.md

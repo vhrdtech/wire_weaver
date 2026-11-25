@@ -2809,7 +2809,7 @@ Unicast Data0 to one node over the same bus is TR-6.
   `examples_mcu/nucleo_h743zi2` (USB, last 2 sectors of bank 2), both behind a `settings` cargo feature.
   `UserSettings` lives in `settings_api` so every implementation shares the same record shape.
 - ✅ **EX-18 Thermometer example and the simulated-device pattern**: `examples/thermometer_api` (line 1 of
-  `tests/thermo_api` at w1.0, kept equal to its 1.0.0 snapshot by `tests/same_as_thermo_bench.rs`),
+  `tests/thermo_api` at w1.0, kept equal to its 1.0.0 snapshot by `tests/it/same_as_thermo_bench.rs`),
   `examples/thermometer_device` (the `no_std` server and one `serve` loop over a `Board`: `SimBoard` on the PC, the
   chip's temperature sensor on a board) and `examples/thermometer` (client, `thermometer_sim` over WebSocket,
   `thermometer_read`, tests on the in-process WebSocket with tokio's paused clock). Firmware: `thermometer` bins of

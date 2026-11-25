@@ -188,6 +188,9 @@ This page lists the crates of the root workspace. The first table links each pub
 | [`thermo`](tests/thermo) | runtime | A host driver for every wire line of thermo_api (EVO-28, EVO-42): one generated client per line behind one facade. |
 | [`thermo_api`](tests/thermo_api) | runtime | The API of the multi-line bench (EVO-28, EVO-42): a small temperature logger with every wire line still in use. |
 | [`thermo_devices`](tests/thermo_devices) | runtime | Simulated firmware of every line of the thermo_api bench (EVO-28), on tests_common's in-process link. |
+| [`thermometer`](examples/thermometer) | runtime | Client of the thermometer example device, and the device simulated on a PC over WebSocket |
+| [`thermometer_api`](examples/thermometer_api) | runtime | API of the thermometer example device: temperatures with units, a property, an observed value, a stream |
+| [`thermometer_device`](examples/thermometer_device) | runtime | The thermometer example device: one server for the simulated device on a PC and the firmware of every board |
 | [`toml_settings_api`](tests/toml_settings_api) | runtime | Test API of ww_json's TOML form (INT-18): a settings tree of nested structs, quantities, enums, lists and options |
 | [`totals`](tests/totals) | runtime | Tests of running totals over plain sinks (API-70): a lossy UDP link that drops and reorders datagrams, WebSocket, a second sender. |
 | [`totals_api`](tests/totals_api) | runtime | Test API of tests/totals: running totals over plain sinks, of a struct of Fixed values and of a counted unit. |

@@ -16,7 +16,7 @@ const DRIFT: i16 = 100;
 /// ... once a minute.
 const DRIFT_PERIOD: Duration = Duration::from_secs(60);
 /// Above this gain the simulated amplifier clips.
-const GAIN_CLIPS_ABOVE: u8 = 8;
+const GAIN_CLIPS_ABOVE: Gain = Gain::bounded(8);
 /// A triggered conversion takes 100 ms.
 const CONVERSION: Duration = Duration::from_millis(100);
 
@@ -72,7 +72,7 @@ impl Board for SimBoard {
     fn read(&mut self, input: Input, gain: Gain, now: Instant) -> Reading {
         Reading {
             temp: Self::temperature(input, now),
-            overload: gain.get() > GAIN_CLIPS_ABOVE,
+            overload: gain.get() > GAIN_CLIPS_ABOVE.get(),
         }
     }
 

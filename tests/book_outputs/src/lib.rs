@@ -72,13 +72,21 @@ fn valid_name(name: &str) -> bool {
         })
 }
 
-/// The repository root: the nearest directory above this crate holding `zensical.toml`.
+/// The repository root of the running test: the nearest directory above its crate that holds a `Cargo.lock` and a
+/// `docs` directory. The crate is the one cargo runs (`CARGO_MANIFEST_DIR` at run time), so a test of another
+/// repository that takes this crate by git writes into its own `docs/generated/`.
 fn repository_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .ancestors()
-        .find(|dir| dir.join("zensical.toml").is_file())
-        .expect("book_outputs sits inside the repository of the book")
-        .to_path_buf()
+    let running = std::env::var_os("CARGO_MANIFEST_DIR")
+        .map_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")), PathBuf::from);
+    root_above(&running)
+        .expect("the running crate sits inside a repository with a Cargo.lock and a docs directory")
+}
+
+/// The nearest directory from `dir` up that holds a `Cargo.lock` and a `docs` directory.
+fn root_above(dir: &Path) -> Option<PathBuf> {
+    dir.ancestors()
+        .find(|dir| dir.join("Cargo.lock").is_file() && dir.join("docs").is_dir())
+        .map(Path::to_path_buf)
 }
 
 /// Checks `docs/generated/<name>` against `text` under `root`, or writes it when `write` is set.
@@ -155,6 +163,18 @@ mod tests {
             stale.to_string(),
             "docs/generated/ex/out.txt is stale from line 2: run `just book-outputs`"
         );
+    }
+
+    #[test]
+    fn the_root_is_the_running_crates_repository() {
+        let root = scratch("root");
+        let krate = root.join("examples/demo");
+        fs::create_dir_all(&krate).unwrap();
+        assert_eq!(root_above(&krate), None);
+        fs::write(root.join("Cargo.lock"), "").unwrap();
+        assert_eq!(root_above(&krate), None);
+        fs::create_dir_all(root.join("docs")).unwrap();
+        assert_eq!(root_above(&krate), Some(root));
     }
 
     #[test]

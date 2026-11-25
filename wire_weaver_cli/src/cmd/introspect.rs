@@ -34,52 +34,77 @@ pub(crate) struct IntrospectArgs {
 }
 
 pub(crate) async fn introspect(args: IntrospectArgs, device: &DynClient) -> Result<()> {
+    if args.raw || args.raw_as_sent {
+        let introspect = device
+            .device_introspect()
+            .ok_or_else(|| anyhow!("device did not provide introspection data"))?;
+        if args.raw {
+            println!("{:#?}", introspect.api_bundle);
+        } else {
+            println!("{:#?}", introspect.sent_api_bundle);
+        }
+        return Ok(());
+    }
+    let view = IntrospectView {
+        types: args.types,
+        skip_docs: args.skip_docs,
+        no_values: args.no_values,
+    };
+    print!("{}", render(device, view).await?);
+    Ok(())
+}
+
+/// What `ww introspect` shows of a device, the flags it takes besides `--raw`.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct IntrospectView {
+    /// Also the types the API refers to (`-t`).
+    pub types: bool,
+    /// No doc comments (`-d`).
+    pub skip_docs: bool,
+    /// No values of `const` items, so no reads (`--no-values`).
+    pub no_values: bool,
+}
+
+/// The text `ww introspect` prints for `device`: the resource tree, then its size, crates and API hash. Colours
+/// follow [console::colors_enabled]. For a program or a test that shows the same text, such as a book's transcript.
+pub async fn render(device: &DynClient, view: IntrospectView) -> Result<String> {
+    use std::fmt::Write;
     let introspect = device
         .device_introspect()
         .ok_or_else(|| anyhow!("device did not provide introspection data"))?;
     let bundle = &introspect.api_bundle;
-    if args.raw {
-        println!("{bundle:#?}");
-        return Ok(());
-    }
-    if args.raw_as_sent {
-        println!("{:#?}", introspect.sent_api_bundle);
-        return Ok(());
-    }
-
-    let values = if args.no_values {
+    let values = if view.no_values {
         HashMap::new()
     } else {
         const_values(device, DynResource::root(bundle.clone())).await
     };
-    print!(
-        "{}",
-        api_tree::render_with_values(bundle, args.skip_docs, &values)
-    );
-    if args.types {
-        println!();
-        print!("{}", api_tree::render_types(bundle, args.skip_docs));
+    let mut out = api_tree::render_with_values(bundle, view.skip_docs, &values);
+    if view.types {
+        out.push('\n');
+        out.push_str(&api_tree::render_types(bundle, view.skip_docs));
     }
-    println!();
+    out.push('\n');
     let full_size = bundle.to_ww_bytes_owned()?.len();
-    println!(
+    writeln!(
+        out,
         "{}, {full_size} bytes full, {} bytes sent",
         api_tree::summary(bundle),
         introspect.sent_size
-    );
+    )?;
     let crates = bundle
         .ext_crates
         .iter()
         .map(|v| format!("{v:?}"))
         .collect::<Vec<_>>()
         .join(", ");
-    println!("{} {crates}", style("crates:").dim());
-    println!(
+    writeln!(out, "{} {crates}", style("crates:").dim())?;
+    writeln!(
+        out,
         "{} {}",
         style("api hash:").dim(),
         introspect.api_hash.no_docs
-    );
-    Ok(())
+    )?;
+    Ok(out)
 }
 
 /// Values of the `const` items outside of resource arrays, by resource ids from the root, a read error in place of

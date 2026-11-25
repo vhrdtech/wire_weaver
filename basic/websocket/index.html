@@ -12,14 +12,14 @@
         <meta name="author" content="Roman Isaikin">
       
       
-        <link rel="canonical" href="https://ww.vhrd.tech/basic/your_own_project/">
+        <link rel="canonical" href="https://ww.vhrd.tech/basic/websocket/">
       
       
       
-        <link rel="prev" href="../changing_your_api/">
+        <link rel="prev" href="../udp/">
       
       
-        <link rel="next" href="../python_in_full/">
+        <link rel="next" href="../rtt/">
       
       
         
@@ -30,7 +30,7 @@
     
     
       
-        <title>Your own project - WireWeaver</title>
+        <title>WebSocket - WireWeaver</title>
       
     
     
@@ -125,7 +125,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Your own project
+              WebSocket
             
           </span>
         </div>
@@ -1258,6 +1258,8 @@
                   
   
   
+    
+  
   
   
     
@@ -1289,11 +1291,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5" checked>
         
           
           <label class="md-nav__link" for="__nav_2_5" id="__nav_2_5_label" tabindex="">
@@ -1314,7 +1316,7 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_5_label" aria-expanded="false">
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_5_label" aria-expanded="true">
             <label class="md-nav__title" for="__nav_2_5">
               <span class="md-nav__icon md-icon"></span>
               
@@ -1331,14 +1333,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../transport/overview/" class="md-nav__link">
+      <a href="../transports/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  Overview
+  Choosing a transport
 
     
   </span>
@@ -1358,7 +1360,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../transport/usb/" class="md-nav__link">
+      <a href="../usb/" class="md-nav__link">
         
   
   
@@ -1385,7 +1387,163 @@
   
   
     <li class="md-nav__item">
-      <a href="../../transport/rtt/" class="md-nav__link">
+      <a href="../udp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  UDP
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  WebSocket
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  WebSocket
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#serving-over-websocket" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Serving over WebSocket
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#connecting" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Connecting
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#announcing-a-device-on-the-network" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Announcing a device on the network
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#finding-a-device-on-the-network" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Finding a device on the network
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-to-go-next" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Where to go next
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../rtt/" class="md-nav__link">
         
   
   
@@ -1412,14 +1570,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../transport/websocket/" class="md-nav__link">
+      <a href="../byte_streams/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  WebSocket
+  Serial lines and other byte streams
 
     
   </span>
@@ -1439,68 +1597,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../transport/udp/" class="md-nav__link">
+      <a href="../connection_loss/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  UDP
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../transport/byte_streams/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Byte streams
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../transport/keep_trying/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Keep trying
+  When the device goes away
 
     
   </span>
@@ -2323,16 +2427,10 @@
                   
   
   
-    
-  
   
   
     
     
-      
-        
-      
-        
       
         
       
@@ -2348,11 +2446,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_8" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_8" >
         
           
           <label class="md-nav__link" for="__nav_2_8" id="__nav_2_8_label" tabindex="">
@@ -2373,7 +2471,7 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_8_label" aria-expanded="true">
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_8_label" aria-expanded="false">
             <label class="md-nav__title" for="__nav_2_8">
               <span class="md-nav__icon md-icon"></span>
               
@@ -2390,181 +2488,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../changing_your_api/" class="md-nav__link">
+      <a href="../../evolution/overview/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  Changing your API
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-    
-  
-  
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Your own project
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="././" class="md-nav__link md-nav__link--active">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Your own project
-
-    
-  </span>
-  
-  
-
-      </a>
-      
-        
-
-
-<nav class="md-nav md-nav--secondary" aria-label="On this page">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      On this page
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#the-crates-of-a-project" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        The crates of a project
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#what-each-crate-depends-on" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        What each crate depends on
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#the-api-crates-name-and-versions" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        The API crate's name and versions
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#starting-from-a-template" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Starting from a template
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#handlers-from-the-api" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Handlers from the API
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#where-to-go-next" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Where to go next
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../python_in_full/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Python in full
+  Evolving an API
 
     
   </span>
@@ -4326,6 +4257,20 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -4377,6 +4322,60 @@
   
   
     <li class="md-nav__item">
+      <a href="../../transport/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Connecting in depth
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../transport/usb/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  USB in depth
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../transport/usb_internals/" class="md-nav__link">
         
   
@@ -4385,6 +4384,141 @@
     
   
   USB inside
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../transport/rtt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  RTT in depth
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../transport/websocket/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  WebSocket in depth
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../transport/udp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  UDP in depth
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../transport/byte_streams/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Byte streams in depth
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../transport/keep_trying/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Keep-trying connections in depth
 
     
   </span>
@@ -6761,10 +6895,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#the-crates-of-a-project" class="md-nav__link">
+  <a href="#serving-over-websocket" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        The crates of a project
+        Serving over WebSocket
       </span>
     </span>
   </a>
@@ -6772,10 +6906,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#what-each-crate-depends-on" class="md-nav__link">
+  <a href="#connecting" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        What each crate depends on
+        Connecting
       </span>
     </span>
   </a>
@@ -6783,10 +6917,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#the-api-crates-name-and-versions" class="md-nav__link">
+  <a href="#announcing-a-device-on-the-network" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        The API crate's name and versions
+        Announcing a device on the network
       </span>
     </span>
   </a>
@@ -6794,21 +6928,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#starting-from-a-template" class="md-nav__link">
+  <a href="#finding-a-device-on-the-network" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Starting from a template
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#handlers-from-the-api" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Handlers from the API
+        Finding a device on the network
       </span>
     </span>
   </a>
@@ -6900,16 +7023,24 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
     
       <li class="md-path__item">
-        <a href="../changing_your_api/" class="md-path__link">
+        <a href="../transports/" class="md-path__link">
           
   
   <span class="md-ellipsis">
-    Keeping it working
+    Getting connected
   </span>
 
         </a>
@@ -6948,206 +7079,147 @@
   
 
 
-<h1 id="your-own-project">Your own project<a class="headerlink" href="#your-own-project" title="Permanent link">&para;</a></h1>
-<p>The examples in this book are small projects of their own, and your device can take the same shape. This chapter
-shows that shape on the thermometer: which crates a project has, what each one depends on, and how the API crate is
-named and versioned. It then starts a project from a template for your board and writes its handlers with
-<code>ww api scaffold</code>.</p>
-<h2 id="the-crates-of-a-project">The crates of a project<a class="headerlink" href="#the-crates-of-a-project" title="Permanent link">&para;</a></h2>
-<p>An API is shared by the firmware and by every program that talks to the device. So it lives in an <a aria-describedby="vz-card-term-api-crate-9bbe34" class="vz-ref vz-term" data-vz-card="vz-card-term-api-crate-9bbe34" href="/glossary/#term-api-crate">API crate</a> of
-its own, and the code on each side lives in crates that depend on it. The thermometer has three such crates and the
-firmware of two boards:</p>
-<p><img alt="thermometer_api at the top; thermometer_device and thermometer depend on it; the firmware depends on thermometer_device; ww and Python depend on no crate of the project" src="../../assets/project_crates.svg" /></p>
-<table>
-<thead>
-<tr>
-<th>Crate</th>
-<th>Holds</th>
-<th>Builds for</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>thermometer_api</code></td>
-<td>the <a aria-describedby="vz-card-term-api-trait-fef0df" class="vz-ref vz-term" data-vz-card="vz-card-term-api-trait-fef0df" href="/glossary/#term-api-trait">API trait</a> and its types</td>
-<td>the firmware and the host, <code>no_std</code></td>
-</tr>
-<tr>
-<td><code>thermometer_device</code></td>
-<td>the <a aria-describedby="vz-card-term-server-1f67c0" class="vz-ref vz-term" data-vz-card="vz-card-term-server-1f67c0" href="/glossary/#term-server">server</a>: its state, its handlers and its event loop</td>
-<td>the firmware and the simulated device, <code>no_std</code></td>
-</tr>
-<tr>
-<td><code>thermometer</code></td>
-<td>the generated <a aria-describedby="vz-card-term-client-2728a9" class="vz-ref vz-term" data-vz-card="vz-card-term-client-2728a9" href="/glossary/#term-client">client</a>, host programs and the device simulated on a PC</td>
-<td>the host</td>
-</tr>
-<tr>
-<td>firmware, one per board</td>
-<td>the board's pins and transport, around <code>thermometer_device</code></td>
-<td>the board's chip</td>
-</tr>
-</tbody>
-</table>
-<p>The firmware crates hold little code of their own: <a aria-describedby="vz-card-file-examples-mcu-nucleo-g0b1re-src-bin-thermome-be1d0d" class="vz-ref vz-file" data-vz-card="vz-card-file-examples-mcu-nucleo-g0b1re-src-bin-thermome-be1d0d" href="https://github.com/vhrdtech/wire_weaver/blob/9b51e272dc4a418f057888f3623748c55d98a8f4/examples_mcu/nucleo_g0b1re/src/bin/thermometer.rs"><code>examples_mcu/nucleo_g0b1re/src/bin/thermometer.rs</code></a> and
-<a aria-describedby="vz-card-file-examples-mcu-rp2-src-bin-thermometer-rs-eb34b4" class="vz-ref vz-file" data-vz-card="vz-card-file-examples-mcu-rp2-src-bin-thermometer-rs-eb34b4" href="https://github.com/vhrdtech/wire_weaver/blob/9b51e272dc4a418f057888f3623748c55d98a8f4/examples_mcu/rp2/src/bin/thermometer.rs"><code>examples_mcu/rp2/src/bin/thermometer.rs</code></a> give the same server a board and a USB transport. The simulated device in
-<a aria-describedby="vz-card-file-examples-thermometer-src-lib-rs-52ee5b" class="vz-ref vz-file" data-vz-card="vz-card-file-examples-thermometer-src-lib-rs-52ee5b" href="https://github.com/vhrdtech/wire_weaver/blob/9b51e272dc4a418f057888f3623748c55d98a8f4/examples/thermometer/src/lib.rs"><code>examples/thermometer/src/lib.rs</code></a> gives it a board that exists only in software. So the code you test on your PC
-is the code that runs on the board.</p>
-<p><code>ww</code> and the Python module depend on no crate of the project. They read the API from the device itself, through
-<a aria-describedby="vz-card-term-introspection-f603a6" class="vz-ref vz-term" data-vz-card="vz-card-term-introspection-f603a6" href="/glossary/#term-introspection">introspection</a>, so they work with any device without being built for it.</p>
-<h2 id="what-each-crate-depends-on">What each crate depends on<a class="headerlink" href="#what-each-crate-depends-on" title="Permanent link">&para;</a></h2>
-<p>The API crate depends on <code>ww_api</code> and nothing from the runtime. <code>ww_api</code> holds what an API needs to compile: the
-macros, the wire format and the common error types. The thermometer also takes <code>ww_si</code> for its numbers with units:</p>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[dependencies]</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">ww_api</span><span class="p">.</span><span class="n">workspace</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">ww_si</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">workspace</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="n">features</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;thermal&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;dimensionless&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;counting&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">}</span>
+<h1 id="websocket">WebSocket<a class="headerlink" href="#websocket" title="Permanent link">&para;</a></h1>
+<p>WebSocket carries a device's messages over a TCP connection, so any device on a network that runs TCP can be a
+WireWeaver device. Examples are a Linux board, a gateway in front of devices on other media, and a simulator on your
+PC. TCP resends
+what the network loses, so no message goes missing while the connection holds. This is the transport of the simulated
+thermometer in the earlier chapters.</p>
+<p>This chapter serves the thermometer over WebSocket and connects to it from Rust, the command line and Python. It then
+shows how a device announces itself on the local network, so that hosts find it without a typed address.</p>
+<h2 id="serving-over-websocket">Serving over WebSocket<a class="headerlink" href="#serving-over-websocket" title="Permanent link">&para;</a></h2>
+<p>The simulated thermometer serves WebSocket on port 8080 of the loopback address. The <code>thermometer_sim</code> example
+listens on a TCP port and hands each client's stream to the device:</p>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>cargo<span class="w"> </span>run<span class="w"> </span>-p<span class="w"> </span>thermometer<span class="w"> </span>--example<span class="w"> </span>thermometer_sim
 </span></code></pre></div>
-<p>The device crate adds <code>wire_weaver</code>, which generates the server code, and <code>ww_device</code>, which runs it over a
-<a aria-describedby="vz-card-term-transport-6f77b0" class="vz-ref vz-term" data-vz-card="vz-card-term-transport-6f77b0" href="/glossary/#term-transport">transport</a>:</p>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">[dependencies]</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">embassy-futures</span><span class="p">.</span><span class="n">workspace</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">shrink_wrap</span><span class="p">.</span><span class="n">workspace</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">thermometer_api</span><span class="p">.</span><span class="n">workspace</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">wire_weaver</span><span class="p">.</span><span class="n">workspace</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="n">ww_client_server</span><span class="p">.</span><span class="n">workspace</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="n">ww_device</span><span class="p">.</span><span class="n">workspace</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="n">ww_si</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">workspace</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="n">features</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;thermal&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;dimensionless&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;counting&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">}</span>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="n">ww_stream</span><span class="p">.</span><span class="n">workspace</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
+<p>The device side is the function <code>simulated()</code> in <a aria-describedby="vz-card-file-examples-thermometer-src-lib-rs-52ee5b" class="vz-ref vz-file" data-vz-card="vz-card-file-examples-thermometer-src-lib-rs-52ee5b" href="https://github.com/vhrdtech/wire_weaver/blob/2f680f5ddf0795733a01151d76800749f36ed4ae/examples/thermometer/src/lib.rs"><code>examples/thermometer/src/lib.rs</code></a>:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="sd">/// Serves a thermometer on a [SimBoard] to the WebSocket clients `incoming` yields, one at a time, until `stop`</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="sd">/// resolves; returns what it dropped or refused. The device&#39;s futures are not `Send`: run it on a current-thread</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="sd">/// runtime or in a `LocalSet`.</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="k">pub</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">simulated</span><span class="o">&lt;</span><span class="n">I</span><span class="p">,</span><span class="w"> </span><span class="n">S</span><span class="o">&gt;</span><span class="p">(</span><span class="n">incoming</span><span class="p">:</span><span class="w"> </span><span class="nc">I</span><span class="p">,</span><span class="w"> </span><span class="n">stop</span><span class="p">:</span><span class="w"> </span><span class="nc">impl</span><span class="w"> </span><span class="n">Future</span><span class="o">&lt;</span><span class="n">Output</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">()</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">Counters</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="k">where</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="n">I</span><span class="p">:</span><span class="w"> </span><span class="nc">Stream</span><span class="o">&lt;</span><span class="n">Item</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">S</span><span class="o">&gt;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nb">Unpin</span><span class="p">,</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="n">S</span><span class="p">:</span><span class="w"> </span><span class="nc">AsyncRead</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">AsyncWrite</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nb">Unpin</span><span class="p">,</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="p">{</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">board</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="o">&#39;</span><span class="nb">static</span><span class="w"> </span><span class="nc">mut</span><span class="w"> </span><span class="n">SimBoard</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Box</span><span class="p">::</span><span class="n">leak</span><span class="p">(</span><span class="nb">Box</span><span class="p">::</span><span class="n">default</span><span class="p">());</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Device</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">board</span><span class="p">);</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">conn</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">WsConnection</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">IoSocket</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">incoming</span><span class="p">));</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">buffers</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Box</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">WsBuffers</span><span class="p">::</span><span class="o">&lt;</span><span class="n">MAX_MESSAGE_LEN</span><span class="o">&gt;</span><span class="p">::</span><span class="n">new</span><span class="p">());</span>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">server</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ws_server</span><span class="p">(</span>
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">        </span><span class="n">Device</span><span class="p">::</span><span class="n">link_config</span><span class="p">(),</span>
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">        </span><span class="o">&amp;</span><span class="n">conn</span><span class="p">,</span>
+</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">        </span><span class="n">TokioClock</span><span class="p">::</span><span class="n">new</span><span class="p">(),</span>
+</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="w">        </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">buffers</span><span class="p">,</span>
+</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="w">    </span><span class="p">);</span>
+</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="w">    </span><span class="n">thermometer_device</span><span class="p">::</span><span class="n">serve</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">server</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">device</span><span class="p">,</span><span class="w"> </span><span class="n">stop</span><span class="p">).</span><span class="k">await</span><span class="p">;</span>
+</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="w">    </span><span class="n">device</span><span class="p">.</span><span class="n">counters</span><span class="p">()</span>
+</span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="p">}</span>
 </span></code></pre></div>
-<p>The host crate takes the API with its <code>std</code> feature and <code>wire_weaver_client</code> with the transports it uses. The
-thermometer's host crate also depends on the device crate, for the simulated device:</p>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">[dependencies]</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">futures-util</span><span class="p">.</span><span class="n">workspace</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">thermometer_api</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">workspace</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="n">features</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;std&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">}</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">thermometer_device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">workspace</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="n">features</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;std&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">}</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">tokio</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">workspace</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="n">features</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;sync&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;rt&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;time&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;macros&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">}</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">wire_weaver</span><span class="p">.</span><span class="n">workspace</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">wire_weaver_client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">workspace</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="n">features</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;in_process&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;usb&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;ws&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">}</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">ww_device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">workspace</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="n">features</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;futures-io&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">}</span>
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="n">ww_si</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">workspace</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="n">features</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;std&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">}</span>
+<p><code>IoSocket</code> takes a stream of clients, here the connections that a TCP listener accepts. <code>WsConnection</code> accepts one
+client at a time, and <code>ws_server()</code> builds the server that the thermometer's event loop runs, exactly as it does over
+USB. On a board, an <code>EmbassyNetSocket</code> on an <code>embassy-net</code> TCP stack takes the place of <code>IoSocket</code>.</p>
+<h2 id="connecting">Connecting<a class="headerlink" href="#connecting" title="Permanent link">&para;</a></h2>
+<p>A WebSocket device is selected by its URL:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kd">let</span><span class="w"> </span><span class="n">url</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">address</span><span class="p">.</span><span class="n">unwrap_or_else</span><span class="p">(</span><span class="o">||</span><span class="w"> </span><span class="s">&quot;ws://127.0.0.1:8080/ww&quot;</span><span class="p">.</span><span class="n">to_owned</span><span class="p">());</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kd">let</span><span class="w"> </span><span class="n">device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Thermometer</span><span class="p">::</span><span class="n">config</span><span class="p">(</span><span class="o">|</span><span class="n">c</span><span class="o">|</span><span class="w"> </span><span class="n">c</span><span class="p">.</span><span class="n">websocket_url</span><span class="p">(</span><span class="n">url</span><span class="p">.</span><span class="n">clone</span><span class="p">()).</span><span class="n">no_ww_usb</span><span class="p">())</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="p">.</span><span class="n">connect</span><span class="p">()</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="p">.</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
 </span></code></pre></div>
-<h2 id="the-api-crates-name-and-versions">The API crate's name and versions<a class="headerlink" href="#the-api-crates-name-and-versions" title="Permanent link">&para;</a></h2>
-<p>The name of the API crate identifies the API worldwide. It goes into the API's identity that a device reports when
-a host connects, so two different APIs must not share a name. Publish the crate on crates.io for an open project,
-or pick a name unique enough for internal use.</p>
-<p>The crate carries two versions, as <a href="../changing_your_api/">Changing your API</a> explains: the crate version for Rust
-code and the <a aria-describedby="vz-card-term-wire-version-d0bbb6" class="vz-ref vz-term" data-vz-card="vz-card-term-wire-version-d0bbb6" href="/glossary/#term-wire-version">wire version</a> for devices and hosts. A new API starts on <code>w0.0</code>, the design line, where any change is
-allowed and no <a aria-describedby="vz-card-term-snapshot-dc071b" class="vz-ref vz-term" data-vz-card="vz-card-term-snapshot-dc071b" href="/glossary/#term-snapshot">snapshots</a> are kept. Its first release moves to <code>w1.0</code>, as the thermometer's has. From then on,
-the <a aria-describedby="vz-card-term-evolution-checker-ca4e56" class="vz-ref vz-term" data-vz-card="vz-card-term-evolution-checker-ca4e56" href="/glossary/#term-evolution-checker">evolution checker</a> watches every change.</p>
-<h2 id="starting-from-a-template">Starting from a template<a class="headerlink" href="#starting-from-a-template" title="Permanent link">&para;</a></h2>
-<p>A template is a repository with this shape, ready to copy and rename. Pick the one for your board:</p>
-<table>
-<thead>
-<tr>
-<th>Template</th>
-<th>Board and transport</th>
-<th>What it has</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><a href="https://github.com/romixlab/nucleo_g0b1re_template">nucleo_g0b1re_template</a></td>
-<td>ST Nucleo-G0B1RE, <abbr title="Real-Time Transfer, SEGGER's debug-probe channel">RTT</abbr> through the board's own ST-LINK</td>
-<td>an API crate, firmware with the device's firmware info, log, settings and reboots, a Rust client, a command line and a Python module</td>
-</tr>
-<tr>
-<td><a href="https://github.com/vhrdtech/wire_weaver_template">wire_weaver_template</a></td>
-<td>boards with USB, such as the ST Nucleo-H743ZI2</td>
-<td>an API crate, firmware, a Rust driver with examples and a Python wrapper</td>
-</tr>
-</tbody>
-</table>
-<p>The Nucleo-G0B1RE template needs nothing but the board and its USB cable. Starting from it takes these steps:</p>
-<ol>
-<li>On GitHub, press "Use this template" and clone your new repository.</li>
-<li>Run <code>just setup</code>. It installs the Rust target, probe-rs and the other tools, and prints the steps that need root
-   for you to run.</li>
-<li>Give the project your own name with <code>just rename my_board</code>. It renames the crates, the directories and the
-   command line.</li>
-<li>Run <code>just run</code> with the board plugged in. It builds and flashes the firmware and shows its log.</li>
-<li>Change the API crate, and write the handlers of what you added, as the next section shows.</li>
-</ol>
-<p>The template's own README describes each step and the commands it adds for the board.</p>
-<h2 id="handlers-from-the-api">Handlers from the API<a class="headerlink" href="#handlers-from-the-api" title="Permanent link">&para;</a></h2>
-<p>Each method and property of the API needs a <a aria-describedby="vz-card-term-handler-e57687" class="vz-ref vz-term" data-vz-card="vz-card-term-handler-e57687" href="/glossary/#term-handler">handler</a> in the device crate. Their names and signatures depend on the
-options of the <code>ww_codegen!</code> call, so don't write them by hand. <code>ww api scaffold</code> reads the API crate and prints the
-server struct, a stub for each handler and the <code>ww_codegen!</code> call that matches them. For blinky's API, with async
-handlers as the book's devices use:</p>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>ww<span class="w"> </span>api<span class="w"> </span>scaffold<span class="w"> </span>examples/blinky_api<span class="w"> </span>--use-async
+<p>Only plain <code>ws://</code> URLs work; there is no <code>wss://</code> yet. The examples serve the path <code>/ww</code>. The client doesn't check
+a serial number or a label before connecting, because it knows nothing about the device until it connects. Link setup
+still checks the API.</p>
+<p>The <code>ww</code> tool takes the URL with <code>--websocket</code>, as the <a href="../properties/">Properties</a> chapter shows:</p>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>ww<span class="w"> </span>--websocket<span class="w"> </span>ws://127.0.0.1:8080/ww<span class="w"> </span>introspect<span class="w"> </span>-d
 </span></code></pre></div>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1">// Server scaffold for `blinky_api::BlinkyApi`, generated by `ww api scaffold`.</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="c1">// Every handler is a stub returning Unimplemented, replace them with real implementations.</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="k">use</span><span class="w"> </span><span class="n">wire_weaver</span><span class="p">::</span><span class="n">prelude</span><span class="p">::</span><span class="o">*</span><span class="p">;</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="c1">// Wire version of the API: `w1.0`, `[package.metadata.wire_weaver] wire` in blinky_api&#39;s Cargo.toml.</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">Server</span><span class="w"> </span><span class="p">{}</span>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>
-</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="k">impl</span><span class="w"> </span><span class="n">Server</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">    </span><span class="c1">// ---- blinky_api::BlinkyApi at root ----</span>
-</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>
-</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="w">    </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">led_on</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">_cx</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">Context</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="p">,</span><span class="w"> </span><span class="k">impl</span><span class="w"> </span><span class="n">EventOut</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">RpcResult</span><span class="o">&lt;</span><span class="p">()</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="w">        </span><span class="n">Unimplemented</span><span class="p">.</span><span class="n">into</span><span class="p">()</span>
-</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="w">    </span><span class="p">}</span>
-</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>
-</span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="w">    </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">led_off</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">_cx</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">Context</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="p">,</span><span class="w"> </span><span class="k">impl</span><span class="w"> </span><span class="n">EventOut</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">RpcResult</span><span class="o">&lt;</span><span class="p">()</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-4-17"><a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="w">        </span><span class="n">Unimplemented</span><span class="p">.</span><span class="n">into</span><span class="p">()</span>
-</span><span id="__span-4-18"><a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="w">    </span><span class="p">}</span>
-</span><span id="__span-4-19"><a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a><span class="p">}</span>
-</span><span id="__span-4-20"><a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a>
-</span><span id="__span-4-21"><a id="__codelineno-4-21" name="__codelineno-4-21" href="#__codelineno-4-21"></a><span class="k">mod</span><span class="w"> </span><span class="nn">api_impl</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-4-22"><a id="__codelineno-4-22" name="__codelineno-4-22" href="#__codelineno-4-22"></a><span class="w">    </span><span class="n">wire_weaver</span><span class="p">::</span><span class="fm">ww_codegen!</span><span class="p">(</span>
-</span><span id="__span-4-23"><a id="__codelineno-4-23" name="__codelineno-4-23" href="#__codelineno-4-23"></a><span class="w">    </span><span class="n">blinky_api</span><span class="w"> </span><span class="p">::</span><span class="w"> </span><span class="nc">BlinkyApi</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="k">super</span><span class="p">::</span><span class="n">Server</span><span class="p">,</span>
-</span><span id="__span-4-24"><a id="__codelineno-4-24" name="__codelineno-4-24" href="#__codelineno-4-24"></a><span class="w">    </span><span class="n">server</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="n">no_alloc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="n">use_async</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-</span><span id="__span-4-25"><a id="__codelineno-4-25" name="__codelineno-4-25" href="#__codelineno-4-25"></a><span class="w">    </span><span class="n">method_model</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;_=immediate&quot;</span><span class="p">,</span>
-</span><span id="__span-4-26"><a id="__codelineno-4-26" name="__codelineno-4-26" href="#__codelineno-4-26"></a><span class="w">    </span><span class="n">property_model</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;_=get_set&quot;</span><span class="p">,</span>
-</span><span id="__span-4-27"><a id="__codelineno-4-27" name="__codelineno-4-27" href="#__codelineno-4-27"></a><span class="w">    </span><span class="p">);</span>
-</span><span id="__span-4-28"><a id="__codelineno-4-28" name="__codelineno-4-28" href="#__codelineno-4-28"></a><span class="p">}</span>
+<p>The Python module takes it as <code>websocket_url</code>:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">dev</span> <span class="o">=</span> <span class="n">ww</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">websocket_url</span><span class="o">=</span><span class="n">url</span><span class="p">)</span>
 </span></code></pre></div>
-<p>Each stub returns <code>Unimplemented</code> until you write its body; a host that calls it gets a clean error meanwhile. The
-<code>ww_codegen!</code> call at the end generates the server code. Its options must match the ones you gave <code>ww api scaffold</code>,
-or the handlers won't compile. <code>ww api scaffold --help</code> lists every option.</p>
-<p>When the API changes later, run <code>ww api scaffold</code> again with the same options and compare its stubs with your
-handlers. New items need new handlers, and the compiler names any signature that changed.</p>
+<p>The same function reaches the other transports. <code>ww.connect()</code> without arguments looks for a USB device, and
+<code>ww.connect(rtt="STM32G0B1RETx")</code> reaches a board through a debug probe.</p>
+<p>When a device has more than one address, a <abbr title="local area network">LAN</abbr> address and a <abbr title="virtual private network">VPN</abbr> one for example, <code>websocket_urls([..])</code> takes all
+of them. The client opens them at once, and the first that answers wins.</p>
+<h2 id="announcing-a-device-on-the-network">Announcing a device on the network<a class="headerlink" href="#announcing-a-device-on-the-network" title="Permanent link">&para;</a></h2>
+<p>Typing an address is fine for a simulator. A device on a home or office network gets a new address from the router
+now and then. Such a device announces itself with <abbr title="DNS Service Discovery">DNS-SD</abbr> over multicast DNS. The announcement is a short record that
+every program on the same network segment can read.</p>
+<p><img alt="A device announces a record over multicast DNS; a host's Discovery keeps a list and the config follows the current address" src="../../assets/lan_discovery.svg" /></p>
+<p>The <code>ww_dns_sd</code> crate announces a record for any server. The example <code>blinky_ws_device</code>
+(<a aria-describedby="vz-card-file-examples-blinky-examples-ws-device-rs-682869" class="vz-ref vz-file" data-vz-card="vz-card-file-examples-blinky-examples-ws-device-rs-682869" href="https://github.com/vhrdtech/wire_weaver/blob/2f680f5ddf0795733a01151d76800749f36ed4ae/examples/blinky/examples/ws_device.rs"><code>examples/blinky/examples/ws_device.rs</code></a>) serves the blinky API over WebSocket from a PC and announces it:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kd">let</span><span class="w"> </span><span class="n">txt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Txt</span><span class="p">::</span><span class="n">new</span><span class="p">(</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">    </span><span class="n">PATH</span><span class="p">,</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="o">&amp;</span><span class="n">blinky_api</span><span class="p">::</span><span class="n">BLINKY_API_FULL_GID</span><span class="p">,</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="nb">Some</span><span class="p">(</span><span class="n">blinky_api</span><span class="p">::</span><span class="n">BLINKY_API_WIRE_VERSION</span><span class="p">),</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">    </span><span class="n">InstanceId</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">args</span><span class="p">.</span><span class="n">id</span><span class="p">)</span><span class="o">?</span><span class="p">,</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="kd">let</span><span class="w"> </span><span class="n">record</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ServiceRecord</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">InstanceName</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">args</span><span class="p">.</span><span class="n">name</span><span class="p">)</span><span class="o">?</span><span class="p">,</span><span class="w"> </span><span class="n">args</span><span class="p">.</span><span class="n">port</span><span class="p">,</span><span class="w"> </span><span class="n">txt</span><span class="p">)</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">    </span><span class="p">.</span><span class="n">with_addresses</span><span class="p">(</span><span class="n">interface_addresses</span><span class="p">(</span><span class="n">args</span><span class="p">.</span><span class="n">interface</span><span class="p">.</span><span class="n">as_deref</span><span class="p">())</span><span class="o">?</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="kd">let</span><span class="w"> </span><span class="n">responder</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">start_responder</span><span class="p">(</span><span class="k">match</span><span class="w"> </span><span class="n">args</span><span class="p">.</span><span class="n">responder</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">    </span><span class="n">Responder</span><span class="p">::</span><span class="n">Auto</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">ResponderChoice</span><span class="p">::</span><span class="n">Auto</span><span class="p">,</span>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">    </span><span class="n">Responder</span><span class="p">::</span><span class="n">InProcess</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">ResponderChoice</span><span class="p">::</span><span class="n">InProcess</span><span class="p">,</span>
+</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">    </span><span class="n">Responder</span><span class="p">::</span><span class="n">Avahi</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">ResponderChoice</span><span class="p">::</span><span class="n">Avahi</span><span class="p">,</span>
+</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="p">})</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">advertiser</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Advertiser</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">responder</span><span class="p">,</span><span class="w"> </span><span class="n">record</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+</span></code></pre></div>
+<p>The record has the instance name that people see, the port, and the path of the WebSocket. It also has the API's
+identity and wire version. An id that the device keeps for good means that a rename doesn't make it a different
+device. While the <code>Advertiser</code> lives, the record is on the network; dropping it withdraws the record. On Linux,
+<code>avahi-browse -r -t _wireweaver._tcp</code> lists what is announced.</p>
+<div class="admonition warning">
+<p class="admonition-title">Everything announced reaches the whole network</p>
+<p>Every program on the same network segment can read the record, and nothing proves who sent it. Announce only a
+server that may be found by everyone there, and never put a secret in the record.</p>
+</div>
+<h2 id="finding-a-device-on-the-network">Finding a device on the network<a class="headerlink" href="#finding-a-device-on-the-network" title="Permanent link">&para;</a></h2>
+<p>The host side is <code>Discovery</code>. It browses for <code>_wireweaver._tcp</code> on a thread of its own and keeps the list of servers
+current as they come, change address and go. The example <a aria-describedby="vz-card-file-examples-blinky-examples-discover-rs-8aa8f9" class="vz-ref vz-file" data-vz-card="vz-card-file-examples-blinky-examples-discover-rs-8aa8f9" href="https://github.com/vhrdtech/wire_weaver/blob/2f680f5ddf0795733a01151d76800749f36ed4ae/examples/blinky/examples/discover.rs"><code>examples/blinky/examples/discover.rs</code></a> prints the list:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kd">let</span><span class="w"> </span><span class="n">discovery</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Discovery</span><span class="p">::</span><span class="n">start</span><span class="p">()</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="c1">// browsing is not instant: a record shows up when its announcement or an answer arrives</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">tokio</span><span class="p">::</span><span class="n">time</span><span class="p">::</span><span class="n">sleep</span><span class="p">(</span><span class="n">Duration</span><span class="p">::</span><span class="n">from_secs</span><span class="p">(</span><span class="mi">2</span><span class="p">)).</span><span class="k">await</span><span class="p">;</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="k">for</span><span class="w"> </span><span class="n">server</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="n">discovery</span><span class="p">.</span><span class="n">servers</span><span class="p">().</span><span class="n">iter</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">        </span><span class="s">&quot;{}: {:?} at {:?}, port {}&quot;</span><span class="p">,</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">        </span><span class="n">server</span><span class="p">.</span><span class="n">instance</span><span class="p">(),</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">        </span><span class="n">server</span><span class="p">.</span><span class="n">api</span><span class="p">(),</span>
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="w">        </span><span class="n">server</span><span class="p">.</span><span class="n">addresses</span><span class="p">(),</span>
+</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="w">        </span><span class="n">server</span><span class="p">.</span><span class="n">port</span><span class="p">()</span>
+</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="w">    </span><span class="p">);</span>
+</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>Printing a list is for people. A program connects through <code>websocket_urls_from()</code>, which takes a source of URLs that
+is asked again at every connect. A device that gets a new address after a router restart is then found at its new
+address by the next attempt:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1">// the address is looked up again at every attempt, so the device is followed through a new DHCP lease</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="kd">let</span><span class="w"> </span><span class="n">device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Blinky</span><span class="p">::</span><span class="n">config</span><span class="p">(</span><span class="o">|</span><span class="n">c</span><span class="o">|</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">    </span><span class="n">c</span><span class="p">.</span><span class="n">websocket_urls_from</span><span class="p">(</span><span class="n">discovery</span><span class="p">::</span><span class="n">urls</span><span class="p">(</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">        </span><span class="o">&amp;</span><span class="n">discovery</span><span class="p">,</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">        </span><span class="n">Select</span><span class="p">::</span><span class="n">Name</span><span class="p">(</span><span class="n">first</span><span class="p">.</span><span class="n">instance</span><span class="p">().</span><span class="n">to_owned</span><span class="p">()),</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">        </span><span class="nb">Vec</span><span class="p">::</span><span class="n">new</span><span class="p">(),</span><span class="w"> </span><span class="c1">// no saved address to fall back on</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">    </span><span class="p">))</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">    </span><span class="p">.</span><span class="n">no_ww_usb</span><span class="p">()</span>
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">    </span><span class="p">.</span><span class="n">keep_trying</span><span class="p">(</span><span class="n">KeepTrying</span><span class="p">::</span><span class="n">default</span><span class="p">())</span>
+</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="p">})</span>
+</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="p">.</span><span class="n">connect_keep_trying</span><span class="p">()</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="c1">// the handle exists before the link: wait for it, as a call before that fails at once</span>
+</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">state</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span>
+</span><span id="__span-7-14"><a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a><span class="w">    </span><span class="p">.</span><span class="n">cmd</span><span class="p">()</span>
+</span><span id="__span-7-15"><a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a><span class="w">    </span><span class="p">.</span><span class="n">connection_state</span><span class="p">()</span>
+</span><span id="__span-7-16"><a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a><span class="w">    </span><span class="p">.</span><span class="n">context</span><span class="p">(</span><span class="s">&quot;a keep-trying connection has a state&quot;</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-7-17"><a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a><span class="n">state</span>
+</span><span id="__span-7-18"><a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a><span class="w">    </span><span class="p">.</span><span class="n">wait_for</span><span class="p">(</span><span class="o">|</span><span class="n">s</span><span class="o">|</span><span class="w"> </span><span class="fm">matches!</span><span class="p">(</span><span class="n">s</span><span class="p">,</span><span class="w"> </span><span class="n">ConnectionState</span><span class="p">::</span><span class="n">Connected</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="p">}))</span>
+</span><span id="__span-7-19"><a id="__codelineno-7-19" name="__codelineno-7-19" href="#__codelineno-7-19"></a><span class="w">    </span><span class="p">.</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span></code></pre></div>
+<p><code>Select::Name</code> picks a server by the name people see. <code>Select::Id</code> picks by the stable id, which survives a rename,
+and <code>Select::Api</code> picks by the API's crate. The list in the second argument of <code>urls()</code> holds addresses to try
+after the discovered ones, such as a saved or <abbr title="virtual private network">VPN</abbr> address. The <code>keep_trying</code> part is the subject of
+<a href="../connection_loss/">When the device goes away</a>.</p>
+<p>To try it, run the device on one PC and the host on another PC of the same network:</p>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>cargo<span class="w"> </span>run<span class="w"> </span>-p<span class="w"> </span>blinky<span class="w"> </span>--features<span class="w"> </span>ws<span class="w"> </span>--example<span class="w"> </span>blinky_ws_device<span class="w"> </span>--<span class="w"> </span>--id<span class="w"> </span>blinky-demo<span class="w">   </span><span class="c1"># the device</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>cargo<span class="w"> </span>run<span class="w"> </span>-p<span class="w"> </span>blinky<span class="w"> </span>--features<span class="w"> </span>dns_sd<span class="w"> </span>--example<span class="w"> </span>blinky_discover<span class="w">                    </span><span class="c1"># the host</span>
+</span></code></pre></div>
 <h2 id="where-to-go-next">Where to go next<a class="headerlink" href="#where-to-go-next" title="Permanent link">&para;</a></h2>
-<ul>
-<li><a href="../python_in_full/">Python in full</a> drives the thermometer from Python: values, units, streams and errors.</li>
-<li><a href="../changing_your_api/">Changing your API</a> keeps your API working as it changes.</li>
-<li><a href="../../api/handlers/">Handlers</a> covers sync, async and shared handlers and the other options of <code>ww_codegen!</code>.</li>
-</ul>
-<div class="vz-cards"><div class="vz-card vz-card-term" id="vz-card-term-api-crate-9bbe34" role="tooltip"><strong>API crate</strong>: A <code>no_std</code> crate holding an API trait and its types, which the firmware and every host depend on.</div><div class="vz-card vz-card-file" id="vz-card-file-examples-mcu-nucleo-g0b1re-src-bin-thermome-be1d0d" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/wire_weaver/blob/9b51e272dc4a418f057888f3623748c55d98a8f4/examples_mcu/nucleo_g0b1re/src/bin/thermometer.rs">examples_mcu/nucleo_g0b1re/src/bin/thermometer.rs</a></div><div class="vz-card-src"><div class="language-rust highlight"><pre><span></span><code><span class="sd">//! The thermometer example device (`examples/thermometer_device`) on the Nucleo G0B1RE, over USB: one input, the</span>
-<span class="sd">//! chip&#39;s own temperature sensor, and the user LED (PA5) as the status LED. The server, its handlers and its event</span>
-<span class="sd">//! loop are the simulated device&#39;s; only the board differs.</span>
-<span class="sd">//!</span>
-<span class="sd">//! Run with `just run nucleo thermometer`, then from the PC `ww list` and `ww introspect`.</span>
-<span class="cp">#![no_std]</span>
-<span class="cp">#![no_main]</span>
-<span class="cp">#![feature(impl_trait_in_assoc_type)]</span>
-
-<span class="k">use</span><span class="w"> </span><span class="n">core</span><span class="p">::</span><span class="n">time</span><span class="p">::</span><span class="n">Duration</span><span class="p">;</span>
-
-<span class="k">use</span><span class="w"> </span><span class="n">cortex_m_rt</span><span class="p">::</span><span class="n">exception</span><span class="p">;</span>
-<span class="k">use</span><span class="w"> </span><span class="n">defmt</span><span class="p">::{</span><span class="n">info</span><span class="p">,</span><span class="w"> </span><span class="n">unwrap</span><span class="p">};</span>
-<span class="k">use</span><span class="w"> </span><span class="n">defmt_rtt</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">_</span><span class="p">;</span>
-<span class="k">use</span><span class="w"> </span><span class="n">embassy_stm32</span><span class="p">::</span><span class="n">adc</span><span class="p">::{</span><span class="n">Adc</span><span class="p">,</span><span class="w"> </span><span class="n">SampleTime</span><span class="p">,</span><span class="w"> </span><span class="n">Temperature</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">TempChannel</span><span class="p">,</span><span class="w"> </span><span class="n">VrefInt</span><span class="p">};</span>
-<span class="k">use</span><span class="w"> </span><span class="n">embassy_stm32</span><span class="p">::</span><span class="n">gpio</span><span class="p">::{</span><span class="n">Level</span><span class="p">,</span><span class="w"> </span><span class="n">Output</span><span class="p">,</span><span class="w"> </span><span class="n">Speed</span><span class="p">};</span>
-</code></pre></div></div><div class="vz-card-more">177 more lines in the source</div><div class="vz-card-where">examples_mcu/nucleo_g0b1re/src/bin/thermometer.rs:1-193</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/wire_weaver/blob/9b51e272dc4a418f057888f3623748c55d98a8f4/examples_mcu/nucleo_g0b1re/src/bin/thermometer.rs">File on GitHub</a></div></div><div class="vz-card vz-card-file" id="vz-card-file-examples-mcu-rp2-src-bin-thermometer-rs-eb34b4" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/wire_weaver/blob/9b51e272dc4a418f057888f3623748c55d98a8f4/examples_mcu/rp2/src/bin/thermometer.rs">examples_mcu/rp2/src/bin/thermometer.rs</a></div><div class="vz-card-src"><div class="language-rust highlight"><pre><span></span><code><span class="sd">//! The thermometer example device (`examples/thermometer_device`) on the Pico 2, over USB: one input, the RP2350&#39;s</span>
-<span class="sd">//! own temperature sensor, and the LED on GPIO 25 as the status LED. The server, its handlers and its event loop are</span>
-<span class="sd">//! the simulated device&#39;s; only the board differs.</span>
-<span class="sd">//!</span>
-<span class="sd">//! Run with `just run rp2 thermometer`, then from the PC `ww list` and `ww introspect`.</span>
-<span class="cp">#![no_std]</span>
-<span class="cp">#![no_main]</span>
-
-<span class="k">use</span><span class="w"> </span><span class="n">core</span><span class="p">::</span><span class="n">time</span><span class="p">::</span><span class="n">Duration</span><span class="p">;</span>
-
-<span class="k">use</span><span class="w"> </span><span class="n">cortex_m_rt</span><span class="p">::</span><span class="n">exception</span><span class="p">;</span>
-<span class="k">use</span><span class="w"> </span><span class="n">defmt</span><span class="p">::{</span><span class="n">info</span><span class="p">,</span><span class="w"> </span><span class="n">unwrap</span><span class="p">};</span>
-<span class="k">use</span><span class="w"> </span><span class="n">defmt_rtt</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">_</span><span class="p">;</span>
-<span class="k">use</span><span class="w"> </span><span class="n">embassy_rp</span><span class="p">::</span><span class="n">adc</span><span class="p">::{</span><span class="n">Adc</span><span class="p">,</span><span class="w"> </span><span class="n">Blocking</span><span class="p">,</span><span class="w"> </span><span class="n">Channel</span><span class="p">,</span><span class="w"> </span><span class="n">Config</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">AdcConfig</span><span class="p">};</span>
-<span class="k">use</span><span class="w"> </span><span class="n">embassy_rp</span><span class="p">::</span><span class="n">bind_interrupts</span><span class="p">;</span>
-<span class="k">use</span><span class="w"> </span><span class="n">embassy_rp</span><span class="p">::</span><span class="n">gpio</span><span class="p">::{</span><span class="n">Level</span><span class="p">,</span><span class="w"> </span><span class="n">Output</span><span class="p">};</span>
-</code></pre></div></div><div class="vz-card-more">130 more lines in the source</div><div class="vz-card-where">examples_mcu/rp2/src/bin/thermometer.rs:1-146</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/wire_weaver/blob/9b51e272dc4a418f057888f3623748c55d98a8f4/examples_mcu/rp2/src/bin/thermometer.rs">File on GitHub</a></div></div><div class="vz-card vz-card-file" id="vz-card-file-examples-thermometer-src-lib-rs-52ee5b" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/wire_weaver/blob/9b51e272dc4a418f057888f3623748c55d98a8f4/examples/thermometer/src/lib.rs">examples/thermometer/src/lib.rs</a></div><div class="vz-card-src"><div class="language-rust highlight"><pre><span></span><code><span class="sd">//! Client of the thermometer example device ([thermometer_api]), and the device simulated on a PC.</span>
+<p><a href="../../transport/websocket/">WebSocket in depth</a> covers the wire format, the limits of the device side, and the two
+responders that announce records.</p>
+<div class="vz-cards"><div class="vz-card vz-card-file" id="vz-card-file-examples-thermometer-src-lib-rs-52ee5b" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/wire_weaver/blob/2f680f5ddf0795733a01151d76800749f36ed4ae/examples/thermometer/src/lib.rs">examples/thermometer/src/lib.rs</a></div><div class="vz-card-src"><div class="language-rust highlight"><pre><span></span><code><span class="sd">//! Client of the thermometer example device ([thermometer_api]), and the device simulated on a PC.</span>
 <span class="sd">//!</span>
 <span class="sd">//! [Thermometer] is the host side: the generated calls, `read_once()`, `write_mode()`, `observe_gain()`,</span>
 <span class="sd">//! `samples()` and the rest. [simulated] runs the device itself, `thermometer_device` on its [SimBoard], over</span>
@@ -7163,7 +7235,39 @@ handlers. New items need new handlers, and the compiler names any signature that
 <span class="k">use</span><span class="w"> </span><span class="n">futures_util</span><span class="p">::</span><span class="n">io</span><span class="p">::{</span><span class="n">AsyncRead</span><span class="p">,</span><span class="w"> </span><span class="n">AsyncWrite</span><span class="p">};</span>
 <span class="k">use</span><span class="w"> </span><span class="n">thermometer_device</span><span class="p">::</span><span class="n">Thermometer</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">Device</span><span class="p">;</span>
 <span class="k">pub</span><span class="w"> </span><span class="k">use</span><span class="w"> </span><span class="n">thermometer_device</span><span class="p">::{</span><span class="n">Counters</span><span class="p">,</span><span class="w"> </span><span class="n">SimBoard</span><span class="p">};</span>
-</code></pre></div></div><div class="vz-card-more">67 more lines in the source</div><div class="vz-card-where">examples/thermometer/src/lib.rs:1-83</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/wire_weaver/blob/9b51e272dc4a418f057888f3623748c55d98a8f4/examples/thermometer/src/lib.rs">File on GitHub</a></div></div><div class="vz-card vz-card-term" id="vz-card-term-introspection-f603a6" role="tooltip"><strong>introspection</strong>: The description of a device's API that the device sends on request, so that a tool can call it without knowing the API at build time.</div><div class="vz-card vz-card-term" id="vz-card-term-transport-6f77b0" role="tooltip"><strong>transport</strong>: The medium that carries a device's packets: USB, UDP, WebSocket, RTT or a byte stream such as a serial line.</div><div class="vz-card vz-card-term" id="vz-card-term-wire-version-d0bbb6" role="tooltip"><strong>wire version</strong>: The version of an API that devices and hosts compare when they connect, such as <code>w1.1</code>: a wire line and a revision on it.</div><div class="vz-card vz-card-term" id="vz-card-term-snapshot-dc071b" role="tooltip"><strong>snapshot</strong>: A saved description of an API at one version, which the evolution checker compares a newer version with.</div><div class="vz-card vz-card-term" id="vz-card-term-evolution-checker-ca4e56" role="tooltip"><strong>evolution checker</strong>: The tool behind <code>ww api check</code> and <code>ww api diff</code> that compares two snapshots of an API and says whether a change keeps compatibility.</div><div class="vz-card vz-card-term" id="vz-card-term-handler-e57687" role="tooltip"><strong>handler</strong>: A function of the server that runs when a request for its method or property arrives; its signature follows the <code>ww_codegen!</code> options.</div><div class="vz-card vz-card-term" id="vz-card-term-api-trait-fef0df" role="tooltip"><strong>API trait</strong>: A Rust trait marked <code>#[ww_trait]</code> or <code>#[ww_api_root]</code> that describes what a device offers: methods, properties, streams, sinks and nested traits.</div><div class="vz-card vz-card-term" id="vz-card-term-server-1f67c0" role="tooltip"><strong>server</strong>: The device-side code generated from an API trait: it decodes requests and calls your handlers, <code>no_std</code> and without allocation.</div><div class="vz-card vz-card-term" id="vz-card-term-client-2728a9" role="tooltip"><strong>client</strong>: The host-side code generated from an API trait: a typed function per item, async, blocking or as a promise.</div></div>
+</code></pre></div></div><div class="vz-card-more">93 more lines in the source</div><div class="vz-card-where">examples/thermometer/src/lib.rs:1-109</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/wire_weaver/blob/2f680f5ddf0795733a01151d76800749f36ed4ae/examples/thermometer/src/lib.rs">File on GitHub</a></div></div><div class="vz-card vz-card-file" id="vz-card-file-examples-blinky-examples-ws-device-rs-682869" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/wire_weaver/blob/2f680f5ddf0795733a01151d76800749f36ed4ae/examples/blinky/examples/ws_device.rs">examples/blinky/examples/ws_device.rs</a></div><div class="vz-card-src"><div class="language-rust highlight"><pre><span></span><code><span class="sd">//! The blinky API served over WebSocket from this PC and announced on the LAN over DNS-SD as `_wireweaver._tcp`.</span>
+<span class="sd">//! The LED is a log line. Every 5 s the interface&#39;s addresses are read again and the record follows a change;</span>
+<span class="sd">//! Ctrl-C withdraws it.</span>
+<span class="sd">//!</span>
+<span class="sd">//! `cargo run -p blinky --features ws --example blinky_ws_device -- --id blinky-demo`, then from another PC on the</span>
+<span class="sd">//! LAN: `avahi-browse -r -t _wireweaver._tcp`, and `blinky_ws --url ws://&lt;address&gt;:8080/ww` blinks it.</span>
+
+<span class="k">use</span><span class="w"> </span><span class="n">std</span><span class="p">::</span><span class="n">num</span><span class="p">::</span><span class="n">NonZeroU16</span><span class="p">;</span>
+<span class="k">use</span><span class="w"> </span><span class="n">std</span><span class="p">::</span><span class="n">time</span><span class="p">::</span><span class="n">Duration</span><span class="p">;</span>
+
+<span class="k">use</span><span class="w"> </span><span class="n">anyhow</span><span class="p">::</span><span class="nb">Result</span><span class="p">;</span>
+<span class="k">use</span><span class="w"> </span><span class="n">clap</span><span class="p">::{</span><span class="n">Parser</span><span class="p">,</span><span class="w"> </span><span class="n">ValueEnum</span><span class="p">};</span>
+<span class="k">use</span><span class="w"> </span><span class="n">futures_util</span><span class="p">::</span><span class="n">Stream</span><span class="p">;</span>
+<span class="k">use</span><span class="w"> </span><span class="n">tokio</span><span class="p">::</span><span class="n">net</span><span class="p">::{</span><span class="n">TcpListener</span><span class="p">,</span><span class="w"> </span><span class="n">TcpStream</span><span class="p">};</span>
+<span class="k">use</span><span class="w"> </span><span class="n">tokio_util</span><span class="p">::</span><span class="n">compat</span><span class="p">::{</span><span class="n">Compat</span><span class="p">,</span><span class="w"> </span><span class="n">TokioAsyncReadCompatExt</span><span class="p">};</span>
+<span class="k">use</span><span class="w"> </span><span class="n">wire_weaver</span><span class="p">::</span><span class="n">prelude</span><span class="p">::</span><span class="o">*</span><span class="p">;</span>
+</code></pre></div></div><div class="vz-card-more">168 more lines in the source</div><div class="vz-card-where">examples/blinky/examples/ws_device.rs:1-184</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/wire_weaver/blob/2f680f5ddf0795733a01151d76800749f36ed4ae/examples/blinky/examples/ws_device.rs">File on GitHub</a></div></div><div class="vz-card vz-card-file" id="vz-card-file-examples-blinky-examples-discover-rs-8aa8f9" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/wire_weaver/blob/2f680f5ddf0795733a01151d76800749f36ed4ae/examples/blinky/examples/discover.rs">examples/blinky/examples/discover.rs</a></div><div class="vz-card-src"><div class="language-rust highlight"><pre><span></span><code><span class="sd">//! Finds blinky devices announced on the LAN over DNS-SD (`_wireweaver._tcp`), lists them, then blinks the first one.</span>
+<span class="sd">//! The device side is `blinky_ws_device` on this PC or on another one.</span>
+<span class="sd">//!</span>
+<span class="sd">//! `cargo run -p blinky --features dns_sd --example blinky_discover`</span>
+
+<span class="k">use</span><span class="w"> </span><span class="n">std</span><span class="p">::</span><span class="n">time</span><span class="p">::</span><span class="n">Duration</span><span class="p">;</span>
+
+<span class="k">use</span><span class="w"> </span><span class="n">anyhow</span><span class="p">::{</span><span class="n">Context</span><span class="p">,</span><span class="w"> </span><span class="nb">Result</span><span class="p">,</span><span class="w"> </span><span class="n">bail</span><span class="p">};</span>
+<span class="k">use</span><span class="w"> </span><span class="n">blinky</span><span class="p">::</span><span class="n">Blinky</span><span class="p">;</span>
+<span class="k">use</span><span class="w"> </span><span class="n">wire_weaver_client</span><span class="p">::</span><span class="n">discovery</span><span class="p">::{</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">Discovery</span><span class="p">,</span><span class="w"> </span><span class="n">Select</span><span class="p">};</span>
+<span class="k">use</span><span class="w"> </span><span class="n">wire_weaver_client</span><span class="p">::{</span><span class="n">ConnectionState</span><span class="p">,</span><span class="w"> </span><span class="n">KeepTrying</span><span class="p">};</span>
+
+<span class="cp">#[tokio::main]</span>
+<span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">()</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// --8&lt;-- [start:browse]</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">discovery</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Discovery</span><span class="p">::</span><span class="n">start</span><span class="p">()</span><span class="o">?</span><span class="p">;</span>
+</code></pre></div></div><div class="vz-card-more">43 more lines in the source</div><div class="vz-card-where">examples/blinky/examples/discover.rs:1-59</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/wire_weaver/blob/2f680f5ddf0795733a01151d76800749f36ed4ae/examples/blinky/examples/discover.rs">File on GitHub</a></div></div></div>
 
 
 
@@ -7207,7 +7311,7 @@ handlers. New items need new handlers, and the compiler names any signature that
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../changing_your_api/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Changing your API">
+          <a href="../udp/" class="md-footer__link md-footer__link--prev" aria-label="Previous: UDP">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
@@ -7217,20 +7321,20 @@ handlers. New items need new handlers, and the compiler names any signature that
                 Previous
               </span>
               <div class="md-ellipsis">
-                Changing your API
+                UDP
               </div>
             </div>
           </a>
         
         
           
-          <a href="../python_in_full/" class="md-footer__link md-footer__link--next" aria-label="Next: Python in full">
+          <a href="../rtt/" class="md-footer__link md-footer__link--next" aria-label="Next: RTT">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Python in full
+                RTT
               </div>
             </div>
             <div class="md-footer__button md-icon">
@@ -7256,7 +7360,7 @@ handlers. New items need new handlers, and the compiler names any signature that
       Zensical
     </a>
   
-  <div class="book-stamp" data-built="1795632928">wire_weaver 0.6.0 · 9b51e27 · built 2026-11-25 18:55 UTC (<span class="book-stamp-age">just built</span>)</div>
+  <div class="book-stamp" data-built="1795633329">wire_weaver 0.6.0 · 2f680f5 · built 2026-11-25 19:02 UTC (<span class="book-stamp-age">just built</span>)</div>
 </div>
       
         

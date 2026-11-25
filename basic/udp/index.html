@@ -12,14 +12,14 @@
         <meta name="author" content="Roman Isaikin">
       
       
-        <link rel="canonical" href="https://ww.vhrd.tech/basic/changing_your_api/">
+        <link rel="canonical" href="https://ww.vhrd.tech/basic/udp/">
       
       
       
-        <link rel="prev" href="../../std_library/ww_dfu/">
+        <link rel="prev" href="../usb/">
       
       
-        <link rel="next" href="../your_own_project/">
+        <link rel="next" href="../websocket/">
       
       
         
@@ -30,7 +30,7 @@
     
     
       
-        <title>Changing your API - WireWeaver</title>
+        <title>UDP - WireWeaver</title>
       
     
     
@@ -125,7 +125,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Changing your API
+              UDP
             
           </span>
         </div>
@@ -1258,6 +1258,8 @@
                   
   
   
+    
+  
   
   
     
@@ -1289,11 +1291,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5" checked>
         
           
           <label class="md-nav__link" for="__nav_2_5" id="__nav_2_5_label" tabindex="">
@@ -1314,7 +1316,7 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_5_label" aria-expanded="false">
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_5_label" aria-expanded="true">
             <label class="md-nav__title" for="__nav_2_5">
               <span class="md-nav__icon md-icon"></span>
               
@@ -1331,14 +1333,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../transport/overview/" class="md-nav__link">
+      <a href="../transports/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  Overview
+  Choosing a transport
 
     
   </span>
@@ -1358,7 +1360,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../transport/usb/" class="md-nav__link">
+      <a href="../usb/" class="md-nav__link">
         
   
   
@@ -1382,17 +1384,43 @@
                   
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../transport/rtt/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  UDP
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
         
   
   
   <span class="md-ellipsis">
     
   
-  RTT
+  UDP
 
     
   </span>
@@ -1400,6 +1428,71 @@
   
 
       </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#serving-the-thermometer-over-udp" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Serving the thermometer over UDP
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#connecting" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Connecting
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-a-lost-datagram-costs" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What a lost datagram costs
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-to-go-next" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Where to go next
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1412,7 +1505,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../transport/websocket/" class="md-nav__link">
+      <a href="../websocket/" class="md-nav__link">
         
   
   
@@ -1439,14 +1532,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../transport/udp/" class="md-nav__link">
+      <a href="../rtt/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  UDP
+  RTT
 
     
   </span>
@@ -1466,14 +1559,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../transport/byte_streams/" class="md-nav__link">
+      <a href="../byte_streams/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  Byte streams
+  Serial lines and other byte streams
 
     
   </span>
@@ -1493,14 +1586,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../transport/keep_trying/" class="md-nav__link">
+      <a href="../connection_loss/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  Keep trying
+  When the device goes away
 
     
   </span>
@@ -2323,16 +2416,10 @@
                   
   
   
-    
-  
   
   
     
     
-      
-        
-      
-        
       
         
       
@@ -2348,11 +2435,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_8" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_8" >
         
           
           <label class="md-nav__link" for="__nav_2_8" id="__nav_2_8_label" tabindex="">
@@ -2373,7 +2460,7 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_8_label" aria-expanded="true">
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_8_label" aria-expanded="false">
             <label class="md-nav__title" for="__nav_2_8">
               <span class="md-nav__icon md-icon"></span>
               
@@ -2387,195 +2474,17 @@
                   
   
   
-    
-  
-  
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Changing your API
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="././" class="md-nav__link md-nav__link--active">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Changing your API
-
-    
-  </span>
-  
-  
-
-      </a>
-      
-        
-
-
-<nav class="md-nav md-nav--secondary" aria-label="On this page">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      On this page
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#two-kinds-of-break" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Two kinds of break
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#add-dont-change" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Add, don't change
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#two-versions-in-cargotoml" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Two versions in Cargo.toml
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#the-firmwares-new-handler" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        The firmware's new handler
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#old-and-new-together" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Old and new together
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#let-the-checker-decide" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Let the checker decide
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#where-to-go-next" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Where to go next
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
   
   
     <li class="md-nav__item">
-      <a href="../your_own_project/" class="md-nav__link">
+      <a href="../../evolution/overview/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  Your own project
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../python_in_full/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Python in full
+  Evolving an API
 
     
   </span>
@@ -4337,6 +4246,20 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -4388,6 +4311,60 @@
   
   
     <li class="md-nav__item">
+      <a href="../../transport/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Connecting in depth
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../transport/usb/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  USB in depth
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../transport/usb_internals/" class="md-nav__link">
         
   
@@ -4396,6 +4373,141 @@
     
   
   USB inside
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../transport/rtt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  RTT in depth
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../transport/websocket/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  WebSocket in depth
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../transport/udp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  UDP in depth
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../transport/byte_streams/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Byte streams in depth
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../transport/keep_trying/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Keep-trying connections in depth
 
     
   </span>
@@ -6772,10 +6884,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#two-kinds-of-break" class="md-nav__link">
+  <a href="#serving-the-thermometer-over-udp" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Two kinds of break
+        Serving the thermometer over UDP
       </span>
     </span>
   </a>
@@ -6783,10 +6895,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#add-dont-change" class="md-nav__link">
+  <a href="#connecting" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Add, don't change
+        Connecting
       </span>
     </span>
   </a>
@@ -6794,43 +6906,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#two-versions-in-cargotoml" class="md-nav__link">
+  <a href="#what-a-lost-datagram-costs" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Two versions in Cargo.toml
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#the-firmwares-new-handler" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        The firmware's new handler
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#old-and-new-together" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Old and new together
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#let-the-checker-decide" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Let the checker decide
+        What a lost datagram costs
       </span>
     </span>
   </a>
@@ -6922,16 +7001,24 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
     
       <li class="md-path__item">
-        <a href="././" class="md-path__link">
+        <a href="../transports/" class="md-path__link">
           
   
   <span class="md-ellipsis">
-    Keeping it working
+    Getting connected
   </span>
 
         </a>
@@ -6970,215 +7057,95 @@
   
 
 
-<h1 id="changing-your-api">Changing your API<a class="headerlink" href="#changing-your-api" title="Permanent link">&para;</a></h1>
-<p>Firmware stays in the field for years. The programs that talk to it are updated whenever someone feels like it. So
-every version of your API meets versions that are older and newer than itself. This chapter changes the blinky API
-by one method, <code>led_toggle</code>, in a way that keeps all of them talking. It then lets the <a aria-describedby="vz-card-term-evolution-checker-ca4e56" class="vz-ref vz-term" data-vz-card="vz-card-term-evolution-checker-ca4e56" href="/glossary/#term-evolution-checker">evolution checker</a> confirm
-that the change is safe and say which versions to write.</p>
-<p>The chapter uses the blinky example from <a href="../../api/overview/">A first device</a>. Its first release is the crate
-<code>blinky_api</code> 0.1.0, in <a aria-describedby="vz-card-file-examples-blinky-api-cargo-toml-9f60ed" class="vz-ref vz-file" data-vz-card="vz-card-file-examples-blinky-api-cargo-toml-9f60ed" href="https://github.com/vhrdtech/wire_weaver/blob/9b51e272dc4a418f057888f3623748c55d98a8f4/examples/blinky_api/Cargo.toml"><code>examples/blinky_api/Cargo.toml</code></a>. The changed API is the same crate at version 0.1.1, in
-<a aria-describedby="vz-card-file-examples-blinky-api-evolved-cargo-toml-358a52" class="vz-ref vz-file" data-vz-card="vz-card-file-examples-blinky-api-evolved-cargo-toml-358a52" href="https://github.com/vhrdtech/wire_weaver/blob/9b51e272dc4a418f057888f3623748c55d98a8f4/examples/blinky_api_evolved/Cargo.toml"><code>examples/blinky_api_evolved/Cargo.toml</code></a>. The repository keeps both side by side, so that old and new firmware and
-hosts can meet in one test. In your own project, you change the API crate in place.</p>
-<h2 id="two-kinds-of-break">Two kinds of break<a class="headerlink" href="#two-kinds-of-break" title="Permanent link">&para;</a></h2>
-<p>A change to an API crate can break two different things. The <strong>wire</strong> breaks when bytes that one version writes
-can't be read by the other. Such a break reaches devices that are already deployed, and no <code>cargo update</code> fixes
-it. <strong>Rust code</strong> breaks when a program no longer compiles against the new crate. The compiler finds that break
-before anything ships.</p>
-<p>A change can break one without the other. Renaming a field breaks Rust code and not a single byte. Widening a field
-from <code>u8</code> to <code>u16</code> compiles everywhere and breaks the wire, as <a href="../../serdes/derive/#evolving-types">Evolving types</a>
-shows byte by byte. This chapter avoids both.</p>
-<h2 id="add-dont-change">Add, don't change<a class="headerlink" href="#add-dont-change" title="Permanent link">&para;</a></h2>
-<p>The safe way to change an API is to add things, and to say in which version each one arrived. Here is the blinky
-API after the change:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="cp">#[ww_api_root]</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">BlinkyApi</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="cp">#[effect(actuate)]</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">led_on</span><span class="p">();</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="cp">#[effect(actuate)]</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">led_off</span><span class="p">();</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="sd">/// Turns the LED on when it is off, off when it is on.</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="cp">#[since = </span><span class="s">&quot;w1.1&quot;</span><span class="cp">]</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">    </span><span class="cp">#[effect(actuate)]</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">led_toggle</span><span class="p">();</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="p">}</span>
+<h1 id="udp">UDP<a class="headerlink" href="#udp" title="Permanent link">&para;</a></h1>
+<p>UDP sends each message as a <a aria-describedby="vz-card-term-datagram-0c32c4" class="vz-ref vz-term" data-vz-card="vz-card-term-datagram-0c32c4" href="/glossary/#term-datagram">datagram</a>: a packet that is sent without a connection and without a promise that it
+arrives. It has less overhead than a TCP connection, and a stalled network never delays the datagrams behind it. This
+suits a device that sends many readings, where a missing one matters less than a late one.</p>
+<p>This chapter serves the thermometer over UDP from your PC, connects to it, and explains what a lost datagram costs.</p>
+<h2 id="serving-the-thermometer-over-udp">Serving the thermometer over UDP<a class="headerlink" href="#serving-the-thermometer-over-udp" title="Permanent link">&para;</a></h2>
+<p>The simulated thermometer serves UDP on the loopback address when you pass <code>--udp</code> with a port. Start it in a terminal
+of its own:</p>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>cargo<span class="w"> </span>run<span class="w"> </span>-p<span class="w"> </span>thermometer<span class="w"> </span>--example<span class="w"> </span>thermometer_sim<span class="w"> </span>--<span class="w"> </span>--udp<span class="w"> </span><span class="m">9000</span>
 </span></code></pre></div>
-<p><code>led_toggle</code> comes last in its trait, after the two methods that were there before. <code>#[since = "w1.1"]</code> names the
-<a aria-describedby="vz-card-term-wire-version-d0bbb6" class="vz-ref vz-term" data-vz-card="vz-card-term-wire-version-d0bbb6" href="/glossary/#term-wire-version">wire version</a> that adds it: line 1, revision 1. The host reads this attribute to decide whether a device has the
-method before it calls it.</p>
-<p>Most changes you will want are additions like this one. You can add a method, a property, a stream, a type, a field
-at the end of a struct with a default, or a variant at the end of an enum. Removing, reordering or renaming something
-that is already deployed is a break, and so is changing its type.
-<a href="../../evolution/rules/">What can change</a> lists every case.</p>
-<h2 id="two-versions-in-cargotoml">Two versions in Cargo.toml<a class="headerlink" href="#two-versions-in-cargotoml" title="Permanent link">&para;</a></h2>
-<p>Every API crate carries two versions, one for each kind of break. The crate version is the one Cargo knows, and it
-follows SemVer for Rust code:</p>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">[package]</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;blinky_api&quot;</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">version</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;0.1.1&quot;</span>
+<p>It prints <code>thermometer at udp://127.0.0.1:9000</code>. The serving code is <code>simulated_udp()</code> in
+<a aria-describedby="vz-card-file-examples-thermometer-src-lib-rs-52ee5b" class="vz-ref vz-file" data-vz-card="vz-card-file-examples-thermometer-src-lib-rs-52ee5b" href="https://github.com/vhrdtech/wire_weaver/blob/2f680f5ddf0795733a01151d76800749f36ed4ae/examples/thermometer/src/lib.rs"><code>examples/thermometer/src/lib.rs</code></a>:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="sd">/// Serves a thermometer on a [SimBoard] to the one UDP host that talks to `socket` at a time, until `stop`</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="sd">/// resolves; returns what it dropped or refused. A host that starts link setup takes the slot over from the one</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="sd">/// before it. Not `Send`, like [simulated].</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="k">pub</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">simulated_udp</span><span class="o">&lt;</span><span class="n">S</span><span class="p">:</span><span class="w"> </span><span class="nc">DatagramSocket</span><span class="o">&gt;</span><span class="p">(</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="n">socket</span><span class="p">:</span><span class="w"> </span><span class="nc">S</span><span class="p">,</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="n">stop</span><span class="p">:</span><span class="w"> </span><span class="nc">impl</span><span class="w"> </span><span class="n">Future</span><span class="o">&lt;</span><span class="n">Output</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">()</span><span class="o">&gt;</span><span class="p">,</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">Counters</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">board</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="o">&#39;</span><span class="nb">static</span><span class="w"> </span><span class="nc">mut</span><span class="w"> </span><span class="n">SimBoard</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Box</span><span class="p">::</span><span class="n">leak</span><span class="p">(</span><span class="nb">Box</span><span class="p">::</span><span class="n">default</span><span class="p">());</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Device</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">board</span><span class="p">);</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">conn</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">UdpConnection</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">socket</span><span class="p">);</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">buffers</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Box</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">UdpBuffers</span><span class="p">::</span><span class="o">&lt;</span><span class="n">MAX_MESSAGE_LEN</span><span class="o">&gt;</span><span class="p">::</span><span class="n">new</span><span class="p">());</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">server</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">udp_server</span><span class="p">(</span>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">        </span><span class="n">Device</span><span class="p">::</span><span class="n">link_config</span><span class="p">(),</span>
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">        </span><span class="o">&amp;</span><span class="n">conn</span><span class="p">,</span>
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">        </span><span class="mi">0</span><span class="p">,</span>
+</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">        </span><span class="n">TokioClock</span><span class="p">::</span><span class="n">new</span><span class="p">(),</span>
+</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="w">        </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">buffers</span><span class="p">,</span>
+</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="w">    </span><span class="p">);</span>
+</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="w">    </span><span class="n">thermometer_device</span><span class="p">::</span><span class="n">serve</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">server</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">device</span><span class="p">,</span><span class="w"> </span><span class="n">stop</span><span class="p">).</span><span class="k">await</span><span class="p">;</span>
+</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="w">    </span><span class="n">device</span><span class="p">.</span><span class="n">counters</span><span class="p">()</span>
+</span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="p">}</span>
 </span></code></pre></div>
-<p>The wire version sits in the crate's WireWeaver metadata:</p>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">[package.metadata.wire_weaver]</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">wire</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;w1.1&quot;</span>
+<p>The function takes any <code>DatagramSocket</code>, a socket that receives from anyone and sends to an address. The device runs
+the same event loop as over every other medium, with <code>udp_server()</code> in place of <code>ws_server()</code>. A
+<code>UdpConnection</code> is the table of hosts that talk to the socket; this one holds one host. On a board, an
+<code>EmbassyNetUdpSocket</code> on an <code>embassy-net</code> stack is the socket, as the <a href="../../transport/udp/">UDP in depth</a> page shows.</p>
+<h2 id="connecting">Connecting<a class="headerlink" href="#connecting" title="Permanent link">&para;</a></h2>
+<p>The host selects the device by its address:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kd">let</span><span class="w"> </span><span class="n">addr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">address</span><span class="p">.</span><span class="n">unwrap_or_else</span><span class="p">(</span><span class="o">||</span><span class="w"> </span><span class="s">&quot;127.0.0.1:9000&quot;</span><span class="p">.</span><span class="n">to_owned</span><span class="p">());</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kd">let</span><span class="w"> </span><span class="n">device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Thermometer</span><span class="p">::</span><span class="n">config</span><span class="p">(</span><span class="o">|</span><span class="n">c</span><span class="o">|</span><span class="w"> </span><span class="n">c</span><span class="p">.</span><span class="n">udp_addr</span><span class="p">(</span><span class="n">addr</span><span class="p">.</span><span class="n">clone</span><span class="p">()).</span><span class="n">no_ww_usb</span><span class="p">())</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="p">.</span><span class="n">connect</span><span class="p">()</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="p">.</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
 </span></code></pre></div>
-<p><code>w1.1</code> reads "line 1, revision 1". A device and a host on the same <a aria-describedby="vz-card-term-wire-line-4335fe" class="vz-ref vz-term" data-vz-card="vz-card-term-wire-line-4335fe" href="/glossary/#term-wire-line">wire line</a> always connect, whatever their
-revisions. An addition such as <code>led_toggle</code> bumps the revision, from <code>w1.0</code> to <code>w1.1</code>. A change that breaks the
-wire starts a new line, <code>w2.0</code>, and a device and a host on different lines refuse each other with a clear message.
-A new API starts on <code>w0.0</code>, the <a href="../../evolution/versions/#w0-the-design-line">design line</a>, where every change is
-allowed; its first release moves to <code>w1.0</code>.</p>
-<p>The crate version moves by Cargo's rules. An addition bumps the compatible position, here the patch: 0.1.0 becomes
-0.1.1. A change that breaks Rust code bumps the breaking position, which is the minor before 1.0.</p>
-<h2 id="the-firmwares-new-handler">The firmware's new handler<a class="headerlink" href="#the-firmwares-new-handler" title="Permanent link">&para;</a></h2>
-<p>The new firmware serves <code>led_toggle</code> with one more <a aria-describedby="vz-card-term-handler-e57687" class="vz-ref vz-term" data-vz-card="vz-card-term-handler-e57687" href="/glossary/#term-handler">handler</a>, next to the two it already had. It flips the LED
-that <code>led_on</code> and <code>led_off</code> set:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">led_toggle</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">_cx</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">Context</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="p">,</span><span class="w"> </span><span class="k">impl</span><span class="w"> </span><span class="n">EventOut</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">RpcResult</span><span class="o">&lt;</span><span class="p">()</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">    </span><span class="bp">self</span><span class="p">.</span><span class="n">led</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">!</span><span class="bp">self</span><span class="p">.</span><span class="n">led</span><span class="p">;</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="n">Ready</span><span class="p">(())</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="p">}</span>
+<p>A host name works too, and is resolved when connecting. So does an IPv6 address such as <code>[fe80::1%2]:9000</code>. Run the
+program in a second terminal with <code>cargo run -p thermometer --example thermometer_connect -- udp</code>. It prints the
+sample of the earlier chapter:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>$ cargo run -p thermometer --example thermometer_connect -- udp
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>input 1: 20.5 °C
 </span></code></pre></div>
-<p>Firmware that was flashed before the change has no such handler, and nothing in it changes. The interesting
-question is what happens when the new host meets that old firmware.</p>
-<h2 id="old-and-new-together">Old and new together<a class="headerlink" href="#old-and-new-together" title="Permanent link">&para;</a></h2>
-<p>There are two hosts and two firmware versions, so four pairs. The figure shows what each pair can do.</p>
-<p><img alt="Three pairs work fully; the new host on old firmware refuses led_toggle itself" src="../../assets/versions_matrix.svg" /></p>
-<p>Three pairs work without a second thought: the API on both sides is the same, or the host doesn't know the new
-method at all. The fourth pair needs care. The new host knows <code>led_toggle</code>, and the old firmware doesn't have it.</p>
-<p>When a host connects, the device tells it its wire version, <code>w1.0</code> for the old firmware. Before each call, the host
-compares the method's <code>#[since]</code> with that version. <code>led_toggle</code> needs <code>w1.1</code>, so the host refuses the call itself
-and sends nothing. Your program gets an error it can handle, as here:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kd">let</span><span class="w"> </span><span class="n">toggle</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">match</span><span class="w"> </span><span class="n">device</span><span class="p">.</span><span class="n">led_toggle</span><span class="p">().</span><span class="n">call</span><span class="p">().</span><span class="k">await</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">    </span><span class="nb">Ok</span><span class="p">(())</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="s">&quot;done&quot;</span><span class="p">.</span><span class="n">to_owned</span><span class="p">(),</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="nb">Err</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="fm">format!</span><span class="p">(</span><span class="s">&quot;refused: {e}&quot;</span><span class="p">),</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="p">};</span>
-</span></code></pre></div>
-<p>The test <code>book_output_versions</code> in <a aria-describedby="vz-card-file-examples-blinky-evolved-tests-it-book-rs-d152eb" class="vz-ref vz-file" data-vz-card="vz-card-file-examples-blinky-evolved-tests-it-book-rs-d152eb" href="https://github.com/vhrdtech/wire_weaver/blob/9b51e272dc4a418f057888f3623748c55d98a8f4/examples/blinky_evolved/tests/it/book.rs"><code>examples/blinky_evolved/tests/it/book.rs</code></a> runs every pair: each host turns the
-LED on, and the new host then tries <code>led_toggle</code>. It serves both firmware versions on your PC, in the test's own
-process. This is what it prints:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>host 0.1.0 and firmware 0.1.0 (w1.0)
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>  led_on: done
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>  the LED is on
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>host 0.1.0 and firmware 0.1.1 (w1.1)
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>  led_on: done
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>  the LED is on
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>host 0.1.1 and firmware 0.1.0 (w1.0)
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>  led_on: done
-</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>  led_toggle: refused: Connected device blinky_api@0.1.0 has blinky_api at wire w1.0, the operation needs w1.1 or newer
-</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>  the LED is on
-</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>host 0.1.1 and firmware 0.1.1 (w1.1)
-</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>  led_on: done
-</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>  led_toggle: done
-</span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>  the LED is off
-</span></code></pre></div>
-<p>The third pair shows the refused call. The LED stays on: the old firmware never saw the request. In the fourth
-pair, <code>led_toggle</code> turns the LED off again.</p>
-<h2 id="let-the-checker-decide">Let the checker decide<a class="headerlink" href="#let-the-checker-decide" title="Permanent link">&para;</a></h2>
-<p>You don't have to remember which change needs which version. The <a aria-describedby="vz-card-term-evolution-checker-ca4e56" class="vz-ref vz-term" data-vz-card="vz-card-term-evolution-checker-ca4e56" href="/glossary/#term-evolution-checker">evolution checker</a> compares the API with a
-<a aria-describedby="vz-card-term-snapshot-dc071b" class="vz-ref vz-term" data-vz-card="vz-card-term-snapshot-dc071b" href="/glossary/#term-snapshot">snapshot</a> of an earlier version and tells you. A snapshot is a file in the crate's <code>api_snapshots/</code> folder that
-describes the API as it was at one version.</p>
-<p><code>ww api check</code> runs the checker on an API crate. Here it compares the changed crate with the snapshot of 0.1.0:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>$ ww api check examples/blinky_api_evolved --against examples/blinky_api/api_snapshots/blinky_api_0_1_0.ron
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>blinky_api 0.1.0 (examples/blinky_api/api_snapshots/blinky_api_0_1_0.ron) -&gt; 0.1.1 (source): compatible changes
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>  needs: wire w1.0 -&gt; w1.1 or later (a new wire revision), crate 0.1.0 -&gt; 0.1.1 or later (compatible position (patch before 1.0, minor after))
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>  compatible: wire version w1.0 -&gt; w1.1
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>  compatible: BlinkyApi::led_toggle added
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>version is bumped enough
-</span></code></pre></div>
-<p>The first line names the change: compatible. <code>needs</code> says which versions the change requires: wire <code>w1.1</code> and
-crate 0.1.1 or later. Both are already written in <code>Cargo.toml</code>, so the last line says that the versions are bumped
-enough. A change that needs more than you wrote fails the check and names the versions to write.</p>
-<p>The checker belongs in the API crate's tests, so that <code>cargo test</code> and CI run it on every change. The API crate
-takes it as a development dependency:</p>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">[dev-dependencies]</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">wire_weaver_evolution</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">workspace</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="n">features</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;source&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">}</span>
-</span></code></pre></div>
-<p>The test itself is one call, in <a aria-describedby="vz-card-file-examples-blinky-api-tests-evolution-rs-cdd69a" class="vz-ref vz-file" data-vz-card="vz-card-file-examples-blinky-api-tests-evolution-rs-cdd69a" href="https://github.com/vhrdtech/wire_weaver/blob/9b51e272dc4a418f057888f3623748c55d98a8f4/examples/blinky_api/tests/evolution.rs"><code>examples/blinky_api/tests/evolution.rs</code></a>:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="sd">//! The API compared with its snapshots in `api_snapshots/` (docs/evolution/checker_tool.md): fails when the snapshot</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="sd">//! of the current version is missing or differs from the source, and when it changed without the version bump the</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="sd">//! change needs. `WW_API_SAVE=1 cargo test -p blinky_api --test evolution` saves the current version&#39;s snapshot.</span>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="cp">#[test]</span>
-</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="k">fn</span><span class="w"> </span><span class="nf">api_evolution</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">    </span><span class="n">wire_weaver_evolution</span><span class="p">::</span><span class="n">Check</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="fm">env!</span><span class="p">(</span><span class="s">&quot;CARGO_MANIFEST_DIR&quot;</span><span class="p">))</span>
-</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">        </span><span class="p">.</span><span class="n">require_current</span><span class="p">(</span><span class="kc">true</span><span class="p">)</span>
-</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">        </span><span class="p">.</span><span class="n">assert</span><span class="p">();</span>
-</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="p">}</span>
-</span></code></pre></div>
-<p>With the test in place, each new version of the API follows the same routine:</p>
-<ol>
-<li>Bump the crate version and the wire version when you start on the next version.</li>
-<li>Change the API.</li>
-<li>Run the test. It fails when a change needs a bigger bump than you gave it.</li>
-<li>Save the new version's snapshot with <code>WW_API_SAVE=1 cargo test --test evolution</code>, and commit <code>api_snapshots/</code>
-   with the change.</li>
-</ol>
-<h2 id="where-to-go-next">Where to go next<a class="headerlink" href="#where-to-go-next" title="Permanent link">&para;</a></h2>
+<p><a href="../transports/">Choosing a transport</a> runs the same program over WebSocket and gets the same line.</p>
+<p>Everything above the medium is the same as over USB or WebSocket: link setup, the version check, introspection, pings
+and timeouts. Two things differ.</p>
 <ul>
-<li><a href="../your_own_project/">Your own project</a> starts a project of your own, laid out as the book's examples are.</li>
-<li><a href="../../evolution/versions/">Versions and wire lines</a> explains how a device and a host decide whether they can
-  talk, and how one crate holds several lines.</li>
-<li><a href="../../evolution/rules/">What can change</a> covers every kind of change to types and APIs.</li>
-<li><a href="../../evolution/checker_tool/">The evolution checker</a> covers <code>ww api check</code>, <code>save</code> and <code>diff</code>, hooks and CI.</li>
-<li><a href="../../evolution/multi_line_host/">A host for several wire lines</a> tells the thermometer's later life: three wire
-  lines, and one host for all of them.</li>
+<li>UDP has no way to list devices, so the host has to know the address. A config can't filter by serial number or label
+  before connecting.</li>
+<li>The host's socket is connected to the device address. The operating system therefore drops datagrams from anyone
+  else, and reports at once when nothing listens on the port.</li>
 </ul>
-<div class="vz-cards"><div class="vz-card vz-card-term" id="vz-card-term-evolution-checker-ca4e56" role="tooltip"><strong>evolution checker</strong>: The tool behind <code>ww api check</code> and <code>ww api diff</code> that compares two snapshots of an API and says whether a change keeps compatibility.</div><div class="vz-card vz-card-file" id="vz-card-file-examples-blinky-api-cargo-toml-9f60ed" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/wire_weaver/blob/9b51e272dc4a418f057888f3623748c55d98a8f4/examples/blinky_api/Cargo.toml">examples/blinky_api/Cargo.toml</a></div><div class="vz-card-src"><div class="language-toml highlight"><pre><span></span><code><span class="k">[package]</span>
-<span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;blinky_api&quot;</span>
-<span class="n">version</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;0.1.0&quot;</span>
-<span class="n">description</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;API of the blinky example device: an LED turned on and off&quot;</span>
-<span class="n">publish</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span>
-<span class="n">edition</span><span class="p">.</span><span class="n">workspace</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
-<span class="n">rust-version</span><span class="p">.</span><span class="n">workspace</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
-<span class="n">authors</span><span class="p">.</span><span class="n">workspace</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
-<span class="n">license</span><span class="p">.</span><span class="n">workspace</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
-<span class="n">repository</span><span class="p">.</span><span class="n">workspace</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
-
-<span class="c1"># Wire version of the API (EVO-31): link setup decides on its line, `#[since]` names its revisions</span>
-<span class="k">[package.metadata.wire_weaver]</span>
-<span class="n">wire</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;w1.0&quot;</span>
-
-<span class="k">[features]</span>
-</code></pre></div></div><div class="vz-card-more">15 more lines in the source</div><div class="vz-card-where">examples/blinky_api/Cargo.toml:1-31</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/wire_weaver/blob/9b51e272dc4a418f057888f3623748c55d98a8f4/examples/blinky_api/Cargo.toml">File on GitHub</a></div></div><div class="vz-card vz-card-file" id="vz-card-file-examples-blinky-api-evolved-cargo-toml-358a52" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/wire_weaver/blob/9b51e272dc4a418f057888f3623748c55d98a8f4/examples/blinky_api_evolved/Cargo.toml">examples/blinky_api_evolved/Cargo.toml</a></div><div class="vz-card-src"><div class="language-toml highlight"><pre><span></span><code><span class="c1"># `blinky_api` after its first change: 0.1.1 at wire w1.1, with `led_toggle` added. Built as the newer API beside</span>
-<span class="c1"># the workspace&#39;s `blinky_api` 0.1.0, so old and new firmware and hosts meet in one test. Outside the workspace</span>
-<span class="c1"># (`exclude` in the root Cargo.toml), which can&#39;t hold two packages of one name; fields members inherit are written out.</span>
-<span class="c1"># --8&lt;-- [start:version]</span>
-<span class="k">[package]</span>
-<span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;blinky_api&quot;</span>
-<span class="n">version</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;0.1.1&quot;</span>
-<span class="c1"># --8&lt;-- [end:version]</span>
-<span class="n">description</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;API of the blinky example device after a change: led_toggle added at wire w1.1&quot;</span>
-<span class="n">publish</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span>
-<span class="n">edition</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;2024&quot;</span>
-<span class="n">license</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;MIT&quot;</span>
-
-<span class="c1"># Wire version of the API (EVO-31): link setup decides on its line, `#[since]` names its revisions</span>
-<span class="c1"># --8&lt;-- [start:wire]</span>
-<span class="k">[package.metadata.wire_weaver]</span>
-</code></pre></div></div><div class="vz-card-more">12 more lines in the source</div><div class="vz-card-where">examples/blinky_api_evolved/Cargo.toml:1-28</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/wire_weaver/blob/9b51e272dc4a418f057888f3623748c55d98a8f4/examples/blinky_api_evolved/Cargo.toml">File on GitHub</a></div></div><div class="vz-card vz-card-term" id="vz-card-term-wire-version-d0bbb6" role="tooltip"><strong>wire version</strong>: The version of an API that devices and hosts compare when they connect, such as <code>w1.1</code>: a wire line and a revision on it.</div><div class="vz-card vz-card-term" id="vz-card-term-wire-line-4335fe" role="tooltip"><strong>wire line</strong>: A series of API versions that can talk to each other; a breaking change starts a new line, and a host may speak several.</div><div class="vz-card vz-card-term" id="vz-card-term-handler-e57687" role="tooltip"><strong>handler</strong>: A function of the server that runs when a request for its method or property arrives; its signature follows the <code>ww_codegen!</code> options.</div><div class="vz-card vz-card-file" id="vz-card-file-examples-blinky-evolved-tests-it-book-rs-d152eb" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/wire_weaver/blob/9b51e272dc4a418f057888f3623748c55d98a8f4/examples/blinky_evolved/tests/it/book.rs">examples/blinky_evolved/tests/it/book.rs</a></div><div class="vz-card-src"><div class="language-rust highlight"><pre><span></span><code><span class="sd">//! What the book&#39;s chapter &quot;Changing your API&quot; shows, checked against `docs/generated/blinky_evolved/`: old and new</span>
-<span class="sd">//! hosts against old and new firmware, served in process, and the checker&#39;s verdict on the change.</span>
-
+<h2 id="what-a-lost-datagram-costs">What a lost datagram costs<a class="headerlink" href="#what-a-lost-datagram-costs" title="Permanent link">&para;</a></h2>
+<p>A network drops datagrams now and then, and UDP doesn't resend them. What a drop costs depends on what it carried.</p>
+<p><img alt="A lost request makes a call time out; a lost stream event is gone, and the next event arrives as usual" src="../../assets/udp_loss.svg" /></p>
+<ul>
+<li>A lost request or reply makes the call fail with a timeout. The program decides whether to call again.</li>
+<li>A lost event of a stream is gone. The host sees the events before and after it, and nothing resends the missing one.</li>
+</ul>
+<p>If a lost event is not acceptable, use a transport that resends, such as <a href="../websocket/">WebSocket</a>. A
+<a href="../../api/counted_streams/">counted stream</a> is the other choice: it tells the host what it missed.</p>
+<h2 id="where-to-go-next">Where to go next<a class="headerlink" href="#where-to-go-next" title="Permanent link">&para;</a></h2>
+<p><a href="../../transport/udp/">UDP in depth</a> lets several hosts share one device port, and shows how the tests drop datagrams on
+purpose.</p>
+<div class="vz-cards"><div class="vz-card vz-card-term" id="vz-card-term-datagram-0c32c4" role="tooltip"><strong>datagram</strong>: A packet sent without a connection and without a promise that it arrives, as UDP sends it.</div><div class="vz-card vz-card-file" id="vz-card-file-examples-thermometer-src-lib-rs-52ee5b" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/wire_weaver/blob/2f680f5ddf0795733a01151d76800749f36ed4ae/examples/thermometer/src/lib.rs">examples/thermometer/src/lib.rs</a></div><div class="vz-card-src"><div class="language-rust highlight"><pre><span></span><code><span class="sd">//! Client of the thermometer example device ([thermometer_api]), and the device simulated on a PC.</span>
+<span class="sd">//!</span>
+<span class="sd">//! [Thermometer] is the host side: the generated calls, `read_once()`, `write_mode()`, `observe_gain()`,</span>
+<span class="sd">//! `samples()` and the rest. [simulated] runs the device itself, `thermometer_device` on its [SimBoard], over</span>
+<span class="sd">//! WebSocket: from a TCP listener in the `thermometer_sim` example, or in process for tests.</span>
+<span class="sd">//!</span>
+<span class="sd">//! ```text</span>
+<span class="sd">//! terminal 1: cargo run -p thermometer --example thermometer_sim</span>
+<span class="sd">//! terminal 2: cargo run -p thermometer --example thermometer_read</span>
+<span class="sd">//! ```</span>
 <span class="k">use</span><span class="w"> </span><span class="n">std</span><span class="p">::</span><span class="n">future</span><span class="p">::</span><span class="n">Future</span><span class="p">;</span>
-<span class="k">use</span><span class="w"> </span><span class="n">std</span><span class="p">::</span><span class="n">path</span><span class="p">::</span><span class="n">Path</span><span class="p">;</span>
 
-<span class="k">use</span><span class="w"> </span><span class="n">tokio</span><span class="p">::</span><span class="n">sync</span><span class="p">::</span><span class="n">oneshot</span><span class="p">;</span>
-<span class="k">use</span><span class="w"> </span><span class="n">wire_weaver_cli</span><span class="p">::</span><span class="n">cmd</span><span class="p">::</span><span class="n">api</span><span class="p">::</span><span class="n">check</span><span class="p">::{</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">CheckOptions</span><span class="p">};</span>
-<span class="k">use</span><span class="w"> </span><span class="n">wire_weaver_client</span><span class="p">::</span><span class="n">in_process</span><span class="p">;</span>
-
-<span class="sd">/// Which firmware a test serves.</span>
-<span class="cp">#[derive(Clone, Copy)]</span>
-<span class="k">enum</span><span class="w"> </span><span class="nc">Firmware</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="n">W1_0</span><span class="p">,</span>
-<span class="w">    </span><span class="n">W1_1</span><span class="p">,</span>
-<span class="p">}</span>
-</code></pre></div></div><div class="vz-card-more">128 more lines in the source</div><div class="vz-card-where">examples/blinky_evolved/tests/it/book.rs:1-144</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/wire_weaver/blob/9b51e272dc4a418f057888f3623748c55d98a8f4/examples/blinky_evolved/tests/it/book.rs">File on GitHub</a></div></div><div class="vz-card vz-card-term" id="vz-card-term-snapshot-dc071b" role="tooltip"><strong>snapshot</strong>: A saved description of an API at one version, which the evolution checker compares a newer version with.</div><div class="vz-card vz-card-file" id="vz-card-file-examples-blinky-api-tests-evolution-rs-cdd69a" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/wire_weaver/blob/9b51e272dc4a418f057888f3623748c55d98a8f4/examples/blinky_api/tests/evolution.rs">examples/blinky_api/tests/evolution.rs</a></div><div class="vz-card-src"><div class="language-rust highlight"><pre><span></span><code><span class="sd">//! The API compared with its snapshots in `api_snapshots/` (docs/evolution/checker_tool.md): fails when the snapshot</span>
-<span class="sd">//! of the current version is missing or differs from the source, and when it changed without the version bump the</span>
-<span class="sd">//! change needs. `WW_API_SAVE=1 cargo test -p blinky_api --test evolution` saves the current version&#39;s snapshot.</span>
-
-<span class="cp">#[test]</span>
-<span class="k">fn</span><span class="w"> </span><span class="nf">api_evolution</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="n">wire_weaver_evolution</span><span class="p">::</span><span class="n">Check</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="fm">env!</span><span class="p">(</span><span class="s">&quot;CARGO_MANIFEST_DIR&quot;</span><span class="p">))</span>
-<span class="w">        </span><span class="p">.</span><span class="n">require_current</span><span class="p">(</span><span class="kc">true</span><span class="p">)</span>
-<span class="w">        </span><span class="p">.</span><span class="n">assert</span><span class="p">();</span>
-<span class="p">}</span>
-</code></pre></div></div><div class="vz-card-where">examples/blinky_api/tests/evolution.rs:1-10</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/wire_weaver/blob/9b51e272dc4a418f057888f3623748c55d98a8f4/examples/blinky_api/tests/evolution.rs">File on GitHub</a></div></div></div>
+<span class="k">use</span><span class="w"> </span><span class="n">futures_util</span><span class="p">::</span><span class="n">Stream</span><span class="p">;</span>
+<span class="k">use</span><span class="w"> </span><span class="n">futures_util</span><span class="p">::</span><span class="n">io</span><span class="p">::{</span><span class="n">AsyncRead</span><span class="p">,</span><span class="w"> </span><span class="n">AsyncWrite</span><span class="p">};</span>
+<span class="k">use</span><span class="w"> </span><span class="n">thermometer_device</span><span class="p">::</span><span class="n">Thermometer</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">Device</span><span class="p">;</span>
+<span class="k">pub</span><span class="w"> </span><span class="k">use</span><span class="w"> </span><span class="n">thermometer_device</span><span class="p">::{</span><span class="n">Counters</span><span class="p">,</span><span class="w"> </span><span class="n">SimBoard</span><span class="p">};</span>
+</code></pre></div></div><div class="vz-card-more">93 more lines in the source</div><div class="vz-card-where">examples/thermometer/src/lib.rs:1-109</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/wire_weaver/blob/2f680f5ddf0795733a01151d76800749f36ed4ae/examples/thermometer/src/lib.rs">File on GitHub</a></div></div></div>
 
 
 
@@ -7222,7 +7189,7 @@ takes it as a development dependency:</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../../std_library/ww_dfu/" class="md-footer__link md-footer__link--prev" aria-label="Previous: ww_dfu">
+          <a href="../usb/" class="md-footer__link md-footer__link--prev" aria-label="Previous: USB">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
@@ -7232,20 +7199,20 @@ takes it as a development dependency:</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                ww_dfu
+                USB
               </div>
             </div>
           </a>
         
         
           
-          <a href="../your_own_project/" class="md-footer__link md-footer__link--next" aria-label="Next: Your own project">
+          <a href="../websocket/" class="md-footer__link md-footer__link--next" aria-label="Next: WebSocket">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Your own project
+                WebSocket
               </div>
             </div>
             <div class="md-footer__button md-icon">
@@ -7271,7 +7238,7 @@ takes it as a development dependency:</p>
       Zensical
     </a>
   
-  <div class="book-stamp" data-built="1795632928">wire_weaver 0.6.0 · 9b51e27 · built 2026-11-25 18:55 UTC (<span class="book-stamp-age">just built</span>)</div>
+  <div class="book-stamp" data-built="1795633329">wire_weaver 0.6.0 · 2f680f5 · built 2026-11-25 19:02 UTC (<span class="book-stamp-age">just built</span>)</div>
 </div>
       
         

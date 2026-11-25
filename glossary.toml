@@ -16,6 +16,11 @@ short = "A `no_std` crate holding an API trait and its types, which the firmware
 chapter = "../api/folder_structure/"
 
 [[term]]
+name = "backoff"
+short = "The wait between two connection attempts, doubled after each failure up to a limit, so that a long outage doesn't flood the network."
+chapter = "../basic/connection_loss/"
+
+[[term]]
 name = "borrowed"
 short = "A type whose values point into the buffer they were read from, so reading copies nothing; its owned twin copies the data out."
 chapter = "../serdes/derive/"
@@ -47,6 +52,12 @@ name = "credit sink"
 forms = ["credit sinks"]
 short = "A sink with flow control: the device grants credit, and the host sends no more than the credit allows."
 chapter = "../api/credit_sinks/"
+
+[[term]]
+name = "datagram"
+forms = ["datagrams"]
+short = "A packet sent without a connection and without a promise that it arrives, as UDP sends it."
+chapter = "../basic/udp/"
 
 [[term]]
 name = "device contract"
@@ -96,6 +107,11 @@ short = "The layer (`ww_link`) under the framer that opens a session with a devi
 chapter = "../transport/ww_link/"
 
 [[term]]
+name = "medium"
+short = "The part of a transport that moves the bytes: USB endpoints, RTT ring buffers, a TCP connection or UDP datagrams."
+chapter = "../basic/transports/"
+
+[[term]]
 name = "method"
 forms = ["methods"]
 short = "An item of an API trait that a host calls with arguments and that answers with a return value."
@@ -137,6 +153,12 @@ short = "How much a page assumes: Basic, Advanced or Nomicon, shown by the badge
 chapter = "../levels/"
 
 [[term]]
+name = "ring buffer"
+forms = ["ring buffers"]
+short = "A fixed region of memory that one side writes and the other reads, wrapping around at its end; RTT's channels are two of them."
+chapter = "../basic/rtt/"
+
+[[term]]
 name = "server"
 forms = ["servers"]
 short = "The device-side code generated from an API trait: it decodes requests and calls your handlers, `no_std` and without allocation."
@@ -172,16 +194,16 @@ short = "An item of an API trait that carries a flow of data from the device to 
 chapter = "../api/streams/"
 
 [[term]]
+name = "string descriptor"
+forms = ["string descriptors"]
+short = "A short text of a USB device, such as its product name, serial number or API id, that the host reads without opening the device."
+chapter = "../basic/usb/"
+
+[[term]]
 name = "transport"
 forms = ["transports"]
 short = "The medium that carries a device's packets: USB, UDP, WebSocket, RTT or a byte stream such as a serial line."
-chapter = "../transport/overview/"
-
-[[term]]
-name = "wire version"
-forms = ["wire versions"]
-short = "The version of an API that devices and hosts compare when they connect, such as `w1.1`: a wire line and a revision on it."
-chapter = "../basic/changing_your_api/"
+chapter = "../basic/transports/"
 
 [[term]]
 name = "wire line"

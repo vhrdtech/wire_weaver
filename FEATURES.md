@@ -2922,7 +2922,8 @@ Unicast Data0 to one node over the same bus is TR-6.
   golden test into `docs/generated/`. Done: Basic 1.12 Properties (`docs/basic/properties.md`) on the thermometer,
   with `docs/assets/property_timeline.svg`, `examples/thermometer_py` (`just test-thermometer-py`) and
   `examples/thermometer/tests/it/book.rs`; Basic 1.30 Changing your API (`docs/basic/changing_your_api.md`) on
-  `blinky_evolved`, with `docs/assets/versions_matrix.svg`. Missing: the other chapters of the outline.
+  `blinky_evolved`, with `docs/assets/versions_matrix.svg`; Basic 1.31 Your own project (`docs/basic/your_own_project.md`)
+  on the thermometer's crates, with `docs/assets/project_crates.svg` and `ww api scaffold`'s code. Missing: the other chapters of the outline.
 
 ## Testing, CI and performance (`TEST`)
 

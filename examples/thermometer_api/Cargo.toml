@@ -18,9 +18,11 @@ wire = "w1.0"
 # build against std instead of no_std, with owned types
 std = ["ww_api/std", "ww_si/std"]
 
+# --8<-- [start:dependencies]
 [dependencies]
 ww_api.workspace = true
 ww_si = { workspace = true, features = ["time", "thermal", "dimensionless", "counting"] }
+# --8<-- [end:dependencies]
 
 [dev-dependencies]
 wire_weaver_core.workspace = true

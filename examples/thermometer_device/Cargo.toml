@@ -24,6 +24,7 @@ std = [
 # defmt formatting for firmware logs
 defmt = ["wire_weaver/defmt", "ww_device/defmt"]
 
+# --8<-- [start:dependencies]
 [dependencies]
 embassy-futures.workspace = true
 shrink_wrap.workspace = true
@@ -33,6 +34,7 @@ ww_client_server.workspace = true
 ww_device.workspace = true
 ww_si = { workspace = true, features = ["time", "thermal", "dimensionless", "counting"] }
 ww_stream.workspace = true
+# --8<-- [end:dependencies]
 
 [lints]
 workspace = true

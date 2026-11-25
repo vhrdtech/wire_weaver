@@ -25,6 +25,7 @@ wire_weaver_client = { workspace = true, features = ["clock_sync", "usb"] }
 
 [dev-dependencies]
 anyhow.workspace = true
+book_outputs.workspace = true
 clap = { workspace = true, features = ["derive"] }
 console.workspace = true
 futures-util.workspace = true
@@ -33,7 +34,9 @@ tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net", "io-
 tokio-util = { workspace = true, features = ["compat"] }
 tracing.workspace = true
 tracing-subscriber.workspace = true
+wire_weaver_cli.workspace = true
 wire_weaver_client = { workspace = true, features = ["clock_sync", "in_process", "usb"] }
+wire_weaver_core.workspace = true
 ww_client_server.workspace = true
 ww_device = { workspace = true, features = ["futures-io"] }
 ww_dns_sd = { workspace = true, features = ["mdns", "avahi"] }

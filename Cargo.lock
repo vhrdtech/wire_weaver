@@ -336,6 +336,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "blinky_api 0.1.0",
+ "book_outputs",
  "clap",
  "console",
  "futures-util",
@@ -345,7 +346,9 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "wire_weaver",
+ "wire_weaver_cli",
  "wire_weaver_client",
+ "wire_weaver_core",
  "ww_client_server",
  "ww_device",
  "ww_dns_sd",

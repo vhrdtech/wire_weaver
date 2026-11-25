@@ -83,7 +83,8 @@ nav = [
                 ]
             },
             { "Keeping it working" = [
-                    "basic/changing_your_api.md"
+                    "basic/changing_your_api.md",
+                    "basic/your_own_project.md"
                 ]
             }
         ]

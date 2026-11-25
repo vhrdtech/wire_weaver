@@ -146,6 +146,7 @@ With the test in place, each new version of the API follows the same routine:
 
 ## Where to go next
 
+- [Your own project](your_own_project.md) starts a project of your own, laid out as the book's examples are.
 - [Versions and wire lines](../evolution/versions.md) explains how a device and a host decide whether they can
   talk, and how one crate holds several lines.
 - [What can change](../evolution/rules.md) covers every kind of change to types and APIs.

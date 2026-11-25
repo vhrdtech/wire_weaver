@@ -432,17 +432,8 @@ pub(crate) async fn connect_device(
         .await
         .with_context(|| {
             format!(
-                "connecting to device ({selection}), run 'ww list{}' to see connected {}",
-                if selection.rtt().is_some() {
-                    " --probes"
-                } else {
-                    ""
-                },
-                if selection.rtt().is_some() {
-                    "debug probes"
-                } else {
-                    "devices"
-                },
+                "connecting to device ({selection}){}",
+                selection.list_hint(),
             )
         })?;
     // over RTT the device behind the probe is only known now

@@ -1,6 +1,8 @@
 //! The thermometer as a host sees it: the simulated device served over the in-process WebSocket
 //! (`wire_weaver_client::in_process::ws_device`), on tokio's paused clock, so time moves only when both ends wait.
 
+mod book;
+
 use std::time::Duration;
 
 use thermometer::{Counters, SimBoard, Thermometer};

@@ -218,7 +218,9 @@ fn introspect(
 
 /// Connect to a device and build its API from introspection data (or from `api`, see `load_api`).
 ///
-/// Filters select which device to connect to, a USB device is used unless `rtt` or `hub_device` is given.
+/// Filters select which device to connect to, a USB device is used unless `rtt`, `websocket_url` or `hub_device` is
+/// given. `websocket_url` connects to the device at that `ws://` address, such as a device simulated on this PC
+/// (`ws://127.0.0.1:8080/ww`); the USB filters don't apply to it.
 /// `hub_device` goes straight to the ww hub by this device key (`usb:<vid>:<pid>:<serial>`, `inproc:<path>`,
 /// `ww hub status` lists them), skipping enumeration and the other filters. `timeout` is the default request
 /// timeout in seconds.
@@ -235,6 +237,7 @@ fn introspect(
     rtt=None,
     rtt_speed_hz=None,
     rtt_elf=None,
+    websocket_url=None,
     hub_device=None,
     timeout=None,
     api=None,
@@ -255,6 +258,7 @@ fn connect(
     rtt: Option<String>,
     rtt_speed_hz: Option<u32>,
     rtt_elf: Option<PathBuf>,
+    websocket_url: Option<String>,
     hub_device: Option<String>,
     timeout: Option<f64>,
     api: Option<PyRef<'_, Node>>,
@@ -263,9 +267,11 @@ fn connect(
     let mut config = ClientConfig::new().client_meta(
         wire_weaver_client::ClientMeta::new().kind(wire_weaver_client::ClientKind::Notebook),
     );
-    let through_hub = hub_device.is_some();
+    let without_usb = hub_device.is_some() || websocket_url.is_some();
     if let Some(key) = hub_device {
         config = config.hub_device(key);
+    } else if let Some(url) = websocket_url {
+        config = config.websocket_url(url).no_ww_usb();
     } else if let Some(target) = rtt {
         config = config.rtt(target, rtt_speed_hz);
         if let Some(elf) = rtt_elf {
@@ -274,7 +280,7 @@ fn connect(
     } else {
         config = config.usb();
     }
-    if !through_hub {
+    if !without_usb {
         if let Some((vid, pid)) = vid_pid {
             config = config.usb_vid_pid(vid, pid);
         }

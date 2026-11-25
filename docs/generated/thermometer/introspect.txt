@@ -1,0 +1,17 @@
+$ ww --websocket ws://127.0.0.1:8080/ww introspect -d
+trait Thermo thermometer_api@1.0.0
+├─ 0 #[effect(edit)] fn set_rate(rate: Fixed<Hertz, One, u16, Range<1, 1000>> [Hz, 1..=1000]) -> Result<(), RateError>
+├─ 1 #[effect(edit)] fn read_once() -> Sample
+├─ 2 #[effect(edit)] rw property mode: Mode
+├─ 3 #[effect(edit)] rw property gain: Fixed<Ratio, One, u8, Range<1, 16>> [1..=16] observable
+├─ 4 stream samples: Sample
+├─ 5 #[effect(edit)] sink commands: Command
+├─ 6 impl channel[]: thermometer_api::Channel
+│  ├─ 0 #[effect(edit)] rw property enabled: bool
+│  └─ 1 #[effect(edit)] fn last() -> Sample
+└─ 7 impl indication: thermometer_api::Indication
+   └─ 0 #[effect(edit)] rw property mode: IndicationMode
+
+11 resources, 2 traits, 29 types, 21824 bytes full, 1111 bytes sent
+crates: thermometer_api@1.0.0, exact_units@0.1.0
+api hash: a8c3c36fc8b3c7d0

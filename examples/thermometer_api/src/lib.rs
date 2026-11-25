@@ -18,8 +18,10 @@ use ww_si::{Fixed, IndexFrom1, Point, Range, Seq};
 /// Sampling rate: 1 Hz to 1000 Hz in steps of 1 Hz.
 pub type Rate = Fixed<Hertz, One, u16, Range<1, 1000>>;
 
+// --8<-- [start:gain]
 /// Amplifier gain: 1 to 16, no unit.
 pub type Gain = Fixed<Ratio, One, u8, Range<1, 16>>;
+// --8<-- [end:gain]
 
 /// A temperature in steps of 0.01 K, from -327.68 °C to 327.67 °C.
 pub type Temperature = Point<Celsius, Fixed<Kelvin, Centi, i16>>;
@@ -75,6 +77,7 @@ pub struct Sample {
 }
 // --8<-- [end:sample]
 
+// --8<-- [start:mode]
 /// What the sampler does.
 #[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Debug, PartialEq, Eq, Clone, Copy), ww_repr = u4)]
 pub enum Mode {
@@ -85,6 +88,7 @@ pub enum Mode {
     /// One sample per `Command::Trigger`.
     Triggered,
 }
+// --8<-- [end:mode]
 
 /// Why `set_rate` refused.
 #[derive_shrink_wrap(

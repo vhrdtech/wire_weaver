@@ -118,6 +118,7 @@ the selection.
 | `--vid-pid`      | `WW_VID_PID`      | `vid_pid`      | USB VID:PID in hex, e.g. `c0de:cafe`                           |
 | `--usb-path`     | `WW_USB_PATH`     | `usb_path`     | USB bus and port chain as shown by `ww list`, e.g. `003-1.2`   |
 | `--rtt`          | `WW_RTT`          | `rtt`          | Connect over RTT through a debug probe: the probe-rs chip name, e.g. `STM32G0B1RETx`, see [below](#through-a-debug-probe-rtt) |
+| `--websocket`    | `WW_WEBSOCKET`    | `websocket`    | Connect over WebSocket to the device at this `ws://` URL instead of USB, e.g. `ws://127.0.0.1:8080/ww`; the USB filters don't apply and `--api` is checked once connected |
 | `--probe`        | `WW_PROBE`        | `probe`        | With `--rtt`, the probe: serial containing the value, `VID:PID` in hex or `VID:PID:SERIAL` |
 | `--elf`          | `WW_ELF`          | `elf`          | The firmware ELF file: with `--rtt` the RTT control block address is taken from it instead of scanning RAM; `counters` and `report` decode with it when given on the command line |
 | `--probe-speed-khz` | `WW_PROBE_SPEED_KHZ` | `probe_speed_khz` | With `--rtt`, the SWD clock in kHz, not a filter (the probe's default without it) |

@@ -1,0 +1,7 @@
+$ python properties.py
+mode: Idle
+mode: Continuous
+gain: 4
+gain: 8
+refused: 20 is out of exact_units::Fixed<Ratio, One, u8, Range<1, 16>> (1..=16)
+gain: 8

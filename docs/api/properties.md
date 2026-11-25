@@ -1,10 +1,13 @@
 ---
-level: basic
+level: advanced
 ---
 
-# Properties
+# Properties in depth
 
-A property is a value of the device the host reads, writes or both: a setting, a measured state, a mode.
+[Properties](../basic/properties.md) declares a property, serves it with `get_set` handlers and reads and writes it
+from a host. This page covers the rest: a property with an error type of its own, a property served as a plain
+field, `const` items, and the host's options for each read and write. The example trait below has one property of
+each access, one with an error type, and a `const`:
 
 ```rust
 #[ww_trait]
@@ -22,15 +25,7 @@ trait MyDevice {
 }
 ```
 
-| Access | Declared as | Read | Write | Observe |
-|---|---|---|---|---|
-| read/write | `property!(rw name: T)` | ✓ | ✓ | with `rw+observe` |
-| read only | `property!(ro name: T)` | ✓ | | with `ro+observe` |
-| write only | `property!(wo name: T)` | | ✓ | |
-| const | `const NAME: T;` | ✓, once per connection | | |
-
-`ro` means read only for the host: the device changes the value whenever it likes, and may tell observers about it.
-`+observe` lets hosts observe it, see [Observing changes](#observing-changes).
+`+observe` lets hosts observe a property, see [Observing changes](#observing-changes).
 A `const` never changes while the firmware runs, see [Const items](#const-items).
 
 Any type the SerDes system supports can be a property. A second type after the value's, `property!(rw mode: u8,

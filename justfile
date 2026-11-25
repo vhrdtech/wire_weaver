@@ -28,6 +28,10 @@ test-all:
     just test-lean-server
     # the conformance corpus through Python (TEST-23)
     just test-conformance-py
+    # the thermometer's Python scripts, the book's Python outputs
+    just test-thermometer-py
+    # the bench supply example's pytest bench (EX-19)
+    just test-bench-supply-py
     # the docs site's Markdown extensions (the `bits` fence)
     uv run --group dev pytest -q docs_ext
     # ww_lz4's blocks decoded by C liblz4
@@ -94,6 +98,17 @@ test-lz4-c:
 # The conformance corpus through Python (TEST-23): wire_weaver_py of this checkout as the `wire_weaver` module
 [working-directory('tests/conformance_py')]
 test-conformance-py:
+    uv run --group dev pytest -q tests
+
+# The thermometer's Python scripts against its simulated device, their output checked against docs/generated/
+[working-directory('examples/thermometer_py')]
+test-thermometer-py:
+    uv run --group dev pytest -q tests
+
+# The bench supply example's pytest bench (EX-19): wire_weaver_py of this checkout as the `wire_weaver` module,
+# against bench_supply_hub_device (the ww hub and a simulated bench supply), no real hardware needed
+[working-directory('examples/bench_supply_py')]
+test-bench-supply-py:
     uv run --group dev pytest -q tests
 
 # Fill in the golden bytes of new conformance cases ("bytes": "?") from the derive and write docs/serdes/conformance_matrix.md (TEST-23)
@@ -301,6 +316,7 @@ book-outputs:
     rm -rf docs/generated
     WW_BOOK_OUTPUTS=write cargo nextest run --workspace -E 'test(/book_output/)'
     just book-outputs-wire-sizes
+    WW_BOOK_OUTPUTS=write just test-thermometer-py
 
 # docs/generated/compare_wire_formats/ (EX-20): compare_wire_formats is excluded from the workspace (its own
 # Cargo.lock, so ciborium/prost/wincode/planus/rasn stay out of every other build's lockfile), so it keeps its own

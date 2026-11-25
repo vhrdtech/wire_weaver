@@ -54,6 +54,9 @@ args_evolution = { layer = "runtime" }
 args_evolution_api = { layer = "runtime" }
 array_of_streams = { layer = "runtime" }
 array_of_streams_api = { layer = "runtime" }
+bench_supply = { layer = "runtime" }
+bench_supply_api = { layer = "runtime", no_std = true }
+bench_supply_py = { layer = "runtime" }
 blinky = { layer = "runtime" }
 blinky_api = { layer = "runtime", no_std = true }
 blinky_api_evolved = { layer = "runtime", no_std = true }
@@ -188,6 +191,7 @@ thermo_devices = { layer = "runtime" }
 thermometer = { layer = "runtime" }
 thermometer_api = { layer = "runtime", no_std = true }
 thermometer_device = { layer = "runtime", no_std = true }
+thermometer_py = { layer = "runtime" }
 toml_settings_api = { layer = "runtime", no_std = true }
 totals = { layer = "runtime" }
 totals_api = { layer = "runtime", no_std = true }

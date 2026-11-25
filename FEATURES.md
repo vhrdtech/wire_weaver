@@ -1476,6 +1476,10 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   and `ww stream` with it. A global trait path the view can't resolve is refused, never sent to the front's own tree.
   See [Mount slots](docs/api/mounts.md#client); tested in `tests/mounts`. Not covered: a facade of several wire lines
   on a view, `ww call` (vhrdtech/ww_tools).
+- ✅ **CLT-85 `ww` and Python over WebSocket** · `v0.5` — `ww --websocket ws://HOST:PORT/PATH` (`WW_WEBSOCKET`,
+  `websocket` in `ww.toml`) and Python's `connect(websocket_url=..)` reach a device at one WebSocket address, such as
+  a device simulated on the PC (`examples/thermometer`). The USB filters don't apply; `--api` is checked once
+  connected, as over RTT. See `docs/cli.md#device-selection`, `docs/python.md#connecting`.
 - 🚧 **CLT-75 Keep-trying connections** · `v0.5` — `PreparedConnection::connect_keep_trying()` returns the client at
   once and connects in the background, again whenever the link goes: each attempt races the config's addresses
   (`ClientConfig::websocket_urls`, `in_process_paths`; `connect()` and `reconnect()` too, CLT-80), backoff and give-up
@@ -2821,6 +2825,12 @@ Unicast Data0 to one node over the same bus is TR-6.
   once from `schema/request.fbs` and committed as `src/request_generated.rs`) and ASN.1 UPER (rasn, closed and
   `#[non_exhaustive]` extensible). `just book-outputs`/`just test-all` run it from its own directory and check its
   transcript and `format,bytes,evolution` chart data against `docs/generated/compare_wire_formats/`.
+- ✅ **EX-19 Bench supply example and a pytest bench**: `examples/bench_supply_api` (`channel[]: Channel`, a
+  voltage and current limit each, `measured`, `set_output` refusing with `OutputError`), `examples/bench_supply`
+  (client, server, `bench_supply_sim` over WebSocket, `bench_supply_bench`, in-process tests) and
+  `bench_supply_hub_device` (a `[[bin]]` hosting the ww hub and the device in one process, TOOL-18, SRV-29) +
+  `examples/bench_supply_py` (`wire_weaver_py` of this checkout as the `wire_weaver` module, a pytest bench
+  driving the device through the hub with no real hardware, `just test-bench-supply-py`).
 - 📋 **EX-6 Example without async** · `v0.5` — `ww_device::blocking::Server` exists, no example uses it.
 - 📋 **EX-7 Example with two media** · `v0.5`.
 - 📋 **EX-8 NCM WebSocket + UDP example** · `v0.5` — both media on one stack, sharing the backend.
@@ -2914,6 +2924,11 @@ Unicast Data0 to one node over the same bus is TR-6.
   file under `docs/generated/` that no page includes. `docs/glossary.toml` (`vhrd_zensical.glossary`, `glossary.md`)
   and `docs/abbreviations.toml` (`vhrd_zensical.abbreviations`). The `book_outputs` crate checks a test's output
   against `docs/generated/` and `just book-outputs` writes them; `minimal_shrink_wrap`'s bytes are the first.
+- 🚧 **DOC-17 Book chapters built on the examples** — each chapter runs on one example device, shows code only as
+  includes of marked sections of compiled sources, and shows output (a `ww` transcript, a Python run) written by a
+  golden test into `docs/generated/`. Done: Basic 1.12 Properties (`docs/basic/properties.md`) on the thermometer,
+  with `docs/assets/property_timeline.svg`, `examples/thermometer_py` (`just test-thermometer-py`) and
+  `examples/thermometer/tests/it/book.rs`. Missing: the other chapters of the outline.
 
 ## Testing, CI and performance (`TEST`)
 

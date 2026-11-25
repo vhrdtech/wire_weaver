@@ -17,6 +17,8 @@
 
 ### 🚀 Features
 
+- `cmd::introspect::render(device, IntrospectView)`: the text `ww introspect` prints, for a book's transcript or another program.
+- Every device command reaches a WebSocket device with `ww --websocket ws://HOST:PORT/PATH` (CLT-85).
 - `ww observe` and `ww stream` walk into mounted APIs: `hub.player.state`, `ext.cast.items` (CLT-84).
 - `ww api tree` shows mount slots with their expected API crate (SRV-76).
 - `ww info --effects` lists the items that change something, by effect; `ww api tree` shows `#[effect(..)]` (API-58).
@@ -119,6 +121,7 @@
 
 ### 🐛 Fixes
 
+- `ww introspect` and `ww api tree` show a unitless `Fixed` as `[1..=16]`, not `[, 1..=16]`.
 - `crossterm` is a dependency on Windows only, where `util::QuitKey` reads with it.
 - `ww udev` ends with an error saying it is not implemented yet (TOOL-37), not a panic.
 

@@ -47,7 +47,7 @@ Pages are marked by how deep they go: Basic, Advanced or Nomicon. See [reading l
 -   :material-relation-one-to-zero-or-one: __[Streams](api/streams.md)__
 
     ---
-    Stream data of any type, observe [property](api/properties.md) changes. Both to and from device.
+    Stream data of any type, observe [property](basic/properties.md) changes. Both to and from device.
 
 -   :material-compare-vertical: __[Evolution](evolution/overview.md)__
 

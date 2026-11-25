@@ -6,7 +6,7 @@ pub(crate) mod elf;
 pub(crate) mod explain;
 pub(crate) mod hub;
 pub mod info;
-pub(crate) mod introspect;
+pub mod introspect;
 pub(crate) mod list;
 pub(crate) mod observe;
 pub(crate) mod settings;

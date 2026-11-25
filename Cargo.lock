@@ -199,6 +199,45 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ac07cdecf99051d9a5238b80f35af32cdeba5b336e55d957b318b50137e18da5"
 
 [[package]]
+name = "bench_supply"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bench_supply_api",
+ "clap",
+ "embassy-futures",
+ "futures-util",
+ "tests_common",
+ "tokio",
+ "tokio-util",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_client_server",
+ "ww_device",
+ "ww_hub",
+ "ww_si",
+ "ww_stream",
+]
+
+[[package]]
+name = "bench_supply_api"
+version = "1.0.0"
+dependencies = [
+ "wire_weaver_core",
+ "wire_weaver_evolution",
+ "ww_api",
+ "ww_si",
+]
+
+[[package]]
+name = "bench_supply_py"
+version = "0.1.0"
+dependencies = [
+ "pyo3",
+ "wire_weaver_py",
+]
+
+[[package]]
 name = "bincode"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4343,14 +4382,18 @@ name = "thermometer"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "book_outputs",
  "clap",
+ "console",
  "futures-util",
  "thermometer_api",
  "thermometer_device",
  "tokio",
  "tokio-util",
  "wire_weaver",
+ "wire_weaver_cli",
  "wire_weaver_client",
+ "ww_client_server",
  "ww_device",
  "ww_si",
 ]
@@ -4377,6 +4420,14 @@ dependencies = [
  "ww_device",
  "ww_si",
  "ww_stream",
+]
+
+[[package]]
+name = "thermometer_py"
+version = "0.1.0"
+dependencies = [
+ "pyo3",
+ "wire_weaver_py",
 ]
 
 [[package]]

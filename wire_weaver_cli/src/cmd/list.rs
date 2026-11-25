@@ -1,7 +1,7 @@
 use crate::device::Selection;
 use crate::registry::{BoxFuture, CommandDef, Connection, GlobalFlags, Ran, Run};
 use crate::untrusted::{Untrusted, escape};
-use anyhow::Result;
+use anyhow::{Result, bail};
 use clap::{Args, FromArgMatches};
 use console::measure_text_width;
 use tracing::level_filters::LevelFilter;
@@ -28,6 +28,11 @@ pub(crate) struct ListArgs {
 }
 
 pub(crate) async fn list(args: ListArgs, selection: &Selection) -> Result<()> {
+    if let Some(url) = selection.websocket() {
+        bail!(
+            "`ww list` finds USB devices and debug probes; --websocket {url} names one device already"
+        );
+    }
     if args.probes || selection.rtt().is_some() {
         return list_probes(args.plain);
     }

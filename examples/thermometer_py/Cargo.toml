@@ -1,0 +1,23 @@
+[package]
+name = "thermometer_py"
+version = "0.1.0"
+description = "Python scripts of the thermometer example, with wire_weaver_py of this checkout as the `wire_weaver` module"
+publish = false
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+# a Python extension module: its tests are the pytest files beside it, `just test-thermometer-py`
+test = false
+doctest = false
+
+[dependencies]
+pyo3.workspace = true
+wire_weaver_py.workspace = true
+
+[lints]
+workspace = true

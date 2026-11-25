@@ -4,6 +4,9 @@ target/
 history.txt
 site/
 __pycache__/
+# uv-managed virtualenvs and pytest's cache, in any pytest crate (tests/conformance_py, examples/bench_supply_py, ...)
+.venv/
+.pytest_cache/
 # maturin develop (editable install) drops the compiled extension next to the wheel's pure-Python package
 ww_tools/wire_weaver_wheel/python/wire_weaver/*.so
 ww_tools/wire_weaver_wheel/python/wire_weaver/*.pyd

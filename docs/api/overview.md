@@ -161,7 +161,7 @@ trait MyDevice {
 | Item | Page |
 |---|---|
 | `fn` | [Methods](methods.md): handlers, async or blocking servers, deferred answers, the client |
-| `property!`, `const` | [Properties](properties.md): `get_set` handlers or a plain field, reads, writes, consts |
+| `property!`, `const` | [Properties](../basic/properties.md): `get_set` handlers or a plain field, reads, writes, consts |
 | `stream!`, `sink!` | [Streams](streams.md): plain, counted and reliable streams, sinks |
 | `ww_impl!` | [Traits](traits.md): grouping, reusable traits from crates, attachments |
 | `Result<T, E>` | [Errors](errors.md): error enums, common errors, `CallError` on the client |

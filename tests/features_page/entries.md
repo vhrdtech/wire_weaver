@@ -265,6 +265,7 @@ from the description the device sends of itself; the `ww` tool and Python are bu
 - CLT-82 | Servers found on the LAN | A client finds WebSocket servers announced over DNS-SD and follows one to its new address after a DHCP change. | transport/websocket.md#finding-servers-on-the-lan
 - CLT-81 | Reconnect onto another API revision | A reconnect to other firmware on the same wire line learns its API again and resumes what still fits. | transport/keep_trying.md#another-revision-of-the-devices-api
 - CLT-84 | Mount views | A client calls, observes and streams an API mounted in another device's tree, learned and relearned per mount, resumed after a link gap. | api/mounts.md#client
+- CLT-85 | `ww` and Python over WebSocket | `ww --websocket URL` and `connect(websocket_url=..)` reach a device simulated on your PC. | cli.md#device-selection
 - CLT-75 | Keep-trying connections | A client that exists at once, connects when the device comes up, reconnects whenever the link goes and resumes its observers and streams, racing its addresses; `retry_now()` hurries it. | transport/keep_trying.md
 - CLT-80 | Addresses raced | A device reachable at several addresses (LAN and VPN) is connected at whichever answers first, so an address that is gone costs nothing. | transport/keep_trying.md#what-it-does
 - CLT-40 | Back after a hub restart | A program reaching its device through the ww hub reconnects by itself when the hub crashes, is killed or hands over, and its counted and reliable streams go on; the app hears about the gap. | transport/hub.md#reconnect-after-a-hub-restart-clt-40
@@ -547,6 +548,7 @@ Working projects to start from: host programs, firmware for a few boards, and th
 - EX-18 | Thermometer example | A sensor device written once and run simulated on the PC, on a Nucleo G0B1RE and on a Pico 2. | examples/examples.md
 - EX-15 | Settings demo | Settings that survive a reboot, on the host and on two Nucleo boards. | api/settings.md
 - EX-20 | Wire sizes compared | The same message on nine wire formats, with the byte count and how each lets a field be added later. | examples/examples.md
+- EX-19 | Bench supply example | A lab instrument with limits and errors a script can act on, tested by a pytest bench through the ww hub. | examples/examples.md
 
 # Testing
 
@@ -573,7 +575,7 @@ How WireWeaver is kept working: every change runs through CI, against the real c
 
 # Omitted
 
-- DOC-1, DOC-7, DOC-8, DOC-9, DOC-11, DOC-12, DOC-13, DOC-16 | This docs site itself.
+- DOC-1, DOC-7, DOC-8, DOC-9, DOC-11, DOC-12, DOC-13, DOC-16, DOC-17 | This docs site itself.
 - TR-13 | A fixed bug (RTT server panic on the first request), not a feature.
 - TEST-32 | A firmware size tool for the project's own development, not a feature of WireWeaver.
 - TEST-36 | A repo-layering lint for the project's own development, not a feature of WireWeaver.

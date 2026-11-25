@@ -63,7 +63,9 @@ nav = [
             },
             { "The standard library" = [
                     "std_library/using.md",
-                    "std_library/gpio_expander.md"
+                    "std_library/gpio_expander.md",
+                    "std_library/uart_bridge.md",
+                    "std_library/device_info.md"
                 ]
             },
             { "Keeping it working" = [

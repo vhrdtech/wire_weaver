@@ -2921,7 +2921,7 @@ Unicast Data0 to one node over the same bus is TR-6.
   includes of marked sections of compiled sources, and shows output (a `ww` transcript, a Python run) written by a
   golden test into `docs/generated/`. Done: Basic 1.12 Properties (`docs/basic/properties.md`) on the thermometer,
   with `docs/assets/property_timeline.svg`, `examples/thermometer_py` (`just test-thermometer-py`) and
-  `examples/thermometer/tests/it/book.rs`. Missing: the other chapters of the outline.
+  `examples/thermometer/tests/it/book.rs`. Basic 1.27 to 1.29, the standard library, live in ww_stdlib's `docs/` (`using.md`, `gpio_expander.md`, `uart_bridge.md`, `device_info.md`) on its EX-22 to EX-24 examples. Missing: the other chapters of the outline.
 
 ## Testing, CI and performance (`TEST`)
 

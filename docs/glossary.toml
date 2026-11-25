@@ -51,7 +51,7 @@ chapter = "../api/credit_sinks/"
 [[term]]
 name = "device contract"
 short = "The standard traits every device should offer: firmware and board information, a unique id, user information, the log and an indication."
-chapter = "../std_library/device_contract/"
+chapter = "../std_library/device_info/"
 
 [[term]]
 name = "effect"

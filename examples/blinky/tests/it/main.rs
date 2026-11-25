@@ -4,7 +4,10 @@
 mod book;
 // The host program the book runs, compiled into the tests so that `book::book_output_host` calls its `run`.
 #[path = "../../examples/host.rs"]
-#[expect(dead_code, reason = "the example's own main and arguments; the tests call only its run")]
+#[expect(
+    dead_code,
+    reason = "the example's own main and arguments; the tests call only its run"
+)]
 mod host;
 
 use std::cell::RefCell;

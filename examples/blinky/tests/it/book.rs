@@ -1,7 +1,9 @@
 //! What the book shows of the blinky device, checked against `docs/generated/blinky/`: the `ww` transcripts are the
-//! text `ww` prints, from the same device the chapters run, served in process.
+//! text `ww` prints, and the host program's output is what `blinky_host` prints, from the same device the chapters
+//! run, served in process.
 
 use std::cell::Cell;
+use std::rc::Rc;
 
 use blinky::Led;
 use tokio::sync::oneshot;
@@ -82,4 +84,23 @@ async fn book_output_call() {
         assert_eq!(call(&dev, "blinks").await.expect("calls"), "2 item");
     })
     .await;
+}
+
+/// What `blinky_host` prints against a simulated device that just started: its `run`, the code the chapters show.
+/// The board run of the same program is a manual step of the chapter "Running on a board".
+#[tokio::test(start_paused = true)]
+async fn book_output_host() {
+    let printed = Rc::new(Cell::new(Vec::new()));
+    let sink = printed.clone();
+    crate::with_device("blinky/book_host", |device| async move {
+        let mut out = Vec::new();
+        crate::host::run(&device, &mut out).await.expect("runs");
+        sink.set(out);
+    })
+    .await;
+    let printed = String::from_utf8(printed.take()).expect("prints text");
+    book_outputs::check(
+        "blinky/host.txt",
+        &format!("$ cargo run -p blinky --example blinky_host\n{printed}"),
+    );
 }

@@ -84,14 +84,14 @@ not go through, because the link failed or the device did not answer in time. `?
 
 Run the program while the simulated device runs:
 
-```sh
-cargo run -p blinky --example blinky_host
+```text
+--8<-- "docs/generated/blinky/host.txt"
 ```
 
-It switches the LED on and off as before, then calls `set_led(true)` and prints
-`set_led(true): the LED was on before: false`. It ends with `blinks: 2`: the LED went on twice since the simulated
-device started, once from `led_on` and once from `set_led(true)`. Run it again and the count goes on from there,
-since the simulated device keeps its state until you stop it.
+The program switches the LED on and off as before, then calls `set_led(true)`. The LED was off, so the answer is
+`false`. The count is 2: the LED went on twice since the simulated device started, once from `led_on` and once from
+`set_led(true)`. Run the program again and the count goes on from there, since the simulated device keeps its state
+until you stop it.
 
 `.call().await` is one of several ways to send a call. `.blocking_call()` waits without `async`, for programs that
 don't use an async runtime. `.call_forget()` sends a call without waiting for an answer, for a method that returns

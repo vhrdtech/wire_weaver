@@ -2,7 +2,10 @@
 //! return value. It connects to the simulated device by default, or to a board over USB with `--usb`.
 //!
 //! `cargo run -p blinky --example blinky_sim` in one terminal, `cargo run -p blinky --example blinky_host` in
-//! another; with a board plugged in, `cargo run -p blinky --example blinky_host -- --usb`.
+//! another; with a board plugged in, `cargo run -p blinky --example blinky_host -- --usb`. The test
+//! `book_output_host` runs [run] against the simulated device and checks what it prints.
+
+use std::io::Write;
 
 use anyhow::Result;
 use blinky::Blinky;
@@ -31,6 +34,13 @@ async fn main() -> Result<()> {
     };
     // --8<-- [end:connect]
 
+    run(&device, &mut std::io::stdout()).await?;
+    device.disconnect().asynch().await?;
+    Ok(())
+}
+
+/// The calls of the book's chapters, in order; what they print goes to `out`.
+pub(crate) async fn run(device: &Blinky, out: &mut impl Write) -> Result<()> {
     // --8<-- [start:calls]
     device.led_on().call().await?;
     device.led_off().call().await?;
@@ -38,11 +48,9 @@ async fn main() -> Result<()> {
 
     // --8<-- [start:methods]
     let was_on = device.set_led(true).call().await?;
-    println!("set_led(true): the LED was on before: {was_on}");
+    writeln!(out, "set_led(true): the LED was on before: {was_on}")?;
     let blinks = device.blinks().call().await?;
-    println!("blinks: {}", blinks.get());
+    writeln!(out, "blinks: {}", blinks.get())?;
     // --8<-- [end:methods]
-
-    device.disconnect().asynch().await?;
     Ok(())
 }

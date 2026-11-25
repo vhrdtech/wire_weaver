@@ -7,7 +7,10 @@
 #![no_main]
 #![feature(impl_trait_in_assoc_type)]
 
+use core::sync::atomic::{AtomicI16, Ordering};
+
 use blinky_device::{Blinky, Led};
+use cnt as _; // the linker script cnt.x that .cargo/config.toml names comes with it
 use cortex_m_rt::exception;
 use defmt::*;
 use defmt_rtt as _;
@@ -113,15 +116,17 @@ async fn main(spawner: embassy_executor::Spawner) {
     }
 }
 
+/// The last interrupt that has no handler, as its raw IRQ number, for a debugger to read. A handler of an
+/// exception can't log or count: that may fault again.
+static UNHANDLED_IRQ: AtomicI16 = AtomicI16::new(0);
+
 #[exception]
 unsafe fn DefaultHandler(irqn: i16) {
-    cnt::cnt!(unhandled_exceptions: u32, warn);
-    error!("Unhandled exception (IRQn = {})", irqn);
+    UNHANDLED_IRQ.store(irqn, Ordering::Relaxed);
 }
 
+/// A fault resets the chip instead of spinning, so the device comes back on USB.
 #[exception]
-unsafe fn HardFault(ef: &cortex_m_rt::ExceptionFrame) -> ! {
-    error!("HardFault {}", Debug2Format(ef));
-
-    loop {}
+unsafe fn HardFault(_ef: &cortex_m_rt::ExceptionFrame) -> ! {
+    cortex_m::peripheral::SCB::sys_reset()
 }

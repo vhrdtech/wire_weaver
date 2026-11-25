@@ -9,6 +9,10 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[package.metadata.cargo-machete]
+# the client code ww_codegen! generates names ww_si (the blinks count is a Fixed)
+ignored = ["ww_si"]
+
 [features]
 # RTT through a debug probe, for the blinky_rtt example
 rtt = ["wire_weaver_client/rtt"]

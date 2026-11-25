@@ -61,9 +61,11 @@ This page lists the crates of the root workspace. The first table links each pub
 | [`bench_supply`](examples/bench_supply) | runtime | Client of the bench supply example device, and the device simulated on a PC, over WebSocket and over the ww hub for the pytest bench |
 | [`bench_supply_api`](examples/bench_supply_api) | runtime | API of the bench supply example device: output channels with voltage and current limits, an output switch that refuses, and the errors a script can act on |
 | [`bench_supply_py`](examples/bench_supply_py) | runtime | wire_weaver_py as an extension module, built by maturin, for the bench supply example's pytest bench (EX-19). |
-| [`blinky`](examples/blinky) | runtime | Client of the blinky example device: the project shape a host program copies |
-| [`blinky_api`](examples/blinky_api) | runtime | API of the blinky example device: an LED turned on and off |
+| [`blinky`](examples/blinky) | runtime | Client of the blinky example device, and the device simulated on a PC over WebSocket |
+| [`blinky_api`](examples/blinky_api) | runtime | API of the blinky example device: an LED turned on and off, the first device of the book |
 | [`blinky_api_evolved`](examples/blinky_api_evolved) | runtime | The blinky example API in a later version, for the evolution checks |
+| [`blinky_device`](examples/blinky_device) | runtime | The blinky example device: one server for the simulated device on a PC and the firmware of every board |
+| [`blinky_dyn_py`](examples/blinky_dyn_py) | runtime | Python scripts of the blinky example, with wire_weaver_py of this checkout as the `wire_weaver` module |
 | [`blinky_evolved`](examples/blinky_evolved) | runtime | Client of the evolved blinky API, run against devices of either version |
 | [`blinky_py`](examples/blinky_py) | runtime | Python wheel of the blinky example client |
 | [`book_outputs`](tests/book_outputs) | runtime | Golden outputs of the book's examples: a test writes what a reader would see into docs/generated/ and fails when the file is stale |

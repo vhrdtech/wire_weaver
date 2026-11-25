@@ -10,8 +10,8 @@ license.workspace = true
 repository.workspace = true
 
 [package.metadata.cargo-machete]
-# the code ww_codegen! generates names shrink_wrap
-ignored = ["shrink_wrap"]
+# the code ww_codegen! generates names ww_si (the blinks count is a Fixed)
+ignored = ["ww_si"]
 
 [features]
 # build against std: owned API types, for a device simulated on a PC

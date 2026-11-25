@@ -1,0 +1,30 @@
+[package]
+name = "thermometer_api"
+version = "1.0.0"
+description = "API of the thermometer example device: temperatures with units, a property, an observed value, a stream"
+publish = false
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# Wire version of the API (EVO-31): the first release, line 1 at its first revision. It is the same wire as
+# `tests/thermo_api`'s line 1 at w1.0, which `tests/it/same_as_thermo_bench.rs` checks.
+[package.metadata.wire_weaver]
+wire = "w1.0"
+
+[features]
+# build against std instead of no_std, with owned types
+std = ["ww_api/std", "ww_si/std"]
+
+[dependencies]
+ww_api.workspace = true
+ww_si = { workspace = true, features = ["time", "thermal", "dimensionless", "counting"] }
+
+[dev-dependencies]
+wire_weaver_core.workspace = true
+wire_weaver_evolution = { workspace = true, features = ["source"] }
+
+[lints]
+workspace = true

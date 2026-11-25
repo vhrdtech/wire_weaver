@@ -1,0 +1,38 @@
+[package]
+name = "thermometer"
+version = "0.1.0"
+description = "Client of the thermometer example device, and the device simulated on a PC over WebSocket"
+publish = false
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+futures-util.workspace = true
+thermometer_api = { workspace = true, features = ["std"] }
+thermometer_device = { workspace = true, features = ["std"] }
+tokio = { workspace = true, features = ["sync", "rt", "time", "macros"] }
+wire_weaver.workspace = true
+wire_weaver_client = { workspace = true, features = ["in_process", "usb", "ws"] }
+ww_device = { workspace = true, features = ["futures-io"] }
+ww_si = { workspace = true, features = ["std"] }
+
+[dev-dependencies]
+anyhow.workspace = true
+clap = { workspace = true, features = ["derive"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net", "signal", "test-util"] }
+tokio-util = { workspace = true, features = ["compat"] }
+ww_device.workspace = true
+
+[[example]]
+name = "thermometer_sim"
+path = "examples/sim.rs"
+
+[[example]]
+name = "thermometer_read"
+path = "examples/read.rs"
+
+[lints]
+workspace = true

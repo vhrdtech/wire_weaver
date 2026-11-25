@@ -12,6 +12,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 ## [Unreleased]
 
 - The book reads in level order: Introduction, Basic, Advanced, Nomicon, then Reference and Articles, checked by `ww-book check`, with a glossary, abbreviations and generated outputs (DOC-16); see `ww_book`, `book_outputs`.
+- Thermometer example: `thermometer_api` is the bench's line 1 at w1.0, kept equal by a test (EX-18); see `examples/thermometer_api`.
 - Wasm modules in a mount slot: a firmware loads an API compiled to wasm on wasefire-interpreter or wasmi, tested on B135B (SRV-85); see `ww_wasm`.
 - Global trait paths reach a firmware's in-process modules, no heap (SRV-82); see `ww_device`, `wire_weaver`, `ww_self`, `ww_client_server`, `wire_weaver_core`.
 - Async `no_alloc` servers observe getters borrowing from the server, like two mount presences (SRV-83); see `wire_weaver_core`, `ww_stream`.

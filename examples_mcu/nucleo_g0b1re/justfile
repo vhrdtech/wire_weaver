@@ -9,6 +9,9 @@ run board bin *args:
 run-nucleo-usb_blinky *args:
     cargo run --bin nucleo-g0b1re-usb-blinky --features "usb" {{args}}
 
+run-nucleo-thermometer *args:
+    cargo run --bin nucleo-g0b1re-thermometer --features "thermometer" {{args}}
+
 run-b129a-usb_blinky *args:
     cargo run --bin nucleo-g0b1re-usb-blinky --no-default-features --features "usb,b129a_cannify,defmt_rtt" {{args}}
 

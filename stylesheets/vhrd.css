@@ -306,30 +306,3 @@
   background: var(--ww-bg);
   color: var(--ww-fg);
 }
-
-/* The `ww` fence (docs_ext/ww_docs_ext/ww_lexer.py): the command's words as in a `console` fence, and the labels and
-   marks of the output, which the code colours (vz-code.css) leave plain */
-.md-typeset .language-ww.highlight .nf {
-  font-weight: 600;
-}
-.md-typeset .language-ww.highlight .nt {
-  color: var(--vz-code-type);
-}
-.md-typeset .language-ww.highlight .gr {
-  color: var(--vz-code-keyword);
-  font-weight: 600;
-}
-.md-typeset .language-ww.highlight .gs {
-  color: var(--vz-code-type);
-  font-weight: 600;
-}
-.md-typeset .language-ww.highlight .gi {
-  color: var(--vz-code-prompt);
-}
-.md-typeset .language-ww.highlight .ge {
-  color: var(--vz-code-constant);
-  font-style: normal;
-}
-.md-typeset .language-ww.highlight .gd {
-  color: var(--vz-code-keyword);
-}

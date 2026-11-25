@@ -284,6 +284,12 @@ pre-commit:
 book-assemble:
     cargo run -q -p ww_book -- assemble
 
+# The book's frame (book_checks.toml): the nav in level order, a level on every page, no page twice, no bare `rust`
+# fence beyond the waived ones, no generated file that no page includes (ww_book; also in `just test`)
+[group('docs')]
+book-check:
+    cargo run -q -p ww_book -- check
+
 # Write the book's generated outputs (docs/generated/) again: every test named `book_output*`, through the
 # book_outputs crate; a stale file fails `just test`
 [group('docs')]
@@ -293,18 +299,18 @@ book-outputs:
 
 # Serve the documentation locally; root is a virtual workspace, so the stamp needs --name
 [group('docs')]
-serve-docs: book-assemble
+serve-docs: book-assemble book-check
     uv run --with "{{ kit }}" vz serve --name wire_weaver
 
 # Build the documentation; root is a virtual workspace, so the stamp needs --name
 [group('docs')]
-build-docs: book-assemble
+build-docs: book-assemble book-check
     uv run --with "{{ kit }}" vz build --name wire_weaver
 
 # Build the documentation with warnings as errors: a link to a missing page, anchor or figure fails; links to
 # other sites are not fetched
 [group('docs')]
-build-docs-strict: book-assemble
+build-docs-strict: book-assemble book-check
     uv run --with "{{ kit }}" vz build --name wire_weaver -- --strict
 
 # Code size of a generated server's method reply on small CPUs (examples_mcu/size_bench_reply), through shrink_wrap's

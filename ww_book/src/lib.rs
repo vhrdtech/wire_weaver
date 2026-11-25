@@ -6,6 +6,8 @@
 //! `.gitignore` naming the copies, so they never enter this repository. Files a page includes as snippets go to
 //! [SNIPPETS_DIR].
 
+pub mod check;
+
 use anyhow::{Context, Result, bail, ensure};
 use serde::Deserialize;
 use std::fs;

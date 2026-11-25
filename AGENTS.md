@@ -321,8 +321,17 @@ is 9 bits in 2 bytes): for byte counts, run a real `to_ww_bytes()`.
   "zensical serve"`); a session's own worktree is fine. `rm -rf site/` when done.
 - Anchors: the heading lower-cased, every run of non-alphanumerics collapsed to one `-`
   (``### `ww_repr = <repr>` (enums only)`` is `#ww_repr-repr-enums-only`); grep the built `site/` if unsure.
-- A new page needs an entry in `zensical.toml`'s `nav` and a reading level in its front matter (`level: basic`,
-  `advanced` or `nomicon`, `docs/levels.md`).
+- A new page needs a reading level in its front matter (`level: basic`, `advanced` or `nomicon`, `docs/levels.md`)
+  and an entry in `zensical.toml`'s `nav`, in the part of its level (Introduction and Basic, Advanced, Nomicon;
+  Reference and Articles outside that order). `just book-check` (`book_checks.toml`, also in `just test`) fails a
+  step down, a page without a level, a page listed twice and a generated file no page includes.
+- Code on a page is an include of a marked section of a compiled source (`// --8<-- [start:NAME]`, `--8<--
+  "path:NAME"`); only a Nomicon page may show a sketch (`title="sketch: ..."`). A page not rewritten yet keeps its
+  bare `rust` fences, counted in `book_checks.toml`: lower the count as they go, never raise it. What a reader
+  sees when running an example comes from a test calling `book_outputs::check` (name it `book_output_*`) into
+  `docs/generated/`; `just book-outputs` writes them again.
+- A term a page defines goes into `docs/glossary.toml` (`[[term]]` in prose), an abbreviation into
+  `docs/abbreviations.toml`.
 - Claims about bytes or bit layout are never hand-derived: run a temporary `examples/scratch_*.rs`
   (`cargo run --example scratch_*`), copy the output, delete the example.
 

@@ -11,6 +11,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
+- Wire sizes compared: `compare_wire_formats` adds CBOR (ciborium), protobuf (hand-written `prost` derives, no `prost-build`), wincode, FlatBuffers (planus) and ASN.1 UPER (rasn, closed and extensible) beside postcard, MessagePack and JSON (EX-20); its sizes and an evolution class per format land in `docs/generated/compare_wire_formats/`, checked by `just book-outputs`/`just test-all`. See `examples/compare_wire_formats`.
 - The book reads in level order: Introduction, Basic, Advanced, Nomicon, then Reference and Articles, checked by `ww-book check`, with a glossary, abbreviations and generated outputs (DOC-16); see `ww_book`, `book_outputs`.
 - Thermometer example: `thermometer_api` is the bench's line 1 at w1.0, kept equal by a test (EX-18); see `examples/thermometer_api`.
 - Wasm modules in a mount slot: a firmware loads an API compiled to wasm on wasefire-interpreter or wasmi, tested on B135B (SRV-85); see `ww_wasm`.

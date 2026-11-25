@@ -1,0 +1,44 @@
+// FlatBuffers schema for the Request example of compare_wire_formats (EX-20).
+// Regenerate src/request_generated.rs with:
+//   planus rust -o src/request_generated.rs schema/request.fbs
+// (cargo install planus-cli)
+
+namespace wire_sizes;
+
+table AbsolutePath {
+  path:[uint32];
+}
+
+table GlobalCompact {}
+
+table GlobalFull {}
+
+union PathKind {
+  AbsolutePath,
+  GlobalCompact,
+  GlobalFull,
+}
+
+table CallArgs {
+  args:[ubyte];
+}
+
+table ReadKind {}
+
+union RequestKind {
+  CallArgs,
+  ReadKind,
+}
+
+table Request {
+  seq:uint16;
+  path_kind:PathKind;
+  request_kind:RequestKind;
+  flags:[bool];
+  dummy_a:uint8 = null;
+  dummy_b:uint8 = null;
+  dummy_c:uint8 = null;
+  strs:[string];
+}
+
+root_type Request;

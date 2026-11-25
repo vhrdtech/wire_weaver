@@ -1,7 +1,18 @@
 # Compare wire formats
 
-This example showcases some of the `shrink_wrap` features that result in dense wire representation of the following data
-structures:
+Encodes one example value with `shrink_wrap` (WireWeaver's own wire format) and eight other pure-Rust formats
+(postcard, MessagePack, JSON, CBOR, wincode, protobuf, FlatBuffers, ASN.1 UPER), and reports each one's byte count
+and whether its schema can evolve (a field can be added later without breaking old readers or writers). `cargo run`
+prints a transcript; `docs/generated/compare_wire_formats/output.txt` and `sizes.csv` are the same numbers, kept
+byte-for-byte by `book_output::check` in `src/main.rs` (stale: `WW_BOOK_OUTPUTS=write cargo run`, or `just
+book-outputs` from the repository root). FlatBuffers' Rust bindings are generated once from `schema/request.fbs`
+(`planus rust -o src/request_generated.rs schema/request.fbs`, `cargo install planus-cli`) and committed; the rest
+need no code generation. This crate is excluded from the main workspace (its own `Cargo.lock`) so these formats
+never reach every other build's lockfile; see `just`'s `book-outputs` and `test-all` recipes for how it is still
+run and checked.
+
+This example also showcases some of the `shrink_wrap` features that result in dense wire representation of the
+following data structures:
 
 ```rust
 struct Request {
@@ -58,12 +69,25 @@ In particular the following features are resulting in a considerably smaller siz
 
 Note that ShrinkWrap format while being smaller, also supports backwards and forwards compatibility.
 
-Results:
+Results (`docs/generated/compare_wire_formats/sizes.csv` from the repository root has the exact, checked numbers;
+`output.txt` has every format's bytes):
 
-```
-WireWeaver: len: 18: [D2, 04, 00, 12, 03, 00, AA, BB, CC, 03, 2A, CC, 61, 62, 63, 01, 22, 53]
-Postcard: len: 27: [D2, 09, 00, 03, 00, 01, 02, 00, 03, AA, BB, CC, 00, 01, 00, 01, 00, 01, CC, 00, 00, 02, 02, 61, 62, 01, 63]
-Bincode: len: 28: [FB, D2, 04, 00, 03, 00, 01, 02, 00, 03, AA, BB, CC, 00, 01, 00, 01, 00, 01, CC, 00, 00, 02, 02, 61, 62, 01, 63]
-MessagePack: len: 49: [98, CD, 04, D2, 81, A8, 41, 62, 73, 6F, 6C, 75, 74, 65, 91, 93, 00, 01, 02, 81, A4, 43, 61, 6C, 6C, 91, 93, CC, AA, CC, BB, CC, CC, 95, C2, C3, C2, C3, C2, CC, CC, C0, C0, 92, A2, 61, 62, A1, 63]
-JSON: len: 193: {"seq":1234,"path_kind":{"Absolute":{"path":[0,1,2]}},"kind":{"Call":{"args":[170,187,204]}},"flags":[false,true,false,true,false],"dummy_a":204,"dummy_b":null,"dummy_c":null,"strs":["ab","c"]}
-```
+| Format | Bytes | Evolvable |
+|---|---|---|
+| WireWeaver | 18 | yes |
+| Postcard | 27 | no |
+| MessagePack | 49 | no |
+| JSON | 193 | yes |
+| CBOR | 113 | no |
+| wincode | 77 | no |
+| Protobuf | 34 | yes |
+| FlatBuffers | 144 | yes |
+| ASN.1 UPER (closed) | 29 | no |
+| ASN.1 UPER (extensible) | 29 | yes |
+
+ASN.1 UPER costs the same whether or not it is extensible here: the extension bit fits in a byte boundary that is
+otherwise padding, so this message gets forward compatibility for free. FlatBuffers pays the most for being
+zero-copy on the read side (a vtable per table, offsets instead of inline values); MessagePack and CBOR pay for
+self-describing field names per nested variant while still laying out the outer struct's own fields positionally,
+so, as encoded here (the common case for structs with serde), neither can gain a field without breaking old
+readers.

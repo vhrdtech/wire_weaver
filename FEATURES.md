@@ -2814,6 +2814,13 @@ Unicast Data0 to one node over the same bus is TR-6.
   chip's temperature sensor on a board) and `examples/thermometer` (client, `thermometer_sim` over WebSocket,
   `thermometer_read`, tests on the in-process WebSocket with tokio's paused clock). Firmware: `thermometer` bins of
   `examples_mcu/nucleo_g0b1re` and `examples_mcu/rp2` over USB, built by `just check`; not yet run on the boards.
+- ✅ **EX-20 Wire sizes compared**: `examples/compare_wire_formats` (excluded from the workspace: its own
+  `Cargo.lock` keeps ciborium/prost/wincode/planus/rasn out of every other build's lockfile) encodes one example
+  value with WireWeaver, postcard, MessagePack, JSON, CBOR (ciborium), wincode (serde-wincode), protobuf
+  (hand-written `prost::Message`/`Oneof` derives, no `prost-build`, no `.proto`), FlatBuffers (planus, generated
+  once from `schema/request.fbs` and committed as `src/request_generated.rs`) and ASN.1 UPER (rasn, closed and
+  `#[non_exhaustive]` extensible). `just book-outputs`/`just test-all` run it from its own directory and check its
+  transcript and `format,bytes,evolution` chart data against `docs/generated/compare_wire_formats/`.
 - 📋 **EX-6 Example without async** · `v0.5` — `ww_device::blocking::Server` exists, no example uses it.
 - 📋 **EX-7 Example with two media** · `v0.5`.
 - 📋 **EX-8 NCM WebSocket + UDP example** · `v0.5` — both media on one stack, sharing the backend.

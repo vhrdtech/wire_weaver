@@ -38,6 +38,20 @@ The `bool` takes the first bit of the first byte, and the `u8` starts on the nex
 --8<-- "docs/generated/minimal_shrink_wrap/two_values.txt"
 ```
 
+`compare_wire_formats` encodes one example value with ShrinkWrap and eight other pure-Rust formats (postcard,
+MessagePack, JSON, CBOR, wincode, protobuf, FlatBuffers, ASN.1 UPER). `bytes` is that value's size on the wire;
+`evolvable` says whether the format lets a later revision add a field without breaking an old reader or writer:
+
+```text
+--8<-- "docs/generated/compare_wire_formats/sizes.csv"
+```
+
+Every format's exact bytes:
+
+```text
+--8<-- "docs/generated/compare_wire_formats/output.txt"
+```
+
 ## In other repos
 
 | Example | What it shows |

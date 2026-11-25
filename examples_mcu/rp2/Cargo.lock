@@ -1650,9 +1650,7 @@ dependencies = [
  "static_cell",
  "thermometer_api",
  "thermometer_device",
- "wire_weaver",
  "wire_weaver_usb_embassy",
- "ww_client_server",
  "ww_device",
 ]
 

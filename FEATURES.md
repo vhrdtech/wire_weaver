@@ -2891,6 +2891,16 @@ Unicast Data0 to one node over the same bus is TR-6.
   `wire_weaver_cli`, `wire_weaver_evolution`). `serve-docs` and `build-docs` run `vz serve`/`vz build --name
   wire_weaver` (the root is a virtual workspace) after `book-assemble`; `build-docs-strict` adds `-- --strict`. No
   glossary or abbreviations file: this book has neither.
+- ✅ **DOC-16 The book in level order**: the nav is four parts, Introduction, Basic, Advanced and Nomicon, each
+  holding pages of one level and opening with a landing page, then the Reference (derive and CLI references, the
+  conformance matrix, the glossary, examples, other books, links to the five feature trackers on GitHub) and
+  Articles, outside that order. `ww-book check` (`just book-check`, and ww_book's test in `just test`) reads the nav
+  and every page from the repository that owns it, and fails a step down, a page in a part of another level, a page
+  without a level or listed twice, a bare `rust` fence (outside the Nomicon only includes of marked sections;
+  Nomicon sketches marked `title="sketch: ..."`; pages not rewritten yet waived by count in `book_checks.toml`), and a
+  file under `docs/generated/` that no page includes. `docs/glossary.toml` (`vhrd_zensical.glossary`, `glossary.md`)
+  and `docs/abbreviations.toml` (`vhrd_zensical.abbreviations`). The `book_outputs` crate checks a test's output
+  against `docs/generated/` and `just book-outputs` writes them; `minimal_shrink_wrap`'s bytes are the first.
 
 ## Testing, CI and performance (`TEST`)
 

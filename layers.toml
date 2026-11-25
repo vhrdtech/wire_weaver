@@ -60,6 +60,7 @@ blinky_api_evolved = { layer = "runtime", no_std = true }
 blinky_evolved = { layer = "runtime" }
 blinky_py = { layer = "runtime" }
 bounded = { layer = "runtime" }
+book_outputs = { layer = "runtime" }
 bounded_api = { layer = "runtime", no_std = true }
 calloop_server = { layer = "runtime" }
 cfg_variants = { layer = "runtime" }

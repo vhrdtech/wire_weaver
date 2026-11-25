@@ -4,11 +4,19 @@ use wire_weaver::shrink_wrap::prelude::*;
 
 fn simple_wr() {
     let mut buf = [0u8; 256];
-    let mut wr = BufWriter::new(&mut buf);
+    let bytes = write_two_values(&mut buf);
+    assert_eq!(bytes, [0x80, 0xaa]);
+}
+
+/// Writes a `bool` and a `u8` by hand: the `bool` takes one bit, and the `u8` starts on the next byte.
+fn write_two_values(buf: &mut [u8]) -> Vec<u8> {
+    // --8<-- [start:write]
+    let mut wr = BufWriter::new(buf);
     wr.write_bool(true).unwrap();
     wr.write_u8(0xaa).unwrap();
     let bytes = wr.finish().unwrap();
-    assert_eq!(bytes, &[0x80, 0xaa]);
+    // --8<-- [end:write]
+    bytes.to_vec()
 }
 
 fn simple_rd() {
@@ -54,5 +62,20 @@ mod qualified_names {
         assert_eq!(Clash::from_ww_bytes(bytes).unwrap().s, "ok");
         let owned = ClashOwned::from_ww_bytes_owned(bytes).unwrap();
         assert_eq!(owned.s, "ok");
+    }
+}
+
+/// The bytes `write_two_values` writes, as the book's examples page shows them.
+#[cfg(test)]
+mod book {
+    #[test]
+    fn book_output_two_values() {
+        let mut buf = [0u8; 8];
+        let bytes = super::write_two_values(&mut buf);
+        let hex: Vec<String> = bytes.iter().map(|b| format!("{b:02x}")).collect();
+        book_outputs::check(
+            "minimal_shrink_wrap/two_values.txt",
+            &(hex.join(" ") + "\n"),
+        );
     }
 }

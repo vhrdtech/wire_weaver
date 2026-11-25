@@ -25,6 +25,18 @@ New to WireWeaver: start with `blinky_api` and `blinky` (an API with two methods
 | `settings_api`, `settings`                        | Two properties kept across a reboot by [`ww_settings`](../api/settings.md), on a simulated flash |
 | `defmt_log_api`, `defmt_log`                      | The firmware's `defmt` log streamed to the host with [`ww_log`](../std_library/ww_log.md) (firmware: `rp2`) |
 
+`minimal_shrink_wrap` writes a `bool` and a `u8` by hand:
+
+```rust
+--8<-- "examples/minimal_shrink_wrap/src/main.rs:write"
+```
+
+The `bool` takes the first bit of the first byte, and the `u8` starts on the next byte:
+
+```text
+--8<-- "docs/generated/minimal_shrink_wrap/two_values.txt"
+```
+
 ## In other repos
 
 | Example | What it shows |

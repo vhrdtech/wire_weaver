@@ -1,0 +1,126 @@
+# The book's frame, checked by `ww-book check` (`just book-check`, and ww_book's tests in `just test`).
+# `[[part]]`: the reading ramp, in nav order; every page of a part has its level, so next/next never steps down.
+# `outside`: the top-level nav sections after the ramp, whose pages may have any level.
+# `[bare_fences]`: pages still holding `rust` fences that are not includes of a compiled source, with their count,
+# which may only go down. A chapter rewritten for the book drops its line.
+
+outside = ["Reference", "Articles"]
+
+[[part]]
+title = "Introduction"
+level = "basic"
+
+[[part]]
+title = "Basic"
+level = "basic"
+
+[[part]]
+title = "Advanced"
+level = "advanced"
+
+[[part]]
+title = "Nomicon"
+level = "nomicon"
+
+[bare_fences]
+"api/addressing.md" = 2
+"api/arrays.md" = 7
+"api/batching.md" = 3
+"api/counted_streams.md" = 6
+"api/credit_sinks.md" = 6
+"api/ecc_flash.md" = 3
+"api/errors.md" = 7
+"api/handlers.md" = 2
+"api/host_server.md" = 23
+"api/introspection.md" = 1
+"api/json.md" = 4
+"api/large_messages.md" = 5
+"api/local_trait.md" = 19
+"api/metadata.md" = 3
+"api/methods.md" = 8
+"api/mounts.md" = 11
+"api/multi_requests.md" = 6
+"api/observing.md" = 12
+"api/optional_items.md" = 3
+"api/overview.md" = 5
+"api/properties.md" = 8
+"api/settings.md" = 5
+"api/stream_compression.md" = 1
+"api/stream_protocol.md" = 2
+"api/stream_reliability.md" = 2
+"api/streams.md" = 7
+"api/stream_stores.md" = 4
+"api/totals.md" = 3
+"api/trait_attachments.md" = 1
+"api/traits.md" = 6
+"articles/series.md" = 9
+"evolution/checker_tool.md" = 5
+"evolution/crate_layers.md" = 1
+"evolution/inside_the_checker.md" = 2
+"evolution/multi_line_host.md" = 9
+"evolution/overview.md" = 4
+"evolution/rules.md" = 1
+"evolution/snapshots.md" = 2
+"evolution/units_by_meaning.md" = 1
+"evolution/versions.md" = 1
+"examples/motor_demo.md" = 1
+"serdes/code_size.md" = 1
+"serdes/derive.md" = 9
+"serdes/derive_reference.md" = 23
+"serdes/layouts.md" = 3
+"serdes/series.md" = 5
+"serdes/showcase.md" = 33
+"serdes/shrink_wrap.md" = 1
+"serdes/size_assumptions.md" = 1
+"serdes/special_types.md" = 8
+"serdes/use_cases.md" = 5
+"serdes/wire_format.md" = 6
+"std_library/bus_slave.md" = 1
+"std_library/device_contract.md" = 2
+"std_library/exact_units.md" = 3
+"std_library/io_family.md" = 2
+"std_library/overview.md" = 1
+"std_library/rounding.md" = 1
+"std_library/units_in_the_model.md" = 4
+"std_library/ww_adc.md" = 5
+"std_library/ww_block.md" = 1
+"std_library/ww_board_info.md" = 6
+"std_library/ww_can_bus.md" = 7
+"std_library/ww_can_bus_reference.md" = 7
+"std_library/ww_counters.md" = 2
+"std_library/ww_date_time.md" = 1
+"std_library/ww_error.md" = 9
+"std_library/ww_firmware_info.md" = 3
+"std_library/ww_gpio.md" = 10
+"std_library/ww_i2c_hl.md" = 1
+"std_library/ww_i2c.md" = 7
+"std_library/ww_indication.md" = 1
+"std_library/ww_logic_analyzer.md" = 4
+"std_library/ww_log.md" = 5
+"std_library/ww_memory.md" = 1
+"std_library/ww_onewire.md" = 2
+"std_library/ww_pin_diag.md" = 2
+"std_library/ww_pwm.md" = 4
+"std_library/ww_recorder.md" = 2
+"std_library/ww_sd.md" = 2
+"std_library/ww_signal_generator.md" = 3
+"std_library/ww_si.md" = 13
+"std_library/ww_spi.md" = 3
+"std_library/ww_timebase.md" = 5
+"std_library/ww_uart.md" = 4
+"std_library/ww_uid.md" = 1
+"std_library/ww_user_info.md" = 1
+"transport/byte_streams.md" = 1
+"transport/follow_reboot.md" = 2
+"transport/hub.md" = 13
+"transport/keep_trying.md" = 1
+"transport/overview.md" = 1
+"transport/rtt.md" = 2
+"transport/udp.md" = 5
+"transport/usb_internals.md" = 2
+"transport/usb.md" = 2
+"transport/websocket.md" = 5
+"transport/ww_framer.md" = 12
+"transport/ww_framer_wire.md" = 1
+"transport/ww_link.md" = 4
+"types.md" = 8

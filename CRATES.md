@@ -63,6 +63,7 @@ This page lists the crates of the root workspace. The first table links each pub
 | [`blinky_api_evolved`](examples/blinky_api_evolved) | runtime | The blinky example API in a later version, for the evolution checks |
 | [`blinky_evolved`](examples/blinky_evolved) | runtime | Client of the evolved blinky API, run against devices of either version |
 | [`blinky_py`](examples/blinky_py) | runtime | Python wheel of the blinky example client |
+| [`book_outputs`](tests/book_outputs) | runtime | Golden outputs of the book's examples: a test writes what a reader would see into docs/generated/ and fails when the file is stale |
 | [`bounded`](tests/bounded) | runtime | Tests bounded lists and strings (MaxLen, SW-19) through generated server and client code |
 | [`bounded_api`](tests/bounded_api) | runtime | Bounded lists and strings (MaxLen, SW-19) in every position of an API |
 | [`calloop_server`](tests/calloop_server) | runtime | Tests of ww_calloop (SRV-70): wire_weaver_server on a calloop loop, WebSocket and UDP clients, shutdown |

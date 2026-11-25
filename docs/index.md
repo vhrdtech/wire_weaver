@@ -1,5 +1,6 @@
 ---
 icon: lucide/home
+level: basic
 hide:
   - navigation
   - toc

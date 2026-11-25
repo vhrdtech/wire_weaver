@@ -37,8 +37,18 @@ bootloader that has to fit in 2 KB.
 
 !!! note "For writers"
     The badge comes from the page's front matter, `level: basic`, `level: advanced` or `level: nomicon`, and is
-    drawn by `overrides/partials/level.html`. A page without it has no badge. In the navigation, a section lists its
-    Basic pages first and groups the Advanced and Nomicon pages after them.
+    drawn by `overrides/partials/level.html`. The navigation reads as one book in four parts, Introduction, Basic,
+    Advanced and Nomicon, each holding pages of one level, so reading on never steps down a level; the Reference and
+    Articles follow, outside that order. `just book-check` checks it from `book_checks.toml`: a page needs a level,
+    is listed once, and sits in the part of its level.
+
+!!! note "For writers: code and output"
+    Outside the Nomicon, a `rust` fence holds only an include of a marked section of a compiled source:
+    `// --8<-- [start:NAME]` and `// --8<-- [end:NAME]` in the source, `--8<-- "path/to/file.rs:NAME"` in the fence.
+    A Nomicon page may also show a sketch, a fence titled `title="sketch: ..."`. What a reader would see when running
+    an example (a transcript, bytes, a chart's data) is written by a golden test into `docs/generated/` through the
+    `book_outputs` crate and included the same way; `just book-outputs` writes them again, and a stale one fails
+    `just test`. The pages not rewritten yet keep their bare fences, counted in `book_checks.toml`.
 
 !!! note "For writers: bit layouts"
     A Nomicon or Advanced page that shows how bits are laid out uses a `bits` fence: one field per line, its kind,

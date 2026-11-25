@@ -1,0 +1,13 @@
+[package]
+name = "book_outputs"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Golden outputs of the book's examples: a test writes what a reader would see into docs/generated/ and fails when the file is stale"
+
+[lints]
+workspace = true

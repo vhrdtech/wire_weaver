@@ -746,6 +746,13 @@ reason = "filler phrases; P2401#20nov-1155i (book prose) removes them"
 expires = "2027-01-31"
 
 [[exceptions]]
+lint = "glossary-terms"
+paths = ["docs/**"]
+level = "allow"
+reason = "pages written before docs/glossary.toml mark no terms; each book piece of P2401#20nov-1155i marks its pages' terms"
+expires = "2027-01-31"
+
+[[exceptions]]
 lint = "heading-words"
 paths = ["docs/**"]
 level = "allow"

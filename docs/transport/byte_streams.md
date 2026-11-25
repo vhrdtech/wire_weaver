@@ -1,8 +1,11 @@
 ---
-level: basic
+level: advanced
 ---
 
-# Byte streams: TCP, stdio and streams of your own
+# Byte streams in depth
+
+[Serial lines and other byte streams](../basic/byte_streams.md) reaches a host server over TCP or a command. This page
+adds the listener's framing and what a handler learns about its peer.
 
 Connects a client to a server over any reliable byte stream (TR-19): a TCP connection, the stdin and stdout of a
 command (`ssh host my-service --stdio`), or a stream the program opens itself, such as an iroh bi-stream. The bytes

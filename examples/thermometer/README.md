@@ -11,4 +11,6 @@ cargo run -p thermometer --example thermometer_channels  # the inputs as an arra
 cargo run -p thermometer --example thermometer_units     # numbers with units, no device needed
 ```
 
+`thermometer_sim --udp 9000` serves UDP instead; `thermometer_connect` reads a sample over `usb`, `websocket` or `udp`, and `thermometer_keep_trying` goes on through a device that is stopped and started again.
+
 `tests/it` runs the same simulated device in process, on tokio's paused clock, and checks what the examples print against the book's copies in `docs/generated/thermometer/`.

@@ -56,13 +56,13 @@ nav = [
                 ]
             },
             { "Getting connected" = [
-                    { "Overview" = "transport/overview.md" },
-                    "transport/usb.md",
-                    "transport/rtt.md",
-                    "transport/websocket.md",
-                    "transport/udp.md",
-                    { "Byte streams" = "transport/byte_streams.md" },
-                    { "Keep trying" = "transport/keep_trying.md" }
+                    { "Choosing a transport" = "basic/transports.md" },
+                    "basic/usb.md",
+                    "basic/udp.md",
+                    "basic/websocket.md",
+                    "basic/rtt.md",
+                    { "Serial lines and other byte streams" = "basic/byte_streams.md" },
+                    { "When the device goes away" = "basic/connection_loss.md" }
                 ]
             },
             { "Numbers and errors" = [
@@ -190,7 +190,14 @@ nav = [
                 ]
             },
             { "Transport in depth" = [
+                    { "Connecting in depth" = "transport/overview.md" },
+                    { "USB in depth" = "transport/usb.md" },
                     { "USB inside" = "transport/usb_internals.md" },
+                    { "RTT in depth" = "transport/rtt.md" },
+                    { "WebSocket in depth" = "transport/websocket.md" },
+                    { "UDP in depth" = "transport/udp.md" },
+                    { "Byte streams in depth" = "transport/byte_streams.md" },
+                    { "Keep-trying connections in depth" = "transport/keep_trying.md" },
                     "transport/ww_link.md",
                     "transport/ww_framer.md",
                     { "Following a reboot" = "transport/follow_reboot.md" },

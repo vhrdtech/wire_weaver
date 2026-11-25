@@ -1,8 +1,12 @@
 ---
-level: basic
+level: advanced
 ---
 
-# WebSocket
+# WebSocket in depth
+
+[WebSocket](../basic/websocket.md) serves the thermometer over WebSocket, connects to it, and finds devices on the
+local network. This page adds the device side on a board, both announcing responders, simulated WebSocket for tests
+and the wire format.
 
 Connects the host to a device on a network: a Linux board, a simulator in another process or on another machine,
 or a gateway in front of devices on other media.

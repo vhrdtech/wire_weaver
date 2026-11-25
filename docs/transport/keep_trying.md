@@ -1,8 +1,12 @@
 ---
-level: basic
+level: advanced
 ---
 
-# Keep-trying connections
+# Keep-trying connections in depth
+
+[When the device goes away](../basic/connection_loss.md) connects the thermometer with `connect_keep_trying()` and
+follows it through a reset and an unplug. This page adds several addresses per attempt, other revisions of the
+device's API, and the hub.
 
 A phone app on Wi-Fi, a dashboard next to a board that reboots, a tool started before the device is up: they want a
 client that exists at once, connects when the device answers, and connects again whenever the link goes.

@@ -4,6 +4,7 @@
 //! their `main` only runs from `cargo run`.
 
 mod book;
+mod connected;
 
 #[path = "../../examples/channels.rs"]
 #[expect(dead_code, reason = "main runs from cargo run, not here")]

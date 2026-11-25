@@ -165,6 +165,7 @@ async fn main(spawner: embassy_executor::Spawner) {
     });
     let thermometer = THERMOMETER.init(Thermometer::new(board));
 
+    // --8<-- [start:usb]
     let driver = Driver::new(p.USB, Irqs, p.PA12, p.PA11);
     let (usb, server) = usb_init(
         driver,
@@ -179,6 +180,7 @@ async fn main(spawner: embassy_executor::Spawner) {
     );
     spawner.spawn(unwrap!(usb_task(usb)));
     spawner.spawn(unwrap!(thermometer_task(server, thermometer)));
+    // --8<-- [end:usb]
     info!("thermometer ready");
 }
 

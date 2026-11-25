@@ -1,8 +1,11 @@
 ---
-level: basic
+level: advanced
 ---
 
-# Transport protocols
+# Connecting in depth
+
+[Choosing a transport](../basic/transports.md) picks a transport and runs the thermometer over two of them. This page
+lists the host features and device crates of every transport, and the steps of a connect that can be timed.
 
 Generated server and client code does no IO: the same API runs over any medium, and the medium is picked when
 connecting. On the host, each transport is a feature of `wire_weaver_client`; on the device, of `ww_device` (or the

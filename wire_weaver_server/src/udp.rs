@@ -166,9 +166,7 @@ impl<const PEERS: usize> UdpListener<StdUdpSocket<TokioReadiness>, PEERS> {
     /// Binding the socket failed, or tokio can't watch it (no runtime is running).
     pub fn bind(addr: SocketAddr, message_len_max: usize) -> std::io::Result<Self> {
         let socket = std::net::UdpSocket::bind(addr)?;
-        let watched = socket.try_clone()?;
-        watched.set_nonblocking(true)?;
-        let readiness = TokioReadiness(tokio::net::UdpSocket::from_std(watched)?);
+        let readiness = TokioReadiness::new(&socket)?;
         Ok(Self::new(
             StdUdpSocket::new(socket, readiness)?,
             message_len_max,
@@ -179,6 +177,20 @@ impl<const PEERS: usize> UdpListener<StdUdpSocket<TokioReadiness>, PEERS> {
 /// When a [StdUdpSocket] is readable, from tokio watching a clone of it, which is never read itself.
 #[cfg(feature = "tokio")]
 pub struct TokioReadiness(tokio::net::UdpSocket);
+
+#[cfg(feature = "tokio")]
+impl TokioReadiness {
+    /// Watches a clone of `socket`, for a [StdUdpSocket] on it. Makes the socket nonblocking.
+    ///
+    /// # Errors
+    ///
+    /// The socket can't be cloned, or tokio can't watch it (no runtime is running).
+    pub fn new(socket: &std::net::UdpSocket) -> std::io::Result<Self> {
+        let watched = socket.try_clone()?;
+        watched.set_nonblocking(true)?;
+        Ok(Self(tokio::net::UdpSocket::from_std(watched)?))
+    }
+}
 
 #[cfg(feature = "tokio")]
 impl Readiness for TokioReadiness {

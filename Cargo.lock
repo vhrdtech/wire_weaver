@@ -3625,6 +3625,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sensor_packet"
+version = "0.1.0"
+dependencies = [
+ "book_outputs",
+ "shrink_wrap",
+ "ww_si",
+]
+
+[[package]]
 name = "serde"
 version = "1.0.229"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3917,7 +3926,7 @@ checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 [[package]]
 name = "shrink_wrap"
 version = "0.2.0"
-source = "git+https://github.com/romixlab/shrink_wrap#336726ce6662854ea1a4b4036c9df4ffa61bad5b"
+source = "git+https://github.com/romixlab/shrink_wrap#493d33e0d16a5578ea162aca891ff3906aac726c"
 dependencies = [
  "defmt 1.1.1",
  "either",
@@ -3940,7 +3949,7 @@ dependencies = [
 [[package]]
 name = "shrink_wrap_derive"
 version = "0.2.0"
-source = "git+https://github.com/romixlab/shrink_wrap#336726ce6662854ea1a4b4036c9df4ffa61bad5b"
+source = "git+https://github.com/romixlab/shrink_wrap#493d33e0d16a5578ea162aca891ff3906aac726c"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",

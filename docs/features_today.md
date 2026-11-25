@@ -25,18 +25,18 @@ copying. Every message between host and device is made of it, and it works on it
 
 <p class="ww-features__level"><span class="ww-level ww-level--basic"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6" class="ww-level__off"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6" class="ww-level__off"/></svg><span class="ww-level__label">Basic</span></span></p>
 
-- **[Structs and enums](serdes/derive.md)**: Your own structs, plain enums and enums that carry data, on the wire.
+- **[Structs and enums](basic/structs_and_enums.md)**: Your own structs, plain enums and enums that carry data, on the wire.
 - **[One derive attribute](serdes/derive.md)**: `#[derive_shrink_wrap(..)]` with a few clear options and error messages that say what is wrong.
-- **[`Option` and `Result`](types.md#option-and-result)**: Stored as a single flag bit, also inside lists.
-- **[Strings and lists](types.md#strings-and-lists)**: `String` and `Vec<T>`, `Vec<u8>` as plain bytes.
+- **[`Option` and `Result`](basic/built_in_types.md#option-and-result)**: Stored as a single flag bit, also inside lists.
+- **[Strings and lists](basic/built_in_types.md#strings-and-lists)**: `String` and `Vec<T>`, `Vec<u8>` as plain bytes.
 - **[Arrays and tuples](types.md)**: Fixed-size arrays, tuples and `()`.
 - **[Tuple and unit structs](types.md#tuple-structs)**: `struct Celsius(f32);` works like a named struct, with the same bytes; `struct Marker;` keeps room to grow fields later.
-- **[Integers of any width](types.md#booleans-and-numbers)**: `u1` to `u32` and nibbles, packed bit after bit, so a 3-bit field takes 3 bits.
+- **[Integers of any width](basic/built_in_types.md#flags-and-bit-sized-numbers)**: `u1` to `u32` and nibbles, packed bit after bit, so a 3-bit field takes 3 bits.
 - **[Variable-length numbers](types.md)**: `UNib32` and `UVlq32`, where small values take a nibble or a byte.
 - **[Signed variable-length numbers](serdes/showcase.md#unib32-variable-length-numbers-by-the-nibble)**: `INib32`, zigzag over `UNib32`: small negative values stay as short as small positive ones.
-- **[Zero-copy reads](serdes/derive.md#borrowed-owned-or-both)**: Strings and lists are read in place from the received buffer; an owned twin of each type is generated for values you keep.
-- **[Evolvable by default](serdes/derive.md#evolving-types)**: Add fields later with `#[default = ..]`, and old and new code still read each other's data.
-- **[Enum variants from a newer version](serdes/derive.md#enum-variants-from-a-newer-version)**: An older reader takes an unknown variant as `Unknown(u32)` instead of failing.
+- **[Zero-copy reads](basic/borrowed_and_owned.md#which-types-the-derive-makes)**: Strings and lists are read in place from the received buffer; an owned twin of each type is generated for values you keep.
+- **[Evolvable by default](basic/types_that_change.md)**: Add fields later with `#[default = ..]`, and old and new code still read each other's data.
+- **[Enum variants from a newer version](basic/structs_and_enums.md#a-variant-the-reader-doesnt-know)**: An older reader takes an unknown variant as `Unknown(u32)` instead of failing.
 - **[Bounded lists and strings](types.md#bounded-lists-and-strings-maxlent-n)**: `MaxLen<T, N>` holds at most `N` elements, checked both ways, with a worst-case size known at compile time.
 - **[Usable on its own](serdes/use_cases.md)**: A dense format for storing many small objects, no API needed.
 
@@ -567,6 +567,7 @@ Working projects to start from: host programs, firmware for a few boards, and th
 - **[Settings demo](api/settings.md)**: Settings that survive a reboot, on the host and on two Nucleo boards.
 - **[Wire sizes compared](examples/wire_sizes.md)**: Eight messages on nine wire formats, with the byte count and how each lets a field be added later.
 - **[Bench supply example](examples/examples.md)**: A lab instrument with limits and errors a script can act on, tested by a pytest bench through the ww hub.
+- **[Sensor packet example](basic/types_on_the_wire.md)**: A struct on a radio link with shrink_wrap alone, old and new firmware reading each other.
 
 <p class="ww-features__more" markdown>Details and what is planned: [Example and cases (ww_tape)](tape/features.md#example-and-cases-ex), [Examples](features.md#examples-ex) in the feature tracker.</p>
 

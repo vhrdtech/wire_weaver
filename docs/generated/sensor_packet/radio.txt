@@ -1,0 +1,7 @@
+$ cargo run -p sensor_packet --example sensor_packet_radio
+sent 9 bytes: 72 6f 6f 66 66 08 80 30 04
+received: Reading { station: "roof", temperature: Celsius(21.5 °C, 2150 cK i16), humidity: Some(Ratio(48 % u8, 0..=100)), battery_low: false }
+received 72 6f 6f 66 66 08 80 78 04: Err(SubtypeOutOfRange)
+received 72 6f 6f 66 66 08 80 30: Ok(Reading { station: "", temperature: Celsius(285.3 °C, 28530 cK i16), humidity: None, battery_low: true })
+kept: ReadingOwned { station: "roof", temperature: Celsius(21.5 °C, 2150 cK i16), humidity: Some(Ratio(48 % u8, 0..=100)), battery_low: false }
+kept as bytes: 72 6f 6f 66 66 08 80 30 04

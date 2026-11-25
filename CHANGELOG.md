@@ -13,6 +13,8 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 - Book: `ww` transcripts are coloured by a `ww` fence, and files named in chapter 1.12 open cards (DOC-18); see `docs_ext`.
 - Wire sizes compared: eight messages on nine formats, WireWeaver plain and tuned, in the book (EX-20); see `examples/compare_wire_formats`.
+- Book chapters 1.1 to 1.4, "Your data on the wire", on the sensor packet; `types.md` becomes "Types in depth" (DOC-17).
+- Sensor packet example: a struct on a radio link with shrink_wrap alone, its next firmware read by old gateways (EX-21); see `examples/sensor_packet`.
 - Book chapter Properties on the thermometer: includes, a `ww` transcript, a Python script, a figure (DOC-17); see `examples/thermometer_py`.
 - `ww --websocket URL` and Python `connect(websocket_url=..)` reach a WebSocket device, such as a simulated one (CLT-85); see `ww_plugin`, `wire_weaver_py`.
 - Bench supply example: two channels with voltage and current limits, an output switch that refuses instead of overloading the simulated load, and a pytest bench through the ww hub (EX-19); see `examples/bench_supply_api`, `examples/bench_supply`, `examples/bench_supply_py`.

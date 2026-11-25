@@ -70,7 +70,7 @@ Pages are marked by how deep they go: Basic, Advanced or Nomicon. See [reading l
     Numerical, SI, date & time, version and other [types](types.md).
     GPIO, I2C, CAN, UART, SPI, logging, firmware update and other [traits](std_library/overview.md).
 
--   :octicons-code-24: __[Reference and Owned types](serdes/derive.md#borrowed-owned-or-both)__
+-   :octicons-code-24: __[Reference and Owned types](basic/borrowed_and_owned.md#which-types-the-derive-makes)__
 
     ---
     Automatically generate owned types for std usage from referenced ones.

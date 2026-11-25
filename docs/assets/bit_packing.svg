@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="260" viewBox="0 0 720 260" font-family="Helvetica, Arial, sans-serif" font-size="13">
+  <title>Bit-sized values packed into bytes</title>
+  <desc>Two values bit by bit. A U3 of 5 and a U7 of 100 take ten bits one after another, then six bits of padding: the bytes b9 00. A bool true takes one bit, seven bits of padding follow, and the u8 0xaa starts on the next byte: the bytes 80 aa.</desc>
+  <rect x="0" y="0" width="720" height="260" rx="10" fill="#ffffff"/>
+  <text x="40" y="30" font-weight="bold" fill="#222">(U3, U7) = (5, 100): 10 bits in 2 bytes</text>
+  <rect x="40" y="44" width="26" height="26" fill="#d7e8d0" stroke="#888"/>
+  <text x="53.0" y="62" text-anchor="middle" font-family="Menlo, Consolas, monospace" fill="#222">1</text>
+  <rect x="66" y="44" width="26" height="26" fill="#d7e8d0" stroke="#888"/>
+  <text x="79.0" y="62" text-anchor="middle" font-family="Menlo, Consolas, monospace" fill="#222">0</text>
+  <rect x="92" y="44" width="26" height="26" fill="#d7e8d0" stroke="#888"/>
+  <text x="105.0" y="62" text-anchor="middle" font-family="Menlo, Consolas, monospace" fill="#222">1</text>
+  <text x="79.0" y="88" text-anchor="middle" fill="#222">U3: 5</text>
+  <rect x="118" y="44" width="26" height="26" fill="#cfe0f3" stroke="#888"/>
+  <text x="131.0" y="62" text-anchor="middle" font-family="Menlo, Consolas, monospace" fill="#222">1</text>
+  <rect x="144" y="44" width="26" height="26" fill="#cfe0f3" stroke="#888"/>
+  <text x="157.0" y="62" text-anchor="middle" font-family="Menlo, Consolas, monospace" fill="#222">1</text>
+  <rect x="170" y="44" width="26" height="26" fill="#cfe0f3" stroke="#888"/>
+  <text x="183.0" y="62" text-anchor="middle" font-family="Menlo, Consolas, monospace" fill="#222">0</text>
+  <rect x="196" y="44" width="26" height="26" fill="#cfe0f3" stroke="#888"/>
+  <text x="209.0" y="62" text-anchor="middle" font-family="Menlo, Consolas, monospace" fill="#222">0</text>
+  <rect x="222" y="44" width="26" height="26" fill="#cfe0f3" stroke="#888"/>
+  <text x="235.0" y="62" text-anchor="middle" font-family="Menlo, Consolas, monospace" fill="#222">1</text>
+  <rect x="248" y="44" width="26" height="26" fill="#cfe0f3" stroke="#888"/>
+  <text x="261.0" y="62" text-anchor="middle" font-family="Menlo, Consolas, monospace" fill="#222">0</text>
+  <rect x="274" y="44" width="26" height="26" fill="#cfe0f3" stroke="#888"/>
+  <text x="287.0" y="62" text-anchor="middle" font-family="Menlo, Consolas, monospace" fill="#222">0</text>
+  <text x="209.0" y="88" text-anchor="middle" fill="#222">U7: 100</text>
+  <rect x="300" y="44" width="26" height="26" fill="#eeeeee" stroke="#888"/>
+  <text x="313.0" y="62" text-anchor="middle" font-family="Menlo, Consolas, monospace" fill="#222">0</text>
+  <rect x="326" y="44" width="26" height="26" fill="#eeeeee" stroke="#888"/>
+  <text x="339.0" y="62" text-anchor="middle" font-family="Menlo, Consolas, monospace" fill="#222">0</text>
+  <rect x="352" y="44" width="26" height="26" fill="#eeeeee" stroke="#888"/>
+  <text x="365.0" y="62" text-anchor="middle" font-family="Menlo, Consolas, monospace" fill="#222">0</text>
+  <rect x="378" y="44" width="26" height="26" fill="#eeeeee" stroke="#888"/>
+  <text x="391.0" y="62" text-anchor="middle" font-family="Menlo, Consolas, monospace" fill="#222">0</text>
+  <rect x="404" y="44" width="26" height="26" fill="#eeeeee" stroke="#888"/>
+  <text x="417.0" y="62" text-anchor="middle" font-family="Menlo, Consolas, monospace" fill="#222">0</text>
+  <rect x="430" y="44" width="26" height="26" fill="#eeeeee" stroke="#888"/>
+  <text x="443.0" y="62" text-anchor="middle" font-family="Menlo, Consolas, monospace" fill="#222">0</text>
+  <text x="378.0" y="88" text-anchor="middle" fill="#222">padding</text>
+  <line x1="40" y1="38" x2="40" y2="76" stroke="#222" stroke-width="2.5"/>
+  <line x1="248" y1="38" x2="248" y2="76" stroke="#222" stroke-width="2.5"/>
+  <line x1="456" y1="38" x2="456" y2="76" stroke="#222" stroke-width="2.5"/>
+  <text x="144" y="114" text-anchor="middle" font-family="Menlo, Consolas, monospace" font-weight="bold" fill="#222">byte 1: b9</text>
+  <text x="352" y="114" text-anchor="middle" font-family="Menlo, Consolas, monospace" font-weight="bold" fill="#222">byte 2: 00</text>
+  <text x="40" y="160" font-weight="bold" fill="#222">(true, 0xaa): a flag, then a byte on a fresh byte</text>
+  <rect x="40" y="174" width="26" height="26" fill="#d7e8d0" stroke="#888"/>
+  <text x="53.0" y="192" text-anchor="middle" font-family="Menlo, Consolas, monospace" fill="#222">1</text>
+  <text x="53.0" y="218" text-anchor="middle" fill="#222">bool</text>
+  <rect x="66" y="174" width="26" height="26" fill="#eeeeee" stroke="#888"/>
+  <text x="79.0" y="192" text-anchor="middle" font-family="Menlo, Consolas, monospace" fill="#222">0</text>
+  <rect x="92" y="174" width="26" height="26" fill="#eeeeee" stroke="#888"/>
+  <text x="105.0" y="192" text-anchor="middle" font-family="Menlo, Consolas, monospace" fill="#222">0</text>
+  <rect x="118" y="174" width="26" height="26" fill="#eeeeee" stroke="#888"/>
+  <text x="131.0" y="192" text-anchor="middle" font-family="Menlo, Consolas, monospace" fill="#222">0</text>
+  <rect x="144" y="174" width="26" height="26" fill="#eeeeee" stroke="#888"/>
+  <text x="157.0" y="192" text-anchor="middle" font-family="Menlo, Consolas, monospace" fill="#222">0</text>
+  <rect x="170" y="174" width="26" height="26" fill="#eeeeee" stroke="#888"/>
+  <text x="183.0" y="192" text-anchor="middle" font-family="Menlo, Consolas, monospace" fill="#222">0</text>
+  <rect x="196" y="174" width="26" height="26" fill="#eeeeee" stroke="#888"/>
+  <text x="209.0" y="192" text-anchor="middle" font-family="Menlo, Consolas, monospace" fill="#222">0</text>
+  <rect x="222" y="174" width="26" height="26" fill="#eeeeee" stroke="#888"/>
+  <text x="235.0" y="192" text-anchor="middle" font-family="Menlo, Consolas, monospace" fill="#222">0</text>
+  <text x="157.0" y="218" text-anchor="middle" fill="#222">padding</text>
+  <rect x="248" y="174" width="26" height="26" fill="#cfe0f3" stroke="#888"/>
+  <text x="261.0" y="192" text-anchor="middle" font-family="Menlo, Consolas, monospace" fill="#222">1</text>
+  <rect x="274" y="174" width="26" height="26" fill="#cfe0f3" stroke="#888"/>
+  <text x="287.0" y="192" text-anchor="middle" font-family="Menlo, Consolas, monospace" fill="#222">0</text>
+  <rect x="300" y="174" width="26" height="26" fill="#cfe0f3" stroke="#888"/>
+  <text x="313.0" y="192" text-anchor="middle" font-family="Menlo, Consolas, monospace" fill="#222">1</text>
+  <rect x="326" y="174" width="26" height="26" fill="#cfe0f3" stroke="#888"/>
+  <text x="339.0" y="192" text-anchor="middle" font-family="Menlo, Consolas, monospace" fill="#222">0</text>
+  <rect x="352" y="174" width="26" height="26" fill="#cfe0f3" stroke="#888"/>
+  <text x="365.0" y="192" text-anchor="middle" font-family="Menlo, Consolas, monospace" fill="#222">1</text>
+  <rect x="378" y="174" width="26" height="26" fill="#cfe0f3" stroke="#888"/>
+  <text x="391.0" y="192" text-anchor="middle" font-family="Menlo, Consolas, monospace" fill="#222">0</text>
+  <rect x="404" y="174" width="26" height="26" fill="#cfe0f3" stroke="#888"/>
+  <text x="417.0" y="192" text-anchor="middle" font-family="Menlo, Consolas, monospace" fill="#222">1</text>
+  <rect x="430" y="174" width="26" height="26" fill="#cfe0f3" stroke="#888"/>
+  <text x="443.0" y="192" text-anchor="middle" font-family="Menlo, Consolas, monospace" fill="#222">0</text>
+  <text x="352.0" y="218" text-anchor="middle" fill="#222">u8: 0xaa</text>
+  <line x1="40" y1="168" x2="40" y2="206" stroke="#222" stroke-width="2.5"/>
+  <line x1="248" y1="168" x2="248" y2="206" stroke="#222" stroke-width="2.5"/>
+  <line x1="456" y1="168" x2="456" y2="206" stroke="#222" stroke-width="2.5"/>
+  <text x="144" y="244" text-anchor="middle" font-family="Menlo, Consolas, monospace" font-weight="bold" fill="#222">byte 1: 80</text>
+  <text x="352" y="244" text-anchor="middle" font-family="Menlo, Consolas, monospace" font-weight="bold" fill="#222">byte 2: aa</text>
+</svg>

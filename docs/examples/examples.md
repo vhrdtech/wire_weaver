@@ -17,6 +17,7 @@ New to WireWeaver: start with `blinky_api` and `blinky` (an API with two methods
 |---------------------------------------------------|-----------------------------------------------------------------------------|
 | `minimal_shrink_wrap`                              | Using the [ShrinkWrap](../serdes/shrink_wrap.md) wire format directly         |
 | `compare_wire_formats`                            | [Wire size of ShrinkWrap compared with eight other formats](wire_sizes.md)  |
+| `sensor_packet`                                   | A sensor node's [reading on a radio link](../basic/types_on_the_wire.md) with ShrinkWrap alone, and the next firmware that adds a field |
 | `blinky_api`, `blinky`                            | Smallest API with two methods, and its client                               |
 | `thermometer_api`, `thermometer_device`, `thermometer` | A sensor with units, properties, an observed value, a stream and a sink; one server for the simulated device and the firmware |
 | `bench_supply_api`, `bench_supply`                | Output channels with voltage and current limits, an output switch that refuses, and a [pytest bench](https://github.com/vhrdtech/wire_weaver/tree/master/examples/bench_supply_py) through the ww hub |

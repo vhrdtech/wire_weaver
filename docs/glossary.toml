@@ -18,7 +18,7 @@ chapter = "../api/folder_structure/"
 [[term]]
 name = "borrowed"
 short = "A type whose values point into the buffer they were read from, so reading copies nothing; its owned twin copies the data out."
-chapter = "../serdes/derive/"
+chapter = "../basic/borrowed_and_owned/"
 
 [[term]]
 name = "bounds"
@@ -54,6 +54,12 @@ short = "The standard traits every device should offer: firmware and board infor
 chapter = "../std_library/device_contract/"
 
 [[term]]
+name = "discriminant"
+forms = ["discriminants"]
+short = "The number of an enum's variant on the wire, in as many bits as the enum's `ww_repr` says; variants are numbered from 0 in declaration order."
+chapter = "../basic/structs_and_enums/"
+
+[[term]]
 name = "effect"
 forms = ["effects"]
 short = "Metadata on a method or property that says what calling it does to the device, such as editing or persisting a value, for tools to act on."
@@ -62,7 +68,7 @@ chapter = "../api/metadata/"
 [[term]]
 name = "evolvable"
 short = "A type that can gain fields later while old and new readers still read each other's bytes; the default for a derived type."
-chapter = "../serdes/derive/"
+chapter = "../basic/types_that_change/"
 
 [[term]]
 name = "evolution checker"
@@ -116,7 +122,12 @@ chapter = "../api/observing/"
 [[term]]
 name = "owned"
 short = "A type whose values hold their own data, copied out of the buffer they were read from; its borrowed twin points into the buffer."
-chapter = "../serdes/derive/"
+chapter = "../basic/borrowed_and_owned/"
+
+[[term]]
+name = "padding"
+short = "Zero bits between a bit-sized value and the next value that starts on a byte; a later version of a type may put a new flag there."
+chapter = "../basic/types_on_the_wire/"
 
 [[term]]
 name = "property"
@@ -146,7 +157,7 @@ chapter = "../api/overview/"
 name = "ShrinkWrap"
 forms = ["shrink_wrap"]
 short = "The wire format of WireWeaver: dense down to single bits, readable without an allocator, and evolvable."
-chapter = "../serdes/shrink_wrap/"
+chapter = "../basic/types_on_the_wire/"
 
 [[term]]
 name = "sink"
@@ -176,6 +187,12 @@ name = "transport"
 forms = ["transports"]
 short = "The medium that carries a device's packets: USB, UDP, WebSocket, RTT or a byte stream such as a serial line."
 chapter = "../transport/overview/"
+
+[[term]]
+name = "wire format"
+forms = ["wire formats"]
+short = "The rules that turn a value into bytes and back, so that two programs agree on what the bytes mean."
+chapter = "../basic/types_on_the_wire/"
 
 [[term]]
 name = "wire line"

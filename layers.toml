@@ -156,6 +156,7 @@ reconnect_revision_api = { layer = "runtime" }
 reconnect_revision_changed_api = { layer = "runtime" }
 recursive = { layer = "runtime" }
 recursive_api = { layer = "runtime", no_std = true }
+sensor_packet = { layer = "runtime", no_std = true }
 series = { layer = "runtime" }
 series_api = { layer = "runtime", no_std = true }
 settings = { layer = "runtime" }

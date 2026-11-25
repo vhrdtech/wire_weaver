@@ -188,6 +188,7 @@ thermo_devices = { layer = "runtime" }
 thermometer = { layer = "runtime" }
 thermometer_api = { layer = "runtime", no_std = true }
 thermometer_device = { layer = "runtime", no_std = true }
+thermometer_py = { layer = "runtime" }
 toml_settings_api = { layer = "runtime", no_std = true }
 totals = { layer = "runtime" }
 totals_api = { layer = "runtime", no_std = true }

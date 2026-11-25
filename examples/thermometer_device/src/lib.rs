@@ -251,6 +251,7 @@ impl Thermometer {
         Ready(self.sample(Input::bounded(1)))
     }
 
+    // --8<-- [start:mode]
     async fn set_mode(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
@@ -270,7 +271,9 @@ impl Thermometer {
     ) -> GetResult<Mode, CommonError<'_>> {
         GetResult::Value(self.mode)
     }
+    // --8<-- [end:mode]
 
+    // --8<-- [start:gain]
     async fn set_gain(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
@@ -287,6 +290,7 @@ impl Thermometer {
     ) -> GetResult<Fixed<Ratio, One, u8, Range<1, 16>>, CommonError<'_>> {
         GetResult::Value(self.gain)
     }
+    // --8<-- [end:gain]
 
     async fn samples(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {
         Ready(())
@@ -393,6 +397,7 @@ impl Thermometer {
     }
 }
 
+// --8<-- [start:codegen]
 mod api_impl {
     wire_weaver::ww_codegen!(
         thermometer_api :: Thermo for super::Thermometer,
@@ -402,6 +407,7 @@ mod api_impl {
         introspect = "with_docs",
     );
 }
+// --8<-- [end:codegen]
 
 impl WireWeaverAsyncApiBackend for Thermometer {
     type Medium = ();

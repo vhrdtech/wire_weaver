@@ -4343,14 +4343,18 @@ name = "thermometer"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "book_outputs",
  "clap",
+ "console",
  "futures-util",
  "thermometer_api",
  "thermometer_device",
  "tokio",
  "tokio-util",
  "wire_weaver",
+ "wire_weaver_cli",
  "wire_weaver_client",
+ "ww_client_server",
  "ww_device",
  "ww_si",
 ]
@@ -4377,6 +4381,14 @@ dependencies = [
  "ww_device",
  "ww_si",
  "ww_stream",
+]
+
+[[package]]
+name = "thermometer_py"
+version = "0.1.0"
+dependencies = [
+ "pyo3",
+ "wire_weaver_py",
 ]
 
 [[package]]

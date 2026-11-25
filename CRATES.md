@@ -192,6 +192,7 @@ This page lists the crates of the root workspace. The first table links each pub
 | [`thermometer`](examples/thermometer) | runtime | Client of the thermometer example device, and the device simulated on a PC over WebSocket |
 | [`thermometer_api`](examples/thermometer_api) | runtime | API of the thermometer example device: temperatures with units, a property, an observed value, a stream |
 | [`thermometer_device`](examples/thermometer_device) | runtime | The thermometer example device: one server for the simulated device on a PC and the firmware of every board |
+| [`thermometer_py`](examples/thermometer_py) | runtime | Python scripts of the thermometer example, with wire_weaver_py of this checkout as the `wire_weaver` module |
 | [`toml_settings_api`](tests/toml_settings_api) | runtime | Test API of ww_json's TOML form (INT-18): a settings tree of nested structs, quantities, enums, lists and options |
 | [`totals`](tests/totals) | runtime | Tests of running totals over plain sinks (API-70): a lossy UDP link that drops and reorders datagrams, WebSocket, a second sender. |
 | [`totals_api`](tests/totals_api) | runtime | Test API of tests/totals: running totals over plain sinks, of a struct of Fixed values and of a counted unit. |

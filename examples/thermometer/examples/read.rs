@@ -1,4 +1,5 @@
-//! Reads the thermometer: one sample, then ten at 5 Hz from its stream, then the gain as the device lowers it.
+//! Reads the thermometer: one sample, its mode and gain, then ten samples at 5 Hz from its stream, then the gain as
+//! the device lowers it.
 //!
 //! `cargo run -p thermometer --example thermometer_read` against `thermometer_sim` on this PC, or
 //! `-- --url ws://ADDRESS:8080/ww` against another.
@@ -28,6 +29,17 @@ async fn main() -> Result<()> {
     println!("input {}: {}", sample.input.get(), sample.temp);
     // --8<-- [end:read]
 
+    // --8<-- [start:properties]
+    let mode = device.read_mode().read().await?;
+    println!("mode: {mode:?}");
+    device.write_gain(Gain::bounded(8)).write().await?;
+    println!("gain: {}", device.read_gain().read().await?.get());
+    // 20 is no Gain: the type refuses it, so a bad value never reaches the wire
+    if let Err(e) = Gain::try_new(20) {
+        println!("refused: {e}");
+    }
+    // --8<-- [end:properties]
+
     // --8<-- [start:stream]
     let mut samples = device.samples().call().await?;
     device.channel(1).write_enabled(false).write().await?;
@@ -46,7 +58,7 @@ async fn main() -> Result<()> {
         .subscribe()
         .await?;
     // above gain 8 the simulated amplifier clips, and the device halves the gain at its next reading:
-    // the observer sees 4, 16, then 8
+    // the observer sees 8, 16, then 8
     device.write_gain(Gain::bounded(16)).write().await?;
     device.read_once().call().await?;
     for _ in 0..3 {

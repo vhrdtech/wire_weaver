@@ -21,9 +21,13 @@ ww_si = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
 anyhow.workspace = true
+book_outputs.workspace = true
 clap = { workspace = true, features = ["derive"] }
+console.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net", "signal", "test-util"] }
 tokio-util = { workspace = true, features = ["compat"] }
+wire_weaver_cli.workspace = true
+ww_client_server = { workspace = true, features = ["std"] }
 ww_device.workspace = true
 
 [[example]]

@@ -9559,6 +9559,12 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
   chip's temperature sensor on a board) and <code>examples/thermometer</code> (client, <code>thermometer_sim</code> over WebSocket,
   <code>thermometer_read</code>, tests on the in-process WebSocket with tokio's paused clock). Firmware: <code>thermometer</code> bins of
   <code>examples_mcu/nucleo_g0b1re</code> and <code>examples_mcu/rp2</code> over USB, built by <code>just check</code>; not yet run on the boards.</li>
+<li>✅ <strong>EX-19 Bench supply example and a pytest bench</strong>: <code>examples/bench_supply_api</code> (<code>channel[]: Channel</code>, a
+  voltage and current limit each, <code>measured</code>, <code>set_output</code> refusing with <code>OutputError</code>), <code>examples/bench_supply</code>
+  (client, server, <code>bench_supply_sim</code> over WebSocket, <code>bench_supply_bench</code>, in-process tests) and
+  <code>bench_supply_hub_device</code> (a <code>[[bin]]</code> hosting the ww hub and the device in one process, TOOL-18, SRV-29) +
+  <code>examples/bench_supply_py</code> (<code>wire_weaver_py</code> of this checkout as the <code>wire_weaver</code> module, a pytest bench
+  driving the device through the hub with no real hardware, <code>just test-bench-supply-py</code>).</li>
 <li>📋 <strong>EX-6 Example without async</strong> · <code>v0.5</code> — <code>ww_device::blocking::Server</code> exists, no example uses it.</li>
 <li>📋 <strong>EX-7 Example with two media</strong> · <code>v0.5</code>.</li>
 <li>📋 <strong>EX-8 NCM WebSocket + UDP example</strong> · <code>v0.5</code> — both media on one stack, sharing the backend.</li>
@@ -10153,7 +10159,7 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
       Zensical
     </a>
   
-  <div class="book-stamp" data-built="1795617732">wire_weaver 0.6.0 · 4bc416c · built 2026-11-25 14:42 UTC (<span class="book-stamp-age">just built</span>)</div>
+  <div class="book-stamp" data-built="1795621943">wire_weaver 0.6.0 · 12b1509 · built 2026-11-25 15:52 UTC (<span class="book-stamp-age">just built</span>)</div>
 </div>
       
         

@@ -2583,6 +2583,12 @@ Unicast Data0 to one node over the same bus is TR-6.
   fault-confinement counters, `TtConfig`'s TURCF/TTOCF register fields, `XlFrame`'s protocol code and acceptance
   field) got a real one; none of them turned out to want a unit instead.
   `docs/evolution/checker_tool.md#unit-suffix-hints-tool-22`.
+- ✅ **TOOL-41 `ww call`: call a method, read or write a property** · `v0.6` — `ww call led_on`,
+  `ww call 'set_led(true)'`, `ww call gain`, `ww call 'gain = 8'` on any device, from its introspection data alone,
+  with the expressions `ww explain` reads (`wire_weaver_client::expr`). It prints the return value or the value read,
+  `()` for a method that returns nothing and for a write; a method's `Err` and a value outside its bounds are errors.
+  `cmd::call::call` gives the same text to a program or a book transcript. Tested in `examples/blinky` and
+  `examples/thermometer`. [Docs](docs/cli_reference.md#ww-call).
 - ✅ **TOOL-40 `ww_plugin`: the plugin arguments without the hub** · `v0.5` — `DeviceArgs`, `Selection`, `Setting`, `Source`,
   `Untrusted`, the device completers and the plugin protocol helpers (`complete_if_requested`, `selection_env`,
   `connect`, `take_exclusive`) live in crate `ww_plugin`, which has no `ww_hub` in its tree (`tests/layers_lint`

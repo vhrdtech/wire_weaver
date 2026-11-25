@@ -48,6 +48,8 @@ test-all:
     just test-shared-ui
     # no f32, f64 or 128-bit code from ww_si's device operations where a firmware didn't opt into floats (TEST-33)
     just no-float-guard
+    # docs/generated/compare_wire_formats/ not stale (EX-20); excluded workspace, so not covered by the nextest run above
+    just test-wire-sizes
 
 # A server with ww_client_server built without `multi` and `streams`, as in a firmware, refusing the corpus's multi,
 # credit sink and Ack requests as not supported (SRV-60); alone, since a workspace build turns the features on
@@ -313,7 +315,20 @@ book-check:
 book-outputs:
     rm -rf docs/generated
     WW_BOOK_OUTPUTS=write cargo nextest run --workspace -E 'test(/book_output/)'
+    just book-outputs-wire-sizes
     WW_BOOK_OUTPUTS=write just test-thermometer-py
+
+# docs/generated/compare_wire_formats/ (EX-20): compare_wire_formats is excluded from the workspace (its own
+# Cargo.lock, so ciborium/prost/wincode/planus/rasn stay out of every other build's lockfile), so it keeps its own
+# copy of book_outputs' stale check and is driven from its own directory instead of through nextest
+[working-directory('examples/compare_wire_formats')]
+book-outputs-wire-sizes:
+    WW_BOOK_OUTPUTS=write cargo run --quiet
+
+# Fails when docs/generated/compare_wire_formats/ is stale (EX-20); part of `just test`
+[working-directory('examples/compare_wire_formats')]
+test-wire-sizes:
+    cargo run --quiet
 
 # Serve the documentation locally; root is a virtual workspace, so the stamp needs --name
 [group('docs')]

@@ -248,6 +248,7 @@ nav = [
             "glossary.md",
             { "Examples and templates" = [
                     "examples/examples.md",
+                    "examples/wire_sizes.md",
                     { "wire_weaver_template repo" = "https://github.com/vhrdtech/wire_weaver_template" }
                 ]
             },

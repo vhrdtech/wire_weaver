@@ -1,0 +1,113 @@
+// FlatBuffers schema of the example messages of compare_wire_formats (EX-20), one namespace per message.
+// Regenerate src/fbs_messages.rs with:
+//   planus rust -o src/fbs_messages.rs schema/messages.fbs
+// (cargo install planus-cli)
+
+namespace wire_sizes;
+
+
+struct Vec3 {
+  x:float;
+  y:float;
+  z:float;
+}
+
+table Telemetry {
+  seq:uint16;
+  t_us:uint64;
+  accel:Vec3;
+  gyro:Vec3;
+  temp_c:float;
+  battery_mv:uint16;
+}
+
+
+enum LogLevel:ubyte { Trace, Debug, Info, Warn, Error }
+
+table LogRecord {
+  t_ms:uint64;
+  level:LogLevel;
+  target:string;
+  message:string;
+  line:uint32;
+}
+
+
+table FirmwareChunk {
+  offset:uint32;
+  total:uint32;
+  crc32:uint32;
+  last:bool;
+  data:[ubyte];
+}
+
+
+table DeviceConfig {
+  name:string;
+  baud:uint32 = null;
+  address:uint8 = null;
+  retries:uint8 = null;
+  timeout_ms:uint16 = null;
+  enabled:bool = null;
+  gain:float = null;
+  label:string;
+}
+
+
+enum FixKind:ubyte { NoFix, Fix2d, Fix3d, Dgps }
+
+table GpsFix {
+  t_ms:uint64;
+  lat_e7:int32;
+  lon_e7:int32;
+  alt_mm:int32;
+  speed_mm_s:uint32;
+  hdop_centi:uint16;
+  sats:uint8;
+  fix:FixKind;
+}
+
+
+table CanFrame {
+  id:uint32;
+  extended:bool;
+  dt_us:uint16;
+  data:[ubyte];
+}
+
+table CanBatch {
+  bus:uint8;
+  frames:[CanFrame];
+}
+
+
+enum Mode:ubyte { Idle, Init, Running, Paused, Fault }
+
+enum Fault:ubyte { None, Overcurrent, Overtemp, Undervoltage, SensorLost, LinkLost, FlashEcc, Watchdog }
+
+table LinkDown {}
+
+table LinkUp {
+  mbps:uint16;
+}
+
+table LinkError {
+  code:uint8;
+}
+
+union LinkState {
+  LinkDown,
+  LinkUp,
+  LinkError,
+}
+
+table StateReport {
+  mode:Mode;
+  link:LinkState;
+  faults:[Fault];
+  battery_pct:uint8;
+  charging:bool;
+  uptime_s:uint32;
+}
+
+root_type StateReport;

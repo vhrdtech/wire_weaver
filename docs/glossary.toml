@@ -16,6 +16,12 @@ short = "A `no_std` crate holding an API trait and its types, which the firmware
 chapter = "../api/folder_structure/"
 
 [[term]]
+name = "array"
+forms = ["arrays"]
+short = "An item of an API trait marked `[]`, such as `channel[]`: one resource per index, with the valid indices decided by the device at run time."
+chapter = "../basic/channels/"
+
+[[term]]
 name = "borrowed"
 short = "A type whose values point into the buffer they were read from, so reading copies nothing; its owned twin copies the data out."
 chapter = "../basic/borrowed_and_owned/"
@@ -76,6 +82,11 @@ short = "The tool behind `ww api check` and `ww api diff` that compares two snap
 chapter = "../evolution/checker_tool/"
 
 [[term]]
+name = "Fixed"
+short = "A number whose unit, step, storage type and bounds are in its type, such as `Fixed<Hertz, One, u16, Range<1, 1000>>`; on the wire it is exactly its storage integer."
+chapter = "../basic/units/"
+
+[[term]]
 name = "framer"
 short = "The layer (`ww_framer`) that packs small messages into one packet and splits a large message over several."
 chapter = "../transport/ww_framer/"
@@ -117,7 +128,25 @@ chapter = "../api/mounts/"
 name = "observe"
 forms = ["observes", "observing", "observed"]
 short = "To ask a device once for a property's updates, which it then sends on its own at the chosen rate, instead of being polled."
-chapter = "../api/observing/"
+chapter = "../basic/observing/"
+
+[[term]]
+name = "observe mode"
+forms = ["observe modes"]
+short = "When a device sends an observed property: on every change, periodically, or on a change and at least once per period."
+chapter = "../basic/observing/"
+
+[[term]]
+name = "observer"
+forms = ["observers"]
+short = "The host-side handle of an observed property or level, whose `recv()` returns the next update."
+chapter = "../basic/observing/"
+
+[[term]]
+name = "origin"
+forms = ["origins"]
+short = "The place on a scale where a point counts zero, such as `Celsius` at 273.15 K; it exists only in the type."
+chapter = "../basic/temperatures/"
 
 [[term]]
 name = "owned"
@@ -128,6 +157,12 @@ chapter = "../basic/borrowed_and_owned/"
 name = "padding"
 short = "Zero bits between a bit-sized value and the next value that starts on a byte; a later version of a type may put a new flag there."
 chapter = "../basic/types_on_the_wire/"
+
+[[term]]
+name = "point"
+forms = ["points"]
+short = "A reading on a scale with an origin, such as 21.5 °C: two points give an amount, a point and an amount give a point."
+chapter = "../basic/temperatures/"
 
 [[term]]
 name = "property"
@@ -148,6 +183,12 @@ short = "How much a page assumes: Basic, Advanced or Nomicon, shown by the badge
 chapter = "../levels/"
 
 [[term]]
+name = "sequence number"
+forms = ["sequence numbers"]
+short = "A number that counts up by one per item and wraps, compared across the wrap: `Seq<Sample, u16>`."
+chapter = "../basic/temperatures/"
+
+[[term]]
 name = "server"
 forms = ["servers"]
 short = "The device-side code generated from an API trait: it decodes requests and calls your handlers, `no_std` and without allocation."
@@ -163,7 +204,7 @@ chapter = "../basic/types_on_the_wire/"
 name = "sink"
 forms = ["sinks"]
 short = "An item of an API trait that carries a flow of data from the host into the device."
-chapter = "../api/streams/"
+chapter = "../basic/streams/"
 
 [[term]]
 name = "snapshot"
@@ -177,10 +218,27 @@ short = "Ready-made API traits and types for common device features (pins, buses
 chapter = "../std_library/overview/"
 
 [[term]]
+name = "step"
+forms = ["steps"]
+short = "The value of one count of a `Fixed` number's storage integer, such as 1 Hz or 0.01 K: the device's resolution."
+chapter = "../basic/units/"
+
+[[term]]
 name = "stream"
 forms = ["streams"]
 short = "An item of an API trait that carries a flow of data from the device to the host."
-chapter = "../api/streams/"
+chapter = "../basic/streams/"
+
+[[term]]
+name = "sub-trait"
+forms = ["sub-traits"]
+short = "An API trait put inside another with `ww_impl!`, once or as an array, to group the items of one part of a device."
+chapter = "../basic/channels/"
+
+[[term]]
+name = "Timed"
+short = "A value together with the time it was taken: `Timed<V, Tm>`, whose time `t` is a point on a time scale."
+chapter = "../basic/temperatures/"
 
 [[term]]
 name = "transport"

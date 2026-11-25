@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="220" viewBox="0 0 720 220" font-family="Helvetica, Arial, sans-serif" font-size="13">
+  <title>Two temperatures as points on the Celsius scale, and the amount between them</title>
+  <desc>A horizontal temperature scale. Absolute zero is at the left, the Celsius origin 273.15 K to its right. Two points, 21.5 °C and 23.75 °C, sit further right; an arrow between them is the amount of 2.25 K. Subtracting the points gives the amount; adding the amount to the first point gives the second.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#222"/>
+    </marker>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#1f5f99"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="720" height="220" rx="10" fill="#ffffff"/>
+
+  <!-- the scale, broken between absolute zero and the Celsius origin -->
+  <g stroke="#222" stroke-width="2">
+    <line x1="80" y1="110" x2="150" y2="110"/>
+    <line x1="175" y1="110" x2="690" y2="110" marker-end="url(#arrow)"/>
+  </g>
+  <g stroke="#222" stroke-width="1.5">
+    <line x1="152" y1="120" x2="160" y2="100"/>
+    <line x1="166" y1="120" x2="174" y2="100"/>
+  </g>
+  <text x="690" y="98" text-anchor="end" fill="#555">warmer</text>
+
+  <!-- origins -->
+  <g stroke="#222" stroke-width="2">
+    <line x1="80" y1="100" x2="80" y2="120"/>
+    <line x1="220" y1="100" x2="220" y2="120"/>
+  </g>
+  <g fill="#222" text-anchor="middle">
+    <text x="80" y="88">0 K</text>
+    <text x="80" y="140" fill="#555">absolute zero</text>
+    <text x="220" y="88">0 °C</text>
+    <text x="220" y="140" fill="#555">origin Celsius</text>
+    <text x="220" y="157" fill="#555">= 273.15 K</text>
+  </g>
+
+  <!-- the two points -->
+  <g fill="#b03a2e" stroke="#b03a2e">
+    <circle cx="460" cy="110" r="6"/>
+    <circle cx="610" cy="110" r="6"/>
+  </g>
+  <g fill="#b03a2e" text-anchor="middle" font-weight="bold">
+    <text x="460" y="70">morning 21.5 °C</text>
+    <text x="610" y="70">noon 23.75 °C</text>
+  </g>
+  <g fill="#555" text-anchor="middle">
+    <text x="460" y="88">2150 steps</text>
+    <text x="610" y="88">2375 steps</text>
+  </g>
+
+  <!-- the amount between them -->
+  <line x1="466" y1="190" x2="604" y2="190" stroke="#1f5f99" stroke-width="2" marker-end="url(#arrow-blue)"/>
+  <line x1="460" y1="120" x2="460" y2="198" stroke="#1f5f99" stroke-dasharray="4 4"/>
+  <line x1="610" y1="120" x2="610" y2="198" stroke="#1f5f99" stroke-dasharray="4 4"/>
+  <g fill="#1f5f99" text-anchor="middle">
+    <text x="535" y="182" font-weight="bold">amount 2.25 K</text>
+    <text x="535" y="210">noon − morning, 225 steps</text>
+  </g>
+  <text x="340" y="140" fill="#555" text-anchor="middle">a step is 0.01 K</text>
+</svg>

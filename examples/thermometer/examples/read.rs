@@ -1,15 +1,13 @@
-//! Reads the thermometer: one sample, its mode and gain, then ten samples at 5 Hz from its stream, then the gain as
-//! the device lowers it.
+//! Reads the thermometer: one sample, then its mode and gain. The stream, the observed gain and the channels have
+//! programs of their own: `thermometer_stream`, `thermometer_observe` and `thermometer_channels`.
 //!
 //! `cargo run -p thermometer --example thermometer_read` against `thermometer_sim` on this PC, or
 //! `-- --url ws://ADDRESS:8080/ww` against another.
 
 use anyhow::Result;
 use clap::Parser;
-use std::time::Duration;
 use thermometer::Thermometer;
-use thermometer_api::{Gain, Mode, Rate};
-use wire_weaver_client::observe::on_change;
+use thermometer_api::Gain;
 
 #[derive(Parser)]
 struct Args {
@@ -39,32 +37,6 @@ async fn main() -> Result<()> {
         println!("refused: {e}");
     }
     // --8<-- [end:properties]
-
-    // --8<-- [start:stream]
-    let mut samples = device.samples().call().await?;
-    device.channel(1).write_enabled(false).write().await?;
-    device.set_rate(Rate::bounded(5)).call().await?;
-    device.write_mode(Mode::Continuous).write().await?;
-    for _ in 0..10 {
-        let s = samples.recv().await?;
-        println!("#{} input {}: {}", s.seq.get(), s.input.get(), s.temp);
-    }
-    device.write_mode(Mode::Idle).write().await?;
-    // --8<-- [end:stream]
-
-    // --8<-- [start:observe]
-    let mut gain = device
-        .observe_gain(on_change(Duration::ZERO))
-        .subscribe()
-        .await?;
-    // above gain 8 the simulated amplifier clips, and the device halves the gain at its next reading:
-    // the observer sees 8, 16, then 8
-    device.write_gain(Gain::bounded(16)).write().await?;
-    device.read_once().call().await?;
-    for _ in 0..3 {
-        println!("gain {}", gain.recv().await?.value.get());
-    }
-    // --8<-- [end:observe]
 
     device.disconnect().asynch().await?;
     Ok(())

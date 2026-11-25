@@ -34,16 +34,25 @@ nav = [
             { "A first device" = [
                     { "Getting started" = "api/overview.md" },
                     "api/folder_structure.md",
-                    "api/methods.md",
-                    "basic/properties.md",
-                    "api/streams.md",
-                    "api/traits.md",
-                    "api/errors.md"
+                    "api/methods.md"
                 ]
             },
             { "Tools" = [
                     "cli.md",
                     "python.md"
+                ]
+            },
+            { "A sensor" = [
+                    "basic/units.md",
+                    "basic/temperatures.md",
+                    "basic/properties.md",
+                    "basic/observing.md",
+                    "basic/streams.md",
+                    "basic/channels.md"
+                ]
+            },
+            { "An instrument" = [
+                    "api/errors.md"
                 ]
             },
             { "Getting connected" = [
@@ -113,6 +122,7 @@ nav = [
             },
             { "The API in depth" = [
                     "api/properties.md",
+                    "api/traits.md",
                     "api/arrays.md",
                     { "Sync, async and shared handlers" = "api/handlers.md" },
                     { "Large messages and result sets" = "api/large_messages.md" },
@@ -125,6 +135,7 @@ nav = [
                 ]
             },
             { "Streams and observing" = [
+                    "api/streams.md",
                     "api/observing.md",
                     "api/batching.md",
                     { "Running totals" = "api/totals.md" },

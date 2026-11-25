@@ -1,7 +1,22 @@
 //! The thermometer as a host sees it: the simulated device served over the in-process WebSocket
 //! (`wire_weaver_client::in_process::ws_device`), on tokio's paused clock, so time moves only when both ends wait.
+//! The `*_example` modules are the examples whose output the book shows, run here against the simulated device;
+//! their `main` only runs from `cargo run`.
 
 mod book;
+
+#[path = "../../examples/channels.rs"]
+#[expect(dead_code, reason = "main runs from cargo run, not here")]
+mod channels_example;
+#[path = "../../examples/observe.rs"]
+#[expect(dead_code, reason = "main runs from cargo run, not here")]
+mod observe_example;
+#[path = "../../examples/stream.rs"]
+#[expect(dead_code, reason = "main runs from cargo run, not here")]
+mod stream_example;
+#[path = "../../examples/units.rs"]
+#[expect(dead_code, reason = "main runs from cargo run, not here")]
+mod units_example;
 
 use std::time::Duration;
 

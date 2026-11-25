@@ -1,0 +1,5 @@
+$ python units.py
+refused: set_rate() argument 'rate': 2 kHz can't be written into Fixed<Hertz, One, u16, Range<1, 1000>>: 2000 is out of 1..=1000
+gain: 4 stored: 4 bounds: (1, 16)
+symbol: °C origin: Celsius unit: Kelvin
+K minus °C: 273.15

@@ -6,9 +6,8 @@ export CARGO_BUILD_JOBS := if jobs != "" { jobs } else { env_var_or_default('CAR
 export NEXTEST_TEST_THREADS := if jobs != "" { jobs } else { env_var_or_default('NEXTEST_TEST_THREADS', 'num-cpus') }
 
 # The book kit: cards, glossary, abbreviations, lexers, the footer stamp and the `vz` command, with its tested
-# Zensical pinned as an extra, so this one pin covers both. A commit of vhrd_zensical's main for now (it reads the
-# sources file `ww-book assemble` writes, REFS-9); the PyPI release replaces it, which CI installs without compiling Rust.
-kit := "vhrd-zensical[zensical] @ git+https://github.com/vhrdtech/vhrd_zensical@cc40008dd60eaac9d5a70499bf15ba73912d2048"
+# Zensical pinned as an extra, so this one pin covers both. The PyPI wheel: CI installs it without compiling Rust.
+kit := "vhrd-zensical[zensical]==0.3.0"
 
 # List all available targets
 default:

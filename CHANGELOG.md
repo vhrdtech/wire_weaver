@@ -11,6 +11,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
+- Blinky example: `set_led` and `blinks` methods, one server in `blinky_device` for the simulated device and every board (EX-25); see `examples/blinky`.
 - `ww call` calls a method or reads and writes a property on any device, from introspection alone (TOOL-41); see `wire_weaver_cli`.
 - Book chapter Properties on the thermometer: includes, a `ww` transcript, a Python script, a figure (DOC-17); see `examples/thermometer_py`.
 - `ww --websocket URL` and Python `connect(websocket_url=..)` reach a WebSocket device, such as a simulated one (CLT-85); see `ww_plugin`, `wire_weaver_py`.

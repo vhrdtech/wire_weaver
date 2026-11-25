@@ -7,6 +7,7 @@
 #![no_main]
 #![feature(impl_trait_in_assoc_type)]
 
+use blinky_device::{Blinky, Led};
 use cortex_m_rt::exception;
 use defmt::{Debug2Format, error, info};
 use embassy_stm32::{
@@ -16,59 +17,27 @@ use embassy_stm32::{
 use panic_probe as _;
 use rtt_target::{ChannelMode::NoBlockSkip, rtt_init};
 use static_cell::StaticCell;
-use wire_weaver::prelude::*;
-use wire_weaver::{MessageSink, WireWeaverAsyncApiBackend};
+use ww_device::EmbassyClock;
 use ww_device::rtt::{RttBuffers, RttConfig, rtt_server};
-use ww_device::{EmbassyClock, LinkConfig};
 
 /// Maximum WireWeaver message length, RTT channels below must be able to hold a whole message
 /// plus its framing (see `ww_device::rtt`), and should be at least that size for `NoBlockSkip`.
 const MAX_MESSAGE_LEN: usize = 1024;
 static RTT_BUFFERS: StaticCell<RttBuffers<MAX_MESSAGE_LEN>> = StaticCell::new();
 
-struct ServerState {
-    led: Output<'static>,
-}
+static LED: StaticCell<BoardLed> = StaticCell::new();
 
-impl WireWeaverAsyncApiBackend for ServerState {
-    type Medium = ();
+/// The board's user LED as the blinky device sees it; each change is logged.
+struct BoardLed(Output<'static>);
 
-    async fn process_bytes<'a>(
-        &mut self,
-        out: &mut EventWriter<'_, impl MessageSink>,
-        medium: (),
-        data: &[u8],
-        scratch: &'a mut [u8],
-    ) -> Result<&'a [u8], shrink_wrap::Error> {
-        self.process_request_bytes(data, scratch, out, medium).await
-    }
-
-    fn version(&self) -> FullVersion<'_> {
-        blinky_api::BLINKY_API_FULL_GID
-    }
-}
-
-mod server_impl {
-    wire_weaver::ww_codegen!(
-        blinky_api :: BlinkyApi for super::ServerState,
-        server = true, no_alloc = true, use_async = true,
-        method_model = "_=immediate",
-        property_model = "_=get_set",
-        introspect = "no_docs",
-    );
-}
-
-impl ServerState {
-    async fn led_on(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {
-        info!("led on");
-        self.led.set_high();
-        Ready(())
-    }
-
-    async fn led_off(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {
-        info!("led off");
-        self.led.set_low();
-        Ready(())
+impl Led for BoardLed {
+    fn set(&mut self, on: bool) {
+        info!("led {}", if on { "on" } else { "off" });
+        if on {
+            self.0.set_high();
+        } else {
+            self.0.set_low();
+        }
     }
 }
 
@@ -104,17 +73,10 @@ async fn main(_spawner: embassy_executor::Spawner) {
     let led = Output::new(p.PB14, Level::Low, Speed::Low);
     #[cfg(feature = "nucleo_g0b1re")]
     let led = Output::new(p.PA5, Level::Low, Speed::Low);
-    let mut state = ServerState { led };
+    let mut blinky = Blinky::new(LED.init(BoardLed(led)));
 
-    let link_config = LinkConfig::new(
-        blinky_api::BLINKY_API_FULL_GID,
-        blinky_api::BLINKY_API_WIRE_VERSION,
-        server_impl::api_hash(),
-        server_impl::image_facts(),
-        ww_client_server::COMPACT_VERSION,
-    );
     let mut server = rtt_server(
-        link_config,
+        Blinky::link_config(),
         channels.up.1,
         channels.down.0,
         EmbassyClock,
@@ -122,8 +84,7 @@ async fn main(_spawner: embassy_executor::Spawner) {
         RTT_BUFFERS.init(RttBuffers::new()),
     );
     info!("init done");
-    // Nothing else to wait for: use the prepared loop. See ww_device::Server for a custom one.
-    server.run(&mut state).await
+    blinky_device::serve(&mut server, &mut blinky, core::future::pending()).await
 }
 
 #[exception]

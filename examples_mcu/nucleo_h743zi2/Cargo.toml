@@ -29,6 +29,7 @@ embassy-futures = "0.1"
 static_cell = "2.1"
 
 blinky_api = { path = "../../examples/blinky_api", default-features = false }
+blinky_device = { path = "../../examples/blinky_device", features = ["defmt"] }
 settings_api = { path = "../../examples/settings_api", default-features = false, features = ["defmt"], optional = true }
 wire_weaver_usb_embassy = { path = "../../mcu/wire_weaver_usb_embassy" }
 wire_weaver = { path = "../../wire_weaver", default-features = false, features = ["defmt"] }

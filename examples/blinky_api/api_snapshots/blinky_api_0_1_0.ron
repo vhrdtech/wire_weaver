@@ -1,18 +1,111 @@
 // blinky_api 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 61b0dc89fb2b24fb1a291cac28889f648c822eaa8558fa614053a3da44204905
-(magic: 2837124336, ww_self_version: (major: 0, minor: 5, patch: 0), root: (docs: [
-    "API of the blinky example device: an LED turned on and off, the smallest possible API. Start here when new",
-    "to WireWeaver; `blinky_api_evolved` shows the same API after a change.",
+// shrink_wrap sha256: 322b7b11bde68438fa84999f7c2220ffcb37ab14a5d97e488810d82050641983
+(magic: 2837124336, ww_self_version: (major: 0, minor: 7, patch: 0), root: (docs: [
+    "API of the blinky example device: an LED that a host turns on and off, the first device of the book. Start here",
+    "when new to WireWeaver; `blinky_api_evolved` shows the same API after a change.",
 ], crate_idx: 0, trait_name: "blinky_api", items: [
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "BlinkyApi", docs: [], optional: None, meta: None, identity: None),
-], compact_id: None, meta: None), types: [], traits: [
-    InLine(level: (docs: [], crate_idx: 0, trait_name: "BlinkyApi", items: [
-        (id: 0, kind: Method(args: [], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "led_on", docs: [], optional: None, meta: Some((claim: None, shares: [], labels: [], effects: (64))), identity: None),
-        (id: 1, kind: Method(args: [], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "led_off", docs: [], optional: None, meta: Some((claim: None, shares: [], labels: [], effects: (64))), identity: None),
+], compact_id: None, meta: None), types: [
+    SkippedFullVersion(crate_idx: 1, type_name: "Fixed", signature: [
+        226,
+        246,
+        240,
+        210,
+        111,
+        5,
+        156,
+        197,
+        37,
+        238,
+        72,
+        65,
+        142,
+        141,
+        22,
+        33,
+    ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "units::Item", signature: [
+        231,
+        16,
+        180,
+        41,
+        24,
+        139,
+        141,
+        252,
+        80,
+        95,
+        234,
+        59,
+        101,
+        1,
+        164,
+        107,
+    ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "prefix::One", signature: [
+        52,
+        174,
+        110,
+        134,
+        44,
+        217,
+        128,
+        133,
+        41,
+        220,
+        164,
+        167,
+        95,
+        217,
+        20,
+        193,
+    ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "Unbounded", signature: [
+        117,
+        194,
+        53,
+        38,
+        149,
+        154,
+        238,
+        33,
+        55,
+        18,
+        202,
+        102,
+        156,
+        182,
+        138,
+        5,
+    ]),
+], traits: [
+    InLine(level: (docs: [
+        "An LED on a board.",
+    ], crate_idx: 0, trait_name: "BlinkyApi", items: [
+        (id: 0, kind: Method(args: [], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "led_on", docs: [
+            "Turns the LED on.",
+        ], optional: None, meta: Some((claim: None, shares: [], labels: [], effects: (64), track: None)), identity: None),
+        (id: 1, kind: Method(args: [], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "led_off", docs: [
+            "Turns the LED off.",
+        ], optional: None, meta: Some((claim: None, shares: [], labels: [], effects: (64), track: None)), identity: None),
+        (id: 2, kind: Method(args: [
+            (ident: "on", ty: Bool, default: None, flatten: false),
+        ], return_ty: Some(Bool), errors: None), multiplicity: Flat, since: None, ident: "set_led", docs: [
+            "Turns the LED on or off, and returns whether it was on before.",
+        ], optional: None, meta: Some((claim: None, shares: [], labels: [], effects: (64), track: None)), identity: None),
+        (id: 3, kind: Method(args: [], return_ty: Some(Instance(type_idx: 0, args: [
+            Type(OutOfLine(type_idx: 1)),
+            Type(OutOfLine(type_idx: 2)),
+            Type(NumericAny(Base(U32))),
+            Type(OutOfLine(type_idx: 3)),
+        ])), errors: None), multiplicity: Flat, since: None, ident: "blinks", docs: [
+            "How many times the LED went from off to on since the device started.",
+        ], optional: None, meta: Some((claim: None, shares: [], labels: [], effects: (1), track: None)), identity: None),
     ], compact_id: None, meta: None), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "blinky_api", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
 ], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
     Some((line: 1, revision: 0)),
 ]))

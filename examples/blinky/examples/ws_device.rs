@@ -2,21 +2,19 @@
 //! The LED is a log line. Every 5 s the interface's addresses are read again and the record follows a change;
 //! Ctrl-C withdraws it.
 //!
-//! `cargo run -p blinky --features ws --example blinky_ws_device -- --id blinky-demo`, then from another PC on the
+//! `cargo run -p blinky --example blinky_ws_device -- --id blinky-demo`, then from another PC on the
 //! LAN: `avahi-browse -r -t _wireweaver._tcp`, and `blinky_ws --url ws://<address>:8080/ww` blinks it.
 
 use std::num::NonZeroU16;
 use std::time::Duration;
 
 use anyhow::Result;
+use blinky_device::Blinky;
 use clap::{Parser, ValueEnum};
 use futures_util::Stream;
 use tokio::net::{TcpListener, TcpStream};
 use tokio_util::compat::{Compat, TokioAsyncReadCompatExt};
-use wire_weaver::prelude::*;
-use wire_weaver::{MessageSink, WireWeaverAsyncApiBackend};
 use wire_weaver_client::in_process::TokioClock;
-use ww_device::LinkConfig;
 use ww_device::ws::{IoSocket, WsBuffers, WsConnection, ws_server};
 use ww_dns_sd::{
     Advertiser, InstanceId, InstanceName, ResponderChoice, ServiceRecord, Txt, interface_addresses,
@@ -87,16 +85,14 @@ async fn run(args: Args) -> Result<()> {
     );
 
     let conn = WsConnection::new(IoSocket::new(incoming(listener)));
-    let link_config = LinkConfig::new(
-        blinky_api::BLINKY_API_FULL_GID,
-        blinky_api::BLINKY_API_WIRE_VERSION,
-        server_impl::api_hash(),
-        server_impl::image_facts(),
-        ww_client_server::COMPACT_VERSION,
-    );
     let mut buffers = Box::new(WsBuffers::<MAX_MESSAGE_LEN>::new());
-    let mut server = ws_server(link_config, &conn, TokioClock::new(), &mut buffers);
-    let mut state = ServerState;
+    let mut server = ws_server(
+        Blinky::link_config(),
+        &conn,
+        TokioClock::new(),
+        &mut buffers,
+    );
+    let mut state = Blinky::new(Box::leak(Box::new(PrintedLed)));
     let mut check = tokio::time::interval(ADDRESS_CHECK_INTERVAL);
     loop {
         tokio::select! {
@@ -139,44 +135,11 @@ fn incoming(listener: TcpListener) -> impl Stream<Item = Compat<TcpStream>> + Un
     ))
 }
 
-struct ServerState;
+/// The LED of this device: a log line.
+struct PrintedLed;
 
-impl WireWeaverAsyncApiBackend for ServerState {
-    type Medium = ();
-
-    async fn process_bytes<'a>(
-        &mut self,
-        out: &mut EventWriter<'_, impl MessageSink>,
-        medium: (),
-        data: &[u8],
-        scratch: &'a mut [u8],
-    ) -> Result<&'a [u8], shrink_wrap::Error> {
-        self.process_request_bytes(data, scratch, out, medium).await
-    }
-
-    fn version(&self) -> FullVersion<'_> {
-        blinky_api::BLINKY_API_FULL_GID
-    }
-}
-
-mod server_impl {
-    wire_weaver::ww_codegen!(
-        blinky_api :: BlinkyApi for super::ServerState,
-        server = true, no_alloc = true, use_async = true,
-        method_model = "_=immediate",
-        property_model = "_=get_set",
-        introspect = "with_docs",
-    );
-}
-
-impl ServerState {
-    async fn led_on(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {
-        println!("LED on");
-        Ready(())
-    }
-
-    async fn led_off(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {
-        println!("LED off");
-        Ready(())
+impl blinky::Led for PrintedLed {
+    fn set(&mut self, on: bool) {
+        println!("LED {}", if on { "on" } else { "off" });
     }
 }

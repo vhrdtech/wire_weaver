@@ -39,7 +39,7 @@ embassy-usb = { version = "0.6", features = ["defmt"] }
 static_cell = "2.1"
 bedrock_led = { git = "https://github.com/romixlab/embedded_bedrock", features = ["embassy", "defmt"] }
 
-blinky_api = { path = "../../examples/blinky_api", default-features = false }
+blinky_device = { path = "../../examples/blinky_device", features = ["defmt"] }
 foc_observe_api = { path = "../../examples/foc_observe_api", default-features = false }
 power_stage_api = { path = "../../examples/power_stage_api", default-features = false }
 wire_weaver_usb_embassy = { path = "../../mcu/wire_weaver_usb_embassy" }

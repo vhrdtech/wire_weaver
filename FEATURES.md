@@ -2830,6 +2830,12 @@ Unicast Data0 to one node over the same bus is TR-6.
   `bench_supply_hub_device` (a `[[bin]]` hosting the ww hub and the device in one process, TOOL-18, SRV-29) +
   `examples/bench_supply_py` (`wire_weaver_py` of this checkout as the `wire_weaver` module, a pytest bench
   driving the device through the hub with no real hardware, `just test-bench-supply-py`).
+- ✅ **EX-25 Blinky as the book's first device**: `examples/blinky_api` has `led_on`, `led_off`,
+  `set_led(on) -> bool` and `blinks() -> Fixed<Item, One, u32>`; `examples/blinky_device` is its `no_std` server
+  written once over an `Led`, and `serve`; `examples/blinky` has the client, `blinky_sim` over WebSocket,
+  `blinky_host` and in-process tests; `examples/blinky_dyn_py` calls it from Python (`just test-blinky-py`). Every
+  firmware serving the API (`examples_mcu/nucleo_g0b1re`, `rp2`, `nucleo_h743zi2`, `usb_stm32h725ig`) uses
+  `blinky_device`, except `no_introspect`, which shows `introspect = "disabled"`.
 - 📋 **EX-6 Example without async** · `v0.5` — `ww_device::blocking::Server` exists, no example uses it.
 - 📋 **EX-7 Example with two media** · `v0.5`.
 - 📋 **EX-8 NCM WebSocket + UDP example** · `v0.5` — both media on one stack, sharing the backend.

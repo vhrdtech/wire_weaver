@@ -71,7 +71,7 @@ A host server with many clients at once, and several APIs on one port, is `wire_
 `examples_mcu/rp2` has a complete example, `ww_ws_ncm`: the board shows up on the host as a USB CDC-NCM Ethernet
 adapter, runs `embassy-net` with a static address and a small DHCP server (`edge-dhcp`), so the host is configured
 automatically, and serves the blinky API at `ws://192.168.7.1:8080/ww`. Run it with `just run rp2 ww_ws_ncm` from
-`examples_mcu/rp2`, then blink from the host with `cargo run -p blinky --features ws --example blinky_ws`.
+`examples_mcu/rp2`, then blink from the host with `cargo run -p blinky --example blinky_ws`.
 
 ## Announcing on the LAN
 
@@ -130,7 +130,7 @@ Two responders, each behind a feature of `ww_dns_sd`:
 is not seen from the LAN.
 
 `examples/blinky`'s `blinky_ws_device` serves the blinky API over WebSocket from a PC and announces it: `cargo run -p
-blinky --features ws --example blinky_ws_device -- --id blinky-demo --interface eth0`.
+blinky --example blinky_ws_device -- --id blinky-demo --interface eth0`.
 
 !!! warning "Everything announced reaches the whole LAN"
 

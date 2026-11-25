@@ -40,7 +40,7 @@ error on `batched`.
 
 The item's time is a `DeviceMicros<u32>` by default, µs since the device booted, wrapping every 71.6 minutes. A
 stream that is quiet for longer than half of that, or that has another resolution, picks its own
-[time point](../std_library/ww_si.md#which-time-point) with `batched(time = ..)` (API-61), any type the API crate
+[time point](../std_library/time_points.md#which-time-point) with `batched(time = ..)` (API-61), any type the API crate
 can name:
 
 ```rust

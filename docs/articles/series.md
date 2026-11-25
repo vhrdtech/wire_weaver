@@ -733,7 +733,7 @@ written, branchy code), more than the 1 to 1.5 first guessed, which is why the M
 A `Timed<T>` item has a time column next to its value. When this was measured its time was a `Second`, itself a
 quantity: a prefix run, a storage tag run and a value column, the same three columns as the value. So the time was
 half of the columns an encoder walks per item, and sharing one time column across a level's properties removed
-nearly half the work. (`Timed.t` is now a [time point](../std_library/ww_si.md#which-time-point), one `u32` column,
+nearly half the work. (`Timed.t` is now a [time point](../std_library/time_points.md#which-time-point), one `u32` column,
 so a `Timed<T>` costs less than below; the level batch's shared `sample_times` is still a `Series<Second>`.) On the H725, one
 `foc` level batch (21 properties, 32 samples):
 

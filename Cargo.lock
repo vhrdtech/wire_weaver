@@ -363,6 +363,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "book_outputs"
+version = "0.1.0"
+
+[[package]]
 name = "borrow-or-share"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2511,6 +2515,7 @@ checksum = "c2a86d3146ed3995b5913c414f6664344b9617457320782e64f0bb44afd49d74"
 name = "minimal_shrink_wrap"
 version = "0.6.0"
 dependencies = [
+ "book_outputs",
  "wire_weaver",
 ]
 

@@ -284,6 +284,13 @@ pre-commit:
 book-assemble:
     cargo run -q -p ww_book -- assemble
 
+# Write the book's generated outputs (docs/generated/) again: every test named `book_output*`, through the
+# book_outputs crate; a stale file fails `just test`
+[group('docs')]
+book-outputs:
+    rm -rf docs/generated
+    WW_BOOK_OUTPUTS=write cargo nextest run --workspace -E 'test(/book_output/)'
+
 # Serve the documentation locally; root is a virtual workspace, so the stamp needs --name
 [group('docs')]
 serve-docs: book-assemble

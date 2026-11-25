@@ -232,6 +232,7 @@ array_of_streams_api = { version = "0.1.0", path = "./tests/array_of_streams_api
 blinky = { version = "0.1.0", path = "./examples/blinky" }
 blinky_api = { version = "0.1.0", path = "./examples/blinky_api" }
 blinky_api_evolved = { version = "0.1.1", path = "./examples/blinky_api_evolved" }
+book_outputs = { version = "0.1.0", path = "./tests/book_outputs" }
 bounded_api = { version = "0.1.0", path = "./tests/bounded_api" }
 cfg_variants_api = { version = "0.1.0", path = "./tests/cfg_variants_api" }
 cfg_variants_narrow_api = { version = "0.1.0", path = "./tests/cfg_variants_narrow_api", default-features = false, features = ["std"] }

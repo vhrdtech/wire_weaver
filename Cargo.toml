@@ -229,6 +229,7 @@ ww_trace_context = { version = "0.1.0", path = "./ww_trace_context", default-fea
 # examples and tests, not published
 args_evolution_api = { version = "0.1.0", path = "./tests/args_evolution_api" }
 array_of_streams_api = { version = "0.1.0", path = "./tests/array_of_streams_api" }
+bench_supply_api = { version = "1.0.0", path = "./examples/bench_supply_api" }
 blinky = { version = "0.1.0", path = "./examples/blinky" }
 blinky_api = { version = "0.1.0", path = "./examples/blinky_api" }
 blinky_api_evolved = { version = "0.1.1", path = "./examples/blinky_api_evolved" }

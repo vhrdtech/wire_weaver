@@ -1,0 +1,23 @@
+[package]
+name = "bench_supply_py"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "wire_weaver_py as an extension module, built by maturin, for the bench supply example's pytest bench (EX-19)."
+
+[lib]
+crate-type = ["cdylib"]
+# a Python extension module: its tests are the pytest files beside it, `just test-bench-supply-py`
+test = false
+doctest = false
+
+[dependencies]
+pyo3.workspace = true
+wire_weaver_py.workspace = true
+
+[lints]
+workspace = true

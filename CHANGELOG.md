@@ -11,6 +11,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
+- Bench supply example: two channels with voltage and current limits, an output switch that refuses instead of overloading the simulated load, and a pytest bench through the ww hub (EX-19); see `examples/bench_supply_api`, `examples/bench_supply`, `examples/bench_supply_py`.
 - The book reads in level order: Introduction, Basic, Advanced, Nomicon, then Reference and Articles, checked by `ww-book check`, with a glossary, abbreviations and generated outputs (DOC-16); see `ww_book`, `book_outputs`.
 - Thermometer example: `thermometer_api` is the bench's line 1 at w1.0, kept equal by a test (EX-18); see `examples/thermometer_api`.
 - Wasm modules in a mount slot: a firmware loads an API compiled to wasm on wasefire-interpreter or wasmi, tested on B135B (SRV-85); see `ww_wasm`.

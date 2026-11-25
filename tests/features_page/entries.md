@@ -546,6 +546,7 @@ Working projects to start from: host programs, firmware for a few boards, and th
 - EX-14 | Counters in firmware | `cnt` counters in every probe-connected board example. | std_library/ww_counters.md
 - EX-18 | Thermometer example | A sensor device written once and run simulated on the PC, on a Nucleo G0B1RE and on a Pico 2. | examples/examples.md
 - EX-15 | Settings demo | Settings that survive a reboot, on the host and on two Nucleo boards. | api/settings.md
+- EX-19 | Bench supply example | A lab instrument with limits and errors a script can act on, tested by a pytest bench through the ww hub. | examples/examples.md
 
 # Testing
 

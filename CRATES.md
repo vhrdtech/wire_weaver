@@ -58,6 +58,9 @@ This page lists the crates of the root workspace. The first table links each pub
 | [`args_evolution_api`](tests/args_evolution_api) | runtime | API of the argument-evolution tests (EVO-22): trailing arguments with defaults and a #[flatten] struct argument |
 | [`array_of_streams`](tests/array_of_streams) | runtime | Tests array_of_streams_api's server dispatch: nested arrays of sub-traits, each with a stream and an array of streams |
 | [`array_of_streams_api`](tests/array_of_streams_api) | runtime | Test API of tests/array_of_streams: nested arrays of sub-traits, each with a stream and an array of streams |
+| [`bench_supply`](examples/bench_supply) | runtime | Client of the bench supply example device, and the device simulated on a PC, over WebSocket and over the ww hub for the pytest bench |
+| [`bench_supply_api`](examples/bench_supply_api) | runtime | API of the bench supply example device: output channels with voltage and current limits, an output switch that refuses, and the errors a script can act on |
+| [`bench_supply_py`](examples/bench_supply_py) | runtime | wire_weaver_py as an extension module, built by maturin, for the bench supply example's pytest bench (EX-19). |
 | [`blinky`](examples/blinky) | runtime | Client of the blinky example device: the project shape a host program copies |
 | [`blinky_api`](examples/blinky_api) | runtime | API of the blinky example device: an LED turned on and off |
 | [`blinky_api_evolved`](examples/blinky_api_evolved) | runtime | The blinky example API in a later version, for the evolution checks |

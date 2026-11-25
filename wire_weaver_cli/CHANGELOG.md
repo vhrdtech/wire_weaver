@@ -120,6 +120,7 @@
 
 ### 🐛 Fixes
 
+- `ww introspect` and `ww api tree` show a unitless `Fixed` as `[1..=16]`, not `[, 1..=16]`.
 - `crossterm` is a dependency on Windows only, where `util::QuitKey` reads with it.
 - `ww udev` ends with an error saying it is not implemented yet (TOOL-37), not a panic.
 

@@ -425,11 +425,19 @@ impl TreePrinter<'_> {
         // a Fixed with what its numbers are in, and its bounds (CLT-54): `Fixed<Second, Micro, u32, Unbounded> [µs]`
         match ww_quantity::fixed_of(ty, self.bundle) {
             Some(fixed) => {
+                // a dimensionless count of ones has no symbol: `[1..=16]`, or nothing without bounds
                 let bounds = &fixed.storage.bounds;
-                let unit = match bounds.is_none() {
-                    true => format!("[{}]", fixed.symbol()),
-                    false => format!("[{}, {bounds}]", fixed.symbol()),
-                };
+                let symbol = fixed.symbol();
+                let bounds = (!bounds.is_none()).then(|| bounds.to_string());
+                let parts: Vec<&str> = [Some(symbol.as_str()), bounds.as_deref()]
+                    .into_iter()
+                    .flatten()
+                    .filter(|part| !part.is_empty())
+                    .collect();
+                if parts.is_empty() {
+                    return name;
+                }
+                let unit = format!("[{}]", parts.join(", "));
                 format!("{name} {}", style(escape(&unit)).dim())
             }
             None => name,
@@ -900,6 +908,14 @@ types
         ] {
             assert!(tree.contains(line), "{line}{tree}");
         }
+
+        // a ratio of ones has no symbol: only its bounds
+        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../examples/thermometer_api");
+        let mut bundle = wire_weaver_core::load(&path, Some("Thermo".into()), false).unwrap();
+        wire_weaver_client::ww_self::generics::prepare(&mut bundle).unwrap();
+        let tree = render(&bundle, true);
+        let line = "rw property gain: Fixed<Ratio, One, u8, Range<1, 16>> [1..=16] observable\n";
+        assert!(tree.contains(line), "{line}{tree}");
     }
 
     #[test]

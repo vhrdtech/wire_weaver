@@ -159,6 +159,7 @@
 
 ### 🐛 Fixes
 
+- Text written into a `Fixed`, `Point` or coded number raises `TypeError` naming `ww.Quantity`, not its struct fields (DOC-17).
 - Decoding an enum value with a variant from a newer version (an `Unsized` enum, SW-16) gave `ValueError: unknown
   variant <unknown N>`; it now gives the string `"<unknown N>"`, as the dynamic decoder names it. Found by the
   conformance matrix (TEST-23).

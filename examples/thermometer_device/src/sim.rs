@@ -26,6 +26,8 @@ const CONVERSION: Duration = Duration::from_millis(100);
 pub struct SimBoard {
     indication: IndicationMode,
     inputs: Input,
+    /// The room keeps 21.50 °C: a reading depends only on the input.
+    still: bool,
 }
 
 impl Default for SimBoard {
@@ -33,11 +35,21 @@ impl Default for SimBoard {
         SimBoard {
             indication: IndicationMode::Normal,
             inputs: Input::bounded(4),
+            still: false,
         }
     }
 }
 
 impl SimBoard {
+    /// A board in a room that keeps 21.50 °C, so that every run reads the same temperatures at any time: for a
+    /// script whose output must not change.
+    pub fn still() -> Self {
+        SimBoard {
+            still: true,
+            ..SimBoard::default()
+        }
+    }
+
     /// What the status LED shows.
     pub fn indication(&self) -> IndicationMode {
         self.indication
@@ -70,8 +82,14 @@ impl Board for SimBoard {
     }
 
     fn read(&mut self, input: Input, gain: Gain, now: Instant) -> Reading {
+        let at = if self.still {
+            // the drift's midpoint, where the room is at ROOM
+            Instant::from_micros(DRIFT_PERIOD.as_micros() as u64 / 4)
+        } else {
+            now
+        };
         Reading {
-            temp: Self::temperature(input, now),
+            temp: Self::temperature(input, at),
             overload: gain.get() > GAIN_CLIPS_ABOVE.get(),
         }
     }

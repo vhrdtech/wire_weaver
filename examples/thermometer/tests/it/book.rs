@@ -1,6 +1,7 @@
 //! What the book shows of the thermometer, checked against `docs/generated/thermometer/`: the `ww` transcripts are
 //! the text `ww` prints, from the same device the chapters run, served in process.
 
+use thermometer::SimBoard;
 use thermometer_api::Gain;
 use tokio::sync::oneshot;
 use wire_weaver_cli::cmd::introspect::{IntrospectView, render};
@@ -15,9 +16,13 @@ async fn with_dyn_device<F: Future<Output = ()>>(path: &str, test: impl FnOnce(D
     let local = tokio::task::LocalSet::new();
     let (stop_tx, stop_rx) = oneshot::channel::<()>();
     let incoming = in_process::ws_device(path);
-    let device = local.spawn_local(thermometer::simulated(incoming, async {
-        _ = stop_rx.await;
-    }));
+    let device = local.spawn_local(thermometer::simulated(
+        SimBoard::default(),
+        incoming,
+        async {
+            _ = stop_rx.await;
+        },
+    ));
     local
         .run_until(async {
             let config = wire_weaver_client::ClientConfig::new()

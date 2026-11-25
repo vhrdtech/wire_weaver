@@ -14,6 +14,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - Blinky after a change: `blinky_api` 0.1.1 beside 0.1.0, old and new hosts and firmware in one test (DOC-17); see `examples/blinky_evolved`.
 - Book chapter Changing your API on blinky: old and new hosts and firmware, the checker's verdict, a figure (DOC-17); replaces `evolution/overview.md`.
 - Book chapter Your own project: the thermometer's crates, templates, handlers from `ww api scaffold` (DOC-17).
+- `thermometer_sim --still`: the simulated room keeps 21.50 °C, so scripts print the same temperatures every run (DOC-17).
 - Book chapter Properties on the thermometer: includes, a `ww` transcript, a Python script, a figure (DOC-17); see `examples/thermometer_py`.
 - `ww --websocket URL` and Python `connect(websocket_url=..)` reach a WebSocket device, such as a simulated one (CLT-85); see `ww_plugin`, `wire_weaver_py`.
 - Bench supply example: two channels with voltage and current limits, an output switch that refuses instead of overloading the simulated load, and a pytest bench through the ww hub (EX-19); see `examples/bench_supply_api`, `examples/bench_supply`, `examples/bench_supply_py`.

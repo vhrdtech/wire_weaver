@@ -55,15 +55,19 @@ mod api_client {
 }
 
 // --8<-- [start:simulated]
-/// Serves a thermometer on a [SimBoard] to the WebSocket clients `incoming` yields, one at a time, until `stop`
+/// Serves a thermometer on `board` to the WebSocket clients `incoming` yields, one at a time, until `stop`
 /// resolves; returns what it dropped or refused. The device's futures are not `Send`: run it on a current-thread
 /// runtime or in a `LocalSet`.
-pub async fn simulated<I, S>(incoming: I, stop: impl Future<Output = ()>) -> Counters
+pub async fn simulated<I, S>(
+    board: SimBoard,
+    incoming: I,
+    stop: impl Future<Output = ()>,
+) -> Counters
 where
     I: Stream<Item = S> + Unpin,
     S: AsyncRead + AsyncWrite + Unpin,
 {
-    let board: &'static mut SimBoard = Box::leak(Box::default());
+    let board: &'static mut SimBoard = Box::leak(Box::new(board));
     let mut device = Device::new(board);
     let conn = WsConnection::new(IoSocket::new(incoming));
     let mut buffers = Box::new(WsBuffers::<MAX_MESSAGE_LEN>::new());

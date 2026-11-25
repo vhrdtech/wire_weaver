@@ -1,5 +1,5 @@
 //! The thermometer simulated on this PC, served over WebSocket: four inputs in a room whose temperature drifts by
-//! 1 °C once a minute. Ctrl-C stops it.
+//! 1 °C once a minute, or keeps 21.50 °C with `--still`. Ctrl-C stops it.
 //!
 //! `cargo run -p thermometer --example thermometer_sim`, then in a second terminal
 //! `cargo run -p thermometer --example thermometer_read`.
@@ -15,6 +15,9 @@ struct Args {
     /// TCP port of the WebSocket server; 0 takes a free one, which the first line names
     #[arg(long, default_value_t = 8080)]
     port: u16,
+    /// The room keeps 21.50 °C, so every run reads the same temperatures
+    #[arg(long)]
+    still: bool,
 }
 
 fn main() -> Result<()> {
@@ -32,7 +35,12 @@ fn main() -> Result<()> {
         let stop = async {
             _ = tokio::signal::ctrl_c().await;
         };
-        let counters = thermometer::simulated(incoming(listener), stop).await;
+        let board = if args.still {
+            thermometer::SimBoard::still()
+        } else {
+            thermometer::SimBoard::default()
+        };
+        let counters = thermometer::simulated(board, incoming(listener), stop).await;
         println!("stopped: {counters:?}");
         Ok(())
     })

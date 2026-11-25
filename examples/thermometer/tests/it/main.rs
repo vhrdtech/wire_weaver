@@ -20,9 +20,13 @@ async fn with_device<F: Future<Output = ()>>(
     let local = tokio::task::LocalSet::new();
     let (stop_tx, stop_rx) = oneshot::channel::<()>();
     let incoming = in_process::ws_device(path);
-    let device = local.spawn_local(thermometer::simulated(incoming, async {
-        _ = stop_rx.await;
-    }));
+    let device = local.spawn_local(thermometer::simulated(
+        SimBoard::default(),
+        incoming,
+        async {
+            _ = stop_rx.await;
+        },
+    ));
     local
         .run_until(async {
             let host = Thermometer::config(|c| c.in_process_path(path.to_owned()).no_ww_usb())
@@ -156,4 +160,27 @@ fn the_simulated_room_drifts_once_a_minute() {
         SimBoard::temperature(Input::bounded(4), ww_device::Instant::from_micros(0)).raw(),
         2125
     );
+}
+
+#[test]
+fn a_still_room_keeps_its_temperature() {
+    use thermometer_device::Board;
+    let mut board = SimBoard::still();
+    for s in [0, 17, 30, 59] {
+        let now = ww_device::Instant::from_millis(s * 1000);
+        assert_eq!(
+            board
+                .read(Input::bounded(1), Gain::bounded(4), now)
+                .temp
+                .raw(),
+            2150
+        );
+        assert_eq!(
+            board
+                .read(Input::bounded(4), Gain::bounded(4), now)
+                .temp
+                .raw(),
+            2225
+        );
+    }
 }

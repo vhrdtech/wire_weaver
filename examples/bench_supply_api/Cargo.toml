@@ -1,0 +1,29 @@
+[package]
+name = "bench_supply_api"
+version = "1.0.0"
+description = "API of the bench supply example device: output channels with voltage and current limits, an output switch that refuses, and the errors a script can act on"
+publish = false
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# Wire version of the API (EVO-31): the first release.
+[package.metadata.wire_weaver]
+wire = "w1.0"
+
+[features]
+# build against std instead of no_std, with owned types
+std = ["ww_api/std", "ww_si/std"]
+
+[dependencies]
+ww_api.workspace = true
+ww_si = { workspace = true, features = ["electrical"] }
+
+[dev-dependencies]
+wire_weaver_core.workspace = true
+wire_weaver_evolution = { workspace = true, features = ["source"] }
+
+[lints]
+workspace = true

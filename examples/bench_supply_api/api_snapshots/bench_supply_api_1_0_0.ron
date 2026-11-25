@@ -1,0 +1,197 @@
+// bench_supply_api 1.0.0 traits and types, saved by `ww api save`.
+// Do not edit, bump the crate version and save a new snapshot instead.
+// shrink_wrap sha256: 1d7fca4bd76b4eb320d559e8edfd5eb2e28b538f2b6d7676272a3a60ef602123
+(magic: 2837124336, ww_self_version: (major: 0, minor: 7, patch: 0), root: (docs: [
+    "API of the bench supply example device: a lab instrument with independent output channels, each with a",
+    "voltage and current limit, and an output switch that refuses instead of overloading the load (EX-19).",
+    "",
+    "Every number carries its unit, step and bounds in its type: a limit is `Fixed<Volt, Milli, u16, Range<0,",
+    "30_000>>` or `Fixed<Ampere, Milli, u16, Range<0, 5_000>>`. On the wire each is exactly its integer.",
+], crate_idx: 0, trait_name: "bench_supply_api", items: [
+    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "BenchSupply", docs: [], optional: None, meta: None, identity: None),
+    (id: 1, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "Channel", docs: [], optional: None, meta: None, identity: None),
+], compact_id: None, meta: None), types: [
+    SkippedFullVersion(crate_idx: 1, type_name: "Fixed", signature: [
+        226,
+        246,
+        240,
+        210,
+        111,
+        5,
+        156,
+        197,
+        37,
+        238,
+        72,
+        65,
+        142,
+        141,
+        22,
+        33,
+    ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "units::Volt", signature: [
+        216,
+        18,
+        221,
+        138,
+        45,
+        140,
+        195,
+        88,
+        150,
+        173,
+        63,
+        134,
+        54,
+        13,
+        101,
+        149,
+    ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "prefix::Milli", signature: [
+        112,
+        217,
+        26,
+        155,
+        179,
+        128,
+        111,
+        205,
+        191,
+        83,
+        117,
+        121,
+        253,
+        181,
+        168,
+        53,
+    ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "Range", signature: [
+        109,
+        48,
+        40,
+        233,
+        111,
+        94,
+        195,
+        1,
+        153,
+        121,
+        110,
+        11,
+        94,
+        3,
+        242,
+        151,
+    ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "units::Ampere", signature: [
+        28,
+        55,
+        75,
+        24,
+        195,
+        21,
+        229,
+        122,
+        236,
+        33,
+        141,
+        236,
+        18,
+        72,
+        121,
+        177,
+    ]),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "One measurement at a channel\'s output terminals.",
+    ], ident: "Measurement", generics: [], fields: Named([
+        (ident: Some("voltage"), default: None, since: None, ty: Instance(type_idx: 0, args: [
+            Type(OutOfLine(type_idx: 1)),
+            Type(OutOfLine(type_idx: 2)),
+            Type(NumericAny(Base(U16))),
+            Type(Instance(type_idx: 3, args: [
+                Const(Numeric(I64(0))),
+                Const(Numeric(I64(30000))),
+            ])),
+        ]), docs: [], slot: None, series_opaque: false),
+        (ident: Some("current"), default: None, since: None, ty: Instance(type_idx: 0, args: [
+            Type(OutOfLine(type_idx: 4)),
+            Type(OutOfLine(type_idx: 2)),
+            Type(NumericAny(Base(U16))),
+            Type(Instance(type_idx: 3, args: [
+                Const(Numeric(I64(0))),
+                Const(Numeric(I64(5000))),
+            ])),
+        ]), docs: [], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [
+        "Why [Channel::set_output] refused to turn the output on.",
+    ], ident: "OutputError", generics: [], variants: [
+        (docs: [
+            "`voltage_limit` is still 0 V: nothing to turn on.",
+        ], ident: "NoVoltageSet", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "At `voltage_limit` the load would draw {would_draw}, above `current_limit`.",
+        ], ident: "OverCurrent", fields: Named([
+            (ident: Some("would_draw"), default: None, since: None, ty: Instance(type_idx: 0, args: [
+                Type(OutOfLine(type_idx: 4)),
+                Type(OutOfLine(type_idx: 2)),
+                Type(NumericAny(Base(U16))),
+                Type(Instance(type_idx: 3, args: [
+                    Const(Numeric(I64(0))),
+                    Const(Numeric(I64(5000))),
+                ])),
+            ]), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 1, since: None),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
+], traits: [
+    InLine(level: (docs: [
+        "The bench supply.",
+    ], crate_idx: 0, trait_name: "BenchSupply", items: [
+        (id: 0, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Array(index_type_idx: None), since: None, ident: "channel", docs: [
+            "The output channels, 0-based on the wire.",
+        ], optional: None, meta: None, identity: None),
+    ], compact_id: None, meta: Some((claim: None, shares: [], labels: [], effects: (2), track: None))), crate_idx: 0),
+    InLine(level: (docs: [
+        "One output channel.",
+    ], crate_idx: 0, trait_name: "Channel", items: [
+        (id: 0, kind: Property(ty: Instance(type_idx: 0, args: [
+            Type(OutOfLine(type_idx: 1)),
+            Type(OutOfLine(type_idx: 2)),
+            Type(NumericAny(Base(U16))),
+            Type(Instance(type_idx: 3, args: [
+                Const(Numeric(I64(0))),
+                Const(Numeric(I64(30000))),
+            ])),
+        ]), access: ReadWrite(observe: false), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "voltage_limit", docs: [
+            "Highest voltage the output may be set to.",
+        ], optional: None, meta: Some((claim: None, shares: [], labels: [], effects: (2), track: None)), identity: None),
+        (id: 1, kind: Property(ty: Instance(type_idx: 0, args: [
+            Type(OutOfLine(type_idx: 4)),
+            Type(OutOfLine(type_idx: 2)),
+            Type(NumericAny(Base(U16))),
+            Type(Instance(type_idx: 3, args: [
+                Const(Numeric(I64(0))),
+                Const(Numeric(I64(5000))),
+            ])),
+        ]), access: ReadWrite(observe: false), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "current_limit", docs: [
+            "Highest current the output may draw; [set_output](Channel::set_output) refuses to turn the output on",
+            "above it.",
+        ], optional: None, meta: Some((claim: None, shares: [], labels: [], effects: (2), track: None)), identity: None),
+        (id: 2, kind: Property(ty: OutOfLine(type_idx: 5), access: ReadOnly(observe: true), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "measured", docs: [
+            "What the channel measures at its output terminals; zero while the output is off.",
+        ], optional: None, meta: None, identity: None),
+        (id: 3, kind: Method(args: [
+            (ident: "on", ty: Bool, default: None, flatten: false),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 6))), errors: None), multiplicity: Flat, since: None, ident: "set_output", docs: [
+            "Turns the output on or off; refuses to turn it on, see [OutputError].",
+        ], optional: None, meta: Some((claim: None, shares: [], labels: [], effects: (2), track: None)), identity: None),
+        (id: 4, kind: Property(ty: Bool, access: ReadOnly(observe: true), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "output_on", docs: [
+            "Whether the output is on.",
+        ], optional: None, meta: None, identity: None),
+    ], compact_id: None, meta: Some((claim: None, shares: [], labels: [], effects: (2), track: None))), crate_idx: 0),
+], ext_crates: [
+    (crate_id: "bench_supply_api", version: (major: 1, minor: 0, patch: 0, pre: None, build: None)),
+    (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
+    Some((line: 1, revision: 0)),
+]))

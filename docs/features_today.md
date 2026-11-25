@@ -565,6 +565,7 @@ Working projects to start from: host programs, firmware for a few boards, and th
 - **[Counters in firmware](std_library/ww_counters.md)**: `cnt` counters in every probe-connected board example.
 - **[Thermometer example](examples/examples.md)**: A sensor device written once and run simulated on the PC, on a Nucleo G0B1RE and on a Pico 2.
 - **[Settings demo](api/settings.md)**: Settings that survive a reboot, on the host and on two Nucleo boards.
+- **[Bench supply example](examples/examples.md)**: A lab instrument with limits and errors a script can act on, tested by a pytest bench through the ww hub.
 
 <p class="ww-features__more" markdown>Details and what is planned: [Example and cases (ww_tape)](tape/features.md#example-and-cases-ex), [Examples](features.md#examples-ex) in the feature tracker.</p>
 

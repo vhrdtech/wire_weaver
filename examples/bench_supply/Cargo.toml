@@ -1,0 +1,49 @@
+[package]
+name = "bench_supply"
+version = "0.1.0"
+description = "Client of the bench supply example device, and the device simulated on a PC, over WebSocket and over the ww hub for the pytest bench"
+publish = false
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[package.metadata.cargo-machete]
+# the code ww_codegen! generates names ww_si (and exact_units through it) and ww_stream
+ignored = ["ww_si", "ww_stream"]
+
+[[bin]]
+name = "bench_supply_hub_device"
+path = "src/bin/hub_device.rs"
+
+[dependencies]
+bench_supply_api = { workspace = true, features = ["std"] }
+embassy-futures.workspace = true
+futures-util.workspace = true
+tests_common.workspace = true
+tokio = { workspace = true, features = ["sync", "rt", "time", "macros"] }
+wire_weaver.workspace = true
+wire_weaver_client = { workspace = true, features = ["in_process", "usb", "ws"] }
+ww_client_server = { workspace = true, features = ["std"] }
+ww_device = { workspace = true, features = ["futures-io"] }
+ww_hub.workspace = true
+ww_si = { workspace = true, features = ["std"] }
+ww_stream = { workspace = true, features = ["std"] }
+
+[dev-dependencies]
+anyhow.workspace = true
+clap = { workspace = true, features = ["derive"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net", "signal", "test-util"] }
+tokio-util = { workspace = true, features = ["compat"] }
+
+[[example]]
+name = "bench_supply_sim"
+path = "examples/sim.rs"
+
+[[example]]
+name = "bench_supply_bench"
+path = "examples/bench.rs"
+
+[lints]
+workspace = true

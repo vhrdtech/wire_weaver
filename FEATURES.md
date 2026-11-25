@@ -2818,6 +2818,12 @@ Unicast Data0 to one node over the same bus is TR-6.
   chip's temperature sensor on a board) and `examples/thermometer` (client, `thermometer_sim` over WebSocket,
   `thermometer_read`, tests on the in-process WebSocket with tokio's paused clock). Firmware: `thermometer` bins of
   `examples_mcu/nucleo_g0b1re` and `examples_mcu/rp2` over USB, built by `just check`; not yet run on the boards.
+- ✅ **EX-19 Bench supply example and a pytest bench**: `examples/bench_supply_api` (`channel[]: Channel`, a
+  voltage and current limit each, `measured`, `set_output` refusing with `OutputError`), `examples/bench_supply`
+  (client, server, `bench_supply_sim` over WebSocket, `bench_supply_bench`, in-process tests) and
+  `bench_supply_hub_device` (a `[[bin]]` hosting the ww hub and the device in one process, TOOL-18, SRV-29) +
+  `examples/bench_supply_py` (`wire_weaver_py` of this checkout as the `wire_weaver` module, a pytest bench
+  driving the device through the hub with no real hardware, `just test-bench-supply-py`).
 - 📋 **EX-6 Example without async** · `v0.5` — `ww_device::blocking::Server` exists, no example uses it.
 - 📋 **EX-7 Example with two media** · `v0.5`.
 - 📋 **EX-8 NCM WebSocket + UDP example** · `v0.5` — both media on one stack, sharing the backend.

@@ -1,0 +1,21 @@
+     0 ms  attempt 1 failed, next in 100 ms
+   100 ms  attempt 2 failed, next in 200 ms
+   300 ms  attempt 3 failed, next in 400 ms
+   350 ms  the board is plugged in
+   700 ms  connected
+  2000 ms  the board is reset
+  2003 ms  link lost
+  2003 ms  attempt 1 failed, next in 100 ms
+  2103 ms  attempt 2 failed, next in 200 ms
+  2250 ms  the board is plugged in
+  2303 ms  connected again, after 3 attempts
+  5000 ms  the board is unplugged
+  5003 ms  link lost
+  5003 ms  attempt 1 failed, next in 100 ms
+  5103 ms  attempt 2 failed, next in 200 ms
+  5303 ms  attempt 3 failed, next in 400 ms
+  5500 ms  a call: refused at once, Disconnected
+  5703 ms  attempt 4 failed, next in 800 ms
+  6503 ms  attempt 5 failed, next in 1600 ms
+  8000 ms  the board is plugged in
+  8103 ms  connected again, after 6 attempts

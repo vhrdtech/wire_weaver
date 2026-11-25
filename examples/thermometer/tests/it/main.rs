@@ -2,6 +2,7 @@
 //! (`wire_weaver_client::in_process::ws_device`), on tokio's paused clock, so time moves only when both ends wait.
 
 mod book;
+mod connected;
 
 use std::time::Duration;
 

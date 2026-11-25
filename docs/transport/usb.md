@@ -1,8 +1,11 @@
 ---
-level: basic
+level: advanced
 ---
 
-# USB
+# USB in depth
+
+[USB](../basic/usb.md) connects a host program to a board and shows the firmware that serves it. This page adds the
+device filters in full, a driver that `usb_init()` doesn't name, your own VID and PID, and the limits.
 
 USB is the primary transport for embedded devices: fast, always available on a dev board, and — because
 WireWeaver uses a vendor-specific interface with plain bulk or interrupt endpoints — it needs **no drivers** on
@@ -87,16 +90,6 @@ right before the closure.
 `UsbTimings` also sets the accumulation window the host and device batch messages in (1 ms for
 `fs_higher_speed()`): a request or reply waits for it at most, an urgent one (`.urgent()` on the host) not at all,
 see [latency and priority](ww_framer.md#latency-and-priority).
-
-## What you get
-
-- **Plug and play**: hot-plug is handled — a device that disappears fails outstanding requests and can be
-  re-connected without touching the rest of the application.
-- **High message rate**: many small requests and events are packed into one USB packet, so throughput is bounded
-  by bandwidth, not by packets per second. Large messages are transparently split across packets and reassembled.
-- **Full duplex**: sending and receiving never block each other on the host, so a device that is busy answering
-  cannot stall the host and vice versa (see [ww_link](ww_link.md#why-two-halves) for why this matters).
-- **Version and identity check** during link setup, before any application data flows.
 
 ## Supported MCUs
 

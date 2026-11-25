@@ -18,7 +18,7 @@ it, so read them in order. Every page in this part has the Basic [[reading level
 | [Your data on the wire](../serdes/shrink_wrap.md) | The wire format, the derive macro, and the types it supports. |
 | [A first device](../api/overview.md) | An API trait with methods, properties, streams, traits and errors, and the code generated from it. |
 | [Tools](../cli.md) | The `ww` command line tool and the Python package, used on a running device. |
-| [Getting connected](../transport/overview.md) | USB, RTT, WebSocket, UDP and byte streams, and a host that keeps trying when a device goes away. |
+| [Getting connected](transports.md) | USB, RTT, WebSocket, UDP and byte streams, and a host that keeps trying when a device goes away. |
 | [Numbers and errors](../std_library/ww_si.md) | Numbers with units, steps and bounds, dates, and the errors every API shares. |
 | [The standard library](../std_library/overview.md) | Ready-made API traits for pins, buses and the information every device reports about itself. |
 | [Keeping it working](../evolution/overview.md) | How an API changes so that old hosts and old firmware keep working. |

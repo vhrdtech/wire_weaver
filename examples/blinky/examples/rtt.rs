@@ -38,6 +38,7 @@ async fn main() -> Result<()> {
     let args = Args::parse();
 
     // default config (device's USB VID:PID) is kept, only filters after rtt(..) select the probe
+    // --8<-- [start:connect]
     let device = Blinky::config(|c| {
         let mut c = c.rtt(args.chip.clone(), args.speed_hz);
         if let Some(elf) = &args.elf {
@@ -53,6 +54,7 @@ async fn main() -> Result<()> {
     })
     .connect()
     .await?;
+    // --8<-- [end:connect]
     println!("Connected: {:?}", device.info());
 
     for _ in 0..args.blinks {

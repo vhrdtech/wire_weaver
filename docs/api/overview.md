@@ -95,7 +95,7 @@ mod server_impl {
 
 `ww api scaffold blinky_api` ([CLI](../cli_reference.md#ww-api)) prints the struct, a stub for every handler and the
 `ww_codegen!` call, so you never write handler signatures by hand. The generated server is sans-IO: a transport
-(USB, RTT, UDP, WebSocket, see [Transport protocols](../transport/overview.md)) feeds it requests; the example uses
+(USB, RTT, UDP, WebSocket, see [Choosing a transport](../basic/transports.md)) feeds it requests; the example uses
 `wire_weaver_usb_embassy`.
 
 **3. The host** (`examples/blinky`) generates a client and calls the device:

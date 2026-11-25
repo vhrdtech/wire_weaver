@@ -1,8 +1,11 @@
 ---
-level: basic
+level: advanced
 ---
 
-# RTT
+# RTT in depth
+
+[RTT](../basic/rtt.md) serves a device over a debug probe and connects to it. This page adds the framing in stream
+mode, the cost in flash and instructions, and the timing settings.
 
 RTT (SEGGER Real-Time Transfer) turns the debug probe that is already attached to a dev board into a transport:
 an _up_ channel (device → host) and a _down_ channel (host → device) are ring buffers in the device's RAM, read

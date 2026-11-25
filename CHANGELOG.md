@@ -11,6 +11,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
+- Book chapters Getting connected, 1.20 to 1.26; the transport pages become Advanced (DOC-17); see `examples/thermometer`.
 - `udp::TokioReadiness::new` serves a UDP socket on tokio without a host server (DOC-17); see `wire_weaver_server`.
 - Book chapter Properties on the thermometer: includes, a `ww` transcript, a Python script, a figure (DOC-17); see `examples/thermometer_py`.
 - `ww --websocket URL` and Python `connect(websocket_url=..)` reach a WebSocket device, such as a simulated one (CLT-85); see `ww_plugin`, `wire_weaver_py`.

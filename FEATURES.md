@@ -2921,7 +2921,11 @@ Unicast Data0 to one node over the same bus is TR-6.
   includes of marked sections of compiled sources, and shows output (a `ww` transcript, a Python run) written by a
   golden test into `docs/generated/`. Done: Basic 1.12 Properties (`docs/basic/properties.md`) on the thermometer,
   with `docs/assets/property_timeline.svg`, `examples/thermometer_py` (`just test-thermometer-py`) and
-  `examples/thermometer/tests/it/book.rs`. Missing: the other chapters of the outline.
+  `examples/thermometer/tests/it/book.rs`. Basic 1.20 to 1.26, Getting connected (`docs/basic/transports.md`, `usb.md`,
+  `udp.md`, `websocket.md`, `rtt.md`, `byte_streams.md`, `connection_loss.md`), with six hand-drawn figures, a figure
+  and transcripts from `examples/thermometer/tests/it/connected.rs`, `thermometer_connect`, `thermometer_keep_trying`
+  and `thermometer_sim --udp`; the transport pages of `docs/transport/` are the Advanced halves. Missing: the other
+  chapters of the outline.
 
 ## Testing, CI and performance (`TEST`)
 

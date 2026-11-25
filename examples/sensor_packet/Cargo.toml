@@ -1,0 +1,33 @@
+[package]
+name = "sensor_packet"
+version = "0.1.0"
+description = "A sensor node's radio packet on the wire with shrink_wrap alone: no API, no framework"
+publish = false
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# --8<-- [start:features]
+[features]
+default = ["std"]
+# the owned types (String, Vec) for a host with an allocator
+std = ["shrink_wrap/std", "ww_si/std"]
+# --8<-- [end:features]
+
+# --8<-- [start:deps]
+[dependencies]
+shrink_wrap.workspace = true
+ww_si = { workspace = true, features = ["thermal", "dimensionless"] }
+# --8<-- [end:deps]
+
+[dev-dependencies]
+book_outputs.workspace = true
+
+[[example]]
+name = "sensor_packet_radio"
+path = "examples/radio.rs"
+
+[lints]
+workspace = true

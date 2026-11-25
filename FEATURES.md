@@ -2824,6 +2824,10 @@ Unicast Data0 to one node over the same bus is TR-6.
   `bench_supply_hub_device` (a `[[bin]]` hosting the ww hub and the device in one process, TOOL-18, SRV-29) +
   `examples/bench_supply_py` (`wire_weaver_py` of this checkout as the `wire_weaver` module, a pytest bench
   driving the device through the hub with no real hardware, `just test-bench-supply-py`).
+- ✅ **EX-21 Sensor packet example**: `examples/sensor_packet`, a weather station's sensor node and its gateway on
+  `shrink_wrap` alone (no API, no framework): a `Reading` with typed numbers, a `Message` enum, the next firmware's
+  `v2` with a field and a variant more, the example `sensor_packet_radio`, and `tests/it/book.rs` writing the bytes,
+  the bit layout and the version table the Basic chapters "Your data on the wire" show.
 - 📋 **EX-6 Example without async** · `v0.5` — `ww_device::blocking::Server` exists, no example uses it.
 - 📋 **EX-7 Example with two media** · `v0.5`.
 - 📋 **EX-8 NCM WebSocket + UDP example** · `v0.5` — both media on one stack, sharing the backend.

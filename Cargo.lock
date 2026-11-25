@@ -3625,6 +3625,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sensor_packet"
+version = "0.1.0"
+dependencies = [
+ "book_outputs",
+ "shrink_wrap",
+ "ww_si",
+]
+
+[[package]]
 name = "serde"
 version = "1.0.229"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -212,6 +212,7 @@ check-examples-mcu-nucleo-g0b1re:
     @cargo check --features usb
     @cargo check --no-default-features --features nucleo_g0b1re,rtt_target
     @cargo check --no-default-features --features nucleo_g0b1re,rtt_target,settings
+    @cargo check --features thermometer
 
 [working-directory('examples_mcu/ecc_flash_g0b1')]
 check-examples-mcu-ecc-flash-g0b1:
@@ -258,6 +259,7 @@ check-examples-mcu-rp2:
     @cargo check --features usb
     @cargo check --features ws_ncm
     @cargo check --features udp_ncm
+    @cargo check --features thermometer
     @cargo check --no-default-features --features rtt_target --bin rp2_ww_rtt
 
 # No install or deploy recipe here: ww and the Python wheel are built and installed from vhrdtech/ww_tools

@@ -36,6 +36,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "atomic-waker"
+version = "1.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
+dependencies = [
+ "portable-atomic",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -135,6 +144,8 @@ dependencies = [
  "rtt-target",
  "settings_api",
  "static_cell",
+ "thermometer_api",
+ "thermometer_device",
  "wire_weaver",
  "wire_weaver_usb_embassy",
  "ww_client_server",
@@ -1506,6 +1517,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "thermometer_api"
+version = "1.0.0"
+dependencies = [
+ "ww_api",
+ "ww_si",
+]
+
+[[package]]
+name = "thermometer_device"
+version = "0.1.0"
+dependencies = [
+ "embassy-futures",
+ "shrink_wrap",
+ "thermometer_api",
+ "wire_weaver",
+ "ww_client_server",
+ "ww_device",
+ "ww_si",
+ "ww_stream",
+]
+
+[[package]]
 name = "thiserror"
 version = "2.0.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2043,6 +2076,17 @@ dependencies = [
  "tracing",
  "ww_self",
  "ww_version",
+]
+
+[[package]]
+name = "ww_stream"
+version = "0.6.0"
+dependencies = [
+ "atomic-waker",
+ "portable-atomic",
+ "wire_weaver",
+ "ww_client_server",
+ "ww_si",
 ]
 
 [[package]]

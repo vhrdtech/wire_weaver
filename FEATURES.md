@@ -2808,6 +2808,12 @@ Unicast Data0 to one node over the same bus is TR-6.
   values survive a reboot) + a `settings` bin in `examples_mcu/nucleo_g0b1re` (RTT, last 4 pages of bank 2) and
   `examples_mcu/nucleo_h743zi2` (USB, last 2 sectors of bank 2), both behind a `settings` cargo feature.
   `UserSettings` lives in `settings_api` so every implementation shares the same record shape.
+- ✅ **EX-18 Thermometer example and the simulated-device pattern**: `examples/thermometer_api` (line 1 of
+  `tests/thermo_api` at w1.0, kept equal to its 1.0.0 snapshot by `tests/same_as_thermo_bench.rs`),
+  `examples/thermometer_device` (the `no_std` server and one `serve` loop over a `Board`: `SimBoard` on the PC, the
+  chip's temperature sensor on a board) and `examples/thermometer` (client, `thermometer_sim` over WebSocket,
+  `thermometer_read`, tests on the in-process WebSocket with tokio's paused clock). Firmware: `thermometer` bins of
+  `examples_mcu/nucleo_g0b1re` and `examples_mcu/rp2` over USB, built by `just check`; not yet run on the boards.
 - 📋 **EX-6 Example without async** · `v0.5` — `ww_device::blocking::Server` exists, no example uses it.
 - 📋 **EX-7 Example with two media** · `v0.5`.
 - 📋 **EX-8 NCM WebSocket + UDP example** · `v0.5` — both media on one stack, sharing the backend.

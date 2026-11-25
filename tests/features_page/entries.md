@@ -544,6 +544,7 @@ Working projects to start from: host programs, firmware for a few boards, and th
 - EX-4 | UDP over a USB network adapter | An RP2 board and its host side. | examples/examples.md
 - EX-11 | Motor controller demo | 52 observed properties at three rates on a simulated motor, in the motor_sim repo. | examples/motor_demo.md
 - EX-14 | Counters in firmware | `cnt` counters in every probe-connected board example. | std_library/ww_counters.md
+- EX-18 | Thermometer example | A sensor device written once and run simulated on the PC, on a Nucleo G0B1RE and on a Pico 2. | examples/examples.md
 - EX-15 | Settings demo | Settings that survive a reboot, on the host and on two Nucleo boards. | api/settings.md
 
 # Testing

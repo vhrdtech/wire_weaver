@@ -7,6 +7,8 @@ increasing complexity:
 * `minimal_shrink_wrap` - using the ShrinkWrap wire format directly
 * `compare_wire_formats` - wire size of ShrinkWrap compared with other formats
 * `blinky_api`, `blinky` - the smallest API with two methods, and its client; start here
+* `thermometer_api`, `thermometer_device`, `thermometer` - a sensor device written once: simulated on the PC over
+  WebSocket, and firmware for the Nucleo G0B1RE and the Pico 2 (`examples_mcu`)
 * `blinky_api_evolved`, `blinky_evolved` - the same API evolved with a new method, used with old firmware
 * `blinky_py` - Python wheel wrapping the `blinky` client
 * `all_gpio_api`, `all_gpio` - arrays of traits from the standard library (`ww_gpio`)

@@ -30,7 +30,7 @@ the value. Here is the thermometer's root trait, with `mode` and `gain` in the m
 
 The access is one of three keywords. `rw` lets a host read and write the value, `ro` lets it only read, and `wo` lets
 it only write. Both of the thermometer's properties are `rw`. The `+observe` after `gain`'s access lets a host
-[[observe]] the value instead of reading it again and again, as [Observing properties](../api/observing.md)
+[[observe]] the value instead of reading it again and again, as [Watching a value](observing.md)
 explains.
 
 | Access | A host can                | Typical use                                      |
@@ -59,8 +59,8 @@ and every variant is a state the sampler can be in:
 
 `Fixed<Ratio, One, u8, Range<1, 16>>` is a `u8` on the wire, one byte, with its meaning in the type. `Ratio` and `One`
 say that the number has no unit and counts in steps of one. `Range<1, 16>` gives its [[bounds]]: the smallest and
-the largest value the device accepts, both included. Numbers with units and steps are the subject of
-[Numbers that know their unit](../std_library/ww_si.md); this chapter needs only the bounds.
+the largest value the device accepts, both included, as [Numbers that know their unit](units.md) explains for the
+thermometer's rate.
 
 Bounds are checked every time a value is built or decoded. A value outside them can't be made in Rust, and the
 device refuses one that arrives from the wire before your code runs. [The figure](#a-read-a-write-and-a-refused-write)
@@ -132,8 +132,7 @@ cargo run -p thermometer --example thermometer_read
 ```
 
 After one sample it prints the lines of this section: `mode: Idle`, `gain: 8` and
-`refused: 20 is out of 1..=16 (Ratio, u8)`. Then it goes on to the stream and the observed gain of later
-chapters.
+`refused: 20 is out of 1..=16 (Ratio, u8)`.
 
 ## From the command line
 
@@ -180,7 +179,7 @@ The gain stays at 8 after the refused write: the device never saw 20.
 
 ## Where to go next
 
-- [Observing properties](../api/observing.md) sends a property's new values to the host as they change, as `gain`
-  allows with `+observe`.
+- [Watching a value](observing.md) sends a property's new values to the host as they change, as `gain` allows
+  with `+observe`.
 - [Properties in depth](../api/properties.md) covers the rest: a property served as a plain field, errors of a
   property's own, `const` items, and the host's timeouts and promises.

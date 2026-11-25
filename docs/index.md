@@ -44,7 +44,7 @@ Pages are marked by how deep they go: Basic, Advanced or Nomicon. See [reading l
     Define and call methods with any number of arguments and return type.
     Call using blocking, async or promise interface.
 
--   :material-relation-one-to-zero-or-one: __[Streams](api/streams.md)__
+-   :material-relation-one-to-zero-or-one: __[Streams](basic/streams.md)__
 
     ---
     Stream data of any type, observe [property](basic/properties.md) changes. Both to and from device.

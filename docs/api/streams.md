@@ -1,11 +1,13 @@
 ---
-level: basic
+level: advanced
 ---
 
-# Streams
+# Streams in depth
 
-A stream carries a sequence of values in one direction. Naming is from the device's point of view: a **stream** goes
-out of the device to the host (`stream!`), a **sink** goes into the device from the host (`sink!`).
+[Streams and sinks](../basic/streams.md) streams the thermometer's samples and sends it commands. This page covers
+the rest: byte streams, streams that count or resend their items, stream functions with arguments and a result, the
+handlers and host handles in full, flow control for each kind, and arrays of streams. A stream goes out of the device
+to the host (`stream!`), a sink goes into the device from the host (`sink!`).
 
 ```rust
 #[ww_trait]

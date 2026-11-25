@@ -5,7 +5,8 @@ level: advanced
 # Observing properties
 
 Observing (API-38) is how a host gets a device's fast-changing values without polling: it asks once, and the
-device sends updates on its own, at the rates the host picked, within a byte budget.
+device sends updates on its own, at the rates the host picked, within a byte budget. [Watching a
+value](../basic/observing.md) observes the thermometer's gain; this page covers the rest.
 
 ## The concept
 

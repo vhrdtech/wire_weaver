@@ -51,6 +51,7 @@ async fn book_output_introspect() {
     .await;
 }
 
+// --8<-- [start:gain_bounds]
 /// A value outside a property's bounds never reaches its handler: the device refuses the bytes when it decodes them.
 /// The typed client can't even build one (`Gain::try_new(20)` fails), so the test writes the bytes itself.
 #[tokio::test(start_paused = true)]
@@ -91,3 +92,4 @@ async fn the_device_refuses_a_gain_out_of_bounds() {
     })
     .await;
 }
+// --8<-- [end:gain_bounds]

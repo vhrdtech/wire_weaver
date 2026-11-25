@@ -413,6 +413,7 @@ pymdownx.tilde = {}
 "vhrd_zensical.glossary" = {}
 # RTT, DFU and every abbreviation of docs/abbreviations.toml: its long form on hover, through `abbr` above
 "vhrd_zensical.abbreviations" = {}
-# [`Name`], [`file.rs`], [`file.rs:section`]: an item or file of these crates, its code on hover, its lines on
-# GitHub on click; a name that matches nothing fails the build
-"vhrd_zensical.code_refs" = { crates = ["wire_weaver", "wire_weaver_core", "wire_weaver_derive", "ww_api", "wire_weaver_client", "wire_weaver_cli", "wire_weaver_evolution"], on_crates_io = ["wire_weaver", "wire_weaver_core", "wire_weaver_derive"], sources = "target/vz/sources.toml" }
+# [`Name`], [`file.rs`], [`file.rs:section`]: an item of these crates or any file git tracks, its code on hover,
+# its lines on GitHub on click; a name that matches nothing fails the build. The crates are the framework's and
+# the book's examples' (the thermometer's three)
+"vhrd_zensical.code_refs" = { crates = ["wire_weaver", "wire_weaver_core", "wire_weaver_derive", "ww_api", "wire_weaver_client", "wire_weaver_cli", "wire_weaver_evolution", "thermometer_api", "thermometer_device", "thermometer"], on_crates_io = ["wire_weaver", "wire_weaver_core", "wire_weaver_derive"], sources = "target/vz/sources.toml" }

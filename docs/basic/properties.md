@@ -9,8 +9,9 @@ A [[property]] is a value of a device that a host reads, writes or both. The the
 them on the device, and reads and writes them from Rust, from the command line and from Python. It also shows how a
 property's type refuses a bad value before your code ever sees it.
 
-The chapter uses the thermometer example: `thermometer_api` holds the API, `thermometer_device` the device code, and
-`thermometer` the host program and a device simulated on your PC. Start the simulated device in a terminal of its
+The chapter uses the thermometer example in three crates. `thermometer_api` holds the API in
+[`examples/thermometer_api/src/lib.rs`], `thermometer_device` the device code in
+[`examples/thermometer_device/src/lib.rs`], and `thermometer` the host programs and a device simulated on your PC. Start the simulated device in a terminal of its
 own, and leave it running while you read:
 
 ```sh
@@ -22,7 +23,7 @@ It prints `thermometer at ws://127.0.0.1:8080/ww`, the address the host programs
 ## Declaring a property
 
 A property is one line of an [[API trait]]: `property!(ACCESS name: Type)`. The access says what a host may do with
-the value. Here is the thermometer's root trait, with `mode` and `gain` in the middle:
+the value. Here is the thermometer's root trait, `Thermo`, with `mode` and `gain` in the middle:
 
 ```rust
 --8<-- "examples/thermometer_api/src/lib.rs:root"
@@ -51,7 +52,7 @@ and every variant is a state the sampler can be in:
 --8<-- "examples/thermometer_api/src/lib.rs:mode"
 ```
 
-`gain` is a number from 1 to 16. Its type says so, and the API crate names that type `Gain`:
+`gain` is a number from 1 to 16. Its type says so, and the API crate names that type [`Gain`]:
 
 ```rust
 --8<-- "examples/thermometer_api/src/lib.rs:gain"
@@ -82,8 +83,8 @@ The handlers of `mode` keep the value in the device's state and start or stop th
 --8<-- "examples/thermometer_device/src/lib.rs:mode"
 ```
 
-A read handler returns a `GetResult`. `GetResult::Value(v)` answers the read with `v`, and `GetResult::GetError(e)`
-answers it with an error. A write handler gets the new value and returns a `SetResult`: `SetResult::Set` confirms
+A read handler returns a [`GetResult`]. `GetResult::Value(v)` answers the read with `v`, and `GetResult::GetError(e)`
+answers it with an error. A write handler gets the new value and returns a [`SetResult`]: `SetResult::Set` confirms
 the write, and `SetResult::SetError(e)` refuses it. The `Mode::Unknown(_)` arm is a variant that a newer host knows
 and this firmware doesn't; the sampler then stops.
 
@@ -109,12 +110,12 @@ request, then calls the handler with the value.
 
 Step 3 only happens when the bytes come from a program that doesn't know the bounds, such as a tool written for
 another firmware. The clients WireWeaver generates know them, so they refuse 20 before anything is sent. The test
-`the_device_refuses_a_gain_out_of_bounds` in `examples/thermometer/tests/it/book.rs` writes the bytes of 20 by hand
-to check step 3.
+`the_device_refuses_a_gain_out_of_bounds` in [`examples/thermometer/tests/it/book.rs:gain_bounds`] writes the bytes
+of 20 by hand to check step 3.
 
 ## Reading and writing from Rust
 
-The host program in `examples/thermometer/examples/read.rs` holds a generated [[client]] of the API. For every
+The host program in [`examples/thermometer/examples/read.rs`] holds a generated [[client]] of the API. For every
 property it has `read_NAME()` and, when the access allows, `write_NAME(value)`. Each call is prepared first and then
 sent, here with `.await`:
 
@@ -141,7 +142,7 @@ The [`ww` command line tool](../cli.md) reads a device's API from the device its
 connects it to the simulated thermometer instead of a USB device, and `introspect -d` prints the API without its
 doc comments:
 
-```text
+```ww
 --8<-- "docs/generated/thermometer/introspect.txt"
 ```
 
@@ -170,9 +171,9 @@ Python checks bounds as the Rust client does. Writing 20 raises a `ValueError` b
 --8<-- "examples/thermometer_py/properties.py:gain"
 ```
 
-The whole script is `examples/thermometer_py/properties.py`. With the simulated device running, it prints:
+The whole script is [`examples/thermometer_py/properties.py`]. With the simulated device running, it prints:
 
-```text
+```console
 --8<-- "docs/generated/thermometer/properties_py.txt"
 ```
 

@@ -306,8 +306,8 @@ the rules for [unsized types](#unsized-types) (EVO-22, [methods](../api/methods.
   `String` arguments at the end have their natural default (`None`, empty) without an attribute, any other type needs
   `#[default = expr]`. Removing a trailing argument that has a default is wire-compatible the same way.
 * **Adding an argument without a default** (or before others) breaks the wire: a device of the newer version can't
-  read a call from an older client. The checker names it: ``argument `brightness` is not sent by the old version and
-  has no #[default]``.
+  read a call from an older client. The checker names it: argument `brightness` is not sent by the old version and
+  has no `#[default]`.
 * **Promoting arguments to a `#[flatten]` struct** (`fn f(a: u8, b: u16)` to `fn f(#[flatten] c: C)` with
   `struct C { a: u8, b: u16 }`) keeps every byte. The struct then grows by its own rules: fields appended with
   `#[default]`.

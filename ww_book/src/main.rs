@@ -29,6 +29,11 @@ fn main() -> Result<()> {
             source.source.into.display()
         );
     }
-    println!("{} files written", written.len());
+    let sources_file = ww_book::write_sources_file(&root, &sources)?;
+    println!(
+        "{} files written, code sources in {}",
+        written.len(),
+        sources_file.display()
+    );
     Ok(())
 }

@@ -103,6 +103,10 @@ pub struct Located {
 /// A source's repository at the commit the book takes, for the tracker's links to files that are not pages.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Repository {
+    /// The repository's address, `.git` and a trailing `/` dropped: `https://github.com/owner/repo`
+    pub url: String,
+    /// The full hash of the commit
+    pub commit: String,
     /// URL of the repository's files at the commit, a path to follow: `https://github.com/owner/repo/blob/<commit>`
     pub files: String,
     /// The repository's root on disk
@@ -115,6 +119,8 @@ impl Repository {
         let url = url.trim_end_matches('/');
         let url = url.strip_suffix(".git").unwrap_or(url);
         Self {
+            url: url.to_owned(),
+            commit: commit.to_owned(),
             files: format!("{url}/blob/{commit}"),
             root,
         }
@@ -384,6 +390,61 @@ pub fn find_page(root: &Path, sources: &[Located], page: &Path) -> Option<PathBu
         let path = located.pages_dir().join(rest);
         path.is_file().then_some(path)
     })
+}
+
+/// Where [write_sources_file] writes, relative to the repository root: what the code link extension's `sources`
+/// setting in `zensical.toml` names.
+pub const CODE_SOURCES_FILE: &str = "target/vz/sources.toml";
+
+/// Writes `root/`[CODE_SOURCES_FILE]: the repositories the book copied pages from, for the book kit's code links
+/// (a link on a copied page resolves against its repository). Lists the sources that have a repository and pages
+/// (the tracker's page counts), each page as a path under `docs/`.
+pub fn write_sources_file(root: &Path, sources: &[Located]) -> Result<PathBuf> {
+    let mut text = String::from(
+        "# Written by ww-book assemble: the repositories the book copies pages from (vhrd_zensical sources file)\nformat = 1\n",
+    );
+    for located in sources {
+        let Some(repository) = &located.repository else {
+            continue;
+        };
+        let mut pages = if located.source.book.is_some() {
+            vec![]
+        } else {
+            self::pages(located)?
+        };
+        if located.source.features.is_some() {
+            pages.push(located.source.tracker_page().to_owned());
+        }
+        if pages.is_empty() {
+            continue;
+        }
+        let into = located.source.into.to_string_lossy().replace('\\', "/");
+        let root_dir = fs::canonicalize(&repository.root)
+            .with_context(|| format!("resolving {}", repository.root.display()))?;
+        text.push_str("\n[[source]]\n");
+        text.push_str(&format!("name = {}\n", toml_string(located.source.name())));
+        text.push_str(&format!(
+            "root = {}\n",
+            toml_string(&root_dir.to_string_lossy())
+        ));
+        text.push_str(&format!("repository = {}\n", toml_string(&repository.url)));
+        text.push_str(&format!("commit = {}\n", toml_string(&repository.commit)));
+        let pages: Vec<String> = pages
+            .iter()
+            .map(|page| toml_string(&format!("{into}/{page}")))
+            .collect();
+        text.push_str(&format!("pages = [{}]\n", pages.join(", ")));
+    }
+    let path = root.join(CODE_SOURCES_FILE);
+    if let Some(dir) = path.parent() {
+        fs::create_dir_all(dir).with_context(|| format!("creating {}", dir.display()))?;
+    }
+    fs::write(&path, text).with_context(|| format!("writing {}", path.display()))?;
+    Ok(path)
+}
+
+fn toml_string(value: &str) -> String {
+    format!("\"{}\"", value.replace('\\', "\\\\").replace('"', "\\\""))
 }
 
 /// Name of the `.gitignore` each target directory gets.
@@ -988,5 +1049,46 @@ mod tests {
         fs::remove_dir_all(&dir).unwrap();
         assert_eq!(found, Some(dir.join("other/fmt/../docs/wire.md")));
         assert_eq!(missing, None);
+    }
+
+    #[test]
+    fn sources_file_lists_repositories_with_their_pages() {
+        let dir = scratch("code_sources");
+        fs::create_dir_all(dir.join("other/docs")).unwrap();
+        fs::create_dir_all(dir.join("other/fmt")).unwrap();
+        fs::write(dir.join("other/.cargo-ok"), "").unwrap();
+        fs::write(dir.join("other/docs/wire.md"), "# Wire\n").unwrap();
+        fs::write(dir.join("other/FEATURES.md"), "tracker\n").unwrap();
+        let root = dir.join("book");
+        fs::create_dir_all(root.join("docs")).unwrap();
+        let mut source = located(&dir.join("other"));
+        let commit = "0123456789abcdef0123456789abcdef01234567";
+        source.repository = Repository::of_package(
+            &format!("git+https://github.com/o/fmt.git?branch=main#{commit}"),
+            &source.dir,
+        );
+        let mut own = located(&dir.join("other"));
+        own.repository = None;
+        own.source.name = Some("own".to_owned());
+        let path = write_sources_file(&root, &[source, own]).unwrap();
+        let text = fs::read_to_string(&path).unwrap();
+        let checkout = fs::canonicalize(dir.join("other")).unwrap();
+        fs::remove_dir_all(&dir).unwrap();
+        assert!(path.ends_with(CODE_SOURCES_FILE));
+        assert_eq!(
+            text.lines()
+                .filter(|l| !l.starts_with('#'))
+                .collect::<Vec<_>>(),
+            [
+                "format = 1",
+                "",
+                "[[source]]",
+                "name = \"fmt\"",
+                &format!("root = \"{}\"", checkout.display()),
+                "repository = \"https://github.com/o/fmt\"",
+                &format!("commit = \"{commit}\""),
+                "pages = [\"serdes/wire.md\", \"serdes/features.md\"]",
+            ]
+        );
     }
 }

@@ -233,8 +233,11 @@ nav = [
 # WireWeaver syntax highlighting on top of the Pygments-highlighted ```rust blocks (DOC-11): ww_highlight.js, its
 # CSS and ww_tokens.json (fetched by the script itself) are vendored from ww_lsp's `ww_highlight` crate, checked by
 # tests/docs_highlight.
-extra_css = ["stylesheets/vhrd.css", "stylesheets/ww_highlight.css"]
-extra_javascript = ["javascripts/ww_highlight.js"]
+# vz-refs.css and vz-refs.js: the cards of code links; vz-code.css: the code colours; all three written by
+# `vz prep` (`just build-docs`), not in git. javascripts/vz-stamp-age.js: the footer stamp's age script, also
+# `vz prep`'s.
+extra_css = ["stylesheets/vhrd.css", "stylesheets/ww_highlight.css", "stylesheets/vz-refs.css", "stylesheets/vz-code.css"]
+extra_javascript = ["javascripts/ww_highlight.js", "javascripts/vz-refs.js", "javascripts/vz-stamp-age.js"]
 
 [project.theme]
 # variant = "classic"
@@ -338,6 +341,10 @@ pymdownx.highlight = {
   anchor_linenums = true,
   line_spans = "__span",
   pygments_lang_class = true,
+  extend_pygments_lang = [
+    { name = "console", lang = "vz-console" },
+    { name = "rust", lang = "vz-rust" },
+  ],
 }
 pymdownx.inlinehilite = {}
 pymdownx.keys = {}
@@ -376,3 +383,6 @@ pymdownx.tasklist = {
   custom_checkbox = true
 }
 pymdownx.tilde = {}
+# [`Name`], [`file.rs`], [`file.rs:section`]: an item or file of these crates, its code on hover, its lines on
+# GitHub on click; a name that matches nothing fails the build
+"vhrd_zensical.code_refs" = { crates = ["wire_weaver", "wire_weaver_core", "wire_weaver_derive", "ww_api", "wire_weaver_client", "wire_weaver_cli", "wire_weaver_evolution"], on_crates_io = ["wire_weaver", "wire_weaver_core", "wire_weaver_derive"], sources = "target/vz/sources.toml" }

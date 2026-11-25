@@ -75,7 +75,7 @@ jobs:
           tool: just,cargo-deny,cargo-machete,typos,taplo-cli,cargo-semver-checks
       # a released spl, so a lint added there reaches this job with the commit that moves the tag;
       # its own build warnings are not this repository's (setup-rust-toolchain denies them by default)
-      - run: cargo install --locked --git https://github.com/romixlab/spirit_level --tag v0.6.0 spirit_level_cli
+      - run: cargo install --locked --git https://github.com/romixlab/spirit_level --tag v0.9.1 spirit_level_cli
         env:
           CARGO_BUILD_WARNINGS: warn
       # the assembled book pages first, so the link and nav lints see them

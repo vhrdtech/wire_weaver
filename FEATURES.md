@@ -2871,7 +2871,7 @@ Unicast Data0 to one node over the same bus is TR-6.
   / US customary with the ambiguity table, kinds, exactness and rounding rules, and what is out of scope on purpose; links STD-78's "Storing units" page.
 - ✅ **DOC-11 WireWeaver syntax highlighting in the docs**: `docs/javascripts/ww_highlight.js`, loaded through
   `extra_javascript` and run on every page via Zensical's `document$` observable, adds classes to WireWeaver tokens
-  inside the already-Pygments-highlighted ` ```rust ` blocks: `property!`/`method!`/`stream!`/`sink!` and their
+  inside the already-Pygments-highlighted <code>&#96;&#96;&#96;rust</code> blocks: `property!`/`method!`/`stream!`/`sink!` and their
   `ro`/`rw`/`wo`/`observe`/`batched` access modes, WireWeaver attributes, and exact_units' unit, prefix, origin,
   alias and wrapper names. No Pygments plugin and no Python at build time (Zensical is moving its own highlighting to
   Rust). ww_lsp owns the script, its CSS (`docs/stylesheets/ww_highlight.css`) and the token lists
@@ -2883,6 +2883,14 @@ Unicast Data0 to one node over the same bus is TR-6.
   and link there, and no book includes another. `book_sources.toml` gives ww_tape a `book` URL: `ww-book assemble`
   copies only its feature tracker, whose links point into the ww_tape book, and `entries.md` may link an
   `https://` page of such a book, so the Features page keeps its Tape items.
+- ✅ **DOC-13 The book on the `vhrd_zensical` kit**: one pin in the justfile
+  (one `kit` pin in the justfile), the footer build stamp (`vz stamp`, `overrides/partials/copyright.html`
+  includes `partials/vz-stamp.html`), the `vz-console`/`vz-rust` Pygments lexers over the `console`/`rust` fences
+  (`pymdownx.highlight.extend_pygments_lang`), `vz-code.css` beside `ww_highlight.css`, and `vhrd_zensical.code_refs`
+  for the main crates (`wire_weaver`, `wire_weaver_core`, `wire_weaver_derive`, `ww_api`, `wire_weaver_client`,
+  `wire_weaver_cli`, `wire_weaver_evolution`). `serve-docs` and `build-docs` run `vz serve`/`vz build --name
+  wire_weaver` (the root is a virtual workspace) after `book-assemble`; `build-docs-strict` adds `-- --strict`. No
+  glossary or abbreviations file: this book has neither.
 
 ## Testing, CI and performance (`TEST`)
 

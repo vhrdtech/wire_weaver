@@ -14,6 +14,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - Wasm modules in a mount slot: a firmware loads an API compiled to wasm on wasefire-interpreter or wasmi, tested on B135B (SRV-85); see `ww_wasm`.
 - Global trait paths reach a firmware's in-process modules, no heap (SRV-82); see `ww_device`, `wire_weaver`, `ww_self`, `ww_client_server`, `wire_weaver_core`.
 - Async `no_alloc` servers observe getters borrowing from the server, like two mount presences (SRV-83); see `wire_weaver_core`, `ww_stream`.
+- The docs site moves onto the `vhrd_zensical` book kit (DOC-13): one kit pin, `vz build`/`vz serve`, a footer build stamp, the `vz-console`/`vz-rust` lexers, and code-link cards for the main crates; code links on copied ww_stdlib, ww_base and shrink_wrap pages resolve against their repositories (`target/vz/sources.toml`, written by `ww_book`).
 - Mount slots served in process: a firmware serves a slot from a wasm or linked module, checked, no heap (SRV-81); see `ww_device`, `ww_self`, `ww_client_server`, `wire_weaver_core`.
 - Decoding an `Event` on an MCU takes 520 B of stack, was 6.6 KB, via shrink_wrap SW-87; see `ww_client_server`.
 - Mount prefix rewrite without a heap: firmware forwards through a fixed-capacity path, same bytes as hosts (SRV-80); see `ww_client_server`.

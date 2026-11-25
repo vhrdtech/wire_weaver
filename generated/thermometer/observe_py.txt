@@ -1,0 +1,5 @@
+$ python observe.py
+observable: {'gain': 'Fixed<Ratio, One, u8, Range<1, 16>>'}
+update: {'gain': Quantity(4 u8)}
+update: {'gain': Quantity(16 u8)}
+update: {'gain': Quantity(8 u8)}

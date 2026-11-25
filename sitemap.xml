@@ -121,7 +121,22 @@
         <loc>https://ww.vhrd.tech/basic/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/basic/channels/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/basic/observing/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/basic/properties/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/basic/streams/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/basic/temperatures/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/basic/units/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/c/</loc>
@@ -169,13 +184,16 @@
         <loc>https://ww.vhrd.tech/examples/motor_demo/</loc>
       </url>
       <url>
-        <loc>https://ww.vhrd.tech/examples/wire_sizes/</loc>
-      </url>
-      <url>
         <loc>https://ww.vhrd.tech/features/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/features_today/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/generated/thermometer/rate_bits/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/generated/thermometer/u16_bits/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/glossary/</loc>

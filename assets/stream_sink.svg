@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="300" viewBox="0 0 720 300" font-family="Helvetica, Arial, sans-serif" font-size="13">
+  <title>The thermometer's stream and sink</title>
+  <desc>The host program at the top, the device at the bottom. On the left, the host opens the samples stream with a call the device answers; then samples flow up from the device, one event each, with nothing coming back. On the right, commands flow down the sink, one write each, with no reply.</desc>
+  <defs>
+    <marker id="ss-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#222"/>
+    </marker>
+    <marker id="ss-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#b03a2e"/>
+    </marker>
+    <marker id="ss-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#1f5f99"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="720" height="300" rx="10" fill="#ffffff"/>
+
+  <g text-anchor="middle" font-weight="bold" fill="#222">
+    <rect x="40" y="20" width="640" height="40" rx="6" fill="#eef2f7" stroke="#222"/>
+    <text x="360" y="45">Host program</text>
+    <rect x="40" y="240" width="640" height="40" rx="6" fill="#eef2f7" stroke="#222"/>
+    <text x="360" y="265">Device</text>
+  </g>
+
+  <!-- opening the stream: a call with a reply -->
+  <line x1="90" y1="64" x2="90" y2="236" stroke="#222" marker-end="url(#ss-arrow)"/>
+  <line x1="120" y1="236" x2="120" y2="64" stroke="#222" stroke-dasharray="6 4" marker-end="url(#ss-arrow)"/>
+  <g fill="#222" font-size="12">
+    <text x="84" y="150" text-anchor="end" transform="rotate(-90 84 150)">samples().call()</text>
+    <text x="136" y="150" text-anchor="middle" transform="rotate(-90 136 150)">Ready(())</text>
+  </g>
+
+  <!-- samples up -->
+  <g stroke="#b03a2e" stroke-width="2">
+    <line x1="180" y1="236" x2="180" y2="64" marker-end="url(#ss-red)"/>
+    <line x1="210" y1="236" x2="210" y2="64" marker-end="url(#ss-red)"/>
+    <line x1="240" y1="236" x2="240" y2="64" marker-end="url(#ss-red)"/>
+    <line x1="270" y1="236" x2="270" y2="64" marker-end="url(#ss-red)"/>
+  </g>
+  <g fill="#b03a2e" text-anchor="start">
+    <text x="290" y="130" font-weight="bold">stream samples</text>
+    <text x="290" y="150">one event per Sample</text>
+    <text x="290" y="170">nothing comes back</text>
+  </g>
+
+  <!-- commands down -->
+  <g stroke="#1f5f99" stroke-width="2">
+    <line x1="600" y1="64" x2="600" y2="236" marker-end="url(#ss-blue)"/>
+    <line x1="650" y1="64" x2="650" y2="236" marker-end="url(#ss-blue)"/>
+  </g>
+  <g fill="#1f5f99" text-anchor="end">
+    <text x="585" y="130" font-weight="bold">sink commands</text>
+    <text x="585" y="150">one write per Command</text>
+    <text x="585" y="170">no reply</text>
+  </g>
+  <g fill="#1f5f99" font-size="12">
+    <text x="606" y="100">Mark</text>
+    <text x="656" y="100">Trigger</text>
+  </g>
+</svg>

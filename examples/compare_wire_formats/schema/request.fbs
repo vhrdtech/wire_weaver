@@ -1,6 +1,6 @@
 // FlatBuffers schema for the Request example of compare_wire_formats (EX-20).
-// Regenerate src/request_generated.rs with:
-//   planus rust -o src/request_generated.rs schema/request.fbs
+// Regenerate src/fbs_request.rs with:
+//   planus rust -o src/fbs_request.rs schema/request.fbs
 // (cargo install planus-cli)
 
 namespace wire_sizes;

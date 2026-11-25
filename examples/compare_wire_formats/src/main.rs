@@ -4,8 +4,8 @@ use std::fmt::Write as _;
 use wire_weaver::prelude::*;
 
 #[allow(dead_code)]
-// the request_generated::wire_sizes::*Builder types, unused: we build the owned structs directly
-mod request_generated;
+// the fbs_request::wire_sizes::*Builder types, unused: we build the owned structs directly
+mod fbs_request;
 
 #[derive_shrink_wrap(derive(Serialize))]
 struct RequestOwned {
@@ -266,15 +266,15 @@ fn main() {
         evolution: Evolution::SchemaRules,
     });
 
-    let fb_req = request_generated::wire_sizes::Request {
+    let fb_req = fbs_request::wire_sizes::Request {
         seq: 1234,
-        path_kind: Some(request_generated::wire_sizes::PathKind::AbsolutePath(
-            Box::new(request_generated::wire_sizes::AbsolutePath {
+        path_kind: Some(fbs_request::wire_sizes::PathKind::AbsolutePath(
+            Box::new(fbs_request::wire_sizes::AbsolutePath {
                 path: Some(vec![0, 1, 2]),
             }),
         )),
-        request_kind: Some(request_generated::wire_sizes::RequestKind::CallArgs(
-            Box::new(request_generated::wire_sizes::CallArgs {
+        request_kind: Some(fbs_request::wire_sizes::RequestKind::CallArgs(
+            Box::new(fbs_request::wire_sizes::CallArgs {
                 args: Some(vec![0xAA, 0xBB, 0xCC]),
             }),
         )),

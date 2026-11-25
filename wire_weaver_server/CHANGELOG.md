@@ -4,6 +4,7 @@
 
 ### 🚀 Features
 
+- `udp::TokioReadiness::new` watches a UDP socket for a program that serves it itself (DOC-17).
 - The authorization hook sees items and effects below a mount slot, from the backend's learned API (SRV-79).
 - `Server::trust_forwarders`: take a trusted forwarder's word on which client a request is from (SRV-79).
 - `mount::Mounts`, `Forwarder`, `Connect`, `LocalSocket`: mount slots forward to backend processes, a link per front connection (SRV-78).

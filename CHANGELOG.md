@@ -11,6 +11,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
+- `udp::TokioReadiness::new` serves a UDP socket on tokio without a host server (DOC-17); see `wire_weaver_server`.
 - Book chapter Properties on the thermometer: includes, a `ww` transcript, a Python script, a figure (DOC-17); see `examples/thermometer_py`.
 - `ww --websocket URL` and Python `connect(websocket_url=..)` reach a WebSocket device, such as a simulated one (CLT-85); see `ww_plugin`, `wire_weaver_py`.
 - Bench supply example: two channels with voltage and current limits, an output switch that refuses instead of overloading the simulated load, and a pytest bench through the ww hub (EX-19); see `examples/bench_supply_api`, `examples/bench_supply`, `examples/bench_supply_py`.

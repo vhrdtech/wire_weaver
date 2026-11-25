@@ -1021,7 +1021,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../api/properties/" class="md-nav__link">
+      <a href="../basic/properties/" class="md-nav__link">
         
   
   
@@ -2942,6 +2942,8 @@
       
         
       
+        
+      
     
     
     
@@ -2985,6 +2987,33 @@
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/properties/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Properties in depth
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
               
                 
                   
@@ -6923,7 +6952,8 @@ the module is a thin wrapper around the dynamic client in <code>wire_weaver_clie
 <p>It is meant for debugging, quick tests and scripts: connect, look at what the device offers, call it. For a
 typed Python package wrapping one specific API, see the <code>blinky_py</code> example instead (<a href="../examples/examples/">Examples</a>),
 it wraps the generated Rust client.</p>
-<p>Both transports are built in: <a href="../transport/usb/">USB</a> and <a href="../transport/rtt/"><abbr title="Real-Time Transfer, SEGGER's debug-probe channel">RTT</abbr></a> over a debug probe (probe-rs).
+<p>Three transports are built in: <a href="../transport/usb/">USB</a>, <a href="../transport/rtt/"><abbr title="Real-Time Transfer, SEGGER's debug-probe channel">RTT</abbr></a> over a debug probe (probe-rs) and
+<a href="../transport/websocket/">WebSocket</a>.
 Everything is pure Rust, the wheel needs no system libraries.</p>
 <h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h2>
 <p>The wheel is built with <a href="https://www.maturin.rs">maturin</a>, from a checkout of
@@ -6960,7 +6990,7 @@ is given:</p>
 </span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">dev</span>                                            <span class="c1"># resource tree with signatures and docs</span>
 </span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">dev</span><span class="o">.</span><span class="n">disconnect</span><span class="p">()</span>                               <span class="c1"># or `with ww.connect(...) as dev:`</span>
 </span></code></pre></div>
-<p><code>connect()</code> takes keyword arguments only. A USB device is used unless <code>rtt</code> is given; all given filters must match:</p>
+<p><code>connect()</code> takes keyword arguments only. A USB device is used unless <code>rtt</code>, <code>websocket_url</code> or <code>hub_device</code> is given; all given filters must match:</p>
 <table>
 <thead>
 <tr>
@@ -6996,6 +7026,10 @@ is given:</p>
 <tr>
 <td><code>rtt_elf="fw.elf"</code>, <code>rtt_speed_hz</code></td>
 <td>firmware <abbr title="Executable and Linkable Format">ELF</abbr> to take the <abbr title="Real-Time Transfer, SEGGER's debug-probe channel">RTT</abbr> control block address from, probe speed</td>
+</tr>
+<tr>
+<td><code>websocket_url="ws://127.0.0.1:8080/ww"</code></td>
+<td>the device at that WebSocket address, such as one simulated on this PC; the USB filters above don't apply</td>
 </tr>
 <tr>
 <td><code>hub_device="usb:c0de:cafe:0042"</code></td>
@@ -7253,7 +7287,7 @@ split file written by a device's ring log and read its tracks, the same API as t
       Zensical
     </a>
   
-  <div class="book-stamp" data-built="1795609720">wire_weaver 0.6.0 · e60c928 · built 2026-11-25 12:28 UTC (<span class="book-stamp-age">just built</span>)</div>
+  <div class="book-stamp" data-built="1795613641">wire_weaver 0.6.0 · 4bc416c · built 2026-11-25 13:34 UTC (<span class="book-stamp-age">just built</span>)</div>
 </div>
       
         

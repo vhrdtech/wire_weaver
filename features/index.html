@@ -1004,7 +1004,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../api/properties/" class="md-nav__link">
+      <a href="../basic/properties/" class="md-nav__link">
         
   
   
@@ -2767,6 +2767,8 @@
       
         
       
+        
+      
     
     
     
@@ -2810,6 +2812,33 @@
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/properties/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Properties in depth
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
               
                 
                   
@@ -8185,6 +8214,10 @@ observing), SRV-46 (peer identity).
   and <code>ww stream</code> with it. A global trait path the view can't resolve is refused, never sent to the front's own tree.
   See <a href="../docs/api/mounts/#client">Mount slots</a>; tested in <code>tests/mounts</code>. Not covered: a facade of several wire lines
   on a view, <code>ww call</code> (vhrdtech/ww_tools).
+- ✅ <strong>CLT-85 <code>ww</code> and Python over WebSocket</strong> · <code>v0.5</code> — <code>ww --websocket ws://HOST:PORT/PATH</code> (<code>WW_WEBSOCKET</code>,
+  <code>websocket</code> in <code>ww.toml</code>) and Python's <code>connect(websocket_url=..)</code> reach a device at one WebSocket address, such as
+  a device simulated on the PC (<code>examples/thermometer</code>). The USB filters don't apply; <code>--api</code> is checked once
+  connected, as over <abbr title="Real-Time Transfer, SEGGER's debug-probe channel">RTT</abbr>. See <code>docs/cli.md#device-selection</code>, <code>docs/python.md#connecting</code>.
 - 🚧 <strong>CLT-75 Keep-trying connections</strong> · <code>v0.5</code> — <code>PreparedConnection::connect_keep_trying()</code> returns the client at
   once and connects in the background, again whenever the link goes: each attempt races the config's addresses
   (<code>ClientConfig::websocket_urls</code>, <code>in_process_paths</code>; <code>connect()</code> and <code>reconnect()</code> too, CLT-80), backoff and give-up
@@ -9619,6 +9652,11 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
   file under <code>docs/generated/</code> that no page includes. <code>docs/glossary.toml</code> (<code>vhrd_zensical.glossary</code>, <code>glossary.md</code>)
   and <code>docs/abbreviations.toml</code> (<code>vhrd_zensical.abbreviations</code>). The <code>book_outputs</code> crate checks a test's output
   against <code>docs/generated/</code> and <code>just book-outputs</code> writes them; <code>minimal_shrink_wrap</code>'s bytes are the first.</li>
+<li>🚧 <strong>DOC-17 Book chapters built on the examples</strong> — each chapter runs on one example device, shows code only as
+  includes of marked sections of compiled sources, and shows output (a <code>ww</code> transcript, a Python run) written by a
+  golden test into <code>docs/generated/</code>. Done: Basic 1.12 Properties (<code>docs/basic/properties.md</code>) on the thermometer,
+  with <code>docs/assets/property_timeline.svg</code>, <code>examples/thermometer_py</code> (<code>just test-thermometer-py</code>) and
+  <code>examples/thermometer/tests/it/book.rs</code>. Missing: the other chapters of the outline.</li>
 </ul>
 <h2 id="testing-ci-and-performance-test">Testing, CI and performance (<code>TEST</code>)<a class="headerlink" href="#testing-ci-and-performance-test" title="Permanent link">&para;</a></h2>
 <ul class="task-list">
@@ -10115,7 +10153,7 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
       Zensical
     </a>
   
-  <div class="book-stamp" data-built="1795609720">wire_weaver 0.6.0 · e60c928 · built 2026-11-25 12:28 UTC (<span class="book-stamp-age">just built</span>)</div>
+  <div class="book-stamp" data-built="1795613641">wire_weaver 0.6.0 · 4bc416c · built 2026-11-25 13:34 UTC (<span class="book-stamp-age">just built</span>)</div>
 </div>
       
         

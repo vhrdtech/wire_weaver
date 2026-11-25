@@ -1010,7 +1010,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../api/properties/" class="md-nav__link">
+      <a href="../basic/properties/" class="md-nav__link">
         
   
   
@@ -2773,6 +2773,8 @@
       
         
       
+        
+      
     
     
     
@@ -2816,6 +2818,33 @@
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/properties/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Properties in depth
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
               
                 
                   
@@ -6595,6 +6624,8 @@ links here; "More" leads to the chapter that explains it.</p>
 
 <p class="vz-gloss" id="term-borrowed"><strong>borrowed</strong>: A type whose values point into the buffer they were read from, so reading copies nothing; its owned twin copies the data out. <a href="../../serdes/derive/">More</a></p>
 
+<p class="vz-gloss" id="term-bounds"><strong>bounds</strong>: The smallest and largest value a number's type accepts, such as <code>Range&lt;1, 16&gt;</code>; checked whenever a value is built or decoded. <a href="../../basic/properties/">More</a></p>
+
 <p class="vz-gloss" id="term-claim"><strong>claim</strong>: A host's exclusive hold on a resource of a device, so that only one script drives it at a time. <a href="../../api/metadata/">More</a></p>
 
 <p class="vz-gloss" id="term-client"><strong>client</strong>: The host-side code generated from an API trait: a typed function per item, async, blocking or as a promise. <a href="../../api/overview/">More</a></p>
@@ -6629,7 +6660,9 @@ links here; "More" leads to the chapter that explains it.</p>
 
 <p class="vz-gloss" id="term-owned"><strong>owned</strong>: A type whose values hold their own data, copied out of the buffer they were read from; its borrowed twin points into the buffer. <a href="../../serdes/derive/">More</a></p>
 
-<p class="vz-gloss" id="term-property"><strong>property</strong>: An item of an API trait holding a value that a host can read, write and observe. <a href="../../api/properties/">More</a></p>
+<p class="vz-gloss" id="term-property"><strong>property</strong>: An item of an API trait holding a value that a host can read, write and observe. <a href="../../basic/properties/">More</a></p>
+
+<p class="vz-gloss" id="term-property-model"><strong>property model</strong>: How a server serves a property, chosen in <code>ww_codegen!</code>: <code>get_set</code> calls a read and a write handler, <code>value_on_changed</code> keeps a plain field. <a href="../../basic/properties/">More</a></p>
 
 <p class="vz-gloss" id="term-reading-level"><strong>reading level</strong>: How much a page assumes: Basic, Advanced or Nomicon, shown by the badge above its title. <a href="../../levels/">More</a></p>
 
@@ -6740,7 +6773,7 @@ links here; "More" leads to the chapter that explains it.</p>
       Zensical
     </a>
   
-  <div class="book-stamp" data-built="1795609720">wire_weaver 0.6.0 · e60c928 · built 2026-11-25 12:28 UTC (<span class="book-stamp-age">just built</span>)</div>
+  <div class="book-stamp" data-built="1795613641">wire_weaver 0.6.0 · 4bc416c · built 2026-11-25 13:34 UTC (<span class="book-stamp-age">just built</span>)</div>
 </div>
       
         

@@ -1185,7 +1185,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../api/properties/" class="md-nav__link">
+      <a href="../basic/properties/" class="md-nav__link">
         
   
   
@@ -2948,6 +2948,8 @@
       
         
       
+        
+      
     
     
     
@@ -2991,6 +2993,33 @@
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/properties/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Properties in depth
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
               
                 
                   
@@ -7136,6 +7165,7 @@ from the description the device sends of itself; the <code>ww</code> tool and Py
 <li><strong><a href="../transport/websocket/#finding-servers-on-the-lan">Servers found on the <abbr title="local area network">LAN</abbr></a></strong>: A client finds WebSocket servers announced over DNS-<abbr title="Secure Digital card">SD</abbr> and follows one to its new address after a DHCP change. <span class="ww-status">in progress</span></li>
 <li><strong><a href="../transport/keep_trying/#another-revision-of-the-devices-api">Reconnect onto another API revision</a></strong>: A reconnect to other firmware on the same wire line learns its API again and resumes what still fits.</li>
 <li><strong><a href="../api/mounts/#client">Mount views</a></strong>: A client calls, observes and streams an API mounted in another device's tree, learned and relearned per mount, resumed after a link gap.</li>
+<li><strong><a href="../cli/#device-selection"><code>ww</code> and Python over WebSocket</a></strong>: <code>ww --websocket URL</code> and <code>connect(websocket_url=..)</code> reach a device simulated on your PC.</li>
 <li><strong><a href="../transport/keep_trying/">Keep-trying connections</a></strong>: A client that exists at once, connects when the device comes up, reconnects whenever the link goes and resumes its observers and streams, racing its addresses; <code>retry_now()</code> hurries it. <span class="ww-status">in progress</span></li>
 <li><strong><a href="../transport/keep_trying/#what-it-does">Addresses raced</a></strong>: A device reachable at several addresses (<abbr title="local area network">LAN</abbr> and VPN) is connected at whichever answers first, so an address that is gone costs nothing.</li>
 <li><strong><a href="../transport/hub/#reconnect-after-a-hub-restart-clt-40">Back after a hub restart</a></strong>: A program reaching its device through the ww hub reconnects by itself when the hub crashes, is killed or hands over, and its counted and reliable streams go on; the app hears about the gap. <span class="ww-status">hardware check open</span></li>
@@ -7544,7 +7574,7 @@ feature tracker.</p>
       Zensical
     </a>
   
-  <div class="book-stamp" data-built="1795609720">wire_weaver 0.6.0 · e60c928 · built 2026-11-25 12:28 UTC (<span class="book-stamp-age">just built</span>)</div>
+  <div class="book-stamp" data-built="1795613641">wire_weaver 0.6.0 · 4bc416c · built 2026-11-25 13:34 UTC (<span class="book-stamp-age">just built</span>)</div>
 </div>
       
         

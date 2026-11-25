@@ -9520,6 +9520,12 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
   values survive a reboot) + a <code>settings</code> bin in <code>examples_mcu/nucleo_g0b1re</code> (<abbr title="Real-Time Transfer, SEGGER's debug-probe channel">RTT</abbr>, last 4 pages of bank 2) and
   <code>examples_mcu/nucleo_h743zi2</code> (USB, last 2 sectors of bank 2), both behind a <code>settings</code> cargo feature.
   <code>UserSettings</code> lives in <code>settings_api</code> so every implementation shares the same record shape.</li>
+<li>✅ <strong>EX-18 Thermometer example and the simulated-device pattern</strong>: <code>examples/thermometer_api</code> (line 1 of
+  <code>tests/thermo_api</code> at w1.0, kept equal to its 1.0.0 snapshot by <code>tests/it/same_as_thermo_bench.rs</code>),
+  <code>examples/thermometer_device</code> (the <code>no_std</code> server and one <code>serve</code> loop over a <code>Board</code>: <code>SimBoard</code> on the PC, the
+  chip's temperature sensor on a board) and <code>examples/thermometer</code> (client, <code>thermometer_sim</code> over WebSocket,
+  <code>thermometer_read</code>, tests on the in-process WebSocket with tokio's paused clock). Firmware: <code>thermometer</code> bins of
+  <code>examples_mcu/nucleo_g0b1re</code> and <code>examples_mcu/rp2</code> over USB, built by <code>just check</code>; not yet run on the boards.</li>
 <li>📋 <strong>EX-6 Example without async</strong> · <code>v0.5</code> — <code>ww_device::blocking::Server</code> exists, no example uses it.</li>
 <li>📋 <strong>EX-7 Example with two media</strong> · <code>v0.5</code>.</li>
 <li>📋 <strong>EX-8 NCM WebSocket + UDP example</strong> · <code>v0.5</code> — both media on one stack, sharing the backend.</li>
@@ -10109,7 +10115,7 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
       Zensical
     </a>
   
-  <div class="book-stamp" data-built="1795605627">wire_weaver 0.6.0 · 04af974 · built 2026-11-25 11:20 UTC (<span class="book-stamp-age">just built</span>)</div>
+  <div class="book-stamp" data-built="1795609709">wire_weaver 0.6.0 · e60c928 · built 2026-11-25 12:28 UTC (<span class="book-stamp-age">just built</span>)</div>
 </div>
       
         

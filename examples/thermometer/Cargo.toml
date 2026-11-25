@@ -38,5 +38,21 @@ path = "examples/sim.rs"
 name = "thermometer_read"
 path = "examples/read.rs"
 
+[[example]]
+name = "thermometer_units"
+path = "examples/units.rs"
+
+[[example]]
+name = "thermometer_observe"
+path = "examples/observe.rs"
+
+[[example]]
+name = "thermometer_stream"
+path = "examples/stream.rs"
+
+[[example]]
+name = "thermometer_channels"
+path = "examples/channels.rs"
+
 [lints]
 workspace = true

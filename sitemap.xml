@@ -121,28 +121,7 @@
         <loc>https://ww.vhrd.tech/basic/</loc>
       </url>
       <url>
-        <loc>https://ww.vhrd.tech/basic/byte_streams/</loc>
-      </url>
-      <url>
-        <loc>https://ww.vhrd.tech/basic/connection_loss/</loc>
-      </url>
-      <url>
         <loc>https://ww.vhrd.tech/basic/properties/</loc>
-      </url>
-      <url>
-        <loc>https://ww.vhrd.tech/basic/rtt/</loc>
-      </url>
-      <url>
-        <loc>https://ww.vhrd.tech/basic/transports/</loc>
-      </url>
-      <url>
-        <loc>https://ww.vhrd.tech/basic/udp/</loc>
-      </url>
-      <url>
-        <loc>https://ww.vhrd.tech/basic/usb/</loc>
-      </url>
-      <url>
-        <loc>https://ww.vhrd.tech/basic/websocket/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/c/</loc>
@@ -188,6 +167,9 @@
       </url>
       <url>
         <loc>https://ww.vhrd.tech/examples/motor_demo/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/examples/wire_sizes/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/features/</loc>
@@ -259,13 +241,28 @@
         <loc>https://ww.vhrd.tech/serdes/wire_format/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/std_library/bounds/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/std_library/bus_slave/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/std_library/coded_numbers/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/std_library/conversions/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/std_library/customary/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/std_library/device_contract/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/std_library/dimensions/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/std_library/errors_lists/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/std_library/exact_units/</loc>
@@ -289,13 +286,55 @@
         <loc>https://ww.vhrd.tech/std_library/points/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/std_library/points_and_origins/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/std_library/prefixes/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/std_library/quantity/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/std_library/quantity_reference/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/std_library/quantity_type/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/std_library/rounding/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/std_library/run_time_scales/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/std_library/runtime_units/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/std_library/stdlib_features/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/std_library/time_points/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/std_library/timed/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/std_library/timestamps/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/std_library/unit_algebra/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/std_library/unit_systems/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/std_library/units_in_an_api/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/std_library/units_in_the_model/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/std_library/units_in_tools/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/std_library/ww_adc/</loc>
@@ -335,6 +374,9 @@
       </url>
       <url>
         <loc>https://ww.vhrd.tech/std_library/ww_error/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/std_library/ww_error_in_an_api/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/std_library/ww_firmware_info/</loc>
@@ -383,6 +425,9 @@
       </url>
       <url>
         <loc>https://ww.vhrd.tech/std_library/ww_si/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/std_library/ww_si_features/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/std_library/ww_signal_generator/</loc>

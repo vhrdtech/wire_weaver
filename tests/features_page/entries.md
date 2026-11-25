@@ -574,7 +574,7 @@ How WireWeaver is kept working: every change runs through CI, against the real c
 
 # Omitted
 
-- DOC-1, DOC-7, DOC-8, DOC-9, DOC-11, DOC-12, DOC-13, DOC-16, DOC-17 | This docs site itself.
+- DOC-1, DOC-7, DOC-8, DOC-9, DOC-11, DOC-12, DOC-13, DOC-16, DOC-17, DOC-18 | This docs site itself.
 - TR-13 | A fixed bug (RTT server panic on the first request), not a feature.
 - TEST-32 | A firmware size tool for the project's own development, not a feature of WireWeaver.
 - TEST-36 | A repo-layering lint for the project's own development, not a feature of WireWeaver.

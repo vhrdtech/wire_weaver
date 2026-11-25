@@ -4,7 +4,7 @@ mod diff;
 pub use line::LineCommand;
 mod line;
 mod save;
-mod scaffold;
+pub mod scaffold;
 mod snapshots;
 
 use anyhow::Result;

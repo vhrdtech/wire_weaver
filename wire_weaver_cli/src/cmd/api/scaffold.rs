@@ -64,7 +64,11 @@ fn rustfmt(code: String) -> Result<String> {
         .stdout(Stdio::piped())
         .spawn()
         .context("running rustfmt")?;
-    child.stdin.take().unwrap().write_all(code.as_bytes())?;
+    child
+        .stdin
+        .take()
+        .expect("stdin is piped")
+        .write_all(code.as_bytes())?;
     let output = child.wait_with_output()?;
     if !output.status.success() {
         return Err(anyhow!("rustfmt failed on generated code:\n{code}"));

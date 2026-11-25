@@ -9658,6 +9658,12 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
   file under <code>docs/generated/</code> that no page includes. <code>docs/glossary.toml</code> (<code>vhrd_zensical.glossary</code>, <code>glossary.md</code>)
   and <code>docs/abbreviations.toml</code> (<code>vhrd_zensical.abbreviations</code>). The <code>book_outputs</code> crate checks a test's output
   against <code>docs/generated/</code> and <code>just book-outputs</code> writes them; <code>minimal_shrink_wrap</code>'s bytes are the first.</li>
+<li>✅ <strong>DOC-18 Coloured <code>ww</code> transcripts and file cards in the book</strong>: a <code>ww</code> fence colours a transcript of the <code>ww</code>
+  tool (<code>docs_ext/ww_docs_ext/ww_lexer.py</code>, a Pygments lexer found through the <code>pygments.lexers</code> entry point of
+  <code>pyproject.toml</code>): the command's words by their place, API trees by keyword, name, type and bounds, and in other
+  output numbers, versions, <code>crate@version</code>, hashes and error labels. Every file a rewritten page names is a file
+  link with a card (<code>vhrd_zensical.code_refs</code>, REFS-1), and <code>code_refs</code> indexes the thermometer's crates beside the
+  framework's. <code>docs/levels.md</code> tells readers and writers; chapter 1.12 uses both.</li>
 <li>🚧 <strong>DOC-17 Book chapters built on the examples</strong> — each chapter runs on one example device, shows code only as
   includes of marked sections of compiled sources, and shows output (a <code>ww</code> transcript, a Python run) written by a
   golden test into <code>docs/generated/</code>. Done: Basic 1.12 Properties (<code>docs/basic/properties.md</code>) on the thermometer,
@@ -10159,7 +10165,7 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
       Zensical
     </a>
   
-  <div class="book-stamp" data-built="1795622073">wire_weaver 0.6.0 · 12b1509 · built 2026-11-25 15:54 UTC (<span class="book-stamp-age">just built</span>)</div>
+  <div class="book-stamp" data-built="1795630527">wire_weaver 0.6.0 · 54d3f30 · built 2026-11-25 18:15 UTC (<span class="book-stamp-age">just built</span>)</div>
 </div>
       
         

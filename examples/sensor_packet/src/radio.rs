@@ -6,16 +6,16 @@ use shrink_wrap::prelude::*;
 use std::fmt::Write;
 
 // --8<-- [start:receive]
-/// Reads a reading from a received frame without copying: `station` points into `bytes`.
-pub fn gateway_receives(bytes: &[u8]) -> Result<Reading<'_>, ShrinkWrapError> {
-    Reading::from_ww_bytes(bytes)
+/// Reads a reading from a received frame without copying: `station` points into `frame`.
+pub fn gateway_receives(frame: &[u8]) -> Result<Reading<'_>, ShrinkWrapError> {
+    Reading::from_ww_bytes(frame)
 }
 // --8<-- [end:receive]
 
 // --8<-- [start:keep]
 /// Reads a reading from a received frame into a value of its own, so the frame's buffer can take the next one.
-pub fn gateway_keeps(bytes: &[u8], log: &mut Vec<ReadingOwned>) -> Result<(), ShrinkWrapError> {
-    let reading = ReadingOwned::from_ww_bytes_owned(bytes)?;
+pub fn gateway_keeps(frame: &[u8], log: &mut Vec<ReadingOwned>) -> Result<(), ShrinkWrapError> {
+    let reading = ReadingOwned::from_ww_bytes_owned(frame)?;
     log.push(reading);
     Ok(())
 }

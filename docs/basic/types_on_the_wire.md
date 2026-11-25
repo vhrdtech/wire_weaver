@@ -12,8 +12,11 @@ alone, without an API or any other part of WireWeaver.
 
 The chapters of "Your data on the wire" use the sensor packet example. A weather station has a sensor node on its
 roof: a microcontroller that measures the temperature and the humidity, and sends each reading over a radio link to a
-gateway, a PC indoors. The node runs on a battery, and every byte it sends costs airtime and charge. The example runs
-both ends in one program on your PC:
+gateway, a PC indoors. The node runs on a battery, and every byte it sends costs airtime and charge.
+
+![The sensor node writes a reading into its own buffer; nine bytes cross the radio; the gateway reads them back](../assets/sensor_link.svg)
+
+The example runs both ends in one program on your PC:
 
 ```sh
 cargo run -p sensor_packet --example sensor_packet_radio
@@ -111,7 +114,7 @@ The reading it gets back is the one the node sent:
 --8<-- "docs/generated/sensor_packet/radio.txt:3:3"
 ```
 
-Reading copies nothing. The `station` of the result points into `bytes`, which is why the result borrows them, and
+Reading copies nothing. The `station` of the result points into `frame`, which is why the result borrows it, and
 why `Reading` has a lifetime. [Borrowed and owned](borrowed_and_owned.md) shows how to keep a reading after the
 buffer is gone.
 

@@ -41,7 +41,11 @@ pub struct Reading<'i> {
 
 // --8<-- [start:node_id]
 /// The number of a sensor node on the radio link.
-#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Debug, Clone, Copy, PartialEq, Eq))]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Debug, Clone, Copy, PartialEq, Eq)
+)]
 pub struct NodeId(pub u8);
 // --8<-- [end:node_id]
 
@@ -81,7 +85,7 @@ pub fn node_sends<'f>(
 
 /// Lowercase hex bytes separated by spaces, as the book prints them.
 #[cfg(feature = "std")]
-pub fn hex(bytes: &[u8]) -> String {
-    let hex: Vec<String> = bytes.iter().map(|b| format!("{b:02x}")).collect();
+pub fn hex(data: &[u8]) -> String {
+    let hex: Vec<String> = data.iter().map(|b| format!("{b:02x}")).collect();
     hex.join(" ")
 }

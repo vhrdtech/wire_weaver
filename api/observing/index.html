@@ -7045,9 +7045,12 @@ prints the field and <code>observe_state()</code>.</p>
 <p><code>ObserveState</code> holds one <code>ObserveTable&lt;[Slot; N]&gt;</code> per trait level, sized at compile time (<code>N</code> = the level's
 property count) - the per-property deadlines, modes and the level's token bucket. The table's code is the same for
 every level (it works on <code>ObserveTable&lt;[Slot]&gt;</code>, SRV-23), and so is the loop of <code>poll_properties</code> (SRV-24): plan,
-choice, writing the update and its bookkeeping are <code>ww_stream::observe</code>'s (<code>plan_level</code>, <code>select</code>, <code>write</code>,
-<code>ser_update</code>), one loop over the levels sends from one place, and what the generated code adds per property is
-reading its value (<code>size</code> and <code>write</code> arms, and the <code>.await</code> of an async getter). A firmware carries the algorithm
+choice, writing the update and its bookkeeping are <code>ww_stream::observe</code>'s (<code>plan_level</code>, <code>select</code>, <code>WritePass</code>,
+<code>end_pass</code>, <code>ser_update</code>), one loop over the levels sends from one place, and what the generated code adds per
+property is reading its value (a <code>size</code> and a <code>write</code> arm, an async getter awaited in it). The loop drives the
+choice and the writing a slot at a time, so each getter is read where its value is measured or written and the value
+is dropped there: a value borrowed from the server (<code>MountPresence&lt;'_&gt;</code> of a <code>no_alloc</code> server) never lives beside
+another one (SRV-83). A value without a size bound is read twice, to measure and to write it. A firmware carries the algorithm
 once however many levels its API has. <code>ww_stream::observe::ObserveLimits</code> is
 what the device allows every observer: shortest period, default/max budget per level, the total budget, and
 whether to send timestamps.</p>
@@ -7602,7 +7605,7 @@ per level with any generated-client observers of the same level.
       Zensical
     </a>
   
-  <div class="book-stamp" data-built="1795598778">wire_weaver 0.6.0 · a748fad · built 2026-11-25 09:26 UTC (<span class="book-stamp-age">just built</span>)</div>
+  <div class="book-stamp" data-built="1795599201">wire_weaver 0.6.0 · e4d7bb7 · built 2026-11-25 09:33 UTC (<span class="book-stamp-age">just built</span>)</div>
 </div>
       
         

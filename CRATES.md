@@ -63,7 +63,6 @@ This page lists the crates of the root workspace. The first table links each pub
 | [`bench_supply_py`](examples/bench_supply_py) | runtime | wire_weaver_py as an extension module, built by maturin, for the bench supply example's pytest bench (EX-19). |
 | [`blinky`](examples/blinky) | runtime | Client of the blinky example device: the project shape a host program copies |
 | [`blinky_api`](examples/blinky_api) | runtime | API of the blinky example device: an LED turned on and off |
-| [`blinky_api_evolved`](examples/blinky_api_evolved) | runtime | `blinky_api` 0.1.1, after a change: `led_toggle` at w1.1, outside the workspace |
 | [`blinky_evolved`](examples/blinky_evolved) | runtime | The blinky example after a change: the new host, and firmware of both versions simulated on a PC |
 | [`blinky_py`](examples/blinky_py) | runtime | Python wheel of the blinky example client |
 | [`book_outputs`](tests/book_outputs) | runtime | Golden outputs of the book's examples: a test writes what a reader would see into docs/generated/ and fails when the file is stale |

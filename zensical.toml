@@ -32,7 +32,7 @@ nav = [
                     { "Getting started" = "api/overview.md" },
                     "api/folder_structure.md",
                     "api/methods.md",
-                    "api/properties.md",
+                    "basic/properties.md",
                     "api/streams.md",
                     "api/traits.md",
                     "api/errors.md"
@@ -101,6 +101,7 @@ nav = [
                 ]
             },
             { "The API in depth" = [
+                    "api/properties.md",
                     "api/arrays.md",
                     { "Sync, async and shared handlers" = "api/handlers.md" },
                     { "Large messages and result sets" = "api/large_messages.md" },
@@ -377,7 +378,9 @@ pymdownx.smartsymbols = {}
 # Pulls the repo root FEATURES.md into docs/features.md, keeping a single source
 pymdownx.snippets = {
   base_path = ["."],
-  check_paths = true
+  check_paths = true,
+  # a marked section inside an impl or a function shows from its own indentation
+  dedent_subsections = true
 }
 # pymdownx.snippets = {
 #   base_path = "includes",

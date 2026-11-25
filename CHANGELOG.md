@@ -11,6 +11,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
+- Book chapter Properties on the thermometer: includes, a `ww` transcript, a Python script, a figure (DOC-17); see `examples/thermometer_py`.
 - `ww --websocket URL` and Python `connect(websocket_url=..)` reach a WebSocket device, such as a simulated one (CLT-85); see `ww_plugin`, `wire_weaver_py`.
 - The book reads in level order: Introduction, Basic, Advanced, Nomicon, then Reference and Articles, checked by `ww-book check`, with a glossary, abbreviations and generated outputs (DOC-16); see `ww_book`, `book_outputs`.
 - Thermometer example: `thermometer_api` is the bench's line 1 at w1.0, kept equal by a test (EX-18); see `examples/thermometer_api`.

@@ -2911,6 +2911,11 @@ Unicast Data0 to one node over the same bus is TR-6.
   file under `docs/generated/` that no page includes. `docs/glossary.toml` (`vhrd_zensical.glossary`, `glossary.md`)
   and `docs/abbreviations.toml` (`vhrd_zensical.abbreviations`). The `book_outputs` crate checks a test's output
   against `docs/generated/` and `just book-outputs` writes them; `minimal_shrink_wrap`'s bytes are the first.
+- 🚧 **DOC-17 Book chapters built on the examples** — each chapter runs on one example device, shows code only as
+  includes of marked sections of compiled sources, and shows output (a `ww` transcript, a Python run) written by a
+  golden test into `docs/generated/`. Done: Basic 1.12 Properties (`docs/basic/properties.md`) on the thermometer,
+  with `docs/assets/property_timeline.svg`, `examples/thermometer_py` (`just test-thermometer-py`) and
+  `examples/thermometer/tests/it/book.rs`. Missing: the other chapters of the outline.
 
 ## Testing, CI and performance (`TEST`)
 

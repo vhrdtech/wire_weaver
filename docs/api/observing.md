@@ -31,7 +31,7 @@ trait Motor {
 }
 ```
 
-Only properties declared `ro+observe`/`rw+observe` can be observed; see [Properties](properties.md) for declaring
+Only properties declared `ro+observe`/`rw+observe` can be observed; see [Properties](../basic/properties.md) for declaring
 them and the two ways a server can implement a property (`get_set`/`value_on_changed`), which also decide how its
 observed value is read.
 

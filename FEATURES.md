@@ -1476,6 +1476,10 @@ there, with a pointer each under [Dropped and superseded](#dropped-and-supersede
   and `ww stream` with it. A global trait path the view can't resolve is refused, never sent to the front's own tree.
   See [Mount slots](docs/api/mounts.md#client); tested in `tests/mounts`. Not covered: a facade of several wire lines
   on a view, `ww call` (vhrdtech/ww_tools).
+- ✅ **CLT-85 `ww` and Python over WebSocket** · `v0.5` — `ww --websocket ws://HOST:PORT/PATH` (`WW_WEBSOCKET`,
+  `websocket` in `ww.toml`) and Python's `connect(websocket_url=..)` reach a device at one WebSocket address, such as
+  a device simulated on the PC (`examples/thermometer`). The USB filters don't apply; `--api` is checked once
+  connected, as over RTT. See `docs/cli.md#device-selection`, `docs/python.md#connecting`.
 - 🚧 **CLT-75 Keep-trying connections** · `v0.5` — `PreparedConnection::connect_keep_trying()` returns the client at
   once and connects in the background, again whenever the link goes: each attempt races the config's addresses
   (`ClientConfig::websocket_urls`, `in_process_paths`; `connect()` and `reconnect()` too, CLT-80), backoff and give-up

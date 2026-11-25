@@ -5,7 +5,8 @@
 //! Settings of different kinds are combined, e.g. `api` from ww.toml and `--serial` narrow the selection together.
 //!
 //! `rtt` connects through a debug probe instead of USB (TOOL-20): `probe` and `probe_speed_khz` go with it, `elf` too,
-//! the USB filters (`serial`, `label`, ..) don't, and `api` is checked once connected.
+//! the USB filters (`serial`, `label`, ..) don't, and `api` is checked once connected. `websocket` connects to one
+//! WebSocket address instead of USB (CLT-85) the same way: no USB filters, `api` checked once connected.
 
 use crate::complete;
 use anyhow::{Context, Result, anyhow, bail};
@@ -25,7 +26,7 @@ pub const DEVICE_TABLE: &str = "device";
 
 /// Setting names, same for command line flags (with '-' instead of '_'), ww.toml keys and environment variables
 /// (upper case with `WW_` prefix).
-pub const KEYS: [&str; 13] = [
+pub const KEYS: [&str; 14] = [
     "serial",
     "label",
     "product",
@@ -34,6 +35,7 @@ pub const KEYS: [&str; 13] = [
     "vid_pid",
     "usb_path",
     "rtt",
+    "websocket",
     "probe",
     "elf",
     "probe_speed_khz",
@@ -91,6 +93,10 @@ pub struct DeviceArgs {
     /// Connect over RTT through a debug probe instead of USB: the probe-rs chip name, e.g. STM32G0B1RETx
     #[arg(long, env = "WW_RTT", global = true, value_name = "CHIP", add = ArgValueCompleter::new(complete::rtt_chips))]
     rtt: Option<String>,
+
+    /// Connect over WebSocket instead of USB: the device's URL, e.g. ws://127.0.0.1:8080/ww
+    #[arg(long, env = "WW_WEBSOCKET", global = true, value_name = "URL", value_hint = ValueHint::Url)]
+    websocket: Option<String>,
 
     /// Debug probe to use with --rtt, when there are several: its serial number or a part of it, VID:PID in hex or
     /// VID:PID:SERIAL
@@ -225,6 +231,23 @@ impl Selection {
         self.get("rtt")
     }
 
+    /// The URL, when the device is reached over WebSocket.
+    pub fn websocket(&self) -> Option<&str> {
+        self.get("websocket")
+    }
+
+    /// How a failed connect names the way to see what there is: `ww list` for USB, `ww list --probes` for RTT,
+    /// nothing for a WebSocket address.
+    pub fn list_hint(&self) -> &'static str {
+        if self.rtt().is_some() {
+            ", run 'ww list --probes' to see connected debug probes"
+        } else if self.websocket().is_some() {
+            ""
+        } else {
+            ", run 'ww list' to see connected devices"
+        }
+    }
+
     pub fn get(&self, key: &str) -> Option<&str> {
         self.settings
             .iter()
@@ -275,13 +298,13 @@ impl Selection {
         )))
     }
 
-    /// Over RTT the device isn't known before connecting: checks `api` on the connected device. Nothing to do over
-    /// USB, where the device was picked by it.
+    /// Over RTT and WebSocket the device isn't known before connecting: checks `api` on the connected device.
+    /// Nothing to do over USB, where the device was picked by it.
     pub fn check_connected(
         &self,
         api: &wire_weaver_client::ww_version::FullVersionOwned,
     ) -> Result<()> {
-        if self.rtt().is_none() {
+        if self.rtt().is_none() && self.websocket().is_none() {
             return Ok(());
         }
         let Some(setting) = self.settings.iter().find(|s| s.key == "api") else {
@@ -295,7 +318,11 @@ impl Selection {
         );
         if api.crate_id != gid || !req.matches(&version) {
             bail!(
-                "the device behind the probe serves {} {version}, not api={} ({})",
+                "the device {} serves {} {version}, not api={} ({})",
+                match self.websocket() {
+                    Some(url) => format!("at {url}"),
+                    None => "behind the probe".to_owned(),
+                },
                 api.crate_id,
                 setting.value,
                 setting.source.describe(setting.key)
@@ -329,7 +356,12 @@ impl Display for Selection {
         }
         if !self.unused.is_empty() {
             let keys: Vec<_> = self.unused.iter().map(|s| s.key).collect();
-            write!(f, "; not used over RTT: {}", keys.join(", "))?;
+            let over = if self.rtt().is_some() {
+                "RTT"
+            } else {
+                "WebSocket"
+            };
+            write!(f, "; not used over {over}: {}", keys.join(", "))?;
         }
         Ok(())
     }
@@ -346,44 +378,66 @@ impl Source {
     }
 }
 
-/// Settings used and left out. With `rtt`, the USB filters from a source that comes after it (ww.toml under
-/// `--rtt`) are left out, the ones from the same or a stronger one are an error: they'd select a USB device.
-/// Without `rtt`, a probe setting is an error.
+/// Settings that pick a transport other than USB: a debug probe or a WebSocket address.
+const TRANSPORT_KEYS: [&str; 2] = ["rtt", "websocket"];
+
+/// Settings used and left out. With `rtt` or `websocket`, the USB filters from a source that comes after it (ww.toml
+/// under `--rtt`) are left out, the ones from the same or a stronger one are an error: they'd select a USB device.
+/// Without `rtt`, a probe setting is an error; `rtt` and `websocket` together are one too.
 fn split_by_transport(settings: &[Setting]) -> Result<(Vec<Setting>, Vec<Setting>)> {
-    let Some(rtt) = settings.iter().find(|s| s.key == "rtt") else {
-        if let Some(s) = settings.iter().find(|s| PROBE_KEYS.contains(&s.key)) {
-            bail!(
-                "{}={} ({}) needs rtt: pass --rtt CHIP to connect through a debug probe",
-                s.key,
-                s.value,
-                s.source.describe(s.key)
-            );
-        }
+    if let Some(s) = settings.iter().find(|s| PROBE_KEYS.contains(&s.key))
+        && !settings.iter().any(|s| s.key == "rtt")
+    {
+        bail!(
+            "{}={} ({}) needs rtt: pass --rtt CHIP to connect through a debug probe",
+            s.key,
+            s.value,
+            s.source.describe(s.key)
+        );
+    }
+    let mut transports = settings.iter().filter(|s| TRANSPORT_KEYS.contains(&s.key));
+    let Some(transport) = transports.next() else {
         return Ok((settings.to_vec(), vec![]));
     };
+    if let Some(other) = transports.next() {
+        bail!(
+            "{}={} ({}) and {}={} ({}) both pick how to connect: pass one of them",
+            transport.key,
+            transport.value,
+            transport.source.describe(transport.key),
+            other.key,
+            other.value,
+            other.source.describe(other.key)
+        );
+    }
     let mut used = vec![];
     let mut unused = vec![];
     for s in settings {
         if !USB_KEYS.contains(&s.key) {
             used.push(s.clone());
-        } else if s.source.rank() < rtt.source.rank() {
+        } else if s.source.rank() < transport.source.rank() {
             unused.push(s.clone());
         } else {
+            let hint = if transport.key == "rtt" {
+                "connects through a debug probe: pick the probe with --probe SERIAL or VID:PID"
+            } else {
+                "connects to that address alone"
+            };
             bail!(
-                "{}={} ({}) selects a USB device, but rtt={} ({}) connects through a debug probe: pick the probe \
-                 with --probe SERIAL or VID:PID",
+                "{}={} ({}) selects a USB device, but {}={} ({}) {hint}",
                 s.key,
                 s.value,
                 s.source.describe(s.key),
-                rtt.value,
-                rtt.source.describe(rtt.key)
+                transport.key,
+                transport.value,
+                transport.source.describe(transport.key)
             );
         }
     }
     Ok((used, unused))
 }
 
-/// USB filters, or the device's filters, then RTT with the probe's (see [ClientConfig::rtt]).
+/// USB filters, or the device's filters, then RTT with the probe's (see [ClientConfig::rtt]) or the WebSocket URL.
 fn client_config(settings: &[Setting]) -> Result<ClientConfig> {
     fn with_context<T>(r: Result<T>, s: &Setting) -> Result<T> {
         r.with_context(|| {
@@ -396,14 +450,20 @@ fn client_config(settings: &[Setting]) -> Result<ClientConfig> {
         })
     }
     let rtt = settings.iter().find(|s| s.key == "rtt");
-    let mut config = match rtt {
-        Some(_) => ClientConfig::new(),
-        None => ClientConfig::new().usb(),
+    let websocket = settings.iter().find(|s| s.key == "websocket");
+    let mut config = match (rtt, websocket) {
+        (Some(_), _) => ClientConfig::new(),
+        (None, Some(s)) => {
+            with_context(check_websocket_url(&s.value), s)?;
+            ClientConfig::new()
+                .websocket_url(s.value.clone())
+                .no_ww_usb()
+        }
+        (None, None) => ClientConfig::new().usb(),
     };
-    for s in settings
-        .iter()
-        .filter(|s| !["rtt", "elf"].contains(&s.key) && !PROBE_KEYS.contains(&s.key))
-    {
+    for s in settings.iter().filter(|s| {
+        !TRANSPORT_KEYS.contains(&s.key) && s.key != "elf" && !PROBE_KEYS.contains(&s.key)
+    }) {
         config = with_context(apply(config, s.key, &s.value), s)?;
     }
     let Some(rtt) = rtt else {
@@ -428,6 +488,14 @@ fn client_config(settings: &[Setting]) -> Result<ClientConfig> {
         config = config.rtt_elf(elf_path(s));
     }
     Ok(config)
+}
+
+/// A plain `ws://` URL: the client opens no `wss://`.
+fn check_websocket_url(url: &str) -> Result<()> {
+    match url.strip_prefix("ws://") {
+        Some(rest) if !rest.is_empty() => Ok(()),
+        _ => bail!("expected a ws:// URL, e.g. ws://127.0.0.1:8080/ww"),
+    }
 }
 
 /// A chip probe-rs knows, else an error with the names starting like it.
@@ -815,6 +883,44 @@ mod tests {
         );
         assert!(config.contains("Usb"), "{config}");
         assert!(!config.contains("Rtt"), "{config}");
+    }
+
+    #[test]
+    fn websocket_config_leaves_usb_out() {
+        let settings = [
+            setting("websocket", "ws://127.0.0.1:8080/ww", Source::Flag),
+            setting("serial", "0B1", file()),
+            setting("timeout_ms", "500", Source::Flag),
+        ];
+        let (used, unused) = split_by_transport(&settings).unwrap();
+        let unused: Vec<_> = unused.iter().map(|s| s.key).collect();
+        assert_eq!(unused, ["serial"]);
+        let config = format!("{:?}", client_config(&used).unwrap());
+        assert!(
+            config.contains(
+                r#"pieces: [WebSocketUrl { urls: ["ws://127.0.0.1:8080/ww"] }, NoWwUsb]"#
+            ),
+            "{config}"
+        );
+
+        let label = [
+            setting("websocket", "ws://127.0.0.1:8080/ww", Source::Env),
+            setting("label", "bench", Source::Flag),
+        ];
+        let e = split_by_transport(&label).unwrap_err().to_string();
+        assert!(e.contains("selects a USB device"), "{e}");
+
+        let both = [
+            setting("websocket", "ws://127.0.0.1:8080/ww", Source::Flag),
+            setting("rtt", "STM32G0B1RETx", file()),
+        ];
+        let e = split_by_transport(&both).unwrap_err().to_string();
+        assert!(e.contains("both pick how to connect"), "{e}");
+
+        for url in ["http://127.0.0.1/ww", "wss://host/ww", "ws://"] {
+            let bad = [setting("websocket", url, Source::Flag)];
+            assert!(client_config(&bad).is_err(), "{url}");
+        }
     }
 
     /// Over RTT `api` is checked on the device once connected, over USB it picked the device already.

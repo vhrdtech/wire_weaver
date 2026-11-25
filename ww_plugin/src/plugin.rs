@@ -53,7 +53,8 @@ pub async fn take_exclusive(
     meta: &ClientMeta,
     purpose: &str,
 ) -> Result<Option<Exclusive>> {
-    if !wire_weaver_client::hub::hub_running() {
+    // a hub serves USB and RTT devices, never a WebSocket address
+    if selection.websocket().is_some() || !wire_weaver_client::hub::hub_running() {
         return Ok(None);
     }
     let key = match selection.rtt() {
@@ -104,17 +105,8 @@ pub async fn connect(
         .await
         .map_err(|e| {
             anyhow!(
-                "connecting to device ({selection}), run 'ww list{}' to see connected {}: {e:#}",
-                if selection.rtt().is_some() {
-                    " --probes"
-                } else {
-                    ""
-                },
-                if selection.rtt().is_some() {
-                    "debug probes"
-                } else {
-                    "devices"
-                },
+                "connecting to device ({selection}){}: {e:#}",
+                selection.list_hint(),
             )
         })?;
     selection.check_connected(&device.device_api_info().user_api_version)?;

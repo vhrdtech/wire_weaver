@@ -13,7 +13,8 @@ It is meant for debugging, quick tests and scripts: connect, look at what the de
 typed Python package wrapping one specific API, see the `blinky_py` example instead ([Examples](examples/examples.md)),
 it wraps the generated Rust client.
 
-Both transports are built in: [USB](transport/usb.md) and [RTT](transport/rtt.md) over a debug probe (probe-rs).
+Three transports are built in: [USB](transport/usb.md), [RTT](transport/rtt.md) over a debug probe (probe-rs) and
+[WebSocket](transport/websocket.md).
 Everything is pure Rust, the wheel needs no system libraries.
 
 ## Installation
@@ -63,7 +64,7 @@ dev                                            # resource tree with signatures a
 dev.disconnect()                               # or `with ww.connect(...) as dev:`
 ```
 
-`connect()` takes keyword arguments only. A USB device is used unless `rtt` is given; all given filters must match:
+`connect()` takes keyword arguments only. A USB device is used unless `rtt`, `websocket_url` or `hub_device` is given; all given filters must match:
 
 | Argument                                      | Selects                                                                  |
 |-----------------------------------------------|--------------------------------------------------------------------------|
@@ -74,6 +75,7 @@ dev.disconnect()                               # or `with ww.connect(...) as dev
 | `implements_api=("my_api", ">=0.2")`          | API crate name and a SemVer requirement                                  |
 | `rtt="STM32G0B1RETx"`                         | RTT over a debug probe, probe-rs chip name                               |
 | `rtt_elf="fw.elf"`, `rtt_speed_hz`            | firmware ELF to take the RTT control block address from, probe speed     |
+| `websocket_url="ws://127.0.0.1:8080/ww"`     | the device at that WebSocket address, such as one simulated on this PC; the USB filters above don't apply |
 | `hub_device="usb:c0de:cafe:0042"`             | a device key straight through the ww hub, skipping enumeration and the filters above |
 | `timeout`                                     | default request timeout in seconds                                       |
 | `api`                                         | API from [`load_api()`](python_advanced.md#api-from-source-offline-use), for a device with introspection disabled |

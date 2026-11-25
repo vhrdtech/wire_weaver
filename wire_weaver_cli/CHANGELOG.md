@@ -17,6 +17,7 @@
 
 ### 🚀 Features
 
+- Every device command reaches a WebSocket device with `ww --websocket ws://HOST:PORT/PATH` (CLT-85).
 - `ww observe` and `ww stream` walk into mounted APIs: `hub.player.state`, `ext.cast.items` (CLT-84).
 - `ww api tree` shows mount slots with their expected API crate (SRV-76).
 - `ww info --effects` lists the items that change something, by effect; `ww api tree` shows `#[effect(..)]` (API-58).

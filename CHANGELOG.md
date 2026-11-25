@@ -11,6 +11,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
+- Book chapters 1.1 to 1.4, "Your data on the wire", on the sensor packet; `types.md` becomes "Types in depth" (DOC-17).
 - Sensor packet example: a struct on a radio link with shrink_wrap alone, its next firmware read by old gateways (EX-21); see `examples/sensor_packet`.
 - Book chapter Properties on the thermometer: includes, a `ww` transcript, a Python script, a figure (DOC-17); see `examples/thermometer_py`.
 - `ww --websocket URL` and Python `connect(websocket_url=..)` reach a WebSocket device, such as a simulated one (CLT-85); see `ww_plugin`, `wire_weaver_py`.

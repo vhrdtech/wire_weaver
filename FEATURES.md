@@ -2925,7 +2925,10 @@ Unicast Data0 to one node over the same bus is TR-6.
   includes of marked sections of compiled sources, and shows output (a `ww` transcript, a Python run) written by a
   golden test into `docs/generated/`. Done: Basic 1.12 Properties (`docs/basic/properties.md`) on the thermometer,
   with `docs/assets/property_timeline.svg`, `examples/thermometer_py` (`just test-thermometer-py`) and
-  `examples/thermometer/tests/it/book.rs`. Missing: the other chapters of the outline.
+  `examples/thermometer/tests/it/book.rs`; Basic 1.1 to 1.4, "Your data on the wire" (`docs/basic/types_on_the_wire.md`,
+  `borrowed_and_owned.md`, `built_in_types.md`, `structs_and_enums.md`, `types_that_change.md`) on the sensor packet
+  (EX-21), with a generated `bits` layout and `docs/assets/borrowed_owned.svg`, `old_new_reader.svg`; `types.md` and
+  shrink_wrap's `derive.md` keep their Advanced halves. Missing: the other chapters of the outline.
 
 ## Testing, CI and performance (`TEST`)
 

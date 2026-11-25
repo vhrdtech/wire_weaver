@@ -17,15 +17,18 @@ nav = [
     { "Introduction" = [
             "index.md",
             "levels.md",
-            { "What WireWeaver does" = "features_today.md" }
+            { "What WireWeaver does" = "features_today.md" },
+            "serdes/shrink_wrap.md"
         ]
     },
     { "Basic" = [
             "basic/index.md",
             { "Your data on the wire" = [
-                    "serdes/shrink_wrap.md",
-                    "serdes/derive.md",
-                    "types.md"
+                    "basic/types_on_the_wire.md",
+                    "basic/borrowed_and_owned.md",
+                    "basic/built_in_types.md",
+                    "basic/structs_and_enums.md",
+                    "basic/types_that_change.md"
                 ]
             },
             { "A first device" = [
@@ -91,6 +94,8 @@ nav = [
     { "Advanced" = [
             "advanced/index.md",
             { "Types in depth" = [
+                    "types.md",
+                    "serdes/derive.md",
                     { "Size assumptions" = "serdes/size_assumptions.md" },
                     "serdes/special_types.md",
                     "serdes/series.md",

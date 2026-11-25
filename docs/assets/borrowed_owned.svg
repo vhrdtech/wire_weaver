@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="320" viewBox="0 0 720 320" font-family="Helvetica, Arial, sans-serif" font-size="13">
+  <title>A borrowed and an owned reading read from the same frame</title>
+  <desc>The frame holds the nine bytes of a reading. The borrowed Reading's station points into the frame's first four bytes, so nothing is copied, and the reading lives only as long as the frame. The owned ReadingOwned copies "roof" into a String of its own on the heap, so the frame can take the next message.</desc>
+  <defs>
+    <marker id="bo-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#222"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="720" height="320" rx="10" fill="#ffffff"/>
+
+  <!-- the frame -->
+  <text x="360" y="30" text-anchor="middle" font-weight="bold" fill="#222">frame: the radio's buffer</text>
+  <g stroke="#222" font-family="Menlo, Consolas, monospace" text-anchor="middle" fill="#222">
+    <rect x="180" y="42" width="160" height="34" fill="#d7e8d0"/>
+    <rect x="340" y="42" width="40" height="34" fill="#eef2f7"/>
+    <rect x="380" y="42" width="40" height="34" fill="#eef2f7"/>
+    <rect x="420" y="42" width="40" height="34" fill="#eef2f7"/>
+    <rect x="460" y="42" width="40" height="34" fill="#eef2f7"/>
+    <rect x="500" y="42" width="40" height="34" fill="#eef2f7"/>
+    <line x1="220" y1="42" x2="220" y2="76"/>
+    <line x1="260" y1="42" x2="260" y2="76"/>
+    <line x1="300" y1="42" x2="300" y2="76"/>
+  </g>
+  <g font-family="Menlo, Consolas, monospace" text-anchor="middle" fill="#222">
+    <text x="200" y="64">72</text><text x="240" y="64">6f</text><text x="280" y="64">6f</text><text x="320" y="64">66</text>
+    <text x="360" y="64">66</text><text x="400" y="64">08</text><text x="440" y="64">80</text><text x="480" y="64">30</text>
+    <text x="520" y="64">04</text>
+  </g>
+  <text x="200" y="96" text-anchor="middle" fill="#222">"roof"</text>
+
+  <!-- borrowed -->
+  <rect x="40" y="140" width="290" height="120" rx="6" fill="#eef2f7" stroke="#222"/>
+  <text x="40" y="132" font-weight="bold" fill="#222">Reading&lt;'i&gt;: borrowed</text>
+  <g fill="#222">
+    <text x="56" y="188" font-family="Menlo, Consolas, monospace">station: &amp;'i str</text>
+    <text x="56" y="212" font-family="Menlo, Consolas, monospace">temperature, humidity, ...</text>
+    <text x="56" y="240">no copy; lives as long as the frame</text>
+  </g>
+  <line x1="215" y1="180" x2="252" y2="80" stroke="#222" marker-end="url(#bo-arrow)"/>
+  <text x="246" y="122" fill="#222">from_ww_bytes</text>
+
+  <!-- owned -->
+  <rect x="390" y="140" width="290" height="120" rx="6" fill="#eef2f7" stroke="#222"/>
+  <text x="390" y="132" font-weight="bold" fill="#222">ReadingOwned: owned</text>
+  <g fill="#222">
+    <text x="406" y="188" font-family="Menlo, Consolas, monospace">station: String</text>
+    <text x="406" y="212" font-family="Menlo, Consolas, monospace">temperature, humidity, ...</text>
+    <text x="406" y="240">a copy; the frame can be reused</text>
+  </g>
+  <rect x="560" y="276" width="120" height="30" rx="4" fill="#d7e8d0" stroke="#222"/>
+  <text x="620" y="296" text-anchor="middle" font-family="Menlo, Consolas, monospace" fill="#222">"roof"</text>
+  <text x="550" y="296" text-anchor="end" fill="#222">on the heap</text>
+  <path d="M680,184 C708,200 708,262 684,286" fill="none" stroke="#222" marker-end="url(#bo-arrow)"/>
+  <line x1="330" y1="80" x2="540" y2="116" stroke="#222" stroke-dasharray="6 4" marker-end="url(#bo-arrow)"/>
+  <text x="548" y="120" fill="#222">from_ww_bytes_owned</text>
+</svg>

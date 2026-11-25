@@ -108,6 +108,7 @@ fn book_output_built_in_types() {
     row!(out, "i16", "-2", -2_i16);
     row!(out, "f32", "1.5", 1.5_f32);
     row!(out, "UNib32", "5", UNib32(5));
+    row!(out, "UNib32", "9", UNib32(9));
     row!(out, "UNib32", "300", UNib32(300));
     row!(out, "&str", "abc");
     row!(

@@ -56,8 +56,14 @@ nav = [
             { "Numbers and errors" = [
                     "std_library/ww_si.md",
                     "std_library/exact_units.md",
+                    "std_library/bounds.md",
+                    "std_library/quantity.md",
+                    "std_library/points.md",
+                    "std_library/timestamps.md",
+                    "std_library/timed.md",
                     { "exact_units: imperial and US customary" = "std_library/customary.md" },
                     "std_library/ww_error.md",
+                    "std_library/ww_error_in_an_api.md",
                     "std_library/ww_date_time.md"
                 ]
             },
@@ -106,6 +112,7 @@ nav = [
                     { "Sync, async and shared handlers" = "api/handlers.md" },
                     { "Large messages and result sets" = "api/large_messages.md" },
                     "api/optional_items.md",
+                    "std_library/errors_lists.md",
                     "api/multi_requests.md",
                     { "Metadata: effects, claims, pins, labels" = "api/metadata.md" },
                     "api/introspection.md",
@@ -133,10 +140,24 @@ nav = [
             },
             { "Units in depth" = [
                     { "exact_units: units in the model" = "std_library/units_in_the_model.md" },
-                    { "exact_units: points" = "std_library/points.md" },
+                    "std_library/quantity_type.md",
+                    "std_library/quantity_reference.md",
+                    "std_library/conversions.md",
+                    "std_library/unit_algebra.md",
+                    "std_library/dimensions.md",
+                    "std_library/prefixes.md",
+                    "std_library/units_in_an_api.md",
+                    "std_library/units_in_tools.md",
+                    "std_library/points_and_origins.md",
                     { "exact_units: indices" = "std_library/indices.md" },
                     { "exact_units: rounding" = "std_library/rounding.md" },
                     { "exact_units: magnitudes" = "std_library/magnitude.md" },
+                    "std_library/runtime_units.md",
+                    "std_library/run_time_scales.md",
+                    "std_library/time_points.md",
+                    "std_library/coded_numbers.md",
+                    "std_library/unit_systems.md",
+                    "std_library/ww_si_features.md",
                     "std_library/ww_numeric.md"
                 ]
             },

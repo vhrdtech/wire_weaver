@@ -19,7 +19,7 @@ std = ["shrink_wrap/std", "ww_si/std"]
 # --8<-- [start:deps]
 [dependencies]
 shrink_wrap.workspace = true
-ww_si = { workspace = true, features = ["thermal", "dimensionless"] }
+ww_si = { workspace = true, features = ["thermal", "dimensionless", "mechanical"] }
 # --8<-- [end:deps]
 
 [dev-dependencies]

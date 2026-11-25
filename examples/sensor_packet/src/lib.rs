@@ -41,7 +41,7 @@ pub struct Reading<'i> {
 
 // --8<-- [start:node_id]
 /// The number of a sensor node on the radio link.
-#[derive_shrink_wrap(borrowed, owned, derive(Debug, Clone, Copy, PartialEq, Eq))]
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Debug, Clone, Copy, PartialEq, Eq))]
 pub struct NodeId(pub u8);
 // --8<-- [end:node_id]
 

@@ -169,6 +169,8 @@ check-core:
     # check ww_device with features used on embedded targets
     @cargo check -p ww_device --features=defmt,embassy-time
     @cargo check -p ww_device --features=defmt,embassy-net,ws,udp
+    # the sensor packet example as the node's firmware builds it: no_std, no allocator
+    @cargo check -p sensor_packet --no-default-features --target thumbv6m-none-eabi
 
 # cargo check mcu workspace
 [working-directory('mcu')]

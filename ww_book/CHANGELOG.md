@@ -4,6 +4,7 @@
 
 ### 🚀 Features
 
+- `ww-book assemble` writes `target/vz/sources.toml` (`write_sources_file`, `Repository::url`/`commit`): the repositories and pages it copied, so code links on copied pages resolve against their repositories (DOC-13).
 - A tracker's links to files of its repository that are not pages point to them on the web at the locked commit (`Located::repository`).
 - A source's `book` names its own book: its pages are not copied, only its tracker, whose links point into that book (DOC-12).
 - `book_sources.toml` takes a git source (`git`, `branch`): pages from a checkout of the branch, fetched by `ww-book assemble`, which prints the commit.

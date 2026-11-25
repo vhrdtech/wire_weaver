@@ -39,6 +39,7 @@ allow-wildcard-paths = true
 skip = [
     { crate = "base64@0.22.1", reason = "edge-http 0.8 and probe-rs 0.32; ureq takes 0.23" },
     { crate = "bitflags@1.3.2", reason = "defmt 1.1" },
+    { crate = "blinky_api@0.1.1", reason = "examples/blinky_api_evolved: the blinky API after a change, beside 0.1.0" },
     { crate = "defmt@0.3.100", reason = "embassy-net-driver 0.2 and smoltcp 0.13; 0.3.100 forwards to defmt 1" },
     { crate = "embedded-hal@0.2.7", reason = "embassy-time 0.5 implements both embedded-hal versions" },
     { crate = "getrandom@0.2.17", reason = "ring 0.17 (rustls for ureq)" },

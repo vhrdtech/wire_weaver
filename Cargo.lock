@@ -335,7 +335,7 @@ name = "blinky"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "blinky_api",
+ "blinky_api 0.1.0",
  "clap",
  "console",
  "futures-util",
@@ -361,7 +361,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "blinky_api_evolved"
+name = "blinky_api"
 version = "0.1.1"
 dependencies = [
  "ww_api",
@@ -372,14 +372,21 @@ name = "blinky_evolved"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "blinky_api_evolved",
+ "blinky",
+ "blinky_api 0.1.0",
+ "blinky_api 0.1.1",
+ "book_outputs",
  "clap",
  "console",
  "tokio",
  "tracing",
  "tracing-subscriber",
  "wire_weaver",
+ "wire_weaver_cli",
  "wire_weaver_client",
+ "wire_weaver_evolution",
+ "ww_client_server",
+ "ww_device",
  "ww_self",
 ]
 
@@ -5374,7 +5381,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "blinky",
- "blinky_api",
+ "blinky_api 0.1.0",
  "clap",
  "tests_common",
  "tokio",

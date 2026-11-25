@@ -1,0 +1,18 @@
+// blinky_api 0.1.0 traits and types, saved by `ww api save`.
+// Do not edit, bump the crate version and save a new snapshot instead.
+// shrink_wrap sha256: 61b0dc89fb2b24fb1a291cac28889f648c822eaa8558fa614053a3da44204905
+(magic: 2837124336, ww_self_version: (major: 0, minor: 5, patch: 0), root: (docs: [
+    "API of the blinky example device: an LED turned on and off, the smallest possible API. Start here when new",
+    "to WireWeaver; `blinky_api_evolved` shows the same API after a change.",
+], crate_idx: 0, trait_name: "blinky_api", items: [
+    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "BlinkyApi", docs: [], optional: None, meta: None, identity: None),
+], compact_id: None, meta: None), types: [], traits: [
+    InLine(level: (docs: [], crate_idx: 0, trait_name: "BlinkyApi", items: [
+        (id: 0, kind: Method(args: [], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "led_on", docs: [], optional: None, meta: Some((claim: None, shares: [], labels: [], effects: (64))), identity: None),
+        (id: 1, kind: Method(args: [], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "led_off", docs: [], optional: None, meta: Some((claim: None, shares: [], labels: [], effects: (64))), identity: None),
+    ], compact_id: None, meta: None), crate_idx: 0),
+], ext_crates: [
+    (crate_id: "blinky_api", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
+    Some((line: 1, revision: 0)),
+]))

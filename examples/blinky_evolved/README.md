@@ -1,11 +1,9 @@
 # blinky_evolved
 
-> Client of the evolved blinky API, run against devices of either version
+The blinky example after its first change, `led_toggle` added at wire w1.1:
 
-Depends on `blinky_api_evolved` (the blinky API with a method added since the original `blinky_api`) and
-`wire_weaver_client`. Shows that a client built against the evolved API still talks to a device running the
-original one, and to one running the evolved one, without a special case on either side.
-
-See the [main repo](https://github.com/vhrdtech/wire_weaver) for the full picture and
-[documentation](https://vhrdtech.github.io/wire_weaver) for the step-by-step guide, in particular how an API
-evolves without breaking old firmware or old clients.
+- `Blinky`, the host side of `blinky_api` 0.1.1 (`examples/blinky_api_evolved`);
+- `device`, the firmware of 0.1.0 and of 0.1.1, simulated on a PC and served in process;
+- `tests/it/book.rs`, which runs old and new hosts against old and new firmware and the checker on the change, for
+  the book's chapter "Changing your API" (`docs/generated/blinky_evolved/`);
+- the example `old_firmware`, which calls `led_toggle` on a board over USB that still runs 0.1.0.

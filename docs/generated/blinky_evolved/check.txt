@@ -1,0 +1,6 @@
+$ ww api check examples/blinky_api_evolved --against examples/blinky_api/api_snapshots/blinky_api_0_1_0.ron
+blinky_api 0.1.0 (examples/blinky_api/api_snapshots/blinky_api_0_1_0.ron) -> 0.1.1 (source): compatible changes
+  needs: wire w1.0 -> w1.1 or later (a new wire revision), crate 0.1.0 -> 0.1.1 or later (compatible position (patch before 1.0, minor after))
+  compatible: wire version w1.0 -> w1.1
+  compatible: BlinkyApi::led_toggle added
+version is bumped enough

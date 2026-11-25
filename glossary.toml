@@ -1,0 +1,173 @@
+# The book's glossary, one entry per term, read by vhrd_zensical.glossary. `[[term]]` in a page links the term to
+# its entry on glossary.md and shows `short` on hover; `forms` are the other words the term takes in prose; `long` is
+# an abbreviation's long form; `chapter` is the page that explains the term, relative to the glossary page.
+# A chapter rewritten for the book adds the terms it defines.
+
+[[term]]
+name = "API trait"
+forms = ["API traits"]
+short = "A Rust trait marked `#[ww_trait]` or `#[ww_api_root]` that describes what a device offers: methods, properties, streams, sinks and nested traits."
+chapter = "../api/overview/"
+
+[[term]]
+name = "API crate"
+forms = ["API crates"]
+short = "A `no_std` crate holding an API trait and its types, which the firmware and every host depend on."
+chapter = "../api/folder_structure/"
+
+[[term]]
+name = "borrowed"
+short = "A type whose values point into the buffer they were read from, so reading copies nothing; its owned twin copies the data out."
+chapter = "../serdes/derive/"
+
+[[term]]
+name = "claim"
+forms = ["claims"]
+short = "A host's exclusive hold on a resource of a device, so that only one script drives it at a time."
+chapter = "../api/metadata/"
+
+[[term]]
+name = "client"
+forms = ["clients"]
+short = "The host-side code generated from an API trait: a typed function per item, async, blocking or as a promise."
+chapter = "../api/overview/"
+
+[[term]]
+name = "conformance corpus"
+short = "The set of wire-format cases with their exact bytes that every implementation (the derive, the dynamic client, Python and C) must reproduce."
+chapter = "../serdes/conformance/"
+
+[[term]]
+name = "credit sink"
+forms = ["credit sinks"]
+short = "A sink with flow control: the device grants credit, and the host sends no more than the credit allows."
+chapter = "../api/credit_sinks/"
+
+[[term]]
+name = "device contract"
+short = "The standard traits every device should offer: firmware and board information, a unique id, user information, the log and an indication."
+chapter = "../std_library/device_contract/"
+
+[[term]]
+name = "effect"
+forms = ["effects"]
+short = "Metadata on a method or property that says what calling it does to the device, such as editing or persisting a value, for tools to act on."
+chapter = "../api/metadata/"
+
+[[term]]
+name = "evolvable"
+short = "A type that can gain fields later while old and new readers still read each other's bytes; the default for a derived type."
+chapter = "../serdes/derive/"
+
+[[term]]
+name = "evolution checker"
+short = "The tool behind `ww api check` and `ww api diff` that compares two snapshots of an API and says whether a change keeps compatibility."
+chapter = "../evolution/checker_tool/"
+
+[[term]]
+name = "framer"
+short = "The layer (`ww_framer`) that packs small messages into one packet and splits a large message over several."
+chapter = "../transport/ww_framer/"
+
+[[term]]
+name = "handler"
+forms = ["handlers"]
+short = "A function of the server that runs when a request for its method or property arrives; its signature follows the `ww_codegen!` options."
+chapter = "../api/handlers/"
+
+[[term]]
+name = "hub"
+short = "The per-user process that holds the links to devices and shares them between several programs on one PC."
+chapter = "../transport/hub/"
+
+[[term]]
+name = "introspection"
+short = "The description of a device's API that the device sends on request, so that a tool can call it without knowing the API at build time."
+chapter = "../api/introspection/"
+
+[[term]]
+name = "link layer"
+short = "The layer (`ww_link`) under the framer that opens a session with a device, checks versions and carries packets."
+chapter = "../transport/ww_link/"
+
+[[term]]
+name = "method"
+forms = ["methods"]
+short = "An item of an API trait that a host calls with arguments and that answers with a return value."
+chapter = "../api/methods/"
+
+[[term]]
+name = "mount"
+forms = ["mounts", "mounted"]
+short = "An API served by another process or a loaded module and attached into a device's API at run time."
+chapter = "../api/mounts/"
+
+[[term]]
+name = "observe"
+forms = ["observes", "observing", "observed"]
+short = "To ask a device once for a property's updates, which it then sends on its own at the chosen rate, instead of being polled."
+chapter = "../api/observing/"
+
+[[term]]
+name = "owned"
+short = "A type whose values hold their own data, copied out of the buffer they were read from; its borrowed twin points into the buffer."
+chapter = "../serdes/derive/"
+
+[[term]]
+name = "property"
+forms = ["properties"]
+short = "An item of an API trait holding a value that a host can read, write and observe."
+chapter = "../api/properties/"
+
+[[term]]
+name = "reading level"
+forms = ["reading levels"]
+short = "How much a page assumes: Basic, Advanced or Nomicon, shown by the badge above its title."
+chapter = "../levels/"
+
+[[term]]
+name = "server"
+forms = ["servers"]
+short = "The device-side code generated from an API trait: it decodes requests and calls your handlers, `no_std` and without allocation."
+chapter = "../api/overview/"
+
+[[term]]
+name = "ShrinkWrap"
+forms = ["shrink_wrap"]
+short = "The wire format of WireWeaver: dense down to single bits, readable without an allocator, and evolvable."
+chapter = "../serdes/shrink_wrap/"
+
+[[term]]
+name = "sink"
+forms = ["sinks"]
+short = "An item of an API trait that carries a flow of data from the host into the device."
+chapter = "../api/streams/"
+
+[[term]]
+name = "snapshot"
+forms = ["snapshots"]
+short = "A saved description of an API at one version, which the evolution checker compares a newer version with."
+chapter = "../evolution/snapshots/"
+
+[[term]]
+name = "standard library"
+short = "Ready-made API traits and types for common device features (pins, buses, logs, firmware updates), reusable in any API."
+chapter = "../std_library/overview/"
+
+[[term]]
+name = "stream"
+forms = ["streams"]
+short = "An item of an API trait that carries a flow of data from the device to the host."
+chapter = "../api/streams/"
+
+[[term]]
+name = "transport"
+forms = ["transports"]
+short = "The medium that carries a device's packets: USB, UDP, WebSocket, RTT or a byte stream such as a serial line."
+chapter = "../transport/overview/"
+
+[[term]]
+name = "wire line"
+forms = ["wire lines"]
+short = "A series of API versions that can talk to each other; a breaking change starts a new line, and a host may speak several."
+chapter = "../evolution/versions/"

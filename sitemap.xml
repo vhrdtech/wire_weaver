@@ -4,6 +4,9 @@
         <loc>https://ww.vhrd.tech/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/advanced/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/api/addressing/</loc>
       </url>
       <url>
@@ -115,6 +118,9 @@
         <loc>https://ww.vhrd.tech/assets/src/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/basic/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/c/</loc>
       </url>
       <url>
@@ -166,16 +172,25 @@
         <loc>https://ww.vhrd.tech/features_today/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/glossary/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/levels/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/logring/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/nomicon/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/python/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/python_advanced/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/reference/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/serdes/code_size/</loc>

@@ -1,0 +1,33 @@
+[package]
+name = "thermometer_device"
+version = "0.1.0"
+description = "The thermometer example device: one server for the simulated device on a PC and the firmware of every board"
+publish = false
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[package.metadata.cargo-machete]
+# the code ww_codegen! generates names ww_stream and shrink_wrap
+ignored = ["ww_stream", "shrink_wrap"]
+
+[features]
+# build against std: owned API types, for a device simulated on a PC
+std = ["thermometer_api/std", "wire_weaver/std", "ww_client_server/std", "ww_stream/std"]
+# defmt formatting for firmware logs
+defmt = ["wire_weaver/defmt", "ww_device/defmt"]
+
+[dependencies]
+embassy-futures.workspace = true
+shrink_wrap.workspace = true
+thermometer_api.workspace = true
+wire_weaver.workspace = true
+ww_client_server.workspace = true
+ww_device.workspace = true
+ww_si = { workspace = true, features = ["time", "thermal", "dimensionless", "counting"] }
+ww_stream.workspace = true
+
+[lints]
+workspace = true

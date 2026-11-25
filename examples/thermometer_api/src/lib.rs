@@ -87,7 +87,13 @@ pub enum Mode {
 }
 
 /// Why `set_rate` refused.
-#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Debug, PartialEq, Eq, Clone, Copy), ww_repr = u4)]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Debug, PartialEq, Eq, Clone, Copy),
+    ww_repr = u4,
+    display
+)]
 pub enum RateError {
     /// A triggered sample is running.
     Busy,

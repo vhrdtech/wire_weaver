@@ -12,7 +12,7 @@ The dense wire format is useful on `std` too (many small objects without compres
 Read `docs/index.md` first, then `docs/serdes/shrink_wrap.md` and `wire_format.md`, `docs/serdes/derive.md` with
 `derive_reference.md`, `size_assumptions.md` and `layouts.md` (read before touching any type definition),
 `docs/serdes/showcase.md` (byte-verified tricks), `docs/api/overview.md`, `docs/types.md`, and
-`docs/evolution/overview.md` with `versions.md` and `rules.md`. The SerDes pages but the conformance ones live in the
+`docs/basic/changing_your_api.md`, `docs/evolution/versions.md` and `rules.md`. The SerDes pages but the conformance ones live in the
 shrink_wrap repository, the pages of `ww_si`, `ww_numeric`, `ww_version`, `ww_error`, `ww_date_time` and the units in
 the ww_base repository, the standard library's API pages in the ww_stdlib repository: `just book-assemble` copies
 them into `docs/serdes/` and `docs/std_library/` (git-ignored) from the checkouts `Cargo.lock` pins, and

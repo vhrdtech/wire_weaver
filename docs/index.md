@@ -49,7 +49,7 @@ Pages are marked by how deep they go: Basic, Advanced or Nomicon. See [reading l
     ---
     Stream data of any type, observe [property](basic/properties.md) changes. Both to and from device.
 
--   :material-compare-vertical: __[Evolution](evolution/overview.md)__
+-   :material-compare-vertical: __[Evolution](basic/changing_your_api.md)__
 
     ---
     Evolve data types and API while still allowing:

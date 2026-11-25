@@ -178,6 +178,12 @@ short = "The medium that carries a device's packets: USB, UDP, WebSocket, RTT or
 chapter = "../transport/overview/"
 
 [[term]]
+name = "wire version"
+forms = ["wire versions"]
+short = "The version of an API that devices and hosts compare when they connect, such as `w1.1`: a wire line and a revision on it."
+chapter = "../basic/changing_your_api/"
+
+[[term]]
 name = "wire line"
 forms = ["wire lines"]
 short = "A series of API versions that can talk to each other; a breaking change starts a new line, and a host may speak several."

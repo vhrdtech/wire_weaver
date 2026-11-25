@@ -22,8 +22,10 @@ defmt = ["ww_api/defmt"]
 [dependencies]
 ww_api = { workspace = true }
 
+# --8<-- [start:checker]
 [dev-dependencies]
 wire_weaver_evolution = { workspace = true, features = ["source"] }
+# --8<-- [end:checker]
 
 [lints]
 workspace = true

@@ -6,7 +6,7 @@ level: advanced
 
 A device and a host meet in link setup. Before either sends a single request, they have to decide whether they can
 understand each other at all. This page is about how WireWeaver makes that decision, and about the versions you
-write so that it can. [Evolving an API](overview.md) has the short version; [what can change](rules.md) lists which
+write so that it can. [Changing your API](../basic/changing_your_api.md) has the short version; [what can change](rules.md) lists which
 change is compatible.
 
 ## Your API's version

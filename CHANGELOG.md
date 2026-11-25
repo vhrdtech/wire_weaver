@@ -19,6 +19,8 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - Thermometer example programs for units, observing, streams and channels, with their Python scripts (EX-18); see `examples/thermometer`, `examples/thermometer_py`.
 - Book chapters Getting connected, 1.20 to 1.26; the transport pages become Advanced (DOC-17); see `examples/thermometer`.
 - `udp::TokioReadiness::new` serves a UDP socket on tokio without a host server (DOC-17); see `wire_weaver_server`.
+- Copied book pages bring their figures: `ww-book assemble` copies a source's `docs/assets/` beside its pages (DOC-17); see `ww_book`.
+- Golden book outputs of a test go into its own repository, so ww_stdlib keeps its own `docs/generated/` (DOC-16); see `book_outputs`.
 - Book chapter Properties on the thermometer: includes, a `ww` transcript, a Python script, a figure (DOC-17); see `examples/thermometer_py`.
 - `ww --websocket URL` and Python `connect(websocket_url=..)` reach a WebSocket device, such as a simulated one (CLT-85); see `ww_plugin`, `wire_weaver_py`.
 - Bench supply example: two channels with voltage and current limits, an output switch that refuses instead of overloading the simulated load, and a pytest bench through the ww hub (EX-19); see `examples/bench_supply_api`, `examples/bench_supply`, `examples/bench_supply_py`.

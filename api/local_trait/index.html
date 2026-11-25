@@ -1,6 +1,4 @@
 
-
-
 <!doctype html>
 <html lang="en" class="no-js">
   <head>
@@ -18,7 +16,6 @@
       
       
       
-      
         <link rel="prev" href="../handlers/">
       
       
@@ -29,7 +26,7 @@
       
       
       <link rel="icon" href="../../assets/wire_weaver_favicon.svg">
-      <meta name="generator" content="zensical-0.1.3">
+      <meta name="generator" content="zensical-0.1.2">
     
     
       
@@ -40,13 +37,12 @@
       
         
       
-      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.e2cf241e.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.ebb7f775.min.css">
       
         
           
         
         <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.b60ce83d.min.css">
-      
       
       
 
@@ -68,6 +64,10 @@
       <link rel="stylesheet" href="../../stylesheets/vhrd.css">
     
       <link rel="stylesheet" href="../../stylesheets/ww_highlight.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/vz-refs.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/vz-code.css">
     
     <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
@@ -6831,13 +6831,13 @@ hook</a> before each call (SRV-72).</p>
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">    </span><span class="cp">#[effect(read)]</span>
 </span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">snapshot</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">Snapshot</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="p">;</span>
 </span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">    </span><span class="cp">#[effect(edit)]</span>
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">step</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">);</span>
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">    </span><span class="n">stream</span><span class="o">!</span><span class="p">(</span><span class="n">totals</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">);</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">    </span><span class="fm">property!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">step</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">);</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">    </span><span class="fm">stream!</span><span class="p">(</span><span class="n">totals</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">);</span>
 </span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="p">}</span>
 </span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>
 </span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="cp">#[cfg(feature = </span><span class="s">&quot;local&quot;</span><span class="cp">)]</span>
 </span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="k">mod</span><span class="w"> </span><span class="nn">local</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="w">    </span><span class="n">wire_weaver</span><span class="p">::</span><span class="n">ww_codegen</span><span class="o">!</span><span class="p">(</span><span class="k">crate</span><span class="w"> </span><span class="p">::</span><span class="w"> </span><span class="nc">CounterApi</span><span class="p">,</span><span class="w"> </span><span class="n">local_trait</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;Counter&quot;</span><span class="p">);</span>
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="w">    </span><span class="n">wire_weaver</span><span class="p">::</span><span class="fm">ww_codegen!</span><span class="p">(</span><span class="k">crate</span><span class="w"> </span><span class="p">::</span><span class="w"> </span><span class="nc">CounterApi</span><span class="p">,</span><span class="w"> </span><span class="n">local_trait</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;Counter&quot;</span><span class="p">);</span>
 </span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="p">}</span>
 </span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="cp">#[cfg(feature = </span><span class="s">&quot;local&quot;</span><span class="cp">)]</span>
 </span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="k">pub</span><span class="w"> </span><span class="k">use</span><span class="w"> </span><span class="n">local</span><span class="p">::{</span><span class="n">Counter</span><span class="p">,</span><span class="w"> </span><span class="n">CounterDyn</span><span class="p">};</span>
@@ -7061,7 +7061,7 @@ call they guard: the server within the request's deadline and cancel, <code>Auth
 the same decision. See <a href="../host_server/#waiting-for-an-answer">Waiting for an answer</a>.</p>
 <h2 id="the-client-implements-it-too">The client implements it too<a class="headerlink" href="#the-client-implements-it-too" title="Permanent link">&para;</a></h2>
 <p>The client's <code>ww_codegen!</code> names the trait with <code>impl_local_trait</code>:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">wire_weaver</span><span class="p">::</span><span class="n">ww_codegen</span><span class="o">!</span><span class="p">(</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">wire_weaver</span><span class="p">::</span><span class="fm">ww_codegen!</span><span class="p">(</span>
 </span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">    </span><span class="n">local_trait_api</span><span class="w"> </span><span class="p">::</span><span class="w"> </span><span class="nc">CounterApi</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="k">super</span><span class="p">::</span><span class="n">CounterClient</span><span class="p">,</span>
 </span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">    </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;std_client&quot;</span><span class="p">,</span>
 </span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">    </span><span class="n">impl_local_trait</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;local_trait_api::Counter&quot;</span><span class="p">,</span>
@@ -7108,13 +7108,13 @@ nested level through an accessor, and the nested level's trait has the level's o
 trait on its definition, since <code>ww_codegen!</code> names only the root's:</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="cp">#[ww_api_root]</span>
 </span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">PlantApi</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">desk</span><span class="p">:</span><span class="w"> </span><span class="nc">DeskApi</span><span class="p">);</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">    </span><span class="fm">ww_impl!</span><span class="p">(</span><span class="n">desk</span><span class="p">:</span><span class="w"> </span><span class="nc">DeskApi</span><span class="p">);</span>
 </span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="p">}</span>
 </span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>
 </span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="cp">#[ww_trait(local = </span><span class="s">&quot;Desk&quot;</span><span class="cp">)]</span>
 </span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">DeskApi</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">ping</span><span class="p">(</span><span class="n">n</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kt">u32</span><span class="p">;</span>
-</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">lamp</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">);</span>
+</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="w">    </span><span class="fm">property!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">lamp</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">);</span>
 </span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="p">}</span>
 </span></code></pre></div>
 <p><code>ww_codegen!(crate :: PlantApi, local_trait = "Plant")</code> then generates <code>Plant</code> and <code>Desk</code>, each with its <code>Dyn</code>
@@ -7229,7 +7229,7 @@ each calling the trait on one shared service, so nothing is written twice:</p>
 </span><span id="__span-14-29"><a id="__codelineno-14-29" name="__codelineno-14-29" href="#__codelineno-14-29"></a><span class="k">impl</span><span class="w"> </span><span class="n">Backend</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">CounterServer</span><span class="w"> </span><span class="p">{}</span>
 </span><span id="__span-14-30"><a id="__codelineno-14-30" name="__codelineno-14-30" href="#__codelineno-14-30"></a>
 </span><span id="__span-14-31"><a id="__codelineno-14-31" name="__codelineno-14-31" href="#__codelineno-14-31"></a><span class="k">mod</span><span class="w"> </span><span class="nn">api_impl</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-14-32"><a id="__codelineno-14-32" name="__codelineno-14-32" href="#__codelineno-14-32"></a><span class="w">    </span><span class="n">wire_weaver</span><span class="p">::</span><span class="n">ww_codegen</span><span class="o">!</span><span class="p">(</span>
+</span><span id="__span-14-32"><a id="__codelineno-14-32" name="__codelineno-14-32" href="#__codelineno-14-32"></a><span class="w">    </span><span class="n">wire_weaver</span><span class="p">::</span><span class="fm">ww_codegen!</span><span class="p">(</span>
 </span><span id="__span-14-33"><a id="__codelineno-14-33" name="__codelineno-14-33" href="#__codelineno-14-33"></a><span class="w">        </span><span class="n">local_trait_api</span><span class="w"> </span><span class="p">::</span><span class="w"> </span><span class="nc">CounterApi</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="k">super</span><span class="p">::</span><span class="n">CounterServer</span><span class="p">,</span>
 </span><span id="__span-14-34"><a id="__codelineno-14-34" name="__codelineno-14-34" href="#__codelineno-14-34"></a><span class="w">        </span><span class="n">server</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
 </span><span id="__span-14-35"><a id="__codelineno-14-35" name="__codelineno-14-35" href="#__codelineno-14-35"></a><span class="w">        </span><span class="n">serve_trait</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;local_trait_api::Counter&quot;</span><span class="p">,</span>
@@ -7310,7 +7310,7 @@ prints. Firmware keeps its hand-written handlers: the trait's owned types and bo
 streams aren't <code>Send</code>. <code>local_trait_send = false</code> gives it the trait in a form without <code>Send</code>:</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="cp">#[cfg(feature = </span><span class="s">&quot;local&quot;</span><span class="cp">)]</span>
 </span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="k">mod</span><span class="w"> </span><span class="nn">local</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">    </span><span class="n">wire_weaver</span><span class="p">::</span><span class="n">ww_codegen</span><span class="o">!</span><span class="p">(</span><span class="k">crate</span><span class="w"> </span><span class="p">::</span><span class="w"> </span><span class="nc">CounterApi</span><span class="p">,</span><span class="w"> </span><span class="n">local_trait</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;Counter&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">local_trait_send</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="p">);</span>
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">    </span><span class="n">wire_weaver</span><span class="p">::</span><span class="fm">ww_codegen!</span><span class="p">(</span><span class="k">crate</span><span class="w"> </span><span class="p">::</span><span class="w"> </span><span class="nc">CounterApi</span><span class="p">,</span><span class="w"> </span><span class="n">local_trait</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;Counter&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">local_trait_send</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="p">);</span>
 </span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>What changes against the <code>Send</code> form:</p>
@@ -7356,7 +7356,7 @@ streams aren't <code>Send</code>. <code>local_trait_send = false</code> gives it
 </span></code></pre></div>
 <p>The client implements this form too, with the same flag beside <code>impl_local_trait</code>; it is <code>Send</code> itself, its item
 streams coerce into <code>LocalItemStream</code>:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="n">wire_weaver</span><span class="p">::</span><span class="n">ww_codegen</span><span class="o">!</span><span class="p">(</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="n">wire_weaver</span><span class="p">::</span><span class="fm">ww_codegen!</span><span class="p">(</span>
 </span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="w">    </span><span class="n">local_trait_api</span><span class="w"> </span><span class="p">::</span><span class="w"> </span><span class="nc">CounterApi</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="k">super</span><span class="p">::</span><span class="n">CounterClient</span><span class="p">,</span>
 </span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="w">    </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;std_client&quot;</span><span class="p">,</span>
 </span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="w">    </span><span class="n">impl_local_trait</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;local_trait_api::Counter&quot;</span><span class="p">,</span>
@@ -7480,6 +7480,7 @@ in other crates, though, since a crate can't implement a trait it doesn't own fo
       Zensical
     </a>
   
+  <div class="book-stamp" data-built="1795598778">wire_weaver 0.6.0 · a748fad · built 2026-11-25 09:26 UTC (<span class="book-stamp-age">just built</span>)</div>
 </div>
       
         
@@ -7531,10 +7532,13 @@ in other crates, though, since a crate can't implement a trait it doesn't own fo
       <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["announce.dismiss","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.path","navigation.sections","navigation.tabs","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../../assets/javascripts/workers/search.719e0d91.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.9e76c64c.min.js"></script>
-      
+      <script src="../../assets/javascripts/bundle.3cb411a8.min.js"></script>
       
         <script src="../../javascripts/ww_highlight.js"></script>
+      
+        <script src="../../javascripts/vz-refs.js"></script>
+      
+        <script src="../../javascripts/vz-stamp-age.js"></script>
       
     
   </body>

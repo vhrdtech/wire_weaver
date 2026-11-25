@@ -1,6 +1,4 @@
 
-
-
 <!doctype html>
 <html lang="en" class="no-js">
   <head>
@@ -18,7 +16,6 @@
       
       
       
-      
         <link rel="prev" href="../folder_structure/">
       
       
@@ -29,7 +26,7 @@
       
       
       <link rel="icon" href="../../assets/wire_weaver_favicon.svg">
-      <meta name="generator" content="zensical-0.1.3">
+      <meta name="generator" content="zensical-0.1.2">
     
     
       
@@ -40,13 +37,12 @@
       
         
       
-      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.e2cf241e.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.ebb7f775.min.css">
       
         
           
         
         <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.b60ce83d.min.css">
-      
       
       
 
@@ -68,6 +64,10 @@
       <link rel="stylesheet" href="../../stylesheets/vhrd.css">
     
       <link rel="stylesheet" href="../../stylesheets/ww_highlight.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/vz-refs.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/vz-code.css">
     
     <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
@@ -6790,7 +6790,7 @@ other API resources.</p>
 </span><span id="__span-3-21"><a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a><span class="p">}</span>
 </span><span id="__span-3-22"><a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a>
 </span><span id="__span-3-23"><a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a><span class="k">mod</span><span class="w"> </span><span class="nn">server_impl</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-3-24"><a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a><span class="w">    </span><span class="n">wire_weaver</span><span class="p">::</span><span class="n">ww_codegen</span><span class="o">!</span><span class="p">(</span>
+</span><span id="__span-3-24"><a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a><span class="w">    </span><span class="n">wire_weaver</span><span class="p">::</span><span class="fm">ww_codegen!</span><span class="p">(</span>
 </span><span id="__span-3-25"><a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a><span class="w">        </span><span class="n">api</span><span class="w"> </span><span class="p">::</span><span class="w"> </span><span class="nc">MyDevice</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="k">super</span><span class="p">::</span><span class="n">ServerState</span><span class="p">,</span>
 </span><span id="__span-3-26"><a id="__codelineno-3-26" name="__codelineno-3-26" href="#__codelineno-3-26"></a><span class="w">        </span><span class="n">server</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="n">no_alloc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="n">use_async</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
 </span><span id="__span-3-27"><a id="__codelineno-3-27" name="__codelineno-3-27" href="#__codelineno-3-27"></a><span class="w">    </span><span class="p">);</span>
@@ -6805,8 +6805,8 @@ other API resources.</p>
 sent by its handlers are queued and sent out after it returns (<code>EventWriter::queued()</code>), so they are limited by the
 event scratch buffer size.</p>
 <h3 id="handler-context">Handler context<a class="headerlink" href="#handler-context" title="Permanent link">&para;</a></h3>
-<p>Every handler (methods, <code>get_</code>/<code>set_</code>/<code>changed_</code> of properties, <code>sideband_</code>/<code>write_</code> of streams) gets
-<code>cx: &amp;mut wire_weaver::Context</code> as the first argument:</p>
+<p>Every handler (methods, <code>get_</code>/<code>set_</code>/<code>changed_</code> of properties, <code>sideband_</code>/<code>write_</code> of streams) gets a
+<a aria-describedby="vz-card-item-wire-weaver-context-wire-weaver-src-context-fc7044" class="vz-ref vz-code" data-vz-card="vz-card-item-wire-weaver-context-wire-weaver-src-context-fc7044" href="https://github.com/vhrdtech/wire_weaver/blob/a748fad38032ba02cd882941498ddcff2e9ec34c/wire_weaver/src/context.rs#L343-L347"><code>Context</code></a> (<code>cx: &amp;mut wire_weaver::Context</code>) as the first argument:</p>
 <ul>
 <li><code>cx.seq()</code> - sequence number of the request, 0 if the client does not expect a reply.</li>
 <li><code>cx.medium()</code> - the medium the request came from. The type is set with <code>ww_codegen!(.., medium = "crate::Medium")</code>
@@ -6904,6 +6904,12 @@ the wire don't see it: a device may still return any variant, the client logs a 
 outside the list, and <code>tests_common</code> makes that a test failure (<code>wire_weaver_client::set_strict_error_lists</code>).
 Without <code>#[errors]</code> a method may return every variant. Stream functions and properties take the same list. More in
 <a href="../errors/#which-errors-a-method-returns">Errors</a>.</p>
+<div class="vz-cards"><div class="vz-card vz-card-code" id="vz-card-item-wire-weaver-context-wire-weaver-src-context-fc7044" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/wire_weaver/blob/a748fad38032ba02cd882941498ddcff2e9ec34c/wire_weaver/src/context.rs#L343-L347">struct wire_weaver::Context</a></div><div class="vz-card-src"><div class="language-rust highlight"><pre><span></span><code><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">Context</span><span class="o">&lt;&#39;</span><span class="na">c</span><span class="p">,</span><span class="w"> </span><span class="n">O</span><span class="p">,</span><span class="w"> </span><span class="n">M</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">()</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">call</span><span class="p">:</span><span class="w"> </span><span class="nc">CallContext</span><span class="p">,</span>
+<span class="w">    </span><span class="n">medium</span><span class="p">:</span><span class="w"> </span><span class="nc">M</span><span class="p">,</span>
+<span class="w">    </span><span class="n">out</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="o">&#39;</span><span class="na">c</span><span class="w"> </span><span class="nc">mut</span><span class="w"> </span><span class="n">O</span><span class="p">,</span>
+<span class="p">}</span>
+</code></pre></div></div><div class="vz-card-doc"><p>Passed to every server handler: who asked (<a href="https://github.com/vhrdtech/wire_weaver/blob/a748fad38032ba02cd882941498ddcff2e9ec34c/wire_weaver/src/call_context.rs#L21-L39">CallContext</a>, <a href="https://github.com/vhrdtech/wire_weaver/blob/a748fad38032ba02cd882941498ddcff2e9ec34c/wire_weaver/src/context.rs#L371-L373">Context::call</a>) and where to send events to.</p></div><div class="vz-card-more">The docs go on in the source</div><div class="vz-card-where">wire_weaver/src/context.rs:343</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/wire_weaver/blob/a748fad38032ba02cd882941498ddcff2e9ec34c/wire_weaver/src/context.rs#L343-L347">Source on GitHub</a> · <a href="https://github.com/vhrdtech/wire_weaver/blob/a748fad38032ba02cd882941498ddcff2e9ec34c/wire_weaver/src/context.rs">File on GitHub</a> · <a href="https://docs.rs/wire_weaver/latest/wire_weaver/struct.Context.html">docs.rs</a></div></div></div>
 
 
 
@@ -6996,6 +7002,7 @@ Without <code>#[errors]</code> a method may return every variant. Stream functio
       Zensical
     </a>
   
+  <div class="book-stamp" data-built="1795598778">wire_weaver 0.6.0 · a748fad · built 2026-11-25 09:26 UTC (<span class="book-stamp-age">just built</span>)</div>
 </div>
       
         
@@ -7047,10 +7054,13 @@ Without <code>#[errors]</code> a method may return every variant. Stream functio
       <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["announce.dismiss","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.path","navigation.sections","navigation.tabs","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../../assets/javascripts/workers/search.719e0d91.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.9e76c64c.min.js"></script>
-      
+      <script src="../../assets/javascripts/bundle.3cb411a8.min.js"></script>
       
         <script src="../../javascripts/ww_highlight.js"></script>
+      
+        <script src="../../javascripts/vz-refs.js"></script>
+      
+        <script src="../../javascripts/vz-stamp-age.js"></script>
       
     
   </body>

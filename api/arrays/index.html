@@ -1,6 +1,4 @@
 
-
-
 <!doctype html>
 <html lang="en" class="no-js">
   <head>
@@ -18,7 +16,6 @@
       
       
       
-      
         <link rel="prev" href="../errors/">
       
       
@@ -29,7 +26,7 @@
       
       
       <link rel="icon" href="../../assets/wire_weaver_favicon.svg">
-      <meta name="generator" content="zensical-0.1.3">
+      <meta name="generator" content="zensical-0.1.2">
     
     
       
@@ -40,13 +37,12 @@
       
         
       
-      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.e2cf241e.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.ebb7f775.min.css">
       
         
           
         
         <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.b60ce83d.min.css">
-      
       
       
 
@@ -68,6 +64,10 @@
       <link rel="stylesheet" href="../../stylesheets/vhrd.css">
     
       <link rel="stylesheet" href="../../stylesheets/ww_highlight.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/vz-refs.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/vz-code.css">
     
     <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
@@ -6595,12 +6595,12 @@
 <p>A property, stream, sink or trait can be an array of resources, written with <code>[]</code> after its name:</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="cp">#[ww_trait]</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="k">trait</span><span class="w"> </span><span class="n">Board</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="n">stream</span><span class="o">!</span><span class="p">(</span><span class="n">adc</span><span class="p">[]:</span><span class="w"> </span><span class="kt">u16</span><span class="p">);</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="fm">stream!</span><span class="p">(</span><span class="n">adc</span><span class="p">[]:</span><span class="w"> </span><span class="kt">u16</span><span class="p">);</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="cp">#[effect(outbound)]</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="n">sink</span><span class="o">!</span><span class="p">(</span><span class="n">lanes</span><span class="p">[]:</span><span class="w"> </span><span class="p">[</span><span class="kt">u8</span><span class="p">]);</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="fm">sink!</span><span class="p">(</span><span class="n">lanes</span><span class="p">[]:</span><span class="w"> </span><span class="p">[</span><span class="kt">u8</span><span class="p">]);</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="cp">#[effect(edit)]</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">gain</span><span class="p">[]:</span><span class="w"> </span><span class="kt">f32</span><span class="p">);</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">port</span><span class="p">[]:</span><span class="w"> </span><span class="nc">ww_gpio</span><span class="p">::</span><span class="n">Bank</span><span class="p">);</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="fm">property!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">gain</span><span class="p">[]:</span><span class="w"> </span><span class="kt">f32</span><span class="p">);</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="fm">ww_impl!</span><span class="p">(</span><span class="n">port</span><span class="p">[]:</span><span class="w"> </span><span class="nc">ww_gpio</span><span class="p">::</span><span class="n">Bank</span><span class="p">);</span>
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>Methods can't be arrays, put them in an array of traits instead. The length isn't part of the API: the device says
@@ -6619,21 +6619,21 @@ separately.</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="cp">#[ww_trait]</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">trait</span><span class="w"> </span><span class="n">ArrayOfResources</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="cp">#[effect(actuate)]</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">led</span><span class="p">[]:</span><span class="w"> </span><span class="kt">bool</span><span class="p">);</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="fm">property!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">led</span><span class="p">[]:</span><span class="w"> </span><span class="kt">bool</span><span class="p">);</span>
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>Here <code>led</code> is one resource whose type is an array: all three values are read and written in one go.</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="cp">#[ww_trait]</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="k">trait</span><span class="w"> </span><span class="n">ResourceOfArrays</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="cp">#[effect(actuate)]</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">led</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="kt">bool</span><span class="p">;</span><span class="w"> </span><span class="mi">3</span><span class="p">]);</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="fm">property!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">led</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="kt">bool</span><span class="p">;</span><span class="w"> </span><span class="mi">3</span><span class="p">]);</span>
 </span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>Both together:</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="cp">#[ww_trait]</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">trait</span><span class="w"> </span><span class="n">ArrayOfArrays</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="cp">#[effect(actuate)]</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">rgb_led</span><span class="p">[]:</span><span class="w"> </span><span class="p">[</span><span class="kt">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">3</span><span class="p">]);</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="fm">property!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">rgb_led</span><span class="p">[]:</span><span class="w"> </span><span class="p">[</span><span class="kt">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">3</span><span class="p">]);</span>
 </span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="p">}</span>
 </span></code></pre></div>
 <h2 id="keyed-arrays">Keyed arrays<a class="headerlink" href="#keyed-arrays" title="Permanent link">&para;</a></h2>
@@ -6641,8 +6641,8 @@ separately.</p>
 it met third. <code>keyed!</code> lets a client address the elements by a key of their own instead:</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="cp">#[ww_api_root]</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="k">trait</span><span class="w"> </span><span class="n">Dissector</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">flow</span><span class="p">[]:</span><span class="w"> </span><span class="nc">Flow</span><span class="p">);</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="n">keyed</span><span class="o">!</span><span class="p">(</span><span class="n">flow</span><span class="w"> </span><span class="n">by</span><span class="w"> </span><span class="n">FlowKey</span><span class="p">);</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="fm">ww_impl!</span><span class="p">(</span><span class="n">flow</span><span class="p">[]:</span><span class="w"> </span><span class="nc">Flow</span><span class="p">);</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="fm">keyed!</span><span class="p">(</span><span class="n">flow</span><span class="w"> </span><span class="n">by</span><span class="w"> </span><span class="n">FlowKey</span><span class="p">);</span>
 </span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="p">}</span>
 </span></code></pre></div>
 <p><code>keyed!</code> follows the array it keys (traits, properties, streams or sinks) and takes an item id at its position, like
@@ -6691,8 +6691,8 @@ stream's send helper is not counted: it is linked only where it is used.</p>
 <p>A key may borrow, a name for instance (API-72):</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="cp">#[ww_api_root]</span>
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="k">trait</span><span class="w"> </span><span class="n">Dissector</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">ro</span><span class="w"> </span><span class="n">detector</span><span class="p">[]:</span><span class="w"> </span><span class="nc">Bytes</span><span class="o">&lt;</span><span class="kt">u64</span><span class="o">&gt;</span><span class="p">);</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="n">keyed</span><span class="o">!</span><span class="p">(</span><span class="n">detector</span><span class="w"> </span><span class="n">by</span><span class="w"> </span><span class="n">DetectorName</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="p">);</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="fm">property!</span><span class="p">(</span><span class="n">ro</span><span class="w"> </span><span class="n">detector</span><span class="p">[]:</span><span class="w"> </span><span class="nc">Bytes</span><span class="o">&lt;</span><span class="kt">u64</span><span class="o">&gt;</span><span class="p">);</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="fm">keyed!</span><span class="p">(</span><span class="n">detector</span><span class="w"> </span><span class="n">by</span><span class="w"> </span><span class="n">DetectorName</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="p">);</span>
 </span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="p">}</span>
 </span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
 </span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="cp">#[derive_shrink_wrap(owned(feature = </span><span class="s">&quot;std&quot;</span><span class="cp">), derive(Debug, PartialEq, Eq, Clone))]</span>
@@ -6830,6 +6830,7 @@ index, a cached index can already belong to another flow: a client that must not
       Zensical
     </a>
   
+  <div class="book-stamp" data-built="1795598778">wire_weaver 0.6.0 · a748fad · built 2026-11-25 09:26 UTC (<span class="book-stamp-age">just built</span>)</div>
 </div>
       
         
@@ -6881,10 +6882,13 @@ index, a cached index can already belong to another flow: a client that must not
       <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["announce.dismiss","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.path","navigation.sections","navigation.tabs","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../../assets/javascripts/workers/search.719e0d91.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.9e76c64c.min.js"></script>
-      
+      <script src="../../assets/javascripts/bundle.3cb411a8.min.js"></script>
       
         <script src="../../javascripts/ww_highlight.js"></script>
+      
+        <script src="../../javascripts/vz-refs.js"></script>
+      
+        <script src="../../javascripts/vz-stamp-age.js"></script>
       
     
   </body>

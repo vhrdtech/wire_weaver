@@ -1,6 +1,4 @@
 
-
-
 <!doctype html>
 <html lang="en" class="no-js">
   <head>
@@ -18,7 +16,6 @@
       
       
       
-      
         <link rel="prev" href="../../serdes/conformance_matrix/">
       
       
@@ -29,7 +26,7 @@
       
       
       <link rel="icon" href="../../assets/wire_weaver_favicon.svg">
-      <meta name="generator" content="zensical-0.1.3">
+      <meta name="generator" content="zensical-0.1.2">
     
     
       
@@ -40,13 +37,12 @@
       
         
       
-      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.e2cf241e.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.ebb7f775.min.css">
       
         
           
         
         <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.b60ce83d.min.css">
-      
       
       
 
@@ -68,6 +64,10 @@
       <link rel="stylesheet" href="../../stylesheets/vhrd.css">
     
       <link rel="stylesheet" href="../../stylesheets/ww_highlight.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/vz-refs.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/vz-code.css">
     
     <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
@@ -6554,7 +6554,7 @@ read while none of the files it read has changed (EVO-52). The API's
 </span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="p">}</span>
 </span><span id="__span-3-16"><a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>
 </span><span id="__span-3-17"><a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="k">mod</span><span class="w"> </span><span class="nn">server_impl</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-3-18"><a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="w">    </span><span class="n">wire_weaver</span><span class="p">::</span><span class="n">ww_codegen</span><span class="o">!</span><span class="p">(</span>
+</span><span id="__span-3-18"><a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="w">    </span><span class="n">wire_weaver</span><span class="p">::</span><span class="fm">ww_codegen!</span><span class="p">(</span>
 </span><span id="__span-3-19"><a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="w">        </span><span class="n">blinky_api</span><span class="w"> </span><span class="p">::</span><span class="w"> </span><span class="nc">BlinkyApi</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="k">super</span><span class="p">::</span><span class="n">ServerState</span><span class="p">,</span>
 </span><span id="__span-3-20"><a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a><span class="w">        </span><span class="n">server</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="n">no_alloc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="n">use_async</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
 </span><span id="__span-3-21"><a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a><span class="w">    </span><span class="p">);</span>
@@ -6579,7 +6579,7 @@ read while none of the files it read has changed (EVO-52). The API's
 </span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="p">}</span>
 </span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>
 </span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="k">mod</span><span class="w"> </span><span class="nn">api_client</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="w">    </span><span class="n">wire_weaver</span><span class="p">::</span><span class="n">ww_codegen</span><span class="o">!</span><span class="p">(</span><span class="n">blinky_api</span><span class="w"> </span><span class="p">::</span><span class="w"> </span><span class="nc">BlinkyApi</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="k">crate</span><span class="p">::</span><span class="n">Blinky</span><span class="p">,</span><span class="w"> </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;std_client&quot;</span><span class="p">);</span>
+</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="w">    </span><span class="n">wire_weaver</span><span class="p">::</span><span class="fm">ww_codegen!</span><span class="p">(</span><span class="n">blinky_api</span><span class="w"> </span><span class="p">::</span><span class="w"> </span><span class="nc">BlinkyApi</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="k">crate</span><span class="p">::</span><span class="n">Blinky</span><span class="p">,</span><span class="w"> </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;std_client&quot;</span><span class="p">);</span>
 </span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="p">}</span>
 </span><span id="__span-4-17"><a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a>
 </span><span id="__span-4-18"><a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="c1">// examples/blinky/examples/simple.rs</span>
@@ -6605,16 +6605,16 @@ host code at all, <code>ww introspect</code> and <a href="../../python/">Python<
 </span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>
 </span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="w">    </span><span class="sd">/// Properties: values the host reads, writes or observes.</span>
 </span><span id="__span-5-15"><a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="w">    </span><span class="cp">#[effect(actuate)]</span>
-</span><span id="__span-5-16"><a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">speed</span><span class="p">:</span><span class="w"> </span><span class="nc">Fixed</span><span class="o">&lt;</span><span class="n">Per</span><span class="o">&lt;</span><span class="n">Meter</span><span class="p">,</span><span class="w"> </span><span class="n">Second</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">Milli</span><span class="p">,</span><span class="w"> </span><span class="kt">i32</span><span class="o">&gt;</span><span class="p">);</span>
-</span><span id="__span-5-17"><a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">ro</span><span class="o">+</span><span class="n">observe</span><span class="w"> </span><span class="n">current</span><span class="p">:</span><span class="w"> </span><span class="nc">Fixed</span><span class="o">&lt;</span><span class="n">Ampere</span><span class="p">,</span><span class="w"> </span><span class="n">Milli</span><span class="p">,</span><span class="w"> </span><span class="kt">i32</span><span class="o">&gt;</span><span class="p">);</span>
+</span><span id="__span-5-16"><a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="w">    </span><span class="fm">property!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">speed</span><span class="p">:</span><span class="w"> </span><span class="nc">Fixed</span><span class="o">&lt;</span><span class="n">Per</span><span class="o">&lt;</span><span class="n">Meter</span><span class="p">,</span><span class="w"> </span><span class="n">Second</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">Milli</span><span class="p">,</span><span class="w"> </span><span class="kt">i32</span><span class="o">&gt;</span><span class="p">);</span>
+</span><span id="__span-5-17"><a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="w">    </span><span class="fm">property!</span><span class="p">(</span><span class="n">ro</span><span class="o">+</span><span class="n">observe</span><span class="w"> </span><span class="n">current</span><span class="p">:</span><span class="w"> </span><span class="nc">Fixed</span><span class="o">&lt;</span><span class="n">Ampere</span><span class="p">,</span><span class="w"> </span><span class="n">Milli</span><span class="p">,</span><span class="w"> </span><span class="kt">i32</span><span class="o">&gt;</span><span class="p">);</span>
 </span><span id="__span-5-18"><a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a>
 </span><span id="__span-5-19"><a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a><span class="w">    </span><span class="sd">/// Streams out of the device, sinks into it.</span>
-</span><span id="__span-5-20"><a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a><span class="w">    </span><span class="n">stream</span><span class="o">!</span><span class="p">(</span><span class="n">button</span><span class="p">:</span><span class="w"> </span><span class="nc">ButtonEvent</span><span class="p">);</span>
+</span><span id="__span-5-20"><a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a><span class="w">    </span><span class="fm">stream!</span><span class="p">(</span><span class="n">button</span><span class="p">:</span><span class="w"> </span><span class="nc">ButtonEvent</span><span class="p">);</span>
 </span><span id="__span-5-21"><a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a><span class="w">    </span><span class="cp">#[effect(outbound)]</span>
-</span><span id="__span-5-22"><a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a><span class="w">    </span><span class="n">sink</span><span class="o">!</span><span class="p">(</span><span class="n">uart_tx</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="kt">u8</span><span class="p">]);</span>
+</span><span id="__span-5-22"><a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a><span class="w">    </span><span class="fm">sink!</span><span class="p">(</span><span class="n">uart_tx</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="kt">u8</span><span class="p">]);</span>
 </span><span id="__span-5-23"><a id="__codelineno-5-23" name="__codelineno-5-23" href="#__codelineno-5-23"></a>
 </span><span id="__span-5-24"><a id="__codelineno-5-24" name="__codelineno-5-24" href="#__codelineno-5-24"></a><span class="w">    </span><span class="sd">/// Traits: groups of items, here an array of GPIO banks from the standard library.</span>
-</span><span id="__span-5-25"><a id="__codelineno-5-25" name="__codelineno-5-25" href="#__codelineno-5-25"></a><span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">gpio</span><span class="p">[]:</span><span class="w"> </span><span class="nc">ww_gpio</span><span class="p">::</span><span class="n">Bank</span><span class="p">);</span>
+</span><span id="__span-5-25"><a id="__codelineno-5-25" name="__codelineno-5-25" href="#__codelineno-5-25"></a><span class="w">    </span><span class="fm">ww_impl!</span><span class="p">(</span><span class="n">gpio</span><span class="p">[]:</span><span class="w"> </span><span class="nc">ww_gpio</span><span class="p">::</span><span class="n">Bank</span><span class="p">);</span>
 </span><span id="__span-5-26"><a id="__codelineno-5-26" name="__codelineno-5-26" href="#__codelineno-5-26"></a><span class="p">}</span>
 </span></code></pre></div>
 <table>
@@ -6802,6 +6802,7 @@ end in a unit (<code>_ms</code>, <code>_us</code>, <code>_hz</code>, <code>_byte
       Zensical
     </a>
   
+  <div class="book-stamp" data-built="1795598778">wire_weaver 0.6.0 · a748fad · built 2026-11-25 09:26 UTC (<span class="book-stamp-age">just built</span>)</div>
 </div>
       
         
@@ -6853,10 +6854,13 @@ end in a unit (<code>_ms</code>, <code>_us</code>, <code>_hz</code>, <code>_byte
       <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["announce.dismiss","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.path","navigation.sections","navigation.tabs","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../../assets/javascripts/workers/search.719e0d91.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.9e76c64c.min.js"></script>
-      
+      <script src="../../assets/javascripts/bundle.3cb411a8.min.js"></script>
       
         <script src="../../javascripts/ww_highlight.js"></script>
+      
+        <script src="../../javascripts/vz-refs.js"></script>
+      
+        <script src="../../javascripts/vz-stamp-age.js"></script>
       
     
   </body>

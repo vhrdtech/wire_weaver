@@ -1,6 +1,4 @@
 
-
-
 <!doctype html>
 <html lang="en" class="no-js">
   <head>
@@ -18,7 +16,6 @@
       
       
       
-      
         <link rel="prev" href="../ww_si/">
       
       
@@ -29,7 +26,7 @@
       
       
       <link rel="icon" href="../../assets/wire_weaver_favicon.svg">
-      <meta name="generator" content="zensical-0.1.3">
+      <meta name="generator" content="zensical-0.1.2">
     
     
       
@@ -40,13 +37,12 @@
       
         
       
-      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.e2cf241e.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.ebb7f775.min.css">
       
         
           
         
         <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.b60ce83d.min.css">
-      
       
       
 
@@ -68,6 +64,10 @@
       <link rel="stylesheet" href="../../stylesheets/vhrd.css">
     
       <link rel="stylesheet" href="../../stylesheets/ww_highlight.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/vz-refs.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/vz-code.css">
     
     <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
@@ -6759,8 +6759,8 @@ show all four arguments:</p>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="cp">#[ww_trait]</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="k">trait</span><span class="w"> </span><span class="n">Device</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">timeout</span><span class="p">:</span><span class="w"> </span><span class="nc">Fixed</span><span class="o">&lt;</span><span class="n">Second</span><span class="p">,</span><span class="w"> </span><span class="n">Milli</span><span class="p">,</span><span class="w"> </span><span class="kt">u16</span><span class="o">&gt;</span><span class="p">);</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">window</span><span class="p">:</span><span class="w"> </span><span class="nc">Fixed</span><span class="o">&lt;</span><span class="n">Second</span><span class="p">,</span><span class="w"> </span><span class="n">Milli</span><span class="p">,</span><span class="w"> </span><span class="kt">u16</span><span class="p">,</span><span class="w"> </span><span class="n">Range</span><span class="o">&lt;</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">5000</span><span class="o">&gt;&gt;</span><span class="p">);</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="fm">property!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">timeout</span><span class="p">:</span><span class="w"> </span><span class="nc">Fixed</span><span class="o">&lt;</span><span class="n">Second</span><span class="p">,</span><span class="w"> </span><span class="n">Milli</span><span class="p">,</span><span class="w"> </span><span class="kt">u16</span><span class="o">&gt;</span><span class="p">);</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="fm">property!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">window</span><span class="p">:</span><span class="w"> </span><span class="nc">Fixed</span><span class="o">&lt;</span><span class="n">Second</span><span class="p">,</span><span class="w"> </span><span class="n">Milli</span><span class="p">,</span><span class="w"> </span><span class="kt">u16</span><span class="p">,</span><span class="w"> </span><span class="n">Range</span><span class="o">&lt;</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">5000</span><span class="o">&gt;&gt;</span><span class="p">);</span>
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">sizes</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">Series</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="n">Timed</span><span class="o">&lt;</span><span class="n">Fixed</span><span class="o">&lt;</span><span class="n">Byte</span><span class="p">,</span><span class="w"> </span><span class="n">One</span><span class="p">,</span><span class="w"> </span><span class="kt">u32</span><span class="o">&gt;&gt;&gt;</span><span class="p">;</span>
 </span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">ticks</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">Series</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="n">Timed</span><span class="o">&lt;</span><span class="n">Micros</span><span class="o">&lt;</span><span class="kt">u32</span><span class="o">&gt;&gt;&gt;</span><span class="p">;</span>
 </span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="p">}</span>
@@ -6829,7 +6829,7 @@ trait's associated types:</p>
 </span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="cp">#[ww_api_root]</span>
 </span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="k">trait</span><span class="w"> </span><span class="n">Line</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">    </span><span class="sd">/// One G.711 μ-law byte: the 14-bit linear sample it means is the `Fixed`</span>
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">voice</span><span class="p">:</span><span class="w"> </span><span class="nc">Coded</span><span class="o">&lt;</span><span class="n">MuLaw</span><span class="p">,</span><span class="w"> </span><span class="n">Fixed</span><span class="o">&lt;</span><span class="n">Ratio</span><span class="p">,</span><span class="w"> </span><span class="n">Pow2</span><span class="o">&lt;-</span><span class="mi">13</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="kt">i16</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="kt">u8</span><span class="o">&gt;</span><span class="p">);</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">    </span><span class="fm">property!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">voice</span><span class="p">:</span><span class="w"> </span><span class="nc">Coded</span><span class="o">&lt;</span><span class="n">MuLaw</span><span class="p">,</span><span class="w"> </span><span class="n">Fixed</span><span class="o">&lt;</span><span class="n">Ratio</span><span class="p">,</span><span class="w"> </span><span class="n">Pow2</span><span class="o">&lt;-</span><span class="mi">13</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="kt">i16</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="kt">u8</span><span class="o">&gt;</span><span class="p">);</span>
 </span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>The dynamic client, <code>ww</code> and Python read such a value as the <code>Fixed</code> it means: the byte 0x80 is the sample 8031.
@@ -6856,7 +6856,7 @@ bytes:</p>
 </span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="cp">#[ww_api_root]</span>
 </span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="k">trait</span><span class="w"> </span><span class="n">Display</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">    </span><span class="sd">/// A pixel&#39;s luma: the signal E′ is `Narrow10`&#39;s, the light it means is PQ&#39;s</span>
-</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">luma</span><span class="p">:</span><span class="w"> </span><span class="nc">Coded</span><span class="o">&lt;</span><span class="n">Transfer</span><span class="o">&lt;</span><span class="n">Narrow10</span><span class="p">,</span><span class="w"> </span><span class="n">Pq</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">NarrowSignal10</span><span class="p">,</span><span class="w"> </span><span class="kt">u16</span><span class="o">&gt;</span><span class="p">);</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">    </span><span class="fm">property!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">luma</span><span class="p">:</span><span class="w"> </span><span class="nc">Coded</span><span class="o">&lt;</span><span class="n">Transfer</span><span class="o">&lt;</span><span class="n">Narrow10</span><span class="p">,</span><span class="w"> </span><span class="n">Pq</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">NarrowSignal10</span><span class="p">,</span><span class="w"> </span><span class="kt">u16</span><span class="o">&gt;</span><span class="p">);</span>
 </span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="p">}</span>
 </span></code></pre></div>
 <p><code>Transfer</code> is generic, so its definition is one per instance. The model holds three markers: <code>Transfer</code> itself
@@ -7003,6 +7003,7 @@ time builds without the wire format, and the bytes are the same whichever crate 
       Zensical
     </a>
   
+  <div class="book-stamp" data-built="1795598778">wire_weaver 0.6.0 · a748fad · built 2026-11-25 09:26 UTC (<span class="book-stamp-age">just built</span>)</div>
 </div>
       
         
@@ -7054,10 +7055,13 @@ time builds without the wire format, and the bytes are the same whichever crate 
       <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["announce.dismiss","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.path","navigation.sections","navigation.tabs","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../../assets/javascripts/workers/search.719e0d91.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.9e76c64c.min.js"></script>
-      
+      <script src="../../assets/javascripts/bundle.3cb411a8.min.js"></script>
       
         <script src="../../javascripts/ww_highlight.js"></script>
+      
+        <script src="../../javascripts/vz-refs.js"></script>
+      
+        <script src="../../javascripts/vz-stamp-age.js"></script>
       
     
   </body>

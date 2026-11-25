@@ -1,6 +1,4 @@
 
-
-
 <!doctype html>
 <html lang="en" class="no-js">
   <head>
@@ -18,7 +16,6 @@
       
       
       
-      
         <link rel="prev" href="../arrays/">
       
       
@@ -29,7 +26,7 @@
       
       
       <link rel="icon" href="../../assets/wire_weaver_favicon.svg">
-      <meta name="generator" content="zensical-0.1.3">
+      <meta name="generator" content="zensical-0.1.2">
     
     
       
@@ -40,13 +37,12 @@
       
         
       
-      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.e2cf241e.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.ebb7f775.min.css">
       
         
           
         
         <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.b60ce83d.min.css">
-      
       
       
 
@@ -68,6 +64,10 @@
       <link rel="stylesheet" href="../../stylesheets/vhrd.css">
     
       <link rel="stylesheet" href="../../stylesheets/ww_highlight.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/vz-refs.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/vz-code.css">
     
     <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
@@ -1974,32 +1974,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#global-paths-into-modules" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Global paths into modules
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#limits-and-cost" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Limits and cost
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#wasm-modules" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Wasm modules
       </span>
     </span>
   </a>
@@ -6611,32 +6589,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#global-paths-into-modules" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Global paths into modules
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#limits-and-cost" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Limits and cost
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#wasm-modules" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Wasm modules
       </span>
     </span>
   </a>
@@ -6868,9 +6824,9 @@ process: a mount slot's backend is a separate process, unknown until it connects
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="cp">#[effect(edit)]</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="k">trait</span><span class="w"> </span><span class="n">Tv</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="sd">/// The home hub, when its process runs.</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="n">mount</span><span class="o">!</span><span class="p">(</span><span class="n">hub</span><span class="p">:</span><span class="w"> </span><span class="nc">hub_api</span><span class="p">);</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="fm">mount!</span><span class="p">(</span><span class="n">hub</span><span class="p">:</span><span class="w"> </span><span class="nc">hub_api</span><span class="p">);</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="sd">/// Extensions by name: any local program can be mounted.</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="n">mounts</span><span class="o">!</span><span class="p">(</span><span class="n">ext</span><span class="p">);</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="fm">mounts!</span><span class="p">(</span><span class="n">ext</span><span class="p">);</span>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">mute</span><span class="p">();</span>
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="p">}</span>
 </span></code></pre></div>
@@ -7096,38 +7052,13 @@ that didn't fit, messages the parent's <code>EventOut</code> refused, refused re
 never sees a request's context: the slot clears it, so a client can't tell a module who it is.</p>
 <p>A module's effects all pass for now: the slot doesn't check what a module may do. Per-module effect caps (TR-24)
 will be checked in <code>ModuleSlot::forward</code>, before the module sees the request.</p>
-<h4 id="global-paths-into-modules">Global paths into modules<a class="headerlink" href="#global-paths-into-modules" title="Permanent link">&para;</a></h4>
-<p>A global trait path (<code>GlobalFull</code>, <code>GlobalCompact</code>) reaches a module's traits as it reaches a backend process's, in
-the same order: the firmware's own tree first, then the slots in path order, inside a module the first trait depth
-first, never under a resource array, in a protocol compatible version of its crate.</p>
-<ul>
-<li><code>ModuleSlot::load</code> reads the module's traits from its model once, into a table of fixed size in the slot: reaching
-  an item of the model decodes everything before it, so a walk per request would cost a model decode each time
-  (about 69 000 instructions and 8 KB of stack in the bench below).</li>
-<li>A server with mount slots gets a generated <code>has_global_trait(&amp;PathKind)</code>, which says whether its own tree has the
-  trait, and the <code>api</code> paths of its slots: <code>HUB_API_PATH</code> for a slot <code>hub</code>, <code>ext_api_path(index_chain)</code> for an
-  element of <code>mounts!</code>.</li>
-<li>The backend's <code>global_into_mount(request, buf)</code> (<code>WireWeaverApiBackend</code>, <code>WireWeaverAsyncApiBackend</code>) rewrites a
-  request into a module. <code>ww_device</code>'s <code>Server</code> and <code>blocking::Server</code> call it before dispatch; the generated dispatch
-  then routes the rewritten request to the slot's handler. <code>ModuleTraits</code> does the rewrite with no heap.</li>
-<li>A request with an absolute path is only peeked at, not decoded: the hook costs every request about 500
-  instructions.</li>
-</ul>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">fn</span><span class="w"> </span><span class="nf">global_into_mount</span><span class="o">&lt;&#39;</span><span class="na">b</span><span class="o">&gt;</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">request</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="p">[</span><span class="kt">u8</span><span class="p">],</span><span class="w"> </span><span class="n">buf</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="o">&#39;</span><span class="na">b</span><span class="w"> </span><span class="nc">mut</span><span class="w"> </span><span class="p">[</span><span class="kt">u8</span><span class="p">])</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;&amp;&#39;</span><span class="na">b</span><span class="w"> </span><span class="p">[</span><span class="kt">u8</span><span class="p">]</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">    </span><span class="n">ModuleTraits</span><span class="p">::</span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">::</span><span class="n">new</span><span class="p">()</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">        </span><span class="p">.</span><span class="n">slot</span><span class="p">(</span><span class="o">&amp;</span><span class="n">api_impl</span><span class="p">::</span><span class="n">HUB_API_PATH</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="bp">self</span><span class="p">.</span><span class="n">hub</span><span class="p">)</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">        </span><span class="p">.</span><span class="n">request_into_mount</span><span class="p">(</span><span class="n">request</span><span class="p">,</span><span class="w"> </span><span class="n">api_impl</span><span class="p">::</span><span class="n">has_global_trait</span><span class="p">,</span><span class="w"> </span><span class="n">buf</span><span class="p">)</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="p">}</span>
-</span></code></pre></div>
-<p>A generated client resolves a trait of the device's own tree from the device's introspection data and sends its
-absolute path, so the hook mostly sees global paths into modules.</p>
 <h4 id="limits-and-cost">Limits and cost<a class="headerlink" href="#limits-and-cost" title="Permanent link">&para;</a></h4>
 <ul>
-<li>A module holds at most 16 traits (<code>MODULE_TRAITS_MAX</code>) whose paths take 48 ids together
-  (<code>MODULE_TRAIT_IDS_MAX</code>), each at most 14 levels deep (<code>MODULE_TRAIT_DEPTH_MAX</code>). A module past them is refused at
-  <code>load</code> (<code>LoadError::TooManyTraits</code>, <code>TraitsTooDeep</code>), never served with part of its traits.</li>
-<li><code>GlobalCompact</code> doesn't reach a trait of a dependency crate that the module's model leaves out (it carries no
-  <code>ww_global</code> id there): <code>GlobalFull</code> does.</li>
+<li>A global trait path into a firmware's module (<code>GlobalFull</code>, <code>GlobalCompact</code>) is not resolved yet (SRV-82): reach
+  the module's traits by their absolute path under the slot.</li>
+<li>An async <code>no_alloc</code> server with two slots whose observed <code>presence</code> getters both borrow the server
+  (<code>MountPresence&lt;'_&gt;</code>) doesn't compile yet: the generated observe poll borrows the server twice (SRV-83). Use
+  <code>no_alloc = false</code> and <code>MountPresenceOwned</code>, or one observed slot.</li>
 <li>One <code>ModuleSlot</code> serves one front connection.</li>
 </ul>
 <p><code>examples_mcu/mcu_qemu</code>'s <code>qemu-mount-module</code> measures a slot with <code>mount_backend_api</code>'s hub, <code>MSG</code> 128 and <code>OUT</code>
@@ -7144,180 +7075,44 @@ absolute path, so the hook mostly sees global paths into modules.</p>
 </thead>
 <tbody>
 <tr>
-<td><code>load</code> (decode model, trait table, hash)</td>
-<td style="text-align: right;">99 565</td>
-<td style="text-align: right;">5 240 B</td>
-<td style="text-align: right;">91 559</td>
-<td style="text-align: right;">5 736 B</td>
+<td><code>load</code> (decode model, hash)</td>
+<td style="text-align: right;">33 515</td>
+<td style="text-align: right;">1 888 B</td>
+<td style="text-align: right;">30 392</td>
+<td style="text-align: right;">1 920 B</td>
 </tr>
 <tr>
 <td><code>presence</code></td>
-<td style="text-align: right;">148</td>
+<td style="text-align: right;">141</td>
 <td style="text-align: right;">64 B</td>
 <td style="text-align: right;">132</td>
 <td style="text-align: right;">64 B</td>
 </tr>
 <tr>
 <td><code>forward_blocking</code> of a call</td>
-<td style="text-align: right;">4 537</td>
-<td style="text-align: right;">1 672 B</td>
-<td style="text-align: right;">2 965</td>
-<td style="text-align: right;">1 304 B</td>
+<td style="text-align: right;">4 180</td>
+<td style="text-align: right;">1 584 B</td>
+<td style="text-align: right;">2 827</td>
+<td style="text-align: right;">1 152 B</td>
 </tr>
 <tr>
 <td><code>forward_blocking</code> of a stream open</td>
-<td style="text-align: right;">5 531</td>
-<td style="text-align: right;">1 672 B</td>
-<td style="text-align: right;">3 487</td>
-<td style="text-align: right;">1 304 B</td>
+<td style="text-align: right;">5 177</td>
+<td style="text-align: right;">1 584 B</td>
+<td style="text-align: right;">3 343</td>
+<td style="text-align: right;">1 152 B</td>
 </tr>
 <tr>
 <td><code>poll_blocking</code>, one item</td>
-<td style="text-align: right;">3 058</td>
-<td style="text-align: right;">752 B</td>
-<td style="text-align: right;">1 818</td>
+<td style="text-align: right;">3 050</td>
+<td style="text-align: right;">760 B</td>
+<td style="text-align: right;">1 823</td>
 <td style="text-align: right;">580 B</td>
 </tr>
-<tr>
-<td><code>global_into_mount</code>, an absolute path</td>
-<td style="text-align: right;">576</td>
-<td style="text-align: right;">528 B</td>
-<td style="text-align: right;">467</td>
-<td style="text-align: right;">504 B</td>
-</tr>
-<tr>
-<td><code>global_into_mount</code>, <code>GlobalFull</code> to <code>Lamp</code></td>
-<td style="text-align: right;">4 854</td>
-<td style="text-align: right;">1 056 B</td>
-<td style="text-align: right;">3 481</td>
-<td style="text-align: right;">968 B</td>
-</tr>
 </tbody>
 </table>
-<p>The slot takes 2 920 B of RAM at these sizes, 584 B of it the trait table. Most of <code>load</code>'s stack is the decode of
-the borrowed <code>ApiBundle</code>. The whole bench is 76 750 B of flash at <code>fw-z</code>: the slot's code about 12 KB, the SHA-256
-of the model hash 7 KB, decoding the model at <code>load</code> 8 KB. Global paths add about 9 KB: 3.2 KB of it decodes the
-model's items, 1.1 KB a <code>Request</code>, which a firmware's dispatch has already.</p>
-<h4 id="wasm-modules">Wasm modules<a class="headerlink" href="#wasm-modules" title="Permanent link">&para;</a></h4>
-<p><code>ww_wasm</code> runs a WireWeaver server compiled to <code>wasm32-unknown-unknown</code> as a <code>Module</code>, so a firmware can load,
-replace and unload an API at run time. The guest is an ordinary server generated with <code>use_async = false</code>, exported by
-<code>ww_wasm::guest_module!</code>; the host side is <code>WasefireModule</code> (wasefire-interpreter, feature <code>wasefire</code>) or
-<code>WasmiModule</code> (wasmi, feature <code>wasmi</code>). <code>ww_wasm</code> is its own workspace on nightly, because wasefire-interpreter
-needs it.</p>
-<ul>
-<li>The module ABI: the guest exports its memory, <code>ww_request</code>, <code>ww_reply</code> and <code>ww_buf_len</code> (its buffers) and
-  <code>ww_process(len)</code>, and may export <code>ww_poll</code>. It imports <code>ww.event(ptr, len)</code> for its events. The model is the
-  server's <code>WW_SELF_BYTES_NO_DOCS</code> in a custom section, <code>ww_model</code>, which the host reads without running the module.</li>
-<li>The host copies each request into the guest's buffer and the reply out of it, both bounds-checked. A trap, wasmi
-  running out of fuel or a reply outside the buffer is a <code>ModuleError::Fault</code>: the slot unloads the module and the
-  parent goes on.</li>
-<li>wasefire-interpreter needs the binary prepared on the host first: <code>ww-wasm-prepare</code> adds its side table.
-  <code>just wasm-modules</code> builds the example guest (<code>examples_mcu/wasm_module</code>) for both of its APIs and prepares them.</li>
-<li>wasefire-interpreter has no fuel, so a module that loops never returns, and the firmware's server task hangs with it
-  (SRV-86). wasmi stops it with <code>Limits::fuel</code>.</li>
-<li>Both interpreters allocate: the firmware needs a global allocator. A failed allocation during a load is a refused
-  load.</li>
-<li><code>WasmiModule</code> allocates everything a call needs at load: it translates every function, takes the whole stack
-  (<code>Limits::stack</code>) and the event queue (<code>Limits::events</code>). Memory and table growth past <code>Limits::memory</code> and
-  <code>Limits::table</code> trap, and growth below them is reserved fallibly, so a failed one traps too.</li>
-<li>Some allocations inside a call can't fail gracefully yet, and one that fails panics the firmware (SRV-87).
-  wasmi grows its frame stack once per new call depth, up to <code>Limits::recursion</code> frames. wasefire-interpreter
-  allocates its thread, frames, locals and values on every call: 167 times for <code>add</code> below.
-  <code>ww_wasm</code>'s <code>tests/allocations.rs</code> counts both.</li>
-</ul>
-<p>The example is <code>stm32h725ig-wasm-slot</code> on B135B (<code>examples_mcu/usb_stm32h725ig</code>), with <code>wasm_slot_api</code>: a slot per
-interpreter, <code>load</code>, <code>unload</code>, the slot counters, and the cycles, stack and heap each step took. Its host side
-<code>examples/wasm_slot</code> checks the following on the board over USB (<code>just hw-wasm-slot</code>):</p>
-<ul>
-<li>calls into each slot;</li>
-<li>a reload with <code>wasm_module_api_evolved</code>, which the client relearns for that slot only;</li>
-<li>a trapping module unloaded while the firmware answers on;</li>
-<li>wasmi stopping a loop.</li>
-</ul>
-<p>The firmware unloads a slot's module before it loads the next one: two wasmi modules don't fit its 192 KiB heap at
-once.</p>
-<p>The numbers below are for the module <code>add(a, b)</code> of the example guest:</p>
-<ul>
-<li>STM32H725 at 540 MHz, I- and D-cache on, the images in flash;</li>
-<li>the cycles counted by DWT <code>CYCCNT</code>;</li>
-<li>the stack painted below the handler;</li>
-<li>the heap counted by the firmware's allocator.</li>
-</ul>
-<p>The firmware is built at its shipping profile, <code>opt-level = "z"</code>. The guest image is 19.3 KB prepared (15.3 KB
-without the side table), its model 111 B, its memory one 64 KiB page with a 4 KiB stack.</p>
-<table>
-<thead>
-<tr>
-<th><code>opt-level = "z"</code></th>
-<th style="text-align: right;">wasefire-interpreter 0.5</th>
-<th style="text-align: right;">wasmi 2.0</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Flash, the interpreter and its glue</td>
-<td style="text-align: right;">76.0 KB</td>
-<td style="text-align: right;">527 KB</td>
-</tr>
-<tr>
-<td>Heap after <code>load</code></td>
-<td style="text-align: right;">9 288 B</td>
-<td style="text-align: right;">156 600 B</td>
-</tr>
-<tr>
-<td>Heap peak during <code>load</code></td>
-<td style="text-align: right;">9 428 B</td>
-<td style="text-align: right;">167 160 B</td>
-</tr>
-<tr>
-<td>Heap after 100 calls</td>
-<td style="text-align: right;">9 288 B</td>
-<td style="text-align: right;">156 664 B</td>
-</tr>
-<tr>
-<td>Instantiate, cycles</td>
-<td style="text-align: right;">3 554 622</td>
-<td style="text-align: right;">18 211 041</td>
-</tr>
-<tr>
-<td>Instantiate, stack</td>
-<td style="text-align: right;">1 400 B</td>
-<td style="text-align: right;">5 824 B</td>
-</tr>
-<tr>
-<td>A call, <code>process</code> cycles (median of 100)</td>
-<td style="text-align: right;">3 913 285</td>
-<td style="text-align: right;">136 191</td>
-</tr>
-<tr>
-<td>A call, the slowest of the 100</td>
-<td style="text-align: right;">3 918 836</td>
-<td style="text-align: right;">139 729</td>
-</tr>
-<tr>
-<td>A call, the slot's whole <code>forward</code>, cycles</td>
-<td style="text-align: right;">3 920 335</td>
-<td style="text-align: right;">143 667</td>
-</tr>
-<tr>
-<td>A call, stack</td>
-<td style="text-align: right;">896 B</td>
-<td style="text-align: right;">656 B</td>
-</tr>
-</tbody>
-</table>
-<ul>
-<li>Flash is the firmware with the interpreter less the one without it, the two images (38.8 KB) left out.</li>
-<li>wasmi's heap is the guest's 64 KiB page, its 16 KiB stack and the code of every function, translated at load:
-  wasefire-interpreter takes only the memory it is given (8 KiB here).</li>
-<li>wasmi's 64 B after the calls is its frame stack, grown at the first call.</li>
-<li>The slot's own <code>load</code> is the same for both, 62 000 cycles and 6 656 B of stack (the model's decode, see above).</li>
-<li>wasefire-interpreter executes the binary in place, about 29 times slower than wasmi per call. It's the call itself:
-  <code>add</code> runs about 6 400 wasm instructions (wasmi's fuel), some 600 cycles each. Looking up the export and the side
-  table takes under 0.1 % of a call (156 ns of 177 µs on the host), and nothing is validated per call.</li>
-</ul>
-<p>At <code>opt-level = 3</code> wasefire-interpreter takes 1 328 148 cycles to instantiate and 1 057 376 per call, with 780 B of
-stack. wasmi doesn't fit the 1 MB of flash at <code>opt-level = 3</code>, alone (524 B over) or next to wasefire-interpreter.</p>
+<p>The slot takes 2 336 B of RAM at these sizes. At <code>fw-z</code> its code is about 12 KB of flash, the SHA-256 of the
+model hash 7 KB, and decoding the model at <code>load</code> 8 KB.</p>
 <h3 id="who-calls-and-what-it-does">Who calls and what it does<a class="headerlink" href="#who-calls-and-what-it-does" title="Permanent link">&para;</a></h3>
 <p>A call into a mount is checked twice: by the front server's <a href="../host_server/#who-may-call">authorization hook</a> before
 it is sent on, and by the backend's before it runs.</p>
@@ -7327,21 +7122,21 @@ the API learned when the backend came up. <code>Resource::mount</code> says the 
 of the slot's <code>api</code>, <code>api</code> the learned API. A slot's API is learned before its presence turns <code>Up</code>. When none could be
 learned (introspection off, longer than 4 MiB), <code>api</code> is <code>None</code> and so are the items: nothing is known of what the
 request does, and a policy that limits effects refuses such a request.</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kd">let</span><span class="w"> </span><span class="n">policy</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">from_fn</span><span class="p">(</span><span class="o">|</span><span class="n">cx</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">CallContext</span><span class="p">,</span><span class="w"> </span><span class="n">resource</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">Resource</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="o">&gt;|</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">unknown</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">resource</span><span class="p">.</span><span class="n">mount</span><span class="p">.</span><span class="n">is_some_and</span><span class="p">(</span><span class="o">|</span><span class="n">mount</span><span class="o">|</span><span class="w"> </span><span class="n">mount</span><span class="p">.</span><span class="n">api</span><span class="p">.</span><span class="n">is_none</span><span class="p">());</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="n">unknown</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">resource</span><span class="p">.</span><span class="n">effects</span><span class="p">().</span><span class="n">contains</span><span class="p">(</span><span class="n">Effects</span><span class="p">::</span><span class="n">DESTRUCTIVE</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nb">Err</span><span class="p">(</span><span class="n">Denied</span><span class="p">);</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">    </span><span class="p">}</span>
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">    </span><span class="nb">Ok</span><span class="p">(())</span>
-</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="p">});</span>
-</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="kd">let</span><span class="w"> </span><span class="n">server</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Server</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">clock</span><span class="p">).</span><span class="n">mounts</span><span class="p">(</span><span class="n">mounts</span><span class="p">.</span><span class="n">routes</span><span class="p">()).</span><span class="n">authorize</span><span class="p">(</span><span class="n">policy</span><span class="p">,</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">own_bundle</span><span class="p">));</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kd">let</span><span class="w"> </span><span class="n">policy</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">from_fn</span><span class="p">(</span><span class="o">|</span><span class="n">cx</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">CallContext</span><span class="p">,</span><span class="w"> </span><span class="n">resource</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">Resource</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="o">&gt;|</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">unknown</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">resource</span><span class="p">.</span><span class="n">mount</span><span class="p">.</span><span class="n">is_some_and</span><span class="p">(</span><span class="o">|</span><span class="n">mount</span><span class="o">|</span><span class="w"> </span><span class="n">mount</span><span class="p">.</span><span class="n">api</span><span class="p">.</span><span class="n">is_none</span><span class="p">());</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="n">unknown</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">resource</span><span class="p">.</span><span class="n">effects</span><span class="p">().</span><span class="n">contains</span><span class="p">(</span><span class="n">Effects</span><span class="p">::</span><span class="n">DESTRUCTIVE</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nb">Err</span><span class="p">(</span><span class="n">Denied</span><span class="p">);</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">    </span><span class="nb">Ok</span><span class="p">(())</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="p">});</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="kd">let</span><span class="w"> </span><span class="n">server</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Server</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">clock</span><span class="p">).</span><span class="n">mounts</span><span class="p">(</span><span class="n">mounts</span><span class="p">.</span><span class="n">routes</span><span class="p">()).</span><span class="n">authorize</span><span class="p">(</span><span class="n">policy</span><span class="p">,</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">own_bundle</span><span class="p">));</span>
 </span></code></pre></div>
 <p>The backend learns which client of the front called. The forwarder sends the peer the front's transport saw
 (<code>cx.call().peer</code>: a unix user, a key, an address, or <code>Unknown</code>) in each request's context,
 <code>RequestContext::forwarded_for</code>, and replaces whatever the client put there. A call from the front's own process
 names nobody. The backend takes that word only from a peer it trusts to forward:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1">// the hub: its socket lets in only its own user, and the TV runs as that user</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="kd">let</span><span class="w"> </span><span class="n">server</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Server</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">clock</span><span class="p">).</span><span class="n">trust_forwarders</span><span class="p">(</span><span class="o">|</span><span class="n">peer</span><span class="o">|</span><span class="w"> </span><span class="fm">matches!</span><span class="p">(</span><span class="n">peer</span><span class="p">,</span><span class="w"> </span><span class="n">Peer</span><span class="p">::</span><span class="n">Unix</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="p">}));</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1">// the hub: its socket lets in only its own user, and the TV runs as that user</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="kd">let</span><span class="w"> </span><span class="n">server</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Server</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">clock</span><span class="p">).</span><span class="n">trust_forwarders</span><span class="p">(</span><span class="o">|</span><span class="n">peer</span><span class="o">|</span><span class="w"> </span><span class="fm">matches!</span><span class="p">(</span><span class="n">peer</span><span class="p">,</span><span class="w"> </span><span class="n">Peer</span><span class="p">::</span><span class="n">Unix</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="p">}));</span>
 </span></code></pre></div>
 <p>Then its handlers and its own hook see the front's client as <code>cx.call().peer</code>, with <code>cx.call().forwarded</code> set; the
 connection's peer (<code>Connection::peer</code>) stays the forwarder. Without <code>trust_forwarders</code>, or from any other peer, the
@@ -7373,25 +7168,25 @@ A trusted forwarder's request whose context doesn't decode is <code>Unknown</cod
 their address only until peer authentication (TR-24, planned) lands.</p>
 <h2 id="client">Client<a class="headerlink" href="#client" title="Permanent link">&para;</a></h2>
 <p>The generated client hands out a <code>wire_weaver_client::MountSlot</code>:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kd">let</span><span class="w"> </span><span class="n">hub</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span><span class="p">.</span><span class="n">hub</span><span class="p">()</span><span class="o">?</span><span class="p">;</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="kd">let</span><span class="w"> </span><span class="n">presence</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">hub</span><span class="p">.</span><span class="n">presence</span><span class="p">().</span><span class="n">read</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span><span class="w">          </span><span class="c1">// MountPresenceOwned</span>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="kd">let</span><span class="w"> </span><span class="n">api_path</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">hub</span><span class="p">.</span><span class="n">api_path</span><span class="p">();</span><span class="w">                         </span><span class="c1">// path of the mounted API&#39;s root</span>
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="kd">let</span><span class="w"> </span><span class="n">ext</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span><span class="p">.</span><span class="n">ext_by</span><span class="p">(</span><span class="o">&amp;</span><span class="n">name</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span><span class="w">                 </span><span class="c1">// Option&lt;MountSlot&gt;, by MountNameOwned</span>
-</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="kd">let</span><span class="w"> </span><span class="n">first</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span><span class="p">.</span><span class="n">ext</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kd">let</span><span class="w"> </span><span class="n">hub</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span><span class="p">.</span><span class="n">hub</span><span class="p">()</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="kd">let</span><span class="w"> </span><span class="n">presence</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">hub</span><span class="p">.</span><span class="n">presence</span><span class="p">().</span><span class="n">read</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span><span class="w">          </span><span class="c1">// MountPresenceOwned</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="kd">let</span><span class="w"> </span><span class="n">api_path</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">hub</span><span class="p">.</span><span class="n">api_path</span><span class="p">();</span><span class="w">                         </span><span class="c1">// path of the mounted API&#39;s root</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="kd">let</span><span class="w"> </span><span class="n">ext</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span><span class="p">.</span><span class="n">ext_by</span><span class="p">(</span><span class="o">&amp;</span><span class="n">name</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span><span class="w">                 </span><span class="c1">// Option&lt;MountSlot&gt;, by MountNameOwned</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="kd">let</span><span class="w"> </span><span class="n">first</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span><span class="p">.</span><span class="n">ext</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
 </span></code></pre></div>
 <h3 id="views-of-a-mounted-api">Views of a mounted API<a class="headerlink" href="#views-of-a-mounted-api" title="Permanent link">&para;</a></h3>
 <p>A <code>MountView</code> is how a client works with the API mounted at a slot. Its <code>commander()</code> is a <code>Commander</code> whose paths
 are in the mounted API: each request goes out with the slot's <code>api</code> in front, and each answer, event and stream item
 comes back under the same path. The view holds its own facts of the mounted API, apart from the device's: crate,
 version, hashes, introspection data (asked for below the slot's <code>api</code>), global trait paths, <code>const</code> values and keys.</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1">// a generated client of the mounted API</span>
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="kd">let</span><span class="w"> </span><span class="n">view</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tv</span><span class="p">.</span><span class="n">hub</span><span class="p">()</span><span class="o">?</span><span class="p">.</span><span class="n">view_for</span><span class="p">(</span><span class="o">&amp;</span><span class="n">hub_api</span><span class="p">::</span><span class="n">Client</span><span class="p">::</span><span class="n">client_line</span><span class="p">()).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="kd">let</span><span class="w"> </span><span class="n">hub</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">hub_api</span><span class="p">::</span><span class="n">Client</span><span class="p">::</span><span class="n">on_mount</span><span class="p">(</span><span class="o">&amp;</span><span class="n">view</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
-</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="n">hub</span><span class="p">.</span><span class="n">player</span><span class="p">().</span><span class="n">pause</span><span class="p">().</span><span class="n">call</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
-</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>
-</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="c1">// the dynamic client</span>
-</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="kd">let</span><span class="w"> </span><span class="n">view</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tv</span><span class="p">.</span><span class="n">hub</span><span class="p">()</span><span class="o">?</span><span class="p">.</span><span class="n">view</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
-</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="kd">let</span><span class="w"> </span><span class="n">info</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">view</span><span class="p">.</span><span class="n">commander</span><span class="p">().</span><span class="n">device_api_info</span><span class="p">();</span><span class="w">           </span><span class="c1">// the mounted API, not the TV&#39;s</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1">// a generated client of the mounted API</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="kd">let</span><span class="w"> </span><span class="n">view</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tv</span><span class="p">.</span><span class="n">hub</span><span class="p">()</span><span class="o">?</span><span class="p">.</span><span class="n">view_for</span><span class="p">(</span><span class="o">&amp;</span><span class="n">hub_api</span><span class="p">::</span><span class="n">Client</span><span class="p">::</span><span class="n">client_line</span><span class="p">()).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="kd">let</span><span class="w"> </span><span class="n">hub</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">hub_api</span><span class="p">::</span><span class="n">Client</span><span class="p">::</span><span class="n">on_mount</span><span class="p">(</span><span class="o">&amp;</span><span class="n">view</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="n">hub</span><span class="p">.</span><span class="n">player</span><span class="p">().</span><span class="n">pause</span><span class="p">().</span><span class="n">call</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="c1">// the dynamic client</span>
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="kd">let</span><span class="w"> </span><span class="n">view</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tv</span><span class="p">.</span><span class="n">hub</span><span class="p">()</span><span class="o">?</span><span class="p">.</span><span class="n">view</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="kd">let</span><span class="w"> </span><span class="n">info</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">view</span><span class="p">.</span><span class="n">commander</span><span class="p">().</span><span class="n">device_api_info</span><span class="p">();</span><span class="w">           </span><span class="c1">// the mounted API, not the TV&#39;s</span>
 </span></code></pre></div>
 <ul>
 <li><code>view_for</code> checks calls against the mounted API as a connect checks them against a device's API.
@@ -7511,6 +7306,7 @@ view it lives in (<code>DynWalked</code>); use the resource with <code>walked.cm
       Zensical
     </a>
   
+  <div class="book-stamp" data-built="1795598778">wire_weaver 0.6.0 · a748fad · built 2026-11-25 09:26 UTC (<span class="book-stamp-age">just built</span>)</div>
 </div>
       
         
@@ -7562,10 +7358,13 @@ view it lives in (<code>DynWalked</code>); use the resource with <code>walked.cm
       <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["announce.dismiss","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.path","navigation.sections","navigation.tabs","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../../assets/javascripts/workers/search.719e0d91.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.9e76c64c.min.js"></script>
-      
+      <script src="../../assets/javascripts/bundle.3cb411a8.min.js"></script>
       
         <script src="../../javascripts/ww_highlight.js"></script>
+      
+        <script src="../../javascripts/vz-refs.js"></script>
+      
+        <script src="../../javascripts/vz-stamp-age.js"></script>
       
     
   </body>

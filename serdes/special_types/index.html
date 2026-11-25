@@ -1,6 +1,4 @@
 
-
-
 <!doctype html>
 <html lang="en" class="no-js">
   <head>
@@ -18,7 +16,6 @@
       
       
       
-      
         <link rel="prev" href="../derive_reference/">
       
       
@@ -29,7 +26,7 @@
       
       
       <link rel="icon" href="../../assets/wire_weaver_favicon.svg">
-      <meta name="generator" content="zensical-0.1.3">
+      <meta name="generator" content="zensical-0.1.2">
     
     
       
@@ -40,13 +37,12 @@
       
         
       
-      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.e2cf241e.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.ebb7f775.min.css">
       
         
           
         
         <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.b60ce83d.min.css">
-      
       
       
 
@@ -68,6 +64,10 @@
       <link rel="stylesheet" href="../../stylesheets/vhrd.css">
     
       <link rel="stylesheet" href="../../stylesheets/ww_highlight.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/vz-refs.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/vz-code.css">
     
     <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
@@ -6811,7 +6811,7 @@ flag:</p>
 </span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="p">}</span>
 </span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="n">samples</span><span class="p">.</span><span class="n">finish</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">wr</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
 </span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="n">wr</span><span class="p">.</span><span class="n">write_bool</span><span class="p">(</span><span class="kc">true</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
-</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">wr</span><span class="p">.</span><span class="n">finish_and_take</span><span class="p">().</span><span class="n">unwrap</span><span class="p">(),</span><span class="w"> </span><span class="n">hex</span><span class="o">!</span><span class="p">(</span><span class="s">&quot;07 02 31 23 22 38 03&quot;</span><span class="p">));</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">wr</span><span class="p">.</span><span class="n">finish_and_take</span><span class="p">().</span><span class="n">unwrap</span><span class="p">(),</span><span class="w"> </span><span class="fm">hex!</span><span class="p">(</span><span class="s">&quot;07 02 31 23 22 38 03&quot;</span><span class="p">));</span>
 </span></code></pre></div>
 <p>The samples are bit-packed as in any list (<code>023</code> <code>123</code> <code>223</code>), the flag follows in the next bit (<code>3</code> <code>1</code> and
 padding), and the count <code>3</code> is at the back. A list of lists takes a nested builder per element:</p>
@@ -6825,7 +6825,7 @@ padding), and the count <code>3</code> is at the back. A list of lists takes a n
 </span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">    </span><span class="p">}).</span><span class="n">unwrap</span><span class="p">();</span>
 </span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="p">}</span>
 </span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="n">outer</span><span class="p">.</span><span class="n">finish</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">wr</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
-</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">wr</span><span class="p">.</span><span class="n">finish_and_take</span><span class="p">().</span><span class="n">unwrap</span><span class="p">(),</span><span class="w"> </span><span class="n">hex</span><span class="o">!</span><span class="p">(</span><span class="s">&quot;61 62 63 64 11 21 22&quot;</span><span class="p">));</span>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">wr</span><span class="p">.</span><span class="n">finish_and_take</span><span class="p">().</span><span class="n">unwrap</span><span class="p">(),</span><span class="w"> </span><span class="fm">hex!</span><span class="p">(</span><span class="s">&quot;61 62 63 64 11 21 22&quot;</span><span class="p">));</span>
 </span></code></pre></div>
 <p><code>push_with</code> writes the element as its type's <code>ser_shrink_wrap</code> would; for an evolvable element the builder adds its
 size around it, as <code>wr.write</code> does.</p>
@@ -6856,7 +6856,7 @@ same bytes.</p>
 </span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="p">}).</span><span class="n">unwrap</span><span class="p">();</span>
 </span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="n">bytes</span><span class="p">.</span><span class="n">finish</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">wr</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
 </span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="n">wr</span><span class="p">.</span><span class="n">write_u8</span><span class="p">(</span><span class="mh">0x99</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">wr</span><span class="p">.</span><span class="n">finish_and_take</span><span class="p">().</span><span class="n">unwrap</span><span class="p">(),</span><span class="w"> </span><span class="n">hex</span><span class="o">!</span><span class="p">(</span><span class="s">&quot;68 69 42 02 99 04&quot;</span><span class="p">));</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">wr</span><span class="p">.</span><span class="n">finish_and_take</span><span class="p">().</span><span class="n">unwrap</span><span class="p">(),</span><span class="w"> </span><span class="fm">hex!</span><span class="p">(</span><span class="s">&quot;68 69 42 02 99 04&quot;</span><span class="p">));</span>
 </span></code></pre></div>
 <p><code>68 69</code> is <code>"hi"</code>, then <code>42</code>, then the length of <code>"hi"</code> (<code>2</code> after a padding nibble), all inside the blob of 4 bytes:
 <code>99</code> follows it and the count <code>4</code> is at the back. Read it back as a <code>RefVec&lt;u8&gt;</code> and the blob with a <code>BufReader</code> of
@@ -6878,7 +6878,7 @@ instead, which is built on it.</p>
 </span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="n">wr</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="s">&quot;hi&quot;</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
 </span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="n">wr</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="kc">true</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
 </span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="kd">let</span><span class="w"> </span><span class="n">bytes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">wr</span><span class="p">.</span><span class="n">finish_and_take</span><span class="p">().</span><span class="n">unwrap</span><span class="p">();</span>
-</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">bytes</span><span class="p">,</span><span class="w"> </span><span class="n">hex</span><span class="o">!</span><span class="p">(</span><span class="s">&quot;14 b0 2a 68 69 82&quot;</span><span class="p">));</span>
+</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">bytes</span><span class="p">,</span><span class="w"> </span><span class="fm">hex!</span><span class="p">(</span><span class="s">&quot;14 b0 2a 68 69 82&quot;</span><span class="p">));</span>
 </span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>
 </span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="kd">let</span><span class="w"> </span><span class="n">vec</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">OptionAnyVec</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">bytes</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span><span class="w"> </span><span class="c1">// checks the header</span>
 </span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">slots</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">vec</span><span class="p">.</span><span class="n">iter</span><span class="p">();</span>
@@ -6929,7 +6929,7 @@ bitset. <code>new_with_mode</code> forces a header mode. A child level is one sl
 </span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="n">child</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="mh">0x1234</span><span class="k">u16</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">wr</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
 </span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="n">child</span><span class="p">.</span><span class="n">finish</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">wr</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
 </span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="n">parent</span><span class="p">.</span><span class="n">finish</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">wr</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
-</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">wr</span><span class="p">.</span><span class="n">finish_and_take</span><span class="p">().</span><span class="n">unwrap</span><span class="p">(),</span><span class="w"> </span><span class="n">hex</span><span class="o">!</span><span class="p">(</span><span class="s">&quot;02 07 13 20 34 12 04&quot;</span><span class="p">));</span>
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">wr</span><span class="p">.</span><span class="n">finish_and_take</span><span class="p">().</span><span class="n">unwrap</span><span class="p">(),</span><span class="w"> </span><span class="fm">hex!</span><span class="p">(</span><span class="s">&quot;02 07 13 20 34 12 04&quot;</span><span class="p">));</span>
 </span></code></pre></div>
 <p>The bytes:</p>
 <ul>
@@ -7044,6 +7044,7 @@ index.</p>
       Zensical
     </a>
   
+  <div class="book-stamp" data-built="1795598778">wire_weaver 0.6.0 · a748fad · built 2026-11-25 09:26 UTC (<span class="book-stamp-age">just built</span>)</div>
 </div>
       
         
@@ -7095,10 +7096,13 @@ index.</p>
       <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["announce.dismiss","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.path","navigation.sections","navigation.tabs","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../../assets/javascripts/workers/search.719e0d91.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.9e76c64c.min.js"></script>
-      
+      <script src="../../assets/javascripts/bundle.3cb411a8.min.js"></script>
       
         <script src="../../javascripts/ww_highlight.js"></script>
+      
+        <script src="../../javascripts/vz-refs.js"></script>
+      
+        <script src="../../javascripts/vz-stamp-age.js"></script>
       
     
   </body>

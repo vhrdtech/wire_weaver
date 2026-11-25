@@ -1,6 +1,4 @@
 
-
-
 <!doctype html>
 <html lang="en" class="no-js">
   <head>
@@ -18,7 +16,6 @@
       
       
       
-      
         <link rel="prev" href="../ww_timebase/">
       
       
@@ -29,7 +26,7 @@
       
       
       <link rel="icon" href="../../assets/wire_weaver_favicon.svg">
-      <meta name="generator" content="zensical-0.1.3">
+      <meta name="generator" content="zensical-0.1.2">
     
     
       
@@ -40,13 +37,12 @@
       
         
       
-      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.e2cf241e.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.ebb7f775.min.css">
       
         
           
         
         <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.b60ce83d.min.css">
-      
       
       
 
@@ -68,6 +64,10 @@
       <link rel="stylesheet" href="../../stylesheets/vhrd.css">
     
       <link rel="stylesheet" href="../../stylesheets/ww_highlight.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/vz-refs.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/vz-code.css">
     
     <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
@@ -6738,11 +6738,11 @@ sample.</p>
 <p>Both traits, and <code>ww_signal_generator</code>'s pattern sink, share two encodings so a capture can be replayed without
 conversion:</p>
 <ul>
-<li><strong><code>Encoding::Raw</code></strong>, [<code>RawChunk</code>] - every sample, a word of <code>RawLayout::width</code> bits (1, 2, 4, 8, 16 or 32, the
+<li><strong><code>Encoding::Raw</code></strong>, <a aria-describedby="vz-card-item-ww-stdlib-ww-logic-analyzer-rawchunk-ww-log-43c8f0" class="vz-ref vz-code" data-vz-card="vz-card-item-ww-stdlib-ww-logic-analyzer-rawchunk-ww-log-43c8f0" href="https://github.com/vhrdtech/ww_stdlib/blob/e882a68d5d573b1609786b29e24ad1ecaaf02fba/ww_logic_analyzer/src/lib.rs#L444-L450"><code>RawChunk</code></a> - every sample, a word of <code>RawLayout::width</code> bits (1, 2, 4, 8, 16 or 32, the
   smallest the device gives for the channel count). Bit <code>i</code> of a word is the <code>i</code>-th channel of the configuration's
   channel list; sub-byte words are packed starting at bit 0 of a byte, multi-byte words are little-endian — what a
   DMA from a GPIO port produces with no CPU work.</li>
-<li><strong><code>Encoding::Transitions</code></strong>, [<code>TransitionsChunk</code>] - per channel, its level at the start of the range and the
+<li><strong><code>Encoding::Transitions</code></strong>, <a aria-describedby="vz-card-item-ww-stdlib-ww-logic-analyzer-transitionschun-5a0339" class="vz-ref vz-code" data-vz-card="vz-card-item-ww-stdlib-ww-logic-analyzer-transitionschun-5a0339" href="https://github.com/vhrdtech/ww_stdlib/blob/e882a68d5d573b1609786b29e24ad1ecaaf02fba/ww_logic_analyzer/src/lib.rs#L458-L468"><code>TransitionsChunk</code></a> - per channel, its level at the start of the range and the
   sample indices where it toggles, as a <code>Series&lt;u32&gt;</code>. A steady clock costs a few bytes per chunk, a quiet
   channel almost nothing (its start level and an empty list), so the edge rate limits a stream, not the sample
   rate: a busy signal sampled for clean edge timing costs the same at a high rate as at a low one.</li>
@@ -6809,7 +6809,7 @@ available by enabling the crate's <code>std</code> / <code>defmt</code> features
 <h2 id="composing-into-a-device-api">Composing into a device API<a class="headerlink" href="#composing-into-a-device-api" title="Permanent link">&para;</a></h2>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="cp">#[ww_api_root]</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">MyProbe</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">la</span><span class="p">:</span><span class="w"> </span><span class="nc">ww_logic_analyzer</span><span class="p">::</span><span class="n">LogicAnalyzer</span><span class="p">);</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="fm">ww_impl!</span><span class="p">(</span><span class="n">la</span><span class="p">:</span><span class="w"> </span><span class="nc">ww_logic_analyzer</span><span class="p">::</span><span class="n">LogicAnalyzer</span><span class="p">);</span>
 </span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="p">}</span>
 </span></code></pre></div>
 <p><code>ChannelInfo::gpio_pin</code> cross-references the same pin's index in the device's own <code>ww_gpio::Bank::pin</code>, so a host
@@ -6817,6 +6817,25 @@ or a generic tool can show which logic-analyzer channel is which GPIO pin. A <co
 on the same or another device replays a capture directly: it accepts the same <code>StreamChunk</code> encodings this crate
 produces, so a host reads a capture out in whichever encoding the generator lists and feeds the chunks straight to
 its pattern sink — see <a href="../ww_signal_generator/"><code>ww_signal_generator</code></a>.</p>
+<div class="vz-cards"><div class="vz-card vz-card-code" id="vz-card-item-ww-stdlib-ww-logic-analyzer-rawchunk-ww-log-43c8f0" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/ww_stdlib/blob/e882a68d5d573b1609786b29e24ad1ecaaf02fba/ww_logic_analyzer/src/lib.rs#L444-L450">struct ww_logic_analyzer::RawChunk</a></div><div class="vz-card-src"><div class="language-rust highlight"><pre><span></span><code><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">RawChunk</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="sd">/// Index of the first sample.</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">first</span><span class="p">:</span><span class="w"> </span><span class="nc">Index</span><span class="o">&lt;</span><span class="n">Sample</span><span class="p">,</span><span class="w"> </span><span class="kt">u32</span><span class="o">&gt;</span><span class="p">,</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">samples</span><span class="p">:</span><span class="w"> </span><span class="nc">Count</span><span class="o">&lt;</span><span class="n">Sample</span><span class="p">,</span><span class="w"> </span><span class="kt">u32</span><span class="o">&gt;</span><span class="p">,</span>
+<span class="w">    </span><span class="sd">/// `samples` words as in [RawLayout].</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">data</span><span class="p">:</span><span class="w"> </span><span class="nc">MaxLen</span><span class="o">&lt;</span><span class="n">RefVec</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="kt">u8</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">MAX_READ_LEN</span><span class="o">&gt;</span><span class="p">,</span>
+<span class="p">}</span>
+</code></pre></div></div><div class="vz-card-doc"><p>A run of raw samples, see <a href="https://github.com/vhrdtech/ww_stdlib/blob/e882a68d5d573b1609786b29e24ad1ecaaf02fba/ww_logic_analyzer/src/lib.rs#L422-L422">Encoding::Raw</a>.</p></div><div class="vz-card-where">ww_logic_analyzer/src/lib.rs:444</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/ww_stdlib/blob/e882a68d5d573b1609786b29e24ad1ecaaf02fba/ww_logic_analyzer/src/lib.rs#L444-L450">Source on GitHub</a> · <a href="https://github.com/vhrdtech/ww_stdlib/blob/e882a68d5d573b1609786b29e24ad1ecaaf02fba/ww_logic_analyzer/src/lib.rs">File on GitHub</a></div></div><div class="vz-card vz-card-code" id="vz-card-item-ww-stdlib-ww-logic-analyzer-transitionschun-5a0339" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/ww_stdlib/blob/e882a68d5d573b1609786b29e24ad1ecaaf02fba/ww_logic_analyzer/src/lib.rs#L458-L468">struct ww_logic_analyzer::TransitionsChunk</a></div><div class="vz-card-src"><div class="language-rust highlight"><pre><span></span><code><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">TransitionsChunk</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="sd">/// Index into the configuration&#39;s channel list.</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">channel</span><span class="p">:</span><span class="w"> </span><span class="nc">Index</span><span class="o">&lt;</span><span class="n">Channel</span><span class="p">,</span><span class="w"> </span><span class="kt">u8</span><span class="o">&gt;</span><span class="p">,</span>
+<span class="w">    </span><span class="sd">/// Level at sample `from`.</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">level</span><span class="p">:</span><span class="w"> </span><span class="nc">Level</span><span class="p">,</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">from</span><span class="p">:</span><span class="w"> </span><span class="nc">Index</span><span class="o">&lt;</span><span class="n">Sample</span><span class="p">,</span><span class="w"> </span><span class="kt">u32</span><span class="o">&gt;</span><span class="p">,</span>
+<span class="w">    </span><span class="sd">/// No more edges before this sample; the next chunk of this channel starts here.</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">scanned_to</span><span class="p">:</span><span class="w"> </span><span class="nc">Index</span><span class="o">&lt;</span><span class="n">Sample</span><span class="p">,</span><span class="w"> </span><span class="kt">u32</span><span class="o">&gt;</span><span class="p">,</span>
+<span class="w">    </span><span class="sd">/// Samples where the channel toggles, ascending, in `from..scanned_to`; at most [MAX_EDGES].</span>
+<span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">edges</span><span class="p">:</span><span class="w"> </span><span class="nc">Series</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="n">Index</span><span class="o">&lt;</span><span class="n">Sample</span><span class="p">,</span><span class="w"> </span><span class="kt">u32</span><span class="o">&gt;&gt;</span><span class="p">,</span>
+<span class="p">}</span>
+</code></pre></div></div><div class="vz-card-doc"><p>Edges of one channel in <code>from..scanned_to</code>, see <a href="https://github.com/vhrdtech/ww_stdlib/blob/e882a68d5d573b1609786b29e24ad1ecaaf02fba/ww_logic_analyzer/src/lib.rs#L424-L424">Encoding::Transitions</a>.</p></div><div class="vz-card-where">ww_logic_analyzer/src/lib.rs:458</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/ww_stdlib/blob/e882a68d5d573b1609786b29e24ad1ecaaf02fba/ww_logic_analyzer/src/lib.rs#L458-L468">Source on GitHub</a> · <a href="https://github.com/vhrdtech/ww_stdlib/blob/e882a68d5d573b1609786b29e24ad1ecaaf02fba/ww_logic_analyzer/src/lib.rs">File on GitHub</a></div></div></div>
 
 
 
@@ -6909,6 +6928,7 @@ its pattern sink — see <a href="../ww_signal_generator/"><code>ww_signal_gener
       Zensical
     </a>
   
+  <div class="book-stamp" data-built="1795598778">wire_weaver 0.6.0 · a748fad · built 2026-11-25 09:26 UTC (<span class="book-stamp-age">just built</span>)</div>
 </div>
       
         
@@ -6960,10 +6980,13 @@ its pattern sink — see <a href="../ww_signal_generator/"><code>ww_signal_gener
       <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["announce.dismiss","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.path","navigation.sections","navigation.tabs","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../../assets/javascripts/workers/search.719e0d91.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.9e76c64c.min.js"></script>
-      
+      <script src="../../assets/javascripts/bundle.3cb411a8.min.js"></script>
       
         <script src="../../javascripts/ww_highlight.js"></script>
+      
+        <script src="../../javascripts/vz-refs.js"></script>
+      
+        <script src="../../javascripts/vz-stamp-age.js"></script>
       
     
   </body>

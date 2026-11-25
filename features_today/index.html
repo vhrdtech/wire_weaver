@@ -1,6 +1,4 @@
 
-
-
 <!doctype html>
 <html lang="en" class="no-js">
   <head>
@@ -18,7 +16,6 @@
       
       
       
-      
         <link rel="prev" href="../architecture/">
       
       
@@ -29,7 +26,7 @@
       
       
       <link rel="icon" href="../assets/wire_weaver_favicon.svg">
-      <meta name="generator" content="zensical-0.1.3">
+      <meta name="generator" content="zensical-0.1.2">
     
     
       
@@ -40,13 +37,12 @@
       
         
       
-      <link rel="stylesheet" href="../assets/stylesheets/modern/main.e2cf241e.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/modern/main.ebb7f775.min.css">
       
         
           
         
         <link rel="stylesheet" href="../assets/stylesheets/modern/palette.b60ce83d.min.css">
-      
       
       
 
@@ -68,6 +64,10 @@
       <link rel="stylesheet" href="../stylesheets/vhrd.css">
     
       <link rel="stylesheet" href="../stylesheets/ww_highlight.css">
+    
+      <link rel="stylesheet" href="../stylesheets/vz-refs.css">
+    
+      <link rel="stylesheet" href="../stylesheets/vz-code.css">
     
     <script>__md_scope=new URL("..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
@@ -6788,9 +6788,6 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 <li><strong><a href="../api/mounts/#backend-processes">Mount forwarder</a></strong>: A mount slot reaches another WireWeaver server over a socket, each connection with a link of its own, on tokio or calloop.</li>
 <li><strong><a href="../api/mounts/#who-calls-and-what-it-does">Who calls through a mount</a></strong>: The front's policy sees a mounted call's effects, the backend learns which client of the front called.</li>
 <li><strong><a href="../api/mounts/#modules-in-the-firmwares-process">Modules in the firmware's process</a></strong>: A firmware serves a mount slot from a wasm module or a linked server, checked and without a heap.</li>
-<li><strong><a href="../api/mounts/#global-paths-into-modules">Global paths into firmware modules</a></strong>: A global trait path reaches the traits of a module a firmware serves in process, without a heap.</li>
-<li><strong><a href="../api/observing/#the-device-side">Borrowed observed values</a></strong>: An async <code>no_alloc</code> server observes getters that return values borrowed from it, such as several mount presences.</li>
-<li><strong><a href="../api/mounts/#wasm-modules">Wasm modules in a mount slot</a></strong>: A firmware loads an API compiled to wasm into a mount slot at run time, on wasefire-interpreter or wasmi, and unloads it when it traps.</li>
 <li><strong><a href="../api/methods/#deferred">Deferred replies everywhere</a></strong>: Answer a call later, also on nested trait levels.</li>
 <li><strong><a href="../transport/ww_framer/#latency-and-priority">Replies by priority</a></strong>: A reply to an urgent request leaves at once, also a deferred one sent later from your main loop; <code>Sink::flush</code> sends what waits now. <span class="ww-status">hardware check open</span></li>
 <li><strong><a href="../api/errors/#where-on-the-device-an-error-came-from">Errors that say where</a></strong>: A device's error names the site that raised it, by a number that is the same in every firmware.</li>
@@ -7283,6 +7280,7 @@ feature tracker.</p>
       Zensical
     </a>
   
+  <div class="book-stamp" data-built="1795598778">wire_weaver 0.6.0 · a748fad · built 2026-11-25 09:26 UTC (<span class="book-stamp-age">just built</span>)</div>
 </div>
       
         
@@ -7334,10 +7332,13 @@ feature tracker.</p>
       <script id="__config" type="application/json">{"annotate":null,"base":"..","features":["announce.dismiss","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.path","navigation.sections","navigation.tabs","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../assets/javascripts/workers/search.719e0d91.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
     
     
-      <script src="../assets/javascripts/bundle.9e76c64c.min.js"></script>
-      
+      <script src="../assets/javascripts/bundle.3cb411a8.min.js"></script>
       
         <script src="../javascripts/ww_highlight.js"></script>
+      
+        <script src="../javascripts/vz-refs.js"></script>
+      
+        <script src="../javascripts/vz-stamp-age.js"></script>
       
     
   </body>

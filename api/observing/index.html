@@ -1,6 +1,4 @@
 
-
-
 <!doctype html>
 <html lang="en" class="no-js">
   <head>
@@ -18,7 +16,6 @@
       
       
       
-      
         <link rel="prev" href="../multi_requests/">
       
       
@@ -29,7 +26,7 @@
       
       
       <link rel="icon" href="../../assets/wire_weaver_favicon.svg">
-      <meta name="generator" content="zensical-0.1.3">
+      <meta name="generator" content="zensical-0.1.2">
     
     
       
@@ -40,13 +37,12 @@
       
         
       
-      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.e2cf241e.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.ebb7f775.min.css">
       
         
           
         
         <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.b60ce83d.min.css">
-      
       
       
 
@@ -68,6 +64,10 @@
       <link rel="stylesheet" href="../../stylesheets/vhrd.css">
     
       <link rel="stylesheet" href="../../stylesheets/ww_highlight.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/vz-refs.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/vz-code.css">
     
     <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
@@ -6938,12 +6938,12 @@ its own message. This is what makes observing cheaper than one <code>StreamData<
 <a href="#cost-vs-streamdata">cost vs <code>StreamData</code></a> below.</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="cp">#[ww_trait]</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="k">trait</span><span class="w"> </span><span class="n">Motor</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">ro</span><span class="o">+</span><span class="n">observe</span><span class="w"> </span><span class="n">speed</span><span class="p">:</span><span class="w"> </span><span class="kt">f32</span><span class="p">);</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">ro</span><span class="o">+</span><span class="n">observe</span><span class="w"> </span><span class="n">current</span><span class="p">:</span><span class="w"> </span><span class="kt">f32</span><span class="p">);</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="fm">property!</span><span class="p">(</span><span class="n">ro</span><span class="o">+</span><span class="n">observe</span><span class="w"> </span><span class="n">speed</span><span class="p">:</span><span class="w"> </span><span class="kt">f32</span><span class="p">);</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="fm">property!</span><span class="p">(</span><span class="n">ro</span><span class="o">+</span><span class="n">observe</span><span class="w"> </span><span class="n">current</span><span class="p">:</span><span class="w"> </span><span class="kt">f32</span><span class="p">);</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="cp">#[effect(edit)]</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">rw</span><span class="o">+</span><span class="n">observe</span><span class="w"> </span><span class="n">mode</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">);</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="fm">property!</span><span class="p">(</span><span class="n">rw</span><span class="o">+</span><span class="n">observe</span><span class="w"> </span><span class="n">mode</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">);</span>
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="cp">#[effect(edit)]</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">gain</span><span class="p">:</span><span class="w"> </span><span class="kt">f32</span><span class="p">);</span><span class="w"> </span><span class="c1">// not observable</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="fm">property!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">gain</span><span class="p">:</span><span class="w"> </span><span class="kt">f32</span><span class="p">);</span><span class="w"> </span><span class="c1">// not observable</span>
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>Only properties declared <code>ro+observe</code>/<code>rw+observe</code> can be observed; see <a href="../properties/">Properties</a> for declaring
@@ -7045,12 +7045,9 @@ prints the field and <code>observe_state()</code>.</p>
 <p><code>ObserveState</code> holds one <code>ObserveTable&lt;[Slot; N]&gt;</code> per trait level, sized at compile time (<code>N</code> = the level's
 property count) - the per-property deadlines, modes and the level's token bucket. The table's code is the same for
 every level (it works on <code>ObserveTable&lt;[Slot]&gt;</code>, SRV-23), and so is the loop of <code>poll_properties</code> (SRV-24): plan,
-choice, writing the update and its bookkeeping are <code>ww_stream::observe</code>'s (<code>plan_level</code>, <code>select</code>, <code>WritePass</code>,
-<code>end_pass</code>, <code>ser_update</code>), one loop over the levels sends from one place, and what the generated code adds per
-property is reading its value (a <code>size</code> and a <code>write</code> arm, an async getter awaited in it). The loop drives the
-choice and the writing a slot at a time, so each getter is read where its value is measured or written and the value
-is dropped there: a value borrowed from the server (<code>MountPresence&lt;'_&gt;</code> of a <code>no_alloc</code> server) never lives beside
-another one (SRV-83). A value without a size bound is read twice, to measure and to write it. A firmware carries the algorithm
+choice, writing the update and its bookkeeping are <code>ww_stream::observe</code>'s (<code>plan_level</code>, <code>select</code>, <code>write</code>,
+<code>ser_update</code>), one loop over the levels sends from one place, and what the generated code adds per property is
+reading its value (<code>size</code> and <code>write</code> arms, and the <code>.await</code> of an async getter). A firmware carries the algorithm
 once however many levels its API has. <code>ww_stream::observe::ObserveLimits</code> is
 what the device allows every observer: shortest period, default/max budget per level, the total budget, and
 whether to send timestamps.</p>
@@ -7174,29 +7171,29 @@ level of its own, with its own path, settings, budget and updates. A host observ
 of element 2 only, however many elements other hosts or observers watch.</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="cp">#[ww_api_root]</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="k">trait</span><span class="w"> </span><span class="n">MediaBox</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">browsers</span><span class="p">[]:</span><span class="w"> </span><span class="nc">Browser</span><span class="p">);</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">media</span><span class="p">:</span><span class="w"> </span><span class="nc">Media</span><span class="p">);</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="fm">ww_impl!</span><span class="p">(</span><span class="n">browsers</span><span class="p">[]:</span><span class="w"> </span><span class="nc">Browser</span><span class="p">);</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="fm">ww_impl!</span><span class="p">(</span><span class="n">media</span><span class="p">:</span><span class="w"> </span><span class="nc">Media</span><span class="p">);</span>
 </span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="p">}</span>
 </span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
 </span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="cp">#[ww_trait]</span>
 </span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="k">trait</span><span class="w"> </span><span class="n">Browser</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">ro</span><span class="o">+</span><span class="n">observe</span><span class="w"> </span><span class="n">state</span><span class="p">:</span><span class="w"> </span><span class="nc">BrowserState</span><span class="p">);</span>
-</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">playback</span><span class="p">:</span><span class="w"> </span><span class="nc">Playback</span><span class="p">);</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">    </span><span class="fm">property!</span><span class="p">(</span><span class="n">ro</span><span class="o">+</span><span class="n">observe</span><span class="w"> </span><span class="n">state</span><span class="p">:</span><span class="w"> </span><span class="nc">BrowserState</span><span class="p">);</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">    </span><span class="fm">ww_impl!</span><span class="p">(</span><span class="n">playback</span><span class="p">:</span><span class="w"> </span><span class="nc">Playback</span><span class="p">);</span>
 </span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="p">}</span>
 </span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>
 </span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="cp">#[ww_trait]</span>
 </span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="k">trait</span><span class="w"> </span><span class="n">Media</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">players</span><span class="p">[]:</span><span class="w"> </span><span class="nc">Player</span><span class="p">);</span><span class="w"> </span><span class="c1">// players come and go</span>
+</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="w">    </span><span class="fm">ww_impl!</span><span class="p">(</span><span class="n">players</span><span class="p">[]:</span><span class="w"> </span><span class="nc">Player</span><span class="p">);</span><span class="w"> </span><span class="c1">// players come and go</span>
 </span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="p">}</span>
 </span><span id="__span-4-17"><a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a>
 </span><span id="__span-4-18"><a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="cp">#[ww_trait]</span>
 </span><span id="__span-4-19"><a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a><span class="k">trait</span><span class="w"> </span><span class="n">Player</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-4-20"><a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a><span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">playback</span><span class="p">:</span><span class="w"> </span><span class="nc">Playback</span><span class="p">);</span><span class="w"> </span><span class="c1">// the same trait under two arrays</span>
+</span><span id="__span-4-20"><a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a><span class="w">    </span><span class="fm">ww_impl!</span><span class="p">(</span><span class="n">playback</span><span class="p">:</span><span class="w"> </span><span class="nc">Playback</span><span class="p">);</span><span class="w"> </span><span class="c1">// the same trait under two arrays</span>
 </span><span id="__span-4-21"><a id="__codelineno-4-21" name="__codelineno-4-21" href="#__codelineno-4-21"></a><span class="p">}</span>
 </span><span id="__span-4-22"><a id="__codelineno-4-22" name="__codelineno-4-22" href="#__codelineno-4-22"></a>
 </span><span id="__span-4-23"><a id="__codelineno-4-23" name="__codelineno-4-23" href="#__codelineno-4-23"></a><span class="cp">#[ww_trait]</span>
 </span><span id="__span-4-24"><a id="__codelineno-4-24" name="__codelineno-4-24" href="#__codelineno-4-24"></a><span class="k">trait</span><span class="w"> </span><span class="n">Playback</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-4-25"><a id="__codelineno-4-25" name="__codelineno-4-25" href="#__codelineno-4-25"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">ro</span><span class="o">+</span><span class="n">observe</span><span class="w"> </span><span class="n">title</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="o">&#39;</span><span class="na">i</span><span class="w"> </span><span class="kt">str</span><span class="p">);</span>
+</span><span id="__span-4-25"><a id="__codelineno-4-25" name="__codelineno-4-25" href="#__codelineno-4-25"></a><span class="w">    </span><span class="fm">property!</span><span class="p">(</span><span class="n">ro</span><span class="o">+</span><span class="n">observe</span><span class="w"> </span><span class="n">title</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="o">&#39;</span><span class="na">i</span><span class="w"> </span><span class="kt">str</span><span class="p">);</span>
 </span><span id="__span-4-26"><a id="__codelineno-4-26" name="__codelineno-4-26" href="#__codelineno-4-26"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>On the host nothing is new: an element's client has <code>observe(cfg)</code> and <code>observe_&lt;name&gt;(mode)</code> like any level.</p>
@@ -7243,9 +7240,9 @@ one <code>Series&lt;Second&gt;</code> of the sample times for the whole update (
 samples are taken together.</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="cp">#[ww_trait]</span>
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="k">trait</span><span class="w"> </span><span class="n">Foc</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">ro</span><span class="o">+</span><span class="n">observe</span><span class="o">+</span><span class="n">batched</span><span class="w"> </span><span class="n">i_a</span><span class="p">:</span><span class="w"> </span><span class="nc">Ampere</span><span class="p">);</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">ro</span><span class="o">+</span><span class="n">observe</span><span class="o">+</span><span class="n">batched</span><span class="w"> </span><span class="n">i_b</span><span class="p">:</span><span class="w"> </span><span class="nc">Ampere</span><span class="p">);</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">ro</span><span class="o">+</span><span class="n">observe</span><span class="w"> </span><span class="n">duty</span><span class="p">:</span><span class="w"> </span><span class="kt">f32</span><span class="p">);</span><span class="w"> </span><span class="c1">// observed as before</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="fm">property!</span><span class="p">(</span><span class="n">ro</span><span class="o">+</span><span class="n">observe</span><span class="o">+</span><span class="n">batched</span><span class="w"> </span><span class="n">i_a</span><span class="p">:</span><span class="w"> </span><span class="nc">Ampere</span><span class="p">);</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">    </span><span class="fm">property!</span><span class="p">(</span><span class="n">ro</span><span class="o">+</span><span class="n">observe</span><span class="o">+</span><span class="n">batched</span><span class="w"> </span><span class="n">i_b</span><span class="p">:</span><span class="w"> </span><span class="nc">Ampere</span><span class="p">);</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">    </span><span class="fm">property!</span><span class="p">(</span><span class="n">ro</span><span class="o">+</span><span class="n">observe</span><span class="w"> </span><span class="n">duty</span><span class="p">:</span><span class="w"> </span><span class="kt">f32</span><span class="p">);</span><span class="w"> </span><span class="c1">// observed as before</span>
 </span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="p">}</span>
 </span></code></pre></div>
 <p><code>+batched</code> comes after <code>+observe</code> (alone it is an error). The property's slot in <code>&lt;Trait&gt;Update</code> becomes a
@@ -7605,6 +7602,7 @@ per level with any generated-client observers of the same level.
       Zensical
     </a>
   
+  <div class="book-stamp" data-built="1795598778">wire_weaver 0.6.0 · a748fad · built 2026-11-25 09:26 UTC (<span class="book-stamp-age">just built</span>)</div>
 </div>
       
         
@@ -7656,10 +7654,13 @@ per level with any generated-client observers of the same level.
       <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["announce.dismiss","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.path","navigation.sections","navigation.tabs","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../../assets/javascripts/workers/search.719e0d91.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.9e76c64c.min.js"></script>
-      
+      <script src="../../assets/javascripts/bundle.3cb411a8.min.js"></script>
       
         <script src="../../javascripts/ww_highlight.js"></script>
+      
+        <script src="../../javascripts/vz-refs.js"></script>
+      
+        <script src="../../javascripts/vz-stamp-age.js"></script>
       
     
   </body>

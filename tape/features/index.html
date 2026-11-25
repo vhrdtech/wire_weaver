@@ -1,6 +1,4 @@
 
-
-
 <!doctype html>
 <html lang="en" class="no-js">
   <head>
@@ -18,7 +16,6 @@
       
       
       
-      
         <link rel="prev" href="../../std_library/features/">
       
       
@@ -29,7 +26,7 @@
       
       
       <link rel="icon" href="../../assets/wire_weaver_favicon.svg">
-      <meta name="generator" content="zensical-0.1.3">
+      <meta name="generator" content="zensical-0.1.2">
     
     
       
@@ -40,13 +37,12 @@
       
         
       
-      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.e2cf241e.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.ebb7f775.min.css">
       
         
           
         
         <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.b60ce83d.min.css">
-      
       
       
 
@@ -68,6 +64,10 @@
       <link rel="stylesheet" href="../../stylesheets/vhrd.css">
     
       <link rel="stylesheet" href="../../stylesheets/ww_highlight.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/vz-refs.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/vz-code.css">
     
     <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
@@ -6813,6 +6813,13 @@
 <p>Open: <code>TapeWriter::resume_on</code> alone, outside a chain, reads a closed piece's numbers only from its head's puts and after its last close.</p>
 <p>Read more: <a href="https://tape.vhrd.tech/tracks/#number-key-and-id">Number, key and id</a>, <a href="https://tape.vhrd.tech/definitions/#the-definitions-an-application-holds">The definitions an application holds</a>, <code>ww_tape_tests/tests/it/chain_numbers.rs</code>.</p>
 <ul>
+<li>✅ <strong>TRACK-8 Keyed state tracks</strong></li>
+</ul>
+<p>A keyed state track (<code>TrackRepeat::Keyed</code>) holds many slots, one per key of at most 1024 bytes, the newest record per key in force. <code>put_key</code> and <code>delete_key</code> put a key's value or end it, on the writer, a chain and the mux's <code>StateHandle</code>, near its use per key. The index lists each record by its key's first 8 bytes, length and 64-bit hash. A key's records and a prefix's live keys so are found without reading blocks (<code>key_entries</code>, <code>key_slots</code>). <code>key_at</code>, <code>key_history</code> and <code>keys_at</code> read the records, and the full key decides a hash collision.</p>
+<p>A cut carries every live key into the new piece and never leaves a keyed track out. It marks the head row (<code>TrackStart::keys_carried</code>) when the writer knew every key. A piece read alone then holds the keys in force at its start, also after a chain cut by itself or resumed after a crash.</p>
+<p>A reader names a piece without them (<code>KeysAt::not_carried</code>). A put that would make the carry too large is refused naming the limit (<code>InputError::CarryFull</code>). So is a key with another live key's id (<code>DescribeError::KeyCollision</code>).</p>
+<p>Read more: <a href="https://tape.vhrd.tech/format/#keyed-state-tracks">Keyed state tracks</a>, <a href="https://tape.vhrd.tech/format/#state-entries">State entries</a>. Golden files <code>v1-keyed.hex</code>, <code>v1-keyed-carried.hex</code>; tests <code>keyed.rs</code>, <code>keyed_carry.rs</code>, <code>state::tests</code>, <code>index::tests</code>; fuzz targets <code>tape-keyed</code>, <code>tape-keyed-hostile</code>.</p>
+<ul>
 <li>✅ <strong>TRACK-9 Definitions written twice at once</strong></li>
 </ul>
 <p>A track whose definition says <code>defined_twice</code> has every definition it needs written twice: its clock chain, its bundles and its own. The first record goes into a block marked <code>FLAG_TWICE</code> inside its run. Its copy follows right after the block that ends the run and belongs with no other block. In a piece under 1 MiB each definition so reads after any one damaged block. A resume writes the copies a crash cut off, so the bytes equal those written without the crash.</p>
@@ -6822,7 +6829,7 @@
 <ul>
 <li>✅ <strong>WRITE-1 Pieces and chains</strong> · <code>v0.5</code></li>
 </ul>
-<p>A recording is cut into complete pieces at chunk boundaries, by bytes, chunks or age, and a cut never leaves a piece empty. Each piece names the one before by its id and content hash. A chain check reports gaps, broken links, an open end and a lost first piece.</p>
+<p>A recording is cut into complete pieces by bytes (the final index counted), chunks or age. The cut comes before a chunk or a call of puts and never leaves a piece empty. Each piece names the one before by its id and content hash. A chain check reports gaps, broken links, an open end and a lost first piece.</p>
 <p>Read more: <a href="https://tape.vhrd.tech/anatomy/">Anatomy of a piece</a>, <a href="https://tape.vhrd.tech/pieces/">Pieces and chains</a>.</p>
 <ul>
 <li>✅ <strong>WRITE-2 Resume after a crash</strong> · <code>v0.5</code></li>
@@ -6896,6 +6903,12 @@
 </ul>
 <p>A sender from <code>TapeMux::summarized_chunks</code> takes each chunk a producer encoded with its summary leaves. The writing thread joins them into the track's tree, ends it at its cuts and rebuilds it after a resume. <code>ChunkSender::send_placed</code> gives a receipt naming the chunk's piece, offset, length and unit hash. <code>TapeMux::put_item</code> puts a typed item again in each piece a cut starts: every piece, or those holding a track of its owner. Carrying never cuts, and the held items are capped.</p>
 <p>Read more: <a href="https://tape.vhrd.tech/own_chunks/">A producer's own chunks</a>. Tests <code>mux_leaves.rs</code>, <code>mux_placing.rs</code>, <code>mux_items.rs</code>.</p>
+<ul>
+<li>✅ <strong>MUX-5 Definitions of tracks without data</strong></li>
+</ul>
+<p><code>TapeMux::put_definitions</code> puts the definitions of tracks that may never get data, behind the units sent before: their clock chains, maps, bundles and their own. The mux puts them again in each piece a later cut starts, never cutting for them. A definition that lies near behind is not written again, and a track defined twice gets its copy. <code>TapeWriter::put_definitions</code> does the put in one piece.</p>
+<p>Open: a resumed mux holds no such track until it is put again.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/own_chunks/#tracks-without-data">Tracks without data</a>. Tests <code>mux_definitions.rs</code>.</p>
 <h2 id="reader-read">Reader (<code>READ</code>)<a class="headerlink" href="#reader-read" title="Permanent link">&para;</a></h2>
 <p>Reading by position, checks and hashes, hostile bytes and live chains, in the crates <code>ww_tape</code> and <code>ww_tape_fs</code>.</p>
 <ul>
@@ -7019,7 +7032,7 @@
 <li>✅ <strong>BOOK-5 Fields and images over time</strong></li>
 </ul>
 <p>A chapter explains grid tracks: fixed axes, tiles and the box query. It covers the time pyramid of a region and the space overviews, with the level a viewer picks. It also shows where per-tile overviews end. Two cases run in tests: <code>example_thermal</code>, a plate of sensors, and <code>example_images</code>, an image sequence in three tile sizes. Every number on the page comes from their runs.</p>
-<p>Read more: <a href="https://tape.vhrd.tech/grids/">Fields and images over time</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/7734c353d8cbdc301b6e30d31b895acc104f8c59/examples/example_thermal/README.md">example_thermal</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/7734c353d8cbdc301b6e30d31b895acc104f8c59/examples/example_images/README.md">example_images</a>. Tests <code>thermal.rs</code>, <code>images.rs</code>.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/grids/">Fields and images over time</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/6603f845fb2929f3ea153c27db0e6583ac096877/examples/example_thermal/README.md">example_thermal</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/6603f845fb2929f3ea153c27db0e6583ac096877/examples/example_images/README.md">example_images</a>. Tests <code>thermal.rs</code>, <code>images.rs</code>.</p>
 <ul>
 <li>✅ <strong>BOOK-6 The book kit from its own repository</strong></li>
 </ul>
@@ -7038,7 +7051,7 @@
 <li>✅ <strong>EX-1 The drive's hour as code</strong></li>
 </ul>
 <p><code>example_drive</code> records the drive motor controller's hour: log lines, mode, CAN frames, phase current with summaries and temperature, in a chain of pieces. <code>Drive::scaled</code> shrinks the data and the byte policies for figures, and a crash at any byte resumes to the bytes of the run without it. The RF capture (<code>example_rf</code>) records ComplexI16 IQ at 20 MS/s as the book's case for high rates. <code>cargo run -p example_drive</code> prints the story's numbers, and the tests pin them.</p>
-<p>Read more: <a href="https://github.com/vhrdtech/ww_tape/blob/7734c353d8cbdc301b6e30d31b895acc104f8c59/examples/example_drive/README.md">example_drive</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/7734c353d8cbdc301b6e30d31b895acc104f8c59/examples/example_rf/README.md">example_rf</a>. Tests <code>story.rs</code>, <code>damage.rs</code>, <code>rf.rs</code>.</p>
+<p>Read more: <a href="https://github.com/vhrdtech/ww_tape/blob/6603f845fb2929f3ea153c27db0e6583ac096877/examples/example_drive/README.md">example_drive</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/6603f845fb2929f3ea153c27db0e6583ac096877/examples/example_rf/README.md">example_rf</a>. Tests <code>story.rs</code>, <code>damage.rs</code>, <code>rf.rs</code>.</p>
 <ul>
 <li>✅ <strong>EX-2 A 10 Gbps link and a 1 GS/s receiver</strong></li>
 </ul>
@@ -7059,7 +7072,7 @@
 <li>✅ <strong>EX-5 A crate per case, its pipeline a library</strong></li>
 </ul>
 <p>Each case is a crate of its own: <code>example_drive</code> the book's running example, <code>example_rf</code>, <code>example_ethernet</code> and <code>example_wideband</code>. What they share, the memory window and the RF signal, is in <code>example_capture</code>, so no case depends on another. <code>window::start</code> and each case's <code>start</code> return a running pipeline. It hands out its memory window, the pieces in memory and each mux's watch, so a viewer follows it live. Each case has a headless binary whose <code>main</code> reads like a block diagram of its threads.</p>
-<p>Read more: <a href="https://tape.vhrd.tech/protocol_analyser/#the-pipeline">The pipeline</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/7734c353d8cbdc301b6e30d31b895acc104f8c59/examples/example_capture/README.md">example_capture</a>. Tests <code>window.rs</code>.</p>
+<p>Read more: <a href="https://tape.vhrd.tech/protocol_analyser/#the-pipeline">The pipeline</a>, <a href="https://github.com/vhrdtech/ww_tape/blob/6603f845fb2929f3ea153c27db0e6583ac096877/examples/example_capture/README.md">example_capture</a>. Tests <code>window.rs</code>.</p>
 <ul>
 <li>✅ <strong>EX-6 Payload compression measured on the cases</strong></li>
 </ul>
@@ -7387,6 +7400,7 @@
       Zensical
     </a>
   
+  <div class="book-stamp" data-built="1795598778">wire_weaver 0.6.0 · a748fad · built 2026-11-25 09:26 UTC (<span class="book-stamp-age">just built</span>)</div>
 </div>
       
         
@@ -7438,10 +7452,13 @@
       <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["announce.dismiss","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.path","navigation.sections","navigation.tabs","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../../assets/javascripts/workers/search.719e0d91.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.9e76c64c.min.js"></script>
-      
+      <script src="../../assets/javascripts/bundle.3cb411a8.min.js"></script>
       
         <script src="../../javascripts/ww_highlight.js"></script>
+      
+        <script src="../../javascripts/vz-refs.js"></script>
+      
+        <script src="../../javascripts/vz-stamp-age.js"></script>
       
     
   </body>

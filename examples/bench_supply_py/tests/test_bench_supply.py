@@ -70,10 +70,12 @@ def test_output_refuses_over_current_and_says_how_much(dev):
     # channel 0's load is 10 Ω: at 30 V it would draw 3 A
     dev.channel[0].voltage_limit.write(30_000)
     dev.channel[0].current_limit.write(1_000)
+    # --8<-- [start:remote_error]
     with pytest.raises(ww.RemoteError) as excinfo:
         dev.channel[0].set_output(True)
     would_draw = excinfo.value.value["OverCurrent"]["would_draw"]
     assert would_draw.value == 3_000
+    # --8<-- [end:remote_error]
     assert not dev.channel[0].output_on.read()
 
 

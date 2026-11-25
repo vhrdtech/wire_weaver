@@ -111,5 +111,6 @@ handlers. New items need new handlers, and the compiler names any signature that
 
 ## Where to go next
 
+- [Python in full](python_in_full.md) drives the thermometer from Python: values, units, streams and errors.
 - [Changing your API](changing_your_api.md) keeps your API working as it changes.
 - [Handlers](../api/handlers.md) covers sync, async and shared handlers and the other options of `ww_codegen!`.

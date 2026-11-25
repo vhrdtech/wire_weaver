@@ -1,11 +1,11 @@
 format,bytes,evolution
-WireWeaver,18,evolvable
-Postcard,27,closed
-MessagePack,49,closed
-JSON,193,evolvable
-CBOR,113,closed
-wincode,77,closed
-Protobuf,34,evolvable
-FlatBuffers,144,evolvable
-ASN.1 UPER (closed),29,closed
-ASN.1 UPER (extensible),29,evolvable
+WireWeaver,18,schema_rules
+Postcard,27,none
+MessagePack (array form),49,none
+JSON,193,self_describing
+CBOR,113,self_describing
+wincode,77,none
+Protobuf,34,schema_rules
+FlatBuffers,144,schema_rules
+ASN.1 UPER (closed),29,none
+ASN.1 UPER (extensible),29,extension_markers

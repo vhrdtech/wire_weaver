@@ -152,20 +152,26 @@ mod asn1 {
     }
 }
 
-/// Whether old and new ends of this format can read each other's messages: `evolvable` when a schema change (a
-/// field appended, in the common case) is routinely backwards and forwards compatible; `closed` when the format
-/// has no mechanism for that and a schema change is a breaking wire change.
+/// How a format lets old and new ends read each other's messages, as this example encodes it.
 #[derive(Clone, Copy)]
 enum Evolution {
-    Evolvable,
-    Closed,
+    /// Field numbers or layout rules of a schema: fields can be added or dropped
+    SchemaRules,
+    /// Field names travel with the data: a reader skips or defaults what it doesn't know
+    SelfDescribing,
+    /// An extension marker reserves room for fields added later
+    ExtensionMarkers,
+    /// Positional and nothing else: any schema change breaks old readers
+    None,
 }
 
 impl Evolution {
     fn as_str(self) -> &'static str {
         match self {
-            Evolution::Evolvable => "evolvable",
-            Evolution::Closed => "closed",
+            Evolution::SchemaRules => "schema_rules",
+            Evolution::SelfDescribing => "self_describing",
+            Evolution::ExtensionMarkers => "extension_markers",
+            Evolution::None => "none",
         }
     }
 }
@@ -198,7 +204,7 @@ fn main() {
     rows.push(Row {
         format: "WireWeaver",
         bytes,
-        evolution: Evolution::Evolvable,
+        evolution: Evolution::SchemaRules,
     });
 
     let mut scratch = [0u8; 128];
@@ -206,21 +212,21 @@ fn main() {
     rows.push(Row {
         format: "Postcard",
         bytes,
-        evolution: Evolution::Closed,
+        evolution: Evolution::None,
     });
 
     let bytes = rmp_serde::to_vec(&req).unwrap();
     rows.push(Row {
-        format: "MessagePack",
+        format: "MessagePack (array form)",
         bytes,
-        evolution: Evolution::Closed,
+        evolution: Evolution::None,
     });
 
     let bytes = serde_json::to_vec(&req).unwrap();
     rows.push(Row {
         format: "JSON",
         bytes,
-        evolution: Evolution::Evolvable,
+        evolution: Evolution::SelfDescribing,
     });
 
     let mut bytes = Vec::new();
@@ -228,7 +234,7 @@ fn main() {
     rows.push(Row {
         format: "CBOR",
         bytes,
-        evolution: Evolution::Closed,
+        evolution: Evolution::SelfDescribing,
     });
 
     let bytes =
@@ -236,7 +242,7 @@ fn main() {
     rows.push(Row {
         format: "wincode",
         bytes,
-        evolution: Evolution::Closed,
+        evolution: Evolution::None,
     });
 
     let proto_req = proto::Request {
@@ -257,7 +263,7 @@ fn main() {
     rows.push(Row {
         format: "Protobuf",
         bytes,
-        evolution: Evolution::Evolvable,
+        evolution: Evolution::SchemaRules,
     });
 
     let fb_req = request_generated::wire_sizes::Request {
@@ -283,7 +289,7 @@ fn main() {
     rows.push(Row {
         format: "FlatBuffers",
         bytes,
-        evolution: Evolution::Evolvable,
+        evolution: Evolution::SchemaRules,
     });
 
     let path_kind_asn1 = asn1::PathKind::Absolute(vec![0, 1, 2]);
@@ -303,7 +309,7 @@ fn main() {
     rows.push(Row {
         format: "ASN.1 UPER (closed)",
         bytes,
-        evolution: Evolution::Closed,
+        evolution: Evolution::None,
     });
 
     let asn1_req_ext = asn1::RequestExtensible {
@@ -320,7 +326,7 @@ fn main() {
     rows.push(Row {
         format: "ASN.1 UPER (extensible)",
         bytes,
-        evolution: Evolution::Evolvable,
+        evolution: Evolution::ExtensionMarkers,
     });
 
     let mut transcript = String::new();

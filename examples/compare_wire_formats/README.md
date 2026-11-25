@@ -2,8 +2,8 @@
 
 Encodes one example value with `shrink_wrap` (WireWeaver's own wire format) and eight other pure-Rust formats
 (postcard, MessagePack, JSON, CBOR, wincode, protobuf, FlatBuffers, ASN.1 UPER), and reports each one's byte count
-and whether its schema can evolve (a field can be added later without breaking old readers or writers). `cargo run`
-prints a transcript; `docs/generated/compare_wire_formats/output.txt` and `sizes.csv` are the same numbers, kept
+and how its encoding here lets a field be added later: `schema_rules`, `self_describing`, `extension_markers` or `none`.
+`cargo run` prints a transcript; `docs/generated/compare_wire_formats/output.txt` and `sizes.csv` are the same numbers, kept
 byte-for-byte by `book_output::check` in `src/main.rs` (stale: `WW_BOOK_OUTPUTS=write cargo run`, or `just
 book-outputs` from the repository root). FlatBuffers' Rust bindings are generated once from `schema/request.fbs`
 (`planus rust -o src/request_generated.rs schema/request.fbs`, `cargo install planus-cli`) and committed; the rest
@@ -72,22 +72,22 @@ Note that ShrinkWrap format while being smaller, also supports backwards and for
 Results (`docs/generated/compare_wire_formats/sizes.csv` from the repository root has the exact, checked numbers;
 `output.txt` has every format's bytes):
 
-| Format | Bytes | Evolvable |
+| Format | Bytes | Evolution |
 |---|---|---|
-| WireWeaver | 18 | yes |
-| Postcard | 27 | no |
-| MessagePack | 49 | no |
-| JSON | 193 | yes |
-| CBOR | 113 | no |
-| wincode | 77 | no |
-| Protobuf | 34 | yes |
-| FlatBuffers | 144 | yes |
-| ASN.1 UPER (closed) | 29 | no |
-| ASN.1 UPER (extensible) | 29 | yes |
+| WireWeaver | 18 | schema rules |
+| Postcard | 27 | none |
+| MessagePack (array form) | 49 | none |
+| JSON | 193 | self-describing |
+| CBOR | 113 | self-describing |
+| wincode | 77 | none |
+| Protobuf | 34 | schema rules |
+| FlatBuffers | 144 | schema rules |
+| ASN.1 UPER (closed) | 29 | none |
+| ASN.1 UPER (extensible) | 29 | extension markers |
+
+CBOR here is a map with field names, so a reader can skip or default fields it doesn't know. MessagePack is
+rmp-serde's default array form, positional without names; written with names it would be self-describing too.
 
 ASN.1 UPER costs the same whether or not it is extensible here: the extension bit fits in a byte boundary that is
 otherwise padding, so this message gets forward compatibility for free. FlatBuffers pays the most for being
-zero-copy on the read side (a vtable per table, offsets instead of inline values); MessagePack and CBOR pay for
-self-describing field names per nested variant while still laying out the outer struct's own fields positionally,
-so, as encoded here (the common case for structs with serde), neither can gain a field without breaking old
-readers.
+zero-copy on the read side (a vtable per table, offsets instead of inline values).

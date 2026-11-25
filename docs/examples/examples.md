@@ -40,7 +40,7 @@ The `bool` takes the first bit of the first byte, and the `u8` starts on the nex
 
 `compare_wire_formats` encodes one example value with ShrinkWrap and eight other pure-Rust formats (postcard,
 MessagePack, JSON, CBOR, wincode, protobuf, FlatBuffers, ASN.1 UPER). `bytes` is that value's size on the wire;
-`evolvable` says whether the format lets a later revision add a field without breaking an old reader or writer:
+`evolution` says how this example's encoding lets a later revision add a field: `schema_rules` (field numbers or layout rules), `self_describing` (field names travel with the data), `extension_markers` (reserved room for later fields) or `none` (any schema change breaks old readers). MessagePack is rmp-serde's default array form, without field names:
 
 ```text
 --8<-- "docs/generated/compare_wire_formats/sizes.csv"

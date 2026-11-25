@@ -87,14 +87,14 @@ Try it with a method that toggles the LED:
 The cache files each description under its API's hash. The hash changes with the new method, so the module asks
 the device for the new description. A host program in Rust needs a rebuild to get the new function; `ww` and Python don't.
 
-`examples/blinky_api_evolved` holds this change, with the version attributes that let old hosts and old firmware
+[`examples/blinky_api_evolved/src/lib.rs`] holds this change, with the version attributes that let old hosts and old firmware
 keep working together. [Changing your API](../evolution/overview.md) explains them.
 
 ## Where to go next
 
 - [Python](../python.md) covers the module in full: the values of every type, properties, streams, errors and the
   interactive console.
-- `examples/blinky_py` wraps the generated Rust client in a typed Python module instead, for a package with
+- [`examples/blinky_py/README.md`] wraps the generated Rust client in a typed Python module instead, for a package with
   fixed signatures and editor completion.
 - [What an API can have](../api/overview.md) shows the items beyond methods: properties, streams, sinks and
   nested traits.

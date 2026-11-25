@@ -38,8 +38,9 @@ them. `#[effect(actuate)]` says that a call changes something in the physical wo
 tell tools what a call does, and a later chapter covers them.
 
 The trait sits in an [[API crate]] of its own. The device and every host depend on it, so it builds for `no_std`
-and depends only on `ww_api`, the crate with WireWeaver's derive macros and attributes. Its `Cargo.toml` also names
-the API's wire version, which a host and a device compare when they connect:
+and depends only on `ww_api`, the crate with WireWeaver's derive macros and attributes. Its
+[`examples/blinky_api/Cargo.toml`] also names the API's wire version, which a host and a device compare
+when they connect:
 
 ```toml
 --8<-- "examples/blinky_api/Cargo.toml:wire"

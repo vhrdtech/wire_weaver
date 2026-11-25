@@ -1,8 +1,0 @@
-morning: 21.5 °C, noon: 23.75 °C
-warmer by: 225 cK
-evening: 20.75 °C
-noon in K: 296.9 K
-noon in whole K: not exact
-after 65535 comes 0
-after: true, by 1 sample
-sample 12 at 1795608002.4 s UTC: 21.5 °C

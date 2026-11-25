@@ -121,22 +121,22 @@
         <loc>https://ww.vhrd.tech/basic/</loc>
       </url>
       <url>
-        <loc>https://ww.vhrd.tech/basic/channels/</loc>
+        <loc>https://ww.vhrd.tech/basic/borrowed_and_owned/</loc>
       </url>
       <url>
-        <loc>https://ww.vhrd.tech/basic/observing/</loc>
+        <loc>https://ww.vhrd.tech/basic/built_in_types/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/basic/properties/</loc>
       </url>
       <url>
-        <loc>https://ww.vhrd.tech/basic/streams/</loc>
+        <loc>https://ww.vhrd.tech/basic/structs_and_enums/</loc>
       </url>
       <url>
-        <loc>https://ww.vhrd.tech/basic/temperatures/</loc>
+        <loc>https://ww.vhrd.tech/basic/types_on_the_wire/</loc>
       </url>
       <url>
-        <loc>https://ww.vhrd.tech/basic/units/</loc>
+        <loc>https://ww.vhrd.tech/basic/types_that_change/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/c/</loc>
@@ -190,10 +190,25 @@
         <loc>https://ww.vhrd.tech/features_today/</loc>
       </url>
       <url>
-        <loc>https://ww.vhrd.tech/generated/thermometer/rate_bits/</loc>
+        <loc>https://ww.vhrd.tech/generated/sensor_packet/messages/</loc>
       </url>
       <url>
-        <loc>https://ww.vhrd.tech/generated/thermometer/u16_bits/</loc>
+        <loc>https://ww.vhrd.tech/generated/sensor_packet/types_bits/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/generated/sensor_packet/types_numbers/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/generated/sensor_packet/types_option/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/generated/sensor_packet/types_text/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/generated/sensor_packet/types_tuples/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/generated/sensor_packet/types_varint/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/glossary/</loc>

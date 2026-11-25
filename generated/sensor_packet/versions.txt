@@ -1,0 +1,9 @@
+first firmware sends: 72 6f 6f 66 66 08 80 30 04
+next firmware sends:  72 6f 6f 66 66 08 80 30 40 94 27 04
+next gateway reads the first firmware's bytes:
+  Ok(Reading { station: "roof", temperature: Celsius(21.5 °C, 2150 cK i16), humidity: Some(Ratio(48 % u8, 0..=100)), battery_low: false, pressure: None })
+first gateway reads the next firmware's bytes:
+  Ok(Reading { station: "roof", temperature: Celsius(21.5 °C, 2150 cK i16), humidity: Some(Ratio(48 % u8, 0..=100)), battery_low: false })
+next firmware sends Message::Rain: 30
+first gateway reads it:
+  Ok(Unknown(3))

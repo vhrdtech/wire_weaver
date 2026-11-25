@@ -16,15 +16,9 @@ short = "A `no_std` crate holding an API trait and its types, which the firmware
 chapter = "../api/folder_structure/"
 
 [[term]]
-name = "array"
-forms = ["arrays"]
-short = "An item of an API trait marked `[]`, such as `channel[]`: one resource per index, with the valid indices decided by the device at run time."
-chapter = "../basic/channels/"
-
-[[term]]
 name = "borrowed"
 short = "A type whose values point into the buffer they were read from, so reading copies nothing; its owned twin copies the data out."
-chapter = "../serdes/derive/"
+chapter = "../basic/borrowed_and_owned/"
 
 [[term]]
 name = "bounds"
@@ -60,6 +54,12 @@ short = "The standard traits every device should offer: firmware and board infor
 chapter = "../std_library/device_contract/"
 
 [[term]]
+name = "discriminant"
+forms = ["discriminants"]
+short = "The number of an enum's variant on the wire, in as many bits as the enum's `ww_repr` says; variants are numbered from 0 in declaration order."
+chapter = "../basic/structs_and_enums/"
+
+[[term]]
 name = "effect"
 forms = ["effects"]
 short = "Metadata on a method or property that says what calling it does to the device, such as editing or persisting a value, for tools to act on."
@@ -68,17 +68,12 @@ chapter = "../api/metadata/"
 [[term]]
 name = "evolvable"
 short = "A type that can gain fields later while old and new readers still read each other's bytes; the default for a derived type."
-chapter = "../serdes/derive/"
+chapter = "../basic/types_that_change/"
 
 [[term]]
 name = "evolution checker"
 short = "The tool behind `ww api check` and `ww api diff` that compares two snapshots of an API and says whether a change keeps compatibility."
 chapter = "../evolution/checker_tool/"
-
-[[term]]
-name = "Fixed"
-short = "A number whose unit, step, storage type and bounds are in its type, such as `Fixed<Hertz, One, u16, Range<1, 1000>>`; on the wire it is exactly its storage integer."
-chapter = "../basic/units/"
 
 [[term]]
 name = "framer"
@@ -122,36 +117,17 @@ chapter = "../api/mounts/"
 name = "observe"
 forms = ["observes", "observing", "observed"]
 short = "To ask a device once for a property's updates, which it then sends on its own at the chosen rate, instead of being polled."
-chapter = "../basic/observing/"
-
-[[term]]
-name = "observe mode"
-forms = ["observe modes"]
-short = "When a device sends an observed property: on every change, periodically, or on a change and at least once per period."
-chapter = "../basic/observing/"
-
-[[term]]
-name = "observer"
-forms = ["observers"]
-short = "The host-side handle of an observed property or level, whose `recv()` returns the next update."
-chapter = "../basic/observing/"
-
-[[term]]
-name = "origin"
-forms = ["origins"]
-short = "The place on a scale where a point counts zero, such as `Celsius` at 273.15 K; it exists only in the type."
-chapter = "../basic/temperatures/"
+chapter = "../api/observing/"
 
 [[term]]
 name = "owned"
 short = "A type whose values hold their own data, copied out of the buffer they were read from; its borrowed twin points into the buffer."
-chapter = "../serdes/derive/"
+chapter = "../basic/borrowed_and_owned/"
 
 [[term]]
-name = "point"
-forms = ["points"]
-short = "A reading on a scale with an origin, such as 21.5 °C: two points give an amount, a point and an amount give a point."
-chapter = "../basic/temperatures/"
+name = "padding"
+short = "Zero bits between a bit-sized value and the next value that starts on a byte; a later version of a type may put a new flag there."
+chapter = "../basic/types_on_the_wire/"
 
 [[term]]
 name = "property"
@@ -172,12 +148,6 @@ short = "How much a page assumes: Basic, Advanced or Nomicon, shown by the badge
 chapter = "../levels/"
 
 [[term]]
-name = "sequence number"
-forms = ["sequence numbers"]
-short = "A number that counts up by one per item and wraps, compared across the wrap: `Seq<Sample, u16>`."
-chapter = "../basic/temperatures/"
-
-[[term]]
 name = "server"
 forms = ["servers"]
 short = "The device-side code generated from an API trait: it decodes requests and calls your handlers, `no_std` and without allocation."
@@ -187,13 +157,13 @@ chapter = "../api/overview/"
 name = "ShrinkWrap"
 forms = ["shrink_wrap"]
 short = "The wire format of WireWeaver: dense down to single bits, readable without an allocator, and evolvable."
-chapter = "../serdes/shrink_wrap/"
+chapter = "../basic/types_on_the_wire/"
 
 [[term]]
 name = "sink"
 forms = ["sinks"]
 short = "An item of an API trait that carries a flow of data from the host into the device."
-chapter = "../basic/streams/"
+chapter = "../api/streams/"
 
 [[term]]
 name = "snapshot"
@@ -207,33 +177,22 @@ short = "Ready-made API traits and types for common device features (pins, buses
 chapter = "../std_library/overview/"
 
 [[term]]
-name = "step"
-forms = ["steps"]
-short = "The value of one count of a `Fixed` number's storage integer, such as 1 Hz or 0.01 K: the device's resolution."
-chapter = "../basic/units/"
-
-[[term]]
 name = "stream"
 forms = ["streams"]
 short = "An item of an API trait that carries a flow of data from the device to the host."
-chapter = "../basic/streams/"
-
-[[term]]
-name = "sub-trait"
-forms = ["sub-traits"]
-short = "An API trait put inside another with `ww_impl!`, once or as an array, to group the items of one part of a device."
-chapter = "../basic/channels/"
-
-[[term]]
-name = "Timed"
-short = "A value together with the time it was taken: `Timed<V, Tm>`, whose time `t` is a point on a time scale."
-chapter = "../basic/temperatures/"
+chapter = "../api/streams/"
 
 [[term]]
 name = "transport"
 forms = ["transports"]
 short = "The medium that carries a device's packets: USB, UDP, WebSocket, RTT or a byte stream such as a serial line."
 chapter = "../transport/overview/"
+
+[[term]]
+name = "wire format"
+forms = ["wire formats"]
+short = "The rules that turn a value into bytes and back, so that two programs agree on what the bytes mean."
+chapter = "../basic/types_on_the_wire/"
 
 [[term]]
 name = "wire line"

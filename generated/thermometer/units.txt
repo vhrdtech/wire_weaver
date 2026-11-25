@@ -1,6 +1,0 @@
-$ cargo run -p thermometer --example thermometer_units
-rate: 250 Hz
-stored: 250
-refused: 2000 Hz is out of 1..=1000 Hz (Hertz, u16)
-Rate 250 Hz: fa 00
-u16 250:     fa 00

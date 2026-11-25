@@ -1,0 +1,15 @@
+format,bytes,evolution,smallest
+WireWeaver (plain),29,schema_rules,
+WireWeaver (tuned),22,schema_rules,yes
+Postcard,23,none,
+Postcard (tuned),22,none,yes
+MessagePack (array),34,none,
+MessagePack (names),91,self_describing,
+JSON,133,self_describing,
+CBOR (names),92,self_describing,
+wincode (fixed),31,none,
+wincode (varint),30,none,
+Protobuf,30,schema_rules,
+FlatBuffers,56,schema_rules,
+ASN.1 UPER (closed),25,none,
+ASN.1 UPER (extensible),26,extension_markers,

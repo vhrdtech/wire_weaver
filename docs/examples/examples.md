@@ -16,7 +16,7 @@ New to WireWeaver: start with `blinky_api` and `blinky` (an API with two methods
 | Example                                           | What it shows                                                               |
 |---------------------------------------------------|-----------------------------------------------------------------------------|
 | `minimal_shrink_wrap`                              | Using the [ShrinkWrap](../serdes/shrink_wrap.md) wire format directly         |
-| `compare_wire_formats`                            | Wire size of ShrinkWrap compared with other formats                         |
+| `compare_wire_formats`                            | [Wire size of ShrinkWrap compared with eight other formats](wire_sizes.md)  |
 | `blinky_api`, `blinky`                            | Smallest API with two methods, and its client                               |
 | `thermometer_api`, `thermometer_device`, `thermometer` | A sensor with units, properties, an observed value, a stream and a sink; one server for the simulated device and the firmware |
 | `bench_supply_api`, `bench_supply`                | Output channels with voltage and current limits, an output switch that refuses, and a [pytest bench](https://github.com/vhrdtech/wire_weaver/tree/master/examples/bench_supply_py) through the ww hub |
@@ -39,19 +39,7 @@ The `bool` takes the first bit of the first byte, and the `u8` starts on the nex
 --8<-- "docs/generated/minimal_shrink_wrap/two_values.txt"
 ```
 
-`compare_wire_formats` encodes one example value with ShrinkWrap and eight other pure-Rust formats (postcard,
-MessagePack, JSON, CBOR, wincode, protobuf, FlatBuffers, ASN.1 UPER). `bytes` is that value's size on the wire;
-`evolution` says how this example's encoding lets a later revision add a field: `schema_rules` (field numbers or layout rules), `self_describing` (field names travel with the data), `extension_markers` (reserved room for later fields) or `none` (any schema change breaks old readers). MessagePack is rmp-serde's default array form, without field names:
-
-```text
---8<-- "docs/generated/compare_wire_formats/sizes.csv"
-```
-
-Every format's exact bytes:
-
-```text
---8<-- "docs/generated/compare_wire_formats/output.txt"
-```
+`compare_wire_formats` encodes eight example messages with ShrinkWrap and eight other pure-Rust formats and compares the byte counts: see [wire sizes compared](wire_sizes.md).
 
 ## In other repos
 

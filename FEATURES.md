@@ -2819,12 +2819,13 @@ Unicast Data0 to one node over the same bus is TR-6.
   `thermometer_read`, tests on the in-process WebSocket with tokio's paused clock). Firmware: `thermometer` bins of
   `examples_mcu/nucleo_g0b1re` and `examples_mcu/rp2` over USB, built by `just check`; not yet run on the boards.
 - ✅ **EX-20 Wire sizes compared**: `examples/compare_wire_formats` (excluded from the workspace: its own
-  `Cargo.lock` keeps ciborium/prost/wincode/planus/rasn out of every other build's lockfile) encodes one example
-  value with WireWeaver, postcard, MessagePack, JSON, CBOR (ciborium), wincode (serde-wincode), protobuf
-  (hand-written `prost::Message`/`Oneof` derives, no `prost-build`, no `.proto`), FlatBuffers (planus, generated
-  once from `schema/request.fbs` and committed as `src/request_generated.rs`) and ASN.1 UPER (rasn, closed and
-  `#[non_exhaustive]` extensible). `just book-outputs`/`just test-all` run it from its own directory and check its
-  transcript and `format,bytes,evolution` chart data against `docs/generated/compare_wire_formats/`.
+  `Cargo.lock` keeps ciborium/prost/wincode/planus/rasn out of every other build's lockfile) encodes eight messages
+  (RPC request, sensor sample, log record, firmware chunk, device configuration, GPS fix, CAN batch, state report)
+  with WireWeaver twice (plain and tuned), postcard (default and `fixint`), MessagePack (array and names), JSON, CBOR, wincode (fixed and
+  varint), protobuf (hand-written `prost` derives, no `prost-build`), FlatBuffers (planus, generated from
+  `schema/*.fbs`) and ASN.1 UPER (rasn, closed and `#[non_exhaustive]` extensible). `just book-outputs`/`just
+  test-all` run it from its own directory and check one table and transcript per message, a summary and the winners
+  against `docs/generated/compare_wire_formats/`; the page is `docs/examples/wire_sizes.md`.
 - ✅ **EX-19 Bench supply example and a pytest bench**: `examples/bench_supply_api` (`channel[]: Channel`, a
   voltage and current limit each, `measured`, `set_output` refusing with `OutputError`), `examples/bench_supply`
   (client, server, `bench_supply_sim` over WebSocket, `bench_supply_bench`, in-process tests) and

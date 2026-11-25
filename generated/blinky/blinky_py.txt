@@ -1,0 +1,10 @@
+$ python blinky.py
+BlinkyApi
+  led_on()  # Turns the LED on.
+  led_off()  # Turns the LED off.
+  set_led(on: bool) -> bool  # Turns the LED on or off, and returns whether it was on before.
+  blinks() -> Fixed<Item, One, u32, Unbounded>  # How many times the LED went from off to on since the device started.
+was on: False
+was on: True
+blinks: 2 item
+refused: set_led() argument 'on': expected bool, got str: 'yes'

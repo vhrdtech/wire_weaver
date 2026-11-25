@@ -121,22 +121,22 @@
         <loc>https://ww.vhrd.tech/basic/</loc>
       </url>
       <url>
-        <loc>https://ww.vhrd.tech/basic/borrowed_and_owned/</loc>
+        <loc>https://ww.vhrd.tech/basic/board/</loc>
       </url>
       <url>
-        <loc>https://ww.vhrd.tech/basic/built_in_types/</loc>
+        <loc>https://ww.vhrd.tech/basic/command_line/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/basic/first_device/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/basic/methods/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/basic/properties/</loc>
       </url>
       <url>
-        <loc>https://ww.vhrd.tech/basic/structs_and_enums/</loc>
-      </url>
-      <url>
-        <loc>https://ww.vhrd.tech/basic/types_on_the_wire/</loc>
-      </url>
-      <url>
-        <loc>https://ww.vhrd.tech/basic/types_that_change/</loc>
+        <loc>https://ww.vhrd.tech/basic/python/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/c/</loc>
@@ -188,27 +188,6 @@
       </url>
       <url>
         <loc>https://ww.vhrd.tech/features_today/</loc>
-      </url>
-      <url>
-        <loc>https://ww.vhrd.tech/generated/sensor_packet/messages/</loc>
-      </url>
-      <url>
-        <loc>https://ww.vhrd.tech/generated/sensor_packet/types_bits/</loc>
-      </url>
-      <url>
-        <loc>https://ww.vhrd.tech/generated/sensor_packet/types_numbers/</loc>
-      </url>
-      <url>
-        <loc>https://ww.vhrd.tech/generated/sensor_packet/types_option/</loc>
-      </url>
-      <url>
-        <loc>https://ww.vhrd.tech/generated/sensor_packet/types_text/</loc>
-      </url>
-      <url>
-        <loc>https://ww.vhrd.tech/generated/sensor_packet/types_tuples/</loc>
-      </url>
-      <url>
-        <loc>https://ww.vhrd.tech/generated/sensor_packet/types_varint/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/glossary/</loc>

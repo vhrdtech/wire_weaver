@@ -1,0 +1,15 @@
+$ ww --websocket ws://127.0.0.1:8080/ww introspect
+/// An LED on a board.
+trait BlinkyApi blinky_api@0.1.0
+├─ 0 #[effect(actuate)] fn led_on()
+│  /// Turns the LED on.
+├─ 1 #[effect(actuate)] fn led_off()
+│  /// Turns the LED off.
+├─ 2 #[effect(actuate)] fn set_led(on: bool) -> bool
+│  /// Turns the LED on or off, and returns whether it was on before.
+└─ 3 #[effect(read)] fn blinks() -> Fixed<Item, One, u32, Unbounded> [item]
+   /// How many times the LED went from off to on since the device started.
+
+4 resources, 0 traits, 5 types, 4882 bytes full, 460 bytes sent
+crates: blinky_api@0.1.0, exact_units@0.1.0
+api hash: bfa5eeeeadfed16b

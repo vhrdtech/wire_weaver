@@ -7,18 +7,18 @@
 name = "API trait"
 forms = ["API traits"]
 short = "A Rust trait marked `#[ww_trait]` or `#[ww_api_root]` that describes what a device offers: methods, properties, streams, sinks and nested traits."
-chapter = "../api/overview/"
+chapter = "../basic/first_device/"
 
 [[term]]
 name = "API crate"
 forms = ["API crates"]
 short = "A `no_std` crate holding an API trait and its types, which the firmware and every host depend on."
-chapter = "../api/folder_structure/"
+chapter = "../basic/first_device/"
 
 [[term]]
 name = "borrowed"
 short = "A type whose values point into the buffer they were read from, so reading copies nothing; its owned twin copies the data out."
-chapter = "../basic/borrowed_and_owned/"
+chapter = "../serdes/derive/"
 
 [[term]]
 name = "bounds"
@@ -35,7 +35,7 @@ chapter = "../api/metadata/"
 name = "client"
 forms = ["clients"]
 short = "The host-side code generated from an API trait: a typed function per item, async, blocking or as a promise."
-chapter = "../api/overview/"
+chapter = "../basic/first_device/"
 
 [[term]]
 name = "conformance corpus"
@@ -54,12 +54,6 @@ short = "The standard traits every device should offer: firmware and board infor
 chapter = "../std_library/device_contract/"
 
 [[term]]
-name = "discriminant"
-forms = ["discriminants"]
-short = "The number of an enum's variant on the wire, in as many bits as the enum's `ww_repr` says; variants are numbered from 0 in declaration order."
-chapter = "../basic/structs_and_enums/"
-
-[[term]]
 name = "effect"
 forms = ["effects"]
 short = "Metadata on a method or property that says what calling it does to the device, such as editing or persisting a value, for tools to act on."
@@ -68,7 +62,7 @@ chapter = "../api/metadata/"
 [[term]]
 name = "evolvable"
 short = "A type that can gain fields later while old and new readers still read each other's bytes; the default for a derived type."
-chapter = "../basic/types_that_change/"
+chapter = "../serdes/derive/"
 
 [[term]]
 name = "evolution checker"
@@ -84,7 +78,7 @@ chapter = "../transport/ww_framer/"
 name = "handler"
 forms = ["handlers"]
 short = "A function of the server that runs when a request for its method or property arrives; its signature follows the `ww_codegen!` options."
-chapter = "../api/handlers/"
+chapter = "../basic/first_device/"
 
 [[term]]
 name = "hub"
@@ -94,7 +88,7 @@ chapter = "../transport/hub/"
 [[term]]
 name = "introspection"
 short = "The description of a device's API that the device sends on request, so that a tool can call it without knowing the API at build time."
-chapter = "../api/introspection/"
+chapter = "../basic/command_line/"
 
 [[term]]
 name = "link layer"
@@ -105,7 +99,7 @@ chapter = "../transport/ww_link/"
 name = "method"
 forms = ["methods"]
 short = "An item of an API trait that a host calls with arguments and that answers with a return value."
-chapter = "../api/methods/"
+chapter = "../basic/methods/"
 
 [[term]]
 name = "mount"
@@ -122,12 +116,7 @@ chapter = "../api/observing/"
 [[term]]
 name = "owned"
 short = "A type whose values hold their own data, copied out of the buffer they were read from; its borrowed twin points into the buffer."
-chapter = "../basic/borrowed_and_owned/"
-
-[[term]]
-name = "padding"
-short = "Zero bits between a bit-sized value and the next value that starts on a byte; a later version of a type may put a new flag there."
-chapter = "../basic/types_on_the_wire/"
+chapter = "../serdes/derive/"
 
 [[term]]
 name = "property"
@@ -151,13 +140,19 @@ chapter = "../levels/"
 name = "server"
 forms = ["servers"]
 short = "The device-side code generated from an API trait: it decodes requests and calls your handlers, `no_std` and without allocation."
-chapter = "../api/overview/"
+chapter = "../basic/first_device/"
 
 [[term]]
 name = "ShrinkWrap"
 forms = ["shrink_wrap"]
 short = "The wire format of WireWeaver: dense down to single bits, readable without an allocator, and evolvable."
-chapter = "../basic/types_on_the_wire/"
+chapter = "../serdes/shrink_wrap/"
+
+[[term]]
+name = "simulated device"
+forms = ["simulated devices"]
+short = "A device's code running on a PC with stand-ins for its hardware, served over WebSocket, so that hosts and tests use it as they would a board."
+chapter = "../basic/first_device/"
 
 [[term]]
 name = "sink"
@@ -187,12 +182,6 @@ name = "transport"
 forms = ["transports"]
 short = "The medium that carries a device's packets: USB, UDP, WebSocket, RTT or a byte stream such as a serial line."
 chapter = "../transport/overview/"
-
-[[term]]
-name = "wire format"
-forms = ["wire formats"]
-short = "The rules that turn a value into bytes and back, so that two programs agree on what the bytes mean."
-chapter = "../basic/types_on_the_wire/"
 
 [[term]]
 name = "wire line"

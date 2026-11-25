@@ -1,9 +1,0 @@
-value 01110010 01101111 01101111 01100110  `station`: "roof"
-value 01100110 00001000                    `temperature`: 2150, low byte first
-head  1                                    `humidity` is `Some`
-pad   0000000                              padding
-value 00110000                             `humidity`: 48
-value 0                                    `battery_low`: false
-pad   000                                  padding
-head  0100                                 length of `station`: 4
-bytes 72 6f 6f 66 66 08 80 30 04

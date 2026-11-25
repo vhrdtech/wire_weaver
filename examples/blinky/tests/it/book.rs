@@ -1,5 +1,4 @@
-//! What the book shows of blinky, checked against `docs/generated/blinky/`: the handlers `ww api scaffold` writes for
-//! its API, in the chapter "Your own project".
+//! The handlers `ww api scaffold` writes for blinky's API, in the chapter "Your own project".
 
 use std::path::Path;
 

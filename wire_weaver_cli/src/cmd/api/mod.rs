@@ -1,5 +1,5 @@
 mod ast;
-pub(crate) mod check;
+pub mod check;
 mod diff;
 pub use line::LineCommand;
 mod line;
@@ -349,7 +349,14 @@ pub(crate) fn api(cmd: ApiCommand) -> Result<()> {
             against,
             strict,
             require_current,
-        } => check::check(path, against, strict, require_current),
+        } => check::check(
+            path,
+            check::CheckOptions {
+                against,
+                strict,
+                require_current,
+            },
+        ),
         ApiCommand::Diff { path, against } => diff::diff(path, against),
         ApiCommand::KeepSuperseded { old, current, into } => {
             save::keep_superseded(old, current, into)

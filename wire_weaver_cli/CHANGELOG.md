@@ -18,6 +18,7 @@
 ### 🚀 Features
 
 - `cmd::introspect::render(device, IntrospectView)`: the text `ww introspect` prints, for a book's transcript or another program.
+- `cmd::api::check::render(path, CheckOptions)`: the text `ww api check` prints and its verdict, for a book's transcript.
 - Every device command reaches a WebSocket device with `ww --websocket ws://HOST:PORT/PATH` (CLT-85).
 - `ww observe` and `ww stream` walk into mounted APIs: `hub.player.state`, `ext.cast.items` (CLT-84).
 - `ww api tree` shows mount slots with their expected API crate (SRV-76).

@@ -91,9 +91,14 @@ macro_rules! row {
     };
 }
 
+/// A new table of the bytes of values, with its header.
+fn table() -> String {
+    String::from("| Type | Value | Bytes |\n|---|---|---|\n")
+}
+
 #[test]
 fn book_output_built_in_types() {
-    let mut out = String::from("| Type | Value | Bytes |\n|---|---|---|\n");
+    let mut out = table();
     row!(out, "bool", true);
     row!(out, "U3", "5", U3::new(5).expect("5 fits 3 bits"));
     row!(
@@ -103,13 +108,22 @@ fn book_output_built_in_types() {
         (U3::new(5).expect("fits"), U7::new(100).expect("fits"))
     );
     row!(out, "(bool, u8)", "(true, 0xaa)", (true, 0xaa_u8));
+    book_outputs::check("sensor_packet/types_bits.md", &out);
+
+    let mut out = table();
     row!(out, "u8", "0xaa", 0xaa_u8);
     row!(out, "u16", "0x1234", 0x1234_u16);
     row!(out, "i16", "-2", -2_i16);
     row!(out, "f32", "1.5", 1.5_f32);
+    book_outputs::check("sensor_packet/types_numbers.md", &out);
+
+    let mut out = table();
     row!(out, "UNib32", "5", UNib32(5));
     row!(out, "UNib32", "9", UNib32(9));
     row!(out, "UNib32", "300", UNib32(300));
+    book_outputs::check("sensor_packet/types_varint.md", &out);
+
+    let mut out = table();
     row!(out, "&str", "abc");
     row!(
         out,
@@ -124,12 +138,19 @@ fn book_output_built_in_types() {
         "\"abc\"",
         MaxLen::<&str, 8>::new("abc").expect("3 is at most 8")
     );
+    book_outputs::check("sensor_packet/types_text.md", &out);
+
+    let mut out = table();
     row!(out, "Option<u8>", "Some(5)", Some(5_u8));
     row!(out, "Option<u8>", "None", None::<u8>);
     row!(out, "Result<u8, u8>", "Ok(1)", Ok::<u8, u8>(1));
     row!(out, "Result<u8, u8>", "Err(2)", Err::<u8, u8>(2));
+    book_outputs::check("sensor_packet/types_option.md", &out);
+
+    let mut out = table();
+    row!(out, "(u8, u16)", "(1, 2)", (1_u8, 2_u16));
     row!(out, "()", ());
-    book_outputs::check("sensor_packet/built_in_types.md", &out);
+    book_outputs::check("sensor_packet/types_tuples.md", &out);
 }
 
 #[test]

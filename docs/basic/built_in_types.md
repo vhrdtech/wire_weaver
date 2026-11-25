@@ -10,44 +10,74 @@ wire, and which one to pick. [Structs and enums](structs_and_enums.md) then cove
 
 ## Every type at a glance
 
-The table shows one value of each type, written on its own with `to_ww_bytes`. The test `book_output_built_in_types`
-in [`examples/sensor_packet/tests/it/book.rs`] writes the table, so every byte in it comes from a real run:
+Each type starts on a bit, a nibble or a byte. The table sums up the types of this chapter:
 
---8<-- "docs/generated/sensor_packet/built_in_types.md"
+| Type                                   | On the wire                                  | Starts on |
+|----------------------------------------|----------------------------------------------|-----------|
+| `bool`                                 | 1 bit                                        | a bit     |
+| `U1` to `U64`, `I2` to `I64`           | exactly that many bits                       | a bit     |
+| `Nibble`                               | 4 bits                                       | a nibble  |
+| `u8` to `u128`, `i8` to `i128`         | 1 to 16 bytes, low byte first                | a byte    |
+| `f32`, `f64`                           | 4 or 8 bytes, IEEE 754, low byte first       | a byte    |
+| `UNib32`                               | 1 to 11 nibbles, small values short          | a nibble  |
+| `&str`, `String`                       | UTF-8 bytes, length at the back              | a byte    |
+| `RefVec<'i, T>`, `Vec<T>`              | the elements, count at the back              | a byte    |
+| `[T; N]`                               | the elements, no count                       | as `T`    |
+| `MaxLen<T, N>`                         | the same as `T`                              | as `T`    |
+| `Option<T>`, `Result<T, E>`            | a 1-bit flag, then the value                 | a bit     |
+| tuples, `()`                           | the elements one after another               | as the elements |
 
-A value inside a struct takes the same bits as on its own, with one difference: bit-sized values of neighbouring
-fields share a byte. `(true, 0xaa)` shows this: the `bool` takes the first bit, and the `u8` starts on the next byte.
-The sections below explain each group of rows.
+The sections below show real bytes for each group. The test `book_output_built_in_types` in
+[`examples/sensor_packet/tests/it/book.rs`] writes each value on its own with `to_ww_bytes` and fills the tables.
 
 ## Flags and bit-sized numbers
 
-A `bool` takes one bit. ShrinkWrap packs bit-sized values one after another, so eight flags fit in one byte. The
-bits left over before the next byte-sized value are [[padding]], and they are zero.
+A `bool` takes one bit. ShrinkWrap packs bit-sized values one after another, so eight flags fit in one byte.
+`U1` to `U64` and `I2` to `I64` are integers of exactly that many bits: a value that never exceeds 5 fits a `U3`. Build
+one with `U3::new(5)`, which returns `None` for a value that needs more bits.
 
-`U1` to `U64` and `I2` to `I64` are integers of exactly that many bits. A value that never exceeds 5 fits a `U3`,
-and a pair of a `U3` and a `U7` takes 10 bits, not two bytes. Build one with `U3::new(5)`, which returns `None` for
-a value that needs more bits. `Nibble` is a 4-bit value that starts on a 4-bit boundary.
+--8<-- "docs/generated/sensor_packet/types_bits.md"
+
+A value of whole bytes always starts on a fresh byte. The bits left over before it are [[padding]], and they are
+zero. The figure shows the last two rows bit by bit:
+
+![A U3 and a U7 share two bytes; a bool is followed by seven bits of padding and a u8 on the next byte](../assets/bit_packing.svg)
+
+`Nibble` is a 4-bit value that starts on a 4-bit boundary.
 
 ## Whole-byte numbers
 
 `u8` to `u128`, `i8` to `i128`, `f32` and `f64` take their full width, start on a fresh byte, and store the low byte
-first. `0x1234` is `34 12`, and `-2` as an `i16` is `fe ff`. A float is its IEEE 754 bits: `1.5` is `00 00 c0 3f`.
+first. A float is its IEEE 754 bits.
 
-A number that is usually small but sometimes large can take a variable-length type instead. `UNib32` stores a `u32`
-in nibbles, three bits of the number per nibble, so 0 to 7 take half a byte. 9 takes two nibbles, and 300 takes
-three. ShrinkWrap stores its own lengths this way. `UVlq32` and `UVlq64` do the same in whole bytes, seven bits per
-byte.
+--8<-- "docs/generated/sensor_packet/types_numbers.md"
 
 A number that has a unit, such as a temperature or a time, is a `Fixed` or a `Point` from `ww_si`, as the sensor
 packet's `Temperature` is. On the wire it is its plain number. [Numbers that know their unit](../std_library/ww_si.md)
 explains them.
 
+## Numbers that are usually small
+
+A number that is usually small but sometimes large can take a variable-length type. `UNib32` stores a `u32` in
+nibbles, three bits of the number per nibble, so 0 to 7 take half a byte. ShrinkWrap stores its own lengths this way.
+
+--8<-- "docs/generated/sensor_packet/types_varint.md"
+
+`UVlq32` and `UVlq64` do the same in whole bytes, seven bits of the number per byte.
+
 ## Strings and lists
 
-A string is its UTF-8 bytes, with its length at the back of the message: `"abc"` is `61 62 63` and then the length 3.
-A list is its elements one after another, with the number of elements at the back.
+Strings, lists and arrays differ in where their length goes:
 
-Each has a borrowed and an owned form, as [Borrowed and owned](borrowed_and_owned.md) explains:
+- A string is its UTF-8 bytes, with its length at the back of the message.
+- A list is its elements one after another, with the number of elements at the back.
+- An array `[T; N]` has a length that never changes, so its bytes are only the elements.
+
+Bytes that are not valid UTF-8 fail to read as a string, with the error `MalformedUtf8`.
+
+--8<-- "docs/generated/sensor_packet/types_text.md"
+
+Each string and list has a borrowed and an owned form, as [Borrowed and owned](borrowed_and_owned.md) explains:
 
 | What        | Borrowed: no allocator   | Owned: needs `std` |
 |-------------|--------------------------|--------------------|
@@ -55,26 +85,28 @@ Each has a borrowed and an owned form, as [Borrowed and owned](borrowed_and_owne
 | a list      | `RefVec<'i, T>`          | `Vec<T>`           |
 
 A `RefVec` read from a buffer points into it and decodes each element as you iterate. To write one, make it from a
-slice: `RefVec::new_bytes(&[1, 2, 3])` for bytes, or `RefVec::Slice { slice: &items }` for any elements. Bytes
-that are not valid UTF-8 fail to read as a string, with the error `MalformedUtf8`.
-
-An array `[T; N]` has a length that never changes, so its bytes are only the elements, with no length: `[1, 2, 3]`
-is `01 02 03`.
+slice: `RefVec::new_bytes(&[1, 2, 3])` for bytes, or `RefVec::Slice { slice: &items }` for any elements.
 
 ## Strings and lists with a maximum
 
 `MaxLen<T, N>` wraps a string or a list and allows at most `N` elements, or `N` bytes for a string. A sensor's name
-of at most 8 bytes is a `MaxLen<&'i str, 8>`. Its bytes are those of the plain string, so the maximum costs nothing
-on the wire.
+of at most 8 bytes is a `MaxLen<&'i str, 8>`. Its bytes are those of the plain string, as the last row of the table
+above shows, so the maximum costs nothing on the wire.
 
-The maximum is checked at both ends. `MaxLen::new` refuses a value that is too long, and so does reading one from
-bytes, with the error `MaxLenExceeded`. A value is never cut to fit.
+The maximum is checked at both ends:
+
+- `MaxLen::new` refuses a value that is too long.
+- Reading a value that is too long from bytes fails with the error `MaxLenExceeded`.
+- A value is never cut to fit.
 
 ## `Option` and `Result`
 
-An `Option<T>` is a one-bit flag, 1 for `Some`, followed by the value when there is one: `Some(5)` is `80 05`, and
-`None` is the single bit 0. A `Result<T, E>` is the same, with 1 for `Ok` followed by the `T`, and 0 for `Err`
-followed by the `E`. The sensor packet's `humidity` is an `Option`, and its flag is the bit before the padding in
+An `Option<T>` is a one-bit flag, 1 for `Some`, followed by the value when there is one. A `Result<T, E>` is the
+same, with 1 for `Ok` followed by the `T`, and 0 for `Err` followed by the `E`.
+
+--8<-- "docs/generated/sensor_packet/types_option.md"
+
+The sensor packet's `humidity` is an `Option`, and its flag is the bit before the padding in
 [the layout of a reading](types_on_the_wire.md#where-each-bit-goes).
 
 ## Tuples and `()`
@@ -82,10 +114,16 @@ followed by the `E`. The sensor packet's `humidity` is an `Option`, and its flag
 A tuple of 2 to 8 elements is its elements one after another, as if they were the fields of a struct. `Range<T>` and
 `RangeInclusive<T>` are written the same way, as their two ends. `()` takes no bytes at all.
 
+--8<-- "docs/generated/sensor_packet/types_tuples.md"
+
 ## Types ShrinkWrap doesn't have
 
-`char` and maps (`HashMap`, `BTreeMap`) can't be fields. Use a `&str` or a `u32` for a character, and a list of
-pairs, `RefVec<'i, (K, V)>` or `Vec<(K, V)>`, for a map.
+Two kinds of Rust type can't be fields. Each has a stand-in that goes on the wire:
+
+| Rust type                  | Use instead                                    |
+|----------------------------|------------------------------------------------|
+| `char`                     | a `&str` of one character, or its code as `u32` |
+| `HashMap`, `BTreeMap`      | a list of pairs: `RefVec<'i, (K, V)>` or `Vec<(K, V)>` |
 
 ## Where to go next
 

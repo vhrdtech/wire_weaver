@@ -15,9 +15,13 @@ of them.
 ## Structs
 
 A struct is its fields in the order you declare them, with the rules of
-[Your types on the wire](types_on_the_wire.md#where-each-bit-goes): flags take a bit, whole-byte values start on a
-byte, and lengths go to the back. A struct with fields named, a tuple struct and a unit struct are all written this
-way.
+[Your types on the wire](types_on_the_wire.md#where-each-bit-goes):
+
+- A flag takes one bit.
+- A value of whole bytes starts on a fresh byte.
+- A length goes to the back of the message.
+
+A struct with fields named, a tuple struct and a unit struct are all written this way.
 
 The number of a sensor node is a tuple struct of one `u8`. A type of its own, rather than a bare `u8`, keeps a node's
 number from being mixed up with any other byte:
@@ -59,6 +63,10 @@ takes one nibble for the first 8 variants and grows from there, so it never runs
 The test `book_output_messages` writes each message of the example on its own:
 
 --8<-- "docs/generated/sensor_packet/messages.md"
+
+The figure shows the same bytes laid out by what they hold:
+
+![Each message starts with its discriminant in a nibble, then a nibble of padding and the fields of its variant](../assets/message_layout.svg)
 
 Each message starts with its discriminant in the first nibble: 0 for `Hello`, 1 for `Reading`, 2 for `Goodbye`.
 `Goodbye` has no fields, so it is that nibble and four bits of padding. `Hello` has the node's number, `07`, and the

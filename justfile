@@ -315,10 +315,11 @@ book-check:
     cargo run -q -p ww_book -- check
 
 # Write the book's generated outputs (docs/generated/) again: every test named `book_output*`, through the
-# book_outputs crate; a stale file fails `just test`
+# book_outputs crate; a stale file fails `just test`. Transcripts recorded on a board (`*/board/`) stay: no test
+# can write them again
 [group('docs')]
 book-outputs:
-    rm -rf docs/generated
+    fd -t f -E board . docs/generated -X rm
     WW_BOOK_OUTPUTS=write cargo nextest run --workspace -E 'test(/book_output/)'
     WW_BOOK_OUTPUTS=write just test-thermometer-py
     WW_BOOK_OUTPUTS=write just test-blinky-py

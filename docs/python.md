@@ -9,7 +9,8 @@ properties, streams) is built at runtime from the introspection data the device 
 Values are converted to and from plain Python objects and serialized exactly as the generated Rust clients do it,
 the module is a thin wrapper around the dynamic client in `wire_weaver_client`.
 
-It is meant for debugging, quick tests and scripts: connect, look at what the device offers, call it. For a
+[From Python](basic/python.md) installs the module and calls a first device with it. This page covers the module
+in full. It is meant for debugging, quick tests and scripts: connect, look at what the device offers, call it. For a
 typed Python package wrapping one specific API, see the `blinky_py` example instead ([Examples](examples/examples.md)),
 it wraps the generated Rust client.
 

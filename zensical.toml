@@ -29,9 +29,13 @@ nav = [
                 ]
             },
             { "A first device" = [
-                    { "Getting started" = "api/overview.md" },
+                    "basic/first_device.md",
+                    "basic/methods.md",
+                    "basic/board.md",
+                    "basic/command_line.md",
+                    "basic/python.md",
+                    "api/overview.md",
                     "api/folder_structure.md",
-                    "api/methods.md",
                     "basic/properties.md",
                     "api/streams.md",
                     "api/traits.md",
@@ -39,7 +43,6 @@ nav = [
                 ]
             },
             { "Tools" = [
-                    "cli.md",
                     "python.md"
                 ]
             },
@@ -101,6 +104,7 @@ nav = [
                 ]
             },
             { "The API in depth" = [
+                    "api/methods.md",
                     "api/properties.md",
                     "api/arrays.md",
                     { "Sync, async and shared handlers" = "api/handlers.md" },
@@ -179,6 +183,7 @@ nav = [
                 ]
             },
             { "Tools in depth" = [
+                    "cli.md",
                     { "Python: more" = "python_advanced.md" },
                     "dev_tool.md"
                 ]

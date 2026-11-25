@@ -9,9 +9,11 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
+# --8<-- [start:wire]
 # Wire version of the API (EVO-31): link setup decides on its line, `#[since]` names its revisions
 [package.metadata.wire_weaver]
 wire = "w1.0"
+# --8<-- [end:wire]
 
 [features]
 # build against std instead of no_std

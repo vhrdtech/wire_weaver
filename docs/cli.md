@@ -1,12 +1,12 @@
 ---
-level: basic
+level: advanced
 ---
 
-# Command line tool
+# Command line tool in depth
 
-`ww` is the WireWeaver command line tool. It finds connected devices and lists them with their API, prints a
-device's API as a resource tree using its introspection data (or an API crate's tree, from source), observes
-properties, asks any device what it is and what it counted, and tests the link.
+[From the command line](basic/command_line.md) finds a device with `ww list`, reads its API with `ww introspect` and
+calls it with `ww call`. This page covers the rest: installing `ww` and its shell completion, every command at a
+glance, and the device selection, with devices behind a debug probe and a project's `ww.toml`.
 
 ## Installation
 
@@ -42,48 +42,13 @@ Elvish and PowerShell are supported as well (`COMPLETE=elvish`, `COMPLETE=powers
 spaces or quotes are inserted quoted, and values after `@` or `:` complete too (`--api blinky_api@<TAB>`,
 `--vid-pid c0de:<TAB>`).
 
-## First steps
-
-Plug in a device and look at what is there:
-
-```
-$ ww list
-LOCATION             PRODUCT             SERIAL                    API                 HASH              LABEL
-usb 003-1 c0de:cafe  WireWeaver Generic  09000F000251313438333634  all_gpio_api@0.1.0  5ff989a95162d4d7
-```
-
-`ww list` reads the USB descriptors only, without opening the device. `API` is the API crate the firmware
-implements. With one device connected, every other command uses it; with several, pick one with a
-[device selection](#device-selection) flag such as `--serial 0900`.
-
-Next, the device's API as a resource tree, from the introspection data it carries (`-d` hides doc comments):
-
-```
-$ ww introspect -d
-trait AllGpioApi all_gpio_api@0.1.0
-└─ 0 impl port[]: ww_gpio::Bank
-   ├─ 0 impl pin[]: ww_gpio::Pin
-   │  ├─ 0 fn set_output_level(level: Level)
-   │  ├─ 1 fn toggle()
-   ...
-```
-
-From there:
-
-- `ww info`: what the device is (firmware, board, ids, label, last reset), on any device implementing the
-  [device contract](std_library/device_contract.md).
-- `ww observe <path>`: watch a trait level's [observed properties](api/observing.md) change, no generated code
-  needed. For calls and streams from a script, use [Python](python.md).
-- `ww usb-loopback`: check the link itself, round trips and throughput, whatever the API.
-- `ww api tree <path>` and `ww api scaffold <path>`: the same tree from an API crate's source, and the server
-  handlers to implement for it.
-
 ## Commands
 
 | Command                                              | Needs a device | What it does                                                       |
 |------------------------------------------------------|----------------|--------------------------------------------------------------------|
 | [`ww list`](cli_reference.md#ww-list)                | no (not opened)| Lists connected devices matching the device selection              |
 | [`ww introspect`](cli_reference.md#ww-introspect)    | yes            | Prints the device's resource tree from its introspection data      |
+| [`ww call`](cli_reference.md#ww-call)                | yes            | Calls a method, reads a property or writes one, from introspection data |
 | [`ww api`](cli_reference.md#ww-api)                  | no             | From an API crate's source: resource tree, AST, server scaffold, snapshots (save, check, diff) |
 | [`ww observe`](cli_reference.md#ww-observe)          | yes            | Observes a trait level's `+observe` properties: values, rate, link bytes/s |
 | [`ww usb-loopback`](cli_reference.md#ww-usb-loopback) | yes, any API  | Runs link loopback and throughput tests                            |

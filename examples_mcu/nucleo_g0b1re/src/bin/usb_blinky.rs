@@ -40,6 +40,7 @@ async fn usb_task(mut usb: UsbDevice<'static, Driver<'static, USB>>) {
     usb.run().await;
 }
 
+// --8<-- [start:task]
 #[embassy_executor::task]
 async fn ww_server_task(
     mut server: UsbServer<'static, Driver<'static, USB>>,
@@ -47,6 +48,7 @@ async fn ww_server_task(
 ) {
     blinky_device::serve(&mut server, blinky, core::future::pending()).await;
 }
+// --8<-- [end:task]
 
 // --8<-- [start:led]
 /// The board's user LED as the blinky device sees it.
@@ -79,6 +81,7 @@ async fn main(spawner: embassy_executor::Spawner) {
     let blinky = BLINKY.init(Blinky::new(LED.init(BoardLed(led))));
     // --8<-- [end:device]
 
+    // --8<-- [start:usb]
     let driver = Driver::new(p.USB, Irqs, p.PA12, p.PA11);
     let buffers = USB_BUFFERS.init(UsbBuffers::default());
     // API id without a label is a constant: pass Blinky::API_ID directly.
@@ -101,6 +104,7 @@ async fn main(spawner: embassy_executor::Spawner) {
     );
     spawner.spawn(unwrap!(usb_task(usb)));
     spawner.spawn(unwrap!(ww_server_task(server, blinky)));
+    // --8<-- [end:usb]
 
     info!("init done");
     loop {

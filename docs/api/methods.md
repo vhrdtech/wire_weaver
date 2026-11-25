@@ -1,11 +1,13 @@
 ---
-level: basic
+level: advanced
 ---
 
-# Methods
+# Methods in depth
 
-A method is a call into the device: the host sends the arguments, the device runs a handler and answers with the
-return value.
+[Methods](../basic/methods.md) declares a method with arguments and a return value, writes its handler and calls it
+from a host. This page covers the rest: arguments that a later version adds, the server's steps and its two flavours,
+answers sent later, the handler's context, and the client's errors. The example trait below has methods of several
+shapes:
 
 ```rust
 #[ww_trait]

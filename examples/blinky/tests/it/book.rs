@@ -77,6 +77,9 @@ async fn book_output_call() {
             ));
         }
         book_outputs::check("blinky/call.txt", &transcript);
+        // an argument of the wrong type never leaves the host
+        assert!(call(&dev, "set_led(1)").await.is_err());
+        assert_eq!(call(&dev, "blinks").await.expect("calls"), "2 item");
     })
     .await;
 }

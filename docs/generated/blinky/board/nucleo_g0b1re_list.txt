@@ -1,0 +1,3 @@
+$ ww list
+LOCATION             PRODUCT               SERIAL                    API               HASH              LABEL
+usb 005-1 c0de:cafe  Nucleo G0B1RE blinky  21002200175036344B333720  blinky_api@0.1.0  bfa5eeeeadfed16b  Nucleo on the desk

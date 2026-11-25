@@ -7,13 +7,13 @@
 name = "API trait"
 forms = ["API traits"]
 short = "A Rust trait marked `#[ww_trait]` or `#[ww_api_root]` that describes what a device offers: methods, properties, streams, sinks and nested traits."
-chapter = "../basic/first_device/"
+chapter = "../api/overview/"
 
 [[term]]
 name = "API crate"
 forms = ["API crates"]
 short = "A `no_std` crate holding an API trait and its types, which the firmware and every host depend on."
-chapter = "../basic/first_device/"
+chapter = "../api/folder_structure/"
 
 [[term]]
 name = "borrowed"
@@ -35,7 +35,7 @@ chapter = "../api/metadata/"
 name = "client"
 forms = ["clients"]
 short = "The host-side code generated from an API trait: a typed function per item, async, blocking or as a promise."
-chapter = "../basic/first_device/"
+chapter = "../api/overview/"
 
 [[term]]
 name = "conformance corpus"
@@ -78,7 +78,7 @@ chapter = "../transport/ww_framer/"
 name = "handler"
 forms = ["handlers"]
 short = "A function of the server that runs when a request for its method or property arrives; its signature follows the `ww_codegen!` options."
-chapter = "../basic/first_device/"
+chapter = "../api/handlers/"
 
 [[term]]
 name = "hub"
@@ -88,7 +88,7 @@ chapter = "../transport/hub/"
 [[term]]
 name = "introspection"
 short = "The description of a device's API that the device sends on request, so that a tool can call it without knowing the API at build time."
-chapter = "../basic/command_line/"
+chapter = "../api/introspection/"
 
 [[term]]
 name = "link layer"
@@ -99,7 +99,7 @@ chapter = "../transport/ww_link/"
 name = "method"
 forms = ["methods"]
 short = "An item of an API trait that a host calls with arguments and that answers with a return value."
-chapter = "../basic/methods/"
+chapter = "../api/methods/"
 
 [[term]]
 name = "mount"
@@ -140,19 +140,13 @@ chapter = "../levels/"
 name = "server"
 forms = ["servers"]
 short = "The device-side code generated from an API trait: it decodes requests and calls your handlers, `no_std` and without allocation."
-chapter = "../basic/first_device/"
+chapter = "../api/overview/"
 
 [[term]]
 name = "ShrinkWrap"
 forms = ["shrink_wrap"]
 short = "The wire format of WireWeaver: dense down to single bits, readable without an allocator, and evolvable."
 chapter = "../serdes/shrink_wrap/"
-
-[[term]]
-name = "simulated device"
-forms = ["simulated devices"]
-short = "A device's code running on a PC with stand-ins for its hardware, served over WebSocket, so that hosts and tests use it as they would a board."
-chapter = "../basic/first_device/"
 
 [[term]]
 name = "sink"
@@ -182,6 +176,12 @@ name = "transport"
 forms = ["transports"]
 short = "The medium that carries a device's packets: USB, UDP, WebSocket, RTT or a byte stream such as a serial line."
 chapter = "../transport/overview/"
+
+[[term]]
+name = "wire version"
+forms = ["wire versions"]
+short = "The version of an API that devices and hosts compare when they connect, such as `w1.1`: a wire line and a revision on it."
+chapter = "../basic/changing_your_api/"
 
 [[term]]
 name = "wire line"

@@ -1,8 +1,0 @@
-$ ww --websocket ws://127.0.0.1:8080/ww call led_on
-()
-$ ww --websocket ws://127.0.0.1:8080/ww call 'set_led(false)'
-true
-$ ww --websocket ws://127.0.0.1:8080/ww call 'set_led(true)'
-false
-$ ww --websocket ws://127.0.0.1:8080/ww call blinks
-2 item

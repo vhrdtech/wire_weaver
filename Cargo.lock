@@ -4334,6 +4334,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "thermometer_api"
+version = "1.0.0"
+dependencies = [
+ "wire_weaver_core",
+ "wire_weaver_evolution",
+ "ww_api",
+ "ww_si",
+]
+
+[[package]]
 name = "thiserror"
 version = "1.0.69"
 source = "registry+https://github.com/rust-lang/crates.io-index"

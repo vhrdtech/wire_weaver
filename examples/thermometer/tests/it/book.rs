@@ -61,7 +61,7 @@ async fn the_device_refuses_a_gain_out_of_bounds() {
             .device_introspect()
             .expect("introspection data")
             .api_bundle;
-        let gain = wire_weaver_client::DynResource::root(root.into())
+        let gain = wire_weaver_client::DynResource::root(root)
             .child("gain")
             .expect("gain");
         let path = gain.index_chain().to_vec();

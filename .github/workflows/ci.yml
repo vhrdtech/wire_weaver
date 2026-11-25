@@ -69,15 +69,16 @@ jobs:
           components: clippy
       # cargo-msrv builds with the declared rust-version (Cargo.toml [workspace.package])
       - run: rustup toolchain install 1.99.0 --profile minimal
-      # the tools spl's adapters run (`spl tools needed`)
       - uses: taiki-e/install-action@v2
         with:
-          tool: just,cargo-deny,cargo-machete,typos,taplo-cli,cargo-semver-checks
+          tool: just,cargo-binstall
       # a released spl, so a lint added there reaches this job with the commit that moves the tag;
       # its own build warnings are not this repository's (setup-rust-toolchain denies them by default)
       - run: cargo install --locked --git https://github.com/romixlab/spirit_level --tag v0.9.1 spirit_level_cli
         env:
           CARGO_BUILD_WARNINGS: warn
+      # the tools spl's adapters run, at the versions spl is tested against (`spl tools needed`)
+      - run: spl tools needed --spec --missing | xargs -r cargo binstall -y
       # the assembled book pages first, so the link and nav lints see them
       - run: just book-assemble
       - run: just spl

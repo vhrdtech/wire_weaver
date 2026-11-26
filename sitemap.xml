@@ -133,6 +133,9 @@
         <loc>https://ww.vhrd.tech/basic/byte_streams/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/basic/changing_your_api/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/basic/channels/</loc>
       </url>
       <url>
@@ -157,10 +160,16 @@
         <loc>https://ww.vhrd.tech/basic/observing/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/basic/pico2/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/basic/properties/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/basic/python/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/basic/python_in_full/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/basic/rtt/</loc>
@@ -202,6 +211,9 @@
         <loc>https://ww.vhrd.tech/basic/websocket/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/basic/your_own_project/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/c/</loc>
       </url>
       <url>
@@ -226,9 +238,6 @@
         <loc>https://ww.vhrd.tech/evolution/multi_line_host/</loc>
       </url>
       <url>
-        <loc>https://ww.vhrd.tech/evolution/overview/</loc>
-      </url>
-      <url>
         <loc>https://ww.vhrd.tech/evolution/rules/</loc>
       </url>
       <url>
@@ -251,9 +260,6 @@
       </url>
       <url>
         <loc>https://ww.vhrd.tech/features/</loc>
-      </url>
-      <url>
-        <loc>https://ww.vhrd.tech/features_today/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/generated/sensor_packet/messages/</loc>
@@ -286,7 +292,16 @@
         <loc>https://ww.vhrd.tech/glossary/</loc>
       </url>
       <url>
-        <loc>https://ww.vhrd.tech/levels/</loc>
+        <loc>https://ww.vhrd.tech/intro/first_look/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/intro/reading/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/intro/what_it_does/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/intro/wire_format/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/logring/</loc>
@@ -302,6 +317,9 @@
       </url>
       <url>
         <loc>https://ww.vhrd.tech/reference/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/reference/for_writers/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/serdes/code_size/</loc>

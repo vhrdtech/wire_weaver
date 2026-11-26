@@ -72,6 +72,12 @@ short = "A packet sent without a connection and without a promise that it arrive
 chapter = "../basic/udp/"
 
 [[term]]
+name = "debug probe"
+forms = ["debug probes"]
+short = "A small adapter between the PC and a microcontroller's debug pins, which flashes firmware and shows its log."
+chapter = "../basic/pico2/"
+
+[[term]]
 name = "device contract"
 short = "The standard traits every device should offer: firmware and board information, a unique id, user information, the log and an indication."
 chapter = "../std_library/device_info/"
@@ -213,7 +219,7 @@ chapter = "../basic/properties/"
 name = "reading level"
 forms = ["reading levels"]
 short = "How much a page assumes: Basic, Advanced or Nomicon, shown by the badge above its title."
-chapter = "../levels/"
+chapter = "../intro/reading/"
 
 [[term]]
 name = "ring buffer"
@@ -302,6 +308,12 @@ name = "wire format"
 forms = ["wire formats"]
 short = "The rules that turn a value into bytes and back, so that two programs agree on what the bytes mean."
 chapter = "../basic/types_on_the_wire/"
+
+[[term]]
+name = "wire version"
+forms = ["wire versions"]
+short = "The version of an API that devices and hosts compare when they connect, such as `w1.1`: a wire line and a revision on it."
+chapter = "../basic/changing_your_api/"
 
 [[term]]
 name = "wire line"

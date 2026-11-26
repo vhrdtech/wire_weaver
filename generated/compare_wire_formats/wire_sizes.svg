@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="528" viewBox="0 0 720 528" font-family="Helvetica, Arial, sans-serif" font-size="13">
+<title>Wire size of each format relative to the smallest encoding</title>
+<desc>For each of 14 formats, the mean over 8 messages of its size divided by the smallest encoding of that message; 1.00 means always the smallest. The bars are grouped by how the format lets a later revision add a field.</desc>
+<rect x="0" y="0" width="720" height="528" rx="10" fill="#ffffff"/>
+<text x="20" y="30" font-weight="bold" fill="#222">Size relative to the smallest encoding, mean over 8 messages</text>
+<rect x="20" y="66" width="12" height="12" rx="2" fill="#257de0"/>
+<text x="40" y="77" font-weight="bold" fill="#222">Schema rules: a later revision adds fields</text>
+<line x1="220" y1="82" x2="220" y2="170" stroke="#999"/>
+<line x1="279" y1="82" x2="279" y2="170" stroke="#999" stroke-dasharray="4 4"/>
+<text x="210" y="98" text-anchor="end" fill="#222">WireWeaver (tuned)</text>
+<rect x="220" y="86" width="59" height="14" rx="3" fill="#257de0"/>
+<text x="285" y="98" fill="#222">1.00</text>
+<text x="210" y="120" text-anchor="end" fill="#222">WireWeaver (plain)</text>
+<rect x="220" y="108" width="76" height="14" rx="3" fill="#257de0"/>
+<text x="302" y="120" fill="#222">1.29</text>
+<text x="210" y="142" text-anchor="end" fill="#222">Protobuf</text>
+<rect x="220" y="130" width="85" height="14" rx="3" fill="#257de0"/>
+<text x="311" y="142" fill="#222">1.43</text>
+<text x="210" y="164" text-anchor="end" fill="#222">FlatBuffers</text>
+<rect x="220" y="152" width="221" height="14" rx="3" fill="#257de0"/>
+<text x="447" y="164" fill="#222">3.73</text>
+<rect x="20" y="184" width="12" height="12" rx="2" fill="#f47230"/>
+<text x="40" y="195" font-weight="bold" fill="#222">Self-describing: names travel with the data</text>
+<line x1="220" y1="200" x2="220" y2="266" stroke="#999"/>
+<line x1="279" y1="200" x2="279" y2="266" stroke="#999" stroke-dasharray="4 4"/>
+<text x="210" y="216" text-anchor="end" fill="#222">MessagePack (names)</text>
+<rect x="220" y="204" width="265" height="14" rx="3" fill="#f47230"/>
+<text x="491" y="216" fill="#222">4.47</text>
+<text x="210" y="238" text-anchor="end" fill="#222">CBOR (names)</text>
+<rect x="220" y="226" width="265" height="14" rx="3" fill="#f47230"/>
+<text x="491" y="238" fill="#222">4.47</text>
+<text x="210" y="260" text-anchor="end" fill="#222">JSON</text>
+<rect x="220" y="248" width="410" height="14" rx="3" fill="#f47230"/>
+<text x="636" y="260" fill="#222">6.91</text>
+<rect x="20" y="280" width="12" height="12" rx="2" fill="#00b894"/>
+<text x="40" y="291" font-weight="bold" fill="#222">Extension markers: room reserved for later fields</text>
+<line x1="220" y1="296" x2="220" y2="318" stroke="#999"/>
+<line x1="279" y1="296" x2="279" y2="318" stroke="#999" stroke-dasharray="4 4"/>
+<text x="210" y="312" text-anchor="end" fill="#222">ASN.1 UPER (extensible)</text>
+<rect x="220" y="300" width="64" height="14" rx="3" fill="#00b894"/>
+<text x="290" y="312" fill="#222">1.09</text>
+<rect x="20" y="332" width="12" height="12" rx="2" fill="#f2a600"/>
+<text x="40" y="343" font-weight="bold" fill="#222">None: any change breaks old readers</text>
+<line x1="220" y1="348" x2="220" y2="480" stroke="#999"/>
+<line x1="279" y1="348" x2="279" y2="480" stroke="#999" stroke-dasharray="4 4"/>
+<text x="210" y="364" text-anchor="end" fill="#222">ASN.1 UPER (closed)</text>
+<rect x="220" y="352" width="64" height="14" rx="3" fill="#f2a600"/>
+<text x="290" y="364" fill="#222">1.08</text>
+<text x="210" y="386" text-anchor="end" fill="#222">Postcard (tuned)</text>
+<rect x="220" y="374" width="69" height="14" rx="3" fill="#f2a600"/>
+<text x="295" y="386" fill="#222">1.17</text>
+<text x="210" y="408" text-anchor="end" fill="#222">Postcard</text>
+<rect x="220" y="396" width="69" height="14" rx="3" fill="#f2a600"/>
+<text x="295" y="408" fill="#222">1.18</text>
+<text x="210" y="430" text-anchor="end" fill="#222">wincode (varint)</text>
+<rect x="220" y="418" width="77" height="14" rx="3" fill="#f2a600"/>
+<text x="303" y="430" fill="#222">1.31</text>
+<text x="210" y="452" text-anchor="end" fill="#222">MessagePack (array)</text>
+<rect x="220" y="440" width="116" height="14" rx="3" fill="#f2a600"/>
+<text x="342" y="452" fill="#222">1.96</text>
+<text x="210" y="474" text-anchor="end" fill="#222">wincode (fixed)</text>
+<rect x="220" y="462" width="125" height="14" rx="3" fill="#f2a600"/>
+<text x="351" y="474" fill="#222">2.11</text>
+<text x="279" y="504" text-anchor="middle" fill="#555">1.00: the smallest</text>
+</svg>

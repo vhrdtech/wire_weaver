@@ -8,6 +8,7 @@ use std::fmt::Write as _;
 
 mod asn1;
 mod book_output;
+mod chart;
 #[expect(
     dead_code,
     clippy::enum_variant_names,
@@ -128,4 +129,8 @@ fn main() {
     }
     book_output::check("compare_wire_formats/summary.csv", &matrix(&messages));
     book_output::check("compare_wire_formats/winners.csv", &winners(&messages));
+    book_output::check(
+        "compare_wire_formats/wire_sizes.svg",
+        &chart::svg(&messages),
+    );
 }

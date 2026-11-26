@@ -13,7 +13,8 @@ Rust type (read by `shrink_wrap` without layout directives and by every `serde` 
 the module also has a tuned postcard type.
 
 `cargo run` prints a transcript; `docs/generated/compare_wire_formats/` holds one table and one transcript per
-message, `summary.csv` and `winners.csv`, kept byte-for-byte by `book_output::check` (stale: `WW_BOOK_OUTPUTS=write
+message, `summary.csv`, `winners.csv` and the chart `wire_sizes.svg` (each format's mean size over the smallest
+encoding, grouped by how it evolves), kept byte-for-byte by `book_output::check` (stale: `WW_BOOK_OUTPUTS=write
 cargo run`, or `just book-outputs` from the repository root). FlatBuffers' Rust bindings are generated from
 `schema/request.fbs` and `schema/messages.fbs` (`planus rust -o src/fbs_request.rs schema/request.fbs` and
 `planus rust -o src/fbs_messages.rs schema/messages.fbs`, `cargo install planus-cli`) and committed; the rest need no code generation. This crate is excluded from the main

@@ -2831,7 +2831,8 @@ Unicast Data0 to one node over the same bus is TR-6.
   varint), protobuf (hand-written `prost` derives, no `prost-build`), FlatBuffers (planus, generated from
   `schema/*.fbs`) and ASN.1 UPER (rasn, closed and `#[non_exhaustive]` extensible). `just book-outputs`/`just
   test-all` run it from its own directory and check one table and transcript per message, a summary and the winners
-  against `docs/generated/compare_wire_formats/`; the page is `docs/examples/wire_sizes.md`.
+  against `docs/generated/compare_wire_formats/`, with `wire_sizes.svg`, each format's mean size over the
+  smallest encoding grouped by how it evolves; the page is `docs/examples/wire_sizes.md`.
 - ✅ **EX-19 Bench supply example and a pytest bench**: `examples/bench_supply_api` (`channel[]: Channel`, a
   voltage and current limit each, `measured`, `set_output` refusing with `OutputError`), `examples/bench_supply`
   (client, server, `bench_supply_sim` over WebSocket, `bench_supply_bench`, in-process tests) and

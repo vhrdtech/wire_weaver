@@ -61,6 +61,13 @@ similar: only the message has the marker.
 
 ## Summary
 
+The chart sums up each format in one number: its size divided by the smallest encoding of the same message,
+averaged over the eight messages, with each bar coloured by the format's `evolution` group:
+
+<figure>
+--8<-- "docs/generated/compare_wire_formats/wire_sizes.svg"
+</figure>
+
 The first table lists the bytes per format (rows) and per message (columns):
 
 ```text

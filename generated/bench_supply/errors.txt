@@ -1,0 +1,6 @@
+$ cargo run -p bench_supply --example bench_supply_errors
+set a voltage first
+refused: At `voltage_limit` the load would draw 3000 mA, above `current_limit`
+would draw: 3000 mA
+WrongState: Not possible in the current state: the output is on, turn it off first
+error: At `voltage_limit` the load would draw 1650 mA, above `current_limit`

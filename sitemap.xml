@@ -133,9 +133,6 @@
         <loc>https://ww.vhrd.tech/basic/byte_streams/</loc>
       </url>
       <url>
-        <loc>https://ww.vhrd.tech/basic/changing_your_api/</loc>
-      </url>
-      <url>
         <loc>https://ww.vhrd.tech/basic/channels/</loc>
       </url>
       <url>
@@ -143,6 +140,12 @@
       </url>
       <url>
         <loc>https://ww.vhrd.tech/basic/connection_loss/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/basic/effects/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/basic/errors/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/basic/first_device/</loc>
@@ -160,10 +163,10 @@
         <loc>https://ww.vhrd.tech/basic/python/</loc>
       </url>
       <url>
-        <loc>https://ww.vhrd.tech/basic/python_in_full/</loc>
+        <loc>https://ww.vhrd.tech/basic/rtt/</loc>
       </url>
       <url>
-        <loc>https://ww.vhrd.tech/basic/rtt/</loc>
+        <loc>https://ww.vhrd.tech/basic/settings/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/basic/streams/</loc>
@@ -173,6 +176,9 @@
       </url>
       <url>
         <loc>https://ww.vhrd.tech/basic/temperatures/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/basic/test_bench/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/basic/transports/</loc>
@@ -194,9 +200,6 @@
       </url>
       <url>
         <loc>https://ww.vhrd.tech/basic/websocket/</loc>
-      </url>
-      <url>
-        <loc>https://ww.vhrd.tech/basic/your_own_project/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/c/</loc>
@@ -221,6 +224,9 @@
       </url>
       <url>
         <loc>https://ww.vhrd.tech/evolution/multi_line_host/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/evolution/overview/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/evolution/rules/</loc>

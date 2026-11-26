@@ -1678,6 +1678,16 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -1732,7 +1742,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api/errors/" class="md-nav__link">
+      <a href="../errors/" class="md-nav__link">
         
   
   
@@ -1740,6 +1750,141 @@
     
   
   Errors
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_error/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Common errors
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_error_in_an_api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Common errors in an API
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../effects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  What a call does
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../test_bench/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  A test bench in Python
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../settings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Settings that survive a reboot
 
     
   </span>
@@ -2056,10 +2201,6 @@
       
         
       
-        
-      
-        
-      
     
     
     
@@ -2086,7 +2227,7 @@
   <span class="md-ellipsis">
     
   
-  Numbers and errors
+  Numbers and dates
 
     
   </span>
@@ -2102,7 +2243,7 @@
               <span class="md-nav__icon md-icon"></span>
               
   
-  Numbers and errors
+  Numbers and dates
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
@@ -2311,60 +2452,6 @@
     
   
   exact_units: imperial and US customary
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../std_library/ww_error/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Common errors
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../std_library/ww_error_in_an_api/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Common errors in an API
 
     
   </span>
@@ -2605,10 +2692,6 @@
       
         
       
-        
-      
-        
-      
     
     
     
@@ -2663,68 +2746,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../changing_your_api/" class="md-nav__link">
+      <a href="../../evolution/overview/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  Changing your API
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../your_own_project/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Your own project
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../python_in_full/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Python in full
+  Evolving an API
 
     
   </span>
@@ -3198,6 +3227,8 @@
       
         
       
+        
+      
     
     
     
@@ -3419,6 +3450,33 @@
     
   
   Optional items
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Errors in depth
 
     
   </span>
@@ -8552,7 +8610,7 @@ into the Python environment of your scripts:</p>
 <h2 id="connecting">Connecting<a class="headerlink" href="#connecting" title="Permanent link">&para;</a></h2>
 <p><code>ww.connect</code> connects to one device and returns it. Its keyword arguments say which device: <code>websocket_url</code> for a
 simulated device, or USB filters such as <code>vid_pid</code> for a board. The script
-<a aria-describedby="vz-card-file-examples-blinky-dyn-py-blinky-py-7758ec" class="vz-ref vz-file" data-vz-card="vz-card-file-examples-blinky-dyn-py-blinky-py-7758ec" href="https://github.com/vhrdtech/wire_weaver/blob/812309fc55d186d96c8f3f1f2777e678bbc530fc/examples/blinky_dyn_py/blinky.py"><code>examples/blinky_dyn_py/blinky.py</code></a> takes either:</p>
+<a aria-describedby="vz-card-file-examples-blinky-dyn-py-blinky-py-7758ec" class="vz-ref vz-file" data-vz-card="vz-card-file-examples-blinky-dyn-py-blinky-py-7758ec" href="https://github.com/vhrdtech/wire_weaver/blob/e2c70b344e6312f617b65c87880aa6640800f3ba/examples/blinky_dyn_py/blinky.py"><code>examples/blinky_dyn_py/blinky.py</code></a> takes either:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">if</span> <span class="n">where</span> <span class="o">==</span> <span class="s2">&quot;usb&quot;</span><span class="p">:</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">dev</span> <span class="o">=</span> <span class="n">ww</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">vid_pid</span><span class="o">=</span><span class="p">(</span><span class="mh">0xC0DE</span><span class="p">,</span> <span class="mh">0xCAFE</span><span class="p">))</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="k">else</span><span class="p">:</span>
@@ -8600,8 +8658,8 @@ device, run the script again, and the new item is there. This makes Python the q
 <p><img alt="Edit the trait and its handler; restart the simulated device or flash the board; the script connects, receives the new API description and calls the new method" src="../../assets/api_change_loop.svg" /></p>
 <p>Try it with a method that toggles the LED:</p>
 <ol>
-<li>Add <code>fn led_toggle();</code> with <code>#[effect(actuate)]</code> to <code>BlinkyApi</code> in <a aria-describedby="vz-card-file-examples-blinky-api-src-lib-rs-d7c1b7" class="vz-ref vz-file" data-vz-card="vz-card-file-examples-blinky-api-src-lib-rs-d7c1b7" href="https://github.com/vhrdtech/wire_weaver/blob/812309fc55d186d96c8f3f1f2777e678bbc530fc/examples/blinky_api/src/lib.rs"><code>examples/blinky_api/src/lib.rs</code></a>.</li>
-<li>Add its handler to <code>Blinky</code> in <a aria-describedby="vz-card-file-examples-blinky-device-src-lib-rs-24226c" class="vz-ref vz-file" data-vz-card="vz-card-file-examples-blinky-device-src-lib-rs-24226c" href="https://github.com/vhrdtech/wire_weaver/blob/812309fc55d186d96c8f3f1f2777e678bbc530fc/examples/blinky_device/src/lib.rs"><code>examples/blinky_device/src/lib.rs</code></a>: an <code>async fn led_toggle</code> that calls
+<li>Add <code>fn led_toggle();</code> with <code>#[effect(actuate)]</code> to <code>BlinkyApi</code> in <a aria-describedby="vz-card-file-examples-blinky-api-src-lib-rs-d7c1b7" class="vz-ref vz-file" data-vz-card="vz-card-file-examples-blinky-api-src-lib-rs-d7c1b7" href="https://github.com/vhrdtech/wire_weaver/blob/e2c70b344e6312f617b65c87880aa6640800f3ba/examples/blinky_api/src/lib.rs"><code>examples/blinky_api/src/lib.rs</code></a>.</li>
+<li>Add its handler to <code>Blinky</code> in <a aria-describedby="vz-card-file-examples-blinky-device-src-lib-rs-24226c" class="vz-ref vz-file" data-vz-card="vz-card-file-examples-blinky-device-src-lib-rs-24226c" href="https://github.com/vhrdtech/wire_weaver/blob/e2c70b344e6312f617b65c87880aa6640800f3ba/examples/blinky_device/src/lib.rs"><code>examples/blinky_device/src/lib.rs</code></a>: an <code>async fn led_toggle</code> that calls
    <code>self.switch(!self.on)</code> and answers <code>Ready(())</code>. <code>ww api scaffold examples/blinky_api</code> prints its signature.</li>
 <li>Stop the simulated device with Ctrl+C and start it again with <code>cargo run -p blinky --example blinky_sim</code>, which
    builds it with the new method. For the board, build and flash the firmware as in
@@ -8610,18 +8668,18 @@ device, run the script again, and the new item is there. This makes Python the q
 </ol>
 <p>The cache files each description under its API's hash. The hash changes with the new method, so the module asks
 the device for the new description. A host program in Rust needs a rebuild to get the new function; <code>ww</code> and Python don't.</p>
-<p><a aria-describedby="vz-card-file-examples-blinky-api-evolved-src-lib-rs-b57d10" class="vz-ref vz-file" data-vz-card="vz-card-file-examples-blinky-api-evolved-src-lib-rs-b57d10" href="https://github.com/vhrdtech/wire_weaver/blob/812309fc55d186d96c8f3f1f2777e678bbc530fc/examples/blinky_api_evolved/src/lib.rs"><code>examples/blinky_api_evolved/src/lib.rs</code></a> holds this change, with the version attributes that let old hosts and old firmware
-keep working together. <a href="../changing_your_api/">Changing your API</a> explains them.</p>
+<p><a aria-describedby="vz-card-file-examples-blinky-api-evolved-src-lib-rs-b57d10" class="vz-ref vz-file" data-vz-card="vz-card-file-examples-blinky-api-evolved-src-lib-rs-b57d10" href="https://github.com/vhrdtech/wire_weaver/blob/e2c70b344e6312f617b65c87880aa6640800f3ba/examples/blinky_api_evolved/src/lib.rs"><code>examples/blinky_api_evolved/src/lib.rs</code></a> holds this change, with the version attributes that let old hosts and old firmware
+keep working together. <a href="../../evolution/overview/">Changing your API</a> explains them.</p>
 <h2 id="where-to-go-next">Where to go next<a class="headerlink" href="#where-to-go-next" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../../python/">Python</a> covers the module in full: the values of every type, properties, streams, errors and the
   interactive console.</li>
-<li><a aria-describedby="vz-card-file-examples-blinky-py-readme-md-1e356d" class="vz-ref vz-file" data-vz-card="vz-card-file-examples-blinky-py-readme-md-1e356d" href="https://github.com/vhrdtech/wire_weaver/blob/812309fc55d186d96c8f3f1f2777e678bbc530fc/examples/blinky_py/README.md"><code>examples/blinky_py/README.md</code></a> wraps the generated Rust client in a typed Python module instead, for a package with
+<li><a aria-describedby="vz-card-file-examples-blinky-py-readme-md-1e356d" class="vz-ref vz-file" data-vz-card="vz-card-file-examples-blinky-py-readme-md-1e356d" href="https://github.com/vhrdtech/wire_weaver/blob/e2c70b344e6312f617b65c87880aa6640800f3ba/examples/blinky_py/README.md"><code>examples/blinky_py/README.md</code></a> wraps the generated Rust client in a typed Python module instead, for a package with
   fixed signatures and editor completion.</li>
 <li><a href="../../api/overview/">What an API can have</a> shows the items beyond methods: properties, streams, sinks and
   nested traits.</li>
 </ul>
-<div class="vz-cards"><div class="vz-card vz-card-term" id="vz-card-term-introspection-f603a6" role="tooltip"><strong>introspection</strong>: The description of a device's API that the device sends on request, so that a tool can call it without knowing the API at build time.</div><div class="vz-card vz-card-file" id="vz-card-file-examples-blinky-dyn-py-blinky-py-7758ec" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/wire_weaver/blob/812309fc55d186d96c8f3f1f2777e678bbc530fc/examples/blinky_dyn_py/blinky.py">examples/blinky_dyn_py/blinky.py</a></div><div class="vz-card-src"><div class="language-python highlight"><pre><span></span><code><span class="sd">&quot;&quot;&quot;Calls the blinky device from Python: turns the LED on and off, then calls the methods with an argument and a</span>
+<div class="vz-cards"><div class="vz-card vz-card-term" id="vz-card-term-introspection-f603a6" role="tooltip"><strong>introspection</strong>: The description of a device's API that the device sends on request, so that a tool can call it without knowing the API at build time.</div><div class="vz-card vz-card-file" id="vz-card-file-examples-blinky-dyn-py-blinky-py-7758ec" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/wire_weaver/blob/e2c70b344e6312f617b65c87880aa6640800f3ba/examples/blinky_dyn_py/blinky.py">examples/blinky_dyn_py/blinky.py</a></div><div class="vz-card-src"><div class="language-python highlight"><pre><span></span><code><span class="sd">&quot;&quot;&quot;Calls the blinky device from Python: turns the LED on and off, then calls the methods with an argument and a</span>
 <span class="sd">return value.</span>
 
 <span class="sd">Run the simulated device first (`cargo run -p blinky --example blinky_sim`), then `python blinky.py`, or</span>
@@ -8637,8 +8695,8 @@ keep working together. <a href="../changing_your_api/">Changing your API</a> exp
     <span class="c1"># --8&lt;-- [start:connect]</span>
     <span class="k">if</span> <span class="n">where</span> <span class="o">==</span> <span class="s2">&quot;usb&quot;</span><span class="p">:</span>
         <span class="n">dev</span> <span class="o">=</span> <span class="n">ww</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">vid_pid</span><span class="o">=</span><span class="p">(</span><span class="mh">0xC0DE</span><span class="p">,</span> <span class="mh">0xCAFE</span><span class="p">))</span>
-</code></pre></div></div><div class="vz-card-more">28 more lines in the source</div><div class="vz-card-where">examples/blinky_dyn_py/blinky.py:1-44</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/wire_weaver/blob/812309fc55d186d96c8f3f1f2777e678bbc530fc/examples/blinky_dyn_py/blinky.py">File on GitHub</a></div></div><div class="vz-card vz-card-file" id="vz-card-file-examples-blinky-api-evolved-src-lib-rs-b57d10" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/wire_weaver/blob/812309fc55d186d96c8f3f1f2777e678bbc530fc/examples/blinky_api_evolved/src/lib.rs">examples/blinky_api_evolved/src/lib.rs</a></div><div class="vz-card-src"><div class="language-rust highlight"><pre><span></span><code><span class="sd">//! API of the blinky example device after its first change: `blinky_api` 0.1.1, with `led_toggle` added at wire</span>
-<span class="sd">//! w1.1. Devices and hosts of 0.1.0 and 0.1.1 still talk to each other (`blinky_evolved` checks it).</span>
+</code></pre></div></div><div class="vz-card-more">28 more lines in the source</div><div class="vz-card-where">examples/blinky_dyn_py/blinky.py:1-44</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/wire_weaver/blob/e2c70b344e6312f617b65c87880aa6640800f3ba/examples/blinky_dyn_py/blinky.py">File on GitHub</a></div></div><div class="vz-card vz-card-file" id="vz-card-file-examples-blinky-api-evolved-src-lib-rs-b57d10" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/wire_weaver/blob/e2c70b344e6312f617b65c87880aa6640800f3ba/examples/blinky_api_evolved/src/lib.rs">examples/blinky_api_evolved/src/lib.rs</a></div><div class="vz-card-src"><div class="language-rust highlight"><pre><span></span><code><span class="sd">//! The blinky example API in a later version: `blinky_api` with `led_toggle` added `#[since = &quot;w1.1&quot;]`, for the</span>
+<span class="sd">//! evolution checks (old firmware against a new client, and the other way round).</span>
 <span class="cp">#![no_std]</span>
 
 <span class="k">use</span><span class="w"> </span><span class="n">ww_api</span><span class="p">::</span><span class="n">prelude</span><span class="p">::</span><span class="o">*</span><span class="p">;</span>
@@ -8646,14 +8704,14 @@ keep working together. <a href="../changing_your_api/">Changing your API</a> exp
 <span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::</span><span class="n">prefix</span><span class="p">::</span><span class="n">One</span><span class="p">;</span>
 <span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::</span><span class="n">units</span><span class="p">::</span><span class="n">Item</span><span class="p">;</span>
 
-<span class="sd">/// A number of times the LED went on: one step per time, 0 to 4 294 967 295.</span>
-<span class="k">pub</span><span class="w"> </span><span class="k">type</span><span class="w"> </span><span class="nc">Blinks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Fixed</span><span class="o">&lt;</span><span class="n">Item</span><span class="p">,</span><span class="w"> </span><span class="n">One</span><span class="p">,</span><span class="w"> </span><span class="kt">u32</span><span class="o">&gt;</span><span class="p">;</span>
-
-<span class="c1">// --8&lt;-- [start:root]</span>
 <span class="sd">/// An LED on a board.</span>
 <span class="cp">#[ww_api_root]</span>
 <span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">BlinkyApi</span><span class="w"> </span><span class="p">{</span>
-</code></pre></div></div><div class="vz-card-more">18 more lines in the source</div><div class="vz-card-where">examples/blinky_api_evolved/src/lib.rs:1-34</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/wire_weaver/blob/812309fc55d186d96c8f3f1f2777e678bbc530fc/examples/blinky_api_evolved/src/lib.rs">File on GitHub</a></div></div><div class="vz-card vz-card-file" id="vz-card-file-examples-blinky-api-src-lib-rs-d7c1b7" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/wire_weaver/blob/812309fc55d186d96c8f3f1f2777e678bbc530fc/examples/blinky_api/src/lib.rs">examples/blinky_api/src/lib.rs</a></div><div class="vz-card-src"><div class="language-rust highlight"><pre><span></span><code><span class="sd">//! API of the blinky example device: an LED that a host turns on and off, the first device of the book. Start here</span>
+<span class="w">    </span><span class="sd">/// Turns the LED on.</span>
+<span class="w">    </span><span class="cp">#[effect(actuate)]</span>
+<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">led_on</span><span class="p">();</span>
+<span class="w">    </span><span class="sd">/// Turns the LED off.</span>
+</code></pre></div></div><div class="vz-card-more">13 more lines in the source</div><div class="vz-card-where">examples/blinky_api_evolved/src/lib.rs:1-29</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/wire_weaver/blob/e2c70b344e6312f617b65c87880aa6640800f3ba/examples/blinky_api_evolved/src/lib.rs">File on GitHub</a></div></div><div class="vz-card vz-card-file" id="vz-card-file-examples-blinky-api-src-lib-rs-d7c1b7" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/wire_weaver/blob/e2c70b344e6312f617b65c87880aa6640800f3ba/examples/blinky_api/src/lib.rs">examples/blinky_api/src/lib.rs</a></div><div class="vz-card-src"><div class="language-rust highlight"><pre><span></span><code><span class="sd">//! API of the blinky example device: an LED that a host turns on and off, the first device of the book. Start here</span>
 <span class="sd">//! when new to WireWeaver; `blinky_api_evolved` shows the same API after a change.</span>
 <span class="cp">#![cfg_attr(not(feature = </span><span class="s">&quot;std&quot;</span><span class="cp">), no_std)]</span>
 
@@ -8669,7 +8727,7 @@ keep working together. <a href="../changing_your_api/">Changing your API</a> exp
 <span class="sd">/// An LED on a board.</span>
 <span class="cp">#[ww_api_root]</span>
 <span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">BlinkyApi</span><span class="w"> </span><span class="p">{</span>
-</code></pre></div></div><div class="vz-card-more">16 more lines in the source</div><div class="vz-card-where">examples/blinky_api/src/lib.rs:1-32</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/wire_weaver/blob/812309fc55d186d96c8f3f1f2777e678bbc530fc/examples/blinky_api/src/lib.rs">File on GitHub</a></div></div><div class="vz-card vz-card-file" id="vz-card-file-examples-blinky-device-src-lib-rs-24226c" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/wire_weaver/blob/812309fc55d186d96c8f3f1f2777e678bbc530fc/examples/blinky_device/src/lib.rs">examples/blinky_device/src/lib.rs</a></div><div class="vz-card-src"><div class="language-rust highlight"><pre><span></span><code><span class="sd">//! The blinky example device ([blinky_api]): the server and its handlers, written once.</span>
+</code></pre></div></div><div class="vz-card-more">16 more lines in the source</div><div class="vz-card-where">examples/blinky_api/src/lib.rs:1-32</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/wire_weaver/blob/e2c70b344e6312f617b65c87880aa6640800f3ba/examples/blinky_api/src/lib.rs">File on GitHub</a></div></div><div class="vz-card vz-card-file" id="vz-card-file-examples-blinky-device-src-lib-rs-24226c" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/wire_weaver/blob/e2c70b344e6312f617b65c87880aa6640800f3ba/examples/blinky_device/src/lib.rs">examples/blinky_device/src/lib.rs</a></div><div class="vz-card-src"><div class="language-rust highlight"><pre><span></span><code><span class="sd">//! The blinky example device ([blinky_api]): the server and its handlers, written once.</span>
 <span class="sd">//!</span>
 <span class="sd">//! The same code runs in three places. A simulated device on a PC serves it over WebSocket; the firmware of a board</span>
 <span class="sd">//! serves it over USB; tests serve it in process. What differs between them is only the [Led] and the transport</span>
@@ -8684,10 +8742,10 @@ keep working together. <a href="../changing_your_api/">Changing your API</a> exp
 <span class="sd">//!   (examples/blinky)               (examples_mcu/nucleo_g0b1re)</span>
 <span class="sd">//! ```</span>
 <span class="cp">#![cfg_attr(not(feature = </span><span class="s">&quot;std&quot;</span><span class="cp">), no_std)]</span>
-</code></pre></div></div><div class="vz-card-more">137 more lines in the source</div><div class="vz-card-where">examples/blinky_device/src/lib.rs:1-153</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/wire_weaver/blob/812309fc55d186d96c8f3f1f2777e678bbc530fc/examples/blinky_device/src/lib.rs">File on GitHub</a></div></div><div class="vz-card vz-card-file" id="vz-card-file-examples-blinky-py-readme-md-1e356d" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/wire_weaver/blob/812309fc55d186d96c8f3f1f2777e678bbc530fc/examples/blinky_py/README.md">examples/blinky_py/README.md</a></div><div class="vz-card-src"><div class="language-markdown highlight"><pre><span></span><code><span class="gh"># blinky_py</span>
+</code></pre></div></div><div class="vz-card-more">137 more lines in the source</div><div class="vz-card-where">examples/blinky_device/src/lib.rs:1-153</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/wire_weaver/blob/e2c70b344e6312f617b65c87880aa6640800f3ba/examples/blinky_device/src/lib.rs">File on GitHub</a></div></div><div class="vz-card vz-card-file" id="vz-card-file-examples-blinky-py-readme-md-1e356d" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/wire_weaver/blob/e2c70b344e6312f617b65c87880aa6640800f3ba/examples/blinky_py/README.md">examples/blinky_py/README.md</a></div><div class="vz-card-src"><div class="language-markdown highlight"><pre><span></span><code><span class="gh"># blinky_py</span>
 
 <span class="k">&gt; </span><span class="ge">Python wheel implementing blinky_api client.</span>
-</code></pre></div></div><div class="vz-card-where">examples/blinky_py/README.md:1-3</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/wire_weaver/blob/812309fc55d186d96c8f3f1f2777e678bbc530fc/examples/blinky_py/README.md">File on GitHub</a></div></div></div>
+</code></pre></div></div><div class="vz-card-where">examples/blinky_py/README.md:1-3</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/wire_weaver/blob/e2c70b344e6312f617b65c87880aa6640800f3ba/examples/blinky_py/README.md">File on GitHub</a></div></div></div>
 
 
 
@@ -8780,7 +8838,7 @@ keep working together. <a href="../changing_your_api/">Changing your API</a> exp
       Zensical
     </a>
   
-  <div class="book-stamp" data-built="1795679067">wire_weaver 0.6.0 · 812309f · built 2026-11-26 07:44 UTC (<span class="book-stamp-age">just built</span>)</div>
+  <div class="book-stamp" data-built="1795679450">wire_weaver 0.6.0 · e2c70b3 · built 2026-11-26 07:50 UTC (<span class="book-stamp-age">just built</span>)</div>
 </div>
       
         

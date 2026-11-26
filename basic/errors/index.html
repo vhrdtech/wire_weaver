@@ -12,14 +12,14 @@
         <meta name="author" content="Roman Isaikin">
       
       
-        <link rel="canonical" href="https://ww.vhrd.tech/basic/python_in_full/">
+        <link rel="canonical" href="https://ww.vhrd.tech/basic/errors/">
       
       
       
-        <link rel="prev" href="../your_own_project/">
+        <link rel="prev" href="../channels/">
       
       
-        <link rel="next" href="../../advanced/">
+        <link rel="next" href="../../std_library/ww_error/">
       
       
         
@@ -30,7 +30,7 @@
     
     
       
-        <title>Python in full - WireWeaver</title>
+        <title>Errors - WireWeaver</title>
       
     
     
@@ -125,7 +125,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Python in full
+              Errors
             
           </span>
         </div>
@@ -1567,10 +1567,22 @@
                   
   
   
+    
+  
   
   
     
     
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
       
         
       
@@ -1586,11 +1598,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_6" checked>
         
           
           <label class="md-nav__link" for="__nav_2_6" id="__nav_2_6_label" tabindex="">
@@ -1611,7 +1623,7 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_6_label" aria-expanded="false">
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_6_label" aria-expanded="true">
             <label class="md-nav__title" for="__nav_2_6">
               <span class="md-nav__icon md-icon"></span>
               
@@ -1625,10 +1637,36 @@
                   
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../api/errors/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Errors
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1636,6 +1674,250 @@
     
   
   Errors
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-bench-supply" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The bench supply
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#three-ways-a-call-fails" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Three ways a call fails
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#declaring-the-apis-own-errors" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Declaring the API's own errors
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#returning-an-error-from-a-handler" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Returning an error from a handler
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#handling-errors-on-the-host" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Handling errors on the host
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#from-the-command-line" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        From the command line
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#from-python" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        From Python
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-to-go-next" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Where to go next
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_error/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Common errors
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_error_in_an_api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Common errors in an API
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../effects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  What a call does
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../test_bench/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  A test bench in Python
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../settings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Settings that survive a reboot
 
     
   </span>
@@ -1952,10 +2234,6 @@
       
         
       
-        
-      
-        
-      
     
     
     
@@ -1982,7 +2260,7 @@
   <span class="md-ellipsis">
     
   
-  Numbers and errors
+  Numbers and dates
 
     
   </span>
@@ -1998,7 +2276,7 @@
               <span class="md-nav__icon md-icon"></span>
               
   
-  Numbers and errors
+  Numbers and dates
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
@@ -2207,60 +2485,6 @@
     
   
   exact_units: imperial and US customary
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../std_library/ww_error/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Common errors
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../std_library/ww_error_in_an_api/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Common errors in an API
 
     
   </span>
@@ -2494,16 +2718,10 @@
                   
   
   
-    
-  
   
   
     
     
-      
-        
-      
-        
       
         
       
@@ -2519,11 +2737,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_10" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_10" >
         
           
           <label class="md-nav__link" for="__nav_2_10" id="__nav_2_10_label" tabindex="">
@@ -2544,7 +2762,7 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_10_label" aria-expanded="true">
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_10_label" aria-expanded="false">
             <label class="md-nav__title" for="__nav_2_10">
               <span class="md-nav__icon md-icon"></span>
               
@@ -2561,14 +2779,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../changing_your_api/" class="md-nav__link">
+      <a href="../../evolution/overview/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  Changing your API
+  Evolving an API
 
     
   </span>
@@ -2576,195 +2794,6 @@
   
 
       </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../your_own_project/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Your own project
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-    
-  
-  
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Python in full
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="././" class="md-nav__link md-nav__link--active">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Python in full
-
-    
-  </span>
-  
-  
-
-      </a>
-      
-        
-
-
-<nav class="md-nav md-nav--secondary" aria-label="On this page">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      On this page
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#looking-around" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Looking around
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#values" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Values
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#numbers-with-units" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Numbers with units
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#streams-and-sinks" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Streams and sinks
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#errors" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Errors
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#the-console" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        The console
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#log-files" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Log files
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#where-to-go-next" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Where to go next
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -3231,6 +3260,8 @@
       
         
       
+        
+      
     
     
     
@@ -3452,6 +3483,33 @@
     
   
   Optional items
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Errors in depth
 
     
   </span>
@@ -8381,10 +8439,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#looking-around" class="md-nav__link">
+  <a href="#the-bench-supply" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Looking around
+        The bench supply
       </span>
     </span>
   </a>
@@ -8392,10 +8450,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#values" class="md-nav__link">
+  <a href="#three-ways-a-call-fails" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Values
+        Three ways a call fails
       </span>
     </span>
   </a>
@@ -8403,10 +8461,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#numbers-with-units" class="md-nav__link">
+  <a href="#declaring-the-apis-own-errors" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Numbers with units
+        Declaring the API's own errors
       </span>
     </span>
   </a>
@@ -8414,10 +8472,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#streams-and-sinks" class="md-nav__link">
+  <a href="#returning-an-error-from-a-handler" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Streams and sinks
+        Returning an error from a handler
       </span>
     </span>
   </a>
@@ -8425,10 +8483,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#errors" class="md-nav__link">
+  <a href="#handling-errors-on-the-host" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Errors
+        Handling errors on the host
       </span>
     </span>
   </a>
@@ -8436,10 +8494,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#the-console" class="md-nav__link">
+  <a href="#from-the-command-line" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        The console
+        From the command line
       </span>
     </span>
   </a>
@@ -8447,10 +8505,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#log-files" class="md-nav__link">
+  <a href="#from-python" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Log files
+        From Python
       </span>
     </span>
   </a>
@@ -8546,16 +8604,22 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
     
       <li class="md-path__item">
-        <a href="../changing_your_api/" class="md-path__link">
+        <a href="././" class="md-path__link">
           
   
   <span class="md-ellipsis">
-    Keeping it working
+    An instrument
   </span>
 
         </a>
@@ -8594,289 +8658,375 @@
   
 
 
-<h1 id="python-in-full">Python in full<a class="headerlink" href="#python-in-full" title="Permanent link">&para;</a></h1>
-<p>The earlier chapters used Python for a line or two at a time. This chapter goes through the rest of the <code>wire_weaver</code>
-Python module on the thermometer: how to look around a device's API, how values and units look in Python, how to
-read a stream and feed a sink, and where each kind of error comes from. It ends with the interactive console and
-the device's log files.</p>
-<p>The module needs no code generated for your API. It reads the API from the device when it connects, through
-<a aria-describedby="vz-card-term-introspection-f603a6" class="vz-ref vz-term" data-vz-card="vz-card-term-introspection-f603a6" href="/glossary/#term-introspection">introspection</a>, so the same module talks to any WireWeaver device. Every script of this chapter is in
-<code>examples/thermometer_py</code>. Start the simulated thermometer in a terminal of its own, with a room that keeps its
-temperature, so that your output matches the book's:</p>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>cargo<span class="w"> </span>run<span class="w"> </span>-p<span class="w"> </span>thermometer<span class="w"> </span>--example<span class="w"> </span>thermometer_sim<span class="w"> </span>--<span class="w"> </span>--still
+<h1 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h1>
+<p>A lab instrument has to say no. A bench supply must not switch on an output that would push more current into the
+load than its limit allows, and a test script that drives it must learn why it refused. This chapter gives the
+bench supply an error type of its own, returns it from the device, and handles it in Rust, in <code>ww</code> and in Python. It
+also shows the <a aria-describedby="vz-card-term-common-error-bbbb9e" class="vz-ref vz-term" data-vz-card="vz-card-term-common-error-bbbb9e" href="/glossary/#term-common-error">common errors</a> that every item can return without a type of its own.</p>
+<p>The chapter uses the bench supply example in three crates. <code>bench_supply_api</code> holds the API in
+<a aria-describedby="vz-card-file-examples-bench-supply-api-src-lib-rs-7ba48e" class="vz-ref vz-file" data-vz-card="vz-card-file-examples-bench-supply-api-src-lib-rs-7ba48e" href="https://github.com/vhrdtech/wire_weaver/blob/e2c70b344e6312f617b65c87880aa6640800f3ba/examples/bench_supply_api/src/lib.rs"><code>examples/bench_supply_api/src/lib.rs</code></a>, and <code>bench_supply</code> holds the device simulated on your PC, in
+<a aria-describedby="vz-card-file-examples-bench-supply-src-lib-rs-d4a90b" class="vz-ref vz-file" data-vz-card="vz-card-file-examples-bench-supply-src-lib-rs-d4a90b" href="https://github.com/vhrdtech/wire_weaver/blob/e2c70b344e6312f617b65c87880aa6640800f3ba/examples/bench_supply/src/lib.rs"><code>examples/bench_supply/src/lib.rs</code></a>, and the host programs. Start the simulated device in a terminal of its own,
+and leave it running while you read:</p>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>cargo<span class="w"> </span>run<span class="w"> </span>-p<span class="w"> </span>bench_supply<span class="w"> </span>--example<span class="w"> </span>bench_supply_sim
 </span></code></pre></div>
-<p>Then run each script from <code>examples/thermometer_py</code> with <code>uv run python SCRIPT.py</code>. Inside this repository, uv builds
-the module from the checkout; elsewhere, install the <code>wire_weaver</code> wheel from
-<a href="https://github.com/vhrdtech/ww_tools">vhrdtech/ww_tools</a>.</p>
-<h2 id="looking-around">Looking around<a class="headerlink" href="#looking-around" title="Permanent link">&para;</a></h2>
-<p>A connected device prints itself as the tree of its API, with each item's signature and the first line of its doc
-comment. <a aria-describedby="vz-card-file-examples-thermometer-py-explore-py-1ae923" class="vz-ref vz-file" data-vz-card="vz-card-file-examples-thermometer-py-explore-py-1ae923" href="https://github.com/vhrdtech/wire_weaver/blob/812309fc55d186d96c8f3f1f2777e678bbc530fc/examples/thermometer_py/explore.py"><code>examples/thermometer_py/explore.py</code></a> connects to the simulated thermometer and prints it:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">dev</span> <span class="o">=</span> <span class="n">ww</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">websocket_url</span><span class="o">=</span><span class="n">url</span><span class="p">)</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">dev</span><span class="p">)</span>
+<p>It prints <code>bench supply at ws://127.0.0.1:8081/ww</code>, the address the host programs below connect to.</p>
+<h2 id="the-bench-supply">The bench supply<a class="headerlink" href="#the-bench-supply" title="Permanent link">&para;</a></h2>
+<p>The bench supply has two output channels. Its root trait holds an <a aria-describedby="vz-card-term-array-5d90ba" class="vz-ref vz-term" data-vz-card="vz-card-term-array-5d90ba" href="/glossary/#term-array">array</a> of them, as the thermometer holds its
+inputs in <a href="../channels/">Channels</a>:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="sd">/// The bench supply.</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="cp">#[ww_api_root]</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="cp">#[effect(edit)]</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">BenchSupply</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="sd">/// The output channels, 0-based on the wire.</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="cp">#[label(</span><span class="s">&quot;CH1, left terminals&quot;</span><span class="cp">, </span><span class="s">&quot;CH2, right terminals&quot;</span><span class="cp">)]</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="fm">ww_impl!</span><span class="p">(</span><span class="n">channel</span><span class="p">[]:</span><span class="w"> </span><span class="nc">Channel</span><span class="p">);</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="p">}</span>
 </span></code></pre></div>
-<p>Every item is an attribute of the device, and every attribute tells about itself. <code>signature</code> is the item's line of
-the tree, <code>doc</code> its whole doc comment. An array such as <code>channel[]</code> says which indices the device accepts, and an item
-inside it knows its <code>path</code>:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nb">print</span><span class="p">(</span><span class="n">dev</span><span class="o">.</span><span class="n">set_rate</span><span class="o">.</span><span class="n">signature</span><span class="p">)</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">dev</span><span class="o">.</span><span class="n">set_rate</span><span class="o">.</span><span class="n">doc</span><span class="p">)</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">dev</span><span class="o">.</span><span class="n">channel</span><span class="o">.</span><span class="n">valid_indices</span><span class="p">())</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="nb">print</span><span class="p">(</span><span class="n">dev</span><span class="o">.</span><span class="n">channel</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">path</span><span class="p">)</span>
+<p>Each channel has a voltage limit and a current limit, what it measures at its terminals, and a switch for its
+output:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="sd">/// One output channel.</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="cp">#[ww_trait]</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="cp">#[effect(edit)]</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">Channel</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="sd">/// Highest voltage the output may be set to.</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="fm">property!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">voltage_limit</span><span class="p">:</span><span class="w"> </span><span class="nc">Voltage</span><span class="p">);</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="sd">/// Highest current the output may draw; [set_output](Channel::set_output) refuses to turn the output on</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">    </span><span class="sd">/// above it.</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span><span class="fm">property!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">current_limit</span><span class="p">:</span><span class="w"> </span><span class="nc">Current</span><span class="p">);</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">    </span><span class="sd">/// What the channel measures at its output terminals; zero while the output is off.</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">    </span><span class="fm">property!</span><span class="p">(</span><span class="n">ro</span><span class="o">+</span><span class="n">observe</span><span class="w"> </span><span class="n">measured</span><span class="p">:</span><span class="w"> </span><span class="nc">Measurement</span><span class="p">);</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">    </span><span class="sd">/// Turns the output on or off; refuses to turn it on, see [OutputError].</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">    </span><span class="cp">#[effect(actuate)]</span>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">set_output</span><span class="p">(</span><span class="n">on</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">OutputError</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="w">    </span><span class="sd">/// Whether the output is on.</span>
+</span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="w">    </span><span class="fm">property!</span><span class="p">(</span><span class="n">ro</span><span class="o">+</span><span class="n">observe</span><span class="w"> </span><span class="n">output_on</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">);</span>
+</span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="p">}</span>
 </span></code></pre></div>
-<p>The script prints:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>$ python explore.py
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>Thermo
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>  set_rate(rate: Fixed&lt;Hertz, One, u16, Range&lt;1, 1000&gt;&gt;) -&gt; Result&lt;(), RateError&gt;  # Sets how often the device samples while `mode` is `Continuous`. `Busy` while a triggered sample runs.
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>  read_once() -&gt; Sample  # Takes one sample on the first input now, whatever the mode.
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>  rw mode: Mode  # What the sampler does.
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>  rw gain: Fixed&lt;Ratio, One, u8, Range&lt;1, 16&gt;&gt;  # Amplifier gain. Observable: the device lowers it by itself when the input overloads.
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>  stream samples: Sample  # Samples while `mode` is `Continuous`, one per `Command::Trigger` while `Triggered`.
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>  sink commands: Command  # Commands for the sampler, in order.
-</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>  channel[]: Channel  # The inputs, 0-based on the wire. The device says how many it has.
-</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>  indication: Indication  # The status LED.
-</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>set_rate(rate: Fixed&lt;Hertz, One, u16, Range&lt;1, 1000&gt;&gt;) -&gt; Result&lt;(), RateError&gt;
-</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>Sets how often the device samples while `mode` is `Continuous`. `Busy` while a triggered sample runs.
-</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>[0, 1, 2, 3]
-</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>channel[3]
+<p>The simulated device loads each output with a fixed resistor: 10 Ω on the first channel and 2 Ω on the second. With
+the output on, the load draws the voltage limit divided by that resistance. <code>set_output(true)</code> refuses when that
+current is above the current limit.</p>
+<h2 id="three-ways-a-call-fails">Three ways a call fails<a class="headerlink" href="#three-ways-a-call-fails" title="Permanent link">&para;</a></h2>
+<p>A call to a device can fail in three different ways, and a host program has to tell them apart:</p>
+<ul>
+<li><strong>The API's own error.</strong> The handler ran and answered with an error that the API declares, here an
+  <code>OutputError</code> from <code>set_output</code>. A script acts on it: it raises the current limit, or it reports the load as
+  faulty.</li>
+<li><strong>A common error.</strong> The handler ran and refused with one of the errors that every device shares: the device is
+  busy, a resource is in use, the request is not possible in the current state. The bench supply refuses to change
+  a limit while its output is on.</li>
+<li><strong>The call did not go through.</strong> The link dropped or the request timed out. The host doesn't know whether the
+  handler ran.</li>
+</ul>
+<p>The figure follows each kind from the device to the host program.</p>
+<p><img alt="The API's own error travels as the Err of the reply and becomes CallError::Device; a common error travels as an error event and becomes CallError::Common; a call that does not go through becomes CallError::Client; one ? takes all three" src="../../assets/error_flow.svg" /></p>
+<p>The first two travel differently on the wire. The API's own error is part of the method's return value, a normal
+value of its <code>Result</code>. A common error is an error event of the protocol, so it needs no place in the API's types.
+The host's generated code turns all three into one error type, so a script handles them with a single <code>?</code>.</p>
+<h2 id="declaring-the-apis-own-errors">Declaring the API's own errors<a class="headerlink" href="#declaring-the-apis-own-errors" title="Permanent link">&para;</a></h2>
+<p><code>set_output</code> returns <code>Result&lt;(), OutputError&gt;</code>. <code>OutputError</code> is an enum with one variant per reason to refuse:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="sd">/// Why [Channel::set_output] refused to turn the output on.</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="cp">#[derive_shrink_wrap(</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="cp">    borrowed,</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="cp">    owned(feature = </span><span class="s">&quot;std&quot;</span><span class="cp">),</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="cp">    derive(Debug, PartialEq, Clone, Copy),</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="cp">    ww_repr = u4,</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="cp">    display</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="cp">)]</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="k">pub</span><span class="w"> </span><span class="k">enum</span><span class="w"> </span><span class="nc">OutputError</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">    </span><span class="sd">/// `voltage_limit` is still 0 V: nothing to turn on.</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">    </span><span class="n">NoVoltageSet</span><span class="p">,</span>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">    </span><span class="sd">/// At `voltage_limit` the load would draw {would_draw}, above `current_limit`.</span>
+</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="w">    </span><span class="n">OverCurrent</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">would_draw</span><span class="p">:</span><span class="w"> </span><span class="nc">Current</span><span class="w"> </span><span class="p">},</span>
+</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="p">}</span>
 </span></code></pre></div>
-<p><code>dir(dev)</code> lists the same items, so an interactive prompt completes them with Tab.</p>
-<h2 id="values">Values<a class="headerlink" href="#values" title="Permanent link">&para;</a></h2>
-<p>Python holds each value of the API in the closest Python type. A struct is a <code>dict</code> of its fields, an enum variant
-without fields is its name as a string, a list is a <code>list</code>. A number with a unit is a <code>ww.Quantity</code>. The table lists
-the common types:</p>
-<table>
-<thead>
-<tr>
-<th>In the API</th>
-<th>In Python</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>bool</code>, integers, <code>f32</code>, <code>f64</code></td>
-<td><code>bool</code>, <code>int</code>, <code>float</code> (an integer's range is checked)</td>
-</tr>
-<tr>
-<td><code>String</code>, <code>&amp;str</code></td>
-<td><code>str</code></td>
-</tr>
-<tr>
-<td><code>Vec&lt;u8&gt;</code>, <code>[u8; N]</code></td>
-<td><code>bytes</code></td>
-</tr>
-<tr>
-<td><code>Vec&lt;T&gt;</code>, <code>[T; N]</code></td>
-<td><code>list</code></td>
-</tr>
-<tr>
-<td>struct with named fields</td>
-<td><code>dict</code> of its fields</td>
-</tr>
-<tr>
-<td>enum variant without fields</td>
-<td><code>"Variant"</code></td>
-</tr>
-<tr>
-<td>enum variant with fields</td>
-<td><code>{"Variant": fields}</code></td>
-</tr>
-<tr>
-<td><code>Option&lt;T&gt;</code></td>
-<td><code>None</code> or the value</td>
-</tr>
-<tr>
-<td><code>Fixed</code>, <code>Point</code>, <code>ww_si</code> quantities</td>
-<td><code>ww.Quantity</code></td>
-</tr>
-<tr>
-<td><code>Index</code>, <code>IndexFrom1</code>, <code>Seq</code></td>
-<td><code>dict</code> of the number, as a struct</td>
-</tr>
-</tbody>
-</table>
-<p><a aria-describedby="vz-card-file-examples-thermometer-py-values-py-e44f9a" class="vz-ref vz-file" data-vz-card="vz-card-file-examples-thermometer-py-values-py-e44f9a" href="https://github.com/vhrdtech/wire_weaver/blob/812309fc55d186d96c8f3f1f2777e678bbc530fc/examples/thermometer_py/values.py"><code>examples/thermometer_py/values.py</code></a> takes one sample with <code>read_once</code>. The <code>Sample</code> struct comes back as a <code>dict</code>.
-Its sequence number and its input are each a <code>dict</code> of one number:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">sample</span> <span class="o">=</span> <span class="n">dev</span><span class="o">.</span><span class="n">read_once</span><span class="p">()</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">sample</span><span class="p">)</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">sample</span><span class="p">[</span><span class="s2">&quot;seq&quot;</span><span class="p">][</span><span class="s2">&quot;seq&quot;</span><span class="p">],</span> <span class="n">sample</span><span class="p">[</span><span class="s2">&quot;input&quot;</span><span class="p">][</span><span class="s2">&quot;number&quot;</span><span class="p">])</span>
+<p>It is an ordinary type of the <a aria-describedby="vz-card-term-wire-format-36be4a" class="vz-ref vz-term" data-vz-card="vz-card-term-wire-format-36be4a" href="/glossary/#term-wire-format">wire format</a>, with <code>#[derive_shrink_wrap]</code> like any struct or enum in
+<a href="../structs_and_enums/">Structs and enums</a>. <code>ww_repr = u4</code> puts the variant number into four bits, room for 16
+variants. A variant can carry fields: <code>OverCurrent</code> says how much the load would draw.</p>
+<p>The <code>display</code> directive writes the error's message from the doc comment of each variant. It fills <code>{would_draw}</code>
+with the field's value and drops the final period, as Rust error messages go. A host then prints the error without
+a hand-written <code>Display</code>. On the device the message code is never called, and the linker drops it.</p>
+<p>The last line, <code>ww_api::api_error!(OutputError)</code>, lets a handler use <code>OutputError</code> as an error of the API. Write
+one such line for each error enum. Keep one error enum per crate, so that device code shares its helpers and a
+caller converts it in one place.</p>
+<p>An error enum may grow. A later firmware can add a variant that an older host has never heard of. The derive
+therefore adds a variant <code>Unknown(u32)</code> that catches any variant number the reader doesn't know, so the older host
+still decodes the reply. <a href="../../api/errors/#devices-and-hosts-of-different-versions">Errors in depth</a> explains when it
+is added.</p>
+<h2 id="returning-an-error-from-a-handler">Returning an error from a handler<a class="headerlink" href="#returning-an-error-from-a-handler" title="Permanent link">&para;</a></h2>
+<p>A <a aria-describedby="vz-card-term-handler-e57687" class="vz-ref vz-term" data-vz-card="vz-card-term-handler-e57687" href="/glossary/#term-handler">handler</a> of a method that returns <code>Result&lt;T, E&gt;</code> returns <code>Result&lt;T, wire_weaver::Error&lt;'_, E&gt;&gt;</code>. That
+<code>wire_weaver::Error</code> is either <code>Api(e)</code>, an error of the API, or <code>Common(c)</code>, a common error. <code>set_output</code>'s handler
+in the simulated device checks both refusals before it switches the output on:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">channel_set_output</span><span class="p">(</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">    </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="n">_cx</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">Context</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="p">,</span><span class="w"> </span><span class="k">impl</span><span class="w"> </span><span class="n">EventOut</span><span class="o">&gt;</span><span class="p">,</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="n">index_chain</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="n">ww_client_server</span><span class="p">::</span><span class="n">ResourceIndex</span><span class="p">;</span><span class="w"> </span><span class="mi">1</span><span class="p">],</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span><span class="n">on</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">,</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">RpcResult</span><span class="o">&lt;</span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">wire_weaver</span><span class="p">::</span><span class="n">Error</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="p">,</span><span class="w"> </span><span class="n">OutputError</span><span class="o">&gt;&gt;&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">Self</span><span class="p">::</span><span class="n">channel</span><span class="p">(</span><span class="n">index_chain</span><span class="p">);</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="o">!</span><span class="n">on</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">channels</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">output_on</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="p">;</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">channels</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">measured</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Measurement</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">            </span><span class="n">voltage</span><span class="p">:</span><span class="w"> </span><span class="nc">Voltage</span><span class="p">::</span><span class="n">bounded</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="w">            </span><span class="n">current</span><span class="p">:</span><span class="w"> </span><span class="nc">Current</span><span class="p">::</span><span class="n">bounded</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="w">        </span><span class="p">};</span>
+</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">mark_changed_channel_output_on</span><span class="p">(</span><span class="n">index_chain</span><span class="p">);</span>
+</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">mark_changed_channel_measured</span><span class="p">(</span><span class="n">index_chain</span><span class="p">);</span>
+</span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">Ready</span><span class="p">(</span><span class="nb">Ok</span><span class="p">(()));</span>
+</span><span id="__span-4-17"><a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-4-18"><a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">channel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">channels</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
+</span><span id="__span-4-19"><a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="n">channel</span><span class="p">.</span><span class="n">voltage_limit</span><span class="p">.</span><span class="n">get</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-20"><a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">Ready</span><span class="p">(</span><span class="nb">Err</span><span class="p">(</span><span class="n">OutputError</span><span class="p">::</span><span class="n">NoVoltageSet</span><span class="p">.</span><span class="n">into</span><span class="p">()));</span>
+</span><span id="__span-4-21"><a id="__codelineno-4-21" name="__codelineno-4-21" href="#__codelineno-4-21"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-4-22"><a id="__codelineno-4-22" name="__codelineno-4-22" href="#__codelineno-4-22"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">would_draw</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">channel</span><span class="p">.</span><span class="n">would_draw</span><span class="p">(</span><span class="n">LOAD_OHM</span><span class="p">[</span><span class="n">i</span><span class="p">]);</span>
+</span><span id="__span-4-23"><a id="__codelineno-4-23" name="__codelineno-4-23" href="#__codelineno-4-23"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="n">would_draw</span><span class="p">.</span><span class="n">get</span><span class="p">()</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">channel</span><span class="p">.</span><span class="n">current_limit</span><span class="p">.</span><span class="n">get</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-24"><a id="__codelineno-4-24" name="__codelineno-4-24" href="#__codelineno-4-24"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">Ready</span><span class="p">(</span><span class="nb">Err</span><span class="p">(</span><span class="n">OutputError</span><span class="p">::</span><span class="n">OverCurrent</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">would_draw</span><span class="w"> </span><span class="p">}.</span><span class="n">into</span><span class="p">()));</span>
+</span><span id="__span-4-25"><a id="__codelineno-4-25" name="__codelineno-4-25" href="#__codelineno-4-25"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-4-26"><a id="__codelineno-4-26" name="__codelineno-4-26" href="#__codelineno-4-26"></a><span class="w">    </span><span class="bp">self</span><span class="p">.</span><span class="n">channels</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">output_on</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">;</span>
+</span><span id="__span-4-27"><a id="__codelineno-4-27" name="__codelineno-4-27" href="#__codelineno-4-27"></a><span class="w">    </span><span class="bp">self</span><span class="p">.</span><span class="n">channels</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">measured</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Measurement</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-28"><a id="__codelineno-4-28" name="__codelineno-4-28" href="#__codelineno-4-28"></a><span class="w">        </span><span class="n">voltage</span><span class="p">:</span><span class="w"> </span><span class="nc">channel</span><span class="p">.</span><span class="n">voltage_limit</span><span class="p">,</span>
+</span><span id="__span-4-29"><a id="__codelineno-4-29" name="__codelineno-4-29" href="#__codelineno-4-29"></a><span class="w">        </span><span class="n">current</span><span class="p">:</span><span class="w"> </span><span class="nc">would_draw</span><span class="p">,</span>
+</span><span id="__span-4-30"><a id="__codelineno-4-30" name="__codelineno-4-30" href="#__codelineno-4-30"></a><span class="w">    </span><span class="p">};</span>
+</span><span id="__span-4-31"><a id="__codelineno-4-31" name="__codelineno-4-31" href="#__codelineno-4-31"></a><span class="w">    </span><span class="bp">self</span><span class="p">.</span><span class="n">mark_changed_channel_output_on</span><span class="p">(</span><span class="n">index_chain</span><span class="p">);</span>
+</span><span id="__span-4-32"><a id="__codelineno-4-32" name="__codelineno-4-32" href="#__codelineno-4-32"></a><span class="w">    </span><span class="bp">self</span><span class="p">.</span><span class="n">mark_changed_channel_measured</span><span class="p">(</span><span class="n">index_chain</span><span class="p">);</span>
+</span><span id="__span-4-33"><a id="__codelineno-4-33" name="__codelineno-4-33" href="#__codelineno-4-33"></a><span class="w">    </span><span class="n">Ready</span><span class="p">(</span><span class="nb">Ok</span><span class="p">(()))</span>
+</span><span id="__span-4-34"><a id="__codelineno-4-34" name="__codelineno-4-34" href="#__codelineno-4-34"></a><span class="p">}</span>
 </span></code></pre></div>
-<p>The <code>Python</code> column of the table is also what you write. A method's arguments are Python values, positional or by
-name, and a property's <code>write</code> takes one. The module checks each against the API's type before it sends anything.</p>
-<h2 id="numbers-with-units">Numbers with units<a class="headerlink" href="#numbers-with-units" title="Permanent link">&para;</a></h2>
-<p>The sample's temperature is a <code>Point&lt;Celsius, Fixed&lt;Kelvin, Centi, i16&gt;&gt;</code> in the API, and a <code>ww.Quantity</code> in Python.
-A quantity knows its unit, its step and the number it stores:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">temp</span> <span class="o">=</span> <span class="n">sample</span><span class="p">[</span><span class="s2">&quot;temp&quot;</span><span class="p">]</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">temp</span><span class="p">)</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="nb">print</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">temp</span><span class="p">),</span> <span class="n">temp</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">temp</span><span class="o">.</span><span class="n">prefix</span><span class="p">,</span> <span class="n">temp</span><span class="o">.</span><span class="n">origin</span><span class="p">)</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">temp</span><span class="o">.</span><span class="n">to_si</span><span class="p">()</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> K&quot;</span><span class="p">)</span>
+<p><code>OutputError::NoVoltageSet.into()</code> turns the API's error into <code>wire_weaver::Error::Api</code>, through the <code>api_error!</code>
+line. <code>Ready(..)</code> answers the call at once, as in <a href="../methods/">Methods</a>. Turning the output off never fails, and the
+handler tells the observers of <code>output_on</code> and <code>measured</code> that their values changed.</p>
+<p>A common error needs no declaration. The limits' write handlers return one while the output is on:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">set_channel_voltage_limit</span><span class="p">(</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">    </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="n">_cx</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">Context</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="p">,</span><span class="w"> </span><span class="k">impl</span><span class="w"> </span><span class="n">EventOut</span><span class="o">&gt;</span><span class="p">,</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="n">index_chain</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="n">ww_client_server</span><span class="p">::</span><span class="n">ResourceIndex</span><span class="p">;</span><span class="w"> </span><span class="mi">1</span><span class="p">],</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">    </span><span class="n">value</span><span class="p">:</span><span class="w"> </span><span class="nc">Voltage</span><span class="p">,</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">SetResult</span><span class="o">&lt;</span><span class="n">CommonError</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">channel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">channels</span><span class="p">[</span><span class="bp">Self</span><span class="p">::</span><span class="n">channel</span><span class="p">(</span><span class="n">index_chain</span><span class="p">)];</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="n">channel</span><span class="p">.</span><span class="n">output_on</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">SetError</span><span class="p">(</span><span class="n">CommonError</span><span class="p">::</span><span class="n">WrongState</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">            </span><span class="n">reason</span><span class="p">:</span><span class="w"> </span><span class="nc">OUTPUT_IS_ON</span><span class="p">,</span>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">        </span><span class="p">});</span>
+</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="w">    </span><span class="n">channel</span><span class="p">.</span><span class="n">voltage_limit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">value</span><span class="p">;</span>
+</span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="w">    </span><span class="n">Set</span>
+</span><span id="__span-5-15"><a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="p">}</span>
 </span></code></pre></div>
-<p><code>str()</code> shows it as the device means it, in degrees Celsius. <code>float()</code> is the value in that unit. <code>value</code> is the
-stored number, 2150 steps of 0.01 K, and <code>prefix</code> names the step. <code>origin</code> names the zero of a temperature scale, and
-<code>to_si()</code> converts to kelvin.</p>
-<p>To write a number with a unit, build a quantity from text. The module converts it exactly into the type's step and
-storage, or refuses it. A plain number is the stored number, as a Rust client writes it:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">dev</span><span class="o">.</span><span class="n">set_rate</span><span class="p">(</span><span class="n">ww</span><span class="o">.</span><span class="n">Quantity</span><span class="p">(</span><span class="s2">&quot;5 Hz&quot;</span><span class="p">))</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">dev</span><span class="o">.</span><span class="n">set_rate</span><span class="p">(</span><span class="n">ww</span><span class="o">.</span><span class="n">Quantity</span><span class="p">(</span><span class="s2">&quot;0.02 kHz&quot;</span><span class="p">))</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">dev</span><span class="o">.</span><span class="n">set_rate</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="k">for</span> <span class="n">rate</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;5 V&quot;</span><span class="p">,</span> <span class="s2">&quot;5.5 Hz&quot;</span><span class="p">,</span> <span class="s2">&quot;2 kHz&quot;</span><span class="p">]:</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="k">try</span><span class="p">:</span>
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>        <span class="n">dev</span><span class="o">.</span><span class="n">set_rate</span><span class="p">(</span><span class="n">ww</span><span class="o">.</span><span class="n">Quantity</span><span class="p">(</span><span class="n">rate</span><span class="p">))</span>
-</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>    <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;refused:&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+<p><code>SetError(..)</code> refuses a write, as <a href="../properties/#serving-a-property">Properties</a> explains. <code>WrongState</code> is one of
+the nine common errors, and its <code>reason</code> is a string of at most 64 bytes. <a href="../../std_library/ww_error/">Common errors</a>
+lists all nine with their messages. Pick a common error when a caller has nothing specific to do about the case,
+and a variant of the API's own enum when it has.</p>
+<h2 id="handling-errors-on-the-host">Handling errors on the host<a class="headerlink" href="#handling-errors-on-the-host" title="Permanent link">&para;</a></h2>
+<p>The generated <a aria-describedby="vz-card-term-client-2728a9" class="vz-ref vz-term" data-vz-card="vz-card-term-client-2728a9" href="/glossary/#term-client">client</a> answers <code>set_output(..).call()</code> with <code>Result&lt;(), CallError&lt;OutputError&gt;&gt;</code>. A
+[<code>CallError</code>][wire_weaver_client::CallError] holds one of the four outcomes:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="cp">#[derive(Debug)]</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">enum</span><span class="w"> </span><span class="nc">CallError</span><span class="o">&lt;</span><span class="n">E</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="sd">/// The device answered with its error: the `Err(e)` of the method (or of the property write).</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">    </span><span class="n">Device</span><span class="p">(</span><span class="n">E</span><span class="p">),</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">    </span><span class="sd">/// The device (or the hub in front of it) answered with a common error, `ww_error::CommonError`: `Busy`,</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">    </span><span class="sd">/// `InUse`, `Unsupported`, .. (STD-16). Every item can answer with one; for an item without an error type</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">    </span><span class="sd">/// of its own it is [Error::common].</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">    </span><span class="n">Common</span><span class="p">(</span><span class="n">CommonErrorOwned</span><span class="p">),</span>
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="w">    </span><span class="sd">/// The device has no implementation: its handler returned `Unimplemented` (`RpcResult`, `GetResult`,</span>
+</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="w">    </span><span class="sd">/// `SetResult`), or the device&#39;s API doesn&#39;t have it (known locally from introspection, no round trip).</span>
+</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="w">    </span><span class="n">Unimplemented</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="w">        </span><span class="sd">/// Resource name, e.g. `Gpio::set_mode` or `gpio[].set_mode`</span>
+</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="w">        </span><span class="n">resource</span><span class="p">:</span><span class="w"> </span><span class="nb">String</span><span class="p">,</span>
+</span><span id="__span-6-14"><a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="w">    </span><span class="p">},</span>
+</span><span id="__span-6-15"><a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a><span class="w">    </span><span class="sd">/// The call didn&#39;t go through: link, timeout, disconnect, another framework error.</span>
+</span><span id="__span-6-16"><a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a><span class="w">    </span><span class="n">Client</span><span class="p">(</span><span class="n">Error</span><span class="p">),</span>
+</span><span id="__span-6-17"><a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a><span class="p">}</span>
 </span></code></pre></div>
-<p><code>set_rate</code> takes <code>Fixed&lt;Hertz, One, u16, Range&lt;1, 1000&gt;&gt;</code>. 5 Hz and 0.02 kHz both convert exactly, and 10 is ten
-steps of 1 Hz. The three refused values show the three checks: the dimension, the step and the <a aria-describedby="vz-card-term-bounds-8337a2" class="vz-ref vz-term" data-vz-card="vz-card-term-bounds-8337a2" href="/glossary/#term-bounds">bounds</a>.</p>
-<p>An enum property reads and writes its variant by name:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nb">print</span><span class="p">(</span><span class="n">dev</span><span class="o">.</span><span class="n">indication</span><span class="o">.</span><span class="n">mode</span><span class="o">.</span><span class="n">read</span><span class="p">())</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">dev</span><span class="o">.</span><span class="n">indication</span><span class="o">.</span><span class="n">mode</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;OnlyEssential&quot;</span><span class="p">)</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">dev</span><span class="o">.</span><span class="n">indication</span><span class="o">.</span><span class="n">mode</span><span class="o">.</span><span class="n">read</span><span class="p">())</span>
+<p><code>Unimplemented</code> is the fourth case: the device has no code for the item at all. A device built from a scaffold
+answers it until its handlers are written.</p>
+<p>The host program <a aria-describedby="vz-card-file-examples-bench-supply-examples-errors-rs-24e982" class="vz-ref vz-file" data-vz-card="vz-card-file-examples-bench-supply-examples-errors-rs-24e982" href="https://github.com/vhrdtech/wire_weaver/blob/e2c70b344e6312f617b65c87880aa6640800f3ba/examples/bench_supply/examples/errors.rs"><code>examples/bench_supply/examples/errors.rs</code></a> makes the first channel refuse in each way. To act on
+one case, match it. Here the script tells the user what to do when no voltage is set, and passes on every other
+error:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">match</span><span class="w"> </span><span class="n">channel</span><span class="p">.</span><span class="n">set_output</span><span class="p">(</span><span class="kc">true</span><span class="p">).</span><span class="n">call</span><span class="p">().</span><span class="k">await</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">    </span><span class="nb">Ok</span><span class="p">(())</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="fm">writeln!</span><span class="p">(</span><span class="n">out</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;output on&quot;</span><span class="p">)</span><span class="o">?</span><span class="p">,</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">    </span><span class="nb">Err</span><span class="p">(</span><span class="n">CallError</span><span class="p">::</span><span class="n">Device</span><span class="p">(</span><span class="n">OutputError</span><span class="p">::</span><span class="n">NoVoltageSet</span><span class="p">))</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">        </span><span class="fm">writeln!</span><span class="p">(</span><span class="n">out</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;set a voltage first&quot;</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">    </span><span class="nb">Err</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="nb">Err</span><span class="p">(</span><span class="n">e</span><span class="p">.</span><span class="n">into</span><span class="p">()),</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="p">}</span>
 </span></code></pre></div>
-<p>The whole script prints:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>$ python values.py
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>{&#39;seq&#39;: {&#39;seq&#39;: 0}, &#39;input&#39;: {&#39;number&#39;: 1}, &#39;temp&#39;: Quantity(21.5 °C i16)}
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>0 1
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>21.5 °C
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>21.5 2150 Centi Celsius
-</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>294.65 K
-</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>refused: set_rate() argument &#39;rate&#39;: 5 V can&#39;t be written into Fixed&lt;Hertz, One, u16, Range&lt;1, 1000&gt;&gt;: dimension kg·m²·s⁻³·A⁻¹ is not s⁻¹
-</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>refused: set_rate() argument &#39;rate&#39;: 5.5 Hz can&#39;t be written into Fixed&lt;Hertz, One, u16, Range&lt;1, 1000&gt;&gt;: not a whole number of Hz
-</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>refused: set_rate() argument &#39;rate&#39;: 2 kHz can&#39;t be written into Fixed&lt;Hertz, One, u16, Range&lt;1, 1000&gt;&gt;: 2000 is out of 1..=1000
-</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>Normal
-</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>OnlyEssential
+<p>A variant's fields are values like any other. With 30 V on 10 Ω the load would draw 3 A, above the 1 A limit:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">channel</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">    </span><span class="p">.</span><span class="n">write_voltage_limit</span><span class="p">(</span><span class="n">Voltage</span><span class="p">::</span><span class="n">bounded</span><span class="p">(</span><span class="mi">30_000</span><span class="p">))</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">    </span><span class="p">.</span><span class="n">write</span><span class="p">()</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">    </span><span class="p">.</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="n">channel</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">    </span><span class="p">.</span><span class="n">write_current_limit</span><span class="p">(</span><span class="n">Current</span><span class="p">::</span><span class="n">bounded</span><span class="p">(</span><span class="mi">1_000</span><span class="p">))</span>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">    </span><span class="p">.</span><span class="n">write</span><span class="p">()</span>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">    </span><span class="p">.</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="k">if</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="nb">Err</span><span class="p">(</span><span class="n">CallError</span><span class="p">::</span><span class="n">Device</span><span class="p">(</span><span class="n">e</span><span class="p">))</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">channel</span><span class="p">.</span><span class="n">set_output</span><span class="p">(</span><span class="kc">true</span><span class="p">).</span><span class="n">call</span><span class="p">().</span><span class="k">await</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">    </span><span class="fm">writeln!</span><span class="p">(</span><span class="n">out</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;refused: {e}&quot;</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="n">OutputError</span><span class="p">::</span><span class="n">OverCurrent</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">would_draw</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">e</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-8-12"><a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="w">        </span><span class="fm">writeln!</span><span class="p">(</span><span class="n">out</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;would draw: {would_draw}&quot;</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-8-13"><a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-8-14"><a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="p">}</span>
 </span></code></pre></div>
-<h2 id="streams-and-sinks">Streams and sinks<a class="headerlink" href="#streams-and-sinks" title="Permanent link">&para;</a></h2>
-<p>A <a aria-describedby="vz-card-term-stream-7f80be" class="vz-ref vz-term" data-vz-card="vz-card-term-stream-7f80be" href="/glossary/#term-stream">stream</a> carries items from the device, and a <a aria-describedby="vz-card-term-sink-50c49c" class="vz-ref vz-term" data-vz-card="vz-card-term-sink-50c49c" href="/glossary/#term-sink">sink</a> carries items to it. In Python both open with <code>with</code>, which
-also closes them at the end of the block. <a aria-describedby="vz-card-file-examples-thermometer-py-streams-py-6dccc7" class="vz-ref vz-file" data-vz-card="vz-card-file-examples-thermometer-py-streams-py-6dccc7" href="https://github.com/vhrdtech/wire_weaver/blob/812309fc55d186d96c8f3f1f2777e678bbc530fc/examples/thermometer_py/streams.py"><code>examples/thermometer_py/streams.py</code></a> opens the <code>samples</code> stream, starts
-the sampler at 5 Hz and takes four samples with a <code>for</code> loop, one from each enabled input:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="k">with</span> <span class="n">dev</span><span class="o">.</span><span class="n">samples</span> <span class="k">as</span> <span class="n">samples</span><span class="p">:</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>    <span class="n">dev</span><span class="o">.</span><span class="n">set_rate</span><span class="p">(</span><span class="n">ww</span><span class="o">.</span><span class="n">Quantity</span><span class="p">(</span><span class="s2">&quot;5 Hz&quot;</span><span class="p">))</span>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>    <span class="n">dev</span><span class="o">.</span><span class="n">mode</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;Continuous&quot;</span><span class="p">)</span>
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>    <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">4</span><span class="p">),</span> <span class="n">samples</span><span class="p">):</span>
-</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>        <span class="c1"># a Seq and an IndexFrom1 come as a dict of their number</span>
-</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;sample&quot;</span><span class="p">,</span> <span class="n">s</span><span class="p">[</span><span class="s2">&quot;seq&quot;</span><span class="p">][</span><span class="s2">&quot;seq&quot;</span><span class="p">],</span> <span class="s2">&quot;input&quot;</span><span class="p">,</span> <span class="n">s</span><span class="p">[</span><span class="s2">&quot;input&quot;</span><span class="p">][</span><span class="s2">&quot;number&quot;</span><span class="p">],</span> <span class="s2">&quot;in&quot;</span><span class="p">,</span> <span class="n">s</span><span class="p">[</span><span class="s2">&quot;temp&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">symbol</span><span class="p">)</span>
-</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>    <span class="n">dev</span><span class="o">.</span><span class="n">mode</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;Idle&quot;</span><span class="p">)</span>
+<p>A write to a property without an error type of its own returns <code>Result&lt;(), wire_weaver_client::Error&gt;</code>. Its
+<code>common()</code> gives the common error the device refused with, if there was one. <code>CallError</code> has the same <code>common()</code>,
+so generic code handles <code>Busy</code> or <code>Timeout</code> without knowing the API:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">channel</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">    </span><span class="p">.</span><span class="n">write_voltage_limit</span><span class="p">(</span><span class="n">Voltage</span><span class="p">::</span><span class="n">bounded</span><span class="p">(</span><span class="mi">5_000</span><span class="p">))</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">    </span><span class="p">.</span><span class="n">write</span><span class="p">()</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">    </span><span class="p">.</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="n">channel</span><span class="p">.</span><span class="n">set_output</span><span class="p">(</span><span class="kc">true</span><span class="p">).</span><span class="n">call</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="kd">let</span><span class="w"> </span><span class="n">refused</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">channel</span>
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">    </span><span class="p">.</span><span class="n">write_voltage_limit</span><span class="p">(</span><span class="n">Voltage</span><span class="p">::</span><span class="n">bounded</span><span class="p">(</span><span class="mi">6_000</span><span class="p">))</span>
+</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">    </span><span class="p">.</span><span class="n">write</span><span class="p">()</span>
+</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="w">    </span><span class="p">.</span><span class="k">await</span><span class="p">;</span>
+</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="k">if</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="nb">Err</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">refused</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="w">    </span><span class="k">match</span><span class="w"> </span><span class="n">e</span><span class="p">.</span><span class="n">common</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-9-12"><a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a><span class="w">        </span><span class="nb">Some</span><span class="p">(</span><span class="n">common</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="fm">writeln!</span><span class="p">(</span><span class="n">out</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;{}: {common}&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">common</span><span class="p">.</span><span class="n">name</span><span class="p">())</span><span class="o">?</span><span class="p">,</span>
+</span><span id="__span-9-13"><a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a><span class="w">        </span><span class="nb">None</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="nb">Err</span><span class="p">(</span><span class="n">e</span><span class="p">.</span><span class="n">into</span><span class="p">()),</span>
+</span><span id="__span-9-14"><a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-9-15"><a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a><span class="p">}</span>
 </span></code></pre></div>
-<p>A <code>for</code> loop over the open stream receives its items one by one. <code>samples.recv(timeout=2)</code> receives one item and
-raises <code>TimeoutError</code> when none comes within two seconds.</p>
-<p>The <code>commands</code> sink takes the thermometer's <code>Command</code> enum. In <code>Triggered</code> mode, the device takes one sample for each
-<code>Trigger</code>. A <code>Mark</code> sets the next sequence number first:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="k">with</span> <span class="n">dev</span><span class="o">.</span><span class="n">commands</span> <span class="k">as</span> <span class="n">commands</span><span class="p">:</span>
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>    <span class="n">dev</span><span class="o">.</span><span class="n">mode</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;Triggered&quot;</span><span class="p">)</span>
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>    <span class="n">commands</span><span class="o">.</span><span class="n">send</span><span class="p">({</span><span class="s2">&quot;Mark&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;seq&quot;</span><span class="p">:</span> <span class="mi">1000</span><span class="p">}})</span>
-</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>    <span class="n">commands</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="s2">&quot;Trigger&quot;</span><span class="p">)</span>
-</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>    <span class="n">s</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">samples</span><span class="p">)</span>
-</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;triggered: sample&quot;</span><span class="p">,</span> <span class="n">s</span><span class="p">[</span><span class="s2">&quot;seq&quot;</span><span class="p">][</span><span class="s2">&quot;seq&quot;</span><span class="p">],</span> <span class="s2">&quot;input&quot;</span><span class="p">,</span> <span class="n">s</span><span class="p">[</span><span class="s2">&quot;input&quot;</span><span class="p">][</span><span class="s2">&quot;number&quot;</span><span class="p">])</span>
+<p>Most code doesn't match at all. <code>CallError</code> implements <code>std::error::Error</code> with the inner error's message, so <code>?</code>
+passes it to an <code>anyhow</code> or <code>thiserror</code> error like any other. The function <code>switch_on</code> sets up a channel and
+switches it on with one <code>?</code> per call:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="sd">/// Sets `channel` to 3.3 V and 0.5 A and turns its output on.</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">switch_on</span><span class="p">(</span><span class="n">device</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">BenchSupply</span><span class="p">,</span><span class="w"> </span><span class="n">channel</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">()</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">channel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span><span class="p">.</span><span class="n">channel</span><span class="p">(</span><span class="n">channel</span><span class="p">);</span>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">    </span><span class="n">channel</span>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">        </span><span class="p">.</span><span class="n">write_voltage_limit</span><span class="p">(</span><span class="n">Voltage</span><span class="p">::</span><span class="n">bounded</span><span class="p">(</span><span class="mi">3_300</span><span class="p">))</span>
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">        </span><span class="p">.</span><span class="n">write</span><span class="p">()</span>
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="w">        </span><span class="p">.</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="w">    </span><span class="n">channel</span>
+</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="w">        </span><span class="p">.</span><span class="n">write_current_limit</span><span class="p">(</span><span class="n">Current</span><span class="p">::</span><span class="n">bounded</span><span class="p">(</span><span class="mi">500</span><span class="p">))</span>
+</span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="w">        </span><span class="p">.</span><span class="n">write</span><span class="p">()</span>
+</span><span id="__span-10-11"><a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="w">        </span><span class="p">.</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-10-12"><a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="w">    </span><span class="n">channel</span><span class="p">.</span><span class="n">set_output</span><span class="p">(</span><span class="kc">true</span><span class="p">).</span><span class="n">call</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-10-13"><a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a><span class="w">    </span><span class="nb">Ok</span><span class="p">(())</span>
+</span><span id="__span-10-14"><a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a><span class="p">}</span>
 </span></code></pre></div>
-<p>The sink delivers its items in order, so the triggered sample carries the number the <code>Mark</code> set. The script prints:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>$ python streams.py
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>sample 0 input 1 in °C
-</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>sample 1 input 2 in °C
-</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>sample 2 input 3 in °C
-</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>sample 3 input 4 in °C
-</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>triggered: sample 1000 input 1
+<p>On the second channel, 3.3 V on 2 Ω would draw 1.65 A, above the 0.5 A limit. The caller prints the error that <code>?</code>
+passed on:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="k">if</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="nb">Err</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">switch_on</span><span class="p">(</span><span class="n">device</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">).</span><span class="k">await</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">    </span><span class="fm">writeln!</span><span class="p">(</span><span class="n">out</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;error: {e}&quot;</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="p">}</span>
 </span></code></pre></div>
-<h2 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h2>
-<p>An error comes from one of two places: the module refuses a value before it sends anything, or the device refuses a
-request. The module raises <code>TypeError</code> for a value of the wrong kind and <code>ValueError</code> for a value outside its type, as
-<a aria-describedby="vz-card-file-examples-thermometer-py-errors-py-955054" class="vz-ref vz-file" data-vz-card="vz-card-file-examples-thermometer-py-errors-py-955054" href="https://github.com/vhrdtech/wire_weaver/blob/812309fc55d186d96c8f3f1f2777e678bbc530fc/examples/thermometer_py/errors.py"><code>examples/thermometer_py/errors.py</code></a> shows:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="k">for</span> <span class="n">call</span> <span class="ow">in</span> <span class="p">[</span><span class="k">lambda</span><span class="p">:</span> <span class="n">dev</span><span class="o">.</span><span class="n">set_rate</span><span class="p">(</span><span class="s2">&quot;fast&quot;</span><span class="p">),</span> <span class="k">lambda</span><span class="p">:</span> <span class="n">dev</span><span class="o">.</span><span class="n">gain</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="k">lambda</span><span class="p">:</span> <span class="n">dev</span><span class="o">.</span><span class="n">mode</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;Off&quot;</span><span class="p">)]:</span>
-</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>    <span class="k">try</span><span class="p">:</span>
-</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>        <span class="n">call</span><span class="p">()</span>
-</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>    <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>        <span class="nb">print</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+<p>Run the program in a second terminal, while the simulated device runs in the first. It prints one line per refusal:</p>
+<div class="language-console highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="gp">$ </span><span class="nf">cargo</span><span class="w"> </span><span class="nt">run</span><span class="w"> </span><span class="na">-p</span><span class="w"> </span>bench_supply<span class="w"> </span><span class="na">--example</span><span class="w"> </span>bench_supply_errors
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="go">set a voltage first</span>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="go">refused: At `voltage_limit` the load would draw 3000 mA, above `current_limit`</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="go">would draw: 3000 mA</span>
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="go">WrongState: Not possible in the current state: the output is on, turn it off first</span>
+</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="go">error: At `voltage_limit` the load would draw 1650 mA, above `current_limit`</span>
 </span></code></pre></div>
-<p>A request the device refuses raises <code>ww.WireWeaverError</code>. Here the thermometer has no input with index 7:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="k">try</span><span class="p">:</span>
-</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>    <span class="n">dev</span><span class="o">.</span><span class="n">channel</span><span class="p">[</span><span class="mi">7</span><span class="p">]</span><span class="o">.</span><span class="n">enabled</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
-</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="k">except</span> <span class="n">ww</span><span class="o">.</span><span class="n">WireWeaverError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>    <span class="nb">print</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+<p>The messages are the doc comments of <code>OutputError</code> and <code>CommonError</code>, with the fields filled in.</p>
+<h2 id="from-the-command-line">From the command line<a class="headerlink" href="#from-the-command-line" title="Permanent link">&para;</a></h2>
+<p><code>ww call</code> prints a method's <code>Err</code> and a common error as an error. A refused write never changes the value:</p>
+<div class="language-ww highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="gp">$ </span><span class="nf">ww</span> <span class="na">--websocket</span> ws://127.0.0.1:8081/ww <span class="nt">call</span> <span class="s">&#39;channel[0].set_output(true)&#39;</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="gr">Error</span>: &#39;channel[<span class="m">0</span>].set_output&#39; failed: <span class="kc">Err</span>(NoVoltageSet)
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="gp">$ </span><span class="nf">ww</span> <span class="na">--websocket</span> ws://127.0.0.1:8081/ww <span class="nt">call</span> <span class="s">&#39;channel[0].voltage_limit = 5000&#39;</span>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>()
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="gp">$ </span><span class="nf">ww</span> <span class="na">--websocket</span> ws://127.0.0.1:8081/ww <span class="nt">call</span> <span class="s">&#39;channel[0].current_limit = 1000&#39;</span>
+</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>()
+</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="gp">$ </span><span class="nf">ww</span> <span class="na">--websocket</span> ws://127.0.0.1:8081/ww <span class="nt">call</span> <span class="s">&#39;channel[0].set_output(true)&#39;</span>
+</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="kc">Ok</span>(())
+</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="gp">$ </span><span class="nf">ww</span> <span class="na">--websocket</span> ws://127.0.0.1:8081/ww <span class="nt">call</span> <span class="s">&#39;channel[0].voltage_limit = 6000&#39;</span>
+</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="gr">Error</span>: Remote device returned Not possible in the current state: the output is on, turn it off first (common error at item site <span class="m">2</span> (handler))
 </span></code></pre></div>
-<p>The script prints:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>$ python errors.py
-</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>TypeError set_rate() argument &#39;rate&#39;: Fixed&lt;Hertz, One, u16, Range&lt;1, 1000&gt;&gt;: expected a ww.Quantity or a number, got str (ww.Quantity(&quot;fast&quot;) reads text)
-</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>ValueError Fixed&lt;Ratio, One, u8, Range&lt;1, 16&gt;&gt;: -1 is out of range for u8
-</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>ValueError Mode has no variant &#39;Off&#39;, expected one of: Idle, Continuous, Triggered
-</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>WireWeaverError Remote device returned BadIndex at level site 42 (index not valid)
+<p><code>Err(NoVoltageSet)</code> is the variant of the API's own error. The common error comes with its message and the place
+in the device's generated code that sent it: site 2 is the handler.</p>
+<h2 id="from-python">From Python<a class="headerlink" href="#from-python" title="Permanent link">&para;</a></h2>
+<p>The <code>wire_weaver</code> Python module raises <code>ww.RemoteError</code> for both kinds. For the API's own error, the exception's
+<code>value</code> holds the variant, and its message names the method and gives the variant's message:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="k">try</span><span class="p">:</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>    <span class="n">channel</span><span class="o">.</span><span class="n">set_output</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="k">except</span> <span class="n">ww</span><span class="o">.</span><span class="n">RemoteError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;value:&quot;</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;message:&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
 </span></code></pre></div>
-<p>A method whose return type is <code>Result&lt;T, E&gt;</code> returns <code>T</code> when it succeeds. When the device returns an <code>Err</code>, the call
-raises <code>ww.RemoteError</code>, a kind of <code>WireWeaverError</code>, with the error in its <code>value</code> attribute. The bench supply's test
-bench in <a aria-describedby="vz-card-file-examples-bench-supply-py-tests-test-bench-s-ad13da" class="vz-ref vz-file" data-vz-card="vz-card-file-examples-bench-supply-py-tests-test-bench-s-ad13da" href="https://github.com/vhrdtech/wire_weaver/blob/812309fc55d186d96c8f3f1f2777e678bbc530fc/examples/bench_supply_py/tests/test_bench_supply.py"><code>examples/bench_supply_py/tests/test_bench_supply.py</code></a> reads the current that the load would have drawn
-from such an error:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="k">with</span> <span class="n">pytest</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="n">ww</span><span class="o">.</span><span class="n">RemoteError</span><span class="p">)</span> <span class="k">as</span> <span class="n">excinfo</span><span class="p">:</span>
-</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>    <span class="n">dev</span><span class="o">.</span><span class="n">channel</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_output</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="n">would_draw</span> <span class="o">=</span> <span class="n">excinfo</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">value</span><span class="p">[</span><span class="s2">&quot;OverCurrent&quot;</span><span class="p">][</span><span class="s2">&quot;would_draw&quot;</span><span class="p">]</span>
-</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="k">assert</span> <span class="n">would_draw</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="mi">3_000</span>
+<p>A variant with fields is a dictionary, as every enum value is in Python:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="n">channel</span><span class="o">.</span><span class="n">voltage_limit</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="mi">30_000</span><span class="p">)</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="n">channel</span><span class="o">.</span><span class="n">current_limit</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="mi">1_000</span><span class="p">)</span>
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="k">try</span><span class="p">:</span>
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>    <span class="n">channel</span><span class="o">.</span><span class="n">set_output</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="k">except</span> <span class="n">ww</span><span class="o">.</span><span class="n">RemoteError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;would draw:&quot;</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">value</span><span class="p">[</span><span class="s2">&quot;OverCurrent&quot;</span><span class="p">][</span><span class="s2">&quot;would_draw&quot;</span><span class="p">])</span>
 </span></code></pre></div>
-<p>A request without a reply raises <code>TimeoutError</code>. The <code>timeout</code> argument of <code>ww.connect()</code> sets the default in
-seconds, and a property's <code>read(timeout=..)</code> overrides it for one request.</p>
-<h2 id="the-console">The console<a class="headerlink" href="#the-console" title="Permanent link">&para;</a></h2>
-<p>For trying things out, the ww_tools repository has an interactive prompt with the module imported as <code>ww</code> and a USB
-device connected as <code>dev</code>. From a checkout of <a href="https://github.com/vhrdtech/ww_tools">vhrdtech/ww_tools</a>, run:</p>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>just<span class="w"> </span>py<span class="w"> </span>--serial<span class="w"> </span><span class="m">0123</span>
+<p>For a common error, <code>value</code> is <code>None</code> and <code>common</code> holds the variant:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="n">channel</span><span class="o">.</span><span class="n">voltage_limit</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="mi">5_000</span><span class="p">)</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="n">channel</span><span class="o">.</span><span class="n">set_output</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="k">try</span><span class="p">:</span>
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>    <span class="n">channel</span><span class="o">.</span><span class="n">voltage_limit</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="mi">6_000</span><span class="p">)</span>
+</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="k">except</span> <span class="n">ww</span><span class="o">.</span><span class="n">RemoteError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;value:&quot;</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;common:&quot;</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">common</span><span class="p">)</span>
 </span></code></pre></div>
-<p><code>just py --help</code> lists the other ways to pick a device: by its label, its USB vendor and product IDs, its debug probe,
-or the API's source for a device without introspection. With <code>--no-connect</code> the prompt only imports the module, and
-<code>dev = ww.connect(websocket_url="ws://127.0.0.1:8080/ww")</code> reaches the simulated thermometer from there.</p>
-<h2 id="log-files">Log files<a class="headerlink" href="#log-files" title="Permanent link">&para;</a></h2>
-<p>A device that keeps a ring log writes it to a card, a file or flash. The shipped wheel holds the Python API of
-<a href="https://github.com/vhrdtech/logring">logring</a> as <code>wire_weaver.logring</code>: it opens such a log and reads its tracks, for
-example into pandas. The <a href="../../logring/">logring</a> page links to logring's own book, which shows the API.</p>
+<p>The whole script is <a aria-describedby="vz-card-file-examples-bench-supply-py-errors-py-f7bfba" class="vz-ref vz-file" data-vz-card="vz-card-file-examples-bench-supply-py-errors-py-f7bfba" href="https://github.com/vhrdtech/wire_weaver/blob/e2c70b344e6312f617b65c87880aa6640800f3ba/examples/bench_supply_py/errors.py"><code>examples/bench_supply_py/errors.py</code></a>. With the simulated device running, it prints:</p>
+<div class="language-console highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="gp">$ </span><span class="nf">python</span><span class="w"> </span>errors.py
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="go">value: NoVoltageSet</span>
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="go">message: channel[0].set_output() returned an error: `voltage_limit` is still 0 V: nothing to turn on</span>
+</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="go">would draw: 3000 mA</span>
+</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="go">value: None</span>
+</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a><span class="go">common: {&#39;WrongState&#39;: {&#39;reason&#39;: &#39;the output is on, turn it off first&#39;}}</span>
+</span></code></pre></div>
+<p>A call that does not go through raises <code>TimeoutError</code> or <code>ww.WireWeaverError</code> instead, and a value outside a type's
+bounds raises <code>ValueError</code> before anything is sent.</p>
 <h2 id="where-to-go-next">Where to go next<a class="headerlink" href="#where-to-go-next" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="../../python_advanced/">Python: streams, observing, offline</a> covers counted and reliable streams, observing a group
-  of properties, and an API read from its source without a device.</li>
-<li><a href="../../python/">Python</a> lists every argument of <code>ww.connect()</code> and every value conversion.</li>
+<li><a href="../../std_library/ww_error/">Common errors</a> lists the nine errors every device shares, with their messages and
+  their bytes.</li>
+<li><a href="../../api/errors/">Errors in depth</a> covers the rest: the list of errors a method returns, <code>Unsupported</code> against
+  <code>Unimplemented</code>, where on the device a framework error came from, and errors from devices of other versions.</li>
+<li><a href="../effects/">What a call does</a> marks what <code>set_output</code> does to the world, so that tools know to ask first.</li>
 </ul>
-<div class="vz-cards"><div class="vz-card vz-card-term" id="vz-card-term-introspection-f603a6" role="tooltip"><strong>introspection</strong>: The description of a device's API that the device sends on request, so that a tool can call it without knowing the API at build time.</div><div class="vz-card vz-card-file" id="vz-card-file-examples-thermometer-py-explore-py-1ae923" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/wire_weaver/blob/812309fc55d186d96c8f3f1f2777e678bbc530fc/examples/thermometer_py/explore.py">examples/thermometer_py/explore.py</a></div><div class="vz-card-src"><div class="language-python highlight"><pre><span></span><code><span class="sd">&quot;&quot;&quot;Looks around the thermometer&#39;s API from Python: the tree the device describes, one signature, the inputs.</span>
+<div class="vz-cards"><div class="vz-card vz-card-term" id="vz-card-term-common-error-bbbb9e" role="tooltip"><strong>common error</strong>: One of the errors every device shares, such as <code>Busy</code>, <code>InUse</code> or <code>WrongState</code>: any item can return it without an error type of its own.</div><div class="vz-card vz-card-file" id="vz-card-file-examples-bench-supply-api-src-lib-rs-7ba48e" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/wire_weaver/blob/e2c70b344e6312f617b65c87880aa6640800f3ba/examples/bench_supply_api/src/lib.rs">examples/bench_supply_api/src/lib.rs</a></div><div class="vz-card-src"><div class="language-rust highlight"><pre><span></span><code><span class="sd">//! API of the bench supply example device: a lab instrument with independent output channels, each with a</span>
+<span class="sd">//! voltage and current limit, and an output switch that refuses instead of overloading the load (EX-19).</span>
+<span class="sd">//!</span>
+<span class="sd">//! Every number carries its unit, step and bounds in its type: a limit is `Fixed&lt;Volt, Milli, u16, Range&lt;0,</span>
+<span class="sd">//! 30_000&gt;&gt;` or `Fixed&lt;Ampere, Milli, u16, Range&lt;0, 5_000&gt;&gt;`. On the wire each is exactly its integer.</span>
+<span class="cp">#![cfg_attr(not(feature = </span><span class="s">&quot;std&quot;</span><span class="cp">), no_std)]</span>
 
-<span class="sd">Run the simulated device first (`cargo run -p thermometer --example thermometer_sim -- --still`), then</span>
-<span class="sd">`python explore.py`, or `python explore.py ws://ADDRESS:PORT/ww` for another address.</span>
-<span class="sd">&quot;&quot;&quot;</span>
+<span class="k">use</span><span class="w"> </span><span class="n">ww_api</span><span class="p">::</span><span class="n">prelude</span><span class="p">::</span><span class="o">*</span><span class="p">;</span>
+<span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::</span><span class="n">prefix</span><span class="p">::</span><span class="n">Milli</span><span class="p">;</span>
+<span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::</span><span class="n">units</span><span class="p">::{</span><span class="n">Ampere</span><span class="p">,</span><span class="w"> </span><span class="n">Volt</span><span class="p">};</span>
+<span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::{</span><span class="n">Fixed</span><span class="p">,</span><span class="w"> </span><span class="n">Range</span><span class="p">};</span>
 
-<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<span class="sd">/// 0 to 30.000 V in steps of 1 mV.</span>
+<span class="k">pub</span><span class="w"> </span><span class="k">type</span><span class="w"> </span><span class="nc">Voltage</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Fixed</span><span class="o">&lt;</span><span class="n">Volt</span><span class="p">,</span><span class="w"> </span><span class="n">Milli</span><span class="p">,</span><span class="w"> </span><span class="kt">u16</span><span class="p">,</span><span class="w"> </span><span class="n">Range</span><span class="o">&lt;</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">30_000</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+<span class="sd">/// 0 to 5.000 A in steps of 1 mA.</span>
+<span class="k">pub</span><span class="w"> </span><span class="k">type</span><span class="w"> </span><span class="nc">Current</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Fixed</span><span class="o">&lt;</span><span class="n">Ampere</span><span class="p">,</span><span class="w"> </span><span class="n">Milli</span><span class="p">,</span><span class="w"> </span><span class="kt">u16</span><span class="p">,</span><span class="w"> </span><span class="n">Range</span><span class="o">&lt;</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">5_000</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+</code></pre></div></div><div class="vz-card-more">63 more lines in the source</div><div class="vz-card-where">examples/bench_supply_api/src/lib.rs:1-79</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/wire_weaver/blob/e2c70b344e6312f617b65c87880aa6640800f3ba/examples/bench_supply_api/src/lib.rs">File on GitHub</a></div></div><div class="vz-card vz-card-file" id="vz-card-file-examples-bench-supply-src-lib-rs-d4a90b" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/wire_weaver/blob/e2c70b344e6312f617b65c87880aa6640800f3ba/examples/bench_supply/src/lib.rs">examples/bench_supply/src/lib.rs</a></div><div class="vz-card-src"><div class="language-rust highlight"><pre><span></span><code><span class="sd">//! Client of the bench supply example device ([bench_supply_api]), and the device simulated on a PC: [simulated]</span>
+<span class="sd">//! serves it over WebSocket for [BenchSupply] to connect to; `bench_supply_hub_device` (`src/bin/hub_device.rs`)</span>
+<span class="sd">//! hosts the same server and the ww hub in one process, for the pytest bench (EX-19, `examples/bench_supply_py`).</span>
+<span class="sd">//!</span>
+<span class="sd">//! Each channel loads its output with a fixed resistance (`LOAD_OHM`): `set_output(true)` refuses instead of</span>
+<span class="sd">//! letting the load draw more than `current_limit`.</span>
+<span class="sd">//!</span>
+<span class="sd">//! ```text</span>
+<span class="sd">//! terminal 1: cargo run -p bench_supply --example bench_supply_sim</span>
+<span class="sd">//! terminal 2: cargo run -p bench_supply --example bench_supply_bench</span>
+<span class="sd">//! ```</span>
+<span class="k">use</span><span class="w"> </span><span class="n">std</span><span class="p">::</span><span class="n">future</span><span class="p">::</span><span class="n">Future</span><span class="p">;</span>
 
-<span class="kn">import</span><span class="w"> </span><span class="nn">wire_weaver</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ww</span>
+<span class="k">use</span><span class="w"> </span><span class="n">bench_supply_api</span><span class="p">::{</span><span class="n">Current</span><span class="p">,</span><span class="w"> </span><span class="n">Measurement</span><span class="p">,</span><span class="w"> </span><span class="n">OutputError</span><span class="p">,</span><span class="w"> </span><span class="n">Voltage</span><span class="p">};</span>
+<span class="k">use</span><span class="w"> </span><span class="n">embassy_futures</span><span class="p">::</span><span class="n">select</span><span class="p">::{</span><span class="n">Either</span><span class="p">,</span><span class="w"> </span><span class="n">select</span><span class="p">};</span>
+<span class="k">use</span><span class="w"> </span><span class="n">futures_util</span><span class="p">::</span><span class="n">Stream</span><span class="p">;</span>
+</code></pre></div></div><div class="vz-card-more">315 more lines in the source</div><div class="vz-card-where">examples/bench_supply/src/lib.rs:1-331</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/wire_weaver/blob/e2c70b344e6312f617b65c87880aa6640800f3ba/examples/bench_supply/src/lib.rs">File on GitHub</a></div></div><div class="vz-card vz-card-term" id="vz-card-term-array-5d90ba" role="tooltip"><strong>array</strong>: An item of an API trait marked <code>[]</code>, such as <code>channel[]</code>: one resource per index, with the valid indices decided by the device at run time.</div><div class="vz-card vz-card-term" id="vz-card-term-wire-format-36be4a" role="tooltip"><strong>wire format</strong>: The rules that turn a value into bytes and back, so that two programs agree on what the bytes mean.</div><div class="vz-card vz-card-term" id="vz-card-term-handler-e57687" role="tooltip"><strong>handler</strong>: A function of the server that runs when a request for its method or property arrives; its signature follows the <code>ww_codegen!</code> options.</div><div class="vz-card vz-card-term" id="vz-card-term-client-2728a9" role="tooltip"><strong>client</strong>: The host-side code generated from an API trait: a typed function per item, async, blocking or as a promise.</div><div class="vz-card vz-card-file" id="vz-card-file-examples-bench-supply-examples-errors-rs-24e982" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/wire_weaver/blob/e2c70b344e6312f617b65c87880aa6640800f3ba/examples/bench_supply/examples/errors.rs">examples/bench_supply/examples/errors.rs</a></div><div class="vz-card-src"><div class="language-rust highlight"><pre><span></span><code><span class="sd">//! The errors of the bench supply as a host program sees them: the API&#39;s own `OutputError`, a common error the</span>
+<span class="sd">//! device answers a property write with, and one `?` that takes both.</span>
+<span class="sd">//!</span>
+<span class="sd">//! `cargo run -p bench_supply --example bench_supply_errors` against `bench_supply_sim` on this PC, or</span>
+<span class="sd">//! `-- ws://ADDRESS:8081/ww` against another.</span>
 
+<span class="k">use</span><span class="w"> </span><span class="n">std</span><span class="p">::</span><span class="n">io</span><span class="p">::{</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">Write</span><span class="p">};</span>
 
-<span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">(</span><span class="n">url</span><span class="p">):</span>
-    <span class="c1"># --8&lt;-- [start:tree]</span>
-    <span class="n">dev</span> <span class="o">=</span> <span class="n">ww</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">websocket_url</span><span class="o">=</span><span class="n">url</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="n">dev</span><span class="p">)</span>
-    <span class="c1"># --8&lt;-- [end:tree]</span>
-</code></pre></div></div><div class="vz-card-more">13 more lines in the source</div><div class="vz-card-where">examples/thermometer_py/explore.py:1-29</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/wire_weaver/blob/812309fc55d186d96c8f3f1f2777e678bbc530fc/examples/thermometer_py/explore.py">File on GitHub</a></div></div><div class="vz-card vz-card-file" id="vz-card-file-examples-thermometer-py-values-py-e44f9a" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/wire_weaver/blob/812309fc55d186d96c8f3f1f2777e678bbc530fc/examples/thermometer_py/values.py">examples/thermometer_py/values.py</a></div><div class="vz-card-src"><div class="language-python highlight"><pre><span></span><code><span class="sd">&quot;&quot;&quot;Reads and writes the thermometer&#39;s values from Python: a struct, numbers with units, an enum.</span>
+<span class="k">use</span><span class="w"> </span><span class="n">anyhow</span><span class="p">::</span><span class="nb">Result</span><span class="p">;</span>
+<span class="k">use</span><span class="w"> </span><span class="n">bench_supply</span><span class="p">::</span><span class="n">BenchSupply</span><span class="p">;</span>
+<span class="k">use</span><span class="w"> </span><span class="n">bench_supply_api</span><span class="p">::{</span><span class="n">Current</span><span class="p">,</span><span class="w"> </span><span class="n">OutputError</span><span class="p">,</span><span class="w"> </span><span class="n">Voltage</span><span class="p">};</span>
+<span class="k">use</span><span class="w"> </span><span class="n">wire_weaver_client</span><span class="p">::</span><span class="n">CallError</span><span class="p">;</span>
 
-<span class="sd">Run the simulated device first (`cargo run -p thermometer --example thermometer_sim -- --still`), then</span>
-<span class="sd">`python values.py`, or `python values.py ws://ADDRESS:PORT/ww` for another address.</span>
-<span class="sd">&quot;&quot;&quot;</span>
+<span class="cp">#[tokio::main]</span>
+<span class="k">async</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">()</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">url</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="p">::</span><span class="n">env</span><span class="p">::</span><span class="n">args</span><span class="p">()</span>
+</code></pre></div></div><div class="vz-card-more">85 more lines in the source</div><div class="vz-card-where">examples/bench_supply/examples/errors.rs:1-101</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/wire_weaver/blob/e2c70b344e6312f617b65c87880aa6640800f3ba/examples/bench_supply/examples/errors.rs">File on GitHub</a></div></div><div class="vz-card vz-card-file" id="vz-card-file-examples-bench-supply-py-errors-py-f7bfba" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/wire_weaver/blob/e2c70b344e6312f617b65c87880aa6640800f3ba/examples/bench_supply_py/errors.py">examples/bench_supply_py/errors.py</a></div><div class="vz-card-src"><div class="language-python highlight"><pre><span></span><code><span class="sd">&quot;&quot;&quot;The bench supply&#39;s refusals from Python: the API&#39;s own error and a common error, both as `RemoteError`.</span>
 
-<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
-
-<span class="kn">import</span><span class="w"> </span><span class="nn">wire_weaver</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ww</span>
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">(</span><span class="n">url</span><span class="p">):</span>
-    <span class="n">dev</span> <span class="o">=</span> <span class="n">ww</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">websocket_url</span><span class="o">=</span><span class="n">url</span><span class="p">)</span>
-
-    <span class="c1"># --8&lt;-- [start:struct]</span>
-    <span class="n">sample</span> <span class="o">=</span> <span class="n">dev</span><span class="o">.</span><span class="n">read_once</span><span class="p">()</span>
-</code></pre></div></div><div class="vz-card-more">33 more lines in the source</div><div class="vz-card-where">examples/thermometer_py/values.py:1-49</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/wire_weaver/blob/812309fc55d186d96c8f3f1f2777e678bbc530fc/examples/thermometer_py/values.py">File on GitHub</a></div></div><div class="vz-card vz-card-term" id="vz-card-term-bounds-8337a2" role="tooltip"><strong>bounds</strong>: The smallest and largest value a number's type accepts, such as <code>Range&lt;1, 16&gt;</code>; checked whenever a value is built or decoded.</div><div class="vz-card vz-card-file" id="vz-card-file-examples-thermometer-py-streams-py-6dccc7" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/wire_weaver/blob/812309fc55d186d96c8f3f1f2777e678bbc530fc/examples/thermometer_py/streams.py">examples/thermometer_py/streams.py</a></div><div class="vz-card-src"><div class="language-python highlight"><pre><span></span><code><span class="sd">&quot;&quot;&quot;Streams the thermometer&#39;s samples into Python and sends it commands.</span>
-
-<span class="sd">Run the simulated device first (`cargo run -p thermometer --example thermometer_sim`), then</span>
-<span class="sd">`python streams.py`, or `python streams.py ws://ADDRESS:PORT/ww` for another address.</span>
-<span class="sd">&quot;&quot;&quot;</span>
-
-<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
-
-<span class="kn">import</span><span class="w"> </span><span class="nn">wire_weaver</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ww</span>
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">(</span><span class="n">url</span><span class="p">):</span>
-    <span class="n">dev</span> <span class="o">=</span> <span class="n">ww</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">websocket_url</span><span class="o">=</span><span class="n">url</span><span class="p">)</span>
-
-    <span class="c1"># --8&lt;-- [start:stream]</span>
-    <span class="k">with</span> <span class="n">dev</span><span class="o">.</span><span class="n">samples</span> <span class="k">as</span> <span class="n">samples</span><span class="p">:</span>
-</code></pre></div></div><div class="vz-card-more">23 more lines in the source</div><div class="vz-card-where">examples/thermometer_py/streams.py:1-39</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/wire_weaver/blob/812309fc55d186d96c8f3f1f2777e678bbc530fc/examples/thermometer_py/streams.py">File on GitHub</a></div></div><div class="vz-card vz-card-term" id="vz-card-term-stream-7f80be" role="tooltip"><strong>stream</strong>: An item of an API trait that carries a flow of data from the device to the host.</div><div class="vz-card vz-card-term" id="vz-card-term-sink-50c49c" role="tooltip"><strong>sink</strong>: An item of an API trait that carries a flow of data from the host into the device.</div><div class="vz-card vz-card-file" id="vz-card-file-examples-thermometer-py-errors-py-955054" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/wire_weaver/blob/812309fc55d186d96c8f3f1f2777e678bbc530fc/examples/thermometer_py/errors.py">examples/thermometer_py/errors.py</a></div><div class="vz-card-src"><div class="language-python highlight"><pre><span></span><code><span class="sd">&quot;&quot;&quot;What goes wrong from Python, and where: values Python refuses itself, and requests the device refuses.</span>
-
-<span class="sd">Run the simulated device first (`cargo run -p thermometer --example thermometer_sim -- --still`), then</span>
+<span class="sd">Run the simulated device first (`cargo run -p bench_supply --example bench_supply_sim`), then</span>
 <span class="sd">`python errors.py`, or `python errors.py ws://ADDRESS:PORT/ww` for another address.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
@@ -8887,25 +9037,10 @@ example into pandas. The <a href="../../logring/">logring</a> page links to logr
 
 <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">(</span><span class="n">url</span><span class="p">):</span>
     <span class="n">dev</span> <span class="o">=</span> <span class="n">ww</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">websocket_url</span><span class="o">=</span><span class="n">url</span><span class="p">)</span>
+    <span class="n">channel</span> <span class="o">=</span> <span class="n">dev</span><span class="o">.</span><span class="n">channel</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 
-    <span class="c1"># --8&lt;-- [start:local]</span>
-    <span class="k">for</span> <span class="n">call</span> <span class="ow">in</span> <span class="p">[</span><span class="k">lambda</span><span class="p">:</span> <span class="n">dev</span><span class="o">.</span><span class="n">set_rate</span><span class="p">(</span><span class="s2">&quot;fast&quot;</span><span class="p">),</span> <span class="k">lambda</span><span class="p">:</span> <span class="n">dev</span><span class="o">.</span><span class="n">gain</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="k">lambda</span><span class="p">:</span> <span class="n">dev</span><span class="o">.</span><span class="n">mode</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;Off&quot;</span><span class="p">)]:</span>
-</code></pre></div></div><div class="vz-card-more">18 more lines in the source</div><div class="vz-card-where">examples/thermometer_py/errors.py:1-34</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/wire_weaver/blob/812309fc55d186d96c8f3f1f2777e678bbc530fc/examples/thermometer_py/errors.py">File on GitHub</a></div></div><div class="vz-card vz-card-file" id="vz-card-file-examples-bench-supply-py-tests-test-bench-s-ad13da" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/wire_weaver/blob/812309fc55d186d96c8f3f1f2777e678bbc530fc/examples/bench_supply_py/tests/test_bench_supply.py">examples/bench_supply_py/tests/test_bench_supply.py</a></div><div class="vz-card-src"><div class="language-python highlight"><pre><span></span><code><span class="sd">&quot;&quot;&quot;The bench supply example&#39;s pytest bench (EX-19): drives the simulated device like a lab test script would,</span>
-<span class="sd">through the ww hub, with no real hardware (TOOL-18, SRV-29, same pattern as `tests/hub_pytest_device`).</span>
-
-<span class="sd">`bench_supply_hub_device` (`examples/bench_supply/src/bin/hub_device.rs`) hosts the ww hub and an in-process</span>
-<span class="sd">bench supply in one binary; this file&#39;s `hub_device` fixture starts it with a private `WW_RUNTIME_DIR`, so every</span>
-<span class="sd">test connects with `ww.connect(hub_device=DEVICE_KEY)` and never starts a hub of its own.</span>
-<span class="sd">&quot;&quot;&quot;</span>
-
-<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-
-<span class="kn">import</span><span class="w"> </span><span class="nn">pytest</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">wire_weaver</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ww</span>
-</code></pre></div></div><div class="vz-card-more">90 more lines in the source</div><div class="vz-card-where">examples/bench_supply_py/tests/test_bench_supply.py:1-106</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/wire_weaver/blob/812309fc55d186d96c8f3f1f2777e678bbc530fc/examples/bench_supply_py/tests/test_bench_supply.py">File on GitHub</a></div></div></div>
+    <span class="c1"># --8&lt;-- [start:own]</span>
+</code></pre></div></div><div class="vz-card-more">32 more lines in the source</div><div class="vz-card-where">examples/bench_supply_py/errors.py:1-48</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/wire_weaver/blob/e2c70b344e6312f617b65c87880aa6640800f3ba/examples/bench_supply_py/errors.py">File on GitHub</a></div></div></div>
 
 
 
@@ -8949,7 +9084,7 @@ example into pandas. The <a href="../../logring/">logring</a> page links to logr
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../your_own_project/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Your own project">
+          <a href="../channels/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Channels">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
@@ -8959,20 +9094,20 @@ example into pandas. The <a href="../../logring/">logring</a> page links to logr
                 Previous
               </span>
               <div class="md-ellipsis">
-                Your own project
+                Channels
               </div>
             </div>
           </a>
         
         
           
-          <a href="../../advanced/" class="md-footer__link md-footer__link--next" aria-label="Next: Advanced">
+          <a href="../../std_library/ww_error/" class="md-footer__link md-footer__link--next" aria-label="Next: Common errors">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Advanced
+                Common errors
               </div>
             </div>
             <div class="md-footer__button md-icon">
@@ -8998,7 +9133,7 @@ example into pandas. The <a href="../../logring/">logring</a> page links to logr
       Zensical
     </a>
   
-  <div class="book-stamp" data-built="1795679067">wire_weaver 0.6.0 · 812309f · built 2026-11-26 07:44 UTC (<span class="book-stamp-age">just built</span>)</div>
+  <div class="book-stamp" data-built="1795679450">wire_weaver 0.6.0 · e2c70b3 · built 2026-11-26 07:50 UTC (<span class="book-stamp-age">just built</span>)</div>
 </div>
       
         

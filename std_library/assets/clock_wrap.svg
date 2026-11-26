@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="340" viewBox="0 0 720 340" font-family="Helvetica, Arial, sans-serif" font-size="13">
+  <title>A device clock wraps, the host unwraps it</title>
+  <desc>A 32-bit microsecond clock counts up to 4294967295 and starts again at 0 every 71.6 minutes. The host reads each timestamp as the full time closest to the previous one, so its line keeps rising.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#222"/>
+    </marker>
+    <marker id="arrow-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#b03a2e"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="720" height="340" rx="10" fill="#ffffff"/>
+  <line x1="70" y1="300" x2="680" y2="300" stroke="#222" marker-end="url(#arrow)"/>
+  <line x1="70" y1="300" x2="70" y2="210" stroke="#222" marker-end="url(#arrow)"/>
+  <text x="680" y="320" text-anchor="end" fill="#222" font-size="12">time</text>
+  <text x="62" y="206" text-anchor="start" fill="#222" font-size="12">clock value</text>
+  <text x="62" y="234" text-anchor="end" fill="#222" font-size="12">2³²</text>
+  <text x="62" y="304" text-anchor="end" fill="#222" font-size="12">0</text>
+  <polyline points="70,300 270,230" fill="none" stroke="#222" stroke-width="2"/>
+  <polyline points="270,300 470,230" fill="none" stroke="#222" stroke-width="2"/>
+  <polyline points="470,300 670,230" fill="none" stroke="#222" stroke-width="2"/>
+  <line x1="270" y1="230" x2="270" y2="300" stroke="#999" stroke-dasharray="6 4"/>
+  <line x1="470" y1="230" x2="470" y2="300" stroke="#999" stroke-dasharray="6 4"/>
+  <line x1="70" y1="300" x2="670" y2="90" stroke="#b03a2e" stroke-dasharray="6 4"/>
+  <text x="276" y="222" text-anchor="start" fill="#222" font-size="12">wraps after 71.6 min</text>
+  <text x="400" y="146.0" text-anchor="start" fill="#b03a2e" font-weight="bold" font-size="12">host: the full time keeps rising</text>
+  <text x="130" y="290" text-anchor="start" fill="#222" font-weight="bold" font-size="12">device: 32 bits</text>
+</svg>

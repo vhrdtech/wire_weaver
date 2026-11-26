@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="330" viewBox="0 0 720 330" font-family="Helvetica, Arial, sans-serif" font-size="13">
+  <title>What a lost UDP datagram costs</title>
+  <desc>Two lanes, the host and the device. A request that is lost makes the call time out on the host. An event of a stream that is lost is gone, and the next event arrives as usual.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#222"/></marker>
+    <marker id="arrow-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#b03a2e"/></marker>
+  </defs>
+  <rect x="0" y="0" width="720" height="330" rx="10" fill="#ffffff"/>
+  <rect x="100" y="15" width="160" height="32" rx="6" fill="#eef2f7" stroke="#222"/>
+  <text x="180.0" y="36.0" text-anchor="middle" fill="#222" font-weight="bold">Host program</text>
+  <rect x="460" y="15" width="160" height="32" rx="6" fill="#eef2f7" stroke="#222"/>
+  <text x="540.0" y="36.0" text-anchor="middle" fill="#222" font-weight="bold">Device</text>
+  <g stroke="#999" stroke-dasharray="4 4"><line x1="180" y1="47" x2="180" y2="310"/><line x1="540" y1="47" x2="540" y2="310"/></g>
+  <text x="20" y="82" fill="#222" font-weight="bold" font-size="12">A request is lost</text>
+  <line x1="180" y1="100" x2="350" y2="100" stroke="#b03a2e" marker-end="url(#arrow-red)"/>
+  <line x1="351" y1="91" x2="369" y2="109" stroke="#b03a2e" stroke-width="3"/>
+  <line x1="351" y1="109" x2="369" y2="91" stroke="#b03a2e" stroke-width="3"/>
+  <text x="270" y="94" fill="#222" text-anchor="middle" font-size="12">request</text>
+  <text x="200" y="128" fill="#b03a2e" font-size="12">no reply: the call fails with a timeout</text>
+  <text x="20" y="172" fill="#222" font-weight="bold" font-size="12">A stream event is lost</text>
+  <line x1="540" y1="192" x2="190" y2="192" stroke="#222" marker-end="url(#arrow)"/>
+  <text x="365" y="186" fill="#222" text-anchor="middle" font-size="12">event 1</text>
+  <line x1="540" y1="220" x2="400" y2="220" stroke="#b03a2e" marker-end="url(#arrow-red)"/>
+  <line x1="381" y1="211" x2="399" y2="229" stroke="#b03a2e" stroke-width="3"/>
+  <line x1="381" y1="229" x2="399" y2="211" stroke="#b03a2e" stroke-width="3"/>
+  <text x="470" y="214" fill="#222" text-anchor="middle" font-size="12">event 2</text>
+  <line x1="540" y1="248" x2="190" y2="248" stroke="#222" marker-end="url(#arrow)"/>
+  <text x="365" y="242" fill="#222" text-anchor="middle" font-size="12">event 3</text>
+  <text x="200" y="282" fill="#b03a2e" font-size="12">the host sees events 1 and 3: nothing resends event 2</text>
+</svg>

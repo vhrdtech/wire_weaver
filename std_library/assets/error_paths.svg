@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="300" viewBox="0 0 720 300" font-family="Helvetica, Arial, sans-serif" font-size="13">
+  <title>Two kinds of error from one handler</title>
+  <desc>A handler returns either the API's own error or a common error. The API's own error is the Err of the method's result and reaches the host as CallError::Device. A common error is an error event of the protocol and reaches the host as CallError::Common.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#222"/>
+    </marker>
+    <marker id="arrow-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#b03a2e"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="720" height="300" rx="10" fill="#ffffff"/>
+  <rect x="30" y="20" width="150" height="32" rx="6" fill="#eef2f7" stroke="#222"/>
+  <text x="105.0" y="40.5" text-anchor="middle" fill="#222" font-weight="bold">Handler</text>
+  <rect x="285" y="20" width="150" height="32" rx="6" fill="#eef2f7" stroke="#222"/>
+  <text x="360.0" y="40.5" text-anchor="middle" fill="#222" font-weight="bold">On the wire</text>
+  <rect x="540" y="20" width="150" height="32" rx="6" fill="#eef2f7" stroke="#222"/>
+  <text x="615.0" y="40.5" text-anchor="middle" fill="#222" font-weight="bold">Host program</text>
+  <rect x="30" y="90" width="170" height="52" rx="6" fill="#fbf1d5" stroke="#222"/>
+  <text x="115.0" y="112.5" text-anchor="middle" fill="#222" font-size="12">Err(SensorError::Nack)</text>
+  <text x="115.0" y="128.5" text-anchor="middle" fill="#222" font-size="12">the API's own error</text>
+  <rect x="270" y="90" width="180" height="52" rx="6" fill="#e6f2e6" stroke="#222"/>
+  <text x="360.0" y="112.5" text-anchor="middle" fill="#222" font-size="12">the method's reply:</text>
+  <text x="360.0" y="128.5" text-anchor="middle" fill="#222" font-size="12">an Err inside the value</text>
+  <rect x="520" y="90" width="170" height="52" rx="6" fill="#fbf1d5" stroke="#222"/>
+  <text x="605.0" y="120.5" text-anchor="middle" fill="#222" font-size="12">CallError::Device(e)</text>
+  <line x1="202" y1="116" x2="268" y2="116" stroke="#222" marker-end="url(#arrow)"/>
+  <line x1="452" y1="116" x2="518" y2="116" stroke="#222" marker-end="url(#arrow)"/>
+  <rect x="30" y="190" width="170" height="52" rx="6" fill="#f6e3e0" stroke="#222"/>
+  <text x="115.0" y="212.5" text-anchor="middle" fill="#222" font-size="12">CommonError::Busy</text>
+  <text x="115.0" y="228.5" text-anchor="middle" fill="#222" font-size="12">a common error</text>
+  <rect x="270" y="190" width="180" height="52" rx="6" fill="#e6f2e6" stroke="#222"/>
+  <text x="360.0" y="212.5" text-anchor="middle" fill="#222" font-size="12">an error event</text>
+  <text x="360.0" y="228.5" text-anchor="middle" fill="#222" font-size="12">of the protocol</text>
+  <rect x="520" y="190" width="170" height="52" rx="6" fill="#f6e3e0" stroke="#222"/>
+  <text x="605.0" y="220.5" text-anchor="middle" fill="#222" font-size="12">CallError::Common(e)</text>
+  <line x1="202" y1="216" x2="268" y2="216" stroke="#222" marker-end="url(#arrow)"/>
+  <line x1="452" y1="216" x2="518" y2="216" stroke="#222" marker-end="url(#arrow)"/>
+  <text x="360" y="276" text-anchor="middle" fill="#222" font-size="12">e.common() on either gives the common error, if there is one.</text>
+</svg>

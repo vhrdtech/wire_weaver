@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="250" viewBox="0 0 720 250" font-family="Helvetica, Arial, sans-serif" font-size="13">
+  <title>Fixed and Quantity: what is in the type and what is on the wire</title>
+  <desc>Two rows. Fixed&lt;Second, Micro, u32&gt; holds the unit, step, storage and bounds in its type and sends the four bytes of the number: dc 05 00 00. Quantity&lt;Second&gt; holds only the unit in its type and sends a byte for the prefix and number type, 23, then the same four bytes.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#222"/>
+    </marker>
+    <marker id="arrow-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#b03a2e"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="720" height="250" rx="10" fill="#ffffff"/>
+  <text x="20" y="28" text-anchor="start" fill="#222" font-weight="bold">In the type</text>
+  <text x="430" y="28" text-anchor="start" fill="#222" font-weight="bold">On the wire</text>
+  <text x="20" y="62" text-anchor="start" fill="#222" font-weight="bold" font-size="12">Fixed&lt;Second, Micro, u32&gt;</text>
+  <rect x="20" y="74" width="78" height="44" rx="6" fill="#eef2f7" stroke="#222"/>
+  <text x="59.0" y="92.5" text-anchor="middle" fill="#222" font-size="12">unit</text>
+  <text x="59.0" y="108.5" text-anchor="middle" fill="#222" font-size="12">Second</text>
+  <rect x="104" y="74" width="78" height="44" rx="6" fill="#eef2f7" stroke="#222"/>
+  <text x="143.0" y="92.5" text-anchor="middle" fill="#222" font-size="12">step</text>
+  <text x="143.0" y="108.5" text-anchor="middle" fill="#222" font-size="12">µs</text>
+  <rect x="188" y="74" width="78" height="44" rx="6" fill="#eef2f7" stroke="#222"/>
+  <text x="227.0" y="92.5" text-anchor="middle" fill="#222" font-size="12">storage</text>
+  <text x="227.0" y="108.5" text-anchor="middle" fill="#222" font-size="12">u32</text>
+  <rect x="272" y="74" width="78" height="44" rx="6" fill="#eef2f7" stroke="#222"/>
+  <text x="311.0" y="92.5" text-anchor="middle" fill="#222" font-size="12">bounds</text>
+  <text x="311.0" y="108.5" text-anchor="middle" fill="#222" font-size="12">none</text>
+  <line x1="358" y1="96" x2="428" y2="96" stroke="#222" marker-end="url(#arrow)"/>
+  <rect x="440" y="81" width="44" height="30" rx="6" fill="#e6f2e6" stroke="#222"/>
+  <text x="462.0" y="100.5" text-anchor="middle" fill="#222" font-size="14">dc</text>
+  <rect x="484" y="81" width="44" height="30" rx="6" fill="#e6f2e6" stroke="#222"/>
+  <text x="506.0" y="100.5" text-anchor="middle" fill="#222" font-size="14">05</text>
+  <rect x="528" y="81" width="44" height="30" rx="6" fill="#e6f2e6" stroke="#222"/>
+  <text x="550.0" y="100.5" text-anchor="middle" fill="#222" font-size="14">00</text>
+  <rect x="572" y="81" width="44" height="30" rx="6" fill="#e6f2e6" stroke="#222"/>
+  <text x="594.0" y="100.5" text-anchor="middle" fill="#222" font-size="14">00</text>
+  <text x="440" y="128" text-anchor="start" fill="#222" font-size="12">1500 µs: the number alone</text>
+  <text x="20" y="162" text-anchor="start" fill="#222" font-weight="bold" font-size="12">Quantity&lt;Second&gt;</text>
+  <rect x="20" y="174" width="78" height="44" rx="6" fill="#eef2f7" stroke="#222"/>
+  <text x="59.0" y="192.5" text-anchor="middle" fill="#222" font-size="12">unit</text>
+  <text x="59.0" y="208.5" text-anchor="middle" fill="#222" font-size="12">Second</text>
+  <text x="106" y="200" text-anchor="start" fill="#222" font-size="12">prefix and storage travel with each value</text>
+  <line x1="358" y1="196" x2="428" y2="196" stroke="#222" marker-end="url(#arrow)"/>
+  <rect x="440" y="181" width="44" height="30" rx="6" fill="#fbf1d5" stroke="#222"/>
+  <text x="462.0" y="200.5" text-anchor="middle" fill="#222" font-size="14">23</text>
+  <rect x="484" y="181" width="44" height="30" rx="6" fill="#e6f2e6" stroke="#222"/>
+  <text x="506.0" y="200.5" text-anchor="middle" fill="#222" font-size="14">dc</text>
+  <rect x="528" y="181" width="44" height="30" rx="6" fill="#e6f2e6" stroke="#222"/>
+  <text x="550.0" y="200.5" text-anchor="middle" fill="#222" font-size="14">05</text>
+  <rect x="572" y="181" width="44" height="30" rx="6" fill="#e6f2e6" stroke="#222"/>
+  <text x="594.0" y="200.5" text-anchor="middle" fill="#222" font-size="14">00</text>
+  <rect x="616" y="181" width="44" height="30" rx="6" fill="#e6f2e6" stroke="#222"/>
+  <text x="638.0" y="200.5" text-anchor="middle" fill="#222" font-size="14">00</text>
+  <text x="440" y="228" text-anchor="start" fill="#222" font-size="12">prefix µ and storage u32, then the number</text>
+</svg>

@@ -90,7 +90,7 @@ pub trait I2cMonitor {
 }
 ```
 
-[`ww_error`](../std_library/ww_error.md#which-errors-a-method-returns) walks through the `CommonError(..)` entry
+[`ww_error`](../std_library/errors_lists.md#which-errors-a-method-returns) walks through the `CommonError(..)` entry
 and real examples from `ww_stdlib`.
 
 ### Messages from doc comments

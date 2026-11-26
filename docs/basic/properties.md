@@ -9,8 +9,9 @@ A [[property]] is a value of a device that a host reads, writes or both. The the
 them on the device, and reads and writes them from Rust, from the command line and from Python. It also shows how a
 property's type refuses a bad value before your code ever sees it.
 
-The chapter uses the thermometer example: `thermometer_api` holds the API, `thermometer_device` the device code, and
-`thermometer` the host program and a device simulated on your PC. Start the simulated device in a terminal of its
+The chapter uses the thermometer example in three crates. `thermometer_api` holds the API in
+[`examples/thermometer_api/src/lib.rs`], `thermometer_device` the device code in
+[`examples/thermometer_device/src/lib.rs`], and `thermometer` the host programs and a device simulated on your PC. Start the simulated device in a terminal of its
 own, and leave it running while you read:
 
 ```sh
@@ -22,7 +23,7 @@ It prints `thermometer at ws://127.0.0.1:8080/ww`, the address the host programs
 ## Declaring a property
 
 A property is one line of an [[API trait]]: `property!(ACCESS name: Type)`. The access says what a host may do with
-the value. Here is the thermometer's root trait, with `mode` and `gain` in the middle:
+the value. Here is the thermometer's root trait, `Thermo`, with `mode` and `gain` in the middle:
 
 ```rust
 --8<-- "examples/thermometer_api/src/lib.rs:root"
@@ -30,7 +31,7 @@ the value. Here is the thermometer's root trait, with `mode` and `gain` in the m
 
 The access is one of three keywords. `rw` lets a host read and write the value, `ro` lets it only read, and `wo` lets
 it only write. Both of the thermometer's properties are `rw`. The `+observe` after `gain`'s access lets a host
-[[observe]] the value instead of reading it again and again, as [Observing properties](../api/observing.md)
+[[observe]] the value instead of reading it again and again, as [Watching a value](observing.md)
 explains.
 
 | Access | A host can                | Typical use                                      |
@@ -51,7 +52,7 @@ and every variant is a state the sampler can be in:
 --8<-- "examples/thermometer_api/src/lib.rs:mode"
 ```
 
-`gain` is a number from 1 to 16. Its type says so, and the API crate names that type `Gain`:
+`gain` is a number from 1 to 16. Its type says so, and the API crate names that type [`Gain`]:
 
 ```rust
 --8<-- "examples/thermometer_api/src/lib.rs:gain"
@@ -59,8 +60,8 @@ and every variant is a state the sampler can be in:
 
 `Fixed<Ratio, One, u8, Range<1, 16>>` is a `u8` on the wire, one byte, with its meaning in the type. `Ratio` and `One`
 say that the number has no unit and counts in steps of one. `Range<1, 16>` gives its [[bounds]]: the smallest and
-the largest value the device accepts, both included. Numbers with units and steps are the subject of
-[Numbers that know their unit](../std_library/ww_si.md); this chapter needs only the bounds.
+the largest value the device accepts, both included, as [Numbers that know their unit](units.md) explains for the
+thermometer's rate.
 
 Bounds are checked every time a value is built or decoded. A value outside them can't be made in Rust, and the
 device refuses one that arrives from the wire before your code runs. [The figure](#a-read-a-write-and-a-refused-write)
@@ -82,8 +83,8 @@ The handlers of `mode` keep the value in the device's state and start or stop th
 --8<-- "examples/thermometer_device/src/lib.rs:mode"
 ```
 
-A read handler returns a `GetResult`. `GetResult::Value(v)` answers the read with `v`, and `GetResult::GetError(e)`
-answers it with an error. A write handler gets the new value and returns a `SetResult`: `SetResult::Set` confirms
+A read handler returns a [`GetResult`]. `GetResult::Value(v)` answers the read with `v`, and `GetResult::GetError(e)`
+answers it with an error. A write handler gets the new value and returns a [`SetResult`]: `SetResult::Set` confirms
 the write, and `SetResult::SetError(e)` refuses it. The `Mode::Unknown(_)` arm is a variant that a newer host knows
 and this firmware doesn't; the sampler then stops.
 
@@ -109,12 +110,12 @@ request, then calls the handler with the value.
 
 Step 3 only happens when the bytes come from a program that doesn't know the bounds, such as a tool written for
 another firmware. The clients WireWeaver generates know them, so they refuse 20 before anything is sent. The test
-`the_device_refuses_a_gain_out_of_bounds` in `examples/thermometer/tests/it/book.rs` writes the bytes of 20 by hand
-to check step 3.
+`the_device_refuses_a_gain_out_of_bounds` in [`examples/thermometer/tests/it/book.rs:gain_bounds`] writes the bytes
+of 20 by hand to check step 3.
 
 ## Reading and writing from Rust
 
-The host program in `examples/thermometer/examples/read.rs` holds a generated [[client]] of the API. For every
+The host program in [`examples/thermometer/examples/read.rs`] holds a generated [[client]] of the API. For every
 property it has `read_NAME()` and, when the access allows, `write_NAME(value)`. Each call is prepared first and then
 sent, here with `.await`:
 
@@ -132,8 +133,7 @@ cargo run -p thermometer --example thermometer_read
 ```
 
 After one sample it prints the lines of this section: `mode: Idle`, `gain: 8` and
-`refused: 20 is out of 1..=16 (Ratio, u8)`. Then it goes on to the stream and the observed gain of later
-chapters.
+`refused: 20 is out of 1..=16 (Ratio, u8)`.
 
 ## From the command line
 
@@ -141,7 +141,7 @@ The [`ww` command line tool](command_line.md) reads a device's API from the devi
 connects it to the simulated thermometer instead of a USB device, and `introspect -d` prints the API without its
 doc comments:
 
-```text
+```ww
 --8<-- "docs/generated/thermometer/introspect.txt"
 ```
 
@@ -170,9 +170,9 @@ Python checks bounds as the Rust client does. Writing 20 raises a `ValueError` b
 --8<-- "examples/thermometer_py/properties.py:gain"
 ```
 
-The whole script is `examples/thermometer_py/properties.py`. With the simulated device running, it prints:
+The whole script is [`examples/thermometer_py/properties.py`]. With the simulated device running, it prints:
 
-```text
+```console
 --8<-- "docs/generated/thermometer/properties_py.txt"
 ```
 
@@ -180,7 +180,7 @@ The gain stays at 8 after the refused write: the device never saw 20.
 
 ## Where to go next
 
-- [Observing properties](../api/observing.md) sends a property's new values to the host as they change, as `gain`
-  allows with `+observe`.
+- [Watching a value](observing.md) sends a property's new values to the host as they change, as `gain` allows
+  with `+observe`.
 - [Properties in depth](../api/properties.md) covers the rest: a property served as a plain field, errors of a
   property's own, `const` items, and the host's timeouts and promises.

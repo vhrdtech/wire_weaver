@@ -17,6 +17,7 @@ pub use thermometer_device::{Counters, SimBoard};
 pub use wire_weaver_client::ClientConfig;
 use wire_weaver_client::in_process::TokioClock;
 use wire_weaver_client::{Commander, DeviceApiInfo, WwClient};
+use ww_device::udp::{DatagramSocket, UdpBuffers, UdpConnection, udp_server};
 use ww_device::ws::{IoSocket, WsBuffers, WsConnection, ws_server};
 
 /// URL path the simulated device serves the API at.
@@ -41,6 +42,11 @@ impl WwClient for Thermometer {
 }
 
 impl Thermometer {
+    /// The connection's own controls: its events, its state, `retry_now()` and `disconnect()`.
+    pub fn cmd(&self) -> &Commander {
+        &self.cmd
+    }
+
     /// What the device said about itself when it connected.
     pub fn info(&self) -> DeviceApiInfo {
         self.cmd.info()
@@ -77,3 +83,27 @@ where
     device.counters()
 }
 // --8<-- [end:simulated]
+
+// --8<-- [start:simulated_udp]
+/// Serves a thermometer on a [SimBoard] to the one UDP host that talks to `socket` at a time, until `stop`
+/// resolves; returns what it dropped or refused. A host that starts link setup takes the slot over from the one
+/// before it. Not `Send`, like [simulated].
+pub async fn simulated_udp<S: DatagramSocket>(
+    socket: S,
+    stop: impl Future<Output = ()>,
+) -> Counters {
+    let board: &'static mut SimBoard = Box::leak(Box::default());
+    let mut device = Device::new(board);
+    let conn = UdpConnection::new(socket);
+    let mut buffers = Box::new(UdpBuffers::<MAX_MESSAGE_LEN>::new());
+    let mut server = udp_server(
+        Device::link_config(),
+        &conn,
+        0,
+        TokioClock::new(),
+        &mut buffers,
+    );
+    thermometer_device::serve(&mut server, &mut device, stop).await;
+    device.counters()
+}
+// --8<-- [end:simulated_udp]

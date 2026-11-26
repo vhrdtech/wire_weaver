@@ -9,6 +9,10 @@ dependencies = [
 ]
 
 # The docs site's own Markdown extensions (docs_ext/ww_docs_ext), importable by zensical through this project
+# The `ww` fence's lexer (docs_ext/ww_docs_ext/ww_lexer.py), found by Pygments through this entry point
+[project.entry-points."pygments.lexers"]
+ww = "ww_docs_ext.ww_lexer:WwLexer"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

@@ -42,12 +42,12 @@ trait MyDevice {
 |---|---|
 | `fn` | [Methods](../basic/methods.md), and [in depth](methods.md): async or blocking servers, deferred answers, the client |
 | `property!`, `const` | [Properties](../basic/properties.md): `get_set` handlers or a plain field, reads, writes, consts |
-| `stream!`, `sink!` | [Streams](streams.md): plain, counted and reliable streams, sinks |
+| `stream!`, `sink!` | [Streams and sinks](../basic/streams.md): plain, counted and reliable streams, sinks |
 | `ww_impl!` | [Traits](traits.md): grouping, reusable traits from crates, attachments |
 | `Result<T, E>` | [Errors](errors.md): error enums, common errors, `CallError` on the client |
 
 Everything else builds on these: items can be [arrays](arrays.md) (`gpio[]`), [optional](optional_items.md) for
-devices that lack them, [observed](observing.md) without polling, and many can be answered in one
+devices that lack them, [observed](../basic/observing.md) without polling, and many can be answered in one
 [multi request](multi_requests.md). The [standard library](../std_library/overview.md) has ready-made traits for
 GPIO, I2C, UART, firmware updates, logs and more.
 

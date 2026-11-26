@@ -1,8 +1,12 @@
 ---
-level: basic
+level: advanced
 ---
 
-# Traits
+# Traits in depth
+
+[Channels](../basic/channels.md) groups the thermometer's inputs into a sub-trait served as an array. This page
+covers the rest: traits from other crates, traits a firmware leaves out, attributes for evolution, and the trait
+rustdoc shows.
 
 A trait is a block of an API: a set of methods, properties, streams and nested traits. The API root itself is one
 (`#[ww_api_root]`), and `ww_impl!(name: Trait)` puts another trait into it, once or as an array. A trait can come

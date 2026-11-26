@@ -51,6 +51,11 @@ mod api_client {
 // --8<-- [end:client]
 
 impl Blinky {
+    /// The connection's own controls: its state, its events and `retry_now()`.
+    pub fn cmd(&self) -> &Commander {
+        &self.cmd
+    }
+
     /// What the device said about itself when it connected.
     pub fn info(&self) -> DeviceApiInfo {
         self.cmd.info()

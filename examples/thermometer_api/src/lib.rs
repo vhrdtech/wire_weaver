@@ -15,16 +15,20 @@ use ww_si::prefix::{Centi, One};
 use ww_si::units::{Hertz, Item, Kelvin, Ratio, Sample as SampleUnit};
 use ww_si::{Fixed, IndexFrom1, Point, Range, Seq};
 
+// --8<-- [start:rate]
 /// Sampling rate: 1 Hz to 1000 Hz in steps of 1 Hz.
 pub type Rate = Fixed<Hertz, One, u16, Range<1, 1000>>;
+// --8<-- [end:rate]
 
 // --8<-- [start:gain]
 /// Amplifier gain: 1 to 16, no unit.
 pub type Gain = Fixed<Ratio, One, u8, Range<1, 16>>;
 // --8<-- [end:gain]
 
+// --8<-- [start:temperature]
 /// A temperature in steps of 0.01 K, from -327.68 °C to 327.67 °C.
 pub type Temperature = Point<Celsius, Fixed<Kelvin, Centi, i16>>;
+// --8<-- [end:temperature]
 
 // --8<-- [start:root]
 /// The thermometer.
@@ -50,6 +54,7 @@ pub trait Thermo {
 }
 // --8<-- [end:root]
 
+// --8<-- [start:channel]
 /// One temperature input.
 #[ww_trait]
 #[effect(edit)]
@@ -59,6 +64,7 @@ pub trait Channel {
     /// The last sample taken on this input.
     fn last() -> Sample;
 }
+// --8<-- [end:channel]
 
 // --8<-- [start:sample]
 /// One temperature reading.
@@ -105,6 +111,7 @@ pub enum RateError {
 
 ww_api::api_error!(RateError);
 
+// --8<-- [start:command]
 /// A command for the sampler.
 #[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Debug, PartialEq, Eq, Clone, Copy), ww_repr = u4)]
 pub enum Command {
@@ -113,6 +120,7 @@ pub enum Command {
     /// Restarts sample numbering at `seq`.
     Mark { seq: Seq<SampleUnit, u16> },
 }
+// --8<-- [end:command]
 
 /// The status LED.
 #[ww_trait]

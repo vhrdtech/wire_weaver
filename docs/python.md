@@ -14,8 +14,8 @@ in full. It is meant for debugging, quick tests and scripts: connect, look at wh
 typed Python package wrapping one specific API, see the `blinky_py` example instead ([Examples](examples/examples.md)),
 it wraps the generated Rust client.
 
-Three transports are built in: [USB](transport/usb.md), [RTT](transport/rtt.md) over a debug probe (probe-rs) and
-[WebSocket](transport/websocket.md).
+Three transports are built in: [USB](basic/usb.md), [RTT](basic/rtt.md) over a debug probe (probe-rs) and
+[WebSocket](basic/websocket.md).
 Everything is pure Rust, the wheel needs no system libraries.
 
 ## Installation
@@ -34,7 +34,7 @@ uvx maturin develop --release      # or install into the active virtual environm
 
 !!! note "Linux permissions"
     Listing devices works without any setup, but opening one needs read/write access to `/dev/bus/usb/...`,
-    usually granted to your user with a udev rule. See [USB](transport/usb.md).
+    usually granted to your user with a udev rule. See [USB](basic/usb.md#limits).
 
 ## Interactive console
 
@@ -85,7 +85,7 @@ The introspection data is cached in `~/.wire_weaver/`, so reconnecting to a devi
 Definitions the device leaves out are put back from the snapshots, or from the
 [definition cache](std_library/ww_self.md#the-definition-cache) for a device built from another revision of an
 unpublished crate, so its values decode without `load_api`.
-Without `rtt_elf`, RTT attaching scans the target RAM for the control block, see [RTT](transport/rtt.md#host-side).
+Without `rtt_elf`, RTT attaching scans the target RAM for the control block, see [RTT](basic/rtt.md#connecting).
 
 `connect()` goes through the ww hub when it already holds the device or `WW_HUB`/the open counter say so, the
 wheel's `python -m wire_weaver.hub` serving it when no other one is found; `wire_weaver.hub()` is a client of the

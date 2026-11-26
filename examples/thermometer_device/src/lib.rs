@@ -164,6 +164,7 @@ impl Thermometer {
         Duration::from_micros(1_000_000 / u64::from(self.rate.get()))
     }
 
+    // --8<-- [start:overload]
     /// Reads `input`, lowers the gain on an overload, and keeps the sample as the input's last.
     fn sample(&mut self, input: Input) -> Sample {
         let reading = self.board.read(input, self.gain, self.now);
@@ -173,6 +174,7 @@ impl Thermometer {
             self.gain = lower;
             self.mark_changed_gain();
         }
+        // --8<-- [end:overload]
         let sample = Sample {
             seq: self.seq,
             input,
@@ -215,12 +217,15 @@ impl Thermometer {
             }
             self.next_sample = Some(next);
         }
+        // --8<-- [start:poll]
         let mut buf = self.poll_buf;
         _ = self
             .poll_properties(out, (), now.as_micros(), &mut buf)
             .await;
+        // --8<-- [end:poll]
     }
 
+    // --8<-- [start:send]
     async fn send(&mut self, sample: &Sample, out: &mut impl EventOut, up: bool) {
         let sent = up
             && api_impl::stream_data_ser()
@@ -231,6 +236,7 @@ impl Thermometer {
             self.counters.samples_not_sent = self.counters.samples_not_sent.saturating_add(1);
         }
     }
+    // --8<-- [end:send]
 
     async fn set_rate(
         &mut self,
@@ -292,11 +298,13 @@ impl Thermometer {
     }
     // --8<-- [end:gain]
 
+    // --8<-- [start:samples]
     async fn samples(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {
         Ready(())
     }
 
     async fn close_samples(&mut self, _cx: &mut Context<'_, impl EventOut>) {}
+    // --8<-- [end:samples]
 
     async fn sideband_samples(
         &mut self,
@@ -314,6 +322,7 @@ impl Thermometer {
         None
     }
 
+    // --8<-- [start:commands]
     async fn write_commands(&mut self, _cx: &mut Context<'_, impl EventOut>, value: Command) {
         match value {
             Command::Trigger if self.mode == Mode::Triggered && self.conversion_done.is_none() => {
@@ -328,7 +337,9 @@ impl Thermometer {
             }
         }
     }
+    // --8<-- [end:commands]
 
+    // --8<-- [start:valid]
     fn valid_indices_root_channel(&mut self) -> ValidIndices<'_> {
         ValidIndices::range_u32(0..u32::from(self.board.inputs().get()))
     }
@@ -338,7 +349,9 @@ impl Thermometer {
         let index = u8::try_from(index_chain[0].get().0).ok()?;
         Input::try_new(index.checked_add(1)?).ok()
     }
+    // --8<-- [end:valid]
 
+    // --8<-- [start:enabled]
     async fn set_channel_enabled(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
@@ -374,6 +387,7 @@ impl Thermometer {
         let last = self.last[usize::from(input.get() - 1)];
         Ready(Ok(last.unwrap_or_else(|| self.sample(input))))
     }
+    // --8<-- [end:enabled]
 
     async fn set_indication_mode(
         &mut self,
@@ -392,9 +406,11 @@ impl Thermometer {
         GetResult::Value(self.indication)
     }
 
+    // --8<-- [start:observe_state]
     fn observe_state(&mut self) -> &mut api_impl::ObserveState {
         &mut self.observe
     }
+    // --8<-- [end:observe_state]
 }
 
 // --8<-- [start:codegen]

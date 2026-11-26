@@ -18,6 +18,10 @@ ignored = ["ww_si"]
 rtt = ["wire_weaver_client/rtt"]
 # UDP, for the blinky_udp example
 udp = ["wire_weaver_client/udp"]
+# Finding devices announced on the LAN, for the blinky_discover example
+dns_sd = ["wire_weaver_client/dns_sd"]
+# TCP and command targets, for the blinky_byte_stream example
+byte_stream = ["wire_weaver_client/byte_stream"]
 
 [dependencies]
 blinky_api = { workspace = true, features = ["std"] }
@@ -72,6 +76,16 @@ path = "examples/sim.rs"
 [[example]]
 name = "blinky_host"
 path = "examples/host.rs"
+
+[[example]]
+name = "blinky_discover"
+path = "examples/discover.rs"
+required-features = ["dns_sd"]
+
+[[example]]
+name = "blinky_byte_stream"
+path = "examples/byte_stream.rs"
+required-features = ["byte_stream"]
 
 [[example]]
 name = "blinky_udp"

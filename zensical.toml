@@ -17,15 +17,18 @@ nav = [
     { "Introduction" = [
             "index.md",
             "levels.md",
-            { "What WireWeaver does" = "features_today.md" }
+            { "What WireWeaver does" = "features_today.md" },
+            "serdes/shrink_wrap.md"
         ]
     },
     { "Basic" = [
             "basic/index.md",
             { "Your data on the wire" = [
-                    "serdes/shrink_wrap.md",
-                    "serdes/derive.md",
-                    "types.md"
+                    "basic/types_on_the_wire.md",
+                    "basic/borrowed_and_owned.md",
+                    "basic/built_in_types.md",
+                    "basic/structs_and_enums.md",
+                    "basic/types_that_change.md"
                 ]
             },
             { "A first device" = [
@@ -35,32 +38,47 @@ nav = [
                     "basic/command_line.md",
                     "basic/python.md",
                     "api/overview.md",
-                    "api/folder_structure.md",
-                    "basic/properties.md",
-                    "api/streams.md",
-                    "api/traits.md",
-                    "api/errors.md"
+                    "api/folder_structure.md"
                 ]
             },
             { "Tools" = [
                     "python.md"
                 ]
             },
+            { "A sensor" = [
+                    "basic/units.md",
+                    "basic/temperatures.md",
+                    "basic/properties.md",
+                    "basic/observing.md",
+                    "basic/streams.md",
+                    "basic/channels.md"
+                ]
+            },
+            { "An instrument" = [
+                    "api/errors.md"
+                ]
+            },
             { "Getting connected" = [
-                    { "Overview" = "transport/overview.md" },
-                    "transport/usb.md",
-                    "transport/rtt.md",
-                    "transport/websocket.md",
-                    "transport/udp.md",
-                    { "Byte streams" = "transport/byte_streams.md" },
-                    { "Keep trying" = "transport/keep_trying.md" }
+                    { "Choosing a transport" = "basic/transports.md" },
+                    "basic/usb.md",
+                    "basic/udp.md",
+                    "basic/websocket.md",
+                    "basic/rtt.md",
+                    { "Serial lines and other byte streams" = "basic/byte_streams.md" },
+                    { "When the device goes away" = "basic/connection_loss.md" }
                 ]
             },
             { "Numbers and errors" = [
                     "std_library/ww_si.md",
                     "std_library/exact_units.md",
+                    "std_library/bounds.md",
+                    "std_library/quantity.md",
+                    "std_library/points.md",
+                    "std_library/timestamps.md",
+                    "std_library/timed.md",
                     { "exact_units: imperial and US customary" = "std_library/customary.md" },
                     "std_library/ww_error.md",
+                    "std_library/ww_error_in_an_api.md",
                     "std_library/ww_date_time.md"
                 ]
             },
@@ -94,6 +112,8 @@ nav = [
     { "Advanced" = [
             "advanced/index.md",
             { "Types in depth" = [
+                    "types.md",
+                    "serdes/derive.md",
                     { "Size assumptions" = "serdes/size_assumptions.md" },
                     "serdes/special_types.md",
                     "serdes/series.md",
@@ -106,10 +126,12 @@ nav = [
             { "The API in depth" = [
                     "api/methods.md",
                     "api/properties.md",
+                    "api/traits.md",
                     "api/arrays.md",
                     { "Sync, async and shared handlers" = "api/handlers.md" },
                     { "Large messages and result sets" = "api/large_messages.md" },
                     "api/optional_items.md",
+                    "std_library/errors_lists.md",
                     "api/multi_requests.md",
                     { "Metadata: effects, claims, pins, labels" = "api/metadata.md" },
                     "api/introspection.md",
@@ -117,6 +139,7 @@ nav = [
                 ]
             },
             { "Streams and observing" = [
+                    "api/streams.md",
                     "api/observing.md",
                     "api/batching.md",
                     { "Running totals" = "api/totals.md" },
@@ -137,10 +160,24 @@ nav = [
             },
             { "Units in depth" = [
                     { "exact_units: units in the model" = "std_library/units_in_the_model.md" },
-                    { "exact_units: points" = "std_library/points.md" },
+                    "std_library/quantity_type.md",
+                    "std_library/quantity_reference.md",
+                    "std_library/conversions.md",
+                    "std_library/unit_algebra.md",
+                    "std_library/dimensions.md",
+                    "std_library/prefixes.md",
+                    "std_library/units_in_an_api.md",
+                    "std_library/units_in_tools.md",
+                    "std_library/points_and_origins.md",
                     { "exact_units: indices" = "std_library/indices.md" },
                     { "exact_units: rounding" = "std_library/rounding.md" },
                     { "exact_units: magnitudes" = "std_library/magnitude.md" },
+                    "std_library/runtime_units.md",
+                    "std_library/run_time_scales.md",
+                    "std_library/time_points.md",
+                    "std_library/coded_numbers.md",
+                    "std_library/unit_systems.md",
+                    "std_library/ww_si_features.md",
                     "std_library/ww_numeric.md"
                 ]
             },
@@ -157,7 +194,14 @@ nav = [
                 ]
             },
             { "Transport in depth" = [
+                    { "Connecting in depth" = "transport/overview.md" },
+                    { "USB in depth" = "transport/usb.md" },
                     { "USB inside" = "transport/usb_internals.md" },
+                    { "RTT in depth" = "transport/rtt.md" },
+                    { "WebSocket in depth" = "transport/websocket.md" },
+                    { "UDP in depth" = "transport/udp.md" },
+                    { "Byte streams in depth" = "transport/byte_streams.md" },
+                    { "Keep-trying connections in depth" = "transport/keep_trying.md" },
                     "transport/ww_link.md",
                     "transport/ww_framer.md",
                     { "Following a reboot" = "transport/follow_reboot.md" },
@@ -232,6 +276,7 @@ nav = [
             "glossary.md",
             { "Examples and templates" = [
                     "examples/examples.md",
+                    "examples/wire_sizes.md",
                     { "wire_weaver_template repo" = "https://github.com/vhrdtech/wire_weaver_template" }
                 ]
             },
@@ -418,6 +463,7 @@ pymdownx.tilde = {}
 "vhrd_zensical.glossary" = {}
 # RTT, DFU and every abbreviation of docs/abbreviations.toml: its long form on hover, through `abbr` above
 "vhrd_zensical.abbreviations" = {}
-# [`Name`], [`file.rs`], [`file.rs:section`]: an item or file of these crates, its code on hover, its lines on
-# GitHub on click; a name that matches nothing fails the build
-"vhrd_zensical.code_refs" = { crates = ["wire_weaver", "wire_weaver_core", "wire_weaver_derive", "ww_api", "wire_weaver_client", "wire_weaver_cli", "wire_weaver_evolution"], on_crates_io = ["wire_weaver", "wire_weaver_core", "wire_weaver_derive"], sources = "target/vz/sources.toml" }
+# [`Name`], [`file.rs`], [`file.rs:section`]: an item of these crates or any file git tracks, its code on hover,
+# its lines on GitHub on click; a name that matches nothing fails the build. The crates are the framework's and
+# the book's examples' (the thermometer's three)
+"vhrd_zensical.code_refs" = { crates = ["wire_weaver", "wire_weaver_core", "wire_weaver_derive", "ww_api", "wire_weaver_client", "wire_weaver_cli", "wire_weaver_evolution", "thermometer_api", "thermometer_device", "thermometer"], on_crates_io = ["wire_weaver", "wire_weaver_core", "wire_weaver_derive"], sources = "target/vz/sources.toml" }

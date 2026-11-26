@@ -64,6 +64,7 @@ fn main() -> Result<()> {
 async fn run(args: Args) -> Result<()> {
     let listener = TcpListener::bind(("0.0.0.0", args.port.get())).await?;
 
+    // --8<-- [start:advertise]
     let txt = Txt::new(
         PATH,
         &blinky_api::BLINKY_API_FULL_GID,
@@ -78,6 +79,7 @@ async fn run(args: Args) -> Result<()> {
         Responder::Avahi => ResponderChoice::Avahi,
     })?;
     let mut advertiser = Advertiser::new(responder, record)?;
+    // --8<-- [end:advertise]
     println!(
         "serving ws://0.0.0.0:{}{PATH}, announced at {:?}",
         args.port,

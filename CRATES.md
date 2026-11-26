@@ -162,6 +162,7 @@ This page lists the crates of the root workspace. The first table links each pub
 | [`reconnect_revision_changed_api`](tests/reconnect_revision_changed_api) | runtime | Revision w1.1 of reconnect_revision_api that changes the item type of one stream (CLT-81): that stream is incompatible |
 | [`recursive`](tests/recursive) | runtime | Tests of self-referential user types in an API (RefBox, RefVec of the type itself) |
 | [`recursive_api`](tests/recursive_api) | runtime | API with self-referential user types: an expression tree through RefBox and a tree through RefVec |
+| [`sensor_packet`](examples/sensor_packet) | runtime | A sensor node's radio packet on the wire with shrink_wrap alone: no API, no framework |
 | [`series`](tests/series) | runtime | Tests of Series<T> (SW-60) in every position of an API, through generated server and client code |
 | [`series_api`](tests/series_api) | runtime | Series<T> (SW-60) of numbers in every position of an API: arguments, returns, fields, properties, streams |
 | [`serve_trait`](tests/serve_trait) | runtime | Tests of a server generated with serve_trait (SRV-49): requests forwarded to the local trait |

@@ -25,18 +25,18 @@ copying. Every message between host and device is made of it, and it works on it
 
 <p class="ww-features__level"><span class="ww-level ww-level--basic"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6" class="ww-level__off"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6" class="ww-level__off"/></svg><span class="ww-level__label">Basic</span></span></p>
 
-- **[Structs and enums](serdes/derive.md)**: Your own structs, plain enums and enums that carry data, on the wire.
+- **[Structs and enums](basic/structs_and_enums.md)**: Your own structs, plain enums and enums that carry data, on the wire.
 - **[One derive attribute](serdes/derive.md)**: `#[derive_shrink_wrap(..)]` with a few clear options and error messages that say what is wrong.
-- **[`Option` and `Result`](types.md#option-and-result)**: Stored as a single flag bit, also inside lists.
-- **[Strings and lists](types.md#strings-and-lists)**: `String` and `Vec<T>`, `Vec<u8>` as plain bytes.
+- **[`Option` and `Result`](basic/built_in_types.md#option-and-result)**: Stored as a single flag bit, also inside lists.
+- **[Strings and lists](basic/built_in_types.md#strings-and-lists)**: `String` and `Vec<T>`, `Vec<u8>` as plain bytes.
 - **[Arrays and tuples](types.md)**: Fixed-size arrays, tuples and `()`.
 - **[Tuple and unit structs](types.md#tuple-structs)**: `struct Celsius(f32);` works like a named struct, with the same bytes; `struct Marker;` keeps room to grow fields later.
-- **[Integers of any width](types.md#booleans-and-numbers)**: `u1` to `u32` and nibbles, packed bit after bit, so a 3-bit field takes 3 bits.
+- **[Integers of any width](basic/built_in_types.md#flags-and-bit-sized-numbers)**: `u1` to `u32` and nibbles, packed bit after bit, so a 3-bit field takes 3 bits.
 - **[Variable-length numbers](types.md)**: `UNib32` and `UVlq32`, where small values take a nibble or a byte.
 - **[Signed variable-length numbers](serdes/showcase.md#unib32-variable-length-numbers-by-the-nibble)**: `INib32`, zigzag over `UNib32`: small negative values stay as short as small positive ones.
-- **[Zero-copy reads](serdes/derive.md#borrowed-owned-or-both)**: Strings and lists are read in place from the received buffer; an owned twin of each type is generated for values you keep.
-- **[Evolvable by default](serdes/derive.md#evolving-types)**: Add fields later with `#[default = ..]`, and old and new code still read each other's data.
-- **[Enum variants from a newer version](serdes/derive.md#enum-variants-from-a-newer-version)**: An older reader takes an unknown variant as `Unknown(u32)` instead of failing.
+- **[Zero-copy reads](basic/borrowed_and_owned.md#which-types-the-derive-makes)**: Strings and lists are read in place from the received buffer; an owned twin of each type is generated for values you keep.
+- **[Evolvable by default](basic/types_that_change.md)**: Add fields later with `#[default = ..]`, and old and new code still read each other's data.
+- **[Enum variants from a newer version](basic/structs_and_enums.md#a-variant-the-reader-doesnt-know)**: An older reader takes an unknown variant as `Unknown(u32)` instead of failing.
 - **[Bounded lists and strings](types.md#bounded-lists-and-strings-maxlent-n)**: `MaxLen<T, N>` holds at most `N` elements, checked both ways, with a worst-case size known at compile time.
 - **[Usable on its own](serdes/use_cases.md)**: A dense format for storing many small objects, no API needed.
 
@@ -53,7 +53,7 @@ copying. Every message between host and device is made of it, and it works on it
 - **[`#[cfg]` on enum variants](serdes/derive_reference.md#cfg-on-enum-variants)**: Compile a variant out; it keeps its number on the wire.
 - **[Checked discriminants](serdes/derive_reference.md#ww_repr-repr-enums-only)**: Variant numbers must fit the chosen `ww_repr`, implicit ones count like in Rust.
 - **[Generic field types](serdes/derive.md#type-mapping)**: `Wrapper<'i, T>` and types from `macro_rules` work as fields.
-- **[Generic types](serdes/derive_reference.md#generics)**: Structs and enums with type and const parameters (`Timed<T>`, `Buf<const N: usize>`) and where clauses derive like any other type.
+- **[Generic types](types.md#generic-types-in-an-api)**: Structs and enums with type and const parameters (`Timed<T>`, `Buf<const N: usize>`) and where clauses derive like any other type.
 - **[`PhantomData` fields](serdes/derive_reference.md#generics)**: A zero-bit `PhantomData<U>` field carries a unit marker type (`Quantity<Volt>`) that needs no impls of its own.
 - **[`#[default]` fields default in serde too](serdes/derive.md#evolving-types)**: A RON or JSON file saved before a field was added still reads, the field taking its default.
 - **[`#[wire(W)]` fields](serdes/derive_reference.md#wirew-field-attribute)**: Keep a plain `i8` or `u64` in Rust and send it as `I4` or `UNib32`: range-checked on write, widened on read.
@@ -125,7 +125,7 @@ in either direction. WireWeaver generates the device's server and the host's cli
 - **[Effects](api/metadata.md#effect-what-an-item-does)**: Every method, writable property and sink says what it does (`read`, `persist`, `actuate`, ...): GUIs, agents and the hub know what is safe to call.
 - **[Track layout](api/metadata.md#track-how-a-stream-is-recorded)**: Each stream says how a recorder lays it out on a tape: points, spans or a series, with its dimensions and flags.
 - **[Stream functions](api/streams.md#stream-functions)**: Open a stream with typed arguments and a result, like a method call.
-- **[Observing properties](api/observing.md)**: Ask a device to send changes on change or periodically, within a byte budget.
+- **[Observing properties](api/observing.md#the-host-side)**: Ask a device to send changes on change or periodically, within a byte budget.
 - **[Observing every sample](api/observing.md#every-sample-batched)**: A fast property's every sample, each at its time, in compressed batches; typed and dynamic clients, the CLI and Python.
 - **[One clock per observed level](api/observing.md#every-sample-batched)**: The samples of a level's properties share one time column per update: about a third fewer bytes and half the encoding CPU.
 - **[Observing elements of resource arrays](api/observing.md#levels-under-resource-arrays)**: Observe a property of one element of an array (`players[2].state`): updates for that element only, and a removed element ends its observers.
@@ -250,10 +250,10 @@ from the description the device sends of itself; the `ww` tool and Python are bu
 - **[Same method twice in a multi call](api/multi_requests.md#several-resources-at-the-same-level)**: Two writes over the same I2C bus (or any repeated call) go into one batch, answers in order.
 - **[Observing properties](api/observing.md#the-host-side)**: Typed subscriptions and a cache of the latest values, shared by everyone watching.
 - **[`Series` without generated code](serdes/series.md#introspection-and-dynamic-clients)**: `ww`, Python and any dynamic client read and write a `Series<T>` from introspection alone, Python reads it as numpy columns.
-- **[Quantities without generated code](std_library/ww_si.md#in-ww-python-and-dynamic-clients)**: `ww` and Python show a `ww_si` value with its unit (`3300 mV`), Python as a quantity object with `to_si()`.
-- **[Unit references through the model](std_library/ww_si.md#in-ww-python-and-dynamic-clients)**: A dynamic client resolves a value's unit references through the API's model and writes the API's units by reference.
-- **[Exact units without generated code](std_library/exact_units.md#in-ww-python-and-dynamic-clients)**: `ww` and Python show a `Fixed` value as the device stores it (`1730000000000000 µs`, `4 KiB`) and write `5 ms` into it exactly, or refuse with the type named instead of rounding.
-- **[Points without generated code](std_library/points.md#in-ww-python-and-dynamic-clients)**: `ww` and Python show a `Point` (a temperature in °C, a heading) in its own origin, not its `Fixed`'s raw unit.
+- **[Quantities without generated code](std_library/units_in_tools.md#quantity-in-clients)**: `ww` and Python show a `ww_si` value with its unit (`3300 mV`), Python as a quantity object with `to_si()`.
+- **[Unit references through the model](std_library/units_in_tools.md#quantity-in-clients)**: A dynamic client resolves a value's unit references through the API's model and writes the API's units by reference.
+- **[Exact units without generated code](std_library/units_in_tools.md#fixed-in-clients)**: `ww` and Python show a `Fixed` value as the device stores it (`1730000000000000 µs`, `4 KiB`) and write `5 ms` into it exactly, or refuse with the type named instead of rounding.
+- **[Points without generated code](std_library/points_and_origins.md#in-ww-python-and-dynamic-clients)**: `ww` and Python show a `Point` (a temperature in °C, a heading) in its own origin, not its `Fixed`'s raw unit.
 - **[Typed times of batched items](api/batching.md#host-side)**: A timed batched stream's items carry their full device time as a typed point (`DeviceMicros<u64>`), not a `Second`.
 - **[Client of a keyed array](api/arrays.md#keyed-arrays-on-the-client)**: `device.flow_by(&key)` gives an element's client by its key; the index is asked once and kept in a key cache.
 - **[Python module as a library and a wheel](python.md#installation)**: `wire_weaver_py` is a library crate; the wheel `wire_weaver_wheel` (vhrdtech/ww_tools) is a thin `cdylib` holding `pyproject.toml`, the Python package and the tests.
@@ -396,14 +396,14 @@ round, and tell you before a release when a change would break that.
 - **[`#[moved_from]`](evolution/rules.md#moving-a-resource-to-another-place)**: Across a wire break the checker matches resources by path and by `#[moved_from]` on their new place, verifies a moved resource is exactly the same and reports a move; a resource of the same name elsewhere is only proposed.
 - **[Wire versions and generations shown](std_library/device_contract.md#ww-info)**: `ww info` and the Python client show a device's wire version and the hello generations a connection agreed on, next to its crate version.
 - **[Unit definitions with an identity](std_library/units_in_the_model.md#identity)**: The API model holds each unit's whole definition with the crate and marker that declare it, so two crates' units of one name stay apart.
-- **[Unit references on the wire](std_library/ww_si.md#units-known-only-at-run-time)**: A run-time unit names a unit the API lists by its crate and marker, a few bytes instead of its whole definition.
+- **[Unit references on the wire](std_library/runtime_units.md)**: A run-time unit names a unit the API lists by its crate and marker, a few bytes instead of its whole definition.
 - **[Checker knows the catch-all](evolution/rules.md#unsized-types)**: Appending a variant to an enum with the `Unknown` catch-all passes the evolution check as compatible.
 - **[Evolution check at every commit](evolution/checker_tool.md#checking-at-every-commit)**: A test of your API crate fails when the API changed without the version bump it needs.
 - **[Current version's snapshot required](evolution/checker_tool.md#checking-at-every-commit)**: The API crate's test fails until the version it is at has a saved snapshot, and saves it for you.
 - **[Priority in every request](transport/ww_framer.md#latency-and-priority)**: Requests carry a priority; hosts and devices built before it don't talk to ones after.
 - **[Priority as on a CAN bus](transport/ww_framer.md#latency-and-priority)**: A request's priority has 8 levels in 3 bits, as CAN and Cyphal carry in a frame's ID, with one bit reserved beside it; the upper four are urgent.
 - **[Upgrades don't touch your snapshots](evolution/checker_tool.md#the-current-versions-snapshot)**: A newer wire_weaver compares an older snapshot only by what it recorded: no version bump or re-save just for upgrading.
-- **[One encoding per dimension](std_library/ww_si.md#units-known-only-at-run-time)**: A unit's dimension on the wire has exactly one form: distinguished bases sorted, out-of-order, repeated or zero ones refused, so two devices' `Sample/Frame` compare equal byte for byte.
+- **[One encoding per dimension](std_library/runtime_units.md)**: A unit's dimension on the wire has exactly one form: distinguished bases sorted, out-of-order, repeated or zero ones refused, so two devices' `Sample/Frame` compare equal byte for byte.
 - **[Units and bounds in the checker](evolution/rules.md#transparent-wrappers-units-and-scales)**: Wrapping a plain number in a unit type passes as the same bytes; changing its unit, prefix or bound is caught as breaking.
 
 <p class="ww-features__level"><span class="ww-level ww-level--advanced"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6" class="ww-level__off"/></svg><span class="ww-level__label">Advanced</span></span></p>
@@ -468,10 +468,10 @@ feature tracker.
 - **[The rework guard](std_library/ww_board_info.md#the-rework-guard)**: A firmware never runs a board with a rework it doesn't know: before any init it blinks an error code and goes back to the ROM bootloader, unless the user allowed that rework for this very image; an image tells flashers which reworks it knows and where the board's record is.
 - **[Common errors](std_library/ww_error.md)**: `CommonError` (`Busy`, `Timeout`, `InvalidArgument`, ...) shared by all APIs.
 - **[Units and numbers](std_library/ww_si.md)**: `ww_si` quantities like volts, hertz and seconds, `ww_numeric` values.
-- **[Units checked by the compiler](std_library/ww_si.md#unit-algebra)**: One generic quantity type with the unit in the type: `Volt * Ampere` is a `Watt`, `Volt + Ampere` doesn't build, `3300 mV` prints itself.
-- **[Units known at run time](std_library/ww_si.md#units-known-only-at-run-time)**: A value whose unit is only known on the device, a configurable sensor channel, carries its unit and is shown like a typed one.
-- **[Quantities as exact as `Fixed`](std_library/ww_si.md#quantity-fixed-or-anyquantity)**: A run-time `Quantity` takes binary prefixes (KiB), powers of ten and two without a name and full-scale fractions (1/65535), and carries bounds checked on decode.
-- **[Angles, bytes and samples are dimensions](std_library/ww_si.md#dimensions)**: Bytes never convert into % or rad, rad/s isn't Hz, a torque isn't a joule, and samples per second aren't a frequency: the compiler and every client tell them apart.
+- **[Units checked by the compiler](std_library/unit_algebra.md)**: One generic quantity type with the unit in the type: `Volt * Ampere` is a `Watt`, `Volt + Ampere` doesn't build, `3300 mV` prints itself.
+- **[Units known at run time](std_library/runtime_units.md)**: A value whose unit is only known on the device, a configurable sensor channel, carries its unit and is shown like a typed one.
+- **[Quantities as exact as `Fixed`](std_library/ww_si.md#fixed-or-quantity)**: A run-time `Quantity` takes binary prefixes (KiB), powers of ten and two without a name and full-scale fractions (1/65535), and carries bounds checked on decode.
+- **[Angles, bytes and samples are dimensions](std_library/dimensions.md)**: Bytes never convert into % or rad, rad/s isn't Hz, a torque isn't a joule, and samples per second aren't a frequency: the compiler and every client tell them apart.
 - **[Date and time](std_library/ww_date_time.md)**: `ww_date_time`.
 - **[IO family](std_library/io_family.md)**: GPIO, UART, I2C, SPI, ADC, PWM, 1-Wire and more, all in one style. <span class="ww-status">in progress</span>
 - **[GPIO](std_library/ww_gpio.md)**: Pins and banks: levels, modes, pulls and edge events.
@@ -487,21 +487,21 @@ feature tracker.
 
 <p class="ww-features__level"><span class="ww-level ww-level--advanced"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6" class="ww-level__off"/></svg><span class="ww-level__label">Advanced</span></span></p>
 
-- **[Finite floats in clients](std_library/exact_units.md#in-ww-python-and-dynamic-clients)**: A float quantity whose type says `Finite` is refused as ±∞ or NaN in `ww`, Python and the dynamic client, and the evolution check tells when ±∞ starts to be refused.
+- **[Finite floats in clients](std_library/units_in_tools.md#fixed-in-clients)**: A float quantity whose type says `Finite` is refused as ±∞ or NaN in `ww`, Python and the dynamic client, and the evolution check tells when ±∞ starts to be refused.
 - **[NaN-free floats in clients](std_library/exact_units.md)**: A float quantity sent or received as NaN is refused unless its type says `MaybeNan`, in `ww`, Python and the dynamic client alike; the evolution check tells when a NaN starts to be refused.
 - **[Time scales in the model](std_library/units_in_the_model.md#references)**: An origin says what its zero is measured from and how that zero is known (exact, at run time, a time scale), so clients and the evolution check tell why a Unix time and a TAI or device time don't convert.
-- **[Non-linear codes in clients](std_library/exact_units.md#non-linear-codes)**: A G.711 μ-law byte and other codec values read as the number they mean in `ww`, Python and the dynamic client, written by their exact code, from the codec's definition in the API model.
-- **[`Offset` codes and a curve above them](std_library/exact_units.md#non-linear-codes)**: Video's narrow-range quantizers (`CodecShape::Offset`) and a transfer curve above a codec (`CurveDef`, signal to light) read into the API model, checked against the compiled codec. <span class="ww-status">in progress</span>
+- **[Non-linear codes in clients](std_library/coded_numbers.md)**: A G.711 μ-law byte and other codec values read as the number they mean in `ww`, Python and the dynamic client, written by their exact code, from the codec's definition in the API model.
+- **[`Offset` codes and a curve above them](std_library/coded_numbers.md)**: Video's narrow-range quantizers (`CodecShape::Offset`) and a transfer curve above a codec (`CurveDef`, signal to light) read into the API model, checked against the compiled codec. <span class="ww-status">in progress</span>
 - **[Typed protocol numbers](std_library/ww_client_server.md)**: Observe periods, budgets, byte grants, store sizes, resource indices and resource paths of the request/event protocol are `Micros`, `Bytes`, B/s and `Index` types, the same bytes as before.
-- **[Transfer curves](std_library/exact_units.md#transfer-curves)**: A video code with its transfer curve (`Transfer<Narrow10, Pq>`) in an API: clients read its signal and the light each code means, exact where it is a rational.
-- **[Device time points in `Timed`](std_library/ww_si.md#timed-values)**: A timed value carries its time as a point on the device clock (`DeviceMicros<u32>` by default), four plain bytes in a column, and the host gets the full 64-bit time back across wraps.
-- **[Run-time scales](std_library/ww_si.md#run-time-scales)**: A number whose exact scale is read at run time (a video stream's time base, a quantizer step) next to a unit fixed in the type: `ww_si::Scaled<U, T>` and `Ticks<T>`, refused on decode unless the scale is in its one canonical form.
+- **[Transfer curves](std_library/coded_numbers.md#transfer-curves)**: A video code with its transfer curve (`Transfer<Narrow10, Pq>`) in an API: clients read its signal and the light each code means, exact where it is a rational.
+- **[Device time points in `Timed`](std_library/timed.md)**: A timed value carries its time as a point on the device clock (`DeviceMicros<u32>` by default), four plain bytes in a column, and the host gets the full 64-bit time back across wraps.
+- **[Run-time scales](std_library/run_time_scales.md)**: A number whose exact scale is read at run time (a video stream's time base, a quantizer step) next to a unit fixed in the type: `ww_si::Scaled<U, T>` and `Ticks<T>`, refused on decode unless the scale is in its one canonical form.
 - **[Typed numbers in 1-Wire and UART](std_library/ww_onewire.md)**: `ww_onewire`'s family code, byte counts, pin index and ROM search bit position, and `ww_uart`'s byte counts and idle character count, are typed instead of bare integers, so a client or `ww api check` knows what each one means and whether it is in range.
 - **[Unit identity in the model](std_library/units_in_the_model.md#identity)**: A unit is known by its crate and name, the definition `unit!` compiles is the one clients read, and two units of one name in one crate are refused.
-- **[Run-time units by reference](std_library/ww_si.md#units-known-only-at-run-time)**: An `AnyQuantity` names the API's units by their identity, a few bytes instead of the whole definition, and any reader with the API's model (a client, `ww`, Python, a saved tape) resolves them.
+- **[Run-time units by reference](std_library/runtime_units.md)**: An `AnyQuantity` names the API's units by their identity, a few bytes instead of the whole definition, and any reader with the API's model (a client, `ww`, Python, a saved tape) resolves them.
 - **Levels and their rates, Np and dB**: A cable's attenuation in dB/100 m or dB/km, a resonator's damping in Np/s, is a quantity like any other, over the wire like any other; loss and gain are kept apart so a datasheet's positive number never flips sign by accident.
-- **[Quantities without wide integers](std_library/ww_si.md#conversions-and-comparisons)**: On a small MCU, comparing and converting quantities with 32-bit numbers takes only 32-bit code: no 64- or 128-bit arithmetic is linked.
-- **[Exact conversions without floats](std_library/ww_si.md#conversions-and-comparisons)**: A quantity converts into any prefix and integer type with the rounding and overflow you name, exactly for every scale, with no float or 128-bit code on the device.
+- **[Quantities without wide integers](std_library/conversions.md)**: On a small MCU, comparing and converting quantities with 32-bit numbers takes only 32-bit code: no 64- or 128-bit arithmetic is linked.
+- **[Exact conversions without floats](std_library/conversions.md)**: A quantity converts into any prefix and integer type with the rounding and overflow you name, exactly for every scale, with no float or 128-bit code on the device.
 - **[Typed numbers in `ww_stdlib`](std_library/ww_spi.md)**: Word sizes, byte and bit counts, offsets and counted things are their own types instead of a bare integer, crate by crate (`ww_spi` so far); a run-time-fixed value like an IO level moves from `Quantity` to `Fixed`. <span class="ww-status">in progress</span>
 - **[ADC](std_library/ww_adc.md)**: Single reads, sample streams and triggered captures.
 - **[PWM](std_library/ww_pwm.md)**: Outputs and input capture.
@@ -565,7 +565,9 @@ Working projects to start from: host programs, firmware for a few boards, and th
 - **[Counters in firmware](std_library/ww_counters.md)**: `cnt` counters in every probe-connected board example.
 - **[Thermometer example](examples/examples.md)**: A sensor device written once and run simulated on the PC, on a Nucleo G0B1RE and on a Pico 2.
 - **[Settings demo](api/settings.md)**: Settings that survive a reboot, on the host and on two Nucleo boards.
+- **[Wire sizes compared](examples/wire_sizes.md)**: Eight messages on nine wire formats, with the byte count and how each lets a field be added later.
 - **[Bench supply example](examples/examples.md)**: A lab instrument with limits and errors a script can act on, tested by a pytest bench through the ww hub.
+- **[Sensor packet example](basic/types_on_the_wire.md)**: A struct on a radio link with shrink_wrap alone, old and new firmware reading each other.
 
 <p class="ww-features__more" markdown>Details and what is planned: [Example and cases (ww_tape)](tape/features.md#example-and-cases-ex), [Examples](features.md#examples-ex) in the feature tracker.</p>
 

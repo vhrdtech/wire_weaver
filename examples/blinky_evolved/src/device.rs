@@ -137,7 +137,11 @@ mod w1_1 {
             Ready(())
         }
 
-        async fn set_led(&mut self, _cx: &mut Context<'_, impl EventOut>, on: bool) -> RpcResult<bool> {
+        async fn set_led(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+            on: bool,
+        ) -> RpcResult<bool> {
             Ready(self.switch(on))
         }
 

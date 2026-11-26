@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="360" viewBox="0 0 720 360" font-family="Helvetica, Arial, sans-serif" font-size="13">
+  <title>The device contract of the sensor node</title>
+  <desc>The sensor node's API root holds a device subtree and its own method measure. The device subtree holds six standard traits. Three are constants that the generated code answers without a handler: FirmwareInfo (which firmware), BoardInfo (which board) and Uid (which unit). Three have handlers: UserInfo (the name a user gives the unit), LogText (the log, kept until a host reads it) and Indication (the LEDs, and identify). ww info reads the first four by their global trait paths, whatever the rest of the API is.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#222"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="720" height="360" rx="10" fill="#ffffff"/>
+
+  <!-- root -->
+  <rect x="20" y="140" width="120" height="70" rx="8" fill="#eef2f7" stroke="#222"/>
+  <text x="80" y="166" text-anchor="middle" font-weight="bold" fill="#222">Node</text>
+  <text x="80" y="186" text-anchor="middle" fill="#222" font-size="12">measure()</text>
+  <line x1="140" y1="175" x2="196" y2="175" stroke="#222" marker-end="url(#arrow)"/>
+  <rect x="200" y="140" width="110" height="70" rx="8" fill="#eef2f7" stroke="#222"/>
+  <text x="255" y="180" text-anchor="middle" font-weight="bold" fill="#222">device</text>
+
+  <!-- constants -->
+  <text x="360" y="30" font-weight="bold" fill="#1f5fa8">Constants: no handler, read once</text>
+  <g fill="#222">
+    <rect x="360" y="42" width="330" height="34" rx="6" fill="#e3edf9" stroke="#1f5fa8"/>
+    <text x="372" y="64"><tspan font-weight="bold">firmware</tspan>: FirmwareInfo, which firmware</text>
+    <rect x="360" y="82" width="330" height="34" rx="6" fill="#e3edf9" stroke="#1f5fa8"/>
+    <text x="372" y="104"><tspan font-weight="bold">board</tspan>: BoardInfo, which board</text>
+    <rect x="360" y="122" width="330" height="34" rx="6" fill="#e3edf9" stroke="#1f5fa8"/>
+    <text x="372" y="144"><tspan font-weight="bold">uid</tspan>: Uid, which unit</text>
+  </g>
+
+  <!-- handlers -->
+  <text x="360" y="190" font-weight="bold" fill="#222">Handlers</text>
+  <g fill="#222">
+    <rect x="360" y="202" width="330" height="34" rx="6" fill="#e3edf9" stroke="#1f5fa8"/>
+    <text x="372" y="224"><tspan font-weight="bold">label</tspan>: UserInfo, the name a user gives it</text>
+    <rect x="360" y="242" width="330" height="34" rx="6" fill="#ffffff" stroke="#222"/>
+    <text x="372" y="264"><tspan font-weight="bold">log</tspan>: LogText, kept until a host reads it</text>
+    <rect x="360" y="282" width="330" height="34" rx="6" fill="#ffffff" stroke="#222"/>
+    <text x="372" y="304"><tspan font-weight="bold">indication</tspan>: Indication, LEDs and identify</text>
+  </g>
+
+  <g stroke="#222" fill="none">
+    <path d="M310,175 C335,175 335,59 356,59" marker-end="url(#arrow)"/>
+    <path d="M310,175 C335,175 335,99 356,99" marker-end="url(#arrow)"/>
+    <path d="M310,175 C335,175 335,139 356,139" marker-end="url(#arrow)"/>
+    <path d="M310,175 C335,175 335,219 356,219" marker-end="url(#arrow)"/>
+    <path d="M310,175 C335,175 335,259 356,259" marker-end="url(#arrow)"/>
+    <path d="M310,175 C335,175 335,299 356,299" marker-end="url(#arrow)"/>
+  </g>
+  <text x="360" y="342" fill="#444" font-size="12">Blue: what ww info reads, by global trait path, from any device.</text>
+</svg>

@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="400" viewBox="0 0 720 400" font-family="Helvetica, Arial, sans-serif" font-size="13">
+  <title>A device API built from a standard trait</title>
+  <desc>The API crate all_gpio_api holds one line, port[]: ww_gpio::Bank, and depends on the standard crate ww_gpio, which holds the traits Bank and Pin, their types and a snapshot of them. The device all_gpio_device serves Bank and Pin with handlers. Over the wire, hosts find the trait by its global path ww_gpio::Bank: the generated Rust client, Python, ww and the embedded-hal pins of ww_gpio_hl all work with it. The device's introspection data leaves out ww_gpio's types, which hosts take from its snapshot.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#222"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="720" height="400" rx="10" fill="#ffffff"/>
+
+  <!-- API crate -->
+  <rect x="30" y="30" width="290" height="112" rx="8" fill="#eef2f7" stroke="#222"/>
+  <text x="46" y="54" font-weight="bold" fill="#222">all_gpio_api (your API crate)</text>
+  <g font-family="IBM Plex Mono, Menlo, monospace" font-size="12" fill="#222">
+    <text x="46" y="80">#[ww_api_root]</text>
+    <text x="46" y="98">pub trait AllGpioApi {</text>
+    <text x="62" y="116" fill="#1f5fa8" font-weight="bold">ww_impl!(port[]: ww_gpio::Bank);</text>
+    <text x="46" y="134">}</text>
+  </g>
+
+  <!-- standard crate -->
+  <rect x="400" y="30" width="290" height="112" rx="8" fill="#e3edf9" stroke="#1f5fa8" stroke-width="1.5"/>
+  <text x="416" y="54" font-weight="bold" fill="#1f5fa8">ww_gpio (standard library)</text>
+  <g fill="#222">
+    <text x="416" y="80">traits Bank and Pin</text>
+    <text x="416" y="98">types Level, Mode, Pull, Speed, ...</text>
+    <text x="416" y="116">api_snapshots/: the traits and types,</text>
+    <text x="416" y="134">saved at each version</text>
+  </g>
+  <line x1="320" y1="86" x2="396" y2="86" stroke="#222" marker-end="url(#arrow)"/>
+  <text x="358" y="78" text-anchor="middle" fill="#222">uses</text>
+
+  <!-- device -->
+  <rect x="30" y="220" width="290" height="96" rx="8" fill="#eef2f7" stroke="#222"/>
+  <text x="46" y="244" font-weight="bold" fill="#222">all_gpio_device (the firmware)</text>
+  <g fill="#222">
+    <text x="46" y="268">handlers of Bank and Pin:</text>
+    <text x="46" y="286">port_name, port_pin_set_output_level,</text>
+    <text x="46" y="304">port_pin_input_level, ... over a Board</text>
+  </g>
+  <line x1="175" y1="142" x2="175" y2="216" stroke="#222" marker-end="url(#arrow)"/>
+  <text x="185" y="184" fill="#222">ww_codegen!(server)</text>
+
+  <!-- hosts -->
+  <rect x="400" y="220" width="290" height="96" rx="8" fill="#e3edf9" stroke="#1f5fa8" stroke-width="1.5"/>
+  <text x="416" y="244" font-weight="bold" fill="#1f5fa8">Hosts that know ww_gpio::Bank</text>
+  <g fill="#222">
+    <text x="416" y="268">your Rust program (generated client)</text>
+    <text x="416" y="286">Python, ww introspect</text>
+    <text x="416" y="304">ww_gpio_hl: embedded-hal pins</text>
+  </g>
+
+  <!-- the wire -->
+  <line x1="320" y1="268" x2="396" y2="268" stroke="#222" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
+  <text x="358" y="260" text-anchor="middle" fill="#222">wire</text>
+  <g fill="#444" font-size="12">
+    <text x="360" y="346" text-anchor="middle">A host finds the bank by its global trait path ww_gpio::Bank, wherever it sits in the API.</text>
+    <text x="360" y="366" text-anchor="middle">The device's introspection data leaves ww_gpio's types out: hosts take them from its snapshot.</text>
+  </g>
+</svg>

@@ -337,6 +337,9 @@
         <loc>https://ww.vhrd.tech/std_library/device_contract/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/std_library/device_info/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/std_library/dimensions/</loc>
       </url>
       <url>
@@ -347,6 +350,9 @@
       </url>
       <url>
         <loc>https://ww.vhrd.tech/std_library/features/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/std_library/gpio_expander/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/std_library/indices/</loc>
@@ -400,6 +406,9 @@
         <loc>https://ww.vhrd.tech/std_library/timestamps/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/std_library/uart_bridge/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/std_library/unit_algebra/</loc>
       </url>
       <url>
@@ -413,6 +422,9 @@
       </url>
       <url>
         <loc>https://ww.vhrd.tech/std_library/units_in_tools/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/std_library/using/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/std_library/ww_adc/</loc>

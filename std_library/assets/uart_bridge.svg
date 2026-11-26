@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="330" viewBox="0 0 720 330" font-family="Helvetica, Arial, sans-serif" font-size="13">
+  <title>Bytes through a UART bridge, both ways</title>
+  <desc>Three boxes: the host program, the UART bridge and the serial devices on its ports. Received bytes go from the GPS receiver on port 0 into the bridge, which sends each chunk up the rx stream with the time of its first byte in the event head and the time of its last byte in the chunk. Bytes to send go from the host down the tx sink into a transmit buffer of 512 bytes; the bridge returns credit as the buffer empties, so the host never sends more than fits. Port 1 sends them out through its jumper and receives them again.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#222"/>
+    </marker>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#1f5fa8"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="720" height="330" rx="10" fill="#ffffff"/>
+
+  <!-- boxes -->
+  <rect x="20" y="40" width="170" height="250" rx="8" fill="#eef2f7" stroke="#222"/>
+  <text x="105" y="64" text-anchor="middle" font-weight="bold" fill="#222">Host program</text>
+  <rect x="275" y="40" width="190" height="250" rx="8" fill="#e3edf9" stroke="#1f5fa8" stroke-width="1.5"/>
+  <text x="370" y="64" text-anchor="middle" font-weight="bold" fill="#1f5fa8">UART bridge</text>
+  <rect x="550" y="40" width="150" height="100" rx="8" fill="#eef2f7" stroke="#222"/>
+  <text x="625" y="64" text-anchor="middle" font-weight="bold" fill="#222">Port 0</text>
+  <text x="625" y="86" text-anchor="middle" fill="#222">GPS receiver</text>
+  <text x="625" y="106" text-anchor="middle" fill="#222">9600 Bd, 8N1</text>
+  <rect x="550" y="190" width="150" height="100" rx="8" fill="#eef2f7" stroke="#222"/>
+  <text x="625" y="214" text-anchor="middle" font-weight="bold" fill="#222">Port 1</text>
+  <text x="625" y="236" text-anchor="middle" fill="#222">jumper TX to RX</text>
+
+  <!-- receive path -->
+  <line x1="550" y1="100" x2="469" y2="100" stroke="#222" marker-end="url(#arrow)"/>
+  <text x="510" y="92" text-anchor="middle" fill="#222">bytes</text>
+  <line x1="275" y1="100" x2="194" y2="100" stroke="#1f5fa8" stroke-width="1.5" marker-end="url(#arrow-blue)"/>
+  <text x="234" y="92" text-anchor="middle" fill="#1f5fa8">rx</text>
+  <g fill="#222" font-size="12">
+    <text x="290" y="92">a chunk of bytes that came</text>
+    <text x="290" y="108">back to back:</text>
+    <text x="290" y="128">head: t of the first byte</text>
+    <text x="290" y="146">chunk: end, flags, bytes</text>
+  </g>
+  <g fill="#222" font-size="12">
+    <text x="34" y="92">recv_event()</text>
+    <text x="34" y="128">StreamEvent::Item</text>
+    <text x="34" y="146">{ t, value }</text>
+  </g>
+
+  <!-- send path -->
+  <line x1="190" y1="210" x2="271" y2="210" stroke="#1f5fa8" stroke-width="1.5" marker-end="url(#arrow-blue)"/>
+  <text x="230" y="202" text-anchor="middle" fill="#1f5fa8">tx</text>
+  <line x1="275" y1="250" x2="194" y2="250" stroke="#222" stroke-dasharray="6 4" marker-end="url(#arrow)"/>
+  <text x="234" y="268" text-anchor="middle" fill="#222">credit</text>
+  <rect x="300" y="196" width="140" height="30" rx="4" fill="#ffffff" stroke="#1f5fa8"/>
+  <text x="370" y="216" text-anchor="middle" fill="#222">transmit buffer, 512 B</text>
+  <g fill="#222" font-size="12">
+    <text x="290" y="246">credit returns as the</text>
+    <text x="290" y="262">buffer empties</text>
+  </g>
+  <line x1="465" y1="210" x2="546" y2="210" stroke="#222" marker-end="url(#arrow)"/>
+  <line x1="546" y1="270" x2="469" y2="270" stroke="#222" marker-end="url(#arrow)"/>
+  <text x="508" y="202" text-anchor="middle" fill="#222">TX</text>
+  <text x="508" y="288" text-anchor="middle" fill="#222">RX</text>
+  <g fill="#222" font-size="12">
+    <text x="34" y="210">send_bytes(..)</text>
+    <text x="34" y="236">waits while the</text>
+    <text x="34" y="252">credit is used up</text>
+  </g>
+  <text x="360" y="318" text-anchor="middle" fill="#444" font-size="12">Times are the device's clock: t when the first byte arrived, end when the last one did.</text>
+</svg>

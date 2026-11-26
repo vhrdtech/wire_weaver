@@ -1,10 +1,14 @@
 //! The blinky firmware of both versions, simulated on a PC and served in process: [serve_w1_0] runs the firmware
-//! already in the field (`blinky_api` 0.1.0 at w1.0), [serve_w1_1] the new one (0.1.1 at w1.1, with `led_toggle`).
-//! The LED is a `bool`. Each serves the WebSocket clients of a [WsPort], made with `in_process::ws_device(path)`
-//! before a host connects to `path`.
+//! already in the field (`blinky_api` 0.1.0 at w1.0, the `blinky` example's device), [serve_w1_1] the new one (0.1.1
+//! at w1.1, with `led_toggle`). Each serves the WebSocket clients of a [WsPort], made with
+//! `in_process::ws_device(path)` before a host connects to `path`.
 
+use std::cell::Cell;
 use std::future::Future;
 use std::pin::pin;
+use std::rc::Rc;
+
+use blinky_api_evolved::Blinks;
 
 use wire_weaver::prelude::*;
 use wire_weaver::{MessageSink, WireWeaverAsyncApiBackend};
@@ -15,16 +19,30 @@ use ww_device::ws::{IoSocket, WsBuffers, WsConnection, ws_server};
 /// Longest message either side sends.
 const MAX_MESSAGE_LEN: usize = 1024;
 
-/// Serves firmware 0.1.0 to the clients of `port` until `stop` resolves; returns whether the LED is on.
+/// Serves firmware 0.1.0, the `blinky` example's device, to the clients of `port` until `stop` resolves; returns
+/// whether the LED is on.
 pub async fn serve_w1_0(port: WsPort, stop: impl Future<Output = ()>) -> bool {
-    let mut firmware = w1_0::Firmware { led: false };
-    serve(port, w1_0::link_config(), &mut firmware, stop).await;
-    firmware.led
+    let on = Rc::new(Cell::new(false));
+    let led: &'static mut LedState = Box::leak(Box::new(LedState(on.clone())));
+    blinky::simulated(port, led, stop).await;
+    on.get()
+}
+
+/// An LED whose state a test reads after the firmware stops.
+struct LedState(Rc<Cell<bool>>);
+
+impl blinky::Led for LedState {
+    fn set(&mut self, on: bool) {
+        self.0.set(on);
+    }
 }
 
 /// Serves firmware 0.1.1 to the clients of `port` until `stop` resolves; returns whether the LED is on.
 pub async fn serve_w1_1(port: WsPort, stop: impl Future<Output = ()>) -> bool {
-    let mut firmware = w1_1::Firmware { led: false };
+    let mut firmware = w1_1::Firmware {
+        led: false,
+        blinks: Blinks::new(0),
+    };
     serve(port, w1_1::link_config(), &mut firmware, stop).await;
     firmware.led
 }
@@ -51,71 +69,13 @@ async fn serve<B: WireWeaverAsyncApiBackend<Medium = ()>>(
     }
 }
 
-/// The firmware already in the field: `blinky_api` 0.1.0, wire w1.0.
-mod w1_0 {
-    use super::*;
-
-    pub(super) struct Firmware {
-        pub(super) led: bool,
-    }
-
-    pub(super) fn link_config() -> LinkConfig<'static> {
-        LinkConfig::new(
-            blinky_api::BLINKY_API_FULL_GID,
-            blinky_api::BLINKY_API_WIRE_VERSION,
-            server_impl::api_hash(),
-            server_impl::image_facts(),
-            ww_client_server::COMPACT_VERSION,
-        )
-    }
-
-    impl WireWeaverAsyncApiBackend for Firmware {
-        type Medium = ();
-
-        async fn process_bytes<'a>(
-            &mut self,
-            out: &mut EventWriter<'_, impl MessageSink>,
-            medium: (),
-            data: &[u8],
-            scratch: &'a mut [u8],
-        ) -> Result<&'a [u8], shrink_wrap::Error> {
-            self.process_request_bytes(data, scratch, out, medium).await
-        }
-
-        fn version(&self) -> FullVersion<'_> {
-            blinky_api::BLINKY_API_FULL_GID
-        }
-    }
-
-    mod server_impl {
-        wire_weaver::ww_codegen!(
-            blinky_api :: BlinkyApi for super::Firmware,
-            server = true, no_alloc = true, use_async = true,
-            method_model = "_=immediate",
-            property_model = "_=get_set",
-            introspect = "with_docs",
-        );
-    }
-
-    impl Firmware {
-        async fn led_on(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {
-            self.led = true;
-            Ready(())
-        }
-
-        async fn led_off(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {
-            self.led = false;
-            Ready(())
-        }
-    }
-}
-
 /// The new firmware: `blinky_api` 0.1.1, wire w1.1.
 mod w1_1 {
     use super::*;
 
     pub(super) struct Firmware {
         pub(super) led: bool,
+        pub(super) blinks: Blinks,
     }
 
     pub(super) fn link_config() -> LinkConfig<'static> {
@@ -157,19 +117,38 @@ mod w1_1 {
     }
 
     impl Firmware {
+        /// Turns the LED on or off, counts a blink when it goes on, and returns whether it was on before.
+        fn switch(&mut self, on: bool) -> bool {
+            let was_on = self.led;
+            if on && !was_on {
+                self.blinks = Blinks::new(self.blinks.get().wrapping_add(1));
+            }
+            self.led = on;
+            was_on
+        }
+
         async fn led_on(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {
-            self.led = true;
+            self.switch(true);
             Ready(())
         }
 
         async fn led_off(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {
-            self.led = false;
+            self.switch(false);
             Ready(())
+        }
+
+        async fn set_led(&mut self, _cx: &mut Context<'_, impl EventOut>, on: bool) -> RpcResult<bool> {
+            Ready(self.switch(on))
+        }
+
+        async fn blinks(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<Blinks> {
+            Ready(self.blinks)
         }
 
         // --8<-- [start:toggle]
         async fn led_toggle(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {
-            self.led = !self.led;
+            let on = !self.led;
+            self.switch(on);
             Ready(())
         }
         // --8<-- [end:toggle]

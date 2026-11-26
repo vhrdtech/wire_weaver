@@ -295,6 +295,24 @@ $ ww observe foc --samples 5
   ..
 ```
 
+## `ww call`
+
+Calls a method, reads a property or writes one, on any device, from its introspection data alone (TOOL-41). The
+argument is a Rust expression, the same one [`ww explain`](#ww-explain) reads: a method call, a method without
+arguments by its name, a property by its path, or a property write. Quote it when it holds parentheses or spaces.
+
+```sh
+ww call led_on                     # a method without arguments
+ww call 'set_led(true)'            # a method with an argument
+ww call gain                       # a property read
+ww call 'gain = 8'                 # a property write
+ww call 'channel[1].enabled'       # a property in an array of traits
+```
+
+`ww call` prints the return value or the value read, or `()` for a method that returns nothing and for a write.
+Numbers with a unit print with it. A value outside its type's bounds is refused before anything is sent, and a
+method's `Err` is printed as an error with exit code 1.
+
 ## `ww explain`
 
 Shows which bits of a buffer hold which value (TOOL-9): every field with its place in the buffer, its raw bits, its

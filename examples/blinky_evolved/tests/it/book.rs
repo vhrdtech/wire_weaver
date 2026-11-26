@@ -53,7 +53,7 @@ async fn with_firmware<F: Future<Output = String>>(
         .await
 }
 
-/// The host built from `blinky_api` 0.1.0: it knows `led_on` and `led_off`.
+/// The host built from `blinky_api` 0.1.0: it knows everything but `led_toggle`.
 async fn old_host(path: String) -> String {
     let device = blinky::Blinky::config(|c| c.in_process_path(path.clone()).no_ww_usb())
         .connect()

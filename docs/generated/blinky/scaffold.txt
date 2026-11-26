@@ -9,11 +9,37 @@ pub struct Server {}
 impl Server {
     // ---- blinky_api::BlinkyApi at root ----
 
+    /// Turns the LED on.
     async fn led_on(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {
         Unimplemented.into()
     }
 
+    /// Turns the LED off.
     async fn led_off(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {
+        Unimplemented.into()
+    }
+
+    /// Turns the LED on or off, and returns whether it was on before.
+    async fn set_led(
+        &mut self,
+        _cx: &mut Context<'_, impl EventOut>,
+        _on: bool,
+    ) -> RpcResult<bool> {
+        Unimplemented.into()
+    }
+
+    /// How many times the LED went from off to on since the device started.
+    async fn blinks(
+        &mut self,
+        _cx: &mut Context<'_, impl EventOut>,
+    ) -> RpcResult<
+        exact_units::Fixed<
+            exact_units::units::Item,
+            exact_units::prefix::One,
+            u32,
+            exact_units::Unbounded,
+        >,
+    > {
         Unimplemented.into()
     }
 }

@@ -31,7 +31,7 @@ embassy-sync = { version = "0.8", features = ["defmt"] }
 embassy-usb = { version = "0.6", features = ["defmt"], optional = true }
 embassy-futures = "0.1"
 
-blinky_api = { path = "../../examples/blinky_api", default-features = false }
+blinky_device = { path = "../../examples/blinky_device", features = ["defmt"] }
 thermometer_api = { path = "../../examples/thermometer_api", optional = true }
 thermometer_device = { path = "../../examples/thermometer_device", features = ["defmt"], optional = true }
 settings_api = { path = "../../examples/settings_api", default-features = false, features = ["defmt"], optional = true }

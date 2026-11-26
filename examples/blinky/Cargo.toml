@@ -1,7 +1,7 @@
 [package]
 name = "blinky"
 version = "0.1.0"
-description = "Client of the blinky example device: the project shape a host program copies"
+description = "Client of the blinky example device, and the device simulated on a PC over WebSocket"
 publish = false
 edition.workspace = true
 rust-version.workspace = true
@@ -9,40 +9,43 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[package.metadata.cargo-machete]
+# the client code ww_codegen! generates names ww_si (the blinks count is a Fixed)
+ignored = ["ww_si"]
+
 [features]
 # RTT through a debug probe, for the blinky_rtt example
 rtt = ["wire_weaver_client/rtt"]
-# WebSocket, for the blinky_ws example
-ws = ["wire_weaver_client/ws"]
 # UDP, for the blinky_udp example
 udp = ["wire_weaver_client/udp"]
 # Finding devices announced on the LAN, for the blinky_discover example
-dns_sd = ["ws", "wire_weaver_client/dns_sd"]
+dns_sd = ["wire_weaver_client/dns_sd"]
 # TCP and command targets, for the blinky_byte_stream example
 byte_stream = ["wire_weaver_client/byte_stream"]
 
 [dependencies]
-blinky_api.workspace = true
+blinky_api = { workspace = true, features = ["std"] }
+blinky_device = { workspace = true, features = ["std"] }
+futures-util.workspace = true
 tokio = { workspace = true, features = ["sync", "rt"] }
 wire_weaver.workspace = true
-wire_weaver_client = { workspace = true, features = ["clock_sync", "usb"] }
+wire_weaver_client = { workspace = true, features = ["clock_sync", "in_process", "usb", "ws"] }
+ww_device = { workspace = true, features = ["futures-io"] }
+ww_si = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
 anyhow.workspace = true
 book_outputs.workspace = true
 clap = { workspace = true, features = ["derive"] }
 console.workspace = true
-futures-util.workspace = true
 shlex.workspace = true
-tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net", "io-util", "signal"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net", "io-util", "signal", "test-util"] }
 tokio-util = { workspace = true, features = ["compat"] }
 tracing.workspace = true
 tracing-subscriber.workspace = true
 wire_weaver_cli.workspace = true
-wire_weaver_client = { workspace = true, features = ["clock_sync", "in_process", "usb"] }
 wire_weaver_core.workspace = true
 ww_client_server.workspace = true
-ww_device = { workspace = true, features = ["futures-io"] }
 ww_dns_sd = { workspace = true, features = ["mdns", "avahi"] }
 ww_self = { workspace = true, features = ["std"] }
 
@@ -62,12 +65,18 @@ required-features = ["rtt"]
 [[example]]
 name = "blinky_ws"
 path = "examples/ws.rs"
-required-features = ["ws"]
 
 [[example]]
 name = "blinky_ws_device"
 path = "examples/ws_device.rs"
-required-features = ["ws"]
+
+[[example]]
+name = "blinky_sim"
+path = "examples/sim.rs"
+
+[[example]]
+name = "blinky_host"
+path = "examples/host.rs"
 
 [[example]]
 name = "blinky_discover"

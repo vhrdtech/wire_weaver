@@ -1,10 +1,7 @@
 # blinky_api
 
-> API for an examply blinky device.
+> API of the blinky example device: an LED turned on and off, the first device of the book
 
-This crate is used by several example firmwares in `examples_mcu/` folder.
-Client code for Rust is generated from this crate in `../blinky`.
-Python wheel using the Rust client and this crate is in `../blinky_py`.
-
-This crate is `#![no_std]` by default, but if owned types that use alloc are desired, you can enable them via `std`
-feature.
+`BlinkyApi` has four methods: `led_on()` and `led_off()`, `set_led(on: bool) -> bool` (returns whether the LED was
+on before) and `blinks()` (how many times it went on). The device side is `blinky_device`, the host side `blinky`.
+`blinky_api_evolved` is the same API one revision later.

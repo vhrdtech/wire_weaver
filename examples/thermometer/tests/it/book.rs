@@ -492,3 +492,40 @@ fn tree_svg(rows: &[Row]) -> String {
     }
     svg + "</svg>\n"
 }
+
+/// `ww call` reads and writes properties, refuses a value outside its bounds before sending it, and reports a
+/// method's `Err` as an error (TOOL-41).
+#[tokio::test(start_paused = true)]
+async fn ww_call_reads_and_writes_properties_and_reports_errors() {
+    use wire_weaver_cli::cmd::call::call;
+    with_dyn_device("thermometer/ww_call", |dev| async move {
+        assert_eq!(call(&dev, "gain").await.unwrap(), "4");
+        assert_eq!(call(&dev, "gain = 8").await.unwrap(), "()");
+        assert_eq!(call(&dev, "gain").await.unwrap(), "8");
+        let refused = call(&dev, "gain = 20").await.unwrap_err();
+        assert!(format!("{refused:#}").contains("20"), "{refused:#}");
+        assert_eq!(call(&dev, "channel[1].enabled").await.unwrap(), "true");
+        // a triggered conversion keeps the rate from changing for 100 ms
+        call(&dev, "mode = Mode::Triggered").await.unwrap();
+        let root = dev
+            .device_introspect()
+            .expect("introspection data")
+            .api_bundle;
+        let mut commands = wire_weaver_client::DynResource::root(root.clone())
+            .child("commands")
+            .expect("commands")
+            .sink(dev.cmd())
+            .await
+            .expect("opens");
+        commands.open().await.unwrap();
+        let trigger =
+            wire_weaver_client::expr::parse_value("Command::Trigger", commands.ty(), &root)
+                .unwrap();
+        commands.send(&trigger).await.unwrap();
+        let busy = call(&dev, "set_rate(20)").await.unwrap_err();
+        assert!(format!("{busy:#}").contains("Busy"), "{busy:#}");
+        assert!(call(&dev, "gain(1)").await.is_err());
+        assert!(call(&dev, "no_such_item").await.is_err());
+    })
+    .await;
+}

@@ -2,132 +2,12 @@
 level: basic
 ---
 
-# Getting started with APIs
+# What an API can have
 
-A WireWeaver API is a Rust trait describing what a device offers: **methods** to call, **properties** to read and
-write, **streams** of data from the device, **sinks** of data into it, and nested **traits** grouping them. From that
-one trait, `ww_codegen!` generates the device's server (request decoding and dispatch to your handlers, `no_std` and
-no allocation) and the host's client (a typed function per item, async, blocking or as a promise for GUIs). Data
-crossing the wire is any [ShrinkWrap](../serdes/shrink_wrap.md) type.
-
-```rust
-#[ww_api_root]
-pub trait BlinkyApi {
-    #[effect(actuate)]
-    fn led_on();
-    #[effect(actuate)]
-    fn led_off();
-}
-```
-
-## The project shape
-
-An API lives in its own small crate, shared by the firmware and the host:
-
-| Crate | What it holds | In this repo |
-|---|---|---|
-| `blinky_api` | the trait and its data types, `no_std` | `examples/blinky_api` |
-| firmware | implements the handlers, runs the server | `examples_mcu/rp2/src/bin/usb_blinky.rs` |
-| `blinky` | the generated client, used by apps and scripts | `examples/blinky` |
-
-The API crate's name and version identify the API on the wire, see [Folder structure](folder_structure.md). To
-start a new project, copy the [wire_weaver_template](https://github.com/vhrdtech/wire_weaver_template) repository.
-
-## A first API, end to end
-
-**1. The API crate** (`examples/blinky_api/src/lib.rs`):
-
-```rust
-#![no_std]
-
-use ww_api::prelude::*;
-
-#[ww_api_root]
-pub trait BlinkyApi {
-    #[effect(actuate)]
-    fn led_on();
-    #[effect(actuate)]
-    fn led_off();
-}
-```
-
-The API crate depends on `ww_api` alone: the prelude with the derive macros, `shrink_wrap`, `ww_error` and
-`ww_version`, no runtime. `#[ww_api_root]` marks the top-level trait of a device (`#[ww_trait]` the others). It
-generates only a few consts and a [Rust trait for rustdoc](traits.md#in-rustdoc) by itself: `ww_codegen!`, in a
-server or client crate depending on `wire_weaver`, reads the trait from its source file, with the crates its types
-come from. In one
-crate's compile each API is read once: a second `ww_codegen!` of it (a server and a client in one crate) reuses that
-read while none of the files it read has changed (EVO-52). The API's
-[wire version](../evolution/versions.md#the-wire-version) lives in the crate's `Cargo.toml`, next to its crate version
-(`examples/blinky_api/Cargo.toml`):
-
-```toml
-[package.metadata.wire_weaver]
-wire = "w1.0"
-```
-
-**2. The device** (from `examples_mcu/rp2/src/bin/usb_blinky.rs`) implements one handler per method:
-
-```rust
-struct ServerState {
-    led: Output<'static>,
-}
-
-impl ServerState {
-    async fn led_on(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {
-        self.led.set_high();
-        Ready(())
-    }
-
-    async fn led_off(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {
-        self.led.set_low();
-        Ready(())
-    }
-}
-
-mod server_impl {
-    wire_weaver::ww_codegen!(
-        blinky_api :: BlinkyApi for super::ServerState,
-        server = true, no_alloc = true, use_async = true,
-    );
-}
-```
-
-`ww api scaffold blinky_api` ([CLI](../cli_reference.md#ww-api)) prints the struct, a stub for every handler and the
-`ww_codegen!` call, so you never write handler signatures by hand. The generated server is sans-IO: a transport
-(USB, RTT, UDP, WebSocket, see [Choosing a transport](../basic/transports.md)) feeds it requests; the example uses
-`wire_weaver_usb_embassy`.
-
-**3. The host** (`examples/blinky`) generates a client and calls the device:
-
-```rust
-pub struct Blinky {
-    cmd: Commander,
-}
-
-impl WwClient for Blinky {
-    fn default_config() -> ClientConfig {
-        ClientConfig::new().usb_vid_pid(0xc0de, 0xcafe)
-    }
-    fn try_from_cmd(cmd: Commander) -> Result<Self, wire_weaver_client::Error> {
-        Ok(Self { cmd })
-    }
-}
-
-mod api_client {
-    wire_weaver::ww_codegen!(blinky_api :: BlinkyApi for crate::Blinky, client = "std_client");
-}
-
-// examples/blinky/examples/simple.rs
-let device = Blinky::new().connect().await?;
-device.led_on().call().await?;
-device.led_off().call().await?;
-```
-
-`.call().await` is the async form; `.blocking_call()` and `.call_promise(..)` do the same without async. With no
-host code at all, `ww introspect` and [Python](../python.md) talk to the device from the API it describes itself.
-
-## What an API can have
+Blinky's API in [A device on your PC](../basic/first_device.md) has only methods. A trait can hold more: values a
+host reads and writes, data that streams out of the device or into it, and groups of items. This page lists them
+all, with the chapter that teaches each. From one trait, `ww_codegen!` generates the device's server and the host's
+client for every item.
 
 ```rust
 use ww_si::{Fixed, Point, Range, origins::Celsius, prefix::{Centi, Milli}};
@@ -160,14 +40,14 @@ trait MyDevice {
 
 | Item | Page |
 |---|---|
-| `fn` | [Methods](methods.md): handlers, async or blocking servers, deferred answers, the client |
+| `fn` | [Methods](../basic/methods.md), and [in depth](methods.md): async or blocking servers, deferred answers, the client |
 | `property!`, `const` | [Properties](../basic/properties.md): `get_set` handlers or a plain field, reads, writes, consts |
-| `stream!`, `sink!` | [Streams](streams.md): plain, counted and reliable streams, sinks |
+| `stream!`, `sink!` | [Streams and sinks](../basic/streams.md): plain, counted and reliable streams, sinks |
 | `ww_impl!` | [Traits](traits.md): grouping, reusable traits from crates, attachments |
 | `Result<T, E>` | [Errors](errors.md): error enums, common errors, `CallError` on the client |
 
 Everything else builds on these: items can be [arrays](arrays.md) (`gpio[]`), [optional](optional_items.md) for
-devices that lack them, [observed](observing.md) without polling, and many can be answered in one
+devices that lack them, [observed](../basic/observing.md) without polling, and many can be answered in one
 [multi request](multi_requests.md). The [standard library](../std_library/overview.md) has ready-made traits for
 GPIO, I2C, UART, firmware updates, logs and more.
 

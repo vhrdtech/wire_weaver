@@ -34,7 +34,7 @@ API after the change:
 --8<-- "examples/blinky_api_evolved/src/lib.rs:root"
 ```
 
-`led_toggle` comes last in its trait, after the two methods that were there before. `#[since = "w1.1"]` names the
+`led_toggle` comes last in its trait, after the four methods that were there before. `#[since = "w1.1"]` names the
 [[wire version]] that adds it: line 1, revision 1. The host reads this attribute to decide whether a device has the
 method before it calls it.
 
@@ -69,8 +69,8 @@ The crate version moves by Cargo's rules. An addition bumps the compatible posit
 
 ## The firmware's new handler
 
-The new firmware serves `led_toggle` with one more [[handler]], next to the two it already had. It flips the LED
-that `led_on` and `led_off` set:
+The new firmware serves `led_toggle` with one more [[handler]], next to the four it already had. It flips the LED
+that `led_on`, `led_off` and `set_led` set:
 
 ```rust
 --8<-- "examples/blinky_evolved/src/device.rs:toggle"

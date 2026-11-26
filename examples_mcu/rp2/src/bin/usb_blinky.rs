@@ -1,7 +1,12 @@
+//! The blinky example device (`examples/blinky_device`) on the RP235x, over USB: the LED on GPIO 25 is its LED. The
+//! server and its handlers are the simulated device's; only the LED differs.
+//!
+//! Run with `just run rp2 usb_blinky`, then from the PC `ww list` and `ww call led_on`.
 #![no_std]
 #![no_main]
 // #![feature(impl_trait_in_assoc_type)]
 
+use blinky_device::{Blinky, Led};
 use cortex_m_rt::exception;
 use defmt::*;
 use defmt_rtt as _;
@@ -12,9 +17,7 @@ use embassy_rp::usb::{Driver as UsbDriver, InterruptHandler};
 use embassy_time::Timer;
 use panic_probe as _;
 use static_cell::StaticCell;
-use wire_weaver::prelude::*;
-use wire_weaver::{MessageSink, WireWeaverAsyncApiBackend};
-use wire_weaver_usb_embassy::{LinkConfig, UsbBuffers, UsbDevice, UsbServer, UsbTimings, usb_init};
+use wire_weaver_usb_embassy::{UsbBuffers, UsbDevice, UsbServer, UsbTimings, usb_init};
 
 bind_interrupts!(struct Irqs {
     USBCTRL_IRQ => InterruptHandler<USB>;
@@ -23,6 +26,8 @@ bind_interrupts!(struct Irqs {
 const MAX_USB_PACKET_LEN: usize = 64; // 64 for FullSpeed, 512 (Bulk) or 1024 (Interrupt) for HighSpeed
 const MAX_MESSAGE_LEN: usize = 1024; // Maximum WireWeaver message length
 static USB_BUFFERS: StaticCell<UsbBuffers<MAX_USB_PACKET_LEN, MAX_MESSAGE_LEN>> = StaticCell::new();
+static LED: StaticCell<BoardLed> = StaticCell::new();
+static BLINKY: StaticCell<Blinky> = StaticCell::new();
 
 #[embassy_executor::task]
 async fn usb_task(mut usb: UsbDevice<'static, UsbDriver<'static, USB>>) {
@@ -32,54 +37,21 @@ async fn usb_task(mut usb: UsbDevice<'static, UsbDriver<'static, USB>>) {
 #[embassy_executor::task]
 async fn ww_server_task(
     mut server: UsbServer<'static, UsbDriver<'static, USB>>,
-    mut state: ServerState,
+    blinky: &'static mut Blinky,
 ) {
-    // Nothing else to wait for: use the prepared loop. See the uart example for a custom one.
-    server.run(&mut state).await;
+    blinky_device::serve(&mut server, blinky, core::future::pending()).await;
 }
 
-impl WireWeaverAsyncApiBackend for ServerState {
-    type Medium = ();
+/// The board's LED as the blinky device sees it.
+struct BoardLed(Output<'static>);
 
-    async fn process_bytes<'a>(
-        &mut self,
-        out: &mut EventWriter<'_, impl MessageSink>,
-        medium: (),
-        data: &[u8],
-        scratch: &'a mut [u8],
-    ) -> Result<&'a [u8], shrink_wrap::Error> {
-        self.process_request_bytes(data, scratch, out, medium).await
-    }
-
-    fn version(&self) -> FullVersion<'_> {
-        blinky_api::BLINKY_API_FULL_GID
-    }
-}
-
-struct ServerState {
-    led: Output<'static>,
-}
-
-mod server_impl {
-    wire_weaver::ww_codegen!(
-        blinky_api :: BlinkyApi for super::ServerState,
-        server = true, no_alloc = true, use_async = true,
-        method_model = "_=immediate",
-        property_model = "_=get_set",
-        introspect = "with_docs",
-        //debug_to_file = "./target/generated_blinky_server.rs"
-    );
-}
-
-impl ServerState {
-    async fn led_on(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {
-        self.led.set_high();
-        Ready(())
-    }
-
-    async fn led_off(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {
-        self.led.set_low();
-        Ready(())
+impl Led for BoardLed {
+    fn set(&mut self, on: bool) {
+        if on {
+            self.0.set_high();
+        } else {
+            self.0.set_low();
+        }
     }
 }
 
@@ -92,30 +64,23 @@ async fn main(spawner: embassy_executor::Spawner) {
 
     let led = Output::new(p.PIN_25, Level::Low);
 
-    let state = ServerState { led };
+    let blinky = BLINKY.init(Blinky::new(LED.init(BoardLed(led))));
 
     let driver = UsbDriver::new(p.USB, Irqs);
     let buffers = USB_BUFFERS.init(UsbBuffers::default());
-    let link_config = LinkConfig::new(
-        blinky_api::BLINKY_API_FULL_GID,
-        blinky_api::BLINKY_API_WIRE_VERSION,
-        server_impl::api_hash(),
-        server_impl::image_facts(),
-        ww_client_server::COMPACT_VERSION,
-    );
     let (usb, server) = usb_init(
         driver,
         buffers,
         UsbTimings::fs_higher_speed(),
         // UsbTimings::fs_lower_latency(),
-        link_config,
-        server_impl::API_ID,
+        Blinky::link_config(),
+        Blinky::API_ID,
         |_config| {
             // config.serial_number = Some();
         },
     );
     spawner.spawn(unwrap!(usb_task(usb)));
-    spawner.spawn(unwrap!(ww_server_task(server, state)));
+    spawner.spawn(unwrap!(ww_server_task(server, blinky)));
 
     info!("init done");
     loop {

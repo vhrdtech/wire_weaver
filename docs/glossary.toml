@@ -7,13 +7,13 @@
 name = "API trait"
 forms = ["API traits"]
 short = "A Rust trait marked `#[ww_trait]` or `#[ww_api_root]` that describes what a device offers: methods, properties, streams, sinks and nested traits."
-chapter = "../api/overview/"
+chapter = "../basic/first_device/"
 
 [[term]]
 name = "API crate"
 forms = ["API crates"]
 short = "A `no_std` crate holding an API trait and its types, which the firmware and every host depend on."
-chapter = "../api/folder_structure/"
+chapter = "../basic/first_device/"
 
 [[term]]
 name = "array"
@@ -46,7 +46,7 @@ chapter = "../api/metadata/"
 name = "client"
 forms = ["clients"]
 short = "The host-side code generated from an API trait: a typed function per item, async, blocking or as a promise."
-chapter = "../api/overview/"
+chapter = "../basic/first_device/"
 
 [[term]]
 name = "conformance corpus"
@@ -68,7 +68,7 @@ chapter = "../basic/udp/"
 [[term]]
 name = "device contract"
 short = "The standard traits every device should offer: firmware and board information, a unique id, user information, the log and an indication."
-chapter = "../std_library/device_contract/"
+chapter = "../std_library/device_info/"
 
 [[term]]
 name = "discriminant"
@@ -103,10 +103,15 @@ short = "The layer (`ww_framer`) that packs small messages into one packet and s
 chapter = "../transport/ww_framer/"
 
 [[term]]
+name = "global trait path"
+short = "A trait's crate, version and name, such as `ww_gpio::Bank`: a host finds a standard trait by it wherever it sits in a device's API."
+chapter = "../std_library/using/"
+
+[[term]]
 name = "handler"
 forms = ["handlers"]
 short = "A function of the server that runs when a request for its method or property arrives; its signature follows the `ww_codegen!` options."
-chapter = "../api/handlers/"
+chapter = "../basic/first_device/"
 
 [[term]]
 name = "hub"
@@ -116,7 +121,7 @@ chapter = "../transport/hub/"
 [[term]]
 name = "introspection"
 short = "The description of a device's API that the device sends on request, so that a tool can call it without knowing the API at build time."
-chapter = "../api/introspection/"
+chapter = "../basic/command_line/"
 
 [[term]]
 name = "link layer"
@@ -132,7 +137,7 @@ chapter = "../basic/transports/"
 name = "method"
 forms = ["methods"]
 short = "An item of an API trait that a host calls with arguments and that answers with a return value."
-chapter = "../api/methods/"
+chapter = "../basic/methods/"
 
 [[term]]
 name = "mount"
@@ -214,13 +219,19 @@ chapter = "../basic/temperatures/"
 name = "server"
 forms = ["servers"]
 short = "The device-side code generated from an API trait: it decodes requests and calls your handlers, `no_std` and without allocation."
-chapter = "../api/overview/"
+chapter = "../basic/first_device/"
 
 [[term]]
 name = "ShrinkWrap"
 forms = ["shrink_wrap"]
 short = "The wire format of WireWeaver: dense down to single bits, readable without an allocator, and evolvable."
 chapter = "../basic/types_on_the_wire/"
+
+[[term]]
+name = "simulated device"
+forms = ["simulated devices"]
+short = "A device's code running on a PC with stand-ins for its hardware, served over WebSocket, so that hosts and tests use it as they would a board."
+chapter = "../basic/first_device/"
 
 [[term]]
 name = "sink"
@@ -237,7 +248,7 @@ chapter = "../evolution/snapshots/"
 [[term]]
 name = "standard library"
 short = "Ready-made API traits and types for common device features (pins, buses, logs, firmware updates), reusable in any API."
-chapter = "../std_library/overview/"
+chapter = "../std_library/using/"
 
 [[term]]
 name = "step"

@@ -32,13 +32,16 @@ nav = [
                 ]
             },
             { "A first device" = [
-                    { "Getting started" = "api/overview.md" },
-                    "api/folder_structure.md",
-                    "api/methods.md"
+                    "basic/first_device.md",
+                    "basic/methods.md",
+                    "basic/board.md",
+                    "basic/command_line.md",
+                    "basic/python.md",
+                    "api/overview.md",
+                    "api/folder_structure.md"
                 ]
             },
             { "Tools" = [
-                    "cli.md",
                     "python.md"
                 ]
             },
@@ -80,24 +83,10 @@ nav = [
                 ]
             },
             { "The standard library" = [
-                    "std_library/overview.md",
-                    "std_library/io_family.md",
-                    "std_library/ww_gpio.md",
-                    "std_library/ww_uart.md",
-                    "std_library/ww_can_bus.md",
-                    "std_library/ww_i2c.md",
-                    "std_library/ww_i2c_hl.md",
-                    "std_library/ww_spi.md",
-                    "std_library/ww_onewire.md",
-                    "std_library/ww_pin_diag.md",
-                    "std_library/device_contract.md",
-                    "std_library/ww_firmware_info.md",
-                    "std_library/ww_board_info.md",
-                    "std_library/ww_uid.md",
-                    "std_library/ww_user_info.md",
-                    "std_library/ww_log.md",
-                    "std_library/ww_indication.md",
-                    { "ww_dfu" = "std_library/ww_dfu.md" }
+                    "std_library/using.md",
+                    "std_library/gpio_expander.md",
+                    "std_library/uart_bridge.md",
+                    "std_library/device_info.md"
                 ]
             },
             { "Keeping it working" = [
@@ -123,6 +112,7 @@ nav = [
                 ]
             },
             { "The API in depth" = [
+                    "api/methods.md",
                     "api/properties.md",
                     "api/traits.md",
                     "api/arrays.md",
@@ -208,6 +198,7 @@ nav = [
                 ]
             },
             { "Standard library in depth" = [
+                    { "ww_dfu" = "std_library/ww_dfu.md" },
                     { "ww_dfu: A/B" = "std_library/ww_dfu_ab.md" },
                     { "ww_dfu: one slot" = "std_library/ww_dfu_one_slot.md" },
                     "std_library/ww_recorder.md",
@@ -225,6 +216,7 @@ nav = [
                 ]
             },
             { "Tools in depth" = [
+                    "cli.md",
                     { "Python: more" = "python_advanced.md" },
                     "dev_tool.md"
                 ]
@@ -270,6 +262,26 @@ nav = [
             "serdes/derive_reference.md",
             { "CLI reference" = "cli_reference.md" },
             "serdes/conformance_matrix.md",
+            { "Standard library" = [
+                    { "Crates" = "std_library/overview.md" },
+                    "std_library/io_family.md",
+                    "std_library/ww_gpio.md",
+                    "std_library/ww_uart.md",
+                    "std_library/ww_can_bus.md",
+                    "std_library/ww_i2c.md",
+                    "std_library/ww_i2c_hl.md",
+                    "std_library/ww_spi.md",
+                    "std_library/ww_onewire.md",
+                    "std_library/ww_pin_diag.md",
+                    "std_library/device_contract.md",
+                    "std_library/ww_firmware_info.md",
+                    "std_library/ww_board_info.md",
+                    "std_library/ww_uid.md",
+                    "std_library/ww_user_info.md",
+                    "std_library/ww_log.md",
+                    "std_library/ww_indication.md"
+                ]
+            },
             "glossary.md",
             { "Examples and templates" = [
                     "examples/examples.md",

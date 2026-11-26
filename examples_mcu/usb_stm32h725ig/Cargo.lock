@@ -109,6 +109,20 @@ name = "blinky_api"
 version = "0.1.0"
 dependencies = [
  "ww_api 0.6.0",
+ "ww_si",
+]
+
+[[package]]
+name = "blinky_device"
+version = "0.1.0"
+dependencies = [
+ "blinky_api",
+ "embassy-futures",
+ "shrink_wrap",
+ "wire_weaver",
+ "ww_client_server",
+ "ww_device",
+ "ww_si",
 ]
 
 [[package]]
@@ -1760,7 +1774,7 @@ name = "usb_fdcan_h725ig"
 version = "0.1.0"
 dependencies = [
  "bedrock_led",
- "blinky_api",
+ "blinky_device",
  "cnt",
  "cortex-m",
  "cortex-m-rt",

@@ -137,7 +137,7 @@ After one sample it prints the lines of this section: `mode: Idle`, `gain: 8` an
 
 ## From the command line
 
-The [`ww` command line tool](../cli.md) reads a device's API from the device itself, through [[introspection]]. `--websocket`
+The [`ww` command line tool](command_line.md) reads a device's API from the device itself, through [[introspection]]. `--websocket`
 connects it to the simulated thermometer instead of a USB device, and `introspect -d` prints the API without its
 doc comments:
 

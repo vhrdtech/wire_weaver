@@ -17,6 +17,7 @@
 
 ### 🚀 Features
 
+- `ww call EXPR` calls a method, reads or writes a property from introspection data; `cmd::call::call` gives its text (TOOL-41).
 - `cmd::introspect::render(device, IntrospectView)`: the text `ww introspect` prints, for a book's transcript or another program.
 - `cmd::api::check::render(path, CheckOptions)`: the text `ww api check` prints and its verdict, for a book's transcript.
 - `cmd::api::scaffold::render(path, root, config, strict)`: the code `ww api scaffold` writes, for a book's transcript.

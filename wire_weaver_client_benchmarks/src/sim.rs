@@ -30,6 +30,21 @@ impl Server {
     async fn led_off(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {
         Ready(())
     }
+
+    async fn set_led(
+        &mut self,
+        _cx: &mut Context<'_, impl EventOut>,
+        _on: bool,
+    ) -> RpcResult<bool> {
+        Ready(false)
+    }
+
+    async fn blinks(
+        &mut self,
+        _cx: &mut Context<'_, impl EventOut>,
+    ) -> RpcResult<blinky_api::Blinks> {
+        Ready(blinky_api::Blinks::new(0))
+    }
 }
 
 impl TestProcessEventsAsync for Server {

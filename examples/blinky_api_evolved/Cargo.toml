@@ -19,10 +19,13 @@ wire = "w1.1"
 
 [features]
 # build against std instead of no_std
-std = ["ww_api/std"]
+std = ["ww_api/std", "ww_si/std"]
+# defmt formatting for the API's types
+defmt = ["ww_api/defmt", "ww_si/defmt"]
 
 [dependencies]
 ww_api = { path = "../../ww_api", default-features = false }
+ww_si = { git = "https://github.com/vhrdtech/ww_base", default-features = false, features = ["counting"] }
 
 [dev-dependencies]
 wire_weaver_evolution = { path = "../../wire_weaver_evolution", features = ["source"] }

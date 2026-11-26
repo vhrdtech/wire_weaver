@@ -336,6 +336,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "blinky_api 0.1.0",
+ "blinky_device",
  "book_outputs",
  "clap",
  "console",
@@ -353,6 +354,7 @@ dependencies = [
  "ww_device",
  "ww_dns_sd",
  "ww_self",
+ "ww_si",
 ]
 
 [[package]]
@@ -361,6 +363,7 @@ version = "0.1.0"
 dependencies = [
  "wire_weaver_evolution",
  "ww_api",
+ "ww_si",
 ]
 
 [[package]]
@@ -368,6 +371,28 @@ name = "blinky_api"
 version = "0.1.1"
 dependencies = [
  "ww_api",
+ "ww_si",
+]
+
+[[package]]
+name = "blinky_device"
+version = "0.1.0"
+dependencies = [
+ "blinky_api 0.1.0",
+ "embassy-futures",
+ "shrink_wrap",
+ "wire_weaver",
+ "ww_client_server",
+ "ww_device",
+ "ww_si",
+]
+
+[[package]]
+name = "blinky_dyn_py"
+version = "0.1.0"
+dependencies = [
+ "pyo3",
+ "wire_weaver_py",
 ]
 
 [[package]]
@@ -376,7 +401,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "blinky",
- "blinky_api 0.1.0",
  "blinky_api 0.1.1",
  "book_outputs",
  "clap",
@@ -391,6 +415,7 @@ dependencies = [
  "ww_client_server",
  "ww_device",
  "ww_self",
+ "ww_si",
 ]
 
 [[package]]
@@ -5403,6 +5428,7 @@ dependencies = [
  "wire_weaver",
  "wire_weaver_client",
  "ww_client_server",
+ "ww_si",
 ]
 
 [[package]]

@@ -1,7 +1,7 @@
 //! WireWeaver API over WebSocket, on a network over USB: the board shows up on the host as a CDC-NCM Ethernet
 //! adapter, runs embassy-net with a static IP and a small DHCP server (so the host gets an address by itself),
-//! and accepts one WebSocket client at a time on port 8080. The same blinky API as `usb_blinky`. Also answers ping
-//! and serves a hello world page at http://192.168.7.1.
+//! and accepts one WebSocket client at a time on port 8080. The same blinky device (`examples/blinky_device`) as
+//! `usb_blinky`. Also answers ping and serves a hello world page at http://192.168.7.1.
 //!
 //! Run with `just run rp2 ww_ws_ncm`, then connect from the host with the `ws` feature of `wire_weaver_client`:
 //! `ws://192.168.7.1:8080/ww`.
@@ -10,6 +10,7 @@
 
 use core::net::Ipv4Addr;
 
+use blinky_device::{Blinky, Led};
 use cortex_m_rt::exception;
 use defmt::*;
 use defmt_rtt as _;
@@ -37,10 +38,8 @@ use embassy_usb::{Builder, UsbDevice};
 use embedded_io_async::{Read, Write};
 use panic_probe as _;
 use static_cell::StaticCell;
-use wire_weaver::prelude::*;
-use wire_weaver::{MessageSink, WireWeaverAsyncApiBackend};
+use ww_device::EmbassyClock;
 use ww_device::ws::{EmbassyNetSocket, WsBuffers, WsConnection, WsServer, ws_server};
-use ww_device::{EmbassyClock, LinkConfig};
 
 bind_interrupts!(struct Irqs {
     USBCTRL_IRQ => InterruptHandler<USB>;
@@ -59,6 +58,8 @@ const MTU: usize = 1514;
 const MAX_MESSAGE_LEN: usize = 1024;
 static WS_BUFFERS: StaticCell<WsBuffers<MAX_MESSAGE_LEN>> = StaticCell::new();
 static WS_CONNECTION: StaticCell<WsConnection<EmbassyNetSocket<'static>>> = StaticCell::new();
+static LED: StaticCell<BoardLed> = StaticCell::new();
+static BLINKY: StaticCell<Blinky> = StaticCell::new();
 
 type Usb = UsbDriver<'static, USB>;
 
@@ -166,53 +167,21 @@ async fn http_task(stack: Stack<'static>) {
 #[embassy_executor::task]
 async fn ww_server_task(
     mut server: WsServer<'static, EmbassyNetSocket<'static>, EmbassyClock>,
-    mut state: ServerState,
+    blinky: &'static mut Blinky,
 ) {
-    // Nothing else to wait for: use the prepared loop. See ww_device::Server for a custom one.
-    server.run(&mut state).await
+    blinky_device::serve(&mut server, blinky, core::future::pending()).await
 }
 
-struct ServerState {
-    led: Output<'static>,
-}
+/// The board's LED as the blinky device sees it.
+struct BoardLed(Output<'static>);
 
-impl WireWeaverAsyncApiBackend for ServerState {
-    type Medium = ();
-
-    async fn process_bytes<'a>(
-        &mut self,
-        out: &mut EventWriter<'_, impl MessageSink>,
-        medium: (),
-        data: &[u8],
-        scratch: &'a mut [u8],
-    ) -> Result<&'a [u8], shrink_wrap::Error> {
-        self.process_request_bytes(data, scratch, out, medium).await
-    }
-
-    fn version(&self) -> FullVersion<'_> {
-        blinky_api::BLINKY_API_FULL_GID
-    }
-}
-
-mod server_impl {
-    wire_weaver::ww_codegen!(
-        blinky_api :: BlinkyApi for super::ServerState,
-        server = true, no_alloc = true, use_async = true,
-        method_model = "_=immediate",
-        property_model = "_=get_set",
-        introspect = "with_docs",
-    );
-}
-
-impl ServerState {
-    async fn led_on(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {
-        self.led.set_high();
-        Ready(())
-    }
-
-    async fn led_off(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {
-        self.led.set_low();
-        Ready(())
+impl Led for BoardLed {
+    fn set(&mut self, on: bool) {
+        if on {
+            self.0.set_high();
+        } else {
+            self.0.set_low();
+        }
     }
 }
 
@@ -278,21 +247,14 @@ async fn main(spawner: Spawner) {
     socket.set_timeout(Some(Duration::from_secs(5)));
     socket.set_keep_alive(Some(Duration::from_secs(2)));
     let conn = WS_CONNECTION.init(WsConnection::new(EmbassyNetSocket::new(socket, WS_PORT)));
-    let link_config = LinkConfig::new(
-        blinky_api::BLINKY_API_FULL_GID,
-        blinky_api::BLINKY_API_WIRE_VERSION,
-        server_impl::api_hash(),
-        server_impl::image_facts(),
-        ww_client_server::COMPACT_VERSION,
-    );
     let server = ws_server(
-        link_config,
+        Blinky::link_config(),
         conn,
         EmbassyClock,
         WS_BUFFERS.init(WsBuffers::new()),
     );
-    let state = ServerState { led };
-    spawner.spawn(unwrap!(ww_server_task(server, state)));
+    let blinky = BLINKY.init(Blinky::new(LED.init(BoardLed(led))));
+    spawner.spawn(unwrap!(ww_server_task(server, blinky)));
 
     info!(
         "init done, ws://{}:{}/ww",

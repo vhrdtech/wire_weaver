@@ -13,7 +13,9 @@ the parts before, so each page keeps the badge of its own level.
 | [CLI reference](../cli_reference.md) | Every command of the `ww` tool. |
 | [Conformance matrix](../serdes/conformance_matrix.md) | Every case of the wire-format corpus, with its bytes, across the implementations. |
 | [Standard library](../std_library/overview.md) | Every crate of the standard library: its traits, types and errors. |
+| [ShrinkWrap crate](../serdes/shrink_wrap.md) | What the wire format's crate gives you, with its pages by level. |
 | [Glossary](../glossary.md) | One short entry for each term of the book. |
+| [For writers](for_writers.md) | How a page of this book is written: levels, links, includes, outputs, figures and bit layouts. |
 | [Examples](../examples/examples.md) | The examples and firmware of the repository, and the template for a new project. |
 | [Tapes](../tapes.md) and [logring](../logring.md) | Two projects built on WireWeaver, each with a book of its own. |
 

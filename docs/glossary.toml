@@ -207,7 +207,7 @@ chapter = "../basic/properties/"
 name = "reading level"
 forms = ["reading levels"]
 short = "How much a page assumes: Basic, Advanced or Nomicon, shown by the badge above its title."
-chapter = "../levels/"
+chapter = "../intro/reading/"
 
 [[term]]
 name = "ring buffer"

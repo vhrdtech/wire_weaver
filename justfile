@@ -138,10 +138,6 @@ miri:
 test-power-cut:
     cargo nextest run -p ww_settings --release --profile power-cut --test power_cut
 
-# Regenerate the docs site's Features page (docs/features_today.md) from FEATURES.md and tests/features_page/entries.md (DOC-9)
-features-page:
-    FEATURES_PAGE=update cargo nextest run -p features_page
-
 # Regenerate the WireWeaver and ShrinkWrap logos in docs/assets (light, dark, 2x PNG; needs rsvg-convert)
 logos:
     uv run docs/assets/src/logos.py

@@ -1,9 +1,6 @@
 ---
 icon: lucide/home
 level: basic
-hide:
-  - navigation
-  - toc
 ---
 
 # WireWeaver { .visually-hidden }
@@ -12,80 +9,59 @@ hide:
 ![WireWeaver logo](assets/wire_weaver_logo-dark.svg#only-dark){ width="420" }
 { style="text-align:center" }
 
-Crates for designing **no_std** APIs with a rich type system, **no allocation** and a dense **bit-level** wire format,
-plus a whole set of standard types and traits, all in Rust.
-{ style="text-align:center" }
+WireWeaver is a set of Rust crates for the API between a device and a computer. You describe what the device offers
+as one Rust trait, and WireWeaver generates the code for both ends: the [[server]] that runs in the device's firmware
+and the [[client]] that a program on the computer calls. The two ends exchange bytes in [[ShrinkWrap]], a dense wire
+format of its own.
 
 <div style="text-align:center" markdown>
-[Get started](api/overview.md){ .md-button .md-button--primary }
-[Standard library](std_library/overview.md){ .md-button }
-[Examples](examples/examples.md){ .md-button }
-[Features](features_today.md){ .md-button }
+[A first look](intro/first_look.md){ .md-button .md-button--primary }
+[What WireWeaver does](intro/what_it_does.md){ .md-button }
+[How to read this book](intro/reading.md){ .md-button }
 </div>
 
-Pages are marked by how deep they go: Basic, Advanced or Nomicon. See [reading levels](levels.md).
-{ style="text-align:center" }
+## One trait, two ends
 
----
+A device's API is a list of what a host may do with it: call a function, read or write a value, receive a stream of
+readings. In WireWeaver that list is an [[API trait]], a Rust trait marked `#[ww_api_root]`, in a crate of its own.
+The figure shows what grows from it.
 
-## What it does
+![One API crate; ww_codegen! makes a server on the device, where your handlers run, and a client on the host; shrink_wrap bytes travel between them over USB, UDP, WebSocket, RTT or a serial line; ww and Python read the API from the device](assets/overview.svg)
 
-<div class="grid cards" markdown>
+The `ww_codegen!` macro reads the trait and writes the server on the device side. The server decodes each request,
+calls the function you wrote for it, a [[handler]], and encodes the reply. On the host side the same macro writes a
+client with one Rust function per item of the trait. Neither side hand-writes a byte of the protocol, so the two
+can't disagree about it.
 
--   :simple-wire: __[Wire Format](serdes/shrink_wrap.md)__
+The device also carries a description of its own API. The `ww` command line tool and the Python package read that
+description from the device and call it without any generated code. You can poke a new firmware from a terminal
+before a host program for it exists.
 
-    ---
-    Dense zero-copy, no-alloc and no_std wire format. Dynamically sized user-defined types and vectors (on no_std as well).
-    Bit level packing and [more](serdes/showcase.md), [real-world use cases](serdes/use_cases.md).
+## Who it is for
 
--   :material-function: __[RPC](api/methods.md)__
+WireWeaver is for people who build a device and the software that talks to it: a sensor, a motor controller, a lab
+instrument, a board on a test bench. It assumes that the firmware is written in Rust.
 
-    ---
-    Define and call methods with any number of arguments and return type.
-    Call using blocking, async or promise interface.
+- **Firmware on small targets.** The server needs no allocator and no operating system. It runs on a Cortex-M0+,
+  such as the STM32G0B1 of the book's board examples.
+- **Host programs.** The client works with `async` Rust and with blocking calls.
+- **Scripts and test benches.** Python and the `ww` tool call any device, so a calibration script needs no build
+  step.
 
--   :material-relation-one-to-zero-or-one: __[Streams](basic/streams.md)__
+## What it is not for
 
-    ---
-    Stream data of any type, observe [property](basic/properties.md) changes. Both to and from device.
+- **APIs written in other languages.** The API is a Rust trait. A C program can read and write the wire format, and
+  Python can call any device, but neither can declare an API.
+- **A device that calls another device.** The client needs the standard library, so it runs on a computer, not in
+  firmware.
+- **Data that any tool must read without its type.** ShrinkWrap stores no field names, so a reader needs the type.
+  JSON or CBOR suit data that strangers read.
+- **A stable 1.0.** The crates and the wire format can still change between releases. Each change that breaks
+  something is listed in the changelogs.
 
--   :material-compare-vertical: __[Evolution](basic/changing_your_api.md)__
+## Where to start
 
-    ---
-    Evolve data types and API while still allowing:
-
-      - newer code to work with older devices
-      - older code to work with newer devices
-
-    The [evolution checker](evolution/checker_tool.md) tells whether a change is compatible.
-
--   :material-usb: __[USB](basic/usb.md), Ethernet, CAN and more__
-
-    ---
-    Host and device drivers. Plus a [framer](transport/ww_framer.md) that can put many small messages in one packet or a bigger message across multiple packets.
-
--   :material-tools: __[Standard library](std_library/overview.md)__
-
-    ---
-    Numerical, SI, date & time, version and other [types](types.md).
-    GPIO, I2C, CAN, UART, SPI, logging, firmware update and other [traits](std_library/overview.md).
-
--   :octicons-code-24: __[Reference and Owned types](basic/borrowed_and_owned.md#which-types-the-derive-makes)__
-
-    ---
-    Automatically generate owned types for std usage from referenced ones.
-    `&'i [u8]` becomes `Vec<u8>`, `MyType<'i>` `MyTypeOwned`, etc.
-
--   :fontawesome-solid-microchip: __First class MCU support__
-
-    ---
-    Geared towards bare-metal development with FLASH and RAM in mind.
-    No allocation with full feature support.
-
--   :material-tools: __Tooling__
-
-    ---
-    [CLI](cli.md) and [GUI](dev_tool.md) for debugging. Virtual devices. Introspection and tracing.
-    [Dynamic Python clients](python.md).
-
-</div>
+- [A first look](intro/first_look.md) runs a small device on your PC and calls it from the command line and from
+  Python, in about five minutes.
+- [What WireWeaver does](intro/what_it_does.md) goes through every area the book covers.
+- [How to read this book](intro/reading.md) explains the four parts of the book and their reading levels.

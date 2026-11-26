@@ -375,7 +375,6 @@ lint = "function-complexity"
 crates = [
     "conformance",
     "dispatch_golden",
-    "features_page",
     "hub_reconnect",
     "shrink_wrap_c",
     "stm32_dfu_host",

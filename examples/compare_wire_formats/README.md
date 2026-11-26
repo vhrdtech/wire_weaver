@@ -1,69 +1,21 @@
 # Compare wire formats
 
-This example showcases some of the `shrink_wrap` features that result in dense wire representation of the following data
-structures:
+Encodes eight example messages with `shrink_wrap` (WireWeaver's own wire format) and eight other pure-Rust formats
+(postcard, MessagePack, JSON, CBOR, wincode, protobuf, FlatBuffers, ASN.1 UPER) and reports each encoding's byte
+count and how the format lets a field be added later: `schema_rules`, `self_describing`, `extension_markers` or
+`none`. The book page [wire sizes compared](../../docs/examples/wire_sizes.md) explains the settings and shows the
+results.
 
-```rust
-struct Request {
-    pub seq: u16,
-    pub path_kind: PathKind,
-    pub kind: RequestKind,
-    pub flags: [bool; 5],
-    pub dummy_a: Option<u8>,
-    pub dummy_b: Option<u8>,
-    pub dummy_c: Option<u8>,
-    pub strs: Vec<String>,
-}
+The messages are in `src/msgs/`, one module each: an RPC request, a sensor sample, a log record, a firmware chunk,
+a device configuration, a GPS fix, a CAN frame batch and a state report. Each module has the message as a plain
+Rust type (read by `shrink_wrap` without layout directives and by every `serde` format), the same message with
+`shrink_wrap` layout directives, and hand-written protobuf and ASN.1 types. Where `fixint` makes postcard smaller,
+the module also has a tuned postcard type.
 
-enum PathKind {
-    Absolute { path: Vec<u32> },
-    GlobalCompact,
-    GlobalFull,
-}
-
-enum RequestKind {
-    Call { args: Vec<u8> },
-    Read,
-}
-```
-
-With the following example value:
-
-```rust
-fn main() {
-    let req = RequestSerde {
-        seq: 1234,
-        path_kind: PathKindSerde::Absolute { path: vec![0, 1, 2] },
-        kind: RequestKindSerde::Call { args: vec![0xAA, 0xBB, 0xCC] },
-        flags: [false, true, false, true, false],
-        dummy_a: Some(0xCC),
-        dummy_b: None,
-        dummy_c: None,
-        strs: vec!["ab".to_string(), "c".to_string()],
-    };
-}
-```
-
-In particular the following features are resulting in a considerably smaller size:
-
-* UNib32 encoding using nibbles, for path array and for all lengths:
-    * `D2 04` is u16 in LE
-    * `00 12` first nibble is PathKind discriminant, then `0, 1, 2` is path array, nibbles are 4-bit aligned, so the two
-      stick together
-    * `00` first nibbles is RequestKind discriminant, second one is padding before u8 args array
-    * From the back: `01 22 53` are the lengths of the objects, string array and string themselves - 3, 5, 2, 2, 1,
-      padding
-* Boolean values stored as bits - `0b0010_1010 = 0x2A`
-* Option's flag grouping - see the source on how the flags for Option's are relocated to be grouped with the bool array.
-
-Note that ShrinkWrap format while being smaller, also supports backwards and forwards compatibility.
-
-Results:
-
-```
-WireWeaver: len: 18: [D2, 04, 00, 12, 03, 00, AA, BB, CC, 03, 2A, CC, 61, 62, 63, 01, 22, 53]
-Postcard: len: 27: [D2, 09, 00, 03, 00, 01, 02, 00, 03, AA, BB, CC, 00, 01, 00, 01, 00, 01, CC, 00, 00, 02, 02, 61, 62, 01, 63]
-Bincode: len: 28: [FB, D2, 04, 00, 03, 00, 01, 02, 00, 03, AA, BB, CC, 00, 01, 00, 01, 00, 01, CC, 00, 00, 02, 02, 61, 62, 01, 63]
-MessagePack: len: 49: [98, CD, 04, D2, 81, A8, 41, 62, 73, 6F, 6C, 75, 74, 65, 91, 93, 00, 01, 02, 81, A4, 43, 61, 6C, 6C, 91, 93, CC, AA, CC, BB, CC, CC, 95, C2, C3, C2, C3, C2, CC, CC, C0, C0, 92, A2, 61, 62, A1, 63]
-JSON: len: 193: {"seq":1234,"path_kind":{"Absolute":{"path":[0,1,2]}},"kind":{"Call":{"args":[170,187,204]}},"flags":[false,true,false,true,false],"dummy_a":204,"dummy_b":null,"dummy_c":null,"strs":["ab","c"]}
-```
+`cargo run` prints a transcript; `docs/generated/compare_wire_formats/` holds one table and one transcript per
+message, `summary.csv` and `winners.csv`, kept byte-for-byte by `book_output::check` (stale: `WW_BOOK_OUTPUTS=write
+cargo run`, or `just book-outputs` from the repository root). FlatBuffers' Rust bindings are generated from
+`schema/request.fbs` and `schema/messages.fbs` (`planus rust -o src/fbs_request.rs schema/request.fbs` and
+`planus rust -o src/fbs_messages.rs schema/messages.fbs`, `cargo install planus-cli`) and committed; the rest need no code generation. This crate is excluded from the main
+workspace (its own `Cargo.lock`) so these formats never reach every other build's lockfile; see `just`'s
+`book-outputs` and `test-all` recipes for how it is still run and checked.

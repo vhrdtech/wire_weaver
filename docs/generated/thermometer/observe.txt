@@ -1,0 +1,7 @@
+$ cargo run -p thermometer --example thermometer_observe
+0.0 s  host observes gain
+0.0 s  update: gain 4
+1.0 s  host writes gain 16
+1.0 s  update: gain 16
+2.0 s  host reads once: the amplifier clips
+2.0 s  update: gain 8

@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="740" height="285" viewBox="0 0 740 285" style="max-width: 100%; height: auto" font-family="Helvetica, Arial, sans-serif" font-size="13">
+  <title>A host that keeps trying while a board is plugged in late, reset and unplugged</title>
+  <desc>Three rows on a time axis. The board row is filled while the board is plugged in. The link row is filled while the host is connected. The attempts row has a mark for each connection attempt: red for a failed one, green for the one that connected. The waits between attempts double, from 100 ms up to 5 s, and start again at 100 ms after each connection.</desc>
+  <rect width="740" height="285" rx="10" fill="#ffffff"/>
+  <g fill="#222"><text x="10" y="64">board</text><text x="10" y="124">link</text><text x="10" y="184">attempts</text></g>
+  <rect x="80" y="45" width="645.225" height="28" fill="#f2f4f7" stroke="#bbb"/>
+  <rect x="106.2" y="45" width="123.8" height="28" fill="#9fb8d6" stroke="#222"/>
+  <rect x="248.8" y="45" width="206.2" height="28" fill="#9fb8d6" stroke="#222"/>
+  <rect x="680.0" y="45" width="45.2" height="28" fill="#9fb8d6" stroke="#222"/>
+  <rect x="80" y="105" width="645.225" height="28" fill="#f2f4f7" stroke="#bbb"/>
+  <rect x="132.5" y="105" width="97.7" height="28" fill="#8cc9a0" stroke="#222"/>
+  <rect x="252.7" y="105" width="202.5" height="28" fill="#8cc9a0" stroke="#222"/>
+  <rect x="687.7" y="105" width="37.5" height="28" fill="#8cc9a0" stroke="#222"/>
+  <line x1="80.0" y1="165" x2="80.0" y2="195" stroke="#b03a2e" stroke-width="3"/>
+  <line x1="87.5" y1="165" x2="87.5" y2="195" stroke="#b03a2e" stroke-width="3"/>
+  <line x1="102.5" y1="165" x2="102.5" y2="195" stroke="#b03a2e" stroke-width="3"/>
+  <line x1="132.5" y1="165" x2="132.5" y2="195" stroke="#2e7d46" stroke-width="3"/>
+  <line x1="230.2" y1="165" x2="230.2" y2="195" stroke="#b03a2e" stroke-width="3"/>
+  <line x1="237.7" y1="165" x2="237.7" y2="195" stroke="#b03a2e" stroke-width="3"/>
+  <line x1="252.7" y1="165" x2="252.7" y2="195" stroke="#2e7d46" stroke-width="3"/>
+  <line x1="455.2" y1="165" x2="455.2" y2="195" stroke="#b03a2e" stroke-width="3"/>
+  <line x1="462.7" y1="165" x2="462.7" y2="195" stroke="#b03a2e" stroke-width="3"/>
+  <line x1="477.7" y1="165" x2="477.7" y2="195" stroke="#b03a2e" stroke-width="3"/>
+  <line x1="507.7" y1="165" x2="507.7" y2="195" stroke="#b03a2e" stroke-width="3"/>
+  <line x1="567.7" y1="165" x2="567.7" y2="195" stroke="#b03a2e" stroke-width="3"/>
+  <line x1="687.7" y1="165" x2="687.7" y2="195" stroke="#2e7d46" stroke-width="3"/>
+  <line x1="80" y1="205" x2="725.2" y2="205" stroke="#666"/>
+  <line x1="80.0" y1="205" x2="80.0" y2="211" stroke="#666"/>
+  <text x="80.0" y="225" text-anchor="middle" fill="#555" font-size="11">0 s</text>
+  <line x1="155.0" y1="205" x2="155.0" y2="211" stroke="#666"/>
+  <text x="155.0" y="225" text-anchor="middle" fill="#555" font-size="11">1 s</text>
+  <line x1="230.0" y1="205" x2="230.0" y2="211" stroke="#666"/>
+  <text x="230.0" y="225" text-anchor="middle" fill="#555" font-size="11">2 s</text>
+  <line x1="305.0" y1="205" x2="305.0" y2="211" stroke="#666"/>
+  <text x="305.0" y="225" text-anchor="middle" fill="#555" font-size="11">3 s</text>
+  <line x1="380.0" y1="205" x2="380.0" y2="211" stroke="#666"/>
+  <text x="380.0" y="225" text-anchor="middle" fill="#555" font-size="11">4 s</text>
+  <line x1="455.0" y1="205" x2="455.0" y2="211" stroke="#666"/>
+  <text x="455.0" y="225" text-anchor="middle" fill="#555" font-size="11">5 s</text>
+  <line x1="530.0" y1="205" x2="530.0" y2="211" stroke="#666"/>
+  <text x="530.0" y="225" text-anchor="middle" fill="#555" font-size="11">6 s</text>
+  <line x1="605.0" y1="205" x2="605.0" y2="211" stroke="#666"/>
+  <text x="605.0" y="225" text-anchor="middle" fill="#555" font-size="11">7 s</text>
+  <line x1="680.0" y1="205" x2="680.0" y2="211" stroke="#666"/>
+  <text x="680.0" y="225" text-anchor="middle" fill="#555" font-size="11">8 s</text>
+  <line x1="106.2" y1="35" x2="106.2" y2="205" stroke="#666" stroke-dasharray="4 4"/>
+  <text x="106.2" y="248" fill="#222" text-anchor="start">plugged in, 350 ms</text>
+  <line x1="230.0" y1="35" x2="230.0" y2="205" stroke="#666" stroke-dasharray="4 4"/>
+  <text x="230.0" y="264" fill="#222" text-anchor="start">reset, 2000 ms</text>
+  <line x1="248.8" y1="35" x2="248.8" y2="205" stroke="#666" stroke-dasharray="4 4"/>
+  <text x="248.8" y="248" fill="#222" text-anchor="start">plugged in, 2250 ms</text>
+  <line x1="455.0" y1="35" x2="455.0" y2="205" stroke="#666" stroke-dasharray="4 4"/>
+  <text x="455.0" y="264" fill="#222" text-anchor="start">unplugged, 5000 ms</text>
+  <line x1="680.0" y1="35" x2="680.0" y2="205" stroke="#666" stroke-dasharray="4 4"/>
+  <text x="680.0" y="248" fill="#222" text-anchor="end">plugged in, 8000 ms</text>
+</svg>

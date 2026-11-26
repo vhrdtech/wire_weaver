@@ -1,0 +1,11 @@
+$ cargo run -p thermometer --example thermometer_stream
+0.0 s  #0 input 1: 20.5 °C
+0.0 s  #1 input 2: 20.75 °C
+0.0 s  #2 input 3: 21 °C
+0.0 s  #3 input 4: 21.25 °C
+0.2 s  #4 input 1: 20.51 °C
+0.2 s  #5 input 2: 20.76 °C
+0.2 s  #6 input 3: 21.01 °C
+0.2 s  #7 input 4: 21.26 °C
+0.3 s  #8 input 1: 20.52 °C
+0.4 s  #1000 input 1: 20.52 °C

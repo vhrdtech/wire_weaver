@@ -4,6 +4,7 @@
 
 ### 🚀 Features
 
+- `assemble` copies the figures of a source's `docs/assets/` (SVG, PNG) beside its pages, so a copied page shows its own figures (DOC-17).
 - `ww-book check` (`check::check`, `book_checks.toml`): fails a nav that steps down a level, a page without a level or listed twice, unwaived bare `rust` fences, and unincluded generated files (DOC-16).
 - `ww-book assemble` writes `target/vz/sources.toml` (`write_sources_file`, `Repository::url`/`commit`): the repositories and pages it copied, so code links on copied pages resolve against their repositories (DOC-13).
 - A tracker's links to files of its repository that are not pages point to them on the web at the locked commit (`Located::repository`).

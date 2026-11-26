@@ -1495,7 +1495,7 @@ dependencies = [
 [[package]]
 name = "exact_units"
 version = "0.1.0"
-source = "git+https://github.com/romixlab/exact_units#510c4480882a23b4a585829b437675bcae6f269c"
+source = "git+https://github.com/romixlab/exact_units#59fe9c7604097b5825718c9b32f41f14b12aa31f"
 dependencies = [
  "defmt 1.1.1",
  "libm",
@@ -3635,6 +3635,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sensor_packet"
+version = "0.1.0"
+dependencies = [
+ "book_outputs",
+ "shrink_wrap",
+ "ww_si",
+]
+
+[[package]]
 name = "serde"
 version = "1.0.229"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3927,7 +3936,7 @@ checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 [[package]]
 name = "shrink_wrap"
 version = "0.2.0"
-source = "git+https://github.com/romixlab/shrink_wrap#336726ce6662854ea1a4b4036c9df4ffa61bad5b"
+source = "git+https://github.com/romixlab/shrink_wrap#2c989d35cf85367ad4bcbfad320b4965217e4c61"
 dependencies = [
  "defmt 1.1.1",
  "either",
@@ -3950,7 +3959,7 @@ dependencies = [
 [[package]]
 name = "shrink_wrap_derive"
 version = "0.2.0"
-source = "git+https://github.com/romixlab/shrink_wrap#336726ce6662854ea1a4b4036c9df4ffa61bad5b"
+source = "git+https://github.com/romixlab/shrink_wrap#2c989d35cf85367ad4bcbfad320b4965217e4c61"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -4403,6 +4412,7 @@ dependencies = [
  "wire_weaver",
  "wire_weaver_cli",
  "wire_weaver_client",
+ "wire_weaver_server",
  "ww_client_server",
  "ww_device",
  "ww_si",
@@ -5557,7 +5567,7 @@ dependencies = [
 [[package]]
 name = "ww_crc"
 version = "0.5.0"
-source = "git+https://github.com/vhrdtech/ww_base#10f79f28b05b759dcadf5f30efe3dd808c7edf71"
+source = "git+https://github.com/vhrdtech/ww_base#f2ff6adf4f05f71995f46becb44a60b73087c170"
 dependencies = [
  "crc",
 ]
@@ -5565,7 +5575,7 @@ dependencies = [
 [[package]]
 name = "ww_date_time"
 version = "0.1.0"
-source = "git+https://github.com/vhrdtech/ww_base#10f79f28b05b759dcadf5f30efe3dd808c7edf71"
+source = "git+https://github.com/vhrdtech/ww_base#f2ff6adf4f05f71995f46becb44a60b73087c170"
 dependencies = [
  "defmt 1.1.1",
  "exact_units",
@@ -5614,7 +5624,7 @@ dependencies = [
 [[package]]
 name = "ww_error"
 version = "0.1.0"
-source = "git+https://github.com/vhrdtech/ww_base#10f79f28b05b759dcadf5f30efe3dd808c7edf71"
+source = "git+https://github.com/vhrdtech/ww_base#f2ff6adf4f05f71995f46becb44a60b73087c170"
 dependencies = [
  "defmt 1.1.1",
  "shrink_wrap",
@@ -5633,7 +5643,7 @@ dependencies = [
 [[package]]
 name = "ww_global"
 version = "0.2.0"
-source = "git+https://github.com/vhrdtech/ww_base#10f79f28b05b759dcadf5f30efe3dd808c7edf71"
+source = "git+https://github.com/vhrdtech/ww_base#f2ff6adf4f05f71995f46becb44a60b73087c170"
 dependencies = [
  "convert_case",
  "serde_json",
@@ -5703,7 +5713,7 @@ dependencies = [
 [[package]]
 name = "ww_keyed"
 version = "0.1.0"
-source = "git+https://github.com/vhrdtech/ww_base#10f79f28b05b759dcadf5f30efe3dd808c7edf71"
+source = "git+https://github.com/vhrdtech/ww_base#f2ff6adf4f05f71995f46becb44a60b73087c170"
 dependencies = [
  "shrink_wrap",
 ]
@@ -5756,7 +5766,7 @@ dependencies = [
 [[package]]
 name = "ww_numeric"
 version = "0.3.0"
-source = "git+https://github.com/vhrdtech/ww_base#10f79f28b05b759dcadf5f30efe3dd808c7edf71"
+source = "git+https://github.com/vhrdtech/ww_base#f2ff6adf4f05f71995f46becb44a60b73087c170"
 dependencies = [
  "defmt 1.1.1",
  "serde",
@@ -5829,7 +5839,7 @@ dependencies = [
 [[package]]
 name = "ww_si"
 version = "0.5.0"
-source = "git+https://github.com/vhrdtech/ww_base#10f79f28b05b759dcadf5f30efe3dd808c7edf71"
+source = "git+https://github.com/vhrdtech/ww_base#f2ff6adf4f05f71995f46becb44a60b73087c170"
 dependencies = [
  "defmt 1.1.1",
  "exact_units",
@@ -5904,7 +5914,7 @@ dependencies = [
 [[package]]
 name = "ww_version"
 version = "0.2.0"
-source = "git+https://github.com/vhrdtech/ww_base#10f79f28b05b759dcadf5f30efe3dd808c7edf71"
+source = "git+https://github.com/vhrdtech/ww_base#f2ff6adf4f05f71995f46becb44a60b73087c170"
 dependencies = [
  "defmt 1.1.1",
  "hex",

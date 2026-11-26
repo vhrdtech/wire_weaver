@@ -1,8 +1,11 @@
 ---
-level: basic
+level: advanced
 ---
 
-# UDP
+# UDP in depth
+
+[UDP](../basic/udp.md) serves the thermometer over UDP and says what a lost datagram costs. This page adds several
+hosts on one port, the simulated and lossy UDP of the tests, and the details of the device side.
 
 Connects the host to a device on a network over UDP: low overhead and no connection state, for telemetry-heavy
 devices, where a lost stream event now and then is better than a stall while TCP retransmits.

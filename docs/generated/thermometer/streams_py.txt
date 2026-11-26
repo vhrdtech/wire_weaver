@@ -1,6 +1,6 @@
 $ python streams.py
-0 21.5 °C
-1 21.5 °C
-2 21.5 °C
-3 21.5 °C
-100 21.5 °C
+sample 0 input 1 in °C
+sample 1 input 2 in °C
+sample 2 input 3 in °C
+sample 3 input 4 in °C
+triggered: sample 1000 input 1

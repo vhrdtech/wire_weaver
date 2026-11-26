@@ -1,0 +1,8 @@
+$ cargo run -p thermometer --example thermometer_channels
+channel[0]: enabled true, input 1, 20.5 °C
+channel[1]: enabled true, input 2, 20.75 °C
+channel[2]: enabled true, input 3, 21 °C
+channel[3]: enabled true, input 4, 21.25 °C
+channel[1]: enabled false
+channel[4]: Remote device returned BadIndex at level site 42 (index not valid)
+indication: OnlyEssential

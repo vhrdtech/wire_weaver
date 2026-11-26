@@ -1,30 +1,44 @@
-"""The book's Python scripts against the simulated thermometer: what each prints is what the book shows, in
-docs/generated/thermometer/<script>_py.txt. A stale file fails; WW_BOOK_OUTPUTS=write (`just book-outputs`) writes
-them again.
-"""
+"""The scripts against the simulated thermometer: what each prints is what the book shows."""
 
-import contextlib
-import importlib
-import io
-import os
-import sys
+from conftest import check_output
 
-import pytest
-from conftest import HERE, ROOT
-
-GENERATED = ROOT / "docs" / "generated" / "thermometer"
-
-sys.path.insert(0, str(HERE))
+import channels
+import errors
+import explore
+import observe
+import properties
+import streams
+import units
+import values
 
 
-@pytest.mark.parametrize("script", ["properties", "explore", "values", "streams", "errors"])
-def test_script_prints_what_the_book_shows(sim_url, script):
-    out = io.StringIO()
-    with contextlib.redirect_stdout(out):
-        importlib.import_module(script).main(sim_url)
-    text = f"$ python {script}.py\n" + out.getvalue()
-    output = GENERATED / f"{script}_py.txt"
-    if os.environ.get("WW_BOOK_OUTPUTS") == "write":
-        output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(text)
-    assert output.read_text() == text, f"{output} is stale: run `just book-outputs`"
+def test_properties_prints_what_the_book_shows(sim_url):
+    check_output("properties.py", properties.main, sim_url, "properties_py.txt")
+
+
+def test_units_prints_what_the_book_shows(sim_url):
+    check_output("units.py", units.main, sim_url, "units_py.txt")
+
+
+def test_observe_prints_what_the_book_shows(sim_url):
+    check_output("observe.py", observe.main, sim_url, "observe_py.txt")
+
+
+def test_streams_prints_what_the_book_shows(sim_url):
+    check_output("streams.py", streams.main, sim_url, "streams_py.txt")
+
+
+def test_channels_prints_what_the_book_shows(sim_url):
+    check_output("channels.py", channels.main, sim_url, "channels_py.txt")
+
+
+def test_explore_prints_what_the_book_shows(still_sim_url):
+    check_output("explore.py", explore.main, still_sim_url, "explore_py.txt")
+
+
+def test_values_prints_what_the_book_shows(still_sim_url):
+    check_output("values.py", values.main, still_sim_url, "values_py.txt")
+
+
+def test_errors_prints_what_the_book_shows(still_sim_url):
+    check_output("errors.py", errors.main, still_sim_url, "errors_py.txt")

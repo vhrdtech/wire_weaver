@@ -114,16 +114,15 @@ The whole script prints:
 ## Streams and sinks
 
 A [[stream]] carries items from the device, and a [[sink]] carries items to it. In Python both open with `with`, which
-also closes them at the end of the block. [`examples/thermometer_py/streams.py`] first disables inputs 2 to 4, so
-that every sample comes from input 1. It then opens the `samples` stream, starts the sampler at 5 Hz and receives four
-samples:
+also closes them at the end of the block. [`examples/thermometer_py/streams.py`] opens the `samples` stream, starts
+the sampler at 5 Hz and takes four samples with a `for` loop, one from each enabled input:
 
 ```python
 --8<-- "examples/thermometer_py/streams.py:stream"
 ```
 
-`recv(timeout=2)` waits up to two seconds for the next item and raises `TimeoutError` when none comes. A `for` loop
-over the open stream receives its items one by one, too.
+A `for` loop over the open stream receives its items one by one. `samples.recv(timeout=2)` receives one item and
+raises `TimeoutError` when none comes within two seconds.
 
 The `commands` sink takes the thermometer's `Command` enum. In `Triggered` mode, the device takes one sample for each
 `Trigger`. A `Mark` sets the next sequence number first:

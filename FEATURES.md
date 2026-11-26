@@ -2818,12 +2818,24 @@ Unicast Data0 to one node over the same bus is TR-6.
   chip's temperature sensor on a board) and `examples/thermometer` (client, `thermometer_sim` over WebSocket,
   `thermometer_read`, tests on the in-process WebSocket with tokio's paused clock). Firmware: `thermometer` bins of
   `examples_mcu/nucleo_g0b1re` and `examples_mcu/rp2` over USB, built by `just check`; not yet run on the boards.
+- ✅ **EX-20 Wire sizes compared**: `examples/compare_wire_formats` (excluded from the workspace: its own
+  `Cargo.lock` keeps ciborium/prost/wincode/planus/rasn out of every other build's lockfile) encodes eight messages
+  (RPC request, sensor sample, log record, firmware chunk, device configuration, GPS fix, CAN batch, state report)
+  with WireWeaver twice (plain and tuned), postcard (default and `fixint`), MessagePack (array and names), JSON, CBOR, wincode (fixed and
+  varint), protobuf (hand-written `prost` derives, no `prost-build`), FlatBuffers (planus, generated from
+  `schema/*.fbs`) and ASN.1 UPER (rasn, closed and `#[non_exhaustive]` extensible). `just book-outputs`/`just
+  test-all` run it from its own directory and check one table and transcript per message, a summary and the winners
+  against `docs/generated/compare_wire_formats/`; the page is `docs/examples/wire_sizes.md`.
 - ✅ **EX-19 Bench supply example and a pytest bench**: `examples/bench_supply_api` (`channel[]: Channel`, a
   voltage and current limit each, `measured`, `set_output` refusing with `OutputError`), `examples/bench_supply`
   (client, server, `bench_supply_sim` over WebSocket, `bench_supply_bench`, in-process tests) and
   `bench_supply_hub_device` (a `[[bin]]` hosting the ww hub and the device in one process, TOOL-18, SRV-29) +
   `examples/bench_supply_py` (`wire_weaver_py` of this checkout as the `wire_weaver` module, a pytest bench
   driving the device through the hub with no real hardware, `just test-bench-supply-py`).
+- ✅ **EX-21 Sensor packet example**: `examples/sensor_packet`, a weather station's sensor node and its gateway on
+  `shrink_wrap` alone (no API, no framework): a `Reading` with typed numbers, a `Message` enum, the next firmware's
+  `v2` with a field and a variant more, the example `sensor_packet_radio`, and `tests/it/book.rs` writing the bytes,
+  the bit layout and the version table the Basic chapters "Your data on the wire" show.
 - 📋 **EX-6 Example without async** · `v0.5` — `ww_device::blocking::Server` exists, no example uses it.
 - 📋 **EX-7 Example with two media** · `v0.5`.
 - 📋 **EX-8 NCM WebSocket + UDP example** · `v0.5` — both media on one stack, sharing the backend.
@@ -2917,14 +2929,30 @@ Unicast Data0 to one node over the same bus is TR-6.
   file under `docs/generated/` that no page includes. `docs/glossary.toml` (`vhrd_zensical.glossary`, `glossary.md`)
   and `docs/abbreviations.toml` (`vhrd_zensical.abbreviations`). The `book_outputs` crate checks a test's output
   against `docs/generated/` and `just book-outputs` writes them; `minimal_shrink_wrap`'s bytes are the first.
+- ✅ **DOC-18 Coloured `ww` transcripts and file cards in the book**: a `ww` fence colours a transcript of the `ww`
+  tool (`docs_ext/ww_docs_ext/ww_lexer.py`, a Pygments lexer found through the `pygments.lexers` entry point of
+  `pyproject.toml`): the command's words by their place, API trees by keyword, name, type and bounds, and in other
+  output numbers, versions, `crate@version`, hashes and error labels. Every file a rewritten page names is a file
+  link with a card (`vhrd_zensical.code_refs`, REFS-1), and `code_refs` indexes the thermometer's crates beside the
+  framework's. `docs/levels.md` tells readers and writers; chapter 1.12 uses both.
 - 🚧 **DOC-17 Book chapters built on the examples** — each chapter runs on one example device, shows code only as
   includes of marked sections of compiled sources, and shows output (a `ww` transcript, a Python run) written by a
-  golden test into `docs/generated/`. Done: Basic 1.12 Properties (`docs/basic/properties.md`) on the thermometer,
-  with `docs/assets/property_timeline.svg`, `examples/thermometer_py` (`just test-thermometer-py`) and
-  `examples/thermometer/tests/it/book.rs`; Basic 1.30 Changing your API (`docs/basic/changing_your_api.md`) on
-  `blinky_evolved`, with `docs/assets/versions_matrix.svg`; Basic 1.31 Your own project (`docs/basic/your_own_project.md`)
-  on the thermometer's crates, with `docs/assets/project_crates.svg` and `ww api scaffold`'s code; Basic 1.32 Python
-  in full (`docs/basic/python_in_full.md`) on `examples/thermometer_py`'s scripts. Missing: the other chapters of the outline.
+  golden test into `docs/generated/`. Done: Basic 1.1 to 1.4, "Your data on the wire"
+  (`docs/basic/types_on_the_wire.md`, `borrowed_and_owned.md`, `built_in_types.md`, `structs_and_enums.md`,
+  `types_that_change.md`) on the sensor packet (EX-21), with a generated `bits` layout and
+  `docs/assets/borrowed_owned.svg`, `old_new_reader.svg`; `types.md` and shrink_wrap's `derive.md` keep their
+  Advanced halves. On the thermometer: Basic 1.10 Numbers that know their unit (`docs/basic/units.md`), 1.11
+  Temperatures and timestamps (`temperatures.md`), 1.12 Properties (`properties.md`), 1.13 Watching a value
+  (`observing.md`), 1.14 Streams and sinks (`streams.md`) and 1.15 Channels (`channels.md`), with hand-drawn figures
+  in `docs/assets/`, figures and `bits` fences generated by `examples/thermometer/tests/it/book.rs`, and Python
+  scripts in `examples/thermometer_py` (`just test-thermometer-py`).  Basic 1.20 to 1.26, Getting connected (`docs/basic/transports.md`, `usb.md`, `udp.md`, `websocket.md`, `rtt.md`,
+  `byte_streams.md`, `connection_loss.md`), with six hand-drawn figures, a figure and transcripts from
+  `examples/thermometer/tests/it/connected.rs`, `thermometer_connect`, `thermometer_keep_trying` and
+  `thermometer_sim --udp`; the transport pages of `docs/transport/` are the Advanced halves. Basic 1.30 Changing your
+  API (`docs/basic/changing_your_api.md`) on `blinky_evolved`, with `docs/assets/versions_matrix.svg`; 1.31 Your own
+  project (`your_own_project.md`) on the thermometer's crates, with `docs/assets/project_crates.svg` and `ww api
+  scaffold`'s code; 1.32 Python in full (`python_in_full.md`) on `examples/thermometer_py`'s scripts. Missing: the
+  other chapters of the outline.
 
 ## Testing, CI and performance (`TEST`)
 

@@ -1,0 +1,2 @@
+$ cargo run -p thermometer --example thermometer_connect -- websocket
+input 1: 20.5 °C

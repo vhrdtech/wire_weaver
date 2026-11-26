@@ -24,7 +24,7 @@ commands (`wire_weaver_cli`). Inside it, `cargo ww <args>` runs the generic comm
 
 !!! note "Linux permissions"
     Listing devices works without any setup, but opening one (`introspect`, `info`, ...) needs read/write access
-    to `/dev/bus/usb/...`, usually granted to your user with a udev rule. See [USB](transport/usb.md).
+    to `/dev/bus/usb/...`, usually granted to your user with a udev rule. See [USB](basic/usb.md#limits).
 
 ### Shell completions
 
@@ -142,7 +142,7 @@ narrow the selection together. Each setting is taken from the first place that h
 A board with no USB of its own (a Nucleo-64 has only its ST-LINK) is reached over RTT through the debug probe, with
 [probe-rs](https://probe.rs): `--rtt CHIP` connects every command (`info`, `counters`, `sync`, `pins`, `dfu reboot`,
 `observe`, `report`, ...) through it instead of USB. The firmware serves WireWeaver on the RTT channels `ww_up` and
-`ww_down` (see [RTT](transport/rtt.md)); a running firmware is attached to as it is, without a reset.
+`ww_down` (see [RTT](basic/rtt.md)); a running firmware is attached to as it is, without a reset.
 
 ```sh
 ww --rtt STM32G0B1RETx info                                     # the only probe
@@ -194,5 +194,5 @@ selected".
 ## See also
 
 - [Command reference](cli_reference.md): every command and option
-- [USB](transport/usb.md): how devices report their API id and user label, and how the host finds them
+- [USB](basic/usb.md): how devices report their API id and user label, and how the host finds them
 - [ww_self](std_library/ww_self.md): introspection data format

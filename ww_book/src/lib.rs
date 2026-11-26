@@ -357,19 +357,46 @@ fn checkout(
     Ok((git(Some(dir), &["rev-parse", "HEAD"])?, stale))
 }
 
-/// The pages (`*.md`) of a source's pages directory, by file name, sorted.
+/// Directory beside a source's pages that holds the figures they show, copied along as [ASSETS_DIR]`/<file>`.
+pub const ASSETS_DIR: &str = "assets";
+
+/// File types of the figures [ASSETS_DIR] may hold.
+const ASSET_EXTENSIONS: [&str; 2] = ["svg", "png"];
+
+/// The pages (`*.md`) of a source's pages directory by file name, then its figures as [ASSETS_DIR]`/<file>`, each
+/// sorted.
 fn pages(located: &Located) -> Result<Vec<String>> {
     let dir = located.pages_dir();
+    let mut names = files(&dir, |name| name.ends_with(".md"))?;
+    let assets = dir.join(ASSETS_DIR);
+    if assets.is_dir() {
+        let figures = files(&assets, |name| {
+            ASSET_EXTENSIONS
+                .iter()
+                .any(|ext| name.rsplit_once('.').is_some_and(|(_, e)| e == *ext))
+        })?;
+        names.extend(figures.into_iter().map(|f| format!("{ASSETS_DIR}/{f}")));
+    }
+    ensure!(
+        names.len() <= PAGES_MAX,
+        "{} has more than {PAGES_MAX} pages and figures",
+        dir.display()
+    );
+    Ok(names)
+}
+
+/// The names of the files in `dir` that `keep` accepts, sorted.
+fn files(dir: &Path, keep: impl Fn(&str) -> bool) -> Result<Vec<String>> {
     let mut names = vec![];
-    for entry in fs::read_dir(&dir).with_context(|| format!("listing {}", dir.display()))? {
+    for entry in fs::read_dir(dir).with_context(|| format!("listing {}", dir.display()))? {
         let entry = entry.with_context(|| format!("listing {}", dir.display()))?;
         let name = entry.file_name().to_string_lossy().into_owned();
-        if name.ends_with(".md") && entry.file_type()?.is_file() {
+        if keep(&name) && entry.file_type()?.is_file() {
             names.push(name);
         }
         ensure!(
             names.len() <= PAGES_MAX,
-            "{} has more than {PAGES_MAX} pages",
+            "{} has more than {PAGES_MAX} files",
             dir.display()
         );
     }
@@ -412,7 +439,11 @@ pub fn write_sources_file(root: &Path, sources: &[Located]) -> Result<PathBuf> {
         let mut pages = if located.source.book.is_some() {
             vec![]
         } else {
+            // the figures are no pages: the code links are on the pages only
             self::pages(located)?
+                .into_iter()
+                .filter(|name| name.ends_with(".md"))
+                .collect()
         };
         if located.source.features.is_some() {
             pages.push(located.source.tracker_page().to_owned());
@@ -496,6 +527,16 @@ pub fn assemble(root: &Path, sources: &[Located]) -> Result<Vec<PathBuf>> {
                 target.display(),
                 located.source.name()
             );
+            if name.starts_with(&format!("{ASSETS_DIR}/")) {
+                let from = located.pages_dir().join(name);
+                fs::create_dir_all(into.join(ASSETS_DIR))
+                    .with_context(|| format!("creating {}", into.join(ASSETS_DIR).display()))?;
+                fs::copy(&from, &target).with_context(|| {
+                    format!("copying {} to {}", from.display(), target.display())
+                })?;
+                written.push(target.strip_prefix(root).unwrap_or(&target).to_path_buf());
+                continue;
+            }
             let text = if located.source.features.is_some() && name == located.source.tracker_page()
             {
                 tracker_page(located)?
@@ -820,6 +861,35 @@ mod tests {
             find_page(&root, &sources, Path::new("serdes/own.md")),
             Some(root.join("docs/serdes/own.md"))
         );
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn figures_beside_the_pages_come_along() {
+        let dir = scratch("figures");
+        fs::create_dir_all(dir.join("other/docs/assets")).unwrap();
+        fs::create_dir_all(dir.join("other/fmt")).unwrap();
+        fs::write(dir.join("other/docs/wire.md"), "![bits](assets/bits.svg)\n").unwrap();
+        fs::write(dir.join("other/docs/assets/bits.svg"), "<svg/>").unwrap();
+        fs::write(dir.join("other/docs/assets/bits.drawio"), "<mxfile/>").unwrap();
+        fs::write(dir.join("other/FEATURES.md"), "# fmt features\n").unwrap();
+        let root = dir.join("book");
+        fs::create_dir_all(root.join("docs/serdes")).unwrap();
+        let sources = [located(&dir.join("other"))];
+
+        let written = assemble(&root, &sources).unwrap();
+        assert!(written.contains(&PathBuf::from("docs/serdes/assets/bits.svg")));
+        assert_eq!(
+            fs::read_to_string(root.join("docs/serdes/assets/bits.svg")).unwrap(),
+            "<svg/>"
+        );
+        assert!(!root.join("docs/serdes/assets/bits.drawio").exists());
+        let ignore = fs::read_to_string(root.join("docs/serdes/.gitignore")).unwrap();
+        assert!(ignore.contains("/assets/bits.svg\n"), "{ignore}");
+        // a figure the source no longer has goes too
+        fs::remove_file(dir.join("other/docs/assets/bits.svg")).unwrap();
+        assemble(&root, &sources).unwrap();
+        assert!(!root.join("docs/serdes/assets/bits.svg").exists());
         fs::remove_dir_all(&dir).unwrap();
     }
 

@@ -1,84 +1,13 @@
 ---
-level: basic
+level: advanced
 ---
 
-# Built-in types
+# Types in depth
 
-Every type on this page implements the ShrinkWrap traits: it can be a field of a
-[`#[derive_shrink_wrap]`](serdes/derive.md) type, and (unless noted) an argument, return value, property or stream
-item of an API. Sizes below are for the value on its own; how values share bytes is on the
-[ShrinkWrap](serdes/shrink_wrap.md#how-it-stays-small) page.
-
-## At a glance
-
-| Type                                         | On the wire                                              | Alignment |
-|----------------------------------------------|----------------------------------------------------------|-----------|
-| `bool`                                       | 1 bit                                                    | bit       |
-| `U1`..`U64`, `I2`..`I64`                     | exactly that many bits                                   | bit       |
-| `Nibble`                                     | 4 bits                                                   | nibble    |
-| `u8`..`u128`, `i8`..`i128`                   | 1 to 16 bytes, little-endian                             | byte      |
-| `f32`, `f64`                                 | 4 / 8 bytes, IEEE 754, little-endian                     | byte      |
-| `UNib32`                                     | 1 to 11 nibbles, small values short                      | nibble    |
-| `UVlq32`, `UVlq64`                           | 1 to 5 / 1 to 10 bytes, small values short               | byte      |
-| `&str`, `String`                             | UTF-8 bytes, length at the back                          | byte      |
-| `RefVec<'i, T>`, `Vec<T>`                    | the elements, count at the back                          | byte      |
-| `MaxLen<T, N>`                               | same as `T`, at most `N` elements                        | as `T`    |
-| `[T; N]`                                     | the elements, no count                                   | as `T`    |
-| `Option<T>`, `Result<T, E>`                  | a 1-bit flag, then the value                             | bit       |
-| tuples (2 to 8), `Range<T>`, `RangeInclusive<T>`, `()` | the parts one after another (`()` is nothing)  | as parts  |
-| `RefBox<'i, T>`, `Box<T>`                    | the value and its size                                   | byte      |
-| structs and enums                            | the fields; an enum's discriminant in 1 bit to 4 bytes   | as fields |
-| [`Fixed<U, P, T, B>`](std_library/exact_units.md) | exactly its number `T`; unit, scale and bounds in the type | as `T` |
-
-The [special types](serdes/special_types.md) (`TailSize`, `ArrayString` / `ArrayVec`, compressed sequences,
-`OptionAnyVec`) are listed [at the end](#special-types).
-
-## Booleans and numbers
-
-**`bool`** takes one bit. Bit-sized values pack back to back; the next byte-sized value starts a fresh byte.
-
-**`u8`..`u128`, `i8`..`i128`** are written at full width, little-endian, starting on a byte: `0x1234u16` is
-`34 12`. **`f32`, `f64`** are their IEEE 754 bits, little-endian: `1.5f32` is `00 00 c0 3f`.
-
-**`U1`..`U64`, `I2`..`I64`** (`shrink_wrap::un`, in the prelude; `u7`, `ub8`, `i12`... in an API) take exactly as
-many bits as their name says. In Rust each is backed by the smallest standard integer, with checked constructors
-(`U7::new(x)`, `U7::try_from(x)`) and `.value()` / `u8::from(..)`. A `(U3, U7)` of `(5, 100)` is 10 bits:
-`b9 00`. Note that `u8` is byte-aligned, while `U8` is bit-aligned. They work as struct fields, enum variant
-payloads and API arguments: an `enum I2cAddress { Seven(U7), Ten(U10) }` with `ww_repr = u1` takes 8 or 11 bits
-(see the [showcase](serdes/showcase.md#bit-sized-fields-and-variant-payloads-a-7-or-10-bit-i2c-address)).
-
-**`Nibble`** (`nib` in an API) is 4 bits on a 4-bit boundary.
-
-**Variable-length numbers** take fewer bytes for small values:
-
-| Type     | Encoding                                                     | Range     | `300` is   |
-|----------|--------------------------------------------------------------|-----------|------------|
-| `UNib32` | 3 bits per nibble, the top bit says "more follows"            | `u32`     | `cd 4`     |
-| `UVlq32` | big-endian VLQ, 7 bits per byte, the top bit says "more follows" | `u32`  | `82 2c`    |
-| `UVlq64` | the same as `UVlq32`, 1 to 10 bytes                          | `u64`     | `82 2c`    |
-| `UN`, `IN` | the bit width (3 to 6 bits), then that many bits           | `u64`, `i64` |         |
-
-`UNib32` is what ShrinkWrap uses for lengths and for `ww_repr = unib32` discriminants; values below 8 take one
-nibble ([showcase](serdes/showcase.md#unib32-variable-length-numbers-by-the-nibble)). `UVlq32Backfill` is a
-`UVlq32` always written as 5 bytes, so its value can be filled in after the rest is written.
-
-## Strings and lists
-
-**`&'i str`** (borrowed, zero-copy) and **`String`** (`std`) are UTF-8 bytes, with the length at the back of the
-buffer as a `UNib32` ([why at the back](serdes/shrink_wrap.md#how-it-stays-small)): `"abc"` on its own is
-`61 62 63 03`. Invalid UTF-8 fails to read with `Error::MalformedUtf8`.
-
-**`RefVec<'i, T>`** (borrowed, no allocator) and **`Vec<T>`** (`std`) are the elements one after another, with the
-count at the back. A `RefVec` read from a buffer points into it and decodes elements as you iterate; to write one,
-make it from a slice (`RefVec::Slice { slice: &items }`, or `RefVec::new_bytes(&[1, 2, 3])` for bytes). The derive macro maps `RefVec` to `Vec` and `&str`
-to `String` for the owned type ([type mapping](serdes/derive.md#type-mapping)). Without a slice, e.g. elements
-coming from a sensor loop, [`RefVecBuilder`](serdes/special_types.md#refvecbuilder-lists-written-in-place) writes a
-list into the buffer one element at a time, with the same bytes.
-
-**`[T; N]`** is `N` elements with no count. `N` can be a literal or any const expression (`[f32; MAX_SERIES]`).
-
-To own a string or list without an allocator, use [`ArrayString<N>` / `ArrayVec<T, N>`](serdes/special_types.md#arraystring-arrayvec-owned-values-without-an-allocator):
-the same bytes, stored in a fixed-size array.
+[Built-in types](basic/built_in_types.md) and [Structs and enums](basic/structs_and_enums.md) cover the types a
+field can have and their bytes. This page covers what an API adds to them: bounded lists in an API and the worst
+case size they give, self-referential types, unit structs, generic types and aliases, types in modules and in crates
+that aren't API crates, and the special types for particular jobs.
 
 ## Bounded lists and strings: `MaxLen<T, N>`
 
@@ -139,19 +68,6 @@ const _: () = assert!(matches!(
 ));
 ```
 
-## `Option` and `Result`
-
-**`Option<T>`** is a 1-bit flag (`1` for `Some`), then the value: `Some(5u8)` is `80 05`, `None` is one zero bit.
-**`Result<T, E>`** is the same with `1` for `Ok` and `0` for `Err`, followed by the `T` or the `E`. Both work inside
-lists, as fields and in every API position. Where the flag goes can be moved with `#[flag]`
-([showcase](serdes/showcase.md#relocating-presence-flags-with-flag)), and why a flag beats an enum tag is in the
-[showcase](serdes/showcase.md#optiont-and-resultt-e-a-flag-not-a-tag) too.
-
-## Tuples, ranges and `()`
-
-**Tuples** of 2 to 8 elements, **`Range<T>`** and **`RangeInclusive<T>`** are their parts one after another, as
-if they were a struct's fields. **`()`** takes no bytes, for a method that returns nothing.
-
 ## Self-referential types: `RefBox`
 
 A type that contains itself (a tree, an expression) needs indirection. **`RefBox<'i, T>`** gives it without an
@@ -197,17 +113,7 @@ malicious value is an error, not a stack overflow on a host.
     hold: a host can send a value that deep. Until the server takes a lower limit, keep recursive types out of the
     arguments of methods and properties a device serves, or give its task a stack large enough for 128 levels.
 
-## Structs and enums
-
-Your own types, with [`#[derive_shrink_wrap]`](serdes/derive.md):
-
-- **Structs** are their fields in order. By default a struct is evolvable: fields can be appended later.
-  Tuple and unit structs work too, see below.
-- **Enums**, with or without data in their variants, are a discriminant followed by the variant's fields. The
-  discriminant takes what `ww_repr` says: `u1`, `u2`, ... (bits), `nib`, `u8` / `u16` / `u32` (bytes), or
-  `unib32` (variable length).
-
-### Tuple structs
+## Tuple structs
 
 A tuple struct is written exactly like a struct with the same fields named: `Celsius(21.5)` is the `f32` alone,
 `00 00 ac 41`, and `Rgb(1, 2, 3)` is `01 02 03`.

@@ -16,8 +16,8 @@ thermometer_api = { workspace = true, features = ["std"] }
 thermometer_device = { workspace = true, features = ["std"] }
 tokio = { workspace = true, features = ["sync", "rt", "time", "macros"] }
 wire_weaver.workspace = true
-wire_weaver_client = { workspace = true, features = ["in_process", "usb", "ws"] }
-ww_device = { workspace = true, features = ["futures-io"] }
+wire_weaver_client = { workspace = true, features = ["in_process", "udp", "usb", "ws"] }
+ww_device = { workspace = true, features = ["futures-io", "std"] }
 ww_si = { workspace = true, features = ["std"] }
 # --8<-- [end:dependencies]
 
@@ -29,6 +29,7 @@ console.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net", "signal", "test-util"] }
 tokio-util = { workspace = true, features = ["compat"] }
 wire_weaver_cli.workspace = true
+wire_weaver_server = { workspace = true, features = ["tokio", "udp"] }
 ww_client_server = { workspace = true, features = ["std"] }
 ww_device.workspace = true
 
@@ -37,8 +38,32 @@ name = "thermometer_sim"
 path = "examples/sim.rs"
 
 [[example]]
+name = "thermometer_connect"
+path = "examples/connect.rs"
+
+[[example]]
+name = "thermometer_keep_trying"
+path = "examples/keep_trying.rs"
+
+[[example]]
 name = "thermometer_read"
 path = "examples/read.rs"
+
+[[example]]
+name = "thermometer_units"
+path = "examples/units.rs"
+
+[[example]]
+name = "thermometer_observe"
+path = "examples/observe.rs"
+
+[[example]]
+name = "thermometer_stream"
+path = "examples/stream.rs"
+
+[[example]]
+name = "thermometer_channels"
+path = "examples/channels.rs"
 
 [lints]
 workspace = true

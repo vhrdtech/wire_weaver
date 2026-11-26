@@ -74,6 +74,7 @@ impl ServerState {
 
 #[embassy_executor::main]
 async fn main(_spawner: embassy_executor::Spawner) {
+    // --8<-- [start:channels]
     let channels = rtt_init! {
         up: {
             0: {
@@ -96,6 +97,7 @@ async fn main(_spawner: embassy_executor::Spawner) {
         }
     };
     rtt_target::set_defmt_channel(channels.up.0);
+    // --8<-- [end:channels]
     info!("WireWeaver over RTT on STM32G0B1 starting...");
 
     let p = embassy_stm32::init(Config::default());
@@ -106,6 +108,7 @@ async fn main(_spawner: embassy_executor::Spawner) {
     let led = Output::new(p.PA5, Level::Low, Speed::Low);
     let mut state = ServerState { led };
 
+    // --8<-- [start:server]
     let link_config = LinkConfig::new(
         blinky_api::BLINKY_API_FULL_GID,
         blinky_api::BLINKY_API_WIRE_VERSION,
@@ -121,6 +124,7 @@ async fn main(_spawner: embassy_executor::Spawner) {
         RttConfig::default(),
         RTT_BUFFERS.init(RttBuffers::new()),
     );
+    // --8<-- [end:server]
     info!("init done");
     // Nothing else to wait for: use the prepared loop. See ww_device::Server for a custom one.
     server.run(&mut state).await

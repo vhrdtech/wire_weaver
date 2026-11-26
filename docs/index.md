@@ -44,7 +44,7 @@ Pages are marked by how deep they go: Basic, Advanced or Nomicon. See [reading l
     Define and call methods with any number of arguments and return type.
     Call using blocking, async or promise interface.
 
--   :material-relation-one-to-zero-or-one: __[Streams](api/streams.md)__
+-   :material-relation-one-to-zero-or-one: __[Streams](basic/streams.md)__
 
     ---
     Stream data of any type, observe [property](basic/properties.md) changes. Both to and from device.
@@ -59,7 +59,7 @@ Pages are marked by how deep they go: Basic, Advanced or Nomicon. See [reading l
 
     The [evolution checker](evolution/checker_tool.md) tells whether a change is compatible.
 
--   :material-usb: __[USB](transport/usb.md), Ethernet, CAN and more__
+-   :material-usb: __[USB](basic/usb.md), Ethernet, CAN and more__
 
     ---
     Host and device drivers. Plus a [framer](transport/ww_framer.md) that can put many small messages in one packet or a bigger message across multiple packets.
@@ -70,7 +70,7 @@ Pages are marked by how deep they go: Basic, Advanced or Nomicon. See [reading l
     Numerical, SI, date & time, version and other [types](types.md).
     GPIO, I2C, CAN, UART, SPI, logging, firmware update and other [traits](std_library/overview.md).
 
--   :octicons-code-24: __[Reference and Owned types](serdes/derive.md#borrowed-owned-or-both)__
+-   :octicons-code-24: __[Reference and Owned types](basic/borrowed_and_owned.md#which-types-the-derive-makes)__
 
     ---
     Automatically generate owned types for std usage from referenced ones.

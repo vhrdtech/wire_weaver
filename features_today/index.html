@@ -1144,6 +1144,14 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -1195,6 +1203,141 @@
   
   
     <li class="md-nav__item">
+      <a href="../basic/first_device/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  A device on your PC
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../basic/methods/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Methods
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../basic/board/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  On a real board
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../basic/command_line/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  From the command line
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../basic/python/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  From Python
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../api/overview/" class="md-nav__link">
         
   
@@ -1202,7 +1345,7 @@
   <span class="md-ellipsis">
     
   
-  Getting started
+  What an API can have
 
     
   </span>
@@ -1242,33 +1385,6 @@
 
                 
               
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../api/methods/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Methods
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
             </ul>
           </nav>
         
@@ -1286,8 +1402,6 @@
   
     
     
-      
-        
       
         
       
@@ -1334,33 +1448,6 @@
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../cli/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Command line tool
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
               
                 
                   
@@ -3090,6 +3177,8 @@
       
         
       
+        
+      
     
     
     
@@ -3133,6 +3222,33 @@
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/methods/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Methods in depth
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
               
                 
                   
@@ -5859,6 +5975,8 @@
       
         
       
+        
+      
     
     
     
@@ -5902,6 +6020,33 @@
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Command line tool in depth
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
               
                 
                   
@@ -8785,6 +8930,7 @@ round, and tell you before a release when a change would break that.</p>
 <li><strong><a href="../evolution/checker_tool/#unit-suffix-hints-tool-22">A reason for silencing a unit hint</a></strong>: A <code>#[no_unit_hint]</code> can say why (<code>#[no_unit_hint = "reason"]</code>, or per argument); <code>ww api check --strict</code> and <code>ww api scaffold --strict</code> refuse a bare or empty one, naming the field and the form to use instead.</li>
 <li><strong><a href="../cli_reference/#plugins">ww_plugin: the plugin arguments without the hub</a></strong>: <code>DeviceArgs</code>, <code>Selection</code> and the plugin protocol helpers live in crate <code>ww_plugin</code>, which does not link <code>ww_hub</code>; <code>wire_weaver_cli</code> re-exports them.</li>
 <li><strong><a href="../cli_reference/#plugins">Commands register themselves</a></strong>: Each <code>ww</code> command registers itself with <code>inventory</code>; <code>wire_weaver_cli</code> (generic commands) and <code>ww_std_cli</code> (standard library commands) are libraries, the <code>ww</code> binary links both.</li>
+<li><strong><a href="../basic/command_line/"><code>ww call</code></a></strong>: Call a method or read and write a property on any device from its introspection data alone: <code>ww call led_on</code>, <code>ww call 'gain = 8'</code>.</li>
 <li><strong><a href="../cli_reference/#ww-pins-tui">Pins live per connector</a></strong>: <code>ww pins tui</code> shows every pin of a board on its connector, read live, with keys to drive, pull and release them. <span class="ww-status">hardware check open</span></li>
 <li><strong><a href="../cli_reference/#ww-pins">Pin tests from the command line</a></strong>: <code>ww pins test</code> finds shorts and pulls on any board serving <code>PinDiag</code>; plan files make it a pass/fail test. <span class="ww-status">hardware check open</span></li>
 <li><strong><a href="../cli_reference/#ww-settings">Settings from a flash dump</a></strong>: <code>ww settings dump</code> decodes a settings store without the device.</li>
@@ -8905,6 +9051,7 @@ feature tracker.</p>
 <li><strong><a href="../api/settings/">Settings demo</a></strong>: Settings that survive a reboot, on the host and on two Nucleo boards.</li>
 <li><strong><a href="../examples/wire_sizes/">Wire sizes compared</a></strong>: Eight messages on nine wire formats, with the byte count and how each lets a field be added later.</li>
 <li><strong><a href="../examples/examples/">Bench supply example</a></strong>: A lab instrument with limits and errors a script can act on, tested by a pytest bench through the ww hub.</li>
+<li><strong><a href="../basic/first_device/">Blinky as the book's first device</a></strong>: The smallest device, written once and run simulated on the PC, on a Nucleo G0B1RE and from Python.</li>
 <li><strong><a href="../basic/types_on_the_wire/">Sensor packet example</a></strong>: A struct on a radio link with shrink_wrap alone, old and new firmware reading each other.</li>
 </ul>
 <p class="ww-features__more">Details and what is planned: <a href="../tape/features/#example-and-cases-ex">Example and cases (ww_tape)</a>, <a href="../features/#examples-ex">Examples</a> in the feature tracker.</p>
@@ -9024,7 +9171,7 @@ feature tracker.</p>
       Zensical
     </a>
   
-  <div class="book-stamp" data-built="1795671482">wire_weaver 0.6.0 · 7236c0e · built 2026-11-26 05:38 UTC (<span class="book-stamp-age">just built</span>)</div>
+  <div class="book-stamp" data-built="1795676490">wire_weaver 0.6.0 · ada5110 · built 2026-11-26 07:01 UTC (<span class="book-stamp-age">just built</span>)</div>
 </div>
       
         

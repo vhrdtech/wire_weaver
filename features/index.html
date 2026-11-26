@@ -963,6 +963,14 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -1014,6 +1022,141 @@
   
   
     <li class="md-nav__item">
+      <a href="../basic/first_device/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  A device on your PC
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../basic/methods/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Methods
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../basic/board/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  On a real board
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../basic/command_line/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  From the command line
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../basic/python/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  From Python
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../api/overview/" class="md-nav__link">
         
   
@@ -1021,7 +1164,7 @@
   <span class="md-ellipsis">
     
   
-  Getting started
+  What an API can have
 
     
   </span>
@@ -1061,33 +1204,6 @@
 
                 
               
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../api/methods/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Methods
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
             </ul>
           </nav>
         
@@ -1105,8 +1221,6 @@
   
     
     
-      
-        
       
         
       
@@ -1153,33 +1267,6 @@
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../cli/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Command line tool
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
               
                 
                   
@@ -2909,6 +2996,8 @@
       
         
       
+        
+      
     
     
     
@@ -2952,6 +3041,33 @@
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/methods/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Methods in depth
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
               
                 
                   
@@ -5678,6 +5794,8 @@
       
         
       
+        
+      
     
     
     
@@ -5721,6 +5839,33 @@
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Command line tool in depth
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
               
                 
                   
@@ -10768,6 +10913,12 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
   fault-confinement counters, <code>TtConfig</code>'s TURCF/TTOCF register fields, <code>XlFrame</code>'s protocol code and acceptance
   field) got a real one; none of them turned out to want a unit instead.
   <code>docs/evolution/checker_tool.md#unit-suffix-hints-tool-22</code>.</li>
+<li>✅ <strong>TOOL-41 <code>ww call</code>: call a method, read or write a property</strong> · <code>v0.6</code> — <code>ww call led_on</code>,
+  <code>ww call 'set_led(true)'</code>, <code>ww call gain</code>, <code>ww call 'gain = 8'</code> on any device, from its introspection data alone,
+  with the expressions <code>ww explain</code> reads (<code>wire_weaver_client::expr</code>). It prints the return value or the value read,
+  <code>()</code> for a method that returns nothing and for a write; a method's <code>Err</code> and a value outside its bounds are errors.
+  <code>cmd::call::call</code> gives the same text to a program or a book transcript. Tested in <code>examples/blinky</code> and
+  <code>examples/thermometer</code>. <a href="../docs/cli_reference/#ww-call">Docs</a>.</li>
 <li>✅ <strong>TOOL-40 <code>ww_plugin</code>: the plugin arguments without the hub</strong> · <code>v0.5</code> — <code>DeviceArgs</code>, <code>Selection</code>, <code>Setting</code>, <code>Source</code>,
   <code>Untrusted</code>, the device completers and the plugin protocol helpers (<code>complete_if_requested</code>, <code>selection_env</code>,
   <code>connect</code>, <code>take_exclusive</code>) live in crate <code>ww_plugin</code>, which has no <code>ww_hub</code> in its tree (<code>tests/layers_lint</code>
@@ -11024,6 +11175,12 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
   <code>shrink_wrap</code> alone (no API, no framework): a <code>Reading</code> with typed numbers, a <code>Message</code> enum, the next firmware's
   <code>v2</code> with a field and a variant more, the example <code>sensor_packet_radio</code>, and <code>tests/it/book.rs</code> writing the bytes,
   the bit layout and the version table the Basic chapters "Your data on the wire" show.</li>
+<li>✅ <strong>EX-25 Blinky as the book's first device</strong>: <code>examples/blinky_api</code> has <code>led_on</code>, <code>led_off</code>,
+  <code>set_led(on) -&gt; bool</code> and <code>blinks() -&gt; Fixed&lt;Item, One, u32&gt;</code>; <code>examples/blinky_device</code> is its <code>no_std</code> server
+  written once over an <code>Led</code>, and <code>serve</code>; <code>examples/blinky</code> has the client, <code>blinky_sim</code> over WebSocket,
+  <code>blinky_host</code> and in-process tests; <code>examples/blinky_dyn_py</code> calls it from Python (<code>just test-blinky-py</code>). Every
+  firmware serving the API (<code>examples_mcu/nucleo_g0b1re</code>, <code>rp2</code>, <code>nucleo_h743zi2</code>, <code>usb_stm32h725ig</code>) uses
+  <code>blinky_device</code>, except <code>no_introspect</code>, which shows <code>introspect = "disabled"</code>.</li>
 <li>📋 <strong>EX-6 Example without async</strong> · <code>v0.5</code> — <code>ww_device::blocking::Server</code> exists, no example uses it.</li>
 <li>📋 <strong>EX-7 Example with two media</strong> · <code>v0.5</code>.</li>
 <li>📋 <strong>EX-8 NCM WebSocket + UDP example</strong> · <code>v0.5</code> — both media on one stack, sharing the backend.</li>
@@ -11138,7 +11295,11 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
   <code>examples/thermometer/tests/it/connected.rs</code>, <code>thermometer_connect</code>, <code>thermometer_keep_trying</code> and
   <code>thermometer_sim --udp</code>; the transport pages of <code>docs/transport/</code> are the Advanced halves. Basic 1.27 to 1.29, the standard library,
   live in ww_stdlib's <code>docs/</code> (<code>using.md</code>, <code>gpio_expander.md</code>, <code>uart_bridge.md</code>, <code>device_info.md</code>) on its EX-22 to
-  EX-24 examples. Missing: the other chapters of the outline.</li>
+  EX-24 examples.
+  Basic 1.5 to 1.9, a first device (<code>docs/basic/first_device.md</code>, <code>methods.md</code>, <code>board.md</code>, <code>command_line.md</code>,
+  <code>python.md</code>), on blinky (EX-25) with five figures, <code>ww</code> transcripts and the host program's output of the simulated
+  device, transcripts of a Nucleo G0B1RE (<code>docs/generated/blinky/board/</code>, recorded on the board, kept by
+  <code>just book-outputs</code>), and <code>examples/blinky_dyn_py</code> (<code>just test-blinky-py</code>). Missing: the other chapters of the outline.</li>
 </ul>
 <h2 id="testing-ci-and-performance-test">Testing, CI and performance (<code>TEST</code>)<a class="headerlink" href="#testing-ci-and-performance-test" title="Permanent link">&para;</a></h2>
 <ul class="task-list">
@@ -11635,7 +11796,7 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
       Zensical
     </a>
   
-  <div class="book-stamp" data-built="1795671482">wire_weaver 0.6.0 · 7236c0e · built 2026-11-26 05:38 UTC (<span class="book-stamp-age">just built</span>)</div>
+  <div class="book-stamp" data-built="1795676490">wire_weaver 0.6.0 · ada5110 · built 2026-11-26 07:01 UTC (<span class="book-stamp-age">just built</span>)</div>
 </div>
       
         

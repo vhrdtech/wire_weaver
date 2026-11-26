@@ -969,6 +969,14 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -1020,6 +1028,141 @@
   
   
     <li class="md-nav__item">
+      <a href="../../basic/first_device/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  A device on your PC
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../basic/methods/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Methods
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../basic/board/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  On a real board
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../basic/command_line/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  From the command line
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../basic/python/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  From Python
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../api/overview/" class="md-nav__link">
         
   
@@ -1027,7 +1170,7 @@
   <span class="md-ellipsis">
     
   
-  Getting started
+  What an API can have
 
     
   </span>
@@ -1067,33 +1210,6 @@
 
                 
               
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../api/methods/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Methods
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
             </ul>
           </nav>
         
@@ -1111,8 +1227,6 @@
   
     
     
-      
-        
       
         
       
@@ -1159,33 +1273,6 @@
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../cli/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Command line tool
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
               
                 
                   
@@ -2923,6 +3010,8 @@
       
         
       
+        
+      
     
     
     
@@ -2969,6 +3058,33 @@
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/methods/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Methods in depth
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
               
                 
                   
@@ -5831,6 +5947,8 @@
       
         
       
+        
+      
     
     
     
@@ -5877,6 +5995,33 @@
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Command line tool in depth
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
               
                 
                   
@@ -8431,7 +8576,7 @@ futures-io source, such as a tokio TCP listener's connections wrapped with <code
 <p><code>examples_mcu/rp2</code> has a complete example, <code>ww_ws_ncm</code>: the board shows up on the host as a USB CDC-NCM Ethernet
 adapter, runs <code>embassy-net</code> with a static address and a small <abbr title="Dynamic Host Configuration Protocol">DHCP</abbr> server (<code>edge-dhcp</code>), so the host is configured
 automatically, and serves the blinky API at <code>ws://192.168.7.1:8080/ww</code>. Run it with <code>just run rp2 ww_ws_ncm</code> from
-<code>examples_mcu/rp2</code>, then blink from the host with <code>cargo run -p blinky --features ws --example blinky_ws</code>.</p>
+<code>examples_mcu/rp2</code>, then blink from the host with <code>cargo run -p blinky --example blinky_ws</code>.</p>
 <h2 id="announcing-on-the-lan">Announcing on the <abbr title="local area network">LAN</abbr><a class="headerlink" href="#announcing-on-the-lan" title="Permanent link">&para;</a></h2>
 <p>A WebSocket server on a <abbr title="local area network">LAN</abbr> can announce itself over <abbr title="DNS Service Discovery">DNS-SD</abbr> (multicast DNS), so that clients and people find it
 without a typed address: <code>avahi-browse -r _wireweaver._tcp</code> on Linux, <code>dns-sd -B _wireweaver._tcp</code> on macOS. The
@@ -8513,7 +8658,7 @@ itself).</p>
 <code>InProcess</code> and <code>Avahi</code> pick one. Multicast DNS stays on its link: a server in a VM behind NAT, or on another subnet,
 is not seen from the <abbr title="local area network">LAN</abbr>.</p>
 <p><code>examples/blinky</code>'s <code>blinky_ws_device</code> serves the blinky API over WebSocket from a PC and announces it: <code>cargo run -p
-blinky --features ws --example blinky_ws_device -- --id blinky-demo --interface eth0</code>.</p>
+blinky --example blinky_ws_device -- --id blinky-demo --interface eth0</code>.</p>
 <div class="admonition warning">
 <p class="admonition-title">Everything announced reaches the whole <abbr title="local area network">LAN</abbr></p>
 <p>Every device on the link sees the record, unauthenticated: the server's addresses and port, the API it serves
@@ -8676,7 +8821,7 @@ are not needed to keep the link alive, <code>ww_link</code> pings do that.</p>
       Zensical
     </a>
   
-  <div class="book-stamp" data-built="1795671482">wire_weaver 0.6.0 · 7236c0e · built 2026-11-26 05:38 UTC (<span class="book-stamp-age">just built</span>)</div>
+  <div class="book-stamp" data-built="1795676490">wire_weaver 0.6.0 · ada5110 · built 2026-11-26 07:01 UTC (<span class="book-stamp-age">just built</span>)</div>
 </div>
       
         

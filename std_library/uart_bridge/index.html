@@ -977,6 +977,14 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -1031,6 +1039,141 @@
   
   
     <li class="md-nav__item">
+      <a href="../../basic/first_device/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  A device on your PC
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../basic/methods/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Methods
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../basic/board/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  On a real board
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../basic/command_line/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  From the command line
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../basic/python/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  From Python
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../api/overview/" class="md-nav__link">
         
   
@@ -1038,7 +1181,7 @@
   <span class="md-ellipsis">
     
   
-  Getting started
+  What an API can have
 
     
   </span>
@@ -1078,33 +1221,6 @@
 
                 
               
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../api/methods/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Methods
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
             </ul>
           </nav>
         
@@ -1122,8 +1238,6 @@
   
     
     
-      
-        
       
         
       
@@ -1173,33 +1287,6 @@
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../cli/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Command line tool
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
               
                 
                   
@@ -3106,6 +3193,8 @@
       
         
       
+        
+      
     
     
     
@@ -3149,6 +3238,33 @@
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/methods/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Methods in depth
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
               
                 
                   
@@ -5875,6 +5991,8 @@
       
         
       
+        
+      
     
     
     
@@ -5918,6 +6036,33 @@
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Command line tool in depth
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
               
                 
                   
@@ -8442,7 +8587,7 @@
 computer sends goes out on the serial line. This page builds one from the standard trait <code>ww_uart::Uart</code>. Unlike the
 <a href="../gpio_expander/"><abbr title="general-purpose input and output">GPIO</abbr> expander</a>, it moves bytes continuously in both directions, so it uses a <a aria-describedby="vz-card-term-stream-7f80be" class="vz-ref vz-term" data-vz-card="vz-card-term-stream-7f80be" href="/glossary/#term-stream">stream</a> for
 received bytes and a <a aria-describedby="vz-card-term-credit-sink-fc62b9" class="vz-ref vz-term" data-vz-card="vz-card-term-credit-sink-fc62b9" href="/glossary/#term-credit-sink">credit sink</a> for bytes to send.</p>
-<p>The example has three crates. <a aria-describedby="vz-card-file-ww-stdlib-examples-uart-api-src-lib-rs-b941c3" class="vz-ref vz-file" data-vz-card="vz-card-file-ww-stdlib-examples-uart-api-src-lib-rs-b941c3" href="https://github.com/vhrdtech/ww_stdlib/blob/39cd44952d33d45301123cf1ab6c64bb800822e9/examples/uart_api/src/lib.rs"><code>examples/uart_api/src/lib.rs</code></a> holds the API, <code>uart_device</code> the device code, and
+<p>The example has three crates. <a aria-describedby="vz-card-file-ww-stdlib-examples-uart-api-src-lib-rs-b941c3" class="vz-ref vz-file" data-vz-card="vz-card-file-ww-stdlib-examples-uart-api-src-lib-rs-b941c3" href="https://github.com/vhrdtech/ww_stdlib/blob/63a879db1b5116df83af0368fce15bb5608c6c55/examples/uart_api/src/lib.rs"><code>examples/uart_api/src/lib.rs</code></a> holds the API, <code>uart_device</code> the device code, and
 <code>uart</code> the host program and the simulated device. Start the simulated device in a terminal of its own:</p>
 <div class="language-sh highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>cargo<span class="w"> </span>run<span class="w"> </span>-p<span class="w"> </span>uart<span class="w"> </span>--example<span class="w"> </span>uart_sim
 </span></code></pre></div>
@@ -8596,7 +8741,7 @@ answer is the configuration actually set, so a host sees the baud rate the hardw
 with <code>CommonError::Unsupported</code>. Its ports start at 115 200 Bd. The GPS receiver sends at 9600 Bd, so its bytes
 arrive garbled and flagged as framing errors until port 0 is configured to match.</p>
 <h2 id="from-rust">From Rust<a class="headerlink" href="#from-rust" title="Permanent link">&para;</a></h2>
-<p>The host program <a aria-describedby="vz-card-file-ww-stdlib-examples-uart-examples-bridge-rs-544c79" class="vz-ref vz-file" data-vz-card="vz-card-file-ww-stdlib-examples-uart-examples-bridge-rs-544c79" href="https://github.com/vhrdtech/ww_stdlib/blob/39cd44952d33d45301123cf1ab6c64bb800822e9/examples/uart/examples/bridge.rs"><code>examples/uart/examples/bridge.rs</code></a> first configures port 0 for the GPS receiver:</p>
+<p>The host program <a aria-describedby="vz-card-file-ww-stdlib-examples-uart-examples-bridge-rs-544c79" class="vz-ref vz-file" data-vz-card="vz-card-file-ww-stdlib-examples-uart-examples-bridge-rs-544c79" href="https://github.com/vhrdtech/ww_stdlib/blob/63a879db1b5116df83af0368fce15bb5608c6c55/examples/uart/examples/bridge.rs"><code>examples/uart/examples/bridge.rs</code></a> first configures port 0 for the GPS receiver:</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kd">let</span><span class="w"> </span><span class="n">gps</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span><span class="p">.</span><span class="n">uart</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span>
 </span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="kd">let</span><span class="w"> </span><span class="n">config</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">UartConfig</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">    </span><span class="n">baud_rate</span><span class="p">:</span><span class="w"> </span><span class="nc">Baud</span><span class="p">::</span><span class="n">base</span><span class="p">(</span><span class="mi">9600</span><span class="k">u32</span><span class="p">),</span>
@@ -8673,7 +8818,7 @@ next chunk as a <code>dict</code>:</p>
 </span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>    <span class="n">tx</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="sa">b</span><span class="s2">&quot;hello from Python</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
 </span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;port 1:&quot;</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">(</span><span class="n">echo</span><span class="o">.</span><span class="n">recv</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mi">3</span><span class="p">)[</span><span class="s2">&quot;bytes&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span><span class="o">.</span><span class="n">rstrip</span><span class="p">())</span>
 </span></code></pre></div>
-<p>The whole script is <a aria-describedby="vz-card-file-ww-stdlib-examples-stdlib-py-uart-py-8aa99d" class="vz-ref vz-file" data-vz-card="vz-card-file-ww-stdlib-examples-stdlib-py-uart-py-8aa99d" href="https://github.com/vhrdtech/ww_stdlib/blob/39cd44952d33d45301123cf1ab6c64bb800822e9/examples/stdlib_py/uart.py"><code>examples/stdlib_py/uart.py</code></a>. With the simulated device running, it prints:</p>
+<p>The whole script is <a aria-describedby="vz-card-file-ww-stdlib-examples-stdlib-py-uart-py-8aa99d" class="vz-ref vz-file" data-vz-card="vz-card-file-ww-stdlib-examples-stdlib-py-uart-py-8aa99d" href="https://github.com/vhrdtech/ww_stdlib/blob/63a879db1b5116df83af0368fce15bb5608c6c55/examples/stdlib_py/uart.py"><code>examples/stdlib_py/uart.py</code></a>. With the simulated device running, it prints:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>$ python uart.py
 </span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>port 0: 9600 Bd
 </span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>$GPGGA,120001.00,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*66
@@ -8720,7 +8865,7 @@ the runner of its <code>.cargo/config.toml</code>:</p>
 </span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>cargo<span class="w"> </span>run<span class="w"> </span>--release<span class="w"> </span>--features<span class="w"> </span>streams<span class="w"> </span>--bin<span class="w"> </span>stm32h725ig-uart
 </span></code></pre></div>
 <p>Its ports run at a fixed 115 200 Bd and send what they receive up <code>rx</code>, timed by the <abbr title="universal asynchronous receiver-transmitter">UART</abbr>'s idle interrupt. The
-example <a aria-describedby="vz-card-file-ww-stdlib-examples-uart-examples-simple-rs-5c9246" class="vz-ref vz-file" data-vz-card="vz-card-file-ww-stdlib-examples-uart-examples-simple-rs-5c9246" href="https://github.com/vhrdtech/ww_stdlib/blob/39cd44952d33d45301123cf1ab6c64bb800822e9/examples/uart/examples/simple.rs"><code>examples/uart/examples/simple.rs</code></a> sends a few bytes to port 0 over USB.</p>
+example <a aria-describedby="vz-card-file-ww-stdlib-examples-uart-examples-simple-rs-5c9246" class="vz-ref vz-file" data-vz-card="vz-card-file-ww-stdlib-examples-uart-examples-simple-rs-5c9246" href="https://github.com/vhrdtech/ww_stdlib/blob/63a879db1b5116df83af0368fce15bb5608c6c55/examples/uart/examples/simple.rs"><code>examples/uart/examples/simple.rs</code></a> sends a few bytes to port 0 over USB.</p>
 <h2 id="where-to-go-next">Where to go next<a class="headerlink" href="#where-to-go-next" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../device_info/">A device that tells about itself</a> adds the standard traits every device should have: firmware
@@ -8728,7 +8873,7 @@ example <a aria-describedby="vz-card-file-ww-stdlib-examples-uart-examples-simpl
 <li><a href="../ww_uart/"><code>ww_uart</code></a> describes every item of <code>Uart</code>, how to time each byte of a chunk, and the <code>monitor</code>
   stream.</li>
 </ul>
-<div class="vz-cards"><div class="vz-card vz-card-term" id="vz-card-term-stream-7f80be" role="tooltip"><strong>stream</strong>: An item of an API trait that carries a flow of data from the device to the host.</div><div class="vz-card vz-card-term" id="vz-card-term-credit-sink-fc62b9" role="tooltip"><strong>credit sink</strong>: A sink with flow control: the device grants credit, and the host sends no more than the credit allows.</div><div class="vz-card vz-card-file" id="vz-card-file-ww-stdlib-examples-uart-api-src-lib-rs-b941c3" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/ww_stdlib/blob/39cd44952d33d45301123cf1ab6c64bb800822e9/examples/uart_api/src/lib.rs">examples/uart_api/src/lib.rs</a></div><div class="vz-card-src"><div class="language-rust highlight"><pre><span></span><code><span class="sd">//! API of the UART bridge example: the serial ports of a board as standard `ww_uart::Uart`s. Firmware:</span>
+<div class="vz-cards"><div class="vz-card vz-card-term" id="vz-card-term-stream-7f80be" role="tooltip"><strong>stream</strong>: An item of an API trait that carries a flow of data from the device to the host.</div><div class="vz-card vz-card-term" id="vz-card-term-credit-sink-fc62b9" role="tooltip"><strong>credit sink</strong>: A sink with flow control: the device grants credit, and the host sends no more than the credit allows.</div><div class="vz-card vz-card-file" id="vz-card-file-ww-stdlib-examples-uart-api-src-lib-rs-b941c3" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/ww_stdlib/blob/63a879db1b5116df83af0368fce15bb5608c6c55/examples/uart_api/src/lib.rs">examples/uart_api/src/lib.rs</a></div><div class="vz-card-src"><div class="language-rust highlight"><pre><span></span><code><span class="sd">//! API of the UART bridge example: the serial ports of a board as standard `ww_uart::Uart`s. Firmware:</span>
 <span class="sd">//! `examples/uart_device` (simulated on a PC) and `examples_mcu/usb_stm32h725ig`&#39;s UART bin; host: `examples/uart`.</span>
 <span class="cp">#![no_std]</span>
 
@@ -8741,7 +8886,7 @@ example <a aria-describedby="vz-card-file-ww-stdlib-examples-uart-examples-simpl
 <span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">uart</span><span class="p">[]:</span><span class="w"> </span><span class="nc">ww_uart</span><span class="p">::</span><span class="n">Uart</span><span class="p">);</span>
 <span class="p">}</span>
 <span class="c1">// --8&lt;-- [end:api]</span>
-</code></pre></div></div><div class="vz-card-where">examples/uart_api/src/lib.rs:1-13</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/ww_stdlib/blob/39cd44952d33d45301123cf1ab6c64bb800822e9/examples/uart_api/src/lib.rs">File on GitHub</a></div></div><div class="vz-card vz-card-file" id="vz-card-file-ww-stdlib-examples-uart-examples-bridge-rs-544c79" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/ww_stdlib/blob/39cd44952d33d45301123cf1ab6c64bb800822e9/examples/uart/examples/bridge.rs">examples/uart/examples/bridge.rs</a></div><div class="vz-card-src"><div class="language-rust highlight"><pre><span></span><code><span class="sd">//! Reads two sentences of the GPS receiver on port 0, then sends a line through the loopback of port 1 and reads it</span>
+</code></pre></div></div><div class="vz-card-where">examples/uart_api/src/lib.rs:1-13</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/ww_stdlib/blob/63a879db1b5116df83af0368fce15bb5608c6c55/examples/uart_api/src/lib.rs">File on GitHub</a></div></div><div class="vz-card vz-card-file" id="vz-card-file-ww-stdlib-examples-uart-examples-bridge-rs-544c79" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/ww_stdlib/blob/63a879db1b5116df83af0368fce15bb5608c6c55/examples/uart/examples/bridge.rs">examples/uart/examples/bridge.rs</a></div><div class="vz-card-src"><div class="language-rust highlight"><pre><span></span><code><span class="sd">//! Reads two sentences of the GPS receiver on port 0, then sends a line through the loopback of port 1 and reads it</span>
 <span class="sd">//! back, through the standard `ww_uart` calls.</span>
 <span class="sd">//!</span>
 <span class="sd">//! `cargo run -p uart --example uart_bridge` against `uart_sim` on this PC, or `-- --url ws://ADDRESS/ww` against</span>
@@ -8757,7 +8902,7 @@ example <a aria-describedby="vz-card-file-ww-stdlib-examples-uart-examples-simpl
 <span class="k">struct</span><span class="w"> </span><span class="nc">Args</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="sd">/// WebSocket URL of the device</span>
 <span class="w">    </span><span class="cp">#[arg(long, default_value = </span><span class="s">&quot;ws://127.0.0.1:8082/ww&quot;</span><span class="cp">)]</span>
-</code></pre></div></div><div class="vz-card-more">56 more lines in the source</div><div class="vz-card-where">examples/uart/examples/bridge.rs:1-72</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/ww_stdlib/blob/39cd44952d33d45301123cf1ab6c64bb800822e9/examples/uart/examples/bridge.rs">File on GitHub</a></div></div><div class="vz-card vz-card-file" id="vz-card-file-ww-stdlib-examples-stdlib-py-uart-py-8aa99d" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/ww_stdlib/blob/39cd44952d33d45301123cf1ab6c64bb800822e9/examples/stdlib_py/uart.py">examples/stdlib_py/uart.py</a></div><div class="vz-card-src"><div class="language-python highlight"><pre><span></span><code><span class="sd">&quot;&quot;&quot;Reads the GPS receiver on port 0 of the UART bridge and sends a line through the loopback of port 1, through</span>
+</code></pre></div></div><div class="vz-card-more">56 more lines in the source</div><div class="vz-card-where">examples/uart/examples/bridge.rs:1-72</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/ww_stdlib/blob/63a879db1b5116df83af0368fce15bb5608c6c55/examples/uart/examples/bridge.rs">File on GitHub</a></div></div><div class="vz-card vz-card-file" id="vz-card-file-ww-stdlib-examples-stdlib-py-uart-py-8aa99d" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/ww_stdlib/blob/63a879db1b5116df83af0368fce15bb5608c6c55/examples/stdlib_py/uart.py">examples/stdlib_py/uart.py</a></div><div class="vz-card-src"><div class="language-python highlight"><pre><span></span><code><span class="sd">&quot;&quot;&quot;Reads the GPS receiver on port 0 of the UART bridge and sends a line through the loopback of port 1, through</span>
 <span class="sd">the standard ww_uart calls.</span>
 
 <span class="sd">Run the simulated device first (`cargo run -p uart --example uart_sim`), then</span>
@@ -8773,7 +8918,7 @@ example <a aria-describedby="vz-card-file-ww-stdlib-examples-uart-examples-simpl
     <span class="n">dev</span> <span class="o">=</span> <span class="n">ww</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">websocket_url</span><span class="o">=</span><span class="n">url</span><span class="p">)</span>
 
     <span class="c1"># --8&lt;-- [start:configure]</span>
-</code></pre></div></div><div class="vz-card-more">33 more lines in the source</div><div class="vz-card-where">examples/stdlib_py/uart.py:1-49</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/ww_stdlib/blob/39cd44952d33d45301123cf1ab6c64bb800822e9/examples/stdlib_py/uart.py">File on GitHub</a></div></div><div class="vz-card vz-card-file" id="vz-card-file-ww-stdlib-examples-uart-examples-simple-rs-5c9246" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/ww_stdlib/blob/39cd44952d33d45301123cf1ab6c64bb800822e9/examples/uart/examples/simple.rs">examples/uart/examples/simple.rs</a></div><div class="vz-card-src"><div class="language-rust highlight"><pre><span></span><code><span class="k">use</span><span class="w"> </span><span class="n">std</span><span class="p">::</span><span class="n">time</span><span class="p">::</span><span class="n">Duration</span><span class="p">;</span>
+</code></pre></div></div><div class="vz-card-more">33 more lines in the source</div><div class="vz-card-where">examples/stdlib_py/uart.py:1-49</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/ww_stdlib/blob/63a879db1b5116df83af0368fce15bb5608c6c55/examples/stdlib_py/uart.py">File on GitHub</a></div></div><div class="vz-card vz-card-file" id="vz-card-file-ww-stdlib-examples-uart-examples-simple-rs-5c9246" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/ww_stdlib/blob/63a879db1b5116df83af0368fce15bb5608c6c55/examples/uart/examples/simple.rs">examples/uart/examples/simple.rs</a></div><div class="vz-card-src"><div class="language-rust highlight"><pre><span></span><code><span class="k">use</span><span class="w"> </span><span class="n">std</span><span class="p">::</span><span class="n">time</span><span class="p">::</span><span class="n">Duration</span><span class="p">;</span>
 <span class="k">use</span><span class="w"> </span><span class="n">uart</span><span class="p">::</span><span class="n">UartBridge</span><span class="p">;</span>
 
 <span class="cp">#[tokio::main]</span>
@@ -8789,7 +8934,7 @@ example <a aria-describedby="vz-card-file-ww-stdlib-examples-uart-examples-simpl
 <span class="w">    </span><span class="n">device</span><span class="p">.</span><span class="n">disconnect</span><span class="p">().</span><span class="n">asynch</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
 <span class="w">    </span><span class="nb">Ok</span><span class="p">(())</span>
 <span class="p">}</span>
-</code></pre></div></div><div class="vz-card-where">examples/uart/examples/simple.rs:1-16</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/ww_stdlib/blob/39cd44952d33d45301123cf1ab6c64bb800822e9/examples/uart/examples/simple.rs">File on GitHub</a></div></div></div>
+</code></pre></div></div><div class="vz-card-where">examples/uart/examples/simple.rs:1-16</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/ww_stdlib/blob/63a879db1b5116df83af0368fce15bb5608c6c55/examples/uart/examples/simple.rs">File on GitHub</a></div></div></div>
 
 
 
@@ -8882,7 +9027,7 @@ example <a aria-describedby="vz-card-file-ww-stdlib-examples-uart-examples-simpl
       Zensical
     </a>
   
-  <div class="book-stamp" data-built="1795671482">wire_weaver 0.6.0 · 7236c0e · built 2026-11-26 05:38 UTC (<span class="book-stamp-age">just built</span>)</div>
+  <div class="book-stamp" data-built="1795676490">wire_weaver 0.6.0 · ada5110 · built 2026-11-26 07:01 UTC (<span class="book-stamp-age">just built</span>)</div>
 </div>
       
         

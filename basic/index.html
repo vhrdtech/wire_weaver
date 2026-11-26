@@ -977,6 +977,14 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -1031,6 +1039,141 @@
   
   
     <li class="md-nav__item">
+      <a href="./first_device/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  A device on your PC
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./methods/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Methods
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./board/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  On a real board
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./command_line/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  From the command line
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./python/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  From Python
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../api/overview/" class="md-nav__link">
         
   
@@ -1038,7 +1181,7 @@
   <span class="md-ellipsis">
     
   
-  Getting started
+  What an API can have
 
     
   </span>
@@ -1078,33 +1221,6 @@
 
                 
               
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../api/methods/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Methods
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
             </ul>
           </nav>
         
@@ -1122,8 +1238,6 @@
   
     
     
-      
-        
       
         
       
@@ -1173,33 +1287,6 @@
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../cli/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Command line tool
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
               
                 
                   
@@ -2947,6 +3034,8 @@
       
         
       
+        
+      
     
     
     
@@ -2990,6 +3079,33 @@
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/methods/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Methods in depth
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
               
                 
                   
@@ -5716,6 +5832,8 @@
       
         
       
+        
+      
     
     
     
@@ -5759,6 +5877,33 @@
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Command line tool in depth
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
               
                 
                   
@@ -8125,12 +8270,20 @@ it, so read them in order. Every page in this part has the Basic <a aria-describ
 <td>Your own types as bytes on a radio link or in a file: the derive macro, borrowed and owned types, the built-in types, and types that change.</td>
 </tr>
 <tr>
-<td><a href="../api/overview/">A first device</a></td>
-<td>An API trait with methods, properties, streams, traits and errors, and the code generated from it.</td>
+<td><a href="first_device/">A first device</a></td>
+<td>An API trait with methods, served from your PC and from a board, called from Rust, <code>ww</code> and Python.</td>
 </tr>
 <tr>
-<td><a href="../cli/">Tools</a></td>
-<td>The <code>ww</code> command line tool and the Python package, used on a running device.</td>
+<td><a href="../python/">Tools</a></td>
+<td>The Python package in full, used on a running device.</td>
+</tr>
+<tr>
+<td><a href="units/">A sensor</a></td>
+<td>Numbers with units, temperatures, properties, observing, streams and channels.</td>
+</tr>
+<tr>
+<td><a href="../api/errors/">An instrument</a></td>
+<td>Errors an API returns and a host acts on.</td>
 </tr>
 <tr>
 <td><a href="transports/">Getting connected</a></td>
@@ -8152,8 +8305,9 @@ it, so read them in order. Every page in this part has the Basic <a aria-describ
 </table>
 <h2 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h2>
 <p>The chapters use the examples of the repository's <code>examples/</code> directory. <code>sensor_packet</code> puts a sensor node's
-readings on a radio link without an API. <code>blinky_api</code> and <code>blinky</code> are the smallest device and its <a aria-describedby="vz-card-term-client-2728a9" class="vz-ref vz-term" data-vz-card="vz-card-term-client-2728a9" href="/glossary/#term-client">client</a>, and <code>blinky_evolved</code> is
-the same device after a change. The <a href="../examples/examples/">examples page</a> lists all of them with the firmware for
+readings on a radio link without an API. <code>blinky_api</code>, <code>blinky_device</code> and <code>blinky</code> are the first device, its device
+code and its <a aria-describedby="vz-card-term-client-2728a9" class="vz-ref vz-term" data-vz-card="vz-card-term-client-2728a9" href="/glossary/#term-client">client</a>, and <code>blinky_evolved</code> is the same device after a change. The
+<a href="../examples/examples/">examples page</a> lists all of them with the firmware for
 each board.</p>
 <p>When you finish this part, the <a href="../advanced/">Advanced part</a> covers every option the defaults hide.</p>
 <div class="vz-cards"><div class="vz-card vz-card-term" id="vz-card-term-shrinkwrap-07fd93" role="tooltip"><strong>ShrinkWrap</strong>: The wire format of WireWeaver: dense down to single bits, readable without an allocator, and evolvable.</div><div class="vz-card vz-card-term" id="vz-card-term-api-trait-fef0df" role="tooltip"><strong>API trait</strong>: A Rust trait marked <code>#[ww_trait]</code> or <code>#[ww_api_root]</code> that describes what a device offers: methods, properties, streams, sinks and nested traits.</div><div class="vz-card vz-card-term" id="vz-card-term-reading-level-223116" role="tooltip"><strong>reading level</strong>: How much a page assumes: Basic, Advanced or Nomicon, shown by the badge above its title.</div><div class="vz-card vz-card-term" id="vz-card-term-client-2728a9" role="tooltip"><strong>client</strong>: The host-side code generated from an API trait: a typed function per item, async, blocking or as a promise.</div></div>
@@ -8249,7 +8403,7 @@ each board.</p>
       Zensical
     </a>
   
-  <div class="book-stamp" data-built="1795671482">wire_weaver 0.6.0 · 7236c0e · built 2026-11-26 05:38 UTC (<span class="book-stamp-age">just built</span>)</div>
+  <div class="book-stamp" data-built="1795676490">wire_weaver 0.6.0 · ada5110 · built 2026-11-26 07:01 UTC (<span class="book-stamp-age">just built</span>)</div>
 </div>
       
         

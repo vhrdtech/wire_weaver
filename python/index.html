@@ -16,7 +16,7 @@
       
       
       
-        <link rel="prev" href="../cli/">
+        <link rel="prev" href="../api/folder_structure/">
       
       
         <link rel="next" href="../basic/units/">
@@ -977,6 +977,14 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -1031,6 +1039,141 @@
   
   
     <li class="md-nav__item">
+      <a href="../basic/first_device/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  A device on your PC
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../basic/methods/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Methods
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../basic/board/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  On a real board
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../basic/command_line/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  From the command line
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../basic/python/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  From Python
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../api/overview/" class="md-nav__link">
         
   
@@ -1038,7 +1181,7 @@
   <span class="md-ellipsis">
     
   
-  Getting started
+  What an API can have
 
     
   </span>
@@ -1078,33 +1221,6 @@
 
                 
               
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../api/methods/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Methods
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
             </ul>
           </nav>
         
@@ -1124,8 +1240,6 @@
   
     
     
-      
-        
       
         
       
@@ -1175,33 +1289,6 @@
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../cli/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Command line tool
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
               
                 
                   
@@ -3090,6 +3177,8 @@
       
         
       
+        
+      
     
     
     
@@ -3133,6 +3222,33 @@
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/methods/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Methods in depth
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
               
                 
                   
@@ -5859,6 +5975,8 @@
       
         
       
+        
+      
     
     
     
@@ -5902,6 +6020,33 @@
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Command line tool in depth
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
               
                 
                   
@@ -8351,14 +8496,12 @@
       
         
       
-        
-      
     
     
     
     
       <li class="md-path__item">
-        <a href="../cli/" class="md-path__link">
+        <a href="././" class="md-path__link">
           
   
   <span class="md-ellipsis">
@@ -8406,7 +8549,8 @@
 properties, streams) is built at runtime from the introspection data the device sends, or from the API crate source.
 Values are converted to and from plain Python objects and serialized exactly as the generated Rust clients do it,
 the module is a thin wrapper around the dynamic client in <code>wire_weaver_client</code>.</p>
-<p>It is meant for debugging, quick tests and scripts: connect, look at what the device offers, call it. For a
+<p><a href="../basic/python/">From Python</a> installs the module and calls a first device with it. This page covers the module
+in full. It is meant for debugging, quick tests and scripts: connect, look at what the device offers, call it. For a
 typed Python package wrapping one specific API, see the <code>blinky_py</code> example instead (<a href="../examples/examples/">Examples</a>),
 it wraps the generated Rust client.</p>
 <p>Three transports are built in: <a href="../basic/usb/">USB</a>, <a href="../basic/rtt/"><abbr title="Real-Time Transfer, SEGGER's debug-probe channel">RTT</abbr></a> over a debug probe (probe-rs) and
@@ -8695,7 +8839,7 @@ split file written by a device's ring log and read its tracks, the same API as t
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../cli/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Command line tool">
+          <a href="../api/folder_structure/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Folder structure">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
@@ -8705,7 +8849,7 @@ split file written by a device's ring log and read its tracks, the same API as t
                 Previous
               </span>
               <div class="md-ellipsis">
-                Command line tool
+                Folder structure
               </div>
             </div>
           </a>
@@ -8744,7 +8888,7 @@ split file written by a device's ring log and read its tracks, the same API as t
       Zensical
     </a>
   
-  <div class="book-stamp" data-built="1795671482">wire_weaver 0.6.0 · 7236c0e · built 2026-11-26 05:38 UTC (<span class="book-stamp-age">just built</span>)</div>
+  <div class="book-stamp" data-built="1795676490">wire_weaver 0.6.0 · ada5110 · built 2026-11-26 07:01 UTC (<span class="book-stamp-age">just built</span>)</div>
 </div>
       
         

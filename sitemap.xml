@@ -121,6 +121,9 @@
         <loc>https://ww.vhrd.tech/basic/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/basic/board/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/basic/borrowed_and_owned/</loc>
       </url>
       <url>
@@ -133,13 +136,25 @@
         <loc>https://ww.vhrd.tech/basic/channels/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/basic/command_line/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/basic/connection_loss/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/basic/first_device/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/basic/methods/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/basic/observing/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/basic/properties/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/basic/python/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/basic/rtt/</loc>

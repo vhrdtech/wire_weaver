@@ -446,6 +446,7 @@ A command line tool, a Python module and a GUI to work with devices and APIs wit
 - **[A reason for silencing a unit hint](evolution/checker_tool.md#unit-suffix-hints-tool-22)**: A `#[no_unit_hint]` can say why (`#[no_unit_hint = "reason"]`, or per argument); `ww api check --strict` and `ww api scaffold --strict` refuse a bare or empty one, naming the field and the form to use instead.
 - **[ww_plugin: the plugin arguments without the hub](cli_reference.md#plugins)**: `DeviceArgs`, `Selection` and the plugin protocol helpers live in crate `ww_plugin`, which does not link `ww_hub`; `wire_weaver_cli` re-exports them.
 - **[Commands register themselves](cli_reference.md#plugins)**: Each `ww` command registers itself with `inventory`; `wire_weaver_cli` (generic commands) and `ww_std_cli` (standard library commands) are libraries, the `ww` binary links both.
+- **[`ww call`](basic/command_line.md)**: Call a method or read and write a property on any device from its introspection data alone: `ww call led_on`, `ww call 'gain = 8'`.
 - **[Pins live per connector](cli_reference.md#ww-pins-tui)**: `ww pins tui` shows every pin of a board on its connector, read live, with keys to drive, pull and release them. <span class="ww-status">hardware check open</span>
 - **[Pin tests from the command line](cli_reference.md#ww-pins)**: `ww pins test` finds shorts and pulls on any board serving `PinDiag`; plan files make it a pass/fail test. <span class="ww-status">hardware check open</span>
 - **[Settings from a flash dump](cli_reference.md#ww-settings)**: `ww settings dump` decodes a settings store without the device.
@@ -567,6 +568,7 @@ Working projects to start from: host programs, firmware for a few boards, and th
 - **[Settings demo](api/settings.md)**: Settings that survive a reboot, on the host and on two Nucleo boards.
 - **[Wire sizes compared](examples/wire_sizes.md)**: Eight messages on nine wire formats, with the byte count and how each lets a field be added later.
 - **[Bench supply example](examples/examples.md)**: A lab instrument with limits and errors a script can act on, tested by a pytest bench through the ww hub.
+- **[Blinky as the book's first device](basic/first_device.md)**: The smallest device, written once and run simulated on the PC, on a Nucleo G0B1RE and from Python.
 - **[Sensor packet example](basic/types_on_the_wire.md)**: A struct on a radio link with shrink_wrap alone, old and new firmware reading each other.
 
 <p class="ww-features__more" markdown>Details and what is planned: [Example and cases (ww_tape)](tape/features.md#example-and-cases-ex), [Examples](features.md#examples-ex) in the feature tracker.</p>

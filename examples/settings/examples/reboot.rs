@@ -69,11 +69,10 @@ pub async fn boot(path: &str, flash: Flash) -> (JoinHandle<Device>, oneshot::Sen
 }
 
 pub async fn connect(path: &str) -> Result<Client> {
-    Ok(
-        Client::config(|c| c.in_process_path(path.to_owned()).no_ww_usb())
-            .connect()
-            .await?,
-    )
+    let client = Client::config(|c| c.in_process_path(path.to_owned()).no_ww_usb())
+        .connect()
+        .await?;
+    Ok(client)
 }
 
 async fn print_settings(client: &Client, when: &str, out: &mut impl Write) -> Result<()> {

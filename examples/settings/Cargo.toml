@@ -9,6 +9,10 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[package.metadata.cargo-machete]
+# the code ww_codegen! generates names ww_si (and exact_units through it)
+ignored = ["ww_si"]
+
 [dependencies]
 settings_api.workspace = true
 tokio = { workspace = true, features = ["sync", "rt", "time", "macros"] }
@@ -17,10 +21,16 @@ wire_weaver_client = { workspace = true, features = ["clock_sync", "in_process",
 ww_client_server = { workspace = true, features = ["std"] }
 ww_device.workspace = true
 ww_settings = { workspace = true, features = ["fake-flash"] }
+ww_si = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
-tests_common.workspace = true
-tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+anyhow.workspace = true
+book_outputs.workspace = true
+tokio = { workspace = true, features = ["macros", "test-util"] }
+
+[[example]]
+name = "settings_reboot"
+path = "examples/reboot.rs"
 
 [lints]
 workspace = true

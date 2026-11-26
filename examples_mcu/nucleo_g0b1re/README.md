@@ -34,7 +34,7 @@ cargo run -p blinky --features rtt --example blinky_rtt -- --chip STM32G0B1RETx 
     --elf examples_mcu/nucleo_g0b1re/target/thumbv6m-none-eabi/debug/nucleo-g0b1re-ww-rtt
 ```
 
-`meter_window_ms` / `led_on_at_boot` kept in the last 4 pages of bank 2 through `ww_settings` (`examples/settings`'s
+`meter_window` / `led_on_at_boot` kept in the last 4 pages of bank 2 through `ww_settings` (`examples/settings`'s
 API), also over RTT; `led_on_at_boot` drives the user LED live:
 
 ```bash

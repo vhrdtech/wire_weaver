@@ -3849,14 +3849,16 @@ dependencies = [
 name = "settings"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "book_outputs",
  "settings_api",
- "tests_common",
  "tokio",
  "wire_weaver",
  "wire_weaver_client",
  "ww_client_server",
  "ww_device",
  "ww_settings",
+ "ww_si",
 ]
 
 [[package]]
@@ -3865,6 +3867,7 @@ version = "0.1.0"
 dependencies = [
  "ww_api",
  "ww_settings",
+ "ww_si",
 ]
 
 [[package]]

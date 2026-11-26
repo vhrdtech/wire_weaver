@@ -23,7 +23,7 @@ it, so read them in order. Every page in this part has the Basic [[reading level
 | [Getting connected](transports.md) | USB, RTT, WebSocket, UDP and byte streams, and a host that keeps trying when a device goes away. |
 | [Numbers and errors](../std_library/ww_si.md) | Numbers with units, steps and bounds, dates, and the errors every API shares. |
 | [The standard library](../std_library/using.md) | Ready-made API traits for pins, serial ports and the information every device reports about itself. |
-| [Keeping it working](../evolution/overview.md) | How an API changes so that old hosts and old firmware keep working. |
+| [Keeping it working](changing_your_api.md) | How an API changes so that old hosts and old firmware keep working. |
 
 ## Examples
 

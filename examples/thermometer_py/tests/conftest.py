@@ -36,10 +36,9 @@ def sim_exe():
     raise AssertionError("cargo built no thermometer_sim")
 
 
-@pytest.fixture
-def sim_url(sim_exe):
-    """A simulated thermometer on a free port, stopped after the test: each test starts from a fresh device."""
-    sim = subprocess.Popen([sim_exe, "--port", "0"], stdout=subprocess.PIPE, text=True)
+def _serve(exe, *flags):
+    """Starts a simulated thermometer on a free port with `flags` and yields its URL; stops it afterwards."""
+    sim = subprocess.Popen([exe, "--port", "0", *flags], stdout=subprocess.PIPE, text=True)
     try:
         line = sim.stdout.readline()
         assert line.startswith("thermometer at "), line
@@ -47,6 +46,18 @@ def sim_url(sim_exe):
     finally:
         sim.terminate()
         sim.wait(timeout=10)
+
+
+@pytest.fixture
+def sim_url(sim_exe):
+    """A simulated thermometer on a free port, stopped after the test: each test starts from a fresh device."""
+    yield from _serve(sim_exe)
+
+
+@pytest.fixture
+def still_sim_url(sim_exe):
+    """A simulated thermometer in a still room (21.50 °C), for scripts that print temperatures."""
+    yield from _serve(sim_exe, "--still")
 
 
 def check_output(script, main, url, output):

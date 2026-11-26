@@ -1,15 +1,18 @@
 //! What the book shows of the blinky device, checked against `docs/generated/blinky/`: the `ww` transcripts are the
 //! text `ww` prints, and the host program's output is what `blinky_host` prints, from the same device the chapters
-//! run, served in process.
+//! run, served in process, and the handlers `ww api scaffold` writes for its API.
 
 use std::cell::Cell;
+use std::path::Path;
 use std::rc::Rc;
 
 use blinky::Led;
 use tokio::sync::oneshot;
+use wire_weaver_cli::cmd::api::scaffold;
 use wire_weaver_cli::cmd::call::call;
 use wire_weaver_cli::cmd::introspect::{IntrospectView, render};
 use wire_weaver_client::{DynClient, in_process};
+use wire_weaver_core::ServerScaffoldConfig;
 
 /// The URL a reader's simulated device serves at: `blinky_sim`'s default.
 pub(crate) const SIM_URL: &str = "ws://127.0.0.1:8080/ww";
@@ -103,4 +106,31 @@ async fn book_output_host() {
         "blinky/host.txt",
         &format!("$ cargo run -p blinky --example blinky_host\n{printed}"),
     );
+}
+
+/// `ww api scaffold examples/blinky_api --use-async`: the options the CLI takes when only `--use-async` is given.
+#[test]
+fn book_output_scaffold() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    std::env::set_current_dir(&root).expect("the repository root");
+    let config = ServerScaffoldConfig {
+        server_struct: "Server".to_owned(),
+        no_alloc: true,
+        use_async: true,
+        handler_model: String::new(),
+        receiver_model: String::new(),
+        method_model: String::new(),
+        property_model: String::new(),
+        const_model: String::new(),
+        medium: None,
+        omit: vec![],
+        observe_cells: vec![],
+        observe_samples: true,
+        introspect: String::new(),
+        introspect_compression: String::new(),
+    };
+    let scaffold =
+        scaffold::render("examples/blinky_api".into(), None, &config, false).expect("scaffolds");
+    assert!(scaffold.hints.is_empty(), "{:?}", scaffold.hints);
+    book_outputs::check("blinky/scaffold.txt", &scaffold.code);
 }

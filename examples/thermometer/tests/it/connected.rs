@@ -7,7 +7,7 @@ use std::fmt::Write as _;
 use std::rc::Rc;
 use std::time::Duration;
 
-use thermometer::Thermometer;
+use thermometer::{SimBoard, Thermometer};
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 use tokio::time::{Instant, sleep};
@@ -24,9 +24,13 @@ impl Plug {
     fn insert(path: &str) -> Plug {
         let (stop, stop_rx) = oneshot::channel::<()>();
         let incoming = in_process::ws_device(path);
-        let device = tokio::task::spawn_local(thermometer::simulated(incoming, async {
-            _ = stop_rx.await;
-        }));
+        let device = tokio::task::spawn_local(thermometer::simulated(
+            SimBoard::default(),
+            incoming,
+            async {
+                _ = stop_rx.await;
+            },
+        ));
         Plug { stop, device }
     }
 
@@ -55,14 +59,22 @@ async fn book_output_connect() {
                 let (stop, stop_rx) = oneshot::channel::<()>();
                 let device = if transport == "udp" {
                     let socket = in_process::udp_device(path);
-                    tokio::task::spawn_local(thermometer::simulated_udp(socket, async {
-                        _ = stop_rx.await;
-                    }))
+                    tokio::task::spawn_local(thermometer::simulated_udp(
+                        SimBoard::default(),
+                        socket,
+                        async {
+                            _ = stop_rx.await;
+                        },
+                    ))
                 } else {
                     let incoming = in_process::ws_device(path);
-                    tokio::task::spawn_local(thermometer::simulated(incoming, async {
-                        _ = stop_rx.await;
-                    }))
+                    tokio::task::spawn_local(thermometer::simulated(
+                        SimBoard::default(),
+                        incoming,
+                        async {
+                            _ = stop_rx.await;
+                        },
+                    ))
                 };
                 let host = Thermometer::config(|c| c.in_process_path(path.to_owned()).no_ww_usb())
                     .connect()

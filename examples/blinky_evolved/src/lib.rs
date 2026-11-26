@@ -1,5 +1,9 @@
-//! Client of the evolved blinky API (`blinky_api_evolved`), run against devices running either version of the
-//! API to check that the newer client still works with the older firmware.
+//! The blinky example after its first change: [Blinky] is the host side of `blinky_api` 0.1.1 (the
+//! `blinky_api_evolved` dependency, with `led_toggle`), and [device] simulates the firmware of 0.1.0 and of 0.1.1.
+//! The test `book_output_versions` runs old and new hosts against old and new firmware.
+
+pub mod device;
+
 use wire_weaver_client::{ClientConfig, Commander, DeviceApiInfo, WwClient};
 
 pub struct Blinky {

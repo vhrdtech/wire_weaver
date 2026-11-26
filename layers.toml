@@ -59,7 +59,6 @@ bench_supply_api = { layer = "runtime", no_std = true }
 bench_supply_py = { layer = "runtime" }
 blinky = { layer = "runtime" }
 blinky_api = { layer = "runtime", no_std = true }
-blinky_api_evolved = { layer = "runtime", no_std = true }
 blinky_device = { layer = "runtime", no_std = true }
 blinky_dyn_py = { layer = "runtime" }
 blinky_evolved = { layer = "runtime" }

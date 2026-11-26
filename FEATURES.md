@@ -2966,7 +2966,11 @@ Unicast Data0 to one node over the same bus is TR-6.
   Basic 1.5 to 1.9, a first device (`docs/basic/first_device.md`, `methods.md`, `board.md`, `command_line.md`,
   `python.md`), on blinky (EX-25) with five figures, `ww` transcripts and the host program's output of the simulated
   device, transcripts of a Nucleo G0B1RE (`docs/generated/blinky/board/`, recorded on the board, kept by
-  `just book-outputs`), and `examples/blinky_dyn_py` (`just test-blinky-py`). Missing: the other chapters of the outline.
+  `just book-outputs`), and `examples/blinky_dyn_py` (`just test-blinky-py`). Basic 1.30 Changing your API
+  (`docs/basic/changing_your_api.md`) on `blinky_evolved`, with `docs/assets/versions_matrix.svg`; 1.31 Your own
+  project (`your_own_project.md`) on the thermometer's crates, with `docs/assets/project_crates.svg` and `ww api
+  scaffold`'s code; 1.32 Python in full (`python_in_full.md`) on `examples/thermometer_py`'s scripts. Missing: the
+  other chapters of the outline.
 
 ## Testing, CI and performance (`TEST`)
 

@@ -88,7 +88,7 @@ The cache files each description under its API's hash. The hash changes with the
 the device for the new description. A host program in Rust needs a rebuild to get the new function; `ww` and Python don't.
 
 [`examples/blinky_api_evolved/src/lib.rs`] holds this change, with the version attributes that let old hosts and old firmware
-keep working together. [Changing your API](../evolution/overview.md) explains them.
+keep working together. [Changing your API](changing_your_api.md) explains them.
 
 ## Where to go next
 

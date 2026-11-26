@@ -1,0 +1,14 @@
+$ python explore.py
+Thermo
+  set_rate(rate: Fixed<Hertz, One, u16, Range<1, 1000>>) -> Result<(), RateError>  # Sets how often the device samples while `mode` is `Continuous`. `Busy` while a triggered sample runs.
+  read_once() -> Sample  # Takes one sample on the first input now, whatever the mode.
+  rw mode: Mode  # What the sampler does.
+  rw gain: Fixed<Ratio, One, u8, Range<1, 16>>  # Amplifier gain. Observable: the device lowers it by itself when the input overloads.
+  stream samples: Sample  # Samples while `mode` is `Continuous`, one per `Command::Trigger` while `Triggered`.
+  sink commands: Command  # Commands for the sampler, in order.
+  channel[]: Channel  # The inputs, 0-based on the wire. The device says how many it has.
+  indication: Indication  # The status LED.
+set_rate(rate: Fixed<Hertz, One, u16, Range<1, 1000>>) -> Result<(), RateError>
+Sets how often the device samples while `mode` is `Continuous`. `Busy` while a triggered sample runs.
+[0, 1, 2, 3]
+channel[3]

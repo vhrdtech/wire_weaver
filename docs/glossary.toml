@@ -298,6 +298,12 @@ short = "The rules that turn a value into bytes and back, so that two programs a
 chapter = "../basic/types_on_the_wire/"
 
 [[term]]
+name = "wire version"
+forms = ["wire versions"]
+short = "The version of an API that devices and hosts compare when they connect, such as `w1.1`: a wire line and a revision on it."
+chapter = "../basic/changing_your_api/"
+
+[[term]]
 name = "wire line"
 forms = ["wire lines"]
 short = "A series of API versions that can talk to each other; a breaking change starts a new line, and a host may speak several."

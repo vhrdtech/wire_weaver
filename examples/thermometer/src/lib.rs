@@ -61,15 +61,19 @@ mod api_client {
 }
 
 // --8<-- [start:simulated]
-/// Serves a thermometer on a [SimBoard] to the WebSocket clients `incoming` yields, one at a time, until `stop`
+/// Serves a thermometer on `board` to the WebSocket clients `incoming` yields, one at a time, until `stop`
 /// resolves; returns what it dropped or refused. The device's futures are not `Send`: run it on a current-thread
 /// runtime or in a `LocalSet`.
-pub async fn simulated<I, S>(incoming: I, stop: impl Future<Output = ()>) -> Counters
+pub async fn simulated<I, S>(
+    board: SimBoard,
+    incoming: I,
+    stop: impl Future<Output = ()>,
+) -> Counters
 where
     I: Stream<Item = S> + Unpin,
     S: AsyncRead + AsyncWrite + Unpin,
 {
-    let board: &'static mut SimBoard = Box::leak(Box::default());
+    let board: &'static mut SimBoard = Box::leak(Box::new(board));
     let mut device = Device::new(board);
     let conn = WsConnection::new(IoSocket::new(incoming));
     let mut buffers = Box::new(WsBuffers::<MAX_MESSAGE_LEN>::new());
@@ -85,14 +89,15 @@ where
 // --8<-- [end:simulated]
 
 // --8<-- [start:simulated_udp]
-/// Serves a thermometer on a [SimBoard] to the one UDP host that talks to `socket` at a time, until `stop`
-/// resolves; returns what it dropped or refused. A host that starts link setup takes the slot over from the one
-/// before it. Not `Send`, like [simulated].
+/// Serves a thermometer on `board` to the one UDP host that talks to `socket` at a time, until `stop` resolves;
+/// returns what it dropped or refused. A host that starts link setup takes the slot over from the one before it.
+/// Not `Send`, like [simulated].
 pub async fn simulated_udp<S: DatagramSocket>(
+    board: SimBoard,
     socket: S,
     stop: impl Future<Output = ()>,
 ) -> Counters {
-    let board: &'static mut SimBoard = Box::leak(Box::default());
+    let board: &'static mut SimBoard = Box::leak(Box::new(board));
     let mut device = Device::new(board);
     let conn = UdpConnection::new(socket);
     let mut buffers = Box::new(UdpBuffers::<MAX_MESSAGE_LEN>::new());

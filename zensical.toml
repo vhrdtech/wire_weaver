@@ -91,7 +91,9 @@ nav = [
                 ]
             },
             { "Keeping it working" = [
-                    "evolution/overview.md"
+                    "basic/changing_your_api.md",
+                    "basic/your_own_project.md",
+                    "basic/python_in_full.md"
                 ]
             }
         ]

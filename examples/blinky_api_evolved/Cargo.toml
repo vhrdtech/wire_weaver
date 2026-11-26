@@ -1,17 +1,21 @@
+# `blinky_api` after its first change: 0.1.1 at wire w1.1, with `led_toggle` added. Built as the newer API beside
+# the workspace's `blinky_api` 0.1.0, so old and new firmware and hosts meet in one test. Outside the workspace
+# (`exclude` in the root Cargo.toml), which can't hold two packages of one name; fields members inherit are written out.
+# --8<-- [start:version]
 [package]
-name = "blinky_api_evolved"
+name = "blinky_api"
 version = "0.1.1"
-description = "The blinky example API in a later version, for the evolution checks"
+# --8<-- [end:version]
+description = "API of the blinky example device after a change: led_toggle added at wire w1.1"
 publish = false
-edition.workspace = true
-rust-version.workspace = true
-authors.workspace = true
-license.workspace = true
-repository.workspace = true
+edition = "2024"
+license = "MIT"
 
 # Wire version of the API (EVO-31): link setup decides on its line, `#[since]` names its revisions
+# --8<-- [start:wire]
 [package.metadata.wire_weaver]
 wire = "w1.1"
+# --8<-- [end:wire]
 
 [features]
 # build against std instead of no_std
@@ -20,8 +24,8 @@ std = ["ww_api/std", "ww_si/std"]
 defmt = ["ww_api/defmt", "ww_si/defmt"]
 
 [dependencies]
-ww_api = { workspace = true }
-ww_si = { workspace = true, features = ["counting"] }
+ww_api = { path = "../../ww_api", default-features = false }
+ww_si = { git = "https://github.com/vhrdtech/ww_base", default-features = false, features = ["counting"] }
 
-[lints]
-workspace = true
+[dev-dependencies]
+wire_weaver_evolution = { path = "../../wire_weaver_evolution", features = ["source"] }

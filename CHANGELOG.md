@@ -12,6 +12,11 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 ## [Unreleased]
 
 - Book page "On a Pico 2" with the Pico 2's blinky firmware run once on a board; the firmware sets a product name and label (DOC-17); see `examples_mcu/rp2`.
+- Blinky after a change: `blinky_api` 0.1.1 beside 0.1.0, old and new hosts and firmware in one test (DOC-17); see `examples/blinky_evolved`.
+- Book chapter Changing your API on blinky: old and new hosts and firmware, the checker's verdict, a figure (DOC-17); replaces `evolution/overview.md`.
+- Book chapter Your own project: the thermometer's crates, templates, handlers from `ww api scaffold` (DOC-17).
+- `thermometer_sim --still`: the simulated room keeps 21.50 °C, so scripts print the same temperatures every run (DOC-17).
+- Book chapter Python in full: looking around, values, units, streams, sinks and errors on the thermometer (DOC-17).
 - Book chapters 1.5 to 1.9: a first device on the PC, its methods, a Nucleo G0B1RE, `ww` and Python (DOC-17); see `examples/blinky`.
 - Blinky example: `set_led` and `blinks` methods, one server in `blinky_device` for the simulated device and every board (EX-25); see `examples/blinky`.
 - `ww call` calls a method or reads and writes a property on any device, from introspection alone (TOOL-41); see `wire_weaver_cli`.

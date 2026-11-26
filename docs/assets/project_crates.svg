@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="400" viewBox="0 0 720 400" font-family="Helvetica, Arial, sans-serif" font-size="13">
+  <title>The crates of the thermometer project</title>
+  <desc>thermometer_api holds the trait and its types. thermometer_device, the server and its handlers, depends on it. The firmware of each board depends on thermometer_device. The host crate thermometer holds the generated client, the host programs and the device simulated on a PC, so it depends on both. ww and Python depend on no crate of the project: they read the API from the device.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#222"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="720" height="400" rx="10" fill="#ffffff"/>
+
+  <!-- the API crate -->
+  <rect x="230" y="16" width="260" height="62" rx="6" fill="#eef2f7" stroke="#222"/>
+  <g text-anchor="middle" fill="#222">
+    <text x="360" y="38" font-weight="bold">thermometer_api</text>
+    <text x="360" y="56">the trait and its types, no_std</text>
+    <text x="360" y="72" fill="#555">ww_api, ww_si</text>
+  </g>
+
+  <!-- the device crate -->
+  <rect x="30" y="140" width="270" height="62" rx="6" fill="#eef2f7" stroke="#222"/>
+  <g text-anchor="middle" fill="#222">
+    <text x="165" y="162" font-weight="bold">thermometer_device</text>
+    <text x="165" y="180">the server and its handlers, no_std</text>
+    <text x="165" y="196" fill="#555">wire_weaver, ww_device</text>
+  </g>
+
+  <!-- the host crate -->
+  <rect x="420" y="140" width="270" height="62" rx="6" fill="#eef2f7" stroke="#222"/>
+  <g text-anchor="middle" fill="#222">
+    <text x="555" y="162" font-weight="bold">thermometer</text>
+    <text x="555" y="180">the client, host programs, the simulation</text>
+    <text x="555" y="196" fill="#555">wire_weaver_client</text>
+  </g>
+
+  <!-- users of the device crate -->
+  <rect x="60" y="270" width="210" height="52" rx="6" fill="#ffffff" stroke="#222"/>
+  <g text-anchor="middle" fill="#222">
+    <text x="165" y="292" font-weight="bold">firmware, one per board</text>
+    <text x="165" y="310">Nucleo G0B1RE, Pico 2</text>
+  </g>
+
+  <!-- tools without a crate of the project -->
+  <rect x="480" y="270" width="210" height="52" rx="6" fill="#ffffff" stroke="#222" stroke-dasharray="5 4"/>
+  <g text-anchor="middle" fill="#222">
+    <text x="585" y="292" font-weight="bold">ww, Python</text>
+    <text x="585" y="310">read the API from the device</text>
+  </g>
+
+  <!-- depends on -->
+  <g stroke="#222" fill="none">
+    <line x1="200" y1="140" x2="300" y2="80" marker-end="url(#arrow)"/>
+    <line x1="520" y1="140" x2="420" y2="80" marker-end="url(#arrow)"/>
+    <line x1="165" y1="270" x2="165" y2="204" marker-end="url(#arrow)"/>
+    <line x1="420" y1="171" x2="302" y2="171" marker-end="url(#arrow)"/>
+  </g>
+
+  <!-- legend -->
+  <g fill="#222">
+    <line x1="30" y1="370" x2="70" y2="370" stroke="#222" marker-end="url(#arrow)"/>
+    <text x="80" y="374">depends on</text>
+    <rect x="200" y="360" width="30" height="20" rx="4" fill="#ffffff" stroke="#222" stroke-dasharray="5 4"/>
+    <text x="240" y="374">no crate of the project: works with any device</text>
+  </g>
+</svg>

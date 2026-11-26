@@ -9,6 +9,7 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
+# --8<-- [start:dependencies]
 [dependencies]
 futures-util.workspace = true
 thermometer_api = { workspace = true, features = ["std"] }
@@ -18,6 +19,7 @@ wire_weaver.workspace = true
 wire_weaver_client = { workspace = true, features = ["in_process", "udp", "usb", "ws"] }
 ww_device = { workspace = true, features = ["futures-io", "std"] }
 ww_si = { workspace = true, features = ["std"] }
+# --8<-- [end:dependencies]
 
 [dev-dependencies]
 anyhow.workspace = true

@@ -1,7 +1,7 @@
 [package]
 name = "blinky_evolved"
 version = "0.1.0"
-description = "Client of the evolved blinky API, run against devices of either version"
+description = "The blinky example after a change: the new host, and firmware of both versions simulated on a PC"
 publish = false
 edition.workspace = true
 rust-version.workspace = true
@@ -14,19 +14,25 @@ repository.workspace = true
 ignored = ["blinky_api_evolved", "ww_si"]
 
 [dependencies]
+blinky.workspace = true
 blinky_api_evolved.workspace = true
-tokio = { workspace = true, features = ["sync", "rt"] }
+tokio = { workspace = true, features = ["sync", "rt", "macros"] }
 wire_weaver.workspace = true
-wire_weaver_client = { workspace = true, features = ["clock_sync", "usb"] }
+wire_weaver_client = { workspace = true, features = ["clock_sync", "in_process", "usb", "ws"] }
+ww_client_server.workspace = true
+ww_device = { workspace = true, features = ["futures-io"] }
 ww_si = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
 anyhow.workspace = true
+book_outputs.workspace = true
 clap = { workspace = true, features = ["derive"] }
 console.workspace = true
-tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "test-util"] }
 tracing.workspace = true
 tracing-subscriber.workspace = true
+wire_weaver_cli.workspace = true
+wire_weaver_evolution = { workspace = true, features = ["source"] }
 ww_self = { workspace = true, features = ["std"] }
 
 [lints]

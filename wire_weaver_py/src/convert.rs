@@ -111,6 +111,18 @@ fn to_value_at(
             return value.map_err(PyValueError::new_err);
         }
     }
+    // text is no number: name what a number with a unit takes, rather than its struct's fields
+    if obj.is_instance_of::<PyString>()
+        && (fixed_of(ty, bundle).is_some()
+            || coded_of(ty, bundle).is_some()
+            || point_of(ty, bundle).is_some())
+    {
+        return Err(PyTypeError::new_err(format!(
+            "{}: expected a ww.Quantity or a number, got str (ww.Quantity({:?}) reads text)",
+            type_name(ty, bundle),
+            obj.str()?.to_string()
+        )));
+    }
     if let Some(unit) = unit_of(ty, bundle) {
         let q = if let Ok(q) = obj.cast::<Quantity>() {
             Some(q.get().q.clone())

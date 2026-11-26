@@ -43,6 +43,7 @@ members = [
 ]
 
 exclude = [
+    "examples/blinky_api_evolved",
     "examples/compare_wire_formats",
     "examples_mcu",
     "fuzz",
@@ -233,7 +234,7 @@ array_of_streams_api = { version = "0.1.0", path = "./tests/array_of_streams_api
 bench_supply_api = { version = "1.0.0", path = "./examples/bench_supply_api" }
 blinky = { version = "0.1.0", path = "./examples/blinky" }
 blinky_api = { version = "0.1.0", path = "./examples/blinky_api" }
-blinky_api_evolved = { version = "0.1.1", path = "./examples/blinky_api_evolved" }
+blinky_api_evolved = { package = "blinky_api", version = "0.1.1", path = "./examples/blinky_api_evolved" }
 blinky_device = { version = "0.1.0", path = "./examples/blinky_device", default-features = false }
 book_outputs = { version = "0.1.0", path = "./tests/book_outputs" }
 bounded_api = { version = "0.1.0", path = "./tests/bounded_api" }

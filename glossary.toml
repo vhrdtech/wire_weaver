@@ -66,12 +66,6 @@ short = "A packet sent without a connection and without a promise that it arrive
 chapter = "../basic/udp/"
 
 [[term]]
-name = "debug probe"
-forms = ["debug probes"]
-short = "A small adapter between the PC and a microcontroller's debug pins, which flashes firmware and shows its log."
-chapter = "../basic/pico2/"
-
-[[term]]
 name = "device contract"
 short = "The standard traits every device should offer: firmware and board information, a unique id, user information, the log and an indication."
 chapter = "../std_library/device_info/"
@@ -207,7 +201,7 @@ chapter = "../basic/properties/"
 name = "reading level"
 forms = ["reading levels"]
 short = "How much a page assumes: Basic, Advanced or Nomicon, shown by the badge above its title."
-chapter = "../levels/"
+chapter = "../intro/reading/"
 
 [[term]]
 name = "ring buffer"

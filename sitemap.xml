@@ -151,9 +151,6 @@
         <loc>https://ww.vhrd.tech/basic/observing/</loc>
       </url>
       <url>
-        <loc>https://ww.vhrd.tech/basic/pico2/</loc>
-      </url>
-      <url>
         <loc>https://ww.vhrd.tech/basic/properties/</loc>
       </url>
       <url>
@@ -244,9 +241,6 @@
         <loc>https://ww.vhrd.tech/features/</loc>
       </url>
       <url>
-        <loc>https://ww.vhrd.tech/features_today/</loc>
-      </url>
-      <url>
         <loc>https://ww.vhrd.tech/generated/sensor_packet/messages/</loc>
       </url>
       <url>
@@ -277,7 +271,16 @@
         <loc>https://ww.vhrd.tech/glossary/</loc>
       </url>
       <url>
-        <loc>https://ww.vhrd.tech/levels/</loc>
+        <loc>https://ww.vhrd.tech/intro/first_look/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/intro/reading/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/intro/what_it_does/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/intro/wire_format/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/logring/</loc>
@@ -293,6 +296,9 @@
       </url>
       <url>
         <loc>https://ww.vhrd.tech/reference/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/reference/for_writers/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/serdes/code_size/</loc>

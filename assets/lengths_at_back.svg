@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="250" viewBox="0 0 720 250" font-family="Helvetica, Arial, sans-serif" font-size="13">
+  <title>Values from the front, lengths from the back</title>
+  <desc>One buffer. The writer puts the values from the front: a number, the bytes of a string, a nested struct. It puts the length of the string and the length of the struct as nibbles at the back of the buffer, growing towards the front. When writing ends, the lengths are written as nibbles right after the values, and the free space is not sent. The reader walks the values forward and takes each length from the back when it needs one.</desc>
+  <defs>
+    <marker id="lb-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#1f5f99"/>
+    </marker>
+    <marker id="lb-arrow-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#b03a2e"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="720" height="250" rx="10" fill="#ffffff"/>
+  <text x="30" y="34" font-weight="bold" fill="#222">One buffer, while the writer works</text>
+
+  <g text-anchor="middle">
+    <rect x="30" y="60" width="90" height="44" fill="#eef2f7" stroke="#222"/>
+    <text x="75" y="87" fill="#222">number</text>
+    <rect x="120" y="60" width="150" height="44" fill="#eef2f7" stroke="#222"/>
+    <text x="195" y="87" fill="#222">string's bytes</text>
+    <rect x="270" y="60" width="130" height="44" fill="#eef2f7" stroke="#222"/>
+    <text x="335" y="87" fill="#222">nested struct</text>
+    <rect x="400" y="60" width="170" height="44" fill="#ffffff" stroke="#999" stroke-dasharray="4 3"/>
+    <text x="485" y="87" fill="#555">free</text>
+    <rect x="570" y="60" width="60" height="44" fill="#fbeee6" stroke="#b03a2e"/>
+    <text x="600" y="80" fill="#b03a2e" font-size="12">struct's</text>
+    <text x="600" y="95" fill="#b03a2e" font-size="12">length</text>
+    <rect x="630" y="60" width="60" height="44" fill="#fbeee6" stroke="#b03a2e"/>
+    <text x="660" y="80" fill="#b03a2e" font-size="12">string's</text>
+    <text x="660" y="95" fill="#b03a2e" font-size="12">length</text>
+  </g>
+
+  <line x1="30" y1="130" x2="390" y2="130" stroke="#1f5f99" stroke-width="2" marker-end="url(#lb-arrow)"/>
+  <text x="210" y="150" text-anchor="middle" fill="#1f5f99">values: written and read from the front</text>
+  <line x1="690" y1="130" x2="580" y2="130" stroke="#b03a2e" stroke-width="2" marker-end="url(#lb-arrow-red)"/>
+  <text x="635" y="150" text-anchor="middle" fill="#b03a2e">lengths: from the back</text>
+
+  <text x="30" y="190" fill="#222">The writer learns a length only after it wrote the value, and keeps it in a slot at the back.</text>
+  <text x="30" y="212" fill="#222">When writing ends, the lengths go right after the values as nibbles, and the free space is not sent.</text>
+  <text x="30" y="234" fill="#222">The reader takes the lengths from the end in the same order, while it walks the values from the front.</text>
+</svg>

@@ -35,6 +35,7 @@ nav = [
                     "basic/first_device.md",
                     "basic/methods.md",
                     "basic/board.md",
+                    "basic/pico2.md",
                     "basic/command_line.md",
                     "basic/python.md",
                     "api/overview.md",

@@ -44,6 +44,7 @@ static_cell = { version = "2.1", optional = true }
 blinky_device = { path = "../../examples/blinky_device", features = ["defmt"], optional = true }
 thermometer_api = { path = "../../examples/thermometer_api", optional = true }
 thermometer_device = { path = "../../examples/thermometer_device", features = ["defmt"], optional = true }
+wire_weaver = { path = "../../wire_weaver", default-features = false, features = ["defmt"], optional = true }
 wire_weaver_usb_embassy = { path = "../../mcu/wire_weaver_usb_embassy", optional = true }
 ww_device = { path = "../../ww_device", features = ["defmt", "embassy-time"], optional = true }
 
@@ -58,7 +59,7 @@ rtt_target = [
     "rtt-target/defmt",
     "ww_device/rtt",
 ]
-usb = ["dep:embassy-usb", "dep:wire_weaver_usb_embassy", "dep:blinky_device", "dep:static_cell"]
+usb = ["dep:embassy-usb", "dep:wire_weaver", "dep:wire_weaver_usb_embassy", "dep:blinky_device", "dep:static_cell"]
 # the thermometer example device (examples/thermometer_device) on the chip's temperature sensor, for the thermometer bin
 thermometer = ["usb", "dep:thermometer_api", "dep:thermometer_device", "dep:ww_device"]
 ws_ncm = [

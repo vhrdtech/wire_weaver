@@ -6,7 +6,8 @@ level: basic
 
 This chapter runs blinky on a microcontroller. The board is a Nucleo G0B1RE, a development board with an STM32G0B1RE
 from ST: an Arm Cortex-M0+ with 512 KiB of flash and 144 KiB of RAM. The firmware serves the same API as the
-simulated device over USB, with the same handlers. Only the LED and the transport change.
+simulated device over USB, with the same handlers. Only the LED and the transport change. If you have a Raspberry Pi
+Pico 2 instead, read [On a Pico 2](pico2.md).
 
 ## What you need
 
@@ -112,4 +113,4 @@ the blinks of earlier runs. [From the command line](command_line.md) explains ea
 - [From the command line](command_line.md) finds, reads and calls a device with `ww`.
 - [USB](../transport/usb.md) covers the USB transport on both sides: the host's filters, the device's descriptors
   and its timings.
-- The `examples_mcu/rp2` firmware serves the same API on a Raspberry Pi Pico 2.
+- [On a Pico 2](pico2.md) runs the same firmware on a Raspberry Pi Pico 2.

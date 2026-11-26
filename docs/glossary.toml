@@ -49,6 +49,12 @@ short = "The host-side code generated from an API trait: a typed function per it
 chapter = "../basic/first_device/"
 
 [[term]]
+name = "common error"
+forms = ["common errors"]
+short = "One of the errors every device shares, such as `Busy`, `InUse` or `WrongState`: any item can return it without an error type of its own."
+chapter = "../basic/errors/"
+
+[[term]]
 name = "conformance corpus"
 short = "The set of wire-format cases with their exact bytes that every implementation (the derive, the dynamic client, Python and C) must reproduce."
 chapter = "../serdes/conformance/"
@@ -86,7 +92,7 @@ chapter = "../basic/structs_and_enums/"
 name = "effect"
 forms = ["effects"]
 short = "Metadata on a method or property that says what calling it does to the device, such as editing or persisting a value, for tools to act on."
-chapter = "../api/metadata/"
+chapter = "../basic/effects/"
 
 [[term]]
 name = "evolvable"
@@ -128,6 +134,12 @@ chapter = "../transport/hub/"
 name = "introspection"
 short = "The description of a device's API that the device sends on request, so that a tool can call it without knowing the API at build time."
 chapter = "../basic/command_line/"
+
+[[term]]
+name = "label"
+forms = ["labels"]
+short = "The name a person uses for an item on the bench, such as \"CH1\", given with `#[label(..)]` and shown by tools; no request or reply carries it."
+chapter = "../basic/effects/"
 
 [[term]]
 name = "link layer"

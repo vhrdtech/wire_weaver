@@ -497,6 +497,7 @@ impl<E> From<CallError<E>> for wire_weaver::call::CallError<E> {
 /// so one `?` is enough, and a match tells the four outcomes apart.
 ///
 /// `Display` and [source](std::error::Error::source) are transparent: the inner error's text, once.
+// --8<-- [start:call_error]
 #[derive(Debug)]
 pub enum CallError<E> {
     /// The device answered with its error: the `Err(e)` of the method (or of the property write).
@@ -514,6 +515,7 @@ pub enum CallError<E> {
     /// The call didn't go through: link, timeout, disconnect, another framework error.
     Client(Error),
 }
+// --8<-- [end:call_error]
 
 impl<E> CallError<E> {
     /// Returns the device's error, if the device answered with one.

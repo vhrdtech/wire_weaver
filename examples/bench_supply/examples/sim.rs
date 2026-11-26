@@ -4,8 +4,6 @@
 //! `cargo run -p bench_supply --example bench_supply_sim`, then in a second terminal
 //! `cargo run -p bench_supply --example bench_supply_bench`.
 
-use std::num::NonZeroU16;
-
 use anyhow::Result;
 use clap::Parser;
 use futures_util::Stream;
@@ -14,9 +12,9 @@ use tokio_util::compat::{Compat, TokioAsyncReadCompatExt};
 
 #[derive(Parser)]
 struct Args {
-    /// TCP port of the WebSocket server
-    #[arg(long, default_value_t = NonZeroU16::new(8081).expect("not zero"))]
-    port: NonZeroU16,
+    /// TCP port of the WebSocket server; 0 takes a free one, which the first line names
+    #[arg(long, default_value_t = 8081)]
+    port: u16,
 }
 
 fn main() -> Result<()> {
@@ -25,10 +23,10 @@ fn main() -> Result<()> {
         .enable_all()
         .build()?;
     rt.block_on(async {
-        let listener = TcpListener::bind(("127.0.0.1", args.port.get())).await?;
+        let listener = TcpListener::bind(("127.0.0.1", args.port)).await?;
         println!(
-            "bench supply at ws://127.0.0.1:{}{}",
-            args.port,
+            "bench supply at ws://{}{}",
+            listener.local_addr()?,
             bench_supply::WS_PATH
         );
         let stop = async {

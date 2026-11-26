@@ -57,7 +57,12 @@ nav = [
                 ]
             },
             { "An instrument" = [
-                    "api/errors.md"
+                    "basic/errors.md",
+                    "std_library/ww_error.md",
+                    "std_library/ww_error_in_an_api.md",
+                    "basic/effects.md",
+                    "basic/test_bench.md",
+                    "basic/settings.md"
                 ]
             },
             { "Getting connected" = [
@@ -70,7 +75,7 @@ nav = [
                     { "When the device goes away" = "basic/connection_loss.md" }
                 ]
             },
-            { "Numbers and errors" = [
+            { "Numbers and dates" = [
                     "std_library/ww_si.md",
                     "std_library/exact_units.md",
                     "std_library/bounds.md",
@@ -79,8 +84,6 @@ nav = [
                     "std_library/timestamps.md",
                     "std_library/timed.md",
                     { "exact_units: imperial and US customary" = "std_library/customary.md" },
-                    "std_library/ww_error.md",
-                    "std_library/ww_error_in_an_api.md",
                     "std_library/ww_date_time.md"
                 ]
             },
@@ -121,6 +124,7 @@ nav = [
                     { "Sync, async and shared handlers" = "api/handlers.md" },
                     { "Large messages and result sets" = "api/large_messages.md" },
                     "api/optional_items.md",
+                    "api/errors.md",
                     "std_library/errors_lists.md",
                     "api/multi_requests.md",
                     { "Metadata: effects, claims, pins, labels" = "api/metadata.md" },
@@ -479,4 +483,4 @@ pymdownx.tilde = {}
 # [`Name`], [`file.rs`], [`file.rs:section`]: an item of these crates or any file git tracks, its code on hover,
 # its lines on GitHub on click; a name that matches nothing fails the build. The crates are the framework's and
 # the book's examples' (the thermometer's three)
-"vhrd_zensical.code_refs" = { crates = ["wire_weaver", "wire_weaver_core", "wire_weaver_derive", "ww_api", "wire_weaver_client", "wire_weaver_cli", "wire_weaver_evolution", "thermometer_api", "thermometer_device", "thermometer"], on_crates_io = ["wire_weaver", "wire_weaver_core", "wire_weaver_derive"], sources = "target/vz/sources.toml" }
+"vhrd_zensical.code_refs" = { crates = ["wire_weaver", "wire_weaver_core", "wire_weaver_derive", "ww_api", "wire_weaver_client", "wire_weaver_cli", "wire_weaver_evolution", "thermometer_api", "thermometer_device", "thermometer", "bench_supply_api", "bench_supply", "settings_api", "settings"], on_crates_io = ["wire_weaver", "wire_weaver_core", "wire_weaver_derive"], sources = "target/vz/sources.toml" }

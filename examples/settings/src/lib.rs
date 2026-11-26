@@ -1,12 +1,15 @@
 //! Two settings kept across a reboot by `ww_settings`, on a simulated flash, over the real client/server codepath
-//! (`docs/api/settings.md`): [Device] holds `meter_window_ms` / `led_on_at_boot` as plain fields,
-//! written directly by the generated `value_on_changed` property setters; `changed_<name>` tells [struct@Settings]
-//! about the change, and [serve]'s periodic tick writes it once the [Debounce] is over. `tests/reboot.rs` connects a
-//! [Client], sets both, waits past the debounce, stops the device, and reopens it from the same flash image.
+//! (the book's chapter "Settings that survive a reboot"): [Device] holds `meter_window` / `led_on_at_boot` as plain
+//! fields, written directly by the generated `value_on_changed` property setters; `changed_<name>` tells
+//! [struct@Settings] about the change, and [serve]'s periodic tick writes it once the [Debounce] is over. The example
+//! `settings_reboot` and `tests/reboot.rs` connect a [Client], set both, wait past the debounce, stop the device,
+//! and reopen it from the same flash image. Time is tokio's, so a test runs it on the paused clock.
 
 use std::future::Future;
 use std::pin::pin;
-use std::time::{Duration, Instant};
+use std::time::Duration;
+
+use tokio::time::Instant;
 
 use wire_weaver::prelude::*;
 use wire_weaver::ww_version::FullVersion;
@@ -17,7 +20,7 @@ pub use ww_settings::Debounce;
 use ww_settings::fake_flash::FakeFlash;
 use ww_settings::{Key, Settings, Store};
 
-use settings_api::UserSettings;
+use settings_api::{MeterWindow, UserSettings};
 
 /// Flash word matches the STM32G0 the `nucleo_g0b1re` settings bin uses (8 bytes, ECC); page size is this demo's
 /// own, not a real part's.
@@ -28,20 +31,23 @@ pub const RANGE: core::ops::Range<u32> = 0..(PAGES * 4096) as u32;
 /// Longest message either side sends or receives.
 const MAX_MESSAGE_LEN: usize = 256;
 
+// --8<-- [start:device]
 /// Server side: a plain field per `value_on_changed` property, backed by a [struct@Settings] group written to a
 /// [Store].
 pub struct Device {
-    /// Averaging window of a sensor reading, milliseconds.
-    pub meter_window_ms: u16,
+    /// Averaging window of a sensor reading.
+    pub meter_window: MeterWindow,
     /// Whether the user LED lights up at boot.
     pub led_on_at_boot: bool,
     settings: Settings<UserSettings, 64>,
     store: Store<Flash, 256>,
     started: Instant,
 }
+// --8<-- [end:device]
 
 impl Device {
     /// Loads `UserSettings` from `flash`'s [Key::USER] record, every field at its default when there is none.
+    // --8<-- [start:load]
     pub async fn new(flash: Flash, debounce: Debounce) -> Self {
         let mut store = Store::new(flash, RANGE).expect("RANGE is page aligned, at least 2 pages");
         let mut settings: Settings<UserSettings, 64> = Settings::new(Key::USER, debounce);
@@ -51,13 +57,14 @@ impl Device {
             .expect("fake flash read does not fail");
         let value = settings.get().clone();
         Device {
-            meter_window_ms: value.meter_window_ms,
+            meter_window: value.meter_window,
             led_on_at_boot: value.led_on_at_boot,
             settings,
             store,
             started: Instant::now(),
         }
     }
+    // --8<-- [end:load]
 
     fn now_ms(&self) -> u64 {
         self.started.elapsed().as_millis() as u64
@@ -72,10 +79,11 @@ impl Device {
             .expect("fake flash write does not fail");
     }
 
-    async fn changed_meter_window_ms(&mut self, _cx: &mut Context<'_, impl EventOut>) {
-        let value = self.meter_window_ms;
+    // --8<-- [start:changed]
+    async fn changed_meter_window(&mut self, _cx: &mut Context<'_, impl EventOut>) {
+        let value = self.meter_window;
         let now = self.now_ms();
-        self.settings.set(now, |s| s.meter_window_ms = value);
+        self.settings.set(now, |s| s.meter_window = value);
     }
 
     async fn changed_led_on_at_boot(&mut self, _cx: &mut Context<'_, impl EventOut>) {
@@ -83,6 +91,7 @@ impl Device {
         let now = self.now_ms();
         self.settings.set(now, |s| s.led_on_at_boot = value);
     }
+    // --8<-- [end:changed]
 
     /// The flash, to reopen with [Device::new] after a simulated reboot.
     pub fn into_flash(self) -> Flash {
@@ -90,14 +99,16 @@ impl Device {
     }
 }
 
+// --8<-- [start:codegen]
 mod api_impl {
     wire_weaver::ww_codegen!(
         settings_api :: SettingsDemo for super::Device,
         server = true, no_alloc = true, use_async = true,
         method_model = "_=immediate",
-        property_model = "meter_window_ms=value_on_changed, led_on_at_boot=value_on_changed",
+        property_model = "meter_window=value_on_changed, led_on_at_boot=value_on_changed",
     );
 }
+// --8<-- [end:codegen]
 
 struct Backend {
     device: Device,
@@ -155,6 +166,7 @@ pub async fn serve(
         device,
         version: settings_api::SETTINGS_DEMO_FULL_GID,
     };
+    // --8<-- [start:serve]
     let mut tick = tokio::time::interval(Duration::from_millis(5));
     loop {
         tokio::select! {
@@ -166,10 +178,11 @@ pub async fn serve(
             () = &mut stop => break,
         }
     }
+    // --8<-- [end:serve]
     backend.device
 }
 
-/// Host side: the generated `read_meter_window_ms` / `write_led_on_at_boot` / ... live on this through
+/// Host side: the generated `read_meter_window` / `write_led_on_at_boot` / ... live on this through
 /// [wire_weaver::ww_codegen!] below.
 pub struct Client {
     cmd: Commander,

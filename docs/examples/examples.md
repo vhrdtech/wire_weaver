@@ -25,7 +25,7 @@ New to WireWeaver: start with `blinky_api` and `blinky` (an API with two methods
 | `blinky_py`                                       | Python wheel wrapping the `blinky` client                                   |
 | `all_gpio_api`, `all_gpio`                        | Arrays of [traits](../api/traits.md) from the [standard library](../std_library/ww_gpio.md) |
 | `uart_api`, `uart`                                | USB/Ethernet/CAN to UART bridge                                             |
-| `settings_api`, `settings`                        | Two properties kept across a reboot by [`ww_settings`](../api/settings.md), on a simulated flash |
+| `settings_api`, `settings`                        | Two properties kept across a reboot by [`ww_settings`](../basic/settings.md), on a simulated flash |
 | `defmt_log_api`, `defmt_log`                      | The firmware's `defmt` log streamed to the host with [`ww_log`](../std_library/ww_log.md) (firmware: `rp2`) |
 
 `minimal_shrink_wrap` writes a `bool` and a `u8` by hand:

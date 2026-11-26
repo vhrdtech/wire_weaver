@@ -1,4 +1,4 @@
-//! `settings_api::SettingsDemo` over USB (same transport as `blinky.rs`), `meter_window_ms` / `led_on_at_boot`
+//! `settings_api::SettingsDemo` over USB (same transport as `blinky.rs`), `meter_window` / `led_on_at_boot`
 //! kept in the last 2 sectors (128K each) of bank 2 (`memory.x`) through `ww_settings`. `led_on_at_boot` also
 //! drives the board's user LED live, so a change is visible without a reboot.
 //!
@@ -88,7 +88,7 @@ impl WireWeaverAsyncApiBackend for ServerState {
 
 struct ServerState {
     led: Output<'static>,
-    meter_window_ms: u16,
+    meter_window: settings_api::MeterWindow,
     led_on_at_boot: bool,
     settings: Settings<UserSettings, 64>,
     store: Store<Bank2Region<'static, Async>, 256>,
@@ -99,7 +99,7 @@ mod server_impl {
         settings_api :: SettingsDemo for super::ServerState,
         server = true, no_alloc = true, use_async = true,
         method_model = "_=immediate",
-        property_model = "meter_window_ms=value_on_changed, led_on_at_boot=value_on_changed",
+        property_model = "meter_window=value_on_changed, led_on_at_boot=value_on_changed",
         introspect = "with_docs",
     );
 }
@@ -109,11 +109,11 @@ impl ServerState {
         embassy_time::Instant::now().as_millis()
     }
 
-    async fn changed_meter_window_ms(&mut self, _cx: &mut Context<'_, impl EventOut>) {
-        let value = self.meter_window_ms;
-        info!("meter_window_ms changed: {}", value);
+    async fn changed_meter_window(&mut self, _cx: &mut Context<'_, impl EventOut>) {
+        let value = self.meter_window;
+        info!("meter_window changed: {} ms", value.get());
         let now = self.now_ms();
-        self.settings.set(now, |s| s.meter_window_ms = value);
+        self.settings.set(now, |s| s.meter_window = value);
     }
 
     async fn changed_led_on_at_boot(&mut self, _cx: &mut Context<'_, impl EventOut>) {
@@ -204,7 +204,7 @@ async fn main(spawner: embassy_executor::Spawner) {
     }
     let state = ServerState {
         led,
-        meter_window_ms: value.meter_window_ms,
+        meter_window: value.meter_window,
         led_on_at_boot: value.led_on_at_boot,
         settings,
         store,

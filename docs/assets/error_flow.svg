@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="420" viewBox="0 0 720 420" font-family="Helvetica, Arial, sans-serif" font-size="13">
+  <title>Three ways a call to the bench supply fails, from the device to the host program's ?</title>
+  <desc>Three rows. The API's own error: set_output's handler returns OutputError, it travels as the Err of the method's reply, and the host gets CallError::Device. A common error: a limit's write handler returns WrongState, it travels as an error event of the protocol, and the host gets CallError::Common. A call that does not go through: the link drops or the request times out, nothing comes back, and the host gets CallError::Client. All three reach the script's ? as one error with a message.</desc>
+  <defs>
+    <marker id="ef-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#222"/>
+    </marker>
+    <marker id="ef-arrow-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#b03a2e"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="720" height="420" rx="10" fill="#ffffff"/>
+
+  <!-- column heads -->
+  <g text-anchor="middle" font-weight="bold" fill="#222">
+    <rect x="20" y="18" width="200" height="32" rx="6" fill="#eef2f7" stroke="#222"/>
+    <text x="120" y="39">Device: the handler</text>
+    <rect x="260" y="18" width="200" height="32" rx="6" fill="#eef2f7" stroke="#222"/>
+    <text x="360" y="39">On the wire</text>
+    <rect x="500" y="18" width="200" height="32" rx="6" fill="#eef2f7" stroke="#222"/>
+    <text x="600" y="39">Host: the call's result</text>
+  </g>
+
+  <!-- row 1: the API's own error -->
+  <text x="20" y="80" font-weight="bold" fill="#1f5f99">The API's own error</text>
+  <g fill="#ffffff" stroke="#1f5f99">
+    <rect x="20" y="90" width="200" height="50" rx="6"/>
+    <rect x="260" y="90" width="200" height="50" rx="6"/>
+    <rect x="500" y="90" width="200" height="50" rx="6"/>
+  </g>
+  <g fill="#222" text-anchor="middle">
+    <text x="120" y="111">set_output answers</text>
+    <text x="120" y="129" font-family="monospace" font-size="12">Err(OverCurrent {..})</text>
+    <text x="360" y="111">the reply's value:</text>
+    <text x="360" y="129">the Err of the method</text>
+    <text x="600" y="111" font-family="monospace" font-size="12">CallError::Device(e)</text>
+    <text x="600" y="129">e is an OutputError</text>
+  </g>
+  <g stroke="#1f5f99" fill="#1f5f99">
+    <line x1="220" y1="115" x2="256" y2="115" marker-end="url(#ef-arrow)"/>
+    <line x1="460" y1="115" x2="496" y2="115" marker-end="url(#ef-arrow)"/>
+  </g>
+
+  <!-- row 2: a common error -->
+  <text x="20" y="175" font-weight="bold" fill="#1f5f99">A common error</text>
+  <g fill="#ffffff" stroke="#1f5f99">
+    <rect x="20" y="185" width="200" height="50" rx="6"/>
+    <rect x="260" y="185" width="200" height="50" rx="6"/>
+    <rect x="500" y="185" width="200" height="50" rx="6"/>
+  </g>
+  <g fill="#222" text-anchor="middle">
+    <text x="120" y="206">set_voltage_limit answers</text>
+    <text x="120" y="224" font-family="monospace" font-size="12">SetError(WrongState {..})</text>
+    <text x="360" y="206">an error event</text>
+    <text x="360" y="224">of the protocol</text>
+    <text x="600" y="206" font-family="monospace" font-size="12">CallError::Common(c)</text>
+    <text x="600" y="224">or e.common() on any error</text>
+  </g>
+  <g stroke="#1f5f99" fill="#1f5f99">
+    <line x1="220" y1="210" x2="256" y2="210" marker-end="url(#ef-arrow)"/>
+    <line x1="460" y1="210" x2="496" y2="210" marker-end="url(#ef-arrow)"/>
+  </g>
+
+  <!-- row 3: the call did not go through -->
+  <text x="20" y="270" font-weight="bold" fill="#b03a2e">The call did not go through</text>
+  <g fill="#ffffff" stroke="#b03a2e">
+    <rect x="20" y="280" width="200" height="50" rx="6" stroke-dasharray="5 4"/>
+    <rect x="500" y="280" width="200" height="50" rx="6"/>
+  </g>
+  <g fill="#222" text-anchor="middle">
+    <text x="120" y="301">no answer: the handler</text>
+    <text x="120" y="319">may never have run</text>
+    <text x="600" y="301" font-family="monospace" font-size="12">CallError::Client(e)</text>
+    <text x="600" y="319">a link error or a timeout</text>
+  </g>
+  <g stroke="#b03a2e" fill="#b03a2e">
+    <line x1="260" y1="305" x2="352" y2="305" stroke-dasharray="6 4"/>
+    <line x1="351" y1="296" x2="369" y2="314" stroke-width="3"/>
+    <line x1="369" y1="296" x2="351" y2="314" stroke-width="3"/>
+    <line x1="368" y1="305" x2="496" y2="305" stroke-dasharray="6 4" marker-end="url(#ef-arrow-red)"/>
+  </g>
+
+  <text x="360" y="288" text-anchor="middle" font-size="12" fill="#b03a2e">link drops, request times out</text>
+
+  <!-- all three into one ? -->
+  <g stroke="#555" fill="none">
+    <path d="M700,115 H712 V388"/>
+    <path d="M700,210 H712"/>
+    <path d="M700,305 H712"/>
+    <path d="M712,388 H664" marker-end="url(#ef-arrow)"/>
+  </g>
+  <rect x="400" y="370" width="260" height="36" rx="6" fill="#eef2f7" stroke="#222"/>
+  <text x="530" y="393" text-anchor="middle" fill="#222">one <tspan font-family="monospace">?</tspan> in a script: one error, one message</text>
+</svg>

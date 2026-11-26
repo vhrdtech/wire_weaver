@@ -113,7 +113,8 @@ test-blinky-py:
     uv run --group dev pytest -q tests
 
 # The bench supply example's pytest bench (EX-19): wire_weaver_py of this checkout as the `wire_weaver` module,
-# against bench_supply_hub_device (the ww hub and a simulated bench supply), no real hardware needed
+# against bench_supply_hub_device (the ww hub and a simulated bench supply), no real hardware needed; and its
+# scripts against the simulated device, their output checked against docs/generated/
 [working-directory('examples/bench_supply_py')]
 test-bench-supply-py:
     uv run --group dev pytest -q tests
@@ -324,6 +325,7 @@ book-outputs:
     just book-outputs-wire-sizes
     WW_BOOK_OUTPUTS=write just test-thermometer-py
     WW_BOOK_OUTPUTS=write just test-blinky-py
+    WW_BOOK_OUTPUTS=write just test-bench-supply-py
 
 # docs/generated/compare_wire_formats/ (EX-20): compare_wire_formats is excluded from the workspace (its own
 # Cargo.lock, so ciborium/prost/wincode/planus/rasn stay out of every other build's lockfile), so it keeps its own

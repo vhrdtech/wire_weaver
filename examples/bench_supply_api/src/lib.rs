@@ -21,7 +21,10 @@ pub type Current = Fixed<Ampere, Milli, u16, Range<0, 5_000>>;
 #[effect(edit)]
 pub trait BenchSupply {
     /// The output channels, 0-based on the wire.
+    // --8<-- [start:label]
+    #[label("CH1, left terminals", "CH2, right terminals")]
     ww_impl!(channel[]: Channel);
+    // --8<-- [end:label]
 }
 // --8<-- [end:root]
 
@@ -38,6 +41,7 @@ pub trait Channel {
     /// What the channel measures at its output terminals; zero while the output is off.
     property!(ro+observe measured: Measurement);
     /// Turns the output on or off; refuses to turn it on, see [OutputError].
+    #[effect(actuate)]
     fn set_output(on: bool) -> Result<(), OutputError>;
     /// Whether the output is on.
     property!(ro+observe output_on: bool);

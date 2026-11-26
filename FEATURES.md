@@ -2814,7 +2814,9 @@ Unicast Data0 to one node over the same bus is TR-6.
   `examples/settings` (host, a simulated flash over the real client/server codepath, `tests/reboot.rs` checks
   values survive a reboot) + a `settings` bin in `examples_mcu/nucleo_g0b1re` (RTT, last 4 pages of bank 2) and
   `examples_mcu/nucleo_h743zi2` (USB, last 2 sectors of bank 2), both behind a `settings` cargo feature.
-  `UserSettings` lives in `settings_api` so every implementation shares the same record shape.
+  `UserSettings` lives in `settings_api` so every implementation shares the same record shape. `meter_window` is
+  a `Fixed<Second, Milli, u16, Range<10, 10_000>>`; `settings_reboot` boots the device twice from one flash, and
+  `tests/reboot.rs` runs it on tokio's paused clock for the book's chapter 1.19.
 - ✅ **EX-18 Thermometer example and the simulated-device pattern**: `examples/thermometer_api` (line 1 of
   `tests/thermo_api` at w1.0, kept equal to its 1.0.0 snapshot by `tests/it/same_as_thermo_bench.rs`),
   `examples/thermometer_device` (the `no_std` server and one `serve` loop over a `Board`: `SimBoard` on the PC, the
@@ -2836,7 +2838,10 @@ Unicast Data0 to one node over the same bus is TR-6.
   (client, server, `bench_supply_sim` over WebSocket, `bench_supply_bench`, in-process tests) and
   `bench_supply_hub_device` (a `[[bin]]` hosting the ww hub and the device in one process, TOOL-18, SRV-29) +
   `examples/bench_supply_py` (`wire_weaver_py` of this checkout as the `wire_weaver` module, a pytest bench
-  driving the device through the hub with no real hardware, `just test-bench-supply-py`).
+  driving the device through the hub with no real hardware, `just test-bench-supply-py`). For the book's
+  chapters 1.16 and 1.17: the limits refuse a write with `CommonError::WrongState` while the output is on,
+  `set_output` is `#[effect(actuate)]`, the channels carry labels, `bench_supply_errors` shows each refusal, and
+  `examples/bench_supply_py/errors.py` the same from Python; `tests/it/book.rs` writes their outputs.
 - ✅ **EX-21 Sensor packet example**: `examples/sensor_packet`, a weather station's sensor node and its gateway on
   `shrink_wrap` alone (no API, no framework): a `Reading` with typed numbers, a `Message` enum, the next firmware's
   `v2` with a field and a variant more, the example `sensor_packet_radio`, and `tests/it/book.rs` writing the bytes,
@@ -2962,7 +2967,11 @@ Unicast Data0 to one node over the same bus is TR-6.
   scaffold`'s code; 1.32 Python in full (`python_in_full.md`) on `examples/thermometer_py`'s scripts. The Introduction, 0.1 to 0.5
   (`docs/index.md`, `docs/intro/what_it_does.md`, `first_look.md`, `wire_format.md`, `reading.md`), with three
   hand-drawn figures, blinky's transcripts and the generated wire-size chart; the notes for writers are
-  `docs/reference/for_writers.md`. Missing: the other chapters of the outline.
+  `docs/reference/for_writers.md`. Basic 1.16 to 1.19, an instrument
+  (`docs/basic/errors.md`, `effects.md`, `test_bench.md`, `settings.md`), on the bench supply (EX-19) and the
+  settings example (EX-15), with four hand-drawn figures, outputs from `examples/bench_supply/tests/it/book.rs`,
+  `examples/bench_supply_py` (its scripts and its pytest bench's outcomes) and `settings_reboot`; `api/errors.md`,
+  `api/metadata.md` and `api/settings.md` are the Advanced halves. Missing: the other chapters of the outline.
 
 ## Testing, CI and performance (`TEST`)
 

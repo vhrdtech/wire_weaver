@@ -19,9 +19,9 @@ it, so read them in order. Every page in this part has the Basic [[reading level
 | [A first device](first_device.md) | An API trait with methods, served from your PC and from a board, called from Rust, `ww` and Python. |
 | [Tools](../python.md) | The Python package in full, used on a running device. |
 | [A sensor](units.md) | Numbers with units, temperatures, properties, observing, streams and channels. |
-| [An instrument](../api/errors.md) | Errors an API returns and a host acts on. |
+| [An instrument](errors.md) | A bench supply: errors a script acts on, what each call does, a pytest bench, and settings kept in flash. |
 | [Getting connected](transports.md) | USB, RTT, WebSocket, UDP and byte streams, and a host that keeps trying when a device goes away. |
-| [Numbers and errors](../std_library/ww_si.md) | Numbers with units, steps and bounds, dates, and the errors every API shares. |
+| [Numbers and dates](../std_library/ww_si.md) | Numbers with units, steps and bounds, and dates. |
 | [The standard library](../std_library/using.md) | Ready-made API traits for pins, serial ports and the information every device reports about itself. |
 | [Keeping it working](changing_your_api.md) | How an API changes so that old hosts and old firmware keep working. |
 
@@ -29,7 +29,8 @@ it, so read them in order. Every page in this part has the Basic [[reading level
 
 The chapters use the examples of the repository's `examples/` directory. `sensor_packet` puts a sensor node's
 readings on a radio link without an API. `blinky_api`, `blinky_device` and `blinky` are the first device, its device
-code and its [[client]], and `blinky_evolved` is the same device after a change. The
+code and its [[client]], and `blinky_evolved` is the same device after a change. `thermometer` is the sensor, `bench_supply` the instrument, and
+`settings` keeps two settings in flash. The
 [examples page](../examples/examples.md) lists all of them with the firmware for
 each board.
 

@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="330" viewBox="0 0 720 330" font-family="Helvetica, Arial, sans-serif" font-size="13">
+  <title>A setting's way from a host's write to flash and back after a reboot</title>
+  <desc>Top row, while the device runs: a host writes meter_window; the generated code stores it in the device's field; the changed handler hands it to Settings, which keeps it in RAM and starts the debounce; once the value was left alone for a second, persist_if_due writes a record to flash through the Store. Bottom row, after a reboot: the Store finds the newest record in flash, Settings loads it, and the device's fields start with the stored values.</desc>
+  <defs>
+    <marker id="sf-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#222"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="720" height="330" rx="10" fill="#ffffff"/>
+
+  <text x="20" y="30" font-weight="bold" fill="#1f5f99">While the device runs</text>
+  <g fill="#ffffff" stroke="#1f5f99">
+    <rect x="20" y="44" width="150" height="64" rx="6"/>
+    <rect x="198" y="44" width="150" height="64" rx="6"/>
+    <rect x="376" y="44" width="150" height="64" rx="6"/>
+  </g>
+  <rect x="554" y="44" width="146" height="64" rx="6" fill="#eef2f7" stroke="#222"/>
+  <g fill="#222" text-anchor="middle">
+    <text x="95" y="68">a host writes</text>
+    <text x="95" y="88" font-family="monospace" font-size="12">meter_window</text>
+    <text x="273" y="68">the generated code</text>
+    <text x="273" y="88">sets the field</text>
+    <text x="451" y="68" font-family="monospace" font-size="12">changed_meter_window</text>
+    <text x="451" y="88">Settings in RAM</text>
+    <text x="627" y="68" font-weight="bold">flash</text>
+    <text x="627" y="88">a new record</text>
+  </g>
+  <g stroke="#222" fill="none">
+    <line x1="170" y1="76" x2="194" y2="76" marker-end="url(#sf-arrow)"/>
+    <line x1="348" y1="76" x2="372" y2="76" marker-end="url(#sf-arrow)"/>
+    <line x1="526" y1="76" x2="550" y2="76" marker-end="url(#sf-arrow)"/>
+  </g>
+  <text x="540" y="132" text-anchor="middle" fill="#555" font-size="12">after 1 s without a change:</text>
+  <text x="540" y="148" text-anchor="middle" fill="#555" font-size="12" font-family="monospace">persist_if_due</text>
+
+  <!-- reboot -->
+  <line x1="20" y1="176" x2="700" y2="176" stroke="#b03a2e" stroke-dasharray="6 4"/>
+  <text x="360" y="170" text-anchor="middle" fill="#b03a2e">power off, power on</text>
+
+  <text x="20" y="206" font-weight="bold" fill="#1f5f99">At the next boot</text>
+  <rect x="20" y="220" width="146" height="64" rx="6" fill="#eef2f7" stroke="#222"/>
+  <g fill="#ffffff" stroke="#1f5f99">
+    <rect x="198" y="220" width="150" height="64" rx="6"/>
+    <rect x="376" y="220" width="150" height="64" rx="6"/>
+    <rect x="554" y="220" width="146" height="64" rx="6"/>
+  </g>
+  <g fill="#222" text-anchor="middle">
+    <text x="93" y="244" font-weight="bold">flash</text>
+    <text x="93" y="264">the newest record</text>
+    <text x="273" y="244" font-family="monospace" font-size="12">Settings::load</text>
+    <text x="273" y="264">defaults for the rest</text>
+    <text x="451" y="244">the device's fields</text>
+    <text x="451" y="264">start with the values</text>
+    <text x="627" y="244">a host reads</text>
+    <text x="627" y="264">250 ms</text>
+  </g>
+  <g stroke="#222" fill="none">
+    <line x1="166" y1="252" x2="194" y2="252" marker-end="url(#sf-arrow)"/>
+    <line x1="348" y1="252" x2="372" y2="252" marker-end="url(#sf-arrow)"/>
+    <line x1="526" y1="252" x2="550" y2="252" marker-end="url(#sf-arrow)"/>
+  </g>
+</svg>

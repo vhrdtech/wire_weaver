@@ -41,6 +41,9 @@ pub trait Board {
 }
 ```
 
+[What a call does](../basic/effects.md) introduces effects and labels on the bench supply example; this page is their
+reference, with claims, pins and tracks.
+
 Nothing changes on the device: a server is generated the same way. Adding, changing or removing any of these
 attributes is wire compatible (only the introspection data and so the API hash change, as for a doc comment);
 `ww api check` reports them as compatible changes.

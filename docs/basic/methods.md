@@ -34,7 +34,7 @@ switch the LED ignores the answer. A host that wants to restore the LED later ke
 
 A method takes any number of arguments, and each can be any type the wire format carries: numbers, `bool`,
 strings, lists, `Option`, and your own structs and enums, as [Your data on the wire](../serdes/shrink_wrap.md)
-shows. A method that can fail returns `Result<T, E>`, as [Errors](../api/errors.md) explains.
+shows. A method that can fail returns `Result<T, E>`, as [Errors](errors.md) explains.
 
 ## The handlers
 

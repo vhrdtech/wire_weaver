@@ -15,13 +15,14 @@ wire = "w1.0"
 
 [features]
 # build against std instead of no_std
-std = ["ww_api/std", "ww_settings/std"]
+std = ["ww_api/std", "ww_settings/std", "ww_si/std"]
 # defmt formatting for the API's types
-defmt = ["ww_api/defmt", "ww_settings/defmt"]
+defmt = ["ww_api/defmt", "ww_settings/defmt", "ww_si/defmt"]
 
 [dependencies]
 ww_api = { workspace = true }
 ww_settings.workspace = true
+ww_si = { workspace = true, features = ["time"] }
 
 [lints]
 workspace = true

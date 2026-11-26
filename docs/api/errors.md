@@ -1,20 +1,14 @@
 ---
-level: basic
+level: advanced
 ---
 
-# Errors
+# Errors in depth
 
-A call to a device can fail in three different ways, and WireWeaver keeps them apart all the way to your code:
-
-- **The device said no.** The method ran and returned its own error: an I2C address wasn't acknowledged. This is
-  the `E` of a method returning `Result<T, E>`, a normal ShrinkWrap value. Or it refused with one of the
-  [common errors](#common-errors) every item can return: a pin is in use, the device is busy.
-- **The device can't do this at all.** There is no implementation: the handler answered `Unimplemented`, or the
-  device left an [optional item](#optional-items) out.
-- **The call didn't go through.** The link dropped, the request timed out, the device was disconnected.
-
-This page explains how to declare errors in an API, how a device returns them, what a client gets, and how errors
-stay readable when the device and the host are built from different versions.
+[Errors](../basic/errors.md) declares an API's own error enum, returns it and a common error from a handler, and
+handles both on the host. [Common errors](../std_library/ww_error.md) lists the errors every device shares. This page
+covers the rest: the list of errors each item returns, error crates and retries on the host, `Unsupported` against
+`Unimplemented`, where on the device a framework error came from, errors from devices of other versions, and items a
+device leaves out.
 
 ## Declaring errors in an API
 
@@ -95,94 +89,29 @@ and real examples from `ww_stdlib`.
 
 ### Messages from doc comments
 
-With the `display` directive, the derive writes `Display` and `std::error::Error` (`core::error::Error` on
-`no_std`) from the first doc line of each variant, filling in `{field}` placeholders: `BufferTooBig { max: 64 }`
-reads "The transfer is longer than the device can buffer (64 bytes)": the trailing period of the doc line is left
-out, as Rust error messages go. Use `#[display("...")]` on a variant when the
-message should differ from its doc. On a device the code is unused and the linker drops it; hosts need no
-hand-written `Display` for any API error.
+The `display` directive writes `Display` and `std::error::Error` (`core::error::Error` on `no_std`) from each
+variant's first doc line, as [Errors](../basic/errors.md#declaring-the-apis-own-errors) shows. Use
+`#[display("...")]` on a variant when its message should differ from its doc.
 
 ## Common errors
 
-Some situations come up in almost every crate: the device doesn't support a mode, a resource is in use by something
-else, the device is busy. These are `ww_error::CommonError` (also in `ww_api::prelude`), and every item can return
-them, whether or not it has an error type of its own: they are not a variant of the crate's error enum.
+The common errors are `ww_error::CommonError` (also in `ww_api::prelude`): [Common errors](../std_library/ww_error.md)
+lists them, and [Common errors in an API](../std_library/ww_error_in_an_api.md) returns them from handlers and reads
+them on the host. Every item can return them, whether or not it has an error type of its own.
 
-| Variant | Meaning |
-|---|---|
-| `Unsupported` | the device knows this call but can't do what was asked (a mode, a range, a feature) |
-| `InvalidArgument { arg, reason }` | argument number `arg` is invalid |
-| `InUse { by }` | the resource is in use, `by` names the user |
-| `Busy` | busy with another operation, try again later |
-| `WrongState { reason }` | not possible in the current state |
-| `NoPower { rail }` | the rail the operation needs has no power |
-| `Refused { reason }` | refused, e.g. by a safety rule |
-| `Timeout` | timed out |
-| `Fault { code }` | a hardware fault |
-
-Strings are bounded and may be empty, so a device short on flash sends `""`.
-
-On the device, a handler of a method returning `Result<T, E>` returns `Result<T, wire_weaver::Error<'_, E>>`:
-`Error::Common(CommonError)` or `Error::Api(E)`. `?` takes a `CommonError` from any helper, and the crate's own
-error through its `api_error!`. A handler of a method without a `Result` returns `T`, or `Result<T, CommonError<'_>>`
-when it can refuse; properties the same way (`GetResult<T, wire_weaver::Error<'_, E>>`, `SetResult<CommonError<'_>>`,
-...), and `ww api scaffold` prints the signatures:
-
-```rust
-fn check_level(&self) -> Result<(), CommonError<'static>> {
-    if self.io_level.is_none() {
-        return Err(CommonError::NoPower { rail: MaxLen::new_unchecked("VIO") });
-    }
-    Ok(())
-}
-
-fn write(&mut self, addr: u8, data: &[u8]) -> Result<(), wire_weaver::Error<'static, I2cError>> {
-    self.check_level()?; // a CommonError
-    if !self.acked(addr) {
-        Err(I2cError::Nack)?; // the API's own error
-    }
-    Ok(())
-}
-
-async fn i2c_write(
-    &mut self,
-    _cx: &mut Context<'_, impl EventOut>,
-    addr: u8,
-    data: MaxLen<RefVec<'_, u8>, MAX_WRITE_LEN>,
-) -> RpcResult<Result<(), wire_weaver::Error<'_, I2cError>>> {
-    Ready(self.write(addr, data.as_slice()))
-}
-```
-
-On the wire, the API's own error is the `Err` of the method's `Result` in the reply's value, as before; a common
-error is an error event of the protocol (`ww_client_server::ErrorKind::Common`, STD-16) at the item's handler site,
-the same for a method, a property, a stream function, and for the hub refusing a claimed resource. `Error<E>` is
-protocol-neutral: another dispatcher sends `Common` as its own protocol's common error.
-
-On the host, `CallError::Common(CommonErrorOwned)` is the call's error, and `common()` on `CallError<E>` and on
-`wire_weaver_client::Error` gives the common error of any item without a match, so generic code (a GUI, a `_hl`
-crate) handles the common cases without knowing the crate. Tools read the same event: in Python `RemoteError.common`
-holds the variant and its fields (`.value` is `None` then), `ww` prints its text.
+On the wire a common error is an error event of the protocol (`ww_client_server::ErrorKind::Common`, STD-16) at the
+item's handler site, the same for a method, a property, a stream function, and for the hub refusing a claimed
+resource. `wire_weaver::Error<E>` is protocol-neutral: another dispatcher sends `Common` as its own protocol's common
+error. Python's `RemoteError.common` holds the variant and its fields (`.value` is `None` then), and `ww` prints its
+text.
 
 Keep a crate-specific variant when a caller should act on exactly that case: `Nack` for I2C, an `UnsupportedSpeed`
 that carries the supported range.
 
-## On the client: one `?` per call
+## On the client: error crates and retries
 
-For a method returning `Result<T, E>`, `call()`, `blocking_call()` and promises return `Result<T, CallError<E>>`:
-
-```rust
-pub enum CallError<E> {
-    /// The device answered with its error: the `Err(e)` of the method.
-    Device(E),
-    /// The device refused with a common error (`Busy`, `InUse`, ...), or the hub did for a claimed resource.
-    Common(CommonErrorOwned),
-    /// The device has no implementation of this item.
-    Unimplemented { resource: String },
-    /// The call didn't go through: link, timeout, disconnect or another framework error.
-    Client(wire_weaver_client::Error),
-}
-```
+For a method returning `Result<T, E>`, `call()`, `blocking_call()` and promises return `Result<T, CallError<E>>`,
+whose four variants [Errors](../basic/errors.md#handling-errors-on-the-host) shows.
 
 `CallError<E>` implements `std::error::Error` when `E` does, and its `Display` is the inner error's, so it fits
 `anyhow` and `thiserror` as is:

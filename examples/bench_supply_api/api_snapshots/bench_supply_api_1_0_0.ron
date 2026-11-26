@@ -1,6 +1,6 @@
 // bench_supply_api 1.0.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 1d7fca4bd76b4eb320d559e8edfd5eb2e28b538f2b6d7676272a3a60ef602123
+// shrink_wrap sha256: 977964be45b2402075edb7df6f5640735afdc42b59cdb9dd37d893a4fb84b4dd
 (magic: 2837124336, ww_self_version: (major: 0, minor: 7, patch: 0), root: (docs: [
     "API of the bench supply example device: a lab instrument with independent output channels, each with a",
     "voltage and current limit, and an output switch that refuses instead of overloading the load (EX-19).",
@@ -149,7 +149,10 @@
     ], crate_idx: 0, trait_name: "BenchSupply", items: [
         (id: 0, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Array(index_type_idx: None), since: None, ident: "channel", docs: [
             "The output channels, 0-based on the wire.",
-        ], optional: None, meta: None, identity: None),
+        ], optional: None, meta: Some((claim: None, shares: [], labels: [
+            "CH1, left terminals",
+            "CH2, right terminals",
+        ], effects: (0), track: None)), identity: None),
     ], compact_id: None, meta: Some((claim: None, shares: [], labels: [], effects: (2), track: None))), crate_idx: 0),
     InLine(level: (docs: [
         "One output channel.",
@@ -184,7 +187,7 @@
             (ident: "on", ty: Bool, default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 6))), errors: None), multiplicity: Flat, since: None, ident: "set_output", docs: [
             "Turns the output on or off; refuses to turn it on, see [OutputError].",
-        ], optional: None, meta: Some((claim: None, shares: [], labels: [], effects: (2), track: None)), identity: None),
+        ], optional: None, meta: Some((claim: None, shares: [], labels: [], effects: (64), track: None)), identity: None),
         (id: 4, kind: Property(ty: Bool, access: ReadOnly(observe: true), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "output_on", docs: [
             "Whether the output is on.",
         ], optional: None, meta: None, identity: None),

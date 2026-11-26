@@ -33,9 +33,12 @@ ww_stream = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
 anyhow.workspace = true
+book_outputs.workspace = true
 clap = { workspace = true, features = ["derive"] }
+console.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net", "signal", "test-util"] }
 tokio-util = { workspace = true, features = ["compat"] }
+wire_weaver_cli.workspace = true
 
 [[example]]
 name = "bench_supply_sim"
@@ -44,6 +47,10 @@ path = "examples/sim.rs"
 [[example]]
 name = "bench_supply_bench"
 path = "examples/bench.rs"
+
+[[example]]
+name = "bench_supply_errors"
+path = "examples/errors.rs"
 
 [lints]
 workspace = true

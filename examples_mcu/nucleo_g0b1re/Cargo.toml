@@ -40,6 +40,8 @@ ww_device = { path = "../../ww_device", features = ["defmt", "embassy-time"] }
 wire_weaver = { path = "../../wire_weaver", default-features = false, features = ["defmt"] }
 ww_client_server = { path = "../../ww_client_server", default-features = false }
 ww_settings = { path = "../../ww_settings/ww_settings", default-features = false, features = ["defmt"], optional = true }
+# the settings bin's generated code names the settings' units through ww_si
+ww_si = { git = "https://github.com/vhrdtech/ww_base", default-features = false, optional = true }
 
 [features]
 default = ["nucleo_g0b1re", "defmt_rtt"]
@@ -50,7 +52,7 @@ usb = ["dep:embassy-usb", "dep:wire_weaver_usb_embassy"]
 # the thermometer example device (examples/thermometer_device) on the chip's temperature sensor, for the thermometer bin
 thermometer = ["usb", "dep:thermometer_api", "dep:thermometer_device"]
 # settings_api::SettingsDemo kept in flash through ww_settings, for the settings bin
-settings = ["dep:settings_api", "dep:ww_settings"]
+settings = ["dep:settings_api", "dep:ww_settings", "dep:ww_si"]
 
 nucleo_g0b1re = ["embassy-stm32/stm32g0b1re"]
 b129a_cannify = ["embassy-stm32/stm32g0b1ce"]

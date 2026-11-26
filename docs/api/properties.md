@@ -156,7 +156,7 @@ let mut read = device.read_speed().read_promise("speed"); // poll it from a GUI
 ```
 
 - A write to a property with an error type returns `Result<(), CallError<E>>`: `CallError::Device(e)` is the
-  device's error, decoded, see [Errors](errors.md#on-the-client-one-per-call). Without one it returns
+  device's error, decoded, see [Errors](../basic/errors.md#handling-errors-on-the-host). Without one it returns
   `Result<(), Error>`.
 - A read returns `Result<T, Error>`; a device's error arrives as `Error::RemoteError` with `ErrorKind::UserBytes`,
   the error's bytes (`E::from_ww_bytes`).

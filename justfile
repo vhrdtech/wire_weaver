@@ -30,6 +30,8 @@ test-all:
     just test-conformance-py
     # the thermometer's Python scripts, the book's Python outputs
     just test-thermometer-py
+    # the blinky example's Python script, the book's Python output of chapter 1.9
+    just test-blinky-py
     # the bench supply example's pytest bench (EX-19)
     just test-bench-supply-py
     # the docs site's Markdown extensions (the `bits` fence)
@@ -103,6 +105,11 @@ test-conformance-py:
 # The thermometer's Python scripts against its simulated device, their output checked against docs/generated/
 [working-directory('examples/thermometer_py')]
 test-thermometer-py:
+    uv run --group dev pytest -q tests
+
+# The blinky example's Python script against its simulated device, its output checked against docs/generated/
+[working-directory('examples/blinky_dyn_py')]
+test-blinky-py:
     uv run --group dev pytest -q tests
 
 # The bench supply example's pytest bench (EX-19): wire_weaver_py of this checkout as the `wire_weaver` module,
@@ -312,13 +319,15 @@ book-check:
     cargo run -q -p ww_book -- check
 
 # Write the book's generated outputs (docs/generated/) again: every test named `book_output*`, through the
-# book_outputs crate; a stale file fails `just test`
+# book_outputs crate; a stale file fails `just test`. Transcripts recorded on a board (`*/board/`) stay: no test
+# can write them again
 [group('docs')]
 book-outputs:
-    rm -rf docs/generated
+    fd -t f -E board . docs/generated -X rm
     WW_BOOK_OUTPUTS=write cargo nextest run --workspace -E 'test(/book_output/)'
     just book-outputs-wire-sizes
     WW_BOOK_OUTPUTS=write just test-thermometer-py
+    WW_BOOK_OUTPUTS=write just test-blinky-py
 
 # docs/generated/compare_wire_formats/ (EX-20): compare_wire_formats is excluded from the workspace (its own
 # Cargo.lock, so ciborium/prost/wincode/planus/rasn stay out of every other build's lockfile), so it keeps its own

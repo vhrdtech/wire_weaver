@@ -32,13 +32,16 @@ nav = [
                 ]
             },
             { "A first device" = [
-                    { "Getting started" = "api/overview.md" },
-                    "api/folder_structure.md",
-                    "api/methods.md"
+                    "basic/first_device.md",
+                    "basic/methods.md",
+                    "basic/board.md",
+                    "basic/command_line.md",
+                    "basic/python.md",
+                    "api/overview.md",
+                    "api/folder_structure.md"
                 ]
             },
             { "Tools" = [
-                    "cli.md",
                     "python.md"
                 ]
             },
@@ -107,6 +110,7 @@ nav = [
                 ]
             },
             { "The API in depth" = [
+                    "api/methods.md",
                     "api/properties.md",
                     "api/traits.md",
                     "api/arrays.md",
@@ -210,6 +214,7 @@ nav = [
                 ]
             },
             { "Tools in depth" = [
+                    "cli.md",
                     { "Python: more" = "python_advanced.md" },
                     "dev_tool.md"
                 ]

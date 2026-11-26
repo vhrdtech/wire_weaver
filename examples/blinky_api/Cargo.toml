@@ -1,7 +1,7 @@
 [package]
 name = "blinky_api"
 version = "0.1.0"
-description = "API of the blinky example device: an LED turned on and off"
+description = "API of the blinky example device: an LED turned on and off, the first device of the book"
 publish = false
 edition.workspace = true
 rust-version.workspace = true
@@ -9,18 +9,21 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
+# --8<-- [start:wire]
 # Wire version of the API (EVO-31): link setup decides on its line, `#[since]` names its revisions
 [package.metadata.wire_weaver]
 wire = "w1.0"
+# --8<-- [end:wire]
 
 [features]
 # build against std instead of no_std
-std = ["ww_api/std"]
+std = ["ww_api/std", "ww_si/std"]
 # defmt formatting for the API's types
-defmt = ["ww_api/defmt"]
+defmt = ["ww_api/defmt", "ww_si/defmt"]
 
 [dependencies]
 ww_api = { workspace = true }
+ww_si = { workspace = true, features = ["counting"] }
 
 [dev-dependencies]
 wire_weaver_evolution = { workspace = true, features = ["source"] }

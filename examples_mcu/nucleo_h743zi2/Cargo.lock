@@ -100,6 +100,20 @@ name = "blinky_api"
 version = "0.1.0"
 dependencies = [
  "ww_api",
+ "ww_si",
+]
+
+[[package]]
+name = "blinky_device"
+version = "0.1.0"
+dependencies = [
+ "blinky_api",
+ "embassy-futures",
+ "shrink_wrap",
+ "wire_weaver",
+ "ww_client_server",
+ "ww_device",
+ "ww_si",
 ]
 
 [[package]]
@@ -1037,6 +1051,7 @@ name = "nucleo_h743zi2"
 version = "0.1.0"
 dependencies = [
  "blinky_api",
+ "blinky_device",
  "cnt",
  "cortex-m",
  "cortex-m-rt",

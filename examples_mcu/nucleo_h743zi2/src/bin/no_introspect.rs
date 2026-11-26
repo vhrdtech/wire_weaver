@@ -1,3 +1,7 @@
+//! The blinky API over USB with `introspect = "disabled"`: the device carries no introspection data, so it keeps its
+//! own server state and `ww_codegen!` instead of `blinky_device`. The handlers match `examples/blinky_device`.
+//!
+//! Run with `cargo run --bin nucleo-h743zi2-no-introspect`.
 #![no_std]
 #![no_main]
 #![feature(impl_trait_in_assoc_type)]
@@ -16,9 +20,7 @@ use embassy_time::Timer;
 use panic_probe as _;
 use static_cell::StaticCell;
 use wire_weaver::prelude::*;
-use wire_weaver_usb_embassy::{
-    LinkConfig, UsbBuffers, UsbDevice, UsbServer, UsbTimings, usb_init,
-};
+use wire_weaver_usb_embassy::{LinkConfig, UsbBuffers, UsbDevice, UsbServer, UsbTimings, usb_init};
 
 bind_interrupts!(struct Irqs {
     OTG_FS => usb::InterruptHandler<USB_OTG_FS>;
@@ -53,8 +55,7 @@ impl WireWeaverAsyncApiBackend for ServerState {
         data: &[u8],
         scratch: &'a mut [u8],
     ) -> Result<&'a [u8], shrink_wrap::Error> {
-        self.process_request_bytes(data, scratch, out, medium)
-            .await
+        self.process_request_bytes(data, scratch, out, medium).await
     }
 
     fn version(&self) -> FullVersion<'_> {
@@ -64,6 +65,8 @@ impl WireWeaverAsyncApiBackend for ServerState {
 
 struct ServerState {
     led: Output<'static>,
+    on: bool,
+    blinks: blinky_api::Blinks,
 }
 
 mod server_impl {
@@ -78,14 +81,40 @@ mod server_impl {
 }
 
 impl ServerState {
+    /// Switches the LED, counts a blink when it goes on, and returns whether it was on before.
+    fn switch(&mut self, on: bool) -> bool {
+        let was_on = self.on;
+        if on && !was_on {
+            self.blinks = blinky_api::Blinks::new(self.blinks.get().wrapping_add(1));
+        }
+        self.on = on;
+        if on {
+            self.led.set_high();
+        } else {
+            self.led.set_low();
+        }
+        was_on
+    }
+
     async fn led_on(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {
-        self.led.set_high();
+        self.switch(true);
         Ready(())
     }
 
     async fn led_off(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {
-        self.led.set_low();
+        self.switch(false);
         Ready(())
+    }
+
+    async fn set_led(&mut self, _cx: &mut Context<'_, impl EventOut>, on: bool) -> RpcResult<bool> {
+        Ready(self.switch(on))
+    }
+
+    async fn blinks(
+        &mut self,
+        _cx: &mut Context<'_, impl EventOut>,
+    ) -> RpcResult<blinky_api::Blinks> {
+        Ready(self.blinks)
     }
 }
 
@@ -123,7 +152,11 @@ async fn main(spawner: embassy_executor::Spawner) {
     info!("RCC and RAM init done");
 
     let led = Output::new(p.PE1, Level::Low, Speed::Low);
-    let state = ServerState { led };
+    let state = ServerState {
+        led,
+        on: false,
+        blinks: blinky_api::Blinks::new(0),
+    };
 
     static EP_OUT_BUF: StaticCell<[u8; EP_OUT_BUF_LEN]> = StaticCell::new();
     let ep_out_buffer = EP_OUT_BUF.init([0u8; EP_OUT_BUF_LEN]);

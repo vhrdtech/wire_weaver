@@ -1,6 +1,7 @@
 //! The commands, one module each; every module registers its command with the [`crate::registry`].
 
 pub mod api;
+pub mod call;
 pub(crate) mod config;
 pub(crate) mod elf;
 pub(crate) mod explain;

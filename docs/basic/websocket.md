@@ -112,8 +112,8 @@ after the discovered ones, such as a saved or VPN address. The `keep_trying` par
 To try it, run the device on one PC and the host on another PC of the same network:
 
 ```sh
-cargo run -p blinky --features ws --example blinky_ws_device -- --id blinky-demo   # the device
-cargo run -p blinky --features dns_sd --example blinky_discover                    # the host
+cargo run -p blinky --example blinky_ws_device -- --id blinky-demo   # the device
+cargo run -p blinky --features dns_sd --example blinky_discover       # the host
 ```
 
 ## Where to go next

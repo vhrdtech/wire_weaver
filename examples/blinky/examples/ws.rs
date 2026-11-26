@@ -1,7 +1,7 @@
 //! Blink over WebSocket, against `ww_ws_ncm` firmware from `examples_mcu/rp2` (`just run rp2 ww_ws_ncm`): the board is
 //! a USB network adapter and gives the host an address over DHCP, the API is at `ws://192.168.7.1:8080/ww`.
 //!
-//! `cargo run -p blinky --features ws --example blinky_ws`
+//! `cargo run -p blinky --example blinky_ws`
 
 use anyhow::Result;
 use blinky::Blinky;

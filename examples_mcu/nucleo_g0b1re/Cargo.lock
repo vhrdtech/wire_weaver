@@ -97,6 +97,20 @@ name = "blinky_api"
 version = "0.1.0"
 dependencies = [
  "ww_api",
+ "ww_si",
+]
+
+[[package]]
+name = "blinky_device"
+version = "0.1.0"
+dependencies = [
+ "blinky_api",
+ "embassy-futures",
+ "shrink_wrap",
+ "wire_weaver",
+ "ww_client_server",
+ "ww_device",
+ "ww_si",
 ]
 
 [[package]]
@@ -127,7 +141,7 @@ checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
 name = "cannify_micro_g0b1cetxn"
 version = "0.1.0"
 dependencies = [
- "blinky_api",
+ "blinky_device",
  "cnt",
  "cortex-m",
  "cortex-m-rt",

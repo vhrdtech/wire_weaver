@@ -159,6 +159,7 @@ mod tests {
             "usb-loopback",
             "api",
             "introspect",
+            "call",
             "explain",
             "observe",
             "stream",

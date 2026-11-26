@@ -17,6 +17,7 @@
 
 ### 🚀 Features
 
+- `ww call EXPR` calls a method, reads or writes a property from introspection data; `cmd::call::call` gives its text (TOOL-41).
 - `cmd::introspect::render(device, IntrospectView)`: the text `ww introspect` prints, for a book's transcript or another program.
 - Every device command reaches a WebSocket device with `ww --websocket ws://HOST:PORT/PATH` (CLT-85).
 - `ww observe` and `ww stream` walk into mounted APIs: `hub.player.state`, `ext.cast.items` (CLT-84).

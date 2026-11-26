@@ -110,7 +110,7 @@ round. WireWeaver lets an API grow in a way that keeps both working: new methods
 version mark, and both ends compare versions when they connect. The [[evolution checker]] compares two versions of an
 API and says whether the change breaks anything, so you learn it before a device ships.
 
-- [Changing your API](../evolution/overview.md) adds a method to the first device and runs the checker on it.
+- [Changing your API](../basic/changing_your_api.md) adds a method to the first device and runs the checker on it.
 - [Evolution in depth](../evolution/versions.md) covers versions, the rules for each kind of change, and hosts that
   talk to several generations of a device.
 

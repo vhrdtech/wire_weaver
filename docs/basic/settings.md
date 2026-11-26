@@ -140,5 +140,5 @@ explains why, and which driver avoids it.
 
 - [The settings store](../api/settings.md) covers what is stored, power cuts, how many pages to give the store,
   writing before a reply, a factory reset, and chips with large flash sectors.
-- [Changing your API](../evolution/overview.md) keeps an API working while it changes. Settings follow their own
+- [Changing your API](../basic/changing_your_api.md) keeps an API working while it changes. Settings follow their own
   rules there: add fields at new slots, and never reuse a removed field's slot.

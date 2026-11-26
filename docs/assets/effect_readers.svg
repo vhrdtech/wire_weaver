@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="360" viewBox="0 0 720 360" font-family="Helvetica, Arial, sans-serif" font-size="13">
+  <title>Who reads an item's effects</title>
+  <desc>The API crate marks set_output with effect actuate. The mark travels to the host in the device's introspection data, beside the item's name and types. ww shows it in front of the item, a GUI can ask before it presses the switch, the hub tells calls that only read from calls that change, and a tool for a language model marks the call as one to confirm.</desc>
+  <defs>
+    <marker id="er-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#222"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="720" height="360" rx="10" fill="#ffffff"/>
+
+  <!-- the API crate -->
+  <rect x="20" y="40" width="220" height="96" rx="6" fill="#eef2f7" stroke="#222"/>
+  <text x="130" y="62" text-anchor="middle" font-weight="bold" fill="#222">API crate</text>
+  <text x="34" y="90" font-family="monospace" font-size="12" fill="#1f5f99">#[effect(actuate)]</text>
+  <text x="34" y="110" font-family="monospace" font-size="12" fill="#222">fn set_output(on: bool)</text>
+  <text x="34" y="126" font-family="monospace" font-size="12" fill="#222">  -&gt; Result&lt;(), OutputError&gt;;</text>
+
+  <!-- introspection data -->
+  <line x1="130" y1="136" x2="130" y2="186" stroke="#222" marker-end="url(#er-arrow)"/>
+  <text x="140" y="166" fill="#555">built into the firmware</text>
+  <rect x="20" y="190" width="220" height="70" rx="6" fill="#ffffff" stroke="#222"/>
+  <text x="130" y="214" text-anchor="middle" font-weight="bold" fill="#222">Introspection data</text>
+  <text x="130" y="234" text-anchor="middle" fill="#222">name, types, docs,</text>
+  <text x="130" y="251" text-anchor="middle" fill="#1f5f99">effects and labels</text>
+
+  <!-- readers -->
+  <g fill="#ffffff" stroke="#1f5f99">
+    <rect x="330" y="20" width="370" height="60" rx="6"/>
+    <rect x="330" y="100" width="370" height="60" rx="6"/>
+    <rect x="330" y="180" width="370" height="60" rx="6"/>
+    <rect x="330" y="260" width="370" height="60" rx="6"/>
+  </g>
+  <g fill="#222">
+    <text x="344" y="44" font-weight="bold">ww</text>
+    <text x="344" y="64">shows #[effect(actuate)] in front of the item</text>
+    <text x="344" y="124" font-weight="bold">A GUI</text>
+    <text x="344" y="144">can ask before it presses the switch</text>
+    <text x="344" y="204" font-weight="bold">The hub</text>
+    <text x="344" y="224">tells calls that only read from calls that change</text>
+    <text x="344" y="284" font-weight="bold">A tool for a language model</text>
+    <text x="344" y="304">marks the call as one a person confirms</text>
+  </g>
+  <g stroke="#222" fill="none">
+    <path d="M240,225 H285 V50 H326" marker-end="url(#er-arrow)"/>
+    <path d="M285,130 H326" marker-end="url(#er-arrow)"/>
+    <path d="M285,210 H326" marker-end="url(#er-arrow)"/>
+    <path d="M285,225 V290 H326" marker-end="url(#er-arrow)"/>
+  </g>
+</svg>

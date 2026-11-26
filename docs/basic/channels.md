@@ -133,8 +133,8 @@ The whole script is [`examples/thermometer_py/channels.py`]. With the simulated 
 
 ## Where to go next
 
-- [Errors](../api/errors.md) returns errors of the API's own and the common ones, such as the thermometer's
-  `RateError::Busy`.
+- [Errors](errors.md) starts the next device, a bench supply, and returns errors of the API's own and the common
+  ones.
 - [Traits in depth](../api/traits.md) covers sub-traits from other crates, sub-traits a firmware leaves out, and how
   a trait shows up in rustdoc.
 - [Arrays](../api/arrays.md) covers arrays of properties and streams, and arrays addressed by a key instead of an

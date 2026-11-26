@@ -1,0 +1,6 @@
+PASSED tests/test_bench_supply.py::test_output_refuses_with_no_voltage_set
+PASSED tests/test_bench_supply.py::test_output_refuses_over_current_and_says_how_much
+PASSED tests/test_bench_supply.py::test_output_turns_on_within_limits_and_measures
+PASSED tests/test_bench_supply.py::test_limits_refuse_a_change_while_the_output_is_on
+PASSED tests/test_bench_supply.py::test_channels_are_independent
+5 passed

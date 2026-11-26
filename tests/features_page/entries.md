@@ -102,7 +102,7 @@ in either direction. WireWeaver generates the device's server and the host's cli
 
 - API-1 | Methods, properties, streams and sinks | All in one trait, with traits nested inside to group them. | api/overview.md
 - API-11 | Sync or async | Async and sync servers; async, blocking and promise-style clients, from the same trait. | api/methods.md
-- API-4 | Results and errors | Methods return a value, answer later or say "not implemented"; your own error types for methods and properties. | api/errors.md
+- API-4 | Results and errors | Methods return a value, answer later or say "not implemented"; your own error types for methods and properties. | basic/errors.md
 - API-5 | Request context | Every handler knows who asked and can send events or answer later. | api/methods.md#handler-context
 - API-2 | Arrays of resources | `led[]` or `motor[]`, one definition for many instances, with the valid indices asked from the device. | api/arrays.md
 - API-3 | Shared traits | `impl Gpio`, `impl Uart` from the standard library, so common tools work with your device. | api/traits.md
@@ -114,13 +114,13 @@ in either direction. WireWeaver generates the device's server and the host's cli
 - API-60 | Types from other crates | An API can use types of a crate that isn't built on WireWeaver, also one with `shrink_wrap` optional behind a feature, or one the server only reaches through a re-export. | types.md#types-from-crates-that-arent-api-crates
 - API-46 | Types in modules | API types can live in any `pub mod` or be re-exported under another name; generated code finds them. | types.md#types-in-modules
 - API-44 | Self-referential types | Trees and expressions (`RefBox`, a list of the type itself) anywhere in an API, also in the dynamic client and Python. | types.md#self-referential-types-refbox
+- API-58 | Effects | Every method, writable property and sink says what it does (`read`, `persist`, `actuate`, ...): GUIs, agents and the hub know what is safe to call. | basic/effects.md
 
 ## Advanced
 
 - API-16 | Optional items | Leave out what a board doesn't have, with no flash spent, and clients know before they call. | api/optional_items.md
 - API-54 | Optional traits | Leave a whole block of the API out of a build, e.g. behind a Cargo feature, and clients see it is not there. | api/optional_items.md#optional-traits
 - API-32 | Error lists | Which errors each method can return, shown in docs and tools and checked in tests. | api/methods.md#error-lists
-- API-58 | Effects | Every method, writable property and sink says what it does (`read`, `persist`, `actuate`, ...): GUIs, agents and the hub know what is safe to call. | api/metadata.md#effect-what-an-item-does
 - API-71 | Track layout | Each stream says how a recorder lays it out on a tape: points, spans or a series, with its dimensions and flags. | api/metadata.md#track-how-a-stream-is-recorded
 - API-31, API-35 | Stream functions | Open a stream with typed arguments and a result, like a method call. | api/streams.md#stream-functions
 - API-38 | Observing properties | Ask a device to send changes on change or periodically, within a byte budget. | api/observing.md#the-host-side
@@ -540,6 +540,8 @@ Working projects to start from: host programs, firmware for a few boards, and th
 - EX-1 | Host examples | Blinky, all GPIOs, UART, and blinky from Python. | examples/examples.md
 - EX-3 | Firmware examples | STM32 Nucleo boards, RP2040 / RP2350 and QEMU, over USB, RTT, WebSocket and UDP. | examples/examples.md
 - EX-2 | Serialization only | `shrink_wrap` without an API, and a comparison with other formats. | examples/examples.md
+- EX-15 | Settings demo | Settings that survive a reboot, on the host and on two Nucleo boards. | basic/settings.md
+- EX-19 | Bench supply example | A lab instrument with limits and errors a script can act on, tested by a pytest bench through the ww hub. | basic/errors.md
 
 ## Advanced
 
@@ -547,9 +549,7 @@ Working projects to start from: host programs, firmware for a few boards, and th
 - EX-11 | Motor controller demo | 52 observed properties at three rates on a simulated motor, in the motor_sim repo. | examples/motor_demo.md
 - EX-14 | Counters in firmware | `cnt` counters in every probe-connected board example. | std_library/ww_counters.md
 - EX-18 | Thermometer example | A sensor device written once and run simulated on the PC, on a Nucleo G0B1RE and on a Pico 2. | examples/examples.md
-- EX-15 | Settings demo | Settings that survive a reboot, on the host and on two Nucleo boards. | api/settings.md
 - EX-20 | Wire sizes compared | Eight messages on nine wire formats, with the byte count and how each lets a field be added later. | examples/wire_sizes.md
-- EX-19 | Bench supply example | A lab instrument with limits and errors a script can act on, tested by a pytest bench through the ww hub. | examples/examples.md
 - EX-25 | Blinky as the book's first device | The smallest device, written once and run simulated on the PC, on a Nucleo G0B1RE and from Python. | basic/first_device.md
 - EX-21 | Sensor packet example | A struct on a radio link with shrink_wrap alone, old and new firmware reading each other. | basic/types_on_the_wire.md
 

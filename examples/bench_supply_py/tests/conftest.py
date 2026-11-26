@@ -60,3 +60,32 @@ def check_output(script, main, url, output):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text)
     assert path.read_text() == text, f"{path} is stale: run `just book-outputs`"
+
+
+# The pytest bench's outcomes, one line per test as pytest's short summary (`-rA`) names them, for the book's
+# chapter "A test bench in Python": checked like a script's output once every test of the bench ran.
+BENCH = "tests/test_bench_supply.py"
+_bench_outcomes = {}
+
+
+def pytest_runtest_logreport(report):
+    if not report.nodeid.startswith(BENCH + "::"):
+        return
+    if report.when == "call" or report.outcome != "passed":
+        _bench_outcomes.setdefault(report.nodeid, report.outcome.upper())
+
+
+def pytest_sessionfinish(session, exitstatus):
+    bench = [item.nodeid for item in session.items if item.nodeid.startswith(BENCH + "::")]
+    if not bench or len(_bench_outcomes) != len(bench):
+        return
+    lines = [f"{_bench_outcomes[nodeid]} {nodeid}" for nodeid in bench]
+    passed = sum(1 for nodeid in bench if _bench_outcomes[nodeid] == "PASSED")
+    text = "\n".join(lines) + f"\n{passed} passed\n"
+    path = GENERATED / "pytest.txt"
+    if os.environ.get("WW_BOOK_OUTPUTS") == "write":
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+    if not path.exists() or path.read_text() != text:
+        print(f"\n{path} is stale: run `just book-outputs`")
+        session.exitstatus = pytest.ExitCode.TESTS_FAILED

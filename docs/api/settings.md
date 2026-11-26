@@ -4,6 +4,9 @@ level: advanced
 
 # Settings store
 
+[Settings that survive a reboot](../basic/settings.md) keeps two settings across a reboot with the settings example;
+this page covers the store underneath: its API in full, what it writes, power cuts, and how much flash it needs.
+
 `ww_settings` (STD-32) keeps a device's settings in its own NOR flash: a plain struct with a default for every
 field, stored as a record of the fields that differ from their default. It survives a power cut at any point of a
 write or an erase. Old and new firmware read each other's records without losing anything, and the fields are
@@ -21,8 +24,8 @@ pub struct UserSettings {
     pub plug_vbus_at_boot: bool,
     #[setting(slot = 2, default = ButtonAction::Toggle)]
     pub button_action: ButtonAction,
-    #[setting(slot = 4, default = 100)]
-    pub meter_window_ms: u16,
+    #[setting(slot = 4, default = Millis::new(100))]
+    pub meter_window: Millis<u16>,
 }
 ```
 
@@ -36,7 +39,7 @@ field names, the crate's version, and per field the code to compare it with its 
   `#[derive_shrink_wrap]`, arrays, and `shrink_wrap::ArrayString<N>` / `ArrayVec<T, N>` (SW-57) for text and lists
   without an allocator. The same types work for properties, so a field and the property that serves it share
   one type.
-- **Defaults** are expressions: `default = 100`, `default = ButtonAction::Toggle`, a `const`.
+- **Defaults** are expressions: `default = false`, `default = ButtonAction::Toggle`, a `const`.
 
 ## On the device
 

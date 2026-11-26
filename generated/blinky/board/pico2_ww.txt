@@ -1,0 +1,18 @@
+$ ww introspect -d
+trait BlinkyApi blinky_api@0.1.0
+├─ 0 #[effect(actuate)] fn led_on()
+├─ 1 #[effect(actuate)] fn led_off()
+├─ 2 #[effect(actuate)] fn set_led(on: bool) -> bool
+└─ 3 #[effect(read)] fn blinks() -> Fixed<Item, One, u32, Unbounded> [item]
+
+4 resources, 0 traits, 5 types, 4882 bytes full, 460 bytes sent
+crates: blinky_api@0.1.0, exact_units@0.1.0
+api hash: bfa5eeeeadfed16b
+$ ww call led_on
+()
+$ ww call 'set_led(false)'
+true
+$ ww call 'set_led(true)'
+false
+$ ww call blinks
+2 item

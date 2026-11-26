@@ -1144,6 +1144,8 @@
       
         
       
+        
+      
     
     
     
@@ -1260,6 +1262,33 @@
     
   
   On a real board
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pico2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  On a Pico 2
 
     
   </span>
@@ -8662,7 +8691,7 @@ wire, and which one to pick. <a href="../structs_and_enums/">Structs and enums</
 </tbody>
 </table>
 <p>The sections below show real bytes for each group. The test <code>book_output_built_in_types</code> in
-<a aria-describedby="vz-card-file-examples-sensor-packet-tests-it-book-rs-f51c09" class="vz-ref vz-file" data-vz-card="vz-card-file-examples-sensor-packet-tests-it-book-rs-f51c09" href="https://github.com/vhrdtech/wire_weaver/blob/ada5110279900dc04c2a33280110aad6aeb24df0/examples/sensor_packet/tests/it/book.rs"><code>examples/sensor_packet/tests/it/book.rs</code></a> writes each value on its own with <code>to_ww_bytes</code> and fills the tables.</p>
+<a aria-describedby="vz-card-file-examples-sensor-packet-tests-it-book-rs-f51c09" class="vz-ref vz-file" data-vz-card="vz-card-file-examples-sensor-packet-tests-it-book-rs-f51c09" href="https://github.com/vhrdtech/wire_weaver/blob/3e0d11f949841127a2368598e413c7bb47e0e105/examples/sensor_packet/tests/it/book.rs"><code>examples/sensor_packet/tests/it/book.rs</code></a> writes each value on its own with <code>to_ww_bytes</code> and fills the tables.</p>
 <h2 id="flags-and-bit-sized-numbers">Flags and bit-sized numbers<a class="headerlink" href="#flags-and-bit-sized-numbers" title="Permanent link">&para;</a></h2>
 <p>A <code>bool</code> takes one bit. ShrinkWrap packs bit-sized values one after another, so eight flags fit in one byte.
 <code>U1</code> to <code>U64</code> and <code>I2</code> to <code>I64</code> are integers of exactly that many bits: a value that never exceeds 5 fits a <code>U3</code>. Build
@@ -8928,7 +8957,7 @@ same, with 1 for <code>Ok</code> followed by the <code>T</code>, and 0 for <code
 <li><a href="../../serdes/special_types/">Special types</a> covers types for particular jobs: owned strings without an allocator,
   compressed series of numbers, and values that bound their own size.</li>
 </ul>
-<div class="vz-cards"><div class="vz-card vz-card-file" id="vz-card-file-examples-sensor-packet-tests-it-book-rs-f51c09" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/wire_weaver/blob/ada5110279900dc04c2a33280110aad6aeb24df0/examples/sensor_packet/tests/it/book.rs">examples/sensor_packet/tests/it/book.rs</a></div><div class="vz-card-src"><div class="language-rust highlight"><pre><span></span><code><span class="sd">//! What the book shows of the sensor packet, checked against `docs/generated/sensor_packet/`: every byte comes from a</span>
+<div class="vz-cards"><div class="vz-card vz-card-file" id="vz-card-file-examples-sensor-packet-tests-it-book-rs-f51c09" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/wire_weaver/blob/3e0d11f949841127a2368598e413c7bb47e0e105/examples/sensor_packet/tests/it/book.rs">examples/sensor_packet/tests/it/book.rs</a></div><div class="vz-card-src"><div class="language-rust highlight"><pre><span></span><code><span class="sd">//! What the book shows of the sensor packet, checked against `docs/generated/sensor_packet/`: every byte comes from a</span>
 <span class="sd">//! real `to_ww_bytes`, every reading from a real `from_ww_bytes`.</span>
 
 <span class="k">use</span><span class="w"> </span><span class="n">sensor_packet</span><span class="p">::{</span><span class="n">Message</span><span class="p">,</span><span class="w"> </span><span class="n">NodeId</span><span class="p">,</span><span class="w"> </span><span class="n">ROOF</span><span class="p">,</span><span class="w"> </span><span class="n">Reading</span><span class="p">,</span><span class="w"> </span><span class="n">hex</span><span class="p">,</span><span class="w"> </span><span class="n">radio</span><span class="p">,</span><span class="w"> </span><span class="n">v2</span><span class="p">};</span>
@@ -8944,7 +8973,7 @@ same, with 1 for <code>Ok</code> followed by the <code>T</code>, and 0 for <code
 <span class="sd">/// The body of a `bits` fence: `fields` (kind, bit count, label) cut from the bits of `bytes`, then the bytes.</span>
 <span class="k">fn</span><span class="w"> </span><span class="nf">bits_fence</span><span class="p">(</span><span class="n">bytes</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="p">[</span><span class="kt">u8</span><span class="p">],</span><span class="w"> </span><span class="n">fields</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="p">[(</span><span class="o">&amp;</span><span class="kt">str</span><span class="p">,</span><span class="w"> </span><span class="kt">usize</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="kt">str</span><span class="p">)])</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">String</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">bits</span><span class="p">:</span><span class="w"> </span><span class="nb">String</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bytes</span><span class="p">.</span><span class="n">iter</span><span class="p">().</span><span class="n">map</span><span class="p">(</span><span class="o">|</span><span class="n">b</span><span class="o">|</span><span class="w"> </span><span class="fm">format!</span><span class="p">(</span><span class="s">&quot;{b:08b}&quot;</span><span class="p">)).</span><span class="n">collect</span><span class="p">();</span>
-</code></pre></div></div><div class="vz-card-more">175 more lines in the source</div><div class="vz-card-where">examples/sensor_packet/tests/it/book.rs:1-191</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/wire_weaver/blob/ada5110279900dc04c2a33280110aad6aeb24df0/examples/sensor_packet/tests/it/book.rs">File on GitHub</a></div></div><div class="vz-card vz-card-term" id="vz-card-term-padding-899bbc" role="tooltip"><strong>padding</strong>: Zero bits between a bit-sized value and the next value that starts on a byte; a later version of a type may put a new flag there.</div></div>
+</code></pre></div></div><div class="vz-card-more">175 more lines in the source</div><div class="vz-card-where">examples/sensor_packet/tests/it/book.rs:1-191</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/wire_weaver/blob/3e0d11f949841127a2368598e413c7bb47e0e105/examples/sensor_packet/tests/it/book.rs">File on GitHub</a></div></div><div class="vz-card vz-card-term" id="vz-card-term-padding-899bbc" role="tooltip"><strong>padding</strong>: Zero bits between a bit-sized value and the next value that starts on a byte; a later version of a type may put a new flag there.</div></div>
 
 
 
@@ -9037,7 +9066,7 @@ same, with 1 for <code>Ok</code> followed by the <code>T</code>, and 0 for <code
       Zensical
     </a>
   
-  <div class="book-stamp" data-built="1795676492">wire_weaver 0.6.0 · ada5110 · built 2026-11-26 07:01 UTC (<span class="book-stamp-age">just built</span>)</div>
+  <div class="book-stamp" data-built="1795677986">wire_weaver 0.6.0 · 3e0d11f · built 2026-11-26 07:26 UTC (<span class="book-stamp-age">just built</span>)</div>
 </div>
       
         

@@ -19,7 +19,7 @@
         <link rel="prev" href="../methods/">
       
       
-        <link rel="next" href="../command_line/">
+        <link rel="next" href="../pico2/">
       
       
         
@@ -987,6 +987,8 @@
       
         
       
+        
+      
     
     
     
@@ -1223,6 +1225,33 @@
   
 </nav>
       
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pico2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  On a Pico 2
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -8452,6 +8481,8 @@
       
         
       
+        
+      
     
     
     
@@ -8503,7 +8534,8 @@
 <h1 id="on-a-real-board">On a real board<a class="headerlink" href="#on-a-real-board" title="Permanent link">&para;</a></h1>
 <p>This chapter runs blinky on a microcontroller. The board is a Nucleo G0B1RE, a development board with an STM32G0B1RE
 from ST: an Arm Cortex-M0+ with 512 KiB of flash and 144 KiB of RAM. The firmware serves the same API as the
-simulated device over USB, with the same handlers. Only the LED and the transport change.</p>
+simulated device over USB, with the same handlers. Only the LED and the transport change. If you have a Raspberry Pi
+Pico 2 instead, read <a href="../pico2/">On a Pico 2</a>.</p>
 <h2 id="what-you-need">What you need<a class="headerlink" href="#what-you-need" title="Permanent link">&para;</a></h2>
 <ul>
 <li>A Nucleo G0B1RE and a USB cable for its ST-LINK connector, which flashes the firmware and powers the board.</li>
@@ -8519,7 +8551,7 @@ Connect the breakout's D-, D+ and GND to them, and leave its 5 V unconnected: th
 <p><img alt="The ST-LINK USB connector of the Nucleo goes to the PC for flashing and power; a USB breakout's D-, D+ and GND go to PA11, PA12 and GND, and its cable to the PC for WireWeaver" src="../../assets/nucleo_usb.svg" /></p>
 <p>The green user LED LD4 is on PA5. The firmware drives it, so you see each call.</p>
 <h2 id="the-firmware">The firmware<a class="headerlink" href="#the-firmware" title="Permanent link">&para;</a></h2>
-<p>The firmware is one file, <a aria-describedby="vz-card-file-examples-mcu-nucleo-g0b1re-src-bin-usb-blin-181e4b" class="vz-ref vz-file" data-vz-card="vz-card-file-examples-mcu-nucleo-g0b1re-src-bin-usb-blin-181e4b" href="https://github.com/vhrdtech/wire_weaver/blob/ada5110279900dc04c2a33280110aad6aeb24df0/examples_mcu/nucleo_g0b1re/src/bin/usb_blinky.rs"><code>examples_mcu/nucleo_g0b1re/src/bin/usb_blinky.rs</code></a>. It gives <code>blinky_device</code> the
+<p>The firmware is one file, <a aria-describedby="vz-card-file-examples-mcu-nucleo-g0b1re-src-bin-usb-blin-181e4b" class="vz-ref vz-file" data-vz-card="vz-card-file-examples-mcu-nucleo-g0b1re-src-bin-usb-blin-181e4b" href="https://github.com/vhrdtech/wire_weaver/blob/3e0d11f949841127a2368598e413c7bb47e0e105/examples_mcu/nucleo_g0b1re/src/bin/usb_blinky.rs"><code>examples_mcu/nucleo_g0b1re/src/bin/usb_blinky.rs</code></a>. It gives <code>blinky_device</code> the
 board's LED, starts USB, and runs the same <code>serve</code> loop as the simulated device. First, the LED:</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="sd">/// The board&#39;s user LED as the blinky device sees it.</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="k">struct</span><span class="w"> </span><span class="nc">BoardLed</span><span class="p">(</span><span class="n">Output</span><span class="o">&lt;&#39;</span><span class="nb">static</span><span class="o">&gt;</span><span class="p">);</span>
@@ -8631,9 +8663,9 @@ the blinks of earlier runs. <a href="../command_line/">From the command line</a>
 <li><a href="../command_line/">From the command line</a> finds, reads and calls a device with <code>ww</code>.</li>
 <li><a href="../../transport/usb/">USB</a> covers the USB transport on both sides: the host's filters, the device's descriptors
   and its timings.</li>
-<li>The <code>examples_mcu/rp2</code> firmware serves the same API on a Raspberry Pi Pico 2.</li>
+<li><a href="../pico2/">On a Pico 2</a> runs the same firmware on a Raspberry Pi Pico 2.</li>
 </ul>
-<div class="vz-cards"><div class="vz-card vz-card-file" id="vz-card-file-examples-mcu-nucleo-g0b1re-src-bin-usb-blin-181e4b" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/wire_weaver/blob/ada5110279900dc04c2a33280110aad6aeb24df0/examples_mcu/nucleo_g0b1re/src/bin/usb_blinky.rs">examples_mcu/nucleo_g0b1re/src/bin/usb_blinky.rs</a></div><div class="vz-card-src"><div class="language-rust highlight"><pre><span></span><code><span class="sd">//! The blinky example device (`examples/blinky_device`) on the Nucleo G0B1RE, over USB: the user LED (PA5) is its</span>
+<div class="vz-cards"><div class="vz-card vz-card-file" id="vz-card-file-examples-mcu-nucleo-g0b1re-src-bin-usb-blin-181e4b" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/wire_weaver/blob/3e0d11f949841127a2368598e413c7bb47e0e105/examples_mcu/nucleo_g0b1re/src/bin/usb_blinky.rs">examples_mcu/nucleo_g0b1re/src/bin/usb_blinky.rs</a></div><div class="vz-card-src"><div class="language-rust highlight"><pre><span></span><code><span class="sd">//! The blinky example device (`examples/blinky_device`) on the Nucleo G0B1RE, over USB: the user LED (PA5) is its</span>
 <span class="sd">//! LED. The server and its handlers are the simulated device&#39;s; only the LED differs.</span>
 <span class="sd">//!</span>
 <span class="sd">//! The Nucleo-64 has no USB connector for the STM32: wire a USB breakout to PA11 (D-), PA12 (D+) and GND. Run with</span>
@@ -8649,7 +8681,7 @@ the blinks of earlier runs. <a href="../command_line/">From the command line</a>
 <span class="k">use</span><span class="w"> </span><span class="n">cortex_m_rt</span><span class="p">::</span><span class="n">exception</span><span class="p">;</span>
 <span class="k">use</span><span class="w"> </span><span class="n">defmt</span><span class="p">::</span><span class="o">*</span><span class="p">;</span>
 <span class="k">use</span><span class="w"> </span><span class="n">defmt_rtt</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">_</span><span class="p">;</span>
-</code></pre></div></div><div class="vz-card-more">116 more lines in the source</div><div class="vz-card-where">examples_mcu/nucleo_g0b1re/src/bin/usb_blinky.rs:1-132</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/wire_weaver/blob/ada5110279900dc04c2a33280110aad6aeb24df0/examples_mcu/nucleo_g0b1re/src/bin/usb_blinky.rs">File on GitHub</a></div></div></div>
+</code></pre></div></div><div class="vz-card-more">116 more lines in the source</div><div class="vz-card-where">examples_mcu/nucleo_g0b1re/src/bin/usb_blinky.rs:1-132</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/wire_weaver/blob/3e0d11f949841127a2368598e413c7bb47e0e105/examples_mcu/nucleo_g0b1re/src/bin/usb_blinky.rs">File on GitHub</a></div></div></div>
 
 
 
@@ -8710,13 +8742,13 @@ the blinks of earlier runs. <a href="../command_line/">From the command line</a>
         
         
           
-          <a href="../command_line/" class="md-footer__link md-footer__link--next" aria-label="Next: From the command line">
+          <a href="../pico2/" class="md-footer__link md-footer__link--next" aria-label="Next: On a Pico 2">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                From the command line
+                On a Pico 2
               </div>
             </div>
             <div class="md-footer__button md-icon">
@@ -8742,7 +8774,7 @@ the blinks of earlier runs. <a href="../command_line/">From the command line</a>
       Zensical
     </a>
   
-  <div class="book-stamp" data-built="1795676492">wire_weaver 0.6.0 · ada5110 · built 2026-11-26 07:01 UTC (<span class="book-stamp-age">just built</span>)</div>
+  <div class="book-stamp" data-built="1795677986">wire_weaver 0.6.0 · 3e0d11f · built 2026-11-26 07:26 UTC (<span class="book-stamp-age">just built</span>)</div>
 </div>
       
         

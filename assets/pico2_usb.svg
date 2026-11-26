@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="300" viewBox="0 0 720 300" font-family="Helvetica, Arial, sans-serif" font-size="13">
+  <title>Wiring the Pico 2 for USB and flashing</title>
+  <desc>The Pico 2's micro-USB connector goes to the PC: it powers the board and carries WireWeaver. A debug probe's SWCLK, SWDIO and GND go to the three-pin debug header of the Pico 2, and the probe's USB cable goes to the PC for flashing and the log. The user LED is on GPIO 25.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#222"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="720" height="300" rx="10" fill="#ffffff"/>
+
+  <!-- PC -->
+  <rect x="560" y="30" width="140" height="240" rx="8" fill="#eef2f7" stroke="#222"/>
+  <text x="630" y="54" text-anchor="middle" font-weight="bold" fill="#222">PC</text>
+  <g fill="#222" font-size="12">
+    <text x="574" y="94">ww, Python,</text>
+    <text x="574" y="110">host programs</text>
+    <text x="574" y="204">probe-rs:</text>
+    <text x="574" y="220">flash, log</text>
+  </g>
+
+  <!-- Pico 2 -->
+  <rect x="20" y="30" width="330" height="240" rx="8" fill="#f2f7ee" stroke="#222"/>
+  <text x="34" y="52" font-weight="bold" fill="#222">Raspberry Pi Pico 2</text>
+  <rect x="40" y="70" width="140" height="50" rx="6" fill="#ffffff" stroke="#222"/>
+  <g text-anchor="middle" fill="#222">
+    <text x="110" y="92" font-weight="bold">micro-USB</text>
+    <text x="110" y="109" font-size="12">power and WireWeaver</text>
+  </g>
+  <rect x="190" y="150" width="140" height="100" rx="6" fill="#ffffff" stroke="#222"/>
+  <g fill="#222">
+    <text x="260" y="170" text-anchor="middle" font-weight="bold">debug header</text>
+    <text x="204" y="194" font-size="12">SWCLK</text>
+    <text x="204" y="212" font-size="12">GND</text>
+    <text x="204" y="230" font-size="12">SWDIO</text>
+  </g>
+  <circle cx="60" cy="226" r="8" fill="#4caf50" stroke="#222"/>
+  <text x="60" y="255" text-anchor="middle" font-size="12" fill="#222">LED, GPIO 25</text>
+  <line x1="180" y1="95" x2="556" y2="95" stroke="#222" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="368" y="87" text-anchor="middle" fill="#222">USB cable</text>
+
+  <!-- probe -->
+  <rect x="390" y="170" width="110" height="80" rx="6" fill="#fdf3e1" stroke="#222"/>
+  <g fill="#222">
+    <text x="445" y="162" text-anchor="middle" font-weight="bold">Debug probe</text>
+    <text x="400" y="194" font-size="12">SWCLK</text>
+    <text x="400" y="212" font-size="12">GND</text>
+    <text x="400" y="230" font-size="12">SWDIO</text>
+  </g>
+  <g stroke="#2e6db0" stroke-width="2">
+    <line x1="330" y1="190" x2="395" y2="190"/>
+    <line x1="330" y1="208" x2="395" y2="208"/>
+    <line x1="330" y1="226" x2="395" y2="226"/>
+  </g>
+  <text x="362" y="180" text-anchor="middle" font-size="12" fill="#2e6db0">wires</text>
+  <line x1="500" y1="210" x2="556" y2="210" stroke="#222" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="528" y="202" text-anchor="middle" font-size="12" fill="#222">USB</text>
+</svg>

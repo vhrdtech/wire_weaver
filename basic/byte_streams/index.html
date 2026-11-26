@@ -985,6 +985,8 @@
       
         
       
+        
+      
     
     
     
@@ -1101,6 +1103,33 @@
     
   
   On a real board
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pico2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  On a Pico 2
 
     
   </span>
@@ -8514,7 +8543,7 @@ chapter shows how a client reaches such a server, and why a serial line is not a
 </tbody>
 </table>
 <p>The three targets need the <code>byte_stream</code> feature of <code>wire_weaver_client</code>. The example
-<a aria-describedby="vz-card-file-examples-blinky-examples-byte-stream-rs-801393" class="vz-ref vz-file" data-vz-card="vz-card-file-examples-blinky-examples-byte-stream-rs-801393" href="https://github.com/vhrdtech/wire_weaver/blob/ada5110279900dc04c2a33280110aad6aeb24df0/examples/blinky/examples/byte_stream.rs"><code>examples/blinky/examples/byte_stream.rs</code></a> uses the first two. A TCP server is selected by its address:</p>
+<a aria-describedby="vz-card-file-examples-blinky-examples-byte-stream-rs-801393" class="vz-ref vz-file" data-vz-card="vz-card-file-examples-blinky-examples-byte-stream-rs-801393" href="https://github.com/vhrdtech/wire_weaver/blob/3e0d11f949841127a2368598e413c7bb47e0e105/examples/blinky/examples/byte_stream.rs"><code>examples/blinky/examples/byte_stream.rs</code></a> uses the first two. A TCP server is selected by its address:</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">Blinky</span><span class="p">::</span><span class="n">config</span><span class="p">(</span><span class="o">|</span><span class="n">c</span><span class="o">|</span><span class="w"> </span><span class="n">c</span><span class="p">.</span><span class="n">tcp</span><span class="p">(</span><span class="n">addr</span><span class="p">.</span><span class="n">clone</span><span class="p">()).</span><span class="n">no_ww_usb</span><span class="p">())</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">    </span><span class="p">.</span><span class="n">connect</span><span class="p">()</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="p">.</span><span class="k">await</span><span class="o">?</span>
@@ -8554,7 +8583,7 @@ with <code>command()</code>.</p>
 <h2 id="where-to-go-next">Where to go next<a class="headerlink" href="#where-to-go-next" title="Permanent link">&para;</a></h2>
 <p><a href="../../transport/byte_streams/">Byte streams in depth</a> covers the framing options of the listener and what a handler
 learns about its peer.</p>
-<div class="vz-cards"><div class="vz-card vz-card-file" id="vz-card-file-examples-blinky-examples-byte-stream-rs-801393" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/wire_weaver/blob/ada5110279900dc04c2a33280110aad6aeb24df0/examples/blinky/examples/byte_stream.rs">examples/blinky/examples/byte_stream.rs</a></div><div class="vz-card-src"><div class="language-rust highlight"><pre><span></span><code><span class="sd">//! Blinks a device served by a host server over a byte stream: TCP, or a command&#39;s stdin and stdout.</span>
+<div class="vz-cards"><div class="vz-card vz-card-file" id="vz-card-file-examples-blinky-examples-byte-stream-rs-801393" role="tooltip"><div class="vz-card-head"><a href="https://github.com/vhrdtech/wire_weaver/blob/3e0d11f949841127a2368598e413c7bb47e0e105/examples/blinky/examples/byte_stream.rs">examples/blinky/examples/byte_stream.rs</a></div><div class="vz-card-src"><div class="language-rust highlight"><pre><span></span><code><span class="sd">//! Blinks a device served by a host server over a byte stream: TCP, or a command&#39;s stdin and stdout.</span>
 <span class="sd">//!</span>
 <span class="sd">//! `cargo run -p blinky --features byte_stream --example blinky_byte_stream -- tcp 10.0.0.7:7700`, or</span>
 <span class="sd">//! `-- command ssh nas blinky-service --stdio` to run the server through ssh.</span>
@@ -8570,7 +8599,7 @@ learns about its peer.</p>
 <span class="w">    </span><span class="sd">/// The service of the server to ask for; the server&#39;s default API when left out</span>
 <span class="w">    </span><span class="cp">#[arg(long, global = true)]</span>
 <span class="w">    </span><span class="n">service</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="nb">String</span><span class="o">&gt;</span><span class="p">,</span>
-</code></pre></div></div><div class="vz-card-more">38 more lines in the source</div><div class="vz-card-where">examples/blinky/examples/byte_stream.rs:1-54</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/wire_weaver/blob/ada5110279900dc04c2a33280110aad6aeb24df0/examples/blinky/examples/byte_stream.rs">File on GitHub</a></div></div></div>
+</code></pre></div></div><div class="vz-card-more">38 more lines in the source</div><div class="vz-card-where">examples/blinky/examples/byte_stream.rs:1-54</div><div class="vz-card-links"><a href="https://github.com/vhrdtech/wire_weaver/blob/3e0d11f949841127a2368598e413c7bb47e0e105/examples/blinky/examples/byte_stream.rs">File on GitHub</a></div></div></div>
 
 
 
@@ -8663,7 +8692,7 @@ learns about its peer.</p>
       Zensical
     </a>
   
-  <div class="book-stamp" data-built="1795676492">wire_weaver 0.6.0 · ada5110 · built 2026-11-26 07:01 UTC (<span class="book-stamp-age">just built</span>)</div>
+  <div class="book-stamp" data-built="1795677986">wire_weaver 0.6.0 · 3e0d11f · built 2026-11-26 07:26 UTC (<span class="book-stamp-age">just built</span>)</div>
 </div>
       
         

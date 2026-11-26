@@ -1,0 +1,12 @@
+$ ww --websocket ws://127.0.0.1:8081/ww introspect -d
+trait BenchSupply bench_supply_api@1.0.0
+└─ 0 #[label("CH1, left terminals", "CH2, right terminals")] impl channel[]: bench_supply_api::Channel
+   ├─ 0 #[effect(edit)] rw property voltage_limit: Fixed<Volt, Milli, u16, Range<0, 30000>> [mV, 0..=30000]
+   ├─ 1 #[effect(edit)] rw property current_limit: Fixed<Ampere, Milli, u16, Range<0, 5000>> [mA, 0..=5000]
+   ├─ 2 ro property measured: Measurement observable
+   ├─ 3 #[effect(actuate)] fn set_output(on: bool) -> Result<(), OutputError>
+   └─ 4 ro property output_on: bool observable
+
+6 resources, 1 traits, 11 types, 7614 bytes full, 195 bytes sent
+crates: bench_supply_api@1.0.0, exact_units@0.1.0
+api hash: c4b27b275995f8b5

@@ -2837,7 +2837,10 @@ Unicast Data0 to one node over the same bus is TR-6.
   (client, server, `bench_supply_sim` over WebSocket, `bench_supply_bench`, in-process tests) and
   `bench_supply_hub_device` (a `[[bin]]` hosting the ww hub and the device in one process, TOOL-18, SRV-29) +
   `examples/bench_supply_py` (`wire_weaver_py` of this checkout as the `wire_weaver` module, a pytest bench
-  driving the device through the hub with no real hardware, `just test-bench-supply-py`).
+  driving the device through the hub with no real hardware, `just test-bench-supply-py`). For the book's
+  chapters 1.16 and 1.17: the limits refuse a write with `CommonError::WrongState` while the output is on,
+  `set_output` is `#[effect(actuate)]`, the channels carry labels, `bench_supply_errors` shows each refusal, and
+  `examples/bench_supply_py/errors.py` the same from Python; `tests/it/book.rs` writes their outputs.
 - ✅ **EX-21 Sensor packet example**: `examples/sensor_packet`, a weather station's sensor node and its gateway on
   `shrink_wrap` alone (no API, no framework): a `Reading` with typed numbers, a `Message` enum, the next firmware's
   `v2` with a field and a variant more, the example `sensor_packet_radio`, and `tests/it/book.rs` writing the bytes,

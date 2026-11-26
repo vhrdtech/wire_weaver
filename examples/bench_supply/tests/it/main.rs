@@ -1,5 +1,12 @@
 //! The bench supply as a host sees it: the simulated device served over the in-process WebSocket
-//! (`wire_weaver_client::in_process::ws_device`).
+//! (`wire_weaver_client::in_process::ws_device`), on tokio's paused clock. The `*_example` modules are the examples
+//! whose output the book shows, run here against the simulated device; their `main` only runs from `cargo run`.
+
+mod book;
+
+#[path = "../../examples/errors.rs"]
+#[expect(dead_code, reason = "main runs from cargo run, not here")]
+mod errors_example;
 
 use bench_supply::BenchSupply;
 use bench_supply_api::OutputError;
@@ -28,7 +35,7 @@ async fn with_device<F: Future<Output = ()>>(path: &str, test: impl FnOnce(Bench
         .await;
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn output_refuses_with_no_voltage_set() {
     with_device("bench_supply/no_voltage", |b| async move {
         let err = b.channel(0).set_output(true).call().await;
@@ -41,7 +48,7 @@ async fn output_refuses_with_no_voltage_set() {
     .await;
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn output_refuses_over_current_and_says_how_much() {
     with_device("bench_supply/over_current", |b| async move {
         // channel 0's load is 10 Ω: at 30 V it would draw 3 A
@@ -67,7 +74,7 @@ async fn output_refuses_over_current_and_says_how_much() {
     .await;
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn output_turns_on_within_limits_and_measures() {
     with_device("bench_supply/within_limits", |b| async move {
         b.channel(0)
@@ -96,7 +103,7 @@ async fn output_turns_on_within_limits_and_measures() {
     .await;
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn channels_are_independent() {
     with_device("bench_supply/independent", |b| async move {
         b.channel(0)
@@ -126,7 +133,7 @@ async fn channels_are_independent() {
     .await;
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn observers_see_output_on_change() {
     with_device("bench_supply/observe", |b| async move {
         let mut output_on = b
@@ -148,6 +155,54 @@ async fn observers_see_output_on_change() {
             .unwrap();
         b.channel(0).set_output(true).call().await.unwrap();
         assert!(output_on.recv().await.unwrap().value);
+    })
+    .await;
+}
+
+#[tokio::test(start_paused = true)]
+async fn limits_refuse_a_write_while_the_output_is_on() {
+    with_device("bench_supply/wrong_state", |b| async move {
+        let channel = b.channel(0);
+        channel
+            .write_voltage_limit(bench_supply_api::Voltage::bounded(5_000))
+            .write()
+            .await
+            .unwrap();
+        channel
+            .write_current_limit(bench_supply_api::Current::bounded(1_000))
+            .write()
+            .await
+            .unwrap();
+        channel.set_output(true).call().await.unwrap();
+        for refused in [
+            channel
+                .write_voltage_limit(bench_supply_api::Voltage::bounded(6_000))
+                .write()
+                .await,
+            channel
+                .write_current_limit(bench_supply_api::Current::bounded(2_000))
+                .write()
+                .await,
+        ] {
+            let err = refused.expect_err("refused while on");
+            assert!(
+                matches!(
+                    err.common(),
+                    Some(wire_weaver::prelude::CommonErrorOwned::WrongState { .. })
+                ),
+                "{err:?}"
+            );
+        }
+        assert_eq!(
+            channel.read_voltage_limit().read().await.unwrap().get(),
+            5_000
+        );
+        channel.set_output(false).call().await.unwrap();
+        channel
+            .write_voltage_limit(bench_supply_api::Voltage::bounded(6_000))
+            .write()
+            .await
+            .expect("off: the limit may change");
     })
     .await;
 }

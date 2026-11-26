@@ -34,6 +34,9 @@ pub const CHANNELS: usize = 2;
 /// Each channel's simulated load, in ohms: at `voltage_limit` it draws `voltage_limit / LOAD_OHM[channel]`.
 const LOAD_OHM: [u32; CHANNELS] = [10, 2];
 
+/// Why a channel refuses to change its limits while its output is on: the load would see the change at once.
+const OUTPUT_IS_ON: MaxLen<&str, 64> = MaxLen::new_unchecked("the output is on, turn it off first");
+
 /// `bench_supply_api::Current`'s upper bound, in mA: what a computed draw is clamped to before it becomes one.
 const CURRENT_MAX_MA: u32 = 5_000;
 
@@ -131,15 +134,23 @@ impl Server {
         index_chain[0].get().0 as usize
     }
 
+    // --8<-- [start:voltage_limit]
     async fn set_channel_voltage_limit(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
         index_chain: [ww_client_server::ResourceIndex; 1],
         value: Voltage,
     ) -> SetResult<CommonError<'_>> {
-        self.channels[Self::channel(index_chain)].voltage_limit = value;
+        let channel = &mut self.channels[Self::channel(index_chain)];
+        if channel.output_on {
+            return SetError(CommonError::WrongState {
+                reason: OUTPUT_IS_ON,
+            });
+        }
+        channel.voltage_limit = value;
         Set
     }
+    // --8<-- [end:voltage_limit]
 
     async fn get_channel_voltage_limit(
         &mut self,
@@ -155,7 +166,13 @@ impl Server {
         index_chain: [ww_client_server::ResourceIndex; 1],
         value: Current,
     ) -> SetResult<CommonError<'_>> {
-        self.channels[Self::channel(index_chain)].current_limit = value;
+        let channel = &mut self.channels[Self::channel(index_chain)];
+        if channel.output_on {
+            return SetError(CommonError::WrongState {
+                reason: OUTPUT_IS_ON,
+            });
+        }
+        channel.current_limit = value;
         Set
     }
 
@@ -175,6 +192,7 @@ impl Server {
         Value(self.channels[Self::channel(index_chain)].measured)
     }
 
+    // --8<-- [start:set_output]
     async fn channel_set_output(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
@@ -209,6 +227,7 @@ impl Server {
         self.mark_changed_channel_measured(index_chain);
         Ready(Ok(()))
     }
+    // --8<-- [end:set_output]
 
     async fn get_channel_output_on(
         &mut self,

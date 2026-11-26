@@ -93,7 +93,6 @@ docs_highlight = { layer = "runtime" }
 dynamic = { layer = "runtime" }
 dynamic_api = { layer = "runtime" }
 fan_api = { layer = "runtime", no_std = true }
-features_page = { layer = "runtime" }
 flash_budget_api = { layer = "runtime", no_std = true }
 foc_observe_api = { layer = "runtime", no_std = true }
 follow_reboot = { layer = "runtime" }

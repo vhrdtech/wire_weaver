@@ -11,6 +11,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
+- Book Introduction 0.1 to 0.5 with a generated wire-size chart; it replaces the generated features page (DOC-17, DOC-9); see `docs/intro`.
 - Book chapters 1.5 to 1.9: a first device on the PC, its methods, a Nucleo G0B1RE, `ww` and Python (DOC-17); see `examples/blinky`.
 - Blinky example: `set_led` and `blinks` methods, one server in `blinky_device` for the simulated device and every board (EX-25); see `examples/blinky`.
 - `ww call` calls a method or reads and writes a property on any device, from introspection alone (TOOL-41); see `wire_weaver_cli`.

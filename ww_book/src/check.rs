@@ -33,7 +33,7 @@ const NAV_ENTRIES_MAX: usize = 1024;
 /// Deepest a nav section may nest.
 const NAV_DEPTH_MAX: usize = 8;
 
-/// How deep a page goes, from its front matter's `level:` (`docs/levels.md`).
+/// How deep a page goes, from its front matter's `level:` (`docs/intro/reading.md`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Level {

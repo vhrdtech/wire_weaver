@@ -196,7 +196,6 @@ wire_weaver_evolution = { version = "0.6.0", path = "./wire_weaver_evolution", d
 wire_weaver_py = { version = "0.6.0", path = "./wire_weaver_py" }
 wire_weaver_server = { version = "0.6.0", path = "./wire_weaver_server" }
 ww_api = { version = "0.6.0", path = "./ww_api", default-features = false }
-ww_book = { version = "0.6.0", path = "./ww_book" }
 ww_byte_stream = { version = "0.6.0", path = "./ww_byte_stream" }
 ww_calloop = { version = "0.6.0", path = "./ww_calloop" }
 ww_clock_sync = { version = "0.6.0", path = "./ww_clock_sync" }

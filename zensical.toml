@@ -10,15 +10,16 @@ repo_url = "https://github.com/vhrdtech/wire_weaver"
 repo_name = "vhrdtech/wire_weaver"
 edit_uri = "edit/master/docs/"
 
-# The book in reading order: Introduction, Basic, Advanced and Nomicon each hold pages of one level (docs/levels.md),
+# The book in reading order: Introduction, Basic, Advanced and Nomicon each hold pages of one level (docs/intro/reading.md),
 # so next/next never steps down a level; Reference and Articles follow, outside that ramp. `ww-book check`
 # (book_checks.toml) fails a nav that steps down, a page without a level and a page listed twice.
 nav = [
     { "Introduction" = [
             "index.md",
-            "levels.md",
-            { "What WireWeaver does" = "features_today.md" },
-            "serdes/shrink_wrap.md"
+            "intro/what_it_does.md",
+            "intro/first_look.md",
+            "intro/wire_format.md",
+            "intro/reading.md"
         ]
     },
     { "Basic" = [
@@ -257,6 +258,7 @@ nav = [
     },
     { "Reference" = [
             "reference/index.md",
+            { "ShrinkWrap crate" = "serdes/shrink_wrap.md" },
             "serdes/derive_reference.md",
             { "CLI reference" = "cli_reference.md" },
             "serdes/conformance_matrix.md",
@@ -281,6 +283,7 @@ nav = [
                 ]
             },
             "glossary.md",
+            "reference/for_writers.md",
             { "Examples and templates" = [
                     "examples/examples.md",
                     "examples/wire_sizes.md",
@@ -450,7 +453,7 @@ pymdownx.superfences = {
       format = "pymdownx.superfences.fence_code_format",
     },
     # bit layouts: coloured bits in byte cells and a table of the fields, checked against a `bytes` line
-    # (docs_ext/ww_docs_ext/bits.py, docs/levels.md "For writers")
+    # (docs_ext/ww_docs_ext/bits.py, docs/reference/for_writers.md)
     {
       name = "bits",
       class = "ww-bits",

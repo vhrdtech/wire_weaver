@@ -103,9 +103,7 @@ checkout in the worktree's `.cargo/config.toml` (never committed); the crate wal
 
 `FEATURES.md` is the feature tracker and roadmap, the only place status is kept (no README checklists, TODO files or
 external trackers). Check it before starting a feature and update the matching item in the same change when finishing
-one (conventions at its top). It is also the docs' "Feature tracker" page: edit the root file only, and an item that
-becomes done or in progress needs a line in `tests/features_page/entries.md`; then run `just features-page` (a test
-checks both).
+one (conventions at its top). The book links it on GitHub from its Reference; edit the root file only.
 
 - IDs are stable per area (`SW-3`, `SRV-4`, `CLT-12`): never renumber or reuse one, new items take the next free
   number of their area. Use them in commit messages, CHANGELOG entries and `// TODO(SRV-4): ...`.
@@ -321,7 +319,7 @@ is 9 bits in 2 bytes): for byte counts, run a real `to_ww_bytes()`.
   "zensical serve"`); a session's own worktree is fine. `rm -rf site/` when done.
 - Anchors: the heading lower-cased, every run of non-alphanumerics collapsed to one `-`
   (``### `ww_repr = <repr>` (enums only)`` is `#ww_repr-repr-enums-only`); grep the built `site/` if unsure.
-- A new page needs a reading level in its front matter (`level: basic`, `advanced` or `nomicon`, `docs/levels.md`)
+- A new page needs a reading level in its front matter (`level: basic`, `advanced` or `nomicon`, `docs/intro/reading.md`, for writers `docs/reference/for_writers.md`)
   and an entry in `zensical.toml`'s `nav`, in the part of its level (Introduction and Basic, Advanced, Nomicon;
   Reference and Articles outside that order). `just book-check` (`book_checks.toml`, also in `just test`) fails a
   step down, a page without a level, a page listed twice and a generated file no page includes.

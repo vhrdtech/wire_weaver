@@ -104,7 +104,7 @@ prints:
 A device that samples at irregular times sends the time with each value. Its API then uses `Timed` itself, such as
 `stream!(current: Timed<Ampere>)`. Such a time is a point of the device's own clock: `DeviceMicros<u32>`, the
 microseconds since the device started, in a `u32` that wraps every 71.6 minutes. The host's client unwraps it into
-the full time. [`ww_si`'s page](../std_library/ww_si.md#timed-values) covers the clocks and their wrapping.
+the full time. [Time points](../std_library/time_points.md) covers the clocks and their wrapping.
 
 ## From Python
 

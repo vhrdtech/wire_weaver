@@ -19,10 +19,10 @@
       
       
       
-        <link rel="prev" href="../checker_tool/">
+        <link rel="prev" href="../multi_line_host/">
       
       
-        <link rel="next" href="../../std_library/overview/">
+        <link rel="next" href="../inside_the_checker/">
       
       
         
@@ -33,7 +33,7 @@
     
     
       
-        <title>Crate layers and version bumps - WireWeaver</title>
+        <title>Changing WireWeaver itself - WireWeaver</title>
       
     
     
@@ -66,6 +66,8 @@
     
     
       <link rel="stylesheet" href="../../stylesheets/vhrd.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/ww_highlight.css">
     
     <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
@@ -123,7 +125,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Crate layers and version bumps
+              Changing WireWeaver itself
             
           </span>
         </div>
@@ -355,7 +357,7 @@
     
     
       <li class="md-tabs__item md-tabs__item--active">
-        <a href="../rules/" class="md-tabs__link">
+        <a href="../overview/" class="md-tabs__link">
           
   
   Evolution
@@ -422,6 +424,8 @@
       
         
       
+        
+      
     
     
     
@@ -431,6 +435,34 @@
           
   
   Transport protocols
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../tapes/" class="md-tabs__link">
+          
+  
+  Tapes and logs
 
         </a>
       </li>
@@ -508,6 +540,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -529,14 +565,32 @@
   
   
   
-    <li class="md-tabs__item">
-      <a href="../../features/" class="md-tabs__link">
+    
+      
+      
         
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../features/" class="md-tabs__link">
+          
   
   Feature tracker
 
-      </a>
-    </li>
+        </a>
+      </li>
+    
   
 
       
@@ -1636,6 +1690,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -1721,7 +1781,61 @@
   <span class="md-ellipsis">
     
   
-  Sync and async handlers
+  Sync, async and shared handlers
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/local_trait/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Local trait
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/large_messages/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Large messages and result sets
 
     
   </span>
@@ -1749,6 +1863,33 @@
     
   
   Optional items
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/introspection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Introspection data
 
     
   </span>
@@ -1984,7 +2125,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api/bus_slave/" class="md-nav__link">
+      <a href="../../std_library/bus_slave/" class="md-nav__link">
         
   
   
@@ -2357,6 +2498,132 @@
   
   
     <li class="md-nav__item">
+      <a href="../overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Evolving an API
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5_2" id="__nav_5_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Advanced
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_2_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_5_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Advanced
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../versions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Versions and wire lines
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../rules/" class="md-nav__link">
         
   
@@ -2364,7 +2631,7 @@
   <span class="md-ellipsis">
     
   
-  Evolution rules
+  What can change
 
     
   </span>
@@ -2391,7 +2658,7 @@
   <span class="md-ellipsis">
     
   
-  Evolution checker
+  The evolution checker
 
     
   </span>
@@ -2408,61 +2675,82 @@
                   
   
   
-    
   
   
-  
-    
-    
-      
+    <li class="md-nav__item">
+      <a href="../snapshots/" class="md-nav__link">
         
-      
-    
-    
-    
-      
-      
-        
-          
-          
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_3" checked>
-        
-          
-          <label class="md-nav__link" for="__nav_5_3" id="__nav_5_3_label" tabindex="">
-            
   
   
   <span class="md-ellipsis">
     
   
-  Advanced
+  Finding snapshots
 
     
   </span>
   
   
 
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        
-          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_3_label" aria-expanded="true">
-            <label class="md-nav__title" for="__nav_5_3">
-              <span class="md-nav__icon md-icon"></span>
-              
+      </a>
+    </li>
   
-  Advanced
 
-            </label>
-            <ul class="md-nav__list" data-md-scrollfix>
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../units_by_meaning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Units compared by meaning
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../multi_line_host/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  A host for several wire lines
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
               
                 
                   
@@ -2487,7 +2775,7 @@
   <span class="md-ellipsis">
     
   
-  Crate layers and version bumps
+  Changing WireWeaver itself
 
     
   </span>
@@ -2504,7 +2792,7 @@
   <span class="md-ellipsis">
     
   
-  Crate layers and version bumps
+  Changing WireWeaver itself
 
     
   </span>
@@ -2595,10 +2883,115 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#generations-from-the-wire-line" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Generations from the wire line
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
       
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_3" id="__nav_5_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Nomicon
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_5_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Nomicon
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../inside_the_checker/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Inside the checker
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -2698,7 +3091,7 @@
   <span class="md-ellipsis">
     
   
-  Overview
+  Standard library crates
 
     
   </span>
@@ -2719,6 +3112,8 @@
   
     
     
+      
+        
       
         
       
@@ -2921,6 +3316,33 @@
     
   
   ww_i2c
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_i2c_hl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_i2c_hl
 
     
   </span>
@@ -3722,6 +4144,20 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -3781,6 +4217,195 @@
     
   
   ww_si
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/exact_units/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units in an API
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/customary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: imperial and US customary
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/magnitude/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: magnitudes
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/points/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: points
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/units_in_the_model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: units in the model
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/rounding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: rounding
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/indices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: indices
 
     
   </span>
@@ -4063,6 +4688,8 @@
       
         
       
+        
+      
     
     
     
@@ -4248,6 +4875,33 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../../transport/keep_trying/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Keep trying
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
     
     
       
@@ -4276,10 +4930,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_7" >
         
           
-          <label class="md-nav__link" for="__nav_7_6" id="__nav_7_6_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_7_7" id="__nav_7_7_label" tabindex="0">
             
   
   
@@ -4297,8 +4951,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_6_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_7_6">
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_7_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7_7">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -4502,10 +5156,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_7" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_8" >
         
           
-          <label class="md-nav__link" for="__nav_7_7" id="__nav_7_7_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_7_8" id="__nav_7_8_label" tabindex="0">
             
   
   
@@ -4523,8 +5177,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_7_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_7_7">
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_8_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7_8">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -4590,8 +5244,6 @@
       
         
       
-        
-      
     
     
     
@@ -4615,7 +5267,7 @@
   <span class="md-ellipsis">
     
   
-  Examples and templates
+  Tapes and logs
 
     
   </span>
@@ -4628,6 +5280,127 @@
         
           <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
             <label class="md-nav__title" for="__nav_8">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Tapes and logs
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tapes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Tapes
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../logring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  logring
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Examples and templates
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_9">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -4714,10 +5487,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9_3" >
         
           
-          <label class="md-nav__link" for="__nav_8_3" id="__nav_8_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_9_3" id="__nav_9_3_label" tabindex="0">
             
   
   
@@ -4735,8 +5508,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_3_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_8_3">
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_9_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_9_3">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -4817,10 +5590,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
         
           
-          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
             
   
   
@@ -4838,8 +5611,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_9">
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_10">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -4930,10 +5703,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10_3" >
         
           
-          <label class="md-nav__link" for="__nav_9_3" id="__nav_9_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_10_3" id="__nav_10_3_label" tabindex="0">
             
   
   
@@ -4951,8 +5724,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_9_3_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_9_3">
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_10_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_10_3">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -5070,6 +5843,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -5083,10 +5860,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
         
           
-          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
             
   
   
@@ -5104,8 +5881,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_10">
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_11">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -5141,6 +5918,60 @@
 
                 
               
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../articles/units_budget/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  What Fixed costs on a microcontroller
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../articles/flash_budget/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  What a server costs in flash
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
             </ul>
           </nav>
         
@@ -5155,12 +5986,38 @@
   
   
   
-    <li class="md-nav__item">
-      <a href="../../features/" class="md-nav__link">
+    
+    
+      
         
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" >
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="0">
+            
   
-  
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-list-checks" viewBox="0 0 24 24"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
   
   <span class="md-ellipsis">
     
@@ -5172,7 +6029,169 @@
   
   
 
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_12">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Feature tracker
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-list-checks" viewBox="0 0 24 24"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  WireWeaver
+
+    
+  </span>
+  
+  
+
       </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../serdes/features/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-list-checks" viewBox="0 0 24 24"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  shrink_wrap
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/features/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-list-checks" viewBox="0 0 24 24"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_base
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tape/features/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-list-checks" viewBox="0 0 24 24"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_tape
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/stdlib_features/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-list-checks" viewBox="0 0 24 24"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_stdlib
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
     </li>
   
 
@@ -5283,6 +6302,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#generations-from-the-wire-line" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Generations from the wire line
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -5320,7 +6350,7 @@
     
     
       <li class="md-path__item">
-        <a href="../rules/" class="md-path__link">
+        <a href="../overview/" class="md-path__link">
           
   
   <span class="md-ellipsis">
@@ -5341,12 +6371,24 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
     
       <li class="md-path__item">
-        <a href="././" class="md-path__link">
+        <a href="../versions/" class="md-path__link">
           
   
   <span class="md-ellipsis">
@@ -5389,9 +6431,10 @@
   
 
 
-<h1 id="crate-layers-and-version-bumps">Crate layers and version bumps<a class="headerlink" href="#crate-layers-and-version-bumps" title="Permanent link">&para;</a></h1>
-<p>For changing WireWeaver itself or a <code>ww_stdlib</code> crate. An application only needs the
-<a href="../rules/">evolution rules</a> for its own API crate.</p>
+<h1 id="changing-wireweaver-itself">Changing WireWeaver itself<a class="headerlink" href="#changing-wireweaver-itself" title="Permanent link">&para;</a></h1>
+<p>Your API sits on top of a stack of crates, and every byte it sends is shaped by all of them. This page is for changing
+WireWeaver itself or a <code>ww_stdlib</code> crate. An application only needs <a href="../rules/">what can change</a> and
+<a href="../versions/">versions</a> for its own API crate.</p>
 <p>Every crate in the stack has its own versioning rules, because a change travels differently depending on where it
 is made: a <code>shrink_wrap</code> break cascades to every other crate, a framework crate is free to break its Rust API, and
 some framework code defines bytes on the wire although it lives in a "free to break" crate.</p>
@@ -5412,12 +6455,12 @@ some framework code defines bytes on the wire although it lives in a "free to br
 </tr>
 <tr>
 <td>2. Shared API &amp; types</td>
-<td><code>ww_stdlib/*</code>: base types (<code>ww_numeric</code>, <code>ww_si</code>, <code>ww_date_time</code>, <code>ww_version</code>) and traits (<code>ww_gpio</code>, <code>ww_i2c</code>, <code>ww_client_server</code>, ...); framework base types <code>ww_global</code> and <code>ww_self</code> (repo root)</td>
+<td><code>exact_units</code> (its own repository, the units and <code>Fixed</code> under <code>ww_si</code>); base types <code>ww_numeric</code>, <code>ww_si</code>, <code>ww_date_time</code>, <code>ww_version</code>, <code>ww_error</code>, <code>ww_global</code>, <code>ww_keyed</code>, <code>ww_crc</code> (<a href="https://github.com/vhrdtech/ww_base">ww_base</a>, by git); standard library traits (<code>ww_gpio</code>, <code>ww_i2c</code>, ...; <a href="https://github.com/vhrdtech/ww_stdlib">ww_stdlib</a>, by git); <code>ww_self</code> (repo root)</td>
 <td>own version per crate, the version is the API identity</td>
 </tr>
 <tr>
 <td>3. Framework</td>
-<td><code>wire_weaver</code>, <code>wire_weaver_core</code>, <code>wire_weaver_derive</code>, <code>wire_weaver_client</code>, <code>wire_weaver_cli</code>, <code>ww_device</code>, <code>ww_link</code>, <code>ww_framer</code>, ...</td>
+<td>API description: <code>ww_api</code> (the API crate prelude), <code>wire_weaver_derive</code>, <code>wire_weaver_core</code>; runtime: <code>wire_weaver</code>, <code>wire_weaver_client</code>, <code>wire_weaver_cli</code>, <code>ww_device</code>, <code>ww_link</code>, <code>ww_framer</code>, <code>ww_client_server</code>, <code>ww_timebase</code>, ...</td>
 <td>shared <code>[workspace.package] version</code>, free to break Rust API</td>
 </tr>
 <tr>
@@ -5427,10 +6470,12 @@ some framework code defines bytes on the wire although it lives in a "free to br
 </tr>
 </tbody>
 </table>
-<p>Everything above layer 1 implements ShrinkWrap's traits. Base type crates depend on <code>shrink_wrap</code> directly, trait
-crates and user API crates depend on <code>wire_weaver</code>, which re-exports <code>shrink_wrap</code>. Generated code refers to
-<code>shrink_wrap::...</code> through that re-export, so a single <code>shrink_wrap</code> version must be shared by the whole dependency
-graph of an application.</p>
+<p>Everything above layer 1 implements ShrinkWrap's traits. Base type crates depend on <code>shrink_wrap</code> directly. Trait
+crates and user API crates depend on <code>ww_api</code>, which re-exports <code>shrink_wrap</code>, <code>ww_error</code> and <code>ww_version</code> with the
+derive macros, and never on the runtime: <code>tests/layers_lint</code> fails an API crate (<code>layers.toml</code>'s <code>[api] crates</code>) whose
+normal dependencies reach <code>wire_weaver</code> or another runtime crate. Server and client crates depend on <code>wire_weaver</code>,
+which re-exports <code>ww_api</code>. Generated code refers to <code>shrink_wrap::...</code> through these re-exports, so a single
+<code>shrink_wrap</code> version must be shared by the whole dependency graph of an application.</p>
 <h2 id="checklist-before-breaking-something">Checklist before breaking something<a class="headerlink" href="#checklist-before-breaking-something" title="Permanent link">&para;</a></h2>
 <ol>
 <li>Is it a wire change or only a Rust change? If unsure, serialize a few values before and after and compare the bytes
@@ -5438,7 +6483,7 @@ graph of an application.</p>
 <li>Which layer is it in? Wire changes in <code>shrink_wrap</code>, <code>ww_framer</code>, <code>ww_link</code>, <code>ww_client_server</code> or server/client
    codegen affect every device - avoid them, and if unavoidable, batch them and mark them <code>Wire format:</code> in the
    changelog.</li>
-<li>For <code>shrink_wrap</code> (and base <code>ww_stdlib</code> types), list the reverse dependencies that need to be re-released.</li>
+<li>For <code>shrink_wrap</code> (and the base types of ww_base), list the reverse dependencies that need to be re-released.</li>
 <li>Bump the right position: patch for compatible additions in <code>shrink_wrap</code> and API crates before 1.0, minor for
    everything else before 1.0.</li>
 <li>Write the changelog entry, saying what users must change and whether deployed devices are affected.</li>
@@ -5468,28 +6513,44 @@ Therefore:</p>
 </ul>
 <h2 id="layer-2-ww_stdlib">Layer 2: ww_stdlib<a class="headerlink" href="#layer-2-ww_stdlib" title="Permanent link">&para;</a></h2>
 <p><code>ww_stdlib</code> crates are meant to be shared between unrelated projects, so their types end up inside many
-different APIs. Their versions travel on the wire (as <code>FullVersion</code> / <code>CompactVersion</code> with a
-<a href="https://github.com/vhrdtech/wire_weaver/tree/master/ww_global">ww_global</a> id) for trait-based requests
-and introspection, so the version is not just Cargo metadata, it's a compatibility statement, same as for user API
-crates (layer 4):</p>
+different APIs. Like an API root, each one has a <a href="../versions/#the-wire-version">wire version</a> of its own, apart from its
+crate version, declared in its <code>Cargo.toml</code>:</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[package.metadata.wire_weaver]</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">wire</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;w1.2&quot;</span>
+</span></code></pre></div>
+<p>Codegen reads it with the crate, every bundle and snapshot carries it per crate (<code>ww_self::ApiBundle::ext_wire</code>),
+and <code>#[since]</code> in the crate names its revisions: <code>ww_board_info</code>'s <code>set_reworks</code> is <code>#[since = "w1.2"]</code> of
+<code>ww_board_info</code>, whatever the wire version of the API that implements <code>BoardInfo</code>. A host compares such a marker with
+the device's wire version of <code>ww_board_info</code>, from its introspection data. The same works for any crate without an API
+root whose traits or types cross the wire, and API root crates declare theirs the same way (EVO-31).</p>
 <ul>
 <li>Wire-compatible change (following the <a href="../rules/#data-types">data type</a> and <a href="../rules/#api">API</a> rules) -&gt; bump the
-  compatible position: patch before 1.0 (<code>0.1.0</code> -&gt; <code>0.1.1</code>), minor after.</li>
-<li>Wire-incompatible change -&gt; bump the breaking position: minor before 1.0 (<code>0.1.0</code> -&gt; <code>0.2.0</code>), major after. Every
-  crate and user API that exposes the changed type or trait over the wire is then wire-incompatible too, and has to
-  bump its own breaking position when it upgrades.</li>
-<li>A Rust-only break (e.g. renaming a helper method, changing a <code>std</code> convenience impl) is still a Cargo breaking
-  change and bumps the breaking position, even though the wire is unaffected. Avoid mixing such changes with
-  releases that are supposed to be wire-compatible additions; prefer deprecating and adding.</li>
+  wire revision (<code>w1.2</code> -&gt; <code>w1.3</code>) and mark what was added with it; the crate version takes the compatible position
+  (patch before 1.0, minor after) when the Rust API is compatible too.</li>
+<li>Wire-incompatible change -&gt; bump the wire line (<code>w2.0</code>) and the crate's breaking position. Every crate and user API
+  that exposes the changed type or trait over the wire is then wire-incompatible too, and has to bump its own wire
+  line when it upgrades. Prefer a new type or trait next to the old one.</li>
+<li>A Rust-only break (e.g. renaming a helper method, changing a <code>std</code> convenience impl) bumps the crate's breaking
+  position, as Cargo needs, and leaves the wire version alone: the checker and the host compare a dependency's traits
+  and types by its wire line (when both sides declare one), so the APIs using the crate keep their wire line. Crates
+  that declare no wire version are still compared by crate version (protocol compatible versions). A device without
+  introspection data that resolves a global trait path itself still matches the crate version the request carries
+  (EVO-29).</li>
 </ul>
-<p>Base type crates (<code>ww_numeric</code>, <code>ww_si</code>, ...) are used by other <code>ww_stdlib</code> crates as well, so their breaking
+<p><code>exact_units</code> is the bottom of this layer: the unit markers, <code>Dim</code>, <code>Magnitude</code>, <code>SIExpr</code> and <code>Fixed</code>, which <code>ww_si</code>
+re-exports. A unit's identity on the wire includes its crate (a distinguished base such as <code>Sample</code> is <code>exact_units</code> + its marker name), so
+moving a marker to another crate is a wire change, and a break in <code>exact_units</code> is a break in <code>ww_si</code> and everything
+built on it.</p>
+<p>Base type crates (<code>exact_units</code>, <code>ww_numeric</code>, <code>ww_si</code>, ...) are used by other <code>ww_stdlib</code> crates as well, so their breaking
 changes cascade the same way <code>shrink_wrap</code> ones do, just over a smaller set of crates - check reverse dependencies in
-the root <code>Cargo.toml</code> before breaking one. <code>ww_version</code> and <code>ww_global</code> are special: <code>FullVersion</code>,
+the root <code>Cargo.toml</code> before breaking one. They live in their own repositories (exact_units, ww_base) and come by git:
+a change lands there first, then <code>cargo update -p ww_si</code> takes it here, where <code>tests/stdlib_evolution</code> checks their
+snapshots in the checkout <code>Cargo.lock</code> pins. <code>ww_version</code> and <code>ww_global</code> are special: <code>FullVersion</code>,
 <code>CompactVersion</code> and <code>ApiHashPair</code> are exchanged during link setup, before any version could be checked, so they are
 <code>final_structure</code> and must not change on the wire at all.</p>
 <p><code>ww_client_server</code> is the API model: it defines the request/event encoding that every generated server and client
 speaks. Its version is sent to the host in <code>DeviceInfo::api_model_version</code>, and a wire break there is a wire break for
-every user API, so it is treated with almost the same care as <code>shrink_wrap</code> - see <a href="../rules/#api-model">API model</a>.</p>
+every user API, so it is treated with almost the same care as <code>shrink_wrap</code> - see <a href="../versions/#api-model">API model</a>.</p>
 <h2 id="layer-3-framework">Layer 3: framework<a class="headerlink" href="#layer-3-framework" title="Permanent link">&para;</a></h2>
 <p>The framework crates share one version and are free to break their Rust API: bump the minor version once per
 release cycle and describe what users must change in the changelog. A user API crate built against <code>wire_weaver 0.5</code>
@@ -5498,14 +6559,15 @@ keeps working with a host or firmware built against <code>wire_weaver 0.6</code>
 <p>The exception is code that defines what goes on the wire:</p>
 <ul>
 <li><code>ww_framer</code> (frame layout, heads, checksums, frame prefixes) and <code>ww_link</code> (message kinds, <code>DeviceInfo</code>,
-  <code>LinkSetup</code>, each medium's <code>Framing</code>) - changing these breaks every device from every host. The host checks the
-  device's <code>DeviceInfo::dev_link_version</code> against its own <code>LINK_VERSION</code> and the setup token
-  (<a href="../../transport/ww_link/#setup-token">link setup</a>), and fails with <code>Error::IncompatibleLinkVersion</code> instead of a
-  setup timeout. Only add new message kinds that old peers ignore; never change existing ones. The last such break
-  was TR-15 (0.5): the setup token in <code>GetDeviceInfo</code> / <code>DeviceInfo</code> / <code>LinkSetup</code> / <code>LinkReady</code>, USB packets
-  without the split-message CRC-16, UDP datagrams with a frame counter and a CRC-32 on every message. A device and a
-  host on both sides of it don't connect over USB or UDP; RTT and WebSocket only miss the token, which is refused as
-  well, so every firmware and host is rebuilt together.</li>
+  <code>LinkSetup</code>, each medium's <code>Framing</code>) - changing these breaks every device from every host. Such a break bumps the
+  layer's generation in the <a href="../../transport/ww_link/#the-frozen-hello">frozen hello</a>, the line of the crate's wire
+  version (<a href="#generations-from-the-wire-line">below</a>), so peers on both sides of it fail with
+  <code>Error::IncompatibleGeneration</code>, naming the layer, instead of a setup timeout. Only add new message kinds that old
+  peers ignore; never change existing ones. The hello itself (EVO-23, 0.5) was such a break: <code>GetDeviceInfo</code> became
+  <code>Hello</code>. The one before it was TR-15 (0.5): the setup token in <code>GetDeviceInfo</code> / <code>DeviceInfo</code> / <code>LinkSetup</code> /
+  <code>LinkReady</code>, USB packets without the split-message CRC-16, UDP datagrams with a frame counter and a CRC-32 on every
+  message. A device and a host on both sides of it don't connect over USB or UDP; RTT and WebSocket only miss the
+  token, which is refused as well, so every firmware and host is rebuilt together.</li>
 <li>Server and client codegen in <code>wire_weaver_core</code> - how resources are indexed, how arguments and return values are
   wrapped. Changing it changes the wire for every user API without any user version changing, so it must stay
   byte-identical for the same API definition.</li>
@@ -5515,7 +6577,37 @@ keeps working with a host or firmware built against <code>wire_weaver 0.6</code>
 <p>These are wire changes even though they live in "free to break" crates, so they follow the layer 1 rules: avoid,
 batch, and mark as <code>Wire format:</code> in the changelog.</p>
 <h2 id="layer-4-user-api">Layer 4: user API<a class="headerlink" href="#layer-4-user-api" title="Permanent link">&para;</a></h2>
-<p>See <a href="../rules/#your-apis-version">your API's version</a> in the evolution rules.</p>
+<p>See <a href="../versions/#your-apis-version">your API's version</a>.</p>
+<h2 id="generations-from-the-wire-line">Generations from the wire line<a class="headerlink" href="#generations-from-the-wire-line" title="Permanent link">&para;</a></h2>
+<p>Four crates are the foundation every link stands on: <code>shrink_wrap</code> (the encoding), <code>ww_framer</code> (frames), <code>ww_link</code>
+(link messages) and <code>ww_client_server</code> (the API model). A break in one of them would make the version exchange itself
+unreadable, so link setup opens with the <a href="../../transport/ww_link/#the-frozen-hello">frozen hello</a>, plain bytes at
+fixed positions with one <strong>generation</strong> byte per layer. Two peers whose generation of a layer differs stop right
+there, with <code>Error::IncompatibleGeneration</code> naming the layer.</p>
+<p>A generation is not a number of its own (EVO-71). Each of the four crates declares a wire version in its <code>Cargo.toml</code>
+like every other crate whose bytes cross the wire, and its generation is that version's line:</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># ww_link/Cargo.toml</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">[package.metadata.wire_weaver]</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">wire</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;w1.0&quot;</span>
+</span></code></pre></div>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1">// ww_link/src/hello.rs</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="n">GENERATION</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">shrink_wrap</span><span class="p">::</span><span class="n">generation_from_manifest</span><span class="o">!</span><span class="p">();</span>
+</span></code></pre></div>
+<p>So a break of the layer is bumped in one place:</p>
+<ul>
+<li>A break bumps the line (<code>w1.0</code> -&gt; <code>w2.0</code>), and the hello says 2. A compatible addition bumps the revision (<code>w1.1</code>),
+  which the hello doesn't carry: additions are negotiated after it, in <code>DeviceInfo</code> and <code>LinkSetup</code>.</li>
+<li><code>generation_from_manifest!()</code> reads the line at compile time: a <code>const fn</code> (<code>shrink_wrap::wire_line</code>) over
+  <code>include_str!</code> of the calling crate's manifest. It needs no build script, works in <code>no_std</code>, and costs about 0.1 ms
+  of compile time per crate. A missing or malformed line is a compile error.</li>
+<li>The evolution checker sees two of the four. <code>ww_client_server</code> and <code>ww_link</code> (<code>DeviceInfo</code>, <code>LinkSetup</code>,
+  <code>ClientMeta</code>) have snapshots checked in <code>tests/stdlib_evolution</code>, so a break of a link payload asks for <code>w2.0</code>, and
+  the hello's generation follows.</li>
+<li><code>shrink_wrap</code>'s encoding and <code>ww_framer</code>'s frames have no API model the checker could compare. They stay guarded by
+  the <a href="../../serdes/conformance/">conformance corpus</a> and their own byte tests (<code>ww_link</code>'s
+  <code>hello::tests::frozen_payload_bytes</code> holds the hello's bytes).</li>
+</ul>
+<p>All four are on <code>w1.0</code> today, generation 1.</p>
 
 
 
@@ -5559,7 +6651,7 @@ batch, and mark as <code>Wire format:</code> in the changelog.</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../checker_tool/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Evolution checker">
+          <a href="../multi_line_host/" class="md-footer__link md-footer__link--prev" aria-label="Previous: A host for several wire lines">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
@@ -5569,20 +6661,20 @@ batch, and mark as <code>Wire format:</code> in the changelog.</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                Evolution checker
+                A host for several wire lines
               </div>
             </div>
           </a>
         
         
           
-          <a href="../../std_library/overview/" class="md-footer__link md-footer__link--next" aria-label="Next: Overview">
+          <a href="../inside_the_checker/" class="md-footer__link md-footer__link--next" aria-label="Next: Inside the checker">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Overview
+                Inside the checker
               </div>
             </div>
             <div class="md-footer__button md-icon">
@@ -5661,6 +6753,8 @@ batch, and mark as <code>Wire format:</code> in the changelog.</p>
     
       <script src="../../assets/javascripts/bundle.9e76c64c.min.js"></script>
       
+      
+        <script src="../../javascripts/ww_highlight.js"></script>
       
     
   </body>

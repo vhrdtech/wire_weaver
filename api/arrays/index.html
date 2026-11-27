@@ -67,6 +67,8 @@
     
       <link rel="stylesheet" href="../../stylesheets/vhrd.css">
     
+      <link rel="stylesheet" href="../../stylesheets/ww_highlight.css">
+    
     <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
       
@@ -355,7 +357,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../evolution/rules/" class="md-tabs__link">
+        <a href="../../evolution/overview/" class="md-tabs__link">
           
   
   Evolution
@@ -422,6 +424,8 @@
       
         
       
+        
+      
     
     
     
@@ -431,6 +435,34 @@
           
   
   Transport protocols
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../tapes/" class="md-tabs__link">
+          
+  
+  Tapes and logs
 
         </a>
       </li>
@@ -508,6 +540,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -529,14 +565,32 @@
   
   
   
-    <li class="md-tabs__item">
-      <a href="../../features/" class="md-tabs__link">
+    
+      
+      
         
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../features/" class="md-tabs__link">
+          
   
   Feature tracker
 
-      </a>
-    </li>
+        </a>
+      </li>
+    
   
 
       
@@ -1643,6 +1697,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -1766,6 +1826,34 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#keyed-arrays" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Keyed arrays
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Keyed arrays">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#keyed-arrays-on-the-client" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Keyed arrays on the client
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1789,7 +1877,61 @@
   <span class="md-ellipsis">
     
   
-  Sync and async handlers
+  Sync, async and shared handlers
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../local_trait/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Local trait
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../large_messages/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Large messages and result sets
 
     
   </span>
@@ -1817,6 +1959,33 @@
     
   
   Optional items
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../introspection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Introspection data
 
     
   </span>
@@ -2052,7 +2221,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../bus_slave/" class="md-nav__link">
+      <a href="../../std_library/bus_slave/" class="md-nav__link">
         
   
   
@@ -2423,6 +2592,127 @@
   
   
     <li class="md-nav__item">
+      <a href="../../evolution/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Evolving an API
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_2" id="__nav_5_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Advanced
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_2_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_5_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Advanced
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../evolution/versions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Versions and wire lines
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../evolution/rules/" class="md-nav__link">
         
   
@@ -2430,7 +2720,7 @@
   <span class="md-ellipsis">
     
   
-  Evolution rules
+  What can change
 
     
   </span>
@@ -2457,7 +2747,7 @@
   <span class="md-ellipsis">
     
   
-  Evolution checker
+  The evolution checker
 
     
   </span>
@@ -2465,6 +2755,123 @@
   
 
       </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../evolution/snapshots/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Finding snapshots
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../evolution/units_by_meaning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Units compared by meaning
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../evolution/multi_line_host/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  A host for several wire lines
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../evolution/crate_layers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Changing WireWeaver itself
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
     </li>
   
 
@@ -2504,7 +2911,7 @@
   <span class="md-ellipsis">
     
   
-  Advanced
+  Nomicon
 
     
   </span>
@@ -2520,7 +2927,7 @@
               <span class="md-nav__icon md-icon"></span>
               
   
-  Advanced
+  Nomicon
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
@@ -2532,14 +2939,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../evolution/crate_layers/" class="md-nav__link">
+      <a href="../../evolution/inside_the_checker/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  Crate layers and version bumps
+  Inside the checker
 
     
   </span>
@@ -2646,7 +3053,7 @@
   <span class="md-ellipsis">
     
   
-  Overview
+  Standard library crates
 
     
   </span>
@@ -2667,6 +3074,8 @@
   
     
     
+      
+        
       
         
       
@@ -2869,6 +3278,33 @@
     
   
   ww_i2c
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_i2c_hl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_i2c_hl
 
     
   </span>
@@ -3670,6 +4106,20 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -3729,6 +4179,195 @@
     
   
   ww_si
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/exact_units/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units in an API
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/customary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: imperial and US customary
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/magnitude/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: magnitudes
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/points/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: points
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/units_in_the_model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: units in the model
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/rounding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: rounding
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/indices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: indices
 
     
   </span>
@@ -4011,6 +4650,8 @@
       
         
       
+        
+      
     
     
     
@@ -4196,6 +4837,33 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../../transport/keep_trying/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Keep trying
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
     
     
       
@@ -4224,10 +4892,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_7" >
         
           
-          <label class="md-nav__link" for="__nav_7_6" id="__nav_7_6_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_7_7" id="__nav_7_7_label" tabindex="0">
             
   
   
@@ -4245,8 +4913,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_6_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_7_6">
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_7_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7_7">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -4450,10 +5118,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_7" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_8" >
         
           
-          <label class="md-nav__link" for="__nav_7_7" id="__nav_7_7_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_7_8" id="__nav_7_8_label" tabindex="0">
             
   
   
@@ -4471,8 +5139,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_7_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_7_7">
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_8_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7_8">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -4538,8 +5206,6 @@
       
         
       
-        
-      
     
     
     
@@ -4563,7 +5229,7 @@
   <span class="md-ellipsis">
     
   
-  Examples and templates
+  Tapes and logs
 
     
   </span>
@@ -4576,6 +5242,127 @@
         
           <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
             <label class="md-nav__title" for="__nav_8">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Tapes and logs
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tapes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Tapes
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../logring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  logring
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Examples and templates
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_9">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -4662,10 +5449,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9_3" >
         
           
-          <label class="md-nav__link" for="__nav_8_3" id="__nav_8_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_9_3" id="__nav_9_3_label" tabindex="0">
             
   
   
@@ -4683,8 +5470,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_3_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_8_3">
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_9_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_9_3">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -4765,10 +5552,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
         
           
-          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
             
   
   
@@ -4786,8 +5573,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_9">
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_10">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -4878,10 +5665,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10_3" >
         
           
-          <label class="md-nav__link" for="__nav_9_3" id="__nav_9_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_10_3" id="__nav_10_3_label" tabindex="0">
             
   
   
@@ -4899,8 +5686,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_9_3_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_9_3">
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_10_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_10_3">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -5018,6 +5805,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -5031,10 +5822,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
         
           
-          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
             
   
   
@@ -5052,8 +5843,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_10">
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_11">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -5089,6 +5880,60 @@
 
                 
               
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../articles/units_budget/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  What Fixed costs on a microcontroller
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../articles/flash_budget/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  What a server costs in flash
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
             </ul>
           </nav>
         
@@ -5103,12 +5948,38 @@
   
   
   
-    <li class="md-nav__item">
-      <a href="../../features/" class="md-nav__link">
+    
+    
+      
         
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" >
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="0">
+            
   
-  
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-list-checks" viewBox="0 0 24 24"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
   
   <span class="md-ellipsis">
     
@@ -5120,7 +5991,169 @@
   
   
 
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_12">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Feature tracker
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-list-checks" viewBox="0 0 24 24"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  WireWeaver
+
+    
+  </span>
+  
+  
+
       </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../serdes/features/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-list-checks" viewBox="0 0 24 24"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  shrink_wrap
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/features/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-list-checks" viewBox="0 0 24 24"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_base
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tape/features/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-list-checks" viewBox="0 0 24 24"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_tape
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/stdlib_features/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-list-checks" viewBox="0 0 24 24"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_stdlib
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
     </li>
   
 
@@ -5173,6 +6206,34 @@
       </span>
     </span>
   </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#keyed-arrays" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Keyed arrays
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Keyed arrays">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#keyed-arrays-on-the-client" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Keyed arrays on the client
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -5268,6 +6329,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -5333,7 +6400,7 @@ a request for another index is answered <code>ErrorKind::BadIndex</code>. Bounds
 <a href="../../types/#bounded-lists-and-strings-maxlent-n"><code>MaxLen</code></a> instead.</p>
 <p>On the host, an array item takes its index first: <code>device.port(0).pin(3).read_pull()</code>, <code>device.adc(2).call()</code>. On the
 device, every handler of an item inside arrays, at any depth, gets the indices leading to it as one more argument,
-<code>index_chain: [UNib32; N]</code>, after <code>cx</code>; <code>ww api scaffold</code> prints the exact signatures. The generated code stays
+<code>index_chain: [ww_client_server::ResourceIndex; N]</code>, after <code>cx</code>; <code>ww api scaffold</code> prints the exact signatures. The generated code stays
 flat: the whole API tree becomes plain function calls on the server struct, with no per-index state.</p>
 <p>A whole array can be read, written or called in one request, see <a href="../multi_requests/">Multi requests</a>.</p>
 <h2 id="array-of-resources-vs-resource-of-array">Array of resources vs resource of array<a class="headerlink" href="#array-of-resources-vs-resource-of-array" title="Permanent link">&para;</a></h2>
@@ -5355,6 +6422,87 @@ separately.</p>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">trait</span><span class="w"> </span><span class="n">ArrayOfArrays</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">rgb_led</span><span class="p">[]:</span><span class="w"> </span><span class="p">[</span><span class="kt">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">3</span><span class="p">]);</span>
 </span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="p">}</span>
+</span></code></pre></div>
+<h2 id="keyed-arrays">Keyed arrays<a class="headerlink" href="#keyed-arrays" title="Permanent link">&para;</a></h2>
+<p>An index says where an element sits on one device, in one run: a packet dissector gives flow 3 to whatever traffic
+it met third. <code>keyed!</code> lets a client address the elements by a key of their own instead:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="cp">#[ww_api_root]</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="k">trait</span><span class="w"> </span><span class="n">Dissector</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">flow</span><span class="p">[]:</span><span class="w"> </span><span class="nc">Flow</span><span class="p">);</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="n">keyed</span><span class="o">!</span><span class="p">(</span><span class="n">flow</span><span class="w"> </span><span class="n">by</span><span class="w"> </span><span class="n">FlowKey</span><span class="p">);</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="p">}</span>
+</span></code></pre></div>
+<p><code>keyed!</code> follows the array it keys (traits, properties, streams or sinks) and takes an item id at its position, like
+any other item. The key is any wire_weaver type without a float in it. The API crate and the server crate depend on
+<code>ww_keyed</code>, whose <code>KeyEvent</code> the generated code names.</p>
+<p>The companion is a fixed set of operations, the same for every keyed array, at the path of <code>flow_keys</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Id</th>
+<th>Item</th>
+<th>What it is for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td><code>fn index_of(key: FlowKey) -&gt; Option&lt;I&gt;</code></td>
+<td>the index of the element with that key</td>
+</tr>
+<tr>
+<td>1</td>
+<td><code>property!(ro key[I]: FlowKey)</code></td>
+<td>the key of an element; all of them in one multi read</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>stream!(keys: KeyEvent&lt;I, FlowKey&gt;)</code></td>
+<td><code>Added { index, key }</code> when an element appears, <code>Removed { index }</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>I</code> is the array's own index type, <code>UNib32</code> for <code>flow[]</code>.</p>
+<p>On the device the companion takes two handlers, <code>flow_index_of(cx, key) -&gt; RpcResult&lt;Option&lt;I&gt;&gt;</code> and
+<code>get_flow_key(cx, index_chain) -&gt; GetResult&lt;FlowKey, ()&gt;</code> (always a getter, whatever the <code>property_model</code>); the
+server keeps its key table, as it keeps the flows. The key array's indices are the array's own, checked by
+<code>valid_indices_root_flow</code>, so <code>get_flow_key</code> is only called for an index the device has. The <code>keys</code> stream needs no
+handler: the generated code opens and closes it, and the device announces each element with
+<code>stream_data_ser().flow_keys_send(&amp;KeyEvent::Added { index, key }, cx)</code> (<code>flow_keys_send_blocking</code> in a blocking
+server). An index may go to another key only after its <code>Removed</code>. <code>ww api scaffold</code>
+prints the handlers.</p>
+<p>One <code>keyed!</code> costs 316 B of flash on a Cortex-M0 at <code>fw-z</code> in a blocking server, 276 to 784 B on M0 and M3 at
+<code>fw-z</code> and <code>fw-3</code>, blocking and async (TEST-30, <code>qemu-flash-keyed</code> against <code>qemu-flash-arrayed</code>). The <code>keys</code>
+stream's send helper is not counted: it is linked only where it is used.</p>
+<h3 id="keyed-arrays-on-the-client">Keyed arrays on the client<a class="headerlink" href="#keyed-arrays-on-the-client" title="Permanent link">&para;</a></h3>
+<p>The generated client finds an element by its key (CLT-72):</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">if</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">flow</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">client</span><span class="p">.</span><span class="n">flow_by</span><span class="p">(</span><span class="o">&amp;</span><span class="n">key</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">bytes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">flow</span><span class="p">.</span><span class="n">read_bytes</span><span class="p">().</span><span class="n">read</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="p">}</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="kd">let</span><span class="w"> </span><span class="n">key</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">client</span><span class="p">.</span><span class="n">flow_key</span><span class="p">(</span><span class="mi">3</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span><span class="w">    </span><span class="c1">// the key of flow 3</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">keys</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">client</span><span class="p">.</span><span class="n">flow_keys</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span><span class="w"> </span><span class="c1">// KeyEvent::Added and Removed as they happen</span>
+</span></code></pre></div>
+<p><code>flow_by</code> returns the element's client, <code>None</code> when the device has no element with that key; it returns the index
+for an array of properties, streams or sinks. Each has a <code>_blocking</code> twin. The key type needs <code>Clone</code>.</p>
+<p><code>flow_by</code> asks the device's <code>index_of</code> once per key and keeps the answer in the connection's key cache, shared by
+every clone of the client: later lookups send nothing. Keys the client sees otherwise go into the cache too: a
+<code>flow_key</code> read, an <code>Added</code> on the <code>keys</code> stream. An entry goes away on a <code>Removed</code>, on a <code>BadIndex</code> answer to a
+request through that index, and on a reconnect; the cache holds at most 1024 keys per keyed array and forgets the
+oldest first. A key not found is asked again each time. Between a flow's removal and the next request through its
+index, a cached index can already belong to another flow: a client that must not touch the wrong element keeps the
+<code>keys</code> stream open, so the <code>Removed</code> drops it at once.</p>
+<p>The dynamic client, <code>ww</code> and Python take a key in a path. In <code>ww</code> and the dynamic client
+(<code>DynResource::walk_on</code>) the brackets hold the key as a Rust expression of its type, all fields given:</p>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>ww<span class="w"> </span>stream<span class="w"> </span><span class="s1">&#39;flow[FlowKey { proto: Proto::Tcp, src: Endpoint { addr: [10, 0, 0, 1], port: Port(6000) },</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="s1">    dst: Endpoint { addr: [10, 0, 0, 2], port: Port(443) }, first_seen: Point { coord: 100 } }].packets&#39;</span>
+</span></code></pre></div>
+<p>A time point in a key is written as its <code>coord</code> (<code>Point { coord: 100 }</code>) for now. A number in brackets is an index.</p>
+<p>In Python an int indexes and anything else is a key, in the form any argument takes:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">key</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;proto&quot;</span><span class="p">:</span> <span class="s2">&quot;Tcp&quot;</span><span class="p">,</span> <span class="s2">&quot;src&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;addr&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="s2">&quot;port&quot;</span><span class="p">:</span> <span class="mi">6000</span><span class="p">},</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>       <span class="s2">&quot;dst&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;addr&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="s2">&quot;port&quot;</span><span class="p">:</span> <span class="mi">443</span><span class="p">},</span> <span class="s2">&quot;first_seen&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;coord&quot;</span><span class="p">:</span> <span class="mi">100</span><span class="p">}}</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">dev</span><span class="o">.</span><span class="n">flow</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">bytes</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>  <span class="c1"># KeyError when the device has no such flow</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="n">dev</span><span class="o">.</span><span class="n">flow</span><span class="o">.</span><span class="n">by</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>            <span class="c1"># None instead</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="n">dev</span><span class="o">.</span><span class="n">flow</span><span class="o">.</span><span class="n">key_type</span>           <span class="c1"># &quot;FlowKey&quot;</span>
 </span></code></pre></div>
 
 
@@ -5416,13 +6564,13 @@ separately.</p>
         
         
           
-          <a href="../handlers/" class="md-footer__link md-footer__link--next" aria-label="Next: Sync and async handlers">
+          <a href="../handlers/" class="md-footer__link md-footer__link--next" aria-label="Next: Sync, async and shared handlers">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Sync and async handlers
+                Sync, async and shared handlers
               </div>
             </div>
             <div class="md-footer__button md-icon">
@@ -5501,6 +6649,8 @@ separately.</p>
     
       <script src="../../assets/javascripts/bundle.9e76c64c.min.js"></script>
       
+      
+        <script src="../../javascripts/ww_highlight.js"></script>
       
     
   </body>

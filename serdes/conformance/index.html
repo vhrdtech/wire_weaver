@@ -67,6 +67,8 @@
     
       <link rel="stylesheet" href="../../stylesheets/vhrd.css">
     
+      <link rel="stylesheet" href="../../stylesheets/ww_highlight.css">
+    
     <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
       
@@ -355,7 +357,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../evolution/rules/" class="md-tabs__link">
+        <a href="../../evolution/overview/" class="md-tabs__link">
           
   
   Evolution
@@ -422,6 +424,8 @@
       
         
       
+        
+      
     
     
     
@@ -431,6 +435,34 @@
           
   
   Transport protocols
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../tapes/" class="md-tabs__link">
+          
+  
+  Tapes and logs
 
         </a>
       </li>
@@ -508,6 +540,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -529,14 +565,32 @@
   
   
   
-    <li class="md-tabs__item">
-      <a href="../../features/" class="md-tabs__link">
+    
+      
+      
         
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../features/" class="md-tabs__link">
+          
   
   Feature tracker
 
-      </a>
-    </li>
+        </a>
+      </li>
+    
   
 
       
@@ -1373,6 +1427,50 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#a-codec-case" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A codec case
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-requantize-case" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A requantize case
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-signature-case" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A signature case
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#shape-cases" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Shape cases
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#frozen-golden-bytes" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1751,6 +1849,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -1836,7 +1940,61 @@
   <span class="md-ellipsis">
     
   
-  Sync and async handlers
+  Sync, async and shared handlers
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/local_trait/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Local trait
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/large_messages/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Large messages and result sets
 
     
   </span>
@@ -1864,6 +2022,33 @@
     
   
   Optional items
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/introspection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Introspection data
 
     
   </span>
@@ -2099,7 +2284,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api/bus_slave/" class="md-nav__link">
+      <a href="../../std_library/bus_slave/" class="md-nav__link">
         
   
   
@@ -2467,6 +2652,127 @@
   
   
     <li class="md-nav__item">
+      <a href="../../evolution/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Evolving an API
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_2" id="__nav_5_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Advanced
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_2_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_5_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Advanced
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../evolution/versions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Versions and wire lines
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../evolution/rules/" class="md-nav__link">
         
   
@@ -2474,7 +2780,7 @@
   <span class="md-ellipsis">
     
   
-  Evolution rules
+  What can change
 
     
   </span>
@@ -2501,7 +2807,7 @@
   <span class="md-ellipsis">
     
   
-  Evolution checker
+  The evolution checker
 
     
   </span>
@@ -2509,6 +2815,123 @@
   
 
       </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../evolution/snapshots/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Finding snapshots
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../evolution/units_by_meaning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Units compared by meaning
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../evolution/multi_line_host/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  A host for several wire lines
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../evolution/crate_layers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Changing WireWeaver itself
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
     </li>
   
 
@@ -2548,7 +2971,7 @@
   <span class="md-ellipsis">
     
   
-  Advanced
+  Nomicon
 
     
   </span>
@@ -2564,7 +2987,7 @@
               <span class="md-nav__icon md-icon"></span>
               
   
-  Advanced
+  Nomicon
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
@@ -2576,14 +2999,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../evolution/crate_layers/" class="md-nav__link">
+      <a href="../../evolution/inside_the_checker/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  Crate layers and version bumps
+  Inside the checker
 
     
   </span>
@@ -2690,7 +3113,7 @@
   <span class="md-ellipsis">
     
   
-  Overview
+  Standard library crates
 
     
   </span>
@@ -2711,6 +3134,8 @@
   
     
     
+      
+        
       
         
       
@@ -2913,6 +3338,33 @@
     
   
   ww_i2c
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_i2c_hl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_i2c_hl
 
     
   </span>
@@ -3714,6 +4166,20 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -3773,6 +4239,195 @@
     
   
   ww_si
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/exact_units/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units in an API
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/customary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: imperial and US customary
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/magnitude/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: magnitudes
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/points/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: points
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/units_in_the_model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: units in the model
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/rounding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: rounding
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/indices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: indices
 
     
   </span>
@@ -4055,6 +4710,8 @@
       
         
       
+        
+      
     
     
     
@@ -4240,6 +4897,33 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../../transport/keep_trying/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Keep trying
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
     
     
       
@@ -4268,10 +4952,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_7" >
         
           
-          <label class="md-nav__link" for="__nav_7_6" id="__nav_7_6_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_7_7" id="__nav_7_7_label" tabindex="0">
             
   
   
@@ -4289,8 +4973,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_6_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_7_6">
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_7_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7_7">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -4494,10 +5178,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_7" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_8" >
         
           
-          <label class="md-nav__link" for="__nav_7_7" id="__nav_7_7_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_7_8" id="__nav_7_8_label" tabindex="0">
             
   
   
@@ -4515,8 +5199,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_7_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_7_7">
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_8_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7_8">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -4582,8 +5266,6 @@
       
         
       
-        
-      
     
     
     
@@ -4607,7 +5289,7 @@
   <span class="md-ellipsis">
     
   
-  Examples and templates
+  Tapes and logs
 
     
   </span>
@@ -4620,6 +5302,127 @@
         
           <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
             <label class="md-nav__title" for="__nav_8">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Tapes and logs
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tapes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Tapes
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../logring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  logring
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Examples and templates
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_9">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -4706,10 +5509,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9_3" >
         
           
-          <label class="md-nav__link" for="__nav_8_3" id="__nav_8_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_9_3" id="__nav_9_3_label" tabindex="0">
             
   
   
@@ -4727,8 +5530,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_3_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_8_3">
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_9_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_9_3">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -4809,10 +5612,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
         
           
-          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
             
   
   
@@ -4830,8 +5633,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_9">
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_10">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -4922,10 +5725,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10_3" >
         
           
-          <label class="md-nav__link" for="__nav_9_3" id="__nav_9_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_10_3" id="__nav_10_3_label" tabindex="0">
             
   
   
@@ -4943,8 +5746,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_9_3_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_9_3">
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_10_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_10_3">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -5062,6 +5865,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -5075,10 +5882,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
         
           
-          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
             
   
   
@@ -5096,8 +5903,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_10">
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_11">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -5133,6 +5940,60 @@
 
                 
               
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../articles/units_budget/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  What Fixed costs on a microcontroller
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../articles/flash_budget/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  What a server costs in flash
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
             </ul>
           </nav>
         
@@ -5147,12 +6008,38 @@
   
   
   
-    <li class="md-nav__item">
-      <a href="../../features/" class="md-nav__link">
+    
+    
+      
         
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" >
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="0">
+            
   
-  
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-list-checks" viewBox="0 0 24 24"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
   
   <span class="md-ellipsis">
     
@@ -5164,7 +6051,169 @@
   
   
 
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_12">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Feature tracker
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-list-checks" viewBox="0 0 24 24"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  WireWeaver
+
+    
+  </span>
+  
+  
+
       </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../features/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-list-checks" viewBox="0 0 24 24"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  shrink_wrap
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/features/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-list-checks" viewBox="0 0 24 24"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_base
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tape/features/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-list-checks" viewBox="0 0 24 24"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_tape
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/stdlib_features/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-list-checks" viewBox="0 0 24 24"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_stdlib
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
     </li>
   
 
@@ -5225,6 +6274,50 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         A case
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-codec-case" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A codec case
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-requantize-case" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A requantize case
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-signature-case" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A signature case
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#shape-cases" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Shape cases
       </span>
     </span>
   </a>
@@ -5399,7 +6492,11 @@ the value to exactly those bytes and decode them back to the value:</p>
 <tbody>
 <tr>
 <td><code>derive</code></td>
-<td>The value as the Rust type <code>#[derive_shrink_wrap]</code> generates (owned), encoded and decoded; where the borrowed type differs, the golden bytes go through it and back too. The reference: it runs every case.</td>
+<td>The value as the owned Rust type <code>#[derive_shrink_wrap]</code> generates, encoded and decoded. The reference: it runs every case.</td>
+</tr>
+<tr>
+<td><code>borrowed</code></td>
+<td>The borrowed type (<code>Inner&lt;'i&gt;</code>, <code>RefVec</code>, <code>&amp;str</code>: what firmware writes with), found by the case's <code>type</code>: the golden bytes read and written again must be the golden bytes, and what it wrote, read with the owned type, the value. Every property of <code>Conformance</code> has a borrowed type (the <code>borrowed</code> test fails otherwise), so only a type without a borrowed form, or a value that must not encode, carries a gap.</td>
 </tr>
 <tr>
 <td><code>dynamic</code></td>
@@ -5415,7 +6512,7 @@ the value to exactly those bytes and decode them back to the value:</p>
 </tr>
 <tr>
 <td><code>c</code></td>
-<td>The C runtime (<code>shrink_wrap/c</code>) for a single number, bool, string or byte list; the generated C readers of <code>fixed_layout</code> and <code>head_tail</code> types, compiled with <code>cc</code> and run on the golden bytes. Other types wait for C generated from the model (API-26).</td>
+<td>The C runtime (<code>shrink_wrap_c</code>) for a single number, bool, string or byte list; the generated C readers of <code>fixed_layout</code> and <code>head_tail</code> types, compiled with <code>cc</code> and run on the golden bytes. Other types wait for C generated from the model (API-26).</td>
 </tr>
 </tbody>
 </table>
@@ -5426,14 +6523,15 @@ the value to exactly those bytes and decode them back to the value:</p>
 <li><code>tests/conformance_api</code>: the types. Each type of a case is a property of the <code>Conformance</code> trait
   (<code>property!(rw shape: Shape&lt;'i&gt;)</code>), which is how the dynamic consumers find it in the API model. Types that
   aren't in the model (a <code>head_tail</code> type, <code>TailBytes</code>) are defined there but not listed in the trait.</li>
-<li><code>tests/conformance</code>: the runner. <code>src/derive.rs</code> has the derive's value of every case, <code>src/json.rs</code> turns a
-  corpus value into a <code>ValueOwned</code>, <code>src/c.rs</code> writes and runs the C, <code>src/explain.rs</code> checks the bit map. One test per consumer in
+<li><code>tests/conformance</code>: the runner. <code>src/derive.rs</code> has the derive's value of every case, <code>src/borrowed.rs</code> the
+  borrowed type of every case type, <code>src/json.rs</code> turns a corpus value into a <code>ValueOwned</code>, <code>src/c.rs</code> writes and runs the C, <code>src/explain.rs</code> checks the bit map. One test per consumer in
   <code>tests/matrix.rs</code>, plus <code>corpus</code> (the file is well formed and <code>derive.rs</code> has every case), <code>report</code> (the
   matrix page is up to date), <code>frozen_bytes</code> (<a href="#frozen-golden-bytes">frozen golden bytes</a>, TEST-24,
   <code>src/frozen.rs</code>) and <code>coverage</code> (<a href="#coverage-guard">coverage guard</a>, TEST-25, <code>src/coverage.rs</code>).</li>
-<li><code>wire_weaver_py/tests/test_conformance.py</code>: the Python consumer, the same rules.</li>
+<li><code>tests/conformance_py</code>: the Python consumer, the same rules: <code>wire_weaver_py</code> of this checkout built as the
+  <code>wire_weaver</code> module by maturin, and <code>tests/test_conformance.py</code> run by pytest (<code>just test-conformance-py</code>).</li>
 </ul>
-<p><code>just test</code> runs all five. A failure names the case, the consumer and what differs, the first differing byte for
+<p><code>just test</code> runs all six. A failure names the case, the consumer and what differs, the first differing byte for
 an encode:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>case &#39;fixed.numbers&#39;, consumer c: (the part that runs) decode: C check failed: t_fixed_numbers_a(p) == 18u
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>case &#39;fixed.numbers&#39;, consumer dynamic: encode: bytes differ at byte 0: got 125634debc9a7808... (46 bytes), golden 135634debc9a7808... (46 bytes)
@@ -5467,6 +6565,97 @@ an encode:</p>
 <li><code>wire_change</code> (default none): <code>"EVO-n / reason"</code>, the escape the <a href="#frozen-golden-bytes">frozen golden bytes guard</a>
   accepts for a deliberate change to this case's <code>bytes</code>, <code>direction</code> or <code>bytes_from</code>.</li>
 </ul>
+<h2 id="a-codec-case">A codec case<a class="headerlink" href="#a-codec-case" title="Permanent link">&para;</a></h2>
+<p>A case of a codec's <code>Coded</code> type (LVL-6, STD-109) also says what its code means: <code>decoded</code> is the stored number of
+the <code>Fixed</code> the code decodes to, and <code>encodes_to</code> the code that number encodes back to (nearest-even) where it isn't
+the case's own. The derive checks both with the typed <code>Codec</code>, the dynamic client with the codec's definition in the
+model (<code>ww_self::units::codec_decode</code> / <code>codec_encode</code>), Python by the <code>ww.Quantity</code> it reads. Both fields are sealed
+like the golden bytes: a change to a codec that moves what a code means fails here.</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">{</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;stdlib.si.coded.mu_law.negative_zero&quot;</span><span class="p">,</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;coded_mu_law&quot;</span><span class="p">,</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;raw&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">127</span><span class="p">},</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span><span class="nt">&quot;bytes&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;7f&quot;</span><span class="p">,</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span><span class="nt">&quot;decoded&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">  </span><span class="nt">&quot;encodes_to&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">255</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="p">}</span>
+</span></code></pre></div>
+<h2 id="a-requantize-case">A requantize case<a class="headerlink" href="#a-requantize-case" title="Permanent link">&para;</a></h2>
+<p>The <code>requantize</code> list holds conversions instead of bytes (STD-63, <a href="../../std_library/rounding/">Rounding and overflow</a>): a
+stored number of one scale and storage converted to another with a named rounding and overflow policy, which every
+consumer has to give bit for bit.</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;requantize.bam16_to_bam8.full_turn.wrap&quot;</span><span class="p">,</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="nt">&quot;conversion&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;BAM16 -&gt; BAM8&quot;</span><span class="p">,</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">&quot;factor&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;pow10&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;rest&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;pow2&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">-16</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;irrational&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;factors&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="kc">null</span><span class="p">]}},</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">  </span><span class="nt">&quot;to&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;u8&quot;</span><span class="p">,</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">  </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">65408</span><span class="p">,</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">  </span><span class="nt">&quot;rounding&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;nearest_even&quot;</span><span class="p">,</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">  </span><span class="nt">&quot;overflow&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;wrap&quot;</span><span class="p">,</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">  </span><span class="nt">&quot;result&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="p">}</span>
+</span></code></pre></div>
+<ul>
+<li><code>conversion</code>: the typed conversion the derive runs, by its id in <code>tests/conformance/src/requantize.rs</code>
+  (<code>Fixed::requantize::&lt;P2, T2&gt;</code>); the derive also checks that <code>factor</code> is the quotient of its scales.</li>
+<li><code>factor</code>: the quotient of the scales, a <code>magnitude</code> value, which is all a dynamic client has: it reads the factor
+  through the model and runs <code>exact_units::Requantizer</code> with the target storage <code>to</code>.</li>
+<li><code>rounding</code> (<code>truncate</code>, <code>floor</code>, <code>ceil</code>, <code>nearest_even</code>, <code>nearest_away</code>), <code>overflow</code> (<code>checked</code>, <code>saturate</code>,
+  <code>wrap</code>) and <code>result</code>, <code>null</code> for no value.</li>
+<li><code>gaps</code>, <code>note</code> and <code>wire_change</code> as for a case: a <code>result</code> is as frozen as golden bytes.</li>
+</ul>
+<p>Results are worked out independently of the Rust code (exact fractions, and 60 digits of π for scales with π).
+Python runs every case through <code>ww.requantize</code> (the factor as the model gives it, its bytes). C runs them through
+<code>sw_requantize()</code> (<code>shrink_wrap_c/sw_requantize.h</code>): <code>tests/conformance/src/c.rs</code> works out each factor's constants
+on the host from the same <code>Magnitude</code>, as a code generator would, emits them into one C program for all cases, and
+compiles and runs it.</p>
+<h2 id="a-signature-case">A signature case<a class="headerlink" href="#a-signature-case" title="Permanent link">&para;</a></h2>
+<p>The <code>signatures</code> list seals the two signatures of a definition (EVO-69, <a href="../../std_library/ww_self/#signatures-and-putting-skipped-definitions-back"><code>ww_self</code></a>):
+the shape signature, without docs, and the signature with docs. A device leaves a definition its host already knows
+out of its introspection data and names it by them, and snapshots name their dependencies the same way, so they are
+as much a part of the wire as golden bytes. Only <code>ww_self::signature</code> calculates them; every consumer goes through it.</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;signature.struct.docs&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;definition&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;type Signed&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;shape&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;7f0a980582914d0b&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;with_docs&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;9dbe71ee06aa30b1&quot;</span><span class="p">}</span>
+</span></code></pre></div>
+<ul>
+<li><code>definition</code>: <code>type Name</code> or <code>trait Name</code> in the API model of <code>tests/conformance_api</code>, loaded from source. The
+  types of these cases are defined there for this alone: their names, fields and doc comments never change.</li>
+<li><code>shape</code>, <code>with_docs</code>: hex. A new case has <code>"?"</code>; the <code>signatures</code> test prints both values to fill in.</li>
+<li><code>note</code> and <code>wire_change</code> as for a case.</li>
+</ul>
+<p>Besides the sealed values, each case checks how the two signatures relate: the definition with its docs cleared
+has the same shape signature, and then its signature with docs is that shape signature; a reference is the shape
+signature followed by the signature with docs; an 8-byte reference matches by either.</p>
+<h2 id="shape-cases">Shape cases<a class="headerlink" href="#shape-cases" title="Permanent link">&para;</a></h2>
+<p>Writers have disagreed most where a list or a string sits: empty or not, starting on a byte or mid-byte, last in its
+struct or followed by a bit (SW-81: the borrowed derive padded an empty byte list that started mid-byte). So every
+list-like and string-like field kind has generated shape cases, <code>shape.&lt;kind&gt;.&lt;layout&gt;.&lt;count&gt;</code>:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>kinds</td>
+<td><code>bytes</code> (<code>RefVec&lt;u8&gt;</code>), <code>vec</code> (<code>RefVec&lt;u16&gt;</code>), <code>vec_bool</code>, <code>vec_str</code>, <code>str</code>, <code>option</code> (<code>Option&lt;RefVec&lt;u8&gt;&gt;</code>), <code>array</code> (<code>[u8; N]</code>), <code>tail</code> (<code>TailBytes</code>, last only)</td>
+</tr>
+<tr>
+<td>layouts</td>
+<td><code>aligned_last</code>, <code>aligned_bool</code> (followed by a <code>bool</code>), <code>mid_last</code> (after a <code>bool</code>), <code>mid_bool</code></td>
+</tr>
+<tr>
+<td>counts</td>
+<td><code>empty</code>, <code>one</code>, <code>many</code> (for <code>option</code>: <code>None</code>, <code>Some</code> of an empty list, <code>Some</code> of three bytes)</td>
+</tr>
+</tbody>
+</table>
+<p>They run through every consumer like any case; the <code>borrowed</code> consumer also builds each value from slices, as
+firmware does, and checks it writes the golden bytes and that they read as it. One table,
+<code>tests/conformance/src/shapes.rs</code>, gives the types and properties in <code>tests/conformance_api</code> (between the <code>shape</code>
+markers), the Rust values (<code>src/shape_values.rs</code>) and the corpus cases; the <code>shapes</code> test fails when one of them is
+not what the table gives, and <code>just conformance-update</code> writes them. A new kind is a line in that table.</p>
 <h2 id="frozen-golden-bytes">Frozen golden bytes<a class="headerlink" href="#frozen-golden-bytes" title="Permanent link">&para;</a></h2>
 <p>Once a case's <code>bytes</code> are in, they are the contract: nothing should change them, remove the case, or change its
 <code>direction</code> or <code>bytes_from</code> without everyone noticing. <code>CONFORMANCE=update</code> on its own only refuses to <em>overwrite</em>
@@ -5499,6 +6688,7 @@ that doesn't resolve), or without the corpus existing yet at that commit (introd
 as a whole), the test prints why and passes rather than failing a check it can't actually run. CI's <code>test</code> and
 <code>coverage</code> jobs fetch full history (<code>fetch-depth: 0</code>) so the check means something there; a shallower checkout
 elsewhere only loses the check, not correctness.</p>
+<p>The guard seals a requantize case's <code>result</code> and a signature case's <code>shape</code> and <code>with_docs</code> the same way.</p>
 <p>A deliberate wire break is still possible: mark the changed case with <code>"wire_change": "EVO-n / reason"</code>, which the
 guard accepts once — only when the mark is new or its text changed since the baseline. A case whose mark is
 unchanged from the baseline is sealed again at its current bytes: reusing the same mark across unrelated later
@@ -5509,6 +6699,11 @@ with the matching <code>EVO-n</code> item in <code>FEATURES.md</code> and a <cod
 that the matrix report also shows (a "Wire changes" section, <code>just conformance-update</code> writes it). Once the branch
 carrying the change lands on main, the mark has done its job and the next guard run treats the new bytes as sealed
 again; remove it once that is true (it is harmless to leave, but do not reuse it for a later, unrelated change).</p>
+<p>A case can't simply be deleted either. When the wire feature it covers is removed before it reached a release (no
+device or host out there speaks it), the case goes into the corpus's top-level <code>withdrawn</code> list as <code>{"name": ...,
+"reason": "ID / reason"}</code>, naming the <code>FEATURES.md</code> item that went (it moves to <em>Dropped and superseded</em>). The guard
+then lets the sealed case disappear; the name stays taken, so a case of that name fails while it is withdrawn. A
+feature that did reach a release is not withdrawn: its bytes stay, and a removal is a breaking <code>EVO-n</code> change.</p>
 <h2 id="coverage-guard">Coverage guard<a class="headerlink" href="#coverage-guard" title="Permanent link">&para;</a></h2>
 <p>A corpus can go stale the other way too: a wire feature lands without ever being exercised by a case, or a case
 that used to be the only cover for a feature is deleted. The <code>coverage</code> test (<code>tests/matrix.rs</code>,
@@ -5519,10 +6714,16 @@ that used to be the only cover for a feature is deleted. The <code>coverage</cod
   and following <code>OutOfLine</code>/<code>Instance</code> into the bundle's own <code>types</code> array (self-referential types are visited
   once). The walk is an exhaustive match: a new <code>Type</code> variant fails to compile there instead of being silently
   uncovered.</li>
-<li>Every wire-relevant <code>shrink_wrap_derive</code> directive (<code>final_structure</code>, <code>self_describing</code>, <code>sized</code>, <code>fixed_layout</code>,
+<li>
+<p>Every wire-relevant <code>shrink_wrap_derive</code> directive (<code>final_structure</code>, <code>self_describing</code>, <code>sized</code>, <code>fixed_layout</code>,
   <code>head_tail</code>, <code>sparse</code>, <code>validate = ..</code>, <code>ww_repr = ..</code>, <code>series</code>, <code>#[series(opaque)]</code>, <code>no_future_version</code>,
   <code>#[flag]</code>, <code>#[default = ..]</code>) used by some type in <code>tests/conformance_api</code>. Directives that don't change
-  serialized bytes (which Rust type is generated, derives, doc/display, naming) are left out rather than tracked.</li>
+  serialized bytes (which Rust type is generated, derives, doc/display, naming) are left out rather than tracked.</p>
+</li>
+<li>
+<p>Every list-like or string-like field kind (<code>ww_self::Type</code> classified by <code>field_kind</code>, an exhaustive match, and
+  <code>TailBytes</code>) of some case's type has all of its <a href="#shape-cases">shape cases</a>, or a gap in <code>FIELD_KIND_GAPS</code>.</p>
+</li>
 </ul>
 <p>A kind not exercised by any case, and not listed, fails the test by name. A kind that <em>is</em> listed (<code>TYPE_GAPS</code> /
 <code>DIRECTIVE_GAPS</code> in <code>conformance::coverage</code>) needs a reason ending in a <code>FEATURES.md</code> id, same rules as a case's own
@@ -5687,6 +6888,8 @@ format change (see <a href="../../evolution/rules/">evolution rules</a>).</p>
     
       <script src="../../assets/javascripts/bundle.9e76c64c.min.js"></script>
       
+      
+        <script src="../../javascripts/ww_highlight.js"></script>
       
     
   </body>

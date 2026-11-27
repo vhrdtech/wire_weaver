@@ -22,7 +22,7 @@
         <link rel="prev" href="../rules/">
       
       
-        <link rel="next" href="../crate_layers/">
+        <link rel="next" href="../snapshots/">
       
       
         
@@ -33,7 +33,7 @@
     
     
       
-        <title>Evolution checker - WireWeaver</title>
+        <title>The evolution checker - WireWeaver</title>
       
     
     
@@ -66,6 +66,8 @@
     
     
       <link rel="stylesheet" href="../../stylesheets/vhrd.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/ww_highlight.css">
     
     <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
@@ -123,7 +125,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Evolution checker
+              The evolution checker
             
           </span>
         </div>
@@ -355,7 +357,7 @@
     
     
       <li class="md-tabs__item md-tabs__item--active">
-        <a href="../rules/" class="md-tabs__link">
+        <a href="../overview/" class="md-tabs__link">
           
   
   Evolution
@@ -422,6 +424,8 @@
       
         
       
+        
+      
     
     
     
@@ -431,6 +435,34 @@
           
   
   Transport protocols
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../tapes/" class="md-tabs__link">
+          
+  
+  Tapes and logs
 
         </a>
       </li>
@@ -508,6 +540,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -529,14 +565,32 @@
   
   
   
-    <li class="md-tabs__item">
-      <a href="../../features/" class="md-tabs__link">
+    
+      
+      
         
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../features/" class="md-tabs__link">
+          
   
   Feature tracker
 
-      </a>
-    </li>
+        </a>
+      </li>
+    
   
 
       
@@ -1636,6 +1690,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -1721,7 +1781,61 @@
   <span class="md-ellipsis">
     
   
-  Sync and async handlers
+  Sync, async and shared handlers
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/local_trait/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Local trait
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/large_messages/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Large messages and result sets
 
     
   </span>
@@ -1749,6 +1863,33 @@
     
   
   Optional items
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/introspection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Introspection data
 
     
   </span>
@@ -1984,7 +2125,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api/bus_slave/" class="md-nav__link">
+      <a href="../../std_library/bus_slave/" class="md-nav__link">
         
   
   
@@ -2357,6 +2498,132 @@
   
   
     <li class="md-nav__item">
+      <a href="../overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Evolving an API
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5_2" id="__nav_5_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Advanced
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_2_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_5_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Advanced
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../versions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Versions and wire lines
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../rules/" class="md-nav__link">
         
   
@@ -2364,7 +2631,7 @@
   <span class="md-ellipsis">
     
   
-  Evolution rules
+  What can change
 
     
   </span>
@@ -2400,7 +2667,7 @@
   <span class="md-ellipsis">
     
   
-  Evolution checker
+  The evolution checker
 
     
   </span>
@@ -2417,7 +2684,7 @@
   <span class="md-ellipsis">
     
   
-  Evolution checker
+  The evolution checker
 
     
   </span>
@@ -2443,10 +2710,171 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#a-first-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A first check
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reading-a-report" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Reading a report
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Reading a report">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#two-bumps-the-wire-and-the-crate" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Two bumps: the wire and the crate
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#several-broken-items-one-cause-evo-21" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Several broken items, one cause (EVO-21)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#notes-about-dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Notes about dependencies
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#checking-at-every-commit" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Checking at every commit
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Checking at every commit">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-current-versions-snapshot" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The current version's snapshot
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#recipes-ci-and-a-hook" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Recipes, CI and a hook
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a-released-snapshot-never-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A released snapshot never changes
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a-missing-test-warning-tool-31" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A missing-test warning (TOOL-31)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#listing-all-changes" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Listing all changes
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#several-api-roots-in-one-crate" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Several API roots in one crate
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Several API roots in one crate">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#checking-each-root" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Checking each root
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-design-line-w0" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The design line, w0
       </span>
     </span>
   </a>
@@ -2465,13 +2893,30 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#new-fields-in-padding-bits" class="md-nav__link">
+  <a href="#unit-suffix-hints-tool-22" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        New fields in padding bits
+        Unit-suffix hints (TOOL-22)
       </span>
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Unit-suffix hints (TOOL-22)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a-reason-required-under-strict-tool-35" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A reason, required under <code>--strict</code> (TOOL-35)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -2489,6 +2934,123 @@
     </ul>
   
 </nav>
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../snapshots/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Finding snapshots
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../units_by_meaning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Units compared by meaning
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../multi_line_host/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  A host for several wire lines
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../crate_layers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Changing WireWeaver itself
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
       
     </li>
   
@@ -2532,7 +3094,7 @@
   <span class="md-ellipsis">
     
   
-  Advanced
+  Nomicon
 
     
   </span>
@@ -2548,7 +3110,7 @@
               <span class="md-nav__icon md-icon"></span>
               
   
-  Advanced
+  Nomicon
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
@@ -2560,14 +3122,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../crate_layers/" class="md-nav__link">
+      <a href="../inside_the_checker/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  Crate layers and version bumps
+  Inside the checker
 
     
   </span>
@@ -2674,7 +3236,7 @@
   <span class="md-ellipsis">
     
   
-  Overview
+  Standard library crates
 
     
   </span>
@@ -2695,6 +3257,8 @@
   
     
     
+      
+        
       
         
       
@@ -2897,6 +3461,33 @@
     
   
   ww_i2c
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/ww_i2c_hl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_i2c_hl
 
     
   </span>
@@ -3698,6 +4289,20 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -3757,6 +4362,195 @@
     
   
   ww_si
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/exact_units/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units in an API
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/customary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: imperial and US customary
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/magnitude/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: magnitudes
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/points/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: points
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/units_in_the_model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: units in the model
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/rounding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: rounding
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/indices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: indices
 
     
   </span>
@@ -4039,6 +4833,8 @@
       
         
       
+        
+      
     
     
     
@@ -4224,6 +5020,33 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../../transport/keep_trying/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Keep trying
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
     
     
       
@@ -4252,10 +5075,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_7" >
         
           
-          <label class="md-nav__link" for="__nav_7_6" id="__nav_7_6_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_7_7" id="__nav_7_7_label" tabindex="0">
             
   
   
@@ -4273,8 +5096,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_6_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_7_6">
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_7_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7_7">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -4478,10 +5301,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_7" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_8" >
         
           
-          <label class="md-nav__link" for="__nav_7_7" id="__nav_7_7_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_7_8" id="__nav_7_8_label" tabindex="0">
             
   
   
@@ -4499,8 +5322,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_7_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_7_7">
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_8_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7_8">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -4566,8 +5389,6 @@
       
         
       
-        
-      
     
     
     
@@ -4591,7 +5412,7 @@
   <span class="md-ellipsis">
     
   
-  Examples and templates
+  Tapes and logs
 
     
   </span>
@@ -4604,6 +5425,127 @@
         
           <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
             <label class="md-nav__title" for="__nav_8">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Tapes and logs
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tapes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Tapes
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../logring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  logring
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Examples and templates
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_9">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -4690,10 +5632,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9_3" >
         
           
-          <label class="md-nav__link" for="__nav_8_3" id="__nav_8_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_9_3" id="__nav_9_3_label" tabindex="0">
             
   
   
@@ -4711,8 +5653,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_3_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_8_3">
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_9_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_9_3">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -4793,10 +5735,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
         
           
-          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
             
   
   
@@ -4814,8 +5756,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_9">
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_10">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -4906,10 +5848,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10_3" >
         
           
-          <label class="md-nav__link" for="__nav_9_3" id="__nav_9_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_10_3" id="__nav_10_3_label" tabindex="0">
             
   
   
@@ -4927,8 +5869,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_9_3_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_9_3">
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_10_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_10_3">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -5046,6 +5988,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -5059,10 +6005,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
         
           
-          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
             
   
   
@@ -5080,8 +6026,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_10">
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_11">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -5117,6 +6063,60 @@
 
                 
               
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../articles/units_budget/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  What Fixed costs on a microcontroller
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../articles/flash_budget/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  What a server costs in flash
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
             </ul>
           </nav>
         
@@ -5131,12 +6131,38 @@
   
   
   
-    <li class="md-nav__item">
-      <a href="../../features/" class="md-nav__link">
+    
+    
+      
         
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" >
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="0">
+            
   
-  
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-list-checks" viewBox="0 0 24 24"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
   
   <span class="md-ellipsis">
     
@@ -5148,7 +6174,169 @@
   
   
 
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_12">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Feature tracker
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-list-checks" viewBox="0 0 24 24"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  WireWeaver
+
+    
+  </span>
+  
+  
+
       </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../serdes/features/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-list-checks" viewBox="0 0 24 24"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  shrink_wrap
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/features/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-list-checks" viewBox="0 0 24 24"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_base
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tape/features/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-list-checks" viewBox="0 0 24 24"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_tape
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/stdlib_features/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-list-checks" viewBox="0 0 24 24"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_stdlib
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
     </li>
   
 
@@ -5194,10 +6382,171 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#a-first-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A first check
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reading-a-report" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Reading a report
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Reading a report">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#two-bumps-the-wire-and-the-crate" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Two bumps: the wire and the crate
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#several-broken-items-one-cause-evo-21" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Several broken items, one cause (EVO-21)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#notes-about-dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Notes about dependencies
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#checking-at-every-commit" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Checking at every commit
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Checking at every commit">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-current-versions-snapshot" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The current version's snapshot
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#recipes-ci-and-a-hook" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Recipes, CI and a hook
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a-released-snapshot-never-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A released snapshot never changes
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a-missing-test-warning-tool-31" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A missing-test warning (TOOL-31)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#listing-all-changes" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Listing all changes
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#several-api-roots-in-one-crate" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Several API roots in one crate
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Several API roots in one crate">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#checking-each-root" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Checking each root
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-design-line-w0" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The design line, w0
       </span>
     </span>
   </a>
@@ -5216,13 +6565,30 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#new-fields-in-padding-bits" class="md-nav__link">
+  <a href="#unit-suffix-hints-tool-22" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        New fields in padding bits
+        Unit-suffix hints (TOOL-22)
       </span>
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Unit-suffix hints (TOOL-22)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a-reason-required-under-strict-tool-35" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A reason, required under <code>--strict</code> (TOOL-35)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -5253,6 +6619,81 @@
 
 
 
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+      
+        
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-path__item">
+        <a href="../overview/" class="md-path__link">
+          
+  
+  <span class="md-ellipsis">
+    Evolution
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-path__item">
+        <a href="../versions/" class="md-path__link">
+          
+  
+  <span class="md-ellipsis">
+    Advanced
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
               
               <article class="md-content__inner md-typeset">
                 <a id="__skip" tabindex="-1"></a>
@@ -5263,13 +6704,13 @@
   
 
 
-  <a class="ww-level ww-level--basic" href="../../levels/" title="Reading level: Basic. What the levels mean">
+  <a class="ww-level ww-level--advanced" href="../../levels/" title="Reading level: Advanced. What the levels mean">
     <svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true">
       <rect x="0" y="7" width="3.2" height="5" rx="0.6"/>
-      <rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6" class="ww-level__off"/>
+      <rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/>
       <rect x="10.8" y="0" width="3.2" height="12" rx="0.6" class="ww-level__off"/>
     </svg>
-    <span class="ww-level__label">Basic</span>
+    <span class="ww-level__label">Advanced</span>
   </a>
 
   
@@ -5280,53 +6721,351 @@
   
 
 
-<h1 id="evolution-checker">Evolution checker<a class="headerlink" href="#evolution-checker" title="Permanent link">&para;</a></h1>
-<p><code>ww api check &lt;path&gt;</code> compares the traits and types of a crate with the latest <a href="../../cli_reference/#ww-api">snapshot</a> saved in
-<code>&lt;path&gt;/api_snapshots/</code>, and fails if the crate version is not bumped enough for what changed, following the
-<a href="../rules/">evolution rules</a>. The crate is parsed from source, same as for <code>ww api save</code>, so nothing has to be built.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>$ ww api check ww_stdlib/ww_uart
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>ww_uart 0.1.0 (ww_stdlib/ww_uart/api_snapshots/ww_uart_0_1_0.ron) -&gt; 0.1.1 (source): compatible changes
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>  compatible: Uart::flush added
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>version is bumped enough
+<h1 id="the-evolution-checker">The evolution checker<a class="headerlink" href="#the-evolution-checker" title="Permanent link">&para;</a></h1>
+<p>Remembering every rule in <a href="../rules/">what can change</a> is not a job for people. The evolution checker does it: it
+compares a crate with a snapshot of its last release and says what changed, whether that is compatible, and which
+<a href="../versions/#which-bump-a-change-needs">wire and crate versions</a> the change needs. It reads the crate from source,
+same as for <code>ww api save</code>, so nothing has to be built.</p>
+<p>It runs three ways, all the same checker:</p>
+<ul>
+<li><code>ww api check &lt;path&gt;</code> on the command line,</li>
+<li>a test in the API crate (<code>tests/evolution.rs</code>), so <code>cargo test</code>, CI and a pre-commit hook check every commit,</li>
+<li>the library, <code>wire_weaver_evolution</code>, from other tools.</li>
+</ul>
+<h2 id="a-first-check">A first check<a class="headerlink" href="#a-first-check" title="Permanent link">&para;</a></h2>
+<p><code>ww api check &lt;path&gt;</code> compares the traits and types of a crate with the latest <a href="../../cli_reference/#ww-api">snapshot</a>
+saved in <code>&lt;path&gt;/api_snapshots/</code>, and fails if the crate version or the <a href="../versions/#the-wire-version">wire version</a>
+is not bumped enough for what changed:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>$ ww api check ww_uart
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>ww_uart 0.1.0 (ww_uart/api_snapshots/ww_uart_0_1_0.ron) -&gt; 0.1.1 (source): compatible changes
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>  needs: wire w1.0 -&gt; w1.1 or later (a new wire revision), crate 0.1.0 -&gt; 0.1.1 or later (compatible position (patch before 1.0, minor after))
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>  compatible: wire version w1.0 -&gt; w1.1
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>  compatible: Uart::flush added
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>version is bumped enough
 </span></code></pre></div>
 <p>To start, save a snapshot of each released version and commit it, then check before every release:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>$ ww api save my_device_api     # once per released version, commit api_snapshots/
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>$ ww api check my_device_api    # after changing the crate and bumping its version
 </span></code></pre></div>
-<p>The snapshot used is the newest one of the same crate with a version not newer than the one in <code>Cargo.toml</code>, so it is
-the snapshot of the current version if it was already saved, and of the previous version otherwise. <code>--against &lt;file&gt;</code>
-compares with a specific snapshot instead. Nothing is checked if there is no snapshot yet.</p>
-<p><code>&lt;path&gt;</code> can also be a snapshot file, which is then compared with the previous snapshot in the same directory, e.g. to
-check snapshots that were saved with <code>--force</code>.</p>
-<p><code>ww api save</code> runs the same check before saving a snapshot of a new version, and refuses to save it if the version
-is not bumped enough (<code>--force</code> saves anyway). So in a crate that has snapshots of all of its published versions,
-every new snapshot is checked against the previous one.</p>
+<p>Which snapshot is used:</p>
+<ul>
+<li>The newest one of the same crate with a version not newer than the one in <code>Cargo.toml</code>: the snapshot of the current
+  version if it was already saved, and of the previous version otherwise.</li>
+<li><code>--against &lt;file&gt;</code> compares with a specific snapshot instead.</li>
+<li><code>&lt;path&gt;</code> can also be a snapshot file, which is then compared with the previous snapshot in the same directory, e.g.
+  to check snapshots that were saved with <code>--force</code>.</li>
+<li>Nothing is checked if there is no snapshot yet, unless <code>--strict</code> is given: then a crate without a snapshot fails,
+  naming the <code>ww api save</code> to run. <code>--require-current</code> requires the snapshot of the version in <code>Cargo.toml</code> itself,
+  see <a href="#the-current-versions-snapshot">below</a>.</li>
+</ul>
+<p><code>ww api save</code> only ever writes the snapshot of the version in <code>Cargo.toml</code>: it saves it, or refreshes it when the
+source changed since, and never touches an older version's. It runs the same check against the previous version's
+snapshot first, and refuses to save if the version is not bumped enough (<code>--force</code> saves anyway). So in a crate that
+has snapshots of all of its published versions, every new snapshot is checked against the previous one. Refreshing is
+for a version still being worked on: once a version is released, its snapshot never changes, bump the version instead
+(the pre-commit hook <a href="#a-released-snapshot-never-changes">below</a> refuses it).</p>
+<p>Traits and types are compared by their definitions, not by where the source declares them. Moving types or a
+<code>#[ww_trait]</code> from <code>lib.rs</code> into a <code>pub mod</code>, re-exported at the same paths, or writing them in another order, gives
+the same snapshot: a crate snapshot lists its traits by name, and its traits, types and dependency crates in one
+canonical order, that of first use from the traits, then the types nothing uses by their path in the crate (EVO-77).
+The items of a trait, the fields of a struct and the variants of an enum keep the order the source gives them, as
+that order is the API. Both sides are put into the same order again before they are compared (EVO-75), so a snapshot
+saved by an older <code>ww</code> in its source order is still <code>no changes</code>. <code>ww api save</code> writes such a file once more in
+canonical order (<code>reformatted</code>); one already in a release tag is left out of the commit, as the hook
+<a href="#a-released-snapshot-never-changes">below</a> refuses it.</p>
+<h2 id="reading-a-report">Reading a report<a class="headerlink" href="#reading-a-report" title="Permanent link">&para;</a></h2>
+<p>A breaking change is listed with the rule it breaks and where that rule is explained, and a failed check says which
+version to put into <code>Cargo.toml</code>:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>$ ww api check examples/blinky_api
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>blinky_api 0.1.0 (examples/blinky_api/api_snapshots/blinky_api_0_1_0.ron) -&gt; 0.1.0 (source): breaking changes
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>  needs: no wire version declared (a new wire line if it were), crate 0.1.0 -&gt; 0.2.0 or later (breaking position (minor before 1.0, major after))
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>  breaking: BlinkyApi::led_off removed
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>      rule: traits, resources and types are never removed, clients and code using them break (docs/evolution/rules.md#api)
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>Error: blinky_api 0.1.0 -&gt; 0.1.0 has breaking changes, which requires a bump of the breaking position (minor before 1.0, major after): 0.2.0 or later.
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>blinky_api 0.1.0 has a snapshot (examples/blinky_api/api_snapshots/blinky_api_0_1_0.ron), so it is released and never changes: a change needs a new version.
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>Bump `version` in examples/blinky_api/Cargo.toml to 0.2.0 or later (docs/evolution/versions.md#your-apis-version); once that version is released, record it with `ww api save examples/blinky_api` and commit api_snapshots/.
+</span></code></pre></div>
+<p><code>blinky_api</code>'s snapshot of 0.1.0 was saved before wire versions existed, so only the crate version is checked
+against it; the next section shows both.</p>
+<h3 id="two-bumps-the-wire-and-the-crate">Two bumps: the wire and the crate<a class="headerlink" href="#two-bumps-the-wire-and-the-crate" title="Permanent link">&para;</a></h3>
+<p>The wire version (<code>[package.metadata.wire_weaver] wire = "w1.0"</code> in <code>Cargo.toml</code>) and the crate version are bumped
+apart: the wire version for what devices and hosts of the two versions can still say to each other, the crate version
+for Rust code. One comparison gives both, on the <code>needs:</code> line, and the check fails when either is not bumped enough,
+naming what to change for each. A trailing argument with a default is a wire-compatible addition, a new wire
+revision, but a breaking change of the Rust signatures, a breaking crate bump:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>$ ww api check my_device_api
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>my_device_api 0.1.0 (my_device_api/api_snapshots/my_device_api_0_1_0.ron) -&gt; 0.1.1 (source): breaking changes
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>  needs: wire w1.0 -&gt; w1.1 or later (a new wire revision), crate 0.1.0 -&gt; 0.2.0 or later (breaking position (minor before 1.0, major after))
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>  breaking (Rust only, the wire is compatible): MyDevice::led_on: takes 0 argument(s) on the old version, 1 on the new version: the same bytes on the wire, but other parameters for handlers and client calls
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>      rule: arguments added at the end with a default, or promoted to a #[flatten] struct, keep the wire, but change the Rust signatures of handlers and client calls (docs/evolution/rules.md#arguments)
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>Error: my_device_api 0.1.0 -&gt; 0.1.1 has breaking changes, which requires a bump of the breaking position (minor before 1.0, major after): 0.2.0 or later.
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>Bump `version` in my_device_api/Cargo.toml to 0.2.0 or later (docs/evolution/versions.md#your-apis-version); once that version is released, record it with `ww api save my_device_api` and commit api_snapshots/.
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>my_device_api wire w1.0 -&gt; w1.0 has MyDevice::led_on: arguments added or removed at the end, which needs a new wire revision: w1.1 or later.
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>Bump the wire version in `[package.metadata.wire_weaver] wire` of my_device_api/Cargo.toml to w1.1 or later (docs/evolution/versions.md#the-wire-version).
+</span></code></pre></div>
+<p>Which change needs which bump is in <a href="../versions/#which-bump-a-change-needs">versions</a>. In short:</p>
+<ul>
+<li>A new wire line (<code>w1.0</code> -&gt; <code>w2.0</code>): anything that breaks the wire, also through a dependency. A <code>ww_stdlib</code> crate on
+  a new line of its own is one cause, with the breaks it brings named under it: <code>shared_api on a new wire line, w1.0
+  -&gt; w2.0 (2 wire breaks because type shared_api::Shared changed)</code>.</li>
+<li>A new wire revision (<code>w1.0</code> -&gt; <code>w1.1</code>): a wire-compatible addition (a method, property, stream, trait, type, field,
+  variant or trailing argument), a raised max length, or a dependency at a newer revision of its line.</li>
+<li>No wire bump: doc comments, and changes that only break Rust code (a rename, a <code>#[flatten]</code> promotion, a changed
+  catch-all). Doc comments still need the compatible crate bump: they are in introspection data and snapshots, so
+  tools show the new docs (<a href="../versions/#doc-comments">doc comments</a>).</li>
+</ul>
+<p>A bigger bump than needed is always accepted, so a line bumped by hand for a change of meaning the checker can't see
+passes. A wire version going back, or no longer declared, fails, and so does a <code>#[since]</code> newer than the crate's wire
+version. <code>ww api save</code> refuses to save in each of these cases, as for a crate version not bumped enough. A crate that
+declares no wire version on the old side has nothing to compare with: the <code>needs:</code> line still says what it would
+need. From code, <code>Report::wire_bump</code>, <code>Report::minimal_wire()</code> and <code>Report::check_wire()</code> give the same.</p>
+<h3 id="several-broken-items-one-cause-evo-21">Several broken items, one cause (EVO-21)<a class="headerlink" href="#several-broken-items-one-cause-evo-21" title="Permanent link">&para;</a></h3>
+<p>A dependency (a <code>ww_stdlib</code> crate, or any other crate used through it) can break more than one trait, resource or type
+of the checked crate at once: every item that reaches the one type, trait or marker the dependency changed breaks
+with it. The checker groups such items under the change that actually broke them, instead of listing them as
+unrelated breaks, whenever it can name that cause (a crate and a name, from the same checks that already explain a
+single break: <a href="#what-is-checked">a wire-incompatible dependency version</a>, or the same crate version with a different
+definition):</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>$ ww api check my_board_api
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>my_board_api 0.4.0 (my_board_api/api_snapshots/my_board_api_0_4_0.ron) -&gt; 0.4.0 (source): breaking changes
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>  6 broken because type ww_board_info::Rework changed:
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    breaking: BoardInfo::info: ...
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>        rule: a type written by either version is read by the other one (docs/evolution/rules.md#data-types)
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    breaking: Indication::state: ...
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>        rule: ...
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    breaking: Clock::now: ...
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>        rule: ...
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>    breaking: Can::rate: ...
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>        rule: ...
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>    breaking: LastReset::reason: ...
+</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>        rule: ...
+</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>    breaking: Counters::read: ...
+</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>        rule: ...
+</span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a>Error: my_board_api 0.4.0 -&gt; 0.4.0 has breaking changes, which requires a bump of the breaking position (minor before 1.0, major after): 0.5.0 or later.
+</span></code></pre></div>
+<p>A group forms only once a cause reaches two or more items; a single broken item still reads as an ordinary breaking
+line, with its own rule and bump. Grouping is naming, not a verdict of its own: every grouped item still carries its
+own <a href="#what-is-checked"><code>Rule</code></a> and counts toward the same required bump as it would alone.</p>
+<h3 id="notes-about-dependencies">Notes about dependencies<a class="headerlink" href="#notes-about-dependencies" title="Permanent link">&para;</a></h3>
+<p>Some lines in a report are <code>note:</code>s, which never change the verdict. One says that a dependency's doc comments
+changed while its definition stayed the same (EVO-69):</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>note: type exact_units::IndexFrom1 0.1.0: doc comments changed since the old version was saved, the definition is the same
+</span></code></pre></div>
+<p>Others say what a snapshot saved by an older wire_weaver doesn't record, or that a dependency's unpublished version
+changed in place. How the checker tells these apart, through the two signatures every definition has, is in
+<a href="../inside_the_checker/#snapshots-and-signatures">inside the checker</a>.</p>
+<h2 id="checking-at-every-commit">Checking at every commit<a class="headerlink" href="#checking-at-every-commit" title="Permanent link">&para;</a></h2>
+<p>The checker is a library, <code>wire_weaver_evolution</code>, which parses the crate from source like <code>ww api check</code> does and
+needs neither the client nor a device. An API crate runs it from a test of its own, so the version of the checker is
+the one its lock file pins, and <code>cargo test</code>, CI and a pre-commit hook all check the same way, with nothing to
+install. <code>examples/blinky_api</code> is set up like this.</p>
+<p>In the API crate, a dev-dependency and <code>tests/evolution.rs</code>:</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">[dev-dependencies]</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">wire_weaver_evolution</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;0.5&quot;</span>
+</span></code></pre></div>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="cp">#[test]</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="k">fn</span><span class="w"> </span><span class="nf">api_evolution</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">    </span><span class="n">wire_weaver_evolution</span><span class="p">::</span><span class="n">Check</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="fm">env!</span><span class="p">(</span><span class="s">&quot;CARGO_MANIFEST_DIR&quot;</span><span class="p">))</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">        </span><span class="p">.</span><span class="n">require_current</span><span class="p">(</span><span class="kc">true</span><span class="p">)</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">        </span><span class="p">.</span><span class="n">assert</span><span class="p">();</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="p">}</span>
+</span></code></pre></div>
+<h3 id="the-current-versions-snapshot">The current version's snapshot<a class="headerlink" href="#the-current-versions-snapshot" title="Permanent link">&para;</a></h3>
+<p><code>require_current(true)</code> makes the test fail until the version in <code>Cargo.toml</code> has its own snapshot in
+<code>api_snapshots/</code>, and whenever the source differs from that snapshot. The snapshot is then compared with the previous
+version's, so the bump is checked as well. A version can't be released without its snapshot this way: with only the
+previous version's snapshot required, a firmware once shipped API 0.2.0 with no <code>..._0_2_0.ron</code>, and nothing to tell
+later what 0.2.0 was.</p>
+<p>The snapshot is saved by the same test, with <code>WW_API_SAVE=1</code>:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>$ WW_API_SAVE=1 cargo test -p my_device_api --test evolution
+</span></code></pre></div>
+<p>It writes the snapshot of the current version, or refreshes it when the source changed, and refuses (failing the
+test) when the version is not bumped enough since the previous version's snapshot. As the test runs the checker its
+lock file pins, saving needs no <code>ww</code> install either, and every clone saves the same bytes. <code>ww api save
+my_device_api</code> does the same; <code>Check::save</code> is the library call behind both.</p>
+<p>So the flow is: bump the version when starting on the next one, change the API, save, commit the snapshot with the
+change. A failing test names what to do:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>no snapshot of my_device_api 0.2.0 in my_device_api/api_snapshots (the previous one is my_device_api/api_snapshots/my_device_api_0_1_0.ron), and the current version&#39;s snapshot is required.
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>Save it with `just api-save` (`WW_API_SAVE=1 cargo test --test evolution` in the crate, or `ww api save my_device_api`) and commit api_snapshots/ (see docs/evolution/checker_tool.md).
+</span></code></pre></div>
+<p>Upgrading wire_weaver alone never makes this test fail or asks for a new snapshot. A newer wire_weaver may record
+more about an API than the one that saved its snapshot (EVO-10 added each enum's catch-all, <code>future_version</code>): a
+field of the API model that a snapshot file has nowhere was not recorded by its writer, and the checker compares both
+sides without it, saying so in the report (<code>not compared: ItemEnum::future_version, which a snapshot saved by an
+older wire_weaver doesn't have</code>). A snapshot is saved again only for a real change of the API, or when you run <code>ww
+api save</code> to record the new fields too (an appended variant of an enum with the catch-all passes only once the
+snapshot records the catch-all). The same holds for the signatures inside an old snapshot
+(<a href="../inside_the_checker/#a-snapshot-saved-by-an-older-wire_weaver-evo-70">a snapshot saved by an older wire_weaver</a>).</p>
+<p><code>strict(true)</code> instead of <code>require_current(true)</code> only requires some snapshot to compare with: the source is then
+compared with the newest one not newer than its version, which may be the previous version's. That suits a crate that
+saves a snapshot only when it releases. <code>strict(true)</code> also asks for a reason on every <code>#[no_unit_hint]</code>
+(<a href="#a-reason-required-under-strict-tool-35">below</a>); both can be set together.</p>
+<h3 id="recipes-ci-and-a-hook">Recipes, CI and a hook<a class="headerlink" href="#recipes-ci-and-a-hook" title="Permanent link">&para;</a></h3>
+<p>Recipes in the project's <code>justfile</code>, <code>api-check</code> to run the test on its own, <code>api-save</code> to save the current version's
+snapshot, <code>setup</code> to turn on the hook below:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a># compare the API with its snapshots: fails without the current version&#39;s snapshot, or on a change without the
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a># version bump it needs
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>api-check:
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>    cargo test -p my_device_api --test evolution
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a># save the snapshot of the current version of the API, commit api_snapshots/ with the change
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>api-save:
+</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>    WW_API_SAVE=1 cargo test -p my_device_api --test evolution -- --nocapture
+</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>
+</span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>setup:
+</span><span id="__span-10-11"><a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>    git config core.hooksPath .githooks
+</span></code></pre></div>
+<p>A step in CI, after the toolchain is set up (<code>--target</code> with the host's triple when <code>.cargo/config.toml</code> builds for an
+MCU by default):</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">API evolution check</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">        </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">just api-check</span>
+</span></code></pre></div>
+<p>And a tracked pre-commit hook, <code>.githooks/pre-commit</code> (executable), turned on once per clone by <code>just setup</code>. It only
+runs when the commit touches the API crate:</p>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="ch">#!/bin/sh</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="c1"># API evolution check (docs/evolution/checker_tool.md), only when the commit touches the API crate</span>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>git<span class="w"> </span>diff<span class="w"> </span>--cached<span class="w"> </span>--quiet<span class="w"> </span>--<span class="w"> </span>my_device_api<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">exit</span><span class="w"> </span><span class="m">0</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="nb">exec</span><span class="w"> </span>just<span class="w"> </span>api-check
+</span></code></pre></div>
+<p>The hook checks the working tree, not only what is staged, the same as <code>cargo test</code> would. <code>git commit --no-verify</code>
+skips it for a work-in-progress commit; CI still checks.</p>
+<h3 id="a-released-snapshot-never-changes">A released snapshot never changes<a class="headerlink" href="#a-released-snapshot-never-changes" title="Permanent link">&para;</a></h3>
+<p>The checker can't tell whether a version was released, so it lets the current version's snapshot be refreshed. What
+was released is in git: a project tags its releases, and the hook refuses a commit that changes a snapshot already in
+a tag. Before the <code>exec</code> line:</p>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># a snapshot in a release tag never changes: bump the version instead</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="k">for</span><span class="w"> </span>f<span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="k">$(</span>git<span class="w"> </span>diff<span class="w"> </span>--cached<span class="w"> </span>--name-only<span class="w"> </span>--diff-filter<span class="o">=</span>MD<span class="w"> </span>--<span class="w"> </span>my_device_api/api_snapshots<span class="k">)</span><span class="p">;</span><span class="w"> </span><span class="k">do</span>
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="o">[</span><span class="w"> </span>-n<span class="w"> </span><span class="s2">&quot;</span><span class="k">$(</span>git<span class="w"> </span>tag<span class="w"> </span>--contains<span class="w"> </span><span class="s2">&quot;</span><span class="k">$(</span>git<span class="w"> </span>log<span class="w"> </span>-1<span class="w"> </span>--format<span class="o">=</span>%H<span class="w"> </span>--<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$f</span><span class="s2">&quot;</span><span class="k">)</span><span class="s2">&quot;</span><span class="k">)</span><span class="s2">&quot;</span><span class="w"> </span><span class="o">]</span><span class="p">;</span><span class="w"> </span><span class="k">then</span>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="w">        </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$f</span><span class="s2"> is released and never changes: bump the version in my_device_api/Cargo.toml&quot;</span><span class="w"> </span>&gt;<span class="p">&amp;</span><span class="m">2</span>
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="w">        </span><span class="nb">exit</span><span class="w"> </span><span class="m">1</span>
+</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="w">    </span><span class="k">fi</span>
+</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="k">done</span>
+</span></code></pre></div>
+<h3 id="a-missing-test-warning-tool-31">A missing-test warning (TOOL-31)<a class="headerlink" href="#a-missing-test-warning-tool-31" title="Permanent link">&para;</a></h3>
+<p><code>ww api check</code> and <code>ww api save</code> also warn, before anything else, when the crate directory has no
+<code>tests/evolution.rs</code> calling <code>wire_weaver_evolution::Check</code> (the <a href="#checking-at-every-commit">test above</a>):</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>$ ww api check my_device_api
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>warning: no my_device_api/tests/evolution.rs calling wire_weaver_evolution::Check: add the wire_weaver_evolution
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>  dev-dependency and this test (docs/evolution/checker_tool.md), so a wire break is caught by `cargo test`, not
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>  only by `ww api check` run by hand
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>my_device_api 0.1.0 (my_device_api/api_snapshots/my_device_api_0_1_0.ron) -&gt; 0.1.0 (source): no changes
+</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>no changes
+</span></code></pre></div>
+<p>A crate without the API crate's own test only gets checked when someone remembers to run <code>ww api check</code> by hand:
+<code>cargo test</code>, CI and a pre-commit hook never see it. The warning never affects the verdict, like the TOOL-22 hints,
+and it only looks at the file's text (it doesn't need the crate to build), so it also fires on a crate the checker
+can't otherwise parse. <code>wire_weaver_evolution::missing_test_warning(path)</code> is the library call behind it, for other
+tools that want the same check.</p>
 <h2 id="listing-all-changes">Listing all changes<a class="headerlink" href="#listing-all-changes" title="Permanent link">&para;</a></h2>
 <p><code>ww api diff &lt;path&gt;</code> compares the same versions as <code>ww api check</code> (and also takes <code>--against</code> or a snapshot file), and
 lists every difference, doc comments included, followed by the verdict. It never fails, and doesn't tell why a change
 is breaking, <code>ww api check</code> does:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>$ ww api diff ww_stdlib/ww_uart
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>ww_uart 0.1.0 (ww_stdlib/ww_uart/api_snapshots/ww_uart_0_1_0.ron) -&gt; 0.1.0 (source)
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>  ~ Uart::rx: docs
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>      /// Receive stream
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    + /// of chunks
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>  ~ Uart::prevent_back_feed: docs
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>      /// Detect RX low for more than 1 byte interval and set TX low to avoid powering device in sleep mode through it.
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    - /// Optional, check [Capabilities] if supported.
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    + /// Check [Capabilities] if supported.
-</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>  + Uart::flush: fn flush()
-</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>  ~ RxFlags: field `parity_error`: docs
-</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>    + /// Parity error
-</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>  + RxFlags: field `framing_error`: framing_error: bool
-</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>breaking changes, version has to be 0.2.0 or later (run `ww api check` for details)
+<div class="language-text highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>$ ww api diff ww_uart
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>ww_uart 0.1.0 (ww_uart/api_snapshots/ww_uart_0_1_0.ron) -&gt; 0.1.0 (source)
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>  ~ Uart::rx: docs
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>      /// Receive stream
+</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>    + /// of chunks
+</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>  ~ Uart::prevent_back_feed: docs
+</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a>      /// Detect RX low for more than 1 byte interval and set TX low to avoid powering device in sleep mode through it.
+</span><span id="__span-15-8"><a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a>    - /// Optional, check [Capabilities] if supported.
+</span><span id="__span-15-9"><a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a>    + /// Check [Capabilities] if supported.
+</span><span id="__span-15-10"><a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a>  + Uart::flush: fn flush()
+</span><span id="__span-15-11"><a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a>  ~ RxFlags: field `parity_error`: docs
+</span><span id="__span-15-12"><a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a>    + /// Parity error
+</span><span id="__span-15-13"><a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a>  + RxFlags: field `framing_error`: framing_error: bool
+</span><span id="__span-15-14"><a id="__codelineno-15-14" name="__codelineno-15-14" href="#__codelineno-15-14"></a>breaking changes, version has to be 0.2.0 or later (run `ww api check` for details)
 </span></code></pre></div>
 <p>Each line is an added (<code>+</code>), removed (<code>-</code>) or changed (<code>~</code>) trait, resource, type, struct field, enum variant or
 dependency crate version. Changes are: a resource's signature (kind, arguments, return type, property access, stream
 direction, array or not), a resource's or variant's name, a type's kind, size kind or repr, a field's position, type
 or <code>#[default]</code> value, <code>#[since]</code> of any of them, and doc comments, shown as a line diff. Items are matched as
-described below, enum variants by discriminant, fields by name and unnamed ones by position. A renamed type is
-removed and added.</p>
-<p><code>evolution::diff()</code> in <code>wire_weaver_client</code> returns the same list, for use from other tools.</p>
+described <a href="#what-is-checked">below</a>, enum variants by discriminant, fields by name and unnamed ones by position. A
+renamed type is removed and added.</p>
+<p><code>diff()</code> in <code>wire_weaver_evolution</code> returns the same list, for use from other tools.</p>
+<h2 id="several-api-roots-in-one-crate">Several API roots in one crate<a class="headerlink" href="#several-api-roots-in-one-crate" title="Permanent link">&para;</a></h2>
+<p>A crate that holds several wire lines, one <code>#[ww_api_root]</code> per module with its wire version in
+<code>[package.metadata.wire_weaver.roots]</code> (<a href="../versions/#several-lines-in-one-crate">several lines in one crate</a>), has a
+snapshot per root, named after the crate version that saved it and the root's wire version,
+<code>&lt;crate&gt;_&lt;major&gt;_&lt;minor&gt;_&lt;patch&gt;.&lt;module path&gt;.&lt;Trait&gt;@w&lt;line&gt;.&lt;revision&gt;.ron</code>. Crates with one root, or none
+(<code>ww_stdlib</code>), keep their whole-crate files:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>$ ww api save tests/multi_root_api
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>wire_v1::Thermo: saved tests/multi_root_api/api_snapshots/multi_root_api_0_1_0.wire_v1.Thermo@w1.2.ron, 5 resources, 2 traits, 1 types
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>wire_v2::Thermo: saved tests/multi_root_api/api_snapshots/multi_root_api_0_1_0.wire_v2.Thermo@w2.1.ron, 5 resources, 2 traits, 1 types
+</span></code></pre></div>
+<ul>
+<li>A root's snapshot holds the root and the traits and types it reaches. A type in <code>common</code> that no root uses is in
+  none of them, and another line's types are not in this one's.</li>
+<li><code>#[since = "w1.2, w2.1"]</code> on a shared item is recorded as the revision of the snapshot's own line.</li>
+<li>Each root is checked against its own previous snapshot before it is saved, as a crate is: the version and the entry
+  in the <code>roots</code> table must be bumped enough. Nothing is written when any root is refused.</li>
+<li>Only the current crate version's files are written, as for a whole crate, so a released snapshot never changes and
+  the pre-commit hook <a href="#a-released-snapshot-never-changes">above</a> works unchanged.</li>
+<li>A root that didn't change since its previous snapshot gets no new file: that one, saved by an older crate version,
+  stays its latest. A root that changed, a doc comment too, gets a file of the new crate version.</li>
+<li>A crate that had one root and now has several still has its older whole-crate snapshots (<code>thermo_api_1_2_0.ron</code>).
+  Each counts as an earlier snapshot of the root on the same line with the same trait name, cut down to that root.</li>
+<li>A root with no earlier snapshot is saved unchecked. When the crate has snapshots of older versions, <code>ww api save</code>
+  warns, naming what it looked for and what is there: a root renamed, or moved to another module or line, matches
+  none of them by name (EVO-40).</li>
+<li>A root on w0 gets no snapshot (<a href="#the-design-line-w0">below</a>).</li>
+</ul>
+<h3 id="checking-each-root">Checking each root<a class="headerlink" href="#checking-each-root" title="Permanent link">&para;</a></h3>
+<p><code>ww api check</code> and <code>Check::run</code> check such a crate root by root (EVO-39): each root from source against its own
+latest snapshot, under its name and wire version. Here <code>Code</code> in <code>common</code> went from <code>u16</code> to <code>u32</code>:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>$ ww api check tests/multi_root_api
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>API root `wire_v1::Thermo` (w1.2)
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>multi_root_api 0.1.0 (api_snapshots/multi_root_api_0_1_0.wire_v1.Thermo@w1.2.ron) -&gt; 0.1.0 (source): breaking changes
+</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>  needs: wire w1.2 -&gt; w2.0 or later (a new wire line), crate 0.1.0 -&gt; 0.2.0 or later (breaking position ...)
+</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>  breaking: Channel::read: return type: struct Code: field 0: u32 on the new version, u16 on the old version
+</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>  ...
+</span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>API root `wire_v2::Thermo` (w2.1)
+</span><span id="__span-17-8"><a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>multi_root_api 0.1.0 (api_snapshots/multi_root_api_0_1_0.wire_v2.Thermo@w2.1.ron) -&gt; 0.1.0 (source): breaking changes
+</span><span id="__span-17-9"><a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a>  needs: wire w2.1 -&gt; w3.0 or later (a new wire line), crate 0.1.0 -&gt; 0.2.0 or later (breaking position ...)
+</span><span id="__span-17-10"><a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a>  ...
+</span><span id="__span-17-11"><a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a>note: shared `Code` changed on `wire_v1::Thermo` (w1.2), `wire_v2::Thermo` (w2.1)
+</span><span id="__span-17-12"><a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a>crate: 0.2.0 or later, the largest its roots need
+</span></code></pre></div>
+<ul>
+<li>Each root's wire version is checked on its own line, and a wire bump names the root's entry in the <code>roots</code> table.
+  <code>#[since = "w1.2, w2.1"]</code> on a shared item is checked against each line's revision.</li>
+<li>A type or trait of the crate that more than one root reaches and that changed is listed once more at the end, with
+  every root and line it changed on, and the roots that reach it with nothing to compare (a w0 root). A w0 root's
+  differences add nothing to the crate bump.</li>
+<li>The crate version is one for all roots, so it has to be bumped for the root that needs the most.</li>
+<li>A root that didn't change keeps an older crate version's snapshot as its latest. Once the crate version has
+  snapshots of other roots, that older snapshot stands for the current version: a change to the root afterwards needs
+  a new version, or a save again while the version isn't released, as for a whole crate.</li>
+<li>With <code>require_current</code> (the evolution test), a root that changed since its latest snapshot needs a file of the
+  current version. A root unchanged since an older version's snapshot needs none.</li>
+<li>A root the <code>roots</code> table no longer lists while it has snapshots is a line leaving the crate, a breaking crate bump
+  (<a href="../versions/#several-lines-in-one-crate">several lines in one crate</a>) of the last version that shipped it: the
+  newest one saved before the current version while the root had a snapshot. A root only ever saved by the version
+  being worked on was never shipped and needs no bump. <code>ww api save</code> records the removal in
+  <code>&lt;crate&gt;_&lt;major&gt;_&lt;minor&gt;_&lt;patch&gt;.&lt;module path&gt;.&lt;Trait&gt;@w&lt;line&gt;.&lt;revision&gt;.removed</code>, a one-line text file, and
+  refuses it without the bump. Later versions are not asked again, and the evolution test fails until the removal is
+  recorded.</li>
+<li><code>ww api check --against &lt;file&gt;</code> takes one root's snapshot file and checks that root. A root's snapshot file checked
+  by itself is compared with the previous snapshot of the same root.</li>
+<li><code>ww api diff</code> lists each root's differences under its name.</li>
+<li>All roots are loaded with one cache of the crates read (<code>wire_weaver_core::CrateCache</code>), so the dependencies' source
+  is walked once for the whole check. The cache keeps a load only while every file it read has the size and
+  modification time it had, so a check after an edit sees it; <code>Check::cache</code> shares one cache between checks, also on
+  other threads (EVO-50).</li>
+<li>A root on w0 gets no snapshot and needs none: its check is on the design line (<a href="#the-design-line-w0">below</a>).</li>
+</ul>
+<h2 id="the-design-line-w0">The design line, w0<a class="headerlink" href="#the-design-line-w0" title="Permanent link">&para;</a></h2>
+<p>An API on <code>w0.x</code> is still being designed (<a href="../versions/#w0-the-design-line">w0, the design line</a>): <code>ww api save</code> keeps
+no snapshot of it, and <code>ww api check</code> passes, also with <code>--strict</code> and in the evolution test with <code>require_current</code>.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>$ ww api save my_device_api
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>not saved: w0.2 is the design line, which keeps no snapshots (docs/evolution/versions.md#w0-the-design-line); the first is saved once the API moves to w1.0 at its first release
+</span></code></pre></div>
+<ul>
+<li>Against a snapshot that exists (<code>--against</code>, or one kept from before), <code>ww api check</code> prints the report as usual,
+  <code>needs:</code> saying <code>wire w0.2 (the design line: no wire bump)</code>, and passes: what differs is information.</li>
+<li>A crate that can be published (no <code>publish = false</code>) with a root on w0 gets a warning from both commands.</li>
+<li>Moving the API to <code>w1.0</code> makes the next <code>ww api save</code> keep its first snapshot, and every check from there on is the
+  one above.</li>
+</ul>
 <h2 id="what-is-checked">What is checked<a class="headerlink" href="#what-is-checked" title="Permanent link">&para;</a></h2>
 <p>Changes are sorted into four kinds, and each kind requires a bump of a version position:</p>
 <table>
@@ -5350,7 +7089,7 @@ removed and added.</p>
 </tr>
 <tr>
 <td>Compatible</td>
-<td>new trait, new resource at the end of a trait, new field with <code>#[default]</code> at the end of an <code>Unsized</code> type, new field in unused padding bits of any type, new type, <code>#[since]</code> or <code>#[default]</code> value changed, max length raised or removed</td>
+<td>new trait, new resource at the end of a trait, new field with <code>#[default]</code> at the end of an <code>Unsized</code> type, new field in unused padding bits of any type, new type, <code>#[since]</code> or <code>#[default]</code> value changed, max length raised or removed, <code>T</code> &lt;-&gt; a transparent wrapper of <code>T</code></td>
 <td>compatible position (patch before 1.0, minor after)</td>
 </tr>
 <tr>
@@ -5361,9 +7100,12 @@ removed and added.</p>
 </tbody>
 </table>
 <p>Doc comments are not on the wire, but a released version's snapshot never changes, so they need a new version as well
-(see <a href="../rules/#doc-comments">doc comments</a>). A bigger bump than required is always fine.</p>
-<p>Resources are matched by their id inside each trait (their position, as the device sees them), traits and types by
-name. A change is breaking if:</p>
+(see <a href="../versions/#doc-comments">doc comments</a>). A bigger bump than required is always fine.</p>
+<p>Traits and types are matched by name. Resources are matched by their id inside each trait (their position, as the
+device sees them) while the old and the new version are on one wire line. Across a line break they are matched by
+their path, the trait and the name, and by <a href="../rules/#moving-a-resource-to-another-place"><code>#[moved_from]</code></a>: a moved
+resource with exactly the same signature is reported as a move, a resource of the same name elsewhere only as a
+proposal, a resource at another position as a wire change only. A change is breaking if:</p>
 <ul>
 <li>a trait, resource or type is removed, or a resource moved to another id (e.g. a new one inserted before it: add new
   resources at the end),</li>
@@ -5373,65 +7115,109 @@ name. A change is breaking if:</p>
   new client with an old device), compared the same way as a client checks its API against a device's: resource kind,
   number and types of arguments, return type, property access, stream direction, array or not,</li>
 <li>a type can't be written by one version and read by the other: e.g. field type changed, field added without
-  <code>#[default]</code> at the end of an <code>Unsized</code> type, field added in between old ones outside of unused padding bits (see
-  below), field added at the end of a <code>final_structure</code>, <code>self_describing</code> or <code>sized</code> type, enum variant added or
-  removed, <code>ww_repr</code> or size kind changed,</li>
-<li>a <a href="../rules/#maximum-lengths-maxlent-n">max length</a> is lowered or added (<code>T</code> -&gt; <code>MaxLen&lt;T, N&gt;</code>): data the old
-  version writes may no longer be read,</li>
-<li>a trait or type from another crate is replaced by one from a wire-incompatible version of that crate (e.g.
-  <code>ww_si 0.1</code> -&gt; <code>0.2</code>), or one from the same crate version with a different definition.</li>
+  <code>#[default]</code> at the end of an <code>Unsized</code> type, field added in between old ones outside of unused
+  <a href="../inside_the_checker/#new-fields-in-padding-bits">padding bits</a>, field added at the end of a <code>final_structure</code>,
+  <code>self_describing</code> or <code>sized</code> type, enum variant added or removed, <code>ww_repr</code> or size kind changed,</li>
+<li>a <a href="../rules/#maximum-lengths-maxlent-n">max length</a> is lowered or added (<code>T</code> -&gt; <code>MaxLen&lt;T, N&gt;</code>): data the old version
+  writes may no longer be read,</li>
+<li>a marker argument changes although the bytes stay: the unit or prefix of a
+  <a href="../rules/#transparent-wrappers-units-and-scales">transparent wrapper</a> (<code>Fixed&lt;Second, Micro, u64&gt;</code> -&gt; <code>Fixed&lt;Second,
+  Milli, u64&gt;</code>), any type argument no field uses, or one wrapper replaced by another of the same bytes (rule
+  <code>Meaning</code>),</li>
+<li>a <code>ww_si::Quantity</code> becomes a <code>ww_si::Fixed</code> or back: other bytes; the finding says it is the intended move, for a
+  major version,</li>
+<li>a <a href="../rules/#bounds">bound</a> is narrowed or widened: values one side writes are refused by the other (rule <code>Bound</code>),</li>
+<li>a trait or type from another crate is replaced by one from a wire-incompatible version of that crate (e.g. <code>ww_si
+  0.1</code> -&gt; <code>0.2</code>), or one from the same crate version with a different definition
+  (<a href="../inside_the_checker/#a-dependency-changed-without-a-version-bump-evo-67">changed in place</a>).</li>
 </ul>
-<p>It also warns about additions without <code>#[since]</code>, or with a <code>#[since]</code> that is not the new version.</p>
-<h2 id="new-fields-in-padding-bits">New fields in padding bits<a class="headerlink" href="#new-fields-in-padding-bits" title="Permanent link">&para;</a></h2>
-<p>Padding inside a type, before a field aligned to a nibble or a byte, is always written as zero bits and skipped when
-reading. A new field of any type, <code>Unsized</code> or not, can take such bits, anywhere between the old fields, if:</p>
-<ul>
-<li>none of the old fields moves and the size doesn't change: the new field only takes bits that were padding,</li>
-<li>all zero bits are a valid value of it, as that is what it reads from old data: <code>bool</code>, numbers, arrays and
-  non-<code>Unsized</code> structs of them, or an enum without data that has a variant with discriminant 0,</li>
-<li>it's fixed size (not <code>UNib32</code>, <code>Option</code>, an enum with data, an <code>Unsized</code> type, ...).</li>
-</ul>
-<p>Old fields are then matched by name. Where padding is depends on the bit offset the type starts at. An <code>Unsized</code> type
-always starts at a byte boundary, so its padding is always in the same place:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="cp">#[derive_shrink_wrap]</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">U</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">f</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">,</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="c1">// 7 bits of padding before `b`</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span><span class="cp">#[since = </span><span class="s">&quot;0.1.1&quot;</span><span class="cp">]</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">g</span><span class="p">:</span><span class="w"> </span><span class="nc">u7</span><span class="p">,</span><span class="w"> </span><span class="c1">// added in 0.1.1, reads as 0 from old data</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">b</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">s</span><span class="p">:</span><span class="w"> </span><span class="nb">String</span><span class="p">,</span>
-</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="p">}</span>
+<p>It also warns about additions without <code>#[since]</code>, or with a <code>#[since]</code> older than the new wire version (and about a
+wire revision that wasn't bumped for them), and fails on any resource, field or variant whose <code>#[since]</code> is newer than
+the API's own wire version (a host built with it would refuse that item on every device of this version, see
+<a href="../versions/#since"><code>#[since]</code></a>). A change of the root's wire version is listed too; whether it is bumped enough is
+<a href="#two-bumps-the-wire-and-the-crate">checked on its own</a>.</p>
+<p>The client uses the same rules when it compares its API with a device's at connect time, and so does <code>Check</code> in an
+API crate's test: the checks live in one place, <code>wire_weaver_evolution::compat</code>.</p>
+<h2 id="unit-suffix-hints-tool-22">Unit-suffix hints (TOOL-22)<a class="headerlink" href="#unit-suffix-hints-tool-22" title="Permanent link">&para;</a></h2>
+<p>A number whose unit lives only in its name is a change of meaning waiting to happen: nothing stops the next version
+from sending milliseconds in <code>timeout_us</code>. So <code>ww api check</code> also notes a plain integer field, method argument or
+property whose name ends in a known unit suffix (<code>_us</code>, <code>_ms</code>, <code>_ns</code>, <code>_s</code>, <code>_hz</code>, <code>_khz</code>, <code>_ppb</code>, <code>_ppm</code>, <code>_bytes</code>,
+<code>_bits</code>, <code>_kib</code>), with the <a href="../../std_library/exact_units/"><code>exact_units::Fixed&lt;U, P, T&gt;</code></a> it could become instead: a
+note, never an error, printed after the verdict and never affecting it, even when there is no snapshot to compare
+with yet:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>$ ww api check my_device_api
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>my_device_api 0.1.0 (my_device_api/api_snapshots/my_device_api_0_1_0.ron) -&gt; 0.1.0 (source): no changes
+</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>no changes
+</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>  note: shared_us: u64 could be exact_units::Fixed&lt;Second, Micro, u64&gt; (exact_units::Micros&lt;u64&gt;), renamed to
+</span><span id="__span-19-5"><a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>  `shared`; silence with #[no_unit_hint]
 </span></code></pre></div>
-<p>An <code>Unsized</code> type can gain fields with <code>#[default]</code> at the end as well, in the same version. Bits after its last field
-are not free though: lengths of variable size fields are written there.</p>
-<p><code>final_structure</code>, <code>self_describing</code> and <code>sized</code> types are packed tightly into their parent, so they can't grow at the
-end, and they can start at any bit inside the parent, so the checker requires that the new field fits for every start
-offset:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="cp">#[derive_shrink_wrap(sized)]</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">S</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">a</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">f</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">,</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span><span class="c1">// 7 bits of padding before `b`, wherever S starts, as `a` is byte-aligned</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">    </span><span class="cp">#[since = </span><span class="s">&quot;0.1.1&quot;</span><span class="cp">]</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">g</span><span class="p">:</span><span class="w"> </span><span class="nc">u3</span><span class="p">,</span><span class="w"> </span><span class="c1">// added in 0.1.1, reads as 0 from old data</span>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">b</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
-</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="p">}</span>
+<p>A field that really is a plain number (a count of nothing in particular, an index, a value whose unit isn't fixed)
+silences the note with <code>#[no_unit_hint]</code> right on it:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="k">struct</span><span class="w"> </span><span class="nc">SteerPoint</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="w">    </span><span class="cp">#[no_unit_hint]</span>
+</span><span id="__span-20-3"><a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="w">    </span><span class="n">retry_count_s</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="c1">// not a duration: s is the slot letter here, not seconds</span>
+</span><span id="__span-20-4"><a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="p">}</span>
 </span></code></pre></div>
-<p>Without <code>a</code>, the padding before <code>b</code> is 7 bits if <code>S</code> starts at a byte boundary, but none if it starts at bit offset 7,
-so <code>g</code> can't be added. Padding after the last field is never free: whatever follows the type in its parent starts
-right there. Enum variants with data are not padded to the same size, so there are no free bits after a shorter
-variant either.</p>
-<p>All of this was checked against real bytes: old and new versions read each other's data, with the new field
-reading as zero from old data. The client uses the same rules when comparing its API with a device's.</p>
+<p>On a trait method the same bare attribute silences every argument, or names only the ones to leave out:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="cp">#[ww_trait]</span>
+</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="k">trait</span><span class="w"> </span><span class="n">Device</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-21-3"><a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="w">    </span><span class="cp">#[no_unit_hint(poll_hz)]</span>
+</span><span id="__span-21-4"><a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">configure</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">timeout_ms</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">,</span><span class="w"> </span><span class="n">poll_hz</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">);</span><span class="w"> </span><span class="c1">// timeout_ms still gets the note</span>
+</span><span id="__span-21-5"><a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>and on a <code>property!</code>/<code>stream!</code>/<code>sink!</code>/<code>ww_impl!</code> item it silences the resource's own name:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="cp">#[no_unit_hint]</span>
+</span><span id="__span-22-2"><a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">ro</span><span class="p">,</span><span class="w"> </span><span class="n">rate_hz</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">);</span><span class="w"> </span><span class="c1">// a raw register value here, not a frequency</span>
+</span></code></pre></div>
+<p><code>ww api scaffold</code> shows the same notes on stderr, next to the generated handler stubs, so a new API crate's handlers
+are written against <code>Fixed</code> from the start where the note applies.</p>
+<h3 id="a-reason-required-under-strict-tool-35">A reason, required under <code>--strict</code> (TOOL-35)<a class="headerlink" href="#a-reason-required-under-strict-tool-35" title="Permanent link">&para;</a></h3>
+<p>The bare forms above stay accepted by default: the walker and <code>ww_codegen!</code>/the derive macros never error on one. A
+reason is written the same way, in place of the bare attribute: <code>#[no_unit_hint = "reason"]</code> on a field or a resource
+item, <code>#[no_unit_hint = "reason"]</code> for every argument of a method, or <code>#[no_unit_hint(arg = "reason", ..)]</code> per
+argument:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="k">struct</span><span class="w"> </span><span class="nc">SteerPoint</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-23-2"><a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="w">    </span><span class="cp">#[no_unit_hint = </span><span class="s">&quot;s is the slot letter here, not seconds&quot;</span><span class="cp">]</span>
+</span><span id="__span-23-3"><a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a><span class="w">    </span><span class="n">retry_count_s</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+</span><span id="__span-23-4"><a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="p">}</span>
+</span><span id="__span-23-5"><a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a>
+</span><span id="__span-23-6"><a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a><span class="cp">#[ww_trait]</span>
+</span><span id="__span-23-7"><a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a><span class="k">trait</span><span class="w"> </span><span class="n">Device</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-23-8"><a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a><span class="w">    </span><span class="cp">#[no_unit_hint(poll_hz = </span><span class="s">&quot;a raw register value, not a frequency&quot;</span><span class="cp">)]</span>
+</span><span id="__span-23-9"><a id="__codelineno-23-9" name="__codelineno-23-9" href="#__codelineno-23-9"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">configure</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">timeout_ms</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">,</span><span class="w"> </span><span class="n">poll_hz</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">);</span>
+</span><span id="__span-23-10"><a id="__codelineno-23-10" name="__codelineno-23-10" href="#__codelineno-23-10"></a><span class="p">}</span>
+</span></code></pre></div>
+<p><code>ww api check --strict</code> and <code>ww api scaffold --strict</code> refuse a bare or empty <code>#[no_unit_hint]</code>, naming the item and
+the reasoned form to write instead:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>$ ww api check my_device_api --strict
+</span><span id="__span-24-2"><a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>my_device_api::retry_count_s: #[no_unit_hint] needs a reason under --strict, e.g. #[no_unit_hint = &quot;reason&quot;]
+</span></code></pre></div>
+<p>Writing the reason is the point: it is a second look at whether a unit might actually fit after all
+(<code>exact_units</code>/<code>ww_si</code> types, the table in <code>AGENTS.md</code>'s typed-numbers section) before silencing the note for good. A
+reason never changes the wire or a snapshot.</p>
+<p>This is <code>--strict</code>/<code>strict(true)</code> only, never implied by <code>--require-current</code>/<code>require_current(true)</code>: the
+<a href="#checking-at-every-commit">documented <code>tests/evolution.rs</code> template</a> above uses <code>require_current(true)</code> alone, and an
+external user who copies it is not forced to write a reason for every <code>#[no_unit_hint]</code>. A project that wants its own
+<code>#[no_unit_hint]</code>s to need one adds <code>.strict(true)</code> next to <code>require_current(true)</code> in its own <code>tests/evolution.rs</code>;
+this repo's own evolution tests (<code>tests/stdlib_evolution</code>, <code>tests/thermo_api</code>) do this, while <code>examples/blinky_api</code>'s
+stays the unmodified template.</p>
 <h2 id="limitations">Limitations<a class="headerlink" href="#limitations" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Snapshots of all published versions have to be kept in <code>api_snapshots/</code>, the checker can only see what is saved
-  there. A crate without snapshots is not checked.</li>
+  there. A crate without snapshots is not checked, except in strict mode, where it fails, and with <code>require_current</code>,
+  where the current version's snapshot is required.</li>
+<li>Whether a version was released is not known to the checker: <code>ww api save</code> and <code>WW_API_SAVE=1</code> refresh the current
+  version's snapshot whether it was released or not, a hook or review has to keep released ones unchanged.</li>
 <li>Only traits and types that <code>ww api save</code> finds are checked (see <a href="../../cli_reference/#ww-api">ww api</a>).</li>
-<li>Semantic changes that keep the same bytes, like changing units or the meaning of a value, can't be detected.</li>
+<li>Semantic changes that keep the same bytes and the same types, like a value that now means something else, can't be
+  detected. A change of unit, scale, origin or bound is detected (<a href="../units_by_meaning/">units compared by meaning</a>).</li>
 <li>Padding bits are only reused when that works for every bit offset a type can start at, even if in all of its actual
   uses it's always at the same offset.</li>
+<li><a href="#several-broken-items-one-cause-evo-21">Grouping several breaks under one cause</a> only works when the cause is a
+  dependency's own trait, type or marker, caught by a crate version or a definition mismatch: a plain field or
+  argument type changed in the checked crate's own code is not grouped (each item it reaches is already named by
+  itself), and a redefinition the checker doesn't yet name a cause for (e.g. a unit or scale of the crate's own
+  redefined under the same name, EVO-17) still lists every item it reaches apart.</li>
 </ul>
 
 
@@ -5476,7 +7262,7 @@ reading as zero from old data. The client uses the same rules when comparing its
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../rules/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Evolution rules">
+          <a href="../rules/" class="md-footer__link md-footer__link--prev" aria-label="Previous: What can change">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
@@ -5486,20 +7272,20 @@ reading as zero from old data. The client uses the same rules when comparing its
                 Previous
               </span>
               <div class="md-ellipsis">
-                Evolution rules
+                What can change
               </div>
             </div>
           </a>
         
         
           
-          <a href="../crate_layers/" class="md-footer__link md-footer__link--next" aria-label="Next: Crate layers and version bumps">
+          <a href="../snapshots/" class="md-footer__link md-footer__link--next" aria-label="Next: Finding snapshots">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Crate layers and version bumps
+                Finding snapshots
               </div>
             </div>
             <div class="md-footer__button md-icon">
@@ -5578,6 +7364,8 @@ reading as zero from old data. The client uses the same rules when comparing its
     
       <script src="../../assets/javascripts/bundle.9e76c64c.min.js"></script>
       
+      
+        <script src="../../javascripts/ww_highlight.js"></script>
       
     
   </body>

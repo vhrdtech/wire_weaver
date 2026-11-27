@@ -67,6 +67,8 @@
     
       <link rel="stylesheet" href="../stylesheets/vhrd.css">
     
+      <link rel="stylesheet" href="../stylesheets/ww_highlight.css">
+    
     <script>__md_scope=new URL("..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
       
@@ -355,7 +357,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../evolution/rules/" class="md-tabs__link">
+        <a href="../evolution/overview/" class="md-tabs__link">
           
   
   Evolution
@@ -422,6 +424,8 @@
       
         
       
+        
+      
     
     
     
@@ -431,6 +435,34 @@
           
   
   Transport protocols
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../tapes/" class="md-tabs__link">
+          
+  
+  Tapes and logs
 
         </a>
       </li>
@@ -508,6 +540,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -529,14 +565,32 @@
   
   
   
-    <li class="md-tabs__item">
-      <a href="../features/" class="md-tabs__link">
+    
+      
+      
         
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../features/" class="md-tabs__link">
+          
   
   Feature tracker
 
-      </a>
-    </li>
+        </a>
+      </li>
+    
   
 
       
@@ -1230,10 +1284,32 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#generated-readers" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Generated readers
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#targets-with-a-16-bit-char-ti-c2000" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Targets with a 16-bit <code>char</code> (TI C2000)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#requantize" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Requantize
       </span>
     </span>
   </a>
@@ -1751,6 +1827,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -1836,7 +1918,61 @@
   <span class="md-ellipsis">
     
   
-  Sync and async handlers
+  Sync, async and shared handlers
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/local_trait/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Local trait
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/large_messages/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Large messages and result sets
 
     
   </span>
@@ -1864,6 +2000,33 @@
     
   
   Optional items
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/introspection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Introspection data
 
     
   </span>
@@ -2099,7 +2262,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../api/bus_slave/" class="md-nav__link">
+      <a href="../std_library/bus_slave/" class="md-nav__link">
         
   
   
@@ -2467,6 +2630,127 @@
   
   
     <li class="md-nav__item">
+      <a href="../evolution/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Evolving an API
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_2" id="__nav_5_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Advanced
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_2_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_5_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Advanced
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../evolution/versions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Versions and wire lines
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../evolution/rules/" class="md-nav__link">
         
   
@@ -2474,7 +2758,7 @@
   <span class="md-ellipsis">
     
   
-  Evolution rules
+  What can change
 
     
   </span>
@@ -2501,7 +2785,7 @@
   <span class="md-ellipsis">
     
   
-  Evolution checker
+  The evolution checker
 
     
   </span>
@@ -2509,6 +2793,123 @@
   
 
       </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../evolution/snapshots/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Finding snapshots
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../evolution/units_by_meaning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Units compared by meaning
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../evolution/multi_line_host/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  A host for several wire lines
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../evolution/crate_layers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Changing WireWeaver itself
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
     </li>
   
 
@@ -2548,7 +2949,7 @@
   <span class="md-ellipsis">
     
   
-  Advanced
+  Nomicon
 
     
   </span>
@@ -2564,7 +2965,7 @@
               <span class="md-nav__icon md-icon"></span>
               
   
-  Advanced
+  Nomicon
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
@@ -2576,14 +2977,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../evolution/crate_layers/" class="md-nav__link">
+      <a href="../evolution/inside_the_checker/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  Crate layers and version bumps
+  Inside the checker
 
     
   </span>
@@ -2690,7 +3091,7 @@
   <span class="md-ellipsis">
     
   
-  Overview
+  Standard library crates
 
     
   </span>
@@ -2711,6 +3112,8 @@
   
     
     
+      
+        
       
         
       
@@ -2913,6 +3316,33 @@
     
   
   ww_i2c
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/ww_i2c_hl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_i2c_hl
 
     
   </span>
@@ -3714,6 +4144,20 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -3773,6 +4217,195 @@
     
   
   ww_si
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/exact_units/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units in an API
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/customary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: imperial and US customary
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/magnitude/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: magnitudes
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/points/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: points
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/units_in_the_model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: units in the model
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/rounding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: rounding
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/indices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: indices
 
     
   </span>
@@ -4055,6 +4688,8 @@
       
         
       
+        
+      
     
     
     
@@ -4240,6 +4875,33 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../transport/keep_trying/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Keep trying
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
     
     
       
@@ -4268,10 +4930,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_7" >
         
           
-          <label class="md-nav__link" for="__nav_7_6" id="__nav_7_6_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_7_7" id="__nav_7_7_label" tabindex="0">
             
   
   
@@ -4289,8 +4951,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_6_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_7_6">
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_7_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7_7">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -4494,10 +5156,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_7" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_8" >
         
           
-          <label class="md-nav__link" for="__nav_7_7" id="__nav_7_7_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_7_8" id="__nav_7_8_label" tabindex="0">
             
   
   
@@ -4515,8 +5177,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_7_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_7_7">
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_8_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7_8">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -4582,8 +5244,6 @@
       
         
       
-        
-      
     
     
     
@@ -4607,7 +5267,7 @@
   <span class="md-ellipsis">
     
   
-  Examples and templates
+  Tapes and logs
 
     
   </span>
@@ -4620,6 +5280,127 @@
         
           <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
             <label class="md-nav__title" for="__nav_8">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Tapes and logs
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tapes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Tapes
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../logring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  logring
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Examples and templates
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_9">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -4706,10 +5487,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9_3" >
         
           
-          <label class="md-nav__link" for="__nav_8_3" id="__nav_8_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_9_3" id="__nav_9_3_label" tabindex="0">
             
   
   
@@ -4727,8 +5508,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_3_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_8_3">
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_9_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_9_3">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -4809,10 +5590,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
         
           
-          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
             
   
   
@@ -4830,8 +5611,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_9">
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_10">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -4922,10 +5703,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10_3" >
         
           
-          <label class="md-nav__link" for="__nav_9_3" id="__nav_9_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_10_3" id="__nav_10_3_label" tabindex="0">
             
   
   
@@ -4943,8 +5724,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_9_3_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_9_3">
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_10_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_10_3">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -5062,6 +5843,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -5075,10 +5860,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
         
           
-          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
             
   
   
@@ -5096,8 +5881,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_10">
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_11">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -5133,6 +5918,60 @@
 
                 
               
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../articles/units_budget/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  What Fixed costs on a microcontroller
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../articles/flash_budget/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  What a server costs in flash
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
             </ul>
           </nav>
         
@@ -5147,12 +5986,38 @@
   
   
   
-    <li class="md-nav__item">
-      <a href="../features/" class="md-nav__link">
+    
+    
+      
         
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" >
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="0">
+            
   
-  
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-list-checks" viewBox="0 0 24 24"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
   
   <span class="md-ellipsis">
     
@@ -5164,7 +6029,169 @@
   
   
 
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_12">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Feature tracker
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../features/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-list-checks" viewBox="0 0 24 24"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  WireWeaver
+
+    
+  </span>
+  
+  
+
       </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../serdes/features/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-list-checks" viewBox="0 0 24 24"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  shrink_wrap
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/features/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-list-checks" viewBox="0 0 24 24"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_base
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tape/features/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-list-checks" viewBox="0 0 24 24"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_tape
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/stdlib_features/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-list-checks" viewBox="0 0 24 24"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_stdlib
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
     </li>
   
 
@@ -5243,10 +6270,32 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#generated-readers" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Generated readers
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#targets-with-a-16-bit-char-ti-c2000" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         Targets with a 16-bit <code>char</code> (TI C2000)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#requantize" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Requantize
       </span>
     </span>
   </a>
@@ -5389,13 +6438,15 @@
 
 
 <h1 id="shrinkwrap-in-c">ShrinkWrap in C<a class="headerlink" href="#shrinkwrap-in-c" title="Permanent link">&para;</a></h1>
-<p><code>shrink_wrap/c/shrink_wrap.h</code> and <code>shrink_wrap/c/shrink_wrap.c</code> are the ShrinkWrap reader and writer for C99:
+<p><code>shrink_wrap_c/shrink_wrap.h</code> and <code>shrink_wrap_c/shrink_wrap.c</code> are the ShrinkWrap reader and writer for C99:
 the same bytes as the Rust <code>BufReader</code> and <code>BufWriter</code>, for firmware that is not written in Rust. Copy the two
 files into the project, nothing else is needed: no <code>malloc</code>, nothing from libc beyond <code>&lt;stdint.h&gt;</code>, <code>&lt;stddef.h&gt;</code>,
 <code>&lt;stdbool.h&gt;</code>, <code>&lt;string.h&gt;</code> (<code>memcpy</code>, <code>memset</code>) and the freestanding <code>&lt;limits.h&gt;</code>.</p>
 <p>This is the runtime only (SW-43). Code generated from an API (types, a device-side dispatcher, introspection) is
 planned on top of it (API-26), until then values are written and read field by field, in the order and with the
-calls the Rust code generated by <code>#[derive_shrink_wrap]</code> uses.</p>
+calls the Rust code generated by <code>#[derive_shrink_wrap]</code> uses.
+Types with a <code>fixed_layout</code> or <code>head_tail</code> layout get generated, length-checked readers of their own: see
+<a href="#generated-readers">Generated readers</a>.</p>
 <h2 id="writing">Writing<a class="headerlink" href="#writing" title="Permanent link">&para;</a></h2>
 <div class="language-c highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;shrink_wrap.h&quot;</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
@@ -5449,6 +6500,69 @@ steer the code (a discriminant is 0, a flag <code>false</code>), but don't use a
 <p>Differences to the Rust crate, none of them on the wire: every failing call keeps its error (in Rust only the
 <code>_latch</code> reads do), a failing call moves nothing (a Rust read can align or consume bits before it fails), and a
 writer stops at its first error (the Rust <code>_latch</code> writes go on).</p>
+<h2 id="generated-readers">Generated readers<a class="headerlink" href="#generated-readers" title="Permanent link">&para;</a></h2>
+<p>A <code>fixed_layout</code> or <code>head_tail</code> type (see <a href="../serdes/layouts/">layouts</a>) gets a C reader generated from the Rust
+derive: <code>shrink_wrap::fixed_layout::write_c_header</code> and <code>shrink_wrap::head_tail::write_c_header</code> print a header of
+<code>static inline</code> functions, without the runtime above. The bytes come from outside, so the header has one way in:</p>
+<ul>
+<li><code>&lt;name&gt;_view(buf, len, &amp;v)</code> checks that the <code>len</code> bytes at <code>buf</code> hold a whole value and makes <code>v</code>, a
+  <code>&lt;name&gt;_view_t</code>. It follows every flag, enum tag, nested value and list count, refuses an unknown tag, and returns
+  0, or -1 with an empty view (<code>p</code> NULL, <code>len</code> 0) when the bytes are too short or malformed.</li>
+<li>Every reader takes a view, never a pointer: a field can't be read without the check. <code>v.len</code> (<code>v-&gt;len</code>) is the
+  length of the value, so the next one of a stream starts at <code>buf + v.len</code>.</li>
+<li>Readers stay inside the view. An index past an array or a list reads 0. What may not be there is an <code>int</code> reader
+  with an out parameter that returns -1: the payload of an <code>Option</code> or <code>Result</code>, an enum's variant
+  (<code>&lt;enum&gt;_as_&lt;variant&gt;</code>) and an item of a list of fixed-layout types (checked when it is read, like Rust's <code>List</code>).</li>
+<li>The view functions and the <code>int</code> readers are <code>SW_NODISCARD</code>: with gcc and clang a dropped result is a warning,
+  an error with <code>-Werror</code>.</li>
+<li>A caller that drops the -1 anyway reads zeros, never through <code>NULL</code>: on an empty view (a refused <code>_view</code>, or
+  one zero-initialized and never made) every reader reads 0, a byte-array reader returns <code>NULL</code>, the views of
+  nested values are empty too, and every <code>int</code> reader returns -1. A failed <code>int</code> reader leaves an empty view in
+  <code>*out</code> (by pointer for <code>head_tail</code>, never a <code>NULL</code> one), so its readers read 0 as well.</li>
+<li>A type longer than <code>size_t</code> can count (over 65535 bytes on a 16-bit target) is an <code>#error</code>, not a cut length
+  check.</li>
+</ul>
+<p>A fixed-layout view is two words and is passed by value; a <code>head_tail</code> view also holds the variable parts its tail
+walk found and is passed by pointer. With the types of <code>shrink_wrap/tests/fixed_layout.rs</code> and <code>head_tail.rs</code>
+(prefix <code>t_</code>), a <code>Maybe</code> and then a stream of <code>Request</code>s:</p>
+<div class="language-c highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;fixed_layout.h&quot;</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;head_tail.h&quot;</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="kt">int</span><span class="w"> </span><span class="nf">read_all</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="kt">uint8_t</span><span class="w"> </span><span class="o">*</span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="kt">size_t</span><span class="w"> </span><span class="n">len</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span><span class="n">t_maybe_view_t</span><span class="w"> </span><span class="n">m</span><span class="p">;</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">    </span><span class="n">t_inner_view_t</span><span class="w"> </span><span class="n">extra</span><span class="p">;</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">    </span><span class="kt">size_t</span><span class="w"> </span><span class="n">at</span><span class="p">;</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">t_maybe_view</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="n">len</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">m</span><span class="p">)</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="mi">-1</span><span class="p">;</span><span class="w"> </span><span class="cm">/* too short for a Maybe with what its flag says */</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">t_maybe_extra</span><span class="p">(</span><span class="n">m</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">extra</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="w">        </span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">t_inner_id</span><span class="p">(</span><span class="n">extra</span><span class="p">);</span>
+</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="w">        </span><span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="n">id</span><span class="p">;</span>
+</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">at</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">m</span><span class="p">.</span><span class="n">len</span><span class="p">;</span><span class="w"> </span><span class="n">at</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">len</span><span class="p">;)</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="w">        </span><span class="n">t_request_view_t</span><span class="w"> </span><span class="n">req</span><span class="p">;</span>
+</span><span id="__span-4-17"><a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="w">        </span><span class="k">const</span><span class="w"> </span><span class="n">t_request_stop_view_t</span><span class="w"> </span><span class="o">*</span><span class="n">stop</span><span class="p">;</span>
+</span><span id="__span-4-18"><a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">t_request_view</span><span class="p">(</span><span class="n">buf</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">at</span><span class="p">,</span><span class="w"> </span><span class="n">len</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">at</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">req</span><span class="p">)</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-19"><a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a><span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="mi">-1</span><span class="p">;</span><span class="w"> </span><span class="cm">/* truncated, or an unknown tag */</span>
+</span><span id="__span-4-20"><a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a><span class="w">        </span><span class="p">}</span>
+</span><span id="__span-4-21"><a id="__codelineno-4-21" name="__codelineno-4-21" href="#__codelineno-4-21"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">t_request_as_stop</span><span class="p">(</span><span class="o">&amp;</span><span class="n">req</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">stop</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-22"><a id="__codelineno-4-22" name="__codelineno-4-22" href="#__codelineno-4-22"></a><span class="w">            </span><span class="kt">uint16_t</span><span class="w"> </span><span class="n">mask</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">t_request_stop_mask</span><span class="p">(</span><span class="n">stop</span><span class="p">);</span>
+</span><span id="__span-4-23"><a id="__codelineno-4-23" name="__codelineno-4-23" href="#__codelineno-4-23"></a><span class="w">            </span><span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="n">mask</span><span class="p">;</span>
+</span><span id="__span-4-24"><a id="__codelineno-4-24" name="__codelineno-4-24" href="#__codelineno-4-24"></a><span class="w">        </span><span class="p">}</span>
+</span><span id="__span-4-25"><a id="__codelineno-4-25" name="__codelineno-4-25" href="#__codelineno-4-25"></a><span class="w">        </span><span class="n">at</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">req</span><span class="p">.</span><span class="n">len</span><span class="p">;</span>
+</span><span id="__span-4-26"><a id="__codelineno-4-26" name="__codelineno-4-26" href="#__codelineno-4-26"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-4-27"><a id="__codelineno-4-27" name="__codelineno-4-27" href="#__codelineno-4-27"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+</span><span id="__span-4-28"><a id="__codelineno-4-28" name="__codelineno-4-28" href="#__codelineno-4-28"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>The other names are as before the views: <code>&lt;NAME&gt;_LEN</code> and <code>&lt;NAME&gt;_MIN_LEN</code> (a <code>head_tail</code> type <code>&lt;NAME&gt;_HEAD_LEN</code>),
+an offset define per field, <code>&lt;NAME&gt;_&lt;VARIANT&gt;</code> per tag. The <code>&lt;name&gt;__walk</code> functions are for the views of the types
+that hold one, not an entry of their own. A C string of a <code>head_tail</code> type is its bytes: no UTF-8 check, which Rust
+does. Field, variant and type names share C's one namespace, so a field named <code>view</code> or <code>tag</code> that meets a generated
+name is a C compile error naming both.</p>
+<p>The tests read every test type from valid, truncated, empty, NULL, changed and random buffers, each in a buffer of
+exactly its length under AddressSanitizer and UBSan, and compare what C accepts and the length with Rust
+(<code>c_views_check_bounds</code> in <code>shrink_wrap/tests/fixed_layout.rs</code> and <code>head_tail.rs</code>, SW-79); the conformance matrix
+makes each view from exactly the golden bytes and checks that every shorter prefix is refused.</p>
 <h2 id="targets-with-a-16-bit-char-ti-c2000">Targets with a 16-bit <code>char</code> (TI C2000)<a class="headerlink" href="#targets-with-a-16-bit-char-ti-c2000" title="Permanent link">&para;</a></h2>
 <p>A buffer is an array of <code>sw_octet</code> (<code>uint_least8_t</code>) with one octet in the low 8 bits of each element, where
 <code>CHAR_BIT</code> is 16 too. Every access goes through two accessors that mask to 8 bits, values are kept in
@@ -5462,11 +6576,45 @@ octets per word has to be unpacked into one octet per element first, and packed 
 </ul>
 <p>Checked so far: builds without warnings with <code>-std=c99 -pedantic -Wconversion -Wsign-conversion</code> on the host, and
 for MSP430 (16-bit <code>int</code> and <code>size_t</code>), Cortex-M0 and RV32 with clang. Not tested on a C2000 compiler yet.</p>
+<h2 id="requantize">Requantize<a class="headerlink" href="#requantize" title="Permanent link">&para;</a></h2>
+<p><code>sw_requantize.h</code> and <code>sw_requantize.c</code> next to them convert a stored number to another scale and storage with a
+named rounding and overflow policy, the same number as Rust's <code>exact_units::Requantizer</code> and the typed
+<code>Fixed::requantize</code>, bit for bit (see <a href="../std_library/rounding/">Rounding and overflow</a>). They don't need the
+reader and writer, and nothing from libc beyond <code>&lt;stdint.h&gt;</code>, <code>&lt;stdbool.h&gt;</code> and <code>&lt;string.h&gt;</code>.</p>
+<p>The factor (the source scale over the target scale) is worked out on the host, as typed Rust does at compile time,
+and given as constants: an exact ratio <code>num / den</code> (two 64-bit halves each) or, for a factor that isn't a fraction
+of integers (π, a half exponent), the fixed point <code>m * 2^shift</code> of <code>Magnitude::fixed_point()</code>.
+<code>shrink_wrap_c::requantize::CFactor::of(&amp;magnitude)</code> computes them and
+<code>c_initializer()</code> writes them as C. Millivolts in an <code>int16_t</code> to decivolts in an <code>int8_t</code>, rounded to the nearest
+with ties to even:</p>
+<div class="language-c highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;sw_requantize.h&quot;</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="k">static</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="n">sw_requantizer</span><span class="w"> </span><span class="n">mv_to_dv</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="p">{.</span><span class="n">ratio</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">,</span><span class="w"> </span><span class="p">.</span><span class="n">num_hi</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="p">.</span><span class="n">num_lo</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="p">.</span><span class="n">den_hi</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="p">.</span><span class="n">den_lo</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">100</span><span class="p">},</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">    </span><span class="p">{</span><span class="n">SW_NUM_INT</span><span class="p">,</span><span class="w"> </span><span class="mi">8</span><span class="p">},</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">    </span><span class="n">SW_ROUND_NEAREST_EVEN</span><span class="p">,</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">    </span><span class="n">SW_OVERFLOW_CHECKED</span><span class="p">,</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="p">};</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="n">sw_num</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="n">SW_NUM_INT</span><span class="p">,</span><span class="w"> </span><span class="p">{.</span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1250</span><span class="p">}},</span><span class="w"> </span><span class="n">dv</span><span class="p">;</span>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">sw_requantize</span><span class="p">(</span><span class="o">&amp;</span><span class="n">mv_to_dv</span><span class="p">,</span><span class="w"> </span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">dv</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">    </span><span class="cm">/* dv.v.i == 12 */</span>
+</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>Integers are converted exactly in 128 bits (sign and magnitude in two 64-bit halves, no <code>__int128</code>), whatever the
+storages: rounding is <code>SW_ROUND_TRUNCATE</code>, <code>_FLOOR</code>, <code>_CEIL</code>, <code>_NEAREST_EVEN</code> or <code>_NEAREST_AWAY</code>, overflow
+<code>SW_OVERFLOW_CHECKED</code> (<code>false</code>, no value), <code>_SATURATE</code> or <code>_WRAP</code>. With a float on either side (<code>SW_NUM_F32</code>,
+<code>SW_NUM_F64</code>) the product is worked exactly from the float's bits and rounded once by the same policy, never by a
+float multiply: 2147483647 into an f32 is 2147483520 truncated and 2147483648 to the nearest; past the largest
+finite float, saturating gives that float and wrapping an infinity. With <code>SW_NO_F64</code> only integers are there. The conversion decides the policy at run time, so
+for a hot path on a small MCU the typed Rust conversion (constants and policy fixed at compile time) is cheaper.</p>
 <h2 id="tests">Tests<a class="headerlink" href="#tests" title="Permanent link">&para;</a></h2>
-<p><code>shrink_wrap/c</code> is also a Rust crate (<code>shrink_wrap_c</code>, not published) that builds the C with the <code>cc</code> crate and
+<p><code>shrink_wrap_c/</code> is also a Rust crate (<code>shrink_wrap_c</code>, not published) that builds the C with the <code>cc</code> crate and
 checks it against the Rust one in <code>just test</code>: golden vectors for every primitive, the length layouts and
 <code>finish()</code>, the errors and the latch (<code>tests/golden.rs</code>), and a proptest cross-check of random sequences of
-writes and reads, in both directions, on truncated and corrupted input too (<code>tests/cross.rs</code>). <code>just lint</code> builds
+writes and reads, in both directions, on truncated and corrupted input too (<code>tests/cross.rs</code>). <code>sw_requantize()</code>
+is cross-checked against <code>exact_units::Requantizer</code> on random factors, storages, policies and values and on every
+storage's edge values (<code>tests/requantize.rs</code>), and runs the requantize cases of the conformance corpus. <code>just lint</code> builds
 the C on its own with <code>-std=c99 -Wall -Wextra -Werror -pedantic</code>.</p>
 <p>Not ported: <code>TailSize</code>, <code>Series</code>, <code>fill_*</code>, and the code size
 tricks of the Rust writer (<code>finish_no_lens</code>, <code>_latch</code> writes).</p>
@@ -5615,6 +6763,8 @@ tricks of the Rust writer (<code>finish_no_lens</code>, <code>_latch</code> writ
     
       <script src="../assets/javascripts/bundle.9e76c64c.min.js"></script>
       
+      
+        <script src="../javascripts/ww_highlight.js"></script>
       
     
   </body>

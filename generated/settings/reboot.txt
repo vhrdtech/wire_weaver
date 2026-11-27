@@ -1,5 +1,0 @@
-$ cargo run -p settings --example settings_reboot
-first boot: meter_window 100 ms, led_on_at_boot false
-host writes meter_window 250 ms, led_on_at_boot true
-power off, power on
-second boot: meter_window 250 ms, led_on_at_boot true

@@ -1,9 +1,0 @@
-message,smallest,bytes,wireweaver_plain,wireweaver_tuned
-rpc_request,WireWeaver (tuned),18,30,18
-telemetry,WireWeaver (tuned) / Postcard / Postcard (tuned) / ASN.1 UPER (closed) / ASN.1 UPER (extensible),37,40,37
-log_record,WireWeaver (tuned) / Postcard / Postcard (tuned),65,70,65
-firmware_chunk,WireWeaver (tuned) / Postcard (tuned),269,271,269
-device_config,WireWeaver (tuned) / ASN.1 UPER (closed) / ASN.1 UPER (extensible),16,17,16
-gps_fix,WireWeaver (tuned) / Postcard (tuned),22,29,22
-can_batch,WireWeaver (tuned) / ASN.1 UPER (closed) / ASN.1 UPER (extensible),64,80,64
-state_report,WireWeaver (tuned),8,15,8

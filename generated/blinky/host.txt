@@ -1,3 +1,0 @@
-$ cargo run -p blinky --example blinky_host
-set_led(true): the LED was on before: false
-blinks: 2

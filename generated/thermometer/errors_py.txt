@@ -1,5 +1,0 @@
-$ python errors.py
-TypeError set_rate() argument 'rate': Fixed<Hertz, One, u16, Range<1, 1000>>: expected a ww.Quantity or a number, got str (ww.Quantity("fast") reads text)
-ValueError Fixed<Ratio, One, u8, Range<1, 16>>: -1 is out of range for u8
-ValueError Mode has no variant 'Off', expected one of: Idle, Continuous, Triggered
-WireWeaverError Remote device returned BadIndex at level site 42 (index not valid)

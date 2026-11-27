@@ -1,6 +1,0 @@
-$ python errors.py
-value: NoVoltageSet
-message: channel[0].set_output() returned an error: `voltage_limit` is still 0 V: nothing to turn on
-would draw: 3000 mA
-value: None
-common: {'WrongState': {'reason': 'the output is on, turn it off first'}}

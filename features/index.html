@@ -2629,8 +2629,6 @@
       
         
       
-        
-      
     
     
     
@@ -2798,33 +2796,6 @@
     
   
   ww_i2c
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../std_library/ww_i2c_hl/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  ww_i2c_hl
 
     
   </span>
@@ -3626,16 +3597,6 @@
       
         
       
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
     
     
     
@@ -3695,141 +3656,6 @@
     
   
   ww_si
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../std_library/exact_units/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  exact_units: numbers with a fixed unit
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../std_library/magnitude/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  exact_units: magnitudes
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../std_library/points/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  exact_units: points
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../std_library/units_in_the_model/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  exact_units: units in the model
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../std_library/rounding/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  exact_units: rounding
 
     
   </span>
@@ -5290,6 +5116,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#api-model-and-codegen-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        API model and codegen (<code>API</code>)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#server-device-side-srv" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5463,6 +5300,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         Wire format (<code>shrink_wrap</code>, <code>SW</code>)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-model-and-codegen-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        API model and codegen (<code>API</code>)
       </span>
     </span>
   </a>
@@ -5967,42 +5815,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>PhantomData&lt;..&gt;</code> without the serdes / <code>SeriesColumns</code> bounds of DER-14, so <code>struct Quantity&lt;U&gt; { value: i32,
   _unit: PhantomData&lt;U&gt; }</code> works with a bare unit marker and writes the same bytes as without the field
   (<code>docs/serdes/derive_reference.md#generics</code>; test <code>shrink_wrap/tests/phantom_data.rs</code>). For <code>ww_si</code> units.</li>
-<li>✅ <strong>DER-17 <code>#[default = ..]</code> fields default in serde too</strong>: a type deriving <code>serde::Deserialize</code> (through
-  <code>derive(..)</code> or a <code>cfg_attr</code>) gets <code>#[serde(default = ..)]</code> on each <code>#[default = ..]</code> field of a struct or struct
-  variant, so RON or JSON written before the field was added still reads; for saved <code>ww_self</code> API snapshots when a
-  later model field isn't an <code>Option</code> (EVO-13) (<code>docs/serdes/derive.md#evolving-types</code>; test
-  <code>shrink_wrap/tests/serde_default.rs</code>).</li>
-<li>✅ <strong>DER-19 <code>#[wire(W)]</code> field attribute</strong>: a field keeps a plain Rust integer (<code>i8</code>, <code>u16</code>, <code>u64</code>, ..) and is
-  written as a narrower or variable-length wire type (<code>#[wire(I4)] i8</code>, <code>#[wire(UNib32)] u64</code>, <code>#[wire(U12)] u16</code>):
-  checked on write (<code>Error::SubtypeOutOfRange</code>, never a cut value), widened on read, same bytes as a field of type W
-  (runtime trait <code>shrink_wrap::WireAs</code>). Struct and enum fields, <code>#[default = ..]</code>, <code>sized</code>/<code>final_structure</code>,
-  <code>#[cfg_attr(pred, wire(W))]</code>, <code>series</code> columns (<code>series::Wired&lt;W, T&gt;</code>, a W column). The API model records W (the
-  walker reads it, also inside <code>cfg_attr</code>), so the dynamic client, Python and C need nothing new
-  (<code>docs/serdes/derive_reference.md#wirew-field-attribute</code>; tests <code>shrink_wrap/tests/wire_as.rs</code>, conformance
-  <code>wire.*</code>). For <code>ww_si</code> exact units (<code>prj/P2401-wireweaver/design/ww_si_in.md</code>).</li>
-<li>💡 <strong>DER-21 <code>#[wire(W)]</code> beyond plain fields</strong> — inside <code>Option</code>, arrays and lists (<code>Option&lt;#[wire] u8&gt;</code> has no
-  syntax yet: a wrapper type or <code>#[wire(Option&lt;U4&gt;)]</code>), and in <code>fixed_layout</code> / <code>head_tail</code> types, which reject
-  the attribute with a compile error naming DER-21 today.</li>
-<li>✅ <strong>DER-18 <code>transparent</code> derive directive</strong>: a struct with one field that isn't zero bits (<code>PhantomData</code>, <code>()</code>)
-  takes that field's size class (<code>ELEMENT_SIZE</code>, <code>PUSHES_LEN</code>, <code>MAX_SIZE</code>), series columns, store and cells, and
-  writes exactly its bytes in every position, borrowed and owned, generic, with <code>validate</code> and <code>display</code>; compile
-  errors name the type for zero or two real fields and for the directives it excludes. Recorded in the API model
-  (<code>ItemStructExtra::transparent</code>, read by the walker, <code>ValueOwned</code>'s decoder and <code>Series</code> columns, so the <code>ww</code> CLI and
-  <code>wire_weaver_py</code> read it too). For <code>ww_si::Fixed</code> (STD-55), where a <code>final_structure</code> wrapper was
-  <code>UnsizedFinalStructure</code> even around a <code>u64</code> and couldn't sit in a <code>sized</code> parent. Also fixed: a generic parameter
-  named <code>P</code>, <code>I</code>, <code>S</code> or <code>C</code> clashing with the derive's own in series code (<code>PhantomData&lt;(U, P)&gt;</code> included), and
-  <code>#[repr(..)]</code> of a derived struct being dropped (<code>docs/serdes/derive_reference.md#transparent</code>; tests
-  <code>shrink_wrap/tests/transparent.rs</code>, <code>phantom_data.rs</code>, conformance cases <code>transparent.*</code>). The evolution
-  checker compares wrappers by meaning: EVO-15.</li>
-<li>✅ <strong>DER-20 Unit-typed fields cost what plain fields cost</strong>: a <code>transparent</code> wrapper (DER-18, e.g.
-  <code>exact_units::Fixed</code>) inside a derived struct is written and read on exactly the path of its inner plain field:
-  the latched <code>write_*_latch</code> / <code>des_shrink_wrap_latch</code> calls with one error check per type (SW-34, SW-38), not the
-  wrapper's own <code>ser_shrink_wrap</code> with a checked write per field. Hidden <code>ser_shrink_wrap_latch</code> (borrowed and owned)
-  with <code>BufWriter::write_field</code>, used by the derive for every user-type field; a wrapper with <code>validate</code> (<code>Fixed</code>'s
-  bounds) keeps a value out of range as the latched error (<code>BufReader::keep_error</code>). TEST-27 had measured +2 to 15 instructions and +4 to 42 bytes per struct encode/decode on M0, M4F and
-  M33 before it; same wire format (<code>docs/serdes/derive_reference.md#transparent</code>,
-  <code>docs/serdes/code_size.md#transparent-fields</code>; test <code>shrink_wrap/tests/transparent.rs</code>
-  <code>fields_are_latched_like_the_plain_field</code>, fuzz <code>shrink_wrap_latched</code>).</li>
 <li>✅ <strong>DER-11 Field type from a macro_rules <code>$T:ty</code> fragment</strong>: accepted like the type written directly, instead of
   rejected as an unsupported <code>syn::Type::Group</code> (test <code>shrink_wrap/tests/macro_ty_fragment.rs</code>).</li>
 <li>✅ <strong>DER-12 <code>Display</code> from doc comments</strong>: a <code>display</code> directive writes <code>core::fmt::Display</code> and
@@ -6031,6 +5843,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   it reads <code>Error::EnumVariantDisabled</code> (<code>docs/serdes/derive_reference.md</code>). First user: <code>ww_numeric::NumericValue</code>, one cargo
   feature per number type (32 to 8 bytes in RAM with 32-bit types only). Not yet: <code>#[cfg]</code> on fields (it would change
   the wire format, should be a compile error), <code>ww_si</code> enums.</li>
+</ul>
+<h2 id="api-model-and-codegen-api">API model and codegen (<code>API</code>)<a class="headerlink" href="#api-model-and-codegen-api" title="Permanent link">&para;</a></h2>
+<ul>
 <li>✅ <strong>API-1 Methods, properties, streams and sinks</strong>, nested traits (<code>docs/api/overview.md</code>).</li>
 <li>✅ <strong>API-2 Arrays of resources</strong> with <code>ValidIndices</code> and a built-in array size getter returning a range or list.</li>
 <li>✅ <strong>API-3 Global traits</strong> from <code>ww_stdlib</code> (<code>impl Trait</code>) and trait attachments (<code>examples/all_gpio</code>).</li>
@@ -6157,6 +5972,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>📋 <strong>API-12 Calculate max path depth in server codegen</strong> · <code>v0.5</code> — <code>MAX_DEPTH</code> is hardcoded to 16 in
   <code>wire_weaver_core/src/codegen/api_server.rs</code>.</li>
 <li>📋 <strong>API-13 Error system, remove <code>unwrap</code>s from codegen</strong> · <code>v0.5</code> — report errors with spans instead of panicking.</li>
+<li>📋 <strong>API-14 Load API crates from crates.io</strong> · <code>v0.5</code> — the crate walker handles path and workspace dependencies;
+  <code>crate = "version"</code> dependencies hit a <code>todo!()</code> in <code>wire_weaver_core/src/transform/crate_walker.rs</code>. Also
+  dependencies from git (backlog). Every crate downloaded from crates.io has only such dependencies, so until this is
+  done a published API crate whose API uses another crate's types or traits doesn't compile for its users or on
+  docs.rs (DOC-6).</li>
 <li>📋 <strong>API-56 care-marker Care marker on switching writes</strong> — a typed attribute (the <code>ww_self::Meta</code> of SRV-34) on
     a method or property whose call or write switches power or outputs (a rail, a relay, a motor enable), carried in
     introspection: GUIs ask to confirm, <code>ww call</code> / <code>ww set</code> want <code>--yes</code>, the hub can log who did it. Wire
@@ -6244,27 +6064,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   shortest <code>max_age_us</code>. Against a time column per property (21 FOC properties, n = 32, <code>DeltaPacked</code>): -36 % bytes,
   -52 % encode cycles on an STM32H725, -46 % instructions on Cortex-M3/M4F
   (<code>docs/api/observing.md#which-rates-fit-an-mcu</code>, <code>tests/observe_batched</code>).</li>
-<li>✅ <strong>API-60 Types from crates that aren't API crates</strong> · <code>v0.5</code> — a crate without <code>wire_weaver</code> or <code>#[ww_trait]</code>
-  (<code>exact_units</code>, STD-61) is walked and snapshotted like an API crate; generated code names its types through a
-  crate that re-exports it (<code>ww_si::exact_units::..</code>, <code>CratePaths</code> from <code>load_dep_with_paths</code>) when the generating
-  crate doesn't depend on it; the walker follows <code>use dep as name;</code> and <code>use dep::module;</code> for leading path
-  segments. With <code>shrink_wrap</code> optional (<code>#[cfg_attr(feature = "shrink_wrap", derive_shrink_wrap(..))]</code>) the walker
-  reads <code>cfg_attr</code>s with the features Cargo builds the crate with (dependency entries, <code>[workspace.dependencies]</code>,
-  <code>dep/feature</code>, defaults, unified across dependents), snapshots with all features; a field's or variant's
-  <code>cfg_attr</code> of the derive's own attributes (<code>default</code>, <code>wire</code>, ..) is read as holding by the derive and the walker,
-  a compile error where it doesn't; other field and variant attributes pass through to the generated type. Tests
-  <code>tests/standalone</code> (server and client without a dependency on <code>standalone_units</code>), <code>wire_weaver_core</code> unit tests,
-  <code>shrink_wrap/tests/cfg_attr.rs</code> and <code>field_attributes.rs</code>, conformance <code>cfg_attr.*</code>
-  (<code>docs/types.md#types-from-crates-that-arent-api-crates</code>).</li>
-<li>✅ <strong>API-14 API crates with git and crates.io dependencies</strong> · <code>v0.5</code> — the crate walker (<code>#[ww_api_root]</code>,
-  <code>#[ww_trait]</code>, <code>ww_codegen!</code>, <code>ww api</code>) follows <code>{ git = .. }</code> and <code>"version"</code> / <code>{ version = .. }</code> dependencies
-  (also through <code>[workspace.dependencies]</code> and <code>package = ".."</code> renames), not only path ones: the exact package from
-  the nearest <code>Cargo.lock</code> (the entry in the dependent's own list, so two versions of a crate are told apart), its
-  source where Cargo fetched it (<code>CARGO_HOME</code>'s <code>git/checkouts/&lt;repo&gt;-*/&lt;rev&gt;/</code>, the member found by package name
-  anywhere in the repository; <code>registry/src/*/&lt;name&gt;-&lt;version&gt;/</code>), clear errors naming <code>cargo fetch</code> when the lock
-  or the source is missing. In a crate Cargo fetched itself (a published API crate's own <code>#[ww_trait]</code>, docs.rs),
-  crates.io dependencies are the newest matching version on disk, as the lock in use is out of reach. Tests
-  <code>wire_weaver_core</code> <code>crate_walker::tests</code> (a real <code>cargo fetch</code> of a local git repository), <code>docs/api/traits.md</code>.</li>
 <li>✅ <strong>API-50 Observe cells: sampling a level from an interrupt in place</strong> — <code>ww_codegen!(.., observe_cells =
   "root_foc")</code> puts a level with <code>+batched</code> properties on a ring of atomics instead of <code>&lt;Level&gt;Sampler::sample</code>: a
   <code>const fn</code> <code>&lt;Level&gt;Cells&lt;R&gt;</code> (a <code>static</code>, or an <code>Arc</code>), one <code>&lt;Level&gt;Writer</code> with a setter per property (relaxed
@@ -6541,52 +6340,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   direct, 16 B round trips over USB FS 10-25 % fewer on an idle PC, 3-13 % under load, from the two extra process
   wakes). Tested on Linux; check on macOS and Windows open. Limits: sinks and the sideband of a shared stream are the
   first client's, streams on trait paths are not counted per client.</li>
-<li>🧪 <strong>SRV-42 Device flushes by priority, also deferred replies</strong> · <code>v0.5.x</code> — the device answers by the request's
-  priority (CLT-50): <code>Context::priority()</code> and <code>ReplyTo::priority</code> carry it to handlers, a reply to an urgent
-  request is flushed at once from <code>Server::handle</code>, and a deferred one (generated <code>&lt;method&gt;_send_return(out,
-  reply_to, ..)</code>, sent through <code>Server::sink()</code> from outside <code>handle</code>) through <code>MessageSink::send_reply</code>;
-  default-priority replies, immediate or deferred, wait for the accumulation window like everything else.
-  <code>Sink::flush</code> (async and blocking) lets firmware send what waits now. Before, a deferred reply always waited for
-  the window and firmware had no way to flush it. Tests: <code>ww_device</code> <code>async_server::replies_flushed_by_priority</code>,
-  <code>wire_weaver_client</code> <code>flush_e2e_tests</code>. On hardware: part of CLT-50's re-measure.</li>
-<li>💡 <strong>SRV-41 Fewer wakes on the hub path</strong> — the tunnel's cost is two extra process wakes per message (client →
-  hub → client): 16 B round trips over USB FS are 15 % (donguru) and 23 % (b200) fewer than direct on an idle PC
-  (median of 7 rounds), 3.5 % and 12.6 % under load; the hub's own USB round trip equals direct (480 µs against
-  510-600 µs), throughput and max-size transfers are as direct. Ideas if it matters: busy-poll the socket for a short
-  window after a request (spends a core), or a shared-memory ring between client and hub with a futex / event for
-  the wake. Kept as is for now (person, 22 Oct 2026); measure with <code>tests/hub/examples/hub_loopback.rs</code> first.</li>
-<li>🧪 <strong>SRV-30 Hub version skew and handover</strong> · <code>v0.5.x</code> — a hub serves every client whose link and API model
+<li>📋 <strong>SRV-30 Hub version skew and handover</strong> · <code>v0.5.x</code> — a hub serves every client whose link and API model
   versions its build can serve; a client that can start a newer hub asks the running one to hand over (only strictly
-  newer replaces older, so it converges); a refusal names both versions and the fix. Built
-  (<code>docs/transport/hub.md#version-skew-and-handover-srv-30</code>, <code>docs/evolution/rules.md#the-ww-hub-and-version-skew</code>):
-  preamble version 2 with a skippable trailer carrying the client's <code>ww_link</code> and <code>ww_client_server</code> versions (version
-  1 still read: versions unknown; a client asks a v1-only hub again in v1), the hub's window (<code>ww_hub/src/window.rs</code>:
-  SemVer-compatible with its build, plus earlier majors it keeps after a break, none yet) and status 4 with
-  <code>Error::HubRefused</code> naming both sides and the fix; <code>Hub::handover(socket)</code> (strictly newer only, <code>Event::Handover</code>,
-  links closed with <code>DisconnectReason::HubHandover</code>, <code>Exit::Handover</code>), <code>ww_hub::Bound::take_over</code> (own socket, then
-  <code>hub.lock</code>, rename into place on Unix, the pipe anew on Windows), and <code>hub::ensure_running</code> replacing an older
-  running hub with the program's own (<code>main_if_hub</code>, <code>WW_HUB_HANDOVER</code>, under <code>hub.start.lock</code>). Tested on Linux in
-  <code>tests/hub_reconnect</code> (<code>versions.rs</code>, <code>handover.rs</code> with clients connected, <code>replace.rs</code> across processes); check
-  on macOS and Windows open (compiles for both).</li>
-<li>✅ <strong>SRV-31 Clock sync in the hub</strong> · <code>v0.5.x</code> — the hub steers every open device serving <code>ww_timebase::Clock</code> with
-  <code>host_sync</code> (found in its introspection data at any path) onto the PC's UTC with <code>clock_sync::ClockSync</code> on its own
-  connection, and keeps it open for a sync linger (30 min, <code>WW_HUB_SYNC_LINGER</code>, <code>forever</code>) so boards stay steered
-  between short-lived commands; <code>WW_HUB_SYNC=off</code> / <code>sync().set_enabled</code> per device or all. <code>ww_hub_api::ClockSync</code> at
-  <code>sync</code>: <code>devices</code> (<code>SyncEntry</code>: phase, state, source, the steerer the device follows and one it only notes, rate,
-  shortest RTT, residual via <code>shared_now</code>, error, slew, samples), <code>linger</code>, the <code>stats</code> stream. Rate cache per device
-  serial in the state dir (<code>clock_sync::RateCache</code>, atomic writes, shared with direct-mode programs): a known device
-  is steered after its first reading. Steer points say who steers (<code>ww_timebase::Steerer</code>, STD-49 follow-up); the device
-  follows one and notes the others (embedded_bedrock <code>bedrock_sync</code>). <code>ww sync</code> shows the hub's steering with a hub,
-  steers directly without one, STEERED BY column. <code>docs/transport/hub.md#clock-sync-in-the-hub-srv-31</code>,
-  <code>docs/std_library/ww_timebase.md#one-steerer-at-a-time</code>; E2E in <code>tests/hub</code> (<code>clock_sync</code>), <code>tests/io_timebase</code>.
-  Paused (<code>SyncPhase::Paused</code>, readings go on, no steer points) while a program holds the whole device (SRV-32);
-  programs holding a device directly steer on their own connection by default (CLT-46).
-  Checked on omarchy-m1 (22 Oct 2026, Donguru and B135 through the hub, <code>ww sync</code> as its view): <code>Locked</code> 1.4-2.6 s
-  after the hub opened them with no cached rate, 0.4 s with one, also after a hub restart and after 60 s closed in
-  holdover; a loop of short <code>ww info</code> calls goes through the hub from its third call and the board stays steered
-  without clients for the sync linger, then closes; residual against UTC B135 -5..-16 µs (±55 µs, RTT 120 µs),
-  Donguru within ±1.2 ms (RTT 1.4-1.6 ms). Two steerers on one board (follow one, note the other, take over) checked
-  on Donguru and B135 by <code>bedrock_sync</code>'s side.</li>
+  newer replaces older, so it converges); a refusal names both versions and the fix.</li>
+<li>📋 <strong>SRV-31 Clock sync in the hub</strong> · <code>v0.5.x</code> — the hub steers every open device serving <code>Clock</code> with host sync
+  (STD-49) and keeps it steered between short-lived commands; per-device rate cache, steer points say who steers,
+  <code>ww sync</code> shows the hub's steering instead of fighting it.</li>
 <li>🧪 <strong>SRV-32 Device-wide exclusive and lending</strong> · <code>v0.5.x</code> — exclusive access to a whole device (DFU, settings
   writes) is a claim on its root path (SRV-34): other programs' calls and writes anywhere on it refused naming the
   holder, and <code>Hub::steering_paused</code> for the hub's clock steering (SRV-31 skips the device while it holds);
@@ -6596,15 +6355,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   refuses tunnels with <code>Status::Lent</code> and others' claims naming it until released, then opens it again if the hub
   held it; <code>Lent</code> / <code>Returned</code> events; a crashed borrower or a ttl returns it. <code>ww hub lend DEVICE -- CMD</code> (Ctrl+C
   reaches the command, its exit code is ww's), <code>hub::Lend</code>. <code>docs/transport/hub.md</code>; tests <code>ww_hub</code> (<code>claims</code>),
-  <code>tests/hub</code> (<code>exclusive*</code>, <code>lend*</code>). Lending checked on omarchy-m1 (22 Oct 2026): <code>ww hub lend 204B319B5431 --
-  sh -c '...; probe-rs reset --probe &lt;J-Link&gt; ...'</code> on Donguru while <code>ww sync</code> watched it through the hub: the hub
-  paused its steering and closed the device 7 ms after the ask, the command ran, the device was back open in the hub
-  3 ms after the return (1.4 s for the whole lend), and <code>ww sync</code>'s connection came back and the board was <code>Locked</code>
-  again 1.8 s later. Open: <code>ww dfu flash</code> through the hub on hardware, as no free bench board has chunky A/B (Donguru
-  and B135 run in place without it, rePort was busy; B135 could be provisioned with vb135's <code>just
-  provision-ab-dfu</code>, which erases its settings: the person's call); no <code>ww settings</code> command writes to a device yet (<code>dump</code> reads a file), one that
-  does takes <code>Exclusive</code> the same way. Clients reconnect after a lend with the <code>Lent</code> reason (CLT-40), and the hub's
-  steering pauses while the root is held (SRV-31, <code>tests/hub</code> <code>a_root_claim_pauses_steering</code>).</li>
+  <code>tests/hub</code> (<code>exclusive*</code>, <code>lend*</code>). Open: a hardware check (probe-rs and <code>ww dfu flash</code> on a board while another
+  program uses it through the hub), clients waiting while lent and the <code>Lent</code> reason in their reconnect event
+  (CLT-40), the steering loop asking <code>steering_paused</code> (SRV-31); no <code>ww settings</code> command writes to a device yet
+  (<code>dump</code> reads a file), one that does takes <code>Exclusive</code> the same way.</li>
 <li>📋 <strong>SRV-33 Hub federation between PCs</strong> · <code>v0.5.x</code> — remote devices through another PC's hub, as <code>HOST/&lt;key&gt;</code>,
   with who may connect decided by the hub that owns the device (security design reviewed before code). Steps:
   SRV-36 ssh (full access), SRV-37 principals and per-device rights, SRV-38 restricted ssh keys, SRV-39 the browser
@@ -6627,13 +6381,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   a static key per PC (<code>ww hub key</code>), peers allowlisted by key and source address with SRV-37 rules. Built when a
   box without ssh needs it.</li>
 <li>💡 <strong>SRV-14 FPGA server</strong> · <code>v0.5.x</code>.</li>
-<li>📋 <strong>SRV-44 Device serves waiting requests by priority</strong> — requests that arrived in one frame are handled in
-  order; take the highest priority (CLT-50) first, so its reply leaves first. <code>TODO(SRV-44)</code> in <code>ww_device</code>
-  <code>server.rs</code> and <code>blocking.rs</code>.</li>
-<li>📋 <strong>SRV-45 Hub queues by priority across clients</strong> — the hub (SRV-29) forwards each client's requests in the order
-  they came and flushes urgent ones at once (CLT-50); with several busy clients on one device, an urgent request of
-  one could still wait behind another's batch in the device link's queue. Sort what waits there by priority
-  (with CLT-52).</li>
 </ul>
 <h2 id="client-host-side-clt">Client / host side (<code>CLT</code>)<a class="headerlink" href="#client-host-side-clt" title="Permanent link">&para;</a></h2>
 <ul>
@@ -6737,7 +6484,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   (no read-back verify), no sans-IO boundary for a simulated device and no say over the seconds a 128 KB erase takes.
   <code>follow::stm32_dfu_update()</code> / <code>stm32_dfu_update_with()</code> (<code>wire_weaver_client</code>, feature <code>stm32_dfu</code>, the <code>_with</code>
   one needs neither it nor <code>usb</code>) wait for the bootloader under the app's serial number, flash, jump and wait for the
-  app, tested end to end on <code>SimStm32Dfu</code> (<code>tests/follow_reboot</code>); <code>ww dfu stm32 list/info/flash</code> with a progress bar,
+  app, tested end to end on <code>SimStm32Dfu</code> (<code>tests/follow_reboot</code>); <code>ww stm32dfu list/info/flash</code> with a progress bar,
   <code>--wait</code>, <code>--follow</code>. Facts: AN2606 Rev 70 §59: H72x ROM DFU on PA11/PA12 USB FS, HSI48+CRS (no HSE), BL ID 0x93,
   start 0x1FF09800; ES0491 2.2.5: USB DFU is dead under RDP level 1. On a real H725 (B135 rev B, 21 Oct 2026): the
   ROM serial is <code>rom_serial</code> (UID 000F0009 34315102 34363338, serial 344533413431), the version byte at 0x1FF1E7FE
@@ -6759,7 +6506,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>🚧 <strong>CLT-21 Follow a device across a reboot into other firmware</strong> — for DFU (<code>ww_dfu</code> <code>BootControl::reboot(Updater)</code>):
   reconnect to the same device by serial number, whatever answers there, with a timeout. Done for USB:
   <code>wire_weaver_client::follow</code> (<code>Follow</code>, <code>Bus</code>, <code>Found</code>), and the RP2350 / RP2040 boot ROM as the updater:
-  <code>ww_picoboot</code> (PICOBOOT host on nusb, <code>SimRp2350</code> for tests), <code>follow::rp2_update()</code>, <code>ww dfu rp</code>, tested end to end
+  <code>ww_picoboot</code> (PICOBOOT host on nusb, <code>SimRp2350</code> for tests), <code>follow::rp2_update()</code>, <code>ww bootsel</code>, tested end to end
   on a simulated device (<code>tests/follow_reboot</code>, <code>docs/transport/follow_reboot.md</code>). The PICOBOOT host moved to its
   own repo, <a href="https://github.com/vhrdtech/picoboot_host">picoboot_host</a> (evaluated the crates.io <code>picoboot</code> 0.3.0
   crate first: no sans-IO boundary to put <code>SimRp2350</code> behind, no <code>Image</code>/UF2 handling, no orchestrated flash+verify,
@@ -6767,8 +6514,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   depends on it as <code>ww_picoboot</code> (a path dependency on <code>../picoboot_host</code> while its ELF support, IMG-4, is unlanded;
   a git dependency on github.com/vhrdtech/picoboot_host once it lands, until it is on crates.io). <code>wire_weaver_client</code>'s
   <code>picoboot</code> feature (off by default) gates <code>follow::rp2_update()</code> and the <code>ww_picoboot</code> re-export, so a host app
-  that only talks WireWeaver over USB doesn't pull in PICOBOOT; <code>ww dfu rp</code> turns it on, and <code>follow::rp2_update_with()</code>
-  (what <code>tests/follow_reboot</code> runs against a simulated device) needs neither it nor <code>usb</code>. <code>ww dfu rp flash</code> takes a
+  that only talks WireWeaver over USB doesn't pull in PICOBOOT; <code>ww bootsel</code> turns it on, and <code>follow::rp2_update_with()</code>
+  (what <code>tests/follow_reboot</code> runs against a simulated device) needs neither it nor <code>usb</code>. <code>ww bootsel flash</code> takes a
   UF2, an ELF (detected by magic bytes, taken by its <code>PT_LOAD</code> segments' flash physical address — no <code>objcopy</code>/
   <code>elf2uf2</code> needed) or a raw binary. Missing: a run against a Pico 2 / rePort; RTT (another control block: a second
   ELF or a RAM scan) and UDP / WebSocket (the port may change); asking for the reboot from the CLI needs CLT-10.</li>
@@ -6786,23 +6533,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   Generated clients open streams through it (<code>tests/streams_reliable</code>, API-31); the dynamic client and Python pass
   the stream function's arguments and return its result. Missing: counted and reliable streams on trait paths
   (events carry the absolute path), the reconnect itself (EX-10), lossy-medium scenarios (TEST-19).</li>
-<li>✅ <strong>CLT-47 ww-plugins</strong> · <code>v0.5.x</code> — <code>ww NAME ARGS..</code> runs <code>ww-NAME ARGS..</code> from PATH, as <code>cargo</code> does: the device
-  selection given before NAME reaches the plugin as the <code>WW_*</code> variables, its exit code is <code>ww</code>'s, an unknown NAME says
-  there is no <code>ww-NAME</code> on PATH. <code>ww dfu flash ARGS..</code> runs <code>ww-chunky flash ARGS..</code> (chunky_mcu_updater's <code>ww_chunky</code>;
-  the error without it names the install step), which cut the repository cycle: <code>wire_weaver_cli</code> no longer depends on
-  chunky_mcu_updater, so <code>cargo install --git https://github.com/vhrdtech/wire_weaver wire_weaver_cli --locked</code> works
-  on any PC. The completion lists plugins on PATH and asks them for the words after their name (<code>ww dfu flash --&lt;TAB&gt;</code>
-  gives the flags of <code>ww-chunky flash</code>). <code>wire_weaver_cli</code> is a library too: <code>wire_weaver_cli::plugin</code> is the plugin
-  API (<code>DeviceArgs</code>, <code>Selection</code>, <code>take_exclusive</code>, <code>complete_if_requested</code>, <code>escape</code>), so a plugin has the connection
-  options, the config file and the completion of <code>ww</code>. <code>just check-clean-clone</code> builds <code>ww</code> from a fresh clone.</li>
 <li>🚧 <strong>CLT-33 <code>ww dfu flash</code>: updates of a chunky device</strong> — <code>ww dfu flash &lt;ELF|sealed image|bin&gt;</code>, <code>status</code>,
-  <code>confirm</code>, <code>revert</code> (<code>ww_chunky/src/commands.rs</code> in chunky_mcu_updater; <code>ww dfu status | confirm | revert</code> also run in <code>wire_weaver_cli/src/cmd/dfu.rs</code>) on the host library <code>chunky_ww_host</code> of chunky_mcu_updater
-  (NET-2), now the <code>ww-chunky</code> plugin of chunky_mcu_updater that <code>ww dfu flash</code> runs (CLT-47): seals an ELF or a
+  <code>confirm</code>, <code>revert</code> (<code>wire_weaver_cli/src/cmd/dfu.rs</code>) on the host library <code>chunky_ww_host</code> of chunky_mcu_updater
+  (NET-2; a path dependency on <code>../chunky_mcu_updater</code>, as chunky depends on <code>../wire_weaver</code>): seals an ELF or a
   binary for the device (product and seal scheme from <code>NodeInfo</code>, which carries <code>product_id</code> and <code>seal</code> for it,
   STD-12), plans a delta, sends the steps pipelined up to <code>StageLimits::in_flight</code> (<code>PreparedCall::send</code> →
   <code>PendingCall</code>: requests leave in send order, replies awaited later), a progress bar, reboots into the trial,
   follows the device by serial number and waits for its confirm or revert. <code>reboot --into updater</code> on an A/B app
-  that takes updates itself says it goes to the boot ROM (<code>ww dfu stm32</code>, CLT-34). Tested end to end in
+  that takes updates itself says it goes to the boot ROM (<code>ww stm32dfu</code>, CLT-34). Tested end to end in
   chunky_mcu_updater (<code>chunky_ww_host/tests/e2e.rs</code>: simulated USB HS, delta, full image, lost reply, re-plan,
   revert). Open: on hardware (B135, HW-5 there), the version from the ELF, a CLI-level test.</li>
 <li>✅ <strong>CLT-41 client-metadata</strong> · <code>v0.5.x</code> — who connects: <code>ww_link::ClientMeta</code> (program, app version, label, kind
@@ -6814,25 +6552,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   shortened form or none. <code>DeviceLink::peer_meta()</code> on the device; <code>wire_weaver_py</code> sets <code>Notebook</code>. Docs:
   <code>docs/transport/hub.md</code>. Tested on Linux; the macOS and Windows parent-process detection compiles by inspection
   only (no such target here). Used by the hub (SRV-13) and the holder lock files (CLT-38).</li>
-<li>🧪 <strong>CLT-50 Request priority</strong> · <code>v0.5.x</code> — every request carries a 4-bit priority (<code>ww_client_server::Request</code>'s
-  <code>priority</code> nibble, <code>wire_weaver::Priority</code>: 0..=15, <code>NORMAL</code> = 4 by default, <code>URGENT</code> = 8, wire change EVO-14).
-  Default traffic follows one plain rule on both ends: a frame goes out when it is full or when the device's
-  accumulation window is over, never later (CLT-53), also for a request or reply alone. An urgent request (8 and up)
-  is flushed at once by the host, and its reply, immediate or deferred (SRV-42), by the device. API:
-  <code>.priority(p)</code> / <code>.urgent()</code> on <code>PreparedCall</code>, <code>PreparedRead</code>, <code>PreparedWrite</code> and <code>PreparedStreamOpen</code>,
-  <code>Commander::set_default_priority</code>, <code>ClientConfig::default_priority</code>; a multi request (CLT-15) goes at the highest
-  priority of its items. Through the hub (SRV-29) the nibble stays as the client sent it and the hub's link to the
-  device flushes an urgent request at once too (<code>tests/hub</code> <code>urgent_call_through_the_hub_goes_at_once</code>). Replaces
-  the lone request/reply fast paths (CLT-37, TR-12's reply flush), which made latency depend on what else happened
-  to be queued. Docs: <code>docs/transport/ww_framer.md#latency-and-priority</code>; tests
-  <code>wire_weaver_client</code> <code>flush_e2e_tests</code>, <code>core::tests::urgent_request_flushes_at_once</code>, <code>ww_device</code>
-  <code>async_server::replies_flushed_by_priority</code>. On hardware: re-measure the rePort B200A round trips (scratch fixes:
-  immediate call 2.69 → 0.54 ms p50, deferred <code>i2c_read</code> 5.3 → 2.3 ms).</li>
-<li>🧪 <strong>CLT-53 An accumulation window never costs more than itself</strong> · <code>v0.5.x</code> — the host waited for the window with
-  <code>tokio::time::sleep_until</code>, which rounds up to whole milliseconds: a 1 ms window (rePort B200A,
-  <code>UsbTimings::fs_higher_speed</code>) cost ~2.2 ms per request. The tx task now waits on a fine timer
-  (<code>event_loop/fine_timer.rs</code>: one thread per process for deadlines under 2 ms away, tokio's timer for the rest),
-  within tens of µs of the deadline. On hardware: part of CLT-50's re-measure.</li>
+<li>✅ <strong>CLT-37 No millisecond per request from the accumulation window</strong> · <code>v0.5.x</code> — the host slept out the device's
+  frame accumulation window (250 µs on USB HS) with <code>tokio::time::sleep_until</code>, which rounds up to whole
+  milliseconds: every request waited ~1.06 ms before it left. A window under 1 ms now ends as soon as the tx task has
+  nothing else waiting (after one yield, so requests queued together still share a frame; <code>TxInput::Idle</code>,
+  <code>TxCore::wants_idle_flush</code>). Measured on a B135 rev B over USB HS (omarchy-m1, 21 Oct 2026): a property-like call
+  1.3 ms → 0.17 ms median, a 4 KB SD read 4.5 ms → 1.8 ms, CAN frames through a credit sink 3.8k → 7.2k/s.</li>
 <li>✅ <strong>CLT-38 Who holds a device</strong> · <code>v0.5.x</code> — <code>wire_weaver_client::holders</code> (<code>key_for</code>, <code>holder_of</code>, <code>list</code>),
   always on, not gated by a feature: before claiming a USB interface or RTT probe, <code>claim()</code> takes an exclusive
   <code>std::fs::File::try_lock</code> on <code>&lt;runtime dir&gt;/ww/holders/&lt;key&gt;.lock</code> (<code>$XDG_RUNTIME_DIR/ww</code> on Linux, <code>$TMPDIR/ww</code>
@@ -6846,11 +6571,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   dfu-util), Linux scans <code>/proc/*/fd</code> for the device node and names the process, elsewhere it just says "another
   program". Tested with a real second holder (a child process, killed to simulate a crash) and a released claim's
   stale content never reported as held.</li>
-<li>✅ <strong>CLT-36 A call on a link that went down fails at once</strong> — after the device resets or the link goes (its event
-  loop exits), a call fails with <code>Error::Disconnected</code> until <code>Commander::reconnect</code> connects again, instead of waiting
-  in the command channel the residual keeps: a keeper task holds the channel between event loops and answers every
-  command that comes in (<code>prepared_connection.rs</code>'s <code>keep</code>). Tested in <code>tests/methods</code>
-  (<code>call_while_disconnected_fails_at_once</code>).</li>
+<li>🐛 <strong>CLT-36 A call on a link that went down waits for a reconnect</strong> — after the device resets (its event loop
+  exits), a call's request goes into the command channel the residual keeps for <code>Commander::reconnect</code> and its
+  timeout never starts: <code>call()</code> hangs until someone reconnects. <code>chunky_ww_host</code> polls with its own deadline for
+  now. Fix: fail calls with <code>Error::Disconnected</code> while no event loop runs (or start the timeout at the send).</li>
 <li>🚧 <strong>CLT-39 Hub routing in <code>connect</code></strong> · <code>v0.5.x</code> — direct by default, the hub when it pays off: a device the hub
   holds is reached through it, and repeated short connections (N opens within T seconds, shell-launched calls weighted)
   move a device into the hub, so a loop of <code>ww</code> calls doesn't re-open it every time. <code>HubMode</code> <code>Auto</code>, <code>Prefer</code>,
@@ -6864,105 +6588,20 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   polling the socket with the preamble for 2 s), lock files with the holder's client metadata, busy errors that say
   how to get a hub, <code>ww hub take</code> (<code>hub::take</code>). See <code>docs/transport/hub.md#reaching-devices-through-the-hub-clt-39</code>.
   Tested on Linux (<code>tests/hub_routing</code>: two programs starting a hub at once get one, stale socket, no executable;
-  unit tests for the modes). Missing: the open counter counts USB only (RTT and <code>ipc_exclusive</code> local sockets go through the hub when it holds them,
-  their holder hands them over (CLT-43) or in <code>Prefer</code> / <code>Required</code>; the rest connect directly); a routed USB connection through the
+  unit tests for the modes). Missing: USB only (RTT and the rest connect directly); a routed USB connection through the
   SRV-29 tunnels is only tested on hardware (P2401#21oct-2103e, the routing picks USB devices only, which tests
   can't fake); a check on macOS and Windows (compiles for both).</li>
-<li>🧪 <strong>CLT-40 Reconnect after a hub restart</strong> · <code>v0.5.x</code> — the client reconnects by itself, re-opens its streams and
-  observe subscriptions and tells the app (<code>Reconnected</code>); requests in flight fail, never replayed. Built
-  (<code>docs/transport/hub.md#reconnect-after-a-hub-restart-clt-40</code>): a connection through the hub that loses its link
-  (hub exited, crashed, killed, handed over, device lent) is reconnected by the keeper of its command channel
-  (CLT-36) with backoff, through a hub again (one started if none runs), and resumes counted and reliable streams,
-  observed levels and sinks (<code>resume_streams</code>); calls fail with <code>Disconnected</code> meanwhile; <code>ConnectionEvent</code> /
-  <code>GapReason</code> from <code>Commander::connection_events()</code>; <code>ClientConfig::hub_reconnect(give_up)</code> (60 s, lent time not
-  counted, no hub started while lent). Tested on Linux in <code>tests/hub_reconnect</code> (<code>restart.rs</code>; <code>kill.rs</code>: <code>SIGKILL</code>
-  twice under load, back in ~90 ms, stream resumed, nothing sent twice); check on macOS and Windows open. Plain
-  streams end with the link, as on an unplug.</li>
-<li>🧪 <strong>CLT-46 Clock steering in every direct connection</strong> · <code>v0.5.x</code> — a program that holds a device directly steers
-  its clock onto the PC's UTC without code of its own, as the hub does for the devices it holds (SRV-31): on by
-  default, <code>ClientConfig::clock_sync(false)</code> or <code>WW_CLOCK_SYNC=off</code> to turn it off, <code>clock_sync_options</code> for the pace;
-  <code>Phase::ThroughHub</code> (no steering) while the connection goes through a hub, again after a reconnect that reaches it
-  directly. The code of <code>ww_clock_sync</code> moved into <code>wire_weaver_client::clock_sync</code> (feature <code>clock_sync</code>, default;
-  <code>ww_clock_sync</code> re-exports it), <code>Clock</code> with <code>host_sync</code> found by introspection (<code>serves_host_sync</code>, <code>now()</code> tried
-  without introspection data), rate cache by the device's serial and the connection's <code>ClientMeta</code> as steerer, as in
-  SRV-31. The task holds a weak <code>Commander</code> for one round of calls at a time, so the connection closes with the
-  program's last <code>Commander</code>. <code>Commander::clock_sync()</code> (<code>ClockSteering</code>: phase, status, <code>set_paused</code>); <code>ww dfu</code>
-  pauses it while it holds the device directly, <code>ww sync</code> and the hub turn it off (they steer with their own sync).
-  <code>docs/std_library/ww_timebase.md#steering-in-every-direct-connection</code>; tests <code>tests/io_timebase</code>
-  (<code>a_direct_connection_steers_by_itself</code>, <code>own_steering_never_keeps_the_connection_open</code>), <code>tests/hub</code>
-  (<code>ThroughHub</code>). Hardware check open: a board (rePort, Donguru on omarchy-m1) steered by a direct <code>ww</code> command or
-  app, <code>ww sync</code> with a hub showing it followed, no second steerer with the hub.</li>
-<li>🧪 <strong>CLT-43 Polite handover to the hub</strong> · <code>v0.5.x</code> — a direct holder that allows it (by default command-line tools,
+<li>📋 <strong>CLT-40 Reconnect after a hub restart</strong> · <code>v0.5.x</code> — the client reconnects by itself, re-opens its streams and
+  observe subscriptions and tells the app (<code>Reconnected</code>); requests in flight fail, never replayed.</li>
+<li>📋 <strong>CLT-43 Polite handover to the hub</strong> · <code>v0.5.x</code> — a direct holder that allows it (by default command-line tools,
   notebooks and tests, not GUIs or services) hands its device to the hub when another program wants it, and goes on
-  through the hub after a short gap; one that doesn't is named in the other's error. Built
-  (<code>docs/transport/hub.md#polite-handover-from-a-direct-holder-clt-43</code>): <code>ClientConfig::allow_handover</code> (default by
-  client kind, only where the holder can reconnect through the hub); a direct holder listens on
-  <code>&lt;runtime&gt;/ww/holders/&lt;key&gt;.sock</code> (user-only, peer checked, named in its lock file as <code>handover = &lt;path&gt;</code>) for the
-  frozen <code>WWHO</code> request (<code>ww_local_socket::HandoverRequest</code> / <code>HandoverAnswer</code>, TLV trailer with the client metadata);
-  its event loop lets go of the device (<code>HandedToHub</code>, streams kept), the claim is shared by both link halves so
-  <code>Released</code> comes only once the medium is closed, and it reconnects through the hub on CLT-40's path
-  (<code>GapReason::HandedToHub</code>, <code>Reconnected</code>). <code>connect()</code> (USB, RTT, <code>ClientConfig::ipc_exclusive</code> local sockets) and
-  <code>ww hub take</code> ask a direct holder before opening when a hub runs or can start; a refusal fails with the holder's
-  name and kind. Release and reopen on every OS. Tested on Linux between two processes on a simulated device
-  (<code>tests/hub_reconnect</code> <code>polite_handover.rs</code>: a <code>Cli</code> holder hands over with a counted stream resumed, gap 4.6 ms
-  median; a <code>Gui</code> holder refuses and is named). Real USB (rePort, omarchy-m1, <code>WW_LIVE_HANDOVER=off</code>): link gap 9.7 ms
-  median, the calls in flight and in the gap failing (104-2068 per run of 20 calls in flight). Open: an RTT probe's
-  gap; a check on macOS and Windows (compiles by inspection only).</li>
-<li>🧪 <strong>CLT-44 Live link handover on Linux</strong> · <code>v0.5.x</code> — the hub adopts a direct holder's live link (link, requests
-  in flight, streams and subscriptions), so the device never sees a reconnect and the holder goes on through the hub
-  without a gap; elsewhere CLT-43's release and reopen. Built (<code>docs/transport/hub.md#live-link-handover-clt-44</code>): the
-  holder pauses (OUT drained, IN cancelled and reaped into the framer), sends its residual
-  (<code>wire_weaver_client::adopt::HandoverOwned</code>: the link residual, the same on every medium, and a medium residual only
-  the taking medium decodes) to <code>ww_hub_api::Adopt::prepare</code>, releases the interface keeping the device open (no
-  bus traffic at alternate setting 0, toggles kept), <code>commit</code> has the hub open the device itself and go on with the
-  link (<code>PreparedConnection::adopt</code>), the holder's tunnel attaches by adoption id (<code>TAG_ADOPT</code>) and its event loop
-  puts the tunnel in its one transport slot (a relink from any medium to any other) keeping seqs and waiters. No fd passing: nusb 0.2 can't give one out, and a shared open
-  file's claim goes with the holder's <code>Interface</code>. Needs the same <code>wire_weaver_client</code> minor in the hub. Rollback when
-  the hub dies before it holds the device, cleanup after <code>HubConfig::adopt_attach</code> when the holder dies. Real USB on
-  Linux (nusb) and the simulated USB device (<code>usb_sim</code>). Tested between processes on <code>usb_sim</code>
-  (<code>tests/hub_reconnect</code> <code>live_handover.rs</code>: handed over in 8.5 ms median with 21 requests in flight, nothing lost or
-  doubled, the device's link up once; hub or holder killed in the commit, interface grabbed in the gap, a prepared
-  adoption whose connection went, answers waiting in the device). On a real board (rePort, omarchy-m1, <code>live_bench</code>):
-  20/20 handovers in 16.7 ms median with 20-21 requests in flight, no failed call, no connection event, no link setup
-  or control transfer from the hub (its trace); CLT-43 on the same board: 104-2068 failed calls per run.
-  <code>WW_LIVE_HANDOVER=off</code> falls back to CLT-43. Open: a usbmon trace of one handover showing nothing at all on the bus
-  (root on omarchy-m1: <code>sudo modprobe usbmon</code>, <code>sudo cat /sys/kernel/debug/usb/usbmon/1u &gt; /tmp/usbmon-1u.txt</code> while
-  <code>live_bench</code> hands over the rePort on bus 1; no <code>Ci</code>/<code>Co</code> control transfers in the window).</li>
-<li>✅ <strong>CLT-45 Lock file names one per device key</strong> — <code>holders</code> used to map every character outside
-  <code>[A-Za-z0-9._-]</code> to <code>_</code>, so two keys could share a lock file (<code>...:a:b</code> and <code>...:a_b</code>) and a USB device with a
-  crafted serial could make another one look held. Now lower-case letters, digits and <code>-</code> stay and every other byte
-  is <code>_xx</code>, one file per key also on a case-insensitive filesystem; long names are the key's SHA-256 (the handover
-  socket's too, was FNV), and the key inside the file is checked on read.</li>
-<li>📋 <strong>CLT-48 Fallible methods in multi calls</strong> — <code>MultiCall</code> (CLT-15) only takes infallible methods, so a method
-  returning <code>Result</code> (<code>ww_i2c::I2c::i2c_read</code>, any method with <code>#[errors]</code>) can't be batched into one round trip;
-  found on the rePort B200A bench run (report-i2c-master, 27 Oct 2026), where a write + read burst to a USB-C PD
-  controller wants exactly that. Needs each index's answer to carry the method's own <code>Result</code> next to the
-  per-index <code>Error</code>.</li>
-<li>✅ <strong>CLT-48 Fallible methods in multi calls</strong> · <code>v0.5.x</code> — a method returning <code>Result&lt;T, E&gt;</code> (any with
-  <code>#[errors]</code>, e.g. <code>ww_i2c::I2c::i2c_read</code>/<code>i2c_write</code>) goes into a <code>MultiCall</code> tuple (CLT-15) and into
-  <code>call_array</code>, mixed with methods without <code>Result</code>; each position answers what its single <code>call()</code> would,
-  <code>Result&lt;T, CallError&lt;E&gt;&gt;</code> (<code>Device</code> checked against the <code>#[errors]</code> list, <code>Unimplemented</code>, <code>Client</code> for the
-  index's own framework error), methods without <code>Result</code> still <code>Result&lt;T, ErrorOwned&gt;</code>. No device change: servers
-  already put the method's <code>Result</code> into the index's slot. Generated client calls with arguments take <code>&amp;self</code> now
-  (was <code>&amp;mut self</code>), so two of them fit into one tuple. Found on the rePort B200A bench run (report-i2c-master,
-  27 Oct 2026): a write + read burst to a USB-C PD controller in one USB round trip. Host-tested (<code>tests/methods</code>:
-  2- and 3-tuples, <code>call_array</code> async and blocking, Ok, device <code>Err</code>, <code>Unimplemented</code> and <code>BadIndex</code> mixed),
-  <code>docs/api/multi_requests.md#methods-returning-result</code>.</li>
-<li>✅ <strong>CLT-49 Same method twice in a multi call</strong> · <code>v0.5.x</code> — a <code>MultiCall</code>/<code>MultiRead</code>/<code>MultiWrite</code> tuple
-  naming the same resource more than once (two <code>ww_i2c::I2c::i2c_write</code> in one burst) failed on the client with
-  "resources are identical", though the server already handles <code>MultiIndex::List([id, id])</code>. The client now sends
-  the repeated id, answers come back in tuple order. <code>call_array</code> and friends still refuse an accessor that builds
-  the same path for every index. Host-tested (<code>tests/methods</code> <code>multi_call_same_method_twice</code>: 3-tuple at the root,
-  2-tuple in an array item, <code>Same</code> and <code>Different</code> args, Ok and device <code>Err</code> mixed, infallible too),
-  <code>docs/api/multi_requests.md#several-resources-at-the-same-level</code>.</li>
-<li>📋 <strong>CLT-52 Host sends waiting requests by priority</strong> — today priority (CLT-50) only decides when a frame is
-  flushed; requests waiting for a free seq or for the transport go out in the order they were made. Sort that queue
-  by priority (the event loop's, before the framer), so an urgent request overtakes a long queue of default ones.
-  <code>TODO(CLT-52)</code> in <code>event_loop/core/tx.rs</code>.</li>
-<li>📋 <strong>CLT-54 <code>ww_si::Fixed</code> in dynamic clients, <code>ww</code> and Python</strong> · <code>v0.5</code> — a <code>Fixed&lt;U, P, T, B&gt;</code> (STD-55) shown
-  with its unit and scale (<code>1730000000000000 µs</code>), written from <code>5 ms</code> exactly into the stored scale and type (not
-  exact or out of range: an error naming the type), bounds shown and checked before a write, slider limits in a GUI,
-  <code>Index</code> / <code>IndexFrom1</code> / <code>Seq</code> (STD-58) and the dimensions of STD-60 shown; the C consumer of the conformance matrix.</li>
+  through the hub after a short gap; one that doesn't is named in the other's error.</li>
+<li>📋 <strong>CLT-44 Live link handover on Linux</strong> · <code>v0.5.x</code> — the hub adopts a direct holder's live link (the USB
+  handle passed between the processes, link, requests in flight, streams and subscriptions), so the device never
+  sees a reconnect and the holder goes on through the hub without a gap; elsewhere CLT-43's release and reopen.</li>
+<li>📋 <strong>CLT-45 Lock file names one per device key</strong> — <code>holders</code> maps every character outside <code>[A-Za-z0-9._-]</code> to
+  <code>_</code>, so two keys can share a lock file (<code>...:a:b</code> and <code>...:a_b</code>): a USB device with a crafted serial can make
+  another one look held. Needs an injective file name.</li>
 </ul>
 <h2 id="transports-and-protocols-tr">Transports and protocols (<code>TR</code>)<a class="headerlink" href="#transports-and-protocols-tr" title="Permanent link">&para;</a></h2>
 <ul>
@@ -7025,13 +6664,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>🚧 <strong>TR-12 USB throughput on small MCUs</strong> — measured with <code>ww usb-loopback</code> on Donguru (STM32G0B1, Cortex-M0+
   64 MHz, USB FS behind the board's HS hub, 15 Oct 2026). Done: U2Head encodes and decodes whole bytes in u32
   instead of bit by bit (<code>ww_framer</code> <code>framed.rs</code>, was ~15% of the device's CPU per packet); the async device server
-  flushed replies at once when no other request waited (<code>ww_device</code> <code>Server::handle</code>), removed again for request
-  priority (CLT-50, SRV-42: a reply goes out at once only when its request is urgent). <code>WireWeaverClass::with_endpoints()</code> lets
+  flushes replies at once when no other request waits instead of after the accumulation window (<code>ww_device</code>
+  <code>Server::handle</code>; DFU transcripts +1-2 packets). <code>WireWeaverClass::with_endpoints()</code> lets
   firmware allocate the endpoints, e.g. double-buffered bulk ones (Donguru, embassy-rs/embassy#7275: raw bulk 500 -&gt;
   950 kB/s OUT on the G0); <code>usb_init_with_endpoints()</code> offers the same choice to callers of the single-function
   <code>usb_init()</code> convenience, who can't reach into its private <code>UsbBuffers</code>. Next: CRC through a pluggable checksum
-  so MCUs can use their CRC unit (~13% of the CPU per packet on the M0+). The lone request and reply flushes once
-  planned here are superseded by request priority (CLT-50).</li>
+  so MCUs can use their CRC unit (~13% of the CPU per packet on the M0+); a host-side flush for lone requests
+  that keeps packetization deterministic (flushing whenever the event loop goes idle made the DFU transcripts
+  vary between runs); the same reply flush for the blocking server.</li>
 </ul>
 <h2 id="introspection-ww_self-int">Introspection (<code>ww_self</code>, <code>INT</code>)<a class="headerlink" href="#introspection-ww_self-int" title="Permanent link">&para;</a></h2>
 <ul>
@@ -7066,20 +6706,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   and <code>ww_numeric::NumericAnyType</code> are <code>no_future_version</code> (SW-47): a host reading a newer model fails as a whole.
   With <code>Unknown</code> handled in every walker (visitor, signature, inline, values, compat, CLI, Python), an older host could
   show the rest of a newer device's API and mark the unknown parts.</li>
-<li>💡 <strong>INT-12 Bounds as a type of the API model</strong> — <code>Type::Bounded { ty, min, max }</code> (like <code>MaxLen</code>), checked by every
-  consumer (the generic decoder, C, Python), shared with API-29's index bounds. Until then bounds are const arguments
-  of <code>ww_si</code> markers (STD-55) that only <code>ww_si</code>-aware clients check; a new <code>Type</code> variant needs a model version step.</li>
-<li>✅ <strong>INT-13 Unit definitions in the API model</strong> · <code>v0.5</code> — every unit, scale and origin marker an API uses carries
-  its definition in <code>ww_self</code> (<code>ItemStructExtra::marker</code>, a <code>MarkerDef</code>: symbol, <code>Dim</code>, exact <code>Magnitude</code>; an origin's
-  unit, reference, exact offset, modulus and step), named by crate and marker (D16b), so clients know a user crate's
-  units (<code>unit!</code>, <code>scale!</code>, <code>origin!</code>) without a built-in table. <code>ww_self::units::unit_of</code> gives a canonical sorted
-  unit expression (F#-style: <code>Per&lt;Meter, Second&gt;</code> equals <code>Times&lt;Per&lt;Ratio, Second&gt;, Meter&gt;</code>) with exact
-  <code>factor_to</code>, <code>scale_of</code> and <code>origin_of</code> the factor of a scale and the definition of an origin. The walker and
-  snapshots fill it, appended with <code>#[default = None]</code> so plain structs keep their bytes and signatures and older
-  clients skip it. Conformance <code>model.marker_def.*</code> / <code>model.item_struct_extra.*</code> through derive, dynamic client and
-  Python (C: API-26). Firmware: no code cost (markers stay zero-size), introspection bytes only for the crate's own
-  markers (<code>Rpm</code> 22 B, an origin ~40 B; TEST-27). Levels (STD-67), kinds (STD-68) and sentinels (STD-66) append
-  their <code>MarkerDef</code> variants when their markers exist. <a href="../docs/std_library/units_in_the_model/">Units in the API model</a>.</li>
 </ul>
 <h2 id="evolution-versioning-and-compatibility-evo">Evolution, versioning and compatibility (<code>EVO</code>)<a class="headerlink" href="#evolution-versioning-and-compatibility-evo" title="Permanent link">&para;</a></h2>
 <ul>
@@ -7099,60 +6725,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   an error with both signatures and the fix. Rust client, <code>ww</code> and Python (<code>docs/std_library/ww_self.md</code>,
   <code>wire_weaver_client</code> <code>compat::tests::other_revision</code>). <code>#[cfg]</code> enum variants don't change signatures
   (<code>tests/cfg_variants</code>).</li>
-<li>✅ <strong>EVO-11 Evolution check at commit time</strong> — the checker is its own light crate, <code>wire_weaver_evolution</code> (parses
-  the API crate from source, no client, tokio or probe-rs), which an API crate runs from its own <code>tests/evolution.rs</code>
-  (<code>Check::new(env!("CARGO_MANIFEST_DIR")).strict(true).assert()</code>), so its lock file pins the checker and
-  <code>cargo test</code>, CI and a pre-commit hook check the same way. Strict mode fails a crate without snapshots, naming the
-  <code>ww api save</code> to run; every breaking change names the rule it breaks with its docs section, and a failed check the
-  version to bump to. <code>ww api check --strict</code> runs the same library. Template setup (test, just recipes, CI step,
-  pre-commit hook) in <code>docs/evolution/checker_tool.md#checking-at-every-commit</code>; <code>examples/blinky_api</code> does it.</li>
-<li>✅ <strong>EVO-12 Current version's snapshot required</strong> — <code>Check::require_current(true)</code> (and <code>ww api check
-  --require-current</code>) fails when the crate's current version has no snapshot or the source differs from it, and checks
-  the bump from the previous version's snapshot to it, so a version can't ship without its snapshot (the
-  <code>nucleo_g0b1re_template</code> 0.1.5 shipped API 0.2.0 without one). The snapshot is saved from the API crate's own test
-  (<code>WW_API_SAVE=1 cargo test --test evolution</code>, <code>Check::save</code>), with the checker the lock file pins; <code>ww api save</code>
-  refreshes the current version's snapshot too, never an older one
-  (<code>docs/evolution/checker_tool.md#checking-at-every-commit</code>, <code>wire_weaver_evolution/tests/check.rs</code>).</li>
-<li>✅ <strong>EVO-10 Checker knows the <code>Unknown(u32)</code> catch-all</strong> — <code>ww_self::ItemEnum::future_version</code> records an enum's
-  <code>#[future_version]</code> catch-all (SW-47), set by codegen; the evolution checker (<code>ww api check</code>), the client's runtime
-  compat check and the dynamic decoder use it: a variant appended to an enum with the catch-all is compatible, an
-  inserted or reordered one is reported as moved, and without the catch-all a new variant stays breaking. Snapshots
-  saved before EVO-10 count as without it until saved again, and compare clean otherwise (EVO-13)
-  (<code>docs/evolution/rules.md#unsized-types</code>,
-  <code>wire_weaver_evolution</code> tests <code>enum_variant_appended_to_the_catch_all</code>). Found with <code>ww_timebase::SyncState::Conflict</code>.</li>
-<li>✅ <strong>EVO-13 Upgrading wire_weaver never forces an API bump or re-save</strong> — a field of the API model that a snapshot
-  file has in no instance (written by an older wire_weaver: <code>ItemEnum::future_version</code> before EVO-10) is not
-  recorded, and the checker compares both sides without it and says so, instead of the unchanged source counting as
-  changed and <code>require_current</code> failing (G0's <code>nucleo_g0b1re_api</code> 0.4.0 after EVO-10). Read from the file itself, no
-  list of fields or <code>ww_self</code> versions: the next model field gets it too, also a non-<code>Option</code> one, which DER-17 makes
-  readable (<code>docs/evolution/checker_tool.md#the-current-versions-snapshot</code>, <code>wire_weaver_evolution/tests/check.rs</code>
-  with G0's old-format snapshots as a fixture).</li>
-<li>✅ <strong>EVO-14 Priority nibble in <code>Request</code></strong> · <code>v0.5.x</code> — <strong>wire break</strong> of <code>ww_client_server</code>'s <code>Request</code>: a
-  <code>priority: Nibble</code> after <code>seq</code> (CLT-50). A host and a device must both have it; nothing with the old layout was
-  released. Conformance cases of <code>Request</code> carry the new bytes with <code>"wire_change": "EVO-14 / ..."</code>.</li>
-<li>✅ <strong>EVO-16 <code>ww_si::Dim</code> with angle, information and counted bases</strong> · <code>v0.5</code> — the wire change of <code>Dim</code> that
-  STD-60 brings, in <code>SIExpr</code> / <code>AnyQuantity</code> and in the <code>ww_si</code> snapshot: no longer <code>sized</code> but <code>final_structure</code>,
-  nine 4-bit exponents (rad and bit appended to the seven SI ones), a root bit and four optional counted bases
-  (crate and marker name); a non-canonical <code>Dim</code> is refused on decode. Volt is <code>d2 1f 00 00 00 00</code>. <code>Scale</code> gains
-  <code>Exact</code> (an <code>ExactScale</code>, a degree is exactly π/180) in the same break. Conformance cases <code>stdlib.si.dim.*</code>
-  (<code>tests/conformance/corpus.json</code>), <a href="../docs/std_library/ww_si/#units-known-only-at-run-time">ww_si</a>.</li>
-<li>✅ <strong>EVO-15 Transparent wrappers in the checker</strong> · <code>v0.5</code> — <code>T</code> and a <code>transparent</code> wrapper of <code>T</code> (DER-18,
-  <code>ww_si::Fixed</code>) are compatible, reported as the same bytes (<code>u64 -&gt; Fixed&lt;Second, Micro, u64, Unbounded&gt;, same
-  bytes</code>); a change of a <code>Fixed</code>'s unit or prefix is breaking although the bytes stay (a reader takes µs for ms,
-  <code>Rule::Meaning</code>): any type parameter no field uses is a marker compared by name; a bound narrowed or widened is
-  breaking for the side it refuses (<code>Rule::Bound</code>, compared by value); <code>Quantity</code> → <code>Fixed</code> is breaking with a hint
-  that it is the intended move. A skipped <code>ww_si</code> definition is read from the embedded snapshot, also on prepared
-  bundles (the client at connect time)
-  (<code>docs/evolution/rules.md#transparent-wrappers-units-and-scales</code>, <code>#bounds</code>; <code>wire_weaver_evolution</code> tests
-  <code>tests::transparent</code>, <code>tests::ww_si_fixed</code>).</li>
 <li>💡 <strong>EVO-7 Git dirty flag</strong> — not implemented, although the old tracker had it as done: neither <code>ww_version</code> nor
   codegen record git state. Uncommitted API changes are still caught, since they change the API's SHA
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through <code>ww_firmware_info</code>'s
   <code>bedrock_build_info</code> stream. Decide whether the link or version also needs it.</li>
 <li>📋 <strong>EVO-8 Snapshots of crates.io crates</strong> — depends on "Load API crates from crates.io" above.</li>
-<li>📋 <strong>EVO-17 Units compared by meaning</strong> · <code>v0.5</code> — the checker compares magnitudes by value (<code>Milli</code> → <code>Pow10&lt;-3&gt;</code> is
-  compatible), reports origin, level, kind, sentinel and overflow policy (<code>Unbounded</code> → <code>Wrapping</code>, same bytes)
-  changes, and calls the same bytes in a different scale (lbf·s vs N·s) breaking.</li>
+<li>📋 <strong>EVO-10 Checker knows the <code>Unknown(u32)</code> catch-all</strong> — the evolution checker (<code>ww api save</code> / <code>check</code>,
+  <code>wire_weaver_client::compat::check_enum</code>) reports a variant appended to an <code>Unsized</code> enum as breaking ("variant
+  Host is unknown to the old version"), although since SW-47 an older reader gets it as <code>Unknown(n)</code>, as
+  <code>docs/evolution/rules.md</code> says. The <code>ww_self</code> model doesn't record whether an enum has the catch-all
+  (<code>no_future_version</code> or not): needs a defaulted field on <code>ItemEnum</code> set by codegen, the checker and the
+  dynamic decoder reading it, and snapshots saved again. Found with <code>ww_timebase::SyncState::Conflict</code> (STD-49).</li>
 </ul>
 <h2 id="tooling-cli-gui-python-tool">Tooling: CLI, GUI, Python (<code>TOOL</code>)<a class="headerlink" href="#tooling-cli-gui-python-tool" title="Permanent link">&para;</a></h2>
 <ul>
@@ -7189,47 +6772,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   that connects print (to stderr) or save that command's own connection, with the same <code>Monitor</code>, <code>LiveFeed</code> and
   <code>TapeWriter</code>; the tap decoder orders a block's records by time so a reply is paired with its request
   (<code>docs/cli_reference.md#ww-monitor</code>).</li>
-<li>✅ <strong>TOOL-18 The hub from Python and notebooks</strong> · <code>v0.5.x</code> — the wheel (<code>wire_weaver_py</code>) carries
-  <code>wire_weaver_client</code> with its <code>hub</code> feature and <code>ww_hub</code>; <code>python -m wire_weaver.hub</code> serves the hub, found by
-  <code>wire_weaver_client::hub::ensure_running</code> the same way as a Rust <code>ww_hub::main_if_hub()</code> program (<code>wire_weaver</code>
-  registers <code>sys.executable</code>, <code>["-m", "wire_weaver.hub"]</code>, at import). <code>connect()</code> takes <code>hub_device</code> (straight to
-  a device key through the hub) in addition to the usual filters, and follows <code>WW_HUB</code> / <code>WW_HUB_OPENS</code> the same
-  as a Rust client. <code>wire_weaver.hub()</code> connects to the hub's own API (<code>ww_hub_api</code>) through the dynamic client,
-  starting the hub if none runs (devices, clients, <code>for e in hub().registry.events: ...</code>). Fixed on the way:
-  <code>connect_blocking()</code> had no <code>InterfaceKind::Ipc</code> branch, so every blocking connect through a local socket or the
-  hub silently failed. Tested without hardware (<code>tests/hub_pytest_device</code> hosts the hub and an in-process device
-  in one binary): a kernel restart reconnects well under a second with the device still open and steered, two
-  Python processes share one device through the hub's tunnel (<code>wire_weaver_py/tests/test_hub.py</code>).
-  <code>docs/transport/hub.md#python-and-notebooks-tool-18</code>.</li>
-<li>✅ <strong>TOOL-19 Escape device strings in <code>ww</code> output</strong> — <code>Untrusted</code>/<code>escape</code> (<code>wire_weaver_cli/src/untrusted.rs</code>)
-  turn a C0/C1 control character, DEL or a Unicode bidi override/isolate in a device- or hub-supplied string into a
-  visible <code>\u{..}</code> escape (<code>\n</code>/<code>\r</code>/<code>\t</code> as their short two-character form) before it reaches the terminal, so a
-  device can no longer write terminal escape sequences through its USB product/manufacturer/serial strings,
-  introspection docs/idents, <code>UserStr</code> text, pin names or hub/holder program/label/user/host fields; <code>--json</code> is
-  untouched (JSON's own escaping already covers it), and the CLI's own ANSI colour codes stay outside the escaped
-  text. <code>docs/cli_reference.md#untrusted-device-and-hub-strings</code>.</li>
-<li>✅ <strong>TOOL-20 <code>ww</code> over RTT</strong> — every device command reaches a board on a debug probe (probe-rs, <code>wire_weaver_client</code>'s
-    <code>rtt</code> feature): <code>--rtt CHIP</code>, <code>--probe SERIAL|VID:PID[:SERIAL]</code>, <code>--elf ELF</code> (control block address, no RAM scan),
-    <code>--probe-speed-khz</code>, as env variables (<code>WW_RTT</code>, ...) and <code>ww.toml</code> keys; USB filters next to it refused or left
-    out by source, <code>--api</code> checked once connected; <code>ww list --probes</code> with who holds each; <code>ww sync</code> and <code>ww dfu</code> go
-    through the hub with the key <code>rtt:&lt;probe serial&gt;:&lt;chip&gt;</code>; completion of chip names and live probe serials; a busy
-    probe names its holder (lock file, or <code>/proc</code> for probe-rs/OpenOCD). <code>docs/cli.md#through-a-debug-probe-rtt</code>.
-    Tests: <code>wire_weaver_cli</code> <code>device::tests</code>, <code>tests/rtt.rs</code>; the RTT byte path itself in
-    <code>wire_weaver_client/src/event_loop/device_e2e_tests.rs</code>. Hardware (omarchy-m1, 23 Oct 2026, Nucleo G0B1RE with
-    nucleo_g0b1re_template 5bcbba0 through its ST-LINK V2-1): <code>ww info</code> in 0.4 s with <code>--elf</code>, 1.7 s with the RAM scan;
-    <code>ww counters read</code> and <code>ww sync</code> reach the device and get <code>TraitNotFound</code> (the template serves neither yet);
-    <code>held by ww, pid ..</code> and <code>held by probe-rs (pid ..)</code>; <code>ww hub take rtt:..</code> and two <code>ww info</code> at once through the
-    hub. Found and fixed on the way: a stale control block of the previous firmware won the RAM scan, <code>ww hub take</code>
-    timed out while the hub scanned.</li>
 <li>🧪 <strong>TOOL-16 <code>ww sync</code></strong> — several devices kept on the host's UTC at once (STD-49, crate <code>ww_clock_sync</code>): devices
   by serial or label parts (or every device the selection matches), a live table per device (state, followed source,
   rate in ppm, shortest round trip, the residual offset measured with <code>shared_now</code>, samples), <code>--mode</code> writes the
-  <code>ww_indication</code> mode on all, <code>--duration</code>, <code>--poll-ms</code> / <code>--steer-ms</code>; <code>q</code> or Ctrl+C stops, saying who steers the devices after (the hub, or nobody: holdover).
-  With a ww hub running it shows the hub's steering (SRV-31) and never steers itself; a STEERED BY column
-  (checked through the hub on Donguru and B135, 22 Oct 2026).
+  <code>ww_indication</code> mode on all, <code>--duration</code>, <code>--poll-ms</code> / <code>--steer-ms</code>; Ctrl+C leaves the devices in holdover.
   Convergence (21 Oct 2026): residual ± half the check's round trip, the device's error bound and slew left, a line
-  when each device and then all are within <code>--within-us</code> (locked by their word, residual by the host's), the
-  phase spread between them; steered at 10 Hz until locked; quiet into a pipe. Hardware (omarchy-m1, 21 Oct 2026, <code>ww sync</code> with Donguru B153A, rePort B200 and B135B): all three locked within 2 ms after 1.2 s from a fresh start and 2.4 s after 45 s in holdover; phase spread as ww sync estimates it 30 µs to 1.0 ms apart (±1.5-2.5 ms, rePort's and Donguru's ~1.4-1.8 ms round trips); over 5 min Donguru left once on a -2.0 ms residual (±1.2 ms) and was back in 37 s. No logic analyser on this PC: the phase is not measured on the pins. <code>docs/cli_reference.md#ww-sync</code>. Hardware check open: Donguru and rePort on omarchy-m1. Skill tree signal and skill:
+  when each device and then all are within <code>--within-us</code> (locked by their word, residual by the host's), the LED
+  phase spread; steered at 10 Hz until locked; quiet into a pipe. Hardware (omarchy-m1, 21 Oct 2026, <code>ww sync</code> with Donguru B153A, rePort B200 and B135B): all three locked within 2 ms after 1.2 s from a fresh start and 2.4 s after 45 s in holdover; LED phase as ww sync estimates it 30 µs to 1.0 ms apart (±1.5-2.5 ms, rePort's and Donguru's ~1.4-1.8 ms round trips); over 5 min Donguru left once on a -2.0 ms residual (±1.2 ms) and was back in 37 s. No logic analyser on this PC: the phase is not measured on the pins. <code>docs/cli_reference.md#ww-sync</code>. Hardware check open: Donguru and rePort on omarchy-m1. Skill tree signal and skill:
   tpm P2618#21oct-1707.</li>
 <li>🧪 <strong>TOOL-15 <code>ww pins test</code> / <code>ww pins list</code></strong> · <code>v0.5.x</code> — pin tests on any device serving <code>ww_pin_diag::PinDiag</code>
   (STD-47) at any path, found by introspection (<code>docs/cli_reference.md#ww-pins</code>): pulls, shorts to GND, to the
@@ -7244,15 +6793,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   are the same text; SIGINT and SIGTERM end a flagged command or <code>ww monitor</code> / <code>capture</code> / <code>stats</code> with the
   capture finished, synced and renamed; <code>ww explain</code> of a path-like WHAT that is no file says so without
   connecting.</li>
-<li>🧪 <strong>TOOL-21 <code>ww pins tui</code></strong> · <code>v0.5.x</code> — every point live, laid out per connector of a board preset
-  (<code>docs/cli_reference.md#ww-pins-tui</code>): level and what was set on each pad, keys to drive, toggle, pull, weak
-  drive, read all, release, pause; every point released on quit, signals and errors. The preset is boardmap's board
-  description read as it is (<code>[[view.connector]]</code>, <code>[aliases]</code>, <code>[pins]</code> roles, pads from its geometry JSON, nets
-  joined across fitted solder bridges), no dependency on embedded_bedrock; a preset for ww alone lists nets per
-  connector. Devices with <code>ww_gpio</code> banks and no <code>PinDiag</code> are shown through the banks (modes and pulls put back on
-  release). Library <code>ww_pin_probe::board</code>, <code>live</code>, <code>bank</code>; tests on <code>MockBoard</code> with the NUCLEO-G0B1RE preset
-  (<code>wire_weaver_cli</code> <code>cmd::pins_tui</code>) and over banks end to end (<code>tests/io_gpio</code>). Hardware check open: the Nucleo
-  G0B1RE once its firmware serves <code>PinDiag</code>. Skill tree signal and skill: tpm P2618#23oct-1334.</li>
 <li>🚧 <strong>TOOL-6 Dev GUI / web tool</strong> · <code>v0.5.x</code> — <code>wire_weaver_tool</code> (egui, Trunk) shows the AST and generated code. Goals:
   a web tool like the pest playground, a dynamic UI for any API (MVP prototyped), widgets per type, mockup
   server UI. See <code>docs/dev_tool.md</code>.</li>
@@ -7267,6 +6807,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   anyway); completions of the subcommands, <code>keep</code> durations and device keys with help texts; colour off without a
   TTY or with <code>NO_COLOR</code>; <code>lend DEVICE -- CMD</code> (SRV-32). Open: <code>ww list</code> asks a running hub and doesn't start one; the skill tree entry
   (P2618#21oct-2209).</li>
+<li>📋 <strong>TOOL-18 The hub from Python and notebooks</strong> · <code>v0.5.x</code> — the wheel carries the hub (<code>python -m
+  wire_weaver.hub</code>), <code>connect</code> goes through it, a kernel restart keeps the device open and steered,
+  <code>wire_weaver.hub()</code> gives the hub API through the dynamic client.</li>
+<li>📋 <strong>TOOL-19 Escape device strings in <code>ww</code> output</strong> — USB product and serial strings, <code>UserStr</code> errors,
+  introspection docs and (with SRV-36) remote hub data are printed as they come, so a device can write terminal
+  escape sequences into the user's terminal. One display helper that escapes control characters, outside <code>--json</code>.</li>
 <li>📋 <strong>TOOL-13 <code>Some(None)</code> in Python values</strong> — Python (and the conformance corpus, which uses its form) writes
   <code>None</code> for both <code>None</code> and <code>Some(None)</code> of an <code>Option&lt;Option&lt;T&gt;&gt;</code>, so the inner <code>None</code> can't be written or told
   apart when read. Needs a marker for a present <code>None</code> (e.g. <code>ww.Some(None)</code>). Conformance case
@@ -7286,17 +6832,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   carries, also by a command that never introspects the device. Open: <code>GlobalCompact</code> paths, multi requests; <code>Series</code> columns and sparse-struct slot headers in detail; shell completion of types and paths; a
   <code>ww call</code> on the same expressions; a GUI view (hex pane + tree, like Kaitai's Web IDE); Python <code>explain()</code> and
   expression input.</li>
-<li>
-<p>📋 <strong>TOOL-22 Hint for plain fields that carry a unit</strong> · <code>v0.5</code> — <code>ww api check</code> notes a plain numeric field,
-  argument or property whose name (<code>*_us</code>, <code>*_ms</code>, <code>*_bytes</code>, <code>*_ppb</code>, ..) or doc comment ("in µs", "bytes",
-  "0..=65535 = 0..100 %", "127 = not available") states a unit, scale, range or sentinel, with the <code>Fixed</code> (STD-55),
-  <code>Bounds</code> or niche (STD-66) form it could be: no meaning left in comments. A note, never an error, silenced per item;
-  tested on the scout's repos.</p>
-</li>
-<li>
-<p>✅ <strong>STD-1 <code>ww_client_server</code></strong> — the request/event model, pruned of sideband/subscribe/rate, variable length seq
-  numbers.</p>
-</li>
+<li>✅ <strong>STD-1 <code>ww_client_server</code></strong> — the request/event model, pruned of sideband/subscribe/rate, variable length seq
+  numbers.</li>
 <li>✅ <strong>STD-2 <code>ww_version</code></strong>.</li>
 <li>✅ <strong>STD-3 <code>ww_si</code></strong> and <strong><code>ww_numeric</code></strong>.</li>
 <li>✅ <strong>STD-4 <code>ww_date_time</code></strong>.</li>
@@ -7318,8 +6855,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>✅ <strong>STD-17 <code>ww_timebase</code></strong> — <code>Clock</code>: device time as <code>ww_si::Second</code> (full width via <code>now()</code>, truncated
   elsewhere), sync master / slave (IRIG-B, PPS), <code>sync_status</code>, a <code>time_map</code> stream mapping device time to
   shared time, <code>set_time_of_day</code> for a master. <code>tests/io_timebase</code>, <code>docs/std_library/ww_timebase.md</code>.</li>
-<li>✅ <strong>STD-49 <code>ww_timebase</code> host sync, one UTC timescale</strong> — devices without a sync line follow the host's wall
-  clock (UTC), and every source is ranked: a locked line (IRIG-B, PPS) &gt; host &gt; holdover &gt; free.
+<li>🧪 <strong>STD-49 <code>ww_timebase</code> host sync, one UTC timescale</strong> — devices without a sync line follow the host's wall
+  clock (UTC), Klipper-style, and every source is ranked: a locked line (IRIG-B, PPS) &gt; host &gt; holdover &gt; free.
   <code>Clock</code> gets the optional <code>host_sync</code> group (<code>steer(SteerPoint) -&gt; SyncSource</code>: offset in UTC µs, rate in ppb and
   the host's error estimate; a line-locked device only notes the point; <code>shared_now()</code>; <code>set_sources</code> / <code>sources</code>: an
   explicit ordered list of allowed sources, <code>None</code> keeps the fixed ranking), <code>SyncSource</code> (<code>Host</code>,
@@ -7330,10 +6867,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   window against the monotonic clock; <code>DeviceTime</code>; <code>HostClock</code>; <code>ClockSync</code> for any process holding a connection),
   deterministic tests with simulated device clocks (HSI 1 % fast, a drifting crystal, USB FS jitter), end to end in
   <code>tests/io_timebase</code>; <code>docs/std_library/ww_timebase.md#host-sync-std-49</code>. Device side: embedded_bedrock
-  <code>bedrock_sync</code>. Steer points name their steerer and a device follows one at a time, with a per-device rate cache on
-  the PC (SRV-31). Checked on omarchy-m1 (21-22 Oct 2026): Donguru, rePort and B135 steered by <code>ww sync</code>,
-  <code>sync_status</code> <code>Locked</code> in 1.2-1.6 s, the residual measured with <code>shared_now</code> B135 -5..-16 µs (±55 µs), Donguru
-  within ±1.2 ms (its 1.4-1.6 ms round trips).</li>
+  <code>bedrock_sync</code>. Hardware check open: Donguru and rePort steered by <code>ww sync</code> on omarchy-m1, <code>sync_status</code>
+  <code>Locked</code>, the residual offset measured with <code>shared_now</code>.</li>
 <li>✅ <strong>STD-18 <code>ww_adc</code></strong> — <code>Adc</code>, <code>AdcStream</code> (sideband <code>Open</code> / <code>Close</code>), <code>AdcCapture</code>. Fill-in done:
   full rustdoc, <code>tests/io_adc</code> mock server (one test per trait), <code>docs/std_library/ww_adc.md</code>, API snapshot
   (STD-13).</li>
@@ -7370,61 +6905,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   float types. <code>to_i32_in</code> / <code>to_u32_in</code> / <code>to_u32_wrapping_in</code>; <code>to_i128_in</code> only with 64- or 128-bit types. 6 KiB
   less flash on Donguru (thumbv6m, <code>opt-level = "z"</code>). <code>docs/std_library/ww_si.md#conversions-and-comparisons</code>,
   <code>ww_stdlib/ww_si/tests/narrow.rs</code> and <code>ww_stdlib/ww_numeric/tests/integer.rs</code> (run with 32-bit types only too).</li>
-<li>✅ <strong>STD-61 <code>exact_units</code>: the compile-time unit core as a crate of its own</strong> · <code>v0.5</code> — a standalone <code>no_std</code>
-  crate, no dependencies without features (Roman, 27 Oct 2026): <code>Dim</code> (SI, rad, bit, counted bases, root flag), unit
-  markers and <code>Unit</code> (with <code>Sqrt&lt;U&gt;</code>), <code>ExactScale</code> (with a power of π), <code>Fixed</code>, bounds, const <code>sqrt_f64</code>;
-  <code>shrink_wrap</code> (wire format, <code>SIExpr</code>, through <code>#[wire(..)]</code> fields the same bytes as before), <code>std</code> and <code>defmt</code>
-  behind features. <code>ww_si</code> re-exports it and keeps the runtime side (<code>Quantity</code>, <code>AnyQuantity</code>, <code>Timed</code>); units are
-  named <code>exact_units::..</code> in the model (a counted base costs 6 bytes more on the wire). Walked and snapshotted like an
-  API crate. <a href="../docs/std_library/exact_units/">exact_units</a>, <code>exact_units/tests</code>, CI legs without features and on
-  thumbv6m.</li>
-<li>✅ <strong>STD-55 <code>exact_units::Fixed&lt;U, P, T, B = Unbounded&gt;</code>: unit, scale and bounds fixed at compile time</strong> · <code>v0.5</code> —
-  a value of unit <code>U</code> at scale <code>P</code> stored as <code>T</code>, on the wire exactly <code>T</code> (DER-18 <code>transparent</code>; no prefix, no
-  <code>NumericValue</code> tag, so a <code>u64</code> doesn't turn on <code>ww_numeric</code>'s <code>u64</code> for everyone); scale markers (every prefix
-  name, <code>Kibi</code>.., <code>Pow10&lt;E&gt;</code>, <code>Rational&lt;N, D&gt;</code>), bounds (<code>Unbounded</code>, <code>Range</code>, <code>RangeU64</code>, <code>RangeDec</code>) checked on
-  decode and construction; information and counting units, exact <code>to</code>, <code>Quantity::to_fixed</code> / <code>from_fixed</code>,
-  <code>core::time::Duration</code>, checked / wrapping / saturating ops, <code>Display</code> (<code>1500 µs</code>); in the API model as an instance
-  of one generic definition with <code>B</code> explicit, so introspection shows the unit. Same code as a plain field on
-  Cortex-M (DER-20). <a href="../docs/std_library/exact_units/">exact_units</a>, conformance <code>stdlib.si.fixed.*</code>,
-  <code>tests/quantities</code>.</li>
-<li>✅ <strong>STD-64 Points and origins</strong> · <code>v0.5</code> — <code>exact_units::Point&lt;O, Fixed&lt;..&gt;&gt;</code>: a position against an origin, a
-  zero-size marker declared with <code>origin!</code> carrying its unit, an exact <code>Offset</code> (sign and <code>Magnitude</code>), its reference
-  and an optional modulus. Point ± vector = point, point − point = vector, point + point and point · x don't compile.
-  <code>origins</code>: <code>AbsoluteZero</code>, <code>Celsius</code> (273.15), <code>Rankine</code>, <code>Fahrenheit</code> (45967/180 K, steps of 5/9 K), <code>Vacuum</code>,
-  <code>Gauge</code> (reference: ambient pressure, converts only with <code>against</code> at run time), <code>AboveStandardAtmosphere</code>,
-  <code>Angle&lt;Turn | Degree | Radian&gt;</code> (wrap every turn, the difference signed and shortest). Register formulas are origins
-  <code>above</code> another (LSM6DS <code>raw/256 + 25 °C</code>, J1939 −40 °C). <code>to::&lt;O2, P2, T2&gt;()</code> between origins of the same unit and
-  reference, its factor and offset at compile time, exact or <code>None</code>. On the wire a point is its number; <code>OriginDef</code>
-  holds an origin as data for INT-13. <a href="../docs/std_library/points/">Points and origins</a>, conformance
-  <code>stdlib.si.point.*</code>, <code>stdlib.si.offset.*</code> (derive, dynamic, Python; C waits on API-26).</li>
-<li>✅ <strong>STD-62 One exact magnitude for every scale</strong> · <code>v0.5</code> — <code>exact_units::Magnitude</code>, a canonical product of prime
-  powers (2 and 5 as powers of 10 and 2) with powers of π, ln 2 and ln 10, whole or half exponents: every scale
-  (prefixes, <code>Pow10&lt;E&gt;</code>, <code>Pow2&lt;E&gt;</code>, <code>Rational&lt;N, D&gt;</code> with <code>u64</code> parameters factored at compile time, <code>Kibi</code>..,
-  <code>FullScale&lt;V, BITS&gt;</code>, <code>FullScaleMax&lt;V, BITS&gt;</code>) is one, equal however it is written (<code>Milli</code> = <code>Pow10&lt;-3&gt;</code> =
-  <code>Rational&lt;1, 1000&gt;</code>); closed under <code>*</code>, <code>/</code>, powers and roots, a product that needs more than 12 primes or leaves
-  ±63½ is a compile error. <code>Fixed::to</code> computes its factor at compile time: not a fraction of integers, or a multiply
-  that doesn't fit 64 bits (storages up to 32 bits) / 128 bits, doesn't compile, never a rounding. Q formats <code>Q15</code>,
-  <code>Q31</code>, <code>UQ16_16</code>, binary angles <code>Bam16</code>, <code>Bam32</code>. Replaces <code>ExactScale</code> in <code>Scale::Exact</code> (104 bytes in memory, a
-  decimal prefix 2 bytes on the wire). <a href="../docs/std_library/magnitude/">Exact magnitudes</a>, conformance
-  <code>stdlib.si.magnitude.*</code> (derive, dynamic, Python; C waits on API-26).</li>
-<li>✅ <strong>STD-63 Named rounding and overflow policies</strong> · <code>v0.5</code> — <code>to()</code> stays exact or <code>None</code>; lossy conversions name
-  their rounding (<code>Rounding</code>: truncate, floor, ceil, nearest ties-to-even, nearest ties-away) and overflow policy
-  (<code>Overflow</code>: checked, saturate, wrap): <code>Fixed::to_rounded</code>, <code>to_saturating</code>, <code>to_wrapping</code>, <code>requantize</code>, exact (the
-  true quotient rounded once), π/ln factors through a 64-bit fixed point (<code>Magnitude::fixed_point</code>). Arithmetic's
-  policy is in the bounds marker: <code>Wrapping</code> (<code>Bam16</code>, <code>Bam32</code>), <code>Saturating</code> (<code>Q15</code>, <code>Q31</code>, <code>UQ16_16</code>), <code>Unbounded</code>
-  checked; same bytes, <code>Fixed::of</code> / <code>with_overflow</code>. Bounds prove conversions infallible: <code>into_rounded</code>, <code>From</code> of a
-  <code>Range</code>-bounded value for a whole factor, a compile error where the proof fails. Run-time <code>requantize</code> /
-  <code>Requantizer</code> for dynamic clients. <a href="../docs/std_library/rounding/">Rounding and overflow</a>,
-  <code>exact_units/tests/rounding.rs</code>, conformance <code>requantize.*</code> (derive, dynamic; Python and C wait on CLT-54).
-  <code>Seq</code> wrapping comes with STD-58.</li>
-<li>✅ <strong>STD-60 Angle, information and counted things as dimensions</strong> · <code>v0.5</code> — <code>Dim&lt;'i&gt;</code> has rad and bit as
-  base dimensions and up to four counted bases known by crate and marker name (<code>Item</code>, <code>Sample</code>, <code>Frame</code>, <code>Packet</code>,
-  <code>Cycle</code>, <code>Block</code>, <code>Sector</code>, <code>Chunk</code>, <code>Char</code>, <code>Code</code>, feature <code>counting</code>, an API's own with <code>ww_si::counted!</code>;
-  <code>Bit</code>, <code>Byte</code>, <code>Word</code>, feature <code>information</code>) and a root flag for half exponents (V/√Hz, <code>Dim::sqrt</code>): bytes don't
-  convert into % or rad, <code>AngularVelocity</code> isn't <code>Hertz</code>, <code>Per&lt;Sample, Second&gt; × Second</code> is a <code>Sample</code>, bytes of a
-  sample only through <code>Per&lt;Byte, Sample&gt;</code>; checked at compile time (<code>Unit::DIM</code>) and at run time (<code>SIExpr</code>,
-  <code>wire_weaver_client::DynUnit</code>, Python <code>Quantity.dim</code>). <code>Torque</code> is J/rad (written N·m). Wire change EVO-16.
-  <a href="../docs/std_library/ww_si/#dimensions">ww_si dimensions</a>, <code>ww_stdlib/ww_si/tests/quantities.rs</code>.</li>
 <li>✅ <strong>STD-24 <code>ww_firmware_info</code> / <code>ww_board_info</code> / <code>ww_uid</code> / <code>ww_user_info</code> device contract</strong> · <code>v0.5</code> — the info
     crates every device implements. <code>FirmwareInfo</code> const items <code>FIRMWARE</code> (name, version, git, build time, profile),
     <code>BUILD_ID</code> (GNU build id, finds the ELF) and optional <code>BUILD_RECORD</code>; <code>build::emit()</code> + <code>firmware_summary!()</code> for
@@ -7514,29 +6994,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   loops: register maps with page wrap and host updates between transactions, the answer queues, stretching to the
   deadline and past it, <code>Nack</code>, <code>repeat_last</code>, cleared answers and dropped events. Open: a check on real silicon, with
   the first user, the rePort (usb_io_fw IF-5, v1.0 launch, Roman 16 Oct 2026).</li>
-<li>🧪 <strong>STD-52 <code>ww_i2c</code> master errors and limits</strong> · <code>v0.5</code> — what a good I2C master knows reaches the host (found
-  by the rePort I2C driver, P2424 i2c-master-driver): <code>I2cError::Nack { op, at }</code> (which operation, and the address
-  or which data byte, counted as <code>I2cRecord::nack_at</code>), <code>ClockStretch</code> with <code>I2cMode::Master</code>'s <code>stretch_timeout</code>
-  (set and answered by <code>i2c_configure</code>, range in the capabilities), <code>BusStuck { scl_low, sda_low }</code> (no silent recovery:
-  <code>i2c_wiggle_clock</code> on request, at the bus speed up to 100 kHz), and the limits in <code>I2cCapabilities</code> (<code>speeds</code>,
-  <code>max_ops</code>, <code>max_write_read_len</code>, <code>zero_length_write</code>, <code>stretch_timeout</code> range; grouped by topic, sizes all <code>u16</code>). Transactions are stated as
-  a repeated start before every operation (Linux <code>I2C_RDWR</code>), not embedded-hal merging; <code>i2c_configure</code> answers the
-  highest SCL not above the request. Breaking on the wire and in Rust (nothing released or deployed, user 27 Oct
-  2026): callers in usb_io_fw and typec_dongle adapt. Docs
-  <code>docs/std_library/ww_i2c.md#transactions</code>, tests in <code>ww_i2c</code> (round trips) and <code>tests/io_i2c</code>. Open:
-  the check on real silicon with the rePort driver (usb_io_fw IF-2, RP2350 DW_apb_i2c).</li>
-<li>🧪 <strong>STD-76 <code>ww_i2c_hl</code> embedded-hal I2C over <code>ww_i2c</code></strong> · <code>v0.5</code> — a stock embedded-hal 1.0 I2C driver,
-    blocking or async, runs unchanged on the host against a remote <code>ww_i2c::I2c</code> (for P2534 fusb302-sink, a PD sink
-    driven from the PC): <code>I2cMaster</code> merges contiguous same-direction operations (a repeated start before every
-    <code>ww_i2c</code> operation, STD-52), so one embedded-hal transaction is one call and one round trip; refuses, never
-    splits, what the device's <code>I2cCapabilities</code> don't take; <code>Nack</code>/<code>Arbitration</code>/<code>Bus</code>/<code>Overrun</code> mapped to
-    <code>ErrorKind</code>; request priority as a handle setting (<code>urgent()</code>, CLT-50). Docs <code>docs/std_library/ww_i2c_hl.md</code>,
-    tests <code>tests/io_i2c</code> (<code>tmp1x2</code> async, <code>eeprom24x</code> blocking, unchanged). Open: the check on real silicon with
-    the FUSB302 over the rePort's I2C (P2534).</li>
-<li>🚧 <strong>STD-6 <code>ww_gpio_hl</code></strong> — usable, some APIs are still missing. Blocking, async and promise flavors; the blocking
-    pins implement <code>embedded_hal::digital</code> (<code>OutputPin</code>, <code>StatefulOutputPin</code>, <code>InputPin</code>), the async ones
-    <code>embedded_hal_async::digital::Wait</code> without a race (stream opened, then level read, then edge awaited) and keep
-    the edge's device time (<code>last_edge_time</code>), tested in <code>tests/io_gpio</code> (<code>docs/std_library/ww_gpio.md#embedded-hal-ww_gpio_hl</code>).</li>
+<li>🚧 <strong>STD-6 <code>ww_gpio_hl</code></strong> — usable, some APIs are still missing.</li>
 <li>🔍 <strong>STD-7 Interrupt left enabled in <code>ww_gpio_hl</code></strong> · <code>v0.5</code> — the falling edge helper documents that it leaves
   interrupts enabled; decide whether that is the intended fix or a bug.</li>
 <li>🚧 <strong>STD-8 Prototypes</strong>, to be completed later: <code>ww_i2c</code>, <code>ww_uart</code>,
@@ -7641,62 +7099,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   ids resolved on the host from the firmware's ELF by build id. Done: the type, <code>Display</code> (<code>#17</code> for an unresolved
   id), <code>ww pins</code> finds the ELF by build id (<code>ww_pin_probe::device::Names</code>). Missing: an accessor for
   <code>defmt::Str</code>'s index (upstream, <code>Table::get_str</code>), reading the ids from the ELF's table with it.</li>
-<li>📋 <strong>STD-53 <code>Volt</code> with a <code>u16</code> value fails to decode on a device</strong> — <code>I2cConfig { io_level:
-  Some(Volt::milli(3300u16)), .. }</code> from the host gets <code>ArgsDesFailed</code> on the rePort B200A firmware, the same level as
-  a <code>u32</code> value works (report-i2c-master bench run, 27 Oct 2026). Find where the <code>ww_si</code> value storage / numeric
-  type differs between the host's writer and the no_std reader, fix it there, and add the case to the conformance
-  corpus.</li>
-<li>📋 <strong>STD-54 <code>ww counters</code> against the rePort</strong> — <code>ww counters</code> fails against the B200A: the firmware sends no build
-  id, and its <code>cnt</code> format is v0 while the tool reads v2 (report-i2c-master bench run, 27 Oct 2026). Either side may
-  be behind (STD-25): bring the firmware's <code>cnt</code> and build id up to what the tool needs, or make the tool say which
-  format it got and what is missing instead of failing.</li>
-<li>📋 <strong>STD-56 Plain fields with a unit in their name become <code>Fixed</code></strong> — <code>shared_us: u64</code>, <code>rate_ppb: i32</code>,
-  <code>ring_capacity_bytes: u64</code>, <code>queue_len: u32</code> and about 80 more across <code>ww_stdlib</code>, <code>ww_link</code>, <code>ww_stream</code>,
-  <code>ww_client_server</code> and the host crates: same bytes, a Rust-API break per crate. On hold until STD-55 is built.</li>
-<li>📋 <strong>STD-58 <code>Index</code>, <code>IndexFrom1</code> and <code>Seq</code></strong> · <code>v0.5</code> — positions in a table of something (0- and 1-based) and
-  wrapping sequence numbers as types of their own, same bytes as the number, no <code>+</code> where it makes no sense.</li>
-<li>📋 <strong>STD-59 Runtime <code>ww_si</code> improvements</strong> · <code>v0.5</code> — binary prefixes in <code>Prefix</code>, bounds on <code>Quantity</code>
-  (<code>Quantity&lt;U, B&gt;</code>, range in coherent units; a break: <code>B</code> explicit in the model), docs on <code>Quantity</code> vs <code>Fixed</code> vs <code>AnyQuantity</code>.</li>
-<li>📋 <strong>STD-65 Instants and clocks with named epochs</strong> · <code>v0.5</code> — <code>Instant&lt;Clock, ..&gt;</code>: device-monotonic, Unix, TAI, GPS
-  (TAI − 19 s), UTC through a versioned leap-second table on hosts; GPS week rollover as a <code>Seq</code> modulo 1024.</li>
-<li>📋 <strong>STD-66 Sentinels next to bounds</strong> · <code>v0.5</code> — named codes in a <code>Fixed</code>'s raw value: single codes or code ranges
-  (J1939 not-available / error ranges per 1, 2 and 4 bytes, SunSpec not-implemented 0x8000, Matter null, HCI RSSI
-  127, reserved ranges) decode to an enum (<code>Value</code>, <code>NotAvailable</code>, <code>Error</code>, <code>NotImplemented</code>, a user meaning), <code>Option</code>
-  only as the one-code shorthand. Stored as the raw <code>T</code> (size of <code>T</code>, no extra byte), <code>get()</code> gives the enum, and
-  encoding it gives back the same code, so the bytes don't change. Niche codes and <code>Bounds</code> are checked disjoint and
-  every code to fit <code>T</code> at compile time. Clipped / rail codes are a value with a saturation mark (at least / at most),
-  not an absent value. Published in the model and honoured by the dynamic client, Python and C, with conformance cases.</li>
-<li>📋 <strong>STD-67 Levels: dB, dBm, dBV, dBFS, dBc, Np, LUFS, RSSI</strong> · <code>v0.5</code> — <code>Level&lt;Kind, Ref&gt;</code> on the point algebra:
-  level − level = gain, level + gain = level, references named (1 mW, 1 V, 20 µPa, full scale with its sine or square
-  convention).</li>
-<li>📋 <strong>STD-68 Kinds that share a dimension</strong> · <code>v0.5</code> — relative humidity, duty cycle, state of charge, strain, volume
-  fraction; Hz vs Bq vs rad/s; electrical vs mechanical angle through pole pairs; colour vs thermodynamic temperature;
-  explicit casts between siblings.</li>
-<li>📋 <strong>STD-69 More counted units</strong> · <code>v0.5</code> — Symbol (baud = Symbol/s), Packet, Pulse, Event, Tick, Chunk, Particle,
-  each a dimension of its own.</li>
-<li>📋 <strong>STD-77 Runtime scale parts and reference values</strong> · <code>v0.5</code> — what device standards do at run time, without a
-  refactor later: a value whose exponent (decimal or binary) is a runtime field next to compile-time unit and scale
-  (BLE GATT exponent in the format descriptor, USB HID unit exponent, a SunSpec <code>*_SF</code> scale-factor register), and a
-  value in % or per-mille of another resource's reading ("% of a reference register"); the model names the field or
-  resource the scale comes from, the dynamic client, Python and C apply it exactly. Exponents of 10 or 2 only: a
-  free runtime factor (calibration, currency) is a runtime value, not a unit: <code>ww_si::Quantity</code> / <code>AnyQuantity</code> or the
-  application (TEST-28's list).</li>
-<li>📋 <strong>STD-70 Text unit codes in and out</strong> — UCUM, UNECE Rec 20, QUDT, SenML / RFC 8798, OpenMetrics: exact
-  imports, exports that say where they lose something. Later, in a separate optional crate <code>exact_units_interop</code>
-  (Roman, 27 Oct): this release builds the capability to represent them (STD-77, TEST-28), not the tables.</li>
-<li>📋 <strong>STD-71 Device-standard units in and out</strong> — BLE GATT 0x2904 / GSS, USB HID, BACnet, OPC UA EUInformation, CAN
-  DBC / J1939, IEEE 1451 TEDS, SunSpec, IODD, with exact decimal factors and sentinel tables, from public sources
-  only. Later, in <code>exact_units_interop</code> like STD-70.</li>
-<li>📋 <strong>STD-72 Imperial and US customary units, complete</strong> · <code>v0.5</code> — every unit the exact rational of SI from its legal
-  definition, ambiguous names never bare (US / imperial gallon, survey foot, short / long ton, troy, BTU and calorie
-  variants, horsepower variants, thou vs angular mil, inHg conventions), lbm / lbf / slug apart by dimension; the Mars
-  Climate Orbiter case (lbf·s read as N·s) converts exactly or is refused.</li>
-<li>📋 <strong>STD-73 One table of unit symbols and spellings</strong> · <code>v0.5</code> — display and parsing of every unit from one table,
-  shared by Rust, si_dynamic, <code>ww</code> and Python, UCUM spelling where there is one.</li>
-<li>📋 <strong>STD-74 The runtime side catches up</strong> · <code>v0.5</code> — <code>Quantity</code>, <code>AnyQuantity</code> and <code>SIExpr</code> get the exact magnitude,
-  the °C point / interval split, levels and sentinels.</li>
-<li>📋 <strong>STD-75 Non-linear scales by name</strong> · <code>v0.5</code> — AWG, mpg ↔ L/100 km, Beaufort, Richter, shoe sizes: a named exact
-  conversion function each, or out of scope with the reason written down.</li>
 </ul>
 <h2 id="examples-ex">Examples (<code>EX</code>)<a class="headerlink" href="#examples-ex" title="Permanent link">&para;</a></h2>
 <ul>
@@ -7764,11 +7166,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>🚧 <strong>DOC-6 Docs for <code>ww_stdlib</code> crates and resource doc comments</strong> · <code>v0.5.x</code> — done: <code>#[ww_trait]</code> leaves a Rust
   trait of the same name for rustdoc, with every resource and its doc comments (properties, streams, sinks and
   sub-traits as <code>wire_weaver::api_doc</code> markers, see <code>api/traits.md</code>), checked with nightly <code>--cfg docsrs</code> on a
-  crates.io-shaped copy of <code>ww_i2c</code>. Missing: a docs.rs check of crates whose API uses another crate's types or
-  traits (<code>ww_uart</code>, <code>ww_gpio</code>, <code>ww_si</code> types); the macro panicked on their <code>version = ".."</code> dependencies until
-  API-14, try one on a crates.io-shaped copy.</li>
-<li>📋 <strong>DOC-10 Units docs section</strong> · <code>v0.5</code> — choosing <code>Fixed</code>, <code>Point</code>, <code>Level</code>, <code>Quantity</code> or <code>AnyQuantity</code>, imperial
-  / US customary with the ambiguity table, kinds, exactness and rounding rules, and what is out of scope on purpose.</li>
+  crates.io-shaped copy of <code>ww_i2c</code>. Missing: docs.rs builds of crates whose API uses another crate's types or traits
+  (<code>ww_uart</code>, <code>ww_gpio</code>, <code>ww_si</code> types), the macro panics on their <code>version = ".."</code> dependencies, needs API-14.</li>
 </ul>
 <h2 id="testing-ci-and-performance-test">Testing, CI and performance (<code>TEST</code>)<a class="headerlink" href="#testing-ci-and-performance-test" title="Permanent link">&para;</a></h2>
 <ul class="task-list">
@@ -7820,22 +7219,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   0 ms; 15.3 s) and with a restarted host process continuing from the saved cursor (resume 2.6 ms, device was 544 B
   past the cursor). Found on the way: a 1 s flush stall after a resume (fixed), and a lost wrapped write in the
   firmware's pipes.</li>
-<li>📋 <strong>TEST-27 Firmware cost of exact_units</strong> · <code>v0.5</code> — a harness measuring <code>Fixed</code>, points and rounding conversions
-  against plain fields on QEMU M3 (instructions, flash, stack) and the STM32H725 (cycles), re-run by each units piece.
-  STD-63's rounding conversions were measured by hand against hand-written ones (rounding page, "Cost on a
-  device"): those pairs become its first rows.</li>
-<li>📋 <strong>TEST-28 Units coverage against the standards</strong> · <code>v0.5</code> — a dev-only test (not shipped) walks the public unit
-  lists of UCUM, UNECE Rec 20, BLE GATT units, USB HID, the BACnet engineering-units enum and IODD as facts and shows
-  each unit representable exactly in <code>exact_units</code>, or lists it on a short written "cannot, because" list for review.
-  A capability enters <code>exact_units</code> only as a pattern a class of units or a standard's structure uses, never for one
-  odd value: non-linear or empirical scales (AWG, Beaufort, Richter, Rockwell, octane, API gravity, shoe sizes),
-  ill-defined codes (GATT "decibel" without a reference, month / year durations, unqualified kcal) and data-defined
-  scales go on the list, at most as named functions or "unknown, reported"; a free runtime factor (calibration,
-  currency) is listed as "runtime value, not a unit", carried by <code>ww_si::Quantity</code> / <code>AnyQuantity</code> or the application.</li>
-<li>📋 <strong>TEST-29 Units zero-cost gate</strong> · <code>v0.5</code> — the ELF comparison of TEST-27 (<code>just units-elf</code>) becomes a gate in
-  <code>just test</code> / CI: every plain / unit-typed pair (range check, struct encode and decode, Series encode and decode)
-  compiles to identical code on every core and firmware profile measured (M0, M4F, M33; <code>opt-level</code> <code>z</code> and <code>3</code>), and
-  a pair that differs fails with the per-symbol diff.</li>
 <li>🚧 <strong>TEST-9 Remaining test coverage</strong> · <code>v0.5</code>:</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> properties: unimplemented, observe stream</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> streams: promise timeout</li>
@@ -7876,15 +7259,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 </ul>
 <h2 id="dropped-and-superseded">Dropped and superseded<a class="headerlink" href="#dropped-and-superseded" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>CLT-37 No millisecond per request from the accumulation window</strong> — superseded by request priority (CLT-50)
-  and the fine window timer (CLT-53) (user, 27 Oct 2026). CLT-37 flushed whatever accumulated as soon as the tx
-  task had nothing else waiting, for windows under 1 ms (<code>TxInput::Idle</code>, <code>TxCore::wants_idle_flush</code>, removed), so
-  a request's latency depended on what else happened to be queued. Now default traffic waits for the window, never
-  longer, and a request that must not wait says so with <code>.urgent()</code>. Its measurement (B135 rev B, USB HS, 21 Oct
-  2026): a property-like call 1.3 ms → 0.17 ms median, a 4 KB SD read 4.5 ms → 1.8 ms, CAN frames through a credit
-  sink 3.8k → 7.2k/s.</li>
-<li><strong>STD-57 <code>Quantity</code> used at one fixed scale becomes <code>Fixed</code></strong> — dropped (Roman, 27 Oct 2026): the per-use list of
-  <code>Quantity</code> fields found none whose scale is fixed by contract, so nothing to change.</li>
 <li><strong>API-25 Refactor codegen to use an IR</strong> — decided against (18 Oct 2026). There are two wire-layout engines by
   design: <code>shrink_wrap_derive</code> keeps its own AST, as <code>ww_self</code>'s own types are encoded with <code>#[derive_shrink_wrap]</code>
   and the derive can't depend on <code>ww_self</code> (a bootstrapping cycle); the dynamic path (<code>ww_self</code> to the dynamic

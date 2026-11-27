@@ -2631,8 +2631,6 @@
       
         
       
-        
-      
     
     
     
@@ -2800,33 +2798,6 @@
     
   
   ww_i2c
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../std_library/ww_i2c_hl/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  ww_i2c_hl
 
     
   </span>
@@ -3628,16 +3599,6 @@
       
         
       
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
     
     
     
@@ -3697,141 +3658,6 @@
     
   
   ww_si
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../std_library/exact_units/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  exact_units: numbers with a fixed unit
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../std_library/magnitude/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  exact_units: magnitudes
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../std_library/points/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  exact_units: points
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../std_library/units_in_the_model/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  exact_units: units in the model
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../std_library/rounding/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  exact_units: rounding
 
     
   </span>
@@ -5829,8 +5655,7 @@ Read on if you are implementing a new transport, porting the device side or look
 </span></code></pre></div>
 <p><code>ww_link</code> uses the framer's <code>user_kind</code> field to tag each message. Values <code>0..=2</code> are <strong>data channels</strong> and take the
 compact 1-byte head; everything above is a <strong>control message</strong> and costs one extra head byte, which is fine because
-control traffic is rare. Only <code>Data0</code> is used today; <code>Data1</code> and <code>Data2</code> are reserved for a later use, not free for
-applications, and a device drops them.</p>
+control traffic is rare.</p>
 <h2 id="what-you-get">What you get<a class="headerlink" href="#what-you-get" title="Permanent link">&para;</a></h2>
 <h3 id="framer-configuration">Framer configuration<a class="headerlink" href="#framer-configuration" title="Permanent link">&para;</a></h3>
 <p><code>ww_link</code> messages are independent of how they are framed — the protocol logic only deals with
@@ -6066,8 +5891,9 @@ framing: USB tells it in the interface protocol (<code>USB_INTERFACE_PROTOCOL</c
   generated client API (see <a href="../../std_library/ww_version/">ww_version</a>). A device may likewise reply with
   <code>Disconnect(IncompatibleVersion)</code> after <code>LinkSetup</code>.</li>
 <li><code>Data</code> accumulates into the current frame for <code>packet_accumulation_time_us</code> (as requested by the device) before
-  being flushed, never longer; an urgent request is flushed at once, see
-  <a href="../ww_framer/#latency-and-priority">latency and priority</a>. Control messages are flushed immediately.</li>
+  being flushed; control messages are flushed immediately. A window shorter than the host's timer can wait (tokio
+  counts whole milliseconds) is not slept on: the host flushes as soon as nothing else is waiting to go out, so
+  requests sent together still share a frame and a lone request isn't held back a millisecond (CLT-37).</li>
 <li>The host drops every message until the <code>DeviceInfo</code> carrying its token, see <a href="#setup-token">Setup token</a>.</li>
 <li><code>Data</code> received before <code>LinkReady</code> and <code>Disconnect</code> received while not connected are ignored — they are
   stragglers from a previous session.</li>

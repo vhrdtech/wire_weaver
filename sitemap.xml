@@ -172,25 +172,10 @@
         <loc>https://ww.vhrd.tech/std_library/device_contract/</loc>
       </url>
       <url>
-        <loc>https://ww.vhrd.tech/std_library/exact_units/</loc>
-      </url>
-      <url>
         <loc>https://ww.vhrd.tech/std_library/io_family/</loc>
       </url>
       <url>
-        <loc>https://ww.vhrd.tech/std_library/magnitude/</loc>
-      </url>
-      <url>
         <loc>https://ww.vhrd.tech/std_library/overview/</loc>
-      </url>
-      <url>
-        <loc>https://ww.vhrd.tech/std_library/points/</loc>
-      </url>
-      <url>
-        <loc>https://ww.vhrd.tech/std_library/rounding/</loc>
-      </url>
-      <url>
-        <loc>https://ww.vhrd.tech/std_library/units_in_the_model/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/std_library/ww_adc/</loc>
@@ -239,9 +224,6 @@
       </url>
       <url>
         <loc>https://ww.vhrd.tech/std_library/ww_i2c/</loc>
-      </url>
-      <url>
-        <loc>https://ww.vhrd.tech/std_library/ww_i2c_hl/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/std_library/ww_indication/</loc>

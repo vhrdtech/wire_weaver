@@ -2735,8 +2735,6 @@
       
         
       
-        
-      
     
     
     
@@ -2904,33 +2902,6 @@
     
   
   ww_i2c
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../std_library/ww_i2c_hl/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  ww_i2c_hl
 
     
   </span>
@@ -3732,16 +3703,6 @@
       
         
       
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
     
     
     
@@ -3801,141 +3762,6 @@
     
   
   ww_si
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../std_library/exact_units/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  exact_units: numbers with a fixed unit
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../std_library/magnitude/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  exact_units: magnitudes
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../std_library/points/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  exact_units: points
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../std_library/units_in_the_model/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  exact_units: units in the model
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../std_library/rounding/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  exact_units: rounding
 
     
   </span>
@@ -5585,9 +5411,6 @@ lengths exist at all: <a href="../wire_format/#the-fifo-of-lengths">the FIFO of 
 </tr>
 </tbody>
 </table>
-<p>A struct of one field can also take its field's size class with <a href="../derive_reference/#transparent"><code>transparent</code></a>
-instead of one of these: a <code>Count(u64)</code> is <code>Sized { size_bits: 64 }</code>, a wrapped <code>UNib32</code> <code>SelfDescribing</code>, a wrapped
-<code>&amp;str</code> <code>UnsizedFinalStructure</code>, with the bytes of the plain field. It excludes all three.</p>
 <div class="admonition tip">
 <p class="admonition-title">Free bits can still be used</p>
 <p>A <code>final_structure</code> or <code>sized</code> type can still grow into the gaps it already has, which are zero by default. If

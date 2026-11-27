@@ -2636,8 +2636,6 @@
       
         
       
-        
-      
     
     
     
@@ -2808,33 +2806,6 @@
     
   
   ww_i2c
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../ww_i2c_hl/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  ww_i2c_hl
 
     
   </span>
@@ -3639,16 +3610,6 @@
       
         
       
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
     
     
     
@@ -3711,141 +3672,6 @@
     
   
   ww_si
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../exact_units/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  exact_units: numbers with a fixed unit
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../magnitude/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  exact_units: magnitudes
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../points/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  exact_units: points
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../units_in_the_model/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  exact_units: units in the model
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../rounding/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  exact_units: rounding
 
     
   </span>
@@ -5662,11 +5488,7 @@ versioned and published the same way; add it with:</p>
   generated Rust types for the API at hand.</li>
 <li><code>ItemStruct&lt;'i&gt;</code> / <code>ItemEnum&lt;'i&gt;</code> - a struct's/enum's own <code>size: ElementSize</code> (the same
   <a href="../../serdes/size_assumptions/">size assumption</a> <code>#[derive_shrink_wrap]</code>
-  picks), <code>crate_idx</code>, <code>docs</code>, <code>ident</code>, and <code>fields</code>/(<code>repr: Repr</code>, <code>variants: RefVec&lt;Variant&gt;</code>). An <code>ItemEnum</code> also
-  records its catch-all for newer variants in <code>future_version: Option&lt;FutureVersion&gt;</code> (EVO-10): <code>Variant { ident }</code>
-  (<code>Unknown</code> by default), <code>Off</code> (<code>no_future_version</code>, or none possible), <code>None</code> in a model saved before EVO-10. The
-  evolution checker lets a variant be appended only to an enum with the catch-all, and the dynamic decoder reads a
-  newer variant as <code>&lt;unknown N&gt;</code> with one and fails with <code>Off</code>.</li>
+  picks), <code>crate_idx</code>, <code>docs</code>, <code>ident</code>, and <code>fields</code>/(<code>repr: Repr</code>, <code>variants: RefVec&lt;Variant&gt;</code>).</li>
 <li><code>Field&lt;'i&gt;</code> / <code>Variant&lt;'i&gt;</code> - <code>ident</code>, <code>ty</code>, <code>docs</code>, <code>since</code>; a <code>Field</code> also carries its <code>default: Option&lt;Value&gt;</code>
   (for a <code>#[default = ..]</code> field) and relocates its own presence flags with <code>#[flag]</code> the same way <code>ww_version::Version</code>
   does.</li>

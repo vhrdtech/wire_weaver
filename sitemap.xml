@@ -13,9 +13,6 @@
         <loc>https://ww.vhrd.tech/api/batching/</loc>
       </url>
       <url>
-        <loc>https://ww.vhrd.tech/api/bus_slave/</loc>
-      </url>
-      <url>
         <loc>https://ww.vhrd.tech/api/counted_streams/</loc>
       </url>
       <url>
@@ -32,9 +29,6 @@
       </url>
       <url>
         <loc>https://ww.vhrd.tech/api/handlers/</loc>
-      </url>
-      <url>
-        <loc>https://ww.vhrd.tech/api/metadata/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/api/methods/</loc>
@@ -56,9 +50,6 @@
       </url>
       <url>
         <loc>https://ww.vhrd.tech/api/settings/</loc>
-      </url>
-      <url>
-        <loc>https://ww.vhrd.tech/api/stream_compression/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/api/stream_protocol/</loc>
@@ -244,9 +235,6 @@
         <loc>https://ww.vhrd.tech/std_library/ww_onewire/</loc>
       </url>
       <url>
-        <loc>https://ww.vhrd.tech/std_library/ww_pin_diag/</loc>
-      </url>
-      <url>
         <loc>https://ww.vhrd.tech/std_library/ww_pwm/</loc>
       </url>
       <url>
@@ -284,9 +272,6 @@
       </url>
       <url>
         <loc>https://ww.vhrd.tech/transport/follow_reboot/</loc>
-      </url>
-      <url>
-        <loc>https://ww.vhrd.tech/transport/hub/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/transport/overview/</loc>

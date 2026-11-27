@@ -1630,12 +1630,6 @@
       
         
       
-        
-      
-        
-      
-        
-      
     
     
     
@@ -1768,33 +1762,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api/metadata/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Metadata: claims, pins, labels
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../api/multi_requests/" class="md-nav__link">
         
   
@@ -1876,33 +1843,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api/stream_compression/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Compressed streams
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../api/versioning/" class="md-nav__link">
         
   
@@ -1965,33 +1905,6 @@
     
   
   ECC-safe flash
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../api/bus_slave/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  I2C and SPI slave engine
 
     
   </span>
@@ -2550,28 +2463,6 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#optional-items" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Optional items
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#metadata-attributes" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Metadata attributes
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#api-model" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2584,17 +2475,6 @@
         
       </ul>
     </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#the-ww-hub-and-version-skew" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        The ww hub and version skew
-      </span>
-    </span>
-  </a>
   
 </li>
       
@@ -2845,8 +2725,6 @@
   
     
     
-      
-        
       
         
       
@@ -3263,33 +3141,6 @@
     
   
   ww_memory
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../std_library/ww_pin_diag/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  ww_pin_diag
 
     
   </span>
@@ -4387,8 +4238,6 @@
       
         
       
-        
-      
     
     
     
@@ -4556,33 +4405,6 @@
     
   
   The link tap
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../transport/hub/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Local sockets and the hub
 
     
   </span>
@@ -5478,28 +5300,6 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#optional-items" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Optional items
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#metadata-attributes" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Metadata attributes
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#api-model" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5512,17 +5312,6 @@
         
       </ul>
     </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#the-ww-hub-and-version-skew" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        The ww hub and version skew
-      </span>
-    </span>
-  </a>
   
 </li>
       
@@ -5751,24 +5540,6 @@ the API), so changing it is not a break.</p>
 <p>Making a property <code>+batched</code> (API-39) or not changes its observe slot (a <code>Batched&lt;T&gt;</code> instead of a <code>T</code>): a break of
 the API crate. The times of the samples travel in the <code>PropertyUpdate</code> event, not in a slot, so adding resources to a
 level with <code>+batched</code> properties follows the usual rules.</p>
-<h3 id="optional-items">Optional items<a class="headerlink" href="#optional-items" title="Permanent link">&para;</a></h3>
-<p><code>#[optional]</code> / <code>#[optional(group)]</code> on a method, property, stream or <code>ww_impl!</code> (API-16, API-54) is not on the wire:
-an item keeps its id whether a device has it or not, and a device leaving it out answers <code>Unimplemented</code>, which a
-client already has to handle for any call. But servers name optional items and groups in <code>omit = [..]</code> / <code>omit_if</code>,
-so <code>ww api check</code> treats the marker by what it does to their Rust code:</p>
-<ul>
-<li>Making an item or a <code>ww_impl!</code> optional: compatible. Clients of the new version learn from a device's model that it
-  may leave it out; clients of the old version get <code>Unimplemented</code> from a device that does.</li>
-<li>Putting an <code>#[optional]</code> item into a group (<code>#[optional]</code> to <code>#[optional(group)]</code>): compatible, <code>omit</code> by the item's
-  name still works.</li>
-<li>Making an optional item required again, moving it to another group or out of its group: a break of the API crate.
-  A server leaving it out no longer compiles (no handler), or silently keeps an item it meant to leave out.</li>
-</ul>
-<h3 id="metadata-attributes">Metadata attributes<a class="headerlink" href="#metadata-attributes" title="Permanent link">&para;</a></h3>
-<p><code>#[claim(..)]</code>, <code>#[shares(..)]</code> and <code>#[label(..)]</code> (SRV-34, <a href="../../api/metadata/">Metadata</a>) are not on the wire and a
-server doesn't use them: adding, changing or removing one is compatible, <code>ww api check</code> lists it. Only the
-introspection data (and so the API hash) changes. Removing a <code>#[claim]</code> does change what the hub lets a program do: a
-program that claims that resource is refused from then on, so say so in the changelog.</p>
 <h3 id="api-model">API model<a class="headerlink" href="#api-model" title="Permanent link">&para;</a></h3>
 <p>API model (like <code>ww_client_server</code>) is part of the compatibility equation, it is not allowed to update the model
 version without breaking compatibility.</p>
@@ -5776,25 +5547,6 @@ version without breaking compatibility.</p>
 out (v0.5.0), then user_device_api must be bumped to v0.2.0 to use the newer API model. This should only happen to add
 new features though, and if previous version is doing all that it is supposed to, there might not be a need to
 upgrade.</p>
-<h2 id="the-ww-hub-and-version-skew">The ww hub and version skew<a class="headerlink" href="#the-ww-hub-and-version-skew" title="Permanent link">&para;</a></h2>
-<p>The <a href="../../transport/hub/#version-skew-and-handover-srv-30">ww hub</a> (SRV-30) sits between programs built with
-different WireWeaver releases and the devices, so it adds rules of its own:</p>
-<ul>
-<li><strong>The preamble is frozen.</strong> Its bytes never change; new fields are new trailer entries (a new tag), which a reader
-  that doesn't know them skips. That is what lets any client and any hub exchange their versions and a clear refusal.</li>
-<li><strong>What the hub serves.</strong> A client says its <code>ww_link</code> and <code>ww_client_server</code> versions in the preamble; the hub serves
-  every version its build is compatible with by Cargo's SemVer rule (the same major, 0.x: the same minor). A
-  wire-compatible change of either is invisible to the hub. A breaking one means: the hub keeps the previous major's
-  code for one more major and lists it in its window, the way a device keeps an old protocol, so programs built
-  before the break keep working through a newer hub until they are rebuilt. A client outside the window is refused
-  (status 4) with both versions and the fix, never served half-way.</li>
-<li><strong>The user API is end to end.</strong> The hub reads the envelope only, never a user API: a user API change is between the
-  client and the device as without a hub, and the hub doesn't need rebuilding for it.</li>
-<li><strong><code>ww_hub_api</code></strong> evolves like any API crate: additions are wire-compatible (an older hub answers <code>Unimplemented</code>),
-  <code>Hub::info</code> and <code>Hub::handover</code> are frozen.</li>
-<li><strong>Newer replaces older.</strong> A program that can host a newer hub than the running one has it hand over; only a strictly
-  newer <code>ww_hub</code> version replaces an older one, so a PC converges on its newest hub.</li>
-</ul>
 <h2 id="settings-stored-on-a-device">Settings stored on a device<a class="headerlink" href="#settings-stored-on-a-device" title="Permanent link">&para;</a></h2>
 <p>A <a href="../../api/settings/">settings store</a> (<code>ww_settings</code>, STD-32) keeps a record per group in the device's flash, and
 the record outlives the firmware that wrote it: an update reads the old firmware's record, a downgrade the new one's.
